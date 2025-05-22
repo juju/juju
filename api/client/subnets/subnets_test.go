@@ -20,7 +20,9 @@ import (
 type SubnetsSuite struct {
 }
 
-func TestSubnetsSuite(t *stdtesting.T) { tc.Run(t, &SubnetsSuite{}) }
+func TestSubnetsSuite(t *stdtesting.T) {
+	tc.Run(t, &SubnetsSuite{})
+}
 
 // TestNewAPISuccess checks that a new subnets API is created when passed a non-nil caller
 func (s *SubnetsSuite) TestNewAPISuccess(c *tc.C) {

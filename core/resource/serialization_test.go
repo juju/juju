@@ -19,7 +19,10 @@ type SerializationSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSerializationSuite(t *stdtesting.T) { tc.Run(t, &SerializationSuite{}) }
+func TestSerializationSuite(t *stdtesting.T) {
+	tc.Run(t, &SerializationSuite{})
+}
+
 func (s *SerializationSuite) TestDeserializeFingerprintOkay(c *tc.C) {
 	content := "some data\n..."
 	expected, err := charmresource.GenerateFingerprint(strings.NewReader(content))

@@ -29,7 +29,9 @@ import (
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager/mocks"
 )
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
 type workerSuite struct {
 	testhelpers.IsolationSuite

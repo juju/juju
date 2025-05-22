@@ -19,7 +19,10 @@ type serviceSuite struct {
 	resourceSuite
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) TestApply(c *tc.C) {
 	ds := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

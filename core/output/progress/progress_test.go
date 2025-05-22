@@ -32,7 +32,10 @@ import (
 
 type ProgressTestSuite struct{}
 
-func TestProgressTestSuite(t *stdtesting.T) { tc.Run(t, &ProgressTestSuite{}) }
+func TestProgressTestSuite(t *stdtesting.T) {
+	tc.Run(t, &ProgressTestSuite{})
+}
+
 func (ts *ProgressTestSuite) testNotify(c *tc.C, buf *bytes.Buffer, t progress.Meter, desc, expected string) {
 	t.Notify("blah blah")
 

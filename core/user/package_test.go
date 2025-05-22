@@ -13,7 +13,10 @@ import (
 
 type ImportTest struct{}
 
-func TestImportTest(t *stdtesting.T) { tc.Run(t, &ImportTest{}) }
+func TestImportTest(t *stdtesting.T) {
+	tc.Run(t, &ImportTest{})
+}
+
 func (*ImportTest) TestImports(c *tc.C) {
 	// TODO (stickupkid): There is a circular dependency between the user
 	// package and the testing package, caused by the model package.

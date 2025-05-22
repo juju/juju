@@ -14,7 +14,10 @@ import (
 
 type ProfileSuite struct{}
 
-func TestProfileSuite(t *stdtesting.T) { tc.Run(t, &ProfileSuite{}) }
+func TestProfileSuite(t *stdtesting.T) {
+	tc.Run(t, &ProfileSuite{})
+}
+
 func (s *ProfileSuite) TestValidate(c *tc.C) {
 	var profileTests = []struct {
 		description   string

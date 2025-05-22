@@ -36,7 +36,10 @@ type deployerSuite struct {
 	badTag names.Tag
 }
 
-func TestDeployerSuite(t *stdtesting.T) { tc.Run(t, &deployerSuite{}) }
+func TestDeployerSuite(t *stdtesting.T) {
+	tc.Run(t, &deployerSuite{})
+}
+
 func (s *deployerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 	

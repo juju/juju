@@ -14,7 +14,9 @@ import (
 
 var fingerprint = []byte("123456789012345678901234567890123456789012345678")
 
-func TestResourceSuite(t *stdtesting.T) { tc.Run(t, &ResourceSuite{}) }
+func TestResourceSuite(t *stdtesting.T) {
+	tc.Run(t, &ResourceSuite{})
+}
 
 type ResourceSuite struct{}
 

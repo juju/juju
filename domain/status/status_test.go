@@ -15,7 +15,9 @@ type statusSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestStatusSuite(t *stdtesting.T) { tc.Run(t, &statusSuite{}) }
+func TestStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &statusSuite{})
+}
 
 // TestK8sPodStatusDBValues ensures there's no skew between what's in the
 // database table for cloud container status and the typed consts used in the

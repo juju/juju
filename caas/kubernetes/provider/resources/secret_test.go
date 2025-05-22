@@ -19,7 +19,10 @@ type secretSuite struct {
 	resourceSuite
 }
 
-func TestSecretSuite(t *stdtesting.T) { tc.Run(t, &secretSuite{}) }
+func TestSecretSuite(t *stdtesting.T) {
+	tc.Run(t, &secretSuite{})
+}
+
 func (s *secretSuite) TestApply(c *tc.C) {
 	ds := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

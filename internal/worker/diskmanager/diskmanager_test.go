@@ -15,7 +15,9 @@ import (
 	"github.com/juju/juju/internal/worker/diskmanager"
 )
 
-func TestDiskManagerWorkerSuite(t *stdtesting.T) { tc.Run(t, &DiskManagerWorkerSuite{}) }
+func TestDiskManagerWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &DiskManagerWorkerSuite{})
+}
 
 type DiskManagerWorkerSuite struct {
 	coretesting.BaseSuite

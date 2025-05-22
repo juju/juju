@@ -32,7 +32,10 @@ type downloadSuite struct {
 	filesystem   *mocks.MockFilesystem
 }
 
-func TestDownloadSuite(t *stdtesting.T) { tc.Run(t, &downloadSuite{}) }
+func TestDownloadSuite(t *stdtesting.T) {
+	tc.Run(t, &downloadSuite{})
+}
+
 func (s *downloadSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclienttesting.MinimalStore()

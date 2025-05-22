@@ -21,7 +21,9 @@ type bundleDataSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBundleDataSuite(t *stdtesting.T) { tc.Run(t, &bundleDataSuite{}) }
+func TestBundleDataSuite(t *stdtesting.T) {
+	tc.Run(t, &bundleDataSuite{})
+}
 
 const mediawikiBundle = `
 default-base: ubuntu@20.04

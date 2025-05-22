@@ -25,7 +25,10 @@ type CrossSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCrossSuite(t *stdtesting.T) { tc.Run(t, &CrossSuite{}) }
+func TestCrossSuite(t *stdtesting.T) {
+	tc.Run(t, &CrossSuite{})
+}
+
 func (s *CrossSuite) testClaims(c *tc.C, lease1, lease2 corelease.Key) {
 	fix := Fixture{
 		expectCalls: []call{{

@@ -25,7 +25,9 @@ type serviceSuite struct {
 	modelId model.UUID
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 var (
 	controllerKeys = []string{

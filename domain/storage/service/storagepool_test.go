@@ -27,7 +27,9 @@ type storagePoolServiceSuite struct {
 	registry storage.ProviderRegistry
 }
 
-func TestStoragePoolServiceSuite(t *stdtesting.T) { tc.Run(t, &storagePoolServiceSuite{}) }
+func TestStoragePoolServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &storagePoolServiceSuite{})
+}
 
 const validationError = errors.ConstError("missing attribute foo")
 

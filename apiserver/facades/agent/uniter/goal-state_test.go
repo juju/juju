@@ -14,7 +14,10 @@ import (
 // suite, but embedded.
 type uniterGoalStateSuite struct{}
 
-func TestUniterGoalStateSuite(t *stdtesting.T) { tc.Run(t, &uniterGoalStateSuite{}) }
+func TestUniterGoalStateSuite(t *stdtesting.T) {
+	tc.Run(t, &uniterGoalStateSuite{})
+}
+
 func (s *uniterGoalStateSuite) TestStub(c *tc.C) {
 	c.Skip(`
 Given the initial state where:

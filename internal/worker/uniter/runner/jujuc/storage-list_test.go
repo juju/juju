@@ -20,7 +20,10 @@ type storageListSuite struct {
 	storageSuite
 }
 
-func TestStorageListSuite(t *stdtesting.T) { tc.Run(t, &storageListSuite{}) }
+func TestStorageListSuite(t *stdtesting.T) {
+	tc.Run(t, &storageListSuite{})
+}
+
 func (s *storageListSuite) newHookContext() *jujuctesting.Context {
 	ctx, info := s.NewHookContext()
 	info.SetBlockStorage("data/0", "/dev/sda", s.Stub)

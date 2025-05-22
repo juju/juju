@@ -32,7 +32,10 @@ type RemoveMachineSuite struct {
 	facadeVersion int
 }
 
-func TestRemoveMachineSuite(t *stdtesting.T) { tc.Run(t, &RemoveMachineSuite{}) }
+func TestRemoveMachineSuite(t *stdtesting.T) {
+	tc.Run(t, &RemoveMachineSuite{})
+}
+
 func (s *RemoveMachineSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.apiConnection = &mockAPIConnection{}

@@ -40,7 +40,9 @@ type provisionerSuite struct {
 	testhelpers.LoggingCleanupSuite
 }
 
-func TestProvisionerSuite(t *stdtesting.T) { tc.Run(t, &provisionerSuite{}) }
+func TestProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &provisionerSuite{})
+}
 
 type mockMachineManager struct {
 	manual.ProvisioningClientAPI

@@ -25,7 +25,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestCloudSuite(t *stdtesting.T) { tc.Run(t, &cloudSuite{}) }
+func TestCloudSuite(t *stdtesting.T) {
+	tc.Run(t, &cloudSuite{})
+}
 
 type cloudSuite struct {
 	fakeBroker fakeK8sClusterMetadataChecker

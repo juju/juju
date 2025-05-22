@@ -20,7 +20,10 @@ type DirectorySuite struct {
 	removedDir   string
 }
 
-func TestDirectorySuite(t *stdtesting.T) { tc.Run(t, &DirectorySuite{}) }
+func TestDirectorySuite(t *stdtesting.T) {
+	tc.Run(t, &DirectorySuite{})
+}
+
 func (s *DirectorySuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.containerDir = c.MkDir()

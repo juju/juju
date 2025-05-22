@@ -19,7 +19,10 @@ type LXDProfileSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLXDProfileSuite(t *stdtesting.T) { tc.Run(t, &LXDProfileSuite{}) }
+func TestLXDProfileSuite(t *stdtesting.T) {
+	tc.Run(t, &LXDProfileSuite{})
+}
+
 func (*LXDProfileSuite) TestValidateWithNoProfiler(c *tc.C) {
 	err := lxdprofile.ValidateLXDProfile(nil)
 	c.Assert(err, tc.IsNil)

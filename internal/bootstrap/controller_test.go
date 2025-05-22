@@ -26,7 +26,10 @@ type ControllerSuite struct {
 	baseSuite
 }
 
-func TestControllerSuite(t *stdtesting.T) { tc.Run(t, &ControllerSuite{}) }
+func TestControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &ControllerSuite{})
+}
+
 func (s *ControllerSuite) TestPopulateControllerCharmLocalCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

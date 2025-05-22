@@ -56,7 +56,10 @@ type importSuite struct {
 	charmAction  *MockCharmAction
 }
 
-func TestImportSuite(t *stdtesting.T) { tc.Run(t, &importSuite{}) }
+func TestImportSuite(t *stdtesting.T) {
+	tc.Run(t, &importSuite{})
+}
+
 func (s *importSuite) TestRollback(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

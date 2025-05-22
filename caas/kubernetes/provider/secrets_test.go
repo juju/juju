@@ -13,7 +13,9 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 )
 
-func TestSecretsSuite(t *stdtesting.T) { tc.Run(t, &secretsSuite{}) }
+func TestSecretsSuite(t *stdtesting.T) {
+	tc.Run(t, &secretsSuite{})
+}
 
 type secretsSuite struct {
 	fakeClientSuite

@@ -24,7 +24,10 @@ type StateSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &StateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &StateSuite{})
+}
+
 func (suite *StateSuite) newStorageWithDataDir(c *tc.C) (storage.Storage, string) {
 	closer, stor, dataDir := envtesting.CreateLocalTestStorage(c)
 	suite.AddCleanup(func(*tc.C) { closer.Close() })

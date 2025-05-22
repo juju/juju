@@ -20,7 +20,10 @@ type ListSuite struct {
 	BaseSpaceSuite
 }
 
-func TestListSuite(t *stdtesting.T) { tc.Run(t, &ListSuite{}) }
+func TestListSuite(t *stdtesting.T) {
+	tc.Run(t, &ListSuite{})
+}
+
 func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewListCommand

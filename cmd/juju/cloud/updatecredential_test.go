@@ -34,7 +34,10 @@ type updateCredentialSuite struct {
 	api         *fakeUpdateCredentialAPI
 }
 
-func TestUpdateCredentialSuite(t *stdtesting.T) { tc.Run(t, &updateCredentialSuite{}) }
+func TestUpdateCredentialSuite(t *stdtesting.T) {
+	tc.Run(t, &updateCredentialSuite{})
+}
+
 func (s *updateCredentialSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = &jujuclient.MemStore{

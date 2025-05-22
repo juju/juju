@@ -21,7 +21,10 @@ type apiclientWhiteboxSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestApiclientWhiteboxSuite(t *stdtesting.T) { tc.Run(t, &apiclientWhiteboxSuite{}) }
+func TestApiclientWhiteboxSuite(t *stdtesting.T) {
+	tc.Run(t, &apiclientWhiteboxSuite{})
+}
+
 func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiCancelled(c *tc.C) {
 	ctx, cancel := context.WithCancel(c.Context())
 	started := make(chan struct{})

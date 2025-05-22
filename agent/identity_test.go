@@ -20,7 +20,9 @@ type identitySuite struct {
 	testing.BaseSuite
 }
 
-func TestIdentitySuite(t *stdtesting.T) { tc.Run(t, &identitySuite{}) }
+func TestIdentitySuite(t *stdtesting.T) {
+	tc.Run(t, &identitySuite{})
+}
 
 var attributeParams = AgentConfigParams{
 	Tag:               names.NewMachineTag("1"),

@@ -29,7 +29,10 @@ type upgraderWatchSuite struct {
 	watcherRegistry *facademocks.MockWatcherRegistry
 }
 
-func TestUpgraderWatchSuite(t *stdtesting.T) { tc.Run(t, &upgraderWatchSuite{}) }
+func TestUpgraderWatchSuite(t *stdtesting.T) {
+	tc.Run(t, &upgraderWatchSuite{})
+}
+
 func (s *upgraderWatchSuite) TestWatchAPIVersionNothing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

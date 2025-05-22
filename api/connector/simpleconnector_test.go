@@ -19,7 +19,10 @@ type simpleConnectorSuite struct {
 	testing.BaseSuite
 }
 
-func TestSimpleConnectorSuite(t *stdtesting.T) { tc.Run(t, &simpleConnectorSuite{}) }
+func TestSimpleConnectorSuite(t *stdtesting.T) {
+	tc.Run(t, &simpleConnectorSuite{})
+}
+
 func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *tc.C) {
 	tests := []struct {
 		name                    string

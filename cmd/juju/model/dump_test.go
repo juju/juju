@@ -24,7 +24,9 @@ type DumpCommandSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestDumpCommandSuite(t *stdtesting.T) { tc.Run(t, &DumpCommandSuite{}) }
+func TestDumpCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &DumpCommandSuite{})
+}
 
 type fakeDumpClient struct {
 	testhelpers.Stub

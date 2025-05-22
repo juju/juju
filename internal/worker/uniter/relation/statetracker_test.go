@@ -50,7 +50,10 @@ type baseStateTrackerSuite struct {
 	watcher      *watchertest.MockNotifyWatcher
 }
 
-func TestStateTrackerSuite(t *stdtesting.T) { tc.Run(t, &stateTrackerSuite{}) }
+func TestStateTrackerSuite(t *stdtesting.T) {
+	tc.Run(t, &stateTrackerSuite{})
+}
+
 func (s *stateTrackerSuite) SetUpTest(c *tc.C) {
 	s.leadershipContext = &stubLeadershipContext{isLeader: true}
 	s.unitTag, _ = names.ParseUnitTag("ntp/0")
@@ -337,7 +340,10 @@ type syncScopesSuite struct {
 	charmDir string
 }
 
-func TestSyncScopesSuite(t *stdtesting.T) { tc.Run(t, &syncScopesSuite{}) }
+func TestSyncScopesSuite(t *stdtesting.T) {
+	tc.Run(t, &syncScopesSuite{})
+}
+
 func (s *syncScopesSuite) SetUpTest(c *tc.C) {
 	s.leadershipContext = &stubLeadershipContext{isLeader: true}
 	s.unitTag, _ = names.ParseUnitTag("wordpress/0")

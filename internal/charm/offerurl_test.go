@@ -15,7 +15,9 @@ import (
 
 type OfferURLSuite struct{}
 
-func TestOfferURLSuite(t *stdtesting.T) { tc.Run(t, &OfferURLSuite{}) }
+func TestOfferURLSuite(t *stdtesting.T) {
+	tc.Run(t, &OfferURLSuite{})
+}
 
 var offerURLTests = []struct {
 	s, err string

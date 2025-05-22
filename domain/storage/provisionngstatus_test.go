@@ -15,7 +15,9 @@ type provisioningStatusSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestProvisioningStatusSuite(t *stdtesting.T) { tc.Run(t, &provisioningStatusSuite{}) }
+func TestProvisioningStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &provisioningStatusSuite{})
+}
 
 // TestProvisioningStatusDBValues ensures there's no skew between what's in the
 // database table for provisioning_status and the typed consts used in the state packages.

@@ -24,7 +24,10 @@ type serviceSuite struct {
 	storageRegistry       *MockProviderRegistry
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) TestGetStorageRegistry(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

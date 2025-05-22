@@ -35,7 +35,10 @@ type BaseSuite struct {
 	Instance         Instance
 }
 
-func TestBaseSuite(t *stdtesting.T) { tc.Run(t, &BaseSuite{}) }
+func TestBaseSuite(t *stdtesting.T) {
+	tc.Run(t, &BaseSuite{})
+}
+
 func (s *BaseSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

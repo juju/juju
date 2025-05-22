@@ -143,7 +143,10 @@ type OutputSuite struct {
 	ctx *cmd.Context
 }
 
-func TestOutputSuite(t *stdtesting.T) { tc.Run(t, &OutputSuite{}) }
+func TestOutputSuite(t *stdtesting.T) {
+	tc.Run(t, &OutputSuite{})
+}
+
 func (s *OutputSuite) SetUpTest(c *tc.C) {
 	s.LoggingCleanupSuite.SetUpTest(c)
 	s.ctx = cmdtesting.Context(c)

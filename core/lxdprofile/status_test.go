@@ -16,7 +16,10 @@ type LXDProfileStatusSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLXDProfileStatusSuite(t *stdtesting.T) { tc.Run(t, &LXDProfileStatusSuite{}) }
+func TestLXDProfileStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &LXDProfileStatusSuite{})
+}
+
 func (*LXDProfileStatusSuite) TestUpgradeStatusFinished(c *tc.C) {
 	testCases := []struct {
 		input  string

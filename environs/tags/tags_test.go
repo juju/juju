@@ -17,7 +17,10 @@ type tagsSuite struct {
 	testing.BaseSuite
 }
 
-func TestTagsSuite(t *stdtesting.T) { tc.Run(t, &tagsSuite{}) }
+func TestTagsSuite(t *stdtesting.T) {
+	tc.Run(t, &tagsSuite{})
+}
+
 func (*tagsSuite) TestResourceTagsUUID(c *tc.C) {
 	testResourceTags(c, testing.ControllerTag, names.NewModelTag(""), nil, map[string]string{
 		"juju-controller-uuid": testing.ControllerTag.Id(),

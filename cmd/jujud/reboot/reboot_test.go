@@ -31,7 +31,10 @@ type NewRebootSuite struct {
 	clock            *mocks.MockClock
 }
 
-func TestNewRebootSuite(t *stdtesting.T) { tc.Run(t, &NewRebootSuite{}) }
+func TestNewRebootSuite(t *stdtesting.T) {
+	tc.Run(t, &NewRebootSuite{})
+}
+
 func (s *NewRebootSuite) TestExecuteReboot(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectManagerIsInitialized(false, 1)
@@ -133,7 +136,10 @@ type NixRebootSuite struct {
 	rebootScriptName string
 }
 
-func TestNixRebootSuite(t *stdtesting.T) { tc.Run(t, &NixRebootSuite{}) }
+func TestNixRebootSuite(t *stdtesting.T) {
+	tc.Run(t, &NixRebootSuite{})
+}
+
 func (s *NixRebootSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	testhelpers.PatchExecutableAsEchoArgs(c, s, rebootBin)

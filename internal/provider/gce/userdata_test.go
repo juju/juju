@@ -21,7 +21,10 @@ type UserdataSuite struct {
 	testing.BaseSuite
 }
 
-func TestUserdataSuite(t *stdtesting.T) { tc.Run(t, &UserdataSuite{}) }
+func TestUserdataSuite(t *stdtesting.T) {
+	tc.Run(t, &UserdataSuite{})
+}
+
 func (s *UserdataSuite) TestGCEUnix(c *tc.C) {
 	renderer := gce.GCERenderer{}
 	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}

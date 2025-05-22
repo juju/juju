@@ -23,7 +23,10 @@ type TxnCollectorSuite struct {
 	collector *mongometrics.TxnCollector
 }
 
-func TestTxnCollectorSuite(t *stdtesting.T) { tc.Run(t, &TxnCollectorSuite{}) }
+func TestTxnCollectorSuite(t *stdtesting.T) {
+	tc.Run(t, &TxnCollectorSuite{})
+}
+
 func (s *TxnCollectorSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.collector = mongometrics.NewTxnCollector()

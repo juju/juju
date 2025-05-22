@@ -11,7 +11,9 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func TestAddressWatcherSuite(t *stdtesting.T) { tc.Run(t, &addressWatcherSuite{}) }
+func TestAddressWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &addressWatcherSuite{})
+}
 
 type addressWatcherSuite struct {
 	coretesting.BaseSuite

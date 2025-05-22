@@ -23,7 +23,9 @@ var (
 	testVersion = "22.04"
 )
 
-func TestGenerateSuite(t *stdtesting.T) { tc.Run(t, &generateSuite{}) }
+func TestGenerateSuite(t *stdtesting.T) {
+	tc.Run(t, &generateSuite{})
+}
 
 type generateSuite struct {
 	coretesting.BaseSuite

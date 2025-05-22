@@ -20,7 +20,9 @@ type apiAddresserSuite struct {
 	fake      *fakeAddresses
 }
 
-func TestApiAddresserSuite(t *stdtesting.T) { tc.Run(t, &apiAddresserSuite{}) }
+func TestApiAddresserSuite(t *stdtesting.T) {
+	tc.Run(t, &apiAddresserSuite{})
+}
 
 // Verify that APIAddressAccessor is satisfied by *state.State.
 var _ common.APIAddressAccessor = (*state.State)(nil)

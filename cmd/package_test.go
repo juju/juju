@@ -75,7 +75,9 @@ var ignoredPackages = set.NewStrings(
 
 type OSCallTest struct{}
 
-func TestOSCallTest(t *stdtesting.T) { tc.Run(t, &OSCallTest{}) }
+func TestOSCallTest(t *stdtesting.T) {
+	tc.Run(t, &OSCallTest{})
+}
 
 // TestNoRestrictedCalls ensures Juju CLI commands do
 // not make restricted os level calls, namely:

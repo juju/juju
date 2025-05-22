@@ -44,7 +44,10 @@ type modelStatusSuite struct {
 	statusService  *MockStatusService
 }
 
-func TestModelStatusSuite(t *stdtesting.T) { tc.Run(t, &modelStatusSuite{}) }
+func TestModelStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &modelStatusSuite{})
+}
+
 func (s *modelStatusSuite) SetUpTest(c *tc.C) {
 	// Initial config needs to be set before the StateSuite SetUpTest.
 	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{

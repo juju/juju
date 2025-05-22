@@ -35,7 +35,10 @@ type LoopSuite struct {
 	onIdle    func() error
 }
 
-func TestLoopSuite(t *stdtesting.T) { tc.Run(t, &LoopSuite{}) }
+func TestLoopSuite(t *stdtesting.T) {
+	tc.Run(t, &LoopSuite{})
+}
+
 func (s *LoopSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resolver = resolver.ResolverFunc(func(context.Context, resolver.LocalState, remotestate.Snapshot, operation.Factory) (operation.Operation, error) {

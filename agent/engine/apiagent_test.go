@@ -26,7 +26,10 @@ type AgentAPIManifoldSuite struct {
 	worker   worker.Worker
 }
 
-func TestAgentAPIManifoldSuite(t *stdtesting.T) { tc.Run(t, &AgentAPIManifoldSuite{}) }
+func TestAgentAPIManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &AgentAPIManifoldSuite{})
+}
+
 func (s *AgentAPIManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub = testhelpers.Stub{}

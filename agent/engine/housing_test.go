@@ -25,7 +25,10 @@ type HousingSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHousingSuite(t *stdtesting.T) { tc.Run(t, &HousingSuite{}) }
+func TestHousingSuite(t *stdtesting.T) {
+	tc.Run(t, &HousingSuite{})
+}
+
 func (*HousingSuite) TestEmptyHousingEmptyManifold(c *tc.C) {
 	manifold := engine.Housing{}.Decorate(dependency.Manifold{})
 

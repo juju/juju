@@ -11,7 +11,9 @@ import (
 	"github.com/juju/juju/internal/charm"
 )
 
-func TestExtraBindingsSuite(t *stdtesting.T) { tc.Run(t, &extraBindingsSuite{}) }
+func TestExtraBindingsSuite(t *stdtesting.T) {
+	tc.Run(t, &extraBindingsSuite{})
+}
 
 type extraBindingsSuite struct {
 	riakMeta charm.Meta

@@ -21,7 +21,10 @@ type actionSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestActionSuite(t *stdtesting.T) { tc.Run(t, &actionSuite{}) }
+func TestActionSuite(t *stdtesting.T) {
+	tc.Run(t, &actionSuite{})
+}
+
 func (s *actionSuite) TestAction(c *tc.C) {
 	parallel := true
 	group := "group"

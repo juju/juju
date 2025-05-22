@@ -19,7 +19,10 @@ type volumeSuite struct {
 	maasSuite
 }
 
-func TestVolumeSuite(t *stdtesting.T) { tc.Run(t, &volumeSuite{}) }
+func TestVolumeSuite(t *stdtesting.T) {
+	tc.Run(t, &volumeSuite{})
+}
+
 func (s *volumeSuite) TestBuildMAASVolumeParametersNoVolumes(c *tc.C) {
 	vInfo, err := buildMAASVolumeParameters(nil, constraints.Value{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -179,7 +182,10 @@ type storageProviderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestStorageProviderSuite(t *stdtesting.T) { tc.Run(t, &storageProviderSuite{}) }
+func TestStorageProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &storageProviderSuite{})
+}
+
 func (*storageProviderSuite) TestValidateConfigTags(c *tc.C) {
 	p := maasStorageProvider{}
 	validate := func(tags interface{}) {

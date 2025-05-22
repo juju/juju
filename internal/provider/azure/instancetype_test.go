@@ -20,7 +20,10 @@ type InstanceTypeSuite struct {
 	testing.BaseSuite
 }
 
-func TestInstanceTypeSuite(t *stdtesting.T) { tc.Run(t, &InstanceTypeSuite{}) }
+func TestInstanceTypeSuite(t *stdtesting.T) {
+	tc.Run(t, &InstanceTypeSuite{})
+}
+
 func (s *InstanceTypeSuite) TestNoDupes(c *tc.C) {
 	names := set.NewStrings()
 	for _, n := range machineSizeCost {

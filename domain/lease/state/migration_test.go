@@ -18,7 +18,10 @@ type migrationSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestMigrationSuite(t *stdtesting.T) { tc.Run(t, &migrationSuite{}) }
+func TestMigrationSuite(t *stdtesting.T) {
+	tc.Run(t, &migrationSuite{})
+}
+
 func (s *migrationSuite) TestGetApplicationLeadershipForModelNoLeaders(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 

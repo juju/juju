@@ -27,7 +27,10 @@ type ConfigSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &ConfigSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
+
 func (s *ConfigSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	// Make sure that the defaults are used, which

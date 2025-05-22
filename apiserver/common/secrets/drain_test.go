@@ -40,7 +40,10 @@ type secretsDrainSuite struct {
 	facade *secrets.SecretsDrainAPI
 }
 
-func TestSecretsDrainSuite(t *stdtesting.T) { tc.Run(t, &secretsDrainSuite{}) }
+func TestSecretsDrainSuite(t *stdtesting.T) {
+	tc.Run(t, &secretsDrainSuite{})
+}
+
 func (s *secretsDrainSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

@@ -21,7 +21,9 @@ type UnitGetSuite struct {
 	ContextSuite
 }
 
-func TestUnitGetSuite(t *stdtesting.T) { tc.Run(t, &UnitGetSuite{}) }
+func TestUnitGetSuite(t *stdtesting.T) {
+	tc.Run(t, &UnitGetSuite{})
+}
 
 var unitGetTests = []struct {
 	args []string

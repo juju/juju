@@ -21,7 +21,9 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
-func TestDebugCodeSuite(t *stdtesting.T) { tc.Run(t, &DebugCodeSuite{}) }
+func TestDebugCodeSuite(t *stdtesting.T) {
+	tc.Run(t, &DebugCodeSuite{})
+}
 
 type DebugCodeSuite struct {
 	SSHMachineSuite

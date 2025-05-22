@@ -28,7 +28,10 @@ type bundleSuite struct {
 	applicationService *MockApplicationService
 }
 
-func TestBundleSuite(t *stdtesting.T) { tc.Run(t, &bundleSuite{}) }
+func TestBundleSuite(t *stdtesting.T) {
+	tc.Run(t, &bundleSuite{})
+}
+
 func (s *bundleSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.networkService = NewMockNetworkService(ctrl)

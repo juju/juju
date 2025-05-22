@@ -18,7 +18,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestProvisionerSuite(t *stdtesting.T) { tc.Run(t, &provisionerSuite{}) }
+func TestProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &provisionerSuite{})
+}
 
 type provisionerSuite struct {
 	coretesting.BaseSuite

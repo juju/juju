@@ -35,7 +35,10 @@ type ImageMetadataSuite struct {
 	provisionerSuite
 }
 
-func TestImageMetadataSuite(t *stdtesting.T) { tc.Run(t, &ImageMetadataSuite{}) }
+func TestImageMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &ImageMetadataSuite{})
+}
+
 func (s *ImageMetadataSuite) SetUpSuite(c *tc.C) {
 	s.provisionerSuite.SetUpSuite(c)
 

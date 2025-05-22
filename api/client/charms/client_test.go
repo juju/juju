@@ -29,7 +29,9 @@ type charmsMockSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestCharmsMockSuite(t *stdtesting.T) { tc.Run(t, &charmsMockSuite{}) }
+func TestCharmsMockSuite(t *stdtesting.T) {
+	tc.Run(t, &charmsMockSuite{})
+}
 
 var one = 1
 

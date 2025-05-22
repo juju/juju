@@ -16,7 +16,10 @@ type typesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTypesSuite(t *stdtesting.T) { tc.Run(t, &typesSuite{}) }
+func TestTypesSuite(t *stdtesting.T) {
+	tc.Run(t, &typesSuite{})
+}
+
 func (s *typesSuite) TestNullDuration(c *tc.C) {
 	nd := NullDuration{Duration: 10 * time.Second, Valid: true}
 	v, err := nd.Value()

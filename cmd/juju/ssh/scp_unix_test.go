@@ -19,7 +19,9 @@ import (
 	jujussh "github.com/juju/juju/internal/network/ssh"
 )
 
-func TestSCPSuiteLegacy(t *stdtesting.T) { tc.Run(t, &SCPSuiteLegacy{}) }
+func TestSCPSuiteLegacy(t *stdtesting.T) {
+	tc.Run(t, &SCPSuiteLegacy{})
+}
 
 type SCPSuiteLegacy struct {
 	SSHMachineSuite

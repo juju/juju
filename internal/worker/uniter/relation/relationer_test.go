@@ -30,7 +30,10 @@ type relationerSuite struct {
 	unitGetter   *mocks.MockUnitGetter
 }
 
-func TestRelationerSuite(t *stdtesting.T) { tc.Run(t, &relationerSuite{}) }
+func TestRelationerSuite(t *stdtesting.T) {
+	tc.Run(t, &relationerSuite{})
+}
+
 func (s *relationerSuite) TestImplicitRelationerPrepareHook(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Setup for test

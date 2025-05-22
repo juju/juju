@@ -20,7 +20,10 @@ type SecretGetSuite struct {
 	ContextSuite
 }
 
-func TestSecretGetSuite(t *stdtesting.T) { tc.Run(t, &SecretGetSuite{}) }
+func TestSecretGetSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretGetSuite{})
+}
+
 func (s *SecretGetSuite) TestSecretGetInit(c *tc.C) {
 
 	for _, t := range []struct {

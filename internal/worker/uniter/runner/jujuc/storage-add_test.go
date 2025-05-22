@@ -17,7 +17,10 @@ type storageAddSuite struct {
 	storageSuite
 }
 
-func TestStorageAddSuite(t *stdtesting.T) { tc.Run(t, &storageAddSuite{}) }
+func TestStorageAddSuite(t *stdtesting.T) {
+	tc.Run(t, &storageAddSuite{})
+}
+
 func (s *storageAddSuite) getStorageUnitAddCommand(c *tc.C) cmd.Command {
 	hctx, _ := s.ContextSuite.NewHookContext()
 	com, err := jujuc.NewCommand(hctx, "storage-add")

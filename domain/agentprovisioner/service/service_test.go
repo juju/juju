@@ -26,7 +26,10 @@ type suite struct {
 	providerGetter func(context.Context) (Provider, error)
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
+
 func (s *suite) SetUpTest(c *tc.C) {
 	// Default provider getter function
 	s.providerGetter = func(ctx context.Context) (Provider, error) {

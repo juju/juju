@@ -20,7 +20,9 @@ type BundleDataSourceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBundleDataSourceSuite(t *stdtesting.T) { tc.Run(t, &BundleDataSourceSuite{}) }
+func TestBundleDataSourceSuite(t *stdtesting.T) {
+	tc.Run(t, &BundleDataSourceSuite{})
+}
 
 var bundlePath = "internal/test-charm-repo/bundle/wordpress-multidoc/bundle.yaml"
 

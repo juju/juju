@@ -19,7 +19,9 @@ type ModelsFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestModelsFileSuite(t *stdtesting.T) { tc.Run(t, &ModelsFileSuite{}) }
+func TestModelsFileSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelsFileSuite{})
+}
 
 const testModelsYAML = `
 controllers:

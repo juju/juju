@@ -23,7 +23,9 @@ type tracerSuite struct {
 	baseSuite
 }
 
-func TestTracerSuite(t *stdtesting.T) { tc.Run(t, &tracerSuite{}) }
+func TestTracerSuite(t *stdtesting.T) {
+	tc.Run(t, &tracerSuite{})
+}
 
 var _ coretrace.Tracer = (*tracer)(nil)
 

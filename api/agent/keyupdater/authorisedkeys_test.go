@@ -19,7 +19,10 @@ type keyupdaterSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestKeyupdaterSuite(t *stdtesting.T) { tc.Run(t, &keyupdaterSuite{}) }
+func TestKeyupdaterSuite(t *stdtesting.T) {
+	tc.Run(t, &keyupdaterSuite{})
+}
+
 func (s *keyupdaterSuite) TestAuthorisedKeys(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "KeyUpdater")

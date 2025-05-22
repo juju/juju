@@ -15,7 +15,9 @@ type requestSuite struct {
 	testing.BaseSuite
 }
 
-func TestRequestSuite(t *stdtesting.T) { tc.Run(t, &requestSuite{}) }
+func TestRequestSuite(t *stdtesting.T) {
+	tc.Run(t, &requestSuite{})
+}
 
 // TODO the functions in this package should be tested directly.
 // https://bugs.launchpad.net/juju-core/+bug/1503990

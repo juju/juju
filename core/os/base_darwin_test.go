@@ -16,7 +16,10 @@ type macOSXSeriesSuite struct {
 	testhelpers.CleanupSuite
 }
 
-func TestMacOSXSeriesSuite(t *stdtesting.T) { tc.Run(t, &macOSXSeriesSuite{}) }
+func TestMacOSXSeriesSuite(t *stdtesting.T) {
+	tc.Run(t, &macOSXSeriesSuite{})
+}
+
 func (*macOSXSeriesSuite) TestGetSysctlVersionPlatform(c *tc.C) {
 	// Test that sysctlVersion returns something that looks like a dotted revision number
 	releaseVersion, err := sysctlVersion()

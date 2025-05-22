@@ -15,7 +15,10 @@ type CAASStatusSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCAASStatusSuite(t *stdtesting.T) { tc.Run(t, &CAASStatusSuite{}) }
+func TestCAASStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &CAASStatusSuite{})
+}
+
 func (s *CAASStatusSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Waiting status with "installing agent" info is returned when operator is not ready.

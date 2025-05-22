@@ -12,7 +12,10 @@ import (
 
 type logSuite struct{}
 
-func TestLogSuite(t *stdtesting.T) { tc.Run(t, &logSuite{}) }
+func TestLogSuite(t *stdtesting.T) {
+	tc.Run(t, &logSuite{})
+}
+
 func (*logSuite) TestLog(c *tc.C) {
 	logger := loggo.GetLogger("test")
 	jujuLogger := loggo.GetLogger("juju")

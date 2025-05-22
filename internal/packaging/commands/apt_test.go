@@ -14,7 +14,9 @@ import (
 	"github.com/juju/juju/internal/packaging/commands"
 )
 
-func TestAptSuite(t *stdtesting.T) { tc.Run(t, &AptSuite{}) }
+func TestAptSuite(t *stdtesting.T) {
+	tc.Run(t, &AptSuite{})
+}
 
 type AptSuite struct {
 	aptCommander commands.AptPackageCommander

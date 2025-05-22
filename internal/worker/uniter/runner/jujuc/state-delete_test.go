@@ -17,7 +17,9 @@ type stateDeleteSuite struct {
 	stateSuite
 }
 
-func TestStateDeleteSuite(t *stdtesting.T) { tc.Run(t, &stateDeleteSuite{}) }
+func TestStateDeleteSuite(t *stdtesting.T) {
+	tc.Run(t, &stateDeleteSuite{})
+}
 
 type runStateDeleteCmd struct {
 	description string

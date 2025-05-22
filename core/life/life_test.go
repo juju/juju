@@ -17,7 +17,10 @@ type LifeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLifeSuite(t *stdtesting.T) { tc.Run(t, &LifeSuite{}) }
+func TestLifeSuite(t *stdtesting.T) {
+	tc.Run(t, &LifeSuite{})
+}
+
 func (*LifeSuite) TestValidateValid(c *tc.C) {
 	for i, test := range []life.Value{
 		life.Alive, life.Dying, life.Dead,

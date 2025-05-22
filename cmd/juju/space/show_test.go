@@ -22,7 +22,10 @@ type ShowSuite struct {
 	BaseSpaceSuite
 }
 
-func TestShowSuite(t *stdtesting.T) { tc.Run(t, &ShowSuite{}) }
+func TestShowSuite(t *stdtesting.T) {
+	tc.Run(t, &ShowSuite{})
+}
+
 func (s *ShowSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewShowSpaceCommand

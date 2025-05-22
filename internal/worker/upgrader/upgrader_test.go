@@ -54,7 +54,10 @@ type UpgraderSuite struct {
 
 type AllowedTargetVersionSuite struct{}
 
-func TestUpgraderSuite(t *stdtesting.T) { tc.Run(t, &UpgraderSuite{}) }
+func TestUpgraderSuite(t *stdtesting.T) {
+	tc.Run(t, &UpgraderSuite{})
+}
+
 func TestAllowedTargetVersionSuite(t *stdtesting.T) {
 	tc.Run(t, &AllowedTargetVersionSuite{})
 }

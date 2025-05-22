@@ -25,7 +25,10 @@ type environSuite struct {
 	gce.BaseSuite
 }
 
-func TestEnvironSuite(t *stdtesting.T) { tc.Run(t, &environSuite{}) }
+func TestEnvironSuite(t *stdtesting.T) {
+	tc.Run(t, &environSuite{})
+}
+
 func (s *environSuite) TestName(c *tc.C) {
 	name := s.Env.Name()
 

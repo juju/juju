@@ -26,7 +26,10 @@ type ValidationSuite struct {
 	config lease.ManagerConfig
 }
 
-func TestValidationSuite(t *stdtesting.T) { tc.Run(t, &ValidationSuite{}) }
+func TestValidationSuite(t *stdtesting.T) {
+	tc.Run(t, &ValidationSuite{})
+}
+
 func (s *ValidationSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = lease.ManagerConfig{

@@ -47,7 +47,9 @@ type BootstrapSuite struct {
 	envtesting.ToolsFixture
 }
 
-func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &BootstrapSuite{}) }
+func TestBootstrapSuite(t *stdtesting.T) {
+	tc.Run(t, &BootstrapSuite{})
+}
 
 type cleaner interface {
 	AddCleanup(func(*tc.C))
@@ -901,7 +903,10 @@ func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *tc.C) {
 
 type FormatHardwareSuite struct{}
 
-func TestFormatHardwareSuite(t *stdtesting.T) { tc.Run(t, &FormatHardwareSuite{}) }
+func TestFormatHardwareSuite(t *stdtesting.T) {
+	tc.Run(t, &FormatHardwareSuite{})
+}
+
 func (s *FormatHardwareSuite) check(c *tc.C, hw *instance.HardwareCharacteristics, expected string) {
 	c.Check(common.FormatHardware(hw), tc.Equals, expected)
 }

@@ -16,7 +16,10 @@ type confinementSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestConfinementSuite(t *stdtesting.T) { tc.Run(t, &confinementSuite{}) }
+func TestConfinementSuite(t *stdtesting.T) {
+	tc.Run(t, &confinementSuite{})
+}
+
 func (s *confinementSuite) TestConfinementPolicy(c *tc.C) {
 	tests := []struct {
 		Policy ConfinementPolicy
@@ -48,7 +51,10 @@ type appSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAppSuite(t *stdtesting.T) { tc.Run(t, &appSuite{}) }
+func TestAppSuite(t *stdtesting.T) {
+	tc.Run(t, &appSuite{})
+}
+
 func (s *appSuite) TestValidate(c *tc.C) {
 	app := &App{name: "meshuggah"}
 	err := app.Validate()

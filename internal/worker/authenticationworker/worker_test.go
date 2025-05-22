@@ -30,7 +30,10 @@ type workerSuite struct {
 	existingKeys      []string
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
+
 func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	// Default ssh user is currently "ubuntu".

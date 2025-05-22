@@ -21,7 +21,10 @@ type InteractionsSuite struct {
 	interactions *authentication.Interactions
 }
 
-func TestInteractionsSuite(t *stdtesting.T) { tc.Run(t, &InteractionsSuite{}) }
+func TestInteractionsSuite(t *stdtesting.T) {
+	tc.Run(t, &InteractionsSuite{})
+}
+
 func (s *InteractionsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.interactions = authentication.NewInteractions()

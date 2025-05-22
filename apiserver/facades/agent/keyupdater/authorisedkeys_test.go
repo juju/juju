@@ -31,7 +31,10 @@ type authorisedKeysSuite struct {
 	watcherRegistry   *facademocks.MockWatcherRegistry
 }
 
-func TestAuthorisedKeysSuite(t *stdtesting.T) { tc.Run(t, &authorisedKeysSuite{}) }
+func TestAuthorisedKeysSuite(t *stdtesting.T) {
+	tc.Run(t, &authorisedKeysSuite{})
+}
+
 func (s *authorisedKeysSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)

@@ -16,7 +16,10 @@ type serviceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (*serviceSuite) TestNoConfMissing(c *tc.C) {
 	service := common.Service{
 		Name: "a-application",

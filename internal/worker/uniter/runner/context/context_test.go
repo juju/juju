@@ -41,7 +41,10 @@ type InterfaceSuite struct {
 	BaseHookContextSuite
 }
 
-func TestInterfaceSuite(t *stdtesting.T) { tc.Run(t, &InterfaceSuite{}) }
+func TestInterfaceSuite(t *stdtesting.T) {
+	tc.Run(t, &InterfaceSuite{})
+}
+
 func (s *InterfaceSuite) TestUnitName(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -734,7 +737,9 @@ func (p *mockProcess) Kill() error {
 func (p *mockProcess) Pid() int {
 	return 123
 }
-func TestHookContextSuite(t *stdtesting.T) { tc.Run(t, &HookContextSuite{}) }
+func TestHookContextSuite(t *stdtesting.T) {
+	tc.Run(t, &HookContextSuite{})
+}
 
 type HookContextSuite struct {
 	testhelpers.IsolationSuite

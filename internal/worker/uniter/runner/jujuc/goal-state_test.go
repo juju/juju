@@ -19,7 +19,9 @@ type GoalStateSuite struct {
 	ContextSuite
 }
 
-func TestGoalStateSuite(t *stdtesting.T) { tc.Run(t, &GoalStateSuite{}) }
+func TestGoalStateSuite(t *stdtesting.T) {
+	tc.Run(t, &GoalStateSuite{})
+}
 
 var (
 	goalStateTestResultYaml = `units:

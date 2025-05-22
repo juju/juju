@@ -33,7 +33,10 @@ type environUpgradeSuite struct {
 	invalidatedCredential bool
 }
 
-func TestEnvironUpgradeSuite(t *stdtesting.T) { tc.Run(t, &environUpgradeSuite{}) }
+func TestEnvironUpgradeSuite(t *stdtesting.T) {
+	tc.Run(t, &environUpgradeSuite{})
+}
+
 func (s *environUpgradeSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.sender = nil

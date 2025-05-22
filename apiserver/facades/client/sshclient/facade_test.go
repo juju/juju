@@ -41,7 +41,10 @@ type facadeSuite struct {
 	modelUUID      model.UUID
 }
 
-func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &facadeSuite{}) }
+func TestFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &facadeSuite{})
+}
+
 func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

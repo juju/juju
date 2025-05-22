@@ -13,7 +13,10 @@ type operationSuite struct {
 	baseSuite
 }
 
-func TestOperationSuite(t *stdtesting.T) { tc.Run(t, &operationSuite{}) }
+func TestOperationSuite(t *stdtesting.T) {
+	tc.Run(t, &operationSuite{})
+}
+
 func (s *operationSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - ListOperations querying by status.

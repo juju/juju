@@ -76,7 +76,10 @@ type credentialsSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestCredentialsSuite(t *stdtesting.T) { tc.Run(t, &credentialsSuite{}) }
+func TestCredentialsSuite(t *stdtesting.T) {
+	tc.Run(t, &credentialsSuite{})
+}
+
 func (s *credentialsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.cloud = cloud.Cloud{

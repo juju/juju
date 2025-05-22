@@ -29,7 +29,10 @@ func (s *ResumeRelationSuite) SetUpTest(c *tc.C) {
 		return s.mockAPI.NextErr()
 	}
 }
-func TestResumeRelationSuite(t *stdtesting.T) { tc.Run(t, &ResumeRelationSuite{}) }
+func TestResumeRelationSuite(t *stdtesting.T) {
+	tc.Run(t, &ResumeRelationSuite{})
+}
+
 func (s *ResumeRelationSuite) runResumeRelation(c *tc.C, args ...string) error {
 	store := jujuclienttesting.MinimalStore()
 	_, err := cmdtesting.RunCommand(c, NewResumeRelationCommandForTest(s.mockAPI, store), args...)

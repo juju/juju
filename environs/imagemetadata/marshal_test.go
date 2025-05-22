@@ -14,7 +14,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func TestMarshalSuite(t *stdtesting.T) { tc.Run(t, &marshalSuite{}) }
+func TestMarshalSuite(t *stdtesting.T) {
+	tc.Run(t, &marshalSuite{})
+}
 
 type marshalSuite struct {
 	testing.BaseSuite

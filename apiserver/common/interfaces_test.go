@@ -21,7 +21,10 @@ type AuthFuncSuite struct {
 	authorizer common.Authorizer
 }
 
-func TestAuthFuncSuite(t *stdtesting.T) { tc.Run(t, &AuthFuncSuite{}) }
+func TestAuthFuncSuite(t *stdtesting.T) {
+	tc.Run(t, &AuthFuncSuite{})
+}
+
 func (s *AuthFuncSuite) setup(c *tc.C, machineTag names.Tag) func() {
 	ctrl := gomock.NewController(c)
 

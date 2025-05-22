@@ -33,7 +33,9 @@ type rpcSuite struct {
 	testing.BaseSuite
 }
 
-func TestRpcSuite(t *stdtesting.T) { tc.Run(t, &rpcSuite{}) }
+func TestRpcSuite(t *stdtesting.T) {
+	tc.Run(t, &rpcSuite{})
+}
 
 type callInfo struct {
 	rcvr   interface{}

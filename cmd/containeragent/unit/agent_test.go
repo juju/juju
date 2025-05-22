@@ -38,7 +38,9 @@ type containerUnitAgentSuite struct {
 	cmd              unit.ContainerUnitAgentTest
 }
 
-func TestContainerUnitAgentSuite(t *stdtesting.T) { tc.Run(t, &containerUnitAgentSuite{}) }
+func TestContainerUnitAgentSuite(t *stdtesting.T) {
+	tc.Run(t, &containerUnitAgentSuite{})
+}
 
 var agentConfigContents = `
 # format 2.0

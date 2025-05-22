@@ -14,7 +14,10 @@ import (
 
 type charmOriginSuite struct{}
 
-func TestCharmOriginSuite(t *stdtesting.T) { tc.Run(t, &charmOriginSuite{}) }
+func TestCharmOriginSuite(t *stdtesting.T) {
+	tc.Run(t, &charmOriginSuite{})
+}
+
 func (s *charmOriginSuite) TestValidateCharmOriginSuccessCharmHub(c *tc.C) {
 	err := ValidateCharmOrigin(&params.CharmOrigin{
 		Hash:   "myHash",

@@ -22,7 +22,10 @@ type ClientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestClientSuite(t *stdtesting.T) { tc.Run(t, &ClientSuite{}) }
+func TestClientSuite(t *stdtesting.T) {
+	tc.Run(t, &ClientSuite{})
+}
+
 func (s *ClientSuite) TestWatchFails(c *tc.C) {
 	tag := names.NewMachineTag("2")
 	expectErr := errors.Errorf("kuso")

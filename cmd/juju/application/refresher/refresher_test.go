@@ -20,7 +20,10 @@ import (
 
 type refresherFactorySuite struct{}
 
-func TestRefresherFactorySuite(t *stdtesting.T) { tc.Run(t, &refresherFactorySuite{}) }
+func TestRefresherFactorySuite(t *stdtesting.T) {
+	tc.Run(t, &refresherFactorySuite{})
+}
+
 func (s *refresherFactorySuite) TestRefresh(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -150,7 +153,10 @@ func (s *refresherFactorySuite) TestRefreshCallsRefreshersEvenAfterExhaustedErro
 
 type baseRefresherSuite struct{}
 
-func TestBaseRefresherSuite(t *stdtesting.T) { tc.Run(t, &baseRefresherSuite{}) }
+func TestBaseRefresherSuite(t *stdtesting.T) {
+	tc.Run(t, &baseRefresherSuite{})
+}
+
 func (s *baseRefresherSuite) TestResolveCharm(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

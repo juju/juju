@@ -18,7 +18,10 @@ type resolverSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestResolverSuite(t *stdtesting.T) { tc.Run(t, &resolverSuite{}) }
+func TestResolverSuite(t *stdtesting.T) {
+	tc.Run(t, &resolverSuite{})
+}
+
 func (s *resolverSuite) TestAllowUpgrade(c *tc.C) {
 	existing := &Application{
 		Charm: "ch:ubuntu",

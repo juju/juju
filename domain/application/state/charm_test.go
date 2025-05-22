@@ -36,7 +36,10 @@ type charmStateSuite struct {
 	baseSuite
 }
 
-func TestCharmStateSuite(t *stdtesting.T) { tc.Run(t, &charmStateSuite{}) }
+func TestCharmStateSuite(t *stdtesting.T) {
+	tc.Run(t, &charmStateSuite{})
+}
+
 func (s *charmStateSuite) TestGetCharmIDCharmhubCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 

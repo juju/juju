@@ -23,7 +23,9 @@ type MongodFinderSuite struct {
 	search *mongo.MockSearchTools
 }
 
-func TestMongodFinderSuite(t *stdtesting.T) { tc.Run(t, &MongodFinderSuite{}) }
+func TestMongodFinderSuite(t *stdtesting.T) {
+	tc.Run(t, &MongodFinderSuite{})
+}
 
 // setUpMock must be called at the start of each test, and then s.ctrl.Finish() called (you can use defer()).
 // this cannot be done in SetUpTest() and TearDownTest() because gomock.NewController assumes the TestReporter is valid
@@ -61,7 +63,10 @@ type OSSearchToolsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestOSSearchToolsSuite(t *stdtesting.T) { tc.Run(t, &OSSearchToolsSuite{}) }
+func TestOSSearchToolsSuite(t *stdtesting.T) {
+	tc.Run(t, &OSSearchToolsSuite{})
+}
+
 func (s *OSSearchToolsSuite) TestExists(c *tc.C) {
 	dir := c.MkDir()
 	path := filepath.Join(dir, "filename")

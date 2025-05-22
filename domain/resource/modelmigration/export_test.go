@@ -26,7 +26,10 @@ type exportSuite struct {
 	exportService *MockExportService
 }
 
-func TestExportSuite(t *stdtesting.T) { tc.Run(t, &exportSuite{}) }
+func TestExportSuite(t *stdtesting.T) {
+	tc.Run(t, &exportSuite{})
+}
+
 func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

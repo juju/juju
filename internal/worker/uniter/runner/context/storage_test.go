@@ -19,7 +19,10 @@ type StorageSuite struct {
 	BaseHookContextSuite
 }
 
-func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &StorageSuite{}) }
+func TestStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &StorageSuite{})
+}
+
 func (s *StorageSuite) TestAddUnitStorage(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

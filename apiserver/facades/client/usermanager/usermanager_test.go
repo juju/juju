@@ -43,7 +43,10 @@ type userManagerSuite struct {
 	blockCommandService *MockBlockCommandService
 }
 
-func TestUserManagerSuite(t *stdtesting.T) { tc.Run(t, &userManagerSuite{}) }
+func TestUserManagerSuite(t *stdtesting.T) {
+	tc.Run(t, &userManagerSuite{})
+}
+
 func (s *userManagerSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 

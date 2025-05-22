@@ -16,7 +16,10 @@ import (
 
 type originSuite struct{}
 
-func TestOriginSuite(t *stdtesting.T) { tc.Run(t, &originSuite{}) }
+func TestOriginSuite(t *stdtesting.T) {
+	tc.Run(t, &originSuite{})
+}
+
 func (*originSuite) TestMakePlatform(c *tc.C) {
 	arch := constraints.MustParse("arch=amd64")
 	fallback := constraints.MustParse("arch=amd64")

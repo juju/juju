@@ -16,7 +16,10 @@ type BaseValidateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBaseValidateSuite(t *stdtesting.T) { tc.Run(t, &BaseValidateSuite{}) }
+func TestBaseValidateSuite(t *stdtesting.T) {
+	tc.Run(t, &BaseValidateSuite{})
+}
+
 func (*BaseValidateSuite) TestValidate(c *tc.C) {
 	expected := MustParseBaseFromString("ubuntu@20.04")
 

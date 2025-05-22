@@ -20,7 +20,10 @@ type applyConstraintsSuite struct {
 	testing.BaseSuite
 }
 
-func TestApplyConstraintsSuite(t *stdtesting.T) { tc.Run(t, &applyConstraintsSuite{}) }
+func TestApplyConstraintsSuite(t *stdtesting.T) {
+	tc.Run(t, &applyConstraintsSuite{})
+}
+
 func (s *applyConstraintsSuite) TestMemory(c *tc.C) {
 	pod := &corev1.PodSpec{}
 	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {

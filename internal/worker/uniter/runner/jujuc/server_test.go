@@ -85,7 +85,10 @@ type ServerSuite struct {
 	err    chan error
 }
 
-func TestServerSuite(t *stdtesting.T) { tc.Run(t, &ServerSuite{}) }
+func TestServerSuite(t *stdtesting.T) {
+	tc.Run(t, &ServerSuite{})
+}
+
 func (s *ServerSuite) osDependentSockPath(c *tc.C) sockets.Socket {
 	pipeRoot := c.MkDir()
 	sock := filepath.Join(pipeRoot, "test.sock")
@@ -238,7 +241,9 @@ type NewCommandSuite struct {
 	relationSuite
 }
 
-func TestNewCommandSuite(t *stdtesting.T) { tc.Run(t, &NewCommandSuite{}) }
+func TestNewCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &NewCommandSuite{})
+}
 
 var newCommandTests = []struct {
 	name string

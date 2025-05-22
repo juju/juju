@@ -21,7 +21,10 @@ type MgoStatsCollectorSuite struct {
 	getCurrentStats func() mgo.Stats
 }
 
-func TestMgoStatsCollectorSuite(t *stdtesting.T) { tc.Run(t, &MgoStatsCollectorSuite{}) }
+func TestMgoStatsCollectorSuite(t *stdtesting.T) {
+	tc.Run(t, &MgoStatsCollectorSuite{})
+}
+
 func (s *MgoStatsCollectorSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.getCurrentStats = func() mgo.Stats {

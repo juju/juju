@@ -20,7 +20,10 @@ type initialisationSuite struct {
 	testing.BaseSuite
 }
 
-func TestInitialisationSuite(t *stdtesting.T) { tc.Run(t, &initialisationSuite{}) }
+func TestInitialisationSuite(t *stdtesting.T) {
+	tc.Run(t, &initialisationSuite{})
+}
+
 func (s *initialisationSuite) TestDetectBase(c *tc.C) {
 	response := strings.Join([]string{
 		"ubuntu",

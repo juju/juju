@@ -23,7 +23,10 @@ type AuthKeysSuite struct {
 	dotssh string // ~/.ssh
 }
 
-func TestAuthKeysSuite(t *stdtesting.T) { tc.Run(t, &AuthKeysSuite{}) }
+func TestAuthKeysSuite(t *stdtesting.T) {
+	tc.Run(t, &AuthKeysSuite{})
+}
+
 func (s *AuthKeysSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	old := utils.Home()

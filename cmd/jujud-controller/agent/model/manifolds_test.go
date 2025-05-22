@@ -21,7 +21,10 @@ type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-func TestManifoldsSuite(t *stdtesting.T) { tc.Run(t, &ManifoldsSuite{}) }
+func TestManifoldsSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldsSuite{})
+}
+
 func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 	actual := set.NewStrings()
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{

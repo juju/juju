@@ -18,7 +18,10 @@ type scheduleSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestScheduleSuite(t *stdtesting.T) { tc.Run(t, &scheduleSuite{}) }
+func TestScheduleSuite(t *stdtesting.T) {
+	tc.Run(t, &scheduleSuite{})
+}
+
 func (*scheduleSuite) TestNextNoEvents(c *tc.C) {
 	s := schedule.NewSchedule(testclock.NewClock(time.Time{}))
 	next := s.Next()

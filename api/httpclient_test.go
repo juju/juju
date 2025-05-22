@@ -31,7 +31,10 @@ type httpSuite struct {
 	conn   api.Connection
 }
 
-func TestHttpSuite(t *stdtesting.T) { tc.Run(t, &httpSuite{}) }
+func TestHttpSuite(t *stdtesting.T) {
+	tc.Run(t, &httpSuite{})
+}
+
 func (s *httpSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

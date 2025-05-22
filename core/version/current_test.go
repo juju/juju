@@ -14,7 +14,10 @@ import (
 
 type CurrentSuite struct{}
 
-func TestCurrentSuite(t *stdtesting.T) { tc.Run(t, &CurrentSuite{}) }
+func TestCurrentSuite(t *stdtesting.T) {
+	tc.Run(t, &CurrentSuite{})
+}
+
 func (*CurrentSuite) TestCurrentSeries(c *tc.C) {
 	b, err := coreos.HostBase()
 	if err != nil {

@@ -44,7 +44,10 @@ type modelconfigSuite struct {
 	controllerUUID string
 }
 
-func TestModelconfigSuite(t *stdtesting.T) { tc.Run(t, &modelconfigSuite{}) }
+func TestModelconfigSuite(t *stdtesting.T) {
+	tc.Run(t, &modelconfigSuite{})
+}
+
 func (s *modelconfigSuite) SetUpTest(c *tc.C) {
 	s.controllerUUID = uuid.MustNewUUID().String()
 	s.modelUUID = modeltesting.GenModelUUID(c)

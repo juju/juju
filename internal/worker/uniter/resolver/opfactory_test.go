@@ -22,7 +22,10 @@ type ResolverOpFactorySuite struct {
 	opFactory *mockOpFactory
 }
 
-func TestResolverOpFactorySuite(t *stdtesting.T) { tc.Run(t, &ResolverOpFactorySuite{}) }
+func TestResolverOpFactorySuite(t *stdtesting.T) {
+	tc.Run(t, &ResolverOpFactorySuite{})
+}
+
 func (s *ResolverOpFactorySuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.opFactory = &mockOpFactory{}

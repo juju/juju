@@ -14,7 +14,10 @@ import (
 
 type importSuite struct{}
 
-func TestImportSuite(t *stdtesting.T) { tc.Run(t, &importSuite{}) }
+func TestImportSuite(t *stdtesting.T) {
+	tc.Run(t, &importSuite{})
+}
+
 func (*importSuite) TestImports(c *tc.C) {
 	found := set.NewStrings(
 		coretesting.FindJujuCoreImports(c, "github.com/juju/juju/cmd/containeragent/initialize")...)

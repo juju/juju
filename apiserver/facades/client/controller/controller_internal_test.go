@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func TestControllerInternalSuite(t *stdtesting.T) { tc.Run(t, &controllerInternalSuite{}) }
+func TestControllerInternalSuite(t *stdtesting.T) {
+	tc.Run(t, &controllerInternalSuite{})
+}
 
 type controllerInternalSuite struct{}
 

@@ -20,7 +20,10 @@ type LabelSuite struct {
 	client *fake.Clientset
 }
 
-func TestLabelSuite(t *stdtesting.T) { tc.Run(t, &LabelSuite{}) }
+func TestLabelSuite(t *stdtesting.T) {
+	tc.Run(t, &LabelSuite{})
+}
+
 func (l *LabelSuite) SetUpTest(c *tc.C) {
 	l.client = fake.NewSimpleClientset()
 }

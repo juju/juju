@@ -33,7 +33,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestAuthSuite(t *stdtesting.T) { tc.Run(t, &authSuite{}) }
+func TestAuthSuite(t *stdtesting.T) {
+	tc.Run(t, &authSuite{})
+}
 
 type authSuite struct {
 	coretesting.BaseSuite

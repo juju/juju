@@ -15,7 +15,9 @@ import (
 
 type suite struct{}
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
 
 var isDevTests = []struct {
 	num semversion.Number

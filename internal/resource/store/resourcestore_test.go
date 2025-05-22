@@ -20,7 +20,10 @@ type resourceStoreSuite struct {
 	resourceStore          *MockResourceStore
 }
 
-func TestResourceStoreSuite(t *stdtesting.T) { tc.Run(t, &resourceStoreSuite{}) }
+func TestResourceStoreSuite(t *stdtesting.T) {
+	tc.Run(t, &resourceStoreSuite{})
+}
+
 func (s *resourceStoreSuite) TestGetResourceStoreTypeFile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

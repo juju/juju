@@ -66,7 +66,10 @@ type initSystemSuite struct {
 	conf common.Conf
 }
 
-func TestInitSystemSuite(t *stdtesting.T) { tc.Run(t, &initSystemSuite{}) }
+func TestInitSystemSuite(t *stdtesting.T) {
+	tc.Run(t, &initSystemSuite{})
+}
+
 func (s *initSystemSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

@@ -56,7 +56,10 @@ type SecretsManagerSuite struct {
 	facade *secretsmanager.SecretsManagerAPI
 }
 
-func TestSecretsManagerSuite(t *stdtesting.T) { tc.Run(t, &SecretsManagerSuite{}) }
+func TestSecretsManagerSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretsManagerSuite{})
+}
+
 func (s *SecretsManagerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

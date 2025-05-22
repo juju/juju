@@ -19,8 +19,14 @@ type workspaceSuiteV0 struct {
 	baseArchiveDataSuite
 }
 
-func TestWorkspaceSuiteV0(t *stdtesting.T) { tc.Run(t, &workspaceSuiteV0{}) }
-func TestWorkspaceSuiteV1(t *stdtesting.T) { tc.Run(t, &workspaceSuiteV1{}) }
+func TestWorkspaceSuiteV0(t *stdtesting.T) {
+	tc.Run(t, &workspaceSuiteV0{})
+}
+
+func TestWorkspaceSuiteV1(t *stdtesting.T) {
+	tc.Run(t, &workspaceSuiteV1{})
+}
+
 func (s *workspaceSuiteV0) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV1)

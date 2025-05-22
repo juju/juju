@@ -19,7 +19,10 @@ type serviceSuite struct {
 	baseSuite
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) TestGetAllJobsSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

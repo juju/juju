@@ -38,7 +38,10 @@ type NestedContextSuite struct {
 	workers *unitWorkersStub
 }
 
-func TestNestedContextSuite(t *stdtesting.T) { tc.Run(t, &NestedContextSuite{}) }
+func TestNestedContextSuite(t *stdtesting.T) {
+	tc.Run(t, &NestedContextSuite{})
+}
+
 func (s *NestedContextSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	logger := loggertesting.WrapCheckLog(c).Child("nested-context")

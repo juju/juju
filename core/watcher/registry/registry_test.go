@@ -26,7 +26,10 @@ type registrySuite struct {
 	clock *MockClock
 }
 
-func TestRegistrySuite(t *stdtesting.T) { tc.Run(t, &registrySuite{}) }
+func TestRegistrySuite(t *stdtesting.T) {
+	tc.Run(t, &registrySuite{})
+}
+
 func (s *registrySuite) TestRegisterCount(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

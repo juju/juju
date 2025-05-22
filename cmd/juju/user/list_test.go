@@ -27,7 +27,10 @@ type UserListCommandSuite struct {
 	BaseSuite
 }
 
-func TestUserListCommandSuite(t *stdtesting.T) { tc.Run(t, &UserListCommandSuite{}) }
+func TestUserListCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &UserListCommandSuite{})
+}
+
 func (s *UserListCommandSuite) newUserListCommand() cmd.Command {
 	clock := &fakeClock{now: time.Date(2016, 9, 15, 12, 0, 0, 0, time.UTC)}
 	api := &fakeUserListAPI{clock}

@@ -20,7 +20,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestCloudCredentialSuite(t *stdtesting.T) { tc.Run(t, &cloudCredentialSuite{}) }
+func TestCloudCredentialSuite(t *stdtesting.T) {
+	tc.Run(t, &cloudCredentialSuite{})
+}
 
 type cloudCredentialSuite struct {
 	testhelpers.IsolationSuite

@@ -19,7 +19,10 @@ type restrictModelSuite struct {
 	root rpc.Root
 }
 
-func TestRestrictModelSuite(t *stdtesting.T) { tc.Run(t, &restrictModelSuite{}) }
+func TestRestrictModelSuite(t *stdtesting.T) {
+	tc.Run(t, &restrictModelSuite{})
+}
+
 func (s *restrictModelSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.root = apiserver.TestingModelOnlyRoot()

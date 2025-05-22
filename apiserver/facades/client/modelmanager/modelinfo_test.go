@@ -25,7 +25,10 @@ import (
 
 type modelInfoSuite struct{}
 
-func TestModelInfoSuite(t *stdtesting.T) { tc.Run(t, &modelInfoSuite{}) }
+func TestModelInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &modelInfoSuite{})
+}
+
 func (s *modelInfoSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Test ModelInfo() with readAccess;

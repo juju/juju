@@ -24,7 +24,10 @@ type configStateSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestConfigStateSuite(t *stdtesting.T) { tc.Run(t, &configStateSuite{}) }
+func TestConfigStateSuite(t *stdtesting.T) {
+	tc.Run(t, &configStateSuite{})
+}
+
 func (s *configStateSuite) TestInitialise(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.InitialiseBakeryConfig(c.Context(), testKey1, testKey2, testKey3, testKey4)

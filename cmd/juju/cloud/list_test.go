@@ -29,7 +29,10 @@ type listSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestListSuite(t *stdtesting.T) { tc.Run(t, &listSuite{}) }
+func TestListSuite(t *stdtesting.T) {
+	tc.Run(t, &listSuite{})
+}
+
 func (s *listSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.api = &fakeListCloudsAPI{}

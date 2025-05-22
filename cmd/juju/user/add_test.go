@@ -28,7 +28,10 @@ type UserAddCommandSuite struct {
 	mockAPI *mockAddUserAPI
 }
 
-func TestUserAddCommandSuite(t *stdtesting.T) { tc.Run(t, &UserAddCommandSuite{}) }
+func TestUserAddCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &UserAddCommandSuite{})
+}
+
 func (s *UserAddCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockAPI = &mockAddUserAPI{}

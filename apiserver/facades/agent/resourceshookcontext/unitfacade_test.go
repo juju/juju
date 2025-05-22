@@ -26,7 +26,10 @@ type unitFacadeSuite struct {
 	applicationService *MockApplicationService
 }
 
-func TestUnitFacadeSuite(t *stdtesting.T) { tc.Run(t, &unitFacadeSuite{}) }
+func TestUnitFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &unitFacadeSuite{})
+}
+
 func (s *unitFacadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

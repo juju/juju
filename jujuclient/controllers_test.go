@@ -22,7 +22,10 @@ type ControllersSuite struct {
 	controller     jujuclient.ControllerDetails
 }
 
-func TestControllersSuite(t *stdtesting.T) { tc.Run(t, &ControllersSuite{}) }
+func TestControllersSuite(t *stdtesting.T) {
+	tc.Run(t, &ControllersSuite{})
+}
+
 func (s *ControllersSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclient.NewFileClientStore()

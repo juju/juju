@@ -15,7 +15,9 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/jujuctesting"
 )
 
-func TestActionSetSuite(t *stdtesting.T) { tc.Run(t, &ActionSetSuite{}) }
+func TestActionSetSuite(t *stdtesting.T) {
+	tc.Run(t, &ActionSetSuite{})
+}
 
 type ActionSetSuite struct {
 	jujuctesting.ContextSuite

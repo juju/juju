@@ -15,7 +15,10 @@ import (
 
 type ListSuite struct{}
 
-func TestListSuite(t *stdtesting.T) { tc.Run(t, &ListSuite{}) }
+func TestListSuite(t *stdtesting.T) {
+	tc.Run(t, &ListSuite{})
+}
+
 func mustParseTools(name string) *tools.Tools {
 	return &tools.Tools{
 		Version: semversion.MustParseBinary(name),

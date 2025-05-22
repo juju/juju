@@ -33,7 +33,9 @@ type controllerStateSuite struct {
 	userUUID  user.UUID
 }
 
-func TestControllerStateSuite(t *stdtesting.T) { tc.Run(t, &controllerStateSuite{}) }
+func TestControllerStateSuite(t *stdtesting.T) {
+	tc.Run(t, &controllerStateSuite{})
+}
 
 var (
 	controllerSSHKeys = `

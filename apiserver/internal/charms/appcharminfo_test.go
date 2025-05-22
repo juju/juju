@@ -33,7 +33,10 @@ type appCharmInfoSuite struct {
 	authorizer *facademocks.MockAuthorizer
 }
 
-func TestAppCharmInfoSuite(t *stdtesting.T) { tc.Run(t, &appCharmInfoSuite{}) }
+func TestAppCharmInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &appCharmInfoSuite{})
+}
+
 func (s *appCharmInfoSuite) TestApplicationCharmInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

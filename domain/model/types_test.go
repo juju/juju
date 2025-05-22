@@ -22,7 +22,9 @@ type typesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTypesSuite(t *stdtesting.T) { tc.Run(t, &typesSuite{}) }
+func TestTypesSuite(t *stdtesting.T) {
+	tc.Run(t, &typesSuite{})
+}
 
 // ptr returns a reference to a copied value of type T.
 func ptr[T any](i T) *T {

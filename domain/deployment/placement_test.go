@@ -16,7 +16,10 @@ type PlacementSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPlacementSuite(t *stdtesting.T) { tc.Run(t, &PlacementSuite{}) }
+func TestPlacementSuite(t *stdtesting.T) {
+	tc.Run(t, &PlacementSuite{})
+}
+
 func (s *PlacementSuite) TestPlacement(c *tc.C) {
 	tests := []struct {
 		input  *instance.Placement

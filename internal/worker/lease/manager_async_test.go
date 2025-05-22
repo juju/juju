@@ -28,7 +28,10 @@ type AsyncSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAsyncSuite(t *stdtesting.T) { tc.Run(t, &AsyncSuite{}) }
+func TestAsyncSuite(t *stdtesting.T) {
+	tc.Run(t, &AsyncSuite{})
+}
+
 func (s *AsyncSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	logger := loggo.GetLogger("juju.worker.lease")

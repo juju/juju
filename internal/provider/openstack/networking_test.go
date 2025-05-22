@@ -34,7 +34,10 @@ type networkingSuite struct {
 	ip3             string
 }
 
-func TestNetworkingSuite(t *stdtesting.T) { tc.Run(t, &networkingSuite{}) }
+func TestNetworkingSuite(t *stdtesting.T) {
+	tc.Run(t, &networkingSuite{})
+}
+
 func (s *networkingSuite) SetUpTest(c *tc.C) {
 	s.serverAZ = "test-me"
 	s.externalNetwork = "ext-net"

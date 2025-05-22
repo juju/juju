@@ -20,7 +20,10 @@ type cmdSuite struct {
 	testing.CleanupSuite
 }
 
-func TestCmdSuite(t *stdtesting.T) { tc.Run(t, &cmdSuite{}) }
+func TestCmdSuite(t *stdtesting.T) {
+	tc.Run(t, &cmdSuite{})
+}
+
 func (s *cmdSuite) TestHookCommandOutput(c *tc.C) {
 	var commandOutput = (*exec.Cmd).CombinedOutput
 
@@ -83,7 +86,10 @@ func (s *cmdSuite) TestCaptureOutput(c *tc.C) {
 	c.Check(string(stdout), tc.Equals, "this is stdout")
 	c.Check(string(stderr), tc.Equals, "this is stderr")
 }
-func TestExecHelperSuite(t *stdtesting.T) { tc.Run(t, &ExecHelperSuite{}) }
+func TestExecHelperSuite(t *stdtesting.T) {
+	tc.Run(t, &ExecHelperSuite{})
+}
+
 func TestMain(m *stdtesting.M) {
 	testing.ExecHelperProcess()
 	os.Exit(m.Run())

@@ -23,7 +23,10 @@ type ImportFilesystemSuite struct {
 	importer mockStorageImporter
 }
 
-func TestImportFilesystemSuite(t *stdtesting.T) { tc.Run(t, &ImportFilesystemSuite{}) }
+func TestImportFilesystemSuite(t *stdtesting.T) {
+	tc.Run(t, &ImportFilesystemSuite{})
+}
+
 func (s *ImportFilesystemSuite) SetUpTest(c *tc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 	s.importer = mockStorageImporter{}

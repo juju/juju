@@ -214,7 +214,10 @@ type localServerSuite struct {
 	useIAMRole bool
 }
 
-func TestLocalServerSuite(t *stdtesting.T) { tc.Run(t, &localServerSuite{}) }
+func TestLocalServerSuite(t *stdtesting.T) {
+	tc.Run(t, &localServerSuite{})
+}
+
 func (t *localServerSuite) SetUpSuite(c *tc.C) {
 	t.BaseSuite.SetUpSuite(c)
 	t.Credential = cloud.NewCredential(

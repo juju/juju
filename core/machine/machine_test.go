@@ -16,7 +16,9 @@ type machineSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMachineSuite(t *stdtesting.T) { tc.Run(t, &machineSuite{}) }
+func TestMachineSuite(t *stdtesting.T) {
+	tc.Run(t, &machineSuite{})
+}
 
 // TestNameValidate is testing good and not so good machine names to check
 // that the validate method produces the correct result.

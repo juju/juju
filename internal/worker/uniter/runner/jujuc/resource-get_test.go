@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/mocks"
 )
 
-func TestResourceGetCmdSuite(t *stdtesting.T) { tc.Run(t, &ResourceGetCmdSuite{}) }
+func TestResourceGetCmdSuite(t *stdtesting.T) {
+	tc.Run(t, &ResourceGetCmdSuite{})
+}
 
 type ResourceGetCmdSuite struct {
 	testhelpers.IsolationSuite

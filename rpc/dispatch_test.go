@@ -31,7 +31,10 @@ type dispatchSuite struct {
 	unique int64
 }
 
-func TestDispatchSuite(t *stdtesting.T) { tc.Run(t, &dispatchSuite{}) }
+func TestDispatchSuite(t *stdtesting.T) {
+	tc.Run(t, &dispatchSuite{})
+}
+
 func (s *dispatchSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

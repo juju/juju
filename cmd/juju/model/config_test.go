@@ -22,7 +22,10 @@ type ConfigCommandSuite struct {
 	fakeEnvSuite
 }
 
-func TestConfigCommandSuite(t *stdtesting.T) { tc.Run(t, &ConfigCommandSuite{}) }
+func TestConfigCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigCommandSuite{})
+}
+
 func (s *ConfigCommandSuite) run(c *tc.C, args ...string) (*cmd.Context, error) {
 	command := model.NewConfigCommandForTest(s.fake)
 	return cmdtesting.RunCommand(c, command, args...)

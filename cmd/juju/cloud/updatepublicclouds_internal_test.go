@@ -16,7 +16,10 @@ type cloudChangesSuite struct {
 	testing.BaseSuite
 }
 
-func TestCloudChangesSuite(t *stdtesting.T) { tc.Run(t, &cloudChangesSuite{}) }
+func TestCloudChangesSuite(t *stdtesting.T) {
+	tc.Run(t, &cloudChangesSuite{})
+}
+
 func (s *cloudChangesSuite) TestPluralityNone(c *tc.C) {
 	c.Assert(adjustPlurality("item", 0), tc.Equals, "")
 }

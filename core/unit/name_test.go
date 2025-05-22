@@ -12,7 +12,10 @@ import (
 
 type unitNameSuite struct{}
 
-func TestUnitNameSuite(t *stdtesting.T) { tc.Run(t, &unitNameSuite{}) }
+func TestUnitNameSuite(t *stdtesting.T) {
+	tc.Run(t, &unitNameSuite{})
+}
+
 func (*unitNameSuite) TestNameValidate(c *tc.C) {
 	tests := []struct {
 		name string

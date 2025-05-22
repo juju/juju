@@ -18,7 +18,10 @@ type charmsS3ClientSuite struct {
 	session *MockSession
 }
 
-func TestCharmsS3ClientSuite(t *stdtesting.T) { tc.Run(t, &charmsS3ClientSuite{}) }
+func TestCharmsS3ClientSuite(t *stdtesting.T) {
+	tc.Run(t, &charmsS3ClientSuite{})
+}
+
 func (s *charmsS3ClientSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.session = NewMockSession(ctrl)

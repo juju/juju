@@ -16,7 +16,10 @@ type ConstraintsSuite struct {
 	BaseSuite
 }
 
-func TestConstraintsSuite(t *stdtesting.T) { tc.Run(t, &ConstraintsSuite{}) }
+func TestConstraintsSuite(t *stdtesting.T) {
+	tc.Run(t, &ConstraintsSuite{})
+}
+
 func (s *ConstraintsSuite) TestConstraintsValidatorOkay(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()

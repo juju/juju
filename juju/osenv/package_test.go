@@ -14,7 +14,10 @@ import (
 type importSuite struct {
 }
 
-func TestImportSuite(t *stdtesting.T) { tc.Run(t, &importSuite{}) }
+func TestImportSuite(t *stdtesting.T) {
+	tc.Run(t, &importSuite{})
+}
+
 func (*importSuite) TestDependencies(c *tc.C) {
 	c.Assert(coretesting.FindJujuCoreImports(c, "github.com/juju/juju/juju/osenv"), tc.SameContents, []string{
 		"internal/featureflag",

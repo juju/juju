@@ -20,7 +20,10 @@ type downloadSuite struct {
 	command        *backups.DownloadCommand
 }
 
-func TestDownloadSuite(t *stdtesting.T) { tc.Run(t, &downloadSuite{}) }
+func TestDownloadSuite(t *stdtesting.T) {
+	tc.Run(t, &downloadSuite{})
+}
+
 func (s *downloadSuite) SetUpTest(c *tc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = backups.NewDownloadCommandForTest(s.store)

@@ -30,7 +30,10 @@ import (
 
 type applicationSuite struct{}
 
-func TestApplicationSuite(t *stdtesting.T) { tc.Run(t, &applicationSuite{}) }
+func TestApplicationSuite(t *stdtesting.T) {
+	tc.Run(t, &applicationSuite{})
+}
+
 func (s *applicationSuite) TestDeploy(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

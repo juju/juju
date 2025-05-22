@@ -24,7 +24,10 @@ type workerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
+
 func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

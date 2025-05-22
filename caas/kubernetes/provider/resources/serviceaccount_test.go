@@ -19,7 +19,10 @@ type serviceAccountSuite struct {
 	resourceSuite
 }
 
-func TestServiceAccountSuite(t *stdtesting.T) { tc.Run(t, &serviceAccountSuite{}) }
+func TestServiceAccountSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceAccountSuite{})
+}
+
 func (s *serviceAccountSuite) TestApply(c *tc.C) {
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{

@@ -82,7 +82,10 @@ type ProviderSuite struct {
 	restoreTimeouts func()
 }
 
-func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &ProviderSuite{}) }
+func TestProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &ProviderSuite{})
+}
+
 func (s *ProviderSuite) SetUpTest(c *tc.C) {
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt, openstack.StorageAttempt)
 }
@@ -210,7 +213,9 @@ func overrideCinderProvider(s *testhelpers.CleanupSuite, adaptor *mockAdaptor) {
 		return adaptor, nil
 	})
 }
-func TestLocalServerSuite(t *stdtesting.T) { tc.Run(t, &localServerSuite{}) }
+func TestLocalServerSuite(t *stdtesting.T) {
+	tc.Run(t, &localServerSuite{})
+}
 
 // localServerSuite contains tests that run against an Openstack service double.
 // These tests can test things that would be unreasonably slow or expensive
@@ -2561,7 +2566,10 @@ type localHTTPSServerSuite struct {
 	env   environs.Environ
 }
 
-func TestLocalHTTPSServerSuite(t *stdtesting.T) { tc.Run(t, &localHTTPSServerSuite{}) }
+func TestLocalHTTPSServerSuite(t *stdtesting.T) {
+	tc.Run(t, &localHTTPSServerSuite{})
+}
+
 func (s *localHTTPSServerSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	overrideCinderProvider(&s.CleanupSuite, &mockAdaptor{})
@@ -3656,7 +3664,9 @@ func (s *localServerSuite) ensureAMDImages(c *tc.C) environs.Environ {
 	// Prepare a new Environ
 	return s.Prepare(c)
 }
-func TestNoNeutronSuite(t *stdtesting.T) { tc.Run(t, &noNeutronSuite{}) }
+func TestNoNeutronSuite(t *stdtesting.T) {
+	tc.Run(t, &noNeutronSuite{})
+}
 
 // noNeutronSuite is a clone of localServerSuite which hacks the local
 // openstack to remove the neutron service from the auth response -
@@ -3774,7 +3784,10 @@ type noSwiftSuite struct {
 	env  environs.Environ
 }
 
-func TestNoSwiftSuite(t *stdtesting.T) { tc.Run(t, &noSwiftSuite{}) }
+func TestNoSwiftSuite(t *stdtesting.T) {
+	tc.Run(t, &noSwiftSuite{})
+}
+
 func (s *noSwiftSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap(c)

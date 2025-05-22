@@ -18,7 +18,10 @@ type factorySuite struct {
 	testing.BaseSuite
 }
 
-func TestFactorySuite(t *stdtesting.T) { tc.Run(t, &factorySuite{}) }
+func TestFactorySuite(t *stdtesting.T) {
+	tc.Run(t, &factorySuite{})
+}
+
 func (*factorySuite) TestNewContainerManager(c *tc.C) {
 	for _, test := range []struct {
 		containerType instance.ContainerType

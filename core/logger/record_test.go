@@ -19,7 +19,10 @@ type LogRecordSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLogRecordSuite(t *stdtesting.T) { tc.Run(t, &LogRecordSuite{}) }
+func TestLogRecordSuite(t *stdtesting.T) {
+	tc.Run(t, &LogRecordSuite{})
+}
+
 func (s *LogRecordSuite) TestMarshall(c *tc.C) {
 	rec := &logger.LogRecord{
 		Time:      time.Date(2024, 1, 1, 9, 8, 7, 0, time.UTC),

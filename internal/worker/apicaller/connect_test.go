@@ -30,7 +30,10 @@ type ScaryConnectSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestScaryConnectSuite(t *stdtesting.T) { tc.Run(t, &ScaryConnectSuite{}) }
+func TestScaryConnectSuite(t *stdtesting.T) {
+	tc.Run(t, &ScaryConnectSuite{})
+}
+
 func (*ScaryConnectSuite) TestEntityAlive(c *tc.C) {
 	testEntityFine(c, apiagent.Alive)
 }

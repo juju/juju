@@ -44,7 +44,10 @@ type stubSuite struct {
 	stub *testhelpers.Stub
 }
 
-func TestStubSuite(t *stdtesting.T) { tc.Run(t, &stubSuite{}) }
+func TestStubSuite(t *stdtesting.T) {
+	tc.Run(t, &stubSuite{})
+}
+
 func (s *stubSuite) SetUpTest(c *tc.C) {
 	s.stub = &testhelpers.Stub{}
 }

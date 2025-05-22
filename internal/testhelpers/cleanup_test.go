@@ -16,7 +16,10 @@ type cleanupSuite struct {
 	testhelpers.CleanupSuite
 }
 
-func TestCleanupSuite(t *stdtesting.T) { tc.Run(t, &cleanupSuite{}) }
+func TestCleanupSuite(t *stdtesting.T) {
+	tc.Run(t, &cleanupSuite{})
+}
+
 func (s *cleanupSuite) TestTearDownSuiteEmpty(c *tc.C) {
 	// The suite stack is empty initially, check we can tear that down.
 	s.TearDownSuite(c)

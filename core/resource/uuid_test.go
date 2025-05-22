@@ -17,7 +17,10 @@ type resourcesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestResourcesSuite(t *stdtesting.T) { tc.Run(t, &resourcesSuite{}) }
+func TestResourcesSuite(t *stdtesting.T) {
+	tc.Run(t, &resourcesSuite{})
+}
+
 func (*resourcesSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string

@@ -19,7 +19,10 @@ import (
 type signalSuite struct {
 }
 
-func TestSignalSuite(t *stdtesting.T) { tc.Run(t, &signalSuite{}) }
+func TestSignalSuite(t *stdtesting.T) {
+	tc.Run(t, &signalSuite{})
+}
+
 func (*signalSuite) TestSignalHandling(c *tc.C) {
 	testErr := errors.ConstError("test")
 	handler := ssh.SignalHandlerFunc(func(sig os.Signal) error {

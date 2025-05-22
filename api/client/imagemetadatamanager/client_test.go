@@ -20,7 +20,10 @@ import (
 type imagemetadataSuite struct {
 }
 
-func TestImagemetadataSuite(t *stdtesting.T) { tc.Run(t, &imagemetadataSuite{}) }
+func TestImagemetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &imagemetadataSuite{})
+}
+
 func (s *imagemetadataSuite) TestList(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

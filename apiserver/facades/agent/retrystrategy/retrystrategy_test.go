@@ -19,7 +19,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestRetryStrategySuite(t *stdtesting.T) { tc.Run(t, &retryStrategySuite{}) }
+func TestRetryStrategySuite(t *stdtesting.T) {
+	tc.Run(t, &retryStrategySuite{})
+}
 
 type retryStrategySuite struct {
 	strategy           retrystrategy.RetryStrategy

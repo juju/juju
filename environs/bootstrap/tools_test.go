@@ -29,7 +29,10 @@ type toolsSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestToolsSuite(t *stdtesting.T) { tc.Run(t, &toolsSuite{}) }
+func TestToolsSuite(t *stdtesting.T) {
+	tc.Run(t, &toolsSuite{})
+}
+
 func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *tc.C) {
 	// Host runs amd64, want ppc64 tools.
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })

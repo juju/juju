@@ -43,7 +43,10 @@ type instanceSuite struct {
 	invalidatedCredential bool
 }
 
-func TestInstanceSuite(t *stdtesting.T) { tc.Run(t, &instanceSuite{}) }
+func TestInstanceSuite(t *stdtesting.T) {
+	tc.Run(t, &instanceSuite{})
+}
+
 func (s *instanceSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{

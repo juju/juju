@@ -20,13 +20,18 @@ type permSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPermSuite(t *stdtesting.T) { tc.Run(t, &permSuite{}) }
+func TestPermSuite(t *stdtesting.T) {
+	tc.Run(t, &permSuite{})
+}
 
 type watcherPermSuite struct {
 	permSuite
 }
 
-func TestWatcherPermSuite(t *stdtesting.T) { tc.Run(t, &watcherPermSuite{}) }
+func TestWatcherPermSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherPermSuite{})
+}
+
 func (s *permSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Not found should be returned when trying to add a relation between non-exsting endpoints.

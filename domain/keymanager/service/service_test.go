@@ -35,7 +35,9 @@ type serviceSuite struct {
 	modelUUID   model.UUID
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 var (
 	existingUserPublicKeys = []string{

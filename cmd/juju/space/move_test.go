@@ -16,7 +16,10 @@ type MoveSuite struct {
 	BaseSpaceSuite
 }
 
-func TestMoveSuite(t *stdtesting.T) { tc.Run(t, &MoveSuite{}) }
+func TestMoveSuite(t *stdtesting.T) {
+	tc.Run(t, &MoveSuite{})
+}
+
 func (s *MoveSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewMoveCommand

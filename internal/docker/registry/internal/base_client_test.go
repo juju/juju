@@ -28,7 +28,10 @@ type baseSuite struct {
 	isPrivate        bool
 }
 
-func TestBaseSuite(t *stdtesting.T) { tc.Run(t, &baseSuite{}) }
+func TestBaseSuite(t *stdtesting.T) {
+	tc.Run(t, &baseSuite{})
+}
+
 func (s *baseSuite) getAuthToken(username, password string) string {
 	return base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 }

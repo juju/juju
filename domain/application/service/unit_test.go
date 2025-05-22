@@ -35,7 +35,10 @@ type unitServiceSuite struct {
 	baseSuite
 }
 
-func TestUnitServiceSuite(t *stdtesting.T) { tc.Run(t, &unitServiceSuite{}) }
+func TestUnitServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &unitServiceSuite{})
+}
+
 func (s *unitServiceSuite) TestGetUnitUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

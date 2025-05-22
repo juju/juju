@@ -28,7 +28,10 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
+
 func (s *stateSuite) TestSetUnitPassword(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

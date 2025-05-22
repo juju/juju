@@ -17,7 +17,10 @@ import (
 
 type CreateSecretSuite struct{}
 
-func TestCreateSecretSuite(t *stdtesting.T) { tc.Run(t, &CreateSecretSuite{}) }
+func TestCreateSecretSuite(t *stdtesting.T) {
+	tc.Run(t, &CreateSecretSuite{})
+}
+
 func (s *CreateSecretSuite) TestBadKey(c *tc.C) {
 	_, err := secrets.CreateSecretData([]string{"fo=bar"})
 	c.Assert(err, tc.ErrorMatches, `key "fo" not valid`)

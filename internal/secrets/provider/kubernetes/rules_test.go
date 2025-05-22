@@ -16,7 +16,10 @@ type rulesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRulesSuite(t *stdtesting.T) { tc.Run(t, &rulesSuite{}) }
+func TestRulesSuite(t *stdtesting.T) {
+	tc.Run(t, &rulesSuite{})
+}
+
 func (s *rulesSuite) TestRulesForSecretAccessNew(c *tc.C) {
 	owned := []string{"owned-secret-1"}
 	read := []string{"read-secret-1"}

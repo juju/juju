@@ -24,7 +24,10 @@ type MuxSuite struct {
 	client *http.Client
 }
 
-func TestMuxSuite(t *stdtesting.T) { tc.Run(t, &MuxSuite{}) }
+func TestMuxSuite(t *stdtesting.T) {
+	tc.Run(t, &MuxSuite{})
+}
+
 func (s *MuxSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mux = apiserverhttp.NewMux()

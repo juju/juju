@@ -21,7 +21,10 @@ type serviceSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) TestNewConfSnap(c *tc.C) {
 	dataDir := "/var/lib/juju"
 	dbDir := dataDir + "/db"

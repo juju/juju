@@ -22,7 +22,10 @@ type metadataSuite struct {
 	baseImageMetadataSuite
 }
 
-func TestMetadataSuite(t *stdtesting.T) { tc.Run(t, &metadataSuite{}) }
+func TestMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &metadataSuite{})
+}
+
 func (s *metadataSuite) TestFindNil(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 

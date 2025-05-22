@@ -27,7 +27,9 @@ type expirableStorageSuite struct {
 	now             time.Time
 }
 
-func TestExpirableStorageSuite(t *stdtesting.T) { tc.Run(t, &expirableStorageSuite{}) }
+func TestExpirableStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &expirableStorageSuite{})
+}
 
 var moment = time.Now()
 

@@ -22,7 +22,10 @@ type credentialsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestCredentialsSuite(t *stdtesting.T) { tc.Run(t, &credentialsSuite{}) }
+func TestCredentialsSuite(t *stdtesting.T) {
+	tc.Run(t, &credentialsSuite{})
+}
+
 func (s *credentialsSuite) TestMarshalAccessKey(c *tc.C) {
 	creds := map[string]cloud.CloudCredential{
 		"aws": {

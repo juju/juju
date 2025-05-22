@@ -22,7 +22,10 @@ type infoSuite struct {
 	clock  *testclock.Clock
 }
 
-func TestInfoSuite(t *stdtesting.T) { tc.Run(t, &infoSuite{}) }
+func TestInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &infoSuite{})
+}
+
 func (i *infoSuite) SetUpTest(c *tc.C) {
 	i.clock = testclock.NewClock(time.Time{})
 

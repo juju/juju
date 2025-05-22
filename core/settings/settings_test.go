@@ -11,7 +11,10 @@ import (
 
 type settingsSuite struct{}
 
-func TestSettingsSuite(t *stdtesting.T) { tc.Run(t, &settingsSuite{}) }
+func TestSettingsSuite(t *stdtesting.T) {
+	tc.Run(t, &settingsSuite{})
+}
+
 func (*settingsSuite) TestItemChangeType(c *tc.C) {
 	a := MakeAddition("key", "new-val")
 	m := MakeModification("key", "old-val", "new-val")

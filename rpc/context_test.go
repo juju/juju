@@ -16,7 +16,10 @@ type contextSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestContextSuite(t *stdtesting.T) { tc.Run(t, &contextSuite{}) }
+func TestContextSuite(t *stdtesting.T) {
+	tc.Run(t, &contextSuite{})
+}
+
 func (s *contextSuite) TestWithTracing(c *tc.C) {
 	ctx := rpc.WithTracing(c.Context(), "trace", "span", 1)
 	traceID, spanID, flags := rpc.TracingFromContext(ctx)

@@ -21,7 +21,10 @@ type FacadeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &FacadeSuite{}) }
+func TestFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &FacadeSuite{})
+}
+
 func (s *FacadeSuite) TestLifeCallError(c *tc.C) {
 	apiCaller := apiCaller(c, func(request string, arg, _ interface{}) error {
 		c.Check(request, tc.Equals, "GetEntities")

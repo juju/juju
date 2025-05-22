@@ -25,7 +25,10 @@ type eksSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestEksSuite(t *stdtesting.T) { tc.Run(t, &eksSuite{}) }
+func TestEksSuite(t *stdtesting.T) {
+	tc.Run(t, &eksSuite{})
+}
+
 func (s *eksSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	err := os.Setenv("PATH", "/path/to/here")

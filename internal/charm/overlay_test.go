@@ -22,7 +22,10 @@ type bundleDataOverlaySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBundleDataOverlaySuite(t *stdtesting.T) { tc.Run(t, &bundleDataOverlaySuite{}) }
+func TestBundleDataOverlaySuite(t *stdtesting.T) {
+	tc.Run(t, &bundleDataOverlaySuite{})
+}
+
 func (*bundleDataOverlaySuite) TestEmptyBaseApplication(c *tc.C) {
 	data := `
 applications:

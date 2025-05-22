@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
+func TestStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &storageSuite{})
+}
 
 type storageSuite struct {
 	coretesting.BaseSuite

@@ -20,7 +20,9 @@ type stateSuite struct {
 
 type msi map[string]int64
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 // writeTests verify the behaviour of sequences of HookInfos on a relation
 // state that starts off containing defaultMembers.

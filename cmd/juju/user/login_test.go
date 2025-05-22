@@ -36,7 +36,10 @@ type LoginCommandSuite struct {
 	apiConnectionParams juju.NewAPIConnectionParams
 }
 
-func TestLoginCommandSuite(t *stdtesting.T) { tc.Run(t, &LoginCommandSuite{}) }
+func TestLoginCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &LoginCommandSuite{})
+}
+
 func (s *LoginCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.apiConnection = &loginMockAPI{

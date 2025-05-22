@@ -41,7 +41,10 @@ type leadershipSuite struct {
 	leadership *MockChecker
 }
 
-func TestLeadershipSuite(t *stdtesting.T) { tc.Run(t, &leadershipSuite{}) }
+func TestLeadershipSuite(t *stdtesting.T) {
+	tc.Run(t, &leadershipSuite{})
+}
+
 func (s *leadershipSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 

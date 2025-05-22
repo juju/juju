@@ -26,7 +26,10 @@ type ManifoldSuite struct {
 	stub testhelpers.Stub
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
+
 func (s *ManifoldSuite) makeManifold(c *tc.C) dependency.Manifold {
 	fakeNewProvFunc := func(computeprovisioner.ControllerAPI, computeprovisioner.MachineService, computeprovisioner.MachinesAPI, computeprovisioner.ToolsFinder,
 		computeprovisioner.DistributionGroupFinder, agent.Config, logger.Logger, computeprovisioner.Environ,

@@ -22,7 +22,10 @@ type SecretAddSuite struct {
 	ContextSuite
 }
 
-func TestSecretAddSuite(t *stdtesting.T) { tc.Run(t, &SecretAddSuite{}) }
+func TestSecretAddSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretAddSuite{})
+}
+
 func (s *SecretAddSuite) TestAddSecretInvalidArgs(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 

@@ -27,7 +27,10 @@ type suite struct {
 	state *MockState
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
+
 func (s *suite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockState(ctrl)

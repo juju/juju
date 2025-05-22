@@ -21,7 +21,10 @@ type WrapAgentSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWrapAgentSuite(t *stdtesting.T) { tc.Run(t, &WrapAgentSuite{}) }
+func TestWrapAgentSuite(t *stdtesting.T) {
+	tc.Run(t, &WrapAgentSuite{})
+}
+
 func (s *WrapAgentSuite) TestRequiresControllerUUID(c *tc.C) {
 	agent, err := model.WrapAgent(&mockAgent{}, "lol-nope-no-hope", coretesting.ModelTag.Id())
 	c.Check(err, tc.ErrorMatches, `controller uuid "lol-nope-no-hope" not valid`)

@@ -24,7 +24,9 @@ type LoggersSuite struct {
 	modelUUID string
 }
 
-func TestLoggersSuite(t *stdtesting.T) { tc.Run(t, &LoggersSuite{}) }
+func TestLoggersSuite(t *stdtesting.T) {
+	tc.Run(t, &LoggersSuite{})
+}
 
 var _ LogSinkWriter = (*modelLogger)(nil)
 

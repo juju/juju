@@ -12,7 +12,9 @@ import (
 	"github.com/juju/juju/core/quota"
 )
 
-func TestMultiCheckerSuite(t *stdtesting.T) { tc.Run(t, &MultiCheckerSuite{}) }
+func TestMultiCheckerSuite(t *stdtesting.T) {
+	tc.Run(t, &MultiCheckerSuite{})
+}
 
 type MultiCheckerSuite struct {
 }

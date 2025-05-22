@@ -28,7 +28,10 @@ type WorkerSuite struct {
 	lock   *mocks.MockLock
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
+
 func (*WorkerSuite) TestInvalidFacade(c *tc.C) {
 	worker, err := machineactions.NewMachineActionsWorker(machineactions.WorkerConfig{
 		Facade: nil,

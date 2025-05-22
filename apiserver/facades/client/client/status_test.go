@@ -34,7 +34,10 @@ type statusSuite struct {
 	statusService    *MockStatusService
 }
 
-func TestStatusSuite(t *stdtesting.T) { tc.Run(t, &statusSuite{}) }
+func TestStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &statusSuite{})
+}
+
 func (s *statusSuite) TestModelStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

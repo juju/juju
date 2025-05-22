@@ -42,7 +42,10 @@ type HTTPAuthenticatorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHTTPAuthenticatorSuite(t *stdtesting.T) { tc.Run(t, &HTTPAuthenticatorSuite{}) }
+func TestHTTPAuthenticatorSuite(t *stdtesting.T) {
+	tc.Run(t, &HTTPAuthenticatorSuite{})
+}
+
 func (s *HTTPAuthenticatorSuite) TestHTTPStrategicAuthenticator(c *tc.C) {
 	tests := []struct {
 		description        string

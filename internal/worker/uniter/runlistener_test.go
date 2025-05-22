@@ -22,7 +22,10 @@ type ListenerSuite struct {
 	socketPath sockets.Socket
 }
 
-func TestListenerSuite(t *stdtesting.T) { tc.Run(t, &ListenerSuite{}) }
+func TestListenerSuite(t *stdtesting.T) {
+	tc.Run(t, &ListenerSuite{})
+}
+
 func (s *ListenerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	sockPath := filepath.Join(c.MkDir(), "test.listener")

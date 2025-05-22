@@ -18,7 +18,10 @@ type MachineShowCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestMachineShowCommandSuite(t *stdtesting.T) { tc.Run(t, &MachineShowCommandSuite{}) }
+func TestMachineShowCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &MachineShowCommandSuite{})
+}
+
 func newMachineShowCommand() cmd.Command {
 	return machine.NewShowCommandForTest(&fakeStatusAPI{})
 }

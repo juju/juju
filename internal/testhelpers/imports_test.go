@@ -15,7 +15,9 @@ type importsSuite struct {
 	testing.CleanupSuite
 }
 
-func TestImportsSuite(t *stdtesting.T) { tc.Run(t, &importsSuite{}) }
+func TestImportsSuite(t *stdtesting.T) {
+	tc.Run(t, &importsSuite{})
+}
 
 var importsTests = []struct {
 	pkgName string

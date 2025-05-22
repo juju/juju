@@ -15,7 +15,10 @@ type flagSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFlagSuite(t *stdtesting.T) { tc.Run(t, &flagSuite{}) }
+func TestFlagSuite(t *stdtesting.T) {
+	tc.Run(t, &flagSuite{})
+}
+
 func (s *flagSuite) TestEmpty(c *tc.C) {
 	s.PatchEnvironment("JUJU_TESTING_FEATURE", "")
 	SetFlagsFromEnvironment("JUJU_TESTING_FEATURE")

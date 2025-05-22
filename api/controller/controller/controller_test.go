@@ -32,7 +32,10 @@ type Suite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &Suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &Suite{})
+}
+
 func (s *Suite) TestDestroyController(c *tc.C) {
 	var stub testhelpers.Stub
 	apiCaller := apitesting.BestVersionCaller{

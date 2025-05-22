@@ -17,7 +17,10 @@ type downloadSuite struct {
 	baseSuite
 }
 
-func TestDownloadSuite(t *stdtesting.T) { tc.Run(t, &downloadSuite{}) }
+func TestDownloadSuite(t *stdtesting.T) {
+	tc.Run(t, &downloadSuite{})
+}
+
 func (s *downloadSuite) TestDownload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

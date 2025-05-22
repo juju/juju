@@ -28,7 +28,10 @@ type ShowUnitSuite struct {
 	mockAPI *mockShowUnitAPI
 }
 
-func TestShowUnitSuite(t *stdtesting.T) { tc.Run(t, &ShowUnitSuite{}) }
+func TestShowUnitSuite(t *stdtesting.T) {
+	tc.Run(t, &ShowUnitSuite{})
+}
+
 func (s *ShowUnitSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 

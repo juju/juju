@@ -19,7 +19,10 @@ type zoneSuite struct {
 	zone google.AvailabilityZone
 }
 
-func TestZoneSuite(t *stdtesting.T) { tc.Run(t, &zoneSuite{}) }
+func TestZoneSuite(t *stdtesting.T) {
+	tc.Run(t, &zoneSuite{})
+}
+
 func (s *zoneSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

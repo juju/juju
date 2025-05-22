@@ -42,7 +42,10 @@ type serviceSuite struct {
 	secretBackendState *secret.MockSecretBackendState
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 

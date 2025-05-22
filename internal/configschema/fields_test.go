@@ -14,7 +14,9 @@ import (
 
 type fieldsSuite struct{}
 
-func TestFieldsSuite(t *stdtesting.T) { tc.Run(t, &fieldsSuite{}) }
+func TestFieldsSuite(t *stdtesting.T) {
+	tc.Run(t, &fieldsSuite{})
+}
 
 type valueTest struct {
 	about       string

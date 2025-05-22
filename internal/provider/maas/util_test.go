@@ -17,7 +17,10 @@ import (
 
 type utilSuite struct{}
 
-func TestUtilSuite(t *stdtesting.T) { tc.Run(t, &utilSuite{}) }
+func TestUtilSuite(t *stdtesting.T) {
+	tc.Run(t, &utilSuite{})
+}
+
 func (*utilSuite) TestExtractSystemId(c *tc.C) {
 	instanceId := instance.Id("/MAAS/api/1.0/nodes/system_id/")
 

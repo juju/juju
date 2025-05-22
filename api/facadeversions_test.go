@@ -17,7 +17,10 @@ type facadeVersionSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestFacadeVersionSuite(t *stdtesting.T) { tc.Run(t, &facadeVersionSuite{}) }
+func TestFacadeVersionSuite(t *stdtesting.T) {
+	tc.Run(t, &facadeVersionSuite{})
+}
+
 func checkBestVersion(c *tc.C, desiredVersion, versions []int, expectedVersion int) {
 	resultVersion := facades.BestVersion(desiredVersion, versions)
 	c.Check(resultVersion, tc.Equals, expectedVersion)

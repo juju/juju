@@ -27,7 +27,9 @@ type leadershipSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLeadershipSuite(t *stdtesting.T) { tc.Run(t, &leadershipSuite{}) }
+func TestLeadershipSuite(t *stdtesting.T) {
+	tc.Run(t, &leadershipSuite{})
+}
 
 const (
 	StubAppNm  = "stub-application"

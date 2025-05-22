@@ -47,7 +47,10 @@ type addRelationSuite struct {
 	charmByApp map[coreapplication.ID]corecharm.ID
 }
 
-func TestAddRelationSuite(t *stdtesting.T) { tc.Run(t, &addRelationSuite{}) }
+func TestAddRelationSuite(t *stdtesting.T) {
+	tc.Run(t, &addRelationSuite{})
+}
+
 func (s *addRelationSuite) SetUpTest(c *tc.C) {
 	s.baseRelationSuite.SetUpTest(c)
 	s.charmByApp = make(map[coreapplication.ID]corecharm.ID)
@@ -793,7 +796,10 @@ type relationSuite struct {
 	fakeCharmRelationProvidesUUID string
 }
 
-func TestRelationSuite(t *stdtesting.T) { tc.Run(t, &relationSuite{}) }
+func TestRelationSuite(t *stdtesting.T) {
+	tc.Run(t, &relationSuite{})
+}
+
 func (s *relationSuite) SetUpTest(c *tc.C) {
 	s.baseRelationSuite.SetUpTest(c)
 

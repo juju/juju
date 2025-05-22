@@ -24,7 +24,10 @@ type ContextRelationSuite struct {
 	relUnit *uniterapi.MockRelationUnit
 }
 
-func TestContextRelationSuite(t *stdtesting.T) { tc.Run(t, &ContextRelationSuite{}) }
+func TestContextRelationSuite(t *stdtesting.T) {
+	tc.Run(t, &ContextRelationSuite{})
+}
+
 func (s *ContextRelationSuite) setUp(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

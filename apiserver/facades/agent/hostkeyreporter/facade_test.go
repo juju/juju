@@ -24,7 +24,10 @@ type facadeSuite struct {
 	facade     *hostkeyreporter.Facade
 }
 
-func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &facadeSuite{}) }
+func TestFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &facadeSuite{})
+}
+
 func (s *facadeSuite) SetUpTest(c *tc.C) {
 	s.backend = new(mockBackend)
 	s.authorizer = new(apiservertesting.FakeAuthorizer)

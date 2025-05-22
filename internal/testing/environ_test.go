@@ -17,7 +17,10 @@ type fakeHomeSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestFakeHomeSuite(t *stdtesting.T) { tc.Run(t, &fakeHomeSuite{}) }
+func TestFakeHomeSuite(t *stdtesting.T) {
+	tc.Run(t, &fakeHomeSuite{})
+}
+
 func (s *fakeHomeSuite) TestModelTagValid(c *tc.C) {
 	asString := testing.ModelTag.String()
 	tag, err := names.ParseModelTag(asString)

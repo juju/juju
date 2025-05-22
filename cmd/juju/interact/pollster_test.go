@@ -21,7 +21,10 @@ type PollsterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPollsterSuite(t *stdtesting.T) { tc.Run(t, &PollsterSuite{}) }
+func TestPollsterSuite(t *stdtesting.T) {
+	tc.Run(t, &PollsterSuite{})
+}
+
 func (s *PollsterSuite) TearDownTest(c *tc.C) {
 	s.IsolationSuite.TearDownTest(c)
 	os.Unsetenv("SCHEMA_VAR")

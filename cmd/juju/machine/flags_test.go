@@ -17,7 +17,10 @@ type FlagsSuite struct {
 	testing.BaseSuite
 }
 
-func TestFlagsSuite(t *stdtesting.T) { tc.Run(t, &FlagsSuite{}) }
+func TestFlagsSuite(t *stdtesting.T) {
+	tc.Run(t, &FlagsSuite{})
+}
+
 func (*FlagsSuite) TestDisksFlagErrors(c *tc.C) {
 	var disks []storage.Directive
 	f := machine.NewDisksFlag(&disks)

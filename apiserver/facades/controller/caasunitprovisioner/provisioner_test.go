@@ -26,7 +26,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestCAASProvisionerSuite(t *stdtesting.T) { tc.Run(t, &CAASProvisionerSuite{}) }
+func TestCAASProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &CAASProvisionerSuite{})
+}
 
 type CAASProvisionerSuite struct {
 	coretesting.BaseSuite

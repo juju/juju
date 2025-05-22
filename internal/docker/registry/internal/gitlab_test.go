@@ -32,7 +32,10 @@ type gitlabSuite struct {
 	authToken        string
 }
 
-func TestGitlabSuite(t *stdtesting.T) { tc.Run(t, &gitlabSuite{}) }
+func TestGitlabSuite(t *stdtesting.T) {
+	tc.Run(t, &gitlabSuite{})
+}
+
 func (s *gitlabSuite) getRegistry(c *tc.C) (registry.Registry, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 

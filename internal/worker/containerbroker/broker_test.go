@@ -28,7 +28,10 @@ type brokerConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBrokerConfigSuite(t *stdtesting.T) { tc.Run(t, &brokerConfigSuite{}) }
+func TestBrokerConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &brokerConfigSuite{})
+}
+
 func (s *brokerConfigSuite) TestInvalidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -124,7 +127,10 @@ type trackerSuite struct {
 	machineTag names.MachineTag
 }
 
-func TestTrackerSuite(t *stdtesting.T) { tc.Run(t, &trackerSuite{}) }
+func TestTrackerSuite(t *stdtesting.T) {
+	tc.Run(t, &trackerSuite{})
+}
+
 func (s *trackerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

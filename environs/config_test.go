@@ -18,7 +18,9 @@ type suite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
 
 type dummyProvider struct {
 	environs.CloudEnvironProvider

@@ -38,7 +38,10 @@ type credentialSuite struct {
 	controllerUUID string
 }
 
-func TestCredentialSuite(t *stdtesting.T) { tc.Run(t, &credentialSuite{}) }
+func TestCredentialSuite(t *stdtesting.T) {
+	tc.Run(t, &credentialSuite{})
+}
+
 func (s *credentialSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 

@@ -22,7 +22,10 @@ type FacadeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &FacadeSuite{}) }
+func TestFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &FacadeSuite{})
+}
+
 func (*FacadeSuite) TestPhaseCallError(c *tc.C) {
 	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(interface{}) error {

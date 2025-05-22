@@ -19,7 +19,10 @@ type isLeaderSuite struct {
 	testing.BaseSuite
 }
 
-func TestIsLeaderSuite(t *stdtesting.T) { tc.Run(t, &isLeaderSuite{}) }
+func TestIsLeaderSuite(t *stdtesting.T) {
+	tc.Run(t, &isLeaderSuite{})
+}
+
 func (s *isLeaderSuite) TestInitError(c *tc.C) {
 	command, err := jujuc.NewIsLeaderCommand(nil)
 	c.Assert(err, tc.ErrorIsNil)

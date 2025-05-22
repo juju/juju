@@ -18,7 +18,10 @@ type funcSuite struct {
 func (s *funcSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
-func TestFuncSuite(t *stdtesting.T) { tc.Run(t, &funcSuite{}) }
+func TestFuncSuite(t *stdtesting.T) {
+	tc.Run(t, &funcSuite{})
+}
+
 func (s *funcSuite) TestMaxFirstBigger(c *tc.C) {
 	c.Assert(max(3, 1), tc.DeepEquals, 3)
 }

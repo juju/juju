@@ -13,7 +13,10 @@ import (
 
 type progressSuite struct{}
 
-func TestProgressSuite(t *stdtesting.T) { tc.Run(t, &progressSuite{}) }
+func TestProgressSuite(t *stdtesting.T) {
+	tc.Run(t, &progressSuite{})
+}
+
 func (*progressSuite) TestProgressCmds(c *tc.C) {
 	initCmd := cloudinit.InitProgressCmd()
 	c.Assert(initCmd, tc.Equals,

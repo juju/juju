@@ -15,7 +15,10 @@ type uuidSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUuidSuite(t *stdtesting.T) { tc.Run(t, &uuidSuite{}) }
+func TestUuidSuite(t *stdtesting.T) {
+	tc.Run(t, &uuidSuite{})
+}
+
 func (*uuidSuite) TestUUID(c *tc.C) {
 	uuid, err := NewUUID()
 	c.Assert(err, tc.IsNil)

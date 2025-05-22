@@ -17,7 +17,10 @@ type settingsSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestSettingsSuite(t *stdtesting.T) { tc.Run(t, &settingsSuite{}) }
+func TestSettingsSuite(t *stdtesting.T) {
+	tc.Run(t, &settingsSuite{})
+}
+
 func (s *settingsSuite) TestNewSettingsAndMap(c *tc.C) {
 	// Make sure newSettings accepts nil settings.
 	settings := uniter.NewSettings("blah", "foo", nil)

@@ -36,7 +36,10 @@ type toolsSuite struct {
 	blockChecker     *MockBlockChecker
 }
 
-func TestToolsSuite(t *stdtesting.T) { tc.Run(t, &toolsSuite{}) }
+func TestToolsSuite(t *stdtesting.T) {
+	tc.Run(t, &toolsSuite{})
+}
+
 func (s *toolsSuite) SetUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.agentBinaryStore = NewMockAgentBinaryStore(ctrl)

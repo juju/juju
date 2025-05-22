@@ -60,7 +60,10 @@ type StatusSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestStatusSuite(t *stdtesting.T) { tc.Run(t, &StatusSuite{}) }
+func TestStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &StatusSuite{})
+}
+
 func (s *StatusSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()

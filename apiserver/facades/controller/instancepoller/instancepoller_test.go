@@ -55,7 +55,10 @@ type InstancePollerSuite struct {
 	clock clock.Clock
 }
 
-func TestInstancePollerSuite(t *stdtesting.T) { tc.Run(t, &InstancePollerSuite{}) }
+func TestInstancePollerSuite(t *stdtesting.T) {
+	tc.Run(t, &InstancePollerSuite{})
+}
+
 func (s *InstancePollerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)

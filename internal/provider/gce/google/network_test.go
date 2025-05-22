@@ -18,7 +18,10 @@ type networkSuite struct {
 	google.BaseSuite
 }
 
-func TestNetworkSuite(t *stdtesting.T) { tc.Run(t, &networkSuite{}) }
+func TestNetworkSuite(t *stdtesting.T) {
+	tc.Run(t, &networkSuite{})
+}
+
 func (s *networkSuite) TestNetworkSpecPath(c *tc.C) {
 	spec := google.NetworkSpec{
 		Name: "spam",

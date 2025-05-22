@@ -17,7 +17,10 @@ type OriginSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestOriginSuite(t *stdtesting.T) { tc.Run(t, &OriginSuite{}) }
+func TestOriginSuite(t *stdtesting.T) {
+	tc.Run(t, &OriginSuite{})
+}
+
 func (s *OriginSuite) TestParseOriginKnown(c *tc.C) {
 	recognized := map[string]resource.Origin{
 		"upload": resource.OriginUpload,

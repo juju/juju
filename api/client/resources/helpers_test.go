@@ -23,7 +23,10 @@ type HelpersSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHelpersSuite(t *stdtesting.T) { tc.Run(t, &HelpersSuite{}) }
+func TestHelpersSuite(t *stdtesting.T) {
+	tc.Run(t, &HelpersSuite{})
+}
+
 func (s *HelpersSuite) TestResource2API(c *tc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, tc.ErrorIsNil)

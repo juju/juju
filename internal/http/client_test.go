@@ -22,7 +22,10 @@ import (
 
 type clientSuite struct{}
 
-func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
+func TestClientSuite(t *stdtesting.T) {
+	tc.Run(t, &clientSuite{})
+}
+
 func (s *clientSuite) TestNewClient(c *tc.C) {
 	client := NewClient()
 	c.Assert(client, tc.NotNil)
@@ -33,7 +36,10 @@ type httpSuite struct {
 	server *httptest.Server
 }
 
-func TestHttpSuite(t *stdtesting.T) { tc.Run(t, &httpSuite{}) }
+func TestHttpSuite(t *stdtesting.T) {
+	tc.Run(t, &httpSuite{})
+}
+
 func (s *httpSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
@@ -177,7 +183,10 @@ type httpTLSServerSuite struct {
 	server *httptest.Server
 }
 
-func TestHttpTLSServerSuite(t *stdtesting.T) { tc.Run(t, &httpTLSServerSuite{}) }
+func TestHttpTLSServerSuite(t *stdtesting.T) {
+	tc.Run(t, &httpTLSServerSuite{})
+}
+
 func (s *httpTLSServerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	// NewTLSServer returns a server which serves TLS, but

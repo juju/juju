@@ -22,7 +22,10 @@ type AttachStorageSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAttachStorageSuite(t *stdtesting.T) { tc.Run(t, &AttachStorageSuite{}) }
+func TestAttachStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &AttachStorageSuite{})
+}
+
 func (s *AttachStorageSuite) TestAttach(c *tc.C) {
 	fake := fakeEntityAttacher{results: []params.ErrorResult{
 		{},

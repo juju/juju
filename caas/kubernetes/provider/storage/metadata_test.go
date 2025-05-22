@@ -15,7 +15,10 @@ import (
 
 type metadataSuite struct{}
 
-func TestMetadataSuite(t *stdtesting.T) { tc.Run(t, &metadataSuite{}) }
+func TestMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &metadataSuite{})
+}
+
 func (*metadataSuite) TestPreferredStorageAny(c *tc.C) {
 	tests := []struct {
 		Name         string

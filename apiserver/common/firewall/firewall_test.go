@@ -24,7 +24,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestFirewallSuite(t *stdtesting.T) { tc.Run(t, &FirewallSuite{}) }
+func TestFirewallSuite(t *stdtesting.T) {
+	tc.Run(t, &FirewallSuite{})
+}
 
 type FirewallSuite struct {
 	coretesting.BaseSuite

@@ -12,7 +12,10 @@ import (
 type cloudSpecUniterSuite struct {
 }
 
-func TestCloudSpecUniterSuite(t *stdtesting.T) { tc.Run(t, &cloudSpecUniterSuite{}) }
+func TestCloudSpecUniterSuite(t *stdtesting.T) {
+	tc.Run(t, &cloudSpecUniterSuite{})
+}
+
 func (s *cloudSpecUniterSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - TestGetCloudSpecReturnsSpecWhenTrusted: A test returning a correct cloud spec

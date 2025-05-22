@@ -33,7 +33,10 @@ type UpgraderSuite struct {
 	initialCheckComplete gate.Lock
 }
 
-func TestUpgraderSuite(t *stdtesting.T) { tc.Run(t, &UpgraderSuite{}) }
+func TestUpgraderSuite(t *stdtesting.T) {
+	tc.Run(t, &UpgraderSuite{})
+}
+
 func (s *UpgraderSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

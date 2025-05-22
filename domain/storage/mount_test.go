@@ -16,7 +16,10 @@ type mountSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMountSuite(t *stdtesting.T) { tc.Run(t, &mountSuite{}) }
+func TestMountSuite(t *stdtesting.T) {
+	tc.Run(t, &mountSuite{})
+}
+
 func (s *mountSuite) TestMountPointSingleton(c *tc.C) {
 	path, err := storage.FilesystemMountPoint("here", 1, "data/0")
 	c.Assert(err, tc.ErrorIsNil)

@@ -19,7 +19,10 @@ type daemonsetSuite struct {
 	resourceSuite
 }
 
-func TestDaemonsetSuite(t *stdtesting.T) { tc.Run(t, &daemonsetSuite{}) }
+func TestDaemonsetSuite(t *stdtesting.T) {
+	tc.Run(t, &daemonsetSuite{})
+}
+
 func (s *daemonsetSuite) TestApply(c *tc.C) {
 	ds := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{

@@ -22,7 +22,10 @@ import (
 
 type sshInitSuite struct{}
 
-func TestSshInitSuite(t *stdtesting.T) { tc.Run(t, &sshInitSuite{}) }
+func TestSshInitSuite(t *stdtesting.T) {
+	tc.Run(t, &sshInitSuite{})
+}
+
 func (s *sshInitSuite) TestFileTransport(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

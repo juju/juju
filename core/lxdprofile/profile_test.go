@@ -17,7 +17,10 @@ type ProfileSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProfileSuite(t *stdtesting.T) { tc.Run(t, &ProfileSuite{}) }
+func TestProfileSuite(t *stdtesting.T) {
+	tc.Run(t, &ProfileSuite{})
+}
+
 func (*ProfileSuite) TestEmptyTrue(c *tc.C) {
 	p := lxdprofile.Profile{}
 	c.Assert(p.Empty(), tc.IsTrue)

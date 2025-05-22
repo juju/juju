@@ -17,7 +17,10 @@ type SecretRevokeSuite struct {
 	relationSuite
 }
 
-func TestSecretRevokeSuite(t *stdtesting.T) { tc.Run(t, &SecretRevokeSuite{}) }
+func TestSecretRevokeSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretRevokeSuite{})
+}
+
 func (s *SecretRevokeSuite) TestRevokeSecretInvalidArgs(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 

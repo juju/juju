@@ -16,7 +16,10 @@ type HelpActionCommandsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestHelpActionCommandsSuite(t *stdtesting.T) { tc.Run(t, &HelpActionCommandsSuite{}) }
+func TestHelpActionCommandsSuite(t *stdtesting.T) {
+	tc.Run(t, &HelpActionCommandsSuite{})
+}
+
 func (suite *HelpActionCommandsSuite) SetUpTest(c *tc.C) {
 	suite.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	setFeatureFlags("")

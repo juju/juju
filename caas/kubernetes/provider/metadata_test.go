@@ -24,7 +24,9 @@ type K8sMetadataSuite struct {
 	BaseSuite
 }
 
-func TestK8sMetadataSuite(t *stdtesting.T) { tc.Run(t, &K8sMetadataSuite{}) }
+func TestK8sMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &K8sMetadataSuite{})
+}
 
 var (
 	annotatedWorkloadStorage = &storagev1.StorageClass{

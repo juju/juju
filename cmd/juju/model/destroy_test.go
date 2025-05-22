@@ -37,7 +37,9 @@ type DestroySuite struct {
 	clock testclock.AdvanceableClock
 }
 
-func TestDestroySuite(t *stdtesting.T) { tc.Run(t, &DestroySuite{}) }
+func TestDestroySuite(t *stdtesting.T) {
+	tc.Run(t, &DestroySuite{})
+}
 
 // fakeDestroyAPI mocks out the client API
 type fakeAPI struct {

@@ -22,7 +22,10 @@ type blockSuite struct {
 	authorizer *MockAuthorizer
 }
 
-func TestBlockSuite(t *stdtesting.T) { tc.Run(t, &blockSuite{}) }
+func TestBlockSuite(t *stdtesting.T) {
+	tc.Run(t, &blockSuite{})
+}
+
 func (s *blockSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.service = NewMockBlockCommandService(ctrl)

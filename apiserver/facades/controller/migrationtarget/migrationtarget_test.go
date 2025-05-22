@@ -60,7 +60,10 @@ type Suite struct {
 	facadeContext facadetest.ModelContext
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &Suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &Suite{})
+}
+
 func (s *Suite) SetUpSuite(c *tc.C) {
 	c.Skip(`
 Skip added by tlm. The reason we are skipping these tests is currently they are

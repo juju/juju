@@ -23,7 +23,10 @@ type DialCollectorSuite struct {
 	collector *mongometrics.DialCollector
 }
 
-func TestDialCollectorSuite(t *stdtesting.T) { tc.Run(t, &DialCollectorSuite{}) }
+func TestDialCollectorSuite(t *stdtesting.T) {
+	tc.Run(t, &DialCollectorSuite{})
+}
+
 func (s *DialCollectorSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.collector = mongometrics.NewDialCollector()

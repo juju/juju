@@ -33,7 +33,9 @@ func (s *ModelCommandSuite) SetUpTest(c *tc.C) {
 
 	s.store = jujuclient.NewMemStore()
 }
-func TestModelCommandSuite(t *stdtesting.T) { tc.Run(t, &ModelCommandSuite{}) }
+func TestModelCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelCommandSuite{})
+}
 
 var modelCommandModelTests = []struct {
 	about            string

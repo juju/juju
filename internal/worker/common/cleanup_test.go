@@ -20,7 +20,10 @@ type cleanupSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestCleanupSuite(t *stdtesting.T) { tc.Run(t, &cleanupSuite{}) }
+func TestCleanupSuite(t *stdtesting.T) {
+	tc.Run(t, &cleanupSuite{})
+}
+
 func (s *cleanupSuite) TestCleansUpOnce(c *tc.C) {
 	var w fakeWorker
 	cleanup := func() {

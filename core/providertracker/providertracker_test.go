@@ -27,7 +27,9 @@ type ephemeralProviderConfigGetter struct {
 	EphemeralProviderConfig
 }
 
-func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
+func TestProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &providerSuite{})
+}
 
 // GetEphemeralProviderConfig returns the ephemeral provider config set on this
 // getter. This func implements the [EphemeralProviderConfigGetter] interface.

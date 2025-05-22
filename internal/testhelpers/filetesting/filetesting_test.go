@@ -55,7 +55,10 @@ type EntrySuite struct {
 	basePath string
 }
 
-func TestEntrySuite(t *stdtesting.T) { tc.Run(t, &EntrySuite{}) }
+func TestEntrySuite(t *stdtesting.T) {
+	tc.Run(t, &EntrySuite{})
+}
+
 func (s *EntrySuite) SetUpTest(c *tc.C) {
 	s.basePath = c.MkDir()
 }

@@ -25,7 +25,10 @@ type ManifoldSuite struct {
 	newCalled bool
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
+
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.newCalled = false
 	s.PatchValue(&identityfilewriter.NewWorker,

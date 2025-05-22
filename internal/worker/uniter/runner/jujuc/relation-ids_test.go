@@ -20,7 +20,10 @@ type RelationIdsSuite struct {
 	relationSuite
 }
 
-func TestRelationIdsSuite(t *stdtesting.T) { tc.Run(t, &RelationIdsSuite{}) }
+func TestRelationIdsSuite(t *stdtesting.T) {
+	tc.Run(t, &RelationIdsSuite{})
+}
+
 func (s *RelationIdsSuite) newHookContext(relid int, remote string) (jujuc.Context, *relationInfo) {
 	hctx, info := s.relationSuite.newHookContext(-1, "", "")
 	info.reset()

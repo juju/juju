@@ -23,7 +23,10 @@ import (
 
 type modelconfigSuite struct{}
 
-func TestModelconfigSuite(t *stdtesting.T) { tc.Run(t, &modelconfigSuite{}) }
+func TestModelconfigSuite(t *stdtesting.T) {
+	tc.Run(t, &modelconfigSuite{})
+}
+
 func (s *modelconfigSuite) TestModelGet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

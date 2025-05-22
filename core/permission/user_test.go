@@ -13,7 +13,9 @@ import (
 
 type userSuite struct{}
 
-func TestUserSuite(t *stdtesting.T) { tc.Run(t, &userSuite{}) }
+func TestUserSuite(t *stdtesting.T) {
+	tc.Run(t, &userSuite{})
+}
 
 var validateRevokeAccessTest = []struct {
 	spec     permission.AccessSpec

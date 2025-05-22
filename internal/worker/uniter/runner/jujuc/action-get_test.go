@@ -20,7 +20,9 @@ type ActionGetSuite struct {
 	jujuctesting.ContextSuite
 }
 
-func TestActionGetSuite(t *stdtesting.T) { tc.Run(t, &ActionGetSuite{}) }
+func TestActionGetSuite(t *stdtesting.T) {
+	tc.Run(t, &ActionGetSuite{})
+}
 
 type actionGetContext struct {
 	actionParams map[string]interface{}

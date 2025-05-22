@@ -31,7 +31,10 @@ type environSuite struct {
 	lxd.BaseSuite
 }
 
-func TestEnvironSuite(t *stdtesting.T) { tc.Run(t, &environSuite{}) }
+func TestEnvironSuite(t *stdtesting.T) {
+	tc.Run(t, &environSuite{})
+}
+
 func (s *environSuite) TestName(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
@@ -476,7 +479,10 @@ type environProfileSuite struct {
 	lxdEnv environs.LXDProfiler
 }
 
-func TestEnvironProfileSuite(t *stdtesting.T) { tc.Run(t, &environProfileSuite{}) }
+func TestEnvironProfileSuite(t *stdtesting.T) {
+	tc.Run(t, &environProfileSuite{})
+}
+
 func (s *environProfileSuite) TestMaybeWriteLXDProfileYes(c *tc.C) {
 	defer s.setup(c, environscloudspec.CloudSpec{}).Finish()
 

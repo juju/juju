@@ -19,7 +19,10 @@ type deploymentSuite struct {
 	resourceSuite
 }
 
-func TestDeploymentSuite(t *stdtesting.T) { tc.Run(t, &deploymentSuite{}) }
+func TestDeploymentSuite(t *stdtesting.T) {
+	tc.Run(t, &deploymentSuite{})
+}
+
 func (s *deploymentSuite) TestApply(c *tc.C) {
 	ds := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

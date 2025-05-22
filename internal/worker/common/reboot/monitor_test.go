@@ -14,7 +14,10 @@ import (
 
 type monitorSuite struct{}
 
-func TestMonitorSuite(t *stdtesting.T) { tc.Run(t, &monitorSuite{}) }
+func TestMonitorSuite(t *stdtesting.T) {
+	tc.Run(t, &monitorSuite{})
+}
+
 func (s *monitorSuite) TestQueryMonitor(c *tc.C) {
 	transientDir := c.MkDir()
 	mon := reboot.NewMonitor(transientDir)

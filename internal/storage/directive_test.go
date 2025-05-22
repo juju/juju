@@ -16,7 +16,10 @@ type DirectiveSuite struct {
 	testing.BaseSuite
 }
 
-func TestDirectiveSuite(t *stdtesting.T) { tc.Run(t, &DirectiveSuite{}) }
+func TestDirectiveSuite(t *stdtesting.T) {
+	tc.Run(t, &DirectiveSuite{})
+}
+
 func (s *DirectiveSuite) TestParseConstraintsStoragePool(c *tc.C) {
 	s.testParse(c, "pool,1M", storage.Directive{
 		Pool:  "pool",

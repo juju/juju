@@ -26,7 +26,10 @@ type ManifoldSuite struct {
 	startErr error
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
+
 func MakeUpdateFunc(name string) func(proxy.Settings) error {
 	// So we can tell the difference between update funcs.
 	return func(proxy.Settings) error {

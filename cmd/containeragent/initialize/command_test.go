@@ -35,7 +35,9 @@ type initCommandSuit struct {
 	clock            testclock.AdvanceableClock
 }
 
-func TestInitCommandSuit(t *stdtesting.T) { tc.Run(t, &initCommandSuit{}) }
+func TestInitCommandSuit(t *stdtesting.T) {
+	tc.Run(t, &initCommandSuit{})
+}
 
 var podEnv = map[string]string{
 	"JUJU_K8S_APPLICATION":          "gitlab",

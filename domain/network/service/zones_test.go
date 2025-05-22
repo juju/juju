@@ -29,7 +29,10 @@ type zonesSuite struct {
 	notSupportedZoneProviderGetter    func(context.Context) (ProviderWithZones, error)
 }
 
-func TestZonesSuite(t *stdtesting.T) { tc.Run(t, &zonesSuite{}) }
+func TestZonesSuite(t *stdtesting.T) {
+	tc.Run(t, &zonesSuite{})
+}
+
 func (s *zonesSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

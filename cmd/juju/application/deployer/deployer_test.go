@@ -48,7 +48,10 @@ type deployerSuite struct {
 	deployResourceIDs map[string]string
 }
 
-func TestDeployerSuite(t *stdtesting.T) { tc.Run(t, &deployerSuite{}) }
+func TestDeployerSuite(t *stdtesting.T) {
+	tc.Run(t, &deployerSuite{})
+}
+
 func (s *deployerSuite) SetUpTest(_ *tc.C) {
 	s.deployResourceIDs = make(map[string]string)
 }

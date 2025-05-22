@@ -19,7 +19,10 @@ type proxyWrapperSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProxyWrapperSuite(t *stdtesting.T) { tc.Run(t, &proxyWrapperSuite{}) }
+func TestProxyWrapperSuite(t *stdtesting.T) {
+	tc.Run(t, &proxyWrapperSuite{})
+}
+
 func (p *proxyWrapperSuite) TestMarshalling(c *tc.C) {
 	config := proxy.ProxierConfig{
 		APIHost:             "https://127.0.0.1:443",

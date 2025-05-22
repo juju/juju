@@ -27,7 +27,10 @@ type jwtParserSuite struct {
 	client     mockHTTPClient
 }
 
-func TestJwtParserSuite(t *stdtesting.T) { tc.Run(t, &jwtParserSuite{}) }
+func TestJwtParserSuite(t *stdtesting.T) {
+	tc.Run(t, &jwtParserSuite{})
+}
+
 func (s *jwtParserSuite) SetUpTest(c *tc.C) {
 	s.keySet, s.signingKey = NewJWKSet(c)
 	s.url = "fakeurl.com/keys"

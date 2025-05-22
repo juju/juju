@@ -18,7 +18,10 @@ import (
 
 type blockMockSuite struct{}
 
-func TestBlockMockSuite(t *stdtesting.T) { tc.Run(t, &blockMockSuite{}) }
+func TestBlockMockSuite(t *stdtesting.T) {
+	tc.Run(t, &blockMockSuite{})
+}
+
 func (s *blockMockSuite) TestSwitchBlockOn(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

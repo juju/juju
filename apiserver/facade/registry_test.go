@@ -19,7 +19,9 @@ type RegistrySuite struct {
 	testing.BaseSuite
 }
 
-func TestRegistrySuite(t *stdtesting.T) { tc.Run(t, &RegistrySuite{}) }
+func TestRegistrySuite(t *stdtesting.T) {
+	tc.Run(t, &RegistrySuite{})
+}
 
 var (
 	interfaceType = reflect.TypeOf((*interface{})(nil)).Elem()

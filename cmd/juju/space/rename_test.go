@@ -16,7 +16,10 @@ type RenameSuite struct {
 	BaseSpaceSuite
 }
 
-func TestRenameSuite(t *stdtesting.T) { tc.Run(t, &RenameSuite{}) }
+func TestRenameSuite(t *stdtesting.T) {
+	tc.Run(t, &RenameSuite{})
+}
+
 func (s *RenameSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewRenameCommand

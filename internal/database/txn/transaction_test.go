@@ -30,7 +30,10 @@ type transactionRunnerSuite struct {
 	clock *MockClock
 }
 
-func TestTransactionRunnerSuite(t *stdtesting.T) { tc.Run(t, &transactionRunnerSuite{}) }
+func TestTransactionRunnerSuite(t *stdtesting.T) {
+	tc.Run(t, &transactionRunnerSuite{})
+}
+
 func (s *transactionRunnerSuite) TestTxn(c *tc.C) {
 	runner := txn.NewRetryingTxnRunner()
 

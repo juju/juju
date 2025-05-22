@@ -13,7 +13,10 @@ import (
 
 type storageNameSuite struct{}
 
-func TestStorageNameSuite(t *stdtesting.T) { tc.Run(t, &storageNameSuite{}) }
+func TestStorageNameSuite(t *stdtesting.T) {
+	tc.Run(t, &storageNameSuite{})
+}
+
 func (s *storageNameSuite) TestStorageNameValidity(c *tc.C) {
 	assertStorageNameValid(c, "shared-fs")
 	assertStorageNameInvalid(c, "")
@@ -33,7 +36,10 @@ func assertStorageNameInvalid(c *tc.C, name string) {
 
 type storageIDSuite struct{}
 
-func TestStorageIDSuite(t *stdtesting.T) { tc.Run(t, &storageIDSuite{}) }
+func TestStorageIDSuite(t *stdtesting.T) {
+	tc.Run(t, &storageIDSuite{})
+}
+
 func (s *storageIDSuite) TestStorageIDValidity(c *tc.C) {
 	assertStorageIDValid(c, "shared-fs/0")
 	assertStorageIDInvalid(c, "shared-fs")

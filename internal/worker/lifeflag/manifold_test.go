@@ -26,7 +26,10 @@ type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
+
 func (*ManifoldSuite) TestInputs(c *tc.C) {
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{
 		APICallerName: "boris",

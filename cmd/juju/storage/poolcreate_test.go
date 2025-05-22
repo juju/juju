@@ -20,7 +20,10 @@ type PoolCreateSuite struct {
 	mockAPI *mockPoolCreateAPI
 }
 
-func TestPoolCreateSuite(t *stdtesting.T) { tc.Run(t, &PoolCreateSuite{}) }
+func TestPoolCreateSuite(t *stdtesting.T) {
+	tc.Run(t, &PoolCreateSuite{})
+}
+
 func (s *PoolCreateSuite) SetUpTest(c *tc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 

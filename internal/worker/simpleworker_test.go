@@ -17,7 +17,9 @@ type simpleWorkerSuite struct {
 	testing.BaseSuite
 }
 
-func TestSimpleWorkerSuite(t *stdtesting.T) { tc.Run(t, &simpleWorkerSuite{}) }
+func TestSimpleWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &simpleWorkerSuite{})
+}
 
 var errTest = errors.New("test error")
 

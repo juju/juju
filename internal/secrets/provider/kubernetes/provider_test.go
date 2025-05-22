@@ -51,7 +51,10 @@ type providerSuite struct {
 	namespace string
 }
 
-func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
+func TestProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &providerSuite{})
+}
+
 func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.namespace = "test"
 	s.PatchValue(&kubernetes.NewK8sClient, func(config *rest.Config) (kubernetes2.Interface, error) {

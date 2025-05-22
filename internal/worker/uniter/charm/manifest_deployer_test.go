@@ -30,7 +30,9 @@ type ManifestDeployerSuite struct {
 	deployer   charm.Deployer
 }
 
-func TestManifestDeployerSuite(t *stdtesting.T) { tc.Run(t, &ManifestDeployerSuite{}) }
+func TestManifestDeployerSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifestDeployerSuite{})
+}
 
 // because we generally use real charm bundles for testing, and charm bundling
 // sets every file mode to 0755 or 0644, all our input data uses those modes as

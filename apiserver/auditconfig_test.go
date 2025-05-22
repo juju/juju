@@ -31,7 +31,10 @@ type auditConfigSuite struct {
 	testing.ApiServerSuite
 }
 
-func TestAuditConfigSuite(t *stdtesting.T) { tc.Run(t, &auditConfigSuite{}) }
+func TestAuditConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &auditConfigSuite{})
+}
+
 func (s *auditConfigSuite) openAPIWithoutLogin(c *tc.C) api.Connection {
 	info := s.ControllerModelApiInfo()
 	info.Tag = nil

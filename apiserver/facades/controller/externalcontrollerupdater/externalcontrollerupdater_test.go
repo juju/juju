@@ -18,7 +18,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestCrossControllerSuite(t *stdtesting.T) { tc.Run(t, &CrossControllerSuite{}) }
+func TestCrossControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &CrossControllerSuite{})
+}
 
 type CrossControllerSuite struct {
 	coretesting.BaseSuite

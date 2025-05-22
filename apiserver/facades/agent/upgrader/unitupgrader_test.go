@@ -15,7 +15,10 @@ type unitUpgraderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUnitUpgraderSuite(t *stdtesting.T) { tc.Run(t, &unitUpgraderSuite{}) }
+func TestUnitUpgraderSuite(t *stdtesting.T) {
+	tc.Run(t, &unitUpgraderSuite{})
+}
+
 func (s *unitUpgraderSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
  - TestWatchAPIVersionNothing: Not an error to watch nothing

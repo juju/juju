@@ -21,7 +21,10 @@ type providerSuite struct {
 	spec     environscloudspec.CloudSpec
 }
 
-func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
+func TestProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &providerSuite{})
+}
+
 func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

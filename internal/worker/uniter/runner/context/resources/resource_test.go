@@ -15,7 +15,9 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 )
 
-func TestOpenedResourceSuite(t *stdtesting.T) { tc.Run(t, &OpenedResourceSuite{}) }
+func TestOpenedResourceSuite(t *stdtesting.T) {
+	tc.Run(t, &OpenedResourceSuite{})
+}
 
 type OpenedResourceSuite struct {
 	testhelpers.IsolationSuite

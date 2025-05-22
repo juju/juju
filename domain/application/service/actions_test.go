@@ -17,7 +17,9 @@ type actionsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestActionsSuite(t *stdtesting.T) { tc.Run(t, &actionsSuite{}) }
+func TestActionsSuite(t *stdtesting.T) {
+	tc.Run(t, &actionsSuite{})
+}
 
 var actionsTestCases = [...]struct {
 	name   string

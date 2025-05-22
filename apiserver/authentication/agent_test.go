@@ -25,7 +25,10 @@ type agentAuthenticatorSuite struct {
 	agentPasswordService *MockAgentPasswordService
 }
 
-func TestAgentAuthenticatorSuite(t *stdtesting.T) { tc.Run(t, &agentAuthenticatorSuite{}) }
+func TestAgentAuthenticatorSuite(t *stdtesting.T) {
+	tc.Run(t, &agentAuthenticatorSuite{})
+}
+
 func (s *agentAuthenticatorSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Valid machine login.

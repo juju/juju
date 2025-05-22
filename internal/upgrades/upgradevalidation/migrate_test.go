@@ -24,7 +24,9 @@ func makeBases(os string, vers []string) []state.Base {
 	}
 	return bases
 }
-func TestMigrateSuite(t *stdtesting.T) { tc.Run(t, &migrateSuite{}) }
+func TestMigrateSuite(t *stdtesting.T) {
+	tc.Run(t, &migrateSuite{})
+}
 
 type migrateSuite struct {
 	testhelpers.IsolationSuite

@@ -18,7 +18,10 @@ type statusSuite struct {
 	now time.Time
 }
 
-func TestStatusSuite(t *stdtesting.T) { tc.Run(t, &statusSuite{}) }
+func TestStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &statusSuite{})
+}
+
 func (s *statusSuite) SetUpTest(c *tc.C) {
 	s.now = time.Now()
 }

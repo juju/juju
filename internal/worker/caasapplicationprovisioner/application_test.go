@@ -31,7 +31,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestApplicationWorkerSuite(t *stdtesting.T) { tc.Run(t, &ApplicationWorkerSuite{}) }
+func TestApplicationWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &ApplicationWorkerSuite{})
+}
 
 type ApplicationWorkerSuite struct {
 	coretesting.BaseSuite

@@ -15,7 +15,10 @@ import (
 type bundleSuite struct {
 }
 
-func TestBundleSuite(t *stdtesting.T) { tc.Run(t, &bundleSuite{}) }
+func TestBundleSuite(t *stdtesting.T) {
+	tc.Run(t, &bundleSuite{})
+}
+
 func (s *bundleSuite) TestCheckExplicitBase(c *tc.C) {
 	explicitBaseErrorUbuntu := "base must be explicitly provided for \"ch:ubuntu\" when image-id constraint is used"
 	explicitBaseError := "base must be explicitly provided for(.)*"

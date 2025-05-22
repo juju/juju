@@ -51,7 +51,10 @@ func (s *modelServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.mockEnvironVersionProvider = NewMockEnvironVersionProvider(ctrl)
 	return ctrl
 }
-func TestModelServiceSuite(t *stdtesting.T) { tc.Run(t, &modelServiceSuite{}) }
+func TestModelServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &modelServiceSuite{})
+}
+
 func ptr[T any](v T) *T {
 	return &v
 }

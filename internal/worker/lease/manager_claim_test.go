@@ -22,7 +22,10 @@ type ClaimSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestClaimSuite(t *stdtesting.T) { tc.Run(t, &ClaimSuite{}) }
+func TestClaimSuite(t *stdtesting.T) {
+	tc.Run(t, &ClaimSuite{})
+}
+
 func (s *ClaimSuite) TestClaimLease_Success(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{

@@ -25,7 +25,10 @@ type UpdateSuite struct {
 	updateSecretBackendsAPI *secretbackends.MockUpdateSecretBackendsAPI
 }
 
-func TestUpdateSuite(t *stdtesting.T) { tc.Run(t, &UpdateSuite{}) }
+func TestUpdateSuite(t *stdtesting.T) {
+	tc.Run(t, &UpdateSuite{})
+}
+
 func (s *UpdateSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()

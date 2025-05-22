@@ -22,7 +22,10 @@ type relationUnitSuite struct {
 	testing.BaseSuite
 }
 
-func TestRelationUnitSuite(t *stdtesting.T) { tc.Run(t, &relationUnitSuite{}) }
+func TestRelationUnitSuite(t *stdtesting.T) {
+	tc.Run(t, &relationUnitSuite{})
+}
+
 func (s *relationUnitSuite) getRelationUnit(c *tc.C) *uniter.RelationUnit {
 	relUnitArg := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{

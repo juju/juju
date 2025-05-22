@@ -21,7 +21,9 @@ type PermissionSuite struct {
 	testing.BaseSuite
 }
 
-func TestPermissionSuite(t *stdtesting.T) { tc.Run(t, &PermissionSuite{}) }
+func TestPermissionSuite(t *stdtesting.T) {
+	tc.Run(t, &PermissionSuite{})
+}
 
 type fakeUserAccess struct {
 	userNames []user.Name

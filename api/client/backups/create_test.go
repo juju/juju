@@ -17,7 +17,10 @@ type createSuite struct {
 	baseSuite
 }
 
-func TestCreateSuite(t *stdtesting.T) { tc.Run(t, &createSuite{}) }
+func TestCreateSuite(t *stdtesting.T) {
+	tc.Run(t, &createSuite{})
+}
+
 func (s *createSuite) TestCreate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -18,7 +18,9 @@ type linuxBaseSuite struct {
 	testhelpers.CleanupSuite
 }
 
-func TestLinuxBaseSuite(t *stdtesting.T) { tc.Run(t, &linuxBaseSuite{}) }
+func TestLinuxBaseSuite(t *stdtesting.T) {
+	tc.Run(t, &linuxBaseSuite{})
+}
 
 var readBaseTests = []struct {
 	contents string

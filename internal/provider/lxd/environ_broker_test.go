@@ -31,7 +31,10 @@ type environBrokerSuite struct {
 	defaultProfile *api.Profile
 }
 
-func TestEnvironBrokerSuite(t *stdtesting.T) { tc.Run(t, &environBrokerSuite{}) }
+func TestEnvironBrokerSuite(t *stdtesting.T) {
+	tc.Run(t, &environBrokerSuite{})
+}
+
 func (s *environBrokerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.defaultProfile = &api.Profile{

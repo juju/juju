@@ -13,7 +13,10 @@ import (
 
 type ActionsSuite struct{}
 
-func TestActionsSuite(t *stdtesting.T) { tc.Run(t, &ActionsSuite{}) }
+func TestActionsSuite(t *stdtesting.T) {
+	tc.Run(t, &ActionsSuite{})
+}
+
 func (s *ActionsSuite) TestNewActions(c *tc.C) {
 	emptyAction := NewActions()
 	c.Assert(emptyAction, tc.DeepEquals, &Actions{})

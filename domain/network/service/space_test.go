@@ -30,7 +30,10 @@ type spaceSuite struct {
 	notSupportedZoneProviderGetter    func(context.Context) (ProviderWithZones, error)
 }
 
-func TestSpaceSuite(t *stdtesting.T) { tc.Run(t, &spaceSuite{}) }
+func TestSpaceSuite(t *stdtesting.T) {
+	tc.Run(t, &spaceSuite{})
+}
+
 func (s *spaceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

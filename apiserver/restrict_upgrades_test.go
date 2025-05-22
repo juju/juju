@@ -18,7 +18,10 @@ type restrictUpgradesSuite struct {
 	testing.BaseSuite
 }
 
-func TestRestrictUpgradesSuite(t *stdtesting.T) { tc.Run(t, &restrictUpgradesSuite{}) }
+func TestRestrictUpgradesSuite(t *stdtesting.T) {
+	tc.Run(t, &restrictUpgradesSuite{})
+}
+
 func (r *restrictUpgradesSuite) TestAllowedMethods(c *tc.C) {
 	root := apiserver.TestingUpgradingRoot()
 	checkAllowed := func(facade, method string, version int) {

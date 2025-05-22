@@ -38,7 +38,10 @@ type deployerSuite struct {
 	clock *MockClock
 }
 
-func TestDeployerSuite(t *stdtesting.T) { tc.Run(t, &deployerSuite{}) }
+func TestDeployerSuite(t *stdtesting.T) {
+	tc.Run(t, &deployerSuite{})
+}
+
 func (s *deployerSuite) TestValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

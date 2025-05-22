@@ -17,7 +17,10 @@ type brokerSuite struct {
 	testing.BaseSuite
 }
 
-func TestBrokerSuite(t *stdtesting.T) { tc.Run(t, &brokerSuite{}) }
+func TestBrokerSuite(t *stdtesting.T) {
+	tc.Run(t, &brokerSuite{})
+}
+
 func (s *brokerSuite) TestDeploymentTypeValidation(c *tc.C) {
 
 	validTypes := []caas.DeploymentType{

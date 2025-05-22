@@ -19,7 +19,10 @@ type linkLayerSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestLinkLayerSuite(t *stdtesting.T) { tc.Run(t, &linkLayerSuite{}) }
+func TestLinkLayerSuite(t *stdtesting.T) {
+	tc.Run(t, &linkLayerSuite{})
+}
+
 func (s *linkLayerSuite) TestMachineInterfaceViewFitsType(c *tc.C) {
 	db, err := s.TxnRunnerFactory()()
 	c.Assert(err, tc.ErrorIsNil)

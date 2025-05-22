@@ -26,7 +26,10 @@ type CharmDirSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCharmDirSuite(t *stdtesting.T) { tc.Run(t, &CharmDirSuite{}) }
+func TestCharmDirSuite(t *stdtesting.T) {
+	tc.Run(t, &CharmDirSuite{})
+}
+
 func checkDummy(c *tc.C, f charm.Charm) {
 	c.Assert(f.Revision(), tc.Equals, 1)
 	c.Assert(f.Meta().Name, tc.Equals, "dummy")

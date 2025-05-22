@@ -26,7 +26,10 @@ type ConfigSuite struct {
 	config storageprovisioner.Config
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &ConfigSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
+
 func (s *ConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = validEnvironConfig()

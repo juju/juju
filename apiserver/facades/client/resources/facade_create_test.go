@@ -11,7 +11,9 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &FacadeSuite{}) }
+func TestFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &FacadeSuite{})
+}
 
 type FacadeSuite struct {
 	BaseSuite

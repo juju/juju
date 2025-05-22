@@ -36,7 +36,9 @@ type configCommandSuite struct {
 	defaultAppValues   map[string]interface{}
 }
 
-func TestConfigCommandSuite(t *stdtesting.T) { tc.Run(t, &configCommandSuite{}) }
+func TestConfigCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &configCommandSuite{})
+}
 
 var (
 	validSetTestValue   = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"

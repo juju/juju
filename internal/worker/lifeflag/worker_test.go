@@ -21,7 +21,10 @@ type WorkerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
+
 func (*WorkerSuite) TestCreateNotFoundError(c *tc.C) {
 	stub := &testhelpers.Stub{}
 	stub.SetErrors(apilifeflag.ErrEntityNotFound)

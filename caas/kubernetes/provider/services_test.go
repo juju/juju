@@ -19,7 +19,10 @@ type servicesSuite struct {
 	client *fake.Clientset
 }
 
-func TestServicesSuite(t *stdtesting.T) { tc.Run(t, &servicesSuite{}) }
+func TestServicesSuite(t *stdtesting.T) {
+	tc.Run(t, &servicesSuite{})
+}
+
 func (s *servicesSuite) SetUpTest(c *tc.C) {
 	s.client = fake.NewSimpleClientset()
 }

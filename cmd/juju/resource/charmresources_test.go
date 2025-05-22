@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestCharmResourcesSuite(t *stdtesting.T) { tc.Run(t, &CharmResourcesSuite{}) }
+func TestCharmResourcesSuite(t *stdtesting.T) {
+	tc.Run(t, &CharmResourcesSuite{})
+}
 
 type CharmResourcesSuite struct {
 	testhelpers.IsolationSuite

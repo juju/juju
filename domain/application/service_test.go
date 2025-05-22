@@ -49,7 +49,10 @@ type serviceSuite struct {
 	secretState             *secretstate.State
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func ptr[T any](v T) *T {
 	return &v
 }

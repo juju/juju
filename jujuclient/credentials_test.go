@@ -20,7 +20,10 @@ type CredentialsSuite struct {
 	credentials cloud.CloudCredential
 }
 
-func TestCredentialsSuite(t *stdtesting.T) { tc.Run(t, &CredentialsSuite{}) }
+func TestCredentialsSuite(t *stdtesting.T) {
+	tc.Run(t, &CredentialsSuite{})
+}
+
 func (s *CredentialsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclient.NewFileCredentialStore()

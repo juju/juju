@@ -26,7 +26,10 @@ type infoSuite struct {
 	charmHubAPI *mocks.MockCharmHubClient
 }
 
-func TestInfoSuite(t *stdtesting.T) { tc.Run(t, &infoSuite{}) }
+func TestInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &infoSuite{})
+}
+
 func (s *infoSuite) TestInitNoArgs(c *tc.C) {
 	command := &infoCommand{
 		charmHubCommand: &charmHubCommand{

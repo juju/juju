@@ -23,7 +23,10 @@ type ClientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestClientSuite(t *stdtesting.T) { tc.Run(t, &ClientSuite{}) }
+func TestClientSuite(t *stdtesting.T) {
+	tc.Run(t, &ClientSuite{})
+}
+
 func (s *ClientSuite) TestWatch(c *tc.C) {
 	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

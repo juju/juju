@@ -48,7 +48,10 @@ type SuperCommandSuite struct {
 	ctx *cmd.Context
 }
 
-func TestSuperCommandSuite(t *stdtesting.T) { tc.Run(t, &SuperCommandSuite{}) }
+func TestSuperCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &SuperCommandSuite{})
+}
+
 func baseSubcommandsPlus(newCommands map[string]string) map[string]string {
 	subcommands := map[string]string{
 		"documentation": "Generate the documentation for all commands",

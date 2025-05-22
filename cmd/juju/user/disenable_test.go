@@ -19,7 +19,10 @@ type DisableUserSuite struct {
 	mock *mockDisenableUserAPI
 }
 
-func TestDisableUserSuite(t *stdtesting.T) { tc.Run(t, &DisableUserSuite{}) }
+func TestDisableUserSuite(t *stdtesting.T) {
+	tc.Run(t, &DisableUserSuite{})
+}
+
 func (s *DisableUserSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mock = &mockDisenableUserAPI{}

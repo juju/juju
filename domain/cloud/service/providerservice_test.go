@@ -19,7 +19,10 @@ type providerServiceSuite struct {
 	baseSuite
 }
 
-func TestProviderServiceSuite(t *stdtesting.T) { tc.Run(t, &providerServiceSuite{}) }
+func TestProviderServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &providerServiceSuite{})
+}
+
 func (s *providerServiceSuite) TestCloud(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

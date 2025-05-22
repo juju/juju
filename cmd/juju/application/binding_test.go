@@ -18,7 +18,10 @@ type ParseBindSuite struct {
 	testhelpers.LoggingSuite
 }
 
-func TestParseBindSuite(t *stdtesting.T) { tc.Run(t, &ParseBindSuite{}) }
+func TestParseBindSuite(t *stdtesting.T) {
+	tc.Run(t, &ParseBindSuite{})
+}
+
 func (s *ParseBindSuite) SetUpSuite(c *tc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 }

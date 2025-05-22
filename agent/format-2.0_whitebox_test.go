@@ -27,7 +27,10 @@ type format_2_0Suite struct {
 	testing.BaseSuite
 }
 
-func TestFormat_2_0Suite(t *stdtesting.T) { tc.Run(t, &format_2_0Suite{}) }
+func TestFormat_2_0Suite(t *stdtesting.T) {
+	tc.Run(t, &format_2_0Suite{})
+}
+
 func (s *format_2_0Suite) TestStatePortNotParsedWithoutSecret(c *tc.C) {
 	dataDir := c.MkDir()
 	configPath := filepath.Join(dataDir, agentconstants.AgentConfigFilename)

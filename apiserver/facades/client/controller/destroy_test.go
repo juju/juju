@@ -50,7 +50,10 @@ type destroyControllerSuite struct {
 	mockModelService *mocks.MockModelService
 }
 
-func TestDestroyControllerSuite(t *stdtesting.T) { tc.Run(t, &destroyControllerSuite{}) }
+func TestDestroyControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &destroyControllerSuite{})
+}
+
 func (s *destroyControllerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockModelService = mocks.NewMockModelService(ctrl)

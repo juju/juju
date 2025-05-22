@@ -35,7 +35,10 @@ type ManifoldSuite struct {
 	getter         dependency.Getter
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
+
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub = testhelpers.Stub{}

@@ -38,7 +38,10 @@ type triggerSecretsSuite struct {
 	deletedSecrets  func([]string)
 }
 
-func TestTriggerSecretsSuite(t *stdtesting.T) { tc.Run(t, &triggerSecretsSuite{}) }
+func TestTriggerSecretsSuite(t *stdtesting.T) {
+	tc.Run(t, &triggerSecretsSuite{})
+}
+
 func (s *triggerSecretsSuite) SetUpTest(c *tc.C) {
 	s.remoteState = remotestate.Snapshot{
 		Life: life.Alive,
@@ -233,7 +236,10 @@ type changeSecretsSuite struct {
 	resolver    resolver.Resolver
 }
 
-func TestChangeSecretsSuite(t *stdtesting.T) { tc.Run(t, &changeSecretsSuite{}) }
+func TestChangeSecretsSuite(t *stdtesting.T) {
+	tc.Run(t, &changeSecretsSuite{})
+}
+
 func (s *changeSecretsSuite) SetUpTest(_ *tc.C) {
 	s.remoteState = remotestate.Snapshot{
 		Life: life.Alive,
@@ -330,7 +336,10 @@ type removeSecretSuite struct {
 	resolver    resolver.Resolver
 }
 
-func TestRemoveSecretSuite(t *stdtesting.T) { tc.Run(t, &removeSecretSuite{}) }
+func TestRemoveSecretSuite(t *stdtesting.T) {
+	tc.Run(t, &removeSecretSuite{})
+}
+
 func (s *removeSecretSuite) SetUpTest(_ *tc.C) {
 	s.remoteState = remotestate.Snapshot{
 		Life: life.Alive,
@@ -430,7 +439,10 @@ type secretDeletedSuite struct {
 	deleted []string
 }
 
-func TestSecretDeletedSuite(t *stdtesting.T) { tc.Run(t, &secretDeletedSuite{}) }
+func TestSecretDeletedSuite(t *stdtesting.T) {
+	tc.Run(t, &secretDeletedSuite{})
+}
+
 func (s *secretDeletedSuite) SetUpTest(_ *tc.C) {
 	s.remoteState = remotestate.Snapshot{
 		Life: life.Alive,

@@ -19,7 +19,10 @@ type computedBaseSuite struct {
 	testhelpers.CleanupSuite
 }
 
-func TestComputedBaseSuite(t *stdtesting.T) { tc.Run(t, &computedBaseSuite{}) }
+func TestComputedBaseSuite(t *stdtesting.T) {
+	tc.Run(t, &computedBaseSuite{})
+}
+
 func (s *computedBaseSuite) TestComputedBase(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

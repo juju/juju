@@ -27,7 +27,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestRemoteFirewallerSuite(t *stdtesting.T) { tc.Run(t, &RemoteFirewallerSuite{}) }
+func TestRemoteFirewallerSuite(t *stdtesting.T) {
+	tc.Run(t, &RemoteFirewallerSuite{})
+}
 
 type RemoteFirewallerSuite struct {
 	coretesting.BaseSuite
@@ -169,7 +171,9 @@ func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *tc.C) {
 	c.Assert(result.Results[0].Error, tc.IsNil)
 	c.Assert(db2Relation.status, tc.DeepEquals, status.StatusInfo{Status: status.Suspended, Message: "a message"})
 }
-func TestFirewallerSuite(t *stdtesting.T) { tc.Run(t, &FirewallerSuite{}) }
+func TestFirewallerSuite(t *stdtesting.T) {
+	tc.Run(t, &FirewallerSuite{})
+}
 
 type FirewallerSuite struct {
 	coretesting.BaseSuite

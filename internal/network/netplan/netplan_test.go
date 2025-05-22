@@ -27,7 +27,10 @@ type NetplanSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestNetplanSuite(t *stdtesting.T) { tc.Run(t, &NetplanSuite{}) }
+func TestNetplanSuite(t *stdtesting.T) {
+	tc.Run(t, &NetplanSuite{})
+}
+
 func MustNetplanFromYaml(c *tc.C, input string) *netplan.Netplan {
 	var np netplan.Netplan
 	if strings.HasPrefix(input, "\n") {

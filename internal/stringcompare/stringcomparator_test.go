@@ -13,7 +13,10 @@ import (
 
 type StringComparatorSuite struct{}
 
-func TestStringComparatorSuite(t *stdtesting.T) { tc.Run(t, &StringComparatorSuite{}) }
+func TestStringComparatorSuite(t *stdtesting.T) {
+	tc.Run(t, &StringComparatorSuite{})
+}
+
 func (*StringComparatorSuite) TestLevenshteinDistance(c *tc.C) {
 	testCases := []struct {
 		input1, input2 string

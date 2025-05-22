@@ -38,7 +38,10 @@ type getToolsSuite struct {
 	store             *mocks.MockObjectStore
 }
 
-func TestGetToolsSuite(t *stdtesting.T) { tc.Run(t, &getToolsSuite{}) }
+func TestGetToolsSuite(t *stdtesting.T) {
+	tc.Run(t, &getToolsSuite{})
+}
+
 func (s *getToolsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -133,7 +136,10 @@ type findToolsSuite struct {
 	mockAgentBinaryService *mocks.MockAgentBinaryService
 }
 
-func TestFindToolsSuite(t *stdtesting.T) { tc.Run(t, &findToolsSuite{}) }
+func TestFindToolsSuite(t *stdtesting.T) {
+	tc.Run(t, &findToolsSuite{})
+}
+
 func (s *findToolsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
@@ -301,7 +307,9 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "AllMetadata failed")
 }
 
-func TestGetUrlSuite(t *stdtesting.T) { tc.Run(t, &getUrlSuite{}) }
+func TestGetUrlSuite(t *stdtesting.T) {
+	tc.Run(t, &getUrlSuite{})
+}
 
 type getUrlSuite struct {
 	apiHostPortsGetter *mocks.MockAPIHostPortsForAgentsGetter

@@ -35,7 +35,10 @@ type buildSuite struct {
 	filePath string
 }
 
-func TestBuildSuite(t *stdtesting.T) { tc.Run(t, &buildSuite{}) }
+func TestBuildSuite(t *stdtesting.T) {
+	tc.Run(t, &buildSuite{})
+}
+
 func (b *buildSuite) SetUpTest(c *tc.C) {
 	b.BaseSuite.SetUpTest(c)
 	dir1 := c.MkDir()

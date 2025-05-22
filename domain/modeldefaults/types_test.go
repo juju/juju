@@ -11,7 +11,9 @@ import (
 
 type typesSuite struct{}
 
-func TestTypesSuite(t *stdtesting.T) { tc.Run(t, &typesSuite{}) }
+func TestTypesSuite(t *stdtesting.T) {
+	tc.Run(t, &typesSuite{})
+}
 
 // TestZeroDefaultsValue is here to test what the zero value of a
 // DefaultAttributeValue does. Specifically that Has returns false and the apply

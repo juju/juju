@@ -52,7 +52,10 @@ type ResourcesHandlerSuite struct {
 	downloader            *MockDownloader
 }
 
-func TestResourcesHandlerSuite(t *stdtesting.T) { tc.Run(t, &ResourcesHandlerSuite{}) }
+func TestResourcesHandlerSuite(t *stdtesting.T) {
+	tc.Run(t, &ResourcesHandlerSuite{})
+}
+
 func (s *ResourcesHandlerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

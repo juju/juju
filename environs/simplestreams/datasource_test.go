@@ -21,8 +21,10 @@ import (
 	"github.com/juju/juju/environs/simplestreams/testing"
 )
 
-func TestDatasourceSuite(t *stdtesting.T)      { tc.Run(t, &datasourceSuite{}) }
-func TestDatasourceHTTPSSuite(t *stdtesting.T) { tc.Run(t, &datasourceHTTPSSuite{}) }
+func TestDatasourceSuite(t *stdtesting.T) { tc.Run(t, &datasourceSuite{}) }
+func TestDatasourceHTTPSSuite(t *stdtesting.T) {
+	tc.Run(t, &datasourceHTTPSSuite{})
+}
 
 type datasourceSuite struct {
 }

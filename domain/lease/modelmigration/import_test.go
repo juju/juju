@@ -27,7 +27,10 @@ type importSuite struct {
 	txnRunner   *MockTxnRunner
 }
 
-func TestImportSuite(t *stdtesting.T) { tc.Run(t, &importSuite{}) }
+func TestImportSuite(t *stdtesting.T) {
+	tc.Run(t, &importSuite{})
+}
+
 func (s *importSuite) TestRegisterImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

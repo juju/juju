@@ -17,7 +17,9 @@ type SubnetCommandSuite struct {
 	BaseSubnetSuite
 }
 
-func TestSubnetCommandSuite(t *stdtesting.T) { tc.Run(t, &SubnetCommandSuite{}) }
+func TestSubnetCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &SubnetCommandSuite{})
+}
 
 type SubnetCommandBaseSuite struct {
 	coretesting.BaseSuite
@@ -29,7 +31,10 @@ func (s *SubnetCommandBaseSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.baseCmd = &subnet.SubnetCommandBase{}
 }
-func TestSubnetCommandBaseSuite(t *stdtesting.T) { tc.Run(t, &SubnetCommandBaseSuite{}) }
+func TestSubnetCommandBaseSuite(t *stdtesting.T) {
+	tc.Run(t, &SubnetCommandBaseSuite{})
+}
+
 func (s *SubnetCommandBaseSuite) TestCheckNumArgs(c *tc.C) {
 	threeErrors := []error{
 		errors.New("first"),

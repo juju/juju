@@ -45,7 +45,10 @@ func (ctx *nonActionFailContext) SetActionMessage(message string) error {
 func (ctx *nonActionFailContext) SetActionFailed() error {
 	return fmt.Errorf("not running an action")
 }
-func TestActionFailSuite(t *stdtesting.T) { tc.Run(t, &ActionFailSuite{}) }
+func TestActionFailSuite(t *stdtesting.T) {
+	tc.Run(t, &ActionFailSuite{})
+}
+
 func (s *ActionFailSuite) TestActionFail(c *tc.C) {
 	var actionFailTests = []struct {
 		summary string

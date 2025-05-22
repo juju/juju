@@ -16,7 +16,10 @@ type archSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestArchSuite(t *stdtesting.T) { tc.Run(t, &archSuite{}) }
+func TestArchSuite(t *stdtesting.T) {
+	tc.Run(t, &archSuite{})
+}
+
 func (s *archSuite) TestContains(c *tc.C) {
 	arches := arch.AllArches()
 	c.Assert(arches.Contains(arch.Arch("amd64")), tc.IsTrue)

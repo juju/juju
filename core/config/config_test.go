@@ -19,7 +19,9 @@ type ConfigSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &ConfigSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
 
 var testFields = configschema.Fields{
 	"field1": {

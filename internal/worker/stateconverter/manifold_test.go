@@ -21,7 +21,9 @@ import (
 	"github.com/juju/juju/internal/worker/stateconverter/mocks"
 )
 
-func TestManifoldConfigSuite(t *stdtesting.T) { tc.Run(t, &manifoldConfigSuite{}) }
+func TestManifoldConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &manifoldConfigSuite{})
+}
 
 type manifoldConfigSuite struct {
 	machiner *mocks.MockMachiner

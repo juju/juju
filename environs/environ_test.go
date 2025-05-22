@@ -21,7 +21,9 @@ import (
 type environSuite struct {
 }
 
-func TestEnvironSuite(t *stdtesting.T) { tc.Run(t, &environSuite{}) }
+func TestEnvironSuite(t *stdtesting.T) {
+	tc.Run(t, &environSuite{})
+}
 
 type mockModel struct {
 	stateenvirons.Model

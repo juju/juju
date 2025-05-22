@@ -26,7 +26,10 @@ type deleteImageSuite struct {
 	deletedIds []string
 }
 
-func TestDeleteImageSuite(t *stdtesting.T) { tc.Run(t, &deleteImageSuite{}) }
+func TestDeleteImageSuite(t *stdtesting.T) {
+	tc.Run(t, &deleteImageSuite{})
+}
+
 func (s *deleteImageSuite) SetUpTest(c *tc.C) {
 	s.BaseCloudImageMetadataSuite.SetUpTest(c)
 

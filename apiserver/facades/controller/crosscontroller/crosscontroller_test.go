@@ -18,7 +18,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestCrossControllerSuite(t *stdtesting.T) { tc.Run(t, &CrossControllerSuite{}) }
+func TestCrossControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &CrossControllerSuite{})
+}
 
 type CrossControllerSuite struct {
 	testhelpers.IsolationSuite

@@ -19,7 +19,10 @@ type persistentVolumeSuite struct {
 	resourceSuite
 }
 
-func TestPersistentVolumeSuite(t *stdtesting.T) { tc.Run(t, &persistentVolumeSuite{}) }
+func TestPersistentVolumeSuite(t *stdtesting.T) {
+	tc.Run(t, &persistentVolumeSuite{})
+}
+
 func (s *persistentVolumeSuite) TestApply(c *tc.C) {
 	ds := &corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{

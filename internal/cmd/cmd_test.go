@@ -22,9 +22,11 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestCmdSuite(t *stdtesting.T)              { tc.Run(t, &CmdSuite{}) }
-func TestCmdHelpSuite(t *stdtesting.T)          { tc.Run(t, &CmdHelpSuite{}) }
-func TestCmdDocumentationSuite(t *stdtesting.T) { tc.Run(t, &CmdDocumentationSuite{}) }
+func TestCmdSuite(t *stdtesting.T)     { tc.Run(t, &CmdSuite{}) }
+func TestCmdHelpSuite(t *stdtesting.T) { tc.Run(t, &CmdHelpSuite{}) }
+func TestCmdDocumentationSuite(t *stdtesting.T) {
+	tc.Run(t, &CmdDocumentationSuite{})
+}
 
 type CmdSuite struct {
 	testhelpers.LoggingCleanupSuite

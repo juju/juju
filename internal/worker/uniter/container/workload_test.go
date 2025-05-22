@@ -19,7 +19,10 @@ import (
 
 type workloadSuite struct{}
 
-func TestWorkloadSuite(t *stdtesting.T) { tc.Run(t, &workloadSuite{}) }
+func TestWorkloadSuite(t *stdtesting.T) {
+	tc.Run(t, &workloadSuite{})
+}
+
 func (s *workloadSuite) TestWorkloadEventList(c *tc.C) {
 	evt := container.WorkloadEvent{
 		Type:         container.ReadyEvent,

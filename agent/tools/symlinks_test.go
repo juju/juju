@@ -22,7 +22,10 @@ type SymlinksSuite struct {
 	dataDir, toolsDir string
 }
 
-func TestSymlinksSuite(t *stdtesting.T) { tc.Run(t, &SymlinksSuite{}) }
+func TestSymlinksSuite(t *stdtesting.T) {
+	tc.Run(t, &SymlinksSuite{})
+}
+
 func (s *SymlinksSuite) SetUpTest(c *tc.C) {
 	s.dataDir = c.MkDir()
 	s.toolsDir = tools.SharedToolsDir(s.dataDir, testing.CurrentVersion())

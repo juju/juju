@@ -61,7 +61,10 @@ type ConfigSuite struct {
 	provider environs.EnvironProvider
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &ConfigSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
+
 func (s *ConfigSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.config = fakeConfig(c)

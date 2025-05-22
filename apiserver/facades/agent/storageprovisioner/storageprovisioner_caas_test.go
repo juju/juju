@@ -35,7 +35,10 @@ type caasProvisionerSuite struct {
 	resources            *MockResources
 }
 
-func TestCaasProvisionerSuite(t *stdtesting.T) { tc.Run(t, &caasProvisionerSuite{}) }
+func TestCaasProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &caasProvisionerSuite{})
+}
+
 func (s *caasProvisionerSuite) TestWatchApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

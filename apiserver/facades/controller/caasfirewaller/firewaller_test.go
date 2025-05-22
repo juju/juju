@@ -42,7 +42,10 @@ type firewallerSuite struct {
 	modelTag names.ModelTag
 }
 
-func TestFirewallerSuite(t *stdtesting.T) { tc.Run(t, &firewallerSuite{}) }
+func TestFirewallerSuite(t *stdtesting.T) {
+	tc.Run(t, &firewallerSuite{})
+}
+
 func (s *firewallerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

@@ -19,7 +19,10 @@ type annotationsSuite struct {
 	annotations Annotation
 }
 
-func TestAnnotationsSuite(t *stdtesting.T) { tc.Run(t, &annotationsSuite{}) }
+func TestAnnotationsSuite(t *stdtesting.T) {
+	tc.Run(t, &annotationsSuite{})
+}
+
 func (s *annotationsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

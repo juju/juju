@@ -19,7 +19,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestMachinemanagerSuite(t *stdtesting.T) { tc.Run(t, &MachinemanagerSuite{}) }
+func TestMachinemanagerSuite(t *stdtesting.T) {
+	tc.Run(t, &MachinemanagerSuite{})
+}
 
 type MachinemanagerSuite struct {
 }

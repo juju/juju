@@ -39,7 +39,10 @@ type charmsMockSuite struct {
 	machineService     *MockMachineService
 }
 
-func TestCharmsMockSuite(t *stdtesting.T) { tc.Run(t, &charmsMockSuite{}) }
+func TestCharmsMockSuite(t *stdtesting.T) {
+	tc.Run(t, &charmsMockSuite{})
+}
+
 func (s *charmsMockSuite) TestListCharmsNoNames(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

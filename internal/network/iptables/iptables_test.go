@@ -19,7 +19,10 @@ type IptablesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestIptablesSuite(t *stdtesting.T) { tc.Run(t, &IptablesSuite{}) }
+func TestIptablesSuite(t *stdtesting.T) {
+	tc.Run(t, &IptablesSuite{})
+}
+
 func (*IptablesSuite) TestDropCommand(c *tc.C) {
 	assertRender(c,
 		iptables.DropCommand{},

@@ -27,7 +27,10 @@ type DestroySuite struct {
 	testing.BaseSuite
 }
 
-func TestDestroySuite(t *stdtesting.T) { tc.Run(t, &DestroySuite{}) }
+func TestDestroySuite(t *stdtesting.T) {
+	tc.Run(t, &DestroySuite{})
+}
+
 func (s *DestroySuite) TestCannotGetInstances(c *tc.C) {
 	env := &mockEnviron{
 		allInstances: func(context.Context) ([]instances.Instance, error) {

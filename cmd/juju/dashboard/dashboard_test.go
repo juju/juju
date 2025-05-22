@@ -70,7 +70,10 @@ type dashboardSuite struct {
 	baseDashboardSuite
 }
 
-func TestDashboardSuite(t *stdtesting.T) { tc.Run(t, &dashboardSuite{}) }
+func TestDashboardSuite(t *stdtesting.T) {
+	tc.Run(t, &dashboardSuite{})
+}
+
 func (s *dashboardSuite) SetUpTest(c *tc.C) {
 	s.signalCh = make(chan os.Signal, 1)
 

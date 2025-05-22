@@ -35,7 +35,9 @@ type clientSuite struct {
 	store objectstore.ObjectStore
 }
 
-func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
+func TestClientSuite(t *stdtesting.T) {
+	tc.Run(t, &clientSuite{})
+}
 
 var (
 	emptyCons      = constraints.Value{}

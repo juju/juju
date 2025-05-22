@@ -15,7 +15,10 @@ type PathSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPathSuite(t *stdtesting.T) { tc.Run(t, &PathSuite{}) }
+func TestPathSuite(t *stdtesting.T) {
+	tc.Run(t, &PathSuite{})
+}
+
 func (s *PathSuite) TestJoin(c *tc.C) {
 	rawURL := MustParseURL(c, "http://foobar/v1/path/")
 

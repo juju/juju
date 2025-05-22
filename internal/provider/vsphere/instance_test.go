@@ -21,7 +21,10 @@ type InstanceSuite struct {
 	EnvironFixture
 }
 
-func TestInstanceSuite(t *stdtesting.T) { tc.Run(t, &InstanceSuite{}) }
+func TestInstanceSuite(t *stdtesting.T) {
+	tc.Run(t, &InstanceSuite{})
+}
+
 func (s *InstanceSuite) TestInstances(c *tc.C) {
 	s.client.virtualMachines = []*mo.VirtualMachine{
 		buildVM("inst-0").vm(),

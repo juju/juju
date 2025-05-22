@@ -16,7 +16,10 @@ type JujuXDGDataHomeSuite struct {
 	testing.BaseSuite
 }
 
-func TestJujuXDGDataHomeSuite(t *stdtesting.T) { tc.Run(t, &JujuXDGDataHomeSuite{}) }
+func TestJujuXDGDataHomeSuite(t *stdtesting.T) {
+	tc.Run(t, &JujuXDGDataHomeSuite{})
+}
+
 func (s *JujuXDGDataHomeSuite) TearDownTest(c *tc.C) {
 	osenv.SetJujuXDGDataHome("")
 	s.BaseSuite.TearDownTest(c)

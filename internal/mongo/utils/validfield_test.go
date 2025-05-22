@@ -13,7 +13,10 @@ import (
 
 type ValidFieldSuite struct{}
 
-func TestValidFieldSuite(t *stdtesting.T) { tc.Run(t, &ValidFieldSuite{}) }
+func TestValidFieldSuite(t *stdtesting.T) {
+	tc.Run(t, &ValidFieldSuite{})
+}
+
 func (s *ValidFieldSuite) TestOk(c *tc.C) {
 	c.Check(utils.IsValidFieldName("foo"), tc.IsTrue)
 }

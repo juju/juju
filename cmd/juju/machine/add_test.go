@@ -29,7 +29,10 @@ type AddMachineSuite struct {
 	fakeAddMachine *fakeAddMachineAPI
 }
 
-func TestAddMachineSuite(t *stdtesting.T) { tc.Run(t, &AddMachineSuite{}) }
+func TestAddMachineSuite(t *stdtesting.T) {
+	tc.Run(t, &AddMachineSuite{})
+}
+
 func (s *AddMachineSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeAddMachine = &fakeAddMachineAPI{}

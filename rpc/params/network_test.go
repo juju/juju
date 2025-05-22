@@ -24,7 +24,10 @@ type (
 
 type NetworkSuite struct{}
 
-func TestNetworkSuite(t *stdtesting.T) { tc.Run(t, &NetworkSuite{}) }
+func TestNetworkSuite(t *stdtesting.T) {
+	tc.Run(t, &NetworkSuite{})
+}
+
 func (s *NetworkSuite) TestPortsResults(c *tc.C) {
 	// Convenience helpers.
 	mkPortsResults := func(prs ...params.PortsResult) params.PortsResults {

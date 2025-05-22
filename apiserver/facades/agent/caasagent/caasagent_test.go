@@ -31,7 +31,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestCaasagentSuite(t *stdtesting.T) { tc.Run(t, &caasagentSuite{}) }
+func TestCaasagentSuite(t *stdtesting.T) {
+	tc.Run(t, &caasagentSuite{})
+}
 
 type caasagentSuite struct {
 	coretesting.BaseSuite

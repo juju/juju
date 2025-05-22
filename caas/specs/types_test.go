@@ -16,7 +16,9 @@ type typesSuite struct {
 	testing.BaseSuite
 }
 
-func TestTypesSuite(t *stdtesting.T) { tc.Run(t, &typesSuite{}) }
+func TestTypesSuite(t *stdtesting.T) {
+	tc.Run(t, &typesSuite{})
+}
 
 var strVal = specs.IntOrString{Type: specs.String, StrVal: "10%"}
 var intVal = specs.IntOrString{Type: specs.Int, IntVal: 10}

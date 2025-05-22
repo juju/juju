@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func TestResourcesSuite(t *stdtesting.T) { tc.Run(t, &ResourcesSuite{}) }
+func TestResourcesSuite(t *stdtesting.T) {
+	tc.Run(t, &ResourcesSuite{})
+}
 
 type ResourcesSuite struct {
 	BaseSuite

@@ -14,7 +14,9 @@ import (
 	"github.com/juju/juju/internal/worker/toolsversionchecker"
 )
 
-func TestToolsCheckerSuite(t *stdtesting.T) { tc.Run(t, &ToolsCheckerSuite{}) }
+func TestToolsCheckerSuite(t *stdtesting.T) {
+	tc.Run(t, &ToolsCheckerSuite{})
+}
 
 type ToolsCheckerSuite struct {
 	coretesting.BaseSuite

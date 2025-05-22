@@ -19,7 +19,10 @@ import (
 
 type volumesSuite struct{}
 
-func TestVolumesSuite(t *stdtesting.T) { tc.Run(t, &volumesSuite{}) }
+func TestVolumesSuite(t *stdtesting.T) {
+	tc.Run(t, &volumesSuite{})
+}
+
 func (s *volumesSuite) TestVolumeParams(c *tc.C) {
 	s.testVolumeParams(c, &state.VolumeParams{
 		Pool: "loop",

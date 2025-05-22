@@ -15,7 +15,10 @@ import (
 
 type OutputSuite struct{}
 
-func TestOutputSuite(t *stdtesting.T) { tc.Run(t, &OutputSuite{}) }
+func TestOutputSuite(t *stdtesting.T) {
+	tc.Run(t, &OutputSuite{})
+}
+
 func (s *OutputSuite) TestStatusColor(c *tc.C) {
 	var ctx *ansiterm.Context
 

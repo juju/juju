@@ -18,7 +18,10 @@ type credentialsSuite struct {
 	google.BaseSuite
 }
 
-func TestCredentialsSuite(t *stdtesting.T) { tc.Run(t, &credentialsSuite{}) }
+func TestCredentialsSuite(t *stdtesting.T) {
+	tc.Run(t, &credentialsSuite{})
+}
+
 func (s *credentialsSuite) TestNewCredentials(c *tc.C) {
 	values := map[string]string{
 		google.OSEnvClientID:    "abc",

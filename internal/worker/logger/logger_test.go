@@ -33,7 +33,10 @@ type LoggerSuite struct {
 	value string
 }
 
-func TestLoggerSuite(t *stdtesting.T) { tc.Run(t, &LoggerSuite{}) }
+func TestLoggerSuite(t *stdtesting.T) {
+	tc.Run(t, &LoggerSuite{})
+}
+
 func (s *LoggerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.context = internallogger.WrapLoggoContext(loggo.NewContext(loggo.DEBUG))

@@ -19,7 +19,10 @@ type poolUpdateSuite struct {
 	baseStorageSuite
 }
 
-func TestPoolUpdateSuite(t *stdtesting.T) { tc.Run(t, &poolUpdateSuite{}) }
+func TestPoolUpdateSuite(t *stdtesting.T) {
+	tc.Run(t, &poolUpdateSuite{})
+}
+
 func (s *poolUpdateSuite) TestUpdatePool(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

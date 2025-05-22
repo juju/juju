@@ -17,7 +17,10 @@ import (
 type validatorSuite struct {
 }
 
-func TestValidatorSuite(t *stdtesting.T) { tc.Run(t, &validatorSuite{}) }
+func TestValidatorSuite(t *stdtesting.T) {
+	tc.Run(t, &validatorSuite{})
+}
+
 func (*validatorSuite) TestControllerNotContainingValidator(c *tc.C) {
 	cfg, err := config.New(config.NoDefaults, map[string]any{
 		config.NameKey:                 "wallyworld",

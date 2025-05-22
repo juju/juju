@@ -31,7 +31,10 @@ type modelWatcherSuite struct {
 	modelConfigService *MockModelConfigService
 }
 
-func TestModelWatcherSuite(t *stdtesting.T) { tc.Run(t, &modelWatcherSuite{}) }
+func TestModelWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &modelWatcherSuite{})
+}
+
 func (s *modelWatcherSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)

@@ -40,7 +40,10 @@ type uniterLegacySuite struct {
 	portService        *portservice.WatchableService
 }
 
-func TestUniterLegacySuite(t *stdtesting.T) { tc.Run(t, &uniterLegacySuite{}) }
+func TestUniterLegacySuite(t *stdtesting.T) {
+	tc.Run(t, &uniterLegacySuite{})
+}
+
 func (s *uniterLegacySuite) SetUpSuite(c *tc.C) {
 	c.Skip("Skip factory-based uniter tests. TODO: Re-write without factories")
 }

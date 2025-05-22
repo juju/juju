@@ -25,7 +25,10 @@ type storeSuite struct {
 	charmAdder *mocks.MockCharmAdder
 }
 
-func TestStoreSuite(t *stdtesting.T) { tc.Run(t, &storeSuite{}) }
+func TestStoreSuite(t *stdtesting.T) {
+	tc.Run(t, &storeSuite{})
+}
+
 func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectAddCharm(nil)

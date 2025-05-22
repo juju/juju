@@ -23,7 +23,10 @@ type deployRepositorySuite struct {
 	baseSuite
 }
 
-func TestDeployRepositorySuite(t *stdtesting.T) { tc.Run(t, &deployRepositorySuite{}) }
+func TestDeployRepositorySuite(t *stdtesting.T) {
+	tc.Run(t, &deployRepositorySuite{})
+}
+
 func (s *deployRepositorySuite) TestResolveResourcesNoResourcesOverride(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -26,7 +26,10 @@ type gkeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestGkeSuite(t *stdtesting.T) { tc.Run(t, &gkeSuite{}) }
+func TestGkeSuite(t *stdtesting.T) {
+	tc.Run(t, &gkeSuite{})
+}
+
 func (s *gkeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	err := os.Setenv("PATH", "/path/to/here")

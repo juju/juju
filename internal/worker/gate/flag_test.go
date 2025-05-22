@@ -22,7 +22,10 @@ type FlagSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFlagSuite(t *stdtesting.T) { tc.Run(t, &FlagSuite{}) }
+func TestFlagSuite(t *stdtesting.T) {
+	tc.Run(t, &FlagSuite{})
+}
+
 func (*FlagSuite) TestManifoldInputs(c *tc.C) {
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{
 		GateName: "emperrasque",

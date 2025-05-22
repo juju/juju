@@ -36,7 +36,10 @@ type storageSuite struct {
 	invalidatedCredential bool
 }
 
-func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
+func TestStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &storageSuite{})
+}
+
 func (s *storageSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.requests = nil

@@ -17,7 +17,10 @@ type configSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &configSuite{})
+}
+
 func CloudSpec() environscloudspec.CloudSpec {
 	return environscloudspec.CloudSpec{
 		Name:     "manual",

@@ -24,7 +24,10 @@ type DumpDBCommandSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestDumpDBCommandSuite(t *stdtesting.T) { tc.Run(t, &DumpDBCommandSuite{}) }
+func TestDumpDBCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &DumpDBCommandSuite{})
+}
+
 func (s *DumpDBCommandSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake.ResetCalls()

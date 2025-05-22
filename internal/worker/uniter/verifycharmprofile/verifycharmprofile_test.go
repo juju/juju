@@ -18,7 +18,10 @@ import (
 
 type verifySuite struct{}
 
-func TestVerifySuite(t *stdtesting.T) { tc.Run(t, &verifySuite{}) }
+func TestVerifySuite(t *stdtesting.T) {
+	tc.Run(t, &verifySuite{})
+}
+
 func (s *verifySuite) TestNextOpNotInstallNorUpgrade(c *tc.C) {
 	local := resolver.LocalState{
 		State: operation.State{Kind: operation.RunAction},

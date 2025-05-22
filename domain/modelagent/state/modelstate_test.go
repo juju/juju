@@ -52,7 +52,10 @@ type modelStateSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestModelStateSuite(t *stdtesting.T) { tc.Run(t, &modelStateSuite{}) }
+func TestModelStateSuite(t *stdtesting.T) {
+	tc.Run(t, &modelStateSuite{})
+}
+
 func (s *modelStateSuite) createMachine(c *tc.C) string {
 	return s.createMachineWithName(c, machine.Name("6666"))
 }

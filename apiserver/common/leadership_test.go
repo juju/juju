@@ -34,7 +34,10 @@ type LeadershipSuite struct {
 	machineApps []string
 }
 
-func TestLeadershipSuite(t *stdtesting.T) { tc.Run(t, &LeadershipSuite{}) }
+func TestLeadershipSuite(t *stdtesting.T) {
+	tc.Run(t, &LeadershipSuite{})
+}
+
 func (s *LeadershipSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 

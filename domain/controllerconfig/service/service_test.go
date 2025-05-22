@@ -24,7 +24,10 @@ type serviceSuite struct {
 	stringsWatcher *MockStringsWatcher
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

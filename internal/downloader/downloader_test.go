@@ -40,7 +40,10 @@ func (s *DownloaderSuite) TearDownTest(c *tc.C) {
 	s.HTTPSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
-func TestDownloaderSuite(t *stdtesting.T) { tc.Run(t, &DownloaderSuite{}) }
+func TestDownloaderSuite(t *stdtesting.T) {
+	tc.Run(t, &DownloaderSuite{})
+}
+
 func (s *DownloaderSuite) URL(c *tc.C, path string) *url.URL {
 	urlStr := s.HTTPSuite.URL(path)
 	url, err := url.Parse(urlStr)

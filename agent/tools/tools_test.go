@@ -22,7 +22,10 @@ import (
 type ToolsImportSuite struct {
 }
 
-func TestToolsImportSuite(t *stdtesting.T) { tc.Run(t, &ToolsImportSuite{}) }
+func TestToolsImportSuite(t *stdtesting.T) {
+	tc.Run(t, &ToolsImportSuite{})
+}
+
 func (t *ToolsImportSuite) TestPackageDependencies(c *tc.C) {
 	// This test is to ensure we don't bring in dependencies on state, environ
 	// or any of the other bigger packages that'll drag in yet more dependencies.
@@ -54,7 +57,10 @@ type ToolsSuite struct {
 	dataDir string
 }
 
-func TestToolsSuite(t *stdtesting.T) { tc.Run(t, &ToolsSuite{}) }
+func TestToolsSuite(t *stdtesting.T) {
+	tc.Run(t, &ToolsSuite{})
+}
+
 func (t *ToolsSuite) SetUpTest(c *tc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.dataDir = c.MkDir()

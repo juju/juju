@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func TestTmpfsSuite(t *stdtesting.T) { tc.Run(t, &tmpfsSuite{}) }
+func TestTmpfsSuite(t *stdtesting.T) {
+	tc.Run(t, &tmpfsSuite{})
+}
 
 type tmpfsSuite struct {
 	testing.BaseSuite

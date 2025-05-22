@@ -19,7 +19,10 @@ type CmdSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 }
 
-func TestCmdSuite(t *stdtesting.T) { tc.Run(t, &CmdSuite{}) }
+func TestCmdSuite(t *stdtesting.T) {
+	tc.Run(t, &CmdSuite{})
+}
+
 func (s *CmdSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 }

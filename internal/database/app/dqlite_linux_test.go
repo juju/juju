@@ -18,7 +18,10 @@ type onceErrorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestOnceErrorSuite(t *stdtesting.T) { tc.Run(t, &onceErrorSuite{}) }
+func TestOnceErrorSuite(t *stdtesting.T) {
+	tc.Run(t, &onceErrorSuite{})
+}
+
 func (s *onceErrorSuite) TestDoWithNil(c *tc.C) {
 	var oe onceError
 	err := oe.Do(func() error {

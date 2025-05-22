@@ -21,7 +21,10 @@ type MachineListCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestMachineListCommandSuite(t *stdtesting.T) { tc.Run(t, &MachineListCommandSuite{}) }
+func TestMachineListCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &MachineListCommandSuite{})
+}
+
 func newMachineListCommand() cmd.Command {
 	return machine.NewListCommandForTest(&fakeStatusAPI{})
 }

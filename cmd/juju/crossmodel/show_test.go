@@ -33,7 +33,10 @@ type showSuite struct {
 	mockAPI *mockShowAPI
 }
 
-func TestShowSuite(t *stdtesting.T) { tc.Run(t, &showSuite{}) }
+func TestShowSuite(t *stdtesting.T) {
+	tc.Run(t, &showSuite{})
+}
+
 func (s *showSuite) SetUpTest(c *tc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 

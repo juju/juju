@@ -15,7 +15,9 @@ type agentStreamSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestAgentStreamSuite(t *stdtesting.T) { tc.Run(t, &agentStreamSuite{}) }
+func TestAgentStreamSuite(t *stdtesting.T) {
+	tc.Run(t, &agentStreamSuite{})
+}
 
 // TestAgentStreamDBValues tests that the values in the agent_stream table
 // against the established enums in this package to make sure there is no skew

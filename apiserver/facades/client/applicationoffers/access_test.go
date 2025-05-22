@@ -35,7 +35,10 @@ type offerAccessSuite struct {
 	api *applicationoffers.OffersAPIv5
 }
 
-func TestOfferAccessSuite(t *stdtesting.T) { tc.Run(t, &offerAccessSuite{}) }
+func TestOfferAccessSuite(t *stdtesting.T) {
+	tc.Run(t, &offerAccessSuite{})
+}
+
 func (s *offerAccessSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.authorizer.Tag = names.NewUserTag("admin")

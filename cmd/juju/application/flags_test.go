@@ -14,7 +14,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestFlagSuite(t *stdtesting.T) { tc.Run(t, &FlagSuite{}) }
+func TestFlagSuite(t *stdtesting.T) {
+	tc.Run(t, &FlagSuite{})
+}
 
 type FlagSuite struct {
 	testhelpers.IsolationSuite

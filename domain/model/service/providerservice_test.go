@@ -51,7 +51,10 @@ type providerServiceSuite struct {
 	mockWatcherFactory  *MockWatcherFactory
 }
 
-func TestProviderServiceSuite(t *stdtesting.T) { tc.Run(t, &providerServiceSuite{}) }
+func TestProviderServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &providerServiceSuite{})
+}
+
 func (s *providerServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockControllerState = NewMockState(ctrl)

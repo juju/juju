@@ -19,7 +19,10 @@ type credentialsSuite struct {
 	provider environs.EnvironProvider
 }
 
-func TestCredentialsSuite(t *stdtesting.T) { tc.Run(t, &credentialsSuite{}) }
+func TestCredentialsSuite(t *stdtesting.T) {
+	tc.Run(t, &credentialsSuite{})
+}
+
 func (s *credentialsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

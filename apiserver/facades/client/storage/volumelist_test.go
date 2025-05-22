@@ -19,7 +19,10 @@ type volumeSuite struct {
 	baseStorageSuite
 }
 
-func TestVolumeSuite(t *stdtesting.T) { tc.Run(t, &volumeSuite{}) }
+func TestVolumeSuite(t *stdtesting.T) {
+	tc.Run(t, &volumeSuite{})
+}
+
 func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 	return params.VolumeDetails{
 		VolumeTag: s.volumeTag.String(),

@@ -15,7 +15,10 @@ type destroyModelSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDestroyModelSuite(t *stdtesting.T) { tc.Run(t, &destroyModelSuite{}) }
+func TestDestroyModelSuite(t *stdtesting.T) {
+	tc.Run(t, &destroyModelSuite{})
+}
+
 func (s *destroyModelSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Destroy model

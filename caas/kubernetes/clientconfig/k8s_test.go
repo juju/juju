@@ -23,7 +23,9 @@ type k8sConfigSuite struct {
 	dir string
 }
 
-func TestK8sConfigSuite(t *stdtesting.T) { tc.Run(t, &k8sConfigSuite{}) }
+func TestK8sConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &k8sConfigSuite{})
+}
 
 var (
 	prefixConfigYAML = `

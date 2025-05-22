@@ -21,7 +21,9 @@ type CleanerSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestCleanerSuite(t *stdtesting.T) { tc.Run(t, &CleanerSuite{}) }
+func TestCleanerSuite(t *stdtesting.T) {
+	tc.Run(t, &CleanerSuite{})
+}
 
 type TestCommon struct {
 	apiCaller base.APICaller

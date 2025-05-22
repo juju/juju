@@ -24,7 +24,10 @@ type manifoldSuite struct {
 	config secretspruner.ManifoldConfig
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &manifoldSuite{})
+}
+
 func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = s.validConfig(c)

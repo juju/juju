@@ -22,7 +22,10 @@ type FindSuite struct {
 	baseSuite
 }
 
-func TestFindSuite(t *stdtesting.T) { tc.Run(t, &FindSuite{}) }
+func TestFindSuite(t *stdtesting.T) {
+	tc.Run(t, &FindSuite{})
+}
+
 func (s *FindSuite) TestFind(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

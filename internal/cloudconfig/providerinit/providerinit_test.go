@@ -33,7 +33,10 @@ type CloudInitSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestCloudInitSuite(t *stdtesting.T) { tc.Run(t, &CloudInitSuite{}) }
+func TestCloudInitSuite(t *stdtesting.T) {
+	tc.Run(t, &CloudInitSuite{})
+}
+
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *tc.C) {
 
 	userTag := names.NewLocalUserTag("not-touched")

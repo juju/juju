@@ -26,7 +26,10 @@ type FacadeSuite struct {
 	watcherRegistry *MockWatcherRegistry
 }
 
-func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &FacadeSuite{}) }
+func TestFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &FacadeSuite{})
+}
+
 func (s *FacadeSuite) SetUpTest(c *tc.C) {
 	s.modelUUID = modeltesting.GenModelUUID(c)
 }

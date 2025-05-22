@@ -15,7 +15,9 @@ import (
 
 type sampleSuite struct{}
 
-func TestSampleSuite(t *stdtesting.T) { tc.Run(t, &sampleSuite{}) }
+func TestSampleSuite(t *stdtesting.T) {
+	tc.Run(t, &sampleSuite{})
+}
 
 var sampleYAMLTests = []struct {
 	about  string

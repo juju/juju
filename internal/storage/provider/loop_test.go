@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func TestLoopSuite(t *stdtesting.T) { tc.Run(t, &loopSuite{}) }
+func TestLoopSuite(t *stdtesting.T) {
+	tc.Run(t, &loopSuite{})
+}
 
 type loopSuite struct {
 	testing.BaseSuite

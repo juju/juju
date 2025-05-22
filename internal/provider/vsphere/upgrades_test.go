@@ -18,7 +18,10 @@ type environUpgradeSuite struct {
 	EnvironFixture
 }
 
-func TestEnvironUpgradeSuite(t *stdtesting.T) { tc.Run(t, &environUpgradeSuite{}) }
+func TestEnvironUpgradeSuite(t *stdtesting.T) {
+	tc.Run(t, &environUpgradeSuite{})
+}
+
 func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *tc.C) {
 	c.Assert(s.env, tc.Implements, new(environs.Upgrader))
 }

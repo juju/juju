@@ -40,7 +40,10 @@ type offerSuite struct {
 	args    []string
 }
 
-func TestOfferSuite(t *stdtesting.T) { tc.Run(t, &offerSuite{}) }
+func TestOfferSuite(t *stdtesting.T) {
+	tc.Run(t, &offerSuite{})
+}
+
 func (s *offerSuite) SetUpTest(c *tc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 

@@ -34,7 +34,9 @@ type credentialsSuite struct {
 	lxd.BaseSuite
 }
 
-func TestCredentialsSuite(t *stdtesting.T) { tc.Run(t, &credentialsSuite{}) }
+func TestCredentialsSuite(t *stdtesting.T) {
+	tc.Run(t, &credentialsSuite{})
+}
 
 var errNotFound = api.StatusErrorf(http.StatusNotFound, "")
 

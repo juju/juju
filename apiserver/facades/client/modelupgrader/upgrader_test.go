@@ -15,7 +15,10 @@ type modelUpgradeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestModelUpgradeSuite(t *stdtesting.T) { tc.Run(t, &modelUpgradeSuite{}) }
+func TestModelUpgradeSuite(t *stdtesting.T) {
+	tc.Run(t, &modelUpgradeSuite{})
+}
+
 func (*modelUpgradeSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Upgrade a model that both as an invalid tag and also does not match the model uuid of the current facade scope.

@@ -61,7 +61,10 @@ type Suite struct {
 	cloudSpec      environscloudspec.CloudSpec
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &Suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &Suite{})
+}
+
 func (s *Suite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

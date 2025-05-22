@@ -40,7 +40,9 @@ type serviceSuite struct {
 	service *Service
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 // TestGetAllRelationStatuses verifies that GetAllRelationStatuses
 // retrieves and returns the expected relation details without errors.

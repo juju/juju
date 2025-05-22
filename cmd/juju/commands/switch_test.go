@@ -30,7 +30,10 @@ type SwitchSimpleSuite struct {
 	onRefresh func()
 }
 
-func TestSwitchSimpleSuite(t *stdtesting.T) { tc.Run(t, &SwitchSimpleSuite{}) }
+func TestSwitchSimpleSuite(t *stdtesting.T) {
+	tc.Run(t, &SwitchSimpleSuite{})
+}
+
 func (s *SwitchSimpleSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.Stub.ResetCalls()

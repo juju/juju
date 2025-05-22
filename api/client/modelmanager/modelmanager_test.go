@@ -29,7 +29,10 @@ import (
 type modelmanagerSuite struct {
 }
 
-func TestModelmanagerSuite(t *stdtesting.T) { tc.Run(t, &modelmanagerSuite{}) }
+func TestModelmanagerSuite(t *stdtesting.T) {
+	tc.Run(t, &modelmanagerSuite{})
+}
+
 func (s *modelmanagerSuite) TestCreateModelBadUser(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -611,7 +614,10 @@ type dumpModelSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestDumpModelSuite(t *stdtesting.T) { tc.Run(t, &dumpModelSuite{}) }
+func TestDumpModelSuite(t *stdtesting.T) {
+	tc.Run(t, &dumpModelSuite{})
+}
+
 func (s *dumpModelSuite) TestDumpModelDB(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

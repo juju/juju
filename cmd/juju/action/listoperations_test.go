@@ -24,7 +24,10 @@ type ListOperationsSuite struct {
 	command        *action.ListOperationsCommand
 }
 
-func TestListOperationsSuite(t *stdtesting.T) { tc.Run(t, &ListOperationsSuite{}) }
+func TestListOperationsSuite(t *stdtesting.T) {
+	tc.Run(t, &ListOperationsSuite{})
+}
+
 func (s *ListOperationsSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)

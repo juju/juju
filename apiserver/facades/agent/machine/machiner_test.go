@@ -32,7 +32,10 @@ type machinerSuite struct {
 	watcherRegistry *MockWatcherRegistry
 }
 
-func TestMachinerSuite(t *stdtesting.T) { tc.Run(t, &machinerSuite{}) }
+func TestMachinerSuite(t *stdtesting.T) {
+	tc.Run(t, &machinerSuite{})
+}
+
 func (s *machinerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

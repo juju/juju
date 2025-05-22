@@ -15,7 +15,10 @@ import (
 
 type transientFileSuite struct{}
 
-func TestTransientFileSuite(t *stdtesting.T) { tc.Run(t, &transientFileSuite{}) }
+func TestTransientFileSuite(t *stdtesting.T) {
+	tc.Run(t, &transientFileSuite{})
+}
+
 func (s *transientFileSuite) TestCreateTransientFile(c *tc.C) {
 	transientDir := c.MkDir()
 	f, err := Create(transientDir, "foo.test")

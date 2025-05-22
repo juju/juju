@@ -30,7 +30,10 @@ type userServiceSuite struct {
 	state *MockState
 }
 
-func TestUserServiceSuite(t *stdtesting.T) { tc.Run(t, &userServiceSuite{}) }
+func TestUserServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &userServiceSuite{})
+}
+
 func (s *userServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockState(ctrl)

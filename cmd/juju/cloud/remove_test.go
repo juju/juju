@@ -39,7 +39,10 @@ type removeSuite struct {
 	testProvider *mockBuiltinEnvironProvider
 }
 
-func TestRemoveSuite(t *stdtesting.T) { tc.Run(t, &removeSuite{}) }
+func TestRemoveSuite(t *stdtesting.T) {
+	tc.Run(t, &removeSuite{})
+}
+
 func (s *removeSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()

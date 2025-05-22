@@ -19,7 +19,10 @@ type errorsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &errorsSuite{}) }
+func TestErrorsSuite(t *stdtesting.T) {
+	tc.Run(t, &errorsSuite{})
+}
+
 func (s *errorsSuite) TestTermsRequiredPassThru(c *tc.C) {
 	err := errors.New("nothing about terms")
 	c.Assert(err, tc.Equals, common.MaybeTermsAgreementError(err))

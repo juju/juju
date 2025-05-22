@@ -32,7 +32,10 @@ type runSuite struct {
 	client *action.ActionAPI
 }
 
-func TestRunSuite(t *stdtesting.T) { tc.Run(t, &runSuite{}) }
+func TestRunSuite(t *stdtesting.T) {
+	tc.Run(t, &runSuite{})
+}
+
 func (s *runSuite) TestBlockRunOnAllMachines(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

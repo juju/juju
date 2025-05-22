@@ -18,7 +18,9 @@ type backendtypeSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestBackendtypeSuite(t *stdtesting.T) { tc.Run(t, &backendtypeSuite{}) }
+func TestBackendtypeSuite(t *stdtesting.T) {
+	tc.Run(t, &backendtypeSuite{})
+}
 
 // TestBackendTypeDBValues ensures there's no skew between what's in the
 // database table for role and the typed consts used in the secretbackend package.

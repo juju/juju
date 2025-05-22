@@ -20,7 +20,10 @@ type suite struct {
 	clock *MockClock
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
+
 func (s *suite) TestPing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

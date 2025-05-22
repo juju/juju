@@ -29,7 +29,10 @@ type ErrorSuite struct {
 	azureError *azcore.ResponseError
 }
 
-func TestErrorSuite(t *stdtesting.T) { tc.Run(t, &ErrorSuite{}) }
+func TestErrorSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorSuite{})
+}
+
 func (s *ErrorSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.azureError = &azcore.ResponseError{

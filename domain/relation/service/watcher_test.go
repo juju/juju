@@ -35,7 +35,9 @@ type watcherSuite struct {
 	service *WatchableService
 }
 
-func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
+func TestWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
 // TestSubordinateSendChangeEventRelationScopeGlobal tests that if the
 // subordinate unit's relation endpoint is global scoped, an event is

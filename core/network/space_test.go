@@ -21,7 +21,10 @@ type spaceSuite struct {
 	spaces network.SpaceInfos
 }
 
-func TestSpaceSuite(t *stdtesting.T) { tc.Run(t, &spaceSuite{}) }
+func TestSpaceSuite(t *stdtesting.T) {
+	tc.Run(t, &spaceSuite{})
+}
+
 func (s *spaceSuite) SetUpTest(c *tc.C) {
 	s.spaces = network.SpaceInfos{
 		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{ID: "11", CIDR: "10.0.0.0/24"}}},

@@ -73,7 +73,10 @@ type controllerSuite struct {
 	mockModelService *mocks.MockModelService
 }
 
-func TestControllerSuite(t *stdtesting.T) { tc.Run(t, &controllerSuite{}) }
+func TestControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &controllerSuite{})
+}
+
 func (s *controllerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockModelService = mocks.NewMockModelService(ctrl)
@@ -1110,7 +1113,10 @@ type accessSuite struct {
 	controllerUUID string
 }
 
-func TestAccessSuite(t *stdtesting.T) { tc.Run(t, &accessSuite{}) }
+func TestAccessSuite(t *stdtesting.T) {
+	tc.Run(t, &accessSuite{})
+}
+
 func (s *accessSuite) SetUpTest(c *tc.C) {
 	// Initial config needs to be set before the StateSuite SetUpTest.
 	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{

@@ -47,7 +47,10 @@ type UnregisterSuite struct {
 	store *fakeStore
 }
 
-func TestUnregisterSuite(t *stdtesting.T) { tc.Run(t, &UnregisterSuite{}) }
+func TestUnregisterSuite(t *stdtesting.T) {
+	tc.Run(t, &UnregisterSuite{})
+}
+
 func (s *UnregisterSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.store = &fakeStore{}

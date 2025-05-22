@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func TestRootfsSuite(t *stdtesting.T) { tc.Run(t, &rootfsSuite{}) }
+func TestRootfsSuite(t *stdtesting.T) {
+	tc.Run(t, &rootfsSuite{})
+}
 
 type rootfsSuite struct {
 	testing.BaseSuite

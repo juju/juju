@@ -21,7 +21,10 @@ type charmPathSuite struct {
 	repoPath string
 }
 
-func TestCharmPathSuite(t *stdtesting.T) { tc.Run(t, &charmPathSuite{}) }
+func TestCharmPathSuite(t *stdtesting.T) {
+	tc.Run(t, &charmPathSuite{})
+}
+
 func (s *charmPathSuite) SetUpTest(c *tc.C) {
 	s.repoPath = c.MkDir()
 }

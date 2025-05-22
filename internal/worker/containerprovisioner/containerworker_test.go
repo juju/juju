@@ -64,7 +64,10 @@ func (s *containerWorkerSuite) SetUpTest(c *tc.C) {
 	s.machineLock = &fakeMachineLock{}
 	s.done = make(chan struct{})
 }
-func TestContainerWorkerSuite(t *stdtesting.T) { tc.Run(t, &containerWorkerSuite{}) }
+func TestContainerWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &containerWorkerSuite{})
+}
+
 func (s *containerWorkerSuite) TestContainerSetupAndProvisioner(c *tc.C) {
 	defer s.patch(c).Finish()
 

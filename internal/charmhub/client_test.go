@@ -15,7 +15,10 @@ type ConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &ConfigSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
+
 func (s *ConfigSuite) TestBasePath(c *tc.C) {
 	path, err := basePath("http://api.foo.bar.com")
 	c.Assert(err, tc.ErrorIsNil)

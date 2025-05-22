@@ -22,7 +22,11 @@ type metadataSuite struct {
 	testing.BaseSuite
 }
 
-func TestMetadataSuite(t *stdtesting.T) { tc.Run(t, &metadataSuite{}) } // Register the suite.
+func TestMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &metadataSuite{})
+}
+
+// Register the suite.
 
 func (s *metadataSuite) TestAsJSONBuffer(c *tc.C) {
 	meta := s.createTestMetadata(c)

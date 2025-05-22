@@ -17,7 +17,9 @@ type configSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &configSuite{})
+}
 
 var configTestCases = [...]struct {
 	name   string

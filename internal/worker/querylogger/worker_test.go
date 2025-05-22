@@ -25,7 +25,10 @@ type loggerSuite struct {
 	logger *MockLogger
 }
 
-func TestLoggerSuite(t *stdtesting.T) { tc.Run(t, &loggerSuite{}) }
+func TestLoggerSuite(t *stdtesting.T) {
+	tc.Run(t, &loggerSuite{})
+}
+
 func (s *loggerSuite) TestLogger(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -21,7 +21,10 @@ type mapperSuite struct {
 	state *MockState
 }
 
-func TestMapperSuite(t *stdtesting.T) { tc.Run(t, &mapperSuite{}) }
+func TestMapperSuite(t *stdtesting.T) {
+	tc.Run(t, &mapperSuite{})
+}
+
 func (s *mapperSuite) TestUuidToNameMapper(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange

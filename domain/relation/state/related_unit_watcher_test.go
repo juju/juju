@@ -26,7 +26,10 @@ type relatedUnitWatcherSuite struct {
 	baseRelationSuite
 }
 
-func TestRelatedUnitWatcherSuite(t *stdtesting.T) { tc.Run(t, &relatedUnitWatcherSuite{}) }
+func TestRelatedUnitWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &relatedUnitWatcherSuite{})
+}
+
 func (s *relatedUnitWatcherSuite) SetUpTest(c *tc.C) {
 	s.baseRelationSuite.SetUpTest(c)
 }

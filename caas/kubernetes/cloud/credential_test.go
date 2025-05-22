@@ -18,7 +18,10 @@ import (
 type credentialSuite struct {
 }
 
-func TestCredentialSuite(t *stdtesting.T) { tc.Run(t, &credentialSuite{}) }
+func TestCredentialSuite(t *stdtesting.T) {
+	tc.Run(t, &credentialSuite{})
+}
+
 func (s *credentialSuite) TestValidCredentials(c *tc.C) {
 	tests := []struct {
 		AuthInfo   *clientcmdapi.AuthInfo

@@ -19,7 +19,10 @@ type bootstrapSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &bootstrapSuite{}) }
+func TestBootstrapSuite(t *stdtesting.T) {
+	tc.Run(t, &bootstrapSuite{})
+}
+
 func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 	cfg := controller.Config{
 		controller.CACertKey:         testing.CACert,

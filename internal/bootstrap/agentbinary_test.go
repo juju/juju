@@ -26,7 +26,10 @@ type agentBinarySuite struct {
 	baseSuite
 }
 
-func TestAgentBinarySuite(t *stdtesting.T) { tc.Run(t, &agentBinarySuite{}) }
+func TestAgentBinarySuite(t *stdtesting.T) {
+	tc.Run(t, &agentBinarySuite{})
+}
+
 func (s *agentBinarySuite) TestPopulateAgentBinary(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

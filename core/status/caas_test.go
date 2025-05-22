@@ -13,7 +13,10 @@ import (
 
 type UnitCloudStatusSuite struct{}
 
-func TestUnitCloudStatusSuite(t *stdtesting.T) { tc.Run(t, &UnitCloudStatusSuite{}) }
+func TestUnitCloudStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &UnitCloudStatusSuite{})
+}
+
 func (s *UnitCloudStatusSuite) TestContainerOrUnitStatusChoice(c *tc.C) {
 
 	var checks = []struct {

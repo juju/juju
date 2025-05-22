@@ -27,7 +27,10 @@ type RemoveSaasSuite struct {
 	mockAPI *mockRemoveSaasAPI
 }
 
-func TestRemoveSaasSuite(t *stdtesting.T) { tc.Run(t, &RemoveSaasSuite{}) }
+func TestRemoveSaasSuite(t *stdtesting.T) {
+	tc.Run(t, &RemoveSaasSuite{})
+}
+
 func (s *RemoveSaasSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mockAPI = &mockRemoveSaasAPI{Stub: &testhelpers.Stub{}}

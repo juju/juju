@@ -43,7 +43,10 @@ type modelConfigSuite struct {
 	modelID model.UUID
 }
 
-func TestModelConfigSuite(t *stdtesting.T) { tc.Run(t, &modelConfigSuite{}) }
+func TestModelConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &modelConfigSuite{})
+}
+
 func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 	s.ControllerModelSuite.SetUpTest(c)
 

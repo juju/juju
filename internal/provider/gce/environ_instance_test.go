@@ -23,7 +23,10 @@ type environInstSuite struct {
 	gce.BaseSuite
 }
 
-func TestEnvironInstSuite(t *stdtesting.T) { tc.Run(t, &environInstSuite{}) }
+func TestEnvironInstSuite(t *stdtesting.T) {
+	tc.Run(t, &environInstSuite{})
+}
+
 func (s *environInstSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

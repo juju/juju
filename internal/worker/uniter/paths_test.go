@@ -21,7 +21,10 @@ type PathsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPathsSuite(t *stdtesting.T) { tc.Run(t, &PathsSuite{}) }
+func TestPathsSuite(t *stdtesting.T) {
+	tc.Run(t, &PathsSuite{})
+}
+
 func relPathFunc(base string) func(parts ...string) string {
 	return func(parts ...string) string {
 		allParts := append([]string{base}, parts...)

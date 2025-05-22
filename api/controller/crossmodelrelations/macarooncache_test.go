@@ -19,7 +19,9 @@ import (
 
 const longerThanExpiryTime = 11 * time.Minute
 
-func TestMacaroonCacheSuite(t *stdtesting.T) { tc.Run(t, &MacaroonCacheSuite{}) }
+func TestMacaroonCacheSuite(t *stdtesting.T) {
+	tc.Run(t, &MacaroonCacheSuite{})
+}
 
 type MacaroonCacheSuite struct {
 	coretesting.BaseSuite

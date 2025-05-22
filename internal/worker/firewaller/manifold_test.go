@@ -27,7 +27,10 @@ type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
+
 func (s *ManifoldSuite) TestManifoldFirewallModeNone(c *tc.C) {
 	ctx := &mockDependencyGetter{
 		env: &mockEnviron{
@@ -68,7 +71,10 @@ type ManifoldConfigSuite struct {
 	config firewaller.ManifoldConfig
 }
 
-func TestManifoldConfigSuite(t *stdtesting.T) { tc.Run(t, &ManifoldConfigSuite{}) }
+func TestManifoldConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldConfigSuite{})
+}
+
 func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = validConfig(c)

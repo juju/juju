@@ -19,7 +19,10 @@ type ErrorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestErrorSuite(t *stdtesting.T) { tc.Run(t, &ErrorSuite{}) }
+func TestErrorSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorSuite{})
+}
+
 func (s *ErrorSuite) TestAsDataError(c *tc.C) {
 	dataErr := odataerrors.NewODataError()
 	dataErr.SetBackingStore(store.NewInMemoryBackingStore())

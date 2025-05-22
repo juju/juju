@@ -16,7 +16,10 @@ type BaseSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBaseSuite(t *stdtesting.T) { tc.Run(t, &BaseSuite{}) }
+func TestBaseSuite(t *stdtesting.T) {
+	tc.Run(t, &BaseSuite{})
+}
+
 func (s *BaseSuite) TestParseBase(c *tc.C) {
 	base, err := ParseBase("ubuntu", "22.04")
 	c.Assert(err, tc.ErrorIsNil)

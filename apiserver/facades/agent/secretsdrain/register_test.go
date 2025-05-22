@@ -19,7 +19,10 @@ type drainSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDrainSuite(t *stdtesting.T) { tc.Run(t, &drainSuite{}) }
+func TestDrainSuite(t *stdtesting.T) {
+	tc.Run(t, &drainSuite{})
+}
+
 func (s *drainSuite) TestNewSecretManagerAPIPermissionCheck(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

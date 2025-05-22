@@ -17,7 +17,10 @@ type AddSuite struct {
 	BaseSpaceSuite
 }
 
-func TestAddSuite(t *stdtesting.T) { tc.Run(t, &AddSuite{}) }
+func TestAddSuite(t *stdtesting.T) {
+	tc.Run(t, &AddSuite{})
+}
+
 func (s *AddSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewAddCommand

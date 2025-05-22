@@ -27,7 +27,9 @@ type UserInfoCommandSuite struct {
 	BaseSuite
 }
 
-func TestUserInfoCommandSuite(t *stdtesting.T) { tc.Run(t, &UserInfoCommandSuite{}) }
+func TestUserInfoCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &UserInfoCommandSuite{})
+}
 
 var (
 

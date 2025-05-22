@@ -23,7 +23,10 @@ type findSuite struct {
 	charmHubAPI *mocks.MockCharmHubClient
 }
 
-func TestFindSuite(t *stdtesting.T) { tc.Run(t, &findSuite{}) }
+func TestFindSuite(t *stdtesting.T) {
+	tc.Run(t, &findSuite{})
+}
+
 func (s *findSuite) TestInitNoArgs(c *tc.C) {
 	// You can query the find api with no arguments.
 	command := &findCommand{

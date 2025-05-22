@@ -25,7 +25,9 @@ type cloudInitSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestCloudInitSuite(t *stdtesting.T) { tc.Run(t, &cloudInitSuite{}) }
+func TestCloudInitSuite(t *stdtesting.T) {
+	tc.Run(t, &cloudInitSuite{})
+}
 
 var ctests = []struct {
 	name      string

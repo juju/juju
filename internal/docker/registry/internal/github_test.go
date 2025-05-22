@@ -31,7 +31,10 @@ type githubSuite struct {
 	isPrivate        bool
 }
 
-func TestGithubSuite(t *stdtesting.T) { tc.Run(t, &githubSuite{}) }
+func TestGithubSuite(t *stdtesting.T) {
+	tc.Run(t, &githubSuite{})
+}
+
 func (s *githubSuite) TearDownTest(c *tc.C) {
 	s.imageRepoDetails = nil
 	s.IsolationSuite.TearDownTest(c)

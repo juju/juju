@@ -26,7 +26,10 @@ type bootstrapSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &bootstrapSuite{}) }
+func TestBootstrapSuite(t *stdtesting.T) {
+	tc.Run(t, &bootstrapSuite{})
+}
+
 func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
 	mgr := &testNodeManager{c: c}
 

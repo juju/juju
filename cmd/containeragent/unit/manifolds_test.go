@@ -19,7 +19,10 @@ type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-func TestManifoldsSuite(t *stdtesting.T) { tc.Run(t, &ManifoldsSuite{}) }
+func TestManifoldsSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldsSuite{})
+}
+
 func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
 	manifolds := unit.Manifolds(unit.ManifoldsConfig{
 		Agent: fakeAgent{},

@@ -39,7 +39,10 @@ type diffSuite struct {
 	dir         string
 }
 
-func TestDiffSuite(t *stdtesting.T) { tc.Run(t, &diffSuite{}) }
+func TestDiffSuite(t *stdtesting.T) {
+	tc.Run(t, &diffSuite{})
+}
+
 func (s *diffSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.apiRoot = &mockAPIRoot{

@@ -18,7 +18,10 @@ type resourcesStoreSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestResourcesStoreSuite(t *stdtesting.T) { tc.Run(t, &resourcesStoreSuite{}) }
+func TestResourcesStoreSuite(t *stdtesting.T) {
+	tc.Run(t, &resourcesStoreSuite{})
+}
+
 func (*resourcesStoreSuite) TestFileResourceStoreID(c *tc.C) {
 	expectedUUID := objectstoretesting.GenObjectStoreUUID(c)
 	storeID, err := store.NewFileResourceID(expectedUUID)

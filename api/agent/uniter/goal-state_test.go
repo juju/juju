@@ -21,7 +21,9 @@ type goalStateSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestGoalStateSuite(t *stdtesting.T) { tc.Run(t, &goalStateSuite{}) }
+func TestGoalStateSuite(t *stdtesting.T) {
+	tc.Run(t, &goalStateSuite{})
+}
 
 var (
 	timestamp = time.Date(2200, time.November, 5, 0, 0, 0, 0, time.UTC)

@@ -18,7 +18,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestCloudSpecSuite(t *stdtesting.T) { tc.Run(t, &CloudSpecSuite{}) }
+func TestCloudSpecSuite(t *stdtesting.T) {
+	tc.Run(t, &CloudSpecSuite{})
+}
 
 type CloudSpecSuite struct {
 	testhelpers.IsolationSuite

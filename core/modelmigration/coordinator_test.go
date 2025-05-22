@@ -24,7 +24,10 @@ type migrationSuite struct {
 	scope Scope
 }
 
-func TestMigrationSuite(t *stdtesting.T) { tc.Run(t, &migrationSuite{}) }
+func TestMigrationSuite(t *stdtesting.T) {
+	tc.Run(t, &migrationSuite{})
+}
+
 func (s *migrationSuite) TestAdd(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

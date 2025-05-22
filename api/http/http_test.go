@@ -22,7 +22,9 @@ type httpSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHttpSuite(t *stdtesting.T) { tc.Run(t, &httpSuite{}) }
+func TestHttpSuite(t *stdtesting.T) {
+	tc.Run(t, &httpSuite{})
+}
 
 type uriMatcher struct {
 	expectedURL string

@@ -38,7 +38,10 @@ func (s *PinSuite) SetUpTest(c *tc.C) {
 		s.machine,
 	}
 }
-func TestPinSuite(t *stdtesting.T) { tc.Run(t, &PinSuite{}) }
+func TestPinSuite(t *stdtesting.T) {
+	tc.Run(t, &PinSuite{})
+}
+
 func (s *PinSuite) TestPinLease_Success(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{

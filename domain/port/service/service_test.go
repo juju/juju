@@ -21,7 +21,9 @@ type serviceSuite struct {
 	srv *Service
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 const (
 	unitUUID    coreunit.UUID      = "unit-uuid"

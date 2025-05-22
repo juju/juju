@@ -21,7 +21,10 @@ type ErrorSuite struct {
 	maasError error
 }
 
-func TestErrorSuite(t *stdtesting.T) { tc.Run(t, &ErrorSuite{}) }
+func TestErrorSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorSuite{})
+}
+
 func (s *ErrorSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.maasError = gomaasapi.NewPermissionError("denial")

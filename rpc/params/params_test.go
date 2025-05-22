@@ -16,7 +16,10 @@ import (
 
 type ErrorResultsSuite struct{}
 
-func TestErrorResultsSuite(t *stdtesting.T) { tc.Run(t, &ErrorResultsSuite{}) }
+func TestErrorResultsSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorResultsSuite{})
+}
+
 func (s *ErrorResultsSuite) TestOneError(c *tc.C) {
 	for i, test := range []struct {
 		results  params.ErrorResults
@@ -102,7 +105,10 @@ func (s *ErrorResultsSuite) TestCombine(c *tc.C) {
 
 type importSuite struct{}
 
-func TestImportSuite(t *stdtesting.T) { tc.Run(t, &importSuite{}) }
+func TestImportSuite(t *stdtesting.T) {
+	tc.Run(t, &importSuite{})
+}
+
 func (*importSuite) TestParamsDoesNotDependOnState(c *tc.C) {
 	imports := testing.FindJujuCoreImports(c, "github.com/juju/juju/rpc/params")
 	for _, i := range imports {

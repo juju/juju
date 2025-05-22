@@ -19,7 +19,10 @@ type RuleSetSuite struct {
 	testing.BaseSuite
 }
 
-func TestRuleSetSuite(t *stdtesting.T) { tc.Run(t, &RuleSetSuite{}) }
+func TestRuleSetSuite(t *stdtesting.T) {
+	tc.Run(t, &RuleSetSuite{})
+}
+
 func makeRuleSet() ruleSet {
 	return newRuleSetFromRules(corefirewall.IngressRules{
 		corefirewall.NewIngressRule(network.MustParsePortRange("8000-8099/tcp")),

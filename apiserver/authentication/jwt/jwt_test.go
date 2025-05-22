@@ -23,7 +23,10 @@ import (
 
 type loginTokenSuite struct{}
 
-func TestLoginTokenSuite(t *stdtesting.T) { tc.Run(t, &loginTokenSuite{}) }
+func TestLoginTokenSuite(t *stdtesting.T) {
+	tc.Run(t, &loginTokenSuite{})
+}
+
 func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	modelTag := names.NewModelTag(modelUUID.String())

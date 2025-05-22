@@ -19,7 +19,10 @@ type maasStorageSuite struct {
 	maasSuite
 }
 
-func TestMaasStorageSuite(t *stdtesting.T) { tc.Run(t, &maasStorageSuite{}) }
+func TestMaasStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &maasStorageSuite{})
+}
+
 func makeCall(funcName string, args ...interface{}) testhelpers.StubCall {
 	return testhelpers.StubCall{funcName, args}
 }

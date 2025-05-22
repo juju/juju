@@ -26,7 +26,10 @@ type agentSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAgentSuite(t *stdtesting.T) { tc.Run(t, &agentSuite{}) }
+func TestAgentSuite(t *stdtesting.T) {
+	tc.Run(t, &agentSuite{})
+}
+
 func (*agentSuite) TestAgentConfMachineLocal(c *tc.C) {
 	// We use two distinct directories to ensure the paths don't get
 	// mixed up during the call.

@@ -18,7 +18,10 @@ type personalCloudSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestPersonalCloudSuite(t *stdtesting.T) { tc.Run(t, &personalCloudSuite{}) }
+func TestPersonalCloudSuite(t *stdtesting.T) {
+	tc.Run(t, &personalCloudSuite{})
+}
+
 func (s *personalCloudSuite) TestWritePersonalClouds(c *tc.C) {
 	clouds := map[string]cloud.Cloud{
 		"homestack": {

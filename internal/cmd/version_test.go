@@ -21,7 +21,9 @@ type VersionSuite struct {
 	ctx *cmd.Context
 }
 
-func TestVersionSuite(t *stdtesting.T) { tc.Run(t, &VersionSuite{}) }
+func TestVersionSuite(t *stdtesting.T) {
+	tc.Run(t, &VersionSuite{})
+}
 
 type versionDetail struct {
 	Version       string `json:"version"`

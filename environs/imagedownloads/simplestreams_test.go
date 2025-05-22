@@ -26,7 +26,10 @@ type Suite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &Suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &Suite{})
+}
+
 func newTestDataSource(factory simplestreams.DataSourceFactory, s string) simplestreams.DataSource {
 	return imagedownloads.NewDataSource(factory, s+"/"+imagemetadata.ReleasedImagesPath)
 }

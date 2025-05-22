@@ -15,7 +15,10 @@ type FacadeSuite struct {
 	testing.BaseSuite
 }
 
-func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &FacadeSuite{}) }
+func TestFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &FacadeSuite{})
+}
+
 func (s *FacadeSuite) TestBestVersion(c *tc.C) {
 	tests := []struct {
 		versions FacadeVersion

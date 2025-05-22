@@ -26,7 +26,10 @@ type serviceSuite struct {
 	mockModelState, mockControllerState *MockAgentBinaryState
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockModelState = NewMockAgentBinaryState(ctrl)

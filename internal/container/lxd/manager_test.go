@@ -42,7 +42,10 @@ type managerSuite struct {
 	manager        container.Manager
 }
 
-func TestManagerSuite(t *stdtesting.T) { tc.Run(t, &managerSuite{}) }
+func TestManagerSuite(t *stdtesting.T) {
+	tc.Run(t, &managerSuite{})
+}
+
 func (s *managerSuite) patch() {
 	lxd.PatchConnectRemote(s, map[string]lxdclient.ImageServer{"cloud-images.ubuntu.com": s.cSvr})
 	lxd.PatchGenerateVirtualMACAddress(s)

@@ -17,7 +17,10 @@ type typesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTypesSuite(t *stdtesting.T) { tc.Run(t, &typesSuite{}) }
+func TestTypesSuite(t *stdtesting.T) {
+	tc.Run(t, &typesSuite{})
+}
+
 func (s *typesSuite) TestNetInterfaceToDMLSuccess(c *tc.C) {
 	dev := getNetInterface()
 

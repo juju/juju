@@ -42,7 +42,10 @@ type brokerSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestBrokerSuite(t *stdtesting.T) { tc.Run(t, &brokerSuite{}) }
+func TestBrokerSuite(t *stdtesting.T) {
+	tc.Run(t, &brokerSuite{})
+}
+
 func (s *brokerSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	broker.PatchNewMachineInitReader(s, newFakeMachineInitReader)

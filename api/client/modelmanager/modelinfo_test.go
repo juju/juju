@@ -20,7 +20,10 @@ type modelInfoSuite struct {
 	testing.BaseSuite
 }
 
-func TestModelInfoSuite(t *stdtesting.T) { tc.Run(t, &modelInfoSuite{}) }
+func TestModelInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &modelInfoSuite{})
+}
+
 func (s *modelInfoSuite) checkCall(c *tc.C, objType string, id, request string) {
 	c.Check(objType, tc.Equals, "ModelManager")
 	c.Check(id, tc.Equals, "")

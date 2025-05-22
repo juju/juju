@@ -16,7 +16,10 @@ type typesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTypesSuite(t *stdtesting.T) { tc.Run(t, &typesSuite{}) }
+func TestTypesSuite(t *stdtesting.T) {
+	tc.Run(t, &typesSuite{})
+}
+
 func (s *typesSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string

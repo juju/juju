@@ -30,7 +30,10 @@ type environSuite struct {
 	listInstancesResponse []ociCore.Instance
 }
 
-func TestEnvironSuite(t *stdtesting.T) { tc.Run(t, &environSuite{}) }
+func TestEnvironSuite(t *stdtesting.T) {
+	tc.Run(t, &environSuite{})
+}
+
 func (s *environSuite) SetUpTest(c *tc.C) {
 	s.commonSuite.SetUpTest(c)
 	*oci.MaxPollIterations = 2

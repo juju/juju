@@ -15,7 +15,10 @@ type configServiceSuite struct {
 	st *MockState
 }
 
-func TestConfigServiceSuite(t *stdtesting.T) { tc.Run(t, &configServiceSuite{}) }
+func TestConfigServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &configServiceSuite{})
+}
+
 func (s *configServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

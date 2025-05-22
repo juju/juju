@@ -31,7 +31,10 @@ type loggerSuite struct {
 	modelConfigService *MockModelConfigService
 }
 
-func TestLoggerSuite(t *stdtesting.T) { tc.Run(t, &loggerSuite{}) }
+func TestLoggerSuite(t *stdtesting.T) {
+	tc.Run(t, &loggerSuite{})
+}
+
 func (s *loggerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

@@ -31,7 +31,10 @@ type manifoldSuite struct {
 	store *MockExpiryStore
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &manifoldSuite{})
+}
+
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	cfg := s.newManifoldConfig(c)
 

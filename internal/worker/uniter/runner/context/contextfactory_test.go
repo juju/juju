@@ -36,7 +36,10 @@ type ContextFactorySuite struct {
 	modelType  types.ModelType
 }
 
-func TestContextFactorySuite(t *stdtesting.T) { tc.Run(t, &ContextFactorySuite{}) }
+func TestContextFactorySuite(t *stdtesting.T) {
+	tc.Run(t, &ContextFactorySuite{})
+}
+
 func (s *ContextFactorySuite) SetUpTest(c *tc.C) {
 	s.BaseHookContextSuite.SetUpTest(c)
 	s.paths = runnertesting.NewRealPaths(c)

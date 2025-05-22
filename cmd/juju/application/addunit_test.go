@@ -94,7 +94,9 @@ func (s *AddUnitSuite) SetUpTest(c *tc.C) {
 	}
 	s.store = jujuclienttesting.MinimalStore()
 }
-func TestAddUnitSuite(t *stdtesting.T) { tc.Run(t, &AddUnitSuite{}) }
+func TestAddUnitSuite(t *stdtesting.T) {
+	tc.Run(t, &AddUnitSuite{})
+}
 
 var initAddUnitErrorTests = []struct {
 	args []string

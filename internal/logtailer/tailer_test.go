@@ -26,7 +26,10 @@ type TailerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTailerSuite(t *stdtesting.T) { tc.Run(t, &TailerSuite{}) }
+func TestTailerSuite(t *stdtesting.T) {
+	tc.Run(t, &TailerSuite{})
+}
+
 func (s *TailerSuite) TestProcessForwardNoTail(c *tc.C) {
 	testFileName := filepath.Join(c.MkDir(), "test.log")
 	err := os.WriteFile(testFileName, []byte(createLogFileContent(c)), 0644)
@@ -248,7 +251,10 @@ type LogFilterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLogFilterSuite(t *stdtesting.T) { tc.Run(t, &LogFilterSuite{}) }
+func TestLogFilterSuite(t *stdtesting.T) {
+	tc.Run(t, &LogFilterSuite{})
+}
+
 func (s *LogFilterSuite) TestLevelFiltering(c *tc.C) {
 	infoLevelRec := &corelogger.LogRecord{Level: corelogger.INFO}
 	errorLevelRec := &corelogger.LogRecord{Level: corelogger.ERROR}

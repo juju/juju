@@ -30,7 +30,10 @@ type stateSuite struct {
 	state *State
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
+
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.state = NewState(s.TxnRunnerFactory())

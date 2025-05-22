@@ -22,7 +22,10 @@ type defaultRegionSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestDefaultRegionSuite(t *stdtesting.T) { tc.Run(t, &defaultRegionSuite{}) }
+func TestDefaultRegionSuite(t *stdtesting.T) {
+	tc.Run(t, &defaultRegionSuite{})
+}
+
 func (s *defaultRegionSuite) TestBadArgs(c *tc.C) {
 	command := cloud.NewSetDefaultRegionCommand()
 	_, err := cmdtesting.RunCommand(c, command)

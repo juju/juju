@@ -18,7 +18,10 @@ type ServiceResourcesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestServiceResourcesSuite(t *stdtesting.T) { tc.Run(t, &ServiceResourcesSuite{}) }
+func TestServiceResourcesSuite(t *stdtesting.T) {
+	tc.Run(t, &ServiceResourcesSuite{})
+}
+
 func (s *ServiceResourcesSuite) TestUpdatesUploaded(c *tc.C) {
 	csRes := newStoreResource(c, "spam", "a-application", 2)
 	res := csRes // a copy

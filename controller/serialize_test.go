@@ -17,7 +17,10 @@ type EncodeToStringSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestEncodeToStringSuite(t *stdtesting.T) { tc.Run(t, &EncodeToStringSuite{}) }
+func TestEncodeToStringSuite(t *stdtesting.T) {
+	tc.Run(t, &EncodeToStringSuite{})
+}
+
 func (s *EncodeToStringSuite) TestEncodeToString(c *tc.C) {
 	cfg := jujutesting.FakeControllerConfig()
 

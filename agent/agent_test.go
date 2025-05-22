@@ -29,7 +29,9 @@ type suite struct {
 	testing.BaseSuite
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
 
 var agentConfigTests = []struct {
 	about         string

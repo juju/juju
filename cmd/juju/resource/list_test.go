@@ -18,7 +18,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestShowApplicationSuite(t *stdtesting.T) { tc.Run(t, &ShowApplicationSuite{}) }
+func TestShowApplicationSuite(t *stdtesting.T) {
+	tc.Run(t, &ShowApplicationSuite{})
+}
 
 type ShowApplicationSuite struct {
 	testhelpers.IsolationSuite

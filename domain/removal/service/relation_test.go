@@ -21,7 +21,10 @@ type relationSuite struct {
 	baseSuite
 }
 
-func TestRelationSuite(t *stdtesting.T) { tc.Run(t, &relationSuite{}) }
+func TestRelationSuite(t *stdtesting.T) {
+	tc.Run(t, &relationSuite{})
+}
+
 func (s *relationSuite) TestRemoveRelationNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

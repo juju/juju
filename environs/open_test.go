@@ -32,7 +32,10 @@ type OpenSuite struct {
 	envtesting.ToolsFixture
 }
 
-func TestOpenSuite(t *stdtesting.T) { tc.Run(t, &OpenSuite{}) }
+func TestOpenSuite(t *stdtesting.T) {
+	tc.Run(t, &OpenSuite{})
+}
+
 func (s *OpenSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)

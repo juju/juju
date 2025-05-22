@@ -22,7 +22,10 @@ type containerManifoldSuite struct {
 	getter  *MockContainerMachineGetter
 }
 
-func TestContainerManifoldSuite(t *stdtesting.T) { tc.Run(t, &containerManifoldSuite{}) }
+func TestContainerManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &containerManifoldSuite{})
+}
+
 func (s *containerManifoldSuite) TestConfigValidateAgentName(c *tc.C) {
 	cfg := containerprovisioner.ManifoldConfig{}
 	err := cfg.Validate()

@@ -19,7 +19,10 @@ type SatCheckerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSatCheckerSuite(t *stdtesting.T) { tc.Run(t, &SatCheckerSuite{}) }
+func TestSatCheckerSuite(t *stdtesting.T) {
+	tc.Run(t, &SatCheckerSuite{})
+}
+
 func (s *SatCheckerSuite) TestErrorReportingForSimpleExpression(c *tc.C) {
 	fs := genFeatureSet(c)
 

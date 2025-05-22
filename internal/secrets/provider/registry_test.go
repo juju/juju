@@ -18,7 +18,10 @@ type registrySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRegistrySuite(t *stdtesting.T) { tc.Run(t, &registrySuite{}) }
+func TestRegistrySuite(t *stdtesting.T) {
+	tc.Run(t, &registrySuite{})
+}
+
 func (*registrySuite) TestProvider(c *tc.C) {
 	_, err := provider.Provider("bad")
 	c.Assert(err, tc.ErrorIs, errors.NotFound)

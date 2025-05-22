@@ -22,7 +22,10 @@ type VersionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestVersionSuite(t *stdtesting.T) { tc.Run(t, &VersionSuite{}) }
+func TestVersionSuite(t *stdtesting.T) {
+	tc.Run(t, &VersionSuite{})
+}
+
 func (s *VersionSuite) TestVersion(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, semversion.MustParse("2.99.0"))
 	command := newVersionCommand()

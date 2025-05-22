@@ -15,7 +15,9 @@ import (
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 )
 
-func TestCertSuite(t *stdtesting.T) { tc.Run(t, &certSuite{}) }
+func TestCertSuite(t *stdtesting.T) {
+	tc.Run(t, &certSuite{})
+}
 
 type certSuite struct {
 	lxdtesting.BaseSuite

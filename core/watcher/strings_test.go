@@ -24,7 +24,10 @@ type stringsWorkerSuite struct {
 	actor  *stringsHandler
 }
 
-func TestStringsWorkerSuite(t *stdtesting.T) { tc.Run(t, &stringsWorkerSuite{}) }
+func TestStringsWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &stringsWorkerSuite{})
+}
+
 func newStringsHandlerWorker(c *tc.C, setupError, handlerError, teardownError error) (*stringsHandler, worker.Worker) {
 	sh := &stringsHandler{
 		actions:       nil,

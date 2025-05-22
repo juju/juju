@@ -78,7 +78,10 @@ type agentLoggingSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAgentLoggingSuite(t *stdtesting.T) { tc.Run(t, &agentLoggingSuite{}) }
+func TestAgentLoggingSuite(t *stdtesting.T) {
+	tc.Run(t, &agentLoggingSuite{})
+}
+
 func (*agentLoggingSuite) TestNoLoggingConfig(c *tc.C) {
 	f := &fakeLoggingConfig{}
 	context := internallogger.LoggerContext(corelogger.WARNING)

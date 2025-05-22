@@ -20,7 +20,10 @@ type relationSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestRelationSuite(t *stdtesting.T) { tc.Run(t, &relationSuite{}) }
+func TestRelationSuite(t *stdtesting.T) {
+	tc.Run(t, &relationSuite{})
+}
+
 func (s *relationSuite) TestRelation(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "Firewaller")

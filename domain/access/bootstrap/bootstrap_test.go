@@ -20,7 +20,10 @@ type bootstrapSuite struct {
 	controllerUUID string
 }
 
-func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &bootstrapSuite{}) }
+func TestBootstrapSuite(t *stdtesting.T) {
+	tc.Run(t, &bootstrapSuite{})
+}
+
 func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.controllerUUID = s.SeedControllerUUID(c)

@@ -79,7 +79,10 @@ type manifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &manifoldSuite{})
+}
+
 func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 	cfg := ManifoldConfig{
 		DomainServicesName: "domain-services",

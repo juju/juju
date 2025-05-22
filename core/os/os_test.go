@@ -15,7 +15,10 @@ import (
 type osSuite struct {
 }
 
-func TestOsSuite(t *stdtesting.T) { tc.Run(t, &osSuite{}) }
+func TestOsSuite(t *stdtesting.T) {
+	tc.Run(t, &osSuite{})
+}
+
 func (s *osSuite) TestHostOS(c *tc.C) {
 	os := HostOS()
 	switch runtime.GOOS {

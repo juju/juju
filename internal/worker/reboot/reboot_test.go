@@ -24,7 +24,10 @@ type rebootSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRebootSuite(t *stdtesting.T) { tc.Run(t, &rebootSuite{}) }
+func TestRebootSuite(t *stdtesting.T) {
+	tc.Run(t, &rebootSuite{})
+}
+
 func (s *rebootSuite) TestStartStop(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

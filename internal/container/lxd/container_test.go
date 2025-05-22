@@ -29,7 +29,10 @@ type containerSuite struct {
 	lxdtesting.BaseSuite
 }
 
-func TestContainerSuite(t *stdtesting.T) { tc.Run(t, &containerSuite{}) }
+func TestContainerSuite(t *stdtesting.T) {
+	tc.Run(t, &containerSuite{})
+}
+
 func (s *containerSuite) TestContainerMetadata(c *tc.C) {
 	container := lxd.Container{}
 	container.Config = map[string]string{"user.juju-controller-uuid": "something"}

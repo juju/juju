@@ -15,7 +15,9 @@ import (
 
 type statusSuite struct{}
 
-func TestStatusSuite(t *stdtesting.T) { tc.Run(t, &statusSuite{}) }
+func TestStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &statusSuite{})
+}
 
 var now = time.Now()
 

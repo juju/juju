@@ -14,7 +14,10 @@ import (
 
 type SecretValueSuite struct{}
 
-func TestSecretValueSuite(t *stdtesting.T) { tc.Run(t, &SecretValueSuite{}) }
+func TestSecretValueSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretValueSuite{})
+}
+
 func (s *SecretValueSuite) TestEncodedValues(c *tc.C) {
 	in := map[string]string{
 		"a": base64.StdEncoding.EncodeToString([]byte("foo")),

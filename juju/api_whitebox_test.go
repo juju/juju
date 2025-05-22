@@ -12,7 +12,9 @@ import (
 type APIHelperSuite struct {
 }
 
-func TestAPIHelperSuite(t *stdtesting.T) { tc.Run(t, &APIHelperSuite{}) }
+func TestAPIHelperSuite(t *stdtesting.T) {
+	tc.Run(t, &APIHelperSuite{})
+}
 
 var moveToFrontTests = []struct {
 	item   string

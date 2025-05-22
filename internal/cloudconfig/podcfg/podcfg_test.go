@@ -21,7 +21,10 @@ type podcfgSuite struct {
 	testing.BaseSuite
 }
 
-func TestPodcfgSuite(t *stdtesting.T) { tc.Run(t, &podcfgSuite{}) }
+func TestPodcfgSuite(t *stdtesting.T) {
+	tc.Run(t, &podcfgSuite{})
+}
+
 func (*podcfgSuite) TestPodLabelsController(c *tc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{})
 	controllerJobs := []model.MachineJob{model.JobManageModel}

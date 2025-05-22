@@ -21,7 +21,9 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-func TestReplSuite(t *stdtesting.T) { tc.Run(t, &ReplSuite{}) }
+func TestReplSuite(t *stdtesting.T) {
+	tc.Run(t, &ReplSuite{})
+}
 
 type ReplSuite struct {
 	testing.FakeJujuXDGDataHomeSuite

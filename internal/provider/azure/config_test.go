@@ -28,7 +28,10 @@ type configSuite struct {
 	provider environs.EnvironProvider
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &configSuite{})
+}
+
 func (s *configSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{

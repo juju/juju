@@ -41,7 +41,10 @@ type registrationSuite struct {
 	registrationURL string
 }
 
-func TestRegistrationSuite(t *stdtesting.T) { tc.Run(t, &registrationSuite{}) }
+func TestRegistrationSuite(t *stdtesting.T) {
+	tc.Run(t, &registrationSuite{})
+}
+
 func (s *registrationSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 

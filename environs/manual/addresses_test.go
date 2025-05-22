@@ -25,7 +25,10 @@ type addressesSuite struct {
 	netLookupHostCalled int
 }
 
-func TestAddressesSuite(t *stdtesting.T) { tc.Run(t, &addressesSuite{}) }
+func TestAddressesSuite(t *stdtesting.T) {
+	tc.Run(t, &addressesSuite{})
+}
+
 func (s *addressesSuite) SetUpTest(c *tc.C) {
 	s.netLookupHostCalled = 0
 	s.PatchValue(manual.NetLookupHost, func(host string) ([]string, error) {

@@ -125,7 +125,9 @@ type SSHMachineSuite struct {
 	hostChecker jujussh.ReachableChecker
 }
 
-func TestSSHMachineSuite(t *stdtesting.T) { tc.Run(t, &SSHMachineSuite{}) }
+func TestSSHMachineSuite(t *stdtesting.T) {
+	tc.Run(t, &SSHMachineSuite{})
+}
 
 // Commands to patch
 var patchedCommands = []string{"ssh", "scp"}

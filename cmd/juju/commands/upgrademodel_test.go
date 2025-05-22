@@ -53,7 +53,10 @@ type upgradeModelSuite struct {
 	store                    *mocks.MockClientStore
 }
 
-func TestUpgradeModelSuite(t *stdtesting.T) { tc.Run(t, &upgradeModelSuite{}) }
+func TestUpgradeModelSuite(t *stdtesting.T) {
+	tc.Run(t, &upgradeModelSuite{})
+}
+
 func (s *upgradeModelSuite) upgradeModelCommand(c *tc.C, isCAAS bool) (*gomock.Controller, cmd.Command) {
 	ctrl := gomock.NewController(c)
 	s.modelConfigAPI = mocks.NewMockModelConfigAPI(ctrl)

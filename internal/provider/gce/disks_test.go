@@ -20,7 +20,10 @@ type storageProviderSuite struct {
 	provider storage.Provider
 }
 
-func TestStorageProviderSuite(t *stdtesting.T) { tc.Run(t, &storageProviderSuite{}) }
+func TestStorageProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &storageProviderSuite{})
+}
+
 func (s *storageProviderSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
@@ -68,7 +71,10 @@ type volumeSourceSuite struct {
 	attachmentParams *storage.VolumeAttachmentParams
 }
 
-func TestVolumeSourceSuite(t *stdtesting.T) { tc.Run(t, &volumeSourceSuite{}) }
+func TestVolumeSourceSuite(t *stdtesting.T) {
+	tc.Run(t, &volumeSourceSuite{})
+}
+
 func (s *volumeSourceSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

@@ -19,7 +19,10 @@ type actionSuite struct {
 	baseSuite
 }
 
-func TestActionSuite(t *stdtesting.T) { tc.Run(t, &actionSuite{}) }
+func TestActionSuite(t *stdtesting.T) {
+	tc.Run(t, &actionSuite{})
+}
+
 func (s *actionSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Enqueueing an action against multiple units, verifying persisted receivers/params/status etc.

@@ -19,7 +19,10 @@ type RenderersSuite struct {
 	testing.BaseSuite
 }
 
-func TestRenderersSuite(t *stdtesting.T) { tc.Run(t, &RenderersSuite{}) }
+func TestRenderersSuite(t *stdtesting.T) {
+	tc.Run(t, &RenderersSuite{})
+}
+
 func (s *RenderersSuite) TestToBase64(c *tc.C) {
 	in := []byte("test")
 	expected := base64.StdEncoding.EncodeToString(in)

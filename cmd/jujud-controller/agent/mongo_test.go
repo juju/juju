@@ -18,7 +18,10 @@ type mongoSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestMongoSuite(t *stdtesting.T) { tc.Run(t, &mongoSuite{}) }
+func TestMongoSuite(t *stdtesting.T) {
+	tc.Run(t, &mongoSuite{})
+}
+
 func (s *mongoSuite) TestStateWorkerDialSetsWriteMajority(c *tc.C) {
 	s.testStateWorkerDialSetsWriteMajority(c, true)
 }

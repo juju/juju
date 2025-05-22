@@ -22,7 +22,10 @@ type defaultCredentialSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestDefaultCredentialSuite(t *stdtesting.T) { tc.Run(t, &defaultCredentialSuite{}) }
+func TestDefaultCredentialSuite(t *stdtesting.T) {
+	tc.Run(t, &defaultCredentialSuite{})
+}
+
 func (s *defaultCredentialSuite) TestBadArgs(c *tc.C) {
 	cmd := cloud.NewSetDefaultCredentialCommand()
 	_, err := cmdtesting.RunCommand(c, cmd)

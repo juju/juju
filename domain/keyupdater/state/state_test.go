@@ -30,7 +30,9 @@ type stateSuite struct {
 	machineName coremachine.Name
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 var (
 	testingPublicKeys = []string{

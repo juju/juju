@@ -19,7 +19,9 @@ import (
 
 type suite struct{}
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
 
 func (s *suite) TestSetFlags(c *tc.C) {
 	for _, resettable := range []bool{true, false} {

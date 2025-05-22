@@ -28,7 +28,10 @@ type passwordSuite struct {
 	agentPasswordService *mocks.MockAgentPasswordService
 }
 
-func TestPasswordSuite(t *stdtesting.T) { tc.Run(t, &passwordSuite{}) }
+func TestPasswordSuite(t *stdtesting.T) {
+	tc.Run(t, &passwordSuite{})
+}
+
 func (s *passwordSuite) TestSetPasswordsForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

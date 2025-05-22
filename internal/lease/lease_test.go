@@ -21,7 +21,10 @@ type secretaryFinderSuite struct {
 	secretary *MockSecretary
 }
 
-func TestSecretaryFinderSuite(t *stdtesting.T) { tc.Run(t, &secretaryFinderSuite{}) }
+func TestSecretaryFinderSuite(t *stdtesting.T) {
+	tc.Run(t, &secretaryFinderSuite{})
+}
+
 func (s *secretaryFinderSuite) TestRegisterNil(c *tc.C) {
 	finder := s.newSecretaryFinder(map[string]lease.Secretary{
 		"foo": nil,

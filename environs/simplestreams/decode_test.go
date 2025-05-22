@@ -14,7 +14,10 @@ import (
 
 type decodeSuite struct{}
 
-func TestDecodeSuite(t *stdtesting.T) { tc.Run(t, &decodeSuite{}) }
+func TestDecodeSuite(t *stdtesting.T) {
+	tc.Run(t, &decodeSuite{})
+}
+
 func (s *decodeSuite) TestDecodeCheckValidSignature(c *tc.C) {
 	r := bytes.NewReader([]byte(signedData))
 	txt, err := simplestreams.DecodeCheckSignature(r, testSigningKey)

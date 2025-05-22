@@ -33,7 +33,10 @@ type statusHistorySuite struct {
 	recorder *MockRecorder
 }
 
-func TestStatusHistorySuite(t *stdtesting.T) { tc.Run(t, &statusHistorySuite{}) }
+func TestStatusHistorySuite(t *stdtesting.T) {
+	tc.Run(t, &statusHistorySuite{})
+}
+
 func (s *statusHistorySuite) TestNamespace(c *tc.C) {
 	ns := Namespace{Kind: "foo", ID: "123"}
 	c.Assert(ns.String(), tc.Equals, "foo (123)")

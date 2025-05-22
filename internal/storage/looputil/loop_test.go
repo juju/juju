@@ -18,7 +18,10 @@ type LoopUtilSuite struct {
 	testing.BaseSuite
 }
 
-func TestLoopUtilSuite(t *stdtesting.T) { tc.Run(t, &LoopUtilSuite{}) }
+func TestLoopUtilSuite(t *stdtesting.T) {
+	tc.Run(t, &LoopUtilSuite{})
+}
+
 func (s *LoopUtilSuite) TestDetachLoopDevicesNone(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()

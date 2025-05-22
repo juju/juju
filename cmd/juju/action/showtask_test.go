@@ -28,7 +28,10 @@ type ShowTaskSuite struct {
 	BaseActionSuite
 }
 
-func TestShowTaskSuite(t *stdtesting.T) { tc.Run(t, &ShowTaskSuite{}) }
+func TestShowTaskSuite(t *stdtesting.T) {
+	tc.Run(t, &ShowTaskSuite{})
+}
+
 func (s *ShowTaskSuite) TestInit(c *tc.C) {
 	tests := []struct {
 		should      string

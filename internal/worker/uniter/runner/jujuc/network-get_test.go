@@ -19,7 +19,10 @@ type NetworkGetSuite struct {
 	ContextSuite
 }
 
-func TestNetworkGetSuite(t *stdtesting.T) { tc.Run(t, &NetworkGetSuite{}) }
+func TestNetworkGetSuite(t *stdtesting.T) {
+	tc.Run(t, &NetworkGetSuite{})
+}
+
 func (s *NetworkGetSuite) SetUpSuite(c *tc.C) {
 	s.ContextSuite.SetUpSuite(c)
 }

@@ -21,7 +21,10 @@ type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
+
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	inputAgent := &dummyAgent{}
 	manifold := agent.Manifold(inputAgent)

@@ -15,7 +15,10 @@ type environFirewallSuite struct {
 	gce.BaseSuite
 }
 
-func TestEnvironFirewallSuite(t *stdtesting.T) { tc.Run(t, &environFirewallSuite{}) }
+func TestEnvironFirewallSuite(t *stdtesting.T) {
+	tc.Run(t, &environFirewallSuite{})
+}
+
 func (s *environFirewallSuite) TestGlobalFirewallName(c *tc.C) {
 	uuid := s.Config.UUID()
 	fwname := gce.GlobalFirewallName(s.Env)

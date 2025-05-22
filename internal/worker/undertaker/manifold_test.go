@@ -34,8 +34,14 @@ type IAASManifoldSuite struct {
 	manifoldSuite
 }
 
-func TestIAASManifoldSuite(t *stdtesting.T) { tc.Run(t, &IAASManifoldSuite{}) }
-func TestCAASManifoldSuite(t *stdtesting.T) { tc.Run(t, &CAASManifoldSuite{}) }
+func TestIAASManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &IAASManifoldSuite{})
+}
+
+func TestCAASManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &CAASManifoldSuite{})
+}
+
 func (s *CAASManifoldSuite) SetUpTest(c *tc.C) {
 	s.modelType = "caas"
 }

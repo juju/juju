@@ -13,7 +13,10 @@ import (
 
 type PlacementSuite struct{}
 
-func TestPlacementSuite(t *stdtesting.T) { tc.Run(t, &PlacementSuite{}) }
+func TestPlacementSuite(t *stdtesting.T) {
+	tc.Run(t, &PlacementSuite{})
+}
+
 func (s *PlacementSuite) TestParsePlacement(c *tc.C) {
 	parsePlacementTests := []struct {
 		arg                          string

@@ -28,7 +28,10 @@ type k8sRawClientSuite struct {
 	labels map[string]string
 }
 
-func TestK8sRawClientSuite(t *stdtesting.T) { tc.Run(t, &k8sRawClientSuite{}) }
+func TestK8sRawClientSuite(t *stdtesting.T) {
+	tc.Run(t, &k8sRawClientSuite{})
+}
+
 func (s *k8sRawClientSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.namespace = "kube-system"

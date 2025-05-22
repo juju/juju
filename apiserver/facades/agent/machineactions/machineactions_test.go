@@ -24,7 +24,10 @@ type FacadeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &FacadeSuite{}) }
+func TestFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &FacadeSuite{})
+}
+
 func (*FacadeSuite) TestAcceptsMachineAgent(c *tc.C) {
 	facade, err := machineactions.NewFacade(nil, nil, agentAuth{machine: true})
 	c.Check(err, tc.ErrorIsNil)

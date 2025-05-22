@@ -17,7 +17,10 @@ type AllFacadesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAllFacadesSuite(t *stdtesting.T) { tc.Run(t, &AllFacadesSuite{}) }
+func TestAllFacadesSuite(t *stdtesting.T) {
+	tc.Run(t, &AllFacadesSuite{})
+}
+
 func (s *AllFacadesSuite) TestNoPanic(c *tc.C) {
 	// AllFacades will panic on error so check it by calling it.
 	r := AllFacades()

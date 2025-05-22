@@ -31,7 +31,10 @@ type WorkerSuite struct {
 	exists     bool
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
+
 func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

@@ -18,7 +18,10 @@ type iputilsSuite struct {
 	testing.BaseSuite
 }
 
-func TestIputilsSuite(t *stdtesting.T) { tc.Run(t, &iputilsSuite{}) }
+func TestIputilsSuite(t *stdtesting.T) {
+	tc.Run(t, &iputilsSuite{})
+}
+
 func (*iputilsSuite) TestNextSubnetIP(c *tc.C) {
 	assertNextSubnetIP(c, "10.0.0.0/8", nil, "10.0.0.4")
 	assertNextSubnetIP(c, "10.0.0.0/8", []string{"10.0.0.1"}, "10.0.0.4")

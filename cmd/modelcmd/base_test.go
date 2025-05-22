@@ -43,7 +43,10 @@ type BaseCommandSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestBaseCommandSuite(t *stdtesting.T) { tc.Run(t, &BaseCommandSuite{}) }
+func TestBaseCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &BaseCommandSuite{})
+}
+
 func (s *BaseCommandSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
@@ -429,7 +432,10 @@ type OpenAPIFuncSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestOpenAPIFuncSuite(t *stdtesting.T) { tc.Run(t, &OpenAPIFuncSuite{}) }
+func TestOpenAPIFuncSuite(t *stdtesting.T) {
+	tc.Run(t, &OpenAPIFuncSuite{})
+}
+
 func (s *OpenAPIFuncSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

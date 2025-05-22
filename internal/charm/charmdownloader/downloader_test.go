@@ -24,7 +24,10 @@ type downloaderSuite struct {
 	downloadClient *MockDownloadClient
 }
 
-func TestDownloaderSuite(t *stdtesting.T) { tc.Run(t, &downloaderSuite{}) }
+func TestDownloaderSuite(t *stdtesting.T) {
+	tc.Run(t, &downloaderSuite{})
+}
+
 func (s *downloaderSuite) TestDownload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

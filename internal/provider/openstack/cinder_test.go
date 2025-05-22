@@ -41,7 +41,9 @@ var (
 	mockMachineTag = names.NewMachineTag("456")
 )
 
-func TestCinderVolumeSourceSuite(t *stdtesting.T) { tc.Run(t, &cinderVolumeSourceSuite{}) }
+func TestCinderVolumeSourceSuite(t *stdtesting.T) {
+	tc.Run(t, &cinderVolumeSourceSuite{})
+}
 
 type cinderVolumeSourceSuite struct {
 	testing.BaseSuite

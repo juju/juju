@@ -17,7 +17,9 @@ type InfoSuite struct {
 	testing.BaseSuite
 }
 
-func TestInfoSuite(t *stdtesting.T) { tc.Run(t, &InfoSuite{}) }
+func TestInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &InfoSuite{})
+}
 
 var validateTests = []struct {
 	info hook.Info

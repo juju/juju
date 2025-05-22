@@ -19,7 +19,10 @@ import (
 type actionSuite struct {
 }
 
-func TestActionSuite(t *stdtesting.T) { tc.Run(t, &actionSuite{}) }
+func TestActionSuite(t *stdtesting.T) {
+	tc.Run(t, &actionSuite{})
+}
+
 func (s *actionSuite) TestApplicationCharmActions(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

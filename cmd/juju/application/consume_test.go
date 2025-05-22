@@ -28,7 +28,10 @@ type ConsumeSuite struct {
 	store   *jujuclient.MemStore
 }
 
-func TestConsumeSuite(t *stdtesting.T) { tc.Run(t, &ConsumeSuite{}) }
+func TestConsumeSuite(t *stdtesting.T) {
+	tc.Run(t, &ConsumeSuite{})
+}
+
 func (s *ConsumeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mockAPI = &mockConsumeAPI{Stub: &testhelpers.Stub{}}

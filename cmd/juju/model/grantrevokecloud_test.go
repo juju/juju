@@ -73,7 +73,10 @@ type grantCloudSuite struct {
 	grantRevokeCloudSuite
 }
 
-func TestGrantCloudSuite(t *stdtesting.T) { tc.Run(t, &grantCloudSuite{}) }
+func TestGrantCloudSuite(t *stdtesting.T) {
+	tc.Run(t, &grantCloudSuite{})
+}
+
 func (s *grantCloudSuite) SetUpTest(c *tc.C) {
 	s.grantRevokeCloudSuite.SetUpTest(c)
 	s.cmdFactory = func(fakeCloudAPI *fakeCloudGrantRevokeAPI) cmd.Command {
@@ -100,7 +103,10 @@ type revokeCloudSuite struct {
 	grantRevokeCloudSuite
 }
 
-func TestRevokeCloudSuite(t *stdtesting.T) { tc.Run(t, &revokeCloudSuite{}) }
+func TestRevokeCloudSuite(t *stdtesting.T) {
+	tc.Run(t, &revokeCloudSuite{})
+}
+
 func (s *revokeCloudSuite) SetUpTest(c *tc.C) {
 	s.grantRevokeCloudSuite.SetUpTest(c)
 	s.cmdFactory = func(fakeCloudAPI *fakeCloudGrantRevokeAPI) cmd.Command {

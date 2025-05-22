@@ -16,7 +16,10 @@ type LXDProfileNameSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLXDProfileNameSuite(t *stdtesting.T) { tc.Run(t, &LXDProfileNameSuite{}) }
+func TestLXDProfileNameSuite(t *stdtesting.T) {
+	tc.Run(t, &LXDProfileNameSuite{})
+}
+
 func (*LXDProfileNameSuite) TestProfileNames(c *tc.C) {
 	testCases := []struct {
 		input  []string

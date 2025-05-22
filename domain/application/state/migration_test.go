@@ -34,7 +34,10 @@ type migrationStateSuite struct {
 	baseSuite
 }
 
-func TestMigrationStateSuite(t *stdtesting.T) { tc.Run(t, &migrationStateSuite{}) }
+func TestMigrationStateSuite(t *stdtesting.T) {
+	tc.Run(t, &migrationStateSuite{})
+}
+
 func (s *migrationStateSuite) TestGetApplicationsForExport(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 

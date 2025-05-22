@@ -29,7 +29,10 @@ type watcherSuite struct {
 	appUUIDs [2]coreapplication.ID
 }
 
-func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
+func TestWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
+
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 

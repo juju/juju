@@ -24,7 +24,10 @@ type actionsSuite struct {
 	testing.BaseSuite
 }
 
-func TestActionsSuite(t *stdtesting.T) { tc.Run(t, &actionsSuite{}) }
+func TestActionsSuite(t *stdtesting.T) {
+	tc.Run(t, &actionsSuite{})
+}
+
 func (s *actionsSuite) TestTagToActionReceiverFn(c *tc.C) {
 	stubActionReceiver := fakeActionReceiver{}
 	stubEntity := fakeEntity{}

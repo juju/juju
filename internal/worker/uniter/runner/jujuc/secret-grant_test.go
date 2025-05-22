@@ -17,7 +17,10 @@ type SecretGrantSuite struct {
 	relationSuite
 }
 
-func TestSecretGrantSuite(t *stdtesting.T) { tc.Run(t, &SecretGrantSuite{}) }
+func TestSecretGrantSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretGrantSuite{})
+}
+
 func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *tc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 

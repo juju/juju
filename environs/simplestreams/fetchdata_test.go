@@ -23,7 +23,10 @@ type fetchDataSuite struct {
 	expectedCalls            []string
 }
 
-func TestFetchDataSuite(t *stdtesting.T) { tc.Run(t, &fetchDataSuite{}) }
+func TestFetchDataSuite(t *stdtesting.T) {
+	tc.Run(t, &fetchDataSuite{})
+}
+
 func (s *fetchDataSuite) SetUpTest(c *tc.C) {
 	s.source = testing.NewStubDataSource()
 }

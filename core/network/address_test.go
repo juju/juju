@@ -21,7 +21,10 @@ type AddressSuite struct {
 	testing.BaseSuite
 }
 
-func TestAddressSuite(t *stdtesting.T) { tc.Run(t, &AddressSuite{}) }
+func TestAddressSuite(t *stdtesting.T) {
+	tc.Run(t, &AddressSuite{})
+}
+
 func (s *AddressSuite) TestNewScopedAddressIPv4(c *tc.C) {
 	type test struct {
 		value         string

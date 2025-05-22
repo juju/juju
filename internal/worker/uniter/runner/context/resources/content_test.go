@@ -15,7 +15,9 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 )
 
-func TestContentSuite(t *stdtesting.T) { tc.Run(t, &ContentSuite{}) }
+func TestContentSuite(t *stdtesting.T) {
+	tc.Run(t, &ContentSuite{})
+}
 
 type ContentSuite struct {
 	testhelpers.IsolationSuite
@@ -69,7 +71,9 @@ func (s *ContentSuite) TestVerifyBadFingerprint(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `resource fingerprint does not match expected .*`)
 	s.stub.CheckNoCalls(c)
 }
-func TestCheckerSuite(t *stdtesting.T) { tc.Run(t, &CheckerSuite{}) }
+func TestCheckerSuite(t *stdtesting.T) {
+	tc.Run(t, &CheckerSuite{})
+}
 
 type CheckerSuite struct {
 	testhelpers.IsolationSuite

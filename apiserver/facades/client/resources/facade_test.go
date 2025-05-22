@@ -26,7 +26,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestResourcesSuite(t *stdtesting.T) { tc.Run(t, &resourcesSuite{}) }
+func TestResourcesSuite(t *stdtesting.T) {
+	tc.Run(t, &resourcesSuite{})
+}
 
 type resourcesSuite struct {
 	BaseSuite
@@ -251,7 +253,9 @@ func (s *resourcesSuite) TestServiceResources2API(c *tc.C) {
 		},
 	})
 }
-func TestAddPendingResourceSuite(t *stdtesting.T) { tc.Run(t, &addPendingResourceSuite{}) }
+func TestAddPendingResourceSuite(t *stdtesting.T) {
+	tc.Run(t, &addPendingResourceSuite{})
+}
 
 type addPendingResourceSuite struct {
 	BaseSuite

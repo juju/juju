@@ -21,7 +21,10 @@ type apiaddresserSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestApiaddresserSuite(t *stdtesting.T) { tc.Run(t, &apiaddresserSuite{}) }
+func TestApiaddresserSuite(t *stdtesting.T) {
+	tc.Run(t, &apiaddresserSuite{})
+}
+
 func (s *apiaddresserSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }

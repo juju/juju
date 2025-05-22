@@ -18,7 +18,10 @@ type networkingSuite struct {
 	commonSuite
 }
 
-func TestNetworkingSuite(t *stdtesting.T) { tc.Run(t, &networkingSuite{}) }
+func TestNetworkingSuite(t *stdtesting.T) {
+	tc.Run(t, &networkingSuite{})
+}
+
 func (s *networkingSuite) SetUpTest(c *tc.C) {
 	s.commonSuite.SetUpTest(c)
 }

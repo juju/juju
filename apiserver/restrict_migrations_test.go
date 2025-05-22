@@ -18,7 +18,10 @@ type restrictMigrationsSuite struct {
 	testing.BaseSuite
 }
 
-func TestRestrictMigrationsSuite(t *stdtesting.T) { tc.Run(t, &restrictMigrationsSuite{}) }
+func TestRestrictMigrationsSuite(t *stdtesting.T) {
+	tc.Run(t, &restrictMigrationsSuite{})
+}
+
 func (r *restrictMigrationsSuite) TestAllowedMethods(c *tc.C) {
 	root := apiserver.TestingMigratingRoot()
 	checkAllowed := func(facade, method string, version int) {

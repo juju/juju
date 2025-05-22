@@ -33,7 +33,10 @@ type OldUndertakerSuite struct {
 	fix fixture
 }
 
-func TestOldUndertakerSuite(t *stdtesting.T) { tc.Run(t, &OldUndertakerSuite{}) }
+func TestOldUndertakerSuite(t *stdtesting.T) {
+	tc.Run(t, &OldUndertakerSuite{})
+}
+
 func (s *OldUndertakerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	minute := time.Minute
@@ -293,7 +296,10 @@ func (s *OldUndertakerSuite) TestEnvironDestroyForceTimeoutZero(c *tc.C) {
 
 type UndertakerSuite struct{}
 
-func TestUndertakerSuite(t *stdtesting.T) { tc.Run(t, &UndertakerSuite{}) }
+func TestUndertakerSuite(t *stdtesting.T) {
+	tc.Run(t, &UndertakerSuite{})
+}
+
 func (s *UndertakerSuite) TestExitOnModelChanged(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

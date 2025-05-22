@@ -22,7 +22,10 @@ type ServerSuite struct {
 	client    *http.Client
 }
 
-func TestServerSuite(t *stdtesting.T) { tc.Run(t, &ServerSuite{}) }
+func TestServerSuite(t *stdtesting.T) {
+	tc.Run(t, &ServerSuite{})
+}
+
 func (s *ServerSuite) SetUpSuite(c *tc.C) {
 	authority, err := pkitest.NewTestAuthority()
 	c.Assert(err, tc.ErrorIsNil)

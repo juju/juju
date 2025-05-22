@@ -15,7 +15,10 @@ type legacyFirewallerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLegacyFirewallerSuite(t *stdtesting.T) { tc.Run(t, &legacyFirewallerSuite{}) }
+func TestLegacyFirewallerSuite(t *stdtesting.T) {
+	tc.Run(t, &legacyFirewallerSuite{})
+}
+
 func (s *legacyFirewallerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 

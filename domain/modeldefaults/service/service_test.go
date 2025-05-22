@@ -25,7 +25,10 @@ type serviceSuite struct {
 	modelUUID           coremodel.UUID
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) SetUpTest(c *tc.C) {
 	s.modelUUID = modeltesting.GenModelUUID(c)
 }

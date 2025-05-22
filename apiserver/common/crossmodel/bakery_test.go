@@ -33,7 +33,10 @@ type bakerySuite struct {
 	mockExpirableStorageBakery *mocks.MockExpirableStorageBakery
 }
 
-func TestBakerySuite(t *stdtesting.T) { tc.Run(t, &bakerySuite{}) }
+func TestBakerySuite(t *stdtesting.T) {
+	tc.Run(t, &bakerySuite{})
+}
+
 func (s *bakerySuite) getLocalOfferBakery(c *tc.C) (*crossmodel.OfferBakery, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 

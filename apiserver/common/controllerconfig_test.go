@@ -34,7 +34,10 @@ type controllerConfigSuite struct {
 	ctrlConfigAPI             *common.ControllerConfigAPI
 }
 
-func TestControllerConfigSuite(t *stdtesting.T) { tc.Run(t, &controllerConfigSuite{}) }
+func TestControllerConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &controllerConfigSuite{})
+}
+
 func (s *controllerConfigSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -106,7 +109,10 @@ type controllerInfoSuite struct {
 	localModel *state.Model
 }
 
-func TestControllerInfoSuite(t *stdtesting.T) { tc.Run(t, &controllerInfoSuite{}) }
+func TestControllerInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &controllerInfoSuite{})
+}
+
 func (s *controllerInfoSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())

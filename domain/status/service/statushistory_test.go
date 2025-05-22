@@ -26,7 +26,10 @@ type statusHistorySuite struct {
 	now           time.Time
 }
 
-func TestStatusHistorySuite(t *stdtesting.T) { tc.Run(t, &statusHistorySuite{}) }
+func TestStatusHistorySuite(t *stdtesting.T) {
+	tc.Run(t, &statusHistorySuite{})
+}
+
 func (s *statusHistorySuite) TestGetStatusHistoryNoData(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

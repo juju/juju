@@ -28,7 +28,10 @@ type fileResourceStoreSuite struct {
 	file        io.ReadCloser
 }
 
-func TestFileResourceStoreSuite(t *stdtesting.T) { tc.Run(t, &fileResourceStoreSuite{}) }
+func TestFileResourceStoreSuite(t *stdtesting.T) {
+	tc.Run(t, &fileResourceStoreSuite{})
+}
+
 func (s *fileResourceStoreSuite) SetUpTest(c *tc.C) {
 	data := "spamspamspam"
 	size := int64(len(data))

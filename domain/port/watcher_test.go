@@ -46,7 +46,9 @@ type watcherSuite struct {
 	appUUIDs [2]coreapplication.ID
 }
 
-func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
+func TestWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
 var (
 	ssh   = network.PortRange{Protocol: "tcp", FromPort: 22, ToPort: 22}

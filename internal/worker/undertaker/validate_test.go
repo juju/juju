@@ -22,7 +22,10 @@ type ValidateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestValidateSuite(t *stdtesting.T) { tc.Run(t, &ValidateSuite{}) }
+func TestValidateSuite(t *stdtesting.T) {
+	tc.Run(t, &ValidateSuite{})
+}
+
 func (*ValidateSuite) TestNilFacade(c *tc.C) {
 	config := validConfig(c)
 	config.Facade = nil

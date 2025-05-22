@@ -38,7 +38,10 @@ type machineConfigSuite struct {
 	bootstrapEnviron        *MockBootstrapEnviron
 }
 
-func TestMachineConfigSuite(t *stdtesting.T) { tc.Run(t, &machineConfigSuite{}) }
+func TestMachineConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &machineConfigSuite{})
+}
+
 func (s *machineConfigSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)

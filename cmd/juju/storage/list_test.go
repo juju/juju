@@ -25,7 +25,10 @@ type ListSuite struct {
 	mockAPI *mockListAPI
 }
 
-func TestListSuite(t *stdtesting.T) { tc.Run(t, &ListSuite{}) }
+func TestListSuite(t *stdtesting.T) {
+	tc.Run(t, &ListSuite{})
+}
+
 func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 

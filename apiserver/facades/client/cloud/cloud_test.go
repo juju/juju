@@ -74,7 +74,10 @@ func (s *cloudSuite) setup(c *tc.C, userTag names.UserTag) *gomock.Controller {
 	})
 	return ctrl
 }
-func TestCloudSuite(t *stdtesting.T) { tc.Run(t, &cloudSuite{}) }
+func TestCloudSuite(t *stdtesting.T) {
+	tc.Run(t, &cloudSuite{})
+}
+
 func (s *cloudSuite) TestCloud(c *tc.C) {
 	defer s.setup(c, names.NewUserTag("admin")).Finish()
 

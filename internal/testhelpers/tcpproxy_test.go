@@ -16,7 +16,9 @@ import (
 	testing "github.com/juju/juju/internal/testhelpers"
 )
 
-func TestTcpProxySuite(t *stdtesting.T) { tc.Run(t, &tcpProxySuite{}) }
+func TestTcpProxySuite(t *stdtesting.T) {
+	tc.Run(t, &tcpProxySuite{})
+}
 
 type tcpProxySuite struct{}
 

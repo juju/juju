@@ -24,7 +24,10 @@ type ValidateSuite struct {
 	metadataDir string
 }
 
-func TestValidateSuite(t *stdtesting.T) { tc.Run(t, &ValidateSuite{}) }
+func TestValidateSuite(t *stdtesting.T) {
+	tc.Run(t, &ValidateSuite{})
+}
+
 func (s *ValidateSuite) makeLocalMetadata(c *tc.C, ss *simplestreams.Simplestreams, id, region string, base corebase.Base, endpoint, stream string) {
 	metadata := []*imagemetadata.ImageMetadata{
 		{

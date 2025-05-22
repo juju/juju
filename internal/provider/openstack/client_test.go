@@ -21,7 +21,10 @@ type clientSuite struct {
 	testing.BaseSuite
 }
 
-func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
+func TestClientSuite(t *stdtesting.T) {
+	tc.Run(t, &clientSuite{})
+}
+
 func (s *clientSuite) TestFactoryInit(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

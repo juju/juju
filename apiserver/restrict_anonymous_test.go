@@ -19,7 +19,10 @@ type restrictAnonymousSuite struct {
 	root rpc.Root
 }
 
-func TestRestrictAnonymousSuite(t *stdtesting.T) { tc.Run(t, &restrictAnonymousSuite{}) }
+func TestRestrictAnonymousSuite(t *stdtesting.T) {
+	tc.Run(t, &restrictAnonymousSuite{})
+}
+
 func (s *restrictAnonymousSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.root = apiserver.TestingAnonymousRoot()

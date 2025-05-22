@@ -19,7 +19,10 @@ type charmSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestCharmSuite(t *stdtesting.T) { tc.Run(t, &charmSuite{}) }
+func TestCharmSuite(t *stdtesting.T) {
+	tc.Run(t, &charmSuite{})
+}
+
 func (s *charmSuite) TestCharmWithNilFails(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil

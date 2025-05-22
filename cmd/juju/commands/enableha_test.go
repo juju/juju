@@ -93,7 +93,10 @@ func (f *fakeHAClient) EnableHA(ctx context.Context, numControllers int, cons co
 
 	return f.result, nil
 }
-func TestEnableHASuite(t *stdtesting.T) { tc.Run(t, &EnableHASuite{}) }
+func TestEnableHASuite(t *stdtesting.T) {
+	tc.Run(t, &EnableHASuite{})
+}
+
 func (s *EnableHASuite) runEnableHA(c *tc.C, args ...string) (*cmd.Context, error) {
 	command := &enableHACommand{newHAClientFunc: func(ctx context.Context) (MakeHAClient, error) { return s.fake, nil }}
 	store := jujuclient.NewMemStore()

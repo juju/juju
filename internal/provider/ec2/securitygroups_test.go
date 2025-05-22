@@ -28,7 +28,10 @@ type SecurityGroupSuite struct {
 	deleteFunc func(context.Context, ec2.SecurityGroupCleaner, types.GroupIdentifier, clock.Clock) error
 }
 
-func TestSecurityGroupSuite(t *stdtesting.T) { tc.Run(t, &SecurityGroupSuite{}) }
+func TestSecurityGroupSuite(t *stdtesting.T) {
+	tc.Run(t, &SecurityGroupSuite{})
+}
+
 func (s *SecurityGroupSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.deleteFunc = *ec2.DeleteSecurityGroupInsistently

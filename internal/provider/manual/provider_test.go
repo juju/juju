@@ -27,7 +27,10 @@ type providerSuite struct {
 	testhelpers.Stub
 }
 
-func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
+func TestProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &providerSuite{})
+}
+
 func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.Stub.ResetCalls()

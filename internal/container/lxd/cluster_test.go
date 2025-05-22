@@ -18,7 +18,10 @@ type clusterSuite struct {
 	lxdtesting.BaseSuite
 }
 
-func TestClusterSuite(t *stdtesting.T) { tc.Run(t, &clusterSuite{}) }
+func TestClusterSuite(t *stdtesting.T) {
+	tc.Run(t, &clusterSuite{})
+}
+
 func (s *imageSuite) TestUseTargetGoodNode(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

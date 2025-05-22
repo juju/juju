@@ -42,7 +42,9 @@ type InitialiserSuite struct {
 	calledCmds []string
 }
 
-func TestInitialiserSuite(t *stdtesting.T) { tc.Run(t, &InitialiserSuite{}) }
+func TestInitialiserSuite(t *stdtesting.T) {
+	tc.Run(t, &InitialiserSuite{})
+}
 
 const lxdSnapChannel = "latest/stable"
 

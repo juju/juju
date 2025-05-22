@@ -21,7 +21,10 @@ type UndertakerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUndertakerSuite(t *stdtesting.T) { tc.Run(t, &UndertakerSuite{}) }
+func TestUndertakerSuite(t *stdtesting.T) {
+	tc.Run(t, &UndertakerSuite{})
+}
+
 func (s *UndertakerSuite) TestModelInfo(c *tc.C) {
 	var called bool
 	client := s.mockClient(c, "ModelInfo", func(response interface{}) {

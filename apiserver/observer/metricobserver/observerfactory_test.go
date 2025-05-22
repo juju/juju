@@ -21,7 +21,10 @@ type observerFactorySuite struct {
 	clock *testclock.Clock
 }
 
-func TestObserverFactorySuite(t *stdtesting.T) { tc.Run(t, &observerFactorySuite{}) }
+func TestObserverFactorySuite(t *stdtesting.T) {
+	tc.Run(t, &observerFactorySuite{})
+}
+
 func (s *observerFactorySuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Time{})

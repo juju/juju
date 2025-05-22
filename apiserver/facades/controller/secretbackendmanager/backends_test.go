@@ -30,7 +30,10 @@ type SecretsManagerSuite struct {
 	facade          *SecretBackendsManagerAPI
 }
 
-func TestSecretsManagerSuite(t *stdtesting.T) { tc.Run(t, &SecretsManagerSuite{}) }
+func TestSecretsManagerSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretsManagerSuite{})
+}
+
 func (s *SecretsManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

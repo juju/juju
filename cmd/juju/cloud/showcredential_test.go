@@ -27,7 +27,10 @@ type ShowCredentialSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestShowCredentialSuite(t *stdtesting.T) { tc.Run(t, &ShowCredentialSuite{}) }
+func TestShowCredentialSuite(t *stdtesting.T) {
+	tc.Run(t, &ShowCredentialSuite{})
+}
+
 func (s *ShowCredentialSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

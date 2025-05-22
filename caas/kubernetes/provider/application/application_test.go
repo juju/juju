@@ -56,7 +56,10 @@ type applicationSuite struct {
 
 const defaultAgentVersion = "3.5-beta1"
 
-func TestApplicationSuite(t *stdtesting.T) { tc.Run(t, &applicationSuite{}) }
+func TestApplicationSuite(t *stdtesting.T) {
+	tc.Run(t, &applicationSuite{})
+}
+
 func (s *applicationSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

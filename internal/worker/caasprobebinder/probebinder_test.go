@@ -18,7 +18,10 @@ import (
 
 type binderSuite struct{}
 
-func TestBinderSuite(t *stdtesting.T) { tc.Run(t, &binderSuite{}) }
+func TestBinderSuite(t *stdtesting.T) {
+	tc.Run(t, &binderSuite{})
+}
+
 func (s *binderSuite) TestBindingUnbinding(c *tc.C) {
 	probes := caasprober.NewCAASProbes()
 	worker, err := caasprobebinder.NewProbeBinder(probes, map[string]probe.ProbeProvider{

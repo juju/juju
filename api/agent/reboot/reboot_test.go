@@ -22,7 +22,10 @@ type machineRebootSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestMachineRebootSuite(t *stdtesting.T) { tc.Run(t, &machineRebootSuite{}) }
+func TestMachineRebootSuite(t *stdtesting.T) {
+	tc.Run(t, &machineRebootSuite{})
+}
+
 func (s *machineRebootSuite) TestWatchForRebootEvent(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "Reboot")

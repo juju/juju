@@ -29,7 +29,10 @@ type RunActionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRunActionSuite(t *stdtesting.T) { tc.Run(t, &RunActionSuite{}) }
+func TestRunActionSuite(t *stdtesting.T) {
+	tc.Run(t, &RunActionSuite{})
+}
+
 func newOpFactory(c *tc.C, runnerFactory runner.Factory, callbacks operation.Callbacks) operation.Factory {
 	actionResult := params.ActionResult{
 		Action: &params.Action{Name: "backup"},

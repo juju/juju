@@ -18,7 +18,9 @@ type stateSetSuite struct {
 	stateSuite
 }
 
-func TestStateSetSuite(t *stdtesting.T) { tc.Run(t, &stateSetSuite{}) }
+func TestStateSetSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSetSuite{})
+}
 
 type runStateSetCmd struct {
 	description string

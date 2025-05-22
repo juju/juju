@@ -21,7 +21,10 @@ type patchSuite struct {
 	tx *MockTx
 }
 
-func TestPatchSuite(t *stdtesting.T) { tc.Run(t, &patchSuite{}) }
+func TestPatchSuite(t *stdtesting.T) {
+	tc.Run(t, &patchSuite{})
+}
+
 func (s *patchSuite) TestPatchHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -62,7 +65,10 @@ type schemaSuite struct {
 	databasetesting.DqliteSuite
 }
 
-func TestSchemaSuite(t *stdtesting.T) { tc.Run(t, &schemaSuite{}) }
+func TestSchemaSuite(t *stdtesting.T) {
+	tc.Run(t, &schemaSuite{})
+}
+
 func (s *schemaSuite) TestSchemaAdd(c *tc.C) {
 	schema := New(
 		MakePatch("SELECT 1"),

@@ -39,7 +39,10 @@ type undertakerSuite struct {
 	mockCloudSpecGetter      *MockModelProviderService
 }
 
-func TestUndertakerSuite(t *stdtesting.T) { tc.Run(t, &undertakerSuite{}) }
+func TestUndertakerSuite(t *stdtesting.T) {
+	tc.Run(t, &undertakerSuite{})
+}
+
 func (s *undertakerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }

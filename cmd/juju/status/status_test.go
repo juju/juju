@@ -29,7 +29,10 @@ type MinimalStatusSuite struct {
 	clock     *timeRecorder
 }
 
-func TestMinimalStatusSuite(t *stdtesting.T) { tc.Run(t, &MinimalStatusSuite{}) }
+func TestMinimalStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &MinimalStatusSuite{})
+}
+
 func (s *MinimalStatusSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.statusapi = &fakeStatusAPI{

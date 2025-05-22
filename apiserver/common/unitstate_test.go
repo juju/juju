@@ -31,7 +31,10 @@ type unitStateSuite struct {
 	unitStateService       *mocks.MockUnitStateService
 }
 
-func TestUnitStateSuite(t *stdtesting.T) { tc.Run(t, &unitStateSuite{}) }
+func TestUnitStateSuite(t *stdtesting.T) {
+	tc.Run(t, &unitStateSuite{})
+}
+
 func (s *unitStateSuite) SetUpTest(c *tc.C) {
 	s.unitTag1 = names.NewUnitTag("wordpress/0")
 }

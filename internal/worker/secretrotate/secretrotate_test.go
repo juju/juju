@@ -33,7 +33,10 @@ type workerSuite struct {
 	rotatedSecrets      chan []string
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
+
 func (s *workerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

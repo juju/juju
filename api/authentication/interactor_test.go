@@ -30,7 +30,10 @@ type InteractorSuite struct {
 	handler http.Handler
 }
 
-func TestInteractorSuite(t *stdtesting.T) { tc.Run(t, &InteractorSuite{}) }
+func TestInteractorSuite(t *stdtesting.T) {
+	tc.Run(t, &InteractorSuite{})
+}
+
 func (s *InteractorSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	var err error

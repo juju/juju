@@ -22,7 +22,10 @@ type serviceSuite struct {
 	state *MockState
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) TestSwitchOnBlock(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

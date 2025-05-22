@@ -37,7 +37,9 @@ type updateCAASSuite struct {
 	clientStore                   *jujuclient.MemStore
 }
 
-func TestUpdateCAASSuite(t *stdtesting.T) { tc.Run(t, &updateCAASSuite{}) }
+func TestUpdateCAASSuite(t *stdtesting.T) {
+	tc.Run(t, &updateCAASSuite{})
+}
 
 type fakeUpdateCloudAPI struct {
 	*testhelpers.CallMocker

@@ -19,7 +19,10 @@ type RevokeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRevokeSuite(t *stdtesting.T) { tc.Run(t, &RevokeSuite{}) }
+func TestRevokeSuite(t *stdtesting.T) {
+	tc.Run(t, &RevokeSuite{})
+}
+
 func (s *RevokeSuite) TestHolderSuccess(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{

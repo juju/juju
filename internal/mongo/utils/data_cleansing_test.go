@@ -16,7 +16,10 @@ type dataCleansingSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDataCleansingSuite(t *stdtesting.T) { tc.Run(t, &dataCleansingSuite{}) }
+func TestDataCleansingSuite(t *stdtesting.T) {
+	tc.Run(t, &dataCleansingSuite{})
+}
+
 func (s *dataCleansingSuite) TestEscapeKeys_EscapesPeriods(c *tc.C) {
 	before := map[string]interface{}{
 		"a.b": "c",

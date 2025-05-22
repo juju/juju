@@ -43,7 +43,9 @@ type stateSuite struct {
 	appUUID coreapplication.ID
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 var (
 	machineUUIDs = []string{"machine-0-uuid", "machine-1-uuid"}

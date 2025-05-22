@@ -15,7 +15,10 @@ type StateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &StateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &StateSuite{})
+}
+
 func (s *StateSuite) TestParseStateKnown(c *tc.C) {
 	recognized := map[string]State{
 		"potential": StatePotential,

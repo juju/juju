@@ -20,7 +20,10 @@ type stateSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
+
 func (s *stateSuite) TestGetMetadataNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

@@ -19,7 +19,10 @@ type clusterRoleSuite struct {
 	resourceSuite
 }
 
-func TestClusterRoleSuite(t *stdtesting.T) { tc.Run(t, &clusterRoleSuite{}) }
+func TestClusterRoleSuite(t *stdtesting.T) {
+	tc.Run(t, &clusterRoleSuite{})
+}
+
 func (s *clusterRoleSuite) TestApply(c *tc.C) {
 	role := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{

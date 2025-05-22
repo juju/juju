@@ -42,7 +42,10 @@ type resourceServiceSuite struct {
 	service *Service
 }
 
-func TestResourceServiceSuite(t *stdtesting.T) { tc.Run(t, &resourceServiceSuite{}) }
+func TestResourceServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &resourceServiceSuite{})
+}
+
 func (s *resourceServiceSuite) TestDeleteApplicationResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

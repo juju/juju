@@ -20,7 +20,9 @@ type RelationListSuite struct {
 	relationSuite
 }
 
-func TestRelationListSuite(t *stdtesting.T) { tc.Run(t, &RelationListSuite{}) }
+func TestRelationListSuite(t *stdtesting.T) {
+	tc.Run(t, &RelationListSuite{})
+}
 
 var relationListTests = []struct {
 	summary            string

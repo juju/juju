@@ -27,7 +27,10 @@ type FileVarSuite struct {
 	InvalidPath string // invalid path refers to a file which is not readable
 }
 
-func TestFileVarSuite(t *stdtesting.T) { tc.Run(t, &FileVarSuite{}) }
+func TestFileVarSuite(t *stdtesting.T) {
+	tc.Run(t, &FileVarSuite{})
+}
+
 func (s *FileVarSuite) SetUpTest(c *tc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
 	s.ctx = cmdtesting.Context(c)

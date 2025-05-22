@@ -54,7 +54,9 @@ type resourceSuite struct {
 	}
 }
 
-func TestResourceSuite(t *stdtesting.T) { tc.Run(t, &resourceSuite{}) }
+func TestResourceSuite(t *stdtesting.T) {
+	tc.Run(t, &resourceSuite{})
+}
 
 const fakeCharmUUID = "fake-charm-uuid"
 

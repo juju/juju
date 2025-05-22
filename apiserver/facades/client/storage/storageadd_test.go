@@ -22,7 +22,10 @@ type storageAddSuite struct {
 	baseStorageSuite
 }
 
-func TestStorageAddSuite(t *stdtesting.T) { tc.Run(t, &storageAddSuite{}) }
+func TestStorageAddSuite(t *stdtesting.T) {
+	tc.Run(t, &storageAddSuite{})
+}
+
 func (s *storageAddSuite) assertStorageAddedNoErrors(c *tc.C, args params.StorageAddParams) {
 	s.assertStoragesAddedNoErrors(c,
 		params.StoragesAddParams{Storages: []params.StorageAddParams{args}},

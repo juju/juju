@@ -29,7 +29,10 @@ type MachineWatcherSuite struct {
 	watcherRegistry        facade.WatcherRegistry
 }
 
-func TestMachineWatcherSuite(t *stdtesting.T) { tc.Run(t, &MachineWatcherSuite{}) }
+func TestMachineWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &MachineWatcherSuite{})
+}
+
 func (s *MachineWatcherSuite) setup(c *tc.C) *gomock.Controller {
 	var err error
 	ctrl := gomock.NewController(c)

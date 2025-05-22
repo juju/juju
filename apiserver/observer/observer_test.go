@@ -20,7 +20,10 @@ type multiplexerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMultiplexerSuite(t *stdtesting.T) { tc.Run(t, &multiplexerSuite{}) }
+func TestMultiplexerSuite(t *stdtesting.T) {
+	tc.Run(t, &multiplexerSuite{})
+}
+
 func (*multiplexerSuite) TestObserverFactoryMultiplexerCallsAllFactories(c *tc.C) {
 	callCount := 0
 	factories := []observer.ObserverFactory{

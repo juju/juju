@@ -116,7 +116,10 @@ type grantSuite struct {
 	grantRevokeSuite
 }
 
-func TestGrantSuite(t *stdtesting.T) { tc.Run(t, &grantSuite{}) }
+func TestGrantSuite(t *stdtesting.T) {
+	tc.Run(t, &grantSuite{})
+}
+
 func (s *grantSuite) SetUpTest(c *tc.C) {
 	s.grantRevokeSuite.SetUpTest(c)
 	s.cmdFactory = func(fakeModelAPI *fakeModelGrantRevokeAPI, fakeOfferAPI *fakeOffersGrantRevokeAPI) cmd.Command {
@@ -160,7 +163,10 @@ type revokeSuite struct {
 	grantRevokeSuite
 }
 
-func TestRevokeSuite(t *stdtesting.T) { tc.Run(t, &revokeSuite{}) }
+func TestRevokeSuite(t *stdtesting.T) {
+	tc.Run(t, &revokeSuite{})
+}
+
 func (s *revokeSuite) SetUpTest(c *tc.C) {
 	s.grantRevokeSuite.SetUpTest(c)
 	s.cmdFactory = func(fakeModelAPI *fakeModelGrantRevokeAPI, fakeOffersAPI *fakeOffersGrantRevokeAPI) cmd.Command {

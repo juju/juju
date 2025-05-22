@@ -20,7 +20,10 @@ type applierSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestApplierSuite(t *stdtesting.T) { tc.Run(t, &applierSuite{}) }
+func TestApplierSuite(t *stdtesting.T) {
+	tc.Run(t, &applierSuite{})
+}
+
 func (s *applierSuite) TestRun(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

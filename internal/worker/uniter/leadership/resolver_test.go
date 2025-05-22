@@ -19,7 +19,9 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 )
 
-func TestResolverSuite(t *stdtesting.T) { tc.Run(t, &resolverSuite{}) }
+func TestResolverSuite(t *stdtesting.T) {
+	tc.Run(t, &resolverSuite{})
+}
 
 type resolverSuite struct {
 	coretesting.BaseSuite

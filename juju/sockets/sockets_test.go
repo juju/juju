@@ -25,7 +25,10 @@ func (f RpcCaller) TestCall(arg string, reply *string) error {
 type SocketSuite struct {
 }
 
-func TestSocketSuite(t *stdtesting.T) { tc.Run(t, &SocketSuite{}) }
+func TestSocketSuite(t *stdtesting.T) {
+	tc.Run(t, &SocketSuite{})
+}
+
 func (s *SocketSuite) TestTCP(c *tc.C) {
 	socketDesc := sockets.Socket{
 		Address: "127.0.0.1:32134",

@@ -21,7 +21,10 @@ type ManifoldConfigSuite struct {
 	config migrationmaster.ManifoldConfig
 }
 
-func TestManifoldConfigSuite(t *stdtesting.T) { tc.Run(t, &ManifoldConfigSuite{}) }
+func TestManifoldConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldConfigSuite{})
+}
+
 func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = s.validConfig()

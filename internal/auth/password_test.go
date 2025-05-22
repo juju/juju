@@ -18,7 +18,10 @@ import (
 type passwordSuite struct {
 }
 
-func TestPasswordSuite(t *stdtesting.T) { tc.Run(t, &passwordSuite{}) }
+func TestPasswordSuite(t *stdtesting.T) {
+	tc.Run(t, &passwordSuite{})
+}
+
 func ExampleHashPassword() {
 	userExposedPassword := "topsecret"
 

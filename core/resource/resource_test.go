@@ -19,7 +19,10 @@ type ResourceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestResourceSuite(t *stdtesting.T) { tc.Run(t, &ResourceSuite{}) }
+func TestResourceSuite(t *stdtesting.T) {
+	tc.Run(t, &ResourceSuite{})
+}
+
 func (s *ResourceSuite) TestValidateUploadUsed(c *tc.C) {
 	res := resource.Resource{
 		Resource:        newFullCharmResource(c, "spam"),

@@ -17,7 +17,10 @@ import (
 
 type providerCommonSuite struct{}
 
-func TestProviderCommonSuite(t *stdtesting.T) { tc.Run(t, &providerCommonSuite{}) }
+func TestProviderCommonSuite(t *stdtesting.T) {
+	tc.Run(t, &providerCommonSuite{})
+}
+
 func (s *providerCommonSuite) TestCommonProvidersExported(c *tc.C) {
 	registry := provider.CommonStorageProviders()
 	var common []storage.ProviderType

@@ -24,7 +24,10 @@ type FactorySuite struct {
 	ContextSuite
 }
 
-func TestFactorySuite(t *stdtesting.T) { tc.Run(t, &FactorySuite{}) }
+func TestFactorySuite(t *stdtesting.T) {
+	tc.Run(t, &FactorySuite{})
+}
+
 func (s *FactorySuite) AssertPaths(c *tc.C, rnr runner.Runner) {
 	c.Assert(runner.RunnerPaths(rnr), tc.DeepEquals, s.paths)
 }

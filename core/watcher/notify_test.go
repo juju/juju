@@ -24,7 +24,10 @@ type notifyWorkerSuite struct {
 	actor  *notifyHandler
 }
 
-func TestNotifyWorkerSuite(t *stdtesting.T) { tc.Run(t, &notifyWorkerSuite{}) }
+func TestNotifyWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &notifyWorkerSuite{})
+}
+
 func newNotifyHandlerWorker(c *tc.C, setupError, handlerError, teardownError error) (*notifyHandler, worker.Worker) {
 	nh := &notifyHandler{
 		actions:       nil,

@@ -24,7 +24,10 @@ type FacadeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &FacadeSuite{}) }
+func TestFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &FacadeSuite{})
+}
+
 func (*FacadeSuite) TestLifeCall(c *tc.C) {
 	var called bool
 	caller := apiCaller(c, func(request string, args, _ interface{}) error {

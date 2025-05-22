@@ -30,7 +30,9 @@ type MachineManifoldSuite struct {
 	newCalled bool
 }
 
-func TestMachineManifoldSuite(t *stdtesting.T) { tc.Run(t, &MachineManifoldSuite{}) }
+func TestMachineManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &MachineManifoldSuite{})
+}
 
 var (
 	defaultClockStart time.Time

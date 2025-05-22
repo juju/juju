@@ -24,7 +24,10 @@ type firewallerSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestFirewallerSuite(t *stdtesting.T) { tc.Run(t, &firewallerSuite{}) }
+func TestFirewallerSuite(t *stdtesting.T) {
+	tc.Run(t, &firewallerSuite{})
+}
+
 func (s *firewallerSuite) TestModelFirewallRules(c *tc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

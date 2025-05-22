@@ -14,7 +14,10 @@ import (
 type changesSortSuite struct {
 }
 
-func TestChangesSortSuite(t *stdtesting.T) { tc.Run(t, &changesSortSuite{}) }
+func TestChangesSortSuite(t *stdtesting.T) {
+	tc.Run(t, &changesSortSuite{})
+}
+
 func (s *changesSortSuite) TestSortVerifyRequirementsMet(c *tc.C) {
 	ahead := set.NewStrings()
 	sorted, err := csOne().sorted()

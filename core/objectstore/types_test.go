@@ -16,7 +16,10 @@ type objectStoreSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestObjectStoreSuite(t *stdtesting.T) { tc.Run(t, &objectStoreSuite{}) }
+func TestObjectStoreSuite(t *stdtesting.T) {
+	tc.Run(t, &objectStoreSuite{})
+}
+
 func (s *objectStoreSuite) TestObjectStore(c *tc.C) {
 	tests := []struct {
 		value string

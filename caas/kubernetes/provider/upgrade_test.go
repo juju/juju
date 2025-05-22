@@ -17,7 +17,10 @@ import (
 type UpgraderSuite struct {
 }
 
-func TestUpgraderSuite(t *stdtesting.T) { tc.Run(t, &UpgraderSuite{}) }
+func TestUpgraderSuite(t *stdtesting.T) {
+	tc.Run(t, &UpgraderSuite{})
+}
+
 func (u *UpgraderSuite) TestUpgradePodTemplateSpec(c *tc.C) {
 	tests := []struct {
 		ExpectedPodTemplateSpec core.PodTemplateSpec

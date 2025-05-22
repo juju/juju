@@ -21,7 +21,10 @@ type exportCharmSuite struct {
 	exportSuite
 }
 
-func TestExportCharmSuite(t *stdtesting.T) { tc.Run(t, &exportCharmSuite{}) }
+func TestExportCharmSuite(t *stdtesting.T) {
+	tc.Run(t, &exportCharmSuite{})
+}
+
 func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

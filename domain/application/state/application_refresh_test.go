@@ -32,7 +32,10 @@ type applicationRefreshSuite struct {
 	otherAppCount int
 }
 
-func TestApplicationRefreshSuite(t *stdtesting.T) { tc.Run(t, &applicationRefreshSuite{}) }
+func TestApplicationRefreshSuite(t *stdtesting.T) {
+	tc.Run(t, &applicationRefreshSuite{})
+}
+
 func (s *applicationRefreshSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 

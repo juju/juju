@@ -44,7 +44,10 @@ type lxdProfileWatcherSuite struct {
 	wc0 watchertest.NotifyWatcherC
 }
 
-func TestLxdProfileWatcherSuite(t *stdtesting.T) { tc.Run(t, &lxdProfileWatcherSuite{}) }
+func TestLxdProfileWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &lxdProfileWatcherSuite{})
+}
+
 func (s *lxdProfileWatcherSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

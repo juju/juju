@@ -43,7 +43,10 @@ type charmSuite struct {
 	url               *charm.URL
 }
 
-func TestCharmSuite(t *stdtesting.T) { tc.Run(t, &charmSuite{}) }
+func TestCharmSuite(t *stdtesting.T) {
+	tc.Run(t, &charmSuite{})
+}
+
 func (s *charmSuite) SetUpTest(c *tc.C) {
 	s.ctx = cmdtesting.Context(c)
 	s.deployResourceIDs = make(map[string]string)

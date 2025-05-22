@@ -33,7 +33,10 @@ type updatePublicCloudsSuite struct {
 	api   *fakeUpdatePublicCloudAPI
 }
 
-func TestUpdatePublicCloudsSuite(t *stdtesting.T) { tc.Run(t, &updatePublicCloudsSuite{}) }
+func TestUpdatePublicCloudsSuite(t *stdtesting.T) {
+	tc.Run(t, &updatePublicCloudsSuite{})
+}
+
 func (s *updatePublicCloudsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 

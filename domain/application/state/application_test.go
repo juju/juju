@@ -52,7 +52,10 @@ type modelSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestModelSuite(t *stdtesting.T) { tc.Run(t, &modelSuite{}) }
+func TestModelSuite(t *stdtesting.T) {
+	tc.Run(t, &modelSuite{})
+}
+
 func (s *modelSuite) TestGetModelType(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -76,7 +79,10 @@ type applicationStateSuite struct {
 	state *State
 }
 
-func TestApplicationStateSuite(t *stdtesting.T) { tc.Run(t, &applicationStateSuite{}) }
+func TestApplicationStateSuite(t *stdtesting.T) {
+	tc.Run(t, &applicationStateSuite{})
+}
+
 func (s *applicationStateSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 

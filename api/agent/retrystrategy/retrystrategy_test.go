@@ -21,7 +21,10 @@ type retryStrategySuite struct {
 	coretesting.BaseSuite
 }
 
-func TestRetryStrategySuite(t *stdtesting.T) { tc.Run(t, &retryStrategySuite{}) }
+func TestRetryStrategySuite(t *stdtesting.T) {
+	tc.Run(t, &retryStrategySuite{})
+}
+
 func (s *retryStrategySuite) TestRetryStrategyOk(c *tc.C) {
 	tag := names.NewUnitTag("wp/1")
 	expectedRetryStrategy := params.RetryStrategy{

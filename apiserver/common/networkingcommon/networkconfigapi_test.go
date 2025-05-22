@@ -45,7 +45,10 @@ type networkConfigSuite struct {
 	modelOp modelOpRecorder
 }
 
-func TestNetworkConfigSuite(t *stdtesting.T) { tc.Run(t, &networkConfigSuite{}) }
+func TestNetworkConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &networkConfigSuite{})
+}
+
 func (s *networkConfigSuite) TestSetObservedNetworkConfigMachineNotFoundPermissionError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

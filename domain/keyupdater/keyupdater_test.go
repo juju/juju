@@ -48,7 +48,10 @@ type keyUpdaterSuite struct {
 	userID  user.UUID
 }
 
-func TestKeyUpdaterSuite(t *stdtesting.T) { tc.Run(t, &keyUpdaterSuite{}) }
+func TestKeyUpdaterSuite(t *stdtesting.T) {
+	tc.Run(t, &keyUpdaterSuite{})
+}
+
 func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 	s.ControllerModelSuite.SetUpTest(c)
 

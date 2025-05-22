@@ -25,7 +25,10 @@ type addSuite struct {
 	secretsAPI *mocks.MockAddSecretsAPI
 }
 
-func TestAddSuite(t *stdtesting.T) { tc.Run(t, &addSuite{}) }
+func TestAddSuite(t *stdtesting.T) {
+	tc.Run(t, &addSuite{})
+}
+
 func (s *addSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()

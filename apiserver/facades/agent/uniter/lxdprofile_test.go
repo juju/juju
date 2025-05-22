@@ -42,7 +42,10 @@ type lxdProfileSuite struct {
 	applicationService *uniter.MockApplicationService
 }
 
-func TestLxdProfileSuite(t *stdtesting.T) { tc.Run(t, &lxdProfileSuite{}) }
+func TestLxdProfileSuite(t *stdtesting.T) {
+	tc.Run(t, &lxdProfileSuite{})
+}
+
 func (s *lxdProfileSuite) SetUpTest(c *tc.C) {
 	s.machineTag1 = names.NewMachineTag("1")
 	s.unitTag1 = names.NewUnitTag("mysql/1")

@@ -17,7 +17,10 @@ type ModelSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestModelSuite(t *stdtesting.T) { tc.Run(t, &ModelSuite{}) }
+func TestModelSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelSuite{})
+}
+
 func (*ModelSuite) TestValidModelTypes(c *tc.C) {
 	validTypes := []ModelType{
 		CAAS,

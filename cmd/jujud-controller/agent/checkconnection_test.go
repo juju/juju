@@ -21,7 +21,10 @@ type checkConnectionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCheckConnectionSuite(t *stdtesting.T) { tc.Run(t, &checkConnectionSuite{}) }
+func TestCheckConnectionSuite(t *stdtesting.T) {
+	tc.Run(t, &checkConnectionSuite{})
+}
+
 func (s *checkConnectionSuite) TestInitChecksTag(c *tc.C) {
 	cmd := agentcmd.NewCheckConnectionCommand(nil, nil)
 	err := cmd.Init(nil)

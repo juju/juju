@@ -19,7 +19,10 @@ type RunCommandsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRunCommandsSuite(t *stdtesting.T) { tc.Run(t, &RunCommandsSuite{}) }
+func TestRunCommandsSuite(t *stdtesting.T) {
+	tc.Run(t, &RunCommandsSuite{})
+}
+
 func (s *RunCommandsSuite) TestPrepareError(c *tc.C) {
 	runnerFactory := &MockRunnerFactory{
 		MockNewCommandRunner: &MockNewCommandRunner{err: errors.New("blooey")},

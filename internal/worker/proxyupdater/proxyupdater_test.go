@@ -43,7 +43,10 @@ type ProxyUpdaterSuite struct {
 	config           proxyupdater.Config
 }
 
-func TestProxyUpdaterSuite(t *stdtesting.T) { tc.Run(t, &ProxyUpdaterSuite{}) }
+func TestProxyUpdaterSuite(t *stdtesting.T) {
+	tc.Run(t, &ProxyUpdaterSuite{})
+}
+
 func newNotAWatcher() notAWatcher {
 	return notAWatcher{workertest.NewFakeWatcher(2, 2)}
 }

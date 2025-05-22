@@ -38,7 +38,10 @@ type agentAuthenticatorSuite struct {
 	macaroonService            *MockMacaroonService
 }
 
-func TestAgentAuthenticatorSuite(t *stdtesting.T) { tc.Run(t, &agentAuthenticatorSuite{}) }
+func TestAgentAuthenticatorSuite(t *stdtesting.T) {
+	tc.Run(t, &agentAuthenticatorSuite{})
+}
+
 func (s *agentAuthenticatorSuite) TestAuthenticateLoginRequestHandleNotSupportedRequests(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

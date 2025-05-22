@@ -27,7 +27,9 @@ type undertakerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUndertakerSuite(t *stdtesting.T) { tc.Run(t, &undertakerSuite{}) }
+func TestUndertakerSuite(t *stdtesting.T) {
+	tc.Run(t, &undertakerSuite{})
+}
 
 const (
 	uuid1 = "12345678-1234-1234-1234-123456789abc"

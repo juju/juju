@@ -22,7 +22,10 @@ type certSuite struct {
 	workerFixture
 }
 
-func TestCertSuite(t *stdtesting.T) { tc.Run(t, &certSuite{}) }
+func TestCertSuite(t *stdtesting.T) {
+	tc.Run(t, &certSuite{})
+}
+
 func testSNIGetter(cert *tls.Certificate) httpserver.SNIGetterFunc {
 	return func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		return cert, nil

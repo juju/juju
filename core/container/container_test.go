@@ -14,7 +14,10 @@ import (
 
 type ContainerSuite struct{}
 
-func TestContainerSuite(t *stdtesting.T) { tc.Run(t, &ContainerSuite{}) }
+func TestContainerSuite(t *stdtesting.T) {
+	tc.Run(t, &ContainerSuite{})
+}
+
 func (s *ContainerSuite) TestNestingLevel(c *tc.C) {
 	c.Assert(container.NestingLevel("0"), tc.Equals, 0)
 	c.Assert(container.NestingLevel("0/lxd/1"), tc.Equals, 1)

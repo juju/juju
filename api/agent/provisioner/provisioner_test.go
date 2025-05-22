@@ -27,7 +27,10 @@ type provisionerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProvisionerSuite(t *stdtesting.T) { tc.Run(t, &provisionerSuite{}) }
+func TestProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &provisionerSuite{})
+}
+
 func (s *provisionerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }

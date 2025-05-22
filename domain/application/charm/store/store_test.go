@@ -32,7 +32,10 @@ type storeSuite struct {
 	objectStoreGetter *MockModelObjectStoreGetter
 }
 
-func TestStoreSuite(t *stdtesting.T) { tc.Run(t, &storeSuite{}) }
+func TestStoreSuite(t *stdtesting.T) {
+	tc.Run(t, &storeSuite{})
+}
+
 func (s *storeSuite) TestStore(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -29,7 +29,10 @@ type filestorageSuite struct {
 	writer storage.StorageWriter
 }
 
-func TestFilestorageSuite(t *stdtesting.T) { tc.Run(t, &filestorageSuite{}) }
+func TestFilestorageSuite(t *stdtesting.T) {
+	tc.Run(t, &filestorageSuite{})
+}
+
 func (s *filestorageSuite) SetUpTest(c *tc.C) {
 	s.dir = c.MkDir()
 	var err error

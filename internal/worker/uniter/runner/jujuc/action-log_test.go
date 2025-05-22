@@ -36,7 +36,10 @@ type nonActionLogContext struct {
 func (ctx *nonActionLogContext) LogActionMessage(_ context.Context, message string) error {
 	return fmt.Errorf("not running an action")
 }
-func TestActionLogSuite(t *stdtesting.T) { tc.Run(t, &ActionLogSuite{}) }
+func TestActionLogSuite(t *stdtesting.T) {
+	tc.Run(t, &ActionLogSuite{})
+}
+
 func (s *ActionLogSuite) TestActionLog(c *tc.C) {
 	var actionLogTests = []struct {
 		summary string

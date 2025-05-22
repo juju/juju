@@ -488,7 +488,10 @@ type environBrokerSuite struct {
 	imageServerURL string
 }
 
-func TestEnvironBrokerSuite(t *stdtesting.T) { tc.Run(t, &environBrokerSuite{}) }
+func TestEnvironBrokerSuite(t *stdtesting.T) {
+	tc.Run(t, &environBrokerSuite{})
+}
+
 func (s *environBrokerSuite) setUpClient(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

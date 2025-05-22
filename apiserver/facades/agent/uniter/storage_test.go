@@ -26,7 +26,10 @@ type storageSuite struct {
 	testing.BaseSuite
 }
 
-func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
+func TestStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &storageSuite{})
+}
+
 func (s *storageSuite) TestWatchUnitStorageAttachments(c *tc.C) {
 	resources := common.NewResources()
 	getCanAccess := func(ctx context.Context) (common.AuthFunc, error) {

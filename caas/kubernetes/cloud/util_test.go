@@ -13,7 +13,10 @@ import (
 type utilSuite struct {
 }
 
-func TestUtilSuite(t *stdtesting.T) { tc.Run(t, &utilSuite{}) }
+func TestUtilSuite(t *stdtesting.T) {
+	tc.Run(t, &utilSuite{})
+}
+
 func (u *utilSuite) TestDataOrFile(c *tc.C) {
 	tests := []struct {
 		dataContents     []byte

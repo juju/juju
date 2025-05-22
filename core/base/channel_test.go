@@ -15,7 +15,10 @@ type ChannelSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestChannelSuite(t *stdtesting.T) { tc.Run(t, &ChannelSuite{}) }
+func TestChannelSuite(t *stdtesting.T) {
+	tc.Run(t, &ChannelSuite{})
+}
+
 func (s *ChannelSuite) TestParse(c *tc.C) {
 	ch, err := ParseChannel("22.04")
 	c.Assert(err, tc.ErrorIsNil)

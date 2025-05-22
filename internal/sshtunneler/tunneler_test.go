@@ -28,7 +28,10 @@ type sshTunnelerSuite struct {
 	clock      *MockClock
 }
 
-func TestSshTunnelerSuite(t *stdtesting.T) { tc.Run(t, &sshTunnelerSuite{}) }
+func TestSshTunnelerSuite(t *stdtesting.T) {
+	tc.Run(t, &sshTunnelerSuite{})
+}
+
 func (s *sshTunnelerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

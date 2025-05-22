@@ -19,7 +19,10 @@ type RestrictCAASModelSuite struct {
 	root rpc.Root
 }
 
-func TestRestrictCAASModelSuite(t *stdtesting.T) { tc.Run(t, &RestrictCAASModelSuite{}) }
+func TestRestrictCAASModelSuite(t *stdtesting.T) {
+	tc.Run(t, &RestrictCAASModelSuite{})
+}
+
 func (s *RestrictCAASModelSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.root = apiserver.TestingCAASModelOnlyRoot()

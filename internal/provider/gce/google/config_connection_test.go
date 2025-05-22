@@ -16,7 +16,10 @@ type connConfigSuite struct {
 	google.BaseSuite
 }
 
-func TestConnConfigSuite(t *stdtesting.T) { tc.Run(t, &connConfigSuite{}) }
+func TestConnConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &connConfigSuite{})
+}
+
 func (*connConfigSuite) TestValidateValid(c *tc.C) {
 	cfg := google.ConnectionConfig{
 		Region:     "spam",

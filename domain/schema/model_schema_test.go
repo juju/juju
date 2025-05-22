@@ -18,7 +18,10 @@ type modelSchemaSuite struct {
 	schemaBaseSuite
 }
 
-func TestModelSchemaSuite(t *stdtesting.T) { tc.Run(t, &modelSchemaSuite{}) }
+func TestModelSchemaSuite(t *stdtesting.T) {
+	tc.Run(t, &modelSchemaSuite{})
+}
+
 func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 	s.applyDDL(c, ModelDDL())
 

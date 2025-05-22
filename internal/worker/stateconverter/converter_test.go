@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/worker/stateconverter/mocks"
 )
 
-func TestConverterSuite(t *stdtesting.T) { tc.Run(t, &converterSuite{}) }
+func TestConverterSuite(t *stdtesting.T) {
+	tc.Run(t, &converterSuite{})
+}
 
 type converterSuite struct {
 	machine  *mocks.MockMachine

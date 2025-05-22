@@ -19,7 +19,10 @@ type statefulSetSuite struct {
 	resourceSuite
 }
 
-func TestStatefulSetSuite(t *stdtesting.T) { tc.Run(t, &statefulSetSuite{}) }
+func TestStatefulSetSuite(t *stdtesting.T) {
+	tc.Run(t, &statefulSetSuite{})
+}
+
 func (s *statefulSetSuite) TestApply(c *tc.C) {
 	ds := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{

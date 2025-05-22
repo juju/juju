@@ -23,7 +23,10 @@ type moveSubnetsAPISuite struct {
 	spaces.APISuite
 }
 
-func TestMoveSubnetsAPISuite(t *stdtesting.T) { tc.Run(t, &moveSubnetsAPISuite{}) }
+func TestMoveSubnetsAPISuite(t *stdtesting.T) {
+	tc.Run(t, &moveSubnetsAPISuite{})
+}
+
 func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()

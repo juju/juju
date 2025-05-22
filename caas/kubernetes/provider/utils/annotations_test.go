@@ -17,7 +17,10 @@ type annotationSuite struct {
 	testing.BaseSuite
 }
 
-func TestAnnotationSuite(t *stdtesting.T) { tc.Run(t, &annotationSuite{}) }
+func TestAnnotationSuite(t *stdtesting.T) {
+	tc.Run(t, &annotationSuite{})
+}
+
 func (s *annotationSuite) TestAnnotations(c *tc.C) {
 	c.Assert(utils.AnnotationJujuStorageKey(constants.LegacyLabelVersion), tc.DeepEquals, "juju-storage")
 	c.Assert(utils.AnnotationJujuStorageKey(constants.LabelVersion1), tc.DeepEquals, "storage.juju.is/name")

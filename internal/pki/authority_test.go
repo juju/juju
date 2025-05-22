@@ -21,7 +21,10 @@ type AuthoritySuite struct {
 	signer crypto.Signer
 }
 
-func TestAuthoritySuite(t *stdtesting.T) { tc.Run(t, &AuthoritySuite{}) }
+func TestAuthoritySuite(t *stdtesting.T) {
+	tc.Run(t, &AuthoritySuite{})
+}
+
 func (a *AuthoritySuite) SetUpTest(c *tc.C) {
 	signer, err := pki.DefaultKeyProfile()
 	c.Assert(err, tc.ErrorIsNil)

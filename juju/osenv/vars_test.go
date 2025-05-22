@@ -18,7 +18,10 @@ type varsSuite struct {
 	testing.BaseSuite
 }
 
-func TestVarsSuite(t *stdtesting.T) { tc.Run(t, &varsSuite{}) }
+func TestVarsSuite(t *stdtesting.T) {
+	tc.Run(t, &varsSuite{})
+}
+
 func (s *varsSuite) TestJujuXDGDataHomeEnvVar(c *tc.C) {
 	path := "/foo/bar/baz"
 	s.PatchEnvironment(osenv.JujuXDGDataHomeEnvKey, path)

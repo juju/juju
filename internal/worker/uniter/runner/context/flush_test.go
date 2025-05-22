@@ -28,7 +28,10 @@ type FlushContextSuite struct {
 	stub testhelpers.Stub
 }
 
-func TestFlushContextSuite(t *stdtesting.T) { tc.Run(t, &FlushContextSuite{}) }
+func TestFlushContextSuite(t *stdtesting.T) {
+	tc.Run(t, &FlushContextSuite{})
+}
+
 func (s *FlushContextSuite) SetUpTest(c *tc.C) {
 	s.BaseHookContextSuite.SetUpTest(c)
 	s.stub.ResetCalls()

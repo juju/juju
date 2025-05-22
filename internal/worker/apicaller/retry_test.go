@@ -35,7 +35,9 @@ type RetryStrategySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRetryStrategySuite(t *stdtesting.T) { tc.Run(t, &RetryStrategySuite{}) }
+func TestRetryStrategySuite(t *stdtesting.T) {
+	tc.Run(t, &RetryStrategySuite{})
+}
 
 var testEntity = names.NewMachineTag("42")
 

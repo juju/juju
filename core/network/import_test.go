@@ -14,7 +14,9 @@ import (
 
 type ImportSuite struct{}
 
-func TestImportSuite(t *stdtesting.T) { tc.Run(t, &ImportSuite{}) }
+func TestImportSuite(t *stdtesting.T) {
+	tc.Run(t, &ImportSuite{})
+}
 
 var allowedCoreImports = set.NewStrings(
 	"core/credential",

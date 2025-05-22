@@ -22,7 +22,10 @@ type subnetSuite struct {
 	st *MockState
 }
 
-func TestSubnetSuite(t *stdtesting.T) { tc.Run(t, &subnetSuite{}) }
+func TestSubnetSuite(t *stdtesting.T) {
+	tc.Run(t, &subnetSuite{})
+}
+
 func (s *subnetSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

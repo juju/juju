@@ -24,7 +24,9 @@ type formatSuite struct {
 	testing.BaseSuite
 }
 
-func TestFormatSuite(t *stdtesting.T) { tc.Run(t, &formatSuite{}) }
+func TestFormatSuite(t *stdtesting.T) {
+	tc.Run(t, &formatSuite{})
+}
 
 // The agentParams are used by the specific formatter whitebox tests, and is
 // located here for easy reuse.

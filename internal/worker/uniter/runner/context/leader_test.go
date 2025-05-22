@@ -20,7 +20,10 @@ type LeaderSuite struct {
 	context context.LeadershipContext
 }
 
-func TestLeaderSuite(t *stdtesting.T) { tc.Run(t, &LeaderSuite{}) }
+func TestLeaderSuite(t *stdtesting.T) {
+	tc.Run(t, &LeaderSuite{})
+}
+
 func (s *LeaderSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.tracker = &StubTracker{

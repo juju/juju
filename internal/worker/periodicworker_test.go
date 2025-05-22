@@ -19,7 +19,9 @@ type periodicWorkerSuite struct {
 	testing.BaseSuite
 }
 
-func TestPeriodicWorkerSuite(t *stdtesting.T) { tc.Run(t, &periodicWorkerSuite{}) }
+func TestPeriodicWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &periodicWorkerSuite{})
+}
 
 var (
 	defaultPeriod       = time.Second

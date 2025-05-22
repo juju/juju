@@ -17,7 +17,10 @@ type DockerConfigSuite struct {
 	testing.BaseSuite
 }
 
-func TestDockerConfigSuite(t *stdtesting.T) { tc.Run(t, &DockerConfigSuite{}) }
+func TestDockerConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &DockerConfigSuite{})
+}
+
 func (s *DockerConfigSuite) TestExtractRegistryURL(c *tc.C) {
 	for _, registryTest := range []struct {
 		registryPath string

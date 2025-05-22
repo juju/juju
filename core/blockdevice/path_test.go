@@ -13,7 +13,10 @@ import (
 
 type BlockDevicePathSuite struct{}
 
-func TestBlockDevicePathSuite(t *stdtesting.T) { tc.Run(t, &BlockDevicePathSuite{}) }
+func TestBlockDevicePathSuite(t *stdtesting.T) {
+	tc.Run(t, &BlockDevicePathSuite{})
+}
+
 func (s *BlockDevicePathSuite) TestBlockDevicePathSerial(c *tc.C) {
 	testBlockDevicePath(c, blockdevice.BlockDevice{
 		HardwareId: "SPR_OSUM_123",

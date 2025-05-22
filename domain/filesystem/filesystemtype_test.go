@@ -15,7 +15,9 @@ type filesystemtypeSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestFilesystemtypeSuite(t *stdtesting.T) { tc.Run(t, &filesystemtypeSuite{}) }
+func TestFilesystemtypeSuite(t *stdtesting.T) {
+	tc.Run(t, &filesystemtypeSuite{})
+}
 
 // TestFilesystemTypeDBValues ensures there's no skew between what's in the
 // database table for filesystem type and the typed consts used in the state packages.

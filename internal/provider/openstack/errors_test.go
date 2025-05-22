@@ -17,7 +17,10 @@ type ErrorSuite struct {
 	testing.BaseSuite
 }
 
-func TestErrorSuite(t *stdtesting.T) { tc.Run(t, &ErrorSuite{}) }
+func TestErrorSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorSuite{})
+}
+
 func (s *ErrorSuite) TestIsUnauthorisedError(c *tc.C) {
 	e := gooseerrors.NewUnauthorisedf(nil, "", "not on")
 	c.Assert(IsAuthorisationFailure(e), tc.IsTrue)

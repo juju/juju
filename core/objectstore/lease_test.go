@@ -16,7 +16,10 @@ type LeaseSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLeaseSuite(t *stdtesting.T) { tc.Run(t, &LeaseSuite{}) }
+func TestLeaseSuite(t *stdtesting.T) {
+	tc.Run(t, &LeaseSuite{})
+}
+
 func (s *LeaseSuite) TestParseLeaseHolderName(c *tc.C) {
 	tests := []struct {
 		name     string

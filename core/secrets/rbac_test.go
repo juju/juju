@@ -13,7 +13,10 @@ import (
 
 type RoleSuite struct{}
 
-func TestRoleSuite(t *stdtesting.T) { tc.Run(t, &RoleSuite{}) }
+func TestRoleSuite(t *stdtesting.T) {
+	tc.Run(t, &RoleSuite{})
+}
+
 func (s *SecretValueSuite) TestAllowed(c *tc.C) {
 	c.Assert(secrets.RoleNone.Allowed(secrets.RoleView), tc.IsFalse)
 	c.Assert(secrets.RoleNone.Allowed(secrets.RoleRotate), tc.IsFalse)

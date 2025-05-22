@@ -17,7 +17,10 @@ type storageSuite struct {
 	testing.BaseSuite
 }
 
-func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
+func TestStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &storageSuite{})
+}
+
 func (s *storageSuite) TestParseStorageConfig(c *tc.C) {
 	cfg, err := storage.ParseStorageConfig(map[string]interface{}{
 		"storage-class":       "juju-ebs",

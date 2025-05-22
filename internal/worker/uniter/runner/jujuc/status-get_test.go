@@ -21,7 +21,10 @@ type statusGetSuite struct {
 	ContextSuite
 }
 
-func TestStatusGetSuite(t *stdtesting.T) { tc.Run(t, &statusGetSuite{}) }
+func TestStatusGetSuite(t *stdtesting.T) {
+	tc.Run(t, &statusGetSuite{})
+}
+
 func (s *statusGetSuite) SetUpTest(c *tc.C) {
 	s.ContextSuite.SetUpTest(c)
 }

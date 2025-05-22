@@ -24,7 +24,10 @@ type diffSuite struct {
 	logger logger.Logger
 }
 
-func TestDiffSuite(t *stdtesting.T) { tc.Run(t, &diffSuite{}) }
+func TestDiffSuite(t *stdtesting.T) {
+	tc.Run(t, &diffSuite{})
+}
+
 func (s *diffSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.logger = loggertesting.WrapCheckLog(c)

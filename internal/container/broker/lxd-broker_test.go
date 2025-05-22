@@ -56,7 +56,10 @@ type lxdBrokerSuite struct {
 	manager     *fakeContainerManager
 }
 
-func TestLxdBrokerSuite(t *stdtesting.T) { tc.Run(t, &lxdBrokerSuite{}) }
+func TestLxdBrokerSuite(t *stdtesting.T) {
+	tc.Run(t, &lxdBrokerSuite{})
+}
+
 func (s *lxdBrokerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

@@ -29,7 +29,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestShowCommandSuite(t *stdtesting.T) { tc.Run(t, &ShowCommandSuite{}) }
+func TestShowCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &ShowCommandSuite{})
+}
 
 type ShowCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite

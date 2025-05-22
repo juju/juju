@@ -24,7 +24,10 @@ type InstancePollerSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestInstancePollerSuite(t *stdtesting.T) { tc.Run(t, &InstancePollerSuite{}) }
+func TestInstancePollerSuite(t *stdtesting.T) {
+	tc.Run(t, &InstancePollerSuite{})
+}
+
 func (s *InstancePollerSuite) TestNewAPI(c *tc.C) {
 	apiCaller := clientErrorAPICaller(c, "Life", nil)
 	api := instancepoller.NewAPI(apiCaller)

@@ -16,7 +16,10 @@ type interfacesSuite struct {
 	maasSuite
 }
 
-func TestInterfacesSuite(t *stdtesting.T) { tc.Run(t, &interfacesSuite{}) }
+func TestInterfacesSuite(t *stdtesting.T) {
+	tc.Run(t, &interfacesSuite{})
+}
+
 func newAddressOnSpaceWithId(
 	space string, id network.Id, address string, options ...func(network.AddressMutator),
 ) network.ProviderAddress {

@@ -25,7 +25,10 @@ type bufferedLogWriterSuite struct {
 	collector logsendermetrics.BufferedLogWriterMetrics
 }
 
-func TestBufferedLogWriterSuite(t *stdtesting.T) { tc.Run(t, &bufferedLogWriterSuite{}) }
+func TestBufferedLogWriterSuite(t *stdtesting.T) {
+	tc.Run(t, &bufferedLogWriterSuite{})
+}
+
 func (s *bufferedLogWriterSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.writer = logsender.NewBufferedLogWriter(maxLen)

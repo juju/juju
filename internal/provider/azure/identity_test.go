@@ -23,7 +23,10 @@ type identitySuite struct {
 	testing.BaseSuite
 }
 
-func TestIdentitySuite(t *stdtesting.T) { tc.Run(t, &identitySuite{}) }
+func TestIdentitySuite(t *stdtesting.T) {
+	tc.Run(t, &identitySuite{})
+}
+
 func (s *identitySuite) TestFinaliseBootstrapCredentialNoInstanceRole(c *tc.C) {
 	env := azureEnviron{subscriptionId: fakeSubscriptionId}
 	cred := cloud.NewCredential("service-principal-secret", map[string]string{

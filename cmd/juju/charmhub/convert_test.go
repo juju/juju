@@ -19,7 +19,10 @@ type filterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFilterSuite(t *stdtesting.T) { tc.Run(t, &filterSuite{}) }
+func TestFilterSuite(t *stdtesting.T) {
+	tc.Run(t, &filterSuite{})
+}
+
 func (s *filterSuite) TestFilterChannels(c *tc.C) {
 	tests := []struct {
 		Name     string

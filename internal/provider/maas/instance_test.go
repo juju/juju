@@ -18,7 +18,10 @@ type maasInstanceSuite struct {
 	maasSuite
 }
 
-func TestMaasInstanceSuite(t *stdtesting.T) { tc.Run(t, &maasInstanceSuite{}) }
+func TestMaasInstanceSuite(t *stdtesting.T) {
+	tc.Run(t, &maasInstanceSuite{})
+}
+
 func (s *maasInstanceSuite) TestString(c *tc.C) {
 	machine := &fakeMachine{hostname: "peewee", systemID: "herman"}
 	instance := &maasInstance{machine: machine}

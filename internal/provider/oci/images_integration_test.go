@@ -26,7 +26,10 @@ type imagesSuite struct {
 	testCompartment string
 }
 
-func TestImagesSuite(t *stdtesting.T) { tc.Run(t, &imagesSuite{}) }
+func TestImagesSuite(t *stdtesting.T) {
+	tc.Run(t, &imagesSuite{})
+}
+
 func (s *imagesSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	oci.SetImageCache(&oci.ImageCache{})

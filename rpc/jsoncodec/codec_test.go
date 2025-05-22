@@ -21,7 +21,9 @@ type suite struct {
 	testhelpers.LoggingSuite
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
 
 type value struct {
 	X string

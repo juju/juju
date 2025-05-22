@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
-func TestDisableCommandSuite(t *stdtesting.T) { tc.Run(t, &disableCommandSuite{}) }
+func TestDisableCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &disableCommandSuite{})
+}
 
 type disableCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite

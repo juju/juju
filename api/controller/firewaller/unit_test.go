@@ -20,7 +20,10 @@ type unitSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestUnitSuite(t *stdtesting.T) { tc.Run(t, &unitSuite{}) }
+func TestUnitSuite(t *stdtesting.T) {
+	tc.Run(t, &unitSuite{})
+}
+
 func (s *unitSuite) TestUnit(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "Firewaller")

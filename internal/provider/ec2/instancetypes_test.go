@@ -17,7 +17,10 @@ type InstanceTypesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestInstanceTypesSuite(t *stdtesting.T) { tc.Run(t, &InstanceTypesSuite{}) }
+func TestInstanceTypesSuite(t *stdtesting.T) {
+	tc.Run(t, &InstanceTypesSuite{})
+}
+
 func (s *InstanceTypesSuite) TestParseInstanceType(c *tc.C) {
 	tests := []struct {
 		InstType types.InstanceType

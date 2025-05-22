@@ -27,7 +27,10 @@ type BasicAuthHandlerSuite struct {
 	server   *httptest.Server
 }
 
-func TestBasicAuthHandlerSuite(t *stdtesting.T) { tc.Run(t, &BasicAuthHandlerSuite{}) }
+func TestBasicAuthHandlerSuite(t *stdtesting.T) {
+	tc.Run(t, &BasicAuthHandlerSuite{})
+}
+
 func (s *BasicAuthHandlerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.stub.ResetCalls()

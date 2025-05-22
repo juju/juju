@@ -35,7 +35,10 @@ type mutaterSuite struct {
 	mutaterMachine *instancemutater.MutaterMachine
 }
 
-func TestMutaterSuite(t *stdtesting.T) { tc.Run(t, &mutaterSuite{}) }
+func TestMutaterSuite(t *stdtesting.T) {
+	tc.Run(t, &mutaterSuite{})
+}
+
 func (s *mutaterSuite) SetUpTest(c *tc.C) {
 	s.tag = names.NewMachineTag("2")
 	s.instId = "juju-23413-2"

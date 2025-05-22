@@ -25,7 +25,10 @@ type rateLimitSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-func TestRateLimitSuite(t *stdtesting.T) { tc.Run(t, &rateLimitSuite{}) }
+func TestRateLimitSuite(t *stdtesting.T) {
+	tc.Run(t, &rateLimitSuite{})
+}
+
 func (s *rateLimitSuite) SetUpTest(c *tc.C) {
 	s.Clock = testclock.NewDilatedWallClock(time.Second)
 	s.ControllerConfigAttrs = map[string]interface{}{

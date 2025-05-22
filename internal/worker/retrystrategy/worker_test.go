@@ -19,7 +19,10 @@ type WorkerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
+
 func (s *WorkerSuite) testValidate(c *tc.C, config retrystrategy.WorkerConfig, errMsg string) {
 	check := func(err error) {
 		c.Check(err, tc.ErrorMatches, errMsg)

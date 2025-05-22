@@ -25,7 +25,10 @@ type ProviderSuite struct {
 	provider environs.EnvironProvider
 }
 
-func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &ProviderSuite{}) }
+func TestProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &ProviderSuite{})
+}
+
 func (s *ProviderSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

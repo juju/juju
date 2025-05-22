@@ -28,7 +28,10 @@ type pebbleNoticerSuite struct {
 	workloadEvents    container.WorkloadEvents
 }
 
-func TestPebbleNoticerSuite(t *stdtesting.T) { tc.Run(t, &pebbleNoticerSuite{}) }
+func TestPebbleNoticerSuite(t *stdtesting.T) {
+	tc.Run(t, &pebbleNoticerSuite{})
+}
+
 func (s *pebbleNoticerSuite) setUpWorker(c *tc.C, containerNames []string) {
 	s.clock = testclock.NewClock(time.Time{})
 	s.workloadEventChan = make(chan string)

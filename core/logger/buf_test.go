@@ -23,7 +23,10 @@ type BufferedLogWriterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBufferedLogWriterSuite(t *stdtesting.T) { tc.Run(t, &BufferedLogWriterSuite{}) }
+func TestBufferedLogWriterSuite(t *stdtesting.T) {
+	tc.Run(t, &BufferedLogWriterSuite{})
+}
+
 func (s *BufferedLogWriterSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }

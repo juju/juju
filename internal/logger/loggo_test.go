@@ -19,7 +19,10 @@ type loggoSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLoggoSuite(t *stdtesting.T) { tc.Run(t, &loggoSuite{}) }
+func TestLoggoSuite(t *stdtesting.T) {
+	tc.Run(t, &loggoSuite{})
+}
+
 func (s *loggoSuite) TestLog(c *tc.C) {
 	cases := []struct {
 		fn            func(ctx context.Context, logger logger.Logger)

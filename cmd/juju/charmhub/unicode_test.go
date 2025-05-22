@@ -17,7 +17,10 @@ type unicodeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUnicodeSuite(t *stdtesting.T) { tc.Run(t, &unicodeSuite{}) }
+func TestUnicodeSuite(t *stdtesting.T) {
+	tc.Run(t, &unicodeSuite{})
+}
+
 func (s *unicodeSuite) TestCanUnicode(c *tc.C) {
 	result := canUnicode("always", nil)
 	c.Assert(result, tc.IsTrue)

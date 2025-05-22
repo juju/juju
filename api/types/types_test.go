@@ -16,7 +16,10 @@ type modelSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestModelSuite(t *stdtesting.T) { tc.Run(t, &modelSuite{}) }
+func TestModelSuite(t *stdtesting.T) {
+	tc.Run(t, &modelSuite{})
+}
+
 func (s *modelSuite) TestParity(c *tc.C) {
 	// Ensure that we have parity with the model types in core package.
 	c.Check(IAAS.String(), tc.Equals, model.IAAS.String())

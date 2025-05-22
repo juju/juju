@@ -30,7 +30,9 @@ type SSHSuite struct {
 	SSHMachineSuite
 }
 
-func TestSSHSuite(t *stdtesting.T) { tc.Run(t, &SSHSuite{}) }
+func TestSSHSuite(t *stdtesting.T) {
+	tc.Run(t, &SSHSuite{})
+}
 
 var sshTests = []struct {
 	about       string

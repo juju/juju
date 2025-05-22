@@ -27,7 +27,10 @@ type bridgePolicySuite struct {
 	guest  *MockContainer
 }
 
-func TestBridgePolicySuite(t *stdtesting.T) { tc.Run(t, &bridgePolicySuite{}) }
+func TestBridgePolicySuite(t *stdtesting.T) {
+	tc.Run(t, &bridgePolicySuite{})
+}
+
 func (s *bridgePolicySuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 

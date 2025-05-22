@@ -25,7 +25,9 @@ type DebugHooksServerSuite struct {
 	tmpdir  string
 }
 
-func TestDebugHooksServerSuite(t *stdtesting.T) { tc.Run(t, &DebugHooksServerSuite{}) }
+func TestDebugHooksServerSuite(t *stdtesting.T) {
+	tc.Run(t, &DebugHooksServerSuite{})
+}
 
 // echocommand outputs its name and arguments to stdout for verification,
 // and exits with the value of $EXIT_CODE
@@ -347,7 +349,10 @@ type DebugSuite struct {
 	testing.BaseSuite
 }
 
-func TestDebugSuite(t *stdtesting.T) { tc.Run(t, &DebugSuite{}) }
+func TestDebugSuite(t *stdtesting.T) {
+	tc.Run(t, &DebugSuite{})
+}
+
 func checkBuildRunHookCommand(c *tc.C, expected, hookName, hookRunner, charmDir string) {
 	c.Check(expected, tc.Equals, buildRunHookCmd(hookName, hookRunner, charmDir))
 }

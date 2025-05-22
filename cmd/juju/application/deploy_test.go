@@ -90,7 +90,9 @@ type DeploySuite struct {
 	DeploySuiteBase
 }
 
-func TestDeploySuite(t *stdtesting.T) { tc.Run(t, &DeploySuite{}) }
+func TestDeploySuite(t *stdtesting.T) {
+	tc.Run(t, &DeploySuite{})
+}
 
 var initErrorTests = []struct {
 	args []string
@@ -507,7 +509,10 @@ type CAASDeploySuite struct {
 	CAASDeploySuiteBase
 }
 
-func TestCAASDeploySuite(t *stdtesting.T) { tc.Run(t, &CAASDeploySuite{}) }
+func TestCAASDeploySuite(t *stdtesting.T) {
+	tc.Run(t, &CAASDeploySuite{})
+}
+
 func (s *CAASDeploySuite) TestInitErrorsCaasModel(c *tc.C) {
 	for i, t := range caasTests {
 		deployCmd := NewDeployCommand()
@@ -874,7 +879,10 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 
 type ParseMachineMapSuite struct{}
 
-func TestParseMachineMapSuite(t *stdtesting.T) { tc.Run(t, &ParseMachineMapSuite{}) }
+func TestParseMachineMapSuite(t *stdtesting.T) {
+	tc.Run(t, &ParseMachineMapSuite{})
+}
+
 func (s *ParseMachineMapSuite) TestEmptyString(c *tc.C) {
 	existing, mapping, err := parseMachineMap("")
 	c.Check(err, tc.ErrorIsNil)
@@ -926,7 +934,10 @@ type DeployUnitTestSuite struct {
 	factory  *mocks.MockDeployerFactory
 }
 
-func TestDeployUnitTestSuite(t *stdtesting.T) { tc.Run(t, &DeployUnitTestSuite{}) }
+func TestDeployUnitTestSuite(t *stdtesting.T) {
+	tc.Run(t, &DeployUnitTestSuite{})
+}
+
 func (s *DeployUnitTestSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	cookiesFile := filepath.Join(c.MkDir(), ".go-cookies")

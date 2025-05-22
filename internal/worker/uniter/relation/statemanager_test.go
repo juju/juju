@@ -246,7 +246,10 @@ func (s *stateManagerSuite) TestRemoveFailRequest(c *tc.C) {
 	found := mgr.RelationFound(99)
 	c.Assert(found, tc.IsTrue)
 }
-func TestStateManagerSuite(t *stdtesting.T) { tc.Run(t, &stateManagerSuite{}) }
+func TestStateManagerSuite(t *stdtesting.T) {
+	tc.Run(t, &stateManagerSuite{})
+}
+
 func (s *stateManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
 	s.mockUnitRW = mocks.NewMockUnitStateReadWriter(ctlr)

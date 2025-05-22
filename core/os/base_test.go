@@ -17,7 +17,9 @@ type baseSuite struct {
 	testhelpers.CleanupSuite
 }
 
-func TestBaseSuite(t *stdtesting.T) { tc.Run(t, &baseSuite{}) }
+func TestBaseSuite(t *stdtesting.T) {
+	tc.Run(t, &baseSuite{})
+}
 
 var b = corebase.Base{OS: "freelunch", Channel: corebase.Channel{Track: "0"}}
 

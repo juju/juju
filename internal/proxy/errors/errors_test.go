@@ -13,7 +13,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &ErrorsSuite{}) }
+func TestErrorsSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorsSuite{})
+}
 
 type ErrorsSuite struct {
 	testhelpers.IsolationSuite

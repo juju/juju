@@ -17,7 +17,9 @@ type instanceTypeSuite struct {
 	testing.BaseSuite
 }
 
-func TestInstanceTypeSuite(t *stdtesting.T) { tc.Run(t, &instanceTypeSuite{}) }
+func TestInstanceTypeSuite(t *stdtesting.T) {
+	tc.Run(t, &instanceTypeSuite{})
+}
 
 var hvm = "hvm"
 

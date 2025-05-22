@@ -15,7 +15,10 @@ import (
 type encodeWatchEventSuite struct {
 }
 
-func TestEncodeWatchEventSuite(t *stdtesting.T) { tc.Run(t, &encodeWatchEventSuite{}) }
+func TestEncodeWatchEventSuite(t *stdtesting.T) {
+	tc.Run(t, &encodeWatchEventSuite{})
+}
+
 func (s *encodeWatchEventSuite) TestEncodeApplicationUUID(c *tc.C) {
 	// Arrange
 	input := "app-uuid"

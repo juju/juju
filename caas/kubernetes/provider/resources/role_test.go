@@ -19,7 +19,10 @@ type roleSuite struct {
 	resourceSuite
 }
 
-func TestRoleSuite(t *stdtesting.T) { tc.Run(t, &roleSuite{}) }
+func TestRoleSuite(t *stdtesting.T) {
+	tc.Run(t, &roleSuite{})
+}
+
 func (s *roleSuite) TestApply(c *tc.C) {
 	role := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{

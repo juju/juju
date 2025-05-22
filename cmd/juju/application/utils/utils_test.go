@@ -23,7 +23,10 @@ import (
 
 type utilsSuite struct{}
 
-func TestUtilsSuite(t *stdtesting.T) { tc.Run(t, &utilsSuite{}) }
+func TestUtilsSuite(t *stdtesting.T) {
+	tc.Run(t, &utilsSuite{})
+}
+
 func (s *utilsSuite) TestParsePlacement(c *tc.C) {
 	obtained, err := utils.ParsePlacement("lxd:1")
 	c.Assert(err, tc.ErrorIsNil)
@@ -47,7 +50,10 @@ type utilsResourceSuite struct {
 	resourceFacade *mocks.MockResourceLister
 }
 
-func TestUtilsResourceSuite(t *stdtesting.T) { tc.Run(t, &utilsResourceSuite{}) }
+func TestUtilsResourceSuite(t *stdtesting.T) {
+	tc.Run(t, &utilsResourceSuite{})
+}
+
 func (s *utilsResourceSuite) TestGetMetaResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

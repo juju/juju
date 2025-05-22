@@ -38,7 +38,10 @@ type BundleDeploySuite struct {
 	fakeAPI *fakeDeployAPI
 }
 
-func TestBundleDeploySuite(t *stdtesting.T) { tc.Run(t, &BundleDeploySuite{}) }
+func TestBundleDeploySuite(t *stdtesting.T) {
+	tc.Run(t, &BundleDeploySuite{})
+}
+
 func (s *BundleDeploySuite) SetUpTest(c *tc.C) {
 	cfg := map[string]interface{}{
 		"name":           "name",

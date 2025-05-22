@@ -19,7 +19,10 @@ type ParseAliasFileSuite struct {
 	testhelpers.LoggingSuite
 }
 
-func TestParseAliasFileSuite(t *stdtesting.T) { tc.Run(t, &ParseAliasFileSuite{}) }
+func TestParseAliasFileSuite(t *stdtesting.T) {
+	tc.Run(t, &ParseAliasFileSuite{})
+}
+
 func (*ParseAliasFileSuite) TestMissing(c *tc.C) {
 	dir := c.MkDir()
 	filename := filepath.Join(dir, "missing")

@@ -16,7 +16,10 @@ type instanceSuite struct {
 	lxd.BaseSuite
 }
 
-func TestInstanceSuite(t *stdtesting.T) { tc.Run(t, &instanceSuite{}) }
+func TestInstanceSuite(t *stdtesting.T) {
+	tc.Run(t, &instanceSuite{})
+}
+
 func (s *instanceSuite) TestNewInstance(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()

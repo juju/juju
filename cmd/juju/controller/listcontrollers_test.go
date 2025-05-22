@@ -26,7 +26,10 @@ type ListControllersSuite struct {
 	api func(string) controller.ControllerAccessAPI
 }
 
-func TestListControllersSuite(t *stdtesting.T) { tc.Run(t, &ListControllersSuite{}) }
+func TestListControllersSuite(t *stdtesting.T) {
+	tc.Run(t, &ListControllersSuite{})
+}
+
 func (s *ListControllersSuite) TestListControllersEmptyStore(c *tc.C) {
 	s.store = jujuclient.NewMemStore()
 	_, err := s.runListControllers(c)

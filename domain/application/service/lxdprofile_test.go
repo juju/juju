@@ -16,7 +16,9 @@ type lxdProfileSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLxdProfileSuite(t *stdtesting.T) { tc.Run(t, &lxdProfileSuite{}) }
+func TestLxdProfileSuite(t *stdtesting.T) {
+	tc.Run(t, &lxdProfileSuite{})
+}
 
 var lxdProfileTestCases = [...]struct {
 	name   string

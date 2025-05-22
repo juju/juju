@@ -67,7 +67,10 @@ func (s *agentConfSuite) TearDownTest(c *tc.C) {
 	s.services = nil
 	s.BaseSuite.TearDownTest(c)
 }
-func TestAgentConfSuite(t *stdtesting.T) { tc.Run(t, &agentConfSuite{}) }
+func TestAgentConfSuite(t *stdtesting.T) {
+	tc.Run(t, &agentConfSuite{})
+}
+
 func (s *agentConfSuite) setUpAgentConf(c *tc.C) {
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: s.dataDir},

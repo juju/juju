@@ -27,7 +27,10 @@ type DefaultsCommandSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestDefaultsCommandSuite(t *stdtesting.T) { tc.Run(t, &DefaultsCommandSuite{}) }
+func TestDefaultsCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &DefaultsCommandSuite{})
+}
+
 func (s *DefaultsCommandSuite) SetUpTest(c *tc.C) {
 	s.fakeModelDefaultEnvSuite.SetUpTest(c)
 	s.store = jujuclient.NewMemStore()

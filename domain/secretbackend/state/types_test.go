@@ -21,7 +21,10 @@ type typesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTypesSuite(t *stdtesting.T) { tc.Run(t, &typesSuite{}) }
+func TestTypesSuite(t *stdtesting.T) {
+	tc.Run(t, &typesSuite{})
+}
+
 func ptr[T any](x T) *T {
 	return &x
 }

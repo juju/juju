@@ -21,7 +21,10 @@ type podSuite struct {
 	resourceSuite
 }
 
-func TestPodSuite(t *stdtesting.T) { tc.Run(t, &podSuite{}) }
+func TestPodSuite(t *stdtesting.T) {
+	tc.Run(t, &podSuite{})
+}
+
 func (s *podSuite) TestApply(c *tc.C) {
 	ds := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

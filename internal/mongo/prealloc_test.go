@@ -17,7 +17,10 @@ type preallocSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestPreallocSuite(t *stdtesting.T) { tc.Run(t, &preallocSuite{}) }
+func TestPreallocSuite(t *stdtesting.T) {
+	tc.Run(t, &preallocSuite{})
+}
+
 func (s *preallocSuite) TestOplogSize(c *tc.C) {
 	type test struct {
 		hostWordSize int

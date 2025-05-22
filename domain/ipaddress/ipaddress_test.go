@@ -15,7 +15,9 @@ type ipAddressSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestIpAddressSuite(t *stdtesting.T) { tc.Run(t, &ipAddressSuite{}) }
+func TestIpAddressSuite(t *stdtesting.T) {
+	tc.Run(t, &ipAddressSuite{})
+}
 
 // TestConfigTypeDBValues ensures there's no skew between what's in the
 // database table for config type and the typed consts used in the state packages.

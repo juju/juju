@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestWatchersSuite(t *stdtesting.T) { tc.Run(t, &WatchersSuite{}) }
+func TestWatchersSuite(t *stdtesting.T) {
+	tc.Run(t, &WatchersSuite{})
+}
 
 type WatchersSuite struct {
 	testhelpers.IsolationSuite

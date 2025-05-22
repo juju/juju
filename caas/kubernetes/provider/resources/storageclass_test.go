@@ -19,7 +19,10 @@ type storageClassSuite struct {
 	resourceSuite
 }
 
-func TestStorageClassSuite(t *stdtesting.T) { tc.Run(t, &storageClassSuite{}) }
+func TestStorageClassSuite(t *stdtesting.T) {
+	tc.Run(t, &storageClassSuite{})
+}
+
 func (s *storageClassSuite) TestApply(c *tc.C) {
 	ds := &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{

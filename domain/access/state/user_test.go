@@ -35,7 +35,10 @@ type userStateSuite struct {
 	controllerUUID string
 }
 
-func TestUserStateSuite(t *stdtesting.T) { tc.Run(t, &userStateSuite{}) }
+func TestUserStateSuite(t *stdtesting.T) {
+	tc.Run(t, &userStateSuite{})
+}
+
 func (s *userStateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.controllerUUID = s.SeedControllerUUID(c)

@@ -36,7 +36,10 @@ type storeSuite struct {
 	mockObjectStore       *MockObjectStore
 }
 
-func TestStoreSuite(t *stdtesting.T) { tc.Run(t, &storeSuite{}) }
+func TestStoreSuite(t *stdtesting.T) {
+	tc.Run(t, &storeSuite{})
+}
+
 func (s *storeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockState = NewMockState(ctrl)

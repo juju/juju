@@ -22,7 +22,10 @@ type ErrorSuite struct {
 	internalError *googlyError
 }
 
-func TestErrorSuite(t *stdtesting.T) { tc.Run(t, &ErrorSuite{}) }
+func TestErrorSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorSuite{})
+}
+
 func (s *ErrorSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.internalError = &googlyError{"400 Bad Request"}

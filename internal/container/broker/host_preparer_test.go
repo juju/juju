@@ -49,7 +49,10 @@ type hostPreparerSuite struct {
 	Stub *testhelpers.Stub
 }
 
-func TestHostPreparerSuite(t *stdtesting.T) { tc.Run(t, &hostPreparerSuite{}) }
+func TestHostPreparerSuite(t *stdtesting.T) {
+	tc.Run(t, &hostPreparerSuite{})
+}
+
 func (s *hostPreparerSuite) SetUpTest(c *tc.C) {
 	s.Stub = &testhelpers.Stub{}
 }

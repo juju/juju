@@ -19,7 +19,10 @@ type loggerSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestLoggerSuite(t *stdtesting.T) { tc.Run(t, &loggerSuite{}) }
+func TestLoggerSuite(t *stdtesting.T) {
+	tc.Run(t, &loggerSuite{})
+}
+
 func (s *loggerSuite) TestLoggingConfig(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "Logger")

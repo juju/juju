@@ -31,7 +31,10 @@ type annotationSuite struct {
 	annotationsAPI *API
 }
 
-func TestAnnotationSuite(t *stdtesting.T) { tc.Run(t, &annotationSuite{}) }
+func TestAnnotationSuite(t *stdtesting.T) {
+	tc.Run(t, &annotationSuite{})
+}
+
 func (s *annotationSuite) TestGetAnnotations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

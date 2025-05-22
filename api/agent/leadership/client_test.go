@@ -29,7 +29,9 @@ type ClientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestClientSuite(t *stdtesting.T) { tc.Run(t, &ClientSuite{}) }
+func TestClientSuite(t *stdtesting.T) {
+	tc.Run(t, &ClientSuite{})
+}
 
 const (
 	StubApplicationNm = "stub-application"

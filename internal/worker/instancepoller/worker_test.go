@@ -31,9 +31,12 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestConfigSuite(t *stdtesting.T)         { tc.Run(t, &configSuite{}) }
-func TestPollGroupEntrySuite(t *stdtesting.T) { tc.Run(t, &pollGroupEntrySuite{}) }
-func TestWorkerSuite(t *stdtesting.T)         { tc.Run(t, &workerSuite{}) }
+func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
+func TestPollGroupEntrySuite(t *stdtesting.T) {
+	tc.Run(t, &pollGroupEntrySuite{})
+}
+
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 
 var (
 	testAddrs = network.ProviderAddresses{

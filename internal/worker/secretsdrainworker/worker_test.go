@@ -40,7 +40,10 @@ type workerSuite struct {
 	notifyBackendChangedCh chan struct{}
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
+
 func (s *workerSuite) getWorkerNewer(c *tc.C) (func(string), *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 	s.logger = loggertesting.WrapCheckLog(c)

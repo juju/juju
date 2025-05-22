@@ -18,7 +18,9 @@ import (
 
 type URLSuite struct{}
 
-func TestURLSuite(t *stdtesting.T) { tc.Run(t, &URLSuite{}) }
+func TestURLSuite(t *stdtesting.T) {
+	tc.Run(t, &URLSuite{})
+}
 
 var urlTests = []struct {
 	s, err string
@@ -266,7 +268,10 @@ func (s *URLSuite) TestJSONGarbage(c *tc.C) {
 
 type QuoteSuite struct{}
 
-func TestQuoteSuite(t *stdtesting.T) { tc.Run(t, &QuoteSuite{}) }
+func TestQuoteSuite(t *stdtesting.T) {
+	tc.Run(t, &QuoteSuite{})
+}
+
 func (s *QuoteSuite) TestUnmodified(c *tc.C) {
 	// Check that a string containing only valid
 	// chars stays unmodified.

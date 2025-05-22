@@ -18,7 +18,10 @@ type connectionSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestConnectionSuite(t *stdtesting.T) { tc.Run(t, &connectionSuite{}) }
+func TestConnectionSuite(t *stdtesting.T) {
+	tc.Run(t, &connectionSuite{})
+}
+
 func (s *connectionSuite) TestLxdSocketPathLxdDirSet(c *tc.C) {
 	c.Assert(os.Setenv("LXD_DIR", "foobar"), tc.ErrorIsNil)
 	isSocket := func(path string) bool {

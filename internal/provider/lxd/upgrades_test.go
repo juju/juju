@@ -19,7 +19,10 @@ type upgradesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUpgradesSuite(t *stdtesting.T) { tc.Run(t, &upgradesSuite{}) }
+func TestUpgradesSuite(t *stdtesting.T) {
+	tc.Run(t, &upgradesSuite{})
+}
+
 func (s *upgradesSuite) TestReadLegacyCloudCredentials(c *tc.C) {
 	var paths []string
 	readFile := func(path string) ([]byte, error) {

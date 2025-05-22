@@ -27,7 +27,10 @@ type bufferedLogWriterSuite struct {
 	shouldClose bool
 }
 
-func TestBufferedLogWriterSuite(t *stdtesting.T) { tc.Run(t, &bufferedLogWriterSuite{}) }
+func TestBufferedLogWriterSuite(t *stdtesting.T) {
+	tc.Run(t, &bufferedLogWriterSuite{})
+}
+
 func (s *bufferedLogWriterSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.writer = logsender.NewBufferedLogWriter(maxLen)

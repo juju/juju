@@ -19,7 +19,10 @@ type GuardSuite struct {
 	guard *mockCharmDirGuard
 }
 
-func TestGuardSuite(t *stdtesting.T) { tc.Run(t, &GuardSuite{}) }
+func TestGuardSuite(t *stdtesting.T) {
+	tc.Run(t, &GuardSuite{})
+}
+
 func (s *GuardSuite) SetUpTest(c *tc.C) {
 	s.guard = &mockCharmDirGuard{}
 }

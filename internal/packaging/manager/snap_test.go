@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestSnapSuite(t *stdtesting.T) { tc.Run(t, &SnapSuite{}) }
+func TestSnapSuite(t *stdtesting.T) {
+	tc.Run(t, &SnapSuite{})
+}
 
 type SnapSuite struct {
 	testhelpers.IsolationSuite

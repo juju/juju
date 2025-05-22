@@ -46,7 +46,10 @@ type TLSStateSuite struct {
 	tlsStateFixture
 }
 
-func TestTLSStateSuite(t *stdtesting.T) { tc.Run(t, &TLSStateSuite{}) }
+func TestTLSStateSuite(t *stdtesting.T) {
+	tc.Run(t, &TLSStateSuite{})
+}
+
 func (s *TLSStateSuite) TestNewTLSConfig(c *tc.C) {
 	tlsConfig := httpserver.NewTLSConfig(
 		s.dnsName,
@@ -68,7 +71,10 @@ type TLSAutocertSuite struct {
 	autocertQueried bool
 }
 
-func TestTLSAutocertSuite(t *stdtesting.T) { tc.Run(t, &TLSAutocertSuite{}) }
+func TestTLSAutocertSuite(t *stdtesting.T) {
+	tc.Run(t, &TLSAutocertSuite{})
+}
+
 func (s *TLSAutocertSuite) SetUpSuite(c *tc.C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.autocertQueried = true

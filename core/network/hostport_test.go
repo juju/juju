@@ -18,7 +18,10 @@ type HostPortSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestHostPortSuite(t *stdtesting.T) { tc.Run(t, &HostPortSuite{}) }
+func TestHostPortSuite(t *stdtesting.T) {
+	tc.Run(t, &HostPortSuite{})
+}
+
 func (s *HostPortSuite) TestFilterUnusableHostPorts(c *tc.C) {
 	// The order is preserved, but machine- and link-local addresses
 	// are dropped.

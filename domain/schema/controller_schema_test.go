@@ -16,7 +16,10 @@ type controllerSchemaSuite struct {
 	schemaBaseSuite
 }
 
-func TestControllerSchemaSuite(t *stdtesting.T) { tc.Run(t, &controllerSchemaSuite{}) }
+func TestControllerSchemaSuite(t *stdtesting.T) {
+	tc.Run(t, &controllerSchemaSuite{})
+}
+
 func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 	c.Logf("Committing schema DDL")
 

@@ -20,7 +20,10 @@ type machineUpgraderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMachineUpgraderSuite(t *stdtesting.T) { tc.Run(t, &machineUpgraderSuite{}) }
+func TestMachineUpgraderSuite(t *stdtesting.T) {
+	tc.Run(t, &machineUpgraderSuite{})
+}
+
 func (s *machineUpgraderSuite) TestSetVersion(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "Upgrader")

@@ -16,7 +16,10 @@ type ConstraintsSuite struct {
 	testing.BaseSuite
 }
 
-func TestConstraintsSuite(t *stdtesting.T) { tc.Run(t, &ConstraintsSuite{}) }
+func TestConstraintsSuite(t *stdtesting.T) {
+	tc.Run(t, &ConstraintsSuite{})
+}
+
 func (*ConstraintsSuite) testParse(c *tc.C, s string, expect devices.Constraints) {
 	cons, err := devices.ParseConstraints(s)
 	c.Assert(err, tc.ErrorIsNil)

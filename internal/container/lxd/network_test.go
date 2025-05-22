@@ -21,7 +21,10 @@ type networkSuite struct {
 	lxdtesting.BaseSuite
 }
 
-func TestNetworkSuite(t *stdtesting.T) { tc.Run(t, &networkSuite{}) }
+func TestNetworkSuite(t *stdtesting.T) {
+	tc.Run(t, &networkSuite{})
+}
+
 func (s *networkSuite) patch() {
 	lxd.PatchGenerateVirtualMACAddress(s)
 }

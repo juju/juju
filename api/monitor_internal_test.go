@@ -16,7 +16,9 @@ import (
 	jtesting "github.com/juju/juju/internal/testing"
 )
 
-func TestMonitorSuite(t *stdtesting.T) { tc.Run(t, &MonitorSuite{}) }
+func TestMonitorSuite(t *stdtesting.T) {
+	tc.Run(t, &MonitorSuite{})
+}
 
 type MonitorSuite struct {
 	testhelpers.IsolationSuite

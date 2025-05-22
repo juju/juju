@@ -19,7 +19,10 @@ type confSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestConfSuite(t *stdtesting.T) { tc.Run(t, &confSuite{}) }
+func TestConfSuite(t *stdtesting.T) {
+	tc.Run(t, &confSuite{})
+}
+
 func (*confSuite) TestIsZeroTrue(c *tc.C) {
 	var conf common.Conf
 	isZero := conf.IsZero()

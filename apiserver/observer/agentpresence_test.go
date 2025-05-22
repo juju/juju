@@ -26,7 +26,10 @@ type AgentPresenceSuite struct {
 	statusService        *MockStatusService
 }
 
-func TestAgentPresenceSuite(t *stdtesting.T) { tc.Run(t, &AgentPresenceSuite{}) }
+func TestAgentPresenceSuite(t *stdtesting.T) {
+	tc.Run(t, &AgentPresenceSuite{})
+}
+
 func (s *AgentPresenceSuite) TestLoginForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

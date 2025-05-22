@@ -16,7 +16,10 @@ type columnFindSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestColumnFindSuite(t *stdtesting.T) { tc.Run(t, &columnFindSuite{}) }
+func TestColumnFindSuite(t *stdtesting.T) {
+	tc.Run(t, &columnFindSuite{})
+}
+
 func (s *columnFindSuite) TestColumnNames(c *tc.C) {
 	names := DefaultColumns().Names()
 	c.Assert(names, tc.DeepEquals, []string{"Name", "Bundle", "Version", "Architectures", "OS", "Supports", "Publisher", "Summary"})
@@ -43,7 +46,10 @@ type printFindSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPrintFindSuite(t *stdtesting.T) { tc.Run(t, &printFindSuite{}) }
+func TestPrintFindSuite(t *stdtesting.T) {
+	tc.Run(t, &printFindSuite{})
+}
+
 func (s *printFindSuite) TestCharmPrintFind(c *tc.C) {
 	fr := getCharmFindResponse()
 	ctx := commandContextForTest(c)

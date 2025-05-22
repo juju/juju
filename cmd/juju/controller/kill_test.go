@@ -33,7 +33,10 @@ type KillSuite struct {
 	clock *testclock.Clock
 }
 
-func TestKillSuite(t *stdtesting.T) { tc.Run(t, &KillSuite{}) }
+func TestKillSuite(t *stdtesting.T) {
+	tc.Run(t, &KillSuite{})
+}
+
 func (s *KillSuite) SetUpTest(c *tc.C) {
 	s.baseDestroySuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Now())

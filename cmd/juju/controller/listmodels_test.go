@@ -33,7 +33,9 @@ type ModelsSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestModelsSuite(t *stdtesting.T) { tc.Run(t, &ModelsSuite{}) }
+func TestModelsSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelsSuite{})
+}
 
 type fakeModelMgrAPIClient struct {
 	*testhelpers.Stub

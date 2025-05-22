@@ -25,7 +25,10 @@ func (s *ResolvedSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mockAPI = &mockResolveAPI{Stub: &testhelpers.Stub{}}
 }
-func TestResolvedSuite(t *stdtesting.T) { tc.Run(t, &ResolvedSuite{}) }
+func TestResolvedSuite(t *stdtesting.T) {
+	tc.Run(t, &ResolvedSuite{})
+}
+
 func (s *ResolvedSuite) runResolved(c *tc.C, args []string) error {
 	store := jujuclienttesting.MinimalStore()
 	cmd := application.NewResolvedCommandForTest(s.mockAPI, store)

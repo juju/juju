@@ -21,7 +21,10 @@ type modelwatcherTests struct {
 	testhelpers.IsolationSuite
 }
 
-func TestModelwatcherTests(t *stdtesting.T) { tc.Run(t, &modelwatcherTests{}) }
+func TestModelwatcherTests(t *stdtesting.T) {
+	tc.Run(t, &modelwatcherTests{})
+}
+
 func (s *modelwatcherTests) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }

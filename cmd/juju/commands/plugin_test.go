@@ -28,7 +28,10 @@ type PluginSuite struct {
 	oldPath string
 }
 
-func TestPluginSuite(t *stdtesting.T) { tc.Run(t, &PluginSuite{}) }
+func TestPluginSuite(t *stdtesting.T) {
+	tc.Run(t, &PluginSuite{})
+}
+
 func (suite *PluginSuite) SetUpTest(c *tc.C) {
 	suite.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	suite.oldPath = os.Getenv("PATH")

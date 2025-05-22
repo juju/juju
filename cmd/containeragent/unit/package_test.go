@@ -14,7 +14,10 @@ import (
 
 type importSuite struct{}
 
-func TestImportSuite(t *stdtesting.T) { tc.Run(t, &importSuite{}) }
+func TestImportSuite(t *stdtesting.T) {
+	tc.Run(t, &importSuite{})
+}
+
 func (*importSuite) TestImports(c *tc.C) {
 	// TODO(sidecar) - improve test performance
 	c.Skip("test times out on Jenkins")

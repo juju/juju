@@ -17,7 +17,10 @@ type printInfoSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPrintInfoSuite(t *stdtesting.T) { tc.Run(t, &printInfoSuite{}) }
+func TestPrintInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &printInfoSuite{})
+}
+
 func (s *printInfoSuite) TestCharmPrintInfo(c *tc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)

@@ -27,7 +27,10 @@ type ModelOperatorSuite struct {
 	clock  *testclock.Clock
 }
 
-func TestModelOperatorSuite(t *stdtesting.T) { tc.Run(t, &ModelOperatorSuite{}) }
+func TestModelOperatorSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelOperatorSuite{})
+}
+
 func (m *ModelOperatorSuite) SetUpTest(c *tc.C) {
 	m.client = fake.NewSimpleClientset()
 	m.clock = testclock.NewClock(time.Time{})

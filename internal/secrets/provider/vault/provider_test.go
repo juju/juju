@@ -32,7 +32,10 @@ type providerSuite struct {
 	mockRoundTripper *mocks.MockRoundTripper
 }
 
-func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
+func TestProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &providerSuite{})
+}
+
 func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)

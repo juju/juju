@@ -19,7 +19,10 @@ type ArgsSuite struct {
 	testhelpers.LoggingSuite
 }
 
-func TestArgsSuite(t *stdtesting.T) { tc.Run(t, &ArgsSuite{}) }
+func TestArgsSuite(t *stdtesting.T) {
+	tc.Run(t, &ArgsSuite{})
+}
+
 func (*ArgsSuite) TestFlagsUsage(c *tc.C) {
 	for i, test := range []struct {
 		message       string

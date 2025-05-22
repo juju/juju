@@ -19,7 +19,10 @@ type JujuRebootSuite struct {
 	ContextSuite
 }
 
-func TestJujuRebootSuite(t *stdtesting.T) { tc.Run(t, &JujuRebootSuite{}) }
+func TestJujuRebootSuite(t *stdtesting.T) {
+	tc.Run(t, &JujuRebootSuite{})
+}
+
 func (s *JujuRebootSuite) TestNewJujuRebootCommand(c *tc.C) {
 	cmd, err := jujuc.NewJujuRebootCommand(nil)
 	c.Assert(err, tc.ErrorIsNil)

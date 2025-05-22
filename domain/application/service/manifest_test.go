@@ -17,7 +17,9 @@ type manifestSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestManifestSuite(t *stdtesting.T) { tc.Run(t, &manifestSuite{}) }
+func TestManifestSuite(t *stdtesting.T) {
+	tc.Run(t, &manifestSuite{})
+}
 
 var manifestTestCases = [...]struct {
 	name   string

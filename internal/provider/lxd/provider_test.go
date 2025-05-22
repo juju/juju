@@ -29,8 +29,10 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-func TestProviderSuite(t *stdtesting.T)           { tc.Run(t, &providerSuite{}) }
-func TestProviderFunctionalSuite(t *stdtesting.T) { tc.Run(t, &ProviderFunctionalSuite{}) }
+func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
+func TestProviderFunctionalSuite(t *stdtesting.T) {
+	tc.Run(t, &ProviderFunctionalSuite{})
+}
 
 type providerSuite struct {
 	lxd.BaseSuite

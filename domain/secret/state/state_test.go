@@ -34,7 +34,10 @@ type stateSuite struct {
 	modelUUID string
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
+
 func newSecretState(c *tc.C, factory coredatabase.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),

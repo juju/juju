@@ -23,7 +23,10 @@ type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
+
 func (*ManifoldSuite) TestInputs(c *tc.C) {
 	manifold := credentialvalidator.Manifold(validManifoldConfig(c))
 	c.Check(manifold.Inputs, tc.DeepEquals, []string{"api-caller"})

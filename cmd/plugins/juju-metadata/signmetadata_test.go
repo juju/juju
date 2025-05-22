@@ -24,7 +24,10 @@ type SignMetadataSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestSignMetadataSuite(t *stdtesting.T) { tc.Run(t, &SignMetadataSuite{}) }
+func TestSignMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &SignMetadataSuite{})
+}
+
 func (s *SignMetadataSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)

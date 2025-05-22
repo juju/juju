@@ -45,7 +45,10 @@ type SourcePrecheckSuite struct {
 	precheckBaseSuite
 }
 
-func TestSourcePrecheckSuite(t *stdtesting.T) { tc.Run(t, &SourcePrecheckSuite{}) }
+func TestSourcePrecheckSuite(t *stdtesting.T) {
+	tc.Run(t, &SourcePrecheckSuite{})
+}
+
 func sourcePrecheck(
 	c *tc.C,
 	backend migration.PrecheckBackend,
@@ -607,7 +610,10 @@ type ImportPrecheckSuite struct {
 	precheckBaseSuite
 }
 
-func TestImportPrecheckSuite(t *stdtesting.T) { tc.Run(t, &ImportPrecheckSuite{}) }
+func TestImportPrecheckSuite(t *stdtesting.T) {
+	tc.Run(t, &ImportPrecheckSuite{})
+}
+
 func (s *ImportPrecheckSuite) TestImportPrecheckEmpty(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	err := migration.ImportPrecheck(c.Context(), model)
@@ -669,7 +675,10 @@ type TargetPrecheckSuite struct {
 	modelInfo coremigration.ModelInfo
 }
 
-func TestTargetPrecheckSuite(t *stdtesting.T) { tc.Run(t, &TargetPrecheckSuite{}) }
+func TestTargetPrecheckSuite(t *stdtesting.T) {
+	tc.Run(t, &TargetPrecheckSuite{})
+}
+
 func (s *TargetPrecheckSuite) SetUpTest(c *tc.C) {
 	s.modelInfo = coremigration.ModelInfo{
 		UUID:         modelUUID,

@@ -26,7 +26,10 @@ type APIRequesterSuite struct {
 	baseSuite
 }
 
-func TestAPIRequesterSuite(t *stdtesting.T) { tc.Run(t, &APIRequesterSuite{}) }
+func TestAPIRequesterSuite(t *stdtesting.T) {
+	tc.Run(t, &APIRequesterSuite{})
+}
+
 func (s *APIRequesterSuite) TestDo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -174,7 +177,10 @@ type RESTSuite struct {
 	baseSuite
 }
 
-func TestRESTSuite(t *stdtesting.T) { tc.Run(t, &RESTSuite{}) }
+func TestRESTSuite(t *stdtesting.T) {
+	tc.Run(t, &RESTSuite{})
+}
+
 func (s *RESTSuite) TestGet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

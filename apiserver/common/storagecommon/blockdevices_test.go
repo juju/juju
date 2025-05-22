@@ -16,7 +16,10 @@ import (
 type BlockDeviceSuite struct {
 }
 
-func TestBlockDeviceSuite(t *stdtesting.T) { tc.Run(t, &BlockDeviceSuite{}) }
+func TestBlockDeviceSuite(t *stdtesting.T) {
+	tc.Run(t, &BlockDeviceSuite{})
+}
+
 func (s *BlockDeviceSuite) TestBlockDeviceMatchingSerialID(c *tc.C) {
 	blockDevices := []blockdevice.BlockDevice{{
 		DeviceName: "sdb",

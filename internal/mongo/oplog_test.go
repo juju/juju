@@ -24,7 +24,10 @@ type oplogSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestOplogSuite(t *stdtesting.T) { tc.Run(t, &oplogSuite{}) }
+func TestOplogSuite(t *stdtesting.T) {
+	tc.Run(t, &oplogSuite{})
+}
+
 func (s *oplogSuite) TestWithRealOplog(c *tc.C) {
 	_, session := s.startMongoWithReplicaset(c)
 

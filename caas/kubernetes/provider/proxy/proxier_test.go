@@ -16,7 +16,10 @@ import (
 type proxySuite struct {
 }
 
-func TestProxySuite(t *stdtesting.T) { tc.Run(t, &proxySuite{}) }
+func TestProxySuite(t *stdtesting.T) {
+	tc.Run(t, &proxySuite{})
+}
+
 func (p *proxySuite) TestProxierMarshalling(c *tc.C) {
 	config := proxy.ProxierConfig{
 		APIHost:             "https://localhost:1234",

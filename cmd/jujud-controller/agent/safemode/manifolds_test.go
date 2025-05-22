@@ -23,7 +23,10 @@ type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-func TestManifoldsSuite(t *stdtesting.T) { tc.Run(t, &ManifoldsSuite{}) }
+func TestManifoldsSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldsSuite{})
+}
+
 func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }

@@ -24,7 +24,10 @@ type LogSenderSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestLogSenderSuite(t *stdtesting.T) { tc.Run(t, &LogSenderSuite{}) }
+func TestLogSenderSuite(t *stdtesting.T) {
+	tc.Run(t, &LogSenderSuite{})
+}
+
 func (s *LogSenderSuite) TestNewAPI(c *tc.C) {
 	conn := &mockConnector{
 		c: c,

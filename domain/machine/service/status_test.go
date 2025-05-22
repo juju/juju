@@ -17,7 +17,10 @@ type statusSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestStatusSuite(t *stdtesting.T) { tc.Run(t, &statusSuite{}) }
+func TestStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &statusSuite{})
+}
+
 func (s *statusSuite) TestEncodeMachineStatus(c *tc.C) {
 	testCases := []struct {
 		input  status.StatusInfo

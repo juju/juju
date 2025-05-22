@@ -23,7 +23,10 @@ type instancecfgSuite struct {
 	testing.BaseSuite
 }
 
-func TestInstancecfgSuite(t *stdtesting.T) { tc.Run(t, &instancecfgSuite{}) }
+func TestInstancecfgSuite(t *stdtesting.T) {
+	tc.Run(t, &instancecfgSuite{})
+}
+
 func (*instancecfgSuite) TestIsController(c *tc.C) {
 	cfg := instancecfg.InstanceConfig{}
 	c.Assert(cfg.IsController(), tc.IsFalse)

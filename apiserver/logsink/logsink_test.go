@@ -51,7 +51,10 @@ type logsinkSuite struct {
 	stackMu   sync.Mutex
 }
 
-func TestLogsinkSuite(t *stdtesting.T) { tc.Run(t, &logsinkSuite{}) }
+func TestLogsinkSuite(t *stdtesting.T) {
+	tc.Run(t, &logsinkSuite{})
+}
+
 func (s *logsinkSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.abort = make(chan struct{})

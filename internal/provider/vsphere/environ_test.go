@@ -23,7 +23,10 @@ type environSuite struct {
 	EnvironFixture
 }
 
-func TestEnvironSuite(t *stdtesting.T) { tc.Run(t, &environSuite{}) }
+func TestEnvironSuite(t *stdtesting.T) {
+	tc.Run(t, &environSuite{})
+}
+
 func (s *environSuite) TestBootstrap(c *tc.C) {
 	s.PatchValue(&vsphere.Bootstrap, func(
 		ctx environs.BootstrapContext,

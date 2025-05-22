@@ -21,7 +21,10 @@ type environAvailzonesSuite struct {
 	EnvironFixture
 }
 
-func TestEnvironAvailzonesSuite(t *stdtesting.T) { tc.Run(t, &environAvailzonesSuite{}) }
+func TestEnvironAvailzonesSuite(t *stdtesting.T) {
+	tc.Run(t, &environAvailzonesSuite{})
+}
+
 func makeFolders(host string) *object.DatacenterFolders {
 	return &object.DatacenterFolders{
 		HostFolder: &object.Folder{

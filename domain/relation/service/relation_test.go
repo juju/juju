@@ -36,7 +36,9 @@ type relationServiceSuite struct {
 	service *Service
 }
 
-func TestRelationServiceSuite(t *stdtesting.T) { tc.Run(t, &relationServiceSuite{}) }
+func TestRelationServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &relationServiceSuite{})
+}
 
 // TestAddRelation verifies the behavior of the AddRelation method when adding
 // a relation between two endpoints.

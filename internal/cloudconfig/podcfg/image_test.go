@@ -19,7 +19,10 @@ type imageSuite struct {
 	testing.BaseSuite
 }
 
-func TestImageSuite(t *stdtesting.T) { tc.Run(t, &imageSuite{}) }
+func TestImageSuite(t *stdtesting.T) {
+	tc.Run(t, &imageSuite{})
+}
+
 func (*imageSuite) TestGetJujuOCIImagePath(c *tc.C) {
 	cfg := testing.FakeControllerConfig()
 

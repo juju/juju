@@ -20,7 +20,10 @@ type auditFilterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAuditFilterSuite(t *stdtesting.T) { tc.Run(t, &auditFilterSuite{}) }
+func TestAuditFilterSuite(t *stdtesting.T) {
+	tc.Run(t, &auditFilterSuite{})
+}
+
 func (s *auditFilterSuite) TestFiltersUninterestingConversations(c *tc.C) {
 	target := &apitesting.FakeAuditLog{}
 	filter := func(r auditlog.Request) bool {

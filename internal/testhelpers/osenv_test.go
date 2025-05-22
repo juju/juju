@@ -17,7 +17,10 @@ type osEnvSuite struct {
 	osEnvSuite testing.OsEnvSuite
 }
 
-func TestOsEnvSuite(t *stdtesting.T) { tc.Run(t, &osEnvSuite{}) }
+func TestOsEnvSuite(t *stdtesting.T) {
+	tc.Run(t, &osEnvSuite{})
+}
+
 func (s *osEnvSuite) SetUpSuite(c *tc.C) {
 	s.osEnvSuite = testing.OsEnvSuite{}
 }

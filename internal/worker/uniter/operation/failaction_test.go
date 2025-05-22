@@ -19,7 +19,10 @@ type FailActionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFailActionSuite(t *stdtesting.T) { tc.Run(t, &FailActionSuite{}) }
+func TestFailActionSuite(t *stdtesting.T) {
+	tc.Run(t, &FailActionSuite{})
+}
+
 func (s *FailActionSuite) TestPrepare(c *tc.C) {
 	factory := newOpFactory(c, nil, nil)
 	op, err := factory.NewFailAction(someActionId)

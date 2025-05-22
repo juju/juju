@@ -23,7 +23,10 @@ type sequenceSuite struct {
 	state *domain.StateBase
 }
 
-func TestSequenceSuite(t *stdtesting.T) { tc.Run(t, &sequenceSuite{}) }
+func TestSequenceSuite(t *stdtesting.T) {
+	tc.Run(t, &sequenceSuite{})
+}
+
 func (s *sequenceSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 	s.state = domain.NewStateBase(s.TxnRunnerFactory())

@@ -31,7 +31,10 @@ type removeSuite struct {
 	mockAPI *mockRemoveAPI
 }
 
-func TestRemoveSuite(t *stdtesting.T) { tc.Run(t, &removeSuite{}) }
+func TestRemoveSuite(t *stdtesting.T) {
+	tc.Run(t, &removeSuite{})
+}
+
 func (s *removeSuite) SetUpTest(c *tc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 	s.mockAPI = &mockRemoveAPI{}

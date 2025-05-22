@@ -20,7 +20,10 @@ type uniterSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestUniterSuite(t *stdtesting.T) { tc.Run(t, &uniterSuite{}) }
+func TestUniterSuite(t *stdtesting.T) {
+	tc.Run(t, &uniterSuite{})
+}
+
 func (s *uniterSuite) TestProviderType(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, tc.Equals, "Uniter")

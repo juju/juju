@@ -17,7 +17,10 @@ type migrationSuite struct {
 	testing.DqliteSuite
 }
 
-func TestMigrationSuite(t *stdtesting.T) { tc.Run(t, &migrationSuite{}) }
+func TestMigrationSuite(t *stdtesting.T) {
+	tc.Run(t, &migrationSuite{})
+}
+
 func (s *migrationSuite) TestMigrationSuccess(c *tc.C) {
 	patches := schema.New()
 	patches.Add(

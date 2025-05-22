@@ -18,7 +18,10 @@ type IAMSuite struct {
 	server *testing.IAMServer
 }
 
-func TestIAMSuite(t *stdtesting.T) { tc.Run(t, &IAMSuite{}) }
+func TestIAMSuite(t *stdtesting.T) {
+	tc.Run(t, &IAMSuite{})
+}
+
 func (i *IAMSuite) SetUpTest(c *tc.C) {
 	server, err := testing.NewIAMServer()
 	c.Assert(err, tc.ErrorIsNil)

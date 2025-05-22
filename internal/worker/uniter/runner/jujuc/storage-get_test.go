@@ -21,7 +21,9 @@ type storageGetSuite struct {
 	storageSuite
 }
 
-func TestStorageGetSuite(t *stdtesting.T) { tc.Run(t, &storageGetSuite{}) }
+func TestStorageGetSuite(t *stdtesting.T) {
+	tc.Run(t, &storageGetSuite{})
+}
 
 var storageGetTests = []struct {
 	args   []string

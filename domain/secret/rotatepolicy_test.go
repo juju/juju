@@ -16,7 +16,9 @@ type rotatePolicySuite struct {
 	schematesting.ModelSuite
 }
 
-func TestRotatePolicySuite(t *stdtesting.T) { tc.Run(t, &rotatePolicySuite{}) }
+func TestRotatePolicySuite(t *stdtesting.T) {
+	tc.Run(t, &rotatePolicySuite{})
+}
 
 // TestRotatePolicyDBValues ensures there's no skew between what's in the
 // database table for rotatepolicy and the typed consts used in the state packages.

@@ -20,7 +20,10 @@ type stateSuite struct {
 	baseSuite
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
+
 func (s *stateSuite) TestCheckApplicationNameAvailable(c *tc.C) {
 	s.createApplication(c, "foo", life.Alive)
 

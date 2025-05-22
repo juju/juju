@@ -24,7 +24,10 @@ type ListSuite struct {
 	mockAPI *mockListAPI
 }
 
-func TestListSuite(t *stdtesting.T) { tc.Run(t, &ListSuite{}) }
+func TestListSuite(t *stdtesting.T) {
+	tc.Run(t, &ListSuite{})
+}
+
 func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.mockAPI = &mockListAPI{
 		rules: "192.168.1.0/16,10.0.0.0/8",

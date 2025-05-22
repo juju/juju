@@ -15,7 +15,10 @@ import (
 type registrySuite struct {
 }
 
-func TestRegistrySuite(t *stdtesting.T) { tc.Run(t, &registrySuite{}) }
+func TestRegistrySuite(t *stdtesting.T) {
+	tc.Run(t, &registrySuite{})
+}
+
 func (s *registrySuite) TestErrorsOnDockerDefault(c *tc.C) {
 	reg, err := registry.New(docker.ImageRepoDetails{
 		Repository: "jujusolutions",

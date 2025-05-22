@@ -35,7 +35,10 @@ type removeApplicationSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestRemoveApplicationSuite(t *stdtesting.T) { tc.Run(t, &removeApplicationSuite{}) }
+func TestRemoveApplicationSuite(t *stdtesting.T) {
+	tc.Run(t, &removeApplicationSuite{})
+}
+
 func (s *removeApplicationSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclienttesting.MinimalStore()

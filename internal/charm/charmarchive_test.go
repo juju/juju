@@ -24,7 +24,10 @@ type CharmArchiveSuite struct {
 	archivePath string
 }
 
-func TestCharmArchiveSuite(t *stdtesting.T) { tc.Run(t, &CharmArchiveSuite{}) }
+func TestCharmArchiveSuite(t *stdtesting.T) {
+	tc.Run(t, &CharmArchiveSuite{})
+}
+
 func (s *CharmArchiveSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 	s.archivePath = archivePath(c, readCharmDir(c, "dummy"))

@@ -27,7 +27,10 @@ type resolveSuite struct {
 	charmReader    *mocks.MockCharmReader
 }
 
-func TestResolveSuite(t *stdtesting.T) { tc.Run(t, &resolveSuite{}) }
+func TestResolveSuite(t *stdtesting.T) {
+	tc.Run(t, &resolveSuite{})
+}
+
 func (s *resolveSuite) TestResolveCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

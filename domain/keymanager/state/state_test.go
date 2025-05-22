@@ -34,7 +34,9 @@ type stateSuite struct {
 	modelId  model.UUID
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 var (
 	testingPublicKeys = []string{

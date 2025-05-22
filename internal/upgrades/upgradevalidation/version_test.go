@@ -17,7 +17,9 @@ type versionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestVersionSuite(t *stdtesting.T) { tc.Run(t, &versionSuite{}) }
+func TestVersionSuite(t *stdtesting.T) {
+	tc.Run(t, &versionSuite{})
+}
 
 type versionCheckTC struct {
 	from    string

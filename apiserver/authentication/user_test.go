@@ -33,7 +33,10 @@ type userAuthenticatorSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-func TestUserAuthenticatorSuite(t *stdtesting.T) { tc.Run(t, &userAuthenticatorSuite{}) }
+func TestUserAuthenticatorSuite(t *stdtesting.T) {
+	tc.Run(t, &userAuthenticatorSuite{})
+}
+
 func (s *userAuthenticatorSuite) TestMachineLoginFails(c *tc.C) {
 
 	authenticator := &authentication.LocalUserAuthenticator{}

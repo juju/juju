@@ -28,7 +28,10 @@ type environPolicySuite struct {
 	env environs.Environ
 }
 
-func TestEnvironPolicySuite(t *stdtesting.T) { tc.Run(t, &environPolicySuite{}) }
+func TestEnvironPolicySuite(t *stdtesting.T) {
+	tc.Run(t, &environPolicySuite{})
+}
+
 func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	err := s.env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase()})

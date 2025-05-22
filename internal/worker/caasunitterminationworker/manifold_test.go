@@ -19,7 +19,10 @@ type ManifoldSuite struct {
 	config caasunitterminationworker.ManifoldConfig
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
+
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.config = caasunitterminationworker.ManifoldConfig{
 		Clock:  testclock.NewClock(time.Now()),

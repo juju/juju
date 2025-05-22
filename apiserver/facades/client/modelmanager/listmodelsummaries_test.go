@@ -16,7 +16,10 @@ import (
 
 type ListModelsWithInfoSuite struct{}
 
-func TestListModelsWithInfoSuite(t *stdtesting.T) { tc.Run(t, &ListModelsWithInfoSuite{}) }
+func TestListModelsWithInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &ListModelsWithInfoSuite{})
+}
+
 func (s *ListModelsWithInfoSuite) TestStub(c *tc.C) {
 	c.Skip(`skipping test (tlm): Missing tests for the following cases.
 	- Happy path list test for a user.

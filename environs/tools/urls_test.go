@@ -26,7 +26,10 @@ type URLsSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestURLsSuite(t *stdtesting.T) { tc.Run(t, &URLsSuite{}) }
+func TestURLsSuite(t *stdtesting.T) {
+	tc.Run(t, &URLsSuite{})
+}
+
 func (s *URLsSuite) env(c *tc.C, toolsMetadataURL string) environs.Environ {
 	attrs := coretesting.FakeConfig()
 	if toolsMetadataURL != "" {

@@ -21,7 +21,10 @@ type AuditLogSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAuditLogSuite(t *stdtesting.T) { tc.Run(t, &AuditLogSuite{}) }
+func TestAuditLogSuite(t *stdtesting.T) {
+	tc.Run(t, &AuditLogSuite{})
+}
+
 func (s *AuditLogSuite) TestAuditLogFile(c *tc.C) {
 	dir := c.MkDir()
 	logFile := auditlog.NewLogFile(dir, 300, 10)

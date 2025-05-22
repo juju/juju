@@ -22,7 +22,10 @@ type SecretUpdateSuite struct {
 	ContextSuite
 }
 
-func TestSecretUpdateSuite(t *stdtesting.T) { tc.Run(t, &SecretUpdateSuite{}) }
+func TestSecretUpdateSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretUpdateSuite{})
+}
+
 func (s *SecretUpdateSuite) TestUpdateSecretInvalidArgs(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 

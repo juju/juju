@@ -32,7 +32,10 @@ type CleanerSuite struct {
 	domainServices *MockDomainServices
 }
 
-func TestCleanerSuite(t *stdtesting.T) { tc.Run(t, &CleanerSuite{}) }
+func TestCleanerSuite(t *stdtesting.T) {
+	tc.Run(t, &CleanerSuite{})
+}
+
 func (s *CleanerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.domainServices = NewMockDomainServices(ctrl)

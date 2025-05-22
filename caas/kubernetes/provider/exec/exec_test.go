@@ -27,7 +27,10 @@ type execSuite struct {
 	BaseSuite
 }
 
-func TestExecSuite(t *stdtesting.T) { tc.Run(t, &execSuite{}) }
+func TestExecSuite(t *stdtesting.T) {
+	tc.Run(t, &execSuite{})
+}
+
 func (s *execSuite) TestExecParamsValidateCommandsAndPodName(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()

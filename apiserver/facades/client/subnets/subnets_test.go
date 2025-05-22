@@ -33,7 +33,10 @@ type SubnetsSuite struct {
 	facade *API
 }
 
-func TestSubnetsSuite(t *stdtesting.T) { tc.Run(t, &SubnetsSuite{}) }
+func TestSubnetsSuite(t *stdtesting.T) {
+	tc.Run(t, &SubnetsSuite{})
+}
+
 func (s *SubnetsSuite) TestAuthDenied(c *tc.C) {
 	_, err := newAPI(facadetest.ModelContext{
 		Auth_: apiservertesting.FakeAuthorizer{

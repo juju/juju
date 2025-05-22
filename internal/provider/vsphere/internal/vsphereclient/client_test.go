@@ -40,7 +40,10 @@ type clientSuite struct {
 	clock          *testclock.Clock
 }
 
-func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
+func TestClientSuite(t *stdtesting.T) {
+	tc.Run(t, &clientSuite{})
+}
+
 func (s *clientSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.serviceContent = types.ServiceContent{

@@ -34,7 +34,9 @@ type stateSuite struct {
 	state *State
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 // runQuery executes the provided SQL query string using the current state's database connection.
 //

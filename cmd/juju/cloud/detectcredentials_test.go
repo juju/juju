@@ -33,7 +33,9 @@ type detectCredentialsSuite struct {
 	api               *fakeUpdateCredentialAPI
 }
 
-func TestDetectCredentialsSuite(t *stdtesting.T) { tc.Run(t, &detectCredentialsSuite{}) }
+func TestDetectCredentialsSuite(t *stdtesting.T) {
+	tc.Run(t, &detectCredentialsSuite{})
+}
 
 type mockProvider struct {
 	environs.CloudEnvironProvider

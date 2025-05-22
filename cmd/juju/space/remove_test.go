@@ -25,7 +25,10 @@ type RemoveSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestRemoveSuite(t *stdtesting.T) { tc.Run(t, &RemoveSuite{}) }
+func TestRemoveSuite(t *stdtesting.T) {
+	tc.Run(t, &RemoveSuite{})
+}
+
 func (s *RemoveSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewRemoveCommand

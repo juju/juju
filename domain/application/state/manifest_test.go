@@ -19,7 +19,9 @@ type manifestSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestManifestSuite(t *stdtesting.T) { tc.Run(t, &manifestSuite{}) }
+func TestManifestSuite(t *stdtesting.T) {
+	tc.Run(t, &manifestSuite{})
+}
 
 var decodeManifestTestCases = [...]struct {
 	name   string
@@ -228,7 +230,10 @@ type manifestStateSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestManifestStateSuite(t *stdtesting.T) { tc.Run(t, &manifestStateSuite{}) }
+func TestManifestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &manifestStateSuite{})
+}
+
 func (s *manifestStateSuite) TestManifestOS(c *tc.C) {
 	type osType struct {
 		ID   int    `db:"id"`

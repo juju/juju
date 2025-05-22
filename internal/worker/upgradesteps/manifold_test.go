@@ -19,7 +19,10 @@ import (
 type manifoldSuite struct {
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &manifoldSuite{})
+}
+
 func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig(c)
 	c.Check(cfg.Validate(), tc.ErrorIsNil)

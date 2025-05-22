@@ -17,7 +17,10 @@ type multiplexerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMultiplexerSuite(t *stdtesting.T) { tc.Run(t, &multiplexerSuite{}) }
+func TestMultiplexerSuite(t *stdtesting.T) {
+	tc.Run(t, &multiplexerSuite{})
+}
+
 func (*multiplexerSuite) TestServerReply_CallsAllObservers(c *tc.C) {
 	observers := []*fakeobserver.RPCInstance{
 		(&fakeobserver.Instance{}).RPCObserver().(*fakeobserver.RPCInstance),

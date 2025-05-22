@@ -57,7 +57,10 @@ type AddMachineManagerSuite struct {
 	agentBinaryService      *MockAgentBinaryService
 }
 
-func TestAddMachineManagerSuite(t *stdtesting.T) { tc.Run(t, &AddMachineManagerSuite{}) }
+func TestAddMachineManagerSuite(t *stdtesting.T) {
+	tc.Run(t, &AddMachineManagerSuite{})
+}
+
 func (s *AddMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.modelUUID = modeltesting.GenModelUUID(c)

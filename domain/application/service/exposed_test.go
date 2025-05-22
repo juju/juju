@@ -22,7 +22,10 @@ type exposedServiceSuite struct {
 	baseSuite
 }
 
-func TestExposedServiceSuite(t *stdtesting.T) { tc.Run(t, &exposedServiceSuite{}) }
+func TestExposedServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &exposedServiceSuite{})
+}
+
 func (s *exposedServiceSuite) TestApplicationExposedNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

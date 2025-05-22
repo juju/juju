@@ -17,7 +17,10 @@ type environUpgradeSuite struct {
 	gce.BaseSuite
 }
 
-func TestEnvironUpgradeSuite(t *stdtesting.T) { tc.Run(t, &environUpgradeSuite{}) }
+func TestEnvironUpgradeSuite(t *stdtesting.T) {
+	tc.Run(t, &environUpgradeSuite{})
+}
+
 func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *tc.C) {
 	c.Assert(s.Env, tc.Implements, new(environs.Upgrader))
 }

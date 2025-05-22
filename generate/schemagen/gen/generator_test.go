@@ -24,7 +24,10 @@ type GenSuite struct {
 	registry    *MockRegistry
 }
 
-func TestGenSuite(t *stdtesting.T) { tc.Run(t, &GenSuite{}) }
+func TestGenSuite(t *stdtesting.T) {
+	tc.Run(t, &GenSuite{})
+}
+
 func (s *GenSuite) TestResult(c *tc.C) {
 	defer s.setup(c).Finish()
 

@@ -21,7 +21,10 @@ type HandleSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHandleSuite(t *stdtesting.T) { tc.Run(t, &HandleSuite{}) }
+func TestHandleSuite(t *stdtesting.T) {
+	tc.Run(t, &HandleSuite{})
+}
+
 func (s *HandleSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	// For testing purposes, don't set the user to run as.

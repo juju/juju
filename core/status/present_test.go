@@ -13,7 +13,10 @@ import (
 
 type viableSuite struct{}
 
-func TestViableSuite(t *stdtesting.T) { tc.Run(t, &viableSuite{}) }
+func TestViableSuite(t *stdtesting.T) {
+	tc.Run(t, &viableSuite{})
+}
+
 func (s *viableSuite) TestIsMachinePresent(c *tc.C) {
 	testcases := []struct {
 		name   string

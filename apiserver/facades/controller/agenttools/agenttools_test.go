@@ -21,7 +21,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestAgentToolsSuite(t *stdtesting.T) { tc.Run(t, &AgentToolsSuite{}) }
+func TestAgentToolsSuite(t *stdtesting.T) {
+	tc.Run(t, &AgentToolsSuite{})
+}
 
 type AgentToolsSuite struct {
 	coretesting.BaseSuite

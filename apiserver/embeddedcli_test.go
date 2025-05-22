@@ -62,7 +62,10 @@ func (s *embeddedCliSuite) SetUpTest(c *tc.C) {
 
 	s.ApiServerSuite.SetUpTest(c)
 }
-func TestEmbeddedCliSuite(t *stdtesting.T) { tc.Run(t, &embeddedCliSuite{}) }
+func TestEmbeddedCliSuite(t *stdtesting.T) {
+	tc.Run(t, &embeddedCliSuite{})
+}
+
 func (s *embeddedCliSuite) TestEmbeddedCommand(c *tc.C) {
 	cmdArgs := params.CLICommands{
 		User:     "fred",

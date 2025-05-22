@@ -25,7 +25,10 @@ type storageVolumeSuite struct {
 	provider storage.Provider
 }
 
-func TestStorageVolumeSuite(t *stdtesting.T) { tc.Run(t, &storageVolumeSuite{}) }
+func TestStorageVolumeSuite(t *stdtesting.T) {
+	tc.Run(t, &storageVolumeSuite{})
+}
+
 func (s *storageVolumeSuite) SetUpTest(c *tc.C) {
 	s.commonSuite.SetUpTest(c)
 

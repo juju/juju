@@ -21,7 +21,10 @@ type environPolSuite struct {
 	gce.BaseSuite
 }
 
-func TestEnvironPolSuite(t *stdtesting.T) { tc.Run(t, &environPolSuite{}) }
+func TestEnvironPolSuite(t *stdtesting.T) {
+	tc.Run(t, &environPolSuite{})
+}
+
 func (s *environPolSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

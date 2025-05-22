@@ -21,7 +21,10 @@ type baseWorkerSuite struct {
 	baseSuite
 }
 
-func TestBaseWorkerSuite(t *stdtesting.T) { tc.Run(t, &baseWorkerSuite{}) }
+func TestBaseWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &baseWorkerSuite{})
+}
+
 func (s *baseWorkerSuite) TestAlreadyUpgraded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

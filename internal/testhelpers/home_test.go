@@ -20,7 +20,10 @@ type fakeHomeSuite struct {
 	fakeHomeSuite testing.FakeHomeSuite
 }
 
-func TestFakeHomeSuite(t *stdtesting.T) { tc.Run(t, &fakeHomeSuite{}) }
+func TestFakeHomeSuite(t *stdtesting.T) {
+	tc.Run(t, &fakeHomeSuite{})
+}
+
 func (s *fakeHomeSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 	s.fakeHomeSuite = testing.FakeHomeSuite{}
@@ -71,7 +74,10 @@ type makeFakeHomeSuite struct {
 	home *testing.FakeHome
 }
 
-func TestMakeFakeHomeSuite(t *stdtesting.T) { tc.Run(t, &makeFakeHomeSuite{}) }
+func TestMakeFakeHomeSuite(t *stdtesting.T) {
+	tc.Run(t, &makeFakeHomeSuite{})
+}
+
 func (s *makeFakeHomeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.home = testing.MakeFakeHome(c)

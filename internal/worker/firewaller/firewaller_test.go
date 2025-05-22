@@ -522,7 +522,10 @@ type InstanceModeSuite struct {
 	firewallerBaseSuite
 }
 
-func TestInstanceModeSuite(t *stdtesting.T) { tc.Run(t, &InstanceModeSuite{}) }
+func TestInstanceModeSuite(t *stdtesting.T) {
+	tc.Run(t, &InstanceModeSuite{})
+}
+
 func (s *InstanceModeSuite) SetUpTest(c *tc.C) {
 	s.mode = config.FwInstance
 	s.firewallerBaseSuite.SetUpTest(c)
@@ -1995,7 +1998,10 @@ type GlobalModeSuite struct {
 	firewallerBaseSuite
 }
 
-func TestGlobalModeSuite(t *stdtesting.T) { tc.Run(t, &GlobalModeSuite{}) }
+func TestGlobalModeSuite(t *stdtesting.T) {
+	tc.Run(t, &GlobalModeSuite{})
+}
+
 func (s *GlobalModeSuite) SetUpTest(c *tc.C) {
 	s.mode = config.FwGlobal
 	s.firewallerBaseSuite.SetUpTest(c)
@@ -2306,7 +2312,10 @@ type NoneModeSuite struct {
 	firewallerBaseSuite
 }
 
-func TestNoneModeSuite(t *stdtesting.T) { tc.Run(t, &NoneModeSuite{}) }
+func TestNoneModeSuite(t *stdtesting.T) {
+	tc.Run(t, &NoneModeSuite{})
+}
+
 func (s *NoneModeSuite) TestStopImmediately(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

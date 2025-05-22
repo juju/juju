@@ -33,7 +33,9 @@ type TrackerSuite struct {
 	blockUntilReleasedErrors []error
 }
 
-func TestTrackerSuite(t *stdtesting.T) { tc.Run(t, &TrackerSuite{}) }
+func TestTrackerSuite(t *stdtesting.T) {
+	tc.Run(t, &TrackerSuite{})
+}
 
 const (
 	trackerDuration = 30 * time.Second

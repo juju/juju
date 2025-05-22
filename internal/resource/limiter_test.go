@@ -18,7 +18,9 @@ import (
 type LimiterSuite struct {
 }
 
-func TestLimiterSuite(t *stdtesting.T) { tc.Run(t, &LimiterSuite{}) }
+func TestLimiterSuite(t *stdtesting.T) {
+	tc.Run(t, &LimiterSuite{})
+}
 
 var shortAttempt = &utils.AttemptStrategy{
 	Total: coretesting.ShortWait,

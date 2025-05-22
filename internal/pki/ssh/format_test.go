@@ -18,7 +18,10 @@ import (
 type FormatSuite struct {
 }
 
-func TestFormatSuite(t *stdtesting.T) { tc.Run(t, &FormatSuite{}) }
+func TestFormatSuite(t *stdtesting.T) {
+	tc.Run(t, &FormatSuite{})
+}
+
 func (s *FormatSuite) TestKeyProfilesFormat(c *tc.C) {
 	tests := []struct {
 		name          string

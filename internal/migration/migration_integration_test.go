@@ -28,7 +28,10 @@ type ExportImportSuite struct {
 	objectStoreGetter       *MockModelObjectStoreGetter
 }
 
-func TestExportImportSuite(t *stdtesting.T) { tc.Run(t, &ExportImportSuite{}) }
+func TestExportImportSuite(t *stdtesting.T) {
+	tc.Run(t, &ExportImportSuite{})
+}
+
 func (s *ExportImportSuite) SetUpSuite(c *tc.C) {
 	c.Skip(`
 TODO tlm: We are skipping these tests as they are currently relying heavily on

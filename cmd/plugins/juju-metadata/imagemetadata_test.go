@@ -30,7 +30,10 @@ type ImageMetadataSuite struct {
 	store   *jujuclient.MemStore
 }
 
-func TestImageMetadataSuite(t *stdtesting.T) { tc.Run(t, &ImageMetadataSuite{}) }
+func TestImageMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &ImageMetadataSuite{})
+}
+
 func (s *ImageMetadataSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.environ = os.Environ()

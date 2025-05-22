@@ -21,7 +21,10 @@ type deployerSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestDeployerSuite(t *stdtesting.T) { tc.Run(t, &deployerSuite{}) }
+func TestDeployerSuite(t *stdtesting.T) {
+	tc.Run(t, &deployerSuite{})
+}
+
 func (s *deployerSuite) TestWatchUnits(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "Deployer")

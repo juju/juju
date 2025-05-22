@@ -22,7 +22,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestServerIntegrationSuite(t *stdtesting.T) { tc.Run(t, &serverIntegrationSuite{}) }
+func TestServerIntegrationSuite(t *stdtesting.T) {
+	tc.Run(t, &serverIntegrationSuite{})
+}
 
 // serverIntegrationSuite tests server module functionality from outside the
 // lxd package. See server_test.go for package-local unit tests.

@@ -23,7 +23,10 @@ import (
 type storageMockSuite struct {
 }
 
-func TestStorageMockSuite(t *stdtesting.T) { tc.Run(t, &storageMockSuite{}) }
+func TestStorageMockSuite(t *stdtesting.T) {
+	tc.Run(t, &storageMockSuite{})
+}
+
 func (s *storageMockSuite) TestStorageDetails(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

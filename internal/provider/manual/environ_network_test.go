@@ -15,7 +15,10 @@ type environNetworkSuite struct {
 	baseEnvironSuite
 }
 
-func TestEnvironNetworkSuite(t *stdtesting.T) { tc.Run(t, &environNetworkSuite{}) }
+func TestEnvironNetworkSuite(t *stdtesting.T) {
+	tc.Run(t, &environNetworkSuite{})
+}
+
 func (s *environNetworkSuite) TestSupportsSpaces(c *tc.C) {
 	netEnv, ok := environs.SupportsNetworking(s.env)
 	c.Assert(ok, tc.IsTrue)

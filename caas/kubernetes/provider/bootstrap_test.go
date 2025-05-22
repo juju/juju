@@ -56,7 +56,10 @@ type bootstrapSuite struct {
 	controllerStackerGetter func() provider.ControllerStackerForTest
 }
 
-func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &bootstrapSuite{}) }
+func TestBootstrapSuite(t *stdtesting.T) {
+	tc.Run(t, &bootstrapSuite{})
+}
+
 func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.fakeClientSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)

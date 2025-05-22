@@ -48,7 +48,9 @@ type cloudinitSuite struct {
 	testing.BaseSuite
 }
 
-func TestCloudinitSuite(t *stdtesting.T) { tc.Run(t, &cloudinitSuite{}) }
+func TestCloudinitSuite(t *stdtesting.T) {
+	tc.Run(t, &cloudinitSuite{})
+}
 
 var (
 	envConstraints       = constraints.MustParse("mem=2G")

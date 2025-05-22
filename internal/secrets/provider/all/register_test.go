@@ -20,7 +20,10 @@ type allSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAllSuite(t *stdtesting.T) { tc.Run(t, &allSuite{}) }
+func TestAllSuite(t *stdtesting.T) {
+	tc.Run(t, &allSuite{})
+}
+
 func (s *allSuite) TestInit(c *tc.C) {
 	for _, name := range []string{
 		juju.BackendType,

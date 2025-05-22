@@ -29,7 +29,10 @@ type DownloadSuite struct {
 	baseSuite
 }
 
-func TestDownloadSuite(t *stdtesting.T) { tc.Run(t, &DownloadSuite{}) }
+func TestDownloadSuite(t *stdtesting.T) {
+	tc.Run(t, &DownloadSuite{})
+}
+
 func (s *DownloadSuite) TestDownload(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

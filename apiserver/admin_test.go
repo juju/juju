@@ -93,7 +93,10 @@ type loginSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-func TestLoginSuite(t *stdtesting.T) { tc.Run(t, &loginSuite{}) }
+func TestLoginSuite(t *stdtesting.T) {
+	tc.Run(t, &loginSuite{})
+}
+
 func (s *loginSuite) SetUpTest(c *tc.C) {
 	s.Clock = testclock.NewDilatedWallClock(time.Second)
 	s.ApiServerSuite.SetUpTest(c)
@@ -1145,7 +1148,9 @@ func assertPermissionDenied(c *tc.C, err error) {
 		Code:    "unauthorized access",
 	})
 }
-func TestMigrationSuite(t *stdtesting.T) { tc.Run(t, &migrationSuite{}) }
+func TestMigrationSuite(t *stdtesting.T) {
+	tc.Run(t, &migrationSuite{})
+}
 
 type migrationSuite struct {
 	baseLoginSuite
@@ -1192,7 +1197,10 @@ type loginV3Suite struct {
 	baseLoginSuite
 }
 
-func TestLoginV3Suite(t *stdtesting.T) { tc.Run(t, &loginV3Suite{}) }
+func TestLoginV3Suite(t *stdtesting.T) {
+	tc.Run(t, &loginV3Suite{})
+}
+
 func (s *loginV3Suite) TestClientLoginToModel(c *tc.C) {
 	apiState := s.OpenControllerModelAPI(c)
 	client := modelconfig.NewClient(apiState)

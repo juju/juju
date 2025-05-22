@@ -17,7 +17,10 @@ import (
 
 type runSuite struct{}
 
-func TestRunSuite(t *stdtesting.T) { tc.Run(t, &runSuite{}) }
+func TestRunSuite(t *stdtesting.T) {
+	tc.Run(t, &runSuite{})
+}
+
 func (s *actionSuite) TestRunOnAllMachines(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

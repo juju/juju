@@ -21,7 +21,9 @@ import (
 
 type requestsSuite struct{}
 
-func TestRequestsSuite(t *stdtesting.T) { tc.Run(t, &requestsSuite{}) }
+func TestRequestsSuite(t *stdtesting.T) {
+	tc.Run(t, &requestsSuite{})
+}
 
 // handlerResponse holds the body of a testing handler response.
 type handlerResponse struct {

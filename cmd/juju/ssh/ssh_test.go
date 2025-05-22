@@ -16,7 +16,10 @@ type CmdSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCmdSuite(t *stdtesting.T) { tc.Run(t, &CmdSuite{}) }
+func TestCmdSuite(t *stdtesting.T) {
+	tc.Run(t, &CmdSuite{})
+}
+
 func initSSHCommand(args ...string) (*sshCommand, error) {
 	com := &sshCommand{}
 	return com, cmdtesting.InitCommand(com, args)

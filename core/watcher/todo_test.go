@@ -14,7 +14,10 @@ import (
 
 type todoWatcherSuite struct{}
 
-func TestTodoWatcherSuite(t *stdtesting.T) { tc.Run(t, &todoWatcherSuite{}) }
+func TestTodoWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &todoWatcherSuite{})
+}
+
 func (s *todoWatcherSuite) TestStringsWatcher(c *tc.C) {
 	sw := watcher.TODO[[]string]()
 	c.Assert(sw, tc.NotNil)

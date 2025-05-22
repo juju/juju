@@ -44,7 +44,10 @@ type ExportSuite struct {
 	model                 *MockModel
 }
 
-func TestExportSuite(t *stdtesting.T) { tc.Run(t, &ExportSuite{}) }
+func TestExportSuite(t *stdtesting.T) {
+	tc.Run(t, &ExportSuite{})
+}
+
 func (s *ExportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -110,7 +113,10 @@ type ImportSuite struct {
 	agentBinaryStore *MockAgentBinaryStore
 }
 
-func TestImportSuite(t *stdtesting.T) { tc.Run(t, &ImportSuite{}) }
+func TestImportSuite(t *stdtesting.T) {
+	tc.Run(t, &ImportSuite{})
+}
+
 func (s *ImportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

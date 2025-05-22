@@ -24,7 +24,10 @@ type undertakerSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestUndertakerSuite(t *stdtesting.T) { tc.Run(t, &undertakerSuite{}) }
+func TestUndertakerSuite(t *stdtesting.T) {
+	tc.Run(t, &undertakerSuite{})
+}
+
 func (s *undertakerSuite) TestRequiresModelConnection(c *tc.C) {
 	api, err := machineundertaker.NewAPI(&fakeAPICaller{hasModelTag: false}, nil)
 	c.Assert(err, tc.ErrorMatches, "machine undertaker client requires a model API connection")

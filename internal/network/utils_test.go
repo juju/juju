@@ -18,7 +18,10 @@ type UtilsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUtilsSuite(t *stdtesting.T) { tc.Run(t, &UtilsSuite{}) }
+func TestUtilsSuite(t *stdtesting.T) {
+	tc.Run(t, &UtilsSuite{})
+}
+
 func (s *UtilsSuite) TestSupportsIPv6Error(c *tc.C) {
 	s.PatchValue(network.NetListen, func(netFamily, bindAddress string) (net.Listener, error) {
 		c.Check(netFamily, tc.Equals, "tcp6")

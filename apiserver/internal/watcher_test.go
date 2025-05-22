@@ -23,7 +23,10 @@ type suite struct {
 	watcherRegistry *MockWatcherRegistry
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
+
 func (s *suite) TestFirstResultReturnsChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

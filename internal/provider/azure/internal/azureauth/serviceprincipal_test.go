@@ -79,7 +79,9 @@ type InteractiveSuite struct {
 	newUUID func() (uuid.UUID, error)
 }
 
-func TestInteractiveSuite(t *stdtesting.T) { tc.Run(t, &InteractiveSuite{}) }
+func TestInteractiveSuite(t *stdtesting.T) {
+	tc.Run(t, &InteractiveSuite{})
+}
 
 const fakeTenantId = "11111111-1111-1111-1111-111111111111"
 

@@ -27,7 +27,10 @@ type EnvSuite struct {
 	testing.BaseSuite
 }
 
-func TestEnvSuite(t *stdtesting.T) { tc.Run(t, &EnvSuite{}) }
+func TestEnvSuite(t *stdtesting.T) {
+	tc.Run(t, &EnvSuite{})
+}
+
 func (s *EnvSuite) assertVars(c *tc.C, actual []string, expect ...[]string) {
 	var fullExpect []string
 	for _, someExpect := range expect {

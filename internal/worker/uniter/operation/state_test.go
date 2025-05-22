@@ -22,7 +22,10 @@ type StateOpsSuite struct {
 	mockStateRW *mocks.MockUnitStateReadWriter
 }
 
-func TestStateOpsSuite(t *stdtesting.T) { tc.Run(t, &StateOpsSuite{}) }
+func TestStateOpsSuite(t *stdtesting.T) {
+	tc.Run(t, &StateOpsSuite{})
+}
+
 func (s *StateOpsSuite) TearDownTest(c *tc.C) {
 	s.mockStateRW = nil
 }

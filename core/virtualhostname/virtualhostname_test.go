@@ -11,7 +11,10 @@ import (
 
 type HostnameSuite struct{}
 
-func TestHostnameSuite(t *stdtesting.T) { tc.Run(t, &HostnameSuite{}) }
+func TestHostnameSuite(t *stdtesting.T) {
+	tc.Run(t, &HostnameSuite{})
+}
+
 func (s *HostnameSuite) TestParseHostname(c *tc.C) {
 	testCases := []struct {
 		desc        string

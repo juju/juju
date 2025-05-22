@@ -54,7 +54,10 @@ type macaroonAuthSuite struct {
 	controllerConfig map[string]interface{}
 }
 
-func TestMacaroonAuthSuite(t *stdtesting.T) { tc.Run(t, &macaroonAuthSuite{}) }
+func TestMacaroonAuthSuite(t *stdtesting.T) {
+	tc.Run(t, &macaroonAuthSuite{})
+}
+
 func (s *macaroonAuthSuite) SetUpTest(c *tc.C) {
 	s.discharger = bakerytest.NewDischarger(nil)
 	s.controllerConfig = map[string]interface{}{

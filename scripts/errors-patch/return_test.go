@@ -15,7 +15,9 @@ import (
 
 type returnSuite struct{}
 
-func TestReturnSuite(t *stdtesting.T) { tc.Run(t, &returnSuite{}) }
+func TestReturnSuite(t *stdtesting.T) {
+	tc.Run(t, &returnSuite{})
+}
 
 var tests = []struct {
 	Name     string

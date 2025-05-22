@@ -18,7 +18,10 @@ import (
 type clientSuite struct {
 }
 
-func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
+func TestClientSuite(t *stdtesting.T) {
+	tc.Run(t, &clientSuite{})
+}
+
 func (s *clientSuite) TestClientEnableHA(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

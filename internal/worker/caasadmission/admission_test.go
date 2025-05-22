@@ -22,7 +22,10 @@ type dummyAdmissionCreator struct {
 	EnsureMutatingWebhookConfigurationFunc func(ctx context.Context) (func(), error)
 }
 
-func TestAdmissionSuite(t *stdtesting.T) { tc.Run(t, &AdmissionSuite{}) }
+func TestAdmissionSuite(t *stdtesting.T) {
+	tc.Run(t, &AdmissionSuite{})
+}
+
 func (d *dummyAdmissionCreator) EnsureMutatingWebhookConfiguration(ctx context.Context) (func(), error) {
 	if d.EnsureMutatingWebhookConfigurationFunc == nil {
 		return func() {}, nil

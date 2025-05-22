@@ -11,7 +11,10 @@ import (
 
 type osTypeSuite struct{}
 
-func TestOsTypeSuite(t *stdtesting.T) { tc.Run(t, &osTypeSuite{}) }
+func TestOsTypeSuite(t *stdtesting.T) {
+	tc.Run(t, &osTypeSuite{})
+}
+
 func (s *osTypeSuite) TestEquivalentTo(c *tc.C) {
 	c.Check(Ubuntu.EquivalentTo(CentOS), tc.IsTrue)
 	c.Check(Ubuntu.EquivalentTo(GenericLinux), tc.IsTrue)

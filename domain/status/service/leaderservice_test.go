@@ -33,7 +33,10 @@ type leaderServiceSuite struct {
 	service *LeadershipService
 }
 
-func TestLeaderServiceSuite(t *stdtesting.T) { tc.Run(t, &leaderServiceSuite{}) }
+func TestLeaderServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &leaderServiceSuite{})
+}
+
 func (s *leaderServiceSuite) TestSetRelationStatus(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()

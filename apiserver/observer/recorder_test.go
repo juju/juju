@@ -23,7 +23,10 @@ type recorderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRecorderSuite(t *stdtesting.T) { tc.Run(t, &recorderSuite{}) }
+func TestRecorderSuite(t *stdtesting.T) {
+	tc.Run(t, &recorderSuite{})
+}
+
 func (s *recorderSuite) TestServerRequest(c *tc.C) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}

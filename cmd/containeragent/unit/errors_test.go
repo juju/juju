@@ -19,7 +19,10 @@ type ErrorsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &ErrorsSuite{}) }
+func TestErrorsSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorsSuite{})
+}
+
 func (*ErrorsSuite) TestLifeFilter_Nil(c *tc.C) {
 	result := unit.LifeFilter(nil)
 	c.Check(result, tc.ErrorIsNil)

@@ -61,7 +61,10 @@ type providerSuite struct {
 	provider caas.ContainerEnvironProvider
 }
 
-func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
+func TestProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &providerSuite{})
+}
+
 func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.dialStub.ResetCalls()

@@ -26,7 +26,10 @@ type exposedStateSuite struct {
 	state *State
 }
 
-func TestExposedStateSuite(t *stdtesting.T) { tc.Run(t, &exposedStateSuite{}) }
+func TestExposedStateSuite(t *stdtesting.T) {
+	tc.Run(t, &exposedStateSuite{})
+}
+
 func (s *exposedStateSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 

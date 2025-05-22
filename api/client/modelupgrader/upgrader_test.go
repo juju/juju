@@ -27,7 +27,10 @@ type UpgradeModelSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestUpgradeModelSuite(t *stdtesting.T) { tc.Run(t, &UpgradeModelSuite{}) }
+func TestUpgradeModelSuite(t *stdtesting.T) {
+	tc.Run(t, &UpgradeModelSuite{})
+}
+
 func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

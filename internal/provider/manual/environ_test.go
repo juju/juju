@@ -39,7 +39,10 @@ type environSuite struct {
 	baseEnvironSuite
 }
 
-func TestEnvironSuite(t *stdtesting.T) { tc.Run(t, &environSuite{}) }
+func TestEnvironSuite(t *stdtesting.T) {
+	tc.Run(t, &environSuite{})
+}
+
 func (s *environSuite) TestInstances(c *tc.C) {
 	var ids []instance.Id
 

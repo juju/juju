@@ -16,7 +16,10 @@ type archiveSuite struct {
 	testing.BaseSuite
 }
 
-func TestArchiveSuite(t *stdtesting.T) { tc.Run(t, &archiveSuite{}) }
+func TestArchiveSuite(t *stdtesting.T) {
+	tc.Run(t, &archiveSuite{})
+}
+
 func (s *archiveSuite) TestNewCanonoicalArchivePaths(c *tc.C) {
 	ap := backups.NewCanonicalArchivePaths()
 

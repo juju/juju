@@ -23,7 +23,10 @@ type deleteBackendSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDeleteBackendSuite(t *stdtesting.T) { tc.Run(t, &deleteBackendSuite{}) }
+func TestDeleteBackendSuite(t *stdtesting.T) {
+	tc.Run(t, &deleteBackendSuite{})
+}
+
 func (s *deleteBackendSuite) TestGetContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -53,7 +53,10 @@ type applicationSuite struct {
 	charm       *MockCharm
 }
 
-func TestApplicationSuite(t *stdtesting.T) { tc.Run(t, &applicationSuite{}) }
+func TestApplicationSuite(t *stdtesting.T) {
+	tc.Run(t, &applicationSuite{})
+}
+
 func (s *applicationSuite) TestSetCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

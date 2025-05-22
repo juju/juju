@@ -14,7 +14,9 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func TestSecretsDrainSuite(t *stdtesting.T) { tc.Run(t, &secretsDrainSuite{}) }
+func TestSecretsDrainSuite(t *stdtesting.T) {
+	tc.Run(t, &secretsDrainSuite{})
+}
 
 type secretsDrainSuite struct {
 	coretesting.BaseSuite

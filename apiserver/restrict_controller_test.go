@@ -19,7 +19,10 @@ type restrictControllerSuite struct {
 	root rpc.Root
 }
 
-func TestRestrictControllerSuite(t *stdtesting.T) { tc.Run(t, &restrictControllerSuite{}) }
+func TestRestrictControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &restrictControllerSuite{})
+}
+
 func (s *restrictControllerSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.root = apiserver.TestingControllerOnlyRoot()

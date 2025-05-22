@@ -23,7 +23,10 @@ import (
 type FacadeSuite struct {
 }
 
-func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &FacadeSuite{}) }
+func TestFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &FacadeSuite{})
+}
+
 func (s *FacadeSuite) TestAddresses(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

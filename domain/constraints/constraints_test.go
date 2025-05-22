@@ -17,7 +17,9 @@ type constraintsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestConstraintsSuite(t *stdtesting.T) { tc.Run(t, &constraintsSuite{}) }
+func TestConstraintsSuite(t *stdtesting.T) {
+	tc.Run(t, &constraintsSuite{})
+}
 
 // TestFromCoreConstraints is concerned with testing the mapping from a
 // [constraints.Value] to a [Constraints] object. Specifically the main thing we

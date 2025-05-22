@@ -25,7 +25,10 @@ type ShowOperationSuite struct {
 	BaseActionSuite
 }
 
-func TestShowOperationSuite(t *stdtesting.T) { tc.Run(t, &ShowOperationSuite{}) }
+func TestShowOperationSuite(t *stdtesting.T) {
+	tc.Run(t, &ShowOperationSuite{})
+}
+
 func (s *ShowOperationSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 }

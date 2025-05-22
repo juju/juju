@@ -17,7 +17,10 @@ type preupgradechecksSuite struct {
 	testing.BaseSuite
 }
 
-func TestPreupgradechecksSuite(t *stdtesting.T) { tc.Run(t, &preupgradechecksSuite{}) }
+func TestPreupgradechecksSuite(t *stdtesting.T) {
+	tc.Run(t, &preupgradechecksSuite{})
+}
+
 func (s *preupgradechecksSuite) TestCheckFreeDiskSpace(c *tc.C) {
 	// Expect an impossibly large amount of free disk.
 	s.PatchValue(&upgrades.MinDiskSpaceMib, uint64(humanize.PiByte/humanize.MiByte))

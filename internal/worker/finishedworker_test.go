@@ -14,7 +14,10 @@ import (
 
 type FinishedSuite struct{}
 
-func TestFinishedSuite(t *stdtesting.T) { tc.Run(t, &FinishedSuite{}) }
+func TestFinishedSuite(t *stdtesting.T) {
+	tc.Run(t, &FinishedSuite{})
+}
+
 func (s *FinishedSuite) TestFinishedWorker(c *tc.C) {
 	// Pretty dumb test if interface is implemented
 	// and Wait() returns nil.

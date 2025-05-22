@@ -29,7 +29,9 @@ type upgradeSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestUpgradeSuite(t *stdtesting.T) { tc.Run(t, &upgradeSuite{}) }
+func TestUpgradeSuite(t *stdtesting.T) {
+	tc.Run(t, &upgradeSuite{})
+}
 
 type mockUpgradeOperation struct {
 	targetVersion semversion.Number

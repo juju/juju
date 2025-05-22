@@ -33,7 +33,10 @@ type storageSuite struct {
 	baseStorageSuite
 }
 
-func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
+func TestStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &storageSuite{})
+}
+
 func (s *storageSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenerios:
 - ListStorageDetails but retrieving units returns an error (is this a useful test?)

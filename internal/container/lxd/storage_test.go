@@ -18,7 +18,10 @@ type storageSuite struct {
 	lxdtesting.BaseSuite
 }
 
-func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
+func TestStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &storageSuite{})
+}
+
 func defaultProfileWithDisk() *lxdapi.Profile {
 	return &lxdapi.Profile{
 		Name: "default",

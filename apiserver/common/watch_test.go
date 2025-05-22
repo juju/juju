@@ -23,7 +23,9 @@ type agentEntityWatcherSuite struct {
 	watcherRegistry *mocks.MockWatcherRegistry
 }
 
-func TestAgentEntityWatcherSuite(t *stdtesting.T) { tc.Run(t, &agentEntityWatcherSuite{}) }
+func TestAgentEntityWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &agentEntityWatcherSuite{})
+}
 
 type fakeAgentEntityWatcher struct {
 	state.Entity

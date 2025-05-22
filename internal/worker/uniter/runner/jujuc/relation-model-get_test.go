@@ -17,7 +17,9 @@ type RelationModelGetSuite struct {
 	relationSuite
 }
 
-func TestRelationModelGetSuite(t *stdtesting.T) { tc.Run(t, &RelationModelGetSuite{}) }
+func TestRelationModelGetSuite(t *stdtesting.T) {
+	tc.Run(t, &RelationModelGetSuite{})
+}
 
 type relationModelGetInitTest struct {
 	ctxrelid int

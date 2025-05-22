@@ -28,7 +28,10 @@ type CleanerSuite struct {
 	logger    logger.Logger
 }
 
-func TestCleanerSuite(t *stdtesting.T) { tc.Run(t, &CleanerSuite{}) }
+func TestCleanerSuite(t *stdtesting.T) {
+	tc.Run(t, &CleanerSuite{})
+}
+
 func (s *CleanerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockState = &cleanerMock{

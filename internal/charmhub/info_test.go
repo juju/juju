@@ -22,7 +22,10 @@ type InfoSuite struct {
 	baseSuite
 }
 
-func TestInfoSuite(t *stdtesting.T) { tc.Run(t, &InfoSuite{}) }
+func TestInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &InfoSuite{})
+}
+
 func (s *InfoSuite) TestInfoCharm(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

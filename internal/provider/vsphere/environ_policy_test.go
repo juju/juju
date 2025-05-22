@@ -20,7 +20,10 @@ type environPolSuite struct {
 	EnvironFixture
 }
 
-func TestEnvironPolSuite(t *stdtesting.T) { tc.Run(t, &environPolSuite{}) }
+func TestEnvironPolSuite(t *stdtesting.T) {
+	tc.Run(t, &environPolSuite{})
+}
+
 func (s *environPolSuite) TestConstraintsValidator(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

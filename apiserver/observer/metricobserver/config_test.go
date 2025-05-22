@@ -19,7 +19,10 @@ type configSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &configSuite{})
+}
+
 func (*configSuite) TestValidateValid(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

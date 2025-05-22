@@ -15,7 +15,9 @@ type passwordSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPasswordSuite(t *stdtesting.T) { tc.Run(t, &passwordSuite{}) }
+func TestPasswordSuite(t *stdtesting.T) {
+	tc.Run(t, &passwordSuite{})
+}
 
 // Base64 *can* include a tail of '=' characters, but all the tests here
 // explicitly *don't* want those because it is wasteful.

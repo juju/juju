@@ -25,7 +25,10 @@ type WhoAmITestSuite struct {
 	expectedErr    string
 }
 
-func TestWhoAmITestSuite(t *stdtesting.T) { tc.Run(t, &WhoAmITestSuite{}) }
+func TestWhoAmITestSuite(t *stdtesting.T) {
+	tc.Run(t, &WhoAmITestSuite{})
+}
+
 func (s *WhoAmITestSuite) TestEmptyStore(c *tc.C) {
 	s.expectedOutput = `
 There is no current controller.

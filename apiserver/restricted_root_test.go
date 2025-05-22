@@ -19,7 +19,10 @@ type restrictedRootSuite struct {
 	root rpc.Root
 }
 
-func TestRestrictedRootSuite(t *stdtesting.T) { tc.Run(t, &restrictedRootSuite{}) }
+func TestRestrictedRootSuite(t *stdtesting.T) {
+	tc.Run(t, &restrictedRootSuite{})
+}
+
 func (r *restrictedRootSuite) SetUpTest(c *tc.C) {
 	r.BaseSuite.SetUpTest(c)
 	r.root = apiserver.TestingRestrictedRoot(func(facade, method string) error {

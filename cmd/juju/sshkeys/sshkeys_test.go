@@ -23,7 +23,9 @@ type SSHKeysSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 }
 
-func TestSSHKeysSuite(t *stdtesting.T) { tc.Run(t, &SSHKeysSuite{}) }
+func TestSSHKeysSuite(t *stdtesting.T) {
+	tc.Run(t, &SSHKeysSuite{})
+}
 
 type keySuiteBase struct {
 	coretesting.FakeJujuXDGDataHomeSuite
@@ -33,7 +35,10 @@ type ListKeysSuite struct {
 	keySuiteBase
 }
 
-func TestListKeysSuite(t *stdtesting.T) { tc.Run(t, &ListKeysSuite{}) }
+func TestListKeysSuite(t *stdtesting.T) {
+	tc.Run(t, &ListKeysSuite{})
+}
+
 func (s *ListKeysSuite) TestListKeys(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
@@ -134,7 +139,10 @@ type AddKeySuite struct {
 	keySuiteBase
 }
 
-func TestAddKeySuite(t *stdtesting.T) { tc.Run(t, &AddKeySuite{}) }
+func TestAddKeySuite(t *stdtesting.T) {
+	tc.Run(t, &AddKeySuite{})
+}
+
 func (s *AddKeySuite) TestAddKey(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
@@ -191,7 +199,10 @@ type RemoveKeySuite struct {
 	keySuiteBase
 }
 
-func TestRemoveKeySuite(t *stdtesting.T) { tc.Run(t, &RemoveKeySuite{}) }
+func TestRemoveKeySuite(t *stdtesting.T) {
+	tc.Run(t, &RemoveKeySuite{})
+}
+
 func (s *RemoveKeySuite) TestRemoveKeys(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
@@ -248,7 +259,10 @@ type ImportKeySuite struct {
 	keySuiteBase
 }
 
-func TestImportKeySuite(t *stdtesting.T) { tc.Run(t, &ImportKeySuite{}) }
+func TestImportKeySuite(t *stdtesting.T) {
+	tc.Run(t, &ImportKeySuite{})
+}
+
 func (s *ImportKeySuite) TestImportKeys(c *tc.C) {
 	key1 := "lp:user1"
 	key2 := "gh:user2"

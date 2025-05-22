@@ -15,7 +15,9 @@ import (
 
 type validationSuite struct{}
 
-func TestValidationSuite(t *stdtesting.T) { tc.Run(t, &validationSuite{}) }
+func TestValidationSuite(t *stdtesting.T) {
+	tc.Run(t, &validationSuite{})
+}
 
 var validationTests = []struct {
 	desc        string

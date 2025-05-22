@@ -16,7 +16,10 @@ import (
 
 type azSuite struct{}
 
-func TestAzSuite(t *stdtesting.T) { tc.Run(t, &azSuite{}) }
+func TestAzSuite(t *stdtesting.T) {
+	tc.Run(t, &azSuite{})
+}
+
 func (s *azSuite) TestShowAccount(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{

@@ -17,7 +17,10 @@ import (
 
 type DebugHooksClientSuite struct{}
 
-func TestDebugHooksClientSuite(t *stdtesting.T) { tc.Run(t, &DebugHooksClientSuite{}) }
+func TestDebugHooksClientSuite(t *stdtesting.T) {
+	tc.Run(t, &DebugHooksClientSuite{})
+}
+
 func (*DebugHooksClientSuite) TestClientScript(c *tc.C) {
 	ctx := debug.NewHooksContext("foo/8")
 

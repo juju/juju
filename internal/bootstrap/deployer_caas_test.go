@@ -24,7 +24,10 @@ type deployerCAASSuite struct {
 	cloudServiceGetter *MockCloudServiceGetter
 }
 
-func TestDeployerCAASSuite(t *stdtesting.T) { tc.Run(t, &deployerCAASSuite{}) }
+func TestDeployerCAASSuite(t *stdtesting.T) {
+	tc.Run(t, &deployerCAASSuite{})
+}
+
 func (s *deployerCAASSuite) TestValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

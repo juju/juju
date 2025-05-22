@@ -19,7 +19,10 @@ type changestreamSuite struct {
 	txnRunner *MockTxnRunner
 }
 
-func TestChangestreamSuite(t *stdtesting.T) { tc.Run(t, &changestreamSuite{}) }
+func TestChangestreamSuite(t *stdtesting.T) {
+	tc.Run(t, &changestreamSuite{})
+}
+
 func (s *changestreamSuite) TestTxnRunnerFactory(c *tc.C) {
 	db, err := NewTxnRunnerFactory(s.getWatchableDB)()
 	c.Assert(err, tc.IsNil)

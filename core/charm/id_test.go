@@ -17,7 +17,10 @@ type CharmSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCharmSuite(t *stdtesting.T) { tc.Run(t, &CharmSuite{}) }
+func TestCharmSuite(t *stdtesting.T) {
+	tc.Run(t, &CharmSuite{})
+}
+
 func (*CharmSuite) TestIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string

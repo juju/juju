@@ -53,7 +53,9 @@ type provisionerMockSuite struct {
 	application *MockApplication
 }
 
-func TestProvisionerMockSuite(t *stdtesting.T) { tc.Run(t, &provisionerMockSuite{}) }
+func TestProvisionerMockSuite(t *stdtesting.T) {
+	tc.Run(t, &provisionerMockSuite{})
+}
 
 // Even when the provider supports container addresses, manually provisioned
 // machines should fall back to DHCP.

@@ -29,7 +29,10 @@ type testsuite struct {
 	statusService *MockStatusService
 }
 
-func TestTestsuite(t *stdtesting.T) { tc.Run(t, &testsuite{}) }
+func TestTestsuite(t *stdtesting.T) {
+	tc.Run(t, &testsuite{})
+}
+
 func (s *testsuite) TestAssignUnits(c *tc.C) {
 	f := &fakeState{
 		unitMachines: map[string]string{"foo/0": "1/lxd/2"},

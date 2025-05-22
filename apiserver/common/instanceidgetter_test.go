@@ -24,7 +24,10 @@ type instanceIdGetterSuite struct {
 	machineService *mocks.MockMachineService
 }
 
-func TestInstanceIdGetterSuite(t *stdtesting.T) { tc.Run(t, &instanceIdGetterSuite{}) }
+func TestInstanceIdGetterSuite(t *stdtesting.T) {
+	tc.Run(t, &instanceIdGetterSuite{})
+}
+
 func (s *instanceIdGetterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.machineService = mocks.NewMockMachineService(ctrl)

@@ -23,7 +23,10 @@ type watcherSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
+func TestWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
+
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 }

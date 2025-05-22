@@ -18,7 +18,10 @@ import (
 type cloudSuite struct {
 }
 
-func TestCloudSuite(t *stdtesting.T) { tc.Run(t, &cloudSuite{}) }
+func TestCloudSuite(t *stdtesting.T) {
+	tc.Run(t, &cloudSuite{})
+}
+
 func (s *cloudSuite) TestConfigFromReader(c *tc.C) {
 	rawConf := `
 apiVersion: v1

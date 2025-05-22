@@ -25,7 +25,10 @@ type relationStatusSuite struct {
 	statusService   *MockStatusService
 }
 
-func TestRelationStatusSuite(t *stdtesting.T) { tc.Run(t, &relationStatusSuite{}) }
+func TestRelationStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &relationStatusSuite{})
+}
+
 func (s *relationStatusSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	logger = loggertesting.WrapCheckLog(c)

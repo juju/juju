@@ -17,7 +17,9 @@ type controllerKeySuite struct {
 	state *MockControllerKeyState
 }
 
-func TestControllerKeySuite(t *stdtesting.T) { tc.Run(t, &controllerKeySuite{}) }
+func TestControllerKeySuite(t *stdtesting.T) {
+	tc.Run(t, &controllerKeySuite{})
+}
 
 var (
 	controllerConfigKeys = `

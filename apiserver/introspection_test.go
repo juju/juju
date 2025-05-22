@@ -25,7 +25,10 @@ type introspectionSuite struct {
 	url string
 }
 
-func TestIntrospectionSuite(t *stdtesting.T) { tc.Run(t, &introspectionSuite{}) }
+func TestIntrospectionSuite(t *stdtesting.T) {
+	tc.Run(t, &introspectionSuite{})
+}
+
 func (s *introspectionSuite) SetUpTest(c *tc.C) {
 	s.WithIntrospection = func(f func(path string, h http.Handler)) {
 		f("navel", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

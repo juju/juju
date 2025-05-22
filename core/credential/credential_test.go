@@ -19,7 +19,10 @@ type typeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTypeSuite(t *stdtesting.T) { tc.Run(t, &typeSuite{}) }
+func TestTypeSuite(t *stdtesting.T) {
+	tc.Run(t, &typeSuite{})
+}
+
 func (s *typeSuite) TestCredentialKeyIsZero(c *tc.C) {
 	c.Assert(Key{}.IsZero(), tc.IsTrue)
 }

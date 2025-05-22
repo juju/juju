@@ -11,7 +11,9 @@ import (
 	"github.com/juju/juju/internal/charm"
 )
 
-func TestResourceSuite(t *stdtesting.T) { tc.Run(t, &resourceSuite{}) }
+func TestResourceSuite(t *stdtesting.T) {
+	tc.Run(t, &resourceSuite{})
+}
 
 type resourceSuite struct{}
 

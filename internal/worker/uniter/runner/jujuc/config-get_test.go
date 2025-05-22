@@ -22,7 +22,9 @@ type ConfigGetSuite struct {
 	ContextSuite
 }
 
-func TestConfigGetSuite(t *stdtesting.T) { tc.Run(t, &ConfigGetSuite{}) }
+func TestConfigGetSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigGetSuite{})
+}
 
 var configGetKeyTests = []struct {
 	args []string

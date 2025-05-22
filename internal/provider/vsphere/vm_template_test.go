@@ -32,7 +32,10 @@ type vmTemplateSuite struct {
 	mockTemplate       *object.VirtualMachine
 }
 
-func TestVmTemplateSuite(t *stdtesting.T) { tc.Run(t, &vmTemplateSuite{}) }
+func TestVmTemplateSuite(t *stdtesting.T) {
+	tc.Run(t, &vmTemplateSuite{})
+}
+
 func (v *vmTemplateSuite) SetUpTest(c *tc.C) {
 	v.EnvironFixture.SetUpTest(c)
 	v.statusCallbackStub.ResetCalls()

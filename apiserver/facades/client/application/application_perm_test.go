@@ -579,7 +579,10 @@ type permSuiteIAAS struct {
 	permBaseSuite
 }
 
-func TestPermSuiteIAAS(t *stdtesting.T) { tc.Run(t, &permSuiteIAAS{}) }
+func TestPermSuiteIAAS(t *stdtesting.T) {
+	tc.Run(t, &permSuiteIAAS{})
+}
+
 func (s *permSuiteIAAS) SetUpTest(c *tc.C) {
 	s.permBaseSuite.newAPI = s.newIAASAPI
 }
@@ -653,7 +656,10 @@ type permSuiteCAAS struct {
 	permBaseSuite
 }
 
-func TestPermSuiteCAAS(t *stdtesting.T) { tc.Run(t, &permSuiteCAAS{}) }
+func TestPermSuiteCAAS(t *stdtesting.T) {
+	tc.Run(t, &permSuiteCAAS{})
+}
+
 func (s *permSuiteCAAS) SetUpTest(c *tc.C) {
 	s.permBaseSuite.newAPI = s.newCAASAPI
 }

@@ -15,7 +15,9 @@ import (
 	charmtesting "github.com/juju/juju/internal/charm/testing"
 )
 
-func TestBundleArchiveSuite(t *stdtesting.T) { tc.Run(t, &BundleArchiveSuite{}) }
+func TestBundleArchiveSuite(t *stdtesting.T) {
+	tc.Run(t, &BundleArchiveSuite{})
+}
 
 type BundleArchiveSuite struct {
 	archivePath string

@@ -19,7 +19,9 @@ type PortsSuite struct {
 	ContextSuite
 }
 
-func TestPortsSuite(t *stdtesting.T) { tc.Run(t, &PortsSuite{}) }
+func TestPortsSuite(t *stdtesting.T) {
+	tc.Run(t, &PortsSuite{})
+}
 
 var portsTests = []struct {
 	cmd    []string

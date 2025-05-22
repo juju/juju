@@ -23,7 +23,10 @@ type certPoolSuite struct {
 	logs *certLogs
 }
 
-func TestCertPoolSuite(t *stdtesting.T) { tc.Run(t, &certPoolSuite{}) }
+func TestCertPoolSuite(t *stdtesting.T) {
+	tc.Run(t, &certPoolSuite{})
+}
+
 func (s *certPoolSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.logs = &certLogs{}

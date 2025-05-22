@@ -25,7 +25,9 @@ import (
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
-func TestCheckMachinesSuite(t *stdtesting.T) { tc.Run(t, &CheckMachinesSuite{}) }
+func TestCheckMachinesSuite(t *stdtesting.T) {
+	tc.Run(t, &CheckMachinesSuite{})
+}
 
 type CheckMachinesSuite struct {
 	testhelpers.IsolationSuite
@@ -275,7 +277,9 @@ func (s *CheckMachinesSuite) TestCheckMachinesNotProvisionedError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
-func TestModelCredentialSuite(t *stdtesting.T) { tc.Run(t, &ModelCredentialSuite{}) }
+func TestModelCredentialSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelCredentialSuite{})
+}
 
 type ModelCredentialSuite struct {
 	testhelpers.IsolationSuite

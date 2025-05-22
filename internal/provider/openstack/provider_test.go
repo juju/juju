@@ -31,7 +31,9 @@ type localTests struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLocalTests(t *stdtesting.T) { tc.Run(t, &localTests{}) }
+func TestLocalTests(t *stdtesting.T) {
+	tc.Run(t, &localTests{})
+}
 
 // ported from lp:juju/juju/providers/openstack/tests/test_machine.py
 var addressTests = []struct {
@@ -632,7 +634,10 @@ type providerUnitTests struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProviderUnitTests(t *stdtesting.T) { tc.Run(t, &providerUnitTests{}) }
+func TestProviderUnitTests(t *stdtesting.T) {
+	tc.Run(t, &providerUnitTests{})
+}
+
 func checkIdentityClientVersionInvalid(c *tc.C, url string) {
 	_, err := identityClientVersion(url)
 	c.Check(err, tc.ErrorMatches, fmt.Sprintf("version part of identity url %s not valid", url))

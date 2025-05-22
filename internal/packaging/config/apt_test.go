@@ -12,7 +12,9 @@ import (
 	"github.com/juju/juju/internal/packaging/config"
 )
 
-func TestAptSuite(t *stdtesting.T) { tc.Run(t, &AptSuite{}) }
+func TestAptSuite(t *stdtesting.T) {
+	tc.Run(t, &AptSuite{})
+}
 
 type AptSuite struct {
 	pacconfer config.AptConfigurer

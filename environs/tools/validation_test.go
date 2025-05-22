@@ -22,7 +22,10 @@ type ValidateSuite struct {
 	dataSource  simplestreams.DataSource
 }
 
-func TestValidateSuite(t *stdtesting.T) { tc.Run(t, &ValidateSuite{}) }
+func TestValidateSuite(t *stdtesting.T) {
+	tc.Run(t, &ValidateSuite{})
+}
+
 func (s *ValidateSuite) makeLocalMetadata(c *tc.C, stream, version, osType string) {
 	tm := []*ToolsMetadata{{
 		Version:  version,

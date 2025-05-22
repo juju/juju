@@ -15,7 +15,10 @@ type seriesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSeriesSuite(t *stdtesting.T) { tc.Run(t, &seriesSuite{}) }
+func TestSeriesSuite(t *stdtesting.T) {
+	tc.Run(t, &seriesSuite{})
+}
+
 func (s *seriesSuite) TestDefaultSupportedLTSBase(c *tc.C) {
 	b := DefaultSupportedLTSBase()
 	c.Assert(b.String(), tc.Equals, "ubuntu@24.04/stable")

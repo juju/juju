@@ -28,7 +28,10 @@ type workerSuite struct {
 	baseSuite
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
+
 func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

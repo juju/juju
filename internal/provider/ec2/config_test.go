@@ -22,7 +22,9 @@ type ConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &ConfigSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
 
 // configTest specifies a config parsing test, checking that env when
 // parsed as the ec2 section of a config file matches baseConfigResult

@@ -20,7 +20,10 @@ type ConfigSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &ConfigSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
+
 func (*ConfigSuite) TestDefaultConfig(c *tc.C) {
 	cfg, err := bootstrap.NewConfig(nil)
 	c.Assert(err, tc.ErrorIsNil)

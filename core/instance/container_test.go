@@ -13,7 +13,10 @@ import (
 
 type InstanceSuite struct{}
 
-func TestInstanceSuite(t *stdtesting.T) { tc.Run(t, &InstanceSuite{}) }
+func TestInstanceSuite(t *stdtesting.T) {
+	tc.Run(t, &InstanceSuite{})
+}
+
 func (s *InstanceSuite) TestParseContainerType(c *tc.C) {
 	ctype, err := instance.ParseContainerType("lxd")
 	c.Assert(err, tc.ErrorIsNil)

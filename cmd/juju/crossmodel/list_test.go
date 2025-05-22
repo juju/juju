@@ -43,7 +43,10 @@ type ListSuite struct {
 	endpoints    []charm.Relation
 }
 
-func TestListSuite(t *stdtesting.T) { tc.Run(t, &ListSuite{}) }
+func TestListSuite(t *stdtesting.T) {
+	tc.Run(t, &ListSuite{})
+}
+
 func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 

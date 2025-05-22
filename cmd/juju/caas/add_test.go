@@ -49,7 +49,9 @@ type addCAASSuite struct {
 	credentialStoreAPI            *mocks.MockCredentialStoreAPI
 }
 
-func TestAddCAASSuite(t *stdtesting.T) { tc.Run(t, &addCAASSuite{}) }
+func TestAddCAASSuite(t *stdtesting.T) {
+	tc.Run(t, &addCAASSuite{})
+}
 
 var kubeConfigStr = `
 apiVersion: v1

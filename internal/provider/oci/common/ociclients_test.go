@@ -17,9 +17,17 @@ import (
 	"github.com/juju/juju/internal/provider/oci/testing"
 )
 
-func TestComputeClientSuite(t *stdtesting.T) { tc.Run(t, &computeClientSuite{}) }
-func TestNetworkClientSuite(t *stdtesting.T) { tc.Run(t, &networkClientSuite{}) }
-func TestStorageClientSuite(t *stdtesting.T) { tc.Run(t, &storageClientSuite{}) }
+func TestComputeClientSuite(t *stdtesting.T) {
+	tc.Run(t, &computeClientSuite{})
+}
+
+func TestNetworkClientSuite(t *stdtesting.T) {
+	tc.Run(t, &networkClientSuite{})
+}
+
+func TestStorageClientSuite(t *stdtesting.T) {
+	tc.Run(t, &storageClientSuite{})
+}
 
 var compartmentID = "compartment-id"
 

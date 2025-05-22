@@ -13,7 +13,10 @@ import (
 
 type ConstantsSuite struct{}
 
-func TestConstantsSuite(t *stdtesting.T) { tc.Run(t, &ConstantsSuite{}) }
+func TestConstantsSuite(t *stdtesting.T) {
+	tc.Run(t, &ConstantsSuite{})
+}
+
 func (s *ConstantsSuite) TestAnyJobNeedsState(c *tc.C) {
 	c.Assert(model.AnyJobNeedsState(), tc.IsFalse)
 	c.Assert(model.AnyJobNeedsState(model.JobHostUnits), tc.IsFalse)

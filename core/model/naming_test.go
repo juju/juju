@@ -18,7 +18,10 @@ type NamingSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestNamingSuite(t *stdtesting.T) { tc.Run(t, &NamingSuite{}) }
+func TestNamingSuite(t *stdtesting.T) {
+	tc.Run(t, &NamingSuite{})
+}
+
 func (*NamingSuite) TestDisambiguateName(c *tc.C) {
 	for _, t := range []struct {
 		name      string

@@ -22,7 +22,10 @@ type lockSuite struct {
 	agentConfig *MockConfig
 }
 
-func TestLockSuite(t *stdtesting.T) { tc.Run(t, &lockSuite{}) }
+func TestLockSuite(t *stdtesting.T) {
+	tc.Run(t, &lockSuite{})
+}
+
 func (s *lockSuite) TestNewLockSameVersionUnlocked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

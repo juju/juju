@@ -20,7 +20,9 @@ type DeploySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDeploySuite(t *stdtesting.T) { tc.Run(t, &DeploySuite{}) }
+func TestDeploySuite(t *stdtesting.T) {
+	tc.Run(t, &DeploySuite{})
+}
 
 type newDeploy func(operation.Factory, string) (operation.Operation, error)
 

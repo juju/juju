@@ -19,7 +19,10 @@ type defaultsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDefaultsSuite(t *stdtesting.T) { tc.Run(t, &defaultsSuite{}) }
+func TestDefaultsSuite(t *stdtesting.T) {
+	tc.Run(t, &defaultsSuite{})
+}
+
 func makeStorageDefaults(b, f string) domainstorage.StorageDefaults {
 	var result domainstorage.StorageDefaults
 	if b != "" {

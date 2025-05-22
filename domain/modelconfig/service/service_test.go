@@ -24,7 +24,10 @@ type serviceSuite struct {
 	mockState *MockState
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (f ModelDefaultsProviderFunc) ModelDefaults(
 	c context.Context,
 ) (modeldefaults.Defaults, error) {

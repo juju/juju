@@ -15,7 +15,10 @@ import (
 
 type timerSuite struct{}
 
-func TestTimerSuite(t *stdtesting.T) { tc.Run(t, &timerSuite{}) }
+func TestTimerSuite(t *stdtesting.T) {
+	tc.Run(t, &timerSuite{})
+}
+
 func (s *timerSuite) TestTimer(c *tc.C) {
 	nominal := 100 * time.Second
 	minTime := 80*time.Second - time.Millisecond

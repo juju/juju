@@ -46,7 +46,9 @@ type UniterSuite struct {
 	deployer               *mockDeployer
 }
 
-func TestUniterSuite(t *stdtesting.T) { tc.Run(t, &UniterSuite{}) }
+func TestUniterSuite(t *stdtesting.T) {
+	tc.Run(t, &UniterSuite{})
+}
 
 // This guarantees that we get proper platform
 // specific error directly from their source

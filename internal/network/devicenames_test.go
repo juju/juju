@@ -16,7 +16,10 @@ type DeviceNamesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDeviceNamesSuite(t *stdtesting.T) { tc.Run(t, &DeviceNamesSuite{}) }
+func TestDeviceNamesSuite(t *stdtesting.T) {
+	tc.Run(t, &DeviceNamesSuite{})
+}
+
 func (*DeviceNamesSuite) TestNaturallySortDeviceNames(c *tc.C) {
 	for i, test := range []struct {
 		message  string

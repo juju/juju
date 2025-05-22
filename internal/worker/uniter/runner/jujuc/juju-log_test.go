@@ -24,7 +24,10 @@ type JujuLogSuite struct {
 	relationSuite
 }
 
-func TestJujuLogSuite(t *stdtesting.T) { tc.Run(t, &JujuLogSuite{}) }
+func TestJujuLogSuite(t *stdtesting.T) {
+	tc.Run(t, &JujuLogSuite{})
+}
+
 func (s *JujuLogSuite) newJujuLogCommand(c *tc.C) cmd.Command {
 	ctx, _ := s.newHookContext(-1, "", "")
 	cmd, err := jujuc.NewJujuLogCommand(ctx)

@@ -16,7 +16,10 @@ type manifestSuite struct {
 	testhelpers.CleanupSuite
 }
 
-func TestManifestSuite(t *stdtesting.T) { tc.Run(t, &manifestSuite{}) }
+func TestManifestSuite(t *stdtesting.T) {
+	tc.Run(t, &manifestSuite{})
+}
+
 func (s *manifestSuite) TestReadManifest(c *tc.C) {
 	manifest, err := ReadManifest(strings.NewReader(`
 bases:

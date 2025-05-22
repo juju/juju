@@ -18,7 +18,10 @@ type zoneSuite struct {
 	zones AvailabilityZones
 }
 
-func TestZoneSuite(t *stdtesting.T) { tc.Run(t, &zoneSuite{}) }
+func TestZoneSuite(t *stdtesting.T) {
+	tc.Run(t, &zoneSuite{})
+}
+
 func (s *zoneSuite) SetUpTest(c *tc.C) {
 	s.zones = AvailabilityZones{
 		&az{name: "zone1", available: true},

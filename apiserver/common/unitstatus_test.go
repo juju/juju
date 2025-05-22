@@ -51,7 +51,10 @@ type unitSetStatusSuite struct {
 	unitStatusSuite
 }
 
-func TestUnitSetStatusSuite(t *stdtesting.T) { tc.Run(t, &unitSetStatusSuite{}) }
+func TestUnitSetStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &unitSetStatusSuite{})
+}
+
 func (s *unitSetStatusSuite) TestSetStatusUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -159,7 +162,10 @@ type unitGetStatusSuite struct {
 	unitStatusSuite
 }
 
-func TestUnitGetStatusSuite(t *stdtesting.T) { tc.Run(t, &unitGetStatusSuite{}) }
+func TestUnitGetStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &unitGetStatusSuite{})
+}
+
 func (s *unitGetStatusSuite) TestStatusUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

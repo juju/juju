@@ -42,7 +42,10 @@ type addSuite struct {
 	addCloudF func(cloud jujucloud.Cloud, force bool) error
 }
 
-func TestAddSuite(t *stdtesting.T) { tc.Run(t, &addSuite{}) }
+func TestAddSuite(t *stdtesting.T) {
+	tc.Run(t, &addSuite{})
+}
+
 func (s *addSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.store = jujuclient.NewMemStore()
@@ -1034,7 +1037,10 @@ type addOpenStackSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAddOpenStackSuite(t *stdtesting.T) { tc.Run(t, &addOpenStackSuite{}) }
+func TestAddOpenStackSuite(t *stdtesting.T) {
+	tc.Run(t, &addOpenStackSuite{})
+}
+
 func (s *addOpenStackSuite) TearDownTest(c *tc.C) {
 	s.IsolationSuite.TearDownTest(c)
 	os.Unsetenv("OS_CACERT")

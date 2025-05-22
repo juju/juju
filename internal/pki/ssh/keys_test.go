@@ -17,7 +17,10 @@ import (
 type KeySuite struct {
 }
 
-func TestKeySuite(t *stdtesting.T) { tc.Run(t, &KeySuite{}) }
+func TestKeySuite(t *stdtesting.T) {
+	tc.Run(t, &KeySuite{})
+}
+
 func (s *KeySuite) TestKeyProfilesForErrors(c *tc.C) {
 	tests := []struct {
 		name    string

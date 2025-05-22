@@ -21,7 +21,9 @@ type CredentialsFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestCredentialsFileSuite(t *stdtesting.T) { tc.Run(t, &CredentialsFileSuite{}) }
+func TestCredentialsFileSuite(t *stdtesting.T) {
+	tc.Run(t, &CredentialsFileSuite{})
+}
 
 const testCredentialsYAML = `
 credentials:

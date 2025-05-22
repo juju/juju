@@ -21,7 +21,10 @@ type relationSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestRelationSuite(t *stdtesting.T) { tc.Run(t, &relationSuite{}) }
+func TestRelationSuite(t *stdtesting.T) {
+	tc.Run(t, &relationSuite{})
+}
+
 func (s *relationSuite) TestRelationExists(c *tc.C) {
 	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
 		"some-relation-uuid", 0, "some-relation-id")

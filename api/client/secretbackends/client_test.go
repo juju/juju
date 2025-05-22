@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestSecretBackendsSuite(t *stdtesting.T) { tc.Run(t, &SecretBackendsSuite{}) }
+func TestSecretBackendsSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretBackendsSuite{})
+}
 
 type SecretBackendsSuite struct {
 	coretesting.BaseSuite

@@ -23,7 +23,10 @@ type grantSuite struct {
 	secretsAPI *mocks.MockGrantRevokeSecretsAPI
 }
 
-func TestGrantSuite(t *stdtesting.T) { tc.Run(t, &grantSuite{}) }
+func TestGrantSuite(t *stdtesting.T) {
+	tc.Run(t, &grantSuite{})
+}
+
 func (s *grantSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()
@@ -72,7 +75,10 @@ type revokeSuite struct {
 	secretsAPI *mocks.MockGrantRevokeSecretsAPI
 }
 
-func TestRevokeSuite(t *stdtesting.T) { tc.Run(t, &revokeSuite{}) }
+func TestRevokeSuite(t *stdtesting.T) {
+	tc.Run(t, &revokeSuite{})
+}
+
 func (s *revokeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()

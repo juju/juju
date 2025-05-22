@@ -19,7 +19,10 @@ type dnsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDnsSuite(t *stdtesting.T) { tc.Run(t, &dnsSuite{}) }
+func TestDnsSuite(t *stdtesting.T) {
+	tc.Run(t, &dnsSuite{})
+}
+
 func (*dnsSuite) TestParseResolvConfEmptyOrMissingPath(c *tc.C) {
 	emptyPath := ""
 	missingPath := filepath.Join(c.MkDir(), "missing")

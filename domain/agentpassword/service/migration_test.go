@@ -21,7 +21,10 @@ type migrationServiceSuite struct {
 	state *MockMigrationState
 }
 
-func TestMigrationServiceSuite(t *stdtesting.T) { tc.Run(t, &migrationServiceSuite{}) }
+func TestMigrationServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &migrationServiceSuite{})
+}
+
 func (s *migrationServiceSuite) TestGetAllUnitPasswordHashes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

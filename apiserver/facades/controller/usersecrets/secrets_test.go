@@ -28,7 +28,10 @@ type userSecretsSuite struct {
 	watcherRegistry *facademocks.MockWatcherRegistry
 }
 
-func TestUserSecretsSuite(t *stdtesting.T) { tc.Run(t, &userSecretsSuite{}) }
+func TestUserSecretsSuite(t *stdtesting.T) {
+	tc.Run(t, &userSecretsSuite{})
+}
+
 func (s *userSecretsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

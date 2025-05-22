@@ -28,7 +28,10 @@ type showSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestShowSuite(t *stdtesting.T) { tc.Run(t, &showSuite{}) }
+func TestShowSuite(t *stdtesting.T) {
+	tc.Run(t, &showSuite{})
+}
+
 func (s *showSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.api = &fakeShowCloudAPI{}

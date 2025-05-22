@@ -22,7 +22,9 @@ type configSuite struct {
 	testing.BaseSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &configSuite{})
+}
 
 // newConfig creates a MAAS environment config from attributes.
 func newConfig(c *tc.C, values map[string]interface{}) (*maasModelConfig, error) {

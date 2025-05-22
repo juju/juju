@@ -23,7 +23,9 @@ type setupSuite struct {
 	clock  *testclock.Clock
 }
 
-func TestSetupSuite(t *stdtesting.T) { tc.Run(t, &setupSuite{}) }
+func TestSetupSuite(t *stdtesting.T) {
+	tc.Run(t, &setupSuite{})
+}
 
 var (
 	testNamespace = "test"

@@ -19,7 +19,10 @@ type OpenedPortsSuite struct {
 	ContextSuite
 }
 
-func TestOpenedPortsSuite(t *stdtesting.T) { tc.Run(t, &OpenedPortsSuite{}) }
+func TestOpenedPortsSuite(t *stdtesting.T) {
+	tc.Run(t, &OpenedPortsSuite{})
+}
+
 func (s *OpenedPortsSuite) TestRunAllFormats(c *tc.C) {
 	expectedPorts := []network.PortRange{
 		network.MustParsePortRange("10-20/tcp"),

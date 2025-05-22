@@ -13,7 +13,9 @@ import (
 
 type DebugHooksCommonSuite struct{}
 
-func TestDebugHooksCommonSuite(t *stdtesting.T) { tc.Run(t, &DebugHooksCommonSuite{}) }
+func TestDebugHooksCommonSuite(t *stdtesting.T) {
+	tc.Run(t, &DebugHooksCommonSuite{})
+}
 
 // TestHooksContext tests the behaviour of HooksContext.
 func (*DebugHooksCommonSuite) TestHooksContext(c *tc.C) {

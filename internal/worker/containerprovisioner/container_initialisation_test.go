@@ -51,7 +51,10 @@ func (s *containerSetupSuite) SetUpTest(c *tc.C) {
 
 	s.machineLock = &fakeMachineLock{}
 }
-func TestContainerSetupSuite(t *stdtesting.T) { tc.Run(t, &containerSetupSuite{}) }
+func TestContainerSetupSuite(t *stdtesting.T) {
+	tc.Run(t, &containerSetupSuite{})
+}
+
 func (s *containerSetupSuite) TestInitialiseContainersLXD(c *tc.C) {
 	s.testInitialiseContainers(c, instance.LXD)
 }

@@ -17,7 +17,10 @@ type SecretIdsSuite struct {
 	ContextSuite
 }
 
-func TestSecretIdsSuite(t *stdtesting.T) { tc.Run(t, &SecretIdsSuite{}) }
+func TestSecretIdsSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretIdsSuite{})
+}
+
 func (s *SecretIdsSuite) TestSecretIds(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 

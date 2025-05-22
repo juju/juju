@@ -17,7 +17,10 @@ type contextSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestContextSuite(t *stdtesting.T) { tc.Run(t, &contextSuite{}) }
+func TestContextSuite(t *stdtesting.T) {
+	tc.Run(t, &contextSuite{})
+}
+
 func (s *contextSuite) TestBootstrapContext(c *tc.C) {
 	ctx := environscmd.BootstrapContext(c.Context(), &cmd.Context{})
 	c.Assert(ctx.ShouldVerifyCredentials(), tc.IsTrue)

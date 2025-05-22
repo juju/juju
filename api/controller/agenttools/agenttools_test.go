@@ -17,7 +17,10 @@ type AgentToolsSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestAgentToolsSuite(t *stdtesting.T) { tc.Run(t, &AgentToolsSuite{}) }
+func TestAgentToolsSuite(t *stdtesting.T) {
+	tc.Run(t, &AgentToolsSuite{})
+}
+
 func (s *AgentToolsSuite) TestUpdateToolsVersion(c *tc.C) {
 	called := false
 	apiCaller := testing.APICallerFunc(

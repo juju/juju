@@ -14,7 +14,10 @@ import (
 type SignerSuite struct {
 }
 
-func TestSignerSuite(t *stdtesting.T) { tc.Run(t, &SignerSuite{}) }
+func TestSignerSuite(t *stdtesting.T) {
+	tc.Run(t, &SignerSuite{})
+}
+
 func (s *SignerSuite) TestKeyProfilesForErrors(c *tc.C) {
 	tests := []struct {
 		name    string

@@ -22,7 +22,10 @@ type manifoldSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &manifoldSuite{})
+}
+
 func (s *manifoldSuite) TestMachineDiskmanager(c *tc.C) {
 
 	called := false

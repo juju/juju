@@ -22,7 +22,10 @@ type LeasesSuite struct {
 	appName string
 }
 
-func TestLeasesSuite(t *stdtesting.T) { tc.Run(t, &LeasesSuite{}) }
+func TestLeasesSuite(t *stdtesting.T) {
+	tc.Run(t, &LeasesSuite{})
+}
+
 func (s *LeasesSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

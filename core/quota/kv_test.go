@@ -13,7 +13,9 @@ import (
 	"github.com/juju/juju/core/quota"
 )
 
-func TestMapKeyValueCheckerSuite(t *stdtesting.T) { tc.Run(t, &MapKeyValueCheckerSuite{}) }
+func TestMapKeyValueCheckerSuite(t *stdtesting.T) {
+	tc.Run(t, &MapKeyValueCheckerSuite{})
+}
 
 type MapKeyValueCheckerSuite struct {
 }

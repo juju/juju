@@ -16,7 +16,9 @@ type lifeSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestLifeSuite(t *stdtesting.T) { tc.Run(t, &lifeSuite{}) }
+func TestLifeSuite(t *stdtesting.T) {
+	tc.Run(t, &lifeSuite{})
+}
 
 // TestLifeDBValues ensures there's no skew between what's in the
 // database table for life and the typed consts used in the state packages.

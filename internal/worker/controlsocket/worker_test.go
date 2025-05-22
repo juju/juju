@@ -40,7 +40,10 @@ type workerSuite struct {
 	metricsUserName   coreuser.Name
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
+
 func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.logger = loggertesting.WrapCheckLog(c)
 	s.metricsUserName = usertesting.GenNewName(c, "juju-metrics-r0")

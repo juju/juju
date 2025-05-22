@@ -20,7 +20,10 @@ type reflectSuite struct {
 	testing.BaseSuite
 }
 
-func TestReflectSuite(t *stdtesting.T) { tc.Run(t, &reflectSuite{}) }
+func TestReflectSuite(t *stdtesting.T) {
+	tc.Run(t, &reflectSuite{})
+}
+
 func (*reflectSuite) TestTypeOf(c *tc.C) {
 	rtype := rpcreflect.TypeOf(reflect.TypeOf(&Root{}))
 	c.Assert(rtype.DiscardedMethods(), tc.DeepEquals, []string{

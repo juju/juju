@@ -23,7 +23,10 @@ type removeSuite struct {
 	secretsAPI *mocks.MockRemoveSecretsAPI
 }
 
-func TestRemoveSuite(t *stdtesting.T) { tc.Run(t, &removeSuite{}) }
+func TestRemoveSuite(t *stdtesting.T) {
+	tc.Run(t, &removeSuite{})
+}
+
 func (s *removeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()

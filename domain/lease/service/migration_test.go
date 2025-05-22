@@ -20,7 +20,10 @@ type migrationSuite struct {
 	state *MockMigrationState
 }
 
-func TestMigrationSuite(t *stdtesting.T) { tc.Run(t, &migrationSuite{}) }
+func TestMigrationSuite(t *stdtesting.T) {
+	tc.Run(t, &migrationSuite{})
+}
+
 func (s *migrationSuite) TestMigrationService(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

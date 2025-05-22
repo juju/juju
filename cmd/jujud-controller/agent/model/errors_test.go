@@ -19,7 +19,10 @@ type ErrorsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &ErrorsSuite{}) }
+func TestErrorsSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorsSuite{})
+}
+
 func (*ErrorsSuite) TestIsFatal_Nil(c *tc.C) {
 	result := model.IsFatal(nil)
 	c.Check(result, tc.IsFalse)

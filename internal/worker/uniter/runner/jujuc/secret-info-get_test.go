@@ -18,7 +18,10 @@ type SecretInfoGetSuite struct {
 	ContextSuite
 }
 
-func TestSecretInfoGetSuite(t *stdtesting.T) { tc.Run(t, &SecretInfoGetSuite{}) }
+func TestSecretInfoGetSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretInfoGetSuite{})
+}
+
 func (s *SecretInfoGetSuite) TestSecretGetInit(c *tc.C) {
 
 	for _, t := range []struct {

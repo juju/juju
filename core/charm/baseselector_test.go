@@ -24,7 +24,9 @@ type baseSelectorSuite struct {
 	cfg    *MockSelectorModelConfig
 }
 
-func TestBaseSelectorSuite(t *stdtesting.T) { tc.Run(t, &baseSelectorSuite{}) }
+func TestBaseSelectorSuite(t *stdtesting.T) {
+	tc.Run(t, &baseSelectorSuite{})
+}
 
 var (
 	bionic      = base.MustParseBaseFromString("ubuntu@18.04/stable")

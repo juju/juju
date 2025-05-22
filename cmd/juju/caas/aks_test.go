@@ -26,7 +26,10 @@ type aksSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAksSuite(t *stdtesting.T) { tc.Run(t, &aksSuite{}) }
+func TestAksSuite(t *stdtesting.T) {
+	tc.Run(t, &aksSuite{})
+}
+
 func (s *aksSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	err := os.Setenv("PATH", "/path/to/here")

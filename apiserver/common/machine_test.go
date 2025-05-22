@@ -15,7 +15,10 @@ import (
 
 type machineSuite struct{}
 
-func TestMachineSuite(t *stdtesting.T) { tc.Run(t, &machineSuite{}) }
+func TestMachineSuite(t *stdtesting.T) {
+	tc.Run(t, &machineSuite{})
+}
+
 func (s *machineSuite) TestMachineJobFromParams(c *tc.C) {
 	var tests = []struct {
 		name model.MachineJob

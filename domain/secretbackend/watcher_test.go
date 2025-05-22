@@ -30,7 +30,10 @@ type watcherSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
+func TestWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
+
 func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 	c.Skip("FIXME: rename of secret is firing secretbackend_rotation_changes")
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secretbackend_rotation_changes")

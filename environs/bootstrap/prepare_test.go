@@ -24,7 +24,10 @@ type PrepareSuite struct {
 	envtesting.ToolsFixture
 }
 
-func TestPrepareSuite(t *stdtesting.T) { tc.Run(t, &PrepareSuite{}) }
+func TestPrepareSuite(t *stdtesting.T) {
+	tc.Run(t, &PrepareSuite{})
+}
+
 func (s *PrepareSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)

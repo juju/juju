@@ -35,7 +35,10 @@ type nodeManagerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestNodeManagerSuite(t *stdtesting.T) { tc.Run(t, &nodeManagerSuite{}) }
+func TestNodeManagerSuite(t *stdtesting.T) {
+	tc.Run(t, &nodeManagerSuite{})
+}
+
 func (s *nodeManagerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
@@ -471,7 +474,10 @@ type slowQuerySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSlowQuerySuite(t *stdtesting.T) { tc.Run(t, &slowQuerySuite{}) }
+func TestSlowQuerySuite(t *stdtesting.T) {
+	tc.Run(t, &slowQuerySuite{})
+}
+
 func (s *slowQuerySuite) TestSlowQueryParsing(c *tc.C) {
 	tests := []struct {
 		name              string

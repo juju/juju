@@ -46,7 +46,10 @@ type iaasProvisionerSuite struct {
 	store objectstore.ObjectStore
 }
 
-func TestIaasProvisionerSuite(t *stdtesting.T) { tc.Run(t, &iaasProvisionerSuite{}) }
+func TestIaasProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &iaasProvisionerSuite{})
+}
+
 func (s *iaasProvisionerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - TestRemoveVolumeParams: creates an app that will create a storage instance,

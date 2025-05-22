@@ -52,7 +52,9 @@ type apiclientSuite struct {
 	jtesting.BaseSuite
 }
 
-func TestApiclientSuite(t *stdtesting.T) { tc.Run(t, &apiclientSuite{}) }
+func TestApiclientSuite(t *stdtesting.T) {
+	tc.Run(t, &apiclientSuite{})
+}
 
 type testRootAPI struct {
 	serverAddrs [][]params.HostPort

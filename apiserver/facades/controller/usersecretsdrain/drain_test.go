@@ -31,7 +31,10 @@ type drainSuite struct {
 	facade               *usersecretsdrain.SecretsDrainAPI
 }
 
-func TestDrainSuite(t *stdtesting.T) { tc.Run(t, &drainSuite{}) }
+func TestDrainSuite(t *stdtesting.T) {
+	tc.Run(t, &drainSuite{})
+}
+
 func (s *drainSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

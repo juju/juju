@@ -56,7 +56,10 @@ type K8sSuite struct {
 	testing.BaseSuite
 }
 
-func TestK8sSuite(t *stdtesting.T) { tc.Run(t, &K8sSuite{}) }
+func TestK8sSuite(t *stdtesting.T) {
+	tc.Run(t, &K8sSuite{})
+}
+
 func getBasicPodspec() *specs.PodSpec {
 	pSpecs := &specs.PodSpec{}
 	pSpecs.Containers = []specs.ContainerSpec{{
@@ -85,7 +88,10 @@ type K8sBrokerSuite struct {
 	BaseSuite
 }
 
-func TestK8sBrokerSuite(t *stdtesting.T) { tc.Run(t, &K8sBrokerSuite{}) }
+func TestK8sBrokerSuite(t *stdtesting.T) {
+	tc.Run(t, &K8sBrokerSuite{})
+}
+
 func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

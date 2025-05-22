@@ -20,7 +20,10 @@ type clientSuite struct {
 	config *common.JujuConfigProvider
 }
 
-func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
+func TestClientSuite(t *stdtesting.T) {
+	tc.Run(t, &clientSuite{})
+}
+
 func (s *clientSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 }

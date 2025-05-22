@@ -18,7 +18,10 @@ type RemoveUserCommandSuite struct {
 	mockAPI *mockRemoveUserAPI
 }
 
-func TestRemoveUserCommandSuite(t *stdtesting.T) { tc.Run(t, &RemoveUserCommandSuite{}) }
+func TestRemoveUserCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &RemoveUserCommandSuite{})
+}
+
 func (s *RemoveUserCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockAPI = &mockRemoveUserAPI{}

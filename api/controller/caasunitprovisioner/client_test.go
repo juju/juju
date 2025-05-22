@@ -19,7 +19,10 @@ type unitprovisionerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUnitprovisionerSuite(t *stdtesting.T) { tc.Run(t, &unitprovisionerSuite{}) }
+func TestUnitprovisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &unitprovisionerSuite{})
+}
+
 func newClient(f basetesting.APICallerFunc) *caasunitprovisioner.Client {
 	return caasunitprovisioner.NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: 1})
 }

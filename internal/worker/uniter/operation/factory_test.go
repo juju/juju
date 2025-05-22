@@ -27,7 +27,10 @@ type FactorySuite struct {
 	actionErr *params.Error
 }
 
-func TestFactorySuite(t *stdtesting.T) { tc.Run(t, &FactorySuite{}) }
+func TestFactorySuite(t *stdtesting.T) {
+	tc.Run(t, &FactorySuite{})
+}
+
 func (s *FactorySuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	// Yes, this factory will produce useless ops; this suite is just for

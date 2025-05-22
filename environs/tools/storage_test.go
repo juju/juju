@@ -20,7 +20,10 @@ type StorageSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &StorageSuite{}) }
+func TestStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &StorageSuite{})
+}
+
 func (s *StorageSuite) TestStorageName(c *tc.C) {
 	vers := semversion.MustParseBinary("1.2.3-ubuntu-amd64")
 	path := envtools.StorageName(vers, "proposed")

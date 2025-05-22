@@ -30,7 +30,10 @@ type charmSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestCharmSuite(t *stdtesting.T) { tc.Run(t, &charmSuite{}) }
+func TestCharmSuite(t *stdtesting.T) {
+	tc.Run(t, &charmSuite{})
+}
+
 func (s *charmSuite) TestSetCharmWithArchitecture(c *tc.C) {
 	service := s.setupService(c)
 

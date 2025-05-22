@@ -19,7 +19,10 @@ type WorkerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
+
 func (*WorkerSuite) TestPhaseErrorOnStartup(c *tc.C) {
 	stub := &testhelpers.Stub{}
 	stub.SetErrors(errors.New("gaah"))

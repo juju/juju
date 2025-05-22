@@ -11,7 +11,9 @@ import (
 
 type removeRelationsSuite struct{}
 
-func TestRemoveRelationsSuite(t *stdtesting.T) { tc.Run(t, &removeRelationsSuite{}) }
+func TestRemoveRelationsSuite(t *stdtesting.T) {
+	tc.Run(t, &removeRelationsSuite{})
+}
 
 var (
 	sampleRelations = [][]string{

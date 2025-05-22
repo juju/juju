@@ -31,7 +31,10 @@ type environProviderSuite struct {
 	sender   azuretesting.Senders
 }
 
-func TestEnvironProviderSuite(t *stdtesting.T) { tc.Run(t, &environProviderSuite{}) }
+func TestEnvironProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &environProviderSuite{})
+}
+
 func (s *environProviderSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{

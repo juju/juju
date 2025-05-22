@@ -20,7 +20,9 @@ import (
 
 type lifeSuite struct{}
 
-func TestLifeSuite(t *stdtesting.T) { tc.Run(t, &lifeSuite{}) }
+func TestLifeSuite(t *stdtesting.T) {
+	tc.Run(t, &lifeSuite{})
+}
 
 type fakeLifer struct {
 	state.Entity

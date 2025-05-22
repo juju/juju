@@ -23,7 +23,10 @@ type LogoutCommandSuite struct {
 	BaseSuite
 }
 
-func TestLogoutCommandSuite(t *stdtesting.T) { tc.Run(t, &LogoutCommandSuite{}) }
+func TestLogoutCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &LogoutCommandSuite{})
+}
+
 func (s *LogoutCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }

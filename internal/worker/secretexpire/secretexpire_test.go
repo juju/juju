@@ -34,7 +34,10 @@ type workerSuite struct {
 	expiredSecrets      chan []string
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
+
 func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }

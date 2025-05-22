@@ -313,7 +313,10 @@ type ProvisionerSuite struct {
 	CommonProvisionerSuite
 }
 
-func TestProvisionerSuite(t *stdtesting.T) { tc.Run(t, &ProvisionerSuite{}) }
+func TestProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &ProvisionerSuite{})
+}
+
 func (s *ProvisionerSuite) sendModelMachinesChange(c *tc.C, ids ...string) {
 	select {
 	case s.machinesCh <- ids:

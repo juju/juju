@@ -30,7 +30,10 @@ type socketListenerSuite struct {
 	logger logger.Logger
 }
 
-func TestSocketListenerSuite(t *stdtesting.T) { tc.Run(t, &socketListenerSuite{}) }
+func TestSocketListenerSuite(t *stdtesting.T) {
+	tc.Run(t, &socketListenerSuite{})
+}
+
 func (s *socketListenerSuite) SetUpTest(c *tc.C) {
 	s.logger = loggertesting.WrapCheckLog(c)
 }

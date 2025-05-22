@@ -35,7 +35,10 @@ type charmServiceSuite struct {
 	baseSuite
 }
 
-func TestCharmServiceSuite(t *stdtesting.T) { tc.Run(t, &charmServiceSuite{}) }
+func TestCharmServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &charmServiceSuite{})
+}
+
 func (s *charmServiceSuite) TestGetCharmIDWithoutRevision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1897,7 +1900,10 @@ type watchableServiceSuite struct {
 	service *WatchableService
 }
 
-func TestWatchableServiceSuite(t *stdtesting.T) { tc.Run(t, &watchableServiceSuite{}) }
+func TestWatchableServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &watchableServiceSuite{})
+}
+
 func (s *watchableServiceSuite) TestWatchCharms(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -24,7 +24,10 @@ type environInstSuite struct {
 	lxd.BaseSuite
 }
 
-func TestEnvironInstSuite(t *stdtesting.T) { tc.Run(t, &environInstSuite{}) }
+func TestEnvironInstSuite(t *stdtesting.T) {
+	tc.Run(t, &environInstSuite{})
+}
+
 func (s *environInstSuite) TestInstancesOkay(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 

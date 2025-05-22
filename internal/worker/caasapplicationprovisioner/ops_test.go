@@ -35,7 +35,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestOpsSuite(t *stdtesting.T) { tc.Run(t, &OpsSuite{}) }
+func TestOpsSuite(t *stdtesting.T) {
+	tc.Run(t, &OpsSuite{})
+}
 
 type OpsSuite struct {
 	coretesting.BaseSuite

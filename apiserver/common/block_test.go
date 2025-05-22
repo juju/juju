@@ -22,7 +22,10 @@ type blockCheckerSuite struct {
 	blockchecker *common.BlockChecker
 }
 
-func TestBlockCheckerSuite(t *stdtesting.T) { tc.Run(t, &blockCheckerSuite{}) }
+func TestBlockCheckerSuite(t *stdtesting.T) {
+	tc.Run(t, &blockCheckerSuite{})
+}
+
 func (s *blockCheckerSuite) TestDestroyBlockChecker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -27,7 +27,9 @@ type RefreshSuite struct {
 	baseSuite
 }
 
-func TestRefreshSuite(t *stdtesting.T) { tc.Run(t, &RefreshSuite{}) }
+func TestRefreshSuite(t *stdtesting.T) {
+	tc.Run(t, &RefreshSuite{})
+}
 
 var (
 	expRefreshFields = set.NewStrings(
@@ -433,7 +435,10 @@ type RefreshConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRefreshConfigSuite(t *stdtesting.T) { tc.Run(t, &RefreshConfigSuite{}) }
+func TestRefreshConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &RefreshConfigSuite{})
+}
+
 func (s *RefreshConfigSuite) TestRefreshOneBuild(c *tc.C) {
 	id := "foo"
 	config, err := RefreshOne(c.Context(), "instance-key", id, 1, "latest/stable", RefreshBase{

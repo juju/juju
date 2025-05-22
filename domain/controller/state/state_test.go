@@ -18,7 +18,10 @@ type stateSuite struct {
 	controllerModelUUID coremodel.UUID
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
+
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.controllerModelUUID = coremodel.UUID(jujutesting.ModelTag.Id())
 	s.ControllerSuite.SetUpTest(c)

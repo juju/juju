@@ -18,7 +18,10 @@ type configSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &configSuite{})
+}
+
 func (s *configSuite) TestValidateConfig(c *tc.C) {
 	p, err := provider.Provider(jujuvault.BackendType)
 	c.Assert(err, tc.ErrorIsNil)

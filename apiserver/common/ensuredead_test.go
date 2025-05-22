@@ -21,7 +21,9 @@ import (
 
 type deadEnsurerSuite struct{}
 
-func TestDeadEnsurerSuite(t *stdtesting.T) { tc.Run(t, &deadEnsurerSuite{}) }
+func TestDeadEnsurerSuite(t *stdtesting.T) {
+	tc.Run(t, &deadEnsurerSuite{})
+}
 
 type fakeDeadEnsurer struct {
 	state.Entity

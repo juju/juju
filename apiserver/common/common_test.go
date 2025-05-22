@@ -17,7 +17,10 @@ import (
 
 type commonSuite struct{}
 
-func TestCommonSuite(t *stdtesting.T) { tc.Run(t, &commonSuite{}) }
+func TestCommonSuite(t *stdtesting.T) {
+	tc.Run(t, &commonSuite{})
+}
+
 func errorAuth(context.Context) (common.AuthFunc, error) {
 	return nil, fmt.Errorf("pow")
 }

@@ -12,7 +12,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestStringMapSuite(t *stdtesting.T) { tc.Run(t, &StringMapSuite{}) }
+func TestStringMapSuite(t *stdtesting.T) {
+	tc.Run(t, &StringMapSuite{})
+}
 
 type StringMapSuite struct {
 	testhelpers.IsolationSuite

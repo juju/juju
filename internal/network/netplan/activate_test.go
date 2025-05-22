@@ -21,7 +21,10 @@ type ActivateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestActivateSuite(t *stdtesting.T) { tc.Run(t, &ActivateSuite{}) }
+func TestActivateSuite(t *stdtesting.T) {
+	tc.Run(t, &ActivateSuite{})
+}
+
 func (s *ActivateSuite) TestNoDevices(c *tc.C) {
 	params := netplan.ActivationParams{}
 	result, err := netplan.BridgeAndActivate(params)

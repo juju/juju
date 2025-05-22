@@ -15,7 +15,9 @@ import (
 
 type subnetMatcherSuite struct{}
 
-func TestSubnetMatcherSuite(t *stdtesting.T) { tc.Run(t, &subnetMatcherSuite{}) }
+func TestSubnetMatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &subnetMatcherSuite{})
+}
 
 var cannedSubnets = []types.Subnet{{
 	SubnetId:                aws.String("subnet-1234abcd"),

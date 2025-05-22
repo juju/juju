@@ -20,7 +20,10 @@ type statusSuite struct {
 	BaseSuite
 }
 
-func TestStatusSuite(t *stdtesting.T) { tc.Run(t, &statusSuite{}) }
+func TestStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &statusSuite{})
+}
+
 func (s *statusSuite) TestStatus(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()

@@ -24,7 +24,9 @@ type retryProvisioningSuite struct {
 	fake *fakeRetryProvisioningClient
 }
 
-func TestRetryProvisioningSuite(t *stdtesting.T) { tc.Run(t, &retryProvisioningSuite{}) }
+func TestRetryProvisioningSuite(t *stdtesting.T) {
+	tc.Run(t, &retryProvisioningSuite{})
+}
 
 // fakeRetryProvisioningClient contains some minimal information
 // about machines in the environment to mock out the behavior

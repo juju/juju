@@ -20,7 +20,10 @@ type provisionerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProvisionerSuite(t *stdtesting.T) { tc.Run(t, &provisionerSuite{}) }
+func TestProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &provisionerSuite{})
+}
+
 func newClient(f basetesting.APICallerFunc) *caasapplication.Client {
 	return caasapplication.NewClient(basetesting.BestVersionCaller{f, 1})
 }

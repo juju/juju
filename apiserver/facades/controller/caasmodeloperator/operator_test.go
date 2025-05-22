@@ -41,7 +41,10 @@ type ModelOperatorSuite struct {
 	passwordService         *MockAgentPasswordService
 }
 
-func TestModelOperatorSuite(t *stdtesting.T) { tc.Run(t, &ModelOperatorSuite{}) }
+func TestModelOperatorSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelOperatorSuite{})
+}
+
 func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	defer m.setupMocks(c).Finish()
 

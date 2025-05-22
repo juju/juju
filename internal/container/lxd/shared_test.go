@@ -16,7 +16,10 @@ type sharedSuite struct {
 	lxdtesting.BaseSuite
 }
 
-func TestSharedSuite(t *stdtesting.T) { tc.Run(t, &sharedSuite{}) }
+func TestSharedSuite(t *stdtesting.T) {
+	tc.Run(t, &sharedSuite{})
+}
+
 func (s *sharedSuite) TestGenerateMemCert(c *tc.C) {
 	cert, key, err := GenerateMemCert(false, true)
 	if err != nil {

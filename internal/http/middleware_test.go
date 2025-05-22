@@ -71,7 +71,10 @@ type LocalDialBreakerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLocalDialBreakerSuite(t *stdtesting.T) { tc.Run(t, &LocalDialBreakerSuite{}) }
+func TestLocalDialBreakerSuite(t *stdtesting.T) {
+	tc.Run(t, &LocalDialBreakerSuite{})
+}
+
 func (s *LocalDialBreakerSuite) TestAllowed(c *tc.C) {
 	breaker := NewLocalDialBreaker(true)
 
@@ -114,7 +117,10 @@ type RetrySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRetrySuite(t *stdtesting.T) { tc.Run(t, &RetrySuite{}) }
+func TestRetrySuite(t *stdtesting.T) {
+	tc.Run(t, &RetrySuite{})
+}
+
 func (s *RetrySuite) TestRetryNotRequired(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

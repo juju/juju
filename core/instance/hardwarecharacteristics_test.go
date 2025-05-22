@@ -13,7 +13,9 @@ import (
 
 type HardwareSuite struct{}
 
-func TestHardwareSuite(t *stdtesting.T) { tc.Run(t, &HardwareSuite{}) }
+func TestHardwareSuite(t *stdtesting.T) {
+	tc.Run(t, &HardwareSuite{})
+}
 
 type parseHardwareTestSpec struct {
 	summary string

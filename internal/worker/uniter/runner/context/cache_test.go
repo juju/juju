@@ -26,7 +26,10 @@ type RelationCacheSuite struct {
 	results []settingsResult
 }
 
-func TestRelationCacheSuite(t *stdtesting.T) { tc.Run(t, &RelationCacheSuite{}) }
+func TestRelationCacheSuite(t *stdtesting.T) {
+	tc.Run(t, &RelationCacheSuite{})
+}
+
 func (s *RelationCacheSuite) SetUpTest(c *tc.C) {
 	s.calls = []string{}
 	s.results = []settingsResult{}

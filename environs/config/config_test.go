@@ -30,7 +30,10 @@ type ConfigSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &ConfigSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
+
 func (s *ConfigSuite) SetUpTest(c *tc.C) {
 	s.SetInitialFeatureFlags(featureflag.DeveloperMode)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

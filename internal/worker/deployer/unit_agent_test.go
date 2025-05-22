@@ -30,7 +30,10 @@ type UnitAgentSuite struct {
 	config  deployer.UnitAgentConfig
 }
 
-func TestUnitAgentSuite(t *stdtesting.T) { tc.Run(t, &UnitAgentSuite{}) }
+func TestUnitAgentSuite(t *stdtesting.T) {
+	tc.Run(t, &UnitAgentSuite{})
+}
+
 func (s *UnitAgentSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

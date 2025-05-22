@@ -35,7 +35,9 @@ type MongoSuite struct {
 	mongoSnapService *mongotest.MockMongoSnapService
 }
 
-func TestMongoSuite(t *stdtesting.T) { tc.Run(t, &MongoSuite{}) }
+func TestMongoSuite(t *stdtesting.T) {
+	tc.Run(t, &MongoSuite{})
+}
 
 var testInfo = struct {
 	StatePort    int

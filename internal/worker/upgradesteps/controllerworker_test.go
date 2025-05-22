@@ -31,7 +31,10 @@ type controllerWorkerSuite struct {
 	upgradeService *MockUpgradeService
 }
 
-func TestControllerWorkerSuite(t *stdtesting.T) { tc.Run(t, &controllerWorkerSuite{}) }
+func TestControllerWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &controllerWorkerSuite{})
+}
+
 func (s *controllerWorkerSuite) TestAlreadyUpgraded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

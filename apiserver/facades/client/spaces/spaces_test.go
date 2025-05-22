@@ -36,7 +36,10 @@ type APISuite struct {
 	spaces.APISuite
 }
 
-func TestAPISuite(t *stdtesting.T) { tc.Run(t, &APISuite{}) }
+func TestAPISuite(t *stdtesting.T) {
+	tc.Run(t, &APISuite{})
+}
+
 func (s *APISuite) TestCreateSpacesFailInvalidTag(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
@@ -786,7 +789,10 @@ type LegacySuite struct {
 	networkService *spaces.MockNetworkService
 }
 
-func TestLegacySuite(t *stdtesting.T) { tc.Run(t, &LegacySuite{}) }
+func TestLegacySuite(t *stdtesting.T) {
+	tc.Run(t, &LegacySuite{})
+}
+
 func (s *LegacySuite) SetUpSuite(c *tc.C) {
 	s.StubNetwork.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)

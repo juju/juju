@@ -19,7 +19,10 @@ type HelpCommandSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHelpCommandSuite(t *stdtesting.T) { tc.Run(t, &HelpCommandSuite{}) }
+func TestHelpCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &HelpCommandSuite{})
+}
+
 func (s *HelpCommandSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	loggo.GetLogger("juju.cmd").SetLogLevel(loggo.DEBUG)

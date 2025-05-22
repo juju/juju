@@ -18,7 +18,9 @@ type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-func TestManifoldsSuite(t *stdtesting.T) { tc.Run(t, &ManifoldsSuite{}) }
+func TestManifoldsSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldsSuite{})
+}
 
 type fakeAgent struct {
 	agent.Agent

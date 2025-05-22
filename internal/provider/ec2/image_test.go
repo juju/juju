@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func TestSpecSuite(t *stdtesting.T) { tc.Run(t, &specSuite{}) }
+func TestSpecSuite(t *stdtesting.T) {
+	tc.Run(t, &specSuite{})
+}
 
 type specSuite struct {
 	testing.BaseSuite

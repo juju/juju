@@ -12,7 +12,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestIngressRuleSuite(t *stdtesting.T) { tc.Run(t, &IngressRuleSuite{}) }
+func TestIngressRuleSuite(t *stdtesting.T) {
+	tc.Run(t, &IngressRuleSuite{})
+}
 
 type IngressRuleSuite struct {
 	testhelpers.IsolationSuite

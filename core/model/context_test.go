@@ -11,7 +11,10 @@ import (
 
 type contextSuite struct{}
 
-func TestContextSuite(t *stdtesting.T) { tc.Run(t, &contextSuite{}) }
+func TestContextSuite(t *stdtesting.T) {
+	tc.Run(t, &contextSuite{})
+}
+
 func (s *contextSuite) TestContextModelUUIDIsPassed(c *tc.C) {
 	ctx := WithContextModelUUID(c.Context(), UUID("model-uuid"))
 	modelUUID, ok := ModelUUIDFromContext(ctx)

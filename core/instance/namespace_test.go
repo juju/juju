@@ -13,7 +13,9 @@ import (
 
 type NamespaceSuite struct{}
 
-func TestNamespaceSuite(t *stdtesting.T) { tc.Run(t, &NamespaceSuite{}) }
+func TestNamespaceSuite(t *stdtesting.T) {
+	tc.Run(t, &NamespaceSuite{})
+}
 
 const modelUUID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 

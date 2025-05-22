@@ -34,7 +34,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestRemoteRelationsSuite(t *stdtesting.T) { tc.Run(t, &remoteRelationsSuite{}) }
+func TestRemoteRelationsSuite(t *stdtesting.T) {
+	tc.Run(t, &remoteRelationsSuite{})
+}
 
 type remoteRelationsSuite struct {
 	testhelpers.IsolationSuite

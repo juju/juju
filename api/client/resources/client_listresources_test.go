@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestListResourcesSuite(t *stdtesting.T) { tc.Run(t, &ListResourcesSuite{}) }
+func TestListResourcesSuite(t *stdtesting.T) {
+	tc.Run(t, &ListResourcesSuite{})
+}
 
 type ListResourcesSuite struct{}
 

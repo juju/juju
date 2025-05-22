@@ -22,7 +22,10 @@ type providerSuite struct {
 	ProviderFixture
 }
 
-func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
+func TestProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &providerSuite{})
+}
+
 func (s *providerSuite) TestRegistered(c *tc.C) {
 	provider, err := environs.Provider("vsphere")
 	c.Assert(err, tc.ErrorIsNil)
@@ -104,7 +107,10 @@ type pingSuite struct {
 	ProviderFixture
 }
 
-func TestPingSuite(t *stdtesting.T) { tc.Run(t, &pingSuite{}) }
+func TestPingSuite(t *stdtesting.T) {
+	tc.Run(t, &pingSuite{})
+}
+
 func (s *pingSuite) TestPingInvalidHost(c *tc.C) {
 	s.dialStub.SetErrors(
 		errors.New("foo"),

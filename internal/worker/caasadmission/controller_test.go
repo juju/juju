@@ -26,7 +26,10 @@ type dummyMux struct {
 	RemoveHandlerFunc func(string, string)
 }
 
-func TestControllerSuite(t *stdtesting.T) { tc.Run(t, &ControllerSuite{}) }
+func TestControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &ControllerSuite{})
+}
+
 func (d *dummyMux) AddHandler(i, j string, h http.Handler) error {
 	if d.AddHandlerFunc == nil {
 		return nil

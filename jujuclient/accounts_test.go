@@ -19,7 +19,10 @@ type AccountsSuite struct {
 	store jujuclient.AccountStore
 }
 
-func TestAccountsSuite(t *stdtesting.T) { tc.Run(t, &AccountsSuite{}) }
+func TestAccountsSuite(t *stdtesting.T) {
+	tc.Run(t, &AccountsSuite{})
+}
+
 func (s *AccountsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclient.NewFileClientStore()

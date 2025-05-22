@@ -19,7 +19,10 @@ type httpSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHttpSuite(t *stdtesting.T) { tc.Run(t, &httpSuite{}) }
+func TestHttpSuite(t *stdtesting.T) {
+	tc.Run(t, &httpSuite{})
+}
+
 func (s *httpSuite) TestBasicAuthHeader(c *tc.C) {
 	header := jujuhttp.BasicAuthHeader("eric", "sekrit")
 	c.Assert(len(header), tc.Equals, 1)

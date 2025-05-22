@@ -27,7 +27,10 @@ type watcherSuite struct {
 	testing.ModelSuite
 }
 
-func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
+func TestWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
+
 func (s *watcherSuite) createMachine(c *tc.C, name string) string {
 	db := s.TxnRunner()
 

@@ -24,7 +24,10 @@ type storageSuite struct {
 	provider storage.Provider
 }
 
-func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
+func TestStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &storageSuite{})
+}
+
 func (s *storageSuite) TestStorageProviderTypes(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 

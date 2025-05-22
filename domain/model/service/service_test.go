@@ -55,7 +55,10 @@ type serviceSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) SetUpTest(c *tc.C) {
 	var err error
 	s.userUUID = usertesting.GenUserUUID(c)

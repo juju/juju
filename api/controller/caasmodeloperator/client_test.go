@@ -20,7 +20,10 @@ type ModelOperatorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestModelOperatorSuite(t *stdtesting.T) { tc.Run(t, &ModelOperatorSuite{}) }
+func TestModelOperatorSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelOperatorSuite{})
+}
+
 func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	var (
 		apiAddresses = []string{"fe80:abcd::1"}

@@ -28,7 +28,9 @@ import (
 	jujussh "github.com/juju/juju/internal/network/ssh"
 )
 
-func TestDebugHooksSuite(t *stdtesting.T) { tc.Run(t, &DebugHooksSuite{}) }
+func TestDebugHooksSuite(t *stdtesting.T) {
+	tc.Run(t, &DebugHooksSuite{})
+}
 
 type DebugHooksSuite struct {
 	SSHMachineSuite

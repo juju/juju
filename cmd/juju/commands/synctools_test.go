@@ -32,7 +32,10 @@ type syncToolSuite struct {
 	store           *jujuclient.MemStore
 }
 
-func TestSyncToolSuite(t *stdtesting.T) { tc.Run(t, &syncToolSuite{}) }
+func TestSyncToolSuite(t *stdtesting.T) {
+	tc.Run(t, &syncToolSuite{})
+}
+
 func (s *syncToolSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclient.NewMemStore()

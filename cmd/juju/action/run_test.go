@@ -49,7 +49,10 @@ type RunSuite struct {
 	dir string
 }
 
-func TestRunSuite(t *stdtesting.T) { tc.Run(t, &RunSuite{}) }
+func TestRunSuite(t *stdtesting.T) {
+	tc.Run(t, &RunSuite{})
+}
+
 func (s *RunSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.dir = c.MkDir()

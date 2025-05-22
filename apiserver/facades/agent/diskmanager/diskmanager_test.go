@@ -20,7 +20,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestDiskManagerSuite(t *stdtesting.T) { tc.Run(t, &DiskManagerSuite{}) }
+func TestDiskManagerSuite(t *stdtesting.T) {
+	tc.Run(t, &DiskManagerSuite{})
+}
 
 type DiskManagerSuite struct {
 	coretesting.BaseSuite

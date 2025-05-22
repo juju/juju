@@ -18,7 +18,10 @@ type subnetSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSubnetSuite(t *stdtesting.T) { tc.Run(t, &subnetSuite{}) }
+func TestSubnetSuite(t *stdtesting.T) {
+	tc.Run(t, &subnetSuite{})
+}
+
 func (*subnetSuite) TestFindSubnetIDsForAZ(c *tc.C) {
 	testCases := []struct {
 		name           string

@@ -28,7 +28,10 @@ type modelUpgraderSuite struct {
 	broker *dummyUpgradeCAASModel
 }
 
-func TestModelUpgraderSuite(t *stdtesting.T) { tc.Run(t, &modelUpgraderSuite{}) }
+func TestModelUpgraderSuite(t *stdtesting.T) {
+	tc.Run(t, &modelUpgraderSuite{})
+}
+
 func (d *dummyUpgradeCAASModel) Client() kubernetes.Interface {
 	return d.client
 }

@@ -27,7 +27,10 @@ type WorkerStateSuite struct {
 	statetesting.StateSuite
 }
 
-func TestWorkerStateSuite(t *stdtesting.T) { tc.Run(t, &WorkerStateSuite{}) }
+func TestWorkerStateSuite(t *stdtesting.T) {
+	tc.Run(t, &WorkerStateSuite{})
+}
+
 func (s *WorkerStateSuite) SetUpSuite(c *tc.C) {
 	s.workerFixture.SetUpSuite(c)
 	s.StateSuite.SetUpSuite(c)

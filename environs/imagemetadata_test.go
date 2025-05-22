@@ -23,7 +23,10 @@ type ImageMetadataSuite struct {
 	testing.BaseSuite
 }
 
-func TestImageMetadataSuite(t *stdtesting.T) { tc.Run(t, &ImageMetadataSuite{}) }
+func TestImageMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &ImageMetadataSuite{})
+}
+
 func (s *ImageMetadataSuite) env(c *tc.C, imageMetadataURL, stream string, defaultsDisabled bool) environs.Environ {
 	attrs := testing.FakeConfig()
 	if stream != "" {

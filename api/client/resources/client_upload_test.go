@@ -29,7 +29,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestUploadSuite(t *stdtesting.T) { tc.Run(t, &UploadSuite{}) }
+func TestUploadSuite(t *stdtesting.T) {
+	tc.Run(t, &UploadSuite{})
+}
 
 type UploadSuite struct {
 	mockHTTPClient   *httpmocks.MockHTTPDoer

@@ -20,7 +20,9 @@ type metadataSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestMetadataSuite(t *stdtesting.T) { tc.Run(t, &metadataSuite{}) }
+func TestMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &metadataSuite{})
+}
 
 var metadataDecodeTestCases = [...]struct {
 	name      string
@@ -445,7 +447,9 @@ type metadataStateSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestMetadataStateSuite(t *stdtesting.T) { tc.Run(t, &metadataStateSuite{}) }
+func TestMetadataStateSuite(t *stdtesting.T) {
+	tc.Run(t, &metadataStateSuite{})
+}
 
 // Bake the charm.RunAs values into the database.
 func (s *metadataStateSuite) TestMetadataRunAs(c *tc.C) {

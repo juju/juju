@@ -18,7 +18,10 @@ type relationKeySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRelationKeySuite(t *stdtesting.T) { tc.Run(t, &relationKeySuite{}) }
+func TestRelationKeySuite(t *stdtesting.T) {
+	tc.Run(t, &relationKeySuite{})
+}
+
 func (s *relationKeySuite) TestParseRelationKey(c *tc.C) {
 	tests := []struct {
 		summary     string

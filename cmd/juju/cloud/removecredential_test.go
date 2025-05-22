@@ -29,7 +29,10 @@ type removeCredentialSuite struct {
 	fakeClient      *fakeRemoveCredentialAPI
 }
 
-func TestRemoveCredentialSuite(t *stdtesting.T) { tc.Run(t, &removeCredentialSuite{}) }
+func TestRemoveCredentialSuite(t *stdtesting.T) {
+	tc.Run(t, &removeCredentialSuite{})
+}
+
 func (s *removeCredentialSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.cloudByNameFunc = jujucloud.CloudByName

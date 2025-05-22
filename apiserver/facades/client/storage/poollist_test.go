@@ -22,7 +22,9 @@ type poolSuite struct {
 	baseStorageSuite
 }
 
-func TestPoolSuite(t *stdtesting.T) { tc.Run(t, &poolSuite{}) }
+func TestPoolSuite(t *stdtesting.T) {
+	tc.Run(t, &poolSuite{})
+}
 
 const (
 	tstName = "testpool"

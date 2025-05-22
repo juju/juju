@@ -16,7 +16,10 @@ import (
 
 type bundleMockSuite struct{}
 
-func TestBundleMockSuite(t *stdtesting.T) { tc.Run(t, &bundleMockSuite{}) }
+func TestBundleMockSuite(t *stdtesting.T) {
+	tc.Run(t, &bundleMockSuite{})
+}
+
 func (s *bundleMockSuite) TestGetChangesMapArgs(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -20,7 +20,10 @@ type FlagsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestFlagsSuite(t *stdtesting.T) { tc.Run(t, &FlagsSuite{}) }
+func TestFlagsSuite(t *stdtesting.T) {
+	tc.Run(t, &FlagsSuite{})
+}
+
 func (*FlagsSuite) TestConfigFlagSet(c *tc.C) {
 	var f ConfigFlag
 	c.Assert(f.Set("a.yaml"), tc.ErrorIsNil)

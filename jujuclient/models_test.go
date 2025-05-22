@@ -20,7 +20,10 @@ type ModelsSuite struct {
 	store jujuclient.ModelStore
 }
 
-func TestModelsSuite(t *stdtesting.T) { tc.Run(t, &ModelsSuite{}) }
+func TestModelsSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelsSuite{})
+}
+
 func (s *ModelsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclient.NewFileClientStore()

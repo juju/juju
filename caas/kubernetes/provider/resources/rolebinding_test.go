@@ -19,7 +19,10 @@ type roleBindingSuite struct {
 	resourceSuite
 }
 
-func TestRoleBindingSuite(t *stdtesting.T) { tc.Run(t, &roleBindingSuite{}) }
+func TestRoleBindingSuite(t *stdtesting.T) {
+	tc.Run(t, &roleBindingSuite{})
+}
+
 func (s *roleBindingSuite) TestApply(c *tc.C) {
 	roleBinding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{

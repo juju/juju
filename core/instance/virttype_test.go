@@ -11,7 +11,10 @@ import (
 
 type VirtTypeSuite struct{}
 
-func TestVirtTypeSuite(t *stdtesting.T) { tc.Run(t, &VirtTypeSuite{}) }
+func TestVirtTypeSuite(t *stdtesting.T) {
+	tc.Run(t, &VirtTypeSuite{})
+}
+
 func (s *VirtTypeSuite) TestParseVirtType(c *tc.C) {
 	parseVirtTypeTests := []struct {
 		arg   string

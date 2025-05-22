@@ -18,7 +18,10 @@ type contextSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestContextSuite(t *stdtesting.T) { tc.Run(t, &contextSuite{}) }
+func TestContextSuite(t *stdtesting.T) {
+	tc.Run(t, &contextSuite{})
+}
+
 func (s *contextSuite) TestSourceableErrorIsNilIfErrorIsNotContextError(c *tc.C) {
 	var tomb tomb.Tomb
 	tomb.Kill(errors.New("tomb error"))

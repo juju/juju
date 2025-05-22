@@ -31,7 +31,9 @@ type errorsSuite struct {
 	testing.BaseSuite
 }
 
-func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &errorsSuite{}) }
+func TestErrorsSuite(t *stdtesting.T) {
+	tc.Run(t, &errorsSuite{})
+}
 
 var errorTransformTests = []struct {
 	err          error

@@ -37,7 +37,10 @@ type migrationServiceSuite struct {
 	service *MigrationService
 }
 
-func TestMigrationServiceSuite(t *stdtesting.T) { tc.Run(t, &migrationServiceSuite{}) }
+func TestMigrationServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &migrationServiceSuite{})
+}
+
 func (s *migrationServiceSuite) TestGetCharmIDWithoutRevision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -28,7 +28,10 @@ type termSizeSuite struct {
 	nCh       chan os.Signal
 }
 
-func TestTermSizeSuite(t *stdtesting.T) { tc.Run(t, &termSizeSuite{}) }
+func TestTermSizeSuite(t *stdtesting.T) {
+	tc.Run(t, &termSizeSuite{})
+}
+
 func (s *termSizeSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 

@@ -124,7 +124,10 @@ type WorkerValidationSuite struct {
 	workerFixture
 }
 
-func TestWorkerValidationSuite(t *stdtesting.T) { tc.Run(t, &WorkerValidationSuite{}) }
+func TestWorkerValidationSuite(t *stdtesting.T) {
+	tc.Run(t, &WorkerValidationSuite{})
+}
+
 func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 	type test struct {
 		f      func(*apiserver.Config)

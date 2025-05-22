@@ -20,7 +20,10 @@ type facadeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &facadeSuite{}) }
+func TestFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &facadeSuite{})
+}
+
 func (s *facadeSuite) TestReportKeys(c *tc.C) {
 	stub := new(testhelpers.Stub)
 	apiCaller := basetesting.APICallerFunc(func(

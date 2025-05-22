@@ -12,7 +12,9 @@ import (
 	"github.com/juju/juju/internal/charm/resource"
 )
 
-func TestTypeSuite(t *stdtesting.T) { tc.Run(t, &TypeSuite{}) }
+func TestTypeSuite(t *stdtesting.T) {
+	tc.Run(t, &TypeSuite{})
+}
 
 type TypeSuite struct{}
 

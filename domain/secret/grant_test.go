@@ -16,7 +16,9 @@ type grantSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestGrantSuite(t *stdtesting.T) { tc.Run(t, &grantSuite{}) }
+func TestGrantSuite(t *stdtesting.T) {
+	tc.Run(t, &grantSuite{})
+}
 
 // TestRoleDBValues ensures there's no skew between what's in the
 // database table for role and the typed consts used in the secret package.

@@ -18,7 +18,9 @@ type authSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAuthSuite(t *stdtesting.T) { tc.Run(t, &authSuite{}) }
+func TestAuthSuite(t *stdtesting.T) {
+	tc.Run(t, &authSuite{})
+}
 
 var (
 	ecrContent = `

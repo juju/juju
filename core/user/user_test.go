@@ -15,7 +15,10 @@ type userSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUserSuite(t *stdtesting.T) { tc.Run(t, &userSuite{}) }
+func TestUserSuite(t *stdtesting.T) {
+	tc.Run(t, &userSuite{})
+}
+
 func (s *userSuite) TestIsValidUser(c *tc.C) {
 	for i, t := range []struct {
 		string string

@@ -34,7 +34,10 @@ type bootstrapSuite struct {
 
 type ModelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, error)
 
-func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &bootstrapSuite{}) }
+func TestBootstrapSuite(t *stdtesting.T) {
+	tc.Run(t, &bootstrapSuite{})
+}
+
 func (f ModelDefaultsProviderFunc) ModelDefaults(
 	c context.Context,
 ) (modeldefaults.Defaults, error) {

@@ -27,7 +27,10 @@ type updateCloudSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestUpdateCloudSuite(t *stdtesting.T) { tc.Run(t, &updateCloudSuite{}) }
+func TestUpdateCloudSuite(t *stdtesting.T) {
+	tc.Run(t, &updateCloudSuite{})
+}
+
 func (s *updateCloudSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.api = &fakeUpdateCloudAPI{}

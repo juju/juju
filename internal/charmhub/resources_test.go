@@ -22,7 +22,10 @@ type ResourcesSuite struct {
 	baseSuite
 }
 
-func TestResourcesSuite(t *stdtesting.T) { tc.Run(t, &ResourcesSuite{}) }
+func TestResourcesSuite(t *stdtesting.T) {
+	tc.Run(t, &ResourcesSuite{})
+}
+
 func (s *ResourcesSuite) TestListResourceRevisions(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

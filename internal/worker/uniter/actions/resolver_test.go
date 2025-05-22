@@ -24,7 +24,10 @@ type actionsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestActionsSuite(t *stdtesting.T) { tc.Run(t, &actionsSuite{}) }
+func TestActionsSuite(t *stdtesting.T) {
+	tc.Run(t, &actionsSuite{})
+}
+
 func (s *actionsSuite) newResolver(c *tc.C) resolver.Resolver {
 	return actions.NewResolver(loggertesting.WrapCheckLog(c))
 }

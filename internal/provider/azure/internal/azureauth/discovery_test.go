@@ -15,7 +15,9 @@ type DiscoverySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDiscoverySuite(t *stdtesting.T) { tc.Run(t, &DiscoverySuite{}) }
+func TestDiscoverySuite(t *stdtesting.T) {
+	tc.Run(t, &DiscoverySuite{})
+}
 
 //func (*DiscoverySuite) TestDiscoverAuthorizationURI(c *tc.C) {
 //	sender := mocks.NewSender()

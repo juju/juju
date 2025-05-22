@@ -16,7 +16,10 @@ type dependencySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDependencySuite(t *stdtesting.T) { tc.Run(t, &dependencySuite{}) }
+func TestDependencySuite(t *stdtesting.T) {
+	tc.Run(t, &dependencySuite{})
+}
+
 func (s *dependencySuite) TestGetDependencyByName(c *tc.C) {
 	getter := dependencytesting.StubGetter(map[string]any{
 		"foo": foo{},

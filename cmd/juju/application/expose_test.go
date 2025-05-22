@@ -23,7 +23,10 @@ type ExposeSuite struct {
 	testing.BaseSuite
 }
 
-func TestExposeSuite(t *stdtesting.T) { tc.Run(t, &ExposeSuite{}) }
+func TestExposeSuite(t *stdtesting.T) {
+	tc.Run(t, &ExposeSuite{})
+}
+
 func runExpose(c *tc.C, api ApplicationExposeAPI, args ...string) error {
 	exposeCmd := &exposeCommand{api: api}
 	exposeCmd.SetClientStore(jujuclienttesting.MinimalStore())

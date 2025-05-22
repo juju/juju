@@ -28,7 +28,10 @@ type statusSetterSuite struct {
 	badTag names.Tag
 }
 
-func TestStatusSetterSuite(t *stdtesting.T) { tc.Run(t, &statusSetterSuite{}) }
+func TestStatusSetterSuite(t *stdtesting.T) {
+	tc.Run(t, &statusSetterSuite{})
+}
+
 func (s *statusSetterSuite) SetUpTest(c *tc.C) {
 	s.badTag = nil
 }

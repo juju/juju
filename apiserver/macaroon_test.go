@@ -27,7 +27,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestMacaroonLoginSuite(t *stdtesting.T) { tc.Run(t, &macaroonLoginSuite{}) }
+func TestMacaroonLoginSuite(t *stdtesting.T) {
+	tc.Run(t, &macaroonLoginSuite{})
+}
 
 type macaroonLoginSuite struct {
 	remoteUser user.Name

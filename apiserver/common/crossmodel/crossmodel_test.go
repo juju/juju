@@ -27,7 +27,10 @@ type crossmodelSuite struct {
 	statusService *mocks.MockStatusService
 }
 
-func TestCrossmodelSuite(t *stdtesting.T) { tc.Run(t, &crossmodelSuite{}) }
+func TestCrossmodelSuite(t *stdtesting.T) {
+	tc.Run(t, &crossmodelSuite{})
+}
+
 func (s *crossmodelSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.statusService = mocks.NewMockStatusService(ctrl)

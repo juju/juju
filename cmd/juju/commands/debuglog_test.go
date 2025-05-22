@@ -24,7 +24,10 @@ type DebugLogSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestDebugLogSuite(t *stdtesting.T) { tc.Run(t, &DebugLogSuite{}) }
+func TestDebugLogSuite(t *stdtesting.T) {
+	tc.Run(t, &DebugLogSuite{})
+}
+
 func (s *DebugLogSuite) TestArgParsing(c *tc.C) {
 	for i, test := range []struct {
 		args     []string

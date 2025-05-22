@@ -15,7 +15,10 @@ type authSuite struct {
 	BaseSuite
 }
 
-func TestAuthSuite(t *stdtesting.T) { tc.Run(t, &authSuite{}) }
+func TestAuthSuite(t *stdtesting.T) {
+	tc.Run(t, &authSuite{})
+}
+
 func (s *authSuite) TestNewComputeService(c *tc.C) {
 	_, err := newComputeService(c.Context(), s.Credentials, jujuhttp.NewClient())
 	c.Assert(err, tc.ErrorIsNil)

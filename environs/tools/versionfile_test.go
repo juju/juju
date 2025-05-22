@@ -17,7 +17,10 @@ type versionSuite struct {
 	testing.BaseSuite
 }
 
-func TestVersionSuite(t *stdtesting.T) { tc.Run(t, &versionSuite{}) }
+func TestVersionSuite(t *stdtesting.T) {
+	tc.Run(t, &versionSuite{})
+}
+
 func getVersions(c *tc.C) *tools.Versions {
 	r := bytes.NewReader([]byte(data))
 	versions, err := tools.ParseVersions(r)

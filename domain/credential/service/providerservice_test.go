@@ -21,7 +21,10 @@ type providerServiceSuite struct {
 	baseSuite
 }
 
-func TestProviderServiceSuite(t *stdtesting.T) { tc.Run(t, &providerServiceSuite{}) }
+func TestProviderServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &providerServiceSuite{})
+}
+
 func (s *providerServiceSuite) service() *WatchableProviderService {
 	return NewWatchableProviderService(s.state, s.watcherFactory)
 }

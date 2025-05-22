@@ -50,7 +50,10 @@ There are no models available. You can add models with
 of a model to grant access to that model with "juju grant".
 `
 
-func TestRegisterSuite(t *stdtesting.T) { tc.Run(t, &RegisterSuite{}) }
+func TestRegisterSuite(t *stdtesting.T) {
+	tc.Run(t, &RegisterSuite{})
+}
+
 func (s *RegisterSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 

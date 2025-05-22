@@ -16,7 +16,10 @@ type diskSuite struct {
 	google.BaseSuite
 }
 
-func TestDiskSuite(t *stdtesting.T) { tc.Run(t, &diskSuite{}) }
+func TestDiskSuite(t *stdtesting.T) {
+	tc.Run(t, &diskSuite{})
+}
+
 func (s *diskSuite) TestDiskSpecTooSmall(c *tc.C) {
 	tooSmall := s.DiskSpec.TooSmall()
 

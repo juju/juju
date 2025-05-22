@@ -28,7 +28,10 @@ type serviceSuite struct {
 	watcherFactory *MockWatcherFactory
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) TestGetMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

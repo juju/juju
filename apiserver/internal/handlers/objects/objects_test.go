@@ -31,7 +31,10 @@ type objectsHandlerSuite struct {
 	srv *httptest.Server
 }
 
-func TestObjectsHandlerSuite(t *stdtesting.T) { tc.Run(t, &objectsHandlerSuite{}) }
+func TestObjectsHandlerSuite(t *stdtesting.T) {
+	tc.Run(t, &objectsHandlerSuite{})
+}
+
 func (s *objectsHandlerSuite) SetUpTest(c *tc.C) {
 	s.mux = apiserverhttp.NewMux()
 	s.srv = httptest.NewServer(s.mux)

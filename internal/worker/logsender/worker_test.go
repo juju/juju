@@ -27,7 +27,9 @@ type workerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
 type logsenderAPI struct {
 	writer *mocks.MockLogWriter

@@ -15,7 +15,10 @@ type FeatureSetSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFeatureSetSuite(t *stdtesting.T) { tc.Run(t, &FeatureSetSuite{}) }
+func TestFeatureSetSuite(t *stdtesting.T) {
+	tc.Run(t, &FeatureSetSuite{})
+}
+
 func (s *FeatureSetSuite) TestAsList(c *tc.C) {
 	var fs FeatureSet
 	fs.Add(

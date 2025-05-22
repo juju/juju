@@ -30,7 +30,9 @@ var (
 
 type Suite struct{}
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &Suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &Suite{})
+}
 
 type RootDiskTest struct {
 	series         string

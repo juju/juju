@@ -129,7 +129,10 @@ type macaroonNoURLSuite struct {
 	macaroonCommonSuite
 }
 
-func TestMacaroonNoURLSuite(t *stdtesting.T) { tc.Run(t, &macaroonNoURLSuite{}) }
+func TestMacaroonNoURLSuite(t *stdtesting.T) {
+	tc.Run(t, &macaroonNoURLSuite{})
+}
+
 func (s *macaroonNoURLSuite) TestNoBakeryWhenNoIdentityURL(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

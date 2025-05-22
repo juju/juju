@@ -27,7 +27,10 @@ type networkConfigSuite struct {
 	bridgePorts           map[string][]string
 }
 
-func TestNetworkConfigSuite(t *stdtesting.T) { tc.Run(t, &networkConfigSuite{}) }
+func TestNetworkConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &networkConfigSuite{})
+}
+
 func (s *networkConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

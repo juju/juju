@@ -19,7 +19,10 @@ type cloudNativeUniterSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestCloudNativeUniterSuite(t *stdtesting.T) { tc.Run(t, &cloudNativeUniterSuite{}) }
+func TestCloudNativeUniterSuite(t *stdtesting.T) {
+	tc.Run(t, &cloudNativeUniterSuite{})
+}
+
 func (s *cloudNativeUniterSuite) TestCloudSpec(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, tc.Equals, "Uniter")

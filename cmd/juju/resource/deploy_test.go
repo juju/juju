@@ -27,7 +27,10 @@ type DeploySuite struct {
 	stub *testhelpers.Stub
 }
 
-func TestDeploySuite(t *stdtesting.T) { tc.Run(t, &DeploySuite{}) }
+func TestDeploySuite(t *stdtesting.T) {
+	tc.Run(t, &DeploySuite{})
+}
+
 func (s *DeploySuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

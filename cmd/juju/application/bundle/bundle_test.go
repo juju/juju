@@ -25,7 +25,10 @@ type buildModelRepSuite struct {
 	modelExtractor *mocks.MockModelExtractor
 }
 
-func TestBuildModelRepSuite(t *stdtesting.T) { tc.Run(t, &buildModelRepSuite{}) }
+func TestBuildModelRepSuite(t *stdtesting.T) {
+	tc.Run(t, &buildModelRepSuite{})
+}
+
 func (s *buildModelRepSuite) TestBuildModelRepresentationEmptyModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyGetAnnotations()

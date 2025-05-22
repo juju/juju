@@ -15,7 +15,10 @@ import (
 
 type normaliseWatcherSuite struct{}
 
-func TestNormaliseWatcherSuite(t *stdtesting.T) { tc.Run(t, &normaliseWatcherSuite{}) }
+func TestNormaliseWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &normaliseWatcherSuite{})
+}
+
 func (s *normaliseWatcherSuite) TestStringsWatcher(c *tc.C) {
 	ch := make(chan []string, 1)
 	source := watchertest.NewMockStringsWatcher(ch)

@@ -17,7 +17,10 @@ type FlagSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFlagSuite(t *stdtesting.T) { tc.Run(t, &FlagSuite{}) }
+func TestFlagSuite(t *stdtesting.T) {
+	tc.Run(t, &FlagSuite{})
+}
+
 func (*FlagSuite) TestFlagOutputBadWorker(c *tc.C) {
 	in := &stubWorker{}
 	var out engine.Flag

@@ -41,7 +41,10 @@ type applicationOffersSuite struct {
 	api *applicationoffers.OffersAPIv5
 }
 
-func TestApplicationOffersSuite(t *stdtesting.T) { tc.Run(t, &applicationOffersSuite{}) }
+func TestApplicationOffersSuite(t *stdtesting.T) {
+	tc.Run(t, &applicationOffersSuite{})
+}
+
 func (s *applicationOffersSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.applicationOffers = &stubApplicationOffers{
@@ -1362,7 +1365,10 @@ type consumeSuite struct {
 	api *applicationoffers.OffersAPIv5
 }
 
-func TestConsumeSuite(t *stdtesting.T) { tc.Run(t, &consumeSuite{}) }
+func TestConsumeSuite(t *stdtesting.T) {
+	tc.Run(t, &consumeSuite{})
+}
+
 func (s *consumeSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}

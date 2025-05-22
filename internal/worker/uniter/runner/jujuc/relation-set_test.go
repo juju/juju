@@ -23,7 +23,9 @@ type RelationSetSuite struct {
 	relationSuite
 }
 
-func TestRelationSetSuite(t *stdtesting.T) { tc.Run(t, &RelationSetSuite{}) }
+func TestRelationSetSuite(t *stdtesting.T) {
+	tc.Run(t, &RelationSetSuite{})
+}
 
 var helpTests = []struct {
 	relid  int

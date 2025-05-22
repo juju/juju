@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 )
 
-func TestContextSuite(t *stdtesting.T) { tc.Run(t, &ContextSuite{}) }
+func TestContextSuite(t *stdtesting.T) {
+	tc.Run(t, &ContextSuite{})
+}
 
 type ContextSuite struct {
 	testhelpers.IsolationSuite

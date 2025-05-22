@@ -33,7 +33,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestCrossModelSecretsSuite(t *stdtesting.T) { tc.Run(t, &CrossModelSecretsSuite{}) }
+func TestCrossModelSecretsSuite(t *stdtesting.T) {
+	tc.Run(t, &CrossModelSecretsSuite{})
+}
 
 type CrossModelSecretsSuite struct {
 	coretesting.BaseSuite

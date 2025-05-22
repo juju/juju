@@ -24,7 +24,10 @@ type instanceSuite struct {
 	commonSuite
 }
 
-func TestInstanceSuite(t *stdtesting.T) { tc.Run(t, &instanceSuite{}) }
+func TestInstanceSuite(t *stdtesting.T) {
+	tc.Run(t, &instanceSuite{})
+}
+
 func (s *instanceSuite) SetUpTest(c *tc.C) {
 	s.commonSuite.SetUpTest(c)
 }

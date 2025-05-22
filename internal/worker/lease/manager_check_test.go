@@ -20,7 +20,10 @@ type TokenSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTokenSuite(t *stdtesting.T) { tc.Run(t, &TokenSuite{}) }
+func TestTokenSuite(t *stdtesting.T) {
+	tc.Run(t, &TokenSuite{})
+}
+
 func (s *TokenSuite) TestSuccess(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{

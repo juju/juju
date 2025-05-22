@@ -50,7 +50,10 @@ type watcherSuite struct {
 	relationCount int
 }
 
-func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
+func TestWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
+
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 

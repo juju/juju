@@ -31,7 +31,10 @@ type storageProvisionerSuite struct {
 	managedFilesystemSource *mockManagedFilesystemSource
 }
 
-func TestStorageProvisionerSuite(t *stdtesting.T) { tc.Run(t, &storageProvisionerSuite{}) }
+func TestStorageProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &storageProvisionerSuite{})
+}
+
 func (s *storageProvisionerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = &dummyProvider{dynamic: true}

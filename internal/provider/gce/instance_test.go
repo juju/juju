@@ -17,7 +17,10 @@ type instanceSuite struct {
 	gce.BaseSuite
 }
 
-func TestInstanceSuite(t *stdtesting.T) { tc.Run(t, &instanceSuite{}) }
+func TestInstanceSuite(t *stdtesting.T) {
+	tc.Run(t, &instanceSuite{})
+}
+
 func (s *instanceSuite) TestNewInstance(c *tc.C) {
 	inst := gce.NewInstance(s.BaseInstance, s.Env)
 

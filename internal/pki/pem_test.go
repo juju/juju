@@ -20,7 +20,10 @@ type PEMSuite struct {
 	signer crypto.Signer
 }
 
-func TestPEMSuite(t *stdtesting.T) { tc.Run(t, &PEMSuite{}) }
+func TestPEMSuite(t *stdtesting.T) {
+	tc.Run(t, &PEMSuite{})
+}
+
 func (p *PEMSuite) SetUpTest(c *tc.C) {
 	signer, err := pki.DefaultKeyProfile()
 	c.Assert(err, tc.ErrorIsNil)

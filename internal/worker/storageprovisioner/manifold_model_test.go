@@ -22,7 +22,10 @@ type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
+
 func (s *ManifoldSuite) TestManifold(c *tc.C) {
 	manifold := storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 		APICallerName:       "grenouille",

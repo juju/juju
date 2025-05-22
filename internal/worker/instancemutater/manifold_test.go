@@ -146,7 +146,10 @@ type environAPIManifoldSuite struct {
 	worker    *mocks.MockWorker
 }
 
-func TestEnvironAPIManifoldSuite(t *stdtesting.T) { tc.Run(t, &environAPIManifoldSuite{}) }
+func TestEnvironAPIManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &environAPIManifoldSuite{})
+}
+
 func (s *environAPIManifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -237,7 +240,10 @@ type modelManifoldSuite struct {
 	api         *mocks.MockInstanceMutaterAPI
 }
 
-func TestModelManifoldSuite(t *stdtesting.T) { tc.Run(t, &modelManifoldSuite{}) }
+func TestModelManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &modelManifoldSuite{})
+}
+
 func (s *modelManifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -512,7 +518,10 @@ type brokerAPIManifoldSuite struct {
 	worker    *mocks.MockWorker
 }
 
-func TestBrokerAPIManifoldSuite(t *stdtesting.T) { tc.Run(t, &brokerAPIManifoldSuite{}) }
+func TestBrokerAPIManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &brokerAPIManifoldSuite{})
+}
+
 func (s *brokerAPIManifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -603,7 +612,10 @@ type machineManifoldSuite struct {
 	api         *mocks.MockInstanceMutaterAPI
 }
 
-func TestMachineManifoldSuite(t *stdtesting.T) { tc.Run(t, &machineManifoldSuite{}) }
+func TestMachineManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &machineManifoldSuite{})
+}
+
 func (s *machineManifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

@@ -64,7 +64,10 @@ type serverSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-func TestServerSuite(t *stdtesting.T) { tc.Run(t, &serverSuite{}) }
+func TestServerSuite(t *stdtesting.T) {
+	tc.Run(t, &serverSuite{})
+}
+
 func (s *serverSuite) TestStop(c *tc.C) {
 	conn, machine := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 

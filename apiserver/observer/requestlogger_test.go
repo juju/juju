@@ -21,7 +21,10 @@ type RequestLoggerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRequestLoggerSuite(t *stdtesting.T) { tc.Run(t, &RequestLoggerSuite{}) }
+func TestRequestLoggerSuite(t *stdtesting.T) {
+	tc.Run(t, &RequestLoggerSuite{})
+}
+
 func (s *RequestLoggerSuite) TestAgentLoginWritesLog(c *tc.C) {
 	notifier, logger := s.makeNotifier(c)
 

@@ -45,7 +45,9 @@ type DestroySuite struct {
 	baseDestroySuite
 }
 
-func TestDestroySuite(t *stdtesting.T) { tc.Run(t, &DestroySuite{}) }
+func TestDestroySuite(t *stdtesting.T) {
+	tc.Run(t, &DestroySuite{})
+}
 
 type baseDestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite

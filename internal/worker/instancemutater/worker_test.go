@@ -37,7 +37,10 @@ type workerConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWorkerConfigSuite(t *stdtesting.T) { tc.Run(t, &workerConfigSuite{}) }
+func TestWorkerConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &workerConfigSuite{})
+}
+
 func (s *workerConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
@@ -171,7 +174,10 @@ type workerSuite struct {
 	newWorkerFunc func(instancemutater.Config, instancemutater.RequiredMutaterContextFunc) (worker.Worker, error)
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
+
 func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
@@ -189,7 +195,9 @@ type workerEnvironSuite struct {
 	workerSuite
 }
 
-func TestWorkerEnvironSuite(t *stdtesting.T) { tc.Run(t, &workerEnvironSuite{}) }
+func TestWorkerEnvironSuite(t *stdtesting.T) {
+	tc.Run(t, &workerEnvironSuite{})
+}
 
 // TestFullWorkflow uses the the expectation scenarios from each of the tests
 // below to compose a test of the whole instance mutator scenario, from start
@@ -700,7 +708,10 @@ type workerContainerSuite struct {
 	lxdContainer    *mocks.MockMutaterMachine
 }
 
-func TestWorkerContainerSuite(t *stdtesting.T) { tc.Run(t, &workerContainerSuite{}) }
+func TestWorkerContainerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerContainerSuite{})
+}
+
 func (s *workerContainerSuite) SetUpTest(c *tc.C) {
 	s.workerSuite.SetUpTest(c)
 

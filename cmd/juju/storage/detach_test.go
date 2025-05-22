@@ -22,7 +22,10 @@ type DetachStorageSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDetachStorageSuite(t *stdtesting.T) { tc.Run(t, &DetachStorageSuite{}) }
+func TestDetachStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &DetachStorageSuite{})
+}
+
 func (s *DetachStorageSuite) TestDetach(c *tc.C) {
 	fake := fakeEntityDetacher{results: []params.ErrorResult{
 		{},

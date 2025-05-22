@@ -68,10 +68,13 @@ type rebootResolverSuite struct {
 	baseResolverSuite
 }
 
-func TestCaasResolverSuite(t *stdtesting.T)       { tc.Run(t, &caasResolverSuite{}) }
-func TestIaasResolverSuite(t *stdtesting.T)       { tc.Run(t, &iaasResolverSuite{}) }
-func TestConflictedResolverSuite(t *stdtesting.T) { tc.Run(t, &conflictedResolverSuite{}) }
-func TestRebootResolverSuite(t *stdtesting.T)     { tc.Run(t, &rebootResolverSuite{}) }
+func TestCaasResolverSuite(t *stdtesting.T) { tc.Run(t, &caasResolverSuite{}) }
+func TestIaasResolverSuite(t *stdtesting.T) { tc.Run(t, &iaasResolverSuite{}) }
+func TestConflictedResolverSuite(t *stdtesting.T) {
+	tc.Run(t, &conflictedResolverSuite{})
+}
+
+func TestRebootResolverSuite(t *stdtesting.T) { tc.Run(t, &rebootResolverSuite{}) }
 
 const rebootNotDetected = false
 const rebootDetected = true

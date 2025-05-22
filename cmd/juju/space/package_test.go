@@ -34,7 +34,10 @@ type BaseSpaceSuite struct {
 	api        *StubAPI
 }
 
-func TestBaseSpaceSuite(t *stdtesting.T) { tc.Run(t, &BaseSpaceSuite{}) }
+func TestBaseSpaceSuite(t *stdtesting.T) {
+	tc.Run(t, &BaseSpaceSuite{})
+}
+
 func (s *BaseSpaceSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)

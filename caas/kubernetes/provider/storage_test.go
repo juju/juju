@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
+func TestStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &storageSuite{})
+}
 
 type storageSuite struct {
 	BaseSuite

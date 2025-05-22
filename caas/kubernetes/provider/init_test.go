@@ -16,7 +16,10 @@ type initSuite struct {
 	testing.BaseSuite
 }
 
-func TestInitSuite(t *stdtesting.T) { tc.Run(t, &initSuite{}) }
+func TestInitSuite(t *stdtesting.T) {
+	tc.Run(t, &initSuite{})
+}
+
 func (s *initSuite) TestLabelSelectorGlobalResourcesLifecycle(c *tc.C) {
 	c.Assert(
 		provider.CompileLifecycleModelTeardownSelector().String(), tc.DeepEquals,

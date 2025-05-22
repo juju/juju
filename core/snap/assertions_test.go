@@ -15,7 +15,9 @@ import (
 	"github.com/juju/juju/core/snap"
 )
 
-func TestSnapSuite(t *stdtesting.T) { tc.Run(t, &SnapSuite{}) }
+func TestSnapSuite(t *stdtesting.T) {
+	tc.Run(t, &SnapSuite{})
+}
 
 var (
 	snapProxyResponse = `

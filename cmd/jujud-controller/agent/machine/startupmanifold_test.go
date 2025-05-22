@@ -24,7 +24,10 @@ type MachineStartupSuite struct {
 	startCalled bool
 }
 
-func TestMachineStartupSuite(t *stdtesting.T) { tc.Run(t, &MachineStartupSuite{}) }
+func TestMachineStartupSuite(t *stdtesting.T) {
+	tc.Run(t, &MachineStartupSuite{})
+}
+
 func (s *MachineStartupSuite) SetUpTest(c *tc.C) {
 	s.startCalled = false
 	s.manifold = machine.MachineStartupManifold(machine.MachineStartupConfig{

@@ -24,7 +24,10 @@ type spacesSuite struct {
 	API     *spaces.API
 }
 
-func TestSpacesSuite(t *stdtesting.T) { tc.Run(t, &spacesSuite{}) }
+func TestSpacesSuite(t *stdtesting.T) {
+	tc.Run(t, &spacesSuite{})
+}
+
 func (s *spacesSuite) SetUpTest(c *tc.C) {
 }
 

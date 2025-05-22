@@ -24,7 +24,10 @@ type deployerIAASSuite struct {
 	machineGetter *MockMachineGetter
 }
 
-func TestDeployerIAASSuite(t *stdtesting.T) { tc.Run(t, &deployerIAASSuite{}) }
+func TestDeployerIAASSuite(t *stdtesting.T) {
+	tc.Run(t, &deployerIAASSuite{})
+}
+
 func (s *deployerIAASSuite) TestValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

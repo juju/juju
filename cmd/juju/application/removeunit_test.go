@@ -36,7 +36,10 @@ type RemoveUnitSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestRemoveUnitSuite(t *stdtesting.T) { tc.Run(t, &RemoveUnitSuite{}) }
+func TestRemoveUnitSuite(t *stdtesting.T) {
+	tc.Run(t, &RemoveUnitSuite{})
+}
+
 func (s *RemoveUnitSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclienttesting.MinimalStore()

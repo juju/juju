@@ -434,7 +434,10 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *tc.C) {
 
 type productSpecSuite struct{}
 
-func TestProductSpecSuite(t *stdtesting.T) { tc.Run(t, &productSpecSuite{}) }
+func TestProductSpecSuite(t *stdtesting.T) {
+	tc.Run(t, &productSpecSuite{})
+}
+
 func (s *productSpecSuite) TestIndexIdNoStream(c *tc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(semversion.MustParse("1.13.0"), simplestreams.LookupParams{
 		Releases: []string{"ubuntu"},
@@ -567,7 +570,10 @@ type metadataHelperSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestMetadataHelperSuite(t *stdtesting.T) { tc.Run(t, &metadataHelperSuite{}) }
+func TestMetadataHelperSuite(t *stdtesting.T) {
+	tc.Run(t, &metadataHelperSuite{})
+}
+
 func (*metadataHelperSuite) TestMetadataFromTools(c *tc.C) {
 	metadata := tools.MetadataFromTools(nil, "proposed")
 	c.Assert(metadata, tc.HasLen, 0)

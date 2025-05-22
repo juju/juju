@@ -25,7 +25,10 @@ type TrustSuite struct {
 func (s *TrustSuite) SetUpTest(c *tc.C) {
 	s.store = jujuclienttesting.MinimalStore()
 }
-func TestTrustSuite(t *stdtesting.T) { tc.Run(t, &TrustSuite{}) }
+func TestTrustSuite(t *stdtesting.T) {
+	tc.Run(t, &TrustSuite{})
+}
+
 func (s *TrustSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.applicationAPI = mocks.NewMockApplicationAPI(ctrl)

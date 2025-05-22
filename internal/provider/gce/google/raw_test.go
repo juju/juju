@@ -27,7 +27,10 @@ type rawConnSuite struct {
 	opCallErr              error
 }
 
-func TestRawConnSuite(t *stdtesting.T) { tc.Run(t, &rawConnSuite{}) }
+func TestRawConnSuite(t *stdtesting.T) {
+	tc.Run(t, &rawConnSuite{})
+}
+
 func (s *rawConnSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
@@ -160,7 +163,10 @@ func (s *rawConnSuite) TestConnectionWaitOperationError(c *tc.C) {
 
 type firewallNameSuite struct{}
 
-func TestFirewallNameSuite(t *stdtesting.T) { tc.Run(t, &firewallNameSuite{}) }
+func TestFirewallNameSuite(t *stdtesting.T) {
+	tc.Run(t, &firewallNameSuite{})
+}
+
 func (s *firewallNameSuite) TestSimplePattern(c *tc.C) {
 	res := MatchesPrefix("juju-3-123", "juju-3")
 	c.Assert(res, tc.Equals, true)

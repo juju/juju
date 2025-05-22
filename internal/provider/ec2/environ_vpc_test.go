@@ -27,7 +27,10 @@ type vpcSuite struct {
 	stubAPI *stubVPCAPIClient
 }
 
-func TestVpcSuite(t *stdtesting.T) { tc.Run(t, &vpcSuite{}) }
+func TestVpcSuite(t *stdtesting.T) {
+	tc.Run(t, &vpcSuite{})
+}
+
 func (s *vpcSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

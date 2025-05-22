@@ -22,7 +22,10 @@ type backendSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBackendSuite(t *stdtesting.T) { tc.Run(t, &backendSuite{}) }
+func TestBackendSuite(t *stdtesting.T) {
+	tc.Run(t, &backendSuite{})
+}
+
 func (s *backendSuite) TestSaveContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

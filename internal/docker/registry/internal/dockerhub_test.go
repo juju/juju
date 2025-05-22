@@ -32,7 +32,10 @@ type dockerhubSuite struct {
 	authToken        string
 }
 
-func TestDockerhubSuite(t *stdtesting.T) { tc.Run(t, &dockerhubSuite{}) }
+func TestDockerhubSuite(t *stdtesting.T) {
+	tc.Run(t, &dockerhubSuite{})
+}
+
 func (s *dockerhubSuite) getRegistry(c *tc.C) (registry.Registry, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 

@@ -18,7 +18,9 @@ import (
 
 type ConstraintsSuite struct{}
 
-func TestConstraintsSuite(t *stdtesting.T) { tc.Run(t, &ConstraintsSuite{}) }
+func TestConstraintsSuite(t *stdtesting.T) {
+	tc.Run(t, &ConstraintsSuite{})
+}
 
 var parseConstraintsTests = []struct {
 	summary string

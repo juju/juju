@@ -9,7 +9,9 @@ import (
 	"github.com/juju/tc"
 )
 
-func TestHooksSuite(t *stdtesting.T) { tc.Run(t, &HooksSuite{}) }
+func TestHooksSuite(t *stdtesting.T) {
+	tc.Run(t, &HooksSuite{})
+}
 
 type HooksSuite struct{}
 

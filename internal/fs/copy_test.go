@@ -14,7 +14,9 @@ import (
 
 type copySuite struct{}
 
-func TestCopySuite(t *stdtesting.T) { tc.Run(t, &copySuite{}) }
+func TestCopySuite(t *stdtesting.T) {
+	tc.Run(t, &copySuite{})
+}
 
 var copyTests = []struct {
 	about string

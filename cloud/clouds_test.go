@@ -21,7 +21,9 @@ type cloudSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestCloudSuite(t *stdtesting.T) { tc.Run(t, &cloudSuite{}) }
+func TestCloudSuite(t *stdtesting.T) {
+	tc.Run(t, &cloudSuite{})
+}
 
 var publicCloudNames = []string{
 	"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "oracle",

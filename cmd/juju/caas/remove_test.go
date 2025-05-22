@@ -46,7 +46,9 @@ type removeCAASSuite struct {
 	store              *fakeCredentialStore
 }
 
-func TestRemoveCAASSuite(t *stdtesting.T) { tc.Run(t, &removeCAASSuite{}) }
+func TestRemoveCAASSuite(t *stdtesting.T) {
+	tc.Run(t, &removeCAASSuite{})
+}
 
 type fakeRemoveCloudAPI struct {
 	caas.RemoveCloudAPI

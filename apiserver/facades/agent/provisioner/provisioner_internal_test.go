@@ -27,7 +27,10 @@ type provisionerSuite struct {
 	keyUpdaterService       *MockKeyUpdaterService
 }
 
-func TestProvisionerSuite(t *stdtesting.T) { tc.Run(t, &provisionerSuite{}) }
+func TestProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &provisionerSuite{})
+}
+
 func (s *provisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.agentProvisionerService = NewMockAgentProvisionerService(ctrl)

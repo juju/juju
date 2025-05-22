@@ -30,7 +30,10 @@ type imageutilsSuite struct {
 	invalidator *MockCredentialInvalidator
 }
 
-func TestImageutilsSuite(t *stdtesting.T) { tc.Run(t, &imageutilsSuite{}) }
+func TestImageutilsSuite(t *stdtesting.T) {
+	tc.Run(t, &imageutilsSuite{})
+}
+
 func (s *imageutilsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockSender = &azuretesting.MockSender{}

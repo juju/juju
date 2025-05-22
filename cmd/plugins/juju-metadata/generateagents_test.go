@@ -42,7 +42,10 @@ type GenerateAgentsSuite struct {
 	publicStorageDir string
 }
 
-func TestGenerateAgentsSuite(t *stdtesting.T) { tc.Run(t, &GenerateAgentsSuite{}) }
+func TestGenerateAgentsSuite(t *stdtesting.T) {
+	tc.Run(t, &GenerateAgentsSuite{})
+}
+
 func (s *GenerateAgentsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{

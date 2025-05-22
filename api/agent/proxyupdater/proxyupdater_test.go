@@ -22,7 +22,10 @@ type ProxyUpdaterSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestProxyUpdaterSuite(t *stdtesting.T) { tc.Run(t, &ProxyUpdaterSuite{}) }
+func TestProxyUpdaterSuite(t *stdtesting.T) {
+	tc.Run(t, &ProxyUpdaterSuite{})
+}
+
 func newAPI(c *tc.C, args ...apitesting.APICall) (*int, *proxyupdater.API) {
 	apiCaller := apitesting.APICallChecker(c, args...)
 	api, err := proxyupdater.NewAPI(apiCaller.APICallerFunc, names.NewUnitTag("u/0"))

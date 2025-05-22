@@ -22,7 +22,10 @@ type environNetSuite struct {
 	lxd.EnvironSuite
 }
 
-func TestEnvironNetSuite(t *stdtesting.T) { tc.Run(t, &environNetSuite{}) }
+func TestEnvironNetSuite(t *stdtesting.T) {
+	tc.Run(t, &environNetSuite{})
+}
+
 func (s *environNetSuite) TestSubnetsForClustered(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

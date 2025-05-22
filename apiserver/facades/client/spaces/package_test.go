@@ -35,7 +35,10 @@ type APISuite struct {
 	ApplicationService      *MockApplicationService
 }
 
-func TestAPISuite(t *stdtesting.T) { tc.Run(t, &APISuite{}) }
+func TestAPISuite(t *stdtesting.T) {
+	tc.Run(t, &APISuite{})
+}
+
 func (s *APISuite) TearDownTest(_ *tc.C) {
 	s.API = nil
 }

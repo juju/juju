@@ -24,7 +24,10 @@ type bootstrapSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &bootstrapSuite{}) }
+func TestBootstrapSuite(t *stdtesting.T) {
+	tc.Run(t, &bootstrapSuite{})
+}
+
 func (*bootstrapSuite) TestBootstrapModelDefaults(c *tc.C) {
 	provider := ModelDefaultsProvider(
 		map[string]any{

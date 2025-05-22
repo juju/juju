@@ -25,7 +25,10 @@ type machineWorkerSuite struct {
 	baseSuite
 }
 
-func TestMachineWorkerSuite(t *stdtesting.T) { tc.Run(t, &machineWorkerSuite{}) }
+func TestMachineWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &machineWorkerSuite{})
+}
+
 func (s *machineWorkerSuite) TestAlreadyUpgraded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

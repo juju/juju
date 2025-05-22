@@ -85,7 +85,10 @@ type ProvisionerTaskSuite struct {
 	instanceBroker *testInstanceBroker
 }
 
-func TestProvisionerTaskSuite(t *stdtesting.T) { tc.Run(t, &ProvisionerTaskSuite{}) }
+func TestProvisionerTaskSuite(t *stdtesting.T) {
+	tc.Run(t, &ProvisionerTaskSuite{})
+}
+
 func (s *ProvisionerTaskSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
@@ -1582,7 +1585,9 @@ func (s *ProvisionerTaskSuite) expectProvisioningInfo(machines ...*testMachine) 
 type MachineClassifySuite struct {
 }
 
-func TestMachineClassifySuite(t *stdtesting.T) { tc.Run(t, &MachineClassifySuite{}) }
+func TestMachineClassifySuite(t *stdtesting.T) {
+	tc.Run(t, &MachineClassifySuite{})
+}
 
 type machineClassificationTest struct {
 	description    string

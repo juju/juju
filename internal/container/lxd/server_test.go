@@ -18,7 +18,10 @@ type serverSuite struct {
 	lxdtesting.BaseSuite
 }
 
-func TestServerSuite(t *stdtesting.T) { tc.Run(t, &serverSuite{}) }
+func TestServerSuite(t *stdtesting.T) {
+	tc.Run(t, &serverSuite{})
+}
+
 func (s *serverSuite) TestUpdateServerConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

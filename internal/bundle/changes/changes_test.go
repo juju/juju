@@ -30,7 +30,10 @@ type changesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestChangesSuite(t *stdtesting.T) { tc.Run(t, &changesSuite{}) }
+func TestChangesSuite(t *stdtesting.T) {
+	tc.Run(t, &changesSuite{})
+}
+
 func (s *changesSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	err := loggo.ConfigureLoggers("bundlechanges=trace")

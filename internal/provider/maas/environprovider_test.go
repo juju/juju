@@ -26,7 +26,10 @@ type EnvironProviderSuite struct {
 	maasSuite
 }
 
-func TestEnvironProviderSuite(t *stdtesting.T) { tc.Run(t, &EnvironProviderSuite{}) }
+func TestEnvironProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &EnvironProviderSuite{})
+}
+
 func (s *EnvironProviderSuite) cloudSpec() environscloudspec.CloudSpec {
 	credential := oauthCredential("aa:bb:cc")
 	return environscloudspec.CloudSpec{
@@ -126,7 +129,10 @@ type MaasPingSuite struct {
 	testing.BaseSuite
 }
 
-func TestMaasPingSuite(t *stdtesting.T) { tc.Run(t, &MaasPingSuite{}) }
+func TestMaasPingSuite(t *stdtesting.T) {
+	tc.Run(t, &MaasPingSuite{})
+}
+
 func (s *MaasPingSuite) TestPingNoEndpoint(c *tc.C) {
 	endpoint := "https://foo.com/MAAS"
 	var serverURLs []string

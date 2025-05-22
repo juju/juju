@@ -22,7 +22,10 @@ type WaitUntilExpiredSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWaitUntilExpiredSuite(t *stdtesting.T) { tc.Run(t, &WaitUntilExpiredSuite{}) }
+func TestWaitUntilExpiredSuite(t *stdtesting.T) {
+	tc.Run(t, &WaitUntilExpiredSuite{})
+}
+
 func (s *WaitUntilExpiredSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	logger := loggo.GetLogger("juju.worker.lease")

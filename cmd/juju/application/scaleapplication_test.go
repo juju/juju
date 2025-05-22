@@ -26,7 +26,9 @@ type ScaleApplicationSuite struct {
 	mockAPI *mockScaleApplicationAPI
 }
 
-func TestScaleApplicationSuite(t *stdtesting.T) { tc.Run(t, &ScaleApplicationSuite{}) }
+func TestScaleApplicationSuite(t *stdtesting.T) {
+	tc.Run(t, &ScaleApplicationSuite{})
+}
 
 type mockScaleApplicationAPI struct {
 	*testhelpers.Stub

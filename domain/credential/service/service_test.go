@@ -29,7 +29,10 @@ type serviceSuite struct {
 	baseSuite
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) service(c *tc.C) *WatchableService {
 	return NewWatchableService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 }

@@ -79,7 +79,10 @@ type RefreshSuite struct {
 	BaseRefreshSuite
 }
 
-func TestRefreshSuite(t *stdtesting.T) { tc.Run(t, &RefreshSuite{}) }
+func TestRefreshSuite(t *stdtesting.T) {
+	tc.Run(t, &RefreshSuite{})
+}
+
 func (s *RefreshSuite) SetUpTest(c *tc.C) {
 	s.BaseRefreshSuite.SetUpSuite(c)
 	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@12.10"), charm.MustParseURL("ch:foo-1"), charm.MustParseURL("ch:foo-2"))
@@ -1023,7 +1026,10 @@ type RefreshCharmHubSuite struct {
 	BaseRefreshSuite
 }
 
-func TestRefreshCharmHubSuite(t *stdtesting.T) { tc.Run(t, &RefreshCharmHubSuite{}) }
+func TestRefreshCharmHubSuite(t *stdtesting.T) {
+	tc.Run(t, &RefreshCharmHubSuite{})
+}
+
 func (s *RefreshCharmHubSuite) SetUpTest(c *tc.C) {
 	s.BaseRefreshSuite.SetUpSuite(c)
 	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@12.10"), charm.MustParseURL("ch:foo-1"), charm.MustParseURL("ch:foo-2"))

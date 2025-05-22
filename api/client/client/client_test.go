@@ -24,7 +24,9 @@ import (
 
 type clientSuite struct{}
 
-func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
+func TestClientSuite(t *stdtesting.T) {
+	tc.Run(t, &clientSuite{})
+}
 
 // TODO(jam) 2013-08-27 http://pad.lv/1217282
 // Right now most of the direct tests for client.Client behavior are in

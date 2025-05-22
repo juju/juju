@@ -23,7 +23,10 @@ type controllerconfigSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestControllerconfigSuite(t *stdtesting.T) { tc.Run(t, &controllerconfigSuite{}) }
+func TestControllerconfigSuite(t *stdtesting.T) {
+	tc.Run(t, &controllerconfigSuite{})
+}
+
 func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *tc.C) {
 	st := domainstate.NewState(s.TxnRunnerFactory())
 	srv := service.NewService(st)

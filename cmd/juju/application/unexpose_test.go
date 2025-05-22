@@ -22,7 +22,10 @@ type UnexposeSuite struct {
 	testing.BaseSuite
 }
 
-func TestUnexposeSuite(t *stdtesting.T) { tc.Run(t, &UnexposeSuite{}) }
+func TestUnexposeSuite(t *stdtesting.T) {
+	tc.Run(t, &UnexposeSuite{})
+}
+
 func runUnexpose(c *tc.C, api ApplicationExposeAPI, args ...string) error {
 	unexposeCmd := &unexposeCommand{api: api}
 	unexposeCmd.SetClientStore(jujuclienttesting.MinimalStore())

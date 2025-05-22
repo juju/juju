@@ -15,7 +15,10 @@ import (
 type cloudSuite struct {
 }
 
-func TestCloudSuite(t *stdtesting.T) { tc.Run(t, &cloudSuite{}) }
+func TestCloudSuite(t *stdtesting.T) {
+	tc.Run(t, &cloudSuite{})
+}
+
 func (*cloudSuite) TestFinalizeCloudSetAuthTypes(c *tc.C) {
 	environCloud := environProviderCloud{}
 	r, err := environCloud.FinalizeCloud(nil, cloud.Cloud{})

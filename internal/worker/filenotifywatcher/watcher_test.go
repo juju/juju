@@ -20,7 +20,10 @@ type watcherSuite struct {
 	baseSuite
 }
 
-func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
+func TestWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
+
 func (s *watcherSuite) TestWatching(c *tc.C) {
 	dir, err := os.MkdirTemp("", "inotify")
 	c.Assert(err, tc.ErrorIsNil)

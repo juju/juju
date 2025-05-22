@@ -23,7 +23,10 @@ type uniterAPIErrorSuite struct {
 	testing.ApiServerSuite
 }
 
-func TestUniterAPIErrorSuite(t *stdtesting.T) { tc.Run(t, &uniterAPIErrorSuite{}) }
+func TestUniterAPIErrorSuite(t *stdtesting.T) {
+	tc.Run(t, &uniterAPIErrorSuite{})
+}
+
 func (s *uniterAPIErrorSuite) SetupTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 

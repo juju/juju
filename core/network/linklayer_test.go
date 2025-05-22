@@ -18,7 +18,10 @@ type linkLayerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLinkLayerSuite(t *stdtesting.T) { tc.Run(t, &linkLayerSuite{}) }
+func TestLinkLayerSuite(t *stdtesting.T) {
+	tc.Run(t, &linkLayerSuite{})
+}
+
 func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeValid(c *tc.C) {
 	validTypes := []LinkLayerDeviceType{
 		LoopbackDevice,

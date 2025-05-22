@@ -33,7 +33,10 @@ func repoMeta(c *tc.C, name string) io.Reader {
 
 type MetaSuite struct{}
 
-func TestMetaSuite(t *stdtesting.T) { tc.Run(t, &MetaSuite{}) }
+func TestMetaSuite(t *stdtesting.T) {
+	tc.Run(t, &MetaSuite{})
+}
+
 func (s *MetaSuite) TestReadMetaVersion1(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "dummy"))
 	c.Assert(err, tc.IsNil)
@@ -1703,7 +1706,10 @@ var dummyMeta = &charm.Meta{
 
 type FormatMetaSuite struct{}
 
-func TestFormatMetaSuite(t *stdtesting.T) { tc.Run(t, &FormatMetaSuite{}) }
+func TestFormatMetaSuite(t *stdtesting.T) {
+	tc.Run(t, &FormatMetaSuite{})
+}
+
 func (FormatMetaSuite) TestCheckV1Fails(c *tc.C) {
 	meta := charm.Meta{}
 	err := meta.Check(charm.FormatV1)

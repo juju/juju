@@ -19,7 +19,10 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
+
 func (s *stateSuite) TestModelConfigUpdate(c *tc.C) {
 	// tests are purposefully additive in this approach.
 	tests := []struct {

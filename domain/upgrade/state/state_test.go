@@ -27,7 +27,10 @@ type stateSuite struct {
 	upgradeUUID domainupgrade.UUID
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
+
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.st = NewState(s.TxnRunnerFactory())

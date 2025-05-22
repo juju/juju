@@ -11,7 +11,10 @@ import (
 
 type typesSuite struct{}
 
-func TestTypesSuite(t *stdtesting.T) { tc.Run(t, &typesSuite{}) }
+func TestTypesSuite(t *stdtesting.T) {
+	tc.Run(t, &typesSuite{})
+}
+
 func (s *typesSuite) TestValidate(c *tc.C) {
 	// Arrange
 	args := GetRelationUUIDForRemovalArgs{

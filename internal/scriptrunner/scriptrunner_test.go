@@ -21,7 +21,10 @@ type ScriptRunnerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestScriptRunnerSuite(t *stdtesting.T) { tc.Run(t, &ScriptRunnerSuite{}) }
+func TestScriptRunnerSuite(t *stdtesting.T) {
+	tc.Run(t, &ScriptRunnerSuite{})
+}
+
 func (s *ScriptRunnerSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 }

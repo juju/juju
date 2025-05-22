@@ -18,7 +18,10 @@ type providerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
+func TestProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &providerSuite{})
+}
+
 func (s *providerSuite) TestInitClient(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

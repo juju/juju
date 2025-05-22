@@ -19,7 +19,10 @@ type adminSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestAdminSuite(t *stdtesting.T) { tc.Run(t, &adminSuite{}) }
+func TestAdminSuite(t *stdtesting.T) {
+	tc.Run(t, &adminSuite{})
+}
+
 func (s *adminSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(mongo.InstallMongo, func(string) error {

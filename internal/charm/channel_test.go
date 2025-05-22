@@ -17,7 +17,10 @@ type channelSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestChannelSuite(t *stdtesting.T) { tc.Run(t, &channelSuite{}) }
+func TestChannelSuite(t *stdtesting.T) {
+	tc.Run(t, &channelSuite{})
+}
+
 func (s *channelSuite) TestParseChannelNormalize(c *tc.C) {
 	// ParseChannelNormalize tests ParseChannel as well.
 	tests := []struct {

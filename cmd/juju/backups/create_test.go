@@ -28,7 +28,10 @@ type createSuite struct {
 	expectedErr string
 }
 
-func TestCreateSuite(t *stdtesting.T) { tc.Run(t, &createSuite{}) }
+func TestCreateSuite(t *stdtesting.T) {
+	tc.Run(t, &createSuite{})
+}
+
 func (s *createSuite) SetUpTest(c *tc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = backups.NewCreateCommandForTest(s.store)

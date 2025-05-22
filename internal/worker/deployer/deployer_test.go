@@ -33,7 +33,10 @@ type deployerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDeployerSuite(t *stdtesting.T) { tc.Run(t, &deployerSuite{}) }
+func TestDeployerSuite(t *stdtesting.T) {
+	tc.Run(t, &deployerSuite{})
+}
+
 func (s *deployerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	loggo.GetLogger("test.deployer").SetLogLevel(loggo.TRACE)

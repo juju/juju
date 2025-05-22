@@ -17,7 +17,10 @@ import (
 
 type ParserSuite struct{}
 
-func TestParserSuite(t *stdtesting.T) { tc.Run(t, &ParserSuite{}) }
+func TestParserSuite(t *stdtesting.T) {
+	tc.Run(t, &ParserSuite{})
+}
+
 func (s *ParserSuite) TestNestedExpressionUnmarshalingFromYAML(c *tc.C) {
 	payload := `
 assumes:

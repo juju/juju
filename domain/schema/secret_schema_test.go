@@ -20,7 +20,10 @@ type secretSchemaSuite struct {
 	schemaBaseSuite
 }
 
-func TestSecretSchemaSuite(t *stdtesting.T) { tc.Run(t, &secretSchemaSuite{}) }
+func TestSecretSchemaSuite(t *stdtesting.T) {
+	tc.Run(t, &secretSchemaSuite{})
+}
+
 func (s *secretSchemaSuite) TestControllerChangeLogTriggersForSecretBackends(c *tc.C) {
 	s.applyDDL(c, ControllerDDL())
 

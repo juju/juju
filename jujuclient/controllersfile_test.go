@@ -22,7 +22,9 @@ type ControllersFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestControllersFileSuite(t *stdtesting.T) { tc.Run(t, &ControllersFileSuite{}) }
+func TestControllersFileSuite(t *stdtesting.T) {
+	tc.Run(t, &ControllersFileSuite{})
+}
 
 const testControllersYAML = `
 controllers:

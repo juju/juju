@@ -27,7 +27,9 @@ type addImageSuite struct {
 	mockAPI *mockAddAPI
 }
 
-func TestAddImageSuite(t *stdtesting.T) { tc.Run(t, &addImageSuite{}) }
+func TestAddImageSuite(t *stdtesting.T) {
+	tc.Run(t, &addImageSuite{})
+}
 
 var emptyMetadata = []params.CloudImageMetadata{}
 

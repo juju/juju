@@ -20,7 +20,10 @@ type launchpadSuite struct {
 	client *MockClient
 }
 
-func TestLaunchpadSuite(t *stdtesting.T) { tc.Run(t, &launchpadSuite{}) }
+func TestLaunchpadSuite(t *stdtesting.T) {
+	tc.Run(t, &launchpadSuite{})
+}
+
 func (s *launchpadSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.client = NewMockClient(ctrl)

@@ -19,7 +19,9 @@ type exportSuite struct {
 	modelExportService *MockExportService
 }
 
-func TestExportSuite(t *stdtesting.T) { tc.Run(t, &exportSuite{}) }
+func TestExportSuite(t *stdtesting.T) {
+	tc.Run(t, &exportSuite{})
+}
 
 // ptr returns a pointer to the value t passed in.
 func ptr[T any](t T) *T {

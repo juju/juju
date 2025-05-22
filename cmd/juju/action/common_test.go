@@ -13,7 +13,9 @@ import (
 
 type CommonSuite struct{}
 
-func TestCommonSuite(t *stdtesting.T) { tc.Run(t, &CommonSuite{}) }
+func TestCommonSuite(t *stdtesting.T) {
+	tc.Run(t, &CommonSuite{})
+}
 
 type insertSliceValue struct {
 	valuePath []string

@@ -19,7 +19,10 @@ import (
 
 type usermanagerSuite struct{}
 
-func TestUsermanagerSuite(t *stdtesting.T) { tc.Run(t, &usermanagerSuite{}) }
+func TestUsermanagerSuite(t *stdtesting.T) {
+	tc.Run(t, &usermanagerSuite{})
+}
+
 func (s *usermanagerSuite) TestAddExistingUser(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

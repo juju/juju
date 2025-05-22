@@ -25,7 +25,10 @@ type TrackerSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestTrackerSuite(t *stdtesting.T) { tc.Run(t, &TrackerSuite{}) }
+func TestTrackerSuite(t *stdtesting.T) {
+	tc.Run(t, &TrackerSuite{})
+}
+
 func (s *TrackerSuite) validConfig(c *tc.C) caasbroker.Config {
 	return caasbroker.Config{
 		ConfigAPI: &runContext{},

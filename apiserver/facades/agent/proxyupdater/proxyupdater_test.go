@@ -37,7 +37,10 @@ type ProxyUpdaterSuite struct {
 	controllerConfigService *MockControllerConfigService
 }
 
-func TestProxyUpdaterSuite(t *stdtesting.T) { tc.Run(t, &ProxyUpdaterSuite{}) }
+func TestProxyUpdaterSuite(t *stdtesting.T) {
+	tc.Run(t, &ProxyUpdaterSuite{})
+}
+
 func (s *ProxyUpdaterSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 }

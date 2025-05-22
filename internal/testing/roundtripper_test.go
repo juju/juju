@@ -16,7 +16,10 @@ import (
 
 type metadataSuite struct{}
 
-func TestMetadataSuite(t *stdtesting.T) { tc.Run(t, &metadataSuite{}) }
+func TestMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &metadataSuite{})
+}
+
 func (s *metadataSuite) TestCannedRoundTripper(c *tc.C) {
 	aContent := "a-content"
 	vrt := testing.NewCannedRoundTripper(map[string]string{

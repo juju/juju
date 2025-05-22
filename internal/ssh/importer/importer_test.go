@@ -19,7 +19,10 @@ type importerSuite struct {
 	resolver *MockResolver
 }
 
-func TestImporterSuite(t *stdtesting.T) { tc.Run(t, &importerSuite{}) }
+func TestImporterSuite(t *stdtesting.T) {
+	tc.Run(t, &importerSuite{})
+}
+
 func (i *importerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	i.resolver = NewMockResolver(ctrl)

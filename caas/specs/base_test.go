@@ -16,7 +16,9 @@ type baseSuite struct {
 	testing.BaseSuite
 }
 
-func TestBaseSuite(t *stdtesting.T) { tc.Run(t, &baseSuite{}) }
+func TestBaseSuite(t *stdtesting.T) {
+	tc.Run(t, &baseSuite{})
+}
 
 type validator interface {
 	Validate() error

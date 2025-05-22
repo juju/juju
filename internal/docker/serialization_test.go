@@ -13,7 +13,10 @@ import (
 
 type DockerResourceSuite struct{}
 
-func TestDockerResourceSuite(t *stdtesting.T) { tc.Run(t, &DockerResourceSuite{}) }
+func TestDockerResourceSuite(t *stdtesting.T) {
+	tc.Run(t, &DockerResourceSuite{})
+}
+
 func (s *DockerResourceSuite) TestValidRegistryPath(c *tc.C) {
 	for _, registryTest := range []struct {
 		registryPath string

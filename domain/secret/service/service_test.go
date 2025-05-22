@@ -53,7 +53,10 @@ type serviceSuite struct {
 	fakeUUID uuid.UUID
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) SetUpTest(c *tc.C) {
 	s.modelID = modeltesting.GenModelUUID(c)
 	var err error

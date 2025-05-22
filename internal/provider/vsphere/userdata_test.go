@@ -20,7 +20,10 @@ type UserdataSuite struct {
 	testing.BaseSuite
 }
 
-func TestUserdataSuite(t *stdtesting.T) { tc.Run(t, &UserdataSuite{}) }
+func TestUserdataSuite(t *stdtesting.T) {
+	tc.Run(t, &UserdataSuite{})
+}
+
 func (s *UserdataSuite) TestVsphereUnix(c *tc.C) {
 	renderer := vsphere.VsphereRenderer{}
 	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}

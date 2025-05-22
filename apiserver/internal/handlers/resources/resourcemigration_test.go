@@ -46,7 +46,10 @@ type resourcesUploadSuite struct {
 	srv *httptest.Server
 }
 
-func TestResourcesUploadSuite(t *stdtesting.T) { tc.Run(t, &resourcesUploadSuite{}) }
+func TestResourcesUploadSuite(t *stdtesting.T) {
+	tc.Run(t, &resourcesUploadSuite{})
+}
+
 func (s *resourcesUploadSuite) SetUpTest(c *tc.C) {
 	s.content = "resource-content"
 	s.origin = charmresource.OriginStore

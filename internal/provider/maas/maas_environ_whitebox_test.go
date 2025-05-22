@@ -58,7 +58,10 @@ type maasEnvironSuite struct {
 	maasSuite
 }
 
-func TestMaasEnvironSuite(t *stdtesting.T) { tc.Run(t, &maasEnvironSuite{}) }
+func TestMaasEnvironSuite(t *stdtesting.T) {
+	tc.Run(t, &maasEnvironSuite{})
+}
+
 func (suite *maasEnvironSuite) getEnvWithServer(c *tc.C) (*maasEnviron, error) {
 	testServer := gomaasapi.NewSimpleServer()
 	testServer.AddGetResponse("/api/2.0/version/", http.StatusOK, maasVersionResponse)

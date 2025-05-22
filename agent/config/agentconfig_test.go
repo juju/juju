@@ -19,7 +19,10 @@ type agentConfSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestAgentConfSuite(t *stdtesting.T) { tc.Run(t, &agentConfSuite{}) }
+func TestAgentConfSuite(t *stdtesting.T) {
+	tc.Run(t, &agentConfSuite{})
+}
+
 func (s *agentConfSuite) TestChangeConfigSuccess(c *tc.C) {
 	mcsw := &mockConfigSetterWriter{}
 	conf := NewAgentConfigWithConfigSetterWriter(c.MkDir(), mcsw)
@@ -62,7 +65,10 @@ type readAgentConfigSuite struct {
 	agentConfigReader *MockAgentConfigReader
 }
 
-func TestReadAgentConfigSuite(t *stdtesting.T) { tc.Run(t, &readAgentConfigSuite{}) }
+func TestReadAgentConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &readAgentConfigSuite{})
+}
+
 func (s *readAgentConfigSuite) TestReadAgentConfigMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

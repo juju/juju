@@ -26,7 +26,10 @@ type MachineRebootTestSuite struct {
 	mockRebootService *mocks.MockMachineRebootService
 }
 
-func TestMachineRebootTestSuite(t *stdtesting.T) { tc.Run(t, &MachineRebootTestSuite{}) }
+func TestMachineRebootTestSuite(t *stdtesting.T) {
+	tc.Run(t, &MachineRebootTestSuite{})
+}
+
 func (s *MachineRebootTestSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockRebootService = mocks.NewMockMachineRebootService(ctrl)

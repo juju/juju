@@ -23,7 +23,10 @@ type manifoldSuite struct {
 	agent *mockAgent
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &manifoldSuite{})
+}
+
 func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 

@@ -23,7 +23,10 @@ type UnitAccessorSuite struct {
 	applicationService *MockApplicationService
 }
 
-func TestUnitAccessorSuite(t *stdtesting.T) { tc.Run(t, &UnitAccessorSuite{}) }
+func TestUnitAccessorSuite(t *stdtesting.T) {
+	tc.Run(t, &UnitAccessorSuite{})
+}
+
 func (s *UnitAccessorSuite) TestApplicationAgent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

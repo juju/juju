@@ -15,7 +15,10 @@ import (
 type errorsSuite struct {
 }
 
-func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &errorsSuite{}) }
+func TestErrorsSuite(t *stdtesting.T) {
+	tc.Run(t, &errorsSuite{})
+}
+
 func (*errorsSuite) TestZoneIndependentErrorConforms(c *tc.C) {
 	err := fmt.Errorf("fly screens on a submarine: %w", environs.ErrAvailabilityZoneIndependent)
 	c.Assert(err, tc.ErrorIs, environs.ErrAvailabilityZoneIndependent)

@@ -16,7 +16,9 @@ import (
 
 type markdownSuite struct{}
 
-func TestMarkdownSuite(t *stdtesting.T) { tc.Run(t, &markdownSuite{}) }
+func TestMarkdownSuite(t *stdtesting.T) {
+	tc.Run(t, &markdownSuite{})
+}
 
 // TestWriteError ensures that the cmd.PrintMarkdown function surfaces errors
 // returned by the writer.

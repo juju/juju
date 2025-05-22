@@ -21,7 +21,10 @@ type SNISuite struct {
 	sniGetter func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 }
 
-func TestSNISuite(t *stdtesting.T) { tc.Run(t, &SNISuite{}) }
+func TestSNISuite(t *stdtesting.T) {
+	tc.Run(t, &SNISuite{})
+}
+
 func (s *SNISuite) SetUpTest(c *tc.C) {
 	pki.DefaultKeyProfile = pkitest.OriginalDefaultKeyProfile
 	authority, err := pkitest.NewTestAuthority()

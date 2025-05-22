@@ -50,7 +50,10 @@ type Suite struct {
 	clock  *testclock.Clock
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &Suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &Suite{})
+}
+
 func (s *Suite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.stub = new(testhelpers.Stub)

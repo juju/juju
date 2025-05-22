@@ -32,7 +32,10 @@ type findSuite struct {
 	mockAPI *mockFindAPI
 }
 
-func TestFindSuite(t *stdtesting.T) { tc.Run(t, &findSuite{}) }
+func TestFindSuite(t *stdtesting.T) {
+	tc.Run(t, &findSuite{})
+}
+
 func (s *findSuite) SetUpTest(c *tc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 

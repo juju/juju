@@ -17,7 +17,10 @@ type relationUUIDSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRelationUUIDSuite(t *stdtesting.T) { tc.Run(t, &relationUUIDSuite{}) }
+func TestRelationUUIDSuite(t *stdtesting.T) {
+	tc.Run(t, &relationUUIDSuite{})
+}
+
 func (*relationUUIDSuite) TestUUIDValidate(c *tc.C) {
 	// Test that the uuid.Validate method succeeds and
 	// fails as expected.
@@ -55,7 +58,10 @@ type relationUnitUUIDSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRelationUnitUUIDSuite(t *stdtesting.T) { tc.Run(t, &relationUnitUUIDSuite{}) }
+func TestRelationUnitUUIDSuite(t *stdtesting.T) {
+	tc.Run(t, &relationUnitUUIDSuite{})
+}
+
 func (*relationUnitUUIDSuite) TestUUIDValidate(c *tc.C) {
 	// Test that the uuid.Validate method succeeds and
 	// fails as expected.

@@ -79,7 +79,10 @@ type BootstrapSuite struct {
 	dqliteInitializerFunc func(*tc.C, ...database.BootstrapOpt) agentbootstrap.DqliteInitializerFunc
 }
 
-func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &BootstrapSuite{}) }
+func TestBootstrapSuite(t *stdtesting.T) {
+	tc.Run(t, &BootstrapSuite{})
+}
+
 func (s *BootstrapSuite) SetUpSuite(c *tc.C) {
 	storageDir := c.MkDir()
 	restorer := testhelpers.PatchValue(&envtools.DefaultBaseURL, storageDir)

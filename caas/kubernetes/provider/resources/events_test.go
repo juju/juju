@@ -19,7 +19,10 @@ type eventsSuite struct {
 	resourceSuite
 }
 
-func TestEventsSuite(t *stdtesting.T) { tc.Run(t, &eventsSuite{}) }
+func TestEventsSuite(t *stdtesting.T) {
+	tc.Run(t, &eventsSuite{})
+}
+
 func (s *eventsSuite) TestList(c *tc.C) {
 	template := corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{

@@ -18,7 +18,9 @@ type AccountsFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestAccountsFileSuite(t *stdtesting.T) { tc.Run(t, &AccountsFileSuite{}) }
+func TestAccountsFileSuite(t *stdtesting.T) {
+	tc.Run(t, &AccountsFileSuite{})
+}
 
 const testLegacyAccountsYAML = `
 controllers:

@@ -31,7 +31,10 @@ type ShowControllerSuite struct {
 	modelConfigAPI func(controllerName string) controller.ModelConfigAPI
 }
 
-func TestShowControllerSuite(t *stdtesting.T) { tc.Run(t, &ShowControllerSuite{}) }
+func TestShowControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &ShowControllerSuite{})
+}
+
 func (s *ShowControllerSuite) SetUpTest(c *tc.C) {
 	s.baseControllerSuite.SetUpTest(c)
 	s.fakeController = &fakeController{

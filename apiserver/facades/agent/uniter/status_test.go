@@ -315,7 +315,10 @@ type UnitStatusAPISuite struct {
 	statusBaseSuite
 }
 
-func TestUnitStatusAPISuite(t *stdtesting.T) { tc.Run(t, &UnitStatusAPISuite{}) }
+func TestUnitStatusAPISuite(t *stdtesting.T) {
+	tc.Run(t, &UnitStatusAPISuite{})
+}
+
 func (s *UnitStatusAPISuite) TestSetUnitStatusUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

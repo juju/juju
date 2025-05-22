@@ -18,7 +18,10 @@ type URLsSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestURLsSuite(t *stdtesting.T) { tc.Run(t, &URLsSuite{}) }
+func TestURLsSuite(t *stdtesting.T) {
+	tc.Run(t, &URLsSuite{})
+}
+
 func (s *URLsSuite) TestImageMetadataURL(c *tc.C) {
 	var imageTests = []struct {
 		in          string

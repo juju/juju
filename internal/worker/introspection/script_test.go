@@ -17,7 +17,10 @@ type profileSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProfileSuite(t *stdtesting.T) { tc.Run(t, &profileSuite{}) }
+func TestProfileSuite(t *stdtesting.T) {
+	tc.Run(t, &profileSuite{})
+}
+
 func (*profileSuite) TestProfileFilename(c *tc.C) {
 	c.Assert(profileFilename(ProfileDir), tc.Equals, "/etc/profile.d/juju-introspection.sh")
 }

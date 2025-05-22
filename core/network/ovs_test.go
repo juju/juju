@@ -16,7 +16,10 @@ type ovsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestOvsSuite(t *stdtesting.T) { tc.Run(t, &ovsSuite{}) }
+func TestOvsSuite(t *stdtesting.T) {
+	tc.Run(t, &ovsSuite{})
+}
+
 func (s *ovsSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 }

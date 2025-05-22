@@ -23,7 +23,10 @@ type exportSuite struct {
 	service     *MockExportService
 }
 
-func TestExportSuite(t *stdtesting.T) { tc.Run(t, &exportSuite{}) }
+func TestExportSuite(t *stdtesting.T) {
+	tc.Run(t, &exportSuite{})
+}
+
 func (s *exportSuite) TestRegisterExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

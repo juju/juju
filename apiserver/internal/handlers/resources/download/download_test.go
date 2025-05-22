@@ -26,7 +26,10 @@ type ValidateSuite struct {
 	fileSystem *MockFileSystem
 }
 
-func TestValidateSuite(t *stdtesting.T) { tc.Run(t, &ValidateSuite{}) }
+func TestValidateSuite(t *stdtesting.T) {
+	tc.Run(t, &ValidateSuite{})
+}
+
 func (s *ValidateSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

@@ -18,7 +18,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestCharmFormatterSuite(t *stdtesting.T) { tc.Run(t, &CharmFormatterSuite{}) }
+func TestCharmFormatterSuite(t *stdtesting.T) {
+	tc.Run(t, &CharmFormatterSuite{})
+}
 
 type CharmFormatterSuite struct {
 	testhelpers.IsolationSuite
@@ -41,7 +43,9 @@ func (s *CharmFormatterSuite) TestFormatCharmResource(c *tc.C) {
 		Origin:      "store",
 	})
 }
-func TestSvcFormatterSuite(t *stdtesting.T) { tc.Run(t, &SvcFormatterSuite{}) }
+func TestSvcFormatterSuite(t *stdtesting.T) {
+	tc.Run(t, &SvcFormatterSuite{})
+}
 
 type SvcFormatterSuite struct {
 	testhelpers.IsolationSuite
@@ -170,7 +174,9 @@ func (s *SvcFormatterSuite) TestInitialOriginUpload(c *tc.C) {
 	f := resourcecmd.FormatAppResource(r)
 	c.Assert(f.CombinedOrigin, tc.Equals, "upload")
 }
-func TestDetailFormatterSuite(t *stdtesting.T) { tc.Run(t, &DetailFormatterSuite{}) }
+func TestDetailFormatterSuite(t *stdtesting.T) {
+	tc.Run(t, &DetailFormatterSuite{})
+}
 
 type DetailFormatterSuite struct {
 	testhelpers.IsolationSuite

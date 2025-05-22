@@ -26,7 +26,10 @@ type StatusHistorySuite struct {
 	now time.Time
 }
 
-func TestStatusHistorySuite(t *stdtesting.T) { tc.Run(t, &StatusHistorySuite{}) }
+func TestStatusHistorySuite(t *stdtesting.T) {
+	tc.Run(t, &StatusHistorySuite{})
+}
+
 func (s *StatusHistorySuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.now = time.Date(2017, 11, 28, 12, 34, 56, 0, time.UTC)

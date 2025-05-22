@@ -24,7 +24,10 @@ type configSuite struct {
 	config   *config.Config
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &configSuite{})
+}
+
 func (s *configSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

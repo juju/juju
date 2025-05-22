@@ -75,7 +75,10 @@ type WorkerValidationSuite struct {
 	workerFixture
 }
 
-func TestWorkerValidationSuite(t *stdtesting.T) { tc.Run(t, &WorkerValidationSuite{}) }
+func TestWorkerValidationSuite(t *stdtesting.T) {
+	tc.Run(t, &WorkerValidationSuite{})
+}
+
 func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 	type test struct {
 		f      func(*httpserver.Config)
@@ -117,7 +120,10 @@ type WorkerSuite struct {
 	worker *httpserver.Worker
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
+
 func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.workerFixture.SetUpTest(c)
 	worker, err := httpserver.NewWorker(s.config)

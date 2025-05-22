@@ -21,7 +21,9 @@ type metadataSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMetadataSuite(t *stdtesting.T) { tc.Run(t, &metadataSuite{}) }
+func TestMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &metadataSuite{})
+}
 
 var metadataTestCases = [...]struct {
 	name   string

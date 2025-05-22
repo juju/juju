@@ -17,7 +17,10 @@ type ApplicationSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestApplicationSuite(t *stdtesting.T) { tc.Run(t, &ApplicationSuite{}) }
+func TestApplicationSuite(t *stdtesting.T) {
+	tc.Run(t, &ApplicationSuite{})
+}
+
 func (*ApplicationSuite) TestIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string

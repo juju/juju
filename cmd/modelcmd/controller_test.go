@@ -26,7 +26,10 @@ type ControllerCommandSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestControllerCommandSuite(t *stdtesting.T) { tc.Run(t, &ControllerCommandSuite{}) }
+func TestControllerCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &ControllerCommandSuite{})
+}
+
 func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *tc.C) {
 	command, err := runTestControllerCommand(c, jujuclient.NewMemStore())
 	c.Assert(err, tc.ErrorIsNil)

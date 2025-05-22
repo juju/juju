@@ -17,7 +17,10 @@ type environSuite struct {
 	maasSuite
 }
 
-func TestEnvironSuite(t *stdtesting.T) { tc.Run(t, &environSuite{}) }
+func TestEnvironSuite(t *stdtesting.T) {
+	tc.Run(t, &environSuite{})
+}
+
 func (*environSuite) TestConvertConstraints(c *tc.C) {
 	for i, test := range []struct {
 		cons     constraints.Value

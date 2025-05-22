@@ -16,7 +16,9 @@ import (
 
 type SecretURISuite struct{}
 
-func TestSecretURISuite(t *stdtesting.T) { tc.Run(t, &SecretURISuite{}) }
+func TestSecretURISuite(t *stdtesting.T) {
+	tc.Run(t, &SecretURISuite{})
+}
 
 const (
 	secretID        = "9m4e2mr0ui3e8a215n4g"
@@ -138,7 +140,10 @@ func (s *SecretURISuite) TestIsLocal(c *tc.C) {
 
 type SecretSuite struct{}
 
-func TestSecretSuite(t *stdtesting.T) { tc.Run(t, &SecretSuite{}) }
+func TestSecretSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretSuite{})
+}
+
 func ptr[T any](v T) *T {
 	return &v
 }

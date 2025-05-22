@@ -20,7 +20,10 @@ type registerSuite struct {
 	machineTag   names.MachineTag
 }
 
-func TestRegisterSuite(t *stdtesting.T) { tc.Run(t, &registerSuite{}) }
+func TestRegisterSuite(t *stdtesting.T) {
+	tc.Run(t, &registerSuite{})
+}
+
 func (r *registerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	r.modelContext = NewMockModelContext(ctrl)

@@ -18,7 +18,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func TestManagedfsSuite(t *stdtesting.T) { tc.Run(t, &managedfsSuite{}) }
+func TestManagedfsSuite(t *stdtesting.T) {
+	tc.Run(t, &managedfsSuite{})
+}
 
 type managedfsSuite struct {
 	testing.BaseSuite

@@ -25,7 +25,9 @@ type suite struct {
 	schematesting.ModelSuite
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
 
 // TestGetModelConfigKeyValues tests that State.GetModelConfigKeyValues behaves
 // as expected:

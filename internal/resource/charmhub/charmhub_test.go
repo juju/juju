@@ -28,7 +28,10 @@ type CharmHubSuite struct {
 	downloader *MockDownloader
 }
 
-func TestCharmHubSuite(t *stdtesting.T) { tc.Run(t, &CharmHubSuite{}) }
+func TestCharmHubSuite(t *stdtesting.T) {
+	tc.Run(t, &CharmHubSuite{})
+}
+
 func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

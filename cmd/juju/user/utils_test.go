@@ -19,7 +19,10 @@ type utilsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUtilsSuite(t *stdtesting.T) { tc.Run(t, &utilsSuite{}) }
+func TestUtilsSuite(t *stdtesting.T) {
+	tc.Run(t, &utilsSuite{})
+}
+
 func (s *utilsSuite) TestGenerateUserControllerAccessToken(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

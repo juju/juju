@@ -19,7 +19,9 @@ import (
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 )
 
-func TestUpgradeValidationSuite(t *stdtesting.T) { tc.Run(t, &upgradeValidationSuite{}) }
+func TestUpgradeValidationSuite(t *stdtesting.T) {
+	tc.Run(t, &upgradeValidationSuite{})
+}
 
 type upgradeValidationSuite struct {
 	testhelpers.IsolationSuite

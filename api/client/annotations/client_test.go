@@ -18,7 +18,10 @@ import (
 
 type annotationsMockSuite struct{}
 
-func TestAnnotationsMockSuite(t *stdtesting.T) { tc.Run(t, &annotationsMockSuite{}) }
+func TestAnnotationsMockSuite(t *stdtesting.T) {
+	tc.Run(t, &annotationsMockSuite{})
+}
+
 func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

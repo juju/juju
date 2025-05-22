@@ -19,7 +19,10 @@ import (
 type charmS3DownloaderSuite struct {
 }
 
-func TestCharmS3DownloaderSuite(t *stdtesting.T) { tc.Run(t, &charmS3DownloaderSuite{}) }
+func TestCharmS3DownloaderSuite(t *stdtesting.T) {
+	tc.Run(t, &charmS3DownloaderSuite{})
+}
+
 func (s *charmS3DownloaderSuite) TestCharmOpener(c *tc.C) {
 	correctURL, err := url.Parse("ch:mycharm")
 	c.Assert(err, tc.IsNil)

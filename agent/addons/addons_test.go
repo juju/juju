@@ -28,7 +28,10 @@ type introspectionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestIntrospectionSuite(t *stdtesting.T) { tc.Run(t, &introspectionSuite{}) }
+func TestIntrospectionSuite(t *stdtesting.T) {
+	tc.Run(t, &introspectionSuite{})
+}
+
 func (s *introspectionSuite) TestStartNonLinux(c *tc.C) {
 	if runtime.GOOS == "linux" {
 		c.Skip("testing for non-linux")
@@ -127,7 +130,10 @@ type registerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRegisterSuite(t *stdtesting.T) { tc.Run(t, &registerSuite{}) }
+func TestRegisterSuite(t *stdtesting.T) {
+	tc.Run(t, &registerSuite{})
+}
+
 func (s *registerSuite) TestRegisterEngineMetrics(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

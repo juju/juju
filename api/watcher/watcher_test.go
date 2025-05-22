@@ -39,7 +39,10 @@ type watcherSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
+func TestWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
+
 func (s *watcherSuite) TestWatcherStopsOnBlockedNext(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -655,7 +658,10 @@ type migrationSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMigrationSuite(t *stdtesting.T) { tc.Run(t, &migrationSuite{}) }
+func TestMigrationSuite(t *stdtesting.T) {
+	tc.Run(t, &migrationSuite{})
+}
+
 func (s *migrationSuite) TestMigrationStatusWatcher(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

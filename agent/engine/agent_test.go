@@ -24,7 +24,10 @@ type AgentManifoldSuite struct {
 	worker   worker.Worker
 }
 
-func TestAgentManifoldSuite(t *stdtesting.T) { tc.Run(t, &AgentManifoldSuite{}) }
+func TestAgentManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &AgentManifoldSuite{})
+}
+
 func (s *AgentManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub = testhelpers.Stub{}

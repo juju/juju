@@ -15,7 +15,10 @@ type ErrorsSuite struct {
 	baseSuite
 }
 
-func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &ErrorsSuite{}) }
+func TestErrorsSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorsSuite{})
+}
+
 func (s *ErrorsSuite) TestHandleBasicAPIErrors(c *tc.C) {
 	var list transport.APIErrors
 	err := handleBasicAPIErrors(c.Context(), list, s.logger)

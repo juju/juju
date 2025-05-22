@@ -27,7 +27,10 @@ type applicationSuite struct {
 	statusSet bool
 }
 
-func TestApplicationSuite(t *stdtesting.T) { tc.Run(t, &applicationSuite{}) }
+func TestApplicationSuite(t *stdtesting.T) {
+	tc.Run(t, &applicationSuite{})
+}
+
 func (s *applicationSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.life = life.Alive

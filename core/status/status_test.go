@@ -13,7 +13,10 @@ import (
 
 type StatusSuite struct{}
 
-func TestStatusSuite(t *stdtesting.T) { tc.Run(t, &StatusSuite{}) }
+func TestStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &StatusSuite{})
+}
+
 func (s *StatusSuite) TestModification(c *tc.C) {
 	testcases := []struct {
 		name   string

@@ -19,7 +19,9 @@ import (
 
 type ControllerSuite struct{}
 
-func TestControllerSuite(t *stdtesting.T) { tc.Run(t, &ControllerSuite{}) }
+func TestControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &ControllerSuite{})
+}
 
 type dummyMux struct {
 	AddHandlerFunc    func(string, string, http.Handler) error

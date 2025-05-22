@@ -23,7 +23,9 @@ import (
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager/mocks"
 )
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	tc.Run(t, &manifoldSuite{})
+}
 
 type manifoldSuite struct {
 	testhelpers.IsolationSuite

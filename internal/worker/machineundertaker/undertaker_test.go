@@ -26,7 +26,9 @@ type undertakerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUndertakerSuite(t *stdtesting.T) { tc.Run(t, &undertakerSuite{}) }
+func TestUndertakerSuite(t *stdtesting.T) {
+	tc.Run(t, &undertakerSuite{})
+}
 
 // Some tests to check that the handler is wired up to the
 // NotifyWorker first.

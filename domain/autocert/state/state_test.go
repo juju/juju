@@ -18,7 +18,10 @@ type stateSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
+
 func (s *stateSuite) TestRetrieveCertX509(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()

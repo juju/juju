@@ -32,7 +32,10 @@ type workerConfigSuite struct {
 	config workerConfig
 }
 
-func TestWorkerConfigSuite(t *stdtesting.T) { tc.Run(t, &workerConfigSuite{}) }
+func TestWorkerConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &workerConfigSuite{})
+}
+
 func (s *workerConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = workerConfig{
@@ -79,7 +82,10 @@ type workerSuite struct {
 	stateAuthFunc NewStateAuthenticatorFunc
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
+
 func startedAuthFunc(started chan struct{}) NewStateAuthenticatorFunc {
 	return func(
 		ctx context.Context,

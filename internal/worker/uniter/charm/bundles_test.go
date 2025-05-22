@@ -29,7 +29,9 @@ type BundlesDirSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBundlesDirSuite(t *stdtesting.T) { tc.Run(t, &BundlesDirSuite{}) }
+func TestBundlesDirSuite(t *stdtesting.T) {
+	tc.Run(t, &BundlesDirSuite{})
+}
 
 type fakeBundleInfo struct {
 	charm.BundleInfo
@@ -145,7 +147,10 @@ type ClearDownloadsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestClearDownloadsSuite(t *stdtesting.T) { tc.Run(t, &ClearDownloadsSuite{}) }
+func TestClearDownloadsSuite(t *stdtesting.T) {
+	tc.Run(t, &ClearDownloadsSuite{})
+}
+
 func (s *ClearDownloadsSuite) TestWorks(c *tc.C) {
 	baseDir := c.MkDir()
 	bunsDir := filepath.Join(baseDir, "bundles")

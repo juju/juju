@@ -15,7 +15,9 @@ type storageKindSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestStorageKindSuite(t *stdtesting.T) { tc.Run(t, &storageKindSuite{}) }
+func TestStorageKindSuite(t *stdtesting.T) {
+	tc.Run(t, &storageKindSuite{})
+}
 
 // TestStorageKindDBValues ensures there's no skew between what's in the
 // database table for charm_storage_kind and the typed consts used in the state packages.

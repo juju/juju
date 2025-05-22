@@ -19,7 +19,10 @@ type errorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestErrorSuite(t *stdtesting.T) { tc.Run(t, &errorSuite{}) }
+func TestErrorSuite(t *stdtesting.T) {
+	tc.Run(t, &errorSuite{})
+}
+
 func (s *errorSuite) TestIsErrRetryable(c *tc.C) {
 	tests := []struct {
 		name     string

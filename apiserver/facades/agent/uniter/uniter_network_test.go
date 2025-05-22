@@ -11,7 +11,10 @@ import (
 
 type uniterNetworkInfoSuite struct{}
 
-func TestUniterNetworkInfoSuite(t *stdtesting.T) { tc.Run(t, &uniterNetworkInfoSuite{}) }
+func TestUniterNetworkInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &uniterNetworkInfoSuite{})
+}
+
 func (s *uniterNetworkInfoSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite had tests with the following names. To re-ensure coverage, check the 3.6 branch for definitions:
 - TestNetworkInfoPermissions

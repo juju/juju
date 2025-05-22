@@ -28,7 +28,10 @@ type exportApplicationSuite struct {
 	exportSuite
 }
 
-func TestExportApplicationSuite(t *stdtesting.T) { tc.Run(t, &exportApplicationSuite{}) }
+func TestExportApplicationSuite(t *stdtesting.T) {
+	tc.Run(t, &exportApplicationSuite{})
+}
+
 func (s *exportApplicationSuite) TestApplicationExportEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

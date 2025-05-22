@@ -18,7 +18,10 @@ type BootstrapConfigSuite struct {
 	store jujuclient.BootstrapConfigStore
 }
 
-func TestBootstrapConfigSuite(t *stdtesting.T) { tc.Run(t, &BootstrapConfigSuite{}) }
+func TestBootstrapConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &BootstrapConfigSuite{})
+}
+
 func (s *BootstrapConfigSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclient.NewFileClientStore()

@@ -48,7 +48,10 @@ type applicationServiceSuite struct {
 	baseSuite
 }
 
-func TestApplicationServiceSuite(t *stdtesting.T) { tc.Run(t, &applicationServiceSuite{}) }
+func TestApplicationServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &applicationServiceSuite{})
+}
+
 func (s *applicationServiceSuite) TestGetCharmByApplicationID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

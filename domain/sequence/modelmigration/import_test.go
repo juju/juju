@@ -19,7 +19,10 @@ type importSuite struct {
 	importService *MockImportService
 }
 
-func TestImportSuite(t *stdtesting.T) { tc.Run(t, &importSuite{}) }
+func TestImportSuite(t *stdtesting.T) {
+	tc.Run(t, &importSuite{})
+}
+
 func (s *importSuite) TestImportSequences(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

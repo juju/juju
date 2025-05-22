@@ -31,7 +31,10 @@ type ControllerUpgraderSuite struct {
 	broker *dummyUpgradeCAASController
 }
 
-func TestControllerUpgraderSuite(t *stdtesting.T) { tc.Run(t, &ControllerUpgraderSuite{}) }
+func TestControllerUpgraderSuite(t *stdtesting.T) {
+	tc.Run(t, &ControllerUpgraderSuite{})
+}
+
 func (d *dummyUpgradeCAASController) Client() kubernetes.Interface {
 	return d.client
 }

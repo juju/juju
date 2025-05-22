@@ -19,7 +19,10 @@ type facadeVersionSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestFacadeVersionSuite(t *stdtesting.T) { tc.Run(t, &facadeVersionSuite{}) }
+func TestFacadeVersionSuite(t *stdtesting.T) {
+	tc.Run(t, &facadeVersionSuite{})
+}
+
 func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *tc.C) {
 	// The client side code doesn't want to directly import the server side
 	// code just to list out what versions are available. However, we do

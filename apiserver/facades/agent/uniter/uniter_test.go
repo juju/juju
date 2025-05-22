@@ -60,7 +60,10 @@ type uniterSuite struct {
 	uniter *UniterAPI
 }
 
-func TestUniterSuite(t *stdtesting.T) { tc.Run(t, &uniterSuite{}) }
+func TestUniterSuite(t *stdtesting.T) {
+	tc.Run(t, &uniterSuite{})
+}
+
 func (s *uniterSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
@@ -809,7 +812,10 @@ type uniterv19Suite struct {
 	leadershipUniterSuite
 }
 
-func TestUniterv19Suite(t *stdtesting.T) { tc.Run(t, &uniterv19Suite{}) }
+func TestUniterv19Suite(t *stdtesting.T) {
+	tc.Run(t, &uniterv19Suite{})
+}
+
 func (s *uniterv19Suite) SetUpTest(c *tc.C) {
 	s.setupMocks = func(c *tc.C) *gomock.Controller {
 		ctrl := gomock.NewController(c)
@@ -833,7 +839,10 @@ type uniterv20Suite struct {
 	leadershipUniterSuite
 }
 
-func TestUniterv20Suite(t *stdtesting.T) { tc.Run(t, &uniterv20Suite{}) }
+func TestUniterv20Suite(t *stdtesting.T) {
+	tc.Run(t, &uniterv20Suite{})
+}
+
 func (s *uniterv20Suite) SetUpTest(c *tc.C) {
 	s.setupMocks = func(c *tc.C) *gomock.Controller {
 		ctrl := gomock.NewController(c)
@@ -868,7 +877,10 @@ type uniterRelationSuite struct {
 	uniter *UniterAPI
 }
 
-func TestUniterRelationSuite(t *stdtesting.T) { tc.Run(t, &uniterRelationSuite{}) }
+func TestUniterRelationSuite(t *stdtesting.T) {
+	tc.Run(t, &uniterRelationSuite{})
+}
+
 func (s *uniterRelationSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 	s.wordpressAppTag = names.NewApplicationTag("wordpress")
@@ -1872,7 +1884,10 @@ type commitHookChangesSuite struct {
 	uniter *UniterAPI
 }
 
-func TestCommitHookChangesSuite(t *stdtesting.T) { tc.Run(t, &commitHookChangesSuite{}) }
+func TestCommitHookChangesSuite(t *stdtesting.T) {
+	tc.Run(t, &commitHookChangesSuite{})
+}
+
 func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettings(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()

@@ -37,7 +37,10 @@ type SecretsSuite struct {
 	secretBackendService *mocks.MockSecretBackendService
 }
 
-func TestSecretsSuite(t *stdtesting.T) { tc.Run(t, &SecretsSuite{}) }
+func TestSecretsSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretsSuite{})
+}
+
 func (s *SecretsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

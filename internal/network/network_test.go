@@ -17,11 +17,16 @@ import (
 
 type InterfaceInfoSuite struct{}
 
-func TestInterfaceInfoSuite(t *stdtesting.T) { tc.Run(t, &InterfaceInfoSuite{}) }
+func TestInterfaceInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &InterfaceInfoSuite{})
+}
 
 type RouteSuite struct{}
 
-func TestRouteSuite(t *stdtesting.T) { tc.Run(t, &RouteSuite{}) }
+func TestRouteSuite(t *stdtesting.T) {
+	tc.Run(t, &RouteSuite{})
+}
+
 func checkRouteIsValid(c *tc.C, r corenetwork.Route) {
 	c.Check(r.Validate(), tc.ErrorIsNil)
 }
@@ -104,7 +109,10 @@ type NetworkSuite struct {
 	testing.BaseSuite
 }
 
-func TestNetworkSuite(t *stdtesting.T) { tc.Run(t, &NetworkSuite{}) }
+func TestNetworkSuite(t *stdtesting.T) {
+	tc.Run(t, &NetworkSuite{})
+}
+
 func (s *NetworkSuite) TestFilterBridgeAddresses(c *tc.C) {
 	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
 		if name == network.DefaultLXDBridge {
@@ -165,7 +173,10 @@ type CIDRSuite struct {
 	testing.BaseSuite
 }
 
-func TestCIDRSuite(t *stdtesting.T) { tc.Run(t, &CIDRSuite{}) }
+func TestCIDRSuite(t *stdtesting.T) {
+	tc.Run(t, &CIDRSuite{})
+}
+
 func (s *CIDRSuite) TestSubnetInAnyRange(c *tc.C) {
 	type test struct {
 		cidrs    []string

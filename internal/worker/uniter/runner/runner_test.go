@@ -38,7 +38,10 @@ type RunCommandSuite struct {
 	ContextSuite
 }
 
-func TestRunCommandSuite(t *stdtesting.T) { tc.Run(t, &RunCommandSuite{}) }
+func TestRunCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &RunCommandSuite{})
+}
+
 func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -71,7 +74,9 @@ type RunHookSuite struct {
 	ContextSuite
 }
 
-func TestRunHookSuite(t *stdtesting.T) { tc.Run(t, &RunHookSuite{}) }
+func TestRunHookSuite(t *stdtesting.T) {
+	tc.Run(t, &RunHookSuite{})
+}
 
 // LineBufferSize matches the constant used when creating
 // the bufio line reader.
@@ -318,7 +323,10 @@ type RunMockContextSuite struct {
 	paths runnertesting.RealPaths
 }
 
-func TestRunMockContextSuite(t *stdtesting.T) { tc.Run(t, &RunMockContextSuite{}) }
+func TestRunMockContextSuite(t *stdtesting.T) {
+	tc.Run(t, &RunMockContextSuite{})
+}
+
 func (s *RunMockContextSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.paths = runnertesting.NewRealPaths(c)

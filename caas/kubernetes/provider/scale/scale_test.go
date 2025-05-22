@@ -21,7 +21,10 @@ type ScaleSuite struct {
 	client *fake.Clientset
 }
 
-func TestScaleSuite(t *stdtesting.T) { tc.Run(t, &ScaleSuite{}) }
+func TestScaleSuite(t *stdtesting.T) {
+	tc.Run(t, &ScaleSuite{})
+}
+
 func (s *ScaleSuite) SetUpTest(c *tc.C) {
 	s.client = fake.NewSimpleClientset()
 	_, err := s.client.CoreV1().Namespaces().Create(

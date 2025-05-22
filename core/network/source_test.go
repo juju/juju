@@ -19,7 +19,10 @@ type sourceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSourceSuite(t *stdtesting.T) { tc.Run(t, &sourceSuite{}) }
+func TestSourceSuite(t *stdtesting.T) {
+	tc.Run(t, &sourceSuite{})
+}
+
 func (*sourceSuite) TestParseInterfaceType(c *tc.C) {
 	fakeSysPath := filepath.Join(c.MkDir(), network.SysClassNetPath)
 	err := os.MkdirAll(fakeSysPath, 0700)

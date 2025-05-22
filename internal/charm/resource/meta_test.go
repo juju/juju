@@ -12,7 +12,9 @@ import (
 	"github.com/juju/juju/internal/charm/resource"
 )
 
-func TestMetaSuite(t *stdtesting.T) { tc.Run(t, &MetaSuite{}) }
+func TestMetaSuite(t *stdtesting.T) {
+	tc.Run(t, &MetaSuite{})
+}
 
 type MetaSuite struct{}
 

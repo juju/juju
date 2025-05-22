@@ -21,7 +21,10 @@ type instanceTypesSuite struct {
 	instanceTypesFetcher *MockInstanceTypesFetcher
 }
 
-func TestInstanceTypesSuite(t *stdtesting.T) { tc.Run(t, &instanceTypesSuite{}) }
+func TestInstanceTypesSuite(t *stdtesting.T) {
+	tc.Run(t, &instanceTypesSuite{})
+}
+
 func (s *instanceTypesSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.instanceTypesFetcher = NewMockInstanceTypesFetcher(ctrl)

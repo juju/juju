@@ -20,7 +20,10 @@ type UserdataSuite struct {
 	testing.BaseSuite
 }
 
-func TestUserdataSuite(t *stdtesting.T) { tc.Run(t, &UserdataSuite{}) }
+func TestUserdataSuite(t *stdtesting.T) {
+	tc.Run(t, &UserdataSuite{})
+}
+
 func (s *UserdataSuite) TestAmazonUnix(c *tc.C) {
 	renderer := ec2.AmazonRenderer{}
 	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}

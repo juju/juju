@@ -729,7 +729,10 @@ type caasStorageSuite struct {
 	baseStorageSuite
 }
 
-func TestCaasStorageSuite(t *stdtesting.T) { tc.Run(t, &caasStorageSuite{}) }
+func TestCaasStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &caasStorageSuite{})
+}
+
 func (s *caasStorageSuite) SetUpTest(c *tc.C) {
 	s.baseStorageSuite.SetUpTest(c)
 
@@ -963,7 +966,10 @@ type iaasStorageSuite struct {
 	baseStorageSuite
 }
 
-func TestIaasStorageSuite(t *stdtesting.T) { tc.Run(t, &iaasStorageSuite{}) }
+func TestIaasStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &iaasStorageSuite{})
+}
+
 func (s *iaasStorageSuite) SetUpTest(c *tc.C) {
 	s.baseStorageSuite.SetUpTest(c)
 

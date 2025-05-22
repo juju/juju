@@ -23,7 +23,10 @@ type APIContextSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestAPIContextSuite(t *stdtesting.T) { tc.Run(t, &APIContextSuite{}) }
+func TestAPIContextSuite(t *stdtesting.T) {
+	tc.Run(t, &APIContextSuite{})
+}
+
 func (s *APIContextSuite) TestNewAPIContext(c *tc.C) {
 	store := jujuclient.NewFileClientStore()
 

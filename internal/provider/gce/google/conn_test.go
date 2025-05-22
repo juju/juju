@@ -19,7 +19,10 @@ type connSuite struct {
 	google.BaseSuite
 }
 
-func TestConnSuite(t *stdtesting.T) { tc.Run(t, &connSuite{}) }
+func TestConnSuite(t *stdtesting.T) {
+	tc.Run(t, &connSuite{})
+}
+
 func (s *connSuite) TestConnect(c *tc.C) {
 	google.SetRawConn(s.Conn, nil)
 	service := &compute.Service{}

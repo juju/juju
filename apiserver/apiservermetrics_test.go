@@ -21,7 +21,10 @@ type apiservermetricsSuite struct {
 	collector prometheus.Collector
 }
 
-func TestApiservermetricsSuite(t *stdtesting.T) { tc.Run(t, &apiservermetricsSuite{}) }
+func TestApiservermetricsSuite(t *stdtesting.T) {
+	tc.Run(t, &apiservermetricsSuite{})
+}
+
 func (s *apiservermetricsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.collector = apiserver.NewMetricsCollector()

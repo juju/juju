@@ -18,7 +18,10 @@ import (
 
 type modelSuite struct{}
 
-func TestModelSuite(t *stdtesting.T) { tc.Run(t, &modelSuite{}) }
+func TestModelSuite(t *stdtesting.T) {
+	tc.Run(t, &modelSuite{})
+}
+
 func (*modelSuite) TestEmtpyModel(c *tc.C) {
 	model := &Model{}
 	c.Check(model.GetApplication("foo"), tc.IsNil)
@@ -288,7 +291,10 @@ type inferMachineMapSuite struct {
 	data *charm.BundleData
 }
 
-func TestInferMachineMapSuite(t *stdtesting.T) { tc.Run(t, &inferMachineMapSuite{}) }
+func TestInferMachineMapSuite(t *stdtesting.T) {
+	tc.Run(t, &inferMachineMapSuite{})
+}
+
 func (s *inferMachineMapSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	loggo.ConfigureLoggers("bundlechanges=trace")
@@ -529,7 +535,10 @@ func (s *inferMachineMapSuite) TestBundleMachinesDeterminism(c *tc.C) {
 
 type applicationSuite struct{}
 
-func TestApplicationSuite(t *stdtesting.T) { tc.Run(t, &applicationSuite{}) }
+func TestApplicationSuite(t *stdtesting.T) {
+	tc.Run(t, &applicationSuite{})
+}
+
 func (*applicationSuite) TestNilApplication(c *tc.C) {
 	var app *Application
 	annotations := map[string]string{"a": "b", "c": "d"}

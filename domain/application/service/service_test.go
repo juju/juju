@@ -18,7 +18,10 @@ type serviceSuite struct {
 	baseSuite
 }
 
-func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
 func (s *serviceSuite) TestEncodeChannelAndPlatform(c *tc.C) {
 	ch, pl, err := encodeChannelAndPlatform(corecharm.Origin{
 		Channel: ptr(internalcharm.MakePermissiveChannel("track", "stable", "branch")),

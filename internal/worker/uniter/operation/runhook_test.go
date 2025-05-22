@@ -24,7 +24,9 @@ type RunHookSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRunHookSuite(t *stdtesting.T) { tc.Run(t, &RunHookSuite{}) }
+func TestRunHookSuite(t *stdtesting.T) {
+	tc.Run(t, &RunHookSuite{})
+}
 
 type newHook func(operation.Factory, hook.Info) (operation.Operation, error)
 

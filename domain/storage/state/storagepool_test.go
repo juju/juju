@@ -20,7 +20,10 @@ type storagePoolSuite struct {
 	testing.ModelSuite
 }
 
-func TestStoragePoolSuite(t *stdtesting.T) { tc.Run(t, &storagePoolSuite{}) }
+func TestStoragePoolSuite(t *stdtesting.T) {
+	tc.Run(t, &storagePoolSuite{})
+}
+
 func newStoragePoolState(factory coredatabase.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),

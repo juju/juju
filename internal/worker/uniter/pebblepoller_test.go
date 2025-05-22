@@ -27,7 +27,9 @@ import (
 
 type pebblePollerSuite struct{}
 
-func TestPebblePollerSuite(t *stdtesting.T) { tc.Run(t, &pebblePollerSuite{}) }
+func TestPebblePollerSuite(t *stdtesting.T) {
+	tc.Run(t, &pebblePollerSuite{})
+}
 
 const (
 	pebbleSocketPathRegexpString = "/charm/containers/([^/]+)/pebble.socket"

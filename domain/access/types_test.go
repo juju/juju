@@ -15,7 +15,10 @@ import (
 
 type typesSuite struct{}
 
-func TestTypesSuite(t *stdtesting.T) { tc.Run(t, &typesSuite{}) }
+func TestTypesSuite(t *stdtesting.T) {
+	tc.Run(t, &typesSuite{})
+}
+
 func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *tc.C) {
 	argsToTest := []UpdatePermissionArgs{
 		{}, { // Missing Subject

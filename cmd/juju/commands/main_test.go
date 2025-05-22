@@ -31,7 +31,10 @@ type MainSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func TestMainSuite(t *stdtesting.T) { tc.Run(t, &MainSuite{}) }
+func TestMainSuite(t *stdtesting.T) {
+	tc.Run(t, &MainSuite{})
+}
+
 func helpText(command cmd.Command, name string) string {
 	buff := &bytes.Buffer{}
 	info := command.Info()

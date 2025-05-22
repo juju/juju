@@ -17,7 +17,10 @@ type errorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestErrorSuite(t *stdtesting.T) { tc.Run(t, &errorSuite{}) }
+func TestErrorSuite(t *stdtesting.T) {
+	tc.Run(t, &errorSuite{})
+}
+
 func (s *errorSuite) TestIsErrConstraintUnique(c *tc.C) {
 	c.Check(IsErrConstraintUnique(nil), tc.IsFalse)
 

@@ -43,11 +43,16 @@ type relationResolverSuite struct {
 	leadershipContext context.LeadershipContext
 }
 
-func TestRelationResolverSuite(t *stdtesting.T) { tc.Run(t, &relationResolverSuite{}) }
+func TestRelationResolverSuite(t *stdtesting.T) {
+	tc.Run(t, &relationResolverSuite{})
+}
+
 func TestRelationCreatedResolverSuite(t *stdtesting.T) {
 	tc.Run(t, &relationCreatedResolverSuite{})
 }
-func TestMockRelationResolverSuite(t *stdtesting.T) { tc.Run(t, &mockRelationResolverSuite{}) }
+func TestMockRelationResolverSuite(t *stdtesting.T) {
+	tc.Run(t, &mockRelationResolverSuite{})
+}
 
 type apiCall struct {
 	request string

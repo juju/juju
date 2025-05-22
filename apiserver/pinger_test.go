@@ -27,7 +27,10 @@ type pingerSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-func TestPingerSuite(t *stdtesting.T) { tc.Run(t, &pingerSuite{}) }
+func TestPingerSuite(t *stdtesting.T) {
+	tc.Run(t, &pingerSuite{})
+}
+
 func (s *pingerSuite) SetUpTest(c *tc.C) {
 	s.Clock = testclock.NewDilatedWallClock(time.Millisecond)
 	s.ApiServerSuite.SetUpTest(c)

@@ -28,7 +28,10 @@ type instanceMutaterSuite struct {
 	apiCaller *mocks.MockAPICaller
 }
 
-func TestInstanceMutaterSuite(t *stdtesting.T) { tc.Run(t, &instanceMutaterSuite{}) }
+func TestInstanceMutaterSuite(t *stdtesting.T) {
+	tc.Run(t, &instanceMutaterSuite{})
+}
+
 func (s *instanceMutaterSuite) SetUpTest(c *tc.C) {
 	s.tag = names.NewMachineTag("0")
 	s.BaseSuite.SetUpTest(c)

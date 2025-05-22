@@ -18,7 +18,10 @@ import (
 type CertificateSuite struct {
 }
 
-func TestCertificateSuite(t *stdtesting.T) { tc.Run(t, &CertificateSuite{}) }
+func TestCertificateSuite(t *stdtesting.T) {
+	tc.Run(t, &CertificateSuite{})
+}
+
 func (cs *CertificateSuite) VerifyCSRToCertificate(c *tc.C) {
 	jujuURL, err := url.Parse("https://discourse.juju.is")
 	c.Assert(err, tc.ErrorIsNil)

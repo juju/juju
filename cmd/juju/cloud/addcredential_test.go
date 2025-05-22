@@ -42,7 +42,10 @@ type addCredentialSuite struct {
 	api               *fakeUpdateCredentialAPI
 }
 
-func TestAddCredentialSuite(t *stdtesting.T) { tc.Run(t, &addCredentialSuite{}) }
+func TestAddCredentialSuite(t *stdtesting.T) {
+	tc.Run(t, &addCredentialSuite{})
+}
+
 func (s *addCredentialSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	unreg := environs.RegisterProvider("mock-addcredential-provider", &mockProvider{credSchemas: &s.schema})

@@ -23,7 +23,10 @@ type LogSuite struct {
 	testhelpers.LoggingCleanupSuite
 }
 
-func TestLogSuite(t *stdtesting.T) { tc.Run(t, &LogSuite{}) }
+func TestLogSuite(t *stdtesting.T) {
+	tc.Run(t, &LogSuite{})
+}
+
 func newLogWithFlags(c *tc.C, defaultConfig string, flags ...string) *cmd.Log {
 	log := &cmd.Log{
 		DefaultConfig: defaultConfig,

@@ -18,7 +18,10 @@ type suite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
+
 func (s *suite) TestTrack(c *tc.C) {
 	a := unitfacade.NewUnitFacadeV1()
 	args := params.TrackPayloadArgs{

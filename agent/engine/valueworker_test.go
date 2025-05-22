@@ -17,7 +17,10 @@ type ValueWorkerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestValueWorkerSuite(t *stdtesting.T) { tc.Run(t, &ValueWorkerSuite{}) }
+func TestValueWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &ValueWorkerSuite{})
+}
+
 func (s *ValueWorkerSuite) TestNewValueWorker_Success(c *tc.C) {
 	w, err := engine.NewValueWorker("cheese")
 	c.Assert(err, tc.ErrorIsNil)

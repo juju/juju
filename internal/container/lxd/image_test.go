@@ -20,7 +20,9 @@ import (
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 )
 
-func TestImageSuite(t *stdtesting.T) { tc.Run(t, &imageSuite{}) }
+func TestImageSuite(t *stdtesting.T) {
+	tc.Run(t, &imageSuite{})
+}
 
 type imageSuite struct {
 	lxdtesting.BaseSuite

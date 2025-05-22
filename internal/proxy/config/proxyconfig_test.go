@@ -15,7 +15,10 @@ import (
 
 type Suite struct{}
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &Suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &Suite{})
+}
+
 func checkProxy(c *tc.C, settings proxy.Settings, requestURL, expectedURL string) {
 	pc := proxyconfig.ProxyConfig{}
 	c.Assert(pc.Set(settings), tc.ErrorIsNil)

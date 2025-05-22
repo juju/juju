@@ -24,7 +24,9 @@ func newFingerprint(c *tc.C, data string) ([]byte, string) {
 	hexStr := hex.EncodeToString(raw)
 	return raw, hexStr
 }
-func TestFingerprintSuite(t *stdtesting.T) { tc.Run(t, &FingerprintSuite{}) }
+func TestFingerprintSuite(t *stdtesting.T) {
+	tc.Run(t, &FingerprintSuite{})
+}
 
 type FingerprintSuite struct{}
 

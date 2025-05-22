@@ -42,7 +42,10 @@ type AddModelSuite struct {
 	store                *jujuclient.MemStore
 }
 
-func TestAddModelSuite(t *stdtesting.T) { tc.Run(t, &AddModelSuite{}) }
+func TestAddModelSuite(t *stdtesting.T) {
+	tc.Run(t, &AddModelSuite{})
+}
+
 func (s *AddModelSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 

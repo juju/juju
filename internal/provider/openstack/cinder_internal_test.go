@@ -23,7 +23,10 @@ type cinderInternalSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCinderInternalSuite(t *stdtesting.T) { tc.Run(t, &cinderInternalSuite{}) }
+func TestCinderInternalSuite(t *stdtesting.T) {
+	tc.Run(t, &cinderInternalSuite{})
+}
+
 func (s *cinderInternalSuite) TestStorageProviderTypes(c *tc.C) {
 	env := &Environ{
 		cloudUnlocked: environscloudspec.CloudSpec{

@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestFakeAPISuite(t *stdtesting.T) { tc.Run(t, &fakeAPISuite{}) }
+func TestFakeAPISuite(t *stdtesting.T) {
+	tc.Run(t, &fakeAPISuite{})
+}
 
 type fakeAPISuite struct {
 	testhelpers.IsolationSuite

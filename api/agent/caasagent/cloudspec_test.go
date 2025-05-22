@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestClientSuite(t *stdtesting.T) { tc.Run(t, &ClientSuite{}) }
+func TestClientSuite(t *stdtesting.T) {
+	tc.Run(t, &ClientSuite{})
+}
 
 type ClientSuite struct {
 	testhelpers.IsolationSuite

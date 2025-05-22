@@ -32,7 +32,10 @@ type runcommandsSuite struct {
 	commandCompleted func(string)
 }
 
-func TestRuncommandsSuite(t *stdtesting.T) { tc.Run(t, &runcommandsSuite{}) }
+func TestRuncommandsSuite(t *stdtesting.T) {
+	tc.Run(t, &runcommandsSuite{})
+}
+
 func (s *runcommandsSuite) SetUpTest(c *tc.C) {
 	s.charmURL = "ch:precise/mysql-2"
 	s.remoteState = remotestate.Snapshot{

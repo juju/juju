@@ -32,7 +32,10 @@ type BindSuite struct {
 	cmd               cmd.Command
 }
 
-func TestBindSuite(t *stdtesting.T) { tc.Run(t, &BindSuite{}) }
+func TestBindSuite(t *stdtesting.T) {
+	tc.Run(t, &BindSuite{})
+}
+
 func (s *BindSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub.ResetCalls()

@@ -14,7 +14,9 @@ import (
 
 type errorSuite struct{}
 
-func TestErrorSuite(t *stdtesting.T) { tc.Run(t, &errorSuite{}) }
+func TestErrorSuite(t *stdtesting.T) {
+	tc.Run(t, &errorSuite{})
+}
 
 var errorTests = []struct {
 	description string

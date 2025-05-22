@@ -38,7 +38,9 @@ type MigrateSuite struct {
 	store               *jujuclient.MemStore
 }
 
-func TestMigrateSuite(t *stdtesting.T) { tc.Run(t, &MigrateSuite{}) }
+func TestMigrateSuite(t *stdtesting.T) {
+	tc.Run(t, &MigrateSuite{})
+}
 
 const modelUUID = "deadbeef-0bad-400d-8000-4b1d0d06f00d"
 const targetControllerUUID = "beefdead-0bad-400d-8000-4b1d0d06f00d"

@@ -125,7 +125,10 @@ type windowsNanoBaseSuite struct {
 	windowsBaseSuite
 }
 
-func TestWindowsNanoBaseSuite(t *stdtesting.T) { tc.Run(t, &windowsNanoBaseSuite{}) }
+func TestWindowsNanoBaseSuite(t *stdtesting.T) {
+	tc.Run(t, &windowsNanoBaseSuite{})
+}
+
 func (s *windowsNanoBaseSuite) SetUpTest(c *tc.C) {
 	s.windowsBaseSuite.SetUpTest(c)
 	s.createRegKey(c, &isNanoKey)

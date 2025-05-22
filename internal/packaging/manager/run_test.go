@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestRunSuite(t *stdtesting.T) { tc.Run(t, &RunSuite{}) }
+func TestRunSuite(t *stdtesting.T) {
+	tc.Run(t, &RunSuite{})
+}
 
 type RunSuite struct {
 	testhelpers.IsolationSuite

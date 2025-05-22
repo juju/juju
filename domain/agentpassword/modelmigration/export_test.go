@@ -20,7 +20,10 @@ type exportSuite struct {
 	exportService *MockExportService
 }
 
-func TestExportSuite(t *stdtesting.T) { tc.Run(t, &exportSuite{}) }
+func TestExportSuite(t *stdtesting.T) {
+	tc.Run(t, &exportSuite{})
+}
+
 func (s *exportSuite) TestExportUnitPasswordHashes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -18,7 +18,9 @@ import (
 type accessSuite struct {
 }
 
-func TestAccessSuite(t *stdtesting.T) { tc.Run(t, &accessSuite{}) }
+func TestAccessSuite(t *stdtesting.T) {
+	tc.Run(t, &accessSuite{})
+}
 
 const (
 	someOffer = "user/prod.hosted-mysql"

@@ -29,7 +29,10 @@ type addCharmSuite struct {
 	testing.BaseSuite
 }
 
-func TestAddCharmSuite(t *stdtesting.T) { tc.Run(t, &addCharmSuite{}) }
+func TestAddCharmSuite(t *stdtesting.T) {
+	tc.Run(t, &addCharmSuite{})
+}
+
 func (s *addCharmSuite) TestAddLocalCharm(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -20,7 +20,9 @@ import (
 	"github.com/juju/juju/internal/worker/diskmanager"
 )
 
-func TestListBlockDevicesSuite(t *stdtesting.T) { tc.Run(t, &ListBlockDevicesSuite{}) }
+func TestListBlockDevicesSuite(t *stdtesting.T) {
+	tc.Run(t, &ListBlockDevicesSuite{})
+}
 
 type ListBlockDevicesSuite struct {
 	coretesting.BaseSuite

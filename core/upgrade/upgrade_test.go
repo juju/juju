@@ -15,7 +15,10 @@ type upgradeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUpgradeSuite(t *stdtesting.T) { tc.Run(t, &upgradeSuite{}) }
+func TestUpgradeSuite(t *stdtesting.T) {
+	tc.Run(t, &upgradeSuite{})
+}
+
 func (s *upgradeSuite) TestParseState(c *tc.C) {
 	tests := []struct {
 		str string

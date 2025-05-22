@@ -33,7 +33,10 @@ type HandlerSuite struct {
 	logger logger.Logger
 }
 
-func TestHandlerSuite(t *stdtesting.T) { tc.Run(t, &HandlerSuite{}) }
+func TestHandlerSuite(t *stdtesting.T) {
+	tc.Run(t, &HandlerSuite{})
+}
+
 func (h *HandlerSuite) SetUpTest(c *tc.C) {
 	h.logger = loggertesting.WrapCheckLog(c)
 }

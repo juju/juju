@@ -15,7 +15,9 @@ var (
 	_ environs.NetworkingEnviron = (*environ)(nil)
 )
 
-func TestEnvironWhiteboxSuite(t *stdtesting.T) { tc.Run(t, &environWhiteboxSuite{}) }
+func TestEnvironWhiteboxSuite(t *stdtesting.T) {
+	tc.Run(t, &environWhiteboxSuite{})
+}
 
 type environWhiteboxSuite struct{}
 

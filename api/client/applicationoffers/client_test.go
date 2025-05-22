@@ -27,7 +27,10 @@ import (
 type crossmodelMockSuite struct {
 }
 
-func TestCrossmodelMockSuite(t *stdtesting.T) { tc.Run(t, &crossmodelMockSuite{}) }
+func TestCrossmodelMockSuite(t *stdtesting.T) {
+	tc.Run(t, &crossmodelMockSuite{})
+}
+
 func (s *crossmodelMockSuite) TestOffer(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

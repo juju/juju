@@ -38,8 +38,14 @@ type iaasAttachmentsSuite struct {
 	attachmentsSuite
 }
 
-func TestCaasAttachmentsSuite(t *stdtesting.T) { tc.Run(t, &caasAttachmentsSuite{}) }
-func TestIaasAttachmentsSuite(t *stdtesting.T) { tc.Run(t, &iaasAttachmentsSuite{}) }
+func TestCaasAttachmentsSuite(t *stdtesting.T) {
+	tc.Run(t, &caasAttachmentsSuite{})
+}
+
+func TestIaasAttachmentsSuite(t *stdtesting.T) {
+	tc.Run(t, &iaasAttachmentsSuite{})
+}
+
 func (s *attachmentsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storSt = storage.NewState()

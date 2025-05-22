@@ -23,7 +23,10 @@ type environNetSuite struct {
 	NetEnv environs.NetworkingEnviron
 }
 
-func TestEnvironNetSuite(t *stdtesting.T) { tc.Run(t, &environNetSuite{}) }
+func TestEnvironNetSuite(t *stdtesting.T) {
+	tc.Run(t, &environNetSuite{})
+}
+
 func (s *environNetSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	netEnv, ok := environs.SupportsNetworking(s.Env)

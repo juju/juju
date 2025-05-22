@@ -17,7 +17,10 @@ type SecretRemoveSuite struct {
 	ContextSuite
 }
 
-func TestSecretRemoveSuite(t *stdtesting.T) { tc.Run(t, &SecretRemoveSuite{}) }
+func TestSecretRemoveSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretRemoveSuite{})
+}
+
 func (s *SecretRemoveSuite) TestRemoveSecretInvalidArgs(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 

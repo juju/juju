@@ -17,7 +17,10 @@ type fetchInstanceClientFunc func(context.Context, *ec2.DescribeInstanceTypesInp
 
 type instanceSuite struct{}
 
-func TestInstanceSuite(t *stdtesting.T) { tc.Run(t, &instanceSuite{}) }
+func TestInstanceSuite(t *stdtesting.T) {
+	tc.Run(t, &instanceSuite{})
+}
+
 func (f fetchInstanceClientFunc) DescribeInstanceTypes(
 	c context.Context,
 	i *ec2.DescribeInstanceTypesInput,

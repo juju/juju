@@ -12,7 +12,10 @@ import (
 
 type VersionSuite struct{}
 
-func TestVersionSuite(t *stdtesting.T) { tc.Run(t, &VersionSuite{}) }
+func TestVersionSuite(t *stdtesting.T) {
+	tc.Run(t, &VersionSuite{})
+}
+
 func (s *VersionSuite) TestReadVersion(c *tc.C) {
 	specs := []struct {
 		version string

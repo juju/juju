@@ -35,7 +35,10 @@ type SecretsSuite struct {
 	mockBackendService *MockSecretBackendService
 }
 
-func TestSecretsSuite(t *stdtesting.T) { tc.Run(t, &SecretsSuite{}) }
+func TestSecretsSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretsSuite{})
+}
+
 func (s *SecretsSuite) setup(c *tc.C) (*SecretBackendsAPI, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 

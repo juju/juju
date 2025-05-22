@@ -40,7 +40,10 @@ type workerSuite struct {
 	upgradeUUID domainupgrade.UUID
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
+
 func (s *workerSuite) TestLockAlreadyUnlocked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

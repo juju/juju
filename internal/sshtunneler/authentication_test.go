@@ -17,7 +17,10 @@ type authenticationSuite struct {
 	clock *MockClock
 }
 
-func TestAuthenticationSuite(t *stdtesting.T) { tc.Run(t, &authenticationSuite{}) }
+func TestAuthenticationSuite(t *stdtesting.T) {
+	tc.Run(t, &authenticationSuite{})
+}
+
 func (s *authenticationSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

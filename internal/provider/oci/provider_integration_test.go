@@ -31,7 +31,9 @@ type credentialsSuite struct {
 	spec     environscloudspec.CloudSpec
 }
 
-func TestCredentialsSuite(t *stdtesting.T) { tc.Run(t, &credentialsSuite{}) }
+func TestCredentialsSuite(t *stdtesting.T) {
+	tc.Run(t, &credentialsSuite{})
+}
 
 var singleSectionTemplate = `[%s]
 user=fake

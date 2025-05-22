@@ -12,7 +12,9 @@ import (
 	"github.com/juju/juju/internal/packaging/commands"
 )
 
-func TestSnapSuite(t *stdtesting.T) { tc.Run(t, &SnapSuite{}) }
+func TestSnapSuite(t *stdtesting.T) {
+	tc.Run(t, &SnapSuite{})
+}
 
 type SnapSuite struct {
 	snapCommander commands.SnapPackageCommander

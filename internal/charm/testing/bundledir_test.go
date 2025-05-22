@@ -19,7 +19,10 @@ type BundleDirSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBundleDirSuite(t *stdtesting.T) { tc.Run(t, &BundleDirSuite{}) }
+func TestBundleDirSuite(t *stdtesting.T) {
+	tc.Run(t, &BundleDirSuite{})
+}
+
 func (*BundleDirSuite) TestReadBundleDir(c *tc.C) {
 	path := bundleDirPath(c, "wordpress-simple")
 	b, err := charmtesting.ReadBundleDir(path)

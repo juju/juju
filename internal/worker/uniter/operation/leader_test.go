@@ -19,7 +19,10 @@ type LeaderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLeaderSuite(t *stdtesting.T) { tc.Run(t, &LeaderSuite{}) }
+func TestLeaderSuite(t *stdtesting.T) {
+	tc.Run(t, &LeaderSuite{})
+}
+
 func (s *LeaderSuite) newFactory(c *tc.C) operation.Factory {
 	return operation.NewFactory(operation.FactoryParams{
 		Logger: loggertesting.WrapCheckLog(c),

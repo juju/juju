@@ -16,7 +16,10 @@ type PortRangeSuite struct {
 	testing.BaseSuite
 }
 
-func TestPortRangeSuite(t *stdtesting.T) { tc.Run(t, &PortRangeSuite{}) }
+func TestPortRangeSuite(t *stdtesting.T) {
+	tc.Run(t, &PortRangeSuite{})
+}
+
 func (*PortRangeSuite) TestConflictsWith(c *tc.C) {
 	var testCases = []struct {
 		about          string

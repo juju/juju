@@ -18,7 +18,9 @@ type configSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &configSuite{})
+}
 
 var configTestCases = [...]struct {
 	name   string
@@ -300,7 +302,10 @@ type configStateSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestConfigStateSuite(t *stdtesting.T) { tc.Run(t, &configStateSuite{}) }
+func TestConfigStateSuite(t *stdtesting.T) {
+	tc.Run(t, &configStateSuite{})
+}
+
 func (s *configStateSuite) TestConfigType(c *tc.C) {
 	type charmConfigType struct {
 		ID   int    `db:"id"`

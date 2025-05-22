@@ -24,7 +24,10 @@ type transportSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTransportSuite(t *stdtesting.T) { tc.Run(t, &transportSuite{}) }
+func TestTransportSuite(t *stdtesting.T) {
+	tc.Run(t, &transportSuite{})
+}
+
 func (s *transportSuite) TestErrorTransport(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

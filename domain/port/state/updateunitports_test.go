@@ -33,7 +33,10 @@ type updateUnitPortsSuite struct {
 	appUUID coreapplication.ID
 }
 
-func TestUpdateUnitPortsSuite(t *stdtesting.T) { tc.Run(t, &updateUnitPortsSuite{}) }
+func TestUpdateUnitPortsSuite(t *stdtesting.T) {
+	tc.Run(t, &updateUnitPortsSuite{})
+}
+
 func (s *updateUnitPortsSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 

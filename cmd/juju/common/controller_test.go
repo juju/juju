@@ -25,7 +25,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestControllerSuite(t *stdtesting.T) { tc.Run(t, &controllerSuite{}) }
+func TestControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &controllerSuite{})
+}
 
 type controllerSuite struct {
 	testing.BaseSuite

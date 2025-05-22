@@ -24,7 +24,10 @@ type fromHostSuite struct {
 	tempCurtinCfgFile string
 }
 
-func TestFromHostSuite(t *stdtesting.T) { tc.Run(t, &fromHostSuite{}) }
+func TestFromHostSuite(t *stdtesting.T) {
+	tc.Run(t, &fromHostSuite{})
+}
+
 func (s *fromHostSuite) SetUpTest(c *tc.C) {
 	s.PatchValue(&coreos.HostBase, func() (corebase.Base, error) { return corebase.ParseBaseFromString("ubuntu@22.04") })
 

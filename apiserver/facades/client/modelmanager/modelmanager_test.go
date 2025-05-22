@@ -89,7 +89,10 @@ type modelManagerSuite struct {
 	modelStatusAPI *MockModelStatusAPI
 }
 
-func TestModelManagerSuite(t *stdtesting.T) { tc.Run(t, &modelManagerSuite{}) }
+func TestModelManagerSuite(t *stdtesting.T) {
+	tc.Run(t, &modelManagerSuite{})
+}
+
 func (s *modelManagerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -997,7 +1000,10 @@ type modelManagerStateSuite struct {
 	controllerUUID uuid.UUID
 }
 
-func TestModelManagerStateSuite(t *stdtesting.T) { tc.Run(t, &modelManagerStateSuite{}) }
+func TestModelManagerStateSuite(t *stdtesting.T) {
+	tc.Run(t, &modelManagerStateSuite{})
+}
+
 func (s *modelManagerStateSuite) SetUpSuite(c *tc.C) {
 	coretesting.SkipUnlessControllerOS(c)
 	s.ApiServerSuite.SetUpSuite(c)

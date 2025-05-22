@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestCharmTabularSuite(t *stdtesting.T) { tc.Run(t, &CharmTabularSuite{}) }
+func TestCharmTabularSuite(t *stdtesting.T) {
+	tc.Run(t, &CharmTabularSuite{})
+}
 
 type CharmTabularSuite struct {
 	testhelpers.IsolationSuite
@@ -89,7 +91,9 @@ func (s *CharmTabularSuite) TestFormatCharmTabularBadValue(c *tc.C) {
 	err := resourcecmd.FormatCharmTabular(nil, bogus)
 	c.Check(err, tc.ErrorMatches, `expected value of type .*`)
 }
-func TestAppTabularSuite(t *stdtesting.T) { tc.Run(t, &AppTabularSuite{}) }
+func TestAppTabularSuite(t *stdtesting.T) {
+	tc.Run(t, &AppTabularSuite{})
+}
 
 type AppTabularSuite struct {
 	testhelpers.IsolationSuite

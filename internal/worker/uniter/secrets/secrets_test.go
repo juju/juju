@@ -26,7 +26,10 @@ type secretsSuite struct {
 	secretsClient   *mocks.MockSecretsClient
 }
 
-func TestSecretsSuite(t *stdtesting.T) { tc.Run(t, &secretsSuite{}) }
+func TestSecretsSuite(t *stdtesting.T) {
+	tc.Run(t, &secretsSuite{})
+}
+
 func (s *secretsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.stateReadWriter = operationmocks.NewMockUnitStateReadWriter(ctrl)

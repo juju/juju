@@ -21,7 +21,10 @@ type RenderersSuite struct {
 	testing.BaseSuite
 }
 
-func TestRenderersSuite(t *stdtesting.T) { tc.Run(t, &RenderersSuite{}) }
+func TestRenderersSuite(t *stdtesting.T) {
+	tc.Run(t, &RenderersSuite{})
+}
+
 func (s *RenderersSuite) TestMAASUnix(c *tc.C) {
 	renderer := maas.MAASRenderer{}
 	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}

@@ -33,7 +33,9 @@ type storageSuite struct {
 	filesystemImporter *MockFilesystemImporter
 }
 
-func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
+func TestStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &storageSuite{})
+}
 
 type volumeImporter struct {
 	*MockVolumeSource

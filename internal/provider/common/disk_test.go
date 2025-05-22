@@ -14,7 +14,10 @@ import (
 
 type DiskSuite struct{}
 
-func TestDiskSuite(t *stdtesting.T) { tc.Run(t, &DiskSuite{}) }
+func TestDiskSuite(t *stdtesting.T) {
+	tc.Run(t, &DiskSuite{})
+}
+
 func (s *DiskSuite) TestMinRootDiskSizeGiB(c *tc.C) {
 	var diskTests = []struct {
 		osname       string

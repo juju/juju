@@ -20,7 +20,10 @@ import (
 type keymanagerSuite struct {
 }
 
-func TestKeymanagerSuite(t *stdtesting.T) { tc.Run(t, &keymanagerSuite{}) }
+func TestKeymanagerSuite(t *stdtesting.T) {
+	tc.Run(t, &keymanagerSuite{})
+}
+
 func (s *keymanagerSuite) TestListKeys(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

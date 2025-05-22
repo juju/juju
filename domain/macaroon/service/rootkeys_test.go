@@ -25,7 +25,9 @@ type rootKeyServiceSuite struct {
 	clock macaroon.Clock
 }
 
-func TestRootKeyServiceSuite(t *stdtesting.T) { tc.Run(t, &rootKeyServiceSuite{}) }
+func TestRootKeyServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &rootKeyServiceSuite{})
+}
 
 var moment = time.Now()
 

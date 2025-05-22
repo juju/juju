@@ -19,7 +19,9 @@ type configureSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestConfigureSuite(t *stdtesting.T) { tc.Run(t, &configureSuite{}) }
+func TestConfigureSuite(t *stdtesting.T) {
+	tc.Run(t, &configureSuite{})
+}
 
 type testProvider struct {
 	environs.CloudEnvironProvider

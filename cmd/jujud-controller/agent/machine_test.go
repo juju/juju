@@ -69,7 +69,9 @@ type MachineSuite struct {
 	agentStorage envstorage.Storage
 }
 
-func TestMachineSuite(t *stdtesting.T) { tc.Run(t, &MachineSuite{}) }
+func TestMachineSuite(t *stdtesting.T) {
+	tc.Run(t, &MachineSuite{})
+}
 
 // DefaultVersions returns a slice of unique 'versions' for the current
 // environment's host architecture. Additionally, it ensures that 'versions'

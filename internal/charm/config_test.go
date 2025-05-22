@@ -19,7 +19,10 @@ type ConfigSuite struct {
 	config *charm.Config
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &ConfigSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
+
 func (s *ConfigSuite) SetUpSuite(c *tc.C) {
 	// Just use a single shared config for the whole suite. There's no use case
 	// for mutating a config, we assume that nobody will do so here.

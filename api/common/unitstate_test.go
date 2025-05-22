@@ -22,7 +22,10 @@ type unitStateSuite struct {
 	tag names.UnitTag
 }
 
-func TestUnitStateSuite(t *stdtesting.T) { tc.Run(t, &unitStateSuite{}) }
+func TestUnitStateSuite(t *stdtesting.T) {
+	tc.Run(t, &unitStateSuite{})
+}
+
 func (s *unitStateSuite) SetUpTest(c *tc.C) {
 	s.tag = names.NewUnitTag("test-unit/0")
 }

@@ -28,7 +28,10 @@ type ExecSuite struct {
 	BaseActionSuite
 }
 
-func TestExecSuite(t *stdtesting.T) { tc.Run(t, &ExecSuite{}) }
+func TestExecSuite(t *stdtesting.T) {
+	tc.Run(t, &ExecSuite{})
+}
+
 func newTestExecCommand(clock clock.Clock, modelType model.ModelType) (cmd.Command, *action.ExecCommand) {
 	return action.NewExecCommandForTest(minimalStore(modelType), clock, nil)
 }

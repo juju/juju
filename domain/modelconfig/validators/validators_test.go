@@ -18,7 +18,10 @@ type dummySpaceProviderFunc func(context.Context, string) (bool, error)
 
 type validatorsSuite struct{}
 
-func TestValidatorsSuite(t *stdtesting.T) { tc.Run(t, &validatorsSuite{}) }
+func TestValidatorsSuite(t *stdtesting.T) {
+	tc.Run(t, &validatorsSuite{})
+}
+
 func (d dummySpaceProviderFunc) HasSpace(ctx context.Context, s string) (bool, error) {
 	return d(ctx, s)
 }

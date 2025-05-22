@@ -27,7 +27,10 @@ type regionsSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestRegionsSuite(t *stdtesting.T) { tc.Run(t, &regionsSuite{}) }
+func TestRegionsSuite(t *stdtesting.T) {
+	tc.Run(t, &regionsSuite{})
+}
+
 func (s *regionsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.api = &fakeShowCloudAPI{}

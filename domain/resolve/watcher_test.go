@@ -35,7 +35,10 @@ type watcherSuite struct {
 	changestreamtesting.ModelSuite
 }
 
-func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
+func TestWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
+
 func (s *watcherSuite) TestWatchUnitResolveModeNotFound(c *tc.C) {
 	svc := s.setupService(c)
 

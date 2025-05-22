@@ -15,7 +15,10 @@ type clientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
+func TestClientSuite(t *stdtesting.T) {
+	tc.Run(t, &clientSuite{})
+}
+
 func (s *clientSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - A correct status is returned for the controller model on a pre-seeded scenario. 	

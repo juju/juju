@@ -19,7 +19,9 @@ type rootKeyStateSuite struct {
 	testing.ControllerSuite
 }
 
-func TestRootKeyStateSuite(t *stdtesting.T) { tc.Run(t, &rootKeyStateSuite{}) }
+func TestRootKeyStateSuite(t *stdtesting.T) {
+	tc.Run(t, &rootKeyStateSuite{})
+}
 
 var (
 	// Ensure we use one time for all the tests, so that we can reliably compare

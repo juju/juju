@@ -22,7 +22,10 @@ type githubSuite struct {
 	client *MockClient
 }
 
-func TestGithubSuite(t *stdtesting.T) { tc.Run(t, &githubSuite{}) }
+func TestGithubSuite(t *stdtesting.T) {
+	tc.Run(t, &githubSuite{})
+}
+
 func (s *githubSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.client = NewMockClient(ctrl)

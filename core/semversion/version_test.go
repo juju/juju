@@ -16,7 +16,10 @@ import (
 
 type suite struct{}
 
-func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
+
 func (*suite) TestCompare(c *tc.C) {
 	cmpTests := []struct {
 		v1, v2  string

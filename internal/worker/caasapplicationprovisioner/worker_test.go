@@ -28,7 +28,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestCAASApplicationSuite(t *stdtesting.T) { tc.Run(t, &CAASApplicationSuite{}) }
+func TestCAASApplicationSuite(t *stdtesting.T) {
+	tc.Run(t, &CAASApplicationSuite{})
+}
 
 type CAASApplicationSuite struct {
 	coretesting.BaseSuite

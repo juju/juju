@@ -43,7 +43,10 @@ type NetworkUbuntuSuite struct {
 	originalSystemNetworkInterfaces string
 }
 
-func TestNetworkUbuntuSuite(t *stdtesting.T) { tc.Run(t, &NetworkUbuntuSuite{}) }
+func TestNetworkUbuntuSuite(t *stdtesting.T) {
+	tc.Run(t, &NetworkUbuntuSuite{})
+}
+
 func (s *NetworkUbuntuSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

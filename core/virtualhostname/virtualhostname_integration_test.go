@@ -13,7 +13,10 @@ import (
 
 type HostnameSuite struct{}
 
-func TestHostnameSuite(t *stdtesting.T) { tc.Run(t, &HostnameSuite{}) }
+func TestHostnameSuite(t *stdtesting.T) {
+	tc.Run(t, &HostnameSuite{})
+}
+
 func (s *HostnameSuite) TestParseContainerHostname(c *tc.C) {
 	res, err := virtualhostname.Parse("charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local")
 	c.Assert(err, tc.IsNil)

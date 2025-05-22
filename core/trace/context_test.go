@@ -16,7 +16,10 @@ type contextSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestContextSuite(t *stdtesting.T) { tc.Run(t, &contextSuite{}) }
+func TestContextSuite(t *stdtesting.T) {
+	tc.Run(t, &contextSuite{})
+}
+
 func (s *contextSuite) TestTracerFromContextEmpty(c *tc.C) {
 	tracer, enabled := TracerFromContext(c.Context())
 	c.Assert(tracer, tc.NotNil)

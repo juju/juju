@@ -44,7 +44,10 @@ type unitStateSuite struct {
 	state *State
 }
 
-func TestUnitStateSuite(t *stdtesting.T) { tc.Run(t, &unitStateSuite{}) }
+func TestUnitStateSuite(t *stdtesting.T) {
+	tc.Run(t, &unitStateSuite{})
+}
+
 func (s *unitStateSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 

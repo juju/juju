@@ -29,7 +29,10 @@ type MachineSuite struct {
 	tag names.MachineTag
 }
 
-func TestMachineSuite(t *stdtesting.T) { tc.Run(t, &MachineSuite{}) }
+func TestMachineSuite(t *stdtesting.T) {
+	tc.Run(t, &MachineSuite{})
+}
+
 func (s *MachineSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.tag = names.NewMachineTag("42")

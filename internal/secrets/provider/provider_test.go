@@ -17,7 +17,10 @@ type providerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
+func TestProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &providerSuite{})
+}
+
 func (*providerSuite) TestRevisionMetaSlice(c *tc.C) {
 	nameMeta := provider.SecretRevisions{}
 	nameMeta.Add(&secrets.URI{ID: "a"}, "a-1")

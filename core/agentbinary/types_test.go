@@ -15,7 +15,9 @@ import (
 
 type typeSuite struct{}
 
-func TestTypeSuite(t *stdtesting.T) { tc.Run(t, &typeSuite{}) }
+func TestTypeSuite(t *stdtesting.T) {
+	tc.Run(t, &typeSuite{})
+}
 
 // TestVersionValidation verifies that validation succeeds when given valid
 // version attributes.
