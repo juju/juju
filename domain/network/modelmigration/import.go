@@ -40,8 +40,8 @@ type ImportService interface {
 	AddSubnet(ctx context.Context, args corenetwork.SubnetInfo) (corenetwork.Id, error)
 }
 
-// MigrationService provides a subset of the network domain service methods
-// needed to import and export link layer devices.
+// MigrationService defines methods needed to import and export
+// link layer devices as part of model migration.
 type MigrationService interface {
 	// ImportLinkLayerDevices imports the given link layer device data into
 	// the model.
