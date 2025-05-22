@@ -45,10 +45,10 @@ func (s *linkLayerSuite) TestImportLinkLayerDevices(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *linkLayerSuite) TestImportLinkLayerDevicesNoMachines(c *tc.C) {
+func (s *linkLayerSuite) TestImportLinkLayerDevicesMachines(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nil, errors.New("no machines found"))
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nil, errors.New("boom"))
 	args := []internal.ImportLinkLayerDevice{
 		{
 			MachineID: machine.Name("88"),
@@ -59,7 +59,7 @@ func (s *linkLayerSuite) TestImportLinkLayerDevicesNoMachines(c *tc.C) {
 	err := s.migrationService(c).ImportLinkLayerDevices(c.Context(), args)
 
 	// Assert: error from AllMachinesAndNetNodes returned.
-	c.Assert(err, tc.ErrorMatches, "no machines found")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *linkLayerSuite) TestImportLinkLayerDevicesNoContent(c *tc.C) {
