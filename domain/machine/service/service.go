@@ -35,7 +35,6 @@ type State interface {
 	// It returns a MachineAlreadyExists error if a machine with the same name
 	// already exists.
 	// It returns a MachineNotFound error if the parent machine does not exist.
-
 	CreateMachineWithParent(context.Context, machine.Name, machine.Name, string, machine.UUID) error
 
 	// DeleteMachine deletes the input machine entity.
