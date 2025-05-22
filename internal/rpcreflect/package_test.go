@@ -7,14 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"testing"
-
-	"github.com/juju/tc"
 )
-
-func Test(t *testing.T) {
-	tc.TestingT(t)
-}
 
 func callName(narg, nret int, retErr bool) string {
 	e := ""

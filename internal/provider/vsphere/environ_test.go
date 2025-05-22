@@ -4,6 +4,8 @@
 package vsphere_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -21,7 +23,9 @@ type environSuite struct {
 	EnvironFixture
 }
 
-var _ = tc.Suite(&environSuite{})
+func TestEnvironSuite(t *stdtesting.T) {
+	tc.Run(t, &environSuite{})
+}
 
 func (s *environSuite) TestBootstrap(c *tc.C) {
 	s.PatchValue(&vsphere.Bootstrap, func(

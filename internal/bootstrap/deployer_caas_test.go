@@ -4,6 +4,8 @@
 package bootstrap
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -22,7 +24,9 @@ type deployerCAASSuite struct {
 	cloudServiceGetter *MockCloudServiceGetter
 }
 
-var _ = tc.Suite(&deployerCAASSuite{})
+func TestDeployerCAASSuite(t *testing.T) {
+	tc.Run(t, &deployerCAASSuite{})
+}
 
 func (s *deployerCAASSuite) TestValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()

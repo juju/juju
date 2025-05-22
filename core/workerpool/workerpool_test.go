@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -16,7 +17,9 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&ProvisionerWorkerPoolSuite{})
+func TestProvisionerWorkerPoolSuite(t *testing.T) {
+	tc.Run(t, &ProvisionerWorkerPoolSuite{})
+}
 
 type ProvisionerWorkerPoolSuite struct {
 }

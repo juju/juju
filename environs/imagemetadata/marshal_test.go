@@ -4,6 +4,7 @@
 package imagemetadata_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -13,7 +14,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&marshalSuite{})
+func TestMarshalSuite(t *stdtesting.T) {
+	tc.Run(t, &marshalSuite{})
+}
 
 type marshalSuite struct {
 	testing.BaseSuite

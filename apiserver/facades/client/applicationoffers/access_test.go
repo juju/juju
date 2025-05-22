@@ -6,6 +6,7 @@ package applicationoffers_test
 import (
 	"context"
 	"regexp"
+	"testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
@@ -34,7 +35,9 @@ type offerAccessSuite struct {
 	api *applicationoffers.OffersAPIv5
 }
 
-var _ = tc.Suite(&offerAccessSuite{})
+func TestOfferAccessSuite(t *testing.T) {
+	tc.Run(t, &offerAccessSuite{})
+}
 
 func (s *offerAccessSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)

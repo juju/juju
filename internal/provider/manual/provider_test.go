@@ -6,6 +6,7 @@ package manual_test
 import (
 	"fmt"
 	"io"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -26,7 +27,9 @@ type providerSuite struct {
 	testhelpers.Stub
 }
 
-var _ = tc.Suite(&providerSuite{})
+func TestProviderSuite(t *testing.T) {
+	tc.Run(t, &providerSuite{})
+}
 
 func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

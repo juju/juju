@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -32,7 +33,9 @@ import (
 
 type ansiSuite struct{}
 
-var _ = tc.Suite(ansiSuite{})
+func TestAnsiSuite(t *testing.T) {
+	tc.Run(t, &ansiSuite{})
+}
 
 func (ansiSuite) TestNorm(c *tc.C) {
 	msg := []rune(strings.Repeat("0123456789", 100))

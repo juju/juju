@@ -4,6 +4,8 @@
 package secretbackends_test
 
 import (
+	"testing"
+
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -21,7 +23,9 @@ type RemoveSuite struct {
 	removeSecretBackendsAPI *secretbackends.MockRemoveSecretBackendsAPI
 }
 
-var _ = tc.Suite(&RemoveSuite{})
+func TestRemoveSuite(t *testing.T) {
+	tc.Run(t, &RemoveSuite{})
+}
 
 func (s *RemoveSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

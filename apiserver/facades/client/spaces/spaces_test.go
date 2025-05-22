@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -35,7 +36,9 @@ type APISuite struct {
 	spaces.APISuite
 }
 
-var _ = tc.Suite(&APISuite{})
+func TestAPISuite(t *stdtesting.T) {
+	tc.Run(t, &APISuite{})
+}
 
 func (s *APISuite) TestCreateSpacesFailInvalidTag(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
@@ -786,7 +789,9 @@ type LegacySuite struct {
 	networkService *spaces.MockNetworkService
 }
 
-var _ = tc.Suite(&LegacySuite{})
+func TestLegacySuite(t *stdtesting.T) {
+	tc.Run(t, &LegacySuite{})
+}
 
 func (s *LegacySuite) SetUpSuite(c *tc.C) {
 	s.StubNetwork.SetUpSuite(c)

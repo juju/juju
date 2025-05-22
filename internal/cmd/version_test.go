@@ -5,6 +5,7 @@ package cmd_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -20,7 +21,9 @@ type VersionSuite struct {
 	ctx *cmd.Context
 }
 
-var _ = tc.Suite(&VersionSuite{})
+func TestVersionSuite(t *testing.T) {
+	tc.Run(t, &VersionSuite{})
+}
 
 type versionDetail struct {
 	Version       string `json:"version"`

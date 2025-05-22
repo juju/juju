@@ -5,6 +5,7 @@ package unitassigner
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -28,7 +29,9 @@ type testsuite struct {
 	statusService *MockStatusService
 }
 
-var _ = tc.Suite(&testsuite{})
+func TestTestsuite(t *testing.T) {
+	tc.Run(t, &testsuite{})
+}
 
 func (s *testsuite) TestAssignUnits(c *tc.C) {
 	f := &fakeState{

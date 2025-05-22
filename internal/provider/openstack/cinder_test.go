@@ -6,6 +6,7 @@ package openstack_test
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/go-goose/goose/v5/cinder"
 	gooseerrors "github.com/go-goose/goose/v5/errors"
@@ -40,7 +41,9 @@ var (
 	mockMachineTag = names.NewMachineTag("456")
 )
 
-var _ = tc.Suite(&cinderVolumeSourceSuite{})
+func TestCinderVolumeSourceSuite(t *stdtesting.T) {
+	tc.Run(t, &cinderVolumeSourceSuite{})
+}
 
 type cinderVolumeSourceSuite struct {
 	testing.BaseSuite

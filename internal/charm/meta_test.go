@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -32,7 +33,9 @@ func repoMeta(c *tc.C, name string) io.Reader {
 
 type MetaSuite struct{}
 
-var _ = tc.Suite(&MetaSuite{})
+func TestMetaSuite(t *testing.T) {
+	tc.Run(t, &MetaSuite{})
+}
 
 func (s *MetaSuite) TestReadMetaVersion1(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "dummy"))
@@ -1703,7 +1706,9 @@ var dummyMeta = &charm.Meta{
 
 type FormatMetaSuite struct{}
 
-var _ = tc.Suite(&FormatMetaSuite{})
+func TestFormatMetaSuite(t *testing.T) {
+	tc.Run(t, &FormatMetaSuite{})
+}
 
 func (FormatMetaSuite) TestCheckV1Fails(c *tc.C) {
 	meta := charm.Meta{}

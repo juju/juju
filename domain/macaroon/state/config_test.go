@@ -4,6 +4,8 @@
 package state
 
 import (
+	"testing"
+
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/tc"
 
@@ -22,7 +24,9 @@ type configStateSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = tc.Suite(&configStateSuite{})
+func TestConfigStateSuite(t *testing.T) {
+	tc.Run(t, &configStateSuite{})
+}
 
 func (s *configStateSuite) TestInitialise(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())

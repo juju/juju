@@ -5,6 +5,7 @@ package apicaller_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -34,7 +35,9 @@ type ManifoldSuite struct {
 	getter         dependency.Getter
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

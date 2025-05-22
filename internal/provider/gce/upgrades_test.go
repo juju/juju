@@ -4,6 +4,8 @@
 package gce_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
@@ -15,7 +17,9 @@ type environUpgradeSuite struct {
 	gce.BaseSuite
 }
 
-var _ = tc.Suite(&environUpgradeSuite{})
+func TestEnvironUpgradeSuite(t *testing.T) {
+	tc.Run(t, &environUpgradeSuite{})
+}
 
 func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *tc.C) {
 	c.Assert(s.Env, tc.Implements, new(environs.Upgrader))

@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	stdtesting "testing"
 	"time"
 	"unicode/utf8"
 
@@ -48,7 +49,9 @@ type RunSuite struct {
 	dir string
 }
 
-var _ = tc.Suite(&RunSuite{})
+func TestRunSuite(t *stdtesting.T) {
+	tc.Run(t, &RunSuite{})
+}
 
 func (s *RunSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)

@@ -4,6 +4,8 @@
 package credentialvalidator_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -15,7 +17,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&CredentialValidatorSuite{})
+func TestCredentialValidatorSuite(t *testing.T) {
+	tc.Run(t, &CredentialValidatorSuite{})
+}
 
 type CredentialValidatorSuite struct {
 	testhelpers.IsolationSuite

@@ -4,18 +4,11 @@
 package engine_test
 
 import (
-	"testing"
-
-	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
 )
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 type dummyWorker struct {
 	worker.Worker

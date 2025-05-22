@@ -6,6 +6,7 @@ package charmhub
 import (
 	"bytes"
 	"encoding/json"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -25,7 +26,9 @@ type infoSuite struct {
 	charmHubAPI *mocks.MockCharmHubClient
 }
 
-var _ = tc.Suite(&infoSuite{})
+func TestInfoSuite(t *testing.T) {
+	tc.Run(t, &infoSuite{})
+}
 
 func (s *infoSuite) TestInitNoArgs(c *tc.C) {
 	command := &infoCommand{

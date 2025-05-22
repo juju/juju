@@ -4,6 +4,8 @@
 package charms
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -12,7 +14,9 @@ import (
 
 type charmOriginSuite struct{}
 
-var _ = tc.Suite(&charmOriginSuite{})
+func TestCharmOriginSuite(t *testing.T) {
+	tc.Run(t, &charmOriginSuite{})
+}
 
 func (s *charmOriginSuite) TestValidateCharmOriginSuccessCharmHub(c *tc.C) {
 	err := ValidateCharmOrigin(&params.CharmOrigin{

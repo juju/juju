@@ -5,6 +5,7 @@ package environs_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,7 +21,9 @@ import (
 type environSuite struct {
 }
 
-var _ = tc.Suite(&environSuite{})
+func TestEnvironSuite(t *stdtesting.T) {
+	tc.Run(t, &environSuite{})
+}
 
 type mockModel struct {
 	stateenvirons.Model

@@ -3,14 +3,4 @@
 
 package modelmigration
 
-import (
-	"testing"
-
-	"github.com/juju/tc"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/model/modelmigration ExportService,ModelImportService,ModelDetailService,UserService
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}

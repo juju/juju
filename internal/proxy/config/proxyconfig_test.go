@@ -5,6 +5,7 @@ package config_test
 
 import (
 	"net/http"
+	"testing"
 
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
@@ -14,7 +15,9 @@ import (
 
 type Suite struct{}
 
-var _ = tc.Suite(&Suite{})
+func TestSuite(t *testing.T) {
+	tc.Run(t, &Suite{})
+}
 
 func checkProxy(c *tc.C, settings proxy.Settings, requestURL, expectedURL string) {
 	pc := proxyconfig.ProxyConfig{}

@@ -4,6 +4,8 @@
 package centralhub_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
@@ -21,7 +23,9 @@ type ManifoldSuite struct {
 	config centralhub.ManifoldConfig
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

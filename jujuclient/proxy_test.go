@@ -4,6 +4,8 @@
 package jujuclient_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v3"
@@ -17,7 +19,9 @@ type proxyWrapperSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&proxyWrapperSuite{})
+func TestProxyWrapperSuite(t *testing.T) {
+	tc.Run(t, &proxyWrapperSuite{})
+}
 
 func (p *proxyWrapperSuite) TestMarshalling(c *tc.C) {
 	config := proxy.ProxierConfig{

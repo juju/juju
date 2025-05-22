@@ -4,6 +4,8 @@
 package output_test
 
 import (
+	"testing"
+
 	"github.com/juju/ansiterm"
 	"github.com/juju/tc"
 
@@ -13,7 +15,9 @@ import (
 
 type OutputSuite struct{}
 
-var _ = tc.Suite(&OutputSuite{})
+func TestOutputSuite(t *testing.T) {
+	tc.Run(t, &OutputSuite{})
+}
 
 func (s *OutputSuite) TestStatusColor(c *tc.C) {
 	var ctx *ansiterm.Context

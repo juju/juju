@@ -5,6 +5,7 @@ package lease_test
 
 import (
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -21,7 +22,9 @@ type ClaimSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ClaimSuite{})
+func TestClaimSuite(t *testing.T) {
+	tc.Run(t, &ClaimSuite{})
+}
 
 func (s *ClaimSuite) TestClaimLease_Success(c *tc.C) {
 	fix := &Fixture{

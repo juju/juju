@@ -5,6 +5,7 @@ package lxd_test
 
 import (
 	"errors"
+	"testing"
 
 	lxdclient "github.com/canonical/lxd/client"
 	lxdapi "github.com/canonical/lxd/shared/api"
@@ -41,7 +42,9 @@ type managerSuite struct {
 	manager        container.Manager
 }
 
-var _ = tc.Suite(&managerSuite{})
+func TestManagerSuite(t *testing.T) {
+	tc.Run(t, &managerSuite{})
+}
 
 func (s *managerSuite) patch() {
 	lxd.PatchConnectRemote(s, map[string]lxdclient.ImageServer{"cloud-images.ubuntu.com": s.cSvr})

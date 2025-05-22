@@ -6,6 +6,7 @@ package secrets_test
 import (
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -24,7 +25,9 @@ type addSuite struct {
 	secretsAPI *mocks.MockAddSecretsAPI
 }
 
-var _ = tc.Suite(&addSuite{})
+func TestAddSuite(t *testing.T) {
+	tc.Run(t, &addSuite{})
+}
 
 func (s *addSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

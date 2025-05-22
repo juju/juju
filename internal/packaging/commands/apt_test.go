@@ -6,6 +6,7 @@ package commands_test
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
@@ -13,7 +14,9 @@ import (
 	"github.com/juju/juju/internal/packaging/commands"
 )
 
-var _ = tc.Suite(&AptSuite{})
+func TestAptSuite(t *testing.T) {
+	tc.Run(t, &AptSuite{})
+}
 
 type AptSuite struct {
 	aptCommander commands.AptPackageCommander

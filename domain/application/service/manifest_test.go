@@ -4,6 +4,8 @@
 package service
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/application/charm"
@@ -15,7 +17,9 @@ type manifestSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&manifestSuite{})
+func TestManifestSuite(t *testing.T) {
+	tc.Run(t, &manifestSuite{})
+}
 
 var manifestTestCases = [...]struct {
 	name   string

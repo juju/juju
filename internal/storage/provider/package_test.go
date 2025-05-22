@@ -4,14 +4,8 @@
 package provider_test
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/tc"
 )
-
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type mockRunCommand struct {
 	c        *tc.C

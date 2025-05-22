@@ -4,6 +4,8 @@
 package ssh
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -14,7 +16,9 @@ type CmdSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&CmdSuite{})
+func TestCmdSuite(t *testing.T) {
+	tc.Run(t, &CmdSuite{})
+}
 
 func initSSHCommand(args ...string) (*sshCommand, error) {
 	com := &sshCommand{}

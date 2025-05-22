@@ -4,6 +4,8 @@
 package network_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/network"
@@ -14,7 +16,9 @@ type DeviceNamesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&DeviceNamesSuite{})
+func TestDeviceNamesSuite(t *testing.T) {
+	tc.Run(t, &DeviceNamesSuite{})
+}
 
 func (*DeviceNamesSuite) TestNaturallySortDeviceNames(c *tc.C) {
 	for i, test := range []struct {

@@ -4,6 +4,8 @@
 package service
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -19,7 +21,9 @@ type serviceSuite struct {
 	srv *Service
 }
 
-var _ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *testing.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 const (
 	unitUUID    coreunit.UUID      = "unit-uuid"

@@ -7,14 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/internal/testhelpers"
 )
-
-func Test(t *testing.T) {
-	tc.TestingT(t)
-}
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
 

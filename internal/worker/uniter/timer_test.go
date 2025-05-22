@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"reflect"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -14,7 +15,9 @@ import (
 
 type timerSuite struct{}
 
-var _ = tc.Suite(&timerSuite{})
+func TestTimerSuite(t *testing.T) {
+	tc.Run(t, &timerSuite{})
+}
 
 func (s *timerSuite) TestTimer(c *tc.C) {
 	nominal := 100 * time.Second

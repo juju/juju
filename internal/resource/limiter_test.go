@@ -6,6 +6,7 @@ package resource
 import (
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -17,7 +18,9 @@ import (
 type LimiterSuite struct {
 }
 
-var _ = tc.Suite(&LimiterSuite{})
+func TestLimiterSuite(t *testing.T) {
+	tc.Run(t, &LimiterSuite{})
+}
 
 var shortAttempt = &utils.AttemptStrategy{
 	Total: coretesting.ShortWait,

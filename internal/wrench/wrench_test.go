@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -16,17 +16,15 @@ import (
 	"github.com/juju/juju/internal/wrench"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 type wrenchSuite struct {
 	coretesting.BaseSuite
 	wrenchDir string
 	logWriter loggo.TestWriter
 }
 
-var _ = tc.Suite(&wrenchSuite{})
+func TestWrenchSuite(t *testing.T) {
+	tc.Run(t, &wrenchSuite{})
+}
 
 func (s *wrenchSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

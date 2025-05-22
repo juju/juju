@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -43,7 +44,9 @@ type unitStateSuite struct {
 	state *State
 }
 
-var _ = tc.Suite(&unitStateSuite{})
+func TestUnitStateSuite(t *stdtesting.T) {
+	tc.Run(t, &unitStateSuite{})
+}
 
 func (s *unitStateSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
@@ -1744,8 +1747,9 @@ type unitStateSubordinateSuite struct {
 	unitStateSuite
 }
 
-var _ = tc.Suite(&unitStateSubordinateSuite{})
-
+func TestUnitStateSubordinateSuite(t *stdtesting.T) {
+	tc.Run(t, &unitStateSubordinateSuite{})
+}
 func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnit(c *tc.C) {
 	// Arrange:
 	pUnitName := coreunittesting.GenNewName(c, "foo/666")

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -42,7 +43,9 @@ type BaseCommandSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&BaseCommandSuite{})
+func TestBaseCommandSuite(t *testing.T) {
+	tc.Run(t, &BaseCommandSuite{})
+}
 
 func (s *BaseCommandSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
@@ -338,8 +341,9 @@ type NewGetBootstrapConfigParamsFuncSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&NewGetBootstrapConfigParamsFuncSuite{})
-
+func TestNewGetBootstrapConfigParamsFuncSuite(t *testing.T) {
+	tc.Run(t, &NewGetBootstrapConfigParamsFuncSuite{})
+}
 func (s *NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *tc.C) {
 	clientStore := jujuclient.NewMemStore()
 	clientStore.Controllers["foo"] = jujuclient.ControllerDetails{}
@@ -428,7 +432,9 @@ type OpenAPIFuncSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&OpenAPIFuncSuite{})
+func TestOpenAPIFuncSuite(t *testing.T) {
+	tc.Run(t, &OpenAPIFuncSuite{})
+}
 
 func (s *OpenAPIFuncSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

@@ -4,6 +4,8 @@
 package action_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -17,7 +19,9 @@ type actionSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&actionSuite{})
+func TestActionSuite(t *testing.T) {
+	tc.Run(t, &actionSuite{})
+}
 
 func (s *actionSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:

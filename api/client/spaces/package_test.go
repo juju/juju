@@ -4,16 +4,8 @@
 package spaces
 
 import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/api/base"
 )
-
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 func NewAPIFromCaller(caller base.FacadeCaller) *API {
 	return &API{

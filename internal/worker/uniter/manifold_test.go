@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -22,7 +23,9 @@ type ManifoldSuite struct {
 	config uniter.ManifoldConfig
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

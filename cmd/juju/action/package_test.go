@@ -6,7 +6,6 @@ package action_test
 import (
 	"context"
 	"os"
-	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -39,10 +38,6 @@ const (
 	validApplicationId   = "mysql"
 	invalidApplicationId = "something-strange-"
 )
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 type BaseActionSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite

@@ -3,14 +3,4 @@
 
 package unitassigner
 
-import (
-	"testing"
-
-	"github.com/juju/tc"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package unitassigner -destination services_mock_test.go github.com/juju/juju/apiserver/facades/agent/unitassigner StatusService
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}

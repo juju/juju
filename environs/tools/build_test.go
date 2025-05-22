@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -34,7 +35,9 @@ type buildSuite struct {
 	filePath string
 }
 
-var _ = tc.Suite(&buildSuite{})
+func TestBuildSuite(t *stdtesting.T) {
+	tc.Run(t, &buildSuite{})
+}
 
 func (b *buildSuite) SetUpTest(c *tc.C) {
 	b.BaseSuite.SetUpTest(c)

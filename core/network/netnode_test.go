@@ -4,6 +4,8 @@
 package network
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -13,7 +15,9 @@ import (
 type netNodeUUIDSuite struct {
 }
 
-var _ = tc.Suite(&netNodeUUIDSuite{})
+func TestNetNodeUUIDSuite(t *testing.T) {
+	tc.Run(t, &netNodeUUIDSuite{})
+}
 
 func (*netNodeUUIDSuite) TestUUIDValidate(c *tc.C) {
 	// Test that the uuid.Validate method succeeds and

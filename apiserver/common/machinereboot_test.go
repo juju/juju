@@ -6,6 +6,7 @@ package common_test
 import (
 	"context"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -25,7 +26,9 @@ type MachineRebootTestSuite struct {
 	mockRebootService *mocks.MockMachineRebootService
 }
 
-var _ = tc.Suite(&MachineRebootTestSuite{})
+func TestMachineRebootTestSuite(t *stdtesting.T) {
+	tc.Run(t, &MachineRebootTestSuite{})
+}
 
 func (s *MachineRebootTestSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

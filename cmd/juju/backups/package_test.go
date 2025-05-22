@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -49,10 +48,6 @@ finished:              0001-01-01 00:00:00 +0000 UTC
 notes:                  
 
 `[1:]
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 type BaseBackupsSuite struct {
 	jujutesting.FakeJujuXDGDataHomeSuite

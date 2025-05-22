@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ import (
 
 type ControllerSuite struct{}
 
-var _ = tc.Suite(&ControllerSuite{})
+func TestControllerSuite(t *testing.T) {
+	tc.Run(t, &ControllerSuite{})
+}
 
 type dummyMux struct {
 	AddHandlerFunc    func(string, string, http.Handler) error

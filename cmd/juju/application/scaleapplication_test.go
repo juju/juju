@@ -6,6 +6,7 @@ package application
 import (
 	"context"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -25,7 +26,9 @@ type ScaleApplicationSuite struct {
 	mockAPI *mockScaleApplicationAPI
 }
 
-var _ = tc.Suite(&ScaleApplicationSuite{})
+func TestScaleApplicationSuite(t *testing.T) {
+	tc.Run(t, &ScaleApplicationSuite{})
+}
 
 type mockScaleApplicationAPI struct {
 	*testhelpers.Stub

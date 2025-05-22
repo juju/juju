@@ -5,6 +5,7 @@ package stateconverter_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -20,7 +21,9 @@ import (
 	"github.com/juju/juju/internal/worker/stateconverter/mocks"
 )
 
-var _ = tc.Suite(&manifoldConfigSuite{})
+func TestManifoldConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &manifoldConfigSuite{})
+}
 
 type manifoldConfigSuite struct {
 	machiner *mocks.MockMachiner

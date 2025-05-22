@@ -5,7 +5,7 @@ package machiner_test
 
 import (
 	"net"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -23,10 +23,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 type MachinerSuite struct {
 	coretesting.BaseSuite
 	accessor   *mockMachineAccessor
@@ -34,7 +30,9 @@ type MachinerSuite struct {
 	addresses  []net.Addr
 }
 
-var _ = tc.Suite(&MachinerSuite{})
+func TestMachinerSuite(t *testing.T) {
+	tc.Run(t, &MachinerSuite{})
+}
 
 func (s *MachinerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

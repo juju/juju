@@ -5,6 +5,8 @@
 package openstack_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 
@@ -18,7 +20,9 @@ type UserdataSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&UserdataSuite{})
+func TestUserdataSuite(t *stdtesting.T) {
+	tc.Run(t, &UserdataSuite{})
+}
 
 func (s *UserdataSuite) TestOpenstackUnix(c *tc.C) {
 	renderer := openstack.OpenstackRenderer{}

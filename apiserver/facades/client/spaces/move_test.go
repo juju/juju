@@ -4,6 +4,8 @@
 package spaces_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -21,7 +23,9 @@ type moveSubnetsAPISuite struct {
 	spaces.APISuite
 }
 
-var _ = tc.Suite(&moveSubnetsAPISuite{})
+func TestMoveSubnetsAPISuite(t *testing.T) {
+	tc.Run(t, &moveSubnetsAPISuite{})
+}
 
 func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)

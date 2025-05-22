@@ -12,11 +12,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -25,12 +23,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination state_mock_test.go github.com/juju/juju/internal/objectstore Claimer,ClaimExtender,HashFileSystemAccessor,TrackedObjectStore,RemoteRetriever
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStoreMetadata,Session
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination clock_mock_test.go github.com/juju/clock Clock
-
-func TestAll(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

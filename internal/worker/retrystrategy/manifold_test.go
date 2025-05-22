@@ -6,6 +6,7 @@ package retrystrategy_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -34,7 +35,9 @@ type ManifoldSuite struct {
 	newWorker  func(worker.Worker, error) func(retrystrategy.WorkerConfig) (worker.Worker, error)
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)

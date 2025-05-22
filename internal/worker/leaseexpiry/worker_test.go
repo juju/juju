@@ -4,6 +4,7 @@
 package leaseexpiry_test
 
 import (
+	"testing"
 	time "time"
 
 	"github.com/juju/clock"
@@ -23,7 +24,9 @@ type workerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)

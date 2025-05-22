@@ -4,6 +4,8 @@
 package lxd_test
 
 import (
+	"testing"
+
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -16,7 +18,9 @@ type storageSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = tc.Suite(&storageSuite{})
+func TestStorageSuite(t *testing.T) {
+	tc.Run(t, &storageSuite{})
+}
 
 func defaultProfileWithDisk() *lxdapi.Profile {
 	return &lxdapi.Profile{

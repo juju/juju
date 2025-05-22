@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -23,7 +24,9 @@ type serviceSuite struct {
 	stringsWatcher *MockStringsWatcher
 }
 
-var _ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *testing.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()

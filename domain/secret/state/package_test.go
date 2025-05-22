@@ -5,9 +5,6 @@ package state
 
 import (
 	"context"
-	"testing"
-
-	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -15,10 +12,6 @@ import (
 	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 )
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 func getApplicationUUID(ctx context.Context, st *State, appName string) (coreapplication.ID, error) {
 	var uuid coreapplication.ID

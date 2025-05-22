@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
@@ -15,7 +17,9 @@ type statusSetSuite struct {
 	ContextSuite
 }
 
-var _ = tc.Suite(&statusSetSuite{})
+func TestStatusSetSuite(t *testing.T) {
+	tc.Run(t, &statusSetSuite{})
+}
 
 func (s *statusSetSuite) SetUpTest(c *tc.C) {
 	s.ContextSuite.SetUpTest(c)

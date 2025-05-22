@@ -5,6 +5,7 @@ package network_test
 
 import (
 	"sort"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +17,9 @@ type NetworkSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&NetworkSuite{})
+func TestNetworkSuite(t *testing.T) {
+	tc.Run(t, &NetworkSuite{})
+}
 
 func (s *NetworkSuite) TestGenerateVirtualMACAddress(c *tc.C) {
 	mac := network.GenerateVirtualMACAddress()

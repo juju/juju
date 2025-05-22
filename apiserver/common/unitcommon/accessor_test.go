@@ -4,6 +4,8 @@
 package unitcommon
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -21,7 +23,9 @@ type UnitAccessorSuite struct {
 	applicationService *MockApplicationService
 }
 
-var _ = tc.Suite(&UnitAccessorSuite{})
+func TestUnitAccessorSuite(t *testing.T) {
+	tc.Run(t, &UnitAccessorSuite{})
+}
 
 func (s *UnitAccessorSuite) TestApplicationAgent(c *tc.C) {
 	defer s.setupMocks(c).Finish()

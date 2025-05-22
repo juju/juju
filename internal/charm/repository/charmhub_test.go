@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -41,7 +42,9 @@ type charmHubRepositorySuite struct {
 	client *mocks.MockCharmHubClient
 }
 
-var _ = tc.Suite(&charmHubRepositorySuite{})
+func TestCharmHubRepositorySuite(t *testing.T) {
+	tc.Run(t, &charmHubRepositorySuite{})
+}
 
 func (s *charmHubRepositorySuite) TestResolveForDeploy(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -954,7 +957,9 @@ type refreshConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&refreshConfigSuite{})
+func TestRefreshConfigSuite(t *testing.T) {
+	tc.Run(t, &refreshConfigSuite{})
+}
 
 func (s *refreshConfigSuite) TestRefreshByChannel(c *tc.C) {
 	name := "wordpress"
@@ -1099,7 +1104,9 @@ type selectNextBaseSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&selectNextBaseSuite{})
+func TestSelectNextBaseSuite(t *testing.T) {
+	tc.Run(t, &selectNextBaseSuite{})
+}
 
 func (s *selectNextBaseSuite) TestSelectNextBaseWithNoBases(c *tc.C) {
 	repo := new(CharmHubRepository)
@@ -1252,7 +1259,9 @@ type composeSuggestionsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&composeSuggestionsSuite{})
+func TestComposeSuggestionsSuite(t *testing.T) {
+	tc.Run(t, &composeSuggestionsSuite{})
+}
 
 func (s *composeSuggestionsSuite) TestNoReleases(c *tc.C) {
 	repo := &CharmHubRepository{

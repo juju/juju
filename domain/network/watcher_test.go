@@ -4,6 +4,8 @@
 package network_test
 
 import (
+	"testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 
@@ -22,7 +24,9 @@ type watcherSuite struct {
 	changestreamtesting.ModelSuite
 }
 
-var _ = tc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *testing.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
 func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "subnet")

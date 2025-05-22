@@ -4,6 +4,7 @@
 package worker_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -19,7 +20,9 @@ type WorkerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	tc.Run(t, &WorkerSuite{})
+}
 
 func (*WorkerSuite) TestStopReturnsNoError(c *tc.C) {
 	w := workertest.NewDeadWorker(nil)

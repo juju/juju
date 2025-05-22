@@ -5,6 +5,7 @@ package store_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -24,7 +25,9 @@ type storeSuite struct {
 	charmAdder *mocks.MockCharmAdder
 }
 
-var _ = tc.Suite(&storeSuite{})
+func TestStoreSuite(t *testing.T) {
+	tc.Run(t, &storeSuite{})
+}
 
 func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()

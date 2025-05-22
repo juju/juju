@@ -13,6 +13,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -38,7 +39,9 @@ type ClientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ClientSuite{})
+func TestClientSuite(t *testing.T) {
+	tc.Run(t, &ClientSuite{})
+}
 
 func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *testhelpers.Stub) {
 	var stub testhelpers.Stub

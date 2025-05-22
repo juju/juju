@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/secrets"
@@ -15,7 +17,9 @@ type providerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&providerSuite{})
+func TestProviderSuite(t *testing.T) {
+	tc.Run(t, &providerSuite{})
+}
 
 func (*providerSuite) TestRevisionMetaSlice(c *tc.C) {
 	nameMeta := provider.SecretRevisions{}

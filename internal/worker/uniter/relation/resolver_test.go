@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -42,11 +43,16 @@ type relationResolverSuite struct {
 	leadershipContext context.LeadershipContext
 }
 
-var (
-	_ = tc.Suite(&relationResolverSuite{})
-	_ = tc.Suite(&relationCreatedResolverSuite{})
-	_ = tc.Suite(&mockRelationResolverSuite{})
-)
+func TestRelationResolverSuite(t *testing.T) {
+	tc.Run(t, &relationResolverSuite{})
+}
+
+func TestRelationCreatedResolverSuite(t *testing.T) {
+	tc.Run(t, &relationCreatedResolverSuite{})
+}
+func TestMockRelationResolverSuite(t *testing.T) {
+	tc.Run(t, &mockRelationResolverSuite{})
+}
 
 type apiCall struct {
 	request string

@@ -5,6 +5,7 @@ package application
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -17,7 +18,9 @@ type ParseBindSuite struct {
 	testhelpers.LoggingSuite
 }
 
-var _ = tc.Suite(&ParseBindSuite{})
+func TestParseBindSuite(t *testing.T) {
+	tc.Run(t, &ParseBindSuite{})
+}
 
 func (s *ParseBindSuite) SetUpSuite(c *tc.C) {
 	s.LoggingSuite.SetUpSuite(c)

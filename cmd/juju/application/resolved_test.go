@@ -5,6 +5,7 @@ package application_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -24,8 +25,9 @@ func (s *ResolvedSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mockAPI = &mockResolveAPI{Stub: &testhelpers.Stub{}}
 }
-
-var _ = tc.Suite(&ResolvedSuite{})
+func TestResolvedSuite(t *testing.T) {
+	tc.Run(t, &ResolvedSuite{})
+}
 
 func (s *ResolvedSuite) runResolved(c *tc.C, args []string) error {
 	store := jujuclienttesting.MinimalStore()

@@ -5,6 +5,7 @@ package jujuclient_test
 
 import (
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,7 +19,9 @@ type AccountsSuite struct {
 	store jujuclient.AccountStore
 }
 
-var _ = tc.Suite(&AccountsSuite{})
+func TestAccountsSuite(t *stdtesting.T) {
+	tc.Run(t, &AccountsSuite{})
+}
 
 func (s *AccountsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

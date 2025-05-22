@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -26,7 +27,9 @@ type BasicAuthHandlerSuite struct {
 	server   *httptest.Server
 }
 
-var _ = tc.Suite(&BasicAuthHandlerSuite{})
+func TestBasicAuthHandlerSuite(t *testing.T) {
+	tc.Run(t, &BasicAuthHandlerSuite{})
+}
 
 func (s *BasicAuthHandlerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

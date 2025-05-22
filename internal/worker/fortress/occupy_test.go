@@ -5,12 +5,14 @@ package fortress_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -21,7 +23,10 @@ type OccupySuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&OccupySuite{})
+func TestOccupySuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &OccupySuite{})
+}
 
 func (*OccupySuite) TestAbort(c *tc.C) {
 	fix := newFixture(c)

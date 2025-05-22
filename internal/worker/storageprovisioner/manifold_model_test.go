@@ -4,6 +4,8 @@
 package storageprovisioner_test
 
 import (
+	"testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +22,9 @@ type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) TestManifold(c *tc.C) {
 	manifold := storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{

@@ -4,6 +4,8 @@
 package credential
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -17,7 +19,9 @@ type typeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&typeSuite{})
+func TestTypeSuite(t *testing.T) {
+	tc.Run(t, &typeSuite{})
+}
 
 func (s *typeSuite) TestCredentialKeyIsZero(c *tc.C) {
 	c.Assert(Key{}.IsZero(), tc.IsTrue)

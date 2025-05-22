@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"maps"
 	"slices"
+	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -51,7 +52,9 @@ type modelSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&modelSuite{})
+func TestModelSuite(t *stdtesting.T) {
+	tc.Run(t, &modelSuite{})
+}
 
 func (s *modelSuite) TestGetModelType(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -76,7 +79,9 @@ type applicationStateSuite struct {
 	state *State
 }
 
-var _ = tc.Suite(&applicationStateSuite{})
+func TestApplicationStateSuite(t *stdtesting.T) {
+	tc.Run(t, &applicationStateSuite{})
+}
 
 func (s *applicationStateSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)

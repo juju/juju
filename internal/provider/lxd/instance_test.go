@@ -4,6 +4,8 @@
 package lxd_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
@@ -14,7 +16,9 @@ type instanceSuite struct {
 	lxd.BaseSuite
 }
 
-var _ = tc.Suite(&instanceSuite{})
+func TestInstanceSuite(t *testing.T) {
+	tc.Run(t, &instanceSuite{})
+}
 
 func (s *instanceSuite) TestNewInstance(c *tc.C) {
 	ctrl := s.SetupMocks(c)

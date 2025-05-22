@@ -4,6 +4,7 @@
 package controllerconfig
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -22,7 +23,9 @@ type controllerconfigSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = tc.Suite(&controllerconfigSuite{})
+func TestControllerconfigSuite(t *testing.T) {
+	tc.Run(t, &controllerconfigSuite{})
+}
 
 func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *tc.C) {
 	st := domainstate.NewState(s.TxnRunnerFactory())

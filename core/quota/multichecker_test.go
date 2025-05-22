@@ -4,13 +4,17 @@
 package quota_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/quota"
 )
 
-var _ = tc.Suite(&MultiCheckerSuite{})
+func TestMultiCheckerSuite(t *testing.T) {
+	tc.Run(t, &MultiCheckerSuite{})
+}
 
 type MultiCheckerSuite struct {
 }

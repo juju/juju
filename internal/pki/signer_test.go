@@ -4,6 +4,8 @@
 package pki_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/pki"
@@ -12,7 +14,9 @@ import (
 type SignerSuite struct {
 }
 
-var _ = tc.Suite(&SignerSuite{})
+func TestSignerSuite(t *testing.T) {
+	tc.Run(t, &SignerSuite{})
+}
 
 func (s *SignerSuite) TestKeyProfilesForErrors(c *tc.C) {
 	tests := []struct {

@@ -4,6 +4,8 @@
 package worker_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 
@@ -12,7 +14,9 @@ import (
 
 type FinishedSuite struct{}
 
-var _ = tc.Suite(&FinishedSuite{})
+func TestFinishedSuite(t *testing.T) {
+	tc.Run(t, &FinishedSuite{})
+}
 
 func (s *FinishedSuite) TestFinishedWorker(c *tc.C) {
 	// Pretty dumb test if interface is implemented

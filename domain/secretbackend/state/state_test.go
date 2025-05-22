@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -49,7 +50,9 @@ type stateSuite struct {
 	vaultBackendID      string
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *testing.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)

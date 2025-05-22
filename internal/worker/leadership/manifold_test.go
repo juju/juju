@@ -4,6 +4,7 @@
 package leadership_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -26,7 +27,9 @@ type ManifoldSuite struct {
 	manifold dependency.Manifold
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

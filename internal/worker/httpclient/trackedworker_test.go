@@ -4,8 +4,11 @@
 package httpclient
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	internalhttp "github.com/juju/juju/internal/http"
@@ -18,7 +21,10 @@ type trackedWorkerSuite struct {
 	states chan string
 }
 
-var _ = tc.Suite(&trackedWorkerSuite{})
+func TestTrackedWorkerSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &trackedWorkerSuite{})
+}
 
 func (s *trackedWorkerSuite) TestKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()

@@ -5,6 +5,8 @@
 package retrystrategy_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -17,7 +19,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&retryStrategySuite{})
+func TestRetryStrategySuite(t *testing.T) {
+	tc.Run(t, &retryStrategySuite{})
+}
 
 type retryStrategySuite struct {
 	strategy           retrystrategy.RetryStrategy

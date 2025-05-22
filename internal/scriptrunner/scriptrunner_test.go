@@ -5,7 +5,7 @@ package scriptrunner_test
 
 import (
 	"os"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -17,15 +17,13 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 type ScriptRunnerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ScriptRunnerSuite{})
+func TestScriptRunnerSuite(t *testing.T) {
+	tc.Run(t, &ScriptRunnerSuite{})
+}
 
 func (s *ScriptRunnerSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)

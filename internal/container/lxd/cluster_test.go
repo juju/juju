@@ -5,6 +5,7 @@ package lxd_test
 
 import (
 	"errors"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -17,7 +18,9 @@ type clusterSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = tc.Suite(&clusterSuite{})
+func TestClusterSuite(t *testing.T) {
+	tc.Run(t, &clusterSuite{})
+}
 
 func (s *imageSuite) TestUseTargetGoodNode(c *tc.C) {
 	ctrl := gomock.NewController(c)

@@ -4,6 +4,8 @@
 package caasapplicationprovisioner_test
 
 import (
+	"testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -23,7 +25,9 @@ type ManifoldSuite struct {
 	config caasapplicationprovisioner.ManifoldConfig
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

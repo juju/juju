@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -29,7 +30,9 @@ type stateSuite struct {
 	state *State
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *testing.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)

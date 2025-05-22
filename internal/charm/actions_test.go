@@ -6,13 +6,16 @@ package charm
 import (
 	"bytes"
 	"encoding/json"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type ActionsSuite struct{}
 
-var _ = tc.Suite(&ActionsSuite{})
+func TestActionsSuite(t *testing.T) {
+	tc.Run(t, &ActionsSuite{})
+}
 
 func (s *ActionsSuite) TestNewActions(c *tc.C) {
 	emptyAction := NewActions()

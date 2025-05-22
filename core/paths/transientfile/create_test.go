@@ -8,13 +8,16 @@ package transientfile
 import (
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type transientFileSuite struct{}
 
-var _ = tc.Suite(&transientFileSuite{})
+func TestTransientFileSuite(t *testing.T) {
+	tc.Run(t, &transientFileSuite{})
+}
 
 func (s *transientFileSuite) TestCreateTransientFile(c *tc.C) {
 	transientDir := c.MkDir()

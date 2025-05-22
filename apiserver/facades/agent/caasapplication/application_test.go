@@ -4,6 +4,8 @@
 package caasapplication_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -25,7 +27,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&CAASApplicationSuite{})
+func TestCAASApplicationSuite(t *testing.T) {
+	tc.Run(t, &CAASApplicationSuite{})
+}
 
 type CAASApplicationSuite struct {
 	testhelpers.IsolationSuite

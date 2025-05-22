@@ -5,6 +5,7 @@ package agentbootstrap_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	mgotesting "github.com/juju/mgo/v3/testing"
@@ -47,7 +48,9 @@ type bootstrapSuite struct {
 	mgoInst mgotesting.MgoInstance
 }
 
-var _ = tc.Suite(&bootstrapSuite{})
+func TestBootstrapSuite(t *stdtesting.T) {
+	tc.Run(t, &bootstrapSuite{})
+}
 
 func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

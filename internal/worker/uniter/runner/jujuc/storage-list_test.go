@@ -5,6 +5,7 @@ package jujuc_test
 
 import (
 	"encoding/json"
+	"testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -19,7 +20,9 @@ type storageListSuite struct {
 	storageSuite
 }
 
-var _ = tc.Suite(&storageListSuite{})
+func TestStorageListSuite(t *testing.T) {
+	tc.Run(t, &storageListSuite{})
+}
 
 func (s *storageListSuite) newHookContext() *jujuctesting.Context {
 	ctx, info := s.NewHookContext()

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -24,7 +25,9 @@ type addSuite struct {
 	args    []string
 }
 
-var _ = tc.Suite(&addSuite{})
+func TestAddSuite(t *testing.T) {
+	tc.Run(t, &addSuite{})
+}
 
 func (s *addSuite) SetUpTest(c *tc.C) {
 	s.SubStorageSuite.SetUpTest(c)

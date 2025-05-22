@@ -4,6 +4,8 @@
 package authentication_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -23,7 +25,9 @@ type agentAuthenticatorSuite struct {
 	agentPasswordService *MockAgentPasswordService
 }
 
-var _ = tc.Suite(&agentAuthenticatorSuite{})
+func TestAgentAuthenticatorSuite(t *testing.T) {
+	tc.Run(t, &agentAuthenticatorSuite{})
+}
 
 func (s *agentAuthenticatorSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:

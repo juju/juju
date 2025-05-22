@@ -4,6 +4,8 @@
 package podcfg_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
@@ -17,7 +19,9 @@ type imageSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&imageSuite{})
+func TestImageSuite(t *stdtesting.T) {
+	tc.Run(t, &imageSuite{})
+}
 
 func (*imageSuite) TestGetJujuOCIImagePath(c *tc.C) {
 	cfg := testing.FakeControllerConfig()

@@ -4,6 +4,8 @@
 package testing_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -15,7 +17,9 @@ type fakeHomeSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&fakeHomeSuite{})
+func TestFakeHomeSuite(t *stdtesting.T) {
+	tc.Run(t, &fakeHomeSuite{})
+}
 
 func (s *fakeHomeSuite) TestModelTagValid(c *tc.C) {
 	asString := testing.ModelTag.String()

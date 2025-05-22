@@ -5,12 +5,14 @@ package charmrevisioner
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/charm"
@@ -55,7 +57,10 @@ type WorkerSuite struct {
 	modelTag names.ModelTag
 }
 
-var _ = tc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &WorkerSuite{})
+}
 
 func (s *WorkerSuite) TestTriggerFetch(c *tc.C) {
 	// Ensure that a clock tick triggers a fetch, the testing of the fetch

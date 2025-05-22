@@ -4,6 +4,8 @@
 package containermetadataresource
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -15,8 +17,9 @@ type ContainerMetadataResourceUUIDSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ContainerMetadataResourceUUIDSuite{})
-
+func TestContainerMetadataResourceUUIDSuite(t *testing.T) {
+	tc.Run(t, &ContainerMetadataResourceUUIDSuite{})
+}
 func (*ContainerMetadataResourceUUIDSuite) TestIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string

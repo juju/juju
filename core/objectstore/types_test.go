@@ -5,6 +5,7 @@ package objectstore
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +16,9 @@ type objectStoreSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&objectStoreSuite{})
+func TestObjectStoreSuite(t *testing.T) {
+	tc.Run(t, &objectStoreSuite{})
+}
 
 func (s *objectStoreSuite) TestObjectStore(c *tc.C) {
 	tests := []struct {

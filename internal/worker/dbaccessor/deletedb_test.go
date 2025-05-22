@@ -6,8 +6,10 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
+	"testing"
 
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database"
@@ -19,7 +21,10 @@ type deleteDBSuite struct {
 	databasetesting.DqliteSuite
 }
 
-var _ = tc.Suite(&deleteDBSuite{})
+func TestDeleteDBSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &deleteDBSuite{})
+}
 
 func (s *deleteDBSuite) TestDeleteDBContentsOnEmptyDB(c *tc.C) {
 	runner := s.TxnRunner()

@@ -5,6 +5,7 @@ package migrationminion_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -23,7 +24,9 @@ type ManifoldSuite struct {
 	config migrationminion.ManifoldConfig
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

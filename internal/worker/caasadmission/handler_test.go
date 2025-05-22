@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	admission "k8s.io/api/admission/v1beta1"
@@ -32,7 +33,9 @@ type HandlerSuite struct {
 	logger logger.Logger
 }
 
-var _ = tc.Suite(&HandlerSuite{})
+func TestHandlerSuite(t *testing.T) {
+	tc.Run(t, &HandlerSuite{})
+}
 
 func (h *HandlerSuite) SetUpTest(c *tc.C) {
 	h.logger = loggertesting.WrapCheckLog(c)

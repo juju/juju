@@ -5,6 +5,7 @@ package rpc_test
 
 import (
 	"reflect"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +20,9 @@ type reflectSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&reflectSuite{})
+func TestReflectSuite(t *stdtesting.T) {
+	tc.Run(t, &reflectSuite{})
+}
 
 func (*reflectSuite) TestTypeOf(c *tc.C) {
 	rtype := rpcreflect.TypeOf(reflect.TypeOf(&Root{}))

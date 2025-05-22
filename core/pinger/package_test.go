@@ -13,13 +13,11 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package pinger -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
-
 type ImportTest struct{}
 
-var _ = tc.Suite(&ImportTest{})
+func TestImportTest(t *testing.T) {
+	tc.Run(t, &ImportTest{})
+}
 
 func (*ImportTest) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/pinger")

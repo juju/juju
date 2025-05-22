@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -27,8 +28,9 @@ type sessionTokenLoginProviderProviderSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&sessionTokenLoginProviderProviderSuite{})
-
+func TestSessionTokenLoginProviderProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &sessionTokenLoginProviderProviderSuite{})
+}
 func (s *sessionTokenLoginProviderProviderSuite) APIInfo() *api.Info {
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
 		var err error
@@ -177,8 +179,9 @@ type sessionTokenLoginProviderBasicSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&sessionTokenLoginProviderBasicSuite{})
-
+func TestSessionTokenLoginProviderBasicSuite(t *stdtesting.T) {
+	tc.Run(t, &sessionTokenLoginProviderBasicSuite{})
+}
 func (s *sessionTokenLoginProviderBasicSuite) TestSessionTokenAuthHeader(c *tc.C) {
 	var output bytes.Buffer
 	testCases := []struct {

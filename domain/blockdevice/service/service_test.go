@@ -4,6 +4,8 @@
 package service
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -20,7 +22,9 @@ type serviceSuite struct {
 	watcherFactory *MockWatcherFactory
 }
 
-var _ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *testing.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

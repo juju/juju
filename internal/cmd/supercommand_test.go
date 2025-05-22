@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+	"testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
@@ -47,7 +48,9 @@ type SuperCommandSuite struct {
 	ctx *cmd.Context
 }
 
-var _ = tc.Suite(&SuperCommandSuite{})
+func TestSuperCommandSuite(t *testing.T) {
+	tc.Run(t, &SuperCommandSuite{})
+}
 
 func baseSubcommandsPlus(newCommands map[string]string) map[string]string {
 	subcommands := map[string]string{

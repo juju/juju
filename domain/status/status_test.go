@@ -4,6 +4,8 @@
 package status
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -13,7 +15,9 @@ type statusSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&statusSuite{})
+func TestStatusSuite(t *testing.T) {
+	tc.Run(t, &statusSuite{})
+}
 
 // TestK8sPodStatusDBValues ensures there's no skew between what's in the
 // database table for cloud container status and the typed consts used in the

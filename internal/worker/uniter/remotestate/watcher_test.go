@@ -4,6 +4,7 @@
 package remotestate_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -54,28 +55,34 @@ type WatcherSuiteSidecarCharmModVer struct {
 	WatcherSuiteSidecar
 }
 
-var _ = tc.Suite(&WatcherSuiteIAAS{
-	WatcherSuite{modelType: model.IAAS},
-})
+func TestWatcherSuiteIAAS(t *stdtesting.T) {
+	tc.Run(t, &WatcherSuiteIAAS{
+		WatcherSuite{modelType: model.IAAS},
+	})
+}
 
-var _ = tc.Suite(&WatcherSuiteSidecar{
-	WatcherSuite{
-		modelType:                    model.CAAS,
-		sidecar:                      true,
-		enforcedCharmModifiedVersion: 5,
-	},
-})
-
-var _ = tc.Suite(&WatcherSuiteSidecarCharmModVer{
-	WatcherSuiteSidecar{
+func TestWatcherSuiteSidecar(t *stdtesting.T) {
+	tc.Run(t, &WatcherSuiteSidecar{
 		WatcherSuite{
-			modelType: model.CAAS,
-			sidecar:   true,
-			// Use a different version than the base tests
-			enforcedCharmModifiedVersion: 4,
+			modelType:                    model.CAAS,
+			sidecar:                      true,
+			enforcedCharmModifiedVersion: 5,
 		},
-	},
-})
+	})
+}
+
+func TestWatcherSuiteSidecarCharmModVer(t *stdtesting.T) {
+	tc.Run(t, &WatcherSuiteSidecarCharmModVer{
+		WatcherSuiteSidecar{
+			WatcherSuite{
+				modelType: model.CAAS,
+				sidecar:   true,
+				// Use a different version than the base tests
+				enforcedCharmModifiedVersion: 4,
+			},
+		},
+	})
+}
 
 func (s *WatcherSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

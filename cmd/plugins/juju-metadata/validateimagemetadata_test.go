@@ -5,6 +5,7 @@ package main
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/tc"
@@ -31,8 +32,9 @@ type ValidateImageMetadataSuite struct {
 	store       *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&ValidateImageMetadataSuite{})
-
+func TestValidateImageMetadataSuite(t *testing.T) {
+	tc.Run(t, &ValidateImageMetadataSuite{})
+}
 func runValidateImageMetadata(c *tc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {
 	cmd := &validateImageMetadataCommand{}
 	cmd.SetClientStore(store)

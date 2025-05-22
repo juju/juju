@@ -8,6 +8,7 @@ package service_test
 import (
 	"os"
 	"path"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -66,8 +67,9 @@ func (s *agentConfSuite) TearDownTest(c *tc.C) {
 	s.services = nil
 	s.BaseSuite.TearDownTest(c)
 }
-
-var _ = tc.Suite(&agentConfSuite{})
+func TestAgentConfSuite(t *stdtesting.T) {
+	tc.Run(t, &agentConfSuite{})
+}
 
 func (s *agentConfSuite) setUpAgentConf(c *tc.C) {
 	configParams := agent.AgentConfigParams{

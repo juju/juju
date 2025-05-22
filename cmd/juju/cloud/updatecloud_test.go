@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,7 +27,9 @@ type updateCloudSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&updateCloudSuite{})
+func TestUpdateCloudSuite(t *stdtesting.T) {
+	tc.Run(t, &updateCloudSuite{})
+}
 
 func (s *updateCloudSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

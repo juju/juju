@@ -4,6 +4,8 @@
 package keymanager
 
 import (
+	"testing"
+
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -32,9 +34,11 @@ type keyManagerSuite struct {
 	modelID        coremodel.UUID
 }
 
-var (
-	_ = tc.Suite(&keyManagerSuite{})
+func TestKeyManagerSuite(t *testing.T) {
+	tc.Run(t, &keyManagerSuite{})
+}
 
+var (
 	// testingPublicKeys represents a set of keys that can be used and are valid.
 	testingPublicKeys = []string{
 		// ecdsa testing public key

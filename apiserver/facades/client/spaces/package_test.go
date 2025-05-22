@@ -17,10 +17,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,Constraints,Address,Bindings,NetworkService,ControllerConfigService,ApplicationService
 
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
-
 // APISuite is used to test API calls using mocked model operations.
 type APISuite struct {
 	resource   *facademocks.MockResources
@@ -39,7 +35,9 @@ type APISuite struct {
 	ApplicationService      *MockApplicationService
 }
 
-var _ = tc.Suite(&APISuite{})
+func TestAPISuite(t *testing.T) {
+	tc.Run(t, &APISuite{})
+}
 
 func (s *APISuite) TearDownTest(_ *tc.C) {
 	s.API = nil

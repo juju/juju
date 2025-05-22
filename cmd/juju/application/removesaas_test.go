@@ -5,6 +5,7 @@ package application
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -26,7 +27,9 @@ type RemoveSaasSuite struct {
 	mockAPI *mockRemoveSaasAPI
 }
 
-var _ = tc.Suite(&RemoveSaasSuite{})
+func TestRemoveSaasSuite(t *testing.T) {
+	tc.Run(t, &RemoveSaasSuite{})
+}
 
 func (s *RemoveSaasSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

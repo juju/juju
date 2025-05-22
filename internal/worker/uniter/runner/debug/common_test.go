@@ -4,6 +4,8 @@
 package debug_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/debug"
@@ -11,7 +13,9 @@ import (
 
 type DebugHooksCommonSuite struct{}
 
-var _ = tc.Suite(&DebugHooksCommonSuite{})
+func TestDebugHooksCommonSuite(t *testing.T) {
+	tc.Run(t, &DebugHooksCommonSuite{})
+}
 
 // TestHooksContext tests the behaviour of HooksContext.
 func (*DebugHooksCommonSuite) TestHooksContext(c *tc.C) {

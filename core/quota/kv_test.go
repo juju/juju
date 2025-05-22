@@ -4,6 +4,7 @@
 package quota_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -12,7 +13,9 @@ import (
 	"github.com/juju/juju/core/quota"
 )
 
-var _ = tc.Suite(&MapKeyValueCheckerSuite{})
+func TestMapKeyValueCheckerSuite(t *testing.T) {
+	tc.Run(t, &MapKeyValueCheckerSuite{})
+}
 
 type MapKeyValueCheckerSuite struct {
 }

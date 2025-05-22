@@ -4,6 +4,8 @@
 package bootstrap
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -21,7 +23,9 @@ type deployerIAASSuite struct {
 	machineGetter *MockMachineGetter
 }
 
-var _ = tc.Suite(&deployerIAASSuite{})
+func TestDeployerIAASSuite(t *testing.T) {
+	tc.Run(t, &deployerIAASSuite{})
+}
 
 func (s *deployerIAASSuite) TestValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()

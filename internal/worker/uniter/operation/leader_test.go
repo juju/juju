@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm/hooks"
@@ -17,7 +19,9 @@ type LeaderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&LeaderSuite{})
+func TestLeaderSuite(t *testing.T) {
+	tc.Run(t, &LeaderSuite{})
+}
 
 func (s *LeaderSuite) newFactory(c *tc.C) operation.Factory {
 	return operation.NewFactory(operation.FactoryParams{

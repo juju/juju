@@ -5,6 +5,7 @@ package resource_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,7 +18,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&ShowApplicationSuite{})
+func TestShowApplicationSuite(t *testing.T) {
+	tc.Run(t, &ShowApplicationSuite{})
+}
 
 type ShowApplicationSuite struct {
 	testhelpers.IsolationSuite

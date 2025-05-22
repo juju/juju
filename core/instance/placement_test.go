@@ -4,6 +4,8 @@
 package instance_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
@@ -11,7 +13,9 @@ import (
 
 type PlacementSuite struct{}
 
-var _ = tc.Suite(&PlacementSuite{})
+func TestPlacementSuite(t *testing.T) {
+	tc.Run(t, &PlacementSuite{})
+}
 
 func (s *PlacementSuite) TestParsePlacement(c *tc.C) {
 	parsePlacementTests := []struct {

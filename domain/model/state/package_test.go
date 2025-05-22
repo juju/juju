@@ -4,15 +4,8 @@
 package state
 
 import (
-	"testing"
-
 	"github.com/canonical/sqlair"
-	"github.com/juju/tc"
 )
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 type preparer struct{}
 

@@ -4,13 +4,9 @@
 package caasfirewaller
 
 import (
-	"testing"
-
 	"github.com/juju/errors"
-	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
-	"go.uber.org/goleak"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/broker_mock.go github.com/juju/juju/internal/worker/caasfirewaller CAASBroker,PortMutator,ServiceUpdater
@@ -19,12 +15,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/api_base_mock.go github.com/juju/juju/api/base APICaller
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/domain_mocks.go github.com/juju/juju/internal/worker/caasfirewaller ApplicationService,PortService
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/services_mocks.go github.com/juju/juju/internal/services ModelDomainServices
-
-func TestAll(t *testing.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.TestingT(t)
-}
 
 type (
 	ApplicationWorkerCreator = applicationWorkerCreator

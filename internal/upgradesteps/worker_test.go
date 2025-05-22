@@ -6,6 +6,7 @@ package upgradesteps
 import (
 	"context"
 	"errors"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -20,7 +21,9 @@ type baseWorkerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&baseWorkerSuite{})
+func TestBaseWorkerSuite(t *testing.T) {
+	tc.Run(t, &baseWorkerSuite{})
+}
 
 func (s *baseWorkerSuite) TestAlreadyUpgraded(c *tc.C) {
 	defer s.setupMocks(c).Finish()

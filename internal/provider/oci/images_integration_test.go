@@ -4,6 +4,7 @@
 package oci_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -25,7 +26,9 @@ type imagesSuite struct {
 	testCompartment string
 }
 
-var _ = tc.Suite(&imagesSuite{})
+func TestImagesSuite(t *testing.T) {
+	tc.Run(t, &imagesSuite{})
+}
 
 func (s *imagesSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

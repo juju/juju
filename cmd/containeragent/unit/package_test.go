@@ -12,13 +12,11 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
-
 type importSuite struct{}
 
-var _ = tc.Suite(&importSuite{})
+func TestImportSuite(t *testing.T) {
+	tc.Run(t, &importSuite{})
+}
 
 func (*importSuite) TestImports(c *tc.C) {
 	// TODO(sidecar) - improve test performance

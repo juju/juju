@@ -4,6 +4,8 @@
 package lxdprofile_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -17,7 +19,9 @@ type LXDProfileSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&LXDProfileSuite{})
+func TestLXDProfileSuite(t *testing.T) {
+	tc.Run(t, &LXDProfileSuite{})
+}
 
 func (*LXDProfileSuite) TestValidateWithNoProfiler(c *tc.C) {
 	err := lxdprofile.ValidateLXDProfile(nil)

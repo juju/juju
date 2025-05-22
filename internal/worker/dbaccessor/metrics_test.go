@@ -5,17 +5,22 @@ package dbaccessor
 
 import (
 	"bytes"
+	stdtesting "testing"
 	time "time"
 
 	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testing"
 )
 
 type metricsSuite struct{}
 
-var _ = tc.Suite(&metricsSuite{})
+func TestMetricsSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &metricsSuite{})
+}
 
 func (s *metricsSuite) TestMetricsAreCollected(c *tc.C) {
 	collector := NewMetricsCollector()

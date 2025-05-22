@@ -4,6 +4,8 @@
 package upgrade
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -14,7 +16,9 @@ type typesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&typesSuite{})
+func TestTypesSuite(t *testing.T) {
+	tc.Run(t, &typesSuite{})
+}
 
 func (s *typesSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {

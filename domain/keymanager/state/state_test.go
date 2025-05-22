@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -33,7 +34,9 @@ type stateSuite struct {
 	modelId  model.UUID
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *testing.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 var (
 	testingPublicKeys = []string{

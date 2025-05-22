@@ -4,6 +4,8 @@
 package charmhub
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type ConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ConfigSuite{})
+func TestConfigSuite(t *testing.T) {
+	tc.Run(t, &ConfigSuite{})
+}
 
 func (s *ConfigSuite) TestBasePath(c *tc.C) {
 	path, err := basePath("http://api.foo.bar.com")

@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -13,7 +15,9 @@ type storageKindSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&storageKindSuite{})
+func TestStorageKindSuite(t *testing.T) {
+	tc.Run(t, &storageKindSuite{})
+}
 
 // TestStorageKindDBValues ensures there's no skew between what's in the
 // database table for charm_storage_kind and the typed consts used in the state packages.

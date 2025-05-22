@@ -6,6 +6,7 @@ package jujuclient_test
 import (
 	"fmt"
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,7 +22,9 @@ type ControllersSuite struct {
 	controller     jujuclient.ControllerDetails
 }
 
-var _ = tc.Suite(&ControllersSuite{})
+func TestControllersSuite(t *stdtesting.T) {
+	tc.Run(t, &ControllersSuite{})
+}
 
 func (s *ControllersSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

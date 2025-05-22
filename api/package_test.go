@@ -11,13 +11,11 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
-
 type ImportSuite struct{}
 
-var _ = tc.Suite(&ImportSuite{})
+func TestImportSuite(t *testing.T) {
+	tc.Run(t, &ImportSuite{})
+}
 
 func (*ImportSuite) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/api")

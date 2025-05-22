@@ -5,6 +5,7 @@ package manual
 
 import (
 	"os"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -38,7 +39,9 @@ type environSuite struct {
 	baseEnvironSuite
 }
 
-var _ = tc.Suite(&environSuite{})
+func TestEnvironSuite(t *testing.T) {
+	tc.Run(t, &environSuite{})
+}
 
 func (s *environSuite) TestInstances(c *tc.C) {
 	var ids []instance.Id
@@ -201,8 +204,9 @@ type controllerInstancesSuite struct {
 	baseEnvironSuite
 }
 
-var _ = tc.Suite(&controllerInstancesSuite{})
-
+func TestControllerInstancesSuite(t *testing.T) {
+	tc.Run(t, &controllerInstancesSuite{})
+}
 func (s *controllerInstancesSuite) TestControllerInstances(c *tc.C) {
 	var outputResult string
 	var errResult error

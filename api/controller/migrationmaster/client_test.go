@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -38,7 +39,9 @@ type ClientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ClientSuite{})
+func TestClientSuite(t *stdtesting.T) {
+	tc.Run(t, &ClientSuite{})
+}
 
 func (s *ClientSuite) TestWatch(c *tc.C) {
 	var stub testhelpers.Stub

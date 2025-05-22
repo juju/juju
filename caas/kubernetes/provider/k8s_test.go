@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -55,7 +56,9 @@ type K8sSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&K8sSuite{})
+func TestK8sSuite(t *stdtesting.T) {
+	tc.Run(t, &K8sSuite{})
+}
 
 func getBasicPodspec() *specs.PodSpec {
 	pSpecs := &specs.PodSpec{}
@@ -85,7 +88,9 @@ type K8sBrokerSuite struct {
 	BaseSuite
 }
 
-var _ = tc.Suite(&K8sBrokerSuite{})
+func TestK8sBrokerSuite(t *stdtesting.T) {
+	tc.Run(t, &K8sBrokerSuite{})
+}
 
 func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *tc.C) {
 	ctrl := gomock.NewController(c)

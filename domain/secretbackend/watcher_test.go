@@ -4,6 +4,7 @@
 package secretbackend_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -29,7 +30,9 @@ type watcherSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-var _ = tc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *testing.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
 func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 	c.Skip("FIXME: rename of secret is firing secretbackend_rotation_changes")

@@ -6,6 +6,7 @@ package charm_test
 import (
 	"encoding/json"
 	"strings"
+	"testing"
 
 	"github.com/juju/os/v2"
 	"github.com/juju/tc"
@@ -19,7 +20,9 @@ type baseSuite struct {
 	testhelpers.CleanupSuite
 }
 
-var _ = tc.Suite(&baseSuite{})
+func TestBaseSuite(t *testing.T) {
+	tc.Run(t, &baseSuite{})
+}
 
 func (s *baseSuite) TestParseBase(c *tc.C) {
 	tests := []struct {

@@ -4,6 +4,8 @@
 package lxd
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -14,7 +16,9 @@ type ErrorSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&ErrorSuite{})
+func TestErrorSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorSuite{})
+}
 
 func (s *ErrorSuite) TestIsUnauthorisedError(c *tc.C) {
 	err := errors.New("not authorized")

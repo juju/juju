@@ -6,6 +6,7 @@ package store
 import (
 	"context"
 	"net/url"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,7 +27,9 @@ type resolveSuite struct {
 	charmReader    *mocks.MockCharmReader
 }
 
-var _ = tc.Suite(&resolveSuite{})
+func TestResolveSuite(t *testing.T) {
+	tc.Run(t, &resolveSuite{})
+}
 
 func (s *resolveSuite) TestResolveCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()

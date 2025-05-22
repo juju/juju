@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
@@ -17,7 +19,9 @@ type persistentVolumeSuite struct {
 	resourceSuite
 }
 
-var _ = tc.Suite(&persistentVolumeSuite{})
+func TestPersistentVolumeSuite(t *testing.T) {
+	tc.Run(t, &persistentVolumeSuite{})
+}
 
 func (s *persistentVolumeSuite) TestApply(c *tc.C) {
 	ds := &corev1.PersistentVolume{

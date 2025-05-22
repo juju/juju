@@ -4,6 +4,7 @@
 package secretbackends_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -25,7 +26,9 @@ type ListSuite struct {
 	secretBackendsAPI *secretbackends.MockListSecretBackendsAPI
 }
 
-var _ = tc.Suite(&ListSuite{})
+func TestListSuite(t *testing.T) {
+	tc.Run(t, &ListSuite{})
+}
 
 func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

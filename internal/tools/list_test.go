@@ -5,6 +5,7 @@ package tools_test
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +15,9 @@ import (
 
 type ListSuite struct{}
 
-var _ = tc.Suite(&ListSuite{})
+func TestListSuite(t *testing.T) {
+	tc.Run(t, &ListSuite{})
+}
 
 func mustParseTools(name string) *tools.Tools {
 	return &tools.Tools{

@@ -4,6 +4,7 @@
 package secretbackendmanager
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -29,7 +30,9 @@ type SecretsManagerSuite struct {
 	facade          *SecretBackendsManagerAPI
 }
 
-var _ = tc.Suite(&SecretsManagerSuite{})
+func TestSecretsManagerSuite(t *testing.T) {
+	tc.Run(t, &SecretsManagerSuite{})
+}
 
 func (s *SecretsManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

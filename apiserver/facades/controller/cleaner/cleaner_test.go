@@ -5,6 +5,7 @@ package cleaner_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -31,7 +32,9 @@ type CleanerSuite struct {
 	domainServices *MockDomainServices
 }
 
-var _ = tc.Suite(&CleanerSuite{})
+func TestCleanerSuite(t *testing.T) {
+	tc.Run(t, &CleanerSuite{})
+}
 
 func (s *CleanerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

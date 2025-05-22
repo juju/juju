@@ -4,6 +4,8 @@
 package tools_test
 
 import (
+	"testing"
+
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/tc"
 
@@ -11,7 +13,9 @@ import (
 	"github.com/juju/juju/internal/tools"
 )
 
-var _ = tc.Suite(&marshalSuite{})
+func TestMarshalSuite(t *testing.T) {
+	tc.Run(t, &marshalSuite{})
+}
 
 type marshalSuite struct {
 }

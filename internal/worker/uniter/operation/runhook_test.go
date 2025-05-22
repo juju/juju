@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -22,7 +24,9 @@ type RunHookSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&RunHookSuite{})
+func TestRunHookSuite(t *testing.T) {
+	tc.Run(t, &RunHookSuite{})
+}
 
 type newHook func(operation.Factory, hook.Info) (operation.Operation, error)
 

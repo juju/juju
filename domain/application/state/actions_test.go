@@ -4,6 +4,8 @@
 package state
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/application/charm"
@@ -14,7 +16,9 @@ type actionsSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&actionsSuite{})
+func TestActionsSuite(t *testing.T) {
+	tc.Run(t, &actionsSuite{})
+}
 
 var actionsTestCases = [...]struct {
 	name   string

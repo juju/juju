@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
@@ -32,7 +33,9 @@ type bakerySuite struct {
 	mockExpirableStorageBakery *mocks.MockExpirableStorageBakery
 }
 
-var _ = tc.Suite(&bakerySuite{})
+func TestBakerySuite(t *testing.T) {
+	tc.Run(t, &bakerySuite{})
+}
 
 func (s *bakerySuite) getLocalOfferBakery(c *tc.C) (*crossmodel.OfferBakery, *gomock.Controller) {
 	ctrl := gomock.NewController(c)

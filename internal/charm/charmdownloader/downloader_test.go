@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/url"
 	"os"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -23,7 +24,9 @@ type downloaderSuite struct {
 	downloadClient *MockDownloadClient
 }
 
-var _ = tc.Suite(&downloaderSuite{})
+func TestDownloaderSuite(t *testing.T) {
+	tc.Run(t, &downloaderSuite{})
+}
 
 func (s *downloaderSuite) TestDownload(c *tc.C) {
 	defer s.setupMocks(c).Finish()

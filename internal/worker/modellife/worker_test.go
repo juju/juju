@@ -6,12 +6,14 @@ package modellife
 import (
 	"context"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/life"
@@ -32,7 +34,10 @@ type workerSuite struct {
 	modelUUID model.UUID
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig()

@@ -24,8 +24,6 @@ import (
 	statewatcher "github.com/juju/juju/state/watcher"
 )
 
-var _ = tc.Suite(&StateSuite{})
-
 // StateSuite provides setup and teardown for tests that require a
 // state.State.
 type StateSuite struct {

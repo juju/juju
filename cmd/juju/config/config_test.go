@@ -9,7 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
@@ -19,10 +19,8 @@ import (
 
 type suite struct{}
 
-var _ = tc.Suite(&suite{})
-
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
+func TestSuite(t *testing.T) {
+	tc.Run(t, &suite{})
 }
 
 func (s *suite) TestSetFlags(c *tc.C) {

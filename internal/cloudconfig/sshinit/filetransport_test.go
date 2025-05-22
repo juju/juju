@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -21,7 +22,9 @@ import (
 
 type sshInitSuite struct{}
 
-var _ = tc.Suite(&sshInitSuite{})
+func TestSshInitSuite(t *testing.T) {
+	tc.Run(t, &sshInitSuite{})
+}
 
 func (s *sshInitSuite) TestFileTransport(c *tc.C) {
 	ctrl := gomock.NewController(c)

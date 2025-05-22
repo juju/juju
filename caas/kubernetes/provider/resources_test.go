@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 	apps "k8s.io/api/apps/v1"
@@ -14,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&ResourcesSuite{})
+func TestResourcesSuite(t *stdtesting.T) {
+	tc.Run(t, &ResourcesSuite{})
+}
 
 type ResourcesSuite struct {
 	BaseSuite

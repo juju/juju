@@ -5,6 +5,7 @@ package filesystemwatcher_test
 
 import (
 	"errors"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -16,7 +17,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = tc.Suite(&WatchersSuite{})
+func TestWatchersSuite(t *testing.T) {
+	tc.Run(t, &WatchersSuite{})
+}
 
 type WatchersSuite struct {
 	testhelpers.IsolationSuite

@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
@@ -15,7 +17,9 @@ type RelationModelGetSuite struct {
 	relationSuite
 }
 
-var _ = tc.Suite(&RelationModelGetSuite{})
+func TestRelationModelGetSuite(t *testing.T) {
+	tc.Run(t, &RelationModelGetSuite{})
+}
 
 type relationModelGetInitTest struct {
 	ctxrelid int

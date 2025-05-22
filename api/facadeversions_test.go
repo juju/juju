@@ -4,6 +4,8 @@
 package api_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
@@ -15,7 +17,9 @@ type facadeVersionSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&facadeVersionSuite{})
+func TestFacadeVersionSuite(t *testing.T) {
+	tc.Run(t, &facadeVersionSuite{})
+}
 
 func checkBestVersion(c *tc.C, desiredVersion, versions []int, expectedVersion int) {
 	resultVersion := facades.BestVersion(desiredVersion, versions)

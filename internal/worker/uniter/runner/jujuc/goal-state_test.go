@@ -6,6 +6,7 @@ package jujuc_test
 import (
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ type GoalStateSuite struct {
 	ContextSuite
 }
 
-var _ = tc.Suite(&GoalStateSuite{})
+func TestGoalStateSuite(t *testing.T) {
+	tc.Run(t, &GoalStateSuite{})
+}
 
 var (
 	goalStateTestResultYaml = `units:

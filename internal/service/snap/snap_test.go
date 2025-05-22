@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -21,7 +22,9 @@ type validationSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&validationSuite{})
+func TestValidationSuite(t *testing.T) {
+	tc.Run(t, &validationSuite{})
+}
 
 func (*validationSuite) TestBackgroundServiceNeedsNonZeroName(c *tc.C) {
 	empty := BackgroundService{}
@@ -113,7 +116,9 @@ type snapSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&snapSuite{})
+func TestSnapSuite(t *testing.T) {
+	tc.Run(t, &snapSuite{})
+}
 
 func (*snapSuite) TestSnapCommandIsAValidCommand(c *tc.C) {
 	_, err := exec.LookPath(Command)
@@ -161,7 +166,9 @@ type serviceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *testing.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 func (*serviceSuite) TestInstall(c *tc.C) {
 	ctrl := gomock.NewController(c)

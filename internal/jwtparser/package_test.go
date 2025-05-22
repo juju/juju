@@ -7,20 +7,14 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	. "testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/juju/errors"
-	"github.com/juju/tc"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
-
-func TestPackage(t *T) {
-	tc.TestingT(t)
-}
 
 type mockHTTPClient struct {
 	url  string

@@ -4,6 +4,8 @@
 package container_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -17,7 +19,9 @@ import (
 
 type workloadSuite struct{}
 
-var _ = tc.Suite(&workloadSuite{})
+func TestWorkloadSuite(t *testing.T) {
+	tc.Run(t, &workloadSuite{})
+}
 
 func (s *workloadSuite) TestWorkloadEventList(c *tc.C) {
 	evt := container.WorkloadEvent{

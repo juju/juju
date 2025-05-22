@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -42,7 +43,9 @@ type ProxyUpdaterSuite struct {
 	config           proxyupdater.Config
 }
 
-var _ = tc.Suite(&ProxyUpdaterSuite{})
+func TestProxyUpdaterSuite(t *testing.T) {
+	tc.Run(t, &ProxyUpdaterSuite{})
+}
 
 func newNotAWatcher() notAWatcher {
 	return notAWatcher{workertest.NewFakeWatcher(2, 2)}

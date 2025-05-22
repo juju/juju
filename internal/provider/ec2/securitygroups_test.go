@@ -5,6 +5,7 @@ package ec2_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -27,7 +28,9 @@ type SecurityGroupSuite struct {
 	deleteFunc func(context.Context, ec2.SecurityGroupCleaner, types.GroupIdentifier, clock.Clock) error
 }
 
-var _ = tc.Suite(&SecurityGroupSuite{})
+func TestSecurityGroupSuite(t *testing.T) {
+	tc.Run(t, &SecurityGroupSuite{})
+}
 
 func (s *SecurityGroupSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)

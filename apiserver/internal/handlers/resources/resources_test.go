@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -51,7 +52,9 @@ type ResourcesHandlerSuite struct {
 	downloader            *MockDownloader
 }
 
-var _ = tc.Suite(&ResourcesHandlerSuite{})
+func TestResourcesHandlerSuite(t *testing.T) {
+	tc.Run(t, &ResourcesHandlerSuite{})
+}
 
 func (s *ResourcesHandlerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

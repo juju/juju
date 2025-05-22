@@ -4,6 +4,8 @@
 package os
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
@@ -14,7 +16,9 @@ type macOSXSeriesSuite struct {
 	testhelpers.CleanupSuite
 }
 
-var _ = tc.Suite(&macOSXSeriesSuite{})
+func TestMacOSXSeriesSuite(t *testing.T) {
+	tc.Run(t, &macOSXSeriesSuite{})
+}
 
 func (*macOSXSeriesSuite) TestGetSysctlVersionPlatform(c *tc.C) {
 	// Test that sysctlVersion returns something that looks like a dotted revision number

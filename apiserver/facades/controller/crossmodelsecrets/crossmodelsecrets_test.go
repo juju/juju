@@ -5,6 +5,7 @@ package crossmodelsecrets_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -32,7 +33,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&CrossModelSecretsSuite{})
+func TestCrossModelSecretsSuite(t *testing.T) {
+	tc.Run(t, &CrossModelSecretsSuite{})
+}
 
 type CrossModelSecretsSuite struct {
 	coretesting.BaseSuite

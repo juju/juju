@@ -4,9 +4,12 @@
 package changestream
 
 import (
+	"testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -17,7 +20,10 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&manifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &manifoldSuite{})
+}
 
 func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()

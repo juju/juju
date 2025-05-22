@@ -4,6 +4,8 @@
 package machinemanager
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -19,7 +21,9 @@ type instanceTypesSuite struct {
 	instanceTypesFetcher *MockInstanceTypesFetcher
 }
 
-var _ = tc.Suite(&instanceTypesSuite{})
+func TestInstanceTypesSuite(t *testing.T) {
+	tc.Run(t, &instanceTypesSuite{})
+}
 
 func (s *instanceTypesSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

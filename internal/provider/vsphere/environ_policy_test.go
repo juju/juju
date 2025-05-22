@@ -4,6 +4,8 @@
 package vsphere_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -18,7 +20,9 @@ type environPolSuite struct {
 	EnvironFixture
 }
 
-var _ = tc.Suite(&environPolSuite{})
+func TestEnvironPolSuite(t *testing.T) {
+	tc.Run(t, &environPolSuite{})
+}
 
 func (s *environPolSuite) TestConstraintsValidator(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(c.Context())

@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"os"
 	stdtesting "testing"
 
 	"github.com/juju/collections/set"
@@ -41,8 +42,11 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination relation_mock_test.go github.com/juju/juju/domain/relation RelationUnitsWatcher
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination watcher_mock_test.go github.com/juju/juju/core/watcher NotifyWatcher
 
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+func TestMain(m *stdtesting.M) {
+	os.Exit(func() int {
+		defer coretesting.MgoTestMain()()
+		return m.Run()
+	}())
 }
 
 // uniterSuiteBase implements common testing suite for all API versions.

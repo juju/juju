@@ -5,6 +5,7 @@ package mongometrics_test
 
 import (
 	"errors"
+	"testing"
 	"time"
 
 	"github.com/juju/mgo/v3/bson"
@@ -22,7 +23,9 @@ type TxnCollectorSuite struct {
 	collector *mongometrics.TxnCollector
 }
 
-var _ = tc.Suite(&TxnCollectorSuite{})
+func TestTxnCollectorSuite(t *testing.T) {
+	tc.Run(t, &TxnCollectorSuite{})
+}
 
 func (s *TxnCollectorSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

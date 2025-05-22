@@ -5,6 +5,7 @@ package imagemetadatamanager_test
 
 import (
 	"regexp"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +20,9 @@ import (
 type imagemetadataSuite struct {
 }
 
-var _ = tc.Suite(&imagemetadataSuite{})
+func TestImagemetadataSuite(t *testing.T) {
+	tc.Run(t, &imagemetadataSuite{})
+}
 
 func (s *imagemetadataSuite) TestList(c *tc.C) {
 	ctrl := gomock.NewController(c)

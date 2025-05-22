@@ -4,6 +4,7 @@
 package storageprovisioner_test
 
 import (
+	"os"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
@@ -17,8 +18,11 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package storageprovisioner -destination state_mock_test.go github.com/juju/juju/state FilesystemAttachment,VolumeAttachment,EntityFinder,Lifer
 //go:generate go run go.uber.org/mock/mockgen -typed -package storageprovisioner -destination facade_mock_test.go github.com/juju/juju/apiserver/facade Resources
 
-func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func TestMain(m *stdtesting.M) {
+	os.Exit(func() int {
+		defer testing.MgoTestMain()()
+		return m.Run()
+	}())
 }
 
 type storageSetUp interface {

@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -20,7 +22,9 @@ type StateOpsSuite struct {
 	mockStateRW *mocks.MockUnitStateReadWriter
 }
 
-var _ = tc.Suite(&StateOpsSuite{})
+func TestStateOpsSuite(t *testing.T) {
+	tc.Run(t, &StateOpsSuite{})
+}
 
 func (s *StateOpsSuite) TearDownTest(c *tc.C) {
 	s.mockStateRW = nil

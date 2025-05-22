@@ -5,12 +5,14 @@ package singular
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/lease"
@@ -32,7 +34,10 @@ type FlagSuite struct {
 	entityID string
 }
 
-var _ = tc.Suite(&FlagSuite{})
+func TestFlagSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &FlagSuite{})
+}
 
 func (s *FlagSuite) SetUpTest(c *tc.C) {
 	s.unitTag = names.NewUnitTag("foo/0")

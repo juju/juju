@@ -6,11 +6,13 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"testing"
 	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -22,7 +24,10 @@ type workerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()

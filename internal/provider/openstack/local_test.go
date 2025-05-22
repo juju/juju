@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/go-goose/goose/v5/cinder"
@@ -81,7 +82,9 @@ type ProviderSuite struct {
 	restoreTimeouts func()
 }
 
-var _ = tc.Suite(&ProviderSuite{})
+func TestProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &ProviderSuite{})
+}
 
 func (s *ProviderSuite) SetUpTest(c *tc.C) {
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt, openstack.StorageAttempt)
@@ -210,8 +213,9 @@ func overrideCinderProvider(s *testhelpers.CleanupSuite, adaptor *mockAdaptor) {
 		return adaptor, nil
 	})
 }
-
-var _ = tc.Suite(&localServerSuite{})
+func TestLocalServerSuite(t *stdtesting.T) {
+	tc.Run(t, &localServerSuite{})
+}
 
 // localServerSuite contains tests that run against an Openstack service double.
 // These tests can test things that would be unreasonably slow or expensive
@@ -2562,7 +2566,9 @@ type localHTTPSServerSuite struct {
 	env   environs.Environ
 }
 
-var _ = tc.Suite(&localHTTPSServerSuite{})
+func TestLocalHTTPSServerSuite(t *stdtesting.T) {
+	tc.Run(t, &localHTTPSServerSuite{})
+}
 
 func (s *localHTTPSServerSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
@@ -3658,8 +3664,9 @@ func (s *localServerSuite) ensureAMDImages(c *tc.C) environs.Environ {
 	// Prepare a new Environ
 	return s.Prepare(c)
 }
-
-var _ = tc.Suite(&noNeutronSuite{})
+func TestNoNeutronSuite(t *stdtesting.T) {
+	tc.Run(t, &noNeutronSuite{})
+}
 
 // noNeutronSuite is a clone of localServerSuite which hacks the local
 // openstack to remove the neutron service from the auth response -
@@ -3777,7 +3784,9 @@ type noSwiftSuite struct {
 	env  environs.Environ
 }
 
-var _ = tc.Suite(&noSwiftSuite{})
+func TestNoSwiftSuite(t *stdtesting.T) {
+	tc.Run(t, &noSwiftSuite{})
+}
 
 func (s *noSwiftSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)

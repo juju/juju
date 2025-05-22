@@ -5,6 +5,7 @@ package application
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -28,8 +29,9 @@ func (s *ResumeRelationSuite) SetUpTest(c *tc.C) {
 		return s.mockAPI.NextErr()
 	}
 }
-
-var _ = tc.Suite(&ResumeRelationSuite{})
+func TestResumeRelationSuite(t *testing.T) {
+	tc.Run(t, &ResumeRelationSuite{})
+}
 
 func (s *ResumeRelationSuite) runResumeRelation(c *tc.C, args ...string) error {
 	store := jujuclienttesting.MinimalStore()

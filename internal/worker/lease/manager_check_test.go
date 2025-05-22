@@ -4,6 +4,7 @@
 package lease_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -19,7 +20,9 @@ type TokenSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&TokenSuite{})
+func TestTokenSuite(t *testing.T) {
+	tc.Run(t, &TokenSuite{})
+}
 
 func (s *TokenSuite) TestSuccess(c *tc.C) {
 	fix := &Fixture{

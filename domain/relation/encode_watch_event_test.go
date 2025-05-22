@@ -4,6 +4,8 @@
 package relation
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -13,7 +15,9 @@ import (
 type encodeWatchEventSuite struct {
 }
 
-var _ = tc.Suite(&encodeWatchEventSuite{})
+func TestEncodeWatchEventSuite(t *testing.T) {
+	tc.Run(t, &encodeWatchEventSuite{})
+}
 
 func (s *encodeWatchEventSuite) TestEncodeApplicationUUID(c *tc.C) {
 	// Arrange

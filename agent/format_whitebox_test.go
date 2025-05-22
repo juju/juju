@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -23,7 +24,9 @@ type formatSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&formatSuite{})
+func TestFormatSuite(t *stdtesting.T) {
+	tc.Run(t, &formatSuite{})
+}
 
 // The agentParams are used by the specific formatter whitebox tests, and is
 // located here for easy reuse.

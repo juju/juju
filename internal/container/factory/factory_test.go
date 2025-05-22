@@ -4,6 +4,8 @@
 package factory_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
@@ -16,7 +18,9 @@ type factorySuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&factorySuite{})
+func TestFactorySuite(t *stdtesting.T) {
+	tc.Run(t, &factorySuite{})
+}
 
 func (*factorySuite) TestNewContainerManager(c *tc.C) {
 	for _, test := range []struct {

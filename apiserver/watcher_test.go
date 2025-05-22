@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -35,7 +36,9 @@ type watcherSuite struct {
 	authorizer      apiservertesting.FakeAuthorizer
 }
 
-var _ = tc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *testing.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)

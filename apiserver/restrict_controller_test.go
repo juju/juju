@@ -4,6 +4,8 @@
 package apiserver_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -17,7 +19,9 @@ type restrictControllerSuite struct {
 	root rpc.Root
 }
 
-var _ = tc.Suite(&restrictControllerSuite{})
+func TestRestrictControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &restrictControllerSuite{})
+}
 
 func (s *restrictControllerSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)

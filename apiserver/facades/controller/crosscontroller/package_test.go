@@ -4,15 +4,8 @@
 package crosscontroller
 
 import (
-	"testing"
-
-	"github.com/juju/tc"
 	"gopkg.in/tomb.v2"
 )
-
-func TestAll(t *testing.T) {
-	tc.TestingT(t)
-}
 
 type mockNotifyWatcher struct {
 	tomb    tomb.Tomb

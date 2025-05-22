@@ -5,6 +5,7 @@ package migrationflag_test
 
 import (
 	"errors"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +22,9 @@ type FacadeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&FacadeSuite{})
+func TestFacadeSuite(t *testing.T) {
+	tc.Run(t, &FacadeSuite{})
+}
 
 func (*FacadeSuite) TestPhaseCallError(c *tc.C) {
 	stub := &testhelpers.Stub{}

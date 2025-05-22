@@ -5,6 +5,7 @@ package actions_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,7 +24,9 @@ type actionsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&actionsSuite{})
+func TestActionsSuite(t *testing.T) {
+	tc.Run(t, &actionsSuite{})
+}
 
 func (s *actionsSuite) newResolver(c *tc.C) resolver.Resolver {
 	return actions.NewResolver(loggertesting.WrapCheckLog(c))

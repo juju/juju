@@ -5,6 +5,7 @@ package environs_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -31,7 +32,9 @@ type OpenSuite struct {
 	envtesting.ToolsFixture
 }
 
-var _ = tc.Suite(&OpenSuite{})
+func TestOpenSuite(t *stdtesting.T) {
+	tc.Run(t, &OpenSuite{})
+}
 
 func (s *OpenSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

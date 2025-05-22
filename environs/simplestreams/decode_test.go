@@ -5,6 +5,7 @@ package simplestreams_test
 
 import (
 	"bytes"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +14,9 @@ import (
 
 type decodeSuite struct{}
 
-var _ = tc.Suite(&decodeSuite{})
+func TestDecodeSuite(t *testing.T) {
+	tc.Run(t, &decodeSuite{})
+}
 
 func (s *decodeSuite) TestDecodeCheckValidSignature(c *tc.C) {
 	r := bytes.NewReader([]byte(signedData))

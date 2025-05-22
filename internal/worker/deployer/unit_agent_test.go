@@ -4,6 +4,8 @@
 package deployer_test
 
 import (
+	"testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -28,7 +30,9 @@ type UnitAgentSuite struct {
 	config  deployer.UnitAgentConfig
 }
 
-var _ = tc.Suite(&UnitAgentSuite{})
+func TestUnitAgentSuite(t *testing.T) {
+	tc.Run(t, &UnitAgentSuite{})
+}
 
 func (s *UnitAgentSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

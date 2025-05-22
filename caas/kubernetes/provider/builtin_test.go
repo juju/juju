@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -24,9 +25,9 @@ import (
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
-var (
-	_ = tc.Suite(&builtinSuite{})
-)
+func TestBuiltinSuite(t *testing.T) {
+	tc.Run(t, &builtinSuite{})
+}
 
 var microk8sConfig = `
 apiVersion: v1

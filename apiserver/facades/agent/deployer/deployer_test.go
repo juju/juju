@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -35,7 +36,9 @@ type deployerSuite struct {
 	badTag names.Tag
 }
 
-var _ = tc.Suite(&deployerSuite{})
+func TestDeployerSuite(t *testing.T) {
+	tc.Run(t, &deployerSuite{})
+}
 
 func (s *deployerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:

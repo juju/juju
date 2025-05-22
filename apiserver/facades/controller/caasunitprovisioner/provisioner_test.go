@@ -4,6 +4,7 @@
 package caasunitprovisioner_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -25,7 +26,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = tc.Suite(&CAASProvisionerSuite{})
+func TestCAASProvisionerSuite(t *testing.T) {
+	tc.Run(t, &CAASProvisionerSuite{})
+}
 
 type CAASProvisionerSuite struct {
 	coretesting.BaseSuite

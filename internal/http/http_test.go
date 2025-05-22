@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ type httpSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&httpSuite{})
+func TestHttpSuite(t *testing.T) {
+	tc.Run(t, &httpSuite{})
+}
 
 func (s *httpSuite) TestBasicAuthHeader(c *tc.C) {
 	header := jujuhttp.BasicAuthHeader("eric", "sekrit")

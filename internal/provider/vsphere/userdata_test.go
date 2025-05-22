@@ -6,6 +6,7 @@ package vsphere_test
 
 import (
 	"encoding/base64"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +20,9 @@ type UserdataSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&UserdataSuite{})
+func TestUserdataSuite(t *stdtesting.T) {
+	tc.Run(t, &UserdataSuite{})
+}
 
 func (s *UserdataSuite) TestVsphereUnix(c *tc.C) {
 	renderer := vsphere.VsphereRenderer{}

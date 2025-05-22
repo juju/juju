@@ -5,7 +5,7 @@ package upgrader_test
 
 import (
 	"os"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -39,9 +39,6 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/upgrader_mocks.go github.com/juju/juju/internal/worker/upgrader UpgraderClient
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type UpgraderSuite struct {
 	testhelpers.IsolationSuite
@@ -57,10 +54,13 @@ type UpgraderSuite struct {
 
 type AllowedTargetVersionSuite struct{}
 
-var _ = tc.Suite(&UpgraderSuite{})
+func TestUpgraderSuite(t *testing.T) {
+	tc.Run(t, &UpgraderSuite{})
+}
 
-var _ = tc.Suite(&AllowedTargetVersionSuite{})
-
+func TestAllowedTargetVersionSuite(t *testing.T) {
+	tc.Run(t, &AllowedTargetVersionSuite{})
+}
 func (s *UpgraderSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

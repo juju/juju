@@ -4,6 +4,8 @@
 package context
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -13,7 +15,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&PortRangeChangeRecorderSuite{})
+func TestPortRangeChangeRecorderSuite(t *testing.T) {
+	tc.Run(t, &PortRangeChangeRecorderSuite{})
+}
 
 type PortRangeChangeRecorderSuite struct {
 	testhelpers.IsolationSuite

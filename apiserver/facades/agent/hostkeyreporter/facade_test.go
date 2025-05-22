@@ -4,6 +4,8 @@
 package hostkeyreporter_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -22,7 +24,9 @@ type facadeSuite struct {
 	facade     *hostkeyreporter.Facade
 }
 
-var _ = tc.Suite(&facadeSuite{})
+func TestFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &facadeSuite{})
+}
 
 func (s *facadeSuite) SetUpTest(c *tc.C) {
 	s.backend = new(mockBackend)

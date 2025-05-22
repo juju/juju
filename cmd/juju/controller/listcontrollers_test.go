@@ -6,6 +6,7 @@ package controller_test
 import (
 	"encoding/json"
 	"fmt"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -25,7 +26,9 @@ type ListControllersSuite struct {
 	api func(string) controller.ControllerAccessAPI
 }
 
-var _ = tc.Suite(&ListControllersSuite{})
+func TestListControllersSuite(t *testing.T) {
+	tc.Run(t, &ListControllersSuite{})
+}
 
 func (s *ListControllersSuite) TestListControllersEmptyStore(c *tc.C) {
 	s.store = jujuclient.NewMemStore()

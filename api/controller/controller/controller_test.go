@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"encoding/json"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -31,7 +32,9 @@ type Suite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&Suite{})
+func TestSuite(t *testing.T) {
+	tc.Run(t, &Suite{})
+}
 
 func (s *Suite) TestDestroyController(c *tc.C) {
 	var stub testhelpers.Stub

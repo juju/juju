@@ -3,14 +3,4 @@
 
 package deployer
 
-import (
-	"testing"
-
-	"github.com/juju/tc"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package deployer -destination domain_mock_test.go github.com/juju/juju/apiserver/facades/agent/deployer ControllerConfigGetter,ApplicationService,AgentPasswordService
-
-func TestAll(t *testing.T) {
-	tc.TestingT(t)
-}

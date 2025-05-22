@@ -5,6 +5,7 @@ package state
 
 import (
 	"database/sql"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -20,7 +21,9 @@ type typesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&typesSuite{})
+func TestTypesSuite(t *testing.T) {
+	tc.Run(t, &typesSuite{})
+}
 
 func ptr[T any](x T) *T {
 	return &x

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -22,7 +23,9 @@ type AuthKeysSuite struct {
 	dotssh string // ~/.ssh
 }
 
-var _ = tc.Suite(&AuthKeysSuite{})
+func TestAuthKeysSuite(t *stdtesting.T) {
+	tc.Run(t, &AuthKeysSuite{})
+}
 
 func (s *AuthKeysSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

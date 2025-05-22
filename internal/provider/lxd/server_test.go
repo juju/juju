@@ -4,15 +4,17 @@
 package lxd
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var (
-	_ = tc.Suite(&serverSuite{})
-)
+func TestServerSuite(t *testing.T) {
+	tc.Run(t, &serverSuite{})
+}
 
 // serverSuite tests server module functionality from inside the
 // lxd package. See server_integration_test.go for tests that use

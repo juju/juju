@@ -26,15 +26,13 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 type ConfigSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&ConfigSuite{})
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
 
 func (s *ConfigSuite) SetUpTest(c *tc.C) {
 	s.SetInitialFeatureFlags(featureflag.DeveloperMode)

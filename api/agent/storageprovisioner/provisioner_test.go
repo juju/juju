@@ -5,6 +5,7 @@ package storageprovisioner_test
 
 import (
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -17,7 +18,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&provisionerSuite{})
+func TestProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &provisionerSuite{})
+}
 
 type provisionerSuite struct {
 	coretesting.BaseSuite

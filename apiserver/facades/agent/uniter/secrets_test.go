@@ -6,6 +6,7 @@ package uniter
 import (
 	"context"
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -38,7 +39,9 @@ type UniterSecretsSuite struct {
 	facade *UniterAPI
 }
 
-var _ = tc.Suite(&UniterSecretsSuite{})
+func TestUniterSecretsSuite(t *testing.T) {
+	tc.Run(t, &UniterSecretsSuite{})
+}
 
 func (s *UniterSecretsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

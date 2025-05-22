@@ -5,6 +5,7 @@ package storage_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -22,7 +23,9 @@ import (
 type storageMockSuite struct {
 }
 
-var _ = tc.Suite(&storageMockSuite{})
+func TestStorageMockSuite(t *testing.T) {
+	tc.Run(t, &storageMockSuite{})
+}
 
 func (s *storageMockSuite) TestStorageDetails(c *tc.C) {
 	ctrl := gomock.NewController(c)

@@ -4,8 +4,11 @@
 package storageregistry
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/storage"
@@ -19,7 +22,10 @@ type trackedWorkerSuite struct {
 	provider *MockProvider
 }
 
-var _ = tc.Suite(&trackedWorkerSuite{})
+func TestTrackedWorkerSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &trackedWorkerSuite{})
+}
 
 func (s *trackedWorkerSuite) TestKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()

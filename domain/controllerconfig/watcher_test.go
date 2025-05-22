@@ -4,6 +4,8 @@
 package controllerconfig
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
@@ -21,7 +23,9 @@ type watcherSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-var _ = tc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *testing.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
 func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "controller_config")

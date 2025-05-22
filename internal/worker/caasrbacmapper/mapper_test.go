@@ -32,9 +32,9 @@ type MapperSuite struct {
 	mockSharedIndexInformer *mocks.MockSharedIndexInformer
 }
 
-var _ = tc.Suite(&MapperSuite{})
-
-func TestMapperSuite(t *testing.T) { tc.TestingT(t) }
+func TestMapperSuite(t *testing.T) {
+	tc.Run(t, &MapperSuite{})
+}
 
 func (m *MapperSuite) SetUpTest(c *tc.C) {
 	m.ctrl = gomock.NewController(c)

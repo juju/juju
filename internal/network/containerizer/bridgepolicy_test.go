@@ -5,6 +5,7 @@ package containerizer
 
 import (
 	"strconv"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -26,7 +27,9 @@ type bridgePolicySuite struct {
 	guest  *MockContainer
 }
 
-var _ = tc.Suite(&bridgePolicySuite{})
+func TestBridgePolicySuite(t *testing.T) {
+	tc.Run(t, &bridgePolicySuite{})
+}
 
 func (s *bridgePolicySuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)

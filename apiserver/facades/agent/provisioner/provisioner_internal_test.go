@@ -4,6 +4,8 @@
 package provisioner
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -25,7 +27,9 @@ type provisionerSuite struct {
 	keyUpdaterService       *MockKeyUpdaterService
 }
 
-var _ = tc.Suite(&provisionerSuite{})
+func TestProvisionerSuite(t *testing.T) {
+	tc.Run(t, &provisionerSuite{})
+}
 
 func (s *provisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

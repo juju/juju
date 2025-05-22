@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"path"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -28,10 +29,10 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-var (
-	_ = tc.Suite(&providerSuite{})
-	_ = tc.Suite(&ProviderFunctionalSuite{})
-)
+func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
+func TestProviderFunctionalSuite(t *stdtesting.T) {
+	tc.Run(t, &ProviderFunctionalSuite{})
+}
 
 type providerSuite struct {
 	lxd.BaseSuite

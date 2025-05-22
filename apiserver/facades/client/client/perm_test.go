@@ -4,6 +4,8 @@
 package client_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -18,13 +20,17 @@ type permSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&permSuite{})
+func TestPermSuite(t *testing.T) {
+	tc.Run(t, &permSuite{})
+}
 
 type watcherPermSuite struct {
 	permSuite
 }
 
-var _ = tc.Suite(&watcherPermSuite{})
+func TestWatcherPermSuite(t *testing.T) {
+	tc.Run(t, &watcherPermSuite{})
+}
 
 func (s *permSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:

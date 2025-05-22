@@ -4,6 +4,8 @@
 package model
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coreconstraints "github.com/juju/juju/core/constraints"
@@ -20,7 +22,9 @@ type typesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&typesSuite{})
+func TestTypesSuite(t *testing.T) {
+	tc.Run(t, &typesSuite{})
+}
 
 // ptr returns a reference to a copied value of type T.
 func ptr[T any](i T) *T {

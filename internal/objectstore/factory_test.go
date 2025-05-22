@@ -4,9 +4,12 @@
 package objectstore
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/objectstore"
@@ -18,7 +21,10 @@ type objectStoreFactorySuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&objectStoreFactorySuite{})
+func TestObjectStoreFactorySuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &objectStoreFactorySuite{})
+}
 
 func (s *objectStoreFactorySuite) TestNewObjectStore(c *tc.C) {
 	defer s.setupMocks(c).Finish()

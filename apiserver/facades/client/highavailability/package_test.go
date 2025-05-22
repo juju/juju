@@ -4,11 +4,15 @@
 package highavailability
 
 import (
+	"os"
 	stdtesting "testing"
 
 	"github.com/juju/juju/internal/testing"
 )
 
-func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func TestMain(m *stdtesting.M) {
+	os.Exit(func() int {
+		defer testing.MgoTestMain()()
+		return m.Run()
+	}())
 }

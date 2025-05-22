@@ -6,6 +6,7 @@ package gce_test
 import (
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -22,7 +23,9 @@ type credentialsSuite struct {
 	provider environs.EnvironProvider
 }
 
-var _ = tc.Suite(&credentialsSuite{})
+func TestCredentialsSuite(t *testing.T) {
+	tc.Run(t, &credentialsSuite{})
+}
 
 func (s *credentialsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

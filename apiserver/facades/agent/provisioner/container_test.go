@@ -4,6 +4,8 @@
 package provisioner_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -19,8 +21,9 @@ type containerProvisionerSuite struct {
 	provisionerSuite
 }
 
-var _ = tc.Suite(&containerProvisionerSuite{})
-
+func TestContainerProvisionerSuite(t *testing.T) {
+	tc.Run(t, &containerProvisionerSuite{})
+}
 func (s *containerProvisionerSuite) SetUpTest(c *tc.C) {
 	// We have a Controller machine, and 5 other machines to provision in
 	s.setUpTest(c, true)

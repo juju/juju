@@ -4,6 +4,8 @@
 package objectstore
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -14,7 +16,9 @@ type LeaseSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&LeaseSuite{})
+func TestLeaseSuite(t *testing.T) {
+	tc.Run(t, &LeaseSuite{})
+}
 
 func (s *LeaseSuite) TestParseLeaseHolderName(c *tc.C) {
 	tests := []struct {

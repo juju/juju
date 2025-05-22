@@ -5,11 +5,15 @@
 package reboot_test
 
 import (
-	stdtesting "testing"
+	"os"
+	"testing"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+func TestMain(m *testing.M) {
+	os.Exit(func() int {
+		defer coretesting.MgoTestMain()()
+		return m.Run()
+	}())
 }

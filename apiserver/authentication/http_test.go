@@ -5,6 +5,7 @@ package authentication_test
 
 import (
 	"net/http"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -41,7 +42,9 @@ type HTTPAuthenticatorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&HTTPAuthenticatorSuite{})
+func TestHTTPAuthenticatorSuite(t *testing.T) {
+	tc.Run(t, &HTTPAuthenticatorSuite{})
+}
 
 func (s *HTTPAuthenticatorSuite) TestHTTPStrategicAuthenticator(c *tc.C) {
 	tests := []struct {

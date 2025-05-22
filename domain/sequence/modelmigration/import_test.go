@@ -4,6 +4,8 @@
 package modelmigration
 
 import (
+	"testing"
+
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -17,7 +19,9 @@ type importSuite struct {
 	importService *MockImportService
 }
 
-var _ = tc.Suite(&importSuite{})
+func TestImportSuite(t *testing.T) {
+	tc.Run(t, &importSuite{})
+}
 
 func (s *importSuite) TestImportSequences(c *tc.C) {
 	defer s.setupMocks(c).Finish()

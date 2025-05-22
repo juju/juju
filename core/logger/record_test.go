@@ -5,6 +5,7 @@ package logger_test
 
 import (
 	"encoding/json"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -18,7 +19,9 @@ type LogRecordSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&LogRecordSuite{})
+func TestLogRecordSuite(t *testing.T) {
+	tc.Run(t, &LogRecordSuite{})
+}
 
 func (s *LogRecordSuite) TestMarshall(c *tc.C) {
 	rec := &logger.LogRecord{

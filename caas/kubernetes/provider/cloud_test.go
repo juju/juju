@@ -6,6 +6,7 @@ package provider_test
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo/v2"
@@ -24,7 +25,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&cloudSuite{})
+func TestCloudSuite(t *testing.T) {
+	tc.Run(t, &cloudSuite{})
+}
 
 type cloudSuite struct {
 	fakeBroker fakeK8sClusterMetadataChecker

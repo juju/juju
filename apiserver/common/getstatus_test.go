@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -25,7 +26,9 @@ type statusGetterSuite struct {
 	badTag names.Tag
 }
 
-var _ = tc.Suite(&statusGetterSuite{})
+func TestStatusGetterSuite(t *testing.T) {
+	tc.Run(t, &statusGetterSuite{})
+}
 
 func (s *statusGetterSuite) SetUpTest(c *tc.C) {
 	s.badTag = nil

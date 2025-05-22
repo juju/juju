@@ -4,6 +4,8 @@
 package apiserver_test
 
 import (
+	"testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -25,7 +27,9 @@ type WorkerStateSuite struct {
 	statetesting.StateSuite
 }
 
-var _ = tc.Suite(&WorkerStateSuite{})
+func TestWorkerStateSuite(t *testing.T) {
+	tc.Run(t, &WorkerStateSuite{})
+}
 
 func (s *WorkerStateSuite) SetUpSuite(c *tc.C) {
 	s.workerFixture.SetUpSuite(c)

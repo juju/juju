@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"testing"
 
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/go-goose/goose/v5/neutron"
@@ -30,7 +31,9 @@ type localTests struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&localTests{})
+func TestLocalTests(t *testing.T) {
+	tc.Run(t, &localTests{})
+}
 
 // ported from lp:juju/juju/providers/openstack/tests/test_machine.py
 var addressTests = []struct {
@@ -631,7 +634,9 @@ type providerUnitTests struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&providerUnitTests{})
+func TestProviderUnitTests(t *testing.T) {
+	tc.Run(t, &providerUnitTests{})
+}
 
 func checkIdentityClientVersionInvalid(c *tc.C, url string) {
 	_, err := identityClientVersion(url)

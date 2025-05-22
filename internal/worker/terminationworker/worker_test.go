@@ -13,11 +13,9 @@ import (
 	"github.com/juju/juju/internal/worker/terminationworker"
 )
 
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
+func TestTerminationWorkerSuite(t *testing.T) {
+	tc.Run(t, &TerminationWorkerSuite{})
 }
-
-var _ = tc.Suite(&TerminationWorkerSuite{})
 
 type TerminationWorkerSuite struct{}
 

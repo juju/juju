@@ -4,6 +4,8 @@
 package engine_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 
@@ -15,7 +17,9 @@ type ValueWorkerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ValueWorkerSuite{})
+func TestValueWorkerSuite(t *testing.T) {
+	tc.Run(t, &ValueWorkerSuite{})
+}
 
 func (s *ValueWorkerSuite) TestNewValueWorker_Success(c *tc.C) {
 	w, err := engine.NewValueWorker("cheese")

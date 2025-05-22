@@ -5,6 +5,7 @@ package secrets_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -36,7 +37,9 @@ type SecretsSuite struct {
 	secretBackendService *mocks.MockSecretBackendService
 }
 
-var _ = tc.Suite(&SecretsSuite{})
+func TestSecretsSuite(t *testing.T) {
+	tc.Run(t, &SecretsSuite{})
+}
 
 func (s *SecretsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

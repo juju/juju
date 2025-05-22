@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,7 +19,9 @@ import (
 type signalSuite struct {
 }
 
-var _ = tc.Suite(&signalSuite{})
+func TestSignalSuite(t *testing.T) {
+	tc.Run(t, &signalSuite{})
+}
 
 func (*signalSuite) TestSignalHandling(c *tc.C) {
 	testErr := errors.ConstError("test")

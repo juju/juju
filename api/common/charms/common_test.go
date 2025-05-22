@@ -4,6 +4,8 @@
 package charms_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -20,7 +22,9 @@ type suite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&suite{})
+func TestSuite(t *testing.T) {
+	tc.Run(t, &suite{})
+}
 
 func (s *suite) TestCharmInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)

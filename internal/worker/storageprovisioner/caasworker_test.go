@@ -4,6 +4,7 @@
 package storageprovisioner_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -31,7 +32,9 @@ type WorkerSuite struct {
 	applicationChanges chan []string
 }
 
-var _ = tc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	tc.Run(t, &WorkerSuite{})
+}
 
 func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

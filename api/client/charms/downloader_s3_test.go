@@ -5,6 +5,7 @@ package charms_test
 
 import (
 	"net/url"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -18,7 +19,9 @@ import (
 type charmS3DownloaderSuite struct {
 }
 
-var _ = tc.Suite(&charmS3DownloaderSuite{})
+func TestCharmS3DownloaderSuite(t *testing.T) {
+	tc.Run(t, &charmS3DownloaderSuite{})
+}
 
 func (s *charmS3DownloaderSuite) TestCharmOpener(c *tc.C) {
 	correctURL, err := url.Parse("ch:mycharm")

@@ -4,6 +4,8 @@
 package user_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -17,7 +19,9 @@ type utilsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&utilsSuite{})
+func TestUtilsSuite(t *testing.T) {
+	tc.Run(t, &utilsSuite{})
+}
 
 func (s *utilsSuite) TestGenerateUserControllerAccessToken(c *tc.C) {
 	ctrl := gomock.NewController(c)

@@ -13,13 +13,11 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package schema -destination tx_mock_test.go github.com/juju/juju/core/database/schema Tx
 
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
-
 type ImportTest struct{}
 
-var _ = tc.Suite(&ImportTest{})
+func TestImportTest(t *testing.T) {
+	tc.Run(t, &ImportTest{})
+}
 
 func (*ImportTest) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/database/schema")

@@ -5,6 +5,7 @@ package httpserverargs_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -44,7 +45,9 @@ type ManifoldSuite struct {
 	stub testhelpers.Stub
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)

@@ -5,6 +5,7 @@ package api_test
 
 import (
 	"encoding/json"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -24,7 +25,9 @@ type connectionSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&connectionSuite{})
+func TestConnectionSuite(t *testing.T) {
+	tc.Run(t, &connectionSuite{})
+}
 
 func (s *connectionSuite) TestCloseMultipleOk(c *tc.C) {
 	conn := newRPCConnection()
@@ -347,7 +350,9 @@ type slideSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&slideSuite{})
+func TestSlideSuite(t *testing.T) {
+	tc.Run(t, &slideSuite{})
+}
 
 var exampleHostPorts = []network.MachineHostPort{
 	{MachineAddress: network.NewMachineAddress("0.1.2.3"), NetPort: 1234},

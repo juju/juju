@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -36,7 +38,9 @@ type triggerSecretsSuite struct {
 	deletedSecrets  func([]string)
 }
 
-var _ = tc.Suite(&triggerSecretsSuite{})
+func TestTriggerSecretsSuite(t *testing.T) {
+	tc.Run(t, &triggerSecretsSuite{})
+}
 
 func (s *triggerSecretsSuite) SetUpTest(c *tc.C) {
 	s.remoteState = remotestate.Snapshot{
@@ -232,7 +236,9 @@ type changeSecretsSuite struct {
 	resolver    resolver.Resolver
 }
 
-var _ = tc.Suite(&changeSecretsSuite{})
+func TestChangeSecretsSuite(t *testing.T) {
+	tc.Run(t, &changeSecretsSuite{})
+}
 
 func (s *changeSecretsSuite) SetUpTest(_ *tc.C) {
 	s.remoteState = remotestate.Snapshot{
@@ -330,7 +336,9 @@ type removeSecretSuite struct {
 	resolver    resolver.Resolver
 }
 
-var _ = tc.Suite(&removeSecretSuite{})
+func TestRemoveSecretSuite(t *testing.T) {
+	tc.Run(t, &removeSecretSuite{})
+}
 
 func (s *removeSecretSuite) SetUpTest(_ *tc.C) {
 	s.remoteState = remotestate.Snapshot{
@@ -431,7 +439,9 @@ type secretDeletedSuite struct {
 	deleted []string
 }
 
-var _ = tc.Suite(&secretDeletedSuite{})
+func TestSecretDeletedSuite(t *testing.T) {
+	tc.Run(t, &secretDeletedSuite{})
+}
 
 func (s *secretDeletedSuite) SetUpTest(_ *tc.C) {
 	s.remoteState = remotestate.Snapshot{

@@ -5,6 +5,7 @@ package applicationoffers_test
 import (
 	"fmt"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
@@ -40,7 +41,9 @@ type applicationOffersSuite struct {
 	api *applicationoffers.OffersAPIv5
 }
 
-var _ = tc.Suite(&applicationOffersSuite{})
+func TestApplicationOffersSuite(t *stdtesting.T) {
+	tc.Run(t, &applicationOffersSuite{})
+}
 
 func (s *applicationOffersSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
@@ -1362,7 +1365,9 @@ type consumeSuite struct {
 	api *applicationoffers.OffersAPIv5
 }
 
-var _ = tc.Suite(&consumeSuite{})
+func TestConsumeSuite(t *stdtesting.T) {
+	tc.Run(t, &consumeSuite{})
+}
 
 func (s *consumeSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)

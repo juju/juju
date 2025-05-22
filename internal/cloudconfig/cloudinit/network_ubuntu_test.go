@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/exec"
@@ -42,7 +43,9 @@ type NetworkUbuntuSuite struct {
 	originalSystemNetworkInterfaces string
 }
 
-var _ = tc.Suite(&NetworkUbuntuSuite{})
+func TestNetworkUbuntuSuite(t *stdtesting.T) {
+	tc.Run(t, &NetworkUbuntuSuite{})
+}
 
 func (s *NetworkUbuntuSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

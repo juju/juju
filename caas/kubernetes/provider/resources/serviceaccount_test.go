@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
@@ -17,7 +19,9 @@ type serviceAccountSuite struct {
 	resourceSuite
 }
 
-var _ = tc.Suite(&serviceAccountSuite{})
+func TestServiceAccountSuite(t *testing.T) {
+	tc.Run(t, &serviceAccountSuite{})
+}
 
 func (s *serviceAccountSuite) TestApply(c *tc.C) {
 	sa := &corev1.ServiceAccount{

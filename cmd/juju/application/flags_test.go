@@ -4,6 +4,8 @@
 package application
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -12,7 +14,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&FlagSuite{})
+func TestFlagSuite(t *testing.T) {
+	tc.Run(t, &FlagSuite{})
+}
 
 type FlagSuite struct {
 	testhelpers.IsolationSuite

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -57,7 +58,9 @@ type maasEnvironSuite struct {
 	maasSuite
 }
 
-var _ = tc.Suite(&maasEnvironSuite{})
+func TestMaasEnvironSuite(t *testing.T) {
+	tc.Run(t, &maasEnvironSuite{})
+}
 
 func (suite *maasEnvironSuite) getEnvWithServer(c *tc.C) (*maasEnviron, error) {
 	testServer := gomaasapi.NewSimpleServer()

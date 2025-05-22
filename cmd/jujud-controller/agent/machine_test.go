@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"testing"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -68,7 +69,9 @@ type MachineSuite struct {
 	agentStorage envstorage.Storage
 }
 
-var _ = tc.Suite(&MachineSuite{})
+func TestMachineSuite(t *testing.T) {
+	tc.Run(t, &MachineSuite{})
+}
 
 // DefaultVersions returns a slice of unique 'versions' for the current
 // environment's host architecture. Additionally, it ensures that 'versions'

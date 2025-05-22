@@ -4,6 +4,8 @@
 package agent
 
 import (
+	"testing"
+
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/tc"
 
@@ -16,7 +18,9 @@ type mongoSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&mongoSuite{})
+func TestMongoSuite(t *testing.T) {
+	tc.Run(t, &mongoSuite{})
+}
 
 func (s *mongoSuite) TestStateWorkerDialSetsWriteMajority(c *tc.C) {
 	s.testStateWorkerDialSetsWriteMajority(c, true)

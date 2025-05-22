@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -19,7 +21,9 @@ type actionSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&actionSuite{})
+func TestActionSuite(t *testing.T) {
+	tc.Run(t, &actionSuite{})
+}
 
 func (s *actionSuite) TestAction(c *tc.C) {
 	parallel := true

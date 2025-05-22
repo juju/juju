@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
@@ -14,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&specSuite{})
+func TestSpecSuite(t *stdtesting.T) {
+	tc.Run(t, &specSuite{})
+}
 
 type specSuite struct {
 	testing.BaseSuite

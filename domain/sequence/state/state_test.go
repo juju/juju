@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -18,7 +19,9 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *testing.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 func (s *stateSuite) TestGetSequencesForExportNoRows(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())

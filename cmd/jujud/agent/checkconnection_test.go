@@ -6,6 +6,7 @@ package agent_test
 import (
 	"context"
 	"io"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +21,9 @@ type checkConnectionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&checkConnectionSuite{})
+func TestCheckConnectionSuite(t *testing.T) {
+	tc.Run(t, &checkConnectionSuite{})
+}
 
 func (s *checkConnectionSuite) TestInitChecksTag(c *tc.C) {
 	cmd := agentcmd.NewCheckConnectionCommand(nil, nil)

@@ -6,11 +6,13 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
@@ -22,7 +24,10 @@ type namespaceSuite struct {
 	dbBaseSuite
 }
 
-var _ = tc.Suite(&namespaceSuite{})
+func TestNamespaceSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &namespaceSuite{})
+}
 
 func (s *namespaceSuite) TestEnsureNamespaceForController(c *tc.C) {
 	defer s.setupMocks(c).Finish()

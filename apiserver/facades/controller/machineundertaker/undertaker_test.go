@@ -5,6 +5,7 @@ package machineundertaker_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,7 +27,9 @@ type undertakerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&undertakerSuite{})
+func TestUndertakerSuite(t *testing.T) {
+	tc.Run(t, &undertakerSuite{})
+}
 
 const (
 	uuid1 = "12345678-1234-1234-1234-123456789abc"

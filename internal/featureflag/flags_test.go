@@ -4,6 +4,8 @@
 package featureflag
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type flagSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&flagSuite{})
+func TestFlagSuite(t *testing.T) {
+	tc.Run(t, &flagSuite{})
+}
 
 func (s *flagSuite) TestEmpty(c *tc.C) {
 	s.PatchEnvironment("JUJU_TESTING_FEATURE", "")

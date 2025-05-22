@@ -6,6 +6,7 @@ package watcher_test
 import (
 	"context"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -23,7 +24,9 @@ type stringsWorkerSuite struct {
 	actor  *stringsHandler
 }
 
-var _ = tc.Suite(&stringsWorkerSuite{})
+func TestStringsWorkerSuite(t *testing.T) {
+	tc.Run(t, &stringsWorkerSuite{})
+}
 
 func newStringsHandlerWorker(c *tc.C, setupError, handlerError, teardownError error) (*stringsHandler, worker.Worker) {
 	sh := &stringsHandler{

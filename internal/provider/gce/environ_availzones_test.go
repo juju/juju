@@ -4,6 +4,8 @@
 package gce_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
@@ -17,7 +19,9 @@ type environAZSuite struct {
 	gce.BaseSuite
 }
 
-var _ = tc.Suite(&environAZSuite{})
+func TestEnvironAZSuite(t *testing.T) {
+	tc.Run(t, &environAZSuite{})
+}
 
 func (s *environAZSuite) TestAvailabilityZonesInvalidCredentialError(c *tc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError

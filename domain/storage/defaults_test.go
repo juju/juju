@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -17,7 +19,9 @@ type defaultsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&defaultsSuite{})
+func TestDefaultsSuite(t *testing.T) {
+	tc.Run(t, &defaultsSuite{})
+}
 
 func makeStorageDefaults(b, f string) domainstorage.StorageDefaults {
 	var result domainstorage.StorageDefaults

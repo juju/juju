@@ -5,10 +5,12 @@ package eventsource
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
@@ -22,7 +24,10 @@ type notifySuite struct {
 
 var _ watcher.NotifyWatcher = &NotifyWatcher{}
 
-var _ = tc.Suite(&notifySuite{})
+func TestNotifySuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &notifySuite{})
+}
 
 func (s *notifySuite) TestNotificationsByNamespaceFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()

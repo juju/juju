@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
@@ -16,7 +17,9 @@ import (
 type UpgraderSuite struct {
 }
 
-var _ = tc.Suite(&UpgraderSuite{})
+func TestUpgraderSuite(t *testing.T) {
+	tc.Run(t, &UpgraderSuite{})
+}
 
 func (u *UpgraderSuite) TestUpgradePodTemplateSpec(c *tc.C) {
 	tests := []struct {

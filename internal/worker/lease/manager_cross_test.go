@@ -4,6 +4,7 @@
 package lease_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -24,7 +25,9 @@ type CrossSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&CrossSuite{})
+func TestCrossSuite(t *testing.T) {
+	tc.Run(t, &CrossSuite{})
+}
 
 func (s *CrossSuite) testClaims(c *tc.C, lease1, lease2 corelease.Key) {
 	fix := Fixture{

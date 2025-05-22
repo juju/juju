@@ -4,6 +4,8 @@
 package dummy
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
@@ -13,7 +15,9 @@ var (
 	_ environs.NetworkingEnviron = (*environ)(nil)
 )
 
-var _ = tc.Suite(&environWhiteboxSuite{})
+func TestEnvironWhiteboxSuite(t *testing.T) {
+	tc.Run(t, &environWhiteboxSuite{})
+}
 
 type environWhiteboxSuite struct{}
 

@@ -6,6 +6,7 @@ package lxd_test
 import (
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ type connectionSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&connectionSuite{})
+func TestConnectionSuite(t *testing.T) {
+	tc.Run(t, &connectionSuite{})
+}
 
 func (s *connectionSuite) TestLxdSocketPathLxdDirSet(c *tc.C) {
 	c.Assert(os.Setenv("LXD_DIR", "foobar"), tc.ErrorIsNil)

@@ -6,6 +6,7 @@ package jujuc_test
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +20,9 @@ type RelationIdsSuite struct {
 	relationSuite
 }
 
-var _ = tc.Suite(&RelationIdsSuite{})
+func TestRelationIdsSuite(t *testing.T) {
+	tc.Run(t, &RelationIdsSuite{})
+}
 
 func (s *RelationIdsSuite) newHookContext(relid int, remote string) (jujuc.Context, *relationInfo) {
 	hctx, info := s.relationSuite.newHookContext(-1, "", "")

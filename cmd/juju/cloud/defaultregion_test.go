@@ -6,6 +6,7 @@ package cloud_test
 import (
 	"fmt"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +22,9 @@ type defaultRegionSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&defaultRegionSuite{})
+func TestDefaultRegionSuite(t *stdtesting.T) {
+	tc.Run(t, &defaultRegionSuite{})
+}
 
 func (s *defaultRegionSuite) TestBadArgs(c *tc.C) {
 	command := cloud.NewSetDefaultRegionCommand()

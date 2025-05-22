@@ -6,6 +6,7 @@ package application_test
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -48,7 +49,9 @@ type serviceSuite struct {
 	secretState             *secretstate.State
 }
 
-var _ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 func (s *serviceSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)

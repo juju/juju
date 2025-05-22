@@ -4,13 +4,17 @@
 package commands_test
 
 import (
+	"testing"
+
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/packaging/commands"
 )
 
-var _ = tc.Suite(&SnapSuite{})
+func TestSnapSuite(t *testing.T) {
+	tc.Run(t, &SnapSuite{})
+}
 
 type SnapSuite struct {
 	snapCommander commands.SnapPackageCommander

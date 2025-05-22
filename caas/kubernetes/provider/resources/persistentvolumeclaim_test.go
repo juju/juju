@@ -5,6 +5,7 @@ package resources_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,8 +20,9 @@ type persistentVolumeClaimSuite struct {
 	resourceSuite
 }
 
-var _ = tc.Suite(&persistentVolumeClaimSuite{})
-
+func TestPersistentVolumeClaimSuite(t *testing.T) {
+	tc.Run(t, &persistentVolumeClaimSuite{})
+}
 func (s *persistentVolumeClaimSuite) TestApply(c *tc.C) {
 	ds := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{

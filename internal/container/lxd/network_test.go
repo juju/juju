@@ -5,6 +5,7 @@ package lxd_test
 
 import (
 	"errors"
+	"testing"
 
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
@@ -20,7 +21,9 @@ type networkSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = tc.Suite(&networkSuite{})
+func TestNetworkSuite(t *testing.T) {
+	tc.Run(t, &networkSuite{})
+}
 
 func (s *networkSuite) patch() {
 	lxd.PatchGenerateVirtualMACAddress(s)

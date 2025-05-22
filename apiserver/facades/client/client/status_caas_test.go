@@ -4,6 +4,8 @@
 package client_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type CAASStatusSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&CAASStatusSuite{})
+func TestCAASStatusSuite(t *testing.T) {
+	tc.Run(t, &CAASStatusSuite{})
+}
 
 func (s *CAASStatusSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:

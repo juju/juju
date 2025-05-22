@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -20,7 +22,9 @@ type blockCheckerSuite struct {
 	blockchecker *common.BlockChecker
 }
 
-var _ = tc.Suite(&blockCheckerSuite{})
+func TestBlockCheckerSuite(t *testing.T) {
+	tc.Run(t, &blockCheckerSuite{})
+}
 
 func (s *blockCheckerSuite) TestDestroyBlockChecker(c *tc.C) {
 	defer s.setupMocks(c).Finish()

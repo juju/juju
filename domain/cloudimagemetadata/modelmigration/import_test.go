@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -23,7 +24,9 @@ type importSuite struct {
 	clock       clock.Clock
 }
 
-var _ = tc.Suite(&importSuite{})
+func TestImportSuite(t *testing.T) {
+	tc.Run(t, &importSuite{})
+}
 
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

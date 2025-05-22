@@ -5,6 +5,7 @@ package gce_test
 
 import (
 	"errors"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -33,7 +34,9 @@ type environBrokerSuite struct {
 	resolveInfo   *simplestreams.ResolveInfo
 }
 
-var _ = tc.Suite(&environBrokerSuite{})
+func TestEnvironBrokerSuite(t *testing.T) {
+	tc.Run(t, &environBrokerSuite{})
+}
 
 func (s *environBrokerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

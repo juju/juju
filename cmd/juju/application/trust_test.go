@@ -4,6 +4,8 @@
 package application
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -23,8 +25,9 @@ type TrustSuite struct {
 func (s *TrustSuite) SetUpTest(c *tc.C) {
 	s.store = jujuclienttesting.MinimalStore()
 }
-
-var _ = tc.Suite(&TrustSuite{})
+func TestTrustSuite(t *testing.T) {
+	tc.Run(t, &TrustSuite{})
+}
 
 func (s *TrustSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

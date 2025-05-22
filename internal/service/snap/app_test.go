@@ -4,6 +4,8 @@
 package snap
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -14,7 +16,9 @@ type confinementSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&confinementSuite{})
+func TestConfinementSuite(t *testing.T) {
+	tc.Run(t, &confinementSuite{})
+}
 
 func (s *confinementSuite) TestConfinementPolicy(c *tc.C) {
 	tests := []struct {
@@ -47,7 +51,9 @@ type appSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&appSuite{})
+func TestAppSuite(t *testing.T) {
+	tc.Run(t, &appSuite{})
+}
 
 func (s *appSuite) TestValidate(c *tc.C) {
 	app := &App{name: "meshuggah"}

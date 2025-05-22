@@ -5,6 +5,7 @@ package relation_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -29,7 +30,9 @@ type relationerSuite struct {
 	unitGetter   *mocks.MockUnitGetter
 }
 
-var _ = tc.Suite(&relationerSuite{})
+func TestRelationerSuite(t *testing.T) {
+	tc.Run(t, &relationerSuite{})
+}
 
 func (s *relationerSuite) TestImplicitRelationerPrepareHook(c *tc.C) {
 	defer s.setupMocks(c).Finish()

@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -28,7 +29,9 @@ type watcherSuite struct {
 	appUUIDs [2]coreapplication.ID
 }
 
-var _ = tc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *testing.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)

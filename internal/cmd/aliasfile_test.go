@@ -7,6 +7,7 @@ import (
 	_ "fmt"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ type ParseAliasFileSuite struct {
 	testhelpers.LoggingSuite
 }
 
-var _ = tc.Suite(&ParseAliasFileSuite{})
+func TestParseAliasFileSuite(t *testing.T) {
+	tc.Run(t, &ParseAliasFileSuite{})
+}
 
 func (*ParseAliasFileSuite) TestMissing(c *tc.C) {
 	dir := c.MkDir()

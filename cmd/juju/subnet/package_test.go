@@ -5,7 +5,7 @@ package subnet_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -22,10 +22,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 // BaseSubnetSuite is used for embedding in other suites.
 type BaseSubnetSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
@@ -34,7 +30,9 @@ type BaseSubnetSuite struct {
 	api        *StubAPI
 }
 
-var _ = tc.Suite(&BaseSubnetSuite{})
+func TestBaseSubnetSuite(t *testing.T) {
+	tc.Run(t, &BaseSubnetSuite{})
+}
 
 func (s *BaseSubnetSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)

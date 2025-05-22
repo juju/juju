@@ -16,15 +16,13 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 type MetadataSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&MetadataSuite{})
+func TestMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &MetadataSuite{})
+}
 
 var metadataCommandNames = []string{
 	"add-image",

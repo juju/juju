@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ type migrationSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = tc.Suite(&migrationSuite{})
+func TestMigrationSuite(t *testing.T) {
+	tc.Run(t, &migrationSuite{})
+}
 
 func (s *migrationSuite) TestGetApplicationLeadershipForModelNoLeaders(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)

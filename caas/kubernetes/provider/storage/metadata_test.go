@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	storagev1 "k8s.io/api/storage/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,7 +15,9 @@ import (
 
 type metadataSuite struct{}
 
-var _ = tc.Suite(&metadataSuite{})
+func TestMetadataSuite(t *testing.T) {
+	tc.Run(t, &metadataSuite{})
+}
 
 func (*metadataSuite) TestPreferredStorageAny(c *tc.C) {
 	tests := []struct {

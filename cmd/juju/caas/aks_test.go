@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/exec"
@@ -25,7 +26,9 @@ type aksSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&aksSuite{})
+func TestAksSuite(t *testing.T) {
+	tc.Run(t, &aksSuite{})
+}
 
 func (s *aksSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

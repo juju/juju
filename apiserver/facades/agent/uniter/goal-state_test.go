@@ -3,14 +3,20 @@
 
 package uniter_test
 
-import "github.com/juju/tc"
+import (
+	"testing"
+
+	"github.com/juju/tc"
+)
 
 // uniterSuite implements common testing suite for all API
 // versions. It's not intended to be used directly or registered as a
 // suite, but embedded.
 type uniterGoalStateSuite struct{}
 
-var _ = tc.Suite(&uniterGoalStateSuite{})
+func TestUniterGoalStateSuite(t *testing.T) {
+	tc.Run(t, &uniterGoalStateSuite{})
+}
 
 func (s *uniterGoalStateSuite) TestStub(c *tc.C) {
 	c.Skip(`

@@ -4,6 +4,8 @@
 package store
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -18,7 +20,9 @@ type resourceStoreSuite struct {
 	resourceStore          *MockResourceStore
 }
 
-var _ = tc.Suite(&resourceStoreSuite{})
+func TestResourceStoreSuite(t *testing.T) {
+	tc.Run(t, &resourceStoreSuite{})
+}
 
 func (s *resourceStoreSuite) TestGetResourceStoreTypeFile(c *tc.C) {
 	defer s.setupMocks(c).Finish()

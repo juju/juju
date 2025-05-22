@@ -5,6 +5,7 @@ package bundlechanges
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -13,7 +14,9 @@ import (
 type changesSortSuite struct {
 }
 
-var _ = tc.Suite(&changesSortSuite{})
+func TestChangesSortSuite(t *testing.T) {
+	tc.Run(t, &changesSortSuite{})
+}
 
 func (s *changesSortSuite) TestSortVerifyRequirementsMet(c *tc.C) {
 	ahead := set.NewStrings()

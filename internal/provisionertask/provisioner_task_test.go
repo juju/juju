@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -84,7 +85,9 @@ type ProvisionerTaskSuite struct {
 	instanceBroker *testInstanceBroker
 }
 
-var _ = tc.Suite(&ProvisionerTaskSuite{})
+func TestProvisionerTaskSuite(t *testing.T) {
+	tc.Run(t, &ProvisionerTaskSuite{})
+}
 
 func (s *ProvisionerTaskSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
@@ -1582,7 +1585,9 @@ func (s *ProvisionerTaskSuite) expectProvisioningInfo(machines ...*testMachine) 
 type MachineClassifySuite struct {
 }
 
-var _ = tc.Suite(&MachineClassifySuite{})
+func TestMachineClassifySuite(t *testing.T) {
+	tc.Run(t, &MachineClassifySuite{})
+}
 
 type machineClassificationTest struct {
 	description    string

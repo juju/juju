@@ -5,6 +5,7 @@ package apiservercertwatcher_test
 
 import (
 	"sync"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -28,7 +29,9 @@ type ManifoldSuite struct {
 	agent    *mockAgent
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

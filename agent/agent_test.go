@@ -7,6 +7,7 @@ package agent_test
 import (
 	"fmt"
 	"path/filepath"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,7 +29,9 @@ type suite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&suite{})
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
 
 var agentConfigTests = []struct {
 	about         string

@@ -5,6 +5,7 @@ package cloud_test
 
 import (
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ type personalCloudSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&personalCloudSuite{})
+func TestPersonalCloudSuite(t *stdtesting.T) {
+	tc.Run(t, &personalCloudSuite{})
+}
 
 func (s *personalCloudSuite) TestWritePersonalClouds(c *tc.C) {
 	clouds := map[string]cloud.Cloud{

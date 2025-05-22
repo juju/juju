@@ -4,7 +4,10 @@
 package eventsource
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/internal/testhelpers"
@@ -14,7 +17,10 @@ type filterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&filterSuite{})
+func TestFilterSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &filterSuite{})
+}
 
 func (s *filterSuite) TestPredicateFilter(c *tc.C) {
 	predicate := func(s string) bool {

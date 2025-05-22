@@ -6,8 +6,10 @@ package dbaccessor
 import (
 	"os"
 	"path"
+	"testing"
 
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -18,7 +20,11 @@ type configSuite struct {
 	configPath string
 }
 
-var _ = tc.Suite(&configSuite{})
+func TestConfigSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
+	tc.Run(t, &configSuite{})
+}
 
 func (s *configSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

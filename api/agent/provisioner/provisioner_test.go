@@ -4,6 +4,8 @@
 package provisioner_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -25,7 +27,9 @@ type provisionerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&provisionerSuite{})
+func TestProvisionerSuite(t *testing.T) {
+	tc.Run(t, &provisionerSuite{})
+}
 
 func (s *provisionerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
@@ -695,8 +699,9 @@ func (s *provisionerSuite) TestSupportedContainers(c *tc.C) {
 	c.Assert(result, tc.SameContents, []instance.ContainerType{"lxd"})
 	c.Assert(determined, tc.IsTrue)
 }
-
-var _ = tc.Suite(&provisionerContainerSuite{})
+func TestProvisionerContainerSuite(t *testing.T) {
+	tc.Run(t, &provisionerContainerSuite{})
+}
 
 type provisionerContainerSuite struct {
 	containerTag names.MachineTag

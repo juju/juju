@@ -5,6 +5,7 @@ package connector
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -18,7 +19,9 @@ type simpleConnectorSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&simpleConnectorSuite{})
+func TestSimpleConnectorSuite(t *stdtesting.T) {
+	tc.Run(t, &simpleConnectorSuite{})
+}
 
 func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *tc.C) {
 	tests := []struct {

@@ -5,12 +5,14 @@ package bootstrap
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
@@ -21,7 +23,10 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&manifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &manifoldSuite{})
+}
 
 func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()

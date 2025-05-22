@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/url"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -21,7 +22,9 @@ type certSuite struct {
 	workerFixture
 }
 
-var _ = tc.Suite(&certSuite{})
+func TestCertSuite(t *testing.T) {
+	tc.Run(t, &certSuite{})
+}
 
 func testSNIGetter(cert *tls.Certificate) httpserver.SNIGetterFunc {
 	return func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -20,8 +21,10 @@ import (
 	"github.com/juju/juju/environs/simplestreams/testing"
 )
 
-var _ = tc.Suite(&datasourceSuite{})
-var _ = tc.Suite(&datasourceHTTPSSuite{})
+func TestDatasourceSuite(t *stdtesting.T) { tc.Run(t, &datasourceSuite{}) }
+func TestDatasourceHTTPSSuite(t *stdtesting.T) {
+	tc.Run(t, &datasourceHTTPSSuite{})
+}
 
 type datasourceSuite struct {
 }

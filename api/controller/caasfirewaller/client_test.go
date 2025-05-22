@@ -5,6 +5,7 @@ package caasfirewaller_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -35,12 +36,14 @@ type firewallerSuite struct {
 	objType string
 }
 
-var _ = tc.Suite(&firewallerSuite{
-	objType: "CAASFirewaller",
-	newFunc: func(caller base.APICaller) clientCommmon {
-		return caasfirewaller.NewClient(caller)
-	},
-})
+func TestFirewallerSuite(t *testing.T) {
+	tc.Run(t, &firewallerSuite{
+		objType: "CAASFirewaller",
+		newFunc: func(caller base.APICaller) clientCommmon {
+			return caasfirewaller.NewClient(caller)
+		},
+	})
+}
 
 func (s *firewallerSuite) TestIsExposed(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

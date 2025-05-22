@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +22,9 @@ import (
 type ToolsImportSuite struct {
 }
 
-var _ = tc.Suite(&ToolsImportSuite{})
+func TestToolsImportSuite(t *stdtesting.T) {
+	tc.Run(t, &ToolsImportSuite{})
+}
 
 func (t *ToolsImportSuite) TestPackageDependencies(c *tc.C) {
 	// This test is to ensure we don't bring in dependencies on state, environ
@@ -54,7 +57,9 @@ type ToolsSuite struct {
 	dataDir string
 }
 
-var _ = tc.Suite(&ToolsSuite{})
+func TestToolsSuite(t *stdtesting.T) {
+	tc.Run(t, &ToolsSuite{})
+}
 
 func (t *ToolsSuite) SetUpTest(c *tc.C) {
 	t.BaseSuite.SetUpTest(c)

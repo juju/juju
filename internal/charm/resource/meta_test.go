@@ -4,13 +4,17 @@
 package resource_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm/resource"
 )
 
-var _ = tc.Suite(&MetaSuite{})
+func TestMetaSuite(t *testing.T) {
+	tc.Run(t, &MetaSuite{})
+}
 
 type MetaSuite struct{}
 

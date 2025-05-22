@@ -6,6 +6,7 @@ package application_test
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -55,7 +56,9 @@ type applicationSuite struct {
 
 const defaultAgentVersion = "3.5-beta1"
 
-var _ = tc.Suite(&applicationSuite{})
+func TestApplicationSuite(t *stdtesting.T) {
+	tc.Run(t, &applicationSuite{})
+}
 
 func (s *applicationSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

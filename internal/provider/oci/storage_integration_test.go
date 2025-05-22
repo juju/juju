@@ -4,6 +4,8 @@
 package oci_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/provider/oci"
@@ -16,7 +18,9 @@ type storageSuite struct {
 	provider storage.Provider
 }
 
-var _ = tc.Suite(&storageSuite{})
+func TestStorageSuite(t *testing.T) {
+	tc.Run(t, &storageSuite{})
+}
 
 func (s *storageSuite) SetUpTest(c *tc.C) {
 	s.commonSuite.SetUpTest(c)

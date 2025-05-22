@@ -5,6 +5,7 @@ package os
 
 import (
 	"runtime"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +15,9 @@ import (
 type osSuite struct {
 }
 
-var _ = tc.Suite(&osSuite{})
+func TestOsSuite(t *testing.T) {
+	tc.Run(t, &osSuite{})
+}
 
 func (s *osSuite) TestHostOS(c *tc.C) {
 	os := HostOS()

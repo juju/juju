@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"io"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ type Suite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(Suite{})
+func TestSuite(t *testing.T) {
+	tc.Run(t, &Suite{})
+}
 
 func (s *Suite) TestAnswer(c *tc.C) {
 	scanner := bufio.NewScanner(strings.NewReader("hi!\n"))

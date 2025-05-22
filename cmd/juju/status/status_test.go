@@ -6,6 +6,7 @@ package status
 import (
 	"context"
 	"errors"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -28,7 +29,9 @@ type MinimalStatusSuite struct {
 	clock     *timeRecorder
 }
 
-var _ = tc.Suite(&MinimalStatusSuite{})
+func TestMinimalStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &MinimalStatusSuite{})
+}
 
 func (s *MinimalStatusSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

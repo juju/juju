@@ -5,6 +5,7 @@ package trace
 
 import (
 	"context"
+	"testing"
 	time "time"
 
 	"github.com/juju/errors"
@@ -22,7 +23,9 @@ type tracerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&tracerSuite{})
+func TestTracerSuite(t *testing.T) {
+	tc.Run(t, &tracerSuite{})
+}
 
 var _ coretrace.Tracer = (*tracer)(nil)
 

@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/os/ostype"
@@ -12,7 +14,9 @@ import (
 
 type DiskSuite struct{}
 
-var _ = tc.Suite(&DiskSuite{})
+func TestDiskSuite(t *testing.T) {
+	tc.Run(t, &DiskSuite{})
+}
 
 func (s *DiskSuite) TestMinRootDiskSizeGiB(c *tc.C) {
 	var diskTests = []struct {

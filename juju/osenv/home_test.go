@@ -4,6 +4,8 @@
 package osenv_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
@@ -14,7 +16,9 @@ type JujuXDGDataHomeSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&JujuXDGDataHomeSuite{})
+func TestJujuXDGDataHomeSuite(t *stdtesting.T) {
+	tc.Run(t, &JujuXDGDataHomeSuite{})
+}
 
 func (s *JujuXDGDataHomeSuite) TearDownTest(c *tc.C) {
 	osenv.SetJujuXDGDataHome("")

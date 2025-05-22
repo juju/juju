@@ -8,6 +8,7 @@ import (
 	"crypto/sha512"
 	"fmt"
 	"io"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -27,7 +28,9 @@ type fileResourceStoreSuite struct {
 	file        io.ReadCloser
 }
 
-var _ = tc.Suite(&fileResourceStoreSuite{})
+func TestFileResourceStoreSuite(t *testing.T) {
+	tc.Run(t, &fileResourceStoreSuite{})
+}
 
 func (s *fileResourceStoreSuite) SetUpTest(c *tc.C) {
 	data := "spamspamspam"

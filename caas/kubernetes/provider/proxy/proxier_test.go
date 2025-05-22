@@ -4,6 +4,8 @@
 package proxy_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/rest"
@@ -14,7 +16,9 @@ import (
 type proxySuite struct {
 }
 
-var _ = tc.Suite(&proxySuite{})
+func TestProxySuite(t *testing.T) {
+	tc.Run(t, &proxySuite{})
+}
 
 func (p *proxySuite) TestProxierMarshalling(c *tc.C) {
 	config := proxy.ProxierConfig{

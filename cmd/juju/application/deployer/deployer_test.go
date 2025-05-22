@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -47,7 +48,9 @@ type deployerSuite struct {
 	deployResourceIDs map[string]string
 }
 
-var _ = tc.Suite(&deployerSuite{})
+func TestDeployerSuite(t *testing.T) {
+	tc.Run(t, &deployerSuite{})
+}
 
 func (s *deployerSuite) SetUpTest(_ *tc.C) {
 	s.deployResourceIDs = make(map[string]string)

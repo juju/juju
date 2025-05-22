@@ -8,6 +8,7 @@ import (
 	"crypto"
 	"crypto/x509"
 	"net"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +21,9 @@ type AuthoritySuite struct {
 	signer crypto.Signer
 }
 
-var _ = tc.Suite(&AuthoritySuite{})
+func TestAuthoritySuite(t *testing.T) {
+	tc.Run(t, &AuthoritySuite{})
+}
 
 func (a *AuthoritySuite) SetUpTest(c *tc.C) {
 	signer, err := pki.DefaultKeyProfile()

@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,7 +19,9 @@ type agentConfSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&agentConfSuite{})
+func TestAgentConfSuite(t *testing.T) {
+	tc.Run(t, &agentConfSuite{})
+}
 
 func (s *agentConfSuite) TestChangeConfigSuccess(c *tc.C) {
 	mcsw := &mockConfigSetterWriter{}
@@ -62,7 +65,9 @@ type readAgentConfigSuite struct {
 	agentConfigReader *MockAgentConfigReader
 }
 
-var _ = tc.Suite(&readAgentConfigSuite{})
+func TestReadAgentConfigSuite(t *testing.T) {
+	tc.Run(t, &readAgentConfigSuite{})
+}
 
 func (s *readAgentConfigSuite) TestReadAgentConfigMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()

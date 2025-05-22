@@ -6,6 +6,7 @@ package docker_test
 import (
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ type authSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&authSuite{})
+func TestAuthSuite(t *testing.T) {
+	tc.Run(t, &authSuite{})
+}
 
 var (
 	ecrContent = `

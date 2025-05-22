@@ -4,6 +4,7 @@
 package resource_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -18,7 +19,9 @@ type ResourceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ResourceSuite{})
+func TestResourceSuite(t *testing.T) {
+	tc.Run(t, &ResourceSuite{})
+}
 
 func (s *ResourceSuite) TestValidateUploadUsed(c *tc.C) {
 	res := resource.Resource{

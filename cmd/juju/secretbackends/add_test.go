@@ -6,6 +6,7 @@ package secretbackends_test
 import (
 	"os"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -24,7 +25,9 @@ type AddSuite struct {
 	addSecretBackendsAPI *secretbackends.MockAddSecretBackendsAPI
 }
 
-var _ = tc.Suite(&AddSuite{})
+func TestAddSuite(t *testing.T) {
+	tc.Run(t, &AddSuite{})
+}
 
 func (s *AddSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

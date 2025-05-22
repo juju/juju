@@ -4,6 +4,8 @@
 package schema
 
 import (
+	"testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -14,7 +16,9 @@ type controllerSchemaSuite struct {
 	schemaBaseSuite
 }
 
-var _ = tc.Suite(&controllerSchemaSuite{})
+func TestControllerSchemaSuite(t *testing.T) {
+	tc.Run(t, &controllerSchemaSuite{})
+}
 
 func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 	c.Logf("Committing schema DDL")

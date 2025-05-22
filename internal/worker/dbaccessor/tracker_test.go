@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -30,7 +32,10 @@ type trackedDBWorkerSuite struct {
 	states chan string
 }
 
-var _ = tc.Suite(&trackedDBWorkerSuite{})
+func TestTrackedDBWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &trackedDBWorkerSuite{})
+}
 
 func (s *trackedDBWorkerSuite) TestWorkerStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()

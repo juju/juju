@@ -5,6 +5,7 @@ package remoterelations_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,7 +23,9 @@ type ManifoldConfigSuite struct {
 	config remoterelations.ManifoldConfig
 }
 
-var _ = tc.Suite(&ManifoldConfigSuite{})
+func TestManifoldConfigSuite(t *testing.T) {
+	tc.Run(t, &ManifoldConfigSuite{})
+}
 
 func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

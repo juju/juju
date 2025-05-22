@@ -6,7 +6,7 @@ package certupdater_test
 import (
 	"context"
 	"net"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -21,16 +21,14 @@ import (
 	"github.com/juju/juju/internal/worker/certupdater"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 type CertUpdaterSuite struct {
 	jujutesting.BaseSuite
 	stateServingInfo controller.StateServingInfo
 }
 
-var _ = tc.Suite(&CertUpdaterSuite{})
+func TestCertUpdaterSuite(t *testing.T) {
+	tc.Run(t, &CertUpdaterSuite{})
+}
 
 func (s *CertUpdaterSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

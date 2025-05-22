@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -29,7 +30,9 @@ type changesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&changesSuite{})
+func TestChangesSuite(t *testing.T) {
+	tc.Run(t, &changesSuite{})
+}
 
 func (s *changesSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -44,7 +45,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = tc.Suite(&CAASApplicationProvisionerSuite{})
+func TestCAASApplicationProvisionerSuite(t *testing.T) {
+	tc.Run(t, &CAASApplicationProvisionerSuite{})
+}
 
 type CAASApplicationProvisionerSuite struct {
 	coretesting.BaseSuite

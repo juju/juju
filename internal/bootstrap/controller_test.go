@@ -4,6 +4,8 @@
 package bootstrap
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -23,7 +25,9 @@ type IAASControllerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&IAASControllerSuite{})
+func TestIAASControllerSuite(t *testing.T) {
+	tc.Run(t, &IAASControllerSuite{})
+}
 
 func (s *IAASControllerSuite) TestPopulateIAASControllerCharmLocalCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -139,7 +143,9 @@ type CAASControllerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&CAASControllerSuite{})
+func TestCAASControllerSuite(t *testing.T) {
+	tc.Run(t, &CAASControllerSuite{})
+}
 
 func (s *CAASControllerSuite) TestPopulateCAASControllerCharmLocalCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()

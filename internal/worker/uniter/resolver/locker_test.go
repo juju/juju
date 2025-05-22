@@ -4,6 +4,8 @@
 package resolver_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm/hooks"
@@ -17,7 +19,9 @@ type GuardSuite struct {
 	guard *mockCharmDirGuard
 }
 
-var _ = tc.Suite(&GuardSuite{})
+func TestGuardSuite(t *testing.T) {
+	tc.Run(t, &GuardSuite{})
+}
 
 func (s *GuardSuite) SetUpTest(c *tc.C) {
 	s.guard = &mockCharmDirGuard{}

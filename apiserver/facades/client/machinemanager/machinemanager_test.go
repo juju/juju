@@ -5,6 +5,7 @@ package machinemanager
 
 import (
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/collections/transform"
@@ -56,7 +57,9 @@ type AddMachineManagerSuite struct {
 	agentBinaryService      *MockAgentBinaryService
 }
 
-var _ = tc.Suite(&AddMachineManagerSuite{})
+func TestAddMachineManagerSuite(t *testing.T) {
+	tc.Run(t, &AddMachineManagerSuite{})
+}
 
 func (s *AddMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
@@ -210,8 +213,9 @@ type DestroyMachineManagerSuite struct {
 	agentBinaryService      *MockAgentBinaryService
 }
 
-var _ = tc.Suite(&DestroyMachineManagerSuite{})
-
+func TestDestroyMachineManagerSuite(t *testing.T) {
+	tc.Run(t, &DestroyMachineManagerSuite{})
+}
 func (s *DestroyMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
@@ -730,8 +734,9 @@ type ProvisioningMachineManagerSuite struct {
 	agentBinaryService      *MockAgentBinaryService
 }
 
-var _ = tc.Suite(&ProvisioningMachineManagerSuite{})
-
+func TestProvisioningMachineManagerSuite(t *testing.T) {
+	tc.Run(t, &ProvisioningMachineManagerSuite{})
+}
 func (s *ProvisioningMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 }

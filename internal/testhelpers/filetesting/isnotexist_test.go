@@ -7,13 +7,16 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type isNotExistSuite struct{}
 
-var _ = tc.Suite(&isNotExistSuite{})
+func TestIsNotExistSuite(t *testing.T) {
+	tc.Run(t, &isNotExistSuite{})
+}
 
 func (*isNotExistSuite) TestIsNotExist(c *tc.C) {
 	dir := c.MkDir()

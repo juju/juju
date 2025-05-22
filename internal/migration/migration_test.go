@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"strings"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
@@ -43,7 +44,9 @@ type ExportSuite struct {
 	model                 *MockModel
 }
 
-var _ = tc.Suite(&ExportSuite{})
+func TestExportSuite(t *testing.T) {
+	tc.Run(t, &ExportSuite{})
+}
 
 func (s *ExportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
@@ -110,7 +113,9 @@ type ImportSuite struct {
 	agentBinaryStore *MockAgentBinaryStore
 }
 
-var _ = tc.Suite(&ImportSuite{})
+func TestImportSuite(t *testing.T) {
+	tc.Run(t, &ImportSuite{})
+}
 
 func (s *ImportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

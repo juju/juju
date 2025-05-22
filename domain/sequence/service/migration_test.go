@@ -4,6 +4,8 @@
 package service
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
@@ -16,7 +18,9 @@ type serviceSuite struct {
 	state *MockState
 }
 
-var _ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *testing.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 func (s *serviceSuite) TestGetSequencesForExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()

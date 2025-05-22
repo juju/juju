@@ -12,12 +12,14 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/objectstore"
@@ -41,7 +43,10 @@ type s3ObjectStoreSuite struct {
 	client                 *client
 }
 
-var _ = tc.Suite(&s3ObjectStoreSuite{})
+func TestS3ObjectStoreSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &s3ObjectStoreSuite{})
+}
 
 func (s *s3ObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()

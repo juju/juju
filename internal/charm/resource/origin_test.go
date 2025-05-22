@@ -4,6 +4,8 @@
 package resource_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -15,7 +17,9 @@ type OriginSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&OriginSuite{})
+func TestOriginSuite(t *testing.T) {
+	tc.Run(t, &OriginSuite{})
+}
 
 func (s *OriginSuite) TestParseOriginKnown(c *tc.C) {
 	recognized := map[string]resource.Origin{

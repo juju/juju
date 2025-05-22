@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -28,7 +29,9 @@ type BundlesDirSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&BundlesDirSuite{})
+func TestBundlesDirSuite(t *testing.T) {
+	tc.Run(t, &BundlesDirSuite{})
+}
 
 type fakeBundleInfo struct {
 	charm.BundleInfo
@@ -144,7 +147,9 @@ type ClearDownloadsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ClearDownloadsSuite{})
+func TestClearDownloadsSuite(t *testing.T) {
+	tc.Run(t, &ClearDownloadsSuite{})
+}
 
 func (s *ClearDownloadsSuite) TestWorks(c *tc.C) {
 	baseDir := c.MkDir()

@@ -4,6 +4,8 @@
 package all_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/secrets/provider"
@@ -18,7 +20,9 @@ type allSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&allSuite{})
+func TestAllSuite(t *testing.T) {
+	tc.Run(t, &allSuite{})
+}
 
 func (s *allSuite) TestInit(c *tc.C) {
 	for _, name := range []string{

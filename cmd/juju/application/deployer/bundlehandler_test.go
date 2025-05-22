@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
@@ -56,8 +57,9 @@ type BundleDeployRepositorySuite struct {
 	output     *bytes.Buffer
 }
 
-var _ = tc.Suite(&BundleDeployRepositorySuite{})
-
+func TestBundleDeployRepositorySuite(t *testing.T) {
+	tc.Run(t, &BundleDeployRepositorySuite{})
+}
 func (s *BundleDeployRepositorySuite) SetUpTest(_ *tc.C) {
 	s.deployArgs = make(map[string]application.DeployArgs)
 	s.output = bytes.NewBuffer([]byte{})
@@ -2511,8 +2513,9 @@ type BundleHandlerOriginSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&BundleHandlerOriginSuite{})
-
+func TestBundleHandlerOriginSuite(t *testing.T) {
+	tc.Run(t, &BundleHandlerOriginSuite{})
+}
 func (s *BundleHandlerOriginSuite) TestAddOrigin(c *tc.C) {
 	handler := &bundleHandler{
 		origins: make(map[charm.URL]map[string]commoncharm.Origin),
@@ -2613,8 +2616,9 @@ type BundleHandlerResolverSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&BundleHandlerResolverSuite{})
-
+func TestBundleHandlerResolverSuite(t *testing.T) {
+	tc.Run(t, &BundleHandlerResolverSuite{})
+}
 func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -2702,8 +2706,9 @@ type BundleHandlerMakeModelSuite struct {
 	deployerAPI *mocks.MockDeployerAPI
 }
 
-var _ = tc.Suite(&BundleHandlerMakeModelSuite{})
-
+func TestBundleHandlerMakeModelSuite(t *testing.T) {
+	tc.Run(t, &BundleHandlerMakeModelSuite{})
+}
 func (s *BundleHandlerMakeModelSuite) TestEmptyModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)

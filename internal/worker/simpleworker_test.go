@@ -6,6 +6,7 @@ package worker
 import (
 	"context"
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +17,9 @@ type simpleWorkerSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&simpleWorkerSuite{})
+func TestSimpleWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &simpleWorkerSuite{})
+}
 
 var errTest = errors.New("test error")
 

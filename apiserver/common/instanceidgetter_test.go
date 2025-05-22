@@ -6,6 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -23,7 +24,9 @@ type instanceIdGetterSuite struct {
 	machineService *mocks.MockMachineService
 }
 
-var _ = tc.Suite(&instanceIdGetterSuite{})
+func TestInstanceIdGetterSuite(t *testing.T) {
+	tc.Run(t, &instanceIdGetterSuite{})
+}
 
 func (s *instanceIdGetterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

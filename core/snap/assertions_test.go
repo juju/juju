@@ -8,15 +8,18 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/snap"
 )
 
-var (
-	_ = tc.Suite(&SnapSuite{})
+func TestSnapSuite(t *testing.T) {
+	tc.Run(t, &SnapSuite{})
+}
 
+var (
 	snapProxyResponse = `
 type: account-key
 authority-id: canonical

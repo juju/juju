@@ -4,6 +4,8 @@
 package storagecommon_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -17,7 +19,9 @@ import (
 
 type volumesSuite struct{}
 
-var _ = tc.Suite(&volumesSuite{})
+func TestVolumesSuite(t *stdtesting.T) {
+	tc.Run(t, &volumesSuite{})
+}
 
 func (s *volumesSuite) TestVolumeParams(c *tc.C) {
 	s.testVolumeParams(c, &state.VolumeParams{

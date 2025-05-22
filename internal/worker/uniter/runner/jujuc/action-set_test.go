@@ -5,6 +5,7 @@ package jujuc_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +15,9 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/jujuctesting"
 )
 
-var _ = tc.Suite(&ActionSetSuite{})
+func TestActionSetSuite(t *testing.T) {
+	tc.Run(t, &ActionSetSuite{})
+}
 
 type ActionSetSuite struct {
 	jujuctesting.ContextSuite

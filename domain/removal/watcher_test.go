@@ -6,6 +6,7 @@ package removal_test
 import (
 	"context"
 	"database/sql"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -24,7 +25,9 @@ type watcherSuite struct {
 	changestreamtesting.ModelSuite
 }
 
-var _ = tc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *testing.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
 func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "some-model-uuid")

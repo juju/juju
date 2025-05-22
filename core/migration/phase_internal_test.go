@@ -4,6 +4,8 @@
 package migration
 
 import (
+	"testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 
@@ -14,7 +16,9 @@ type PhaseInternalSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(new(PhaseInternalSuite))
+func TestPhaseInternalSuite(t *testing.T) {
+	tc.Run(t, new(PhaseInternalSuite))
+}
 
 func (s *PhaseInternalSuite) TestForUnused(c *tc.C) {
 	usedPhases := set.NewStrings()

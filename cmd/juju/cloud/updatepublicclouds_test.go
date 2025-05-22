@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -32,7 +33,9 @@ type updatePublicCloudsSuite struct {
 	api   *fakeUpdatePublicCloudAPI
 }
 
-var _ = tc.Suite(&updatePublicCloudsSuite{})
+func TestUpdatePublicCloudsSuite(t *stdtesting.T) {
+	tc.Run(t, &updatePublicCloudsSuite{})
+}
 
 func (s *updatePublicCloudsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

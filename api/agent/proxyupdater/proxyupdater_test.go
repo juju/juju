@@ -4,6 +4,8 @@
 package proxyupdater_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
@@ -20,7 +22,9 @@ type ProxyUpdaterSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&ProxyUpdaterSuite{})
+func TestProxyUpdaterSuite(t *testing.T) {
+	tc.Run(t, &ProxyUpdaterSuite{})
+}
 
 func newAPI(c *tc.C, args ...apitesting.APICall) (*int, *proxyupdater.API) {
 	apiCaller := apitesting.APICallChecker(c, args...)

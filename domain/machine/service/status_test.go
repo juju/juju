@@ -4,6 +4,8 @@
 package service
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
@@ -15,7 +17,9 @@ type statusSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&statusSuite{})
+func TestStatusSuite(t *testing.T) {
+	tc.Run(t, &statusSuite{})
+}
 
 func (s *statusSuite) TestEncodeMachineStatus(c *tc.C) {
 	testCases := []struct {

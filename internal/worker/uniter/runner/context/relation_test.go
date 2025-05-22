@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -22,7 +24,9 @@ type ContextRelationSuite struct {
 	relUnit *uniterapi.MockRelationUnit
 }
 
-var _ = tc.Suite(&ContextRelationSuite{})
+func TestContextRelationSuite(t *testing.T) {
+	tc.Run(t, &ContextRelationSuite{})
+}
 
 func (s *ContextRelationSuite) setUp(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

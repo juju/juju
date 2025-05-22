@@ -4,6 +4,8 @@
 package configschema_test
 
 import (
+	"testing"
+
 	"github.com/juju/schema"
 	"github.com/juju/tc"
 
@@ -12,7 +14,9 @@ import (
 
 type fieldsSuite struct{}
 
-var _ = tc.Suite(&fieldsSuite{})
+func TestFieldsSuite(t *testing.T) {
+	tc.Run(t, &fieldsSuite{})
+}
 
 type valueTest struct {
 	about       string

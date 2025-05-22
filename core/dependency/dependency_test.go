@@ -4,6 +4,8 @@
 package dependency
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 
@@ -14,7 +16,9 @@ type dependencySuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&dependencySuite{})
+func TestDependencySuite(t *testing.T) {
+	tc.Run(t, &dependencySuite{})
+}
 
 func (s *dependencySuite) TestGetDependencyByName(c *tc.C) {
 	getter := dependencytesting.StubGetter(map[string]any{

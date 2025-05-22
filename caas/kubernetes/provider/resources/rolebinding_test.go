@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -17,7 +19,9 @@ type roleBindingSuite struct {
 	resourceSuite
 }
 
-var _ = tc.Suite(&roleBindingSuite{})
+func TestRoleBindingSuite(t *testing.T) {
+	tc.Run(t, &roleBindingSuite{})
+}
 
 func (s *roleBindingSuite) TestApply(c *tc.C) {
 	roleBinding := &rbacv1.RoleBinding{

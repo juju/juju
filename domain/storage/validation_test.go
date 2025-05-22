@@ -5,6 +5,7 @@ package storage_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -25,7 +26,9 @@ type validationSuite struct {
 	meta      *charm.Meta
 }
 
-var _ = tc.Suite(&validationSuite{})
+func TestValidationSuite(t *testing.T) {
+	tc.Run(t, &validationSuite{})
+}
 
 func (s *validationSuite) SetUpTest(_ *tc.C) {
 	s.modelType = coremodel.IAAS

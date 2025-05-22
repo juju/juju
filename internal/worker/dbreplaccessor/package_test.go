@@ -5,12 +5,10 @@ package dbreplaccessor
 
 import (
 	"context"
-	"testing"
 	"time"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
-	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
@@ -22,12 +20,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbreplaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbreplaccessor DBApp,NodeManager,TrackedDB
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbreplaccessor -destination clock_mock_test.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbreplaccessor -destination sql_mock_test.go database/sql/driver Driver
-
-func TestPackage(t *testing.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	logger logger.Logger

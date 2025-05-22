@@ -4,6 +4,8 @@
 package storagecommon_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -28,8 +30,9 @@ type VolumeStorageAttachmentInfoSuite struct {
 	blockDevices         []blockdevice.BlockDevice
 }
 
-var _ = tc.Suite(&VolumeStorageAttachmentInfoSuite{})
-
+func TestVolumeStorageAttachmentInfoSuite(t *testing.T) {
+	tc.Run(t, &VolumeStorageAttachmentInfoSuite{})
+}
 func (s *VolumeStorageAttachmentInfoSuite) SetUpTest(c *tc.C) {
 	s.machineTag = names.NewMachineTag("0")
 	s.volumeTag = names.NewVolumeTag("0")
@@ -237,8 +240,9 @@ type FilesystemStorageAttachmentInfoSuite struct {
 	filesystemAttachment *fakeFilesystemAttachment
 }
 
-var _ = tc.Suite(&FilesystemStorageAttachmentInfoSuite{})
-
+func TestFilesystemStorageAttachmentInfoSuite(t *testing.T) {
+	tc.Run(t, &FilesystemStorageAttachmentInfoSuite{})
+}
 func (s *FilesystemStorageAttachmentInfoSuite) SetUpTest(c *tc.C) {
 	s.hostTag = names.NewUnitTag("mysql/0")
 	s.filsystemTag = names.NewFilesystemTag("0")

@@ -4,6 +4,8 @@
 package agent
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
@@ -67,7 +69,9 @@ type agentLoggingSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&agentLoggingSuite{})
+func TestAgentLoggingSuite(t *testing.T) {
+	tc.Run(t, &agentLoggingSuite{})
+}
 
 func (*agentLoggingSuite) TestNoLoggingConfig(c *tc.C) {
 	f := &fakeLoggingConfig{}

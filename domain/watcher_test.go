@@ -6,10 +6,12 @@ package domain
 import (
 	"context"
 	"database/sql"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
@@ -27,7 +29,10 @@ type watcherSuite struct {
 	events *MockEventSource
 }
 
-var _ = tc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &watcherSuite{})
+}
 
 func (*watcherSuite) TestNewUUIDsWatcherFail(c *tc.C) {
 	factory := NewWatcherFactory(func() (changestream.WatchableDB, error) {

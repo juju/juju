@@ -4,6 +4,8 @@
 package migration_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
@@ -18,7 +20,9 @@ type TargetInfoSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(new(TargetInfoSuite))
+func TestTargetInfoSuite(t *testing.T) {
+	tc.Run(t, new(TargetInfoSuite))
+}
 
 func (s *TargetInfoSuite) TestValidation(c *tc.C) {
 	tests := []struct {

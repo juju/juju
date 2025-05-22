@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -43,7 +44,9 @@ type bootstrapSuite struct {
 	credentialName string
 }
 
-var _ = tc.Suite(&bootstrapSuite{})
+func TestBootstrapSuite(t *stdtesting.T) {
+	tc.Run(t, &bootstrapSuite{})
+}
 
 func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)

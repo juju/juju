@@ -6,6 +6,7 @@ package broker_test
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -55,7 +56,9 @@ type lxdBrokerSuite struct {
 	manager     *fakeContainerManager
 }
 
-var _ = tc.Suite(&lxdBrokerSuite{})
+func TestLxdBrokerSuite(t *stdtesting.T) {
+	tc.Run(t, &lxdBrokerSuite{})
+}
 
 func (s *lxdBrokerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

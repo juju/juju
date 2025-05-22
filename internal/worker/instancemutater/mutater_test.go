@@ -4,6 +4,8 @@
 package instancemutater_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -33,7 +35,9 @@ type mutaterSuite struct {
 	mutaterMachine *instancemutater.MutaterMachine
 }
 
-var _ = tc.Suite(&mutaterSuite{})
+func TestMutaterSuite(t *testing.T) {
+	tc.Run(t, &mutaterSuite{})
+}
 
 func (s *mutaterSuite) SetUpTest(c *tc.C) {
 	s.tag = names.NewMachineTag("2")

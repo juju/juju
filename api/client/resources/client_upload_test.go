@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,7 +29,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&UploadSuite{})
+func TestUploadSuite(t *testing.T) {
+	tc.Run(t, &UploadSuite{})
+}
 
 type UploadSuite struct {
 	mockHTTPClient   *httpmocks.MockHTTPDoer

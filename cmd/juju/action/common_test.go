@@ -4,6 +4,8 @@
 package action_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/action"
@@ -11,7 +13,9 @@ import (
 
 type CommonSuite struct{}
 
-var _ = tc.Suite(&CommonSuite{})
+func TestCommonSuite(t *testing.T) {
+	tc.Run(t, &CommonSuite{})
+}
 
 type insertSliceValue struct {
 	valuePath []string

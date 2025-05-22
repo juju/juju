@@ -4,6 +4,7 @@
 package apicaller_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -34,7 +35,9 @@ type RetryStrategySuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&RetryStrategySuite{})
+func TestRetryStrategySuite(t *testing.T) {
+	tc.Run(t, &RetryStrategySuite{})
+}
 
 var testEntity = names.NewMachineTag("42")
 

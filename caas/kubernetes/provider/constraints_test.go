@@ -5,6 +5,7 @@ package provider_test
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +16,9 @@ type ConstraintsSuite struct {
 	BaseSuite
 }
 
-var _ = tc.Suite(&ConstraintsSuite{})
+func TestConstraintsSuite(t *testing.T) {
+	tc.Run(t, &ConstraintsSuite{})
+}
 
 func (s *ConstraintsSuite) TestConstraintsValidatorOkay(c *tc.C) {
 	ctrl := s.setupController(c)

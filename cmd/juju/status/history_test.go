@@ -6,6 +6,7 @@ package status_test
 import (
 	"context"
 	"os"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -25,7 +26,9 @@ type StatusHistorySuite struct {
 	now time.Time
 }
 
-var _ = tc.Suite(&StatusHistorySuite{})
+func TestStatusHistorySuite(t *testing.T) {
+	tc.Run(t, &StatusHistorySuite{})
+}
 
 func (s *StatusHistorySuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

@@ -6,6 +6,7 @@ package charmhub
 import (
 	"context"
 	"net/url"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -31,7 +32,9 @@ type downloadSuite struct {
 	filesystem   *mocks.MockFilesystem
 }
 
-var _ = tc.Suite(&downloadSuite{})
+func TestDownloadSuite(t *stdtesting.T) {
+	tc.Run(t, &downloadSuite{})
+}
 
 func (s *downloadSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

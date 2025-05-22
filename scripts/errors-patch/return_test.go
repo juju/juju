@@ -8,13 +8,16 @@ import (
 	"go/printer"
 	"go/token"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type returnSuite struct{}
 
-var _ = tc.Suite(&returnSuite{})
+func TestReturnSuite(t *testing.T) {
+	tc.Run(t, &returnSuite{})
+}
 
 var tests = []struct {
 	Name     string

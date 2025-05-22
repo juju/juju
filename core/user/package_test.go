@@ -11,13 +11,11 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
-
 type ImportTest struct{}
 
-var _ = tc.Suite(&ImportTest{})
+func TestImportTest(t *testing.T) {
+	tc.Run(t, &ImportTest{})
+}
 
 func (*ImportTest) TestImports(c *tc.C) {
 	// TODO (stickupkid): There is a circular dependency between the user

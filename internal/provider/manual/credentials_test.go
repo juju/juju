@@ -4,6 +4,8 @@
 package manual_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -17,7 +19,9 @@ type credentialsSuite struct {
 	provider environs.EnvironProvider
 }
 
-var _ = tc.Suite(&credentialsSuite{})
+func TestCredentialsSuite(t *stdtesting.T) {
+	tc.Run(t, &credentialsSuite{})
+}
 
 func (s *credentialsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

@@ -4,6 +4,8 @@
 package resource
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type StateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&StateSuite{})
+func TestStateSuite(t *testing.T) {
+	tc.Run(t, &StateSuite{})
+}
 
 func (s *StateSuite) TestParseStateKnown(c *tc.C) {
 	recognized := map[string]State{

@@ -3,14 +3,4 @@
 
 package applicationoffers_test
 
-import (
-	"testing"
-
-	"github.com/juju/tc"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package applicationoffers_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/applicationoffers AccessService,ApplicationService,ModelDomainServicesGetter,ModelDomainServices,ModelService
-
-func TestAll(t *testing.T) {
-	tc.TestingT(t)
-}

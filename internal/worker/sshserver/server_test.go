@@ -8,12 +8,14 @@ import (
 	"crypto/rsa"
 	"fmt"
 	net "net"
+	"testing"
 	"time"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	gossh "golang.org/x/crypto/ssh"
 
@@ -35,7 +37,10 @@ type sshServerSuite struct {
 	sessionHandler *MockSessionHandler
 }
 
-var _ = tc.Suite(&sshServerSuite{})
+func TestSshServerSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &sshServerSuite{})
+}
 
 func (s *sshServerSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)

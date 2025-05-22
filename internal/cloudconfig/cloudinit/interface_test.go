@@ -4,13 +4,19 @@
 
 package cloudinit
 
-import "github.com/juju/tc"
+import (
+	"testing"
+
+	"github.com/juju/tc"
+)
 
 var _ CloudConfig = (*ubuntuCloudConfig)(nil)
 
 type InterfaceSuite struct{}
 
-var _ = tc.Suite(InterfaceSuite{})
+func TestInterfaceSuite(t *testing.T) {
+	tc.Run(t, &InterfaceSuite{})
+}
 
 func (HelperSuite) TestNewCloudConfigWithoutMACMatch(c *tc.C) {
 	cfg, err := New("ubuntu", WithNetplanMACMatch(true))

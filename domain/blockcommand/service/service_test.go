@@ -5,6 +5,7 @@ package service
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -21,7 +22,9 @@ type serviceSuite struct {
 	state *MockState
 }
 
-var _ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *testing.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 func (s *serviceSuite) TestSwitchOnBlock(c *tc.C) {
 	ctrl := s.setupMocks(c)

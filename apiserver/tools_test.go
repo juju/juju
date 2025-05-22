@@ -10,6 +10,7 @@ import (
 	"net/http"
 	httptest "net/http/httptest"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -35,7 +36,9 @@ type toolsSuite struct {
 	blockChecker     *MockBlockChecker
 }
 
-var _ = tc.Suite(&toolsSuite{})
+func TestToolsSuite(t *testing.T) {
+	tc.Run(t, &toolsSuite{})
+}
 
 func (s *toolsSuite) SetUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

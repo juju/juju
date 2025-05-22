@@ -3,14 +3,4 @@
 
 package undertaker
 
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package undertaker -destination mock_service.go github.com/juju/juju/apiserver/facades/controller/undertaker SecretBackendService,ModelConfigService,ModelInfoService,ModelProviderService
-
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}

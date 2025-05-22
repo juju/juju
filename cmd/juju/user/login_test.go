@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -35,7 +36,9 @@ type LoginCommandSuite struct {
 	apiConnectionParams juju.NewAPIConnectionParams
 }
 
-var _ = tc.Suite(&LoginCommandSuite{})
+func TestLoginCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &LoginCommandSuite{})
+}
 
 func (s *LoginCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

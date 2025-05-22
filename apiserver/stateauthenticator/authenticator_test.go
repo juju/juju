@@ -5,6 +5,7 @@ package stateauthenticator
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
@@ -37,7 +38,9 @@ type agentAuthenticatorSuite struct {
 	macaroonService            *MockMacaroonService
 }
 
-var _ = tc.Suite(&agentAuthenticatorSuite{})
+func TestAgentAuthenticatorSuite(t *stdtesting.T) {
+	tc.Run(t, &agentAuthenticatorSuite{})
+}
 
 func (s *agentAuthenticatorSuite) TestAuthenticateLoginRequestHandleNotSupportedRequests(c *tc.C) {
 	defer s.setupMocks(c).Finish()

@@ -4,16 +4,8 @@
 package imagemetadatamanager
 
 import (
-	"testing"
-
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/api/base"
 )
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 func NewClientFromCaller(caller base.FacadeCaller) *Client {
 	return &Client{

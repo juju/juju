@@ -4,6 +4,8 @@
 package manual
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
@@ -13,7 +15,9 @@ type environNetworkSuite struct {
 	baseEnvironSuite
 }
 
-var _ = tc.Suite(&environNetworkSuite{})
+func TestEnvironNetworkSuite(t *testing.T) {
+	tc.Run(t, &environNetworkSuite{})
+}
 
 func (s *environNetworkSuite) TestSupportsSpaces(c *tc.C) {
 	netEnv, ok := environs.SupportsNetworking(s.env)

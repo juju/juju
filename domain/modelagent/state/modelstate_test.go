@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -51,7 +52,9 @@ type modelStateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&modelStateSuite{})
+func TestModelStateSuite(t *testing.T) {
+	tc.Run(t, &modelStateSuite{})
+}
 
 func (s *modelStateSuite) createMachine(c *tc.C) string {
 	return s.createMachineWithName(c, machine.Name("6666"))

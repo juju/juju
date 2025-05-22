@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -17,7 +19,9 @@ type volumeSuite struct {
 	baseStorageSuite
 }
 
-var _ = tc.Suite(&volumeSuite{})
+func TestVolumeSuite(t *testing.T) {
+	tc.Run(t, &volumeSuite{})
+}
 
 func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 	return params.VolumeDetails{

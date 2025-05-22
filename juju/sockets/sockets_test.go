@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"net/rpc"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -24,7 +25,9 @@ func (f RpcCaller) TestCall(arg string, reply *string) error {
 type SocketSuite struct {
 }
 
-var _ = tc.Suite(&SocketSuite{})
+func TestSocketSuite(t *testing.T) {
+	tc.Run(t, &SocketSuite{})
+}
 
 func (s *SocketSuite) TestTCP(c *tc.C) {
 	socketDesc := sockets.Socket{

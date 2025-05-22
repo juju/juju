@@ -4,10 +4,7 @@
 package application
 
 import (
-	"testing"
-
 	"github.com/juju/clock"
-	"github.com/juju/tc"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
@@ -16,10 +13,6 @@ import (
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 )
-
-func Test(t *testing.T) {
-	tc.TestingT(t)
-}
 
 type (
 	AnnotationUpdater = annotationUpdater

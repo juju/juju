@@ -6,6 +6,7 @@ package imagemetadata_test
 import (
 	"path"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -23,7 +24,9 @@ type ValidateSuite struct {
 	metadataDir string
 }
 
-var _ = tc.Suite(&ValidateSuite{})
+func TestValidateSuite(t *stdtesting.T) {
+	tc.Run(t, &ValidateSuite{})
+}
 
 func (s *ValidateSuite) makeLocalMetadata(c *tc.C, ss *simplestreams.Simplestreams, id, region string, base corebase.Base, endpoint, stream string) {
 	metadata := []*imagemetadata.ImageMetadata{

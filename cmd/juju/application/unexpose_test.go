@@ -5,6 +5,7 @@ package application
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -21,7 +22,9 @@ type UnexposeSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&UnexposeSuite{})
+func TestUnexposeSuite(t *stdtesting.T) {
+	tc.Run(t, &UnexposeSuite{})
+}
 
 func runUnexpose(c *tc.C, api ApplicationExposeAPI, args ...string) error {
 	unexposeCmd := &unexposeCommand{api: api}

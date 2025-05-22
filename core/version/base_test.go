@@ -4,6 +4,8 @@
 package version
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type seriesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&seriesSuite{})
+func TestSeriesSuite(t *testing.T) {
+	tc.Run(t, &seriesSuite{})
+}
 
 func (s *seriesSuite) TestDefaultSupportedLTSBase(c *tc.C) {
 	b := DefaultSupportedLTSBase()

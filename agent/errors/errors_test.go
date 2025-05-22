@@ -7,6 +7,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,9 +20,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var (
-	_ = tc.Suite(&toolSuite{})
-)
+func TestToolSuite(t *stdtesting.T) {
+	tc.Run(t, &toolSuite{})
+}
 
 type toolSuite struct {
 	testing.BaseSuite

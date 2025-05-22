@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -59,7 +60,9 @@ type StatusSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&StatusSuite{})
+func TestStatusSuite(t *testing.T) {
+	tc.Run(t, &StatusSuite{})
+}
 
 func (s *StatusSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

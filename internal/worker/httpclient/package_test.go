@@ -4,11 +4,9 @@
 package httpclient
 
 import (
-	"testing"
 	"time"
 
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
@@ -19,12 +17,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package httpclient -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -typed -package httpclient -destination http_mock_test.go github.com/juju/juju/core/http HTTPClient
 //go:generate go run go.uber.org/mock/mockgen -typed -package httpclient -destination httpclient_mock_test.go github.com/juju/juju/internal/worker/httpclient HTTPClientWorker
-
-func TestPackage(t *testing.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

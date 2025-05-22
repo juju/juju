@@ -4,6 +4,8 @@
 package params_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -18,7 +20,9 @@ type errorSuite struct{}
 
 var _ rpc.ErrorCoder = (*params.Error)(nil)
 
-var _ = tc.Suite(&errorSuite{})
+func TestErrorSuite(t *testing.T) {
+	tc.Run(t, &errorSuite{})
+}
 
 func (*errorSuite) TestErrCode(c *tc.C) {
 	var err error

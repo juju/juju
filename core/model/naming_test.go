@@ -5,6 +5,7 @@ package model_test
 
 import (
 	"regexp"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ type NamingSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&NamingSuite{})
+func TestNamingSuite(t *testing.T) {
+	tc.Run(t, &NamingSuite{})
+}
 
 func (*NamingSuite) TestDisambiguateName(c *tc.C) {
 	for _, t := range []struct {

@@ -4,8 +4,6 @@
 package controlleragentconfig
 
 import (
-	"testing"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -13,10 +11,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

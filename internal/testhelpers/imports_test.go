@@ -4,6 +4,8 @@
 package testhelpers_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	testing "github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type importsSuite struct {
 	testing.CleanupSuite
 }
 
-var _ = tc.Suite(&importsSuite{})
+func TestImportsSuite(t *stdtesting.T) {
+	tc.Run(t, &importsSuite{})
+}
 
 var importsTests = []struct {
 	pkgName string

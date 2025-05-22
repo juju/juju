@@ -4,10 +4,7 @@
 package secrets
 
 import (
-	"testing"
-
 	"github.com/juju/names/v6"
-	"github.com/juju/tc"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -15,9 +12,6 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/secretservice.go github.com/juju/juju/apiserver/facades/client/secrets SecretService,SecretBackendService
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 func NewTestAPI(
 	authTag names.Tag,

@@ -6,6 +6,7 @@ package renderers_test
 
 import (
 	"encoding/base64"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ type RenderersSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&RenderersSuite{})
+func TestRenderersSuite(t *stdtesting.T) {
+	tc.Run(t, &RenderersSuite{})
+}
 
 func (s *RenderersSuite) TestToBase64(c *tc.C) {
 	in := []byte("test")

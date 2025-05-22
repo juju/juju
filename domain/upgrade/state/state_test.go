@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"errors"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -26,7 +27,9 @@ type stateSuite struct {
 	upgradeUUID domainupgrade.UUID
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *testing.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)

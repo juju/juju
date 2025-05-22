@@ -5,6 +5,7 @@ package provisioner_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -44,7 +45,9 @@ type provisionerSuite struct {
 	domainServices services.DomainServices
 }
 
-var _ = tc.Suite(&provisionerSuite{})
+func TestProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &provisionerSuite{})
+}
 
 func (s *provisionerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
@@ -131,7 +134,9 @@ type withoutControllerSuite struct {
 	provisionerSuite
 }
 
-var _ = tc.Suite(&withoutControllerSuite{})
+func TestWithoutControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &withoutControllerSuite{})
+}
 
 func (s *withoutControllerSuite) SetUpTest(c *tc.C) {
 	s.setUpTest(c, false)
@@ -1515,8 +1520,9 @@ func (s *withoutControllerSuite) TestSupportsNoContainers(c *tc.C) {
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(containers, tc.DeepEquals, []instance.ContainerType{})
 }
-
-var _ = tc.Suite(&withControllerSuite{})
+func TestWithControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &withControllerSuite{})
+}
 
 type withControllerSuite struct {
 	provisionerSuite

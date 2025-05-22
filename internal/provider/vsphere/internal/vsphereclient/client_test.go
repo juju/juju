@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -39,7 +40,9 @@ type clientSuite struct {
 	clock          *testclock.Clock
 }
 
-var _ = tc.Suite(&clientSuite{})
+func TestClientSuite(t *testing.T) {
+	tc.Run(t, &clientSuite{})
+}
 
 func (s *clientSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

@@ -5,6 +5,7 @@ package network_test
 
 import (
 	"net"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ type subnetSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&subnetSuite{})
+func TestSubnetSuite(t *testing.T) {
+	tc.Run(t, &subnetSuite{})
+}
 
 func (*subnetSuite) TestFindSubnetIDsForAZ(c *tc.C) {
 	testCases := []struct {

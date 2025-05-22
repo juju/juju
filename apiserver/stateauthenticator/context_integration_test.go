@@ -5,6 +5,7 @@ package stateauthenticator
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -53,7 +54,9 @@ type macaroonAuthSuite struct {
 	controllerConfig map[string]interface{}
 }
 
-var _ = tc.Suite(&macaroonAuthSuite{})
+func TestMacaroonAuthSuite(t *stdtesting.T) {
+	tc.Run(t, &macaroonAuthSuite{})
+}
 
 func (s *macaroonAuthSuite) SetUpTest(c *tc.C) {
 	s.discharger = bakerytest.NewDischarger(nil)

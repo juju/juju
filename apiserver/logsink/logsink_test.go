@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"runtime/debug"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -50,7 +51,9 @@ type logsinkSuite struct {
 	stackMu   sync.Mutex
 }
 
-var _ = tc.Suite(&logsinkSuite{})
+func TestLogsinkSuite(t *testing.T) {
+	tc.Run(t, &logsinkSuite{})
+}
 
 func (s *logsinkSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

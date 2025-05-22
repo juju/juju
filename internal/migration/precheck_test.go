@@ -5,6 +5,7 @@ package migration_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
@@ -44,7 +45,9 @@ type SourcePrecheckSuite struct {
 	precheckBaseSuite
 }
 
-var _ = tc.Suite(&SourcePrecheckSuite{})
+func TestSourcePrecheckSuite(t *stdtesting.T) {
+	tc.Run(t, &SourcePrecheckSuite{})
+}
 
 func sourcePrecheck(
 	c *tc.C,
@@ -607,7 +610,9 @@ type ImportPrecheckSuite struct {
 	precheckBaseSuite
 }
 
-var _ = tc.Suite(&ImportPrecheckSuite{})
+func TestImportPrecheckSuite(t *stdtesting.T) {
+	tc.Run(t, &ImportPrecheckSuite{})
+}
 
 func (s *ImportPrecheckSuite) TestImportPrecheckEmpty(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
@@ -670,7 +675,9 @@ type TargetPrecheckSuite struct {
 	modelInfo coremigration.ModelInfo
 }
 
-var _ = tc.Suite(&TargetPrecheckSuite{})
+func TestTargetPrecheckSuite(t *stdtesting.T) {
+	tc.Run(t, &TargetPrecheckSuite{})
+}
 
 func (s *TargetPrecheckSuite) SetUpTest(c *tc.C) {
 	s.modelInfo = coremigration.ModelInfo{

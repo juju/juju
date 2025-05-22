@@ -5,6 +5,7 @@ package logsink
 
 import (
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -28,7 +29,9 @@ type workerSuite struct {
 	called int64
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) TestKilledGetLogger(c *tc.C) {
 	defer s.setupMocks(c).Finish()

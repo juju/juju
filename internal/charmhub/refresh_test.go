@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -26,9 +27,11 @@ type RefreshSuite struct {
 	baseSuite
 }
 
-var (
-	_ = tc.Suite(&RefreshSuite{})
+func TestRefreshSuite(t *testing.T) {
+	tc.Run(t, &RefreshSuite{})
+}
 
+var (
 	expRefreshFields = set.NewStrings(
 		"download", "id", "license", "name", "publisher", "resources",
 		"revision", "summary", "type", "version", "bases", "config-yaml",
@@ -432,7 +435,9 @@ type RefreshConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&RefreshConfigSuite{})
+func TestRefreshConfigSuite(t *testing.T) {
+	tc.Run(t, &RefreshConfigSuite{})
+}
 
 func (s *RefreshConfigSuite) TestRefreshOneBuild(c *tc.C) {
 	id := "foo"

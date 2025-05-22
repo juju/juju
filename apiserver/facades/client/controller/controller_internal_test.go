@@ -4,6 +4,8 @@
 package controller
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -14,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&controllerInternalSuite{})
+func TestControllerInternalSuite(t *stdtesting.T) {
+	tc.Run(t, &controllerInternalSuite{})
+}
 
 type controllerInternalSuite struct{}
 

@@ -6,6 +6,7 @@ package cmd_test
 import (
 	"io/ioutil"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -22,7 +23,9 @@ type LogSuite struct {
 	testhelpers.LoggingCleanupSuite
 }
 
-var _ = tc.Suite(&LogSuite{})
+func TestLogSuite(t *testing.T) {
+	tc.Run(t, &LogSuite{})
+}
 
 func newLogWithFlags(c *tc.C, defaultConfig string, flags ...string) *cmd.Log {
 	log := &cmd.Log{

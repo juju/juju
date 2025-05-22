@@ -5,6 +5,7 @@ package observer_test
 
 import (
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -20,7 +21,9 @@ type RequestLoggerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&RequestLoggerSuite{})
+func TestRequestLoggerSuite(t *testing.T) {
+	tc.Run(t, &RequestLoggerSuite{})
+}
 
 func (s *RequestLoggerSuite) TestAgentLoginWritesLog(c *tc.C) {
 	notifier, logger := s.makeNotifier(c)

@@ -5,6 +5,7 @@ package cleaner_test
 
 import (
 	"errors"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -20,7 +21,9 @@ type CleanerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&CleanerSuite{})
+func TestCleanerSuite(t *testing.T) {
+	tc.Run(t, &CleanerSuite{})
+}
 
 type TestCommon struct {
 	apiCaller base.APICaller

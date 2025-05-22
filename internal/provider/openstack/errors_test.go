@@ -4,6 +4,8 @@
 package openstack
 
 import (
+	stdtesting "testing"
+
 	gooseerrors "github.com/go-goose/goose/v5/errors"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -15,7 +17,9 @@ type ErrorSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&ErrorSuite{})
+func TestErrorSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorSuite{})
+}
 
 func (s *ErrorSuite) TestIsUnauthorisedError(c *tc.C) {
 	e := gooseerrors.NewUnauthorisedf(nil, "", "not on")

@@ -5,6 +5,7 @@ package environs_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +15,9 @@ import (
 type errorsSuite struct {
 }
 
-var _ = tc.Suite(&errorsSuite{})
+func TestErrorsSuite(t *testing.T) {
+	tc.Run(t, &errorsSuite{})
+}
 
 func (*errorsSuite) TestZoneIndependentErrorConforms(c *tc.C) {
 	err := fmt.Errorf("fly screens on a submarine: %w", environs.ErrAvailabilityZoneIndependent)

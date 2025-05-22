@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -29,7 +30,9 @@ type ManifestDeployerSuite struct {
 	deployer   charm.Deployer
 }
 
-var _ = tc.Suite(&ManifestDeployerSuite{})
+func TestManifestDeployerSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifestDeployerSuite{})
+}
 
 // because we generally use real charm bundles for testing, and charm bundling
 // sets every file mode to 0755 or 0644, all our input data uses those modes as
@@ -252,8 +255,9 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *
 	filetesting.Removed{Path: "old-file"}.Check(c, s.targetPath)
 	filetesting.Removed{Path: "bad-file"}.Check(c, s.targetPath)
 }
-
-var _ = tc.Suite(&RetryingBundleReaderSuite{})
+func TestRetryingBundleReaderSuite(t *stdtesting.T) {
+	tc.Run(t, &RetryingBundleReaderSuite{})
+}
 
 type RetryingBundleReaderSuite struct {
 	bundleReader *mocks.MockBundleReader

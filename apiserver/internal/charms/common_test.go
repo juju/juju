@@ -4,6 +4,8 @@
 package charms
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/semversion"
@@ -20,7 +22,9 @@ type exportSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&exportSuite{})
+func TestExportSuite(t *testing.T) {
+	tc.Run(t, &exportSuite{})
+}
 
 func (s *exportSuite) TestExport(c *tc.C) {
 	// Ensure that we can export a full charm.

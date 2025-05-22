@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	stdtesting "testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
@@ -30,7 +31,9 @@ type httpSuite struct {
 	conn   api.Connection
 }
 
-var _ = tc.Suite(&httpSuite{})
+func TestHttpSuite(t *stdtesting.T) {
+	tc.Run(t, &httpSuite{})
+}
 
 func (s *httpSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

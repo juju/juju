@@ -4,6 +4,8 @@
 package upgrades_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/dustin/go-humanize"
 	"github.com/juju/tc"
 
@@ -15,7 +17,9 @@ type preupgradechecksSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&preupgradechecksSuite{})
+func TestPreupgradechecksSuite(t *stdtesting.T) {
+	tc.Run(t, &preupgradechecksSuite{})
+}
 
 func (s *preupgradechecksSuite) TestCheckFreeDiskSpace(c *tc.C) {
 	// Expect an impossibly large amount of free disk.

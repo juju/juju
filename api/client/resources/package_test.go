@@ -4,17 +4,9 @@
 package resources
 
 import (
-	"testing"
-
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/http"
 )
-
-func Test(t *testing.T) {
-	tc.TestingT(t)
-}
 
 func NewClientForTest(caller base.FacadeCaller, httpClient http.HTTPDoer) *Client {
 	return &Client{

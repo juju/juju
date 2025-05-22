@@ -4,6 +4,8 @@
 package testhelpers_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -42,7 +44,9 @@ type stubSuite struct {
 	stub *testhelpers.Stub
 }
 
-var _ = tc.Suite(&stubSuite{})
+func TestStubSuite(t *testing.T) {
+	tc.Run(t, &stubSuite{})
+}
 
 func (s *stubSuite) SetUpTest(c *tc.C) {
 	s.stub = &testhelpers.Stub{}

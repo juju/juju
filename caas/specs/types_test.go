@@ -4,6 +4,8 @@
 package specs_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/caas/specs"
@@ -14,7 +16,9 @@ type typesSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&typesSuite{})
+func TestTypesSuite(t *stdtesting.T) {
+	tc.Run(t, &typesSuite{})
+}
 
 var strVal = specs.IntOrString{Type: specs.String, StrVal: "10%"}
 var intVal = specs.IntOrString{Type: specs.Int, IntVal: 10}

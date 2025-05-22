@@ -6,6 +6,7 @@ package resourceshookcontext
 import (
 	"context"
 	"errors"
+	"testing"
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -25,7 +26,9 @@ type unitFacadeSuite struct {
 	applicationService *MockApplicationService
 }
 
-var _ = tc.Suite(&unitFacadeSuite{})
+func TestUnitFacadeSuite(t *testing.T) {
+	tc.Run(t, &unitFacadeSuite{})
+}
 
 func (s *unitFacadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

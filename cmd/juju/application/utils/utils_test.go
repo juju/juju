@@ -4,6 +4,8 @@
 package utils_test
 
 import (
+	"testing"
+
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -21,7 +23,9 @@ import (
 
 type utilsSuite struct{}
 
-var _ = tc.Suite(&utilsSuite{})
+func TestUtilsSuite(t *testing.T) {
+	tc.Run(t, &utilsSuite{})
+}
 
 func (s *utilsSuite) TestParsePlacement(c *tc.C) {
 	obtained, err := utils.ParsePlacement("lxd:1")
@@ -46,7 +50,9 @@ type utilsResourceSuite struct {
 	resourceFacade *mocks.MockResourceLister
 }
 
-var _ = tc.Suite(&utilsResourceSuite{})
+func TestUtilsResourceSuite(t *testing.T) {
+	tc.Run(t, &utilsResourceSuite{})
+}
 
 func (s *utilsResourceSuite) TestGetMetaResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()

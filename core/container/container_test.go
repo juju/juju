@@ -4,6 +4,8 @@
 package container_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/container"
@@ -12,7 +14,9 @@ import (
 
 type ContainerSuite struct{}
 
-var _ = tc.Suite(&ContainerSuite{})
+func TestContainerSuite(t *testing.T) {
+	tc.Run(t, &ContainerSuite{})
+}
 
 func (s *ContainerSuite) TestNestingLevel(c *tc.C) {
 	c.Assert(container.NestingLevel("0"), tc.Equals, 0)

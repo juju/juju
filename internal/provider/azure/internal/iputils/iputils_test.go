@@ -6,6 +6,7 @@ package iputils_test
 import (
 	"fmt"
 	"net"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ type iputilsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&iputilsSuite{})
+func TestIputilsSuite(t *stdtesting.T) {
+	tc.Run(t, &iputilsSuite{})
+}
 
 func (*iputilsSuite) TestNextSubnetIP(c *tc.C) {
 	assertNextSubnetIP(c, "10.0.0.0/8", nil, "10.0.0.4")

@@ -4,6 +4,8 @@
 package ec2_test
 
 import (
+	"testing"
+
 	"github.com/aws/smithy-go"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,7 +25,9 @@ type ProviderSuite struct {
 	provider environs.EnvironProvider
 }
 
-var _ = tc.Suite(&ProviderSuite{})
+func TestProviderSuite(t *testing.T) {
+	tc.Run(t, &ProviderSuite{})
+}
 
 func (s *ProviderSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

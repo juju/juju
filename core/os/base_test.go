@@ -4,6 +4,8 @@
 package os_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
@@ -15,7 +17,9 @@ type baseSuite struct {
 	testhelpers.CleanupSuite
 }
 
-var _ = tc.Suite(&baseSuite{})
+func TestBaseSuite(t *testing.T) {
+	tc.Run(t, &baseSuite{})
+}
 
 var b = corebase.Base{OS: "freelunch", Channel: corebase.Channel{Track: "0"}}
 

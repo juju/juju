@@ -4,6 +4,8 @@
 package utils_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/application/utils"
@@ -14,7 +16,9 @@ import (
 
 type originSuite struct{}
 
-var _ = tc.Suite(&originSuite{})
+func TestOriginSuite(t *testing.T) {
+	tc.Run(t, &originSuite{})
+}
 
 func (*originSuite) TestMakePlatform(c *tc.C) {
 	arch := constraints.MustParse("arch=amd64")

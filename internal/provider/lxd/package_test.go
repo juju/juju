@@ -4,9 +4,6 @@
 package lxd
 
 import (
-	"testing"
-
-	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
 	containerLXD "github.com/juju/juju/internal/container/lxd"
@@ -14,10 +11,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package lxd -destination package_mock_test.go github.com/juju/juju/internal/provider/lxd Server,ServerFactory,InterfaceAddress,CertificateReadWriter,CertificateGenerator,LXCConfigReader
 //go:generate go run go.uber.org/mock/mockgen -typed -package lxd -destination environs_mock_test.go github.com/juju/juju/environs CredentialInvalidator
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 // NewLocalServerFactory creates a factory with a local server method that
 // returns a mock server.

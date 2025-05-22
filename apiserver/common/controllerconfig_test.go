@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -33,7 +34,9 @@ type controllerConfigSuite struct {
 	ctrlConfigAPI             *common.ControllerConfigAPI
 }
 
-var _ = tc.Suite(&controllerConfigSuite{})
+func TestControllerConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &controllerConfigSuite{})
+}
 
 func (s *controllerConfigSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
@@ -106,7 +109,9 @@ type controllerInfoSuite struct {
 	localModel *state.Model
 }
 
-var _ = tc.Suite(&controllerInfoSuite{})
+func TestControllerInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &controllerInfoSuite{})
+}
 
 func (s *controllerInfoSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)

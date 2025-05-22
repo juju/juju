@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/storage"
@@ -16,8 +18,9 @@ type defaultStoragePoolsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&defaultStoragePoolsSuite{})
-
+func TestDefaultStoragePoolsSuite(t *testing.T) {
+	tc.Run(t, &defaultStoragePoolsSuite{})
+}
 func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *tc.C) {
 	p1, err := internalstorage.NewConfig("pool1", "whatever", map[string]interface{}{"1": "2"})
 	c.Assert(err, tc.ErrorIsNil)

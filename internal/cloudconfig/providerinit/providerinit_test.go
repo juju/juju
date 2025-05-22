@@ -6,6 +6,7 @@ package providerinit_test
 
 import (
 	"path"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -32,7 +33,9 @@ type CloudInitSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&CloudInitSuite{})
+func TestCloudInitSuite(t *stdtesting.T) {
+	tc.Run(t, &CloudInitSuite{})
+}
 
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *tc.C) {
 

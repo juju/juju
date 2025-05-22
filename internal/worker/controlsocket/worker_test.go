@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -39,7 +40,9 @@ type workerSuite struct {
 	metricsUserName   coreuser.Name
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.logger = loggertesting.WrapCheckLog(c)

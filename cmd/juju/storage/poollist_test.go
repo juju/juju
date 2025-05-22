@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -23,7 +24,9 @@ type poolListSuite struct {
 	mockAPI *mockPoolListAPI
 }
 
-var _ = tc.Suite(&poolListSuite{})
+func TestPoolListSuite(t *testing.T) {
+	tc.Run(t, &poolListSuite{})
+}
 
 func (s *poolListSuite) SetUpTest(c *tc.C) {
 	s.SubStorageSuite.SetUpTest(c)

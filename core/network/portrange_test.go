@@ -4,6 +4,8 @@
 package network_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
@@ -14,7 +16,9 @@ type PortRangeSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&PortRangeSuite{})
+func TestPortRangeSuite(t *stdtesting.T) {
+	tc.Run(t, &PortRangeSuite{})
+}
 
 func (*PortRangeSuite) TestConflictsWith(c *tc.C) {
 	var testCases = []struct {

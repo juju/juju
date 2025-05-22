@@ -6,6 +6,7 @@ package crosscontroller
 import (
 	"context"
 	"errors"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = tc.Suite(&CrossControllerSuite{})
+func TestCrossControllerSuite(t *testing.T) {
+	tc.Run(t, &CrossControllerSuite{})
+}
 
 type CrossControllerSuite struct {
 	testhelpers.IsolationSuite

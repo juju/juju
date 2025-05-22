@@ -5,6 +5,7 @@ package modelworkermanager_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/collections/transform"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
@@ -33,7 +35,10 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = tc.Suite(&suite{})
+func TestSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &suite{})
+}
 
 type suite struct {
 	testhelpers.IsolationSuite

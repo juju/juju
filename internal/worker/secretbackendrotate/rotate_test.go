@@ -5,6 +5,7 @@ package secretbackendrotate_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -31,7 +32,9 @@ type workerSuite struct {
 	rotatedTokens       chan []string
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

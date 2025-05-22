@@ -5,6 +5,7 @@ package network_test
 
 import (
 	"net"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -16,11 +17,15 @@ import (
 
 type InterfaceInfoSuite struct{}
 
-var _ = tc.Suite(&InterfaceInfoSuite{})
+func TestInterfaceInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &InterfaceInfoSuite{})
+}
 
 type RouteSuite struct{}
 
-var _ = tc.Suite(&RouteSuite{})
+func TestRouteSuite(t *stdtesting.T) {
+	tc.Run(t, &RouteSuite{})
+}
 
 func checkRouteIsValid(c *tc.C, r corenetwork.Route) {
 	c.Check(r.Validate(), tc.ErrorIsNil)
@@ -104,7 +109,9 @@ type NetworkSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&NetworkSuite{})
+func TestNetworkSuite(t *stdtesting.T) {
+	tc.Run(t, &NetworkSuite{})
+}
 
 func (s *NetworkSuite) TestFilterBridgeAddresses(c *tc.C) {
 	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
@@ -166,7 +173,9 @@ type CIDRSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&CIDRSuite{})
+func TestCIDRSuite(t *stdtesting.T) {
+	tc.Run(t, &CIDRSuite{})
+}
 
 func (s *CIDRSuite) TestSubnetInAnyRange(c *tc.C) {
 	type test struct {

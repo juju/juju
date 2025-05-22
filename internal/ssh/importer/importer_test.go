@@ -6,6 +6,7 @@ package importer
 import (
 	"net/url"
 	"slices"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,9 +19,9 @@ type importerSuite struct {
 	resolver *MockResolver
 }
 
-var (
-	_ = tc.Suite(&importerSuite{})
-)
+func TestImporterSuite(t *testing.T) {
+	tc.Run(t, &importerSuite{})
+}
 
 func (i *importerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

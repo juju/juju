@@ -5,6 +5,7 @@ package model_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,7 +29,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&ShowCommandSuite{})
+func TestShowCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &ShowCommandSuite{})
+}
 
 type ShowCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite

@@ -4,13 +4,17 @@
 package cmd_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&StringMapSuite{})
+func TestStringMapSuite(t *testing.T) {
+	tc.Run(t, &StringMapSuite{})
+}
 
 type StringMapSuite struct {
 	testhelpers.IsolationSuite

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
@@ -17,7 +18,9 @@ import (
 
 type URLSuite struct{}
 
-var _ = tc.Suite(&URLSuite{})
+func TestURLSuite(t *testing.T) {
+	tc.Run(t, &URLSuite{})
+}
 
 var urlTests = []struct {
 	s, err string
@@ -265,7 +268,9 @@ func (s *URLSuite) TestJSONGarbage(c *tc.C) {
 
 type QuoteSuite struct{}
 
-var _ = tc.Suite(&QuoteSuite{})
+func TestQuoteSuite(t *testing.T) {
+	tc.Run(t, &QuoteSuite{})
+}
 
 func (s *QuoteSuite) TestUnmodified(c *tc.C) {
 	// Check that a string containing only valid

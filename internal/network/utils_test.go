@@ -6,6 +6,7 @@ package network_test
 import (
 	"errors"
 	"net"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ type UtilsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&UtilsSuite{})
+func TestUtilsSuite(t *testing.T) {
+	tc.Run(t, &UtilsSuite{})
+}
 
 func (s *UtilsSuite) TestSupportsIPv6Error(c *tc.C) {
 	s.PatchValue(network.NetListen, func(netFamily, bindAddress string) (net.Listener, error) {

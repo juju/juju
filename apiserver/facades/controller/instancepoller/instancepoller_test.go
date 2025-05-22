@@ -5,6 +5,7 @@ package instancepoller_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -54,7 +55,9 @@ type InstancePollerSuite struct {
 	clock clock.Clock
 }
 
-var _ = tc.Suite(&InstancePollerSuite{})
+func TestInstancePollerSuite(t *testing.T) {
+	tc.Run(t, &InstancePollerSuite{})
+}
 
 func (s *InstancePollerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

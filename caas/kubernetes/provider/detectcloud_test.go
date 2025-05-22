@@ -6,6 +6,7 @@ package provider_test
 import (
 	"context"
 	"os"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,9 +20,9 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-var (
-	_ = tc.Suite(&detectCloudSuite{})
-)
+func TestDetectCloudSuite(t *testing.T) {
+	tc.Run(t, &detectCloudSuite{})
+}
 
 type detectCloudSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite

@@ -5,6 +5,7 @@ package migrationflag_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,7 +23,9 @@ type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (*ManifoldSuite) TestInputs(c *tc.C) {
 	manifold := migrationflag.Manifold(validManifoldConfig())

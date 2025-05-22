@@ -6,6 +6,7 @@ package machinemanager
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -37,7 +38,9 @@ type machineConfigSuite struct {
 	bootstrapEnviron        *MockBootstrapEnviron
 }
 
-var _ = tc.Suite(&machineConfigSuite{})
+func TestMachineConfigSuite(t *testing.T) {
+	tc.Run(t, &machineConfigSuite{})
+}
 
 func (s *machineConfigSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

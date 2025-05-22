@@ -4,6 +4,8 @@
 package tools_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/semversion"
@@ -18,7 +20,9 @@ type StorageSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&StorageSuite{})
+func TestStorageSuite(t *testing.T) {
+	tc.Run(t, &StorageSuite{})
+}
 
 func (s *StorageSuite) TestStorageName(c *tc.C) {
 	vers := semversion.MustParseBinary("1.2.3-ubuntu-amd64")

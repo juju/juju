@@ -6,7 +6,6 @@ package maas
 import (
 	"context"
 	"path/filepath"
-	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -20,10 +19,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/keys"
 )
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 type credentialInvalidator func(ctx context.Context, reason environs.CredentialInvalidReason) error
 

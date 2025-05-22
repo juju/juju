@@ -9,6 +9,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery/form"
@@ -29,7 +30,9 @@ type InteractorSuite struct {
 	handler http.Handler
 }
 
-var _ = tc.Suite(&InteractorSuite{})
+func TestInteractorSuite(t *testing.T) {
+	tc.Run(t, &InteractorSuite{})
+}
 
 func (s *InteractorSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

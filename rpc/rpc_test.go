@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"regexp"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -32,7 +33,9 @@ type rpcSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&rpcSuite{})
+func TestRpcSuite(t *stdtesting.T) {
+	tc.Run(t, &rpcSuite{})
+}
 
 type callInfo struct {
 	rcvr   interface{}

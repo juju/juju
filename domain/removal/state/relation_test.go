@@ -4,6 +4,7 @@
 package state
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -20,7 +21,9 @@ type relationSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&relationSuite{})
+func TestRelationSuite(t *testing.T) {
+	tc.Run(t, &relationSuite{})
+}
 
 func (s *relationSuite) TestRelationExists(c *tc.C) {
 	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",

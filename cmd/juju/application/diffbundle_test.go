@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -38,7 +39,9 @@ type diffSuite struct {
 	dir         string
 }
 
-var _ = tc.Suite(&diffSuite{})
+func TestDiffSuite(t *stdtesting.T) {
+	tc.Run(t, &diffSuite{})
+}
 
 func (s *diffSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

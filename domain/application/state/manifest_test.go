@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -18,7 +19,9 @@ type manifestSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&manifestSuite{})
+func TestManifestSuite(t *testing.T) {
+	tc.Run(t, &manifestSuite{})
+}
 
 var decodeManifestTestCases = [...]struct {
 	name   string
@@ -227,7 +230,9 @@ type manifestStateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&manifestStateSuite{})
+func TestManifestStateSuite(t *testing.T) {
+	tc.Run(t, &manifestStateSuite{})
+}
 
 func (s *manifestStateSuite) TestManifestOS(c *tc.C) {
 	type osType struct {

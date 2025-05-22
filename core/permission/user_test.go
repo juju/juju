@@ -4,6 +4,8 @@
 package permission_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/permission"
@@ -11,7 +13,9 @@ import (
 
 type userSuite struct{}
 
-var _ = tc.Suite(&userSuite{})
+func TestUserSuite(t *testing.T) {
+	tc.Run(t, &userSuite{})
+}
 
 var validateRevokeAccessTest = []struct {
 	spec     permission.AccessSpec

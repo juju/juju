@@ -13,6 +13,7 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -30,7 +31,9 @@ type suite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&suite{})
+func TestSuite(t *testing.T) {
+	tc.Run(t, &suite{})
+}
 
 func (s *suite) TestConfigValidation(c *tc.C) {
 	socketName := path.Join(c.MkDir(), "introspection-test.socket")
@@ -73,7 +76,9 @@ type introspectionSuite struct {
 	gatherer prometheus.Gatherer
 }
 
-var _ = tc.Suite(&introspectionSuite{})
+func TestIntrospectionSuite(t *testing.T) {
+	tc.Run(t, &introspectionSuite{})
+}
 
 func (s *introspectionSuite) SetUpTest(c *tc.C) {
 	if runtime.GOOS != "linux" {

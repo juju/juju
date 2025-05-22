@@ -5,6 +5,7 @@ package space_test
 
 import (
 	"bytes"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -24,7 +25,9 @@ type RemoveSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&RemoveSuite{})
+func TestRemoveSuite(t *testing.T) {
+	tc.Run(t, &RemoveSuite{})
+}
 
 func (s *RemoveSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)

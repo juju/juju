@@ -4,6 +4,8 @@
 package base
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type ChannelSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ChannelSuite{})
+func TestChannelSuite(t *testing.T) {
+	tc.Run(t, &ChannelSuite{})
+}
 
 func (s *ChannelSuite) TestParse(c *tc.C) {
 	ch, err := ParseChannel("22.04")

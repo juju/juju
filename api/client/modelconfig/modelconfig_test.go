@@ -5,6 +5,7 @@ package modelconfig_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,7 +23,9 @@ import (
 
 type modelconfigSuite struct{}
 
-var _ = tc.Suite(&modelconfigSuite{})
+func TestModelconfigSuite(t *testing.T) {
+	tc.Run(t, &modelconfigSuite{})
+}
 
 func (s *modelconfigSuite) TestModelGet(c *tc.C) {
 	ctrl := gomock.NewController(c)

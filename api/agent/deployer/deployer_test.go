@@ -17,15 +17,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 type deployerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&deployerSuite{})
+func TestDeployerSuite(t *stdtesting.T) {
+	tc.Run(t, &deployerSuite{})
+}
 
 func (s *deployerSuite) TestWatchUnits(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

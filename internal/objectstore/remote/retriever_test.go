@@ -10,11 +10,13 @@ import (
 	io "io"
 	"math/rand/v2"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/httprequest.v1"
 
@@ -36,7 +38,10 @@ type retrieverSuite struct {
 	clock            *MockClock
 }
 
-var _ = tc.Suite(&retrieverSuite{})
+func TestRetrieverSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &retrieverSuite{})
+}
 
 func (s *retrieverSuite) TestRetrieverWithNoAPIRemotes(c *tc.C) {
 	defer s.setupMocks(c).Finish()

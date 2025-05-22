@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -30,7 +31,9 @@ type unitStateSuite struct {
 	unitStateService       *mocks.MockUnitStateService
 }
 
-var _ = tc.Suite(&unitStateSuite{})
+func TestUnitStateSuite(t *stdtesting.T) {
+	tc.Run(t, &unitStateSuite{})
+}
 
 func (s *unitStateSuite) SetUpTest(c *tc.C) {
 	s.unitTag1 = names.NewUnitTag("wordpress/0")

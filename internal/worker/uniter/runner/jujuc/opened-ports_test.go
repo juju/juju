@@ -5,6 +5,7 @@ package jujuc_test
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ type OpenedPortsSuite struct {
 	ContextSuite
 }
 
-var _ = tc.Suite(&OpenedPortsSuite{})
+func TestOpenedPortsSuite(t *testing.T) {
+	tc.Run(t, &OpenedPortsSuite{})
+}
 
 func (s *OpenedPortsSuite) TestRunAllFormats(c *tc.C) {
 	expectedPorts := []network.PortRange{

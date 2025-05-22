@@ -18,11 +18,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
+func TestDatasourceSuite(t *stdtesting.T) {
+	tc.Run(t, &datasourceSuite{})
 }
-
-var _ = tc.Suite(&datasourceSuite{})
 
 type datasourceSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
@@ -95,8 +93,9 @@ func (s *datasourceSuite) TestURLWithBasePath(c *tc.C) {
 	expectedURL, _ := s.stor.URL("base/bar")
 	c.Assert(url, tc.Equals, expectedURL)
 }
-
-var _ = tc.Suite(&storageSuite{})
+func TestStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &storageSuite{})
+}
 
 type storageSuite struct{}
 

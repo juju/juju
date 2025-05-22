@@ -4,6 +4,8 @@
 package arch_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/arch"
@@ -14,7 +16,9 @@ type archSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&archSuite{})
+func TestArchSuite(t *testing.T) {
+	tc.Run(t, &archSuite{})
+}
 
 func (s *archSuite) TestContains(c *tc.C) {
 	arches := arch.AllArches()

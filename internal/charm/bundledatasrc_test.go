@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +20,9 @@ type BundleDataSourceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&BundleDataSourceSuite{})
+func TestBundleDataSourceSuite(t *testing.T) {
+	tc.Run(t, &BundleDataSourceSuite{})
+}
 
 var bundlePath = "internal/test-charm-repo/bundle/wordpress-multidoc/bundle.yaml"
 

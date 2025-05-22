@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"sync"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -25,7 +26,9 @@ type dummyMux struct {
 	RemoveHandlerFunc func(string, string)
 }
 
-var _ = tc.Suite(&ControllerSuite{})
+func TestControllerSuite(t *testing.T) {
+	tc.Run(t, &ControllerSuite{})
+}
 
 func (d *dummyMux) AddHandler(i, j string, h http.Handler) error {
 	if d.AddHandlerFunc == nil {

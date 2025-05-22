@@ -5,6 +5,7 @@ package azure_test
 
 import (
 	"net/http"
+	stdtesting "testing"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -30,7 +31,9 @@ type environProviderSuite struct {
 	sender   azuretesting.Senders
 }
 
-var _ = tc.Suite(&environProviderSuite{})
+func TestEnvironProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &environProviderSuite{})
+}
 
 func (s *environProviderSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

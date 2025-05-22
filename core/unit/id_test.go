@@ -4,6 +4,8 @@
 package unit
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -15,7 +17,9 @@ type unitSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&unitSuite{})
+func TestUnitSuite(t *testing.T) {
+	tc.Run(t, &unitSuite{})
+}
 
 func (*unitSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {

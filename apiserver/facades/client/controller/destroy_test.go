@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -49,7 +50,9 @@ type destroyControllerSuite struct {
 	mockModelService *mocks.MockModelService
 }
 
-var _ = tc.Suite(&destroyControllerSuite{})
+func TestDestroyControllerSuite(t *stdtesting.T) {
+	tc.Run(t, &destroyControllerSuite{})
+}
 
 func (s *destroyControllerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

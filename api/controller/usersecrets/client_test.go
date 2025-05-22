@@ -4,6 +4,8 @@
 package usersecrets_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -13,7 +15,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&secretSuite{})
+func TestSecretSuite(t *stdtesting.T) {
+	tc.Run(t, &secretSuite{})
+}
 
 type secretSuite struct {
 	coretesting.BaseSuite

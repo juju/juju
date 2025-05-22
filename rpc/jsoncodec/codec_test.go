@@ -8,7 +8,7 @@ import (
 	"errors"
 	"io"
 	"reflect"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,10 +21,8 @@ type suite struct {
 	testhelpers.LoggingSuite
 }
 
-var _ = tc.Suite(&suite{})
-
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
+func TestSuite(t *testing.T) {
+	tc.Run(t, &suite{})
 }
 
 type value struct {

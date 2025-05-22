@@ -6,6 +6,7 @@ package commands
 import (
 	"bytes"
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -31,7 +32,9 @@ type syncToolSuite struct {
 	store           *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&syncToolSuite{})
+func TestSyncToolSuite(t *testing.T) {
+	tc.Run(t, &syncToolSuite{})
+}
 
 func (s *syncToolSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

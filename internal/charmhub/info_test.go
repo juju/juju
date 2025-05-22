@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,7 +22,9 @@ type InfoSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&InfoSuite{})
+func TestInfoSuite(t *testing.T) {
+	tc.Run(t, &InfoSuite{})
+}
 
 func (s *InfoSuite) TestInfoCharm(c *tc.C) {
 	ctrl := gomock.NewController(c)

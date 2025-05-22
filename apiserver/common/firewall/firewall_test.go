@@ -4,6 +4,8 @@
 package firewall_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -22,7 +24,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = tc.Suite(&FirewallSuite{})
+func TestFirewallSuite(t *testing.T) {
+	tc.Run(t, &FirewallSuite{})
+}
 
 type FirewallSuite struct {
 	coretesting.BaseSuite

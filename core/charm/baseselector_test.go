@@ -4,6 +4,8 @@
 package charm
 
 import (
+	"testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -22,7 +24,9 @@ type baseSelectorSuite struct {
 	cfg    *MockSelectorModelConfig
 }
 
-var _ = tc.Suite(&baseSelectorSuite{})
+func TestBaseSelectorSuite(t *testing.T) {
+	tc.Run(t, &baseSelectorSuite{})
+}
 
 var (
 	bionic      = base.MustParseBaseFromString("ubuntu@18.04/stable")

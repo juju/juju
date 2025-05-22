@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/shell"
 
@@ -17,7 +19,9 @@ type confSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&confSuite{})
+func TestConfSuite(t *testing.T) {
+	tc.Run(t, &confSuite{})
+}
 
 func (*confSuite) TestIsZeroTrue(c *tc.C) {
 	var conf common.Conf

@@ -4,6 +4,8 @@
 package model_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -19,8 +21,9 @@ type modelMachinesWatcherSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&modelMachinesWatcherSuite{})
-
+func TestModelMachinesWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &modelMachinesWatcherSuite{})
+}
 func (f *fakeModelMachinesWatcher) WatchModelMachines() state.StringsWatcher {
 	changes := make(chan []string, 1)
 	// Simulate initial event.

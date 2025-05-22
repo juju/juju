@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	"testing"
+
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -15,7 +17,9 @@ type InstanceTypesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&InstanceTypesSuite{})
+func TestInstanceTypesSuite(t *testing.T) {
+	tc.Run(t, &InstanceTypesSuite{})
+}
 
 func (s *InstanceTypesSuite) TestParseInstanceType(c *tc.C) {
 	tests := []struct {

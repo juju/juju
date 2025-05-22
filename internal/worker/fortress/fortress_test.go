@@ -6,11 +6,13 @@ package fortress_test
 import (
 	"context"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -21,7 +23,10 @@ type FortressSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&FortressSuite{})
+func TestFortressSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &FortressSuite{})
+}
 
 func (s *FortressSuite) TestOutputBadSource(c *tc.C) {
 	fix := newFixture(c)

@@ -5,6 +5,7 @@ package sshkeys
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
@@ -22,7 +23,9 @@ type SSHKeysSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&SSHKeysSuite{})
+func TestSSHKeysSuite(t *testing.T) {
+	tc.Run(t, &SSHKeysSuite{})
+}
 
 type keySuiteBase struct {
 	coretesting.FakeJujuXDGDataHomeSuite
@@ -32,7 +35,9 @@ type ListKeysSuite struct {
 	keySuiteBase
 }
 
-var _ = tc.Suite(&ListKeysSuite{})
+func TestListKeysSuite(t *testing.T) {
+	tc.Run(t, &ListKeysSuite{})
+}
 
 func (s *ListKeysSuite) TestListKeys(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
@@ -134,7 +139,9 @@ type AddKeySuite struct {
 	keySuiteBase
 }
 
-var _ = tc.Suite(&AddKeySuite{})
+func TestAddKeySuite(t *testing.T) {
+	tc.Run(t, &AddKeySuite{})
+}
 
 func (s *AddKeySuite) TestAddKey(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
@@ -192,7 +199,9 @@ type RemoveKeySuite struct {
 	keySuiteBase
 }
 
-var _ = tc.Suite(&RemoveKeySuite{})
+func TestRemoveKeySuite(t *testing.T) {
+	tc.Run(t, &RemoveKeySuite{})
+}
 
 func (s *RemoveKeySuite) TestRemoveKeys(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
@@ -250,7 +259,9 @@ type ImportKeySuite struct {
 	keySuiteBase
 }
 
-var _ = tc.Suite(&ImportKeySuite{})
+func TestImportKeySuite(t *testing.T) {
+	tc.Run(t, &ImportKeySuite{})
+}
 
 func (s *ImportKeySuite) TestImportKeys(c *tc.C) {
 	key1 := "lp:user1"

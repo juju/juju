@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"testing"
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
@@ -27,7 +28,9 @@ type environPolicySuite struct {
 	env environs.Environ
 }
 
-var _ = tc.Suite(&environPolicySuite{})
+func TestEnvironPolicySuite(t *testing.T) {
+	tc.Run(t, &environPolicySuite{})
+}
 
 func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()

@@ -5,6 +5,7 @@ package jujuc_test
 
 import (
 	"bytes"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ type stateSetSuite struct {
 	stateSuite
 }
 
-var _ = tc.Suite(&stateSetSuite{})
+func TestStateSetSuite(t *testing.T) {
+	tc.Run(t, &stateSetSuite{})
+}
 
 type runStateSetCmd struct {
 	description string

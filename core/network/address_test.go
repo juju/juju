@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +21,9 @@ type AddressSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&AddressSuite{})
+func TestAddressSuite(t *stdtesting.T) {
+	tc.Run(t, &AddressSuite{})
+}
 
 func (s *AddressSuite) TestNewScopedAddressIPv4(c *tc.C) {
 	type test struct {

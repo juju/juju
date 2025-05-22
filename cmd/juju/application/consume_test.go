@@ -5,6 +5,7 @@ package application_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -27,7 +28,9 @@ type ConsumeSuite struct {
 	store   *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&ConsumeSuite{})
+func TestConsumeSuite(t *testing.T) {
+	tc.Run(t, &ConsumeSuite{})
+}
 
 func (s *ConsumeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

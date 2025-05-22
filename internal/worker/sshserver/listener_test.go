@@ -4,9 +4,11 @@
 package sshserver
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/testing"
@@ -19,7 +21,10 @@ type listenerSuite struct {
 	listener *MockListener
 }
 
-var _ = tc.Suite(&listenerSuite{})
+func TestListenerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &listenerSuite{})
+}
 
 func (s *listenerSuite) TestSyncListenerAfterAccept(c *tc.C) {
 	defer s.setupMocks(c).Finish()

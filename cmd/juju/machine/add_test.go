@@ -7,6 +7,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,7 +29,9 @@ type AddMachineSuite struct {
 	fakeAddMachine *fakeAddMachineAPI
 }
 
-var _ = tc.Suite(&AddMachineSuite{})
+func TestAddMachineSuite(t *stdtesting.T) {
+	tc.Run(t, &AddMachineSuite{})
+}
 
 func (s *AddMachineSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

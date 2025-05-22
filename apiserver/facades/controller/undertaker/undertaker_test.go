@@ -4,6 +4,7 @@
 package undertaker
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -38,7 +39,9 @@ type undertakerSuite struct {
 	mockCloudSpecGetter      *MockModelProviderService
 }
 
-var _ = tc.Suite(&undertakerSuite{})
+func TestUndertakerSuite(t *testing.T) {
+	tc.Run(t, &undertakerSuite{})
+}
 
 func (s *undertakerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

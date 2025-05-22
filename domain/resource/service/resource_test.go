@@ -6,6 +6,7 @@ package service
 import (
 	"bytes"
 	"io"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -41,7 +42,9 @@ type resourceServiceSuite struct {
 	service *Service
 }
 
-var _ = tc.Suite(&resourceServiceSuite{})
+func TestResourceServiceSuite(t *testing.T) {
+	tc.Run(t, &resourceServiceSuite{})
+}
 
 func (s *resourceServiceSuite) TestDeleteApplicationResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()

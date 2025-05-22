@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -19,7 +21,9 @@ type AuthFuncSuite struct {
 	authorizer common.Authorizer
 }
 
-var _ = tc.Suite(&AuthFuncSuite{})
+func TestAuthFuncSuite(t *testing.T) {
+	tc.Run(t, &AuthFuncSuite{})
+}
 
 func (s *AuthFuncSuite) setup(c *tc.C, machineTag names.Tag) func() {
 	ctrl := gomock.NewController(c)

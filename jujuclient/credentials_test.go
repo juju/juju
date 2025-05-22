@@ -4,6 +4,8 @@
 package jujuclient_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -18,7 +20,9 @@ type CredentialsSuite struct {
 	credentials cloud.CloudCredential
 }
 
-var _ = tc.Suite(&CredentialsSuite{})
+func TestCredentialsSuite(t *stdtesting.T) {
+	tc.Run(t, &CredentialsSuite{})
+}
 
 func (s *CredentialsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

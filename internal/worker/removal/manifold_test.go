@@ -4,10 +4,13 @@
 package removal
 
 import (
+	"testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -20,7 +23,10 @@ type manifoldConfigSuite struct {
 	config ManifoldConfig
 }
 
-var _ = tc.Suite(&manifoldConfigSuite{})
+func TestManifoldConfigSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &manifoldConfigSuite{})
+}
 
 func (s *manifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
@@ -73,7 +79,9 @@ type manifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&manifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &manifoldSuite{})
+}
 
 func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 	cfg := ManifoldConfig{

@@ -4,6 +4,7 @@
 package service
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -20,7 +21,9 @@ type serviceSuite struct {
 	state *MockState
 }
 
-var _ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *testing.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 func (s *serviceSuite) TestLeases(c *tc.C) {
 	defer s.setupMocks(c).Finish()

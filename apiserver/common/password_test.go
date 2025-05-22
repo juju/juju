@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -27,7 +28,9 @@ type passwordSuite struct {
 	agentPasswordService *mocks.MockAgentPasswordService
 }
 
-var _ = tc.Suite(&passwordSuite{})
+func TestPasswordSuite(t *testing.T) {
+	tc.Run(t, &passwordSuite{})
+}
 
 func (s *passwordSuite) TestSetPasswordsForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()

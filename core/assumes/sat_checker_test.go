@@ -5,6 +5,7 @@ package assumes
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v3"
@@ -18,7 +19,9 @@ type SatCheckerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&SatCheckerSuite{})
+func TestSatCheckerSuite(t *testing.T) {
+	tc.Run(t, &SatCheckerSuite{})
+}
 
 func (s *SatCheckerSuite) TestErrorReportingForSimpleExpression(c *tc.C) {
 	fs := genFeatureSet(c)

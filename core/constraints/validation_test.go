@@ -5,6 +5,7 @@ package constraints_test
 
 import (
 	"regexp"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +15,9 @@ import (
 
 type validationSuite struct{}
 
-var _ = tc.Suite(&validationSuite{})
+func TestValidationSuite(t *testing.T) {
+	tc.Run(t, &validationSuite{})
+}
 
 var validationTests = []struct {
 	desc        string

@@ -4,6 +4,8 @@
 package environs_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -21,7 +23,9 @@ type ImageMetadataSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&ImageMetadataSuite{})
+func TestImageMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &ImageMetadataSuite{})
+}
 
 func (s *ImageMetadataSuite) env(c *tc.C, imageMetadataURL, stream string, defaultsDisabled bool) environs.Environ {
 	attrs := testing.FakeConfig()

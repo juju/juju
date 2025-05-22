@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -23,7 +24,9 @@ type ListOperationsSuite struct {
 	command        *action.ListOperationsCommand
 }
 
-var _ = tc.Suite(&ListOperationsSuite{})
+func TestListOperationsSuite(t *testing.T) {
+	tc.Run(t, &ListOperationsSuite{})
+}
 
 func (s *ListOperationsSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)

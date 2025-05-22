@@ -20,6 +20,7 @@ package progress_test
 import (
 	"bytes"
 	"fmt"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -31,7 +32,9 @@ import (
 
 type ProgressTestSuite struct{}
 
-var _ = tc.Suite(&ProgressTestSuite{})
+func TestProgressTestSuite(t *testing.T) {
+	tc.Run(t, &ProgressTestSuite{})
+}
 
 func (ts *ProgressTestSuite) testNotify(c *tc.C, buf *bytes.Buffer, t progress.Meter, desc, expected string) {
 	t.Notify("blah blah")

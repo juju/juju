@@ -4,6 +4,8 @@
 package rpc_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
@@ -15,7 +17,9 @@ type multiplexerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&multiplexerSuite{})
+func TestMultiplexerSuite(t *testing.T) {
+	tc.Run(t, &multiplexerSuite{})
+}
 
 func (*multiplexerSuite) TestServerReply_CallsAllObservers(c *tc.C) {
 	observers := []*fakeobserver.RPCInstance{

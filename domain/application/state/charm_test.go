@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -35,7 +36,9 @@ type charmStateSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&charmStateSuite{})
+func TestCharmStateSuite(t *testing.T) {
+	tc.Run(t, &charmStateSuite{})
+}
 
 func (s *charmStateSuite) TestGetCharmIDCharmhubCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))

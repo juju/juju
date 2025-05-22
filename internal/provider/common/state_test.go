@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -23,7 +24,9 @@ type StateSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&StateSuite{})
+func TestStateSuite(t *testing.T) {
+	tc.Run(t, &StateSuite{})
+}
 
 func (suite *StateSuite) newStorageWithDataDir(c *tc.C) (storage.Storage, string) {
 	closer, stor, dataDir := envtesting.CreateLocalTestStorage(c)

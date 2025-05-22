@@ -8,6 +8,7 @@ import (
 	"context"
 	"regexp"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -41,7 +42,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = tc.Suite(&crossmodelRelationsSuite{})
+func TestCrossmodelRelationsSuite(t *testing.T) {
+	tc.Run(t, &crossmodelRelationsSuite{})
+}
 
 type crossmodelRelationsSuite struct {
 	coretesting.BaseSuite

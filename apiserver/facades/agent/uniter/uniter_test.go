@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -59,7 +60,9 @@ type uniterSuite struct {
 	uniter *UniterAPI
 }
 
-var _ = tc.Suite(&uniterSuite{})
+func TestUniterSuite(t *testing.T) {
+	tc.Run(t, &uniterSuite{})
+}
 
 func (s *uniterSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
@@ -809,7 +812,9 @@ type uniterv19Suite struct {
 	leadershipUniterSuite
 }
 
-var _ = tc.Suite(&uniterv19Suite{})
+func TestUniterv19Suite(t *testing.T) {
+	tc.Run(t, &uniterv19Suite{})
+}
 
 func (s *uniterv19Suite) SetUpTest(c *tc.C) {
 	s.setupMocks = func(c *tc.C) *gomock.Controller {
@@ -834,7 +839,9 @@ type uniterv20Suite struct {
 	leadershipUniterSuite
 }
 
-var _ = tc.Suite(&uniterv20Suite{})
+func TestUniterv20Suite(t *testing.T) {
+	tc.Run(t, &uniterv20Suite{})
+}
 
 func (s *uniterv20Suite) SetUpTest(c *tc.C) {
 	s.setupMocks = func(c *tc.C) *gomock.Controller {
@@ -870,7 +877,9 @@ type uniterRelationSuite struct {
 	uniter *UniterAPI
 }
 
-var _ = tc.Suite(&uniterRelationSuite{})
+func TestUniterRelationSuite(t *testing.T) {
+	tc.Run(t, &uniterRelationSuite{})
+}
 
 func (s *uniterRelationSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
@@ -1875,7 +1884,9 @@ type commitHookChangesSuite struct {
 	uniter *UniterAPI
 }
 
-var _ = tc.Suite(&commitHookChangesSuite{})
+func TestCommitHookChangesSuite(t *testing.T) {
+	tc.Run(t, &commitHookChangesSuite{})
+}
 
 func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettings(c *tc.C) {
 	// arrange

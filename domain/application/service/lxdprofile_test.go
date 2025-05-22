@@ -4,6 +4,8 @@
 package service
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -14,7 +16,9 @@ type lxdProfileSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&lxdProfileSuite{})
+func TestLxdProfileSuite(t *testing.T) {
+	tc.Run(t, &lxdProfileSuite{})
+}
 
 var lxdProfileTestCases = [...]struct {
 	name   string

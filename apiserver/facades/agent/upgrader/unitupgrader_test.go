@@ -4,6 +4,8 @@
 package upgrader_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type unitUpgraderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&unitUpgraderSuite{})
+func TestUnitUpgraderSuite(t *testing.T) {
+	tc.Run(t, &unitUpgraderSuite{})
+}
 
 func (s *unitUpgraderSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:

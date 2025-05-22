@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"sort"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -16,7 +17,9 @@ type AllFacadesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&AllFacadesSuite{})
+func TestAllFacadesSuite(t *testing.T) {
+	tc.Run(t, &AllFacadesSuite{})
+}
 
 func (s *AllFacadesSuite) TestNoPanic(c *tc.C) {
 	// AllFacades will panic on error so check it by calling it.

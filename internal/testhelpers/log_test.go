@@ -4,13 +4,17 @@
 package testhelpers
 
 import (
+	"testing"
+
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 )
 
 type logSuite struct{}
 
-var _ = tc.Suite(&logSuite{})
+func TestLogSuite(t *testing.T) {
+	tc.Run(t, &logSuite{})
+}
 
 func (*logSuite) TestLog(c *tc.C) {
 	logger := loggo.GetLogger("test")

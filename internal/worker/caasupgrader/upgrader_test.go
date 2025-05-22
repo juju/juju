@@ -4,6 +4,8 @@
 package caasupgrader_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -31,7 +33,9 @@ type UpgraderSuite struct {
 	initialCheckComplete gate.Lock
 }
 
-var _ = tc.Suite(&UpgraderSuite{})
+func TestUpgraderSuite(t *testing.T) {
+	tc.Run(t, &UpgraderSuite{})
+}
 
 func (s *UpgraderSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

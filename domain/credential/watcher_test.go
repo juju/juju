@@ -5,6 +5,7 @@ package credential_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -35,7 +36,9 @@ type watcherSuite struct {
 	controllerUUID string
 }
 
-var _ = tc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *testing.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)

@@ -5,6 +5,7 @@ package undertaker_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -33,10 +34,13 @@ type IAASManifoldSuite struct {
 	manifoldSuite
 }
 
-var (
-	_ = tc.Suite(&IAASManifoldSuite{})
-	_ = tc.Suite(&CAASManifoldSuite{})
-)
+func TestIAASManifoldSuite(t *testing.T) {
+	tc.Run(t, &IAASManifoldSuite{})
+}
+
+func TestCAASManifoldSuite(t *testing.T) {
+	tc.Run(t, &CAASManifoldSuite{})
+}
 
 func (s *CAASManifoldSuite) SetUpTest(c *tc.C) {
 	s.modelType = "caas"

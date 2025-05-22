@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -32,7 +33,9 @@ type detectCredentialsSuite struct {
 	api               *fakeUpdateCredentialAPI
 }
 
-var _ = tc.Suite(&detectCredentialsSuite{})
+func TestDetectCredentialsSuite(t *stdtesting.T) {
+	tc.Run(t, &detectCredentialsSuite{})
+}
 
 type mockProvider struct {
 	environs.CloudEnvironProvider

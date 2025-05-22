@@ -4,8 +4,6 @@
 package upgradedatabase
 
 import (
-	"testing"
-
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
@@ -19,10 +17,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination database_mock_test.go github.com/juju/juju/core/database DBGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination service_mock_test.go github.com/juju/juju/internal/worker/upgradedatabase UpgradeService,ModelService
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination worker_mock_test.go github.com/juju/worker/v4 Worker
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	lock           *MockLock

@@ -6,6 +6,7 @@ package controller_test
 import (
 	"context"
 	"regexp"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -30,7 +31,9 @@ type ShowControllerSuite struct {
 	modelConfigAPI func(controllerName string) controller.ModelConfigAPI
 }
 
-var _ = tc.Suite(&ShowControllerSuite{})
+func TestShowControllerSuite(t *testing.T) {
+	tc.Run(t, &ShowControllerSuite{})
+}
 
 func (s *ShowControllerSuite) SetUpTest(c *tc.C) {
 	s.baseControllerSuite.SetUpTest(c)

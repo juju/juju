@@ -5,6 +5,7 @@ package worker
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -18,8 +19,11 @@ type periodicWorkerSuite struct {
 	testing.BaseSuite
 }
 
+func TestPeriodicWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &periodicWorkerSuite{})
+}
+
 var (
-	_                   = tc.Suite(&periodicWorkerSuite{})
 	defaultPeriod       = time.Second
 	defaultFireOnceWait = defaultPeriod / 2
 )

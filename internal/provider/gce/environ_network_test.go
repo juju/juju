@@ -4,6 +4,8 @@
 package gce_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"google.golang.org/api/compute/v1"
@@ -21,7 +23,9 @@ type environNetSuite struct {
 	NetEnv environs.NetworkingEnviron
 }
 
-var _ = tc.Suite(&environNetSuite{})
+func TestEnvironNetSuite(t *testing.T) {
+	tc.Run(t, &environNetSuite{})
+}
 
 func (s *environNetSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

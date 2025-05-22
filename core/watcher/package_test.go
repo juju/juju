@@ -4,20 +4,18 @@
 package watcher_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 type ImportTest struct{}
 
-var _ = tc.Suite(&ImportTest{})
+func TestImportTest(t *testing.T) {
+	tc.Run(t, &ImportTest{})
+}
 
 func (s *ImportTest) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/watcher")

@@ -18,15 +18,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 type machineRebootSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&machineRebootSuite{})
+func TestMachineRebootSuite(t *stdtesting.T) {
+	tc.Run(t, &machineRebootSuite{})
+}
 
 func (s *machineRebootSuite) TestWatchForRebootEvent(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

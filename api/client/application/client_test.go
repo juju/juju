@@ -5,6 +5,7 @@ package application_test
 
 import (
 	stderrors "errors"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,7 +30,9 @@ import (
 
 type applicationSuite struct{}
 
-var _ = tc.Suite(&applicationSuite{})
+func TestApplicationSuite(t *testing.T) {
+	tc.Run(t, &applicationSuite{})
+}
 
 func (s *applicationSuite) TestDeploy(c *tc.C) {
 	ctrl := gomock.NewController(c)

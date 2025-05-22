@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	stdtesting "testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -37,7 +38,9 @@ type MigrateSuite struct {
 	store               *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&MigrateSuite{})
+func TestMigrateSuite(t *stdtesting.T) {
+	tc.Run(t, &MigrateSuite{})
+}
 
 const modelUUID = "deadbeef-0bad-400d-8000-4b1d0d06f00d"
 const targetControllerUUID = "beefdead-0bad-400d-8000-4b1d0d06f00d"

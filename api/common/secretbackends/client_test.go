@@ -4,6 +4,8 @@
 package secretbackends_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -16,7 +18,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&SecretsSuite{})
+func TestSecretsSuite(t *testing.T) {
+	tc.Run(t, &SecretsSuite{})
+}
 
 type SecretsSuite struct {
 	coretesting.BaseSuite

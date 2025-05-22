@@ -5,6 +5,7 @@ package assumes
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +14,9 @@ import (
 
 type errorSuite struct{}
 
-var _ = tc.Suite(&errorSuite{})
+func TestErrorSuite(t *testing.T) {
+	tc.Run(t, &errorSuite{})
+}
 
 var errorTests = []struct {
 	description string

@@ -7,12 +7,14 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	stdtesting "testing"
 	time "time"
 
 	clock "github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/application"
@@ -34,7 +36,10 @@ type workerSuite struct {
 	newAsyncWorker func() worker.Worker
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) TestWorkerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()

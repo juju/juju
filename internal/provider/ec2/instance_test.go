@@ -5,6 +5,7 @@ package ec2
 
 import (
 	"context"
+	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -16,7 +17,9 @@ type fetchInstanceClientFunc func(context.Context, *ec2.DescribeInstanceTypesInp
 
 type instanceSuite struct{}
 
-var _ = tc.Suite(&instanceSuite{})
+func TestInstanceSuite(t *testing.T) {
+	tc.Run(t, &instanceSuite{})
+}
 
 func (f fetchInstanceClientFunc) DescribeInstanceTypes(
 	c context.Context,

@@ -18,15 +18,13 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 type UserDataSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&UserDataSuite{})
+func TestUserDataSuite(t *stdtesting.T) {
+	tc.Run(t, &UserDataSuite{})
+}
 
 func (s *UserDataSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

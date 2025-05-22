@@ -23,17 +23,15 @@ import (
 	"github.com/juju/juju/environs/storage"
 )
 
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
-
 type filestorageSuite struct {
 	dir    string
 	reader storage.StorageReader
 	writer storage.StorageWriter
 }
 
-var _ = tc.Suite(&filestorageSuite{})
+func TestFilestorageSuite(t *testing.T) {
+	tc.Run(t, &filestorageSuite{})
+}
 
 func (s *filestorageSuite) SetUpTest(c *tc.C) {
 	s.dir = c.MkDir()

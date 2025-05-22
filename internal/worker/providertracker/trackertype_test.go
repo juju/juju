@@ -4,7 +4,10 @@
 package providertracker
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -13,7 +16,10 @@ type trackerTypeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&trackerTypeSuite{})
+func TestTrackerTypeSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &trackerTypeSuite{})
+}
 
 func (s *trackerTypeSuite) TestSingularNamespace(c *tc.C) {
 	single := SingularType("foo")

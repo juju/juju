@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -21,7 +23,9 @@ type removeSuite struct {
 	secretsAPI *mocks.MockRemoveSecretsAPI
 }
 
-var _ = tc.Suite(&removeSuite{})
+func TestRemoveSuite(t *testing.T) {
+	tc.Run(t, &removeSuite{})
+}
 
 func (s *removeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

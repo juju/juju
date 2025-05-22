@@ -4,6 +4,8 @@
 package application
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -15,7 +17,9 @@ type ApplicationSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ApplicationSuite{})
+func TestApplicationSuite(t *testing.T) {
+	tc.Run(t, &ApplicationSuite{})
+}
 
 func (*ApplicationSuite) TestIDValidate(c *tc.C) {
 	tests := []struct {

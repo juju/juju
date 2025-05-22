@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
@@ -15,7 +17,9 @@ type CredentialGetSuite struct {
 	ContextSuite
 }
 
-var _ = tc.Suite(&CredentialGetSuite{})
+func TestCredentialGetSuite(t *testing.T) {
+	tc.Run(t, &CredentialGetSuite{})
+}
 
 // [TODO](externalreality): Many jujuc commands can be run through a processor
 // much like the one below. This sort of thing should not have to be written

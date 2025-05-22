@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -80,8 +81,9 @@ type toolsWithMacaroonsIntegrationSuite struct {
 	userName user.Name
 }
 
-var _ = tc.Suite(&toolsWithMacaroonsIntegrationSuite{})
-
+func TestToolsWithMacaroonsIntegrationSuite(t *testing.T) {
+	tc.Run(t, &toolsWithMacaroonsIntegrationSuite{})
+}
 func (s *toolsWithMacaroonsIntegrationSuite) SetUpTest(c *tc.C) {
 	s.MacaroonSuite.SetUpTest(c)
 

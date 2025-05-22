@@ -6,6 +6,7 @@ package controller_test
 import (
 	"bytes"
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -44,7 +45,9 @@ type DestroySuite struct {
 	baseDestroySuite
 }
 
-var _ = tc.Suite(&DestroySuite{})
+func TestDestroySuite(t *stdtesting.T) {
+	tc.Run(t, &DestroySuite{})
+}
 
 type baseDestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite

@@ -3,12 +3,18 @@
 
 package uniter_test
 
-import "github.com/juju/tc"
+import (
+	"testing"
+
+	"github.com/juju/tc"
+)
 
 type cloudSpecUniterSuite struct {
 }
 
-var _ = tc.Suite(&cloudSpecUniterSuite{})
+func TestCloudSpecUniterSuite(t *testing.T) {
+	tc.Run(t, &cloudSpecUniterSuite{})
+}
 
 func (s *cloudSpecUniterSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:

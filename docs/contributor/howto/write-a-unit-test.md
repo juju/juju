@@ -3,49 +3,6 @@
 
 This document demonstrates how to write a unit test for Juju.
 
-## Prepare for the test
-
-### Create `package_test.go`
-
-[note type=caution]
-This step is necessary only if this file doesn't already exist.
-[/note]
-
-Each package requires a `package_test.go` file if we wish any of our tests to run.
-
-Below is a standard `package_test.go` file for an example package called `magic`. We import the "testing" package from
-the standard library and then the `tc` package. We also create a function `Test` that will be the
-entry-point into our test suites.
-
-<!--?loads the test suites that have been added to a list by var in the "HTG create a test suite"-->
-<!-- // TestingT runs all test suites registered with the Suite function,
-// printing results to stdout, and reporting any failures back to
-// the "testing" package.-->
-
-```go
-// Copyright 20XX Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
-package magic_test
-
-import (
-  "testing"
-
-  "github.com/juju/tc"
-)
-
-func Test(t *testing.T) {
-  tc.TestingT(t)
-}
-```
-
-[note type=caution]
-You will sometimes see `package_test.go` files which use `testing.MgoTestPackage` as their entrypoint. This is required
-to run old-style `JujuConnSuite` tests, which test against a running instance of MongoDB.
-
-These tests are deprecated and are actively being removed. No more should be added.
-[/note]
-
 ### Create
 
 `
@@ -72,13 +29,15 @@ Also in `magic1_test.go`, add a unit test suite.
 
 > See more: {ref}`create-a-unit-test-suite`
 
-Once the test suite structure has been created, it needs to be registered with `tc` or the tests will not run. You can
-do by passing a pointer to an instance of our suite to the `tc.Suite` function.
+Once the test suite structure has been created, we need to run it with `tc.Run`, you can do this by creating a `Test`
+function that will be the entry-point into our test suite.
 
 ```go
 type magicSuite struct{}
 
-var _ = tc.Suite(&magicSuite{})
+func TestMagicSuite(t *testing.T) {
+  tc.Run(t, &magicSuite{})
+}
 ```
 
 ## Write the test

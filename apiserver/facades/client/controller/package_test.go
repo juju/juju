@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"os"
 	stdtesting "testing"
 
 	"github.com/juju/juju/internal/testing"
@@ -12,6 +13,9 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/client/controller Backend
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/domain_mock.go github.com/juju/juju/apiserver/facades/client/controller ControllerAccessService,ModelService
 
-func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func TestMain(m *stdtesting.M) {
+	os.Exit(func() int {
+		defer testing.MgoTestMain()()
+		return m.Run()
+	}())
 }

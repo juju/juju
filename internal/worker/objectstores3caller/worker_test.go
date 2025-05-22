@@ -6,11 +6,13 @@ package objectstores3caller
 import (
 	"context"
 	"sync/atomic"
+	stdtesting "testing"
 	time "time"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
 	controller "github.com/juju/juju/controller"
@@ -26,7 +28,10 @@ type workerSuite struct {
 	sessionRefCount int64
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) TestCleanKill(c *tc.C) {
 	defer s.setupMocks(c).Finish()

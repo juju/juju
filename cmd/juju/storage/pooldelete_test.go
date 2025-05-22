@@ -5,6 +5,7 @@ package storage_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +21,9 @@ type PoolRemoveSuite struct {
 	mockAPI *mockPoolRemoveAPI
 }
 
-var _ = tc.Suite(&PoolRemoveSuite{})
+func TestPoolRemoveSuite(t *testing.T) {
+	tc.Run(t, &PoolRemoveSuite{})
+}
 
 func (s *PoolRemoveSuite) SetUpTest(c *tc.C) {
 	s.SubStorageSuite.SetUpTest(c)

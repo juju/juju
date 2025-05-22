@@ -4,6 +4,7 @@
 package modelmanager_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -24,7 +25,9 @@ import (
 
 type modelInfoSuite struct{}
 
-var _ = tc.Suite(&modelInfoSuite{})
+func TestModelInfoSuite(t *testing.T) {
+	tc.Run(t, &modelInfoSuite{})
+}
 
 func (s *modelInfoSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:

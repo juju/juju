@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
@@ -15,7 +17,9 @@ type SecretRemoveSuite struct {
 	ContextSuite
 }
 
-var _ = tc.Suite(&SecretRemoveSuite{})
+func TestSecretRemoveSuite(t *testing.T) {
+	tc.Run(t, &SecretRemoveSuite{})
+}
 
 func (s *SecretRemoveSuite) TestRemoveSecretInvalidArgs(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()

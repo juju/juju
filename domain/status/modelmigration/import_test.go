@@ -4,6 +4,7 @@
 package modelmigration
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -23,7 +24,9 @@ type importSuite struct {
 	importService *MockImportService
 }
 
-var _ = tc.Suite(&importSuite{})
+func TestImportSuite(t *testing.T) {
+	tc.Run(t, &importSuite{})
+}
 
 func (s *importSuite) TestImportBlank(c *tc.C) {
 	defer s.setUpMocks(c).Finish()

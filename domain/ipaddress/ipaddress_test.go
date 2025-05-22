@@ -4,6 +4,8 @@
 package ipaddress
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -13,7 +15,9 @@ type ipAddressSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&ipAddressSuite{})
+func TestIpAddressSuite(t *testing.T) {
+	tc.Run(t, &ipAddressSuite{})
+}
 
 // TestConfigTypeDBValues ensures there's no skew between what's in the
 // database table for config type and the typed consts used in the state packages.

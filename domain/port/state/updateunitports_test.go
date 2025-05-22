@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -32,7 +33,9 @@ type updateUnitPortsSuite struct {
 	appUUID coreapplication.ID
 }
 
-var _ = tc.Suite(&updateUnitPortsSuite{})
+func TestUpdateUnitPortsSuite(t *testing.T) {
+	tc.Run(t, &updateUnitPortsSuite{})
+}
 
 func (s *updateUnitPortsSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)

@@ -5,6 +5,7 @@ package user_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ type DisableUserSuite struct {
 	mock *mockDisenableUserAPI
 }
 
-var _ = tc.Suite(&DisableUserSuite{})
+func TestDisableUserSuite(t *testing.T) {
+	tc.Run(t, &DisableUserSuite{})
+}
 
 func (s *DisableUserSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

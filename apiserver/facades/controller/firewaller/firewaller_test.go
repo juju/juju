@@ -4,18 +4,22 @@
 package firewaller_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-type firewallerSuite struct {
+type legacyFirewallerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&firewallerSuite{})
+func TestLegacyFirewallerSuite(t *testing.T) {
+	tc.Run(t, &legacyFirewallerSuite{})
+}
 
-func (s *firewallerSuite) TestStub(c *tc.C) {
+func (s *legacyFirewallerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 
  - Test that the firewaller API fails when the user is not a controller user.

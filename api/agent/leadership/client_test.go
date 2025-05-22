@@ -4,6 +4,7 @@
 package leadership_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,7 +29,9 @@ type ClientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ClientSuite{})
+func TestClientSuite(t *testing.T) {
+	tc.Run(t, &ClientSuite{})
+}
 
 const (
 	StubApplicationNm = "stub-application"

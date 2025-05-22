@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -86,8 +87,9 @@ func (s *lxdProvisionerSuite) expectStartup(c *tc.C) {
 		return controllerCfg, nil
 	})
 }
-
-var _ = tc.Suite(&lxdProvisionerSuite{})
+func TestLxdProvisionerSuite(t *testing.T) {
+	tc.Run(t, &lxdProvisionerSuite{})
+}
 
 func (s *lxdProvisionerSuite) newLXDProvisioner(c *tc.C, ctrl *gomock.Controller) containerprovisioner.Provisioner {
 	mTag := names.NewMachineTag("0")

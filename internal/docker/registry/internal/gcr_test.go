@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -31,8 +32,9 @@ type googleContainerRegistrySuite struct {
 	authToken        string
 }
 
-var _ = tc.Suite(&googleContainerRegistrySuite{})
-
+func TestGoogleContainerRegistrySuite(t *testing.T) {
+	tc.Run(t, &googleContainerRegistrySuite{})
+}
 func (s *googleContainerRegistrySuite) getRegistry(c *tc.C) (registry.Registry, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 

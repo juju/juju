@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -29,7 +30,9 @@ type stateSuite struct {
 	machineName coremachine.Name
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *testing.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 var (
 	testingPublicKeys = []string{

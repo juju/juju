@@ -6,6 +6,7 @@ package machinelock_test
 import (
 	"os"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/juju/mutex/v2"
@@ -35,7 +36,9 @@ type lockSuite struct {
 	release      chan struct{}
 }
 
-var _ = tc.Suite(&lockSuite{})
+func TestLockSuite(t *testing.T) {
+	tc.Run(t, &lockSuite{})
+}
 
 func (s *lockSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

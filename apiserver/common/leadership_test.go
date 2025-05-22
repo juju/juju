@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -32,7 +34,9 @@ type LeadershipSuite struct {
 	machineApps []string
 }
 
-var _ = tc.Suite(&LeadershipSuite{})
+func TestLeadershipSuite(t *testing.T) {
+	tc.Run(t, &LeadershipSuite{})
+}
 
 func (s *LeadershipSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)

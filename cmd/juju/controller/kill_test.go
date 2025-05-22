@@ -6,6 +6,7 @@ package controller_test
 import (
 	"bytes"
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -32,7 +33,9 @@ type KillSuite struct {
 	clock *testclock.Clock
 }
 
-var _ = tc.Suite(&KillSuite{})
+func TestKillSuite(t *testing.T) {
+	tc.Run(t, &KillSuite{})
+}
 
 func (s *KillSuite) SetUpTest(c *tc.C) {
 	s.baseDestroySuite.SetUpTest(c)

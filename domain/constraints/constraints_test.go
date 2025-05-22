@@ -4,6 +4,8 @@
 package constraints
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"
@@ -15,7 +17,9 @@ type constraintsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&constraintsSuite{})
+func TestConstraintsSuite(t *testing.T) {
+	tc.Run(t, &constraintsSuite{})
+}
 
 // TestFromCoreConstraints is concerned with testing the mapping from a
 // [constraints.Value] to a [Constraints] object. Specifically the main thing we

@@ -6,6 +6,7 @@ package model_test
 import (
 	"context"
 	"regexp"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -24,7 +25,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&ModelCredentialCommandSuite{})
+func TestModelCredentialCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelCredentialCommandSuite{})
+}
 
 type ModelCredentialCommandSuite struct {
 	testhelpers.IsolationSuite

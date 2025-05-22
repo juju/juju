@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -45,7 +46,9 @@ type providerServiceSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&providerServiceSuite{})
+func TestProviderServiceSuite(t *testing.T) {
+	tc.Run(t, &providerServiceSuite{})
+}
 
 func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()

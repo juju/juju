@@ -4,6 +4,8 @@
 package firewaller_test
 
 import (
+	"testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -25,7 +27,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = tc.Suite(&RemoteFirewallerSuite{})
+func TestRemoteFirewallerSuite(t *testing.T) {
+	tc.Run(t, &RemoteFirewallerSuite{})
+}
 
 type RemoteFirewallerSuite struct {
 	coretesting.BaseSuite
@@ -167,8 +171,9 @@ func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *tc.C) {
 	c.Assert(result.Results[0].Error, tc.IsNil)
 	c.Assert(db2Relation.status, tc.DeepEquals, status.StatusInfo{Status: status.Suspended, Message: "a message"})
 }
-
-var _ = tc.Suite(&FirewallerSuite{})
+func TestFirewallerSuite(t *testing.T) {
+	tc.Run(t, &FirewallerSuite{})
+}
 
 type FirewallerSuite struct {
 	coretesting.BaseSuite

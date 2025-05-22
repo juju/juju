@@ -5,6 +5,7 @@ package looputil_test
 
 import (
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -17,7 +18,9 @@ type LoopUtilSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&LoopUtilSuite{})
+func TestLoopUtilSuite(t *stdtesting.T) {
+	tc.Run(t, &LoopUtilSuite{})
+}
 
 func (s *LoopUtilSuite) TestDetachLoopDevicesNone(c *tc.C) {
 	commands := &mockRunCommand{c: c}

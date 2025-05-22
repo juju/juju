@@ -10,6 +10,7 @@ package agent
 
 import (
 	"path/filepath"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -26,7 +27,9 @@ type format_2_0Suite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&format_2_0Suite{})
+func TestFormat_2_0Suite(t *stdtesting.T) {
+	tc.Run(t, &format_2_0Suite{})
+}
 
 func (s *format_2_0Suite) TestStatePortNotParsedWithoutSecret(c *tc.C) {
 	dataDir := c.MkDir()

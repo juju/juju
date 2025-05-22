@@ -5,6 +5,7 @@ package jujuc_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -44,8 +45,9 @@ func (ctx *nonActionFailContext) SetActionMessage(message string) error {
 func (ctx *nonActionFailContext) SetActionFailed() error {
 	return fmt.Errorf("not running an action")
 }
-
-var _ = tc.Suite(&ActionFailSuite{})
+func TestActionFailSuite(t *testing.T) {
+	tc.Run(t, &ActionFailSuite{})
+}
 
 func (s *ActionFailSuite) TestActionFail(c *tc.C) {
 	var actionFailTests = []struct {

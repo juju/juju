@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -41,8 +42,9 @@ func (s *DownloadSuite) TearDownTest(c *tc.C) {
 	s.HTTPSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
-
-var _ = tc.Suite(&DownloadSuite{})
+func TestDownloadSuite(t *stdtesting.T) {
+	tc.Run(t, &DownloadSuite{})
+}
 
 func (s *DownloadSuite) URL(c *tc.C, path string) *url.URL {
 	urlStr := s.HTTPSuite.URL(path)

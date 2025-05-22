@@ -5,6 +5,7 @@ package secretsdrainworker_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -39,7 +40,9 @@ type workerSuite struct {
 	notifyBackendChangedCh chan struct{}
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) getWorkerNewer(c *tc.C) (func(string), *gomock.Controller) {
 	ctrl := gomock.NewController(c)

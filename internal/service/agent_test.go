@@ -6,6 +6,7 @@ package service_test
 import (
 	"path/filepath"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -25,7 +26,9 @@ type agentSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&agentSuite{})
+func TestAgentSuite(t *testing.T) {
+	tc.Run(t, &agentSuite{})
+}
 
 func (*agentSuite) TestAgentConfMachineLocal(c *tc.C) {
 	// We use two distinct directories to ensure the paths don't get

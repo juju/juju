@@ -5,10 +5,12 @@ package objectstore
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
@@ -25,7 +27,10 @@ type baseObjectStoreSuite struct {
 	claimExtender *MockClaimExtender
 }
 
-var _ = tc.Suite(&baseObjectStoreSuite{})
+func TestBaseObjectStoreSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &baseObjectStoreSuite{})
+}
 
 func (s *baseObjectStoreSuite) TestScopedContext(c *tc.C) {
 	w := &baseObjectStore{}

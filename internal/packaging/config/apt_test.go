@@ -5,12 +5,16 @@
 package config_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/packaging/config"
 )
 
-var _ = tc.Suite(&AptSuite{})
+func TestAptSuite(t *testing.T) {
+	tc.Run(t, &AptSuite{})
+}
 
 type AptSuite struct {
 	pacconfer config.AptConfigurer

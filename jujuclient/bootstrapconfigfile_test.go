@@ -5,6 +5,7 @@ package jujuclient_test
 
 import (
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ type BootstrapConfigFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&BootstrapConfigFileSuite{})
+func TestBootstrapConfigFileSuite(t *stdtesting.T) {
+	tc.Run(t, &BootstrapConfigFileSuite{})
+}
 
 const testBootstrapConfigYAML = `
 controllers:

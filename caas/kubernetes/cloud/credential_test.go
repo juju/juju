@@ -5,6 +5,7 @@ package cloud_test
 
 import (
 	"os"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -17,7 +18,9 @@ import (
 type credentialSuite struct {
 }
 
-var _ = tc.Suite(&credentialSuite{})
+func TestCredentialSuite(t *testing.T) {
+	tc.Run(t, &credentialSuite{})
+}
 
 func (s *credentialSuite) TestValidCredentials(c *tc.C) {
 	tests := []struct {

@@ -5,6 +5,7 @@ package common
 
 import (
 	ctx "context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -16,9 +17,17 @@ import (
 	"github.com/juju/juju/internal/provider/oci/testing"
 )
 
-var _ = tc.Suite(&computeClientSuite{})
-var _ = tc.Suite(&networkClientSuite{})
-var _ = tc.Suite(&storageClientSuite{})
+func TestComputeClientSuite(t *stdtesting.T) {
+	tc.Run(t, &computeClientSuite{})
+}
+
+func TestNetworkClientSuite(t *stdtesting.T) {
+	tc.Run(t, &networkClientSuite{})
+}
+
+func TestStorageClientSuite(t *stdtesting.T) {
+	tc.Run(t, &storageClientSuite{})
+}
 
 var compartmentID = "compartment-id"
 

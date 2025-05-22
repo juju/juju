@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
@@ -25,7 +26,9 @@ type suite struct {
 	providerGetter func(context.Context) (Provider, error)
 }
 
-var _ = tc.Suite(&suite{})
+func TestSuite(t *testing.T) {
+	tc.Run(t, &suite{})
+}
 
 func (s *suite) SetUpTest(c *tc.C) {
 	// Default provider getter function

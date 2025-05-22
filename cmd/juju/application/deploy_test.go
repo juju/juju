@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"testing"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -89,7 +90,9 @@ type DeploySuite struct {
 	DeploySuiteBase
 }
 
-var _ = tc.Suite(&DeploySuite{})
+func TestDeploySuite(t *testing.T) {
+	tc.Run(t, &DeploySuite{})
+}
 
 var initErrorTests = []struct {
 	args []string
@@ -506,7 +509,9 @@ type CAASDeploySuite struct {
 	CAASDeploySuiteBase
 }
 
-var _ = tc.Suite(&CAASDeploySuite{})
+func TestCAASDeploySuite(t *testing.T) {
+	tc.Run(t, &CAASDeploySuite{})
+}
 
 func (s *CAASDeploySuite) TestInitErrorsCaasModel(c *tc.C) {
 	for i, t := range caasTests {
@@ -874,7 +879,9 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 
 type ParseMachineMapSuite struct{}
 
-var _ = tc.Suite(&ParseMachineMapSuite{})
+func TestParseMachineMapSuite(t *testing.T) {
+	tc.Run(t, &ParseMachineMapSuite{})
+}
 
 func (s *ParseMachineMapSuite) TestEmptyString(c *tc.C) {
 	existing, mapping, err := parseMachineMap("")
@@ -927,7 +934,9 @@ type DeployUnitTestSuite struct {
 	factory  *mocks.MockDeployerFactory
 }
 
-var _ = tc.Suite(&DeployUnitTestSuite{})
+func TestDeployUnitTestSuite(t *testing.T) {
+	tc.Run(t, &DeployUnitTestSuite{})
+}
 
 func (s *DeployUnitTestSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

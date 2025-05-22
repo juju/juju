@@ -6,6 +6,7 @@ package model_test
 import (
 	"fmt"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -30,7 +31,9 @@ type modelWatcherSuite struct {
 	modelConfigService *MockModelConfigService
 }
 
-var _ = tc.Suite(&modelWatcherSuite{})
+func TestModelWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &modelWatcherSuite{})
+}
 
 func (s *modelWatcherSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

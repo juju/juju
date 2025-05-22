@@ -4,6 +4,8 @@
 package migrationflag_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type ValidateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ValidateSuite{})
+func TestValidateSuite(t *testing.T) {
+	tc.Run(t, &ValidateSuite{})
+}
 
 func (*ValidateSuite) TestValid(c *tc.C) {
 	config := validConfig()

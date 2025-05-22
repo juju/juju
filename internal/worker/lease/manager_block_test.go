@@ -5,6 +5,7 @@ package lease_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -21,7 +22,9 @@ type WaitUntilExpiredSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&WaitUntilExpiredSuite{})
+func TestWaitUntilExpiredSuite(t *testing.T) {
+	tc.Run(t, &WaitUntilExpiredSuite{})
+}
 
 func (s *WaitUntilExpiredSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

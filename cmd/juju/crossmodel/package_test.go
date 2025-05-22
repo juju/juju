@@ -4,18 +4,12 @@
 package crossmodel
 
 import (
-	"testing"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
-
-func TestAll(t *testing.T) {
-	tc.TestingT(t)
-}
 
 type BaseCrossModelSuite struct {
 	jujutesting.BaseSuite

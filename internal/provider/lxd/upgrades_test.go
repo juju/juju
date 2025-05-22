@@ -5,6 +5,7 @@ package lxd_test
 
 import (
 	"os"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,7 +19,9 @@ type upgradesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&upgradesSuite{})
+func TestUpgradesSuite(t *testing.T) {
+	tc.Run(t, &upgradesSuite{})
+}
 
 func (s *upgradesSuite) TestReadLegacyCloudCredentials(c *tc.C) {
 	var paths []string

@@ -4,6 +4,8 @@
 package secretbackendrotate_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -17,7 +19,9 @@ type ManifoldConfigSuite struct {
 	config secretbackendrotate.ManifoldConfig
 }
 
-var _ = tc.Suite(&ManifoldConfigSuite{})
+func TestManifoldConfigSuite(t *testing.T) {
+	tc.Run(t, &ManifoldConfigSuite{})
+}
 
 func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

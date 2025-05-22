@@ -6,6 +6,7 @@ package tools_test
 import (
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -21,7 +22,9 @@ type SymlinksSuite struct {
 	dataDir, toolsDir string
 }
 
-var _ = tc.Suite(&SymlinksSuite{})
+func TestSymlinksSuite(t *stdtesting.T) {
+	tc.Run(t, &SymlinksSuite{})
+}
 
 func (s *SymlinksSuite) SetUpTest(c *tc.C) {
 	s.dataDir = c.MkDir()

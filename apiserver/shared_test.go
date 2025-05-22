@@ -4,6 +4,8 @@
 package apiserver
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
@@ -24,8 +26,9 @@ type sharedServerContextSuite struct {
 	controllerConfigService ControllerConfigService
 }
 
-var _ = tc.Suite(&sharedServerContextSuite{})
-
+func TestSharedServerContextSuite(t *stdtesting.T) {
+	tc.Run(t, &sharedServerContextSuite{})
+}
 func (s *sharedServerContextSuite) TestConfigNoStatePool(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -6,6 +6,7 @@ package api
 import (
 	"context"
 	"errors"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -15,7 +16,9 @@ import (
 	jtesting "github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&MonitorSuite{})
+func TestMonitorSuite(t *testing.T) {
+	tc.Run(t, &MonitorSuite{})
+}
 
 type MonitorSuite struct {
 	testhelpers.IsolationSuite

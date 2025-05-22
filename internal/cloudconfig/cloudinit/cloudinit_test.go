@@ -6,6 +6,7 @@ package cloudinit_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/tc"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
@@ -24,7 +25,9 @@ type cloudInitSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&cloudInitSuite{})
+func TestCloudInitSuite(t *testing.T) {
+	tc.Run(t, &cloudInitSuite{})
+}
 
 var ctests = []struct {
 	name      string

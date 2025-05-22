@@ -3,16 +3,6 @@
 
 package resources
 
-import (
-	"testing"
-
-	"github.com/juju/tc"
-)
-
-func Test(t *testing.T) {
-	tc.TestingT(t)
-}
-
 type (
 	Operation = operation
 )

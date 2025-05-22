@@ -5,6 +5,7 @@ package instancepoller_test
 
 import (
 	"errors"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -23,7 +24,9 @@ type InstancePollerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&InstancePollerSuite{})
+func TestInstancePollerSuite(t *testing.T) {
+	tc.Run(t, &InstancePollerSuite{})
+}
 
 func (s *InstancePollerSuite) TestNewAPI(c *tc.C) {
 	apiCaller := clientErrorAPICaller(c, "Life", nil)

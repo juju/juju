@@ -5,6 +5,7 @@ package lxd_test
 
 import (
 	"net/http"
+	"testing"
 	"time"
 
 	"github.com/canonical/lxd/shared/api"
@@ -28,7 +29,9 @@ type containerSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = tc.Suite(&containerSuite{})
+func TestContainerSuite(t *testing.T) {
+	tc.Run(t, &containerSuite{})
+}
 
 func (s *containerSuite) TestContainerMetadata(c *tc.C) {
 	container := lxd.Container{}

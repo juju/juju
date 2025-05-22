@@ -4,6 +4,8 @@
 package firewaller_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -19,7 +21,9 @@ type machineSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&machineSuite{})
+func TestMachineSuite(t *testing.T) {
+	tc.Run(t, &machineSuite{})
+}
 
 func (s *machineSuite) TestMachine(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"regexp"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -20,7 +21,9 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
-var _ = tc.Suite(&DebugCodeSuite{})
+func TestDebugCodeSuite(t *testing.T) {
+	tc.Run(t, &DebugCodeSuite{})
+}
 
 type DebugCodeSuite struct {
 	SSHMachineSuite

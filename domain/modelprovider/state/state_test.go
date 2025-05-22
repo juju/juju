@@ -4,6 +4,8 @@
 package state
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -30,7 +32,9 @@ type stateSuite struct {
 	testing.ControllerSuite
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)

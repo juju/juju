@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -41,7 +42,9 @@ type brokerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&brokerSuite{})
+func TestBrokerSuite(t *testing.T) {
+	tc.Run(t, &brokerSuite{})
+}
 
 func (s *brokerSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)

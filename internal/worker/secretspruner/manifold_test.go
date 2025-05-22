@@ -4,6 +4,8 @@
 package secretspruner_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -22,7 +24,9 @@ type manifoldSuite struct {
 	config secretspruner.ManifoldConfig
 }
 
-var _ = tc.Suite(&manifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &manifoldSuite{})
+}
 
 func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

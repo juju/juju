@@ -4,6 +4,7 @@
 package service
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -39,7 +40,9 @@ type serviceSuite struct {
 	service *Service
 }
 
-var _ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *testing.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 // TestGetAllRelationStatuses verifies that GetAllRelationStatuses
 // retrieves and returns the expected relation details without errors.

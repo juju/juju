@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -22,7 +23,9 @@ type LogoutCommandSuite struct {
 	BaseSuite
 }
 
-var _ = tc.Suite(&LogoutCommandSuite{})
+func TestLogoutCommandSuite(t *testing.T) {
+	tc.Run(t, &LogoutCommandSuite{})
+}
 
 func (s *LogoutCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

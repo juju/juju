@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -25,7 +26,9 @@ type agentBinarySuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&agentBinarySuite{})
+func TestAgentBinarySuite(t *testing.T) {
+	tc.Run(t, &agentBinarySuite{})
+}
 
 func (s *agentBinarySuite) TestPopulateAgentBinary(c *tc.C) {
 	defer s.setupMocks(c).Finish()

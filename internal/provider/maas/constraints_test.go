@@ -5,6 +5,7 @@ package maas
 
 import (
 	"net/url"
+	"testing"
 
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
@@ -16,7 +17,9 @@ type environSuite struct {
 	maasSuite
 }
 
-var _ = tc.Suite(&environSuite{})
+func TestEnvironSuite(t *testing.T) {
+	tc.Run(t, &environSuite{})
+}
 
 func (*environSuite) TestConvertConstraints(c *tc.C) {
 	for i, test := range []struct {

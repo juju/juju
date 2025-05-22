@@ -4,6 +4,8 @@
 package access
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -13,7 +15,9 @@ import (
 
 type typesSuite struct{}
 
-var _ = tc.Suite(&typesSuite{})
+func TestTypesSuite(t *testing.T) {
+	tc.Run(t, &typesSuite{})
+}
 
 func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *tc.C) {
 	argsToTest := []UpdatePermissionArgs{

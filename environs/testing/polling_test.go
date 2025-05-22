@@ -4,7 +4,7 @@
 package testing
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -16,13 +16,11 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 type testingSuite struct{}
 
-var _ = tc.Suite(&testingSuite{})
+func TestTestingSuite(t *testing.T) {
+	tc.Run(t, &testingSuite{})
+}
 
 func (*testingSuite) TestSaveAttemptStrategiesSaves(c *tc.C) {
 	// TODO(katco): 2016-08-09: lp:1611427

@@ -4,6 +4,7 @@
 package machine_test
 
 import (
+	"os"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
@@ -17,8 +18,11 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package machine_test -destination package_mock_test.go github.com/juju/juju/apiserver/facades/agent/machine NetworkService,MachineService
 //go:generate go run go.uber.org/mock/mockgen -typed -package machine_test -destination facade_mock_test.go github.com/juju/juju/apiserver/facade WatcherRegistry
 
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+func TestMain(m *stdtesting.M) {
+	os.Exit(func() int {
+		defer coretesting.MgoTestMain()()
+		return m.Run()
+	}())
 }
 
 type commonSuite struct {

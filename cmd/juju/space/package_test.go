@@ -6,7 +6,7 @@ package space_test
 import (
 	"context"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -25,10 +25,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/spacesapi_mock.go github.com/juju/juju/cmd/juju/space SpaceAPI,SubnetAPI,API
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 // BaseSpaceSuite is used for embedding in other suites.
 type BaseSpaceSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
@@ -38,7 +34,9 @@ type BaseSpaceSuite struct {
 	api        *StubAPI
 }
 
-var _ = tc.Suite(&BaseSpaceSuite{})
+func TestBaseSpaceSuite(t *testing.T) {
+	tc.Run(t, &BaseSpaceSuite{})
+}
 
 func (s *BaseSpaceSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)

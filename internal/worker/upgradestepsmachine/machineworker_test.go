@@ -6,6 +6,7 @@ package upgradestepsmachine
 import (
 	"errors"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -24,7 +25,9 @@ type machineWorkerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&machineWorkerSuite{})
+func TestMachineWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &machineWorkerSuite{})
+}
 
 func (s *machineWorkerSuite) TestAlreadyUpgraded(c *tc.C) {
 	defer s.setupMocks(c).Finish()

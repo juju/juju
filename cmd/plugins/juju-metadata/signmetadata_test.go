@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -23,7 +24,9 @@ type SignMetadataSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&SignMetadataSuite{})
+func TestSignMetadataSuite(t *testing.T) {
+	tc.Run(t, &SignMetadataSuite{})
+}
 
 func (s *SignMetadataSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

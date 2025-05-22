@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -37,7 +38,9 @@ type containerUnitAgentSuite struct {
 	cmd              unit.ContainerUnitAgentTest
 }
 
-var _ = tc.Suite(&containerUnitAgentSuite{})
+func TestContainerUnitAgentSuite(t *stdtesting.T) {
+	tc.Run(t, &containerUnitAgentSuite{})
+}
 
 var agentConfigContents = `
 # format 2.0

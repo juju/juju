@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
@@ -18,7 +19,9 @@ type ConfigSuite struct {
 	config *charm.Config
 }
 
-var _ = tc.Suite(&ConfigSuite{})
+func TestConfigSuite(t *testing.T) {
+	tc.Run(t, &ConfigSuite{})
+}
 
 func (s *ConfigSuite) SetUpSuite(c *tc.C) {
 	// Just use a single shared config for the whole suite. There's no use case

@@ -5,6 +5,7 @@ package machine_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +21,9 @@ type MachineListCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&MachineListCommandSuite{})
+func TestMachineListCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &MachineListCommandSuite{})
+}
 
 func newMachineListCommand() cmd.Command {
 	return machine.NewListCommandForTest(&fakeStatusAPI{})

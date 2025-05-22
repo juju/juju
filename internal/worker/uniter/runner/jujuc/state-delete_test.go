@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
@@ -15,7 +17,9 @@ type stateDeleteSuite struct {
 	stateSuite
 }
 
-var _ = tc.Suite(&stateDeleteSuite{})
+func TestStateDeleteSuite(t *testing.T) {
+	tc.Run(t, &stateDeleteSuite{})
+}
 
 type runStateDeleteCmd struct {
 	description string

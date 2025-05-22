@@ -5,6 +5,7 @@ package fs
 
 import (
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +14,9 @@ import (
 
 type copySuite struct{}
 
-var _ = tc.Suite(&copySuite{})
+func TestCopySuite(t *testing.T) {
+	tc.Run(t, &copySuite{})
+}
 
 var copyTests = []struct {
 	about string

@@ -4,12 +4,16 @@
 package resources
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-var _ = tc.Suite(&FacadeSuite{})
+func TestFacadeSuite(t *testing.T) {
+	tc.Run(t, &FacadeSuite{})
+}
 
 type FacadeSuite struct {
 	BaseSuite

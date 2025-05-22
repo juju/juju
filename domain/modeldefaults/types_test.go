@@ -3,11 +3,17 @@
 
 package modeldefaults
 
-import "github.com/juju/tc"
+import (
+	"testing"
+
+	"github.com/juju/tc"
+)
 
 type typesSuite struct{}
 
-var _ = tc.Suite(&typesSuite{})
+func TestTypesSuite(t *testing.T) {
+	tc.Run(t, &typesSuite{})
+}
 
 // TestZeroDefaultsValue is here to test what the zero value of a
 // DefaultAttributeValue does. Specifically that Has returns false and the apply

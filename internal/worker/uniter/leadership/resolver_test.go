@@ -4,6 +4,8 @@
 package leadership_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -17,7 +19,9 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 )
 
-var _ = tc.Suite(&resolverSuite{})
+func TestResolverSuite(t *testing.T) {
+	tc.Run(t, &resolverSuite{})
+}
 
 type resolverSuite struct {
 	coretesting.BaseSuite

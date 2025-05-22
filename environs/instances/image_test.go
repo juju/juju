@@ -19,11 +19,9 @@ type imageSuite struct {
 	coretesting.BaseSuite
 }
 
-func Test(t *testing.T) {
-	tc.TestingT(t)
+func TestImageSuite(t *testing.T) {
+	tc.Run(t, &imageSuite{})
 }
-
-var _ = tc.Suite(&imageSuite{})
 
 var jsonImagesContent = `
 {

@@ -5,6 +5,7 @@ package charms
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -38,7 +39,9 @@ type charmsMockSuite struct {
 	machineService     *MockMachineService
 }
 
-var _ = tc.Suite(&charmsMockSuite{})
+func TestCharmsMockSuite(t *stdtesting.T) {
+	tc.Run(t, &charmsMockSuite{})
+}
 
 func (s *charmsMockSuite) TestListCharmsNoNames(c *tc.C) {
 	defer s.setupMocks(c).Finish()

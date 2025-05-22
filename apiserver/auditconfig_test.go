@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"math"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -30,7 +31,9 @@ type auditConfigSuite struct {
 	testing.ApiServerSuite
 }
 
-var _ = tc.Suite(&auditConfigSuite{})
+func TestAuditConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &auditConfigSuite{})
+}
 
 func (s *auditConfigSuite) openAPIWithoutLogin(c *tc.C) api.Connection {
 	info := s.ControllerModelApiInfo()

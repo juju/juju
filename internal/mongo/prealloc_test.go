@@ -4,6 +4,8 @@
 package mongo_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/mongo"
@@ -15,7 +17,9 @@ type preallocSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&preallocSuite{})
+func TestPreallocSuite(t *testing.T) {
+	tc.Run(t, &preallocSuite{})
+}
 
 func (s *preallocSuite) TestOplogSize(c *tc.C) {
 	type test struct {

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -24,7 +25,9 @@ type DebugHooksServerSuite struct {
 	tmpdir  string
 }
 
-var _ = tc.Suite(&DebugHooksServerSuite{})
+func TestDebugHooksServerSuite(t *stdtesting.T) {
+	tc.Run(t, &DebugHooksServerSuite{})
+}
 
 // echocommand outputs its name and arguments to stdout for verification,
 // and exits with the value of $EXIT_CODE
@@ -346,7 +349,9 @@ type DebugSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&DebugSuite{})
+func TestDebugSuite(t *stdtesting.T) {
+	tc.Run(t, &DebugSuite{})
+}
 
 func checkBuildRunHookCommand(c *tc.C, expected, hookName, hookRunner, charmDir string) {
 	c.Check(expected, tc.Equals, buildRunHookCmd(hookName, hookRunner, charmDir))

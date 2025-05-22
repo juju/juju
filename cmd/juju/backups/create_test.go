@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -27,7 +28,9 @@ type createSuite struct {
 	expectedErr string
 }
 
-var _ = tc.Suite(&createSuite{})
+func TestCreateSuite(t *testing.T) {
+	tc.Run(t, &createSuite{})
+}
 
 func (s *createSuite) SetUpTest(c *tc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)

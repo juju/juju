@@ -4,6 +4,8 @@
 package resource
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -15,7 +17,9 @@ type resourcesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&resourcesSuite{})
+func TestResourcesSuite(t *testing.T) {
+	tc.Run(t, &resourcesSuite{})
+}
 
 func (*resourcesSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {

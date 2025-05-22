@@ -4,6 +4,8 @@
 package block
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -20,7 +22,9 @@ type blockSuite struct {
 	authorizer *MockAuthorizer
 }
 
-var _ = tc.Suite(&blockSuite{})
+func TestBlockSuite(t *testing.T) {
+	tc.Run(t, &blockSuite{})
+}
 
 func (s *blockSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

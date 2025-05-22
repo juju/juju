@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"strings"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -30,7 +31,9 @@ type removeSuite struct {
 	mockAPI *mockRemoveAPI
 }
 
-var _ = tc.Suite(&removeSuite{})
+func TestRemoveSuite(t *testing.T) {
+	tc.Run(t, &removeSuite{})
+}
 
 func (s *removeSuite) SetUpTest(c *tc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)

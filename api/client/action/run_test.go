@@ -4,6 +4,7 @@
 package action_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -16,7 +17,9 @@ import (
 
 type runSuite struct{}
 
-var _ = tc.Suite(&runSuite{})
+func TestRunSuite(t *testing.T) {
+	tc.Run(t, &runSuite{})
+}
 
 func (s *actionSuite) TestRunOnAllMachines(c *tc.C) {
 	ctrl := gomock.NewController(c)

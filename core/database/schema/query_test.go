@@ -6,6 +6,7 @@ package schema
 import (
 	"context"
 	"database/sql"
+	"testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -18,7 +19,9 @@ type querySuite struct {
 	databasetesting.DqliteSuite
 }
 
-var _ = tc.Suite(&querySuite{})
+func TestQuerySuite(t *testing.T) {
+	tc.Run(t, &querySuite{})
+}
 
 func (s *querySuite) TestCreateSchemaTable(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

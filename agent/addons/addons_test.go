@@ -5,6 +5,7 @@ package addons_test
 
 import (
 	"runtime"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -27,7 +28,9 @@ type introspectionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&introspectionSuite{})
+func TestIntrospectionSuite(t *testing.T) {
+	tc.Run(t, &introspectionSuite{})
+}
 
 func (s *introspectionSuite) TestStartNonLinux(c *tc.C) {
 	if runtime.GOOS == "linux" {
@@ -127,7 +130,9 @@ type registerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&registerSuite{})
+func TestRegisterSuite(t *testing.T) {
+	tc.Run(t, &registerSuite{})
+}
 
 func (s *registerSuite) TestRegisterEngineMetrics(c *tc.C) {
 	ctrl := gomock.NewController(c)

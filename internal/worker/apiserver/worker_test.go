@@ -6,6 +6,7 @@ package apiserver_test
 import (
 	"context"
 	"net/http"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -123,7 +124,9 @@ type WorkerValidationSuite struct {
 	workerFixture
 }
 
-var _ = tc.Suite(&WorkerValidationSuite{})
+func TestWorkerValidationSuite(t *testing.T) {
+	tc.Run(t, &WorkerValidationSuite{})
+}
 
 func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 	type test struct {

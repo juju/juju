@@ -6,6 +6,7 @@ package lxd_test
 import (
 	"bytes"
 	"encoding/pem"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -14,7 +15,9 @@ import (
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 )
 
-var _ = tc.Suite(&certSuite{})
+func TestCertSuite(t *testing.T) {
+	tc.Run(t, &certSuite{})
+}
 
 type certSuite struct {
 	lxdtesting.BaseSuite

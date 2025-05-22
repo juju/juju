@@ -4,16 +4,8 @@
 package internal
 
 import (
-	"testing"
-
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/internal/docker"
 )
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 type (
 	AzureContainerRegistry   = azureContainerRegistry

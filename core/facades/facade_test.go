@@ -4,6 +4,8 @@
 package facades
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
@@ -13,7 +15,9 @@ type FacadeSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&FacadeSuite{})
+func TestFacadeSuite(t *stdtesting.T) {
+	tc.Run(t, &FacadeSuite{})
+}
 
 func (s *FacadeSuite) TestBestVersion(c *tc.C) {
 	tests := []struct {

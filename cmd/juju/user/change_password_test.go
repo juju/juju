@@ -6,6 +6,7 @@ package user_test
 import (
 	"context"
 	"strings"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -25,8 +26,9 @@ type ChangePasswordCommandSuite struct {
 	store   jujuclient.ClientStore
 }
 
-var _ = tc.Suite(&ChangePasswordCommandSuite{})
-
+func TestChangePasswordCommandSuite(t *testing.T) {
+	tc.Run(t, &ChangePasswordCommandSuite{})
+}
 func (s *ChangePasswordCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockAPI = &mockChangePasswordAPI{}

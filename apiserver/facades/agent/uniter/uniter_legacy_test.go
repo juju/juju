@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -38,7 +40,9 @@ type uniterLegacySuite struct {
 	portService        *portservice.WatchableService
 }
 
-var _ = tc.Suite(&uniterLegacySuite{})
+func TestUniterLegacySuite(t *testing.T) {
+	tc.Run(t, &uniterLegacySuite{})
+}
 
 func (s *uniterLegacySuite) SetUpSuite(c *tc.C) {
 	c.Skip("Skip factory-based uniter tests. TODO: Re-write without factories")

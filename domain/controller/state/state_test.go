@@ -4,6 +4,8 @@
 package state
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -16,7 +18,9 @@ type stateSuite struct {
 	controllerModelUUID coremodel.UUID
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *testing.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.controllerModelUUID = coremodel.UUID(jujutesting.ModelTag.Id())

@@ -4,6 +4,8 @@
 package vault_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/secrets/provider"
@@ -16,7 +18,9 @@ type configSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&configSuite{})
+func TestConfigSuite(t *testing.T) {
+	tc.Run(t, &configSuite{})
+}
 
 func (s *configSuite) TestValidateConfig(c *tc.C) {
 	p, err := provider.Provider(jujuvault.BackendType)

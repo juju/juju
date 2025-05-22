@@ -5,6 +5,7 @@ package bootstrap_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -28,7 +29,9 @@ type toolsSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&toolsSuite{})
+func TestToolsSuite(t *testing.T) {
+	tc.Run(t, &toolsSuite{})
+}
 
 func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *tc.C) {
 	// Host runs amd64, want ppc64 tools.

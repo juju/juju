@@ -4,6 +4,8 @@
 package user
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type userSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&userSuite{})
+func TestUserSuite(t *testing.T) {
+	tc.Run(t, &userSuite{})
+}
 
 func (s *userSuite) TestIsValidUser(c *tc.C) {
 	for i, t := range []struct {

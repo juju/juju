@@ -5,6 +5,7 @@ package charm
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +16,9 @@ type manifestSuite struct {
 	testhelpers.CleanupSuite
 }
 
-var _ = tc.Suite(&manifestSuite{})
+func TestManifestSuite(t *testing.T) {
+	tc.Run(t, &manifestSuite{})
+}
 
 func (s *manifestSuite) TestReadManifest(c *tc.C) {
 	manifest, err := ReadManifest(strings.NewReader(`

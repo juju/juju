@@ -5,6 +5,7 @@ package keyupdater
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -47,7 +48,9 @@ type keyUpdaterSuite struct {
 	userID  user.UUID
 }
 
-var _ = tc.Suite(&keyUpdaterSuite{})
+func TestKeyUpdaterSuite(t *stdtesting.T) {
+	tc.Run(t, &keyUpdaterSuite{})
+}
 
 func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 	s.ControllerModelSuite.SetUpTest(c)

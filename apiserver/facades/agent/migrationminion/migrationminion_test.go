@@ -4,6 +4,8 @@
 package migrationminion_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -31,7 +33,9 @@ type Suite struct {
 	authorizer apiservertesting.FakeAuthorizer
 }
 
-var _ = tc.Suite(&Suite{})
+func TestSuite(t *testing.T) {
+	tc.Run(t, &Suite{})
+}
 
 func (s *Suite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

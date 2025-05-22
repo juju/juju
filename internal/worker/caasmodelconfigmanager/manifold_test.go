@@ -4,6 +4,7 @@
 package caasmodelconfigmanager_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -22,7 +23,9 @@ import (
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager/mocks"
 )
 
-var _ = tc.Suite(&manifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &manifoldSuite{})
+}
 
 type manifoldSuite struct {
 	testhelpers.IsolationSuite

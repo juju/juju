@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"slices"
 	"strings"
+	"testing"
 	"testing/fstest"
 
 	"github.com/juju/tc"
@@ -15,7 +16,9 @@ import (
 type authorizedKeysSuite struct {
 }
 
-var _ = tc.Suite(&authorizedKeysSuite{})
+func TestAuthorizedKeysSuite(t *testing.T) {
+	tc.Run(t, &authorizedKeysSuite{})
+}
 
 // TestGetCommonUserPublicKeys is asserting a range of filesystem configurations
 // that we are likely to come across in a users .ssh directory. This is

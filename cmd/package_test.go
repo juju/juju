@@ -11,15 +11,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 )
-
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 var disallowedCalls = map[string]set.Strings{
 	"os": set.NewStrings(
@@ -79,7 +75,9 @@ var ignoredPackages = set.NewStrings(
 
 type OSCallTest struct{}
 
-var _ = tc.Suite(&OSCallTest{})
+func TestOSCallTest(t *testing.T) {
+	tc.Run(t, &OSCallTest{})
+}
 
 // TestNoRestrictedCalls ensures Juju CLI commands do
 // not make restricted os level calls, namely:

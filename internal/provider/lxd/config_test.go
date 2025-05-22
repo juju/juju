@@ -4,6 +4,8 @@
 package lxd_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -22,7 +24,9 @@ type configSuite struct {
 	config   *config.Config
 }
 
-var _ = tc.Suite(&configSuite{})
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &configSuite{})
+}
 
 func (s *configSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

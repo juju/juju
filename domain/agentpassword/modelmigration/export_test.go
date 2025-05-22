@@ -4,6 +4,8 @@
 package modelmigration
 
 import (
+	"testing"
+
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -18,7 +20,9 @@ type exportSuite struct {
 	exportService *MockExportService
 }
 
-var _ = tc.Suite(&exportSuite{})
+func TestExportSuite(t *testing.T) {
+	tc.Run(t, &exportSuite{})
+}
 
 func (s *exportSuite) TestExportUnitPasswordHashes(c *tc.C) {
 	defer s.setupMocks(c).Finish()

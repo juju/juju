@@ -4,6 +4,8 @@
 package charms_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -31,7 +33,9 @@ type appCharmInfoSuite struct {
 	authorizer *facademocks.MockAuthorizer
 }
 
-var _ = tc.Suite(&appCharmInfoSuite{})
+func TestAppCharmInfoSuite(t *testing.T) {
+	tc.Run(t, &appCharmInfoSuite{})
+}
 
 func (s *appCharmInfoSuite) TestApplicationCharmInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()

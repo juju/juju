@@ -4,6 +4,8 @@
 package apiremotecaller
 
 import (
+	"testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
@@ -11,6 +13,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -23,7 +26,10 @@ type ManifoldSuite struct {
 	config ManifoldConfig
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

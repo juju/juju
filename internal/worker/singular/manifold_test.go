@@ -5,6 +5,7 @@ package singular
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
@@ -32,7 +34,10 @@ type ManifoldSuite struct {
 	modelTag names.ModelTag
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

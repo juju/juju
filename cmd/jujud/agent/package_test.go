@@ -4,15 +4,17 @@
 package agent // not agent_test for no good reason
 
 import (
-	stdtesting "testing"
+	"os"
+	"testing"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/machine_mock.go github.com/juju/juju/cmd/jujud/agent CommandRunner
 
-func TestPackage(t *stdtesting.T) {
-	// TODO(waigani) 2014-03-19 bug 1294458
-	// Refactor to use base suites
-	coretesting.MgoSSLTestPackage(t)
+func TestMain(m *testing.M) {
+	os.Exit(func() int {
+		defer coretesting.MgoSSLTestMain()()
+		return m.Run()
+	}())
 }

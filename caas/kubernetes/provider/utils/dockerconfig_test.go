@@ -5,6 +5,7 @@ package utils_test
 
 import (
 	"encoding/json"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +17,9 @@ type DockerConfigSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&DockerConfigSuite{})
+func TestDockerConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &DockerConfigSuite{})
+}
 
 func (s *DockerConfigSuite) TestExtractRegistryURL(c *tc.C) {
 	for _, registryTest := range []struct {

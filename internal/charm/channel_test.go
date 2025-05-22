@@ -4,6 +4,8 @@
 package charm_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -15,7 +17,9 @@ type channelSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&channelSuite{})
+func TestChannelSuite(t *testing.T) {
+	tc.Run(t, &channelSuite{})
+}
 
 func (s *channelSuite) TestParseChannelNormalize(c *tc.C) {
 	// ParseChannelNormalize tests ParseChannel as well.

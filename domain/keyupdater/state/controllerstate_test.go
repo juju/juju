@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"slices"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -32,9 +33,11 @@ type controllerStateSuite struct {
 	userUUID  user.UUID
 }
 
-var (
-	_ = tc.Suite(&controllerStateSuite{})
+func TestControllerStateSuite(t *testing.T) {
+	tc.Run(t, &controllerStateSuite{})
+}
 
+var (
 	controllerSSHKeys = `
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju-client-key
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju-system-key`

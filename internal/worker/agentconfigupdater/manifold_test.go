@@ -6,6 +6,7 @@ package agentconfigupdater_test
 import (
 	"context"
 	"errors"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
@@ -40,7 +42,10 @@ type AgentConfigUpdaterSuite struct {
 	controllerConfigService  *MockControllerConfigService
 }
 
-var _ = tc.Suite(&AgentConfigUpdaterSuite{})
+func TestAgentConfigUpdaterSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &AgentConfigUpdaterSuite{})
+}
 
 func (s *AgentConfigUpdaterSuite) TestInputs(c *tc.C) {
 	defer s.setupMocks(c).Finish()

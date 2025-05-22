@@ -5,6 +5,7 @@ package secretsmanager_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -55,7 +56,9 @@ type SecretsManagerSuite struct {
 	facade *secretsmanager.SecretsManagerAPI
 }
 
-var _ = tc.Suite(&SecretsManagerSuite{})
+func TestSecretsManagerSuite(t *testing.T) {
+	tc.Run(t, &SecretsManagerSuite{})
+}
 
 func (s *SecretsManagerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

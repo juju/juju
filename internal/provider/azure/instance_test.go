@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"path"
+	stdtesting "testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -42,7 +43,9 @@ type instanceSuite struct {
 	invalidatedCredential bool
 }
 
-var _ = tc.Suite(&instanceSuite{})
+func TestInstanceSuite(t *stdtesting.T) {
+	tc.Run(t, &instanceSuite{})
+}
 
 func (s *instanceSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

@@ -4,6 +4,7 @@
 package exec_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -19,7 +20,9 @@ type statusSuite struct {
 	BaseSuite
 }
 
-var _ = tc.Suite(&statusSuite{})
+func TestStatusSuite(t *testing.T) {
+	tc.Run(t, &statusSuite{})
+}
 
 func (s *statusSuite) TestStatus(c *tc.C) {
 	ctrl := s.setupExecClient(c)

@@ -4,6 +4,8 @@
 package space_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -23,8 +25,9 @@ func setUpMocks(c *tc.C) (*gomock.Controller, *mocks.MockAPI) {
 
 	return ctrl, api
 }
-
-var _ = tc.Suite(&SpaceCommandSuite{})
+func TestSpaceCommandSuite(t *testing.T) {
+	tc.Run(t, &SpaceCommandSuite{})
+}
 
 func (s *SpaceCommandSuite) TestInit(c *tc.C) {
 	for i, test := range []struct {

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -23,7 +24,9 @@ type ListSuite struct {
 	command        *action.ListCommand
 }
 
-var _ = tc.Suite(&ListSuite{})
+func TestListSuite(t *testing.T) {
+	tc.Run(t, &ListSuite{})
+}
 
 func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)

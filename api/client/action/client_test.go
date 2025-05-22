@@ -4,6 +4,8 @@
 package action_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -17,7 +19,9 @@ import (
 type actionSuite struct {
 }
 
-var _ = tc.Suite(&actionSuite{})
+func TestActionSuite(t *testing.T) {
+	tc.Run(t, &actionSuite{})
+}
 
 func (s *actionSuite) TestApplicationCharmActions(c *tc.C) {
 	ctrl := gomock.NewController(c)

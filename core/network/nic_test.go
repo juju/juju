@@ -5,6 +5,7 @@ package network_test
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +17,9 @@ type nicSuite struct {
 	info network.InterfaceInfos
 }
 
-var _ = tc.Suite(&nicSuite{})
+func TestNicSuite(t *testing.T) {
+	tc.Run(t, &nicSuite{})
+}
 
 func (s *nicSuite) SetUpTest(_ *tc.C) {
 	s.info = network.InterfaceInfos{

@@ -3,9 +3,7 @@
 
 package errors
 
-import (
-	"testing"
-)
+import testing "testing"
 
 // TestLinkErrorWrap asserts that when wrapping a error with link{} the Error()
 // method returns verbatim that of what the wrapped errors Error() method would

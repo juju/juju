@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -124,7 +125,9 @@ type SSHMachineSuite struct {
 	hostChecker jujussh.ReachableChecker
 }
 
-var _ = tc.Suite(&SSHMachineSuite{})
+func TestSSHMachineSuite(t *stdtesting.T) {
+	tc.Run(t, &SSHMachineSuite{})
+}
 
 // Commands to patch
 var patchedCommands = []string{"ssh", "scp"}

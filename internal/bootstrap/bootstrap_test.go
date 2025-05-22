@@ -6,6 +6,7 @@ package bootstrap
 import (
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +17,9 @@ type BootstrapSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&BootstrapSuite{})
+func TestBootstrapSuite(t *testing.T) {
+	tc.Run(t, &BootstrapSuite{})
+}
 
 func (s *BootstrapSuite) TestBootstrapParamsPath(c *tc.C) {
 	// Note: I'm hard coding the path here, because I don't know the

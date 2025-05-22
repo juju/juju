@@ -4,6 +4,8 @@
 package cmd_test
 
 import (
+	"testing"
+
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -141,7 +143,9 @@ type OutputSuite struct {
 	ctx *cmd.Context
 }
 
-var _ = tc.Suite(&OutputSuite{})
+func TestOutputSuite(t *testing.T) {
+	tc.Run(t, &OutputSuite{})
+}
 
 func (s *OutputSuite) SetUpTest(c *tc.C) {
 	s.LoggingCleanupSuite.SetUpTest(c)

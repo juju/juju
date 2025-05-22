@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -92,7 +93,9 @@ type loginSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-var _ = tc.Suite(&loginSuite{})
+func TestLoginSuite(t *stdtesting.T) {
+	tc.Run(t, &loginSuite{})
+}
 
 func (s *loginSuite) SetUpTest(c *tc.C) {
 	s.Clock = testclock.NewDilatedWallClock(time.Second)
@@ -1145,8 +1148,9 @@ func assertPermissionDenied(c *tc.C, err error) {
 		Code:    "unauthorized access",
 	})
 }
-
-var _ = tc.Suite(&migrationSuite{})
+func TestMigrationSuite(t *stdtesting.T) {
+	tc.Run(t, &migrationSuite{})
+}
 
 type migrationSuite struct {
 	baseLoginSuite
@@ -1193,7 +1197,9 @@ type loginV3Suite struct {
 	baseLoginSuite
 }
 
-var _ = tc.Suite(&loginV3Suite{})
+func TestLoginV3Suite(t *stdtesting.T) {
+	tc.Run(t, &loginV3Suite{})
+}
 
 func (s *loginV3Suite) TestClientLoginToModel(c *tc.C) {
 	apiState := s.OpenControllerModelAPI(c)

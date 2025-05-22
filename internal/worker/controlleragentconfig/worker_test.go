@@ -11,6 +11,7 @@ import (
 	"path"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -26,7 +27,9 @@ type workerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) TestStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()

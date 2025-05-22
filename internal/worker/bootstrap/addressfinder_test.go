@@ -5,9 +5,11 @@ package bootstrap
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
@@ -20,7 +22,10 @@ type addressFinderSuite struct {
 	instanceLister *MockInstanceLister
 }
 
-var _ = tc.Suite(&addressFinderSuite{})
+func TestAddressFinderSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &addressFinderSuite{})
+}
 
 func (s *addressFinderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

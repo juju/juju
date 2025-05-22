@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -26,8 +27,9 @@ type ExportBundleCommandSuite struct {
 	store      *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&ExportBundleCommandSuite{})
-
+func TestExportBundleCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &ExportBundleCommandSuite{})
+}
 func (s *ExportBundleCommandSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.stub = &testhelpers.Stub{}

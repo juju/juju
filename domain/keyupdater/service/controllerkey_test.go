@@ -5,6 +5,7 @@ package service
 
 import (
 	"slices"
+	"testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -16,9 +17,11 @@ type controllerKeySuite struct {
 	state *MockControllerKeyState
 }
 
-var (
-	_ = tc.Suite(&controllerKeySuite{})
+func TestControllerKeySuite(t *testing.T) {
+	tc.Run(t, &controllerKeySuite{})
+}
 
+var (
 	controllerConfigKeys = `
 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBG00bYFLb/sxPcmVRMg8NXZK/ldefElAkC9wD41vABdHZiSRvp+2y9BMNVYzE/FnzKObHtSvGRX65YQgRn7k5p0= juju@example.com
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju@example.com

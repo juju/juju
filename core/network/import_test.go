@@ -4,6 +4,8 @@
 package network_test
 
 import (
+	"testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 
@@ -12,7 +14,9 @@ import (
 
 type ImportSuite struct{}
 
-var _ = tc.Suite(&ImportSuite{})
+func TestImportSuite(t *testing.T) {
+	tc.Run(t, &ImportSuite{})
+}
 
 var allowedCoreImports = set.NewStrings(
 	"core/credential",

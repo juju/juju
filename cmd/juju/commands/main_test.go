@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/gnuflag"
@@ -30,7 +31,9 @@ type MainSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&MainSuite{})
+func TestMainSuite(t *stdtesting.T) {
+	tc.Run(t, &MainSuite{})
+}
 
 func helpText(command cmd.Command, name string) string {
 	buff := &bytes.Buffer{}

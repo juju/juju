@@ -4,6 +4,8 @@
 package oci
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
@@ -14,7 +16,9 @@ import (
 type environSuite struct {
 }
 
-var _ = tc.Suite(&environSuite{})
+func TestEnvironSuite(t *testing.T) {
+	tc.Run(t, &environSuite{})
+}
 
 func (s *environSuite) TestEnsureShapeConfig(c *tc.C) {
 	type test struct {

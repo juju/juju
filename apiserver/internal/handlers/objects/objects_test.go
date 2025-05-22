@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -30,7 +31,9 @@ type objectsHandlerSuite struct {
 	srv *httptest.Server
 }
 
-var _ = tc.Suite(&objectsHandlerSuite{})
+func TestObjectsHandlerSuite(t *stdtesting.T) {
+	tc.Run(t, &objectsHandlerSuite{})
+}
 
 func (s *objectsHandlerSuite) SetUpTest(c *tc.C) {
 	s.mux = apiserverhttp.NewMux()

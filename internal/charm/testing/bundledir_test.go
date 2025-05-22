@@ -6,6 +6,7 @@ package testing_test
 import (
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ type BundleDirSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&BundleDirSuite{})
+func TestBundleDirSuite(t *testing.T) {
+	tc.Run(t, &BundleDirSuite{})
+}
 
 func (*BundleDirSuite) TestReadBundleDir(c *tc.C) {
 	path := bundleDirPath(c, "wordpress-simple")

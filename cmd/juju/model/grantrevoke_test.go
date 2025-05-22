@@ -6,6 +6,7 @@ package model_test
 import (
 	"context"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -115,7 +116,9 @@ type grantSuite struct {
 	grantRevokeSuite
 }
 
-var _ = tc.Suite(&grantSuite{})
+func TestGrantSuite(t *stdtesting.T) {
+	tc.Run(t, &grantSuite{})
+}
 
 func (s *grantSuite) SetUpTest(c *tc.C) {
 	s.grantRevokeSuite.SetUpTest(c)
@@ -160,7 +163,9 @@ type revokeSuite struct {
 	grantRevokeSuite
 }
 
-var _ = tc.Suite(&revokeSuite{})
+func TestRevokeSuite(t *stdtesting.T) {
+	tc.Run(t, &revokeSuite{})
+}
 
 func (s *revokeSuite) SetUpTest(c *tc.C) {
 	s.grantRevokeSuite.SetUpTest(c)

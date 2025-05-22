@@ -5,6 +5,7 @@ package validators
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ type dummySpaceProviderFunc func(context.Context, string) (bool, error)
 
 type validatorsSuite struct{}
 
-var _ = tc.Suite(&validatorsSuite{})
+func TestValidatorsSuite(t *stdtesting.T) {
+	tc.Run(t, &validatorsSuite{})
+}
 
 func (d dummySpaceProviderFunc) HasSpace(ctx context.Context, s string) (bool, error) {
 	return d(ctx, s)

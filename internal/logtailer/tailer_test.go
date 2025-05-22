@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -25,7 +26,9 @@ type TailerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&TailerSuite{})
+func TestTailerSuite(t *testing.T) {
+	tc.Run(t, &TailerSuite{})
+}
 
 func (s *TailerSuite) TestProcessForwardNoTail(c *tc.C) {
 	testFileName := filepath.Join(c.MkDir(), "test.log")
@@ -248,7 +251,9 @@ type LogFilterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&LogFilterSuite{})
+func TestLogFilterSuite(t *testing.T) {
+	tc.Run(t, &LogFilterSuite{})
+}
 
 func (s *LogFilterSuite) TestLevelFiltering(c *tc.C) {
 	infoLevelRec := &corelogger.LogRecord{Level: corelogger.INFO}

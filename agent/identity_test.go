@@ -6,6 +6,7 @@ package agent
 
 import (
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -19,7 +20,9 @@ type identitySuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&identitySuite{})
+func TestIdentitySuite(t *stdtesting.T) {
+	tc.Run(t, &identitySuite{})
+}
 
 var attributeParams = AgentConfigParams{
 	Tag:               names.NewMachineTag("1"),

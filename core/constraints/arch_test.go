@@ -4,6 +4,8 @@
 package constraints
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type archSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&archSuite{})
+func TestArchSuite(t *testing.T) {
+	tc.Run(t, &archSuite{})
+}
 
 func (s *archSuite) TestArchOrDefault(c *tc.C) {
 	a := ArchOrDefault(MustParse("mem=4G"), nil)

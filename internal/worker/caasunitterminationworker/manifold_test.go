@@ -4,6 +4,7 @@
 package caasunitterminationworker_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -18,7 +19,9 @@ type ManifoldSuite struct {
 	config caasunitterminationworker.ManifoldConfig
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.config = caasunitterminationworker.ManifoldConfig{

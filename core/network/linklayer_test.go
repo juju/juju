@@ -5,6 +5,7 @@ package network
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ type linkLayerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&linkLayerSuite{})
+func TestLinkLayerSuite(t *testing.T) {
+	tc.Run(t, &linkLayerSuite{})
+}
 
 func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeValid(c *tc.C) {
 	validTypes := []LinkLayerDeviceType{
@@ -148,7 +151,9 @@ func (s *linkLayerSuite) TestStringLengthBetweenWhenWithinLimit(c *tc.C) {
 type linkLayerDeviceUUIDSuite struct {
 }
 
-var _ = tc.Suite(&linkLayerDeviceUUIDSuite{})
+func TestLinkLayerDeviceUUIDSuite(t *testing.T) {
+	tc.Run(t, &linkLayerDeviceUUIDSuite{})
+}
 
 func (*linkLayerDeviceUUIDSuite) TestUUIDValidate(c *tc.C) {
 	// Test that the uuid.Validate method succeeds and

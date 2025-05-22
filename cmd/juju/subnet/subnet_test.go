@@ -5,6 +5,7 @@ package subnet_test
 
 import (
 	"errors"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +17,9 @@ type SubnetCommandSuite struct {
 	BaseSubnetSuite
 }
 
-var _ = tc.Suite(&SubnetCommandSuite{})
+func TestSubnetCommandSuite(t *testing.T) {
+	tc.Run(t, &SubnetCommandSuite{})
+}
 
 type SubnetCommandBaseSuite struct {
 	coretesting.BaseSuite
@@ -28,8 +31,9 @@ func (s *SubnetCommandBaseSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.baseCmd = &subnet.SubnetCommandBase{}
 }
-
-var _ = tc.Suite(&SubnetCommandBaseSuite{})
+func TestSubnetCommandBaseSuite(t *testing.T) {
+	tc.Run(t, &SubnetCommandBaseSuite{})
+}
 
 func (s *SubnetCommandBaseSuite) TestCheckNumArgs(c *tc.C) {
 	threeErrors := []error{

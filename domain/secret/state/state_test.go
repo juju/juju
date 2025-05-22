@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -33,7 +34,9 @@ type stateSuite struct {
 	modelUUID string
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *stdtesting.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 func newSecretState(c *tc.C, factory coredatabase.TxnRunnerFactory) *State {
 	return &State{

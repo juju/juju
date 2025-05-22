@@ -5,9 +5,11 @@ package domain
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/errors"
@@ -22,7 +24,10 @@ type leaseServiceSuite struct {
 	token             *MockToken
 }
 
-var _ = tc.Suite(&leaseServiceSuite{})
+func TestLeaseServiceSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &leaseServiceSuite{})
+}
 
 func (s *leaseServiceSuite) TestWithLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()

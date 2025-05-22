@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"syscall"
+	"testing"
 
 	client "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
@@ -21,9 +22,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var (
-	_ = tc.Suite(&serverIntegrationSuite{})
-)
+func TestServerIntegrationSuite(t *testing.T) {
+	tc.Run(t, &serverIntegrationSuite{})
+}
 
 // serverIntegrationSuite tests server module functionality from outside the
 // lxd package. See server_test.go for package-local unit tests.

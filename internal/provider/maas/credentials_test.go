@@ -4,6 +4,8 @@
 package maas_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -18,7 +20,9 @@ type credentialsSuite struct {
 	provider environs.EnvironProvider
 }
 
-var _ = tc.Suite(&credentialsSuite{})
+func TestCredentialsSuite(t *testing.T) {
+	tc.Run(t, &credentialsSuite{})
+}
 
 func (s *credentialsSuite) SetUpTest(c *tc.C) {
 	s.FakeHomeSuite.SetUpTest(c)

@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -26,7 +27,9 @@ type pingerSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-var _ = tc.Suite(&pingerSuite{})
+func TestPingerSuite(t *testing.T) {
+	tc.Run(t, &pingerSuite{})
+}
 
 func (s *pingerSuite) SetUpTest(c *tc.C) {
 	s.Clock = testclock.NewDilatedWallClock(time.Millisecond)

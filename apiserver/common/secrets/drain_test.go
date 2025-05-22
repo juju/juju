@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -38,7 +40,9 @@ type secretsDrainSuite struct {
 	facade *secrets.SecretsDrainAPI
 }
 
-var _ = tc.Suite(&secretsDrainSuite{})
+func TestSecretsDrainSuite(t *testing.T) {
+	tc.Run(t, &secretsDrainSuite{})
+}
 
 func (s *secretsDrainSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

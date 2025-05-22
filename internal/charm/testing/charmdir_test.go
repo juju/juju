@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -25,7 +26,9 @@ type CharmDirSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&CharmDirSuite{})
+func TestCharmDirSuite(t *testing.T) {
+	tc.Run(t, &CharmDirSuite{})
+}
 
 func checkDummy(c *tc.C, f charm.Charm) {
 	c.Assert(f.Revision(), tc.Equals, 1)

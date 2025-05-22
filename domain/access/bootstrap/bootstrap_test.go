@@ -4,6 +4,8 @@
 package bootstrap
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/permission"
@@ -18,7 +20,9 @@ type bootstrapSuite struct {
 	controllerUUID string
 }
 
-var _ = tc.Suite(&bootstrapSuite{})
+func TestBootstrapSuite(t *testing.T) {
+	tc.Run(t, &bootstrapSuite{})
+}
 
 func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)

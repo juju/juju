@@ -4,15 +4,9 @@
 package muxhttpserver_test
 
 import (
-	"testing"
-
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/internal/pki"
 	pki_test "github.com/juju/juju/internal/pki/test"
 )
-
-func TestSuite(t *testing.T) { tc.TestingT(t) }
 
 func init() {
 	// Use full strength key profile

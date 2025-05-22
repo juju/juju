@@ -6,6 +6,7 @@ package jujuc_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +20,9 @@ type ActionGetSuite struct {
 	jujuctesting.ContextSuite
 }
 
-var _ = tc.Suite(&ActionGetSuite{})
+func TestActionGetSuite(t *testing.T) {
+	tc.Run(t, &ActionGetSuite{})
+}
 
 type actionGetContext struct {
 	actionParams map[string]interface{}

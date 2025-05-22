@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -41,7 +42,9 @@ type addCredentialSuite struct {
 	api               *fakeUpdateCredentialAPI
 }
 
-var _ = tc.Suite(&addCredentialSuite{})
+func TestAddCredentialSuite(t *stdtesting.T) {
+	tc.Run(t, &addCredentialSuite{})
+}
 
 func (s *addCredentialSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)

@@ -6,6 +6,7 @@ package block_test
 import (
 	"context"
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +17,9 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
-var _ = tc.Suite(&enableCommandSuite{})
+func TestEnableCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &enableCommandSuite{})
+}
 
 type enableCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite

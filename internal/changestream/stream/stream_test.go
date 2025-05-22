@@ -10,10 +10,12 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
@@ -35,7 +37,10 @@ type streamSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&streamSuite{})
+func TestStreamSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &streamSuite{})
+}
 
 func (s *streamSuite) TestWithNoNamespace(c *tc.C) {
 	defer s.setupMocks(c).Finish()

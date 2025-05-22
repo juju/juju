@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -26,7 +27,9 @@ type ModelOperatorSuite struct {
 	clock  *testclock.Clock
 }
 
-var _ = tc.Suite(&ModelOperatorSuite{})
+func TestModelOperatorSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelOperatorSuite{})
+}
 
 func (m *ModelOperatorSuite) SetUpTest(c *tc.C) {
 	m.client = fake.NewSimpleClientset()

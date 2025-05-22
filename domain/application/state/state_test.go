@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -19,7 +20,9 @@ type stateSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *testing.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 func (s *stateSuite) TestCheckApplicationNameAvailable(c *tc.C) {
 	s.createIAASApplication(c, "foo", life.Alive)

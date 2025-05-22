@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +20,9 @@ import (
 	"github.com/juju/juju/internal/worker/diskmanager"
 )
 
-var _ = tc.Suite(&ListBlockDevicesSuite{})
+func TestListBlockDevicesSuite(t *testing.T) {
+	tc.Run(t, &ListBlockDevicesSuite{})
+}
 
 type ListBlockDevicesSuite struct {
 	coretesting.BaseSuite

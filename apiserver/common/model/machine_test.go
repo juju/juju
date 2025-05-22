@@ -4,6 +4,7 @@
 package model_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -26,7 +27,9 @@ type machineSuite struct {
 	machineService *MockMachineService
 }
 
-var _ = tc.Suite(&machineSuite{})
+func TestMachineSuite(t *testing.T) {
+	tc.Run(t, &machineSuite{})
+}
 
 func (s *machineSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

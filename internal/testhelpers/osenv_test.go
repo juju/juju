@@ -6,6 +6,7 @@ package testhelpers_test
 import (
 	"os"
 	"runtime"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +17,9 @@ type osEnvSuite struct {
 	osEnvSuite testing.OsEnvSuite
 }
 
-var _ = tc.Suite(&osEnvSuite{})
+func TestOsEnvSuite(t *stdtesting.T) {
+	tc.Run(t, &osEnvSuite{})
+}
 
 func (s *osEnvSuite) SetUpSuite(c *tc.C) {
 	s.osEnvSuite = testing.OsEnvSuite{}

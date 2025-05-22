@@ -4,6 +4,8 @@
 package utils_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/mongo/utils"
@@ -11,7 +13,9 @@ import (
 
 type ValidFieldSuite struct{}
 
-var _ = tc.Suite(&ValidFieldSuite{})
+func TestValidFieldSuite(t *testing.T) {
+	tc.Run(t, &ValidFieldSuite{})
+}
 
 func (s *ValidFieldSuite) TestOk(c *tc.C) {
 	c.Check(utils.IsValidFieldName("foo"), tc.IsTrue)

@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -27,7 +28,9 @@ type serviceSuite struct {
 	watcherFactory *MockWatcherFactory
 }
 
-var _ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *testing.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 func (s *serviceSuite) TestGetMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()

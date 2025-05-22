@@ -4,6 +4,8 @@
 package bundle_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -14,7 +16,9 @@ import (
 
 type bundleMockSuite struct{}
 
-var _ = tc.Suite(&bundleMockSuite{})
+func TestBundleMockSuite(t *testing.T) {
+	tc.Run(t, &bundleMockSuite{})
+}
 
 func (s *bundleMockSuite) TestGetChangesMapArgs(c *tc.C) {
 	ctrl := gomock.NewController(c)

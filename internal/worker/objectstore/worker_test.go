@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/objectstore"
@@ -33,7 +35,10 @@ type workerSuite struct {
 	called                     int64
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) TestKilledGetObjectStoreErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()

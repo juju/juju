@@ -6,12 +6,14 @@ package agentconfigupdater_test
 import (
 	"context"
 	"maps"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
@@ -34,7 +36,10 @@ type WorkerSuite struct {
 	controllerConifgService *MockControllerConfigService
 }
 
-var _ = tc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &WorkerSuite{})
+}
 
 func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 	for i, test := range []struct {

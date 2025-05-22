@@ -4,6 +4,7 @@
 package client
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -33,7 +34,9 @@ type statusSuite struct {
 	statusService    *MockStatusService
 }
 
-var _ = tc.Suite(&statusSuite{})
+func TestStatusSuite(t *testing.T) {
+	tc.Run(t, &statusSuite{})
+}
 
 func (s *statusSuite) TestModelStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()

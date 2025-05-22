@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -23,7 +24,9 @@ type spacesSuite struct {
 	API     *spaces.API
 }
 
-var _ = tc.Suite(&spacesSuite{})
+func TestSpacesSuite(t *testing.T) {
+	tc.Run(t, &spacesSuite{})
+}
 
 func (s *spacesSuite) SetUpTest(c *tc.C) {
 }

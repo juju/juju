@@ -5,6 +5,7 @@ package upgradevalidation_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -18,7 +19,9 @@ import (
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 )
 
-var _ = tc.Suite(&upgradeValidationSuite{})
+func TestUpgradeValidationSuite(t *testing.T) {
+	tc.Run(t, &upgradeValidationSuite{})
+}
 
 type upgradeValidationSuite struct {
 	testhelpers.IsolationSuite

@@ -6,6 +6,7 @@ package tools_test
 import (
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -37,9 +38,8 @@ type SimpleStreamsToolsSuite struct {
 	publicToolsDir     string
 }
 
-func setupToolsTests() {
-	tc.Suite(&SimpleStreamsToolsSuite{})
-	tc.Suite(&ToolsListSuite{})
+func TestSimpleStreamsToolsSuite(t *testing.T) {
+	tc.Run(t, &SimpleStreamsToolsSuite{})
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpSuite(c *tc.C) {
@@ -461,6 +461,10 @@ func fakeToolsList(releases ...string) coretools.List {
 }
 
 type ToolsListSuite struct{}
+
+func TestToolsListSuite(t *testing.T) {
+	tc.Run(t, &ToolsListSuite{})
+}
 
 func (s *ToolsListSuite) TestCheckToolsReleaseRequiresTools(c *tc.C) {
 	err := envtools.CheckToolsReleases(fakeToolsList(), "ubuntu")

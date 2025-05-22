@@ -4,6 +4,8 @@
 package drivererrors
 
 import (
+	"testing"
+
 	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -17,7 +19,9 @@ type errorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&errorSuite{})
+func TestErrorSuite(t *testing.T) {
+	tc.Run(t, &errorSuite{})
+}
 
 func (s *errorSuite) TestIsErrRetryable(c *tc.C) {
 	tests := []struct {

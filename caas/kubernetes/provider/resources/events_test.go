@@ -6,6 +6,7 @@ package resources_test
 import (
 	"sort"
 	"strconv"
+	"testing"
 
 	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
@@ -18,7 +19,9 @@ type eventsSuite struct {
 	resourceSuite
 }
 
-var _ = tc.Suite(&eventsSuite{})
+func TestEventsSuite(t *testing.T) {
+	tc.Run(t, &eventsSuite{})
+}
 
 func (s *eventsSuite) TestList(c *tc.C) {
 	template := corev1.Event{

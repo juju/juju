@@ -5,6 +5,7 @@ package lease_test
 
 import (
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -27,7 +28,9 @@ type AsyncSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&AsyncSuite{})
+func TestAsyncSuite(t *testing.T) {
+	tc.Run(t, &AsyncSuite{})
+}
 
 func (s *AsyncSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

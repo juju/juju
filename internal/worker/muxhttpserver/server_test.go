@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net/http"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +22,9 @@ type ServerSuite struct {
 	client    *http.Client
 }
 
-var _ = tc.Suite(&ServerSuite{})
+func TestServerSuite(t *testing.T) {
+	tc.Run(t, &ServerSuite{})
+}
 
 func (s *ServerSuite) SetUpSuite(c *tc.C) {
 	authority, err := pkitest.NewTestAuthority()

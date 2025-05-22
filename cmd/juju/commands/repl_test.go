@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"os/exec"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -20,7 +21,9 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-var _ = tc.Suite(&ReplSuite{})
+func TestReplSuite(t *stdtesting.T) {
+	tc.Run(t, &ReplSuite{})
+}
 
 type ReplSuite struct {
 	testing.FakeJujuXDGDataHomeSuite

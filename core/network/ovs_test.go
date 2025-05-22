@@ -5,6 +5,7 @@ package network
 
 import (
 	"os/exec"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +16,9 @@ type ovsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ovsSuite{})
+func TestOvsSuite(t *testing.T) {
+	tc.Run(t, &ovsSuite{})
+}
 
 func (s *ovsSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)

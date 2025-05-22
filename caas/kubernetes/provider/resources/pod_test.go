@@ -21,7 +21,9 @@ type podSuite struct {
 	resourceSuite
 }
 
-var _ = tc.Suite(&podSuite{})
+func TestPodSuite(t *testing.T) {
+	tc.Run(t, &podSuite{})
+}
 
 func (s *podSuite) TestApply(c *tc.C) {
 	ds := &corev1.Pod{

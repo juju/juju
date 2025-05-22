@@ -4,6 +4,8 @@
 package logger_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -29,7 +31,9 @@ type loggerSuite struct {
 	modelConfigService *MockModelConfigService
 }
 
-var _ = tc.Suite(&loggerSuite{})
+func TestLoggerSuite(t *testing.T) {
+	tc.Run(t, &loggerSuite{})
+}
 
 func (s *loggerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

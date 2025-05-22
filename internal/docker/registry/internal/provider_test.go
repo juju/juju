@@ -4,6 +4,8 @@
 package internal_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -16,7 +18,9 @@ type providerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&providerSuite{})
+func TestProviderSuite(t *testing.T) {
+	tc.Run(t, &providerSuite{})
+}
 
 func (s *providerSuite) TestInitClient(c *tc.C) {
 	ctrl := gomock.NewController(c)

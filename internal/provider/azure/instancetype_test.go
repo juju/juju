@@ -4,6 +4,8 @@
 package azure
 
 import (
+	stdtesting "testing"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/juju/collections/set"
@@ -18,7 +20,9 @@ type InstanceTypeSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&InstanceTypeSuite{})
+func TestInstanceTypeSuite(t *stdtesting.T) {
+	tc.Run(t, &InstanceTypeSuite{})
+}
 
 func (s *InstanceTypeSuite) TestNoDupes(c *tc.C) {
 	names := set.NewStrings()

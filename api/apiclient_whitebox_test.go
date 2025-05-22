@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -20,7 +21,9 @@ type apiclientWhiteboxSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&apiclientWhiteboxSuite{})
+func TestApiclientWhiteboxSuite(t *testing.T) {
+	tc.Run(t, &apiclientWhiteboxSuite{})
+}
 
 func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiCancelled(c *tc.C) {
 	ctx, cancel := context.WithCancel(c.Context())

@@ -6,6 +6,7 @@ package keyupdater
 import (
 	"context"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -30,7 +31,9 @@ type authorisedKeysSuite struct {
 	watcherRegistry   *facademocks.MockWatcherRegistry
 }
 
-var _ = tc.Suite(&authorisedKeysSuite{})
+func TestAuthorisedKeysSuite(t *stdtesting.T) {
+	tc.Run(t, &authorisedKeysSuite{})
+}
 
 func (s *authorisedKeysSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

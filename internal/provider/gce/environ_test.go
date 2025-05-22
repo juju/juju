@@ -5,6 +5,7 @@ package gce_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -24,7 +25,9 @@ type environSuite struct {
 	gce.BaseSuite
 }
 
-var _ = tc.Suite(&environSuite{})
+func TestEnvironSuite(t *stdtesting.T) {
+	tc.Run(t, &environSuite{})
+}
 
 func (s *environSuite) TestName(c *tc.C) {
 	name := s.Env.Name()

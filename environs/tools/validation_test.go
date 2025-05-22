@@ -5,6 +5,7 @@ package tools
 
 import (
 	"path"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -21,7 +22,9 @@ type ValidateSuite struct {
 	dataSource  simplestreams.DataSource
 }
 
-var _ = tc.Suite(&ValidateSuite{})
+func TestValidateSuite(t *stdtesting.T) {
+	tc.Run(t, &ValidateSuite{})
+}
 
 func (s *ValidateSuite) makeLocalMetadata(c *tc.C, stream, version, osType string) {
 	tm := []*ToolsMetadata{{

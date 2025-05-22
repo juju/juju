@@ -4,6 +4,8 @@
 package space_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -15,7 +17,9 @@ type AddSuite struct {
 	BaseSpaceSuite
 }
 
-var _ = tc.Suite(&AddSuite{})
+func TestAddSuite(t *testing.T) {
+	tc.Run(t, &AddSuite{})
+}
 
 func (s *AddSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)

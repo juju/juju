@@ -4,6 +4,8 @@
 package lxd_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -22,7 +24,9 @@ type environInstSuite struct {
 	lxd.BaseSuite
 }
 
-var _ = tc.Suite(&environInstSuite{})
+func TestEnvironInstSuite(t *testing.T) {
+	tc.Run(t, &environInstSuite{})
+}
 
 func (s *environInstSuite) TestInstancesOkay(c *tc.C) {
 	defer s.SetupMocks(c).Finish()

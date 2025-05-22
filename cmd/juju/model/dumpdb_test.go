@@ -5,6 +5,7 @@ package model_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -23,7 +24,9 @@ type DumpDBCommandSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&DumpDBCommandSuite{})
+func TestDumpDBCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &DumpDBCommandSuite{})
+}
 
 func (s *DumpDBCommandSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

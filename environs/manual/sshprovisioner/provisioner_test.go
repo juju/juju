@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -39,7 +40,9 @@ type provisionerSuite struct {
 	testhelpers.LoggingCleanupSuite
 }
 
-var _ = tc.Suite(&provisionerSuite{})
+func TestProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &provisionerSuite{})
+}
 
 type mockMachineManager struct {
 	manual.ProvisioningClientAPI

@@ -6,6 +6,7 @@ package upgradesteps
 import (
 	"context"
 	"errors"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -30,7 +31,9 @@ type controllerWorkerSuite struct {
 	upgradeService *MockUpgradeService
 }
 
-var _ = tc.Suite(&controllerWorkerSuite{})
+func TestControllerWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &controllerWorkerSuite{})
+}
 
 func (s *controllerWorkerSuite) TestAlreadyUpgraded(c *tc.C) {
 	defer s.setupMocks(c).Finish()

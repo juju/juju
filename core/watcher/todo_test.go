@@ -4,6 +4,8 @@
 package watcher_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/watcher"
@@ -12,7 +14,9 @@ import (
 
 type todoWatcherSuite struct{}
 
-var _ = tc.Suite(&todoWatcherSuite{})
+func TestTodoWatcherSuite(t *testing.T) {
+	tc.Run(t, &todoWatcherSuite{})
+}
 
 func (s *todoWatcherSuite) TestStringsWatcher(c *tc.C) {
 	sw := watcher.TODO[[]string]()

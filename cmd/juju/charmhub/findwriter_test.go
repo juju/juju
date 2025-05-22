@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"bytes"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +16,9 @@ type columnFindSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&columnFindSuite{})
+func TestColumnFindSuite(t *testing.T) {
+	tc.Run(t, &columnFindSuite{})
+}
 
 func (s *columnFindSuite) TestColumnNames(c *tc.C) {
 	names := DefaultColumns().Names()
@@ -43,7 +46,9 @@ type printFindSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&printFindSuite{})
+func TestPrintFindSuite(t *testing.T) {
+	tc.Run(t, &printFindSuite{})
+}
 
 func (s *printFindSuite) TestCharmPrintFind(c *tc.C) {
 	fr := getCharmFindResponse()

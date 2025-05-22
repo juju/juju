@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -32,7 +33,9 @@ type statusHistorySuite struct {
 	recorder *MockRecorder
 }
 
-var _ = tc.Suite(&statusHistorySuite{})
+func TestStatusHistorySuite(t *testing.T) {
+	tc.Run(t, &statusHistorySuite{})
+}
 
 func (s *statusHistorySuite) TestNamespace(c *tc.C) {
 	ns := Namespace{Kind: "foo", ID: "123"}
@@ -187,8 +190,9 @@ type statusHistoryReaderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&statusHistoryReaderSuite{})
-
+func TestStatusHistoryReaderSuite(t *testing.T) {
+	tc.Run(t, &statusHistoryReaderSuite{})
+}
 func (s *statusHistoryReaderSuite) TestWalk(c *tc.C) {
 	var expected []HistoryRecord
 

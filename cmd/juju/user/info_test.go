@@ -5,6 +5,7 @@ package user_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -26,8 +27,11 @@ type UserInfoCommandSuite struct {
 	BaseSuite
 }
 
+func TestUserInfoCommandSuite(t *testing.T) {
+	tc.Run(t, &UserInfoCommandSuite{})
+}
+
 var (
-	_ = tc.Suite(&UserInfoCommandSuite{})
 
 	// Mock out timestamps
 	dateCreated    = time.Unix(352138205, 0).UTC()

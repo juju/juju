@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/secrets"
@@ -16,7 +18,9 @@ type SecretInfoGetSuite struct {
 	ContextSuite
 }
 
-var _ = tc.Suite(&SecretInfoGetSuite{})
+func TestSecretInfoGetSuite(t *testing.T) {
+	tc.Run(t, &SecretInfoGetSuite{})
+}
 
 func (s *SecretInfoGetSuite) TestSecretGetInit(c *tc.C) {
 

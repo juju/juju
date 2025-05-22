@@ -5,6 +5,7 @@ package openstack
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +17,9 @@ type ConfigSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&ConfigSuite{})
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
 
 // configTest specifies a config parsing test, checking that env when
 // parsed as the openstack section of a config file matches

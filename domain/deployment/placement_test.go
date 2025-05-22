@@ -4,6 +4,8 @@
 package deployment
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
@@ -14,7 +16,9 @@ type PlacementSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&PlacementSuite{})
+func TestPlacementSuite(t *testing.T) {
+	tc.Run(t, &PlacementSuite{})
+}
 
 func (s *PlacementSuite) TestPlacement(c *tc.C) {
 	tests := []struct {

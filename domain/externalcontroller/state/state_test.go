@@ -5,6 +5,7 @@ package state
 
 import (
 	"sort"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -18,7 +19,9 @@ type stateSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *testing.T) {
+	tc.Run(t, &stateSuite{})
+}
 
 func (s *stateSuite) TestRetrieveExternalController(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())

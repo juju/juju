@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
@@ -14,7 +16,9 @@ type ErrorsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&ErrorsSuite{})
+func TestErrorsSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorsSuite{})
+}
 
 func (t *ErrorsSuite) TestNotAvailableErr(c *tc.C) {
 	err := jujuc.NotAvailable("the thing")

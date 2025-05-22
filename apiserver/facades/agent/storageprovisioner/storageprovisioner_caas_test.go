@@ -5,6 +5,7 @@ package storageprovisioner
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -34,7 +35,9 @@ type caasProvisionerSuite struct {
 	resources            *MockResources
 }
 
-var _ = tc.Suite(&caasProvisionerSuite{})
+func TestCaasProvisionerSuite(t *testing.T) {
+	tc.Run(t, &caasProvisionerSuite{})
+}
 
 func (s *caasProvisionerSuite) TestWatchApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()

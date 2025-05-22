@@ -18,7 +18,9 @@ import (
 type passwordSuite struct {
 }
 
-var _ = tc.Suite(&passwordSuite{})
+func TestPasswordSuite(t *testing.T) {
+	tc.Run(t, &passwordSuite{})
+}
 
 func ExampleHashPassword() {
 	userExposedPassword := "topsecret"

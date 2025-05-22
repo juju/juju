@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"testing"
+
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
 
@@ -14,7 +16,9 @@ type interfacesSuite struct {
 	maasSuite
 }
 
-var _ = tc.Suite(&interfacesSuite{})
+func TestInterfacesSuite(t *testing.T) {
+	tc.Run(t, &interfacesSuite{})
+}
 
 func newAddressOnSpaceWithId(
 	space string, id network.Id, address string, options ...func(network.AddressMutator),

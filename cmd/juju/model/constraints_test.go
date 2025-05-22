@@ -4,6 +4,8 @@
 package model_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/model"
@@ -15,8 +17,9 @@ type ModelConstraintsCommandsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&ModelConstraintsCommandsSuite{})
-
+func TestModelConstraintsCommandsSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelConstraintsCommandsSuite{})
+}
 func (s *ModelConstraintsCommandsSuite) TestSetInit(c *tc.C) {
 	for _, test := range []struct {
 		args []string

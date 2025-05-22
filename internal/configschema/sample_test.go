@@ -6,6 +6,7 @@ package configschema_test
 import (
 	"bytes"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +15,9 @@ import (
 
 type sampleSuite struct{}
 
-var _ = tc.Suite(&sampleSuite{})
+func TestSampleSuite(t *testing.T) {
+	tc.Run(t, &sampleSuite{})
+}
 
 var sampleYAMLTests = []struct {
 	about  string

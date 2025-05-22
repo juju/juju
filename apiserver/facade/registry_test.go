@@ -6,6 +6,7 @@ package facade_test
 import (
 	"context"
 	"reflect"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,7 +19,9 @@ type RegistrySuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&RegistrySuite{})
+func TestRegistrySuite(t *stdtesting.T) {
+	tc.Run(t, &RegistrySuite{})
+}
 
 var (
 	interfaceType = reflect.TypeOf((*interface{})(nil)).Elem()

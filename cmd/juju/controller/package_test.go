@@ -4,18 +4,12 @@
 package controller_test
 
 import (
-	"testing"
-
 	"github.com/juju/tc"
 
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 type baseControllerSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite

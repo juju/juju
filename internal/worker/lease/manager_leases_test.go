@@ -5,6 +5,7 @@ package lease_test
 
 import (
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -21,7 +22,9 @@ type LeasesSuite struct {
 	appName string
 }
 
-var _ = tc.Suite(&LeasesSuite{})
+func TestLeasesSuite(t *testing.T) {
+	tc.Run(t, &LeasesSuite{})
+}
 
 func (s *LeasesSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

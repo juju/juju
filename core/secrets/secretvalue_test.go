@@ -5,6 +5,7 @@ package secrets_test
 
 import (
 	"encoding/base64"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +14,9 @@ import (
 
 type SecretValueSuite struct{}
 
-var _ = tc.Suite(&SecretValueSuite{})
+func TestSecretValueSuite(t *testing.T) {
+	tc.Run(t, &SecretValueSuite{})
+}
 
 func (s *SecretValueSuite) TestEncodedValues(c *tc.C) {
 	in := map[string]string{

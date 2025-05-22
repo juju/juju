@@ -6,6 +6,7 @@ package machine_test
 import (
 	"bytes"
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -31,7 +32,9 @@ type RemoveMachineSuite struct {
 	facadeVersion int
 }
 
-var _ = tc.Suite(&RemoveMachineSuite{})
+func TestRemoveMachineSuite(t *stdtesting.T) {
+	tc.Run(t, &RemoveMachineSuite{})
+}
 
 func (s *RemoveMachineSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

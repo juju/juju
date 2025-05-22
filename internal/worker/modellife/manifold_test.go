@@ -5,12 +5,14 @@ package modellife
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/errors"
@@ -24,7 +26,10 @@ type ManifoldSuite struct {
 	modelService *MockModelService
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig()

@@ -4,6 +4,8 @@
 package cloudinit_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
@@ -11,7 +13,9 @@ import (
 
 type progressSuite struct{}
 
-var _ = tc.Suite(&progressSuite{})
+func TestProgressSuite(t *testing.T) {
+	tc.Run(t, &progressSuite{})
+}
 
 func (*progressSuite) TestProgressCmds(c *tc.C) {
 	initCmd := cloudinit.InitProgressCmd()

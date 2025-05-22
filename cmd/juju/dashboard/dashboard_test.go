@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -69,7 +70,9 @@ type dashboardSuite struct {
 	baseDashboardSuite
 }
 
-var _ = tc.Suite(&dashboardSuite{})
+func TestDashboardSuite(t *stdtesting.T) {
+	tc.Run(t, &dashboardSuite{})
+}
 
 func (s *dashboardSuite) SetUpTest(c *tc.C) {
 	s.signalCh = make(chan os.Signal, 1)

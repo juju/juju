@@ -4,6 +4,8 @@
 package machine_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/machine"
@@ -16,7 +18,9 @@ type MachineShowCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&MachineShowCommandSuite{})
+func TestMachineShowCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &MachineShowCommandSuite{})
+}
 
 func newMachineShowCommand() cmd.Command {
 	return machine.NewShowCommandForTest(&fakeStatusAPI{})

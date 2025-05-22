@@ -4,6 +4,8 @@
 package secret
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -14,7 +16,9 @@ type grantSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&grantSuite{})
+func TestGrantSuite(t *testing.T) {
+	tc.Run(t, &grantSuite{})
+}
 
 // TestRoleDBValues ensures there's no skew between what's in the
 // database table for role and the typed consts used in the secret package.

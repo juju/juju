@@ -4,6 +4,8 @@
 package imagemetadata_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -16,8 +18,9 @@ type ImageMetadataUpdateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ImageMetadataUpdateSuite{})
-
+func TestImageMetadataUpdateSuite(t *testing.T) {
+	tc.Run(t, &ImageMetadataUpdateSuite{})
+}
 func (s *ImageMetadataUpdateSuite) TestControllerOnly(c *tc.C) {
 	var authorizer apiservertesting.FakeAuthorizer
 	authorizer.Controller = true

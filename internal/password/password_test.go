@@ -4,6 +4,8 @@
 package password
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type passwordSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&passwordSuite{})
+func TestPasswordSuite(t *testing.T) {
+	tc.Run(t, &passwordSuite{})
+}
 
 // Base64 *can* include a tail of '=' characters, but all the tests here
 // explicitly *don't* want those because it is wasteful.

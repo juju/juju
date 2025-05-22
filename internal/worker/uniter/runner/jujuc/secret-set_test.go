@@ -6,6 +6,7 @@ package jujuc_test
 import (
 	"os"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -21,7 +22,9 @@ type SecretUpdateSuite struct {
 	ContextSuite
 }
 
-var _ = tc.Suite(&SecretUpdateSuite{})
+func TestSecretUpdateSuite(t *testing.T) {
+	tc.Run(t, &SecretUpdateSuite{})
+}
 
 func (s *SecretUpdateSuite) TestUpdateSecretInvalidArgs(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()

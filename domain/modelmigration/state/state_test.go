@@ -4,6 +4,8 @@
 package state
 
 import (
+	"testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
@@ -27,7 +29,9 @@ type migrationSuite struct {
 	controllerUUID uuid.UUID
 }
 
-var _ = tc.Suite(&migrationSuite{})
+func TestMigrationSuite(t *testing.T) {
+	tc.Run(t, &migrationSuite{})
+}
 
 func (s *migrationSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)

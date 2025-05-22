@@ -4,6 +4,8 @@
 package charm
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -15,7 +17,9 @@ type CharmSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&CharmSuite{})
+func TestCharmSuite(t *testing.T) {
+	tc.Run(t, &CharmSuite{})
+}
 
 func (*CharmSuite) TestIDValidate(c *tc.C) {
 	tests := []struct {

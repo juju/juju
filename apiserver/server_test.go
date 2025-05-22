@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	stdtesting "testing"
 
 	"github.com/gorilla/websocket"
 	jujuerrors "github.com/juju/errors"
@@ -63,7 +64,9 @@ type serverSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-var _ = tc.Suite(&serverSuite{})
+func TestServerSuite(t *stdtesting.T) {
+	tc.Run(t, &serverSuite{})
+}
 
 func (s *serverSuite) TestStop(c *tc.C) {
 	conn, machine := s.OpenAPIAsNewMachine(c, state.JobManageModel)

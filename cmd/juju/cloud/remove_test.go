@@ -6,6 +6,7 @@ package cloud_test
 import (
 	"context"
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -38,7 +39,9 @@ type removeSuite struct {
 	testProvider *mockBuiltinEnvironProvider
 }
 
-var _ = tc.Suite(&removeSuite{})
+func TestRemoveSuite(t *stdtesting.T) {
+	tc.Run(t, &removeSuite{})
+}
 
 func (s *removeSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

@@ -6,6 +6,7 @@ package sshserver
 import (
 	"context"
 	"os"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/watcher"
@@ -29,7 +31,10 @@ type manifoldSuite struct {
 	controllerConfigService *MockControllerConfigService
 }
 
-var _ = tc.Suite(&manifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &manifoldSuite{})
+}
 
 func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, featureflag.SSHJump)

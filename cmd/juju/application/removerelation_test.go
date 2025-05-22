@@ -5,6 +5,7 @@ package application
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,8 +30,9 @@ func (s *RemoveRelationSuite) SetUpTest(c *tc.C) {
 		return s.mockAPI.NextErr()
 	}
 }
-
-var _ = tc.Suite(&RemoveRelationSuite{})
+func TestRemoveRelationSuite(t *testing.T) {
+	tc.Run(t, &RemoveRelationSuite{})
+}
 
 func (s *RemoveRelationSuite) runRemoveRelation(c *tc.C, args ...string) error {
 	store := jujuclienttesting.MinimalStore()

@@ -4,6 +4,8 @@
 package backups_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/backups"
@@ -14,7 +16,9 @@ type archiveSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&archiveSuite{})
+func TestArchiveSuite(t *stdtesting.T) {
+	tc.Run(t, &archiveSuite{})
+}
 
 func (s *archiveSuite) TestNewCanonoicalArchivePaths(c *tc.C) {
 	ap := backups.NewCanonicalArchivePaths()

@@ -4,6 +4,8 @@
 package upgradevalidation_test
 
 import (
+	"testing"
+
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -22,8 +24,9 @@ func makeBases(os string, vers []string) []state.Base {
 	}
 	return bases
 }
-
-var _ = tc.Suite(&migrateSuite{})
+func TestMigrateSuite(t *testing.T) {
+	tc.Run(t, &migrateSuite{})
+}
 
 type migrateSuite struct {
 	testhelpers.IsolationSuite

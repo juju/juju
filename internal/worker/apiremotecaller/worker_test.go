@@ -7,12 +7,14 @@ import (
 	"context"
 	"net/url"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
@@ -34,7 +36,10 @@ type WorkerSuite struct {
 	finished map[string]chan struct{}
 }
 
-var _ = tc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &WorkerSuite{})
+}
 
 func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()

@@ -4,6 +4,8 @@
 package logsendermetrics_test
 
 import (
+	"testing"
+
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus"
@@ -23,7 +25,9 @@ type bufferedLogWriterSuite struct {
 	collector logsendermetrics.BufferedLogWriterMetrics
 }
 
-var _ = tc.Suite(&bufferedLogWriterSuite{})
+func TestBufferedLogWriterSuite(t *testing.T) {
+	tc.Run(t, &bufferedLogWriterSuite{})
+}
 
 func (s *bufferedLogWriterSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

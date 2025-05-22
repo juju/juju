@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"testing"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -78,7 +79,9 @@ type InteractiveSuite struct {
 	newUUID func() (uuid.UUID, error)
 }
 
-var _ = tc.Suite(&InteractiveSuite{})
+func TestInteractiveSuite(t *testing.T) {
+	tc.Run(t, &InteractiveSuite{})
+}
 
 const fakeTenantId = "11111111-1111-1111-1111-111111111111"
 

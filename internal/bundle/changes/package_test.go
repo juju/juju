@@ -3,16 +3,6 @@
 
 package bundlechanges
 
-import (
-	"testing"
-
-	"github.com/juju/tc"
-)
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
-
 func NewAddMachineParamsMachine(id string) AddMachineParams {
 	return AddMachineParams{
 		machineID: id,

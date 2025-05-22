@@ -4,6 +4,8 @@
 package crossmodel_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -25,7 +27,9 @@ type crossmodelSuite struct {
 	statusService *mocks.MockStatusService
 }
 
-var _ = tc.Suite(&crossmodelSuite{})
+func TestCrossmodelSuite(t *testing.T) {
+	tc.Run(t, &crossmodelSuite{})
+}
 
 func (s *crossmodelSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

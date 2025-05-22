@@ -6,6 +6,7 @@ package block_test
 import (
 	"context"
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&listCommandSuite{})
+func TestListCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &listCommandSuite{})
+}
 
 type listCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite

@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -17,7 +18,9 @@ type configSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&configSuite{})
+func TestConfigSuite(t *testing.T) {
+	tc.Run(t, &configSuite{})
+}
 
 var configTestCases = [...]struct {
 	name   string
@@ -299,7 +302,9 @@ type configStateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&configStateSuite{})
+func TestConfigStateSuite(t *testing.T) {
+	tc.Run(t, &configStateSuite{})
+}
 
 func (s *configStateSuite) TestConfigType(c *tc.C) {
 	type charmConfigType struct {

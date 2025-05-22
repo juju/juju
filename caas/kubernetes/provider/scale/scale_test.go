@@ -4,6 +4,8 @@
 package scale_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	apps "k8s.io/api/apps/v1"
@@ -19,7 +21,9 @@ type ScaleSuite struct {
 	client *fake.Clientset
 }
 
-var _ = tc.Suite(&ScaleSuite{})
+func TestScaleSuite(t *testing.T) {
+	tc.Run(t, &ScaleSuite{})
+}
 
 func (s *ScaleSuite) SetUpTest(c *tc.C) {
 	s.client = fake.NewSimpleClientset()

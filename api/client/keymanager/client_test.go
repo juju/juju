@@ -4,6 +4,8 @@
 package keymanager_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
@@ -18,7 +20,9 @@ import (
 type keymanagerSuite struct {
 }
 
-var _ = tc.Suite(&keymanagerSuite{})
+func TestKeymanagerSuite(t *testing.T) {
+	tc.Run(t, &keymanagerSuite{})
+}
 
 func (s *keymanagerSuite) TestListKeys(c *tc.C) {
 	ctrl := gomock.NewController(c)

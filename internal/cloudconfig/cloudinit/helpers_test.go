@@ -4,13 +4,17 @@
 package cloudinit
 
 import (
+	"testing"
+
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
 )
 
 type HelperSuite struct{}
 
-var _ = tc.Suite(HelperSuite{})
+func TestHelperSuite(t *testing.T) {
+	tc.Run(t, &HelperSuite{})
+}
 
 type fakeCfg struct {
 	CloudConfig

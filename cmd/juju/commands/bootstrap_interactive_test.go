@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"io"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +22,9 @@ type BSInteractSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(BSInteractSuite{})
+func TestBSInteractSuite(t *testing.T) {
+	tc.Run(t, &BSInteractSuite{})
+}
 
 func (s *BSInteractSuite) TestInitEmpty(c *tc.C) {
 	cmd := &bootstrapCommand{}

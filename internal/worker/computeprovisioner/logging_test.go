@@ -6,6 +6,7 @@ package computeprovisioner
 import (
 	"errors"
 	"fmt"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -24,8 +25,9 @@ func (l *logSuite) SetUpTest(c *tc.C) {
 	l.LoggingSuite.SetUpTest(c)
 	l.JujuOSEnvSuite.SetUpTest(c)
 }
-
-var _ = tc.Suite(&logSuite{})
+func TestLogSuite(t *testing.T) {
+	tc.Run(t, &logSuite{})
+}
 
 func (s *logSuite) TestFlagNotSet(c *tc.C) {
 	var entries []string

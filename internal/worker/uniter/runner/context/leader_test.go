@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/leadership"
@@ -18,7 +20,9 @@ type LeaderSuite struct {
 	context context.LeadershipContext
 }
 
-var _ = tc.Suite(&LeaderSuite{})
+func TestLeaderSuite(t *testing.T) {
+	tc.Run(t, &LeaderSuite{})
+}
 
 func (s *LeaderSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"testing"
+
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -17,7 +19,9 @@ type volumeSuite struct {
 	maasSuite
 }
 
-var _ = tc.Suite(&volumeSuite{})
+func TestVolumeSuite(t *testing.T) {
+	tc.Run(t, &volumeSuite{})
+}
 
 func (s *volumeSuite) TestBuildMAASVolumeParametersNoVolumes(c *tc.C) {
 	vInfo, err := buildMAASVolumeParameters(nil, constraints.Value{})
@@ -178,7 +182,9 @@ type storageProviderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&storageProviderSuite{})
+func TestStorageProviderSuite(t *testing.T) {
+	tc.Run(t, &storageProviderSuite{})
+}
 
 func (*storageProviderSuite) TestValidateConfigTags(c *tc.C) {
 	p := maasStorageProvider{}

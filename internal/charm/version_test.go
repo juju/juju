@@ -5,13 +5,16 @@ package charm
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type VersionSuite struct{}
 
-var _ = tc.Suite(&VersionSuite{})
+func TestVersionSuite(t *testing.T) {
+	tc.Run(t, &VersionSuite{})
+}
 
 func (s *VersionSuite) TestReadVersion(c *tc.C) {
 	specs := []struct {

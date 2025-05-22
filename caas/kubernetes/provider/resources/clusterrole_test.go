@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -17,7 +19,9 @@ type clusterRoleSuite struct {
 	resourceSuite
 }
 
-var _ = tc.Suite(&clusterRoleSuite{})
+func TestClusterRoleSuite(t *testing.T) {
+	tc.Run(t, &clusterRoleSuite{})
+}
 
 func (s *clusterRoleSuite) TestApply(c *tc.C) {
 	role := &rbacv1.ClusterRole{

@@ -14,7 +14,9 @@ import (
 
 type monitorSuite struct{}
 
-var _ = tc.Suite(&monitorSuite{})
+func TestMonitorSuite(t *testing.T) {
+	tc.Run(t, &monitorSuite{})
+}
 
 func (s *monitorSuite) TestQueryMonitor(c *tc.C) {
 	transientDir := c.MkDir()
@@ -72,7 +74,4 @@ func (s *monitorSuite) TestQueryMonitorForDifferentEntities(c *tc.C) {
 	rebootDetected, err = mon.Query(unit2)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rebootDetected, tc.IsFalse, tc.Commentf("got unexpected reboot notification"))
-}
-func TestAll(t *testing.T) {
-	tc.TestingT(t)
 }

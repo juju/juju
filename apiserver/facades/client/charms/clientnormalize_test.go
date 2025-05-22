@@ -4,6 +4,8 @@
 package charms
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	corecharm "github.com/juju/juju/core/charm"
@@ -17,8 +19,9 @@ type clientNormalizeOriginSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&clientNormalizeOriginSuite{})
-
+func TestClientNormalizeOriginSuite(t *testing.T) {
+	tc.Run(t, &clientNormalizeOriginSuite{})
+}
 func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *tc.C) {
 	track := "1.0"
 	branch := "foo"
@@ -57,8 +60,9 @@ type clientValidateOriginSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&clientValidateOriginSuite{})
-
+func TestClientValidateOriginSuite(t *testing.T) {
+	tc.Run(t, &clientValidateOriginSuite{})
+}
 func (s *clientValidateOriginSuite) TestValidateOrigin(c *tc.C) {
 	origin := corecharm.Origin{
 		Source:   "charm-hub",

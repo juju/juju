@@ -5,6 +5,7 @@ package bundlechanges
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ type resolverSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&resolverSuite{})
+func TestResolverSuite(t *testing.T) {
+	tc.Run(t, &resolverSuite{})
+}
 
 func (s *resolverSuite) TestAllowUpgrade(c *tc.C) {
 	existing := &Application{

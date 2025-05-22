@@ -4,6 +4,8 @@
 package service
 
 import (
+	"testing"
+
 	"github.com/juju/schema"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -23,7 +25,9 @@ type serviceSuite struct {
 	modelUUID           coremodel.UUID
 }
 
-var _ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *testing.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 func (s *serviceSuite) SetUpTest(c *tc.C) {
 	s.modelUUID = modeltesting.GenModelUUID(c)

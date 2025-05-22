@@ -5,6 +5,7 @@ package caas_test
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -45,7 +46,9 @@ type removeCAASSuite struct {
 	store              *fakeCredentialStore
 }
 
-var _ = tc.Suite(&removeCAASSuite{})
+func TestRemoveCAASSuite(t *testing.T) {
+	tc.Run(t, &removeCAASSuite{})
+}
 
 type fakeRemoveCloudAPI struct {
 	caas.RemoveCloudAPI

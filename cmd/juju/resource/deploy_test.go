@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,7 +27,9 @@ type DeploySuite struct {
 	stub *testhelpers.Stub
 }
 
-var _ = tc.Suite(&DeploySuite{})
+func TestDeploySuite(t *testing.T) {
+	tc.Run(t, &DeploySuite{})
+}
 
 func (s *DeploySuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

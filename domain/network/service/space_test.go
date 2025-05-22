@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -29,7 +30,9 @@ type spaceSuite struct {
 	notSupportedZoneProviderGetter    func(context.Context) (ProviderWithZones, error)
 }
 
-var _ = tc.Suite(&spaceSuite{})
+func TestSpaceSuite(t *testing.T) {
+	tc.Run(t, &spaceSuite{})
+}
 
 func (s *spaceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

@@ -5,6 +5,7 @@ package lxdprofile_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +17,9 @@ type ProfileSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ProfileSuite{})
+func TestProfileSuite(t *testing.T) {
+	tc.Run(t, &ProfileSuite{})
+}
 
 func (*ProfileSuite) TestEmptyTrue(c *tc.C) {
 	p := lxdprofile.Profile{}

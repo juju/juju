@@ -4,6 +4,8 @@
 package stringcompare_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/stringcompare"
@@ -11,7 +13,9 @@ import (
 
 type StringComparatorSuite struct{}
 
-var _ = tc.Suite(&StringComparatorSuite{})
+func TestStringComparatorSuite(t *testing.T) {
+	tc.Run(t, &StringComparatorSuite{})
+}
 
 func (*StringComparatorSuite) TestLevenshteinDistance(c *tc.C) {
 	testCases := []struct {

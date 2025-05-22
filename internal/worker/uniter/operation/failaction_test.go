@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -17,7 +19,9 @@ type FailActionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&FailActionSuite{})
+func TestFailActionSuite(t *testing.T) {
+	tc.Run(t, &FailActionSuite{})
+}
 
 func (s *FailActionSuite) TestPrepare(c *tc.C) {
 	factory := newOpFactory(c, nil, nil)

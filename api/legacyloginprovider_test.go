@@ -6,6 +6,7 @@ package api_test
 import (
 	"fmt"
 	"net/http"
+	stdtesting "testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -32,7 +33,9 @@ type legacyLoginProviderSuite struct {
 	mockAdminAPI *MockAdminAPI
 }
 
-var _ = tc.Suite(&legacyLoginProviderSuite{})
+func TestLegacyLoginProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &legacyLoginProviderSuite{})
+}
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package api_test -destination api_mock_test.go -source legacyloginprovider_test.go RootAPI,AdminAPI
 
@@ -151,8 +154,9 @@ type legacyLoginProviderBasicSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&legacyLoginProviderBasicSuite{})
-
+func TestLegacyLoginProviderBasicSuite(t *stdtesting.T) {
+	tc.Run(t, &legacyLoginProviderBasicSuite{})
+}
 func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeader(c *tc.C) {
 	userTag := names.NewUserTag("bob")
 	password := "test-password"

@@ -5,6 +5,7 @@ package bootstrap_test
 
 import (
 	"os"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -19,7 +20,9 @@ type ConfigSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&ConfigSuite{})
+func TestConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
 
 func (*ConfigSuite) TestDefaultConfig(c *tc.C) {
 	cfg, err := bootstrap.NewConfig(nil)

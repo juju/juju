@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -19,7 +20,9 @@ type metadataSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&metadataSuite{})
+func TestMetadataSuite(t *testing.T) {
+	tc.Run(t, &metadataSuite{})
+}
 
 var metadataDecodeTestCases = [...]struct {
 	name      string
@@ -444,7 +447,9 @@ type metadataStateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&metadataStateSuite{})
+func TestMetadataStateSuite(t *testing.T) {
+	tc.Run(t, &metadataStateSuite{})
+}
 
 // Bake the charm.RunAs values into the database.
 func (s *metadataStateSuite) TestMetadataRunAs(c *tc.C) {

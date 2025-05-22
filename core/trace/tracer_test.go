@@ -5,6 +5,7 @@ package trace
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +17,9 @@ type nameSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&nameSuite{})
+func TestNameSuite(t *testing.T) {
+	tc.Run(t, &nameSuite{})
+}
 
 func (s *nameSuite) TestNameFromFuncMethod(c *tc.C) {
 	name := NameFromFunc()
@@ -31,7 +34,9 @@ type namespaceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&namespaceSuite{})
+func TestNamespaceSuite(t *testing.T) {
+	tc.Run(t, &namespaceSuite{})
+}
 
 func (s *namespaceSuite) TestNamespaceShortNamespace(c *tc.C) {
 	tests := []struct {

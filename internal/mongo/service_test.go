@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -20,7 +21,9 @@ type serviceSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *testing.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
 func (s *serviceSuite) TestNewConfSnap(c *tc.C) {
 	dataDir := "/var/lib/juju"

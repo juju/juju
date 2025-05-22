@@ -5,6 +5,7 @@ package base
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +16,9 @@ type BaseValidateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&BaseValidateSuite{})
+func TestBaseValidateSuite(t *testing.T) {
+	tc.Run(t, &BaseValidateSuite{})
+}
 
 func (*BaseValidateSuite) TestValidate(c *tc.C) {
 	expected := MustParseBaseFromString("ubuntu@20.04")

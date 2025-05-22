@@ -5,6 +5,7 @@ package caasmodeloperator
 
 import (
 	"context"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -40,7 +41,9 @@ type ModelOperatorSuite struct {
 	passwordService         *MockAgentPasswordService
 }
 
-var _ = tc.Suite(&ModelOperatorSuite{})
+func TestModelOperatorSuite(t *testing.T) {
+	tc.Run(t, &ModelOperatorSuite{})
+}
 
 func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	defer m.setupMocks(c).Finish()

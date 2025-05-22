@@ -6,6 +6,7 @@ package sshprovisioner_test
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +20,9 @@ type initialisationSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&initialisationSuite{})
+func TestInitialisationSuite(t *stdtesting.T) {
+	tc.Run(t, &initialisationSuite{})
+}
 
 func (s *initialisationSuite) TestDetectBase(c *tc.C) {
 	response := strings.Join([]string{

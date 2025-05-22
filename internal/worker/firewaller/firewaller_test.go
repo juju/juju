@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -521,7 +522,9 @@ type InstanceModeSuite struct {
 	firewallerBaseSuite
 }
 
-var _ = tc.Suite(&InstanceModeSuite{})
+func TestInstanceModeSuite(t *testing.T) {
+	tc.Run(t, &InstanceModeSuite{})
+}
 
 func (s *InstanceModeSuite) SetUpTest(c *tc.C) {
 	s.mode = config.FwInstance
@@ -1995,7 +1998,9 @@ type GlobalModeSuite struct {
 	firewallerBaseSuite
 }
 
-var _ = tc.Suite(&GlobalModeSuite{})
+func TestGlobalModeSuite(t *testing.T) {
+	tc.Run(t, &GlobalModeSuite{})
+}
 
 func (s *GlobalModeSuite) SetUpTest(c *tc.C) {
 	s.mode = config.FwGlobal
@@ -2307,7 +2312,9 @@ type NoneModeSuite struct {
 	firewallerBaseSuite
 }
 
-var _ = tc.Suite(&NoneModeSuite{})
+func TestNoneModeSuite(t *testing.T) {
+	tc.Run(t, &NoneModeSuite{})
+}
 
 func (s *NoneModeSuite) TestStopImmediately(c *tc.C) {
 	ctrl := gomock.NewController(c)

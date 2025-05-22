@@ -4,6 +4,8 @@
 package firewaller_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -22,7 +24,9 @@ type firewallerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&firewallerSuite{})
+func TestFirewallerSuite(t *stdtesting.T) {
+	tc.Run(t, &firewallerSuite{})
+}
 
 func (s *firewallerSuite) TestModelFirewallRules(c *tc.C) {
 	var callCount int

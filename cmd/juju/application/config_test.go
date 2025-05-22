@@ -8,6 +8,7 @@ import (
 	"context"
 	"os"
 	"strings"
+	"testing"
 	"unicode/utf8"
 
 	"github.com/juju/collections/set"
@@ -35,9 +36,11 @@ type configCommandSuite struct {
 	defaultAppValues   map[string]interface{}
 }
 
-var (
-	_ = tc.Suite(&configCommandSuite{})
+func TestConfigCommandSuite(t *testing.T) {
+	tc.Run(t, &configCommandSuite{})
+}
 
+var (
 	validSetTestValue   = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"
 	invalidSetTestValue = "a value with an invalid UTF-8 sequence: " + string([]byte{0xFF, 0xFF})
 	yamlConfigValue     = "dummy-application:\n  skill-level: 9000\n  username: admin002\n\n"

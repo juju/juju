@@ -4,6 +4,8 @@
 package resources
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -24,7 +26,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&resourcesSuite{})
+func TestResourcesSuite(t *stdtesting.T) {
+	tc.Run(t, &resourcesSuite{})
+}
 
 type resourcesSuite struct {
 	BaseSuite
@@ -249,8 +253,9 @@ func (s *resourcesSuite) TestServiceResources2API(c *tc.C) {
 		},
 	})
 }
-
-var _ = tc.Suite(&addPendingResourceSuite{})
+func TestAddPendingResourceSuite(t *stdtesting.T) {
+	tc.Run(t, &addPendingResourceSuite{})
+}
 
 type addPendingResourceSuite struct {
 	BaseSuite

@@ -4,6 +4,8 @@
 package modeloperator_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
@@ -16,7 +18,9 @@ type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&ManifoldsSuite{})
+func TestManifoldsSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldsSuite{})
+}
 
 type fakeAgent struct {
 	agent.Agent

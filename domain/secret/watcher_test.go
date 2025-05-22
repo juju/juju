@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -41,7 +42,9 @@ type watcherSuite struct {
 	testing.ModelSuite
 }
 
-var _ = tc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)

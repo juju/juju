@@ -5,6 +5,7 @@ package observer_test
 
 import (
 	"net/http"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -19,7 +20,9 @@ type multiplexerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&multiplexerSuite{})
+func TestMultiplexerSuite(t *testing.T) {
+	tc.Run(t, &multiplexerSuite{})
+}
 
 func (*multiplexerSuite) TestObserverFactoryMultiplexerCallsAllFactories(c *tc.C) {
 	callCount := 0

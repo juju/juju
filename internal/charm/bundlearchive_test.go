@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +15,9 @@ import (
 	charmtesting "github.com/juju/juju/internal/charm/testing"
 )
 
-var _ = tc.Suite(&BundleArchiveSuite{})
+func TestBundleArchiveSuite(t *testing.T) {
+	tc.Run(t, &BundleArchiveSuite{})
+}
 
 type BundleArchiveSuite struct {
 	archivePath string

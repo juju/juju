@@ -4,6 +4,8 @@
 package instancecfg_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -21,7 +23,9 @@ type instancecfgSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&instancecfgSuite{})
+func TestInstancecfgSuite(t *stdtesting.T) {
+	tc.Run(t, &instancecfgSuite{})
+}
 
 func (*instancecfgSuite) TestIsController(c *tc.C) {
 	cfg := instancecfg.InstanceConfig{}

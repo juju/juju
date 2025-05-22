@@ -5,6 +5,7 @@ package storageprovisioner_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -29,9 +30,12 @@ type MachineManifoldSuite struct {
 	newCalled bool
 }
 
+func TestMachineManifoldSuite(t *testing.T) {
+	tc.Run(t, &MachineManifoldSuite{})
+}
+
 var (
 	defaultClockStart time.Time
-	_                 = tc.Suite(&MachineManifoldSuite{})
 )
 
 func (s *MachineManifoldSuite) SetUpTest(c *tc.C) {

@@ -5,6 +5,7 @@ package gen
 
 import (
 	"reflect"
+	"testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -23,7 +24,9 @@ type GenSuite struct {
 	registry    *MockRegistry
 }
 
-var _ = tc.Suite(&GenSuite{})
+func TestGenSuite(t *testing.T) {
+	tc.Run(t, &GenSuite{})
+}
 
 func (s *GenSuite) TestResult(c *tc.C) {
 	defer s.setup(c).Finish()

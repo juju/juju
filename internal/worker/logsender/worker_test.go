@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/loggo/v2"
@@ -26,7 +27,9 @@ type workerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
 type logsenderAPI struct {
 	writer *mocks.MockLogWriter

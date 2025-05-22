@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -45,7 +46,9 @@ type resourcesUploadSuite struct {
 	srv *httptest.Server
 }
 
-var _ = tc.Suite(&resourcesUploadSuite{})
+func TestResourcesUploadSuite(t *testing.T) {
+	tc.Run(t, &resourcesUploadSuite{})
+}
 
 func (s *resourcesUploadSuite) SetUpTest(c *tc.C) {
 	s.content = "resource-content"

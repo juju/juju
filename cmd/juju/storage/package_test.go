@@ -4,17 +4,11 @@
 package storage_test
 
 import (
-	"testing"
-
 	"github.com/juju/tc"
 
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
-
-func TestAll(t *testing.T) {
-	tc.TestingT(t)
-}
 
 type BaseStorageSuite struct {
 	jujutesting.FakeJujuXDGDataHomeSuite

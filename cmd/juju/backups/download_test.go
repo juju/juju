@@ -4,6 +4,8 @@
 package backups_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -18,7 +20,9 @@ type downloadSuite struct {
 	command        *backups.DownloadCommand
 }
 
-var _ = tc.Suite(&downloadSuite{})
+func TestDownloadSuite(t *testing.T) {
+	tc.Run(t, &downloadSuite{})
+}
 
 func (s *downloadSuite) SetUpTest(c *tc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)

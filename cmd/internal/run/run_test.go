@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/loggo/v2"
@@ -39,8 +40,9 @@ func (s *RunTestSuite) SetUpTest(c *tc.C) {
 	s.PatchValue(&config.DataDir, c.MkDir())
 	s.machinelock = &fakemachinelock{}
 }
-
-var _ = tc.Suite(&RunTestSuite{})
+func TestRunTestSuite(t *stdtesting.T) {
+	tc.Run(t, &RunTestSuite{})
+}
 
 func (*RunTestSuite) TestArgParsing(c *tc.C) {
 	for i, test := range []struct {

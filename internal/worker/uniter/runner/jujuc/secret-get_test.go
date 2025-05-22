@@ -5,6 +5,7 @@ package jujuc_test
 
 import (
 	"encoding/base64"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +20,9 @@ type SecretGetSuite struct {
 	ContextSuite
 }
 
-var _ = tc.Suite(&SecretGetSuite{})
+func TestSecretGetSuite(t *testing.T) {
+	tc.Run(t, &SecretGetSuite{})
+}
 
 func (s *SecretGetSuite) TestSecretGetInit(c *tc.C) {
 

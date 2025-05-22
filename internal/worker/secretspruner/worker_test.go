@@ -6,6 +6,7 @@ package secretspruner_test
 import (
 	"context"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -31,7 +32,9 @@ type workerSuite struct {
 	changedCh chan struct{}
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) getWorkerNewer(c *tc.C) (func(string), *gomock.Controller) {
 	ctrl := gomock.NewController(c)

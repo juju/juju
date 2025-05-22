@@ -4,6 +4,8 @@
 package google_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	jujuhttp "github.com/juju/juju/internal/http"
@@ -14,7 +16,9 @@ type connConfigSuite struct {
 	google.BaseSuite
 }
 
-var _ = tc.Suite(&connConfigSuite{})
+func TestConnConfigSuite(t *testing.T) {
+	tc.Run(t, &connConfigSuite{})
+}
 
 func (*connConfigSuite) TestValidateValid(c *tc.C) {
 	cfg := google.ConnectionConfig{

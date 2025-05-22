@@ -6,6 +6,7 @@ package provider_test
 import (
 	"errors"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -15,7 +16,9 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&rootfsSuite{})
+func TestRootfsSuite(t *stdtesting.T) {
+	tc.Run(t, &rootfsSuite{})
+}
 
 type rootfsSuite struct {
 	testing.BaseSuite

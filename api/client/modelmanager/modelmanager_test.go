@@ -5,6 +5,7 @@ package modelmanager_test
 
 import (
 	"regexp"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,7 +29,9 @@ import (
 type modelmanagerSuite struct {
 }
 
-var _ = tc.Suite(&modelmanagerSuite{})
+func TestModelmanagerSuite(t *testing.T) {
+	tc.Run(t, &modelmanagerSuite{})
+}
 
 func (s *modelmanagerSuite) TestCreateModelBadUser(c *tc.C) {
 	ctrl := gomock.NewController(c)
@@ -611,7 +614,9 @@ type dumpModelSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&dumpModelSuite{})
+func TestDumpModelSuite(t *testing.T) {
+	tc.Run(t, &dumpModelSuite{})
+}
 
 func (s *dumpModelSuite) TestDumpModelDB(c *tc.C) {
 	ctrl := gomock.NewController(c)

@@ -7,6 +7,7 @@ import (
 	stdcontext "context"
 	"os"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -49,7 +50,9 @@ type baseStateTrackerSuite struct {
 	watcher      *watchertest.MockNotifyWatcher
 }
 
-var _ = tc.Suite(&stateTrackerSuite{})
+func TestStateTrackerSuite(t *testing.T) {
+	tc.Run(t, &stateTrackerSuite{})
+}
 
 func (s *stateTrackerSuite) SetUpTest(c *tc.C) {
 	s.leadershipContext = &stubLeadershipContext{isLeader: true}
@@ -337,7 +340,9 @@ type syncScopesSuite struct {
 	charmDir string
 }
 
-var _ = tc.Suite(&syncScopesSuite{})
+func TestSyncScopesSuite(t *testing.T) {
+	tc.Run(t, &syncScopesSuite{})
+}
 
 func (s *syncScopesSuite) SetUpTest(c *tc.C) {
 	s.leadershipContext = &stubLeadershipContext{isLeader: true}

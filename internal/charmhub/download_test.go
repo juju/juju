@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -28,7 +29,9 @@ type DownloadSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&DownloadSuite{})
+func TestDownloadSuite(t *testing.T) {
+	tc.Run(t, &DownloadSuite{})
+}
 
 func (s *DownloadSuite) TestDownload(c *tc.C) {
 	ctrl := gomock.NewController(c)

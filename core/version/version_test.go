@@ -6,6 +6,7 @@ package version
 import (
 	"fmt"
 	"runtime"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +15,9 @@ import (
 
 type suite struct{}
 
-var _ = tc.Suite(&suite{})
+func TestSuite(t *testing.T) {
+	tc.Run(t, &suite{})
+}
 
 var isDevTests = []struct {
 	num semversion.Number

@@ -6,6 +6,7 @@ package port_test
 import (
 	"context"
 	"database/sql"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -45,7 +46,9 @@ type watcherSuite struct {
 	appUUIDs [2]coreapplication.ID
 }
 
-var _ = tc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *testing.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
 var (
 	ssh   = network.PortRange{Protocol: "tcp", FromPort: 22, ToPort: 22}

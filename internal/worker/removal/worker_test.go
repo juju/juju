@@ -6,6 +6,7 @@ package removal
 import (
 	"context"
 	"reflect"
+	"testing"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -28,7 +30,10 @@ type workerSuite struct {
 	clk *MockClock
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) TestWorkerStartStop(c *tc.C) {
 	defer s.setUpMocks(c).Finish()

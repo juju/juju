@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -26,7 +27,9 @@ type applicationSuite struct {
 	statusSet bool
 }
 
-var _ = tc.Suite(&applicationSuite{})
+func TestApplicationSuite(t *testing.T) {
+	tc.Run(t, &applicationSuite{})
+}
 
 func (s *applicationSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

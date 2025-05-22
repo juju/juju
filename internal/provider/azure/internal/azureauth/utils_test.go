@@ -4,6 +4,8 @@
 package azureauth_test
 
 import (
+	"testing"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/juju/tc"
 	"github.com/microsoft/kiota-abstractions-go/store"
@@ -17,7 +19,9 @@ type ErrorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ErrorSuite{})
+func TestErrorSuite(t *testing.T) {
+	tc.Run(t, &ErrorSuite{})
+}
 
 func (s *ErrorSuite) TestAsDataError(c *tc.C) {
 	dataErr := odataerrors.NewODataError()

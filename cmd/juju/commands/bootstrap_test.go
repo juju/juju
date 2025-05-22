@@ -97,7 +97,9 @@ type BootstrapSuite struct {
 	clock        *testclock.Clock
 }
 
-var _ = tc.Suite(&BootstrapSuite{})
+func TestBootstrapSuite(t *testing.T) {
+	tc.Run(t, &BootstrapSuite{})
+}
 
 func init() {
 	dummyProvider, err := environs.Provider("dummy")

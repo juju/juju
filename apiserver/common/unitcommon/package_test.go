@@ -3,14 +3,4 @@
 
 package unitcommon
 
-import (
-	"testing"
-
-	"github.com/juju/tc"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package unitcommon -destination service_mock_test.go github.com/juju/juju/apiserver/common/unitcommon ApplicationService
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}

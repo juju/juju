@@ -4,6 +4,8 @@
 package bundle_test
 
 import (
+	"testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
@@ -26,7 +28,9 @@ type bundleSuite struct {
 	applicationService *MockApplicationService
 }
 
-var _ = tc.Suite(&bundleSuite{})
+func TestBundleSuite(t *testing.T) {
+	tc.Run(t, &bundleSuite{})
+}
 
 func (s *bundleSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

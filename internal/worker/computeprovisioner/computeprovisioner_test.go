@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -312,7 +313,9 @@ type ProvisionerSuite struct {
 	CommonProvisionerSuite
 }
 
-var _ = tc.Suite(&ProvisionerSuite{})
+func TestProvisionerSuite(t *testing.T) {
+	tc.Run(t, &ProvisionerSuite{})
+}
 
 func (s *ProvisionerSuite) sendModelMachinesChange(c *tc.C, ids ...string) {
 	select {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ type sourceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&sourceSuite{})
+func TestSourceSuite(t *testing.T) {
+	tc.Run(t, &sourceSuite{})
+}
 
 func (*sourceSuite) TestParseInterfaceType(c *tc.C) {
 	fakeSysPath := filepath.Join(c.MkDir(), network.SysClassNetPath)

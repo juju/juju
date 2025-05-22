@@ -4,6 +4,8 @@
 package firewaller_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -15,7 +17,9 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&ModelFirewallRulesWatcherSuite{})
+func TestModelFirewallRulesWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelFirewallRulesWatcherSuite{})
+}
 
 type ModelFirewallRulesWatcherSuite struct {
 	modelConfigService *MockModelConfigService

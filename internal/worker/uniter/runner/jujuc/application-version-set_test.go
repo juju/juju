@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -16,8 +18,9 @@ type ApplicationVersionSetSuite struct {
 	ContextSuite
 }
 
-var _ = tc.Suite(&ApplicationVersionSetSuite{})
-
+func TestApplicationVersionSetSuite(t *testing.T) {
+	tc.Run(t, &ApplicationVersionSetSuite{})
+}
 func (s *ApplicationVersionSetSuite) createCommand(c *tc.C, err error) (*Context, cmd.Command) {
 	hctx := s.GetHookContext(c, -1, "")
 	s.Stub.SetErrors(err)

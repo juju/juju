@@ -4,6 +4,7 @@
 package vsphere_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -31,7 +32,9 @@ type vmTemplateSuite struct {
 	mockTemplate       *object.VirtualMachine
 }
 
-var _ = tc.Suite(&vmTemplateSuite{})
+func TestVmTemplateSuite(t *testing.T) {
+	tc.Run(t, &vmTemplateSuite{})
+}
 
 func (v *vmTemplateSuite) SetUpTest(c *tc.C) {
 	v.EnvironFixture.SetUpTest(c)

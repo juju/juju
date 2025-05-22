@@ -4,12 +4,16 @@
 package charm_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm"
 )
 
-var _ = tc.Suite(&resourceSuite{})
+func TestResourceSuite(t *testing.T) {
+	tc.Run(t, &resourceSuite{})
+}
 
 type resourceSuite struct{}
 

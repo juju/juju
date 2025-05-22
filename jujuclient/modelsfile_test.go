@@ -5,6 +5,7 @@ package jujuclient_test
 
 import (
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ type ModelsFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&ModelsFileSuite{})
+func TestModelsFileSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelsFileSuite{})
+}
 
 const testModelsYAML = `
 controllers:

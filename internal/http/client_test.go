@@ -11,6 +11,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -21,7 +22,9 @@ import (
 
 type clientSuite struct{}
 
-var _ = tc.Suite(&clientSuite{})
+func TestClientSuite(t *testing.T) {
+	tc.Run(t, &clientSuite{})
+}
 
 func (s *clientSuite) TestNewClient(c *tc.C) {
 	client := NewClient()
@@ -33,7 +36,9 @@ type httpSuite struct {
 	server *httptest.Server
 }
 
-var _ = tc.Suite(&httpSuite{})
+func TestHttpSuite(t *testing.T) {
+	tc.Run(t, &httpSuite{})
+}
 
 func (s *httpSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
@@ -178,7 +183,9 @@ type httpTLSServerSuite struct {
 	server *httptest.Server
 }
 
-var _ = tc.Suite(&httpTLSServerSuite{})
+func TestHttpTLSServerSuite(t *testing.T) {
+	tc.Run(t, &httpTLSServerSuite{})
+}
 
 func (s *httpTLSServerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

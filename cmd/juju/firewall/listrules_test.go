@@ -6,6 +6,7 @@ package firewall_test
 import (
 	"context"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,7 +24,9 @@ type ListSuite struct {
 	mockAPI *mockListAPI
 }
 
-var _ = tc.Suite(&ListSuite{})
+func TestListSuite(t *stdtesting.T) {
+	tc.Run(t, &ListSuite{})
+}
 
 func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.mockAPI = &mockListAPI{

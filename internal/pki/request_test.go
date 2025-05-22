@@ -7,6 +7,7 @@ import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ type RequestSigner struct {
 	signer crypto.Signer
 }
 
-var _ = tc.Suite(&RequestSigner{})
+func TestRequestSigner(t *testing.T) {
+	tc.Run(t, &RequestSigner{})
+}
 
 func (r *RequestSigner) SetUpTest(c *tc.C) {
 	signer, err := pki.DefaultKeyProfile()

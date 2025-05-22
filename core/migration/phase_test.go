@@ -4,6 +4,8 @@
 package migration_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/migration"
@@ -14,7 +16,9 @@ type PhaseSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(new(PhaseSuite))
+func TestPhaseSuite(t *testing.T) {
+	tc.Run(t, new(PhaseSuite))
+}
 
 func (s *PhaseSuite) TestUNKNOWN(c *tc.C) {
 	// 0 should be UNKNOWN to guard against uninitialised struct

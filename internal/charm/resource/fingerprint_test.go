@@ -7,6 +7,7 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"strings"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,8 +24,9 @@ func newFingerprint(c *tc.C, data string) ([]byte, string) {
 	hexStr := hex.EncodeToString(raw)
 	return raw, hexStr
 }
-
-var _ = tc.Suite(&FingerprintSuite{})
+func TestFingerprintSuite(t *testing.T) {
+	tc.Run(t, &FingerprintSuite{})
+}
 
 type FingerprintSuite struct{}
 

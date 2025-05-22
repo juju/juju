@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -17,7 +19,9 @@ type isLeaderSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&isLeaderSuite{})
+func TestIsLeaderSuite(t *stdtesting.T) {
+	tc.Run(t, &isLeaderSuite{})
+}
 
 func (s *isLeaderSuite) TestInitError(c *tc.C) {
 	command, err := jujuc.NewIsLeaderCommand(nil)

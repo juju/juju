@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -24,7 +25,9 @@ type rateLimitSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-var _ = tc.Suite(&rateLimitSuite{})
+func TestRateLimitSuite(t *testing.T) {
+	tc.Run(t, &rateLimitSuite{})
+}
 
 func (s *rateLimitSuite) SetUpTest(c *tc.C) {
 	s.Clock = testclock.NewDilatedWallClock(time.Second)

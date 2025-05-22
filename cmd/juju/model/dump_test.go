@@ -5,6 +5,7 @@ package model_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -23,7 +24,9 @@ type DumpCommandSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&DumpCommandSuite{})
+func TestDumpCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &DumpCommandSuite{})
+}
 
 type fakeDumpClient struct {
 	testhelpers.Stub

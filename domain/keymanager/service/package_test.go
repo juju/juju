@@ -3,14 +3,4 @@
 
 package service
 
-import (
-	"testing"
-
-	"github.com/juju/tc"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination service_mock_test.go github.com/juju/juju/domain/keymanager/service PublicKeyImporter,State
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}

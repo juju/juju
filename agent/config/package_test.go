@@ -3,14 +3,4 @@
 
 package config
 
-import (
-	"testing"
-
-	"github.com/juju/tc"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package config -destination agent_config_mock_test.go github.com/juju/juju/agent/config AgentConfigReader
-
-func Test(t *testing.T) {
-	tc.TestingT(t)
-}

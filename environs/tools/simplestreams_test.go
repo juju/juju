@@ -6,22 +6,17 @@ package tools_test
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
@@ -34,71 +29,8 @@ import (
 	"github.com/juju/juju/juju/keys"
 )
 
-var live = flag.Bool("live", false, "Include live simplestreams tests")
-
-var vendor = flag.String("vendor", "", "The vendor representing the source of the simplestream data")
-
-type liveTestData struct {
-	baseURL        string
-	requireSigned  bool
-	validCloudSpec simplestreams.CloudSpec
-}
-
-func getLiveURLs() (map[string]liveTestData, error) {
-	resolver := ec2.NewDefaultEndpointResolver()
-	ep, err := resolver.ResolveEndpoint("us-east-1", ec2.EndpointResolverOptions{})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return map[string]liveTestData{
-		"ec2": {
-			baseURL:       tools.DefaultBaseURL,
-			requireSigned: true,
-			validCloudSpec: simplestreams.CloudSpec{
-				Region:   "us-east-1",
-				Endpoint: ep.URL,
-			},
-		},
-		"canonistack": {
-			baseURL:       "https://swift.canonistack.canonical.com/v1/AUTH_526ad877f3e3464589dc1145dfeaac60/juju-tools",
-			requireSigned: false,
-			validCloudSpec: simplestreams.CloudSpec{
-				Region:   "lcy01",
-				Endpoint: "https://keystone.canonistack.canonical.com:443/v1.0/",
-			},
-		},
-	}, nil
-}
-
-func setupSimpleStreamsTests(t *testing.T) {
-	if *live {
-		if *vendor == "" {
-			t.Fatal("missing vendor")
-		}
-		var ok bool
-		var testData liveTestData
-		liveURLs, err := getLiveURLs()
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		if testData, ok = liveURLs[*vendor]; !ok {
-			keys := reflect.ValueOf(liveURLs).MapKeys()
-			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
-		}
-		registerLiveSimpleStreamsTests(testData.baseURL,
-			tools.NewVersionedToolsConstraint(semversion.MustParse("1.13.0"), simplestreams.LookupParams{
-				CloudSpec: testData.validCloudSpec,
-				Releases:  []string{coreos.HostOSTypeName()},
-				Arches:    []string{"amd64"},
-				Stream:    "released",
-			}), testData.requireSigned)
-	}
-	registerSimpleStreamsTests()
-}
-
-func registerSimpleStreamsTests() {
-	tc.Suite(&simplestreamsSuite{
+func TestSimplestreamsSuite(t *testing.T) {
+	tc.Run(t, &simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
 			Source:         sstesting.VerifyDefaultCloudDataSource("test", "test:"),
 			RequireSigned:  false,
@@ -114,24 +46,6 @@ func registerSimpleStreamsTests() {
 				Stream:   "released",
 			}),
 		},
-	})
-	tc.Suite(&signedSuite{})
-}
-
-func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simplestreams.LookupConstraint, requireSigned bool) {
-	factory := sstesting.TestDataSourceFactory()
-	tc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source: factory.NewDataSource(simplestreams.Config{
-			Description:          "test",
-			BaseURL:              baseURL,
-			HostnameVerification: true,
-			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
-			RequireSigned:        requireSigned,
-		}),
-		RequireSigned:   requireSigned,
-		DataType:        tools.ContentDownload,
-		StreamsVersion:  tools.CurrentStreamsVersion,
-		ValidConstraint: validToolsConstraint,
 	})
 }
 
@@ -480,7 +394,9 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *tc.C) {
 
 type productSpecSuite struct{}
 
-var _ = tc.Suite(&productSpecSuite{})
+func TestProductSpecSuite(t *testing.T) {
+	tc.Run(t, &productSpecSuite{})
+}
 
 func (s *productSpecSuite) TestIndexIdNoStream(c *tc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(semversion.MustParse("1.13.0"), simplestreams.LookupParams{
@@ -614,7 +530,9 @@ type metadataHelperSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&metadataHelperSuite{})
+func TestMetadataHelperSuite(t *testing.T) {
+	tc.Run(t, &metadataHelperSuite{})
+}
 
 func (*metadataHelperSuite) TestMetadataFromTools(c *tc.C) {
 	metadata := tools.MetadataFromTools(nil, "proposed")
@@ -990,6 +908,10 @@ func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *tc.C) {
 
 type signedSuite struct {
 	coretesting.BaseSuite
+}
+
+func TestSignedSuite(t *testing.T) {
+	tc.Run(t, &signedSuite{})
 }
 
 func (s *signedSuite) SetUpSuite(c *tc.C) {

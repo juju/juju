@@ -4,6 +4,8 @@
 package bootstrap
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
@@ -17,7 +19,9 @@ type bootstrapSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = tc.Suite(&bootstrapSuite{})
+func TestBootstrapSuite(t *stdtesting.T) {
+	tc.Run(t, &bootstrapSuite{})
+}
 
 func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 	cfg := controller.Config{

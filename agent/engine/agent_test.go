@@ -4,6 +4,8 @@
 package engine_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -22,7 +24,9 @@ type AgentManifoldSuite struct {
 	worker   worker.Worker
 }
 
-var _ = tc.Suite(&AgentManifoldSuite{})
+func TestAgentManifoldSuite(t *testing.T) {
+	tc.Run(t, &AgentManifoldSuite{})
+}
 
 func (s *AgentManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

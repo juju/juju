@@ -10,13 +10,16 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type TLSSuite struct{}
 
-var _ = tc.Suite(TLSSuite{})
+func TestTLSSuite(t *testing.T) {
+	tc.Run(t, &TLSSuite{})
+}
 
 func (TLSSuite) TestWinCipher(c *tc.C) {
 	if runtime.GOOS != "windows" {

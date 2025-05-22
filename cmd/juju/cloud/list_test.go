@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -28,7 +29,9 @@ type listSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&listSuite{})
+func TestListSuite(t *stdtesting.T) {
+	tc.Run(t, &listSuite{})
+}
 
 func (s *listSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"sync"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +14,9 @@ import (
 
 type resourceSuite struct{}
 
-var _ = tc.Suite(resourceSuite{})
+func TestResourceSuite(t *testing.T) {
+	tc.Run(t, &resourceSuite{})
+}
 
 type fakeResource struct {
 	stopped bool

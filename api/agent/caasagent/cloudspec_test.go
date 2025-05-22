@@ -4,6 +4,8 @@
 package caasagent_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 
@@ -14,7 +16,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&ClientSuite{})
+func TestClientSuite(t *testing.T) {
+	tc.Run(t, &ClientSuite{})
+}
 
 type ClientSuite struct {
 	testhelpers.IsolationSuite

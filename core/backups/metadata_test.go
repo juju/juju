@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 	"time" // Only used for time types and funcs, not Now().
 
 	"github.com/juju/tc"
@@ -21,7 +22,11 @@ type metadataSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&metadataSuite{}) // Register the suite.
+func TestMetadataSuite(t *stdtesting.T) {
+	tc.Run(t, &metadataSuite{})
+}
+
+// Register the suite.
 
 func (s *metadataSuite) TestAsJSONBuffer(c *tc.C) {
 	meta := s.createTestMetadata(c)

@@ -3,6 +3,8 @@
 package modelagent
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
@@ -13,7 +15,9 @@ type agentStreamSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&agentStreamSuite{})
+func TestAgentStreamSuite(t *testing.T) {
+	tc.Run(t, &agentStreamSuite{})
+}
 
 // TestAgentStreamDBValues tests that the values in the agent_stream table
 // against the established enums in this package to make sure there is no skew

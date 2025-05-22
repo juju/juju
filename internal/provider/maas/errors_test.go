@@ -5,6 +5,7 @@ package maas
 
 import (
 	"net/http"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
@@ -20,7 +21,9 @@ type ErrorSuite struct {
 	maasError error
 }
 
-var _ = tc.Suite(&ErrorSuite{})
+func TestErrorSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorSuite{})
+}
 
 func (s *ErrorSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

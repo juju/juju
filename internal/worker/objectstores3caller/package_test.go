@@ -5,11 +5,9 @@ package objectstores3caller
 
 import (
 	"context"
-	"testing"
 	time "time"
 
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	controller "github.com/juju/juju/controller"
@@ -27,12 +25,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination clock_mocks_test.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination httpclient_mock_test.go github.com/juju/juju/core/http HTTPClientGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServices
-
-func TestPackage(t *testing.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	states chan string

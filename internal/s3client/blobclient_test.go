@@ -6,6 +6,7 @@ package s3client
 import (
 	"bytes"
 	"io"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -17,7 +18,9 @@ type charmsS3ClientSuite struct {
 	session *MockSession
 }
 
-var _ = tc.Suite(&charmsS3ClientSuite{})
+func TestCharmsS3ClientSuite(t *testing.T) {
+	tc.Run(t, &charmsS3ClientSuite{})
+}
 
 func (s *charmsS3ClientSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

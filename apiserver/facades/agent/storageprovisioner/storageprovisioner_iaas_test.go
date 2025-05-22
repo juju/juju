@@ -5,6 +5,7 @@ package storageprovisioner_test
 
 import (
 	"sort"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -45,7 +46,9 @@ type iaasProvisionerSuite struct {
 	store objectstore.ObjectStore
 }
 
-var _ = tc.Suite(&iaasProvisionerSuite{})
+func TestIaasProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &iaasProvisionerSuite{})
+}
 
 func (s *iaasProvisionerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:

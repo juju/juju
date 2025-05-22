@@ -5,8 +5,10 @@ package domain
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/changestream"
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
@@ -16,6 +18,11 @@ import (
 
 type lifeWatcherSuite struct {
 	dbLifeValues map[string]life.Life
+}
+
+func TestLifeWatcherSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &lifeWatcherSuite{})
 }
 
 type changeEvent struct {
@@ -34,8 +41,6 @@ func (c changeEvent) Namespace() string {
 func (c changeEvent) Changed() string {
 	return c.changed
 }
-
-var _ = tc.Suite(&lifeWatcherSuite{})
 
 func (s *lifeWatcherSuite) lifeGetter(ctx context.Context, ids []string) (map[string]life.Life, error) {
 	result := make(map[string]life.Life)

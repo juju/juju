@@ -4,6 +4,8 @@
 package instance_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
@@ -11,7 +13,9 @@ import (
 
 type NamespaceSuite struct{}
 
-var _ = tc.Suite(&NamespaceSuite{})
+func TestNamespaceSuite(t *testing.T) {
+	tc.Run(t, &NamespaceSuite{})
+}
 
 const modelUUID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 

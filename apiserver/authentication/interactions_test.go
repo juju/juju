@@ -4,6 +4,7 @@
 package authentication_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -20,7 +21,9 @@ type InteractionsSuite struct {
 	interactions *authentication.Interactions
 }
 
-var _ = tc.Suite(&InteractionsSuite{})
+func TestInteractionsSuite(t *testing.T) {
+	tc.Run(t, &InteractionsSuite{})
+}
 
 func (s *InteractionsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

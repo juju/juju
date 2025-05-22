@@ -4,6 +4,8 @@
 package secretbackends_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -21,8 +23,9 @@ type modelSecretBackendCommandSuite struct {
 	secretsAPI *secretbackends.MockModelSecretBackendAPI
 }
 
-var _ = tc.Suite(&modelSecretBackendCommandSuite{})
-
+func TestModelSecretBackendCommandSuite(t *testing.T) {
+	tc.Run(t, &modelSecretBackendCommandSuite{})
+}
 func (s *modelSecretBackendCommandSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()

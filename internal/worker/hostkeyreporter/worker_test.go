@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -27,7 +28,9 @@ type Suite struct {
 	config hostkeyreporter.Config
 }
 
-var _ = tc.Suite(&Suite{})
+func TestSuite(t *testing.T) {
+	tc.Run(t, &Suite{})
+}
 
 func (s *Suite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

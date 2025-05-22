@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -41,7 +42,9 @@ type AddModelSuite struct {
 	store                *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&AddModelSuite{})
+func TestAddModelSuite(t *stdtesting.T) {
+	tc.Run(t, &AddModelSuite{})
+}
 
 func (s *AddModelSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)

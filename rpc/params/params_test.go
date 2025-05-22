@@ -13,13 +13,12 @@ import (
 )
 
 // TestPackage integrates the tests into gotest.
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type ErrorResultsSuite struct{}
 
-var _ = tc.Suite(&ErrorResultsSuite{})
+func TestErrorResultsSuite(t *stdtesting.T) {
+	tc.Run(t, &ErrorResultsSuite{})
+}
 
 func (s *ErrorResultsSuite) TestOneError(c *tc.C) {
 	for i, test := range []struct {
@@ -106,7 +105,9 @@ func (s *ErrorResultsSuite) TestCombine(c *tc.C) {
 
 type importSuite struct{}
 
-var _ = tc.Suite(&importSuite{})
+func TestImportSuite(t *stdtesting.T) {
+	tc.Run(t, &importSuite{})
+}
 
 func (*importSuite) TestParamsDoesNotDependOnState(c *tc.C) {
 	imports := testing.FindJujuCoreImports(c, "github.com/juju/juju/rpc/params")

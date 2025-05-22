@@ -8,10 +8,12 @@ import (
 	"net/url"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
@@ -29,7 +31,10 @@ type RemoteSuite struct {
 	apiConnection *MockConnection
 }
 
-var _ = tc.Suite(&RemoteSuite{})
+func TestRemoteSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &RemoteSuite{})
+}
 
 func (s *RemoteSuite) TestNotConnectedConnection(c *tc.C) {
 	defer s.setupMocks(c).Finish()

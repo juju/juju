@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,8 +22,9 @@ type containerImageMetadataSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&containerImageMetadataSuite{})
-
+func TestContainerImageMetadataSuite(t *testing.T) {
+	tc.Run(t, &containerImageMetadataSuite{})
+}
 func (s *containerImageMetadataSuite) TestContainerImageMetadataPut(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)

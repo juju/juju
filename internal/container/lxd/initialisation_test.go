@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"os/exec"
+	"testing"
 
 	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
@@ -41,7 +42,9 @@ type InitialiserSuite struct {
 	calledCmds []string
 }
 
-var _ = tc.Suite(&InitialiserSuite{})
+func TestInitialiserSuite(t *testing.T) {
+	tc.Run(t, &InitialiserSuite{})
+}
 
 const lxdSnapChannel = "latest/stable"
 
@@ -230,8 +233,9 @@ type ConfigureInitialiserSuite struct {
 	initialiserTestSuite
 }
 
-var _ = tc.Suite(&ConfigureInitialiserSuite{})
-
+func TestConfigureInitialiserSuite(t *testing.T) {
+	tc.Run(t, &ConfigureInitialiserSuite{})
+}
 func (s *ConfigureInitialiserSuite) SetUpTest(c *tc.C) {
 	s.initialiserTestSuite.SetUpTest(c)
 	// Fake the lxc executable for all the tests.

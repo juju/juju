@@ -4,15 +4,21 @@
 package eventsource
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/watcher/watchertest"
 )
 
 type multiWatcherSuite struct{}
 
-var _ = tc.Suite(&multiWatcherSuite{})
+func TestMultiWatcherSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &multiWatcherSuite{})
+}
 
 func (*multiWatcherSuite) TestNotifyMultiWatcher(c *tc.C) {
 	ch0 := make(chan struct{}, 1)

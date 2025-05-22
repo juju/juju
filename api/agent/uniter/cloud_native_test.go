@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -17,7 +19,9 @@ type cloudNativeUniterSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&cloudNativeUniterSuite{})
+func TestCloudNativeUniterSuite(t *stdtesting.T) {
+	tc.Run(t, &cloudNativeUniterSuite{})
+}
 
 func (s *cloudNativeUniterSuite) TestCloudSpec(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

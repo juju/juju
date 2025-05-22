@@ -14,7 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
-	"testing"
+	testing "testing"
 
 	"github.com/juju/errors"
 

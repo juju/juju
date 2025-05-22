@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/database"
@@ -32,7 +34,10 @@ type providerWorkerSuite struct {
 	ephemeralCalled int64
 }
 
-var _ = tc.Suite(&providerWorkerSuite{})
+func TestProviderWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &providerWorkerSuite{})
+}
 
 func (s *providerWorkerSuite) TestKilledSingularWorkerProviderErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()

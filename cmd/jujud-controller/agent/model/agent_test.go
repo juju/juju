@@ -4,6 +4,8 @@
 package model_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -19,7 +21,9 @@ type WrapAgentSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&WrapAgentSuite{})
+func TestWrapAgentSuite(t *testing.T) {
+	tc.Run(t, &WrapAgentSuite{})
+}
 
 func (s *WrapAgentSuite) TestRequiresControllerUUID(c *tc.C) {
 	agent, err := model.WrapAgent(&mockAgent{}, "lol-nope-no-hope", coretesting.ModelTag.Id())

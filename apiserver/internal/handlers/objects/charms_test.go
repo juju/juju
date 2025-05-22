@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -39,8 +40,9 @@ type objectsCharmHandlerSuite struct {
 	srv *httptest.Server
 }
 
-var _ = tc.Suite(&objectsCharmHandlerSuite{})
-
+func TestObjectsCharmHandlerSuite(t *stdtesting.T) {
+	tc.Run(t, &objectsCharmHandlerSuite{})
+}
 func (s *objectsCharmHandlerSuite) SetUpTest(c *tc.C) {
 	s.mux = apiserverhttp.NewMux()
 	s.srv = httptest.NewServer(s.mux)

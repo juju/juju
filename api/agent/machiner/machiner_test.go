@@ -4,7 +4,7 @@
 package machiner_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -18,15 +18,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 type machinerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&machinerSuite{})
+func TestMachinerSuite(t *testing.T) {
+	tc.Run(t, &machinerSuite{})
+}
 
 func (s *machinerSuite) TestMachineAndMachineTag(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

@@ -5,6 +5,7 @@ package commands
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +16,9 @@ type HelpActionCommandsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&HelpActionCommandsSuite{})
+func TestHelpActionCommandsSuite(t *stdtesting.T) {
+	tc.Run(t, &HelpActionCommandsSuite{})
+}
 
 func (suite *HelpActionCommandsSuite) SetUpTest(c *tc.C) {
 	suite.FakeJujuXDGDataHomeSuite.SetUpTest(c)

@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	utilexec "github.com/juju/utils/v4/exec"
@@ -17,7 +19,9 @@ type RunCommandsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&RunCommandsSuite{})
+func TestRunCommandsSuite(t *testing.T) {
+	tc.Run(t, &RunCommandsSuite{})
+}
 
 func (s *RunCommandsSuite) TestPrepareError(c *tc.C) {
 	runnerFactory := &MockRunnerFactory{

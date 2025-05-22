@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -34,7 +35,9 @@ type charmServiceSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&charmServiceSuite{})
+func TestCharmServiceSuite(t *testing.T) {
+	tc.Run(t, &charmServiceSuite{})
+}
 
 func (s *charmServiceSuite) TestGetCharmIDWithoutRevision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -1897,7 +1900,9 @@ type watchableServiceSuite struct {
 	service *WatchableService
 }
 
-var _ = tc.Suite(&watchableServiceSuite{})
+func TestWatchableServiceSuite(t *testing.T) {
+	tc.Run(t, &watchableServiceSuite{})
+}
 
 func (s *watchableServiceSuite) TestWatchCharms(c *tc.C) {
 	defer s.setupMocks(c).Finish()

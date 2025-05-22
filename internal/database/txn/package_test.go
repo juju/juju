@@ -3,14 +3,4 @@
 
 package txn
 
-import (
-	"testing"
-
-	"github.com/juju/tc"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package txn_test -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-
-func Test(t *testing.T) {
-	tc.TestingT(t)
-}

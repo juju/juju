@@ -4,6 +4,8 @@
 package internal_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -21,7 +23,9 @@ type suite struct {
 	watcherRegistry *MockWatcherRegistry
 }
 
-var _ = tc.Suite(&suite{})
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{})
+}
 
 func (s *suite) TestFirstResultReturnsChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()

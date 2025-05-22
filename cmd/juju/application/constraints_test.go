@@ -4,6 +4,8 @@
 package application_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/application"
@@ -16,8 +18,9 @@ type ApplicationConstraintsCommandsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&ApplicationConstraintsCommandsSuite{})
-
+func TestApplicationConstraintsCommandsSuite(t *stdtesting.T) {
+	tc.Run(t, &ApplicationConstraintsCommandsSuite{})
+}
 func (s *ApplicationConstraintsCommandsSuite) TestSetInit(c *tc.C) {
 	for _, test := range []struct {
 		args []string

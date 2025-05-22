@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -32,7 +33,9 @@ type migrationStateSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&migrationStateSuite{})
+func TestMigrationStateSuite(t *testing.T) {
+	tc.Run(t, &migrationStateSuite{})
+}
 
 func (s *migrationStateSuite) TestGetApplicationsForExport(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))

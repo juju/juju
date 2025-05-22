@@ -6,11 +6,13 @@ package asynccharmdownloader
 import (
 	"context"
 	"net/url"
+	stdtesting "testing"
 	time "time"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/application"
@@ -29,7 +31,10 @@ type asyncWorkerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&asyncWorkerSuite{})
+func TestAsyncWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &asyncWorkerSuite{})
+}
 
 func (s *asyncWorkerSuite) TestDownloadWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()

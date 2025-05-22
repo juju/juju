@@ -3,13 +3,4 @@
 
 package subnets_test
 
-import (
-	"testing"
-
-	"github.com/juju/tc"
-)
-
 // TestAll is the main test function for this package
-func TestAll(t *testing.T) {
-	tc.TestingT(t)
-}

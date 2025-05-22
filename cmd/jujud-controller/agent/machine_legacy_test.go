@@ -80,7 +80,6 @@ type MachineLegacySuite struct {
 }
 
 // FIXME: Delete all these tests and reimplement according to skip comments.
-//var _ = tc.Suite(&MachineLegacySuite{})
 
 func (s *MachineLegacySuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:

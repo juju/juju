@@ -6,6 +6,7 @@ package commands
 import (
 	"bytes"
 	"fmt"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +22,9 @@ type VersionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&VersionSuite{})
+func TestVersionSuite(t *testing.T) {
+	tc.Run(t, &VersionSuite{})
+}
 
 func (s *VersionSuite) TestVersion(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, semversion.MustParse("2.99.0"))

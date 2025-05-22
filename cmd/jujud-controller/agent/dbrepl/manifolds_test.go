@@ -5,6 +5,7 @@ package dbrepl_test
 
 import (
 	"sort"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
@@ -22,7 +23,9 @@ type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&ManifoldsSuite{})
+func TestManifoldsSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldsSuite{})
+}
 
 func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

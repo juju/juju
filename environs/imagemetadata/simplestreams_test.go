@@ -5,17 +5,13 @@ package imagemetadata_test
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs/imagemetadata"
@@ -24,72 +20,7 @@ import (
 	"github.com/juju/juju/juju/keys"
 )
 
-var live = flag.Bool("live", false, "Include live simplestreams tests")
-var vendor = flag.String("vendor", "", "The vendor representing the source of the simplestream data")
-
-type liveTestData struct {
-	baseURL        string
-	requireSigned  bool
-	validCloudSpec simplestreams.CloudSpec
-}
-
-func getLiveURLs() (map[string]liveTestData, error) {
-	resolver := ec2.NewDefaultEndpointResolver()
-	ep, err := resolver.ResolveEndpoint("us-east-1", ec2.EndpointResolverOptions{})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return map[string]liveTestData{
-		"ec2": {
-			baseURL:       imagemetadata.DefaultUbuntuBaseURL,
-			requireSigned: true,
-			validCloudSpec: simplestreams.CloudSpec{
-				Region:   "us-east-1",
-				Endpoint: ep.URL,
-			},
-		},
-		"canonistack": {
-			baseURL:       "https://swift.canonistack.canonical.com/v1/AUTH_a48765cc0e864be980ee21ae26aaaed4/simplestreams/data",
-			requireSigned: false,
-			validCloudSpec: simplestreams.CloudSpec{
-				Region:   "lcy01",
-				Endpoint: "https://keystone.canonistack.canonical.com:443/v1.0/",
-			},
-		},
-	}, nil
-}
-
-func Test(t *stdtesting.T) {
-	if *live {
-		if *vendor == "" {
-			t.Fatal("missing vendor")
-		}
-		var ok bool
-		var testData liveTestData
-		liveURLs, err := getLiveURLs()
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		if testData, ok = liveURLs[*vendor]; !ok {
-			keys := reflect.ValueOf(liveURLs).MapKeys()
-			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
-		}
-		cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-			CloudSpec: testData.validCloudSpec,
-			Releases:  []string{"12.10"},
-			Arches:    []string{"amd64"},
-		})
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		registerLiveSimpleStreamsTests(testData.baseURL, cons, testData.requireSigned)
-	}
-	registerSimpleStreamsTests(t)
-	tc.TestingT(t)
-}
-
-func registerSimpleStreamsTests(t *stdtesting.T) {
+func TestSimplestreamsSuite(t *testing.T) {
 	cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{
 			Region:   "us-east-1",
@@ -101,7 +32,7 @@ func registerSimpleStreamsTests(t *stdtesting.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	tc.Suite(&simplestreamsSuite{
+	tc.Run(t, &simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
 			Source:          sstesting.VerifyDefaultCloudDataSource("test roundtripper", "test:"),
 			RequireSigned:   false,
@@ -109,23 +40,6 @@ func registerSimpleStreamsTests(t *stdtesting.T) {
 			StreamsVersion:  imagemetadata.CurrentStreamsVersion,
 			ValidConstraint: cons,
 		},
-	})
-	tc.Suite(&signedSuite{})
-}
-
-func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint simplestreams.LookupConstraint, requireSigned bool) {
-	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	tc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source: ss.NewDataSource(simplestreams.Config{
-			Description:          "test",
-			BaseURL:              baseURL,
-			HostnameVerification: true,
-			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
-			RequireSigned:        requireSigned,
-		}),
-		RequireSigned:   requireSigned,
-		DataType:        imagemetadata.ImageIds,
-		ValidConstraint: validImageConstraint,
 	})
 }
 
@@ -346,7 +260,9 @@ func (s *simplestreamsSuite) TestFetch(c *tc.C) {
 
 type productSpecSuite struct{}
 
-var _ = tc.Suite(&productSpecSuite{})
+func TestProductSpecSuite(t *testing.T) {
+	tc.Run(t, &productSpecSuite{})
+}
 
 func (s *productSpecSuite) TestIdWithDefaultStream(c *tc.C) {
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
@@ -391,6 +307,10 @@ func (s *productSpecSuite) TestIdMultiArch(c *tc.C) {
 type signedSuite struct {
 	origKey string
 	server  *httptest.Server
+}
+
+func TestSignedSuite(t *testing.T) {
+	tc.Run(t, &signedSuite{})
 }
 
 func (s *signedSuite) SetUpSuite(_ *tc.C) {

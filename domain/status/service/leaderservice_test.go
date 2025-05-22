@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -32,7 +33,9 @@ type leaderServiceSuite struct {
 	service *LeadershipService
 }
 
-var _ = tc.Suite(&leaderServiceSuite{})
+func TestLeaderServiceSuite(t *testing.T) {
+	tc.Run(t, &leaderServiceSuite{})
+}
 
 func (s *leaderServiceSuite) TestSetRelationStatus(c *tc.C) {
 	// Arrange

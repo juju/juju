@@ -4,6 +4,8 @@
 package externalcontrollerupdater_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -16,7 +18,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&CrossControllerSuite{})
+func TestCrossControllerSuite(t *testing.T) {
+	tc.Run(t, &CrossControllerSuite{})
+}
 
 type CrossControllerSuite struct {
 	coretesting.BaseSuite

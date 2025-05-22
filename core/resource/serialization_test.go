@@ -5,6 +5,7 @@ package resource_test
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,9 @@ type SerializationSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&SerializationSuite{})
+func TestSerializationSuite(t *testing.T) {
+	tc.Run(t, &SerializationSuite{})
+}
 
 func (s *SerializationSuite) TestDeserializeFingerprintOkay(c *tc.C) {
 	content := "some data\n..."

@@ -4,6 +4,8 @@
 package azureauth_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type DiscoverySuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&DiscoverySuite{})
+func TestDiscoverySuite(t *testing.T) {
+	tc.Run(t, &DiscoverySuite{})
+}
 
 //func (*DiscoverySuite) TestDiscoverAuthorizationURI(c *tc.C) {
 //	sender := mocks.NewSender()

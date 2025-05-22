@@ -6,6 +6,7 @@ package network_test
 import (
 	"fmt"
 	"sort"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,9 @@ type HostPortSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&HostPortSuite{})
+func TestHostPortSuite(t *testing.T) {
+	tc.Run(t, &HostPortSuite{})
+}
 
 func (s *HostPortSuite) TestFilterUnusableHostPorts(c *tc.C) {
 	// The order is preserved, but machine- and link-local addresses

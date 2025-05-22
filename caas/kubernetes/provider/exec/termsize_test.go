@@ -7,6 +7,7 @@ package exec_test
 
 import (
 	"os"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -27,7 +28,9 @@ type termSizeSuite struct {
 	nCh       chan os.Signal
 }
 
-var _ = tc.Suite(&termSizeSuite{})
+func TestTermSizeSuite(t *stdtesting.T) {
+	tc.Run(t, &termSizeSuite{})
+}
 
 func (s *termSizeSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)

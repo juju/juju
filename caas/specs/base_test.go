@@ -4,6 +4,8 @@
 package specs_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/caas/specs"
@@ -14,7 +16,9 @@ type baseSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&baseSuite{})
+func TestBaseSuite(t *stdtesting.T) {
+	tc.Run(t, &baseSuite{})
+}
 
 type validator interface {
 	Validate() error

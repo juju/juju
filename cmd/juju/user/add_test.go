@@ -6,6 +6,7 @@ package user_test
 import (
 	"context"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -27,7 +28,9 @@ type UserAddCommandSuite struct {
 	mockAPI *mockAddUserAPI
 }
 
-var _ = tc.Suite(&UserAddCommandSuite{})
+func TestUserAddCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &UserAddCommandSuite{})
+}
 
 func (s *UserAddCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

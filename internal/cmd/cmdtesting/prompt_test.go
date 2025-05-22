@@ -8,6 +8,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +21,9 @@ type prompterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&prompterSuite{})
+func TestPrompterSuite(t *testing.T) {
+	tc.Run(t, &prompterSuite{})
+}
 
 func (*prompterSuite) TestPrompter(c *tc.C) {
 	noPrompt := func(p string) (string, error) {

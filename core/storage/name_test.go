@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/storage"
@@ -11,7 +13,9 @@ import (
 
 type storageNameSuite struct{}
 
-var _ = tc.Suite(&storageNameSuite{})
+func TestStorageNameSuite(t *testing.T) {
+	tc.Run(t, &storageNameSuite{})
+}
 
 func (s *storageNameSuite) TestStorageNameValidity(c *tc.C) {
 	assertStorageNameValid(c, "shared-fs")
@@ -32,7 +36,9 @@ func assertStorageNameInvalid(c *tc.C, name string) {
 
 type storageIDSuite struct{}
 
-var _ = tc.Suite(&storageIDSuite{})
+func TestStorageIDSuite(t *testing.T) {
+	tc.Run(t, &storageIDSuite{})
+}
 
 func (s *storageIDSuite) TestStorageIDValidity(c *tc.C) {
 	assertStorageIDValid(c, "shared-fs/0")

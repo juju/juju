@@ -9,13 +9,11 @@ import (
 	"github.com/juju/tc"
 )
 
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
-
 type HostnameSuite struct{}
 
-var _ = tc.Suite(&HostnameSuite{})
+func TestHostnameSuite(t *testing.T) {
+	tc.Run(t, &HostnameSuite{})
+}
 
 func (s *HostnameSuite) TestParseHostname(c *tc.C) {
 	testCases := []struct {

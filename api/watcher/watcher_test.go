@@ -5,6 +5,7 @@ package watcher_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -38,7 +39,9 @@ type watcherSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *testing.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
 func (s *watcherSuite) TestWatcherStopsOnBlockedNext(c *tc.C) {
 	ctrl := gomock.NewController(c)
@@ -655,7 +658,9 @@ type migrationSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&migrationSuite{})
+func TestMigrationSuite(t *testing.T) {
+	tc.Run(t, &migrationSuite{})
+}
 
 func (s *migrationSuite) TestMigrationStatusWatcher(c *tc.C) {
 	ctrl := gomock.NewController(c)

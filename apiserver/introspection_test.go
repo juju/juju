@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -24,7 +25,9 @@ type introspectionSuite struct {
 	url string
 }
 
-var _ = tc.Suite(&introspectionSuite{})
+func TestIntrospectionSuite(t *stdtesting.T) {
+	tc.Run(t, &introspectionSuite{})
+}
 
 func (s *introspectionSuite) SetUpTest(c *tc.C) {
 	s.WithIntrospection = func(f func(path string, h http.Handler)) {

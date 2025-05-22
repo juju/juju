@@ -4,12 +4,14 @@
 package charmrevisioner
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -21,7 +23,10 @@ type ManifoldConfigSuite struct {
 	config ManifoldConfig
 }
 
-var _ = tc.Suite(&ManifoldConfigSuite{})
+func TestManifoldConfigSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &ManifoldConfigSuite{})
+}
 
 func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

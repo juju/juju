@@ -4,6 +4,7 @@
 package secrets_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -13,7 +14,9 @@ import (
 
 type SecretBackendSuite struct{}
 
-var _ = tc.Suite(&SecretBackendSuite{})
+func TestSecretBackendSuite(t *testing.T) {
+	tc.Run(t, &SecretBackendSuite{})
+}
 
 func (s *SecretBackendSuite) TestNextBackendRotateTimeTooShort(c *tc.C) {
 	_, err := secrets.NextBackendRotateTime(time.Now(), time.Minute)

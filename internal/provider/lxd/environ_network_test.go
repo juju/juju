@@ -4,6 +4,8 @@
 package lxd_test
 
 import (
+	"testing"
+
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +22,9 @@ type environNetSuite struct {
 	lxd.EnvironSuite
 }
 
-var _ = tc.Suite(&environNetSuite{})
+func TestEnvironNetSuite(t *testing.T) {
+	tc.Run(t, &environNetSuite{})
+}
 
 func (s *environNetSuite) TestSubnetsForClustered(c *tc.C) {
 	ctrl := gomock.NewController(c)

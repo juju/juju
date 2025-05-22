@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"runtime"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -19,7 +20,9 @@ type fakeHomeSuite struct {
 	fakeHomeSuite testing.FakeHomeSuite
 }
 
-var _ = tc.Suite(&fakeHomeSuite{})
+func TestFakeHomeSuite(t *stdtesting.T) {
+	tc.Run(t, &fakeHomeSuite{})
+}
 
 func (s *fakeHomeSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
@@ -71,7 +74,9 @@ type makeFakeHomeSuite struct {
 	home *testing.FakeHome
 }
 
-var _ = tc.Suite(&makeFakeHomeSuite{})
+func TestMakeFakeHomeSuite(t *stdtesting.T) {
+	tc.Run(t, &makeFakeHomeSuite{})
+}
 
 func (s *makeFakeHomeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

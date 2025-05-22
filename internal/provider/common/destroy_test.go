@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -26,7 +27,9 @@ type DestroySuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&DestroySuite{})
+func TestDestroySuite(t *stdtesting.T) {
+	tc.Run(t, &DestroySuite{})
+}
 
 func (s *DestroySuite) TestCannotGetInstances(c *tc.C) {
 	env := &mockEnviron{

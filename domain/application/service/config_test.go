@@ -4,6 +4,8 @@
 package service
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/application/charm"
@@ -15,7 +17,9 @@ type configSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&configSuite{})
+func TestConfigSuite(t *testing.T) {
+	tc.Run(t, &configSuite{})
+}
 
 var configTestCases = [...]struct {
 	name   string

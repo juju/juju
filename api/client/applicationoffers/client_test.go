@@ -5,6 +5,7 @@ package applicationoffers_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -26,7 +27,9 @@ import (
 type crossmodelMockSuite struct {
 }
 
-var _ = tc.Suite(&crossmodelMockSuite{})
+func TestCrossmodelMockSuite(t *stdtesting.T) {
+	tc.Run(t, &crossmodelMockSuite{})
+}
 
 func (s *crossmodelMockSuite) TestOffer(c *tc.C) {
 	ctrl := gomock.NewController(c)

@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"regexp"
+	"testing"
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
@@ -22,7 +23,9 @@ type importSuite struct {
 	service     *MockImportService
 }
 
-var _ = tc.Suite(&importSuite{})
+func TestImportSuite(t *testing.T) {
+	tc.Run(t, &importSuite{})
+}
 
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

@@ -4,6 +4,8 @@
 package lxd_test
 
 import (
+	"testing"
+
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -29,7 +31,9 @@ type environSuite struct {
 	lxd.BaseSuite
 }
 
-var _ = tc.Suite(&environSuite{})
+func TestEnvironSuite(t *testing.T) {
+	tc.Run(t, &environSuite{})
+}
 
 func (s *environSuite) TestName(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
@@ -396,8 +400,9 @@ type environCloudProfileSuite struct {
 	cloudSpecEnv environs.CloudSpecSetter
 }
 
-var _ = tc.Suite(&environCloudProfileSuite{})
-
+func TestEnvironCloudProfileSuite(t *testing.T) {
+	tc.Run(t, &environCloudProfileSuite{})
+}
 func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *tc.C) {
 	defer s.setup(c, nil).Finish()
 	s.expectHasProfileFalse("juju-controller")
@@ -474,7 +479,9 @@ type environProfileSuite struct {
 	lxdEnv environs.LXDProfiler
 }
 
-var _ = tc.Suite(&environProfileSuite{})
+func TestEnvironProfileSuite(t *testing.T) {
+	tc.Run(t, &environProfileSuite{})
+}
 
 func (s *environProfileSuite) TestMaybeWriteLXDProfileYes(c *tc.C) {
 	defer s.setup(c, environscloudspec.CloudSpec{}).Finish()

@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +20,9 @@ type PEMSuite struct {
 	signer crypto.Signer
 }
 
-var _ = tc.Suite(&PEMSuite{})
+func TestPEMSuite(t *testing.T) {
+	tc.Run(t, &PEMSuite{})
+}
 
 func (p *PEMSuite) SetUpTest(c *tc.C) {
 	signer, err := pki.DefaultKeyProfile()

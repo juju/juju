@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -37,7 +38,9 @@ type BundleDeploySuite struct {
 	fakeAPI *fakeDeployAPI
 }
 
-var _ = tc.Suite(&BundleDeploySuite{})
+func TestBundleDeploySuite(t *testing.T) {
+	tc.Run(t, &BundleDeploySuite{})
+}
 
 func (s *BundleDeploySuite) SetUpTest(c *tc.C) {
 	cfg := map[string]interface{}{

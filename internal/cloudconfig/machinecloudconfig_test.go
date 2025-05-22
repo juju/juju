@@ -4,6 +4,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -23,7 +24,9 @@ type fromHostSuite struct {
 	tempCurtinCfgFile string
 }
 
-var _ = tc.Suite(&fromHostSuite{})
+func TestFromHostSuite(t *stdtesting.T) {
+	tc.Run(t, &fromHostSuite{})
+}
 
 func (s *fromHostSuite) SetUpTest(c *tc.C) {
 	s.PatchValue(&coreos.HostBase, func() (corebase.Base, error) { return corebase.ParseBaseFromString("ubuntu@22.04") })

@@ -4,6 +4,7 @@
 package proxyupdater_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -36,7 +37,9 @@ type ProxyUpdaterSuite struct {
 	controllerConfigService *MockControllerConfigService
 }
 
-var _ = tc.Suite(&ProxyUpdaterSuite{})
+func TestProxyUpdaterSuite(t *testing.T) {
+	tc.Run(t, &ProxyUpdaterSuite{})
+}
 
 func (s *ProxyUpdaterSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)

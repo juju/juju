@@ -6,6 +6,7 @@ package apiserver_test
 import (
 	"context"
 	"net/http"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -73,7 +74,9 @@ type ManifoldSuite struct {
 	stub testhelpers.Stub
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)

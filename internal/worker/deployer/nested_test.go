@@ -6,6 +6,7 @@ package deployer_test
 import (
 	"os"
 	"path"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -37,7 +38,9 @@ type NestedContextSuite struct {
 	workers *unitWorkersStub
 }
 
-var _ = tc.Suite(&NestedContextSuite{})
+func TestNestedContextSuite(t *stdtesting.T) {
+	tc.Run(t, &NestedContextSuite{})
+}
 
 func (s *NestedContextSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)

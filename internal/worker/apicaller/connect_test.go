@@ -6,6 +6,7 @@ package apicaller_test
 import (
 	"context"
 	"errors"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -29,7 +30,9 @@ type ScaryConnectSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ScaryConnectSuite{})
+func TestScaryConnectSuite(t *testing.T) {
+	tc.Run(t, &ScaryConnectSuite{})
+}
 
 func (*ScaryConnectSuite) TestEntityAlive(c *tc.C) {
 	testEntityFine(c, apiagent.Alive)

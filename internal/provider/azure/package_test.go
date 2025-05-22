@@ -5,16 +5,9 @@ package azure
 
 import (
 	"context"
-	"testing"
-
-	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
 )
-
-func TestPackage(t *testing.T) {
-	tc.TestingT(t)
-}
 
 var (
 	GetArchFromResourceSKU = getArchFromResourceSKU

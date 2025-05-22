@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -21,7 +22,9 @@ type httpSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&httpSuite{})
+func TestHttpSuite(t *testing.T) {
+	tc.Run(t, &httpSuite{})
+}
 
 type uriMatcher struct {
 	expectedURL string

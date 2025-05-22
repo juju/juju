@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/storage"
@@ -14,7 +16,9 @@ type mountSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&mountSuite{})
+func TestMountSuite(t *testing.T) {
+	tc.Run(t, &mountSuite{})
+}
 
 func (s *mountSuite) TestMountPointSingleton(c *tc.C) {
 	path, err := storage.FilesystemMountPoint("here", 1, "data/0")

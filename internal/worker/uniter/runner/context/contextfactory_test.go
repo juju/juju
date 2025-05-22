@@ -4,6 +4,7 @@
 package context_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -35,7 +36,9 @@ type ContextFactorySuite struct {
 	modelType  types.ModelType
 }
 
-var _ = tc.Suite(&ContextFactorySuite{})
+func TestContextFactorySuite(t *testing.T) {
+	tc.Run(t, &ContextFactorySuite{})
+}
 
 func (s *ContextFactorySuite) SetUpTest(c *tc.C) {
 	s.BaseHookContextSuite.SetUpTest(c)

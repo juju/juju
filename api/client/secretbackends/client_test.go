@@ -4,6 +4,7 @@
 package secretbackends_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -15,7 +16,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&SecretBackendsSuite{})
+func TestSecretBackendsSuite(t *stdtesting.T) {
+	tc.Run(t, &SecretBackendsSuite{})
+}
 
 type SecretBackendsSuite struct {
 	coretesting.BaseSuite

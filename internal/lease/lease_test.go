@@ -4,6 +4,8 @@
 package lease
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -19,7 +21,9 @@ type secretaryFinderSuite struct {
 	secretary *MockSecretary
 }
 
-var _ = tc.Suite(&secretaryFinderSuite{})
+func TestSecretaryFinderSuite(t *testing.T) {
+	tc.Run(t, &secretaryFinderSuite{})
+}
 
 func (s *secretaryFinderSuite) TestRegisterNil(c *tc.C) {
 	finder := s.newSecretaryFinder(map[string]lease.Secretary{

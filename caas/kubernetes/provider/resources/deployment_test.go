@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	appsv1 "k8s.io/api/apps/v1"
@@ -17,7 +19,9 @@ type deploymentSuite struct {
 	resourceSuite
 }
 
-var _ = tc.Suite(&deploymentSuite{})
+func TestDeploymentSuite(t *testing.T) {
+	tc.Run(t, &deploymentSuite{})
+}
 
 func (s *deploymentSuite) TestApply(c *tc.C) {
 	ds := &appsv1.Deployment{

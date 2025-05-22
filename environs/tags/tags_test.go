@@ -4,6 +4,8 @@
 package tags_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -15,7 +17,9 @@ type tagsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&tagsSuite{})
+func TestTagsSuite(t *stdtesting.T) {
+	tc.Run(t, &tagsSuite{})
+}
 
 func (*tagsSuite) TestResourceTagsUUID(c *tc.C) {
 	testResourceTags(c, testing.ControllerTag, names.NewModelTag(""), nil, map[string]string{

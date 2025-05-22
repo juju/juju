@@ -4,7 +4,7 @@
 package agent_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -18,15 +18,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 type clientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&clientSuite{})
+func TestClientSuite(t *testing.T) {
+	tc.Run(t, &clientSuite{})
+}
 
 func (s *clientSuite) TestStateServingInfo(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
