@@ -185,7 +185,7 @@ func (s *IntrospectCommandSuite) TestListen(c *tc.C) {
 
 	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
-	cmd := exec.CommandContext(ctx, os.Args[0], "-run-listen="+config.DataDir)
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run", "TestRunListen", "-run-listen="+config.DataDir)
 	stderr, err := cmd.StderrPipe()
 	c.Assert(err, tc.ErrorIsNil)
 	defer stderr.Close()
