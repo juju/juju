@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/watcher"
@@ -30,7 +31,11 @@ type manifoldSuite struct {
 	controllerConfigService *MockControllerConfigService
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &manifoldSuite{})
+}
+
 func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, featureflag.SSHJump)
 	c.Assert(err, tc.ErrorIsNil)

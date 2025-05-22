@@ -13,9 +13,6 @@ import (
 )
 
 // TestPackage integrates the tests into gotest.
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type ErrorResultsSuite struct{}
 

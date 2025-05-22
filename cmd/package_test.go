@@ -17,10 +17,6 @@ import (
 	"github.com/juju/tc"
 )
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 var disallowedCalls = map[string]set.Strings{
 	"os": set.NewStrings(
 		"Chdir",

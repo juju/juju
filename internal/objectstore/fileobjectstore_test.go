@@ -17,6 +17,7 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/objectstore"
@@ -32,7 +33,11 @@ type fileObjectStoreSuite struct {
 	remote *MockRemoteRetriever
 }
 
-func TestFileObjectStoreSuite(t *stdtesting.T) { tc.Run(t, &fileObjectStoreSuite{}) }
+func TestFileObjectStoreSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &fileObjectStoreSuite{})
+}
+
 func (s *fileObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

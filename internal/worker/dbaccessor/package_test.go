@@ -5,13 +5,11 @@ package dbaccessor
 
 import (
 	"context"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
-	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
@@ -25,12 +23,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/controlleragentconfig ConfigWatcher
-
-func TestPackage(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	logger logger.Logger

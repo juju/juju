@@ -15,6 +15,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/sessionloginfactory_mock.go github.com/juju/juju/cmd/modelcmd SessionLoginFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/loginprovider_mock.go github.com/juju/juju/api LoginProvider
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}

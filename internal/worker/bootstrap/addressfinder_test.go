@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
@@ -21,7 +22,11 @@ type addressFinderSuite struct {
 	instanceLister *MockInstanceLister
 }
 
-func TestAddressFinderSuite(t *stdtesting.T) { tc.Run(t, &addressFinderSuite{}) }
+func TestAddressFinderSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &addressFinderSuite{})
+}
+
 func (s *addressFinderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.instanceLister = NewMockInstanceLister(ctrl)

@@ -18,9 +18,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type clientSuite struct {
 	testhelpers.IsolationSuite

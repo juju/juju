@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	internalhttp "github.com/juju/juju/internal/http"
@@ -20,7 +21,11 @@ type trackedWorkerSuite struct {
 	states chan string
 }
 
-func TestTrackedWorkerSuite(t *stdtesting.T) { tc.Run(t, &trackedWorkerSuite{}) }
+func TestTrackedWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &trackedWorkerSuite{})
+}
+
 func (s *trackedWorkerSuite) TestKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

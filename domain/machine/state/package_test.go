@@ -9,9 +9,6 @@ import (
 	"github.com/juju/tc"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 func ptr[T any](v T) *T {
 	return &v

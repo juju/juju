@@ -11,9 +11,6 @@ import (
 	"github.com/juju/juju/core/instance"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type InstanceSuite struct{}
 

@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database"
@@ -20,7 +21,11 @@ type deleteDBSuite struct {
 	databasetesting.DqliteSuite
 }
 
-func TestDeleteDBSuite(t *stdtesting.T) { tc.Run(t, &deleteDBSuite{}) }
+func TestDeleteDBSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &deleteDBSuite{})
+}
+
 func (s *deleteDBSuite) TestDeleteDBContentsOnEmptyDB(c *tc.C) {
 	runner := s.TxnRunner()
 

@@ -13,6 +13,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/agents_mock.go github.com/juju/juju/apiserver/common ToolsFinder
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/common_mock.go github.com/juju/juju/apiserver/common BlockCheckerInterface
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}

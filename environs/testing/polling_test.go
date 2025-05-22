@@ -16,9 +16,6 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type testingSuite struct{}
 

@@ -12,6 +12,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/broker_mock.go github.com/juju/juju/caas Broker
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/application_mock.go github.com/juju/juju/caas Application
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}

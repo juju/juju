@@ -13,6 +13,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package caasagent_test -destination common_mock_test.go github.com/juju/juju/apiserver/common ControllerConfigService,ExternalControllerService,ControllerConfigState
 //go:generate go run go.uber.org/mock/mockgen -typed -package caasagent_test -destination commonmodel_mock_test.go github.com/juju/juju/apiserver/common/model ModelConfigService
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}

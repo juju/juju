@@ -25,9 +25,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/spacesapi_mock.go github.com/juju/juju/cmd/juju/space SpaceAPI,SubnetAPI,API
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 // BaseSpaceSuite is used for embedding in other suites.
 type BaseSpaceSuite struct {

@@ -10,9 +10,6 @@ import (
 	"gopkg.in/tomb.v2"
 )
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type mockNotifyWatcher struct {
 	tomb    tomb.Tomb

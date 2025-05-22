@@ -10,6 +10,7 @@ import (
 	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/juju/tc"
 	"github.com/mattn/go-sqlite3"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/errors"
 )
@@ -24,7 +25,10 @@ func (a asError) Error() string {
 
 type errorsSuite struct{}
 
-func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &errorsSuite{}) }
+func TestErrorsSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &errorsSuite{})
+}
 
 // TestCoerceForNilError checks that if you pass a nil error to CoerceError you
 // get back a nil error.

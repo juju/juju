@@ -9,9 +9,6 @@ import (
 	"github.com/juju/tc"
 )
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type (
 	Operation = operation

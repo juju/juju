@@ -13,6 +13,7 @@ import (
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 	gossh "golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/test/bufconn"
@@ -27,7 +28,10 @@ type machineSessionSuite struct {
 	mockConnector *MockSSHConnector
 }
 
-func TestMachineSessionSuite(t *stdtesting.T) { tc.Run(t, &machineSessionSuite{}) }
+func TestMachineSessionSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &machineSessionSuite{})
+}
 
 type testServer struct {
 	server   *ssh.Server

@@ -11,8 +11,5 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Authorizer
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 var NewSecretsDrainAPI = newSecretsDrainAPI

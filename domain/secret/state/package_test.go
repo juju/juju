@@ -16,9 +16,6 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 func getApplicationUUID(ctx context.Context, st *State, appName string) (coreapplication.ID, error) {
 	var uuid coreapplication.ID

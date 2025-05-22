@@ -26,9 +26,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradestepsmachine -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradestepsmachine -destination status_mock_test.go github.com/juju/juju/internal/worker/upgradestepsmachine StatusSetter
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

@@ -10,6 +10,3 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package provisionertask_test -destination package_mock_test.go github.com/juju/juju/internal/provisionertask ControllerAPI,MachinesAPI
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

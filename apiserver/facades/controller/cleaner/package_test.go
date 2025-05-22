@@ -11,6 +11,3 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package cleaner_test -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServices
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

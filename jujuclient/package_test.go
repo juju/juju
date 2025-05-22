@@ -11,6 +11,3 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package jujuclient_test -destination proxy_mock_test.go github.com/juju/juju/jujuclient ProxyFactory
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

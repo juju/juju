@@ -13,9 +13,6 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type dummyWorker struct {
 	worker.Worker

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -22,7 +23,11 @@ type OccupySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestOccupySuite(t *stdtesting.T) { tc.Run(t, &OccupySuite{}) }
+func TestOccupySuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &OccupySuite{})
+}
+
 func (*OccupySuite) TestAbort(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)

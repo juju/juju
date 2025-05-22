@@ -11,6 +11,3 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/secret/modelmigration Coordinator,ImportService,ExportService,SecretBackendService
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

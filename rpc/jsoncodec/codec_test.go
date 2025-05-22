@@ -22,9 +22,6 @@ type suite struct {
 }
 
 func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type value struct {
 	X string

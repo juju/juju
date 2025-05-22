@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -26,7 +27,11 @@ type namespaceSuite struct {
 	baseSuite
 }
 
-func TestNamespaceSuite(t *stdtesting.T) { tc.Run(t, &namespaceSuite{}) }
+func TestNamespaceSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &namespaceSuite{})
+}
+
 func (s *namespaceSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.ApplyDDL(c, schemaDDLApplier{})

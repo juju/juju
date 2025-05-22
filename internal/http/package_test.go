@@ -13,6 +13,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package http -destination http_mock_test.go github.com/juju/juju/core/http HTTPClient
 //go:generate go run go.uber.org/mock/mockgen -typed -package http -destination clock_mock_test.go github.com/juju/clock Clock
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}

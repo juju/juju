@@ -4,11 +4,9 @@
 package apiremotecaller
 
 import (
-	stdtesting "testing"
 	time "time"
 
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -17,12 +15,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiremotecaller -destination package_mocks_test.go github.com/juju/juju/internal/worker/apiremotecaller RemoteServer
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiremotecaller -destination clock_mocks_test.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiremotecaller -destination connection_mocks_test.go github.com/juju/juju/api Connection
-
-func TestPackage(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

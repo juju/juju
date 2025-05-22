@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	stdtesting "testing"
@@ -36,7 +37,14 @@ func (s *IntrospectCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&config.DataDir, c.MkDir())
 }
-func TestIntrospectCommandSuite(t *stdtesting.T) { tc.Run(t, &IntrospectCommandSuite{}) }
+
+func TestIntrospectCommandSuite(t *stdtesting.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("introspection socket only runs on Linux")
+	}
+	tc.Run(t, &IntrospectCommandSuite{})
+}
+
 func (s *IntrospectCommandSuite) TestInitErrors(c *tc.C) {
 	s.assertInitError(c, "either a query path or a --listen address must be specified")
 	s.assertInitError(c, "a query path may not be specified with --listen", "query-path", "--listen=foo")

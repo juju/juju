@@ -12,9 +12,6 @@ import (
 	"github.com/juju/juju/internal/pki/assertion"
 )
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 func TestHasExtKeyUsage(t *stdtesting.T) {
 	tests := []struct {

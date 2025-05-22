@@ -9,6 +9,3 @@ import (
 	"github.com/juju/tc"
 )
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}

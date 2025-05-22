@@ -16,9 +16,6 @@ import (
 	"github.com/juju/juju/internal/wrench"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type wrenchSuite struct {
 	coretesting.BaseSuite

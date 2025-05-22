@@ -17,9 +17,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination service_mock_test.go github.com/juju/juju/domain/status/service StatusHistory,StatusHistoryReader
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type statusHistoryRecord struct {
 	ns statushistory.Namespace

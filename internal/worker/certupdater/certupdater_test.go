@@ -21,9 +21,6 @@ import (
 	"github.com/juju/juju/internal/worker/certupdater"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type CertUpdaterSuite struct {
 	jujutesting.BaseSuite

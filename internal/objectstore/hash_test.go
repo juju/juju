@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -21,8 +22,10 @@ type hashFileSystemAccessorSuite struct {
 }
 
 func TestHashFileSystemAccessorSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
 	tc.Run(t, &hashFileSystemAccessorSuite{})
 }
+
 func (s *hashFileSystemAccessorSuite) TestHashExistsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

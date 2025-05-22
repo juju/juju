@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -74,7 +75,11 @@ type listenerSuite struct {
 	listener *MockListener
 }
 
-func TestListenerSuite(t *stdtesting.T) { tc.Run(t, &listenerSuite{}) }
+func TestListenerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &listenerSuite{})
+}
+
 func (s *listenerSuite) TestAcceptOnceListener(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
 	"github.com/juju/juju/internal/testing"
@@ -20,7 +21,11 @@ type subscriptionSuite struct {
 	baseSuite
 }
 
-func TestSubscriptionSuite(t *stdtesting.T) { tc.Run(t, &subscriptionSuite{}) }
+func TestSubscriptionSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &subscriptionSuite{})
+}
+
 func (s *subscriptionSuite) TestSubscriptionIsDone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

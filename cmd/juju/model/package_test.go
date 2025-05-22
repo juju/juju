@@ -12,6 +12,3 @@ import (
 // None of the tests in this package require mongo.
 // Full command integration tests are found in cmd/juju/model_test.go
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

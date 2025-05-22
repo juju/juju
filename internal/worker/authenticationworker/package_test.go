@@ -11,6 +11,3 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/updater_mocks.go github.com/juju/juju/internal/worker/authenticationworker Client
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

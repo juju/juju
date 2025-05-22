@@ -13,6 +13,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package caasapplicationprovisioner_test -destination leadership_mock_test.go github.com/juju/juju/core/leadership Revoker
 //go:generate go run go.uber.org/mock/mockgen -package caasapplicationprovisioner_test -destination resource_opener_mock_test.go github.com/juju/juju/core/resource Opener
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}

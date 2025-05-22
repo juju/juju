@@ -4,11 +4,9 @@
 package storageregistry
 
 import (
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
@@ -20,12 +18,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package storageregistry -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry,Provider
 //go:generate go run go.uber.org/mock/mockgen -typed -package storageregistry -destination provider_mock_test.go github.com/juju/juju/core/providertracker ProviderFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package storageregistry -destination storageregistry_mock_test.go github.com/juju/juju/internal/worker/storageregistry StorageRegistryWorker
-
-func TestPackage(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

@@ -15,9 +15,6 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type testJWTParser struct {
 	notReady bool

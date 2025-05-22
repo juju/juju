@@ -21,9 +21,6 @@ import (
 	"github.com/juju/juju/juju/keys"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type credentialInvalidator func(ctx context.Context, reason environs.CredentialInvalidReason) error
 

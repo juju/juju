@@ -13,6 +13,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	corehttp "github.com/juju/juju/core/http"
@@ -30,7 +31,11 @@ type workerSuite struct {
 	called        int64
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &workerSuite{})
+}
+
 func (s *workerSuite) TestKilledGetHTTPClientErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

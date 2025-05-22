@@ -50,9 +50,6 @@ notes:
 
 `[1:]
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type BaseBackupsSuite struct {
 	jujutesting.FakeJujuXDGDataHomeSuite

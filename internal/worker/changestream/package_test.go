@@ -4,11 +4,9 @@
 package changestream
 
 import (
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	domaintesting "github.com/juju/juju/domain/schema/testing"
@@ -18,12 +16,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package changestream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -typed -package changestream -destination source_mock_test.go github.com/juju/juju/core/changestream EventSource
 //go:generate go run go.uber.org/mock/mockgen -typed -package changestream -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
-
-func TestPackage(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	domaintesting.ControllerSuite

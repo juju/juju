@@ -11,6 +11,7 @@ import (
 	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
+	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
 	controller "github.com/juju/juju/controller"
@@ -24,7 +25,11 @@ type manifoldConfigSuite struct {
 	config ManifoldConfig
 }
 
-func TestManifoldConfigSuite(t *stdtesting.T) { tc.Run(t, &manifoldConfigSuite{}) }
+func TestManifoldConfigSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &manifoldConfigSuite{})
+}
+
 func (s *manifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
@@ -73,7 +78,11 @@ type manifoldSuite struct {
 	controllerConfigService *MockControllerConfigService
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &manifoldSuite{})
+}
+
 func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

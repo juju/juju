@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/charm"
@@ -56,7 +57,11 @@ type WorkerSuite struct {
 	modelTag names.ModelTag
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &WorkerSuite{})
+}
+
 func (s *WorkerSuite) TestTriggerFetch(c *tc.C) {
 	// Ensure that a clock tick triggers a fetch, the testing of the fetch
 	// is done in other methods.

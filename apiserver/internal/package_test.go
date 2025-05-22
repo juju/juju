@@ -11,6 +11,3 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package internal_test -destination watcher_mock_test.go -source=./watcher.go
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}

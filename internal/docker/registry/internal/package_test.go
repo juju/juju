@@ -11,9 +11,6 @@ import (
 	"github.com/juju/juju/internal/docker"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type (
 	AzureContainerRegistry   = azureContainerRegistry

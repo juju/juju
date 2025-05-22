@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
@@ -19,7 +20,11 @@ type consumeSuite struct {
 	watcher *MockWatcher[[]string]
 }
 
-func TestConsumeSuite(t *stdtesting.T) { tc.Run(t, &consumeSuite{}) }
+func TestConsumeSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &consumeSuite{})
+}
+
 func (s *consumeSuite) TestConsumeInitialEventReturnsChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

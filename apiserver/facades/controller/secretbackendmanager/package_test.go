@@ -13,9 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package secretbackendmanager -destination mock_service.go -source service.go BackendService
 //go:generate go run go.uber.org/mock/mockgen -typed -package secretbackendmanager -destination mock_watcher.go github.com/juju/juju/core/watcher SecretBackendRotateWatcher

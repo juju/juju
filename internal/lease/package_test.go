@@ -11,6 +11,3 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package lease -destination lease_mock_test.go github.com/juju/juju/core/lease Secretary
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

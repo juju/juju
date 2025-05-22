@@ -13,6 +13,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
@@ -35,7 +36,11 @@ type WorkerSuite struct {
 	controllerConifgService *MockControllerConfigService
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &WorkerSuite{})
+}
+
 func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 	for i, test := range []struct {
 		name      string

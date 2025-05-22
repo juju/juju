@@ -13,9 +13,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/http_mock.go net/http RoundTripper
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 func MountPath(b provider.SecretsBackend) string {
 	return b.(*vaultBackend).mountPath

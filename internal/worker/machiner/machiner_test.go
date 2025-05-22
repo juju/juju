@@ -23,9 +23,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type MachinerSuite struct {
 	coretesting.BaseSuite

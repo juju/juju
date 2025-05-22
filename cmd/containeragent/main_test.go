@@ -4,6 +4,7 @@
 package main
 
 import (
+	"runtime"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
@@ -17,7 +18,12 @@ type containerAgentSuite struct {
 	testing.BaseSuite
 }
 
-func TestContainerAgentSuite(t *stdtesting.T) { tc.Run(t, &containerAgentSuite{}) }
+func TestContainerAgentSuite(t *stdtesting.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("containeragent only runs on Linux")
+	}
+	tc.Run(t, &containerAgentSuite{})
+}
 
 type mainWrapperTC struct {
 	args []string

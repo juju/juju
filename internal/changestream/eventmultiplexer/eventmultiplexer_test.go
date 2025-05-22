@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
@@ -31,7 +32,11 @@ type eventMultiplexerSuite struct {
 	baseSuite
 }
 
-func TestEventMultiplexerSuite(t *stdtesting.T) { tc.Run(t, &eventMultiplexerSuite{}) }
+func TestEventMultiplexerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &eventMultiplexerSuite{})
+}
+
 func (s *eventMultiplexerSuite) TestSubscribe(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

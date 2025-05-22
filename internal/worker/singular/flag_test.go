@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/lease"
@@ -33,7 +34,11 @@ type FlagSuite struct {
 	entityID string
 }
 
-func TestFlagSuite(t *stdtesting.T) { tc.Run(t, &FlagSuite{}) }
+func TestFlagSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &FlagSuite{})
+}
+
 func (s *FlagSuite) SetUpTest(c *tc.C) {
 	s.unitTag = names.NewUnitTag("foo/0")
 	s.entityID = uuid.MustNewUUID().String()

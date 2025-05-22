@@ -40,9 +40,6 @@ const (
 	invalidApplicationId = "something-strange-"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type BaseActionSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite

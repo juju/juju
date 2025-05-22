@@ -15,9 +15,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package secretbackends -destination mock_service.go github.com/juju/juju/apiserver/facades/client/secretbackends SecretBackendService
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 func NewTestAPI(
 	authorizer facade.Authorizer,

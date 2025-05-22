@@ -16,9 +16,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination watcher_mock_test.go github.com/juju/juju/core/watcher StringsWatcher,NotifyWatcher
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type goodToken struct{}
 

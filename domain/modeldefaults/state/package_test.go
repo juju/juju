@@ -9,8 +9,5 @@ import (
 	"github.com/juju/tc"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 // tlm: Tests coming in following PR when integrated back into API

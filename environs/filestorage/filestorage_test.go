@@ -23,9 +23,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type filestorageSuite struct {
 	dir    string

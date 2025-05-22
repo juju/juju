@@ -13,6 +13,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/mocks_instances.go github.com/juju/juju/environs/instances Instance
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/mocks_instancepoller.go github.com/juju/juju/internal/worker/instancepoller Environ,Machine
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

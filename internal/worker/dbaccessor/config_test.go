@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -19,7 +20,12 @@ type configSuite struct {
 	configPath string
 }
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
+func TestConfigSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+
+	tc.Run(t, &configSuite{})
+}
+
 func (s *configSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.configPath = path.Join(c.MkDir(), "controller.conf")

@@ -3,17 +3,4 @@
 
 package apiaddresssetter
 
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-	"go.uber.org/goleak"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiaddresssetter -destination package_mocks_test.go github.com/juju/juju/internal/worker/apiaddresssetter ControllerConfigService,ApplicationService,ControllerNodeService,NetworkService,DomainServices
-
-func TestPackage(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.TestingT(t)
-}

@@ -12,6 +12,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen  -typed -package credentialvalidator -destination services_mock.go github.com/juju/juju/apiserver/facades/agent/credentialvalidator ModelCredentialService
 //go:generate go run go.uber.org/mock/mockgen  -typed -package credentialvalidator -destination watcher_mock.go github.com/juju/juju/core/watcher NotifyWatcher
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}

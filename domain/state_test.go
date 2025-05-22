@@ -12,6 +12,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
@@ -22,7 +23,11 @@ type stateSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
+func TestStateSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &stateSuite{})
+}
+
 func (s *stateSuite) TestStateBaseGetDB(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)

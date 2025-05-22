@@ -26,9 +26,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type ConfigSuite struct {
 	testing.FakeJujuXDGDataHomeSuite

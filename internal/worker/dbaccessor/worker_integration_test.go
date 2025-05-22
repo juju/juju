@@ -15,6 +15,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
@@ -41,7 +42,11 @@ type integrationSuite struct {
 	worker    worker.Worker
 }
 
-func TestIntegrationSuite(t *stdtesting.T) { tc.Run(t, &integrationSuite{}) }
+func TestIntegrationSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &integrationSuite{})
+}
+
 func (s *integrationSuite) SetUpSuite(c *tc.C) {
 	if !dqlite.Enabled {
 		c.Skip("This requires a dqlite server to be running")

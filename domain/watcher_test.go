@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
@@ -28,7 +29,11 @@ type watcherSuite struct {
 	events *MockEventSource
 }
 
-func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
+func TestWatcherSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &watcherSuite{})
+}
+
 func (*watcherSuite) TestNewUUIDsWatcherFail(c *tc.C) {
 	factory := NewWatcherFactory(func() (changestream.WatchableDB, error) {
 		return nil, errors.New("fail getting db instance")

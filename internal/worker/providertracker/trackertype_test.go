@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -15,7 +16,11 @@ type trackerTypeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTrackerTypeSuite(t *stdtesting.T) { tc.Run(t, &trackerTypeSuite{}) }
+func TestTrackerTypeSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &trackerTypeSuite{})
+}
+
 func (s *trackerTypeSuite) TestSingularNamespace(c *tc.C) {
 	single := SingularType("foo")
 	namespace, ok := single.SingularNamespace()

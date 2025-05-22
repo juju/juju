@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
@@ -28,8 +29,10 @@ type remoteFileObjectStoreSuite struct {
 }
 
 func TestRemoteFileObjectStoreSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
 	tc.Run(t, &remoteFileObjectStoreSuite{})
 }
+
 func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreDies(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

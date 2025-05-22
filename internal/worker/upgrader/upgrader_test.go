@@ -39,9 +39,6 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/upgrader_mocks.go github.com/juju/juju/internal/worker/upgrader UpgraderClient
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type UpgraderSuite struct {
 	testhelpers.IsolationSuite

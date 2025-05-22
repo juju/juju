@@ -16,6 +16,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/base_mock.go github.com/juju/juju/api/base APICaller
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/agent_mock.go github.com/juju/juju/agent Agent,Config
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

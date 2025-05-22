@@ -3,16 +3,6 @@
 
 package clientconfig
 
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
 var (
 	NewK8sClientSet               = newK8sClientSet
 	EnsureJujuAdminServiceAccount = ensureJujuAdminServiceAccount

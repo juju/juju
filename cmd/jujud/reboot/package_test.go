@@ -14,9 +14,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/instance_mock.go github.com/juju/juju/environs/instances Instance
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 // NewRebootForTest returns a Reboot object to be used for testing.
 func NewRebootForTest(acfg AgentConfig, reboot RebootWaiter, clock clock.Clock) *Reboot {

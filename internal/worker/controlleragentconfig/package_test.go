@@ -14,9 +14,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

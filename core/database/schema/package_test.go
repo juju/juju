@@ -13,9 +13,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package schema -destination tx_mock_test.go github.com/juju/juju/core/database/schema Tx
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type ImportTest struct{}
 

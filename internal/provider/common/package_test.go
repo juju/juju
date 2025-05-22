@@ -14,6 +14,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/availability_zone.go github.com/juju/juju/core/network AvailabilityZone
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/environs.go github.com/juju/juju/environs CredentialInvalidator
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

@@ -8,13 +8,18 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/watcher/watchertest"
 )
 
 type multiWatcherSuite struct{}
 
-func TestMultiWatcherSuite(t *stdtesting.T) { tc.Run(t, &multiWatcherSuite{}) }
+func TestMultiWatcherSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &multiWatcherSuite{})
+}
+
 func (*multiWatcherSuite) TestNotifyMultiWatcher(c *tc.C) {
 	ch0 := make(chan struct{}, 1)
 	w0 := watchertest.NewMockNotifyWatcher(ch0)

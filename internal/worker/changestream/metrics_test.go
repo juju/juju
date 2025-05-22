@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -18,7 +19,11 @@ type metricsSuite struct {
 	baseSuite
 }
 
-func TestMetricsSuite(t *stdtesting.T) { tc.Run(t, &metricsSuite{}) }
+func TestMetricsSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &metricsSuite{})
+}
+
 func (s *metricsSuite) TestMetricsAreCollected(c *tc.C) {
 	collector := NewMetricsCollector()
 

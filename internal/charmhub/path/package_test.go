@@ -10,9 +10,6 @@ import (
 	"github.com/juju/tc"
 )
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 func MustParseURL(c *tc.C, path string) *url.URL {
 	u, err := url.Parse(path)

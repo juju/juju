@@ -15,9 +15,6 @@ import (
 
 // None of the tests in this package require mongo.
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 func unmarshalStringAsJSON(str string) (interface{}, error) {
 	var v interface{}

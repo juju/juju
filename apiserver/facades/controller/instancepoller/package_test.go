@@ -12,9 +12,6 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package instancepoller_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/controller/instancepoller ControllerConfigService,NetworkService,MachineService
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type Patcher interface {
 	PatchValue(ptr, value interface{})

@@ -13,9 +13,6 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type BaseCrossModelSuite struct {
 	jujutesting.BaseSuite

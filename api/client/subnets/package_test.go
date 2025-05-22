@@ -10,6 +10,3 @@ import (
 )
 
 // TestAll is the main test function for this package
-func TestAll(t *stdtesting.T) {
-	tc.TestingT(t)
-}

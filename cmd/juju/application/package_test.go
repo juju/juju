@@ -14,6 +14,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/deployer_mock.go github.com/juju/juju/cmd/juju/application/deployer Deployer,DeployerFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/expose_mock.go github.com/juju/juju/cmd/juju/application ApplicationExposeAPI
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

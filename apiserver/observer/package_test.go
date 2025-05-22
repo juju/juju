@@ -11,6 +11,3 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package observer -destination services_mock_test.go github.com/juju/juju/apiserver/observer DomainServicesGetter,ModelService,StatusService
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

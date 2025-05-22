@@ -10,6 +10,3 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelconfig -destination service_mock.go github.com/juju/juju/apiserver/facades/client/modelconfig BlockCommandService,ModelAgentService,ModelConfigService,ModelSecretBackendService,ModelService
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}

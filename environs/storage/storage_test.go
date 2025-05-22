@@ -18,9 +18,6 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 func TestDatasourceSuite(t *stdtesting.T) { tc.Run(t, &datasourceSuite{}) }
 
 type datasourceSuite struct {

@@ -15,6 +15,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination watcher_mock_test.go github.com/juju/juju/core/watcher StringsWatcher,NotifyWatcher
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination token_mock_test.go github.com/juju/juju/core/leadership Token
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

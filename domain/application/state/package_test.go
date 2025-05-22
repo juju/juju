@@ -34,9 +34,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package state -destination charm_mock_test.go github.com/juju/juju/internal/charm Charm
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	schematesting.ModelSuite

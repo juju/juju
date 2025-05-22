@@ -17,9 +17,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstoreservices -destination servicefactory_mock_test.go github.com/juju/juju/internal/services ObjectStoreServices,ObjectStoreServicesGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstoreservices -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	domaintesting.ControllerSuite

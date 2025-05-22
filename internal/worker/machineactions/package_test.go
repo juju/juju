@@ -10,9 +10,6 @@ import (
 	"github.com/juju/tc"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/mock_facade.go github.com/juju/juju/internal/worker/machineactions Facade
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/mock_lock.go github.com/juju/juju/core/machinelock Lock

@@ -12,9 +12,6 @@ import (
 )
 
 // None of the tests in this package require mongo.
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type ImportTest struct{}
 

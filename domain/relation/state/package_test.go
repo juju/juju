@@ -33,9 +33,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 // baseRelationSuite is a struct embedding ModelSuite for testing relation
 // between application. It provides a set of builder function to create all

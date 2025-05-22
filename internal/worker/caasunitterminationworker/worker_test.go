@@ -20,9 +20,6 @@ import (
 	"github.com/juju/juju/internal/worker/caasunitterminationworker"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 func TestTerminationWorkerSuite(t *stdtesting.T) { tc.Run(t, &TerminationWorkerSuite{}) }
 
 type TerminationWorkerSuite struct {

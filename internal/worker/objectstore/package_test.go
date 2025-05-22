@@ -4,11 +4,9 @@
 package objectstore
 
 import (
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
@@ -22,12 +20,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination claimer_mock_test.go github.com/juju/juju/internal/objectstore Claimer
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination lease_mock_test.go github.com/juju/juju/core/lease Manager
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination client_mock_test.go github.com/juju/juju/core/objectstore Client,Session
-
-func TestPackage(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

@@ -16,6 +16,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/write_mock.go io Writer
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/charm_mock.go github.com/juju/juju/internal/charm Charm,Bundle
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

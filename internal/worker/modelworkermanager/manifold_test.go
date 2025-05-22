@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/http"
@@ -52,7 +53,11 @@ type ManifoldSuite struct {
 	stub testhelpers.Stub
 }
 
-func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
+func TestManifoldSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &ManifoldSuite{})
+}
+
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 	var err error

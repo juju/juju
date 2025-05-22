@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
 	controller "github.com/juju/juju/controller"
@@ -31,7 +32,11 @@ type workerSuite struct {
 	controllerConfigService *MockControllerConfigService
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &workerSuite{})
+}
+
 func (s *workerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

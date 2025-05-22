@@ -10,9 +10,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 func (p *Proxier) RESTConfig() rest.Config {
 	return p.restConfig

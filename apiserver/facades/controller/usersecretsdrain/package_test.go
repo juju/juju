@@ -16,9 +16,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/service_mock.go github.com/juju/juju/apiserver/facades/controller/usersecretsdrain SecretService,SecretBackendService
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 var NewUserSecretsDrainAPI = newUserSecretsDrainAPI
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
@@ -26,7 +27,11 @@ type baseObjectStoreSuite struct {
 	claimExtender *MockClaimExtender
 }
 
-func TestBaseObjectStoreSuite(t *stdtesting.T) { tc.Run(t, &baseObjectStoreSuite{}) }
+func TestBaseObjectStoreSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &baseObjectStoreSuite{})
+}
+
 func (s *baseObjectStoreSuite) TestScopedContext(c *tc.C) {
 	w := &baseObjectStore{}
 

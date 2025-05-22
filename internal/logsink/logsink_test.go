@@ -18,6 +18,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/testhelpers"
@@ -30,7 +31,11 @@ type logSinkSuite struct {
 	closed int64
 }
 
-func TestLogSinkSuite(t *stdtesting.T) { tc.Run(t, &logSinkSuite{}) }
+func TestLogSinkSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &logSinkSuite{})
+}
+
 func (s *logSinkSuite) TestLogWithNoBatching(c *tc.C) {
 	sink, buffer := s.newLogSink(c, 1)
 	defer workertest.DirtyKill(c, sink)

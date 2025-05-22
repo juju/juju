@@ -17,9 +17,6 @@ import (
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 )
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type (
 	AnnotationUpdater = annotationUpdater

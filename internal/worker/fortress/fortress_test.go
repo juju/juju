@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
+	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -22,7 +23,11 @@ type FortressSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFortressSuite(t *stdtesting.T) { tc.Run(t, &FortressSuite{}) }
+func TestFortressSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &FortressSuite{})
+}
+
 func (s *FortressSuite) TestOutputBadSource(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)

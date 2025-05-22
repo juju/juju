@@ -26,9 +26,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination description_mock_test.go github.com/juju/description/v9 Model
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ModelObjectStoreGetter
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type precheckBaseSuite struct {
 	testing.BaseSuite

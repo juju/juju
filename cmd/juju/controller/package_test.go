@@ -13,9 +13,6 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type baseControllerSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite

@@ -11,6 +11,3 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package imageutils_test -destination environs_mock_test.go github.com/juju/juju/environs CredentialInvalidator
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

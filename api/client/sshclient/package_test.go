@@ -11,9 +11,6 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 func NewFacadeFromCaller(caller base.FacadeCaller) *Facade {
 	return &Facade{

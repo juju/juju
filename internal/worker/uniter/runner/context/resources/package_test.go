@@ -11,6 +11,3 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination ../mocks/resource_mock.go github.com/juju/juju/internal/worker/uniter/runner/context/resources OpenedResourceClient
 
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}

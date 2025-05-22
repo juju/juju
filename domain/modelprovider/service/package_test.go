@@ -11,6 +11,3 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination state_mock_test.go github.com/juju/juju/domain/modelprovider/service State,ProviderWithSecretToken
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}

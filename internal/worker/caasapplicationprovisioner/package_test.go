@@ -15,9 +15,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/runner_mock.go github.com/juju/juju/internal/worker/caasapplicationprovisioner Runner
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/ops_mock.go github.com/juju/juju/internal/worker/caasapplicationprovisioner ApplicationOps
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 var NewProvisionerWorkerForTest = newProvisionerWorker
 var AppOps = &applicationOps{}

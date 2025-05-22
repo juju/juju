@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -16,10 +15,6 @@ import (
 	"github.com/juju/juju/core/database/schema"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 )
-
-func Test(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 type schemaBaseSuite struct {
 	databasetesting.DqliteSuite

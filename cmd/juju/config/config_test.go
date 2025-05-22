@@ -20,9 +20,6 @@ import (
 type suite struct{}
 
 func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 func (s *suite) TestSetFlags(c *tc.C) {
 	for _, resettable := range []bool{true, false} {

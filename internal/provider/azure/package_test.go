@@ -12,9 +12,6 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
 
 var (
 	GetArchFromResourceSKU = getArchFromResourceSKU
