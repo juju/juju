@@ -1261,3 +1261,22 @@ type getCharmUpgradeOnError struct {
 	CharmUpgradeOnError bool   `db:"charm_upgrade_on_error"`
 	Name                string `db:"name"`
 }
+
+type setStatusInfo struct {
+	StatusID int        `db:"status_id"`
+	Message  string     `db:"message"`
+	Data     []byte     `db:"data"`
+	Updated  *time.Time `db:"updated_at"`
+}
+
+type setMachineStatus struct {
+	StatusID    int          `db:"status_id"`
+	Message     string       `db:"message"`
+	Data        []byte       `db:"data"`
+	Updated     *time.Time   `db:"updated_at"`
+	MachineUUID machine.UUID `db:"machine_uuid"`
+}
+
+type machineInstanceUUID struct {
+	MachineUUID machine.UUID `db:"machine_uuid"`
+}
