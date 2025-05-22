@@ -127,20 +127,20 @@ func (s *deployerCAASSuite) TestControllerCharmBase(c *tc.C) {
 	c.Assert(base, tc.DeepEquals, version.DefaultSupportedLTSBase())
 }
 
-func (s *deployerCAASSuite) TestCompleteProcess(c *tc.C) {
+func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
 
 	unitName := unit.Name("controller/0")
 
-	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
+	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
 		ProviderID: ptr("controller-0"),
 	})
 	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-	err := deployer.CompleteProcess(c.Context(), unitName)
+	err := deployer.CompleteCAASProcess(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -166,6 +166,7 @@ func (s *deployerCAASSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *deployerCAASSuite) newConfig(c *tc.C) CAASDeployerConfig {
 	return CAASDeployerConfig{
 		BaseDeployerConfig: s.baseSuite.newConfig(c),
+		ApplicationService: s.caasApplicationService,
 		CloudServiceGetter: s.cloudServiceGetter,
 		UnitPassword:       uuid.MustNewUUID().String(),
 	}

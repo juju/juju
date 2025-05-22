@@ -247,10 +247,7 @@ func (s *lxdProfileSuite) newAPI(c *tc.C) *uniter.LXDProfileAPI {
 	}
 	unitAuthFunc := func(_ context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			if tag.Id() == s.unitTag1.Id() {
-				return true
-			}
-			return false
+			return tag.Id() == s.unitTag1.Id()
 		}, nil
 	}
 	watcherRegistry, err := registry.NewRegistry(clock.WallClock)

@@ -103,23 +103,25 @@ func (s *watcherSuite) createApplicationWithRelations(c *tc.C, appName string, r
 	}
 
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	appUUID, err := applicationSt.CreateApplication(c.Context(), appName, application.AddApplicationArg{
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name:     appName,
-				Requires: relationsMap,
+	appUUID, err := applicationSt.CreateIAASApplication(c.Context(), appName, application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name:     appName,
+					Requires: relationsMap,
+				},
+				Manifest: charm.Manifest{
+					Bases: []charm.Base{{
+						Name:          "ubuntu",
+						Channel:       charm.Channel{Risk: charm.RiskStable},
+						Architectures: []string{"amd64"},
+					}},
+				},
+				ReferenceName: appName,
+				Architecture:  architecture.AMD64,
+				Revision:      1,
+				Source:        charm.LocalSource,
 			},
-			Manifest: charm.Manifest{
-				Bases: []charm.Base{{
-					Name:          "ubuntu",
-					Channel:       charm.Channel{Risk: charm.RiskStable},
-					Architectures: []string{"amd64"},
-				}},
-			},
-			ReferenceName: appName,
-			Architecture:  architecture.AMD64,
-			Revision:      1,
-			Source:        charm.LocalSource,
 		},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)

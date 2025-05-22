@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,AgentBinaryStore,ControllerCharmDeployer,HTTPClient,CloudService,CloudServiceGetter,Machine,MachineGetter,ApplicationService,ModelConfigService,Downloader,AgentPasswordService
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,AgentBinaryStore,ControllerCharmDeployer,HTTPClient,CloudService,CloudServiceGetter,Machine,MachineGetter,ApplicationService,IAASApplicationService,CAASApplicationService,ModelConfigService,Downloader,AgentPasswordService
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination internal_charm_mock_test.go github.com/juju/juju/internal/charm Charm
@@ -28,17 +28,20 @@ import (
 type baseSuite struct {
 	testhelpers.IsolationSuite
 
-	agentBinaryStore     *MockAgentBinaryStore
-	storage              *MockAgentBinaryStorage
-	deployer             *MockControllerCharmDeployer
-	httpClient           *MockHTTPClient
-	objectStore          *MockObjectStore
-	agentPasswordService *MockAgentPasswordService
-	applicationService   *MockApplicationService
-	modelConfigService   *MockModelConfigService
-	charmDownloader      *MockDownloader
-	charmRepo            *MockRepository
-	charm                *MockCharm
+	agentBinaryStore       *MockAgentBinaryStore
+	storage                *MockAgentBinaryStorage
+	deployer               *MockControllerCharmDeployer
+	httpClient             *MockHTTPClient
+	objectStore            *MockObjectStore
+	agentPasswordService   *MockAgentPasswordService
+	applicationService     *MockApplicationService
+	iaasApplicationService *MockIAASApplicationService
+	caasApplicationService *MockCAASApplicationService
+	modelConfigService     *MockModelConfigService
+	machineGetter          *MockMachineGetter
+	charmDownloader        *MockDownloader
+	charmRepo              *MockRepository
+	charm                  *MockCharm
 
 	logger logger.Logger
 }
@@ -54,7 +57,10 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.iaasApplicationService = NewMockIAASApplicationService(ctrl)
+	s.caasApplicationService = NewMockCAASApplicationService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.machineGetter = NewMockMachineGetter(ctrl)
 	s.charmDownloader = NewMockDownloader(ctrl)
 	s.charmRepo = NewMockRepository(ctrl)
 	s.charm = NewMockCharm(ctrl)

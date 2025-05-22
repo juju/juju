@@ -14,7 +14,6 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -39,7 +38,9 @@ func (s *exportApplicationSuite) TestApplicationExportEmpty(c *tc.C) {
 
 	exportOp := s.newExportOperation()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: "iaas",
+	})
 	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(model.Applications(), tc.HasLen, 0)
@@ -52,7 +53,9 @@ func (s *exportApplicationSuite) TestApplicationExportError(c *tc.C) {
 
 	exportOp := s.newExportOperation()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: "iaas",
+	})
 	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorMatches, ".*boom")
 	c.Check(model.Applications(), tc.HasLen, 0)
@@ -65,26 +68,26 @@ func (s *exportApplicationSuite) TestApplicationExportNoLocator(c *tc.C) {
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      "prometheus",
-		ModelType: model.IAAS,
 		CharmUUID: charmUUID,
 	}}, nil)
 
 	exportOp := s.newExportOperation()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: "iaas",
+	})
 	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorMatches, `.*exporting charm URL: unsupported source ""`)
 	c.Check(model.Applications(), tc.HasLen, 0)
 }
 
-func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *tc.C) {
+func (s *exportApplicationSuite) TestApplicationExportIAASApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	charmUUID := charmtesting.GenCharmID(c)
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      "prometheus",
-		ModelType: model.IAAS,
 		CharmUUID: charmUUID,
 		CharmLocator: charm.CharmLocator{
 			Source:       charm.CharmHubSource,
@@ -93,57 +96,126 @@ func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *tc
 			Architecture: architecture.AMD64,
 		},
 	}, {
-		Name:      "prometheus-k8s",
-		ModelType: model.CAAS,
+		Name:      "postgres",
 		CharmUUID: charmUUID,
 		CharmLocator: charm.CharmLocator{
 			Source:       charm.CharmHubSource,
-			Name:         "prometheus-k8s",
+			Name:         "postgres",
 			Revision:     42,
 			Architecture: architecture.PPC64EL,
 		},
 	}}, nil)
 	s.exportService.EXPECT().IsApplicationExposed(gomock.Any(), "prometheus").Return(false, nil)
-	s.exportService.EXPECT().IsApplicationExposed(gomock.Any(), "prometheus-k8s").Return(false, nil)
+	s.exportService.EXPECT().IsApplicationExposed(gomock.Any(), "postgres").Return(false, nil)
 
 	s.expectCharmOriginFor("prometheus")
 	s.expectApplicationConfigFor("prometheus")
 	s.expectMinimalCharmFor("prometheus")
 	s.expectApplicationConstraintsFor("prometheus", constraints.Value{})
 
-	s.expectCharmOriginFor("prometheus-k8s")
-	s.expectApplicationConfigFor("prometheus-k8s")
-	s.expectMinimalCharmFor("prometheus-k8s")
-	s.expectApplicationConstraintsFor("prometheus-k8s", constraints.Value{})
-	s.expectGetApplicationScaleStateFor("prometheus-k8s", application.ScaleState{
-		Scaling:     true,
-		Scale:       1,
-		ScaleTarget: 2,
-	})
+	s.expectCharmOriginFor("postgres")
+	s.expectApplicationConfigFor("postgres")
+	s.expectMinimalCharmFor("postgres")
+	s.expectApplicationConstraintsFor("postgres", constraints.Value{})
 
 	s.expectApplicationUnitsFor("prometheus")
-	s.expectApplicationUnitsFor("prometheus-k8s")
+	s.expectApplicationUnitsFor("postgres")
 
 	exportOp := s.newExportOperation()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: "iaas",
+	})
 	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(model.Applications(), tc.HasLen, 2)
 
 	apps := model.Applications()
 	c.Check(apps[0].Name(), tc.Equals, "prometheus")
-	c.Check(apps[1].Name(), tc.Equals, "prometheus-k8s")
+	c.Check(apps[1].Name(), tc.Equals, "postgres")
 
 	c.Check(apps[0].CharmURL(), tc.Equals, "ch:amd64/prometheus-42")
-	c.Check(apps[1].CharmURL(), tc.Equals, "ch:ppc64el/prometheus-k8s-42")
+	c.Check(apps[1].CharmURL(), tc.Equals, "ch:ppc64el/postgres-42")
 
-	// Check that the scaling state is not set for the first application.
+	// Check that the scaling state is not set for both applications.
 	c.Check(apps[0].ProvisioningState().ScaleTarget(), tc.Equals, 0)
 	c.Check(apps[0].ProvisioningState().Scaling(), tc.IsFalse)
 	c.Check(apps[0].DesiredScale(), tc.Equals, 0)
+	c.Check(apps[1].ProvisioningState().ScaleTarget(), tc.Equals, 0)
+	c.Check(apps[1].ProvisioningState().Scaling(), tc.IsFalse)
+	c.Check(apps[1].DesiredScale(), tc.Equals, 0)
+}
 
-	// Check that the scaling state is set for the second application.
+func (s *exportApplicationSuite) TestApplicationExportCAASApplications(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	charmUUID := charmtesting.GenCharmID(c)
+
+	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
+		Name:      "prometheus",
+		CharmUUID: charmUUID,
+		CharmLocator: charm.CharmLocator{
+			Source:       charm.CharmHubSource,
+			Name:         "prometheus",
+			Revision:     42,
+			Architecture: architecture.AMD64,
+		},
+	}, {
+		Name:      "postgres",
+		CharmUUID: charmUUID,
+		CharmLocator: charm.CharmLocator{
+			Source:       charm.CharmHubSource,
+			Name:         "postgres",
+			Revision:     42,
+			Architecture: architecture.PPC64EL,
+		},
+	}}, nil)
+	s.exportService.EXPECT().IsApplicationExposed(gomock.Any(), "prometheus").Return(false, nil)
+	s.exportService.EXPECT().IsApplicationExposed(gomock.Any(), "postgres").Return(false, nil)
+
+	s.expectCharmOriginFor("prometheus")
+	s.expectApplicationConfigFor("prometheus")
+	s.expectMinimalCharmFor("prometheus")
+	s.expectApplicationConstraintsFor("prometheus", constraints.Value{})
+	s.expectGetApplicationScaleStateFor("prometheus", application.ScaleState{
+		Scaling:     false,
+		Scale:       0,
+		ScaleTarget: 0,
+	})
+
+	s.expectCharmOriginFor("postgres")
+	s.expectApplicationConfigFor("postgres")
+	s.expectMinimalCharmFor("postgres")
+	s.expectApplicationConstraintsFor("postgres", constraints.Value{})
+	s.expectGetApplicationScaleStateFor("postgres", application.ScaleState{
+		Scaling:     true,
+		Scale:       1,
+		ScaleTarget: 2,
+	})
+
+	s.expectApplicationUnitsFor("prometheus")
+	s.expectApplicationUnitsFor("postgres")
+
+	exportOp := s.newExportOperation()
+
+	model := description.NewModel(description.ModelArgs{
+		Type: "caas",
+	})
+	err := exportOp.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(model.Applications(), tc.HasLen, 2)
+
+	apps := model.Applications()
+	c.Check(apps[0].Name(), tc.Equals, "prometheus")
+	c.Check(apps[1].Name(), tc.Equals, "postgres")
+
+	c.Check(apps[0].CharmURL(), tc.Equals, "ch:amd64/prometheus-42")
+	c.Check(apps[1].CharmURL(), tc.Equals, "ch:ppc64el/postgres-42")
+
+	// Check that the scaling state is set for both applications.
+	c.Check(apps[0].ProvisioningState().ScaleTarget(), tc.Equals, 0)
+	c.Check(apps[0].ProvisioningState().Scaling(), tc.IsFalse)
+	c.Check(apps[0].DesiredScale(), tc.Equals, 0)
 	c.Check(apps[1].ProvisioningState().ScaleTarget(), tc.Equals, 2)
 	c.Check(apps[1].ProvisioningState().Scaling(), tc.IsTrue)
 	c.Check(apps[1].DesiredScale(), tc.Equals, 1)
@@ -154,8 +226,7 @@ func (s *exportApplicationSuite) TestApplicationExportUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
-		Name:      "prometheus",
-		ModelType: model.IAAS,
+		Name: "prometheus",
 		CharmLocator: charm.CharmLocator{
 			Source: charm.CharmHubSource,
 		},
@@ -179,7 +250,9 @@ func (s *exportApplicationSuite) TestApplicationExportUnits(c *tc.C) {
 
 	// Act:
 	exportOp := s.newExportOperation()
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: "iaas",
+	})
 	err := exportOp.Execute(c.Context(), model)
 
 	// Assert:
@@ -231,7 +304,9 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *tc.C) {
 
 	exportOp := s.newExportOperation()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: "iaas",
+	})
 
 	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
@@ -261,7 +336,6 @@ func (s *exportApplicationSuite) TestExportScalingState(c *tc.C) {
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      "prometheus-k8s",
-		ModelType: model.CAAS,
 		CharmUUID: charmUUID,
 		CharmLocator: charm.CharmLocator{
 			Source:       charm.CharmHubSource,
@@ -293,7 +367,9 @@ func (s *exportApplicationSuite) TestExportScalingState(c *tc.C) {
 
 	exportOp := s.newExportOperation()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: "caas",
+	})
 
 	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
@@ -326,7 +402,9 @@ func (s *exportApplicationSuite) TestApplicationExportExposedEndpoints(c *tc.C) 
 
 	exportOp := s.newExportOperation()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: "iaas",
+	})
 
 	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
@@ -348,7 +426,6 @@ func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *tc.C) 
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      "prometheus",
-		ModelType: model.IAAS,
 		CharmUUID: charmUUID,
 		CharmLocator: charm.CharmLocator{
 			Source:       charm.CharmHubSource,
@@ -371,7 +448,9 @@ func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *tc.C) 
 
 	// Act:
 	exportOp := s.newExportOperation()
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: "iaas",
+	})
 	err := exportOp.Execute(c.Context(), model)
 
 	// Assert:

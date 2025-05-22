@@ -122,18 +122,30 @@ type MachineService interface {
 
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
-	// CreateApplication creates the specified application and units if required.
-	CreateApplication(ctx context.Context, name string, charm internalcharm.Charm, origin corecharm.Origin, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
-	// AddUnits adds units to the application.
-	AddUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) error
-	// SetApplicationCharm sets a new charm for the application, validating that aspects such
-	// as storage are still viable with the new charm.
+	// CreateIAASApplication creates the specified IAAS application and
+	// subsequent units if supplied.
+	CreateIAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg) (coreapplication.ID, error)
+
+	// CreateCAASApplication creates the specified CAAS application and
+	// subsequent units if supplied.
+	CreateCAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg) (coreapplication.ID, error)
+
+	// AddIAASUnits adds IAAS units to the application.
+	AddIAASUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) error
+
+	// AddCAASUnits adds CAAS units to the application.
+	AddCAASUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) error
+
+	// SetApplicationCharm sets a new charm for the application, validating that
+	// aspects such as storage are still viable with the new charm.
 	SetApplicationCharm(ctx context.Context, name string, params application.UpdateCharmParams) error
+
 	// SetApplicationScale sets the application's desired scale value.
 	// This is used on CAAS models.
 	SetApplicationScale(ctx context.Context, name string, scale int) error
-	// ChangeApplicationScale alters the existing scale by the provided change amount, returning the new amount.
-	// This is used on CAAS models.
+
+	// ChangeApplicationScale alters the existing scale by the provided change
+	// amount, returning the new amount. This is used on CAAS models.
 	ChangeApplicationScale(ctx context.Context, name string, scaleChange int) (int, error)
 
 	// DestroyApplication prepares an application for removal from the model.
@@ -173,18 +185,18 @@ type ApplicationService interface {
 	// available for charms to use.
 	GetSupportedFeatures(context.Context) (assumes.FeatureSet, error)
 
-	// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
-	// It returns an error if the charm can not be found by the name. This can also
-	// be used as a cheap way to see if a charm exists without needing to load the
-	// charm metadata.
+	// GetCharmLocatorByApplicationName returns a CharmLocator by application
+	// name. It returns an error if the charm can not be found by the name. This
+	// can also be used as a cheap way to see if a charm exists without needing
+	// to load the charm metadata.
 	GetCharmLocatorByApplicationName(ctx context.Context, name string) (applicationcharm.CharmLocator, error)
 
-	// GetCharm returns the charm by name, source and revision. Calling this method
-	// will return all the data associated with the charm. It is not expected to
-	// call this method for all calls, instead use the move focused and specific
-	// methods. That's because this method is very expensive to call. This is
-	// implemented for the cases where all the charm data is needed; model
-	// migration, charm export, etc.
+	// GetCharm returns the charm by name, source and revision. Calling this
+	// method will return all the data associated with the charm. It is not
+	// expected to call this method for all calls, instead use the move focused
+	// and specific methods. That's because this method is very expensive to
+	// call. This is implemented for the cases where all the charm data is
+	// needed; model migration, charm export, etc.
 	GetCharm(ctx context.Context, locator applicationcharm.CharmLocator) (internalcharm.Charm, applicationcharm.CharmLocator, bool, error)
 
 	// GetCharmMetadata returns the metadata for the charm using the charm name,
@@ -207,8 +219,9 @@ type ApplicationService interface {
 	// GetApplicationIDByName returns an application ID by application name. It
 	// returns an error if the application can not be found by the name.
 	//
-	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
-	// and [applicationerrors.ApplicationNotFound] if the application is not found.
+	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not
+	// valid, and [applicationerrors.ApplicationNotFound] if the application is
+	// not found.
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
 
 	// GetApplicationConstraints returns the application constraints for the
@@ -226,7 +239,7 @@ type ApplicationService interface {
 
 	// GetApplicationAndCharmConfig returns the application and charm config for the
 	// specified application ID.
-	GetApplicationAndCharmConfig(ctx context.Context, appID coreapplication.ID) (applicationservice.ApplicationConfig, error)
+	GetApplicationAndCharmConfig(context.Context, coreapplication.ID) (applicationservice.ApplicationConfig, error)
 
 	// SetApplicationConstraints sets the application constraints for the
 	// specified application ID.
@@ -236,7 +249,13 @@ type ApplicationService interface {
 	// error is returned.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Value) error
+	SetApplicationConstraints(context.Context, coreapplication.ID, constraints.Value) error
+
+	// UnsetApplicationConfigKeys removes the specified keys from the application
+	// config. If the key does not exist, it is ignored.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	UnsetApplicationConfigKeys(context.Context, coreapplication.ID, []string) error
 
 	// UpdateApplicationConfig updates the application config with the specified
 	// values. If the key does not exist, it is created. If the key already exists,
@@ -266,9 +285,9 @@ type ApplicationService interface {
 	// - [appliationerrors.ApplicationNotFound] if the application does not exist
 	IsSubordinateApplicationByName(context.Context, string) (bool, error)
 
-	// GetApplicationEndpointBindings returns the mapping for each endpoint name and
-	// the space ID it is bound to (or empty if unspecified). When no bindings are
-	// stored for the application, defaults are returned.
+	// GetApplicationEndpointBindings returns the mapping for each endpoint name
+	// and the space ID it is bound to (or empty if unspecified). When no
+	// bindings are stored for the application, defaults are returned.
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
@@ -284,17 +303,18 @@ type ApplicationService interface {
 	GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error)
 
 	// UnsetExposeSettings removes the expose settings for the provided list of
-	// endpoint names. If the resulting exposed endpoints map for the application
-	// becomes empty after the settings are removed, the application will be
-	// automatically unexposed.
+	// endpoint names. If the resulting exposed endpoints map for the
+	// application becomes empty after the settings are removed, the application
+	// will be automatically unexposed.
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	UnsetExposeSettings(ctx context.Context, appName string, exposedEndpoints set.Strings) error
 
-	// MergeExposeSettings marks the application as exposed and merges the provided
-	// ExposedEndpoint details into the current set of expose settings. The merge
-	// operation will overwrite expose settings for each existing endpoint name.
+	// MergeExposeSettings marks the application as exposed and merges the
+	// provided ExposedEndpoint details into the current set of expose settings.
+	// The merge operation will overwrite expose settings for each existing
+	// endpoint name.
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.

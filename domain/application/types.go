@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
@@ -28,8 +27,9 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-// AddApplicationArg contains parameters for saving an application to state.
-type AddApplicationArg struct {
+// BaseAddApplicationArg contains parameters for saving an application to state
+// that are common to all application types (IAAS and CAAS).
+type BaseAddApplicationArg struct {
 	// Charm is the charm to add to the application. This is required to
 	// be able to add the application.
 	Charm domaincharm.Charm
@@ -58,8 +58,6 @@ type AddApplicationArg struct {
 	// Settings contains the settings for the application. This includes the
 	// trust setting.
 	Settings ApplicationSettings
-	// Scale contains the scale information for the application.
-	Scale int
 	// Status contains the status of the application.
 	Status *status.StatusInfo[status.WorkloadStatusType]
 	// StoragePoolKind holds a mapping of the kind of storage supported
@@ -72,7 +70,26 @@ type AddApplicationArg struct {
 	Devices map[string]devices.Constraints
 }
 
-// AddApplicationResourceArg defines the arguments required to add a resource to an application.
+// AddIAASApplicationArg contains parameters for saving an IAAS application to
+// state.
+// This is split out to allow for specific IAAS application properties to be
+// added *just* for IAAS applications.
+type AddIAASApplicationArg struct {
+	BaseAddApplicationArg
+}
+
+// AddCAASApplicationArg contains parameters for saving a CAAS application to
+// state.
+// This is split out to allow for specific CAAS application properties to be
+// added *just* for CAAS applications.
+type AddCAASApplicationArg struct {
+	BaseAddApplicationArg
+	// Scale contains the scale information for the application.
+	Scale int
+}
+
+// AddApplicationResourceArg defines the arguments required to add a resource to
+// an application.
 type AddApplicationResourceArg struct {
 	Name     string
 	Revision *int
@@ -229,7 +246,6 @@ type UnitStatusArg struct {
 
 type SubordinateUnitArg struct {
 	UnitStatusArg
-	ModelType         model.ModelType
 	SubordinateAppID  application.ID
 	PrincipalUnitName coreunit.Name
 }
@@ -342,7 +358,6 @@ type ExposedEndpoint struct {
 type ExportApplication struct {
 	UUID                 application.ID
 	Name                 string
-	ModelType            model.ModelType
 	CharmUUID            charm.ID
 	Life                 life.Life
 	Subordinate          bool

@@ -52,21 +52,23 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	appArg := application.AddApplicationArg{
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: "app",
+	appArg := application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: "app",
+				},
+				Manifest: charm.Manifest{
+					Bases: []charm.Base{{
+						Name:          "ubuntu",
+						Channel:       charm.Channel{Risk: charm.RiskStable},
+						Architectures: []string{"amd64"},
+					}},
+				},
+				ReferenceName: "app",
+				Source:        charm.LocalSource,
+				Architecture:  architecture.AMD64,
 			},
-			Manifest: charm.Manifest{
-				Bases: []charm.Base{{
-					Name:          "ubuntu",
-					Channel:       charm.Channel{Risk: charm.RiskStable},
-					Architectures: []string{"amd64"},
-				}},
-			},
-			ReferenceName: "app",
-			Source:        charm.LocalSource,
-			Architecture:  architecture.AMD64,
 		},
 	}
 
@@ -74,7 +76,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	unitArgs := []application.AddUnitArg{{}}
 
 	ctx := c.Context()
-	_, err = appState.CreateApplication(ctx, "app", appArg, unitArgs)
+	_, err = appState.CreateIAASApplication(ctx, "app", appArg, unitArgs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {

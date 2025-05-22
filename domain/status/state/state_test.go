@@ -1958,41 +1958,43 @@ func (s *stateSuite) createApplication(c *tc.C, name string, l life.Life, subord
 	}
 	ctx := c.Context()
 
-	appID, err := appState.CreateApplication(ctx, name, application.AddApplicationArg{
-		Platform: platform,
-		Channel:  channel,
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name:        name,
-				Subordinate: subordinate,
-				Provides: map[string]charm.Relation{
-					"endpoint": {
-						Name:  "endpoint",
-						Role:  charm.RoleProvider,
-						Scope: charm.ScopeGlobal,
-					},
-					"misc": {
-						Name:  "misc",
-						Role:  charm.RoleProvider,
-						Scope: charm.ScopeGlobal,
+	appID, err := appState.CreateCAASApplication(ctx, name, application.AddCAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name:        name,
+					Subordinate: subordinate,
+					Provides: map[string]charm.Relation{
+						"endpoint": {
+							Name:  "endpoint",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+						"misc": {
+							Name:  "misc",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
 					},
 				},
+				Manifest:      s.minimalManifest(c),
+				ReferenceName: name,
+				Source:        charm.CharmHubSource,
+				Revision:      42,
+				Hash:          "hash",
+				Architecture:  architecture.ARM64,
 			},
-			Manifest:      s.minimalManifest(c),
-			ReferenceName: name,
-			Source:        charm.CharmHubSource,
-			Revision:      42,
-			Hash:          "hash",
-			Architecture:  architecture.ARM64,
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident",
+				DownloadURL:        "https://example.com",
+				DownloadSize:       42,
+			},
+			Status: appStatus,
 		},
-		CharmDownloadInfo: &charm.DownloadInfo{
-			Provenance:         charm.ProvenanceDownload,
-			CharmhubIdentifier: "ident",
-			DownloadURL:        "https://example.com",
-			DownloadSize:       42,
-		},
-		Scale:  len(units),
-		Status: appStatus,
+		Scale: len(units),
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 

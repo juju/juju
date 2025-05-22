@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/errors"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -239,7 +240,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 	// "juju-controller". Do not change this, or the controller charm won't
 	// come back up.
 
-	s.applicationService.EXPECT().CreateApplication(
+	s.iaasApplicationService.EXPECT().CreateIAASApplication(
 		gomock.Any(),
 		bootstrap.ControllerApplicationName,
 		s.charm,
@@ -265,6 +266,11 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 			},
 			CharmStoragePath:     "path",
 			CharmObjectStoreUUID: "1234",
+			ApplicationConfig: coreconfig.ConfigAttributes{
+				"is-juju":               true,
+				"identity-provider-url": "https://inferi.com",
+				"controller-url":        "wss://obscura.com:1234/api",
+			},
 			ApplicationSettings: domainapplication.ApplicationSettings{
 				Trust: true,
 			},
@@ -276,7 +282,12 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		applicationservice.AddUnitArg{},
 	)
 
-	deployer := s.newBaseDeployer(c, cfg)
+	deployer, err := NewIAASDeployer(IAASDeployerConfig{
+		BaseDeployerConfig: cfg,
+		ApplicationService: s.iaasApplicationService,
+		MachineGetter:      s.machineGetter,
+	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	origin := corecharm.Origin{
 		Source:   corecharm.CharmHub,
@@ -291,7 +302,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		},
 	}
 	address := "10.0.0.1"
-	unit, err := deployer.AddControllerApplication(c.Context(), DeployCharmInfo{
+	err = deployer.AddIAASControllerApplication(c.Context(), DeployCharmInfo{
 		URL:    charm.MustParseURL(curl),
 		Charm:  s.charm,
 		Origin: &origin,
@@ -304,7 +315,6 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		ObjectStoreUUID: "1234",
 	}, address)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(unit, tc.NotNil)
 }
 
 func (s *deployerSuite) ensureControllerCharm(c *tc.C, dataDir string) (string, int64) {

@@ -170,22 +170,24 @@ func (s *stateSuite) genPasswordHash(c *tc.C) agentpassword.PasswordHash {
 
 func (s *stateSuite) createApplication(c *tc.C) {
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	_, err := applicationSt.CreateApplication(c.Context(), "foo", application.AddApplicationArg{
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: "foo",
+	_, err := applicationSt.CreateIAASApplication(c.Context(), "foo", application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: "foo",
+				},
+				Manifest: charm.Manifest{
+					Bases: []charm.Base{{
+						Name:          "ubuntu",
+						Channel:       charm.Channel{Risk: charm.RiskStable},
+						Architectures: []string{"amd64"},
+					}},
+				},
+				ReferenceName: "foo",
+				Architecture:  architecture.AMD64,
+				Revision:      1,
+				Source:        charm.LocalSource,
 			},
-			Manifest: charm.Manifest{
-				Bases: []charm.Base{{
-					Name:          "ubuntu",
-					Channel:       charm.Channel{Risk: charm.RiskStable},
-					Architectures: []string{"amd64"},
-				}},
-			},
-			ReferenceName: "foo",
-			Architecture:  architecture.AMD64,
-			Revision:      1,
-			Source:        charm.LocalSource,
 		},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)

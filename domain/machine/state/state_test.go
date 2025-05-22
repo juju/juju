@@ -419,8 +419,8 @@ func (s *stateSuite) TestMachineStatusValues(c *tc.C) {
 	// Check that the status values in the machine_status_value table match
 	// the instance status values in core status.
 	rows, err := db.QueryContext(c.Context(), "SELECT id, status FROM machine_status_value")
-	defer rows.Close()
 	c.Assert(err, tc.ErrorIsNil)
+	defer rows.Close()
 	var statusValues []struct {
 		ID   int
 		Name string
@@ -788,8 +788,8 @@ func (s *stateSuite) TestSetAppliedLXDProfileNames(c *tc.C) {
 	// Check that the profile names are in the machine_lxd_profile table.
 	db := s.DB()
 	rows, err := db.Query("SELECT name FROM machine_lxd_profile WHERE machine_uuid = 'deadbeef'")
-	defer rows.Close()
 	c.Assert(err, tc.ErrorIsNil)
+	defer rows.Close()
 	var profiles []string
 	for rows.Next() {
 		var profile string
@@ -818,8 +818,8 @@ func (s *stateSuite) TestSetLXDProfilesPartial(c *tc.C) {
 
 	// Check that the profile names are in the machine_lxd_profile table.
 	rows, err := db.Query("SELECT name FROM machine_lxd_profile WHERE machine_uuid = 'deadbeef'")
-	defer rows.Close()
 	c.Assert(err, tc.ErrorIsNil)
+	defer rows.Close()
 	var profiles []string
 	for rows.Next() {
 		var profile string
@@ -847,8 +847,8 @@ func (s *stateSuite) TestSetLXDProfilesOverwriteAll(c *tc.C) {
 
 	// Check that the profile names are in the machine_lxd_profile table.
 	rows, err := db.Query("SELECT name FROM machine_lxd_profile WHERE machine_uuid = 'deadbeef'")
-	defer rows.Close()
 	c.Assert(err, tc.ErrorIsNil)
+	defer rows.Close()
 	var profiles []string
 	for rows.Next() {
 		var profile string

@@ -45,7 +45,7 @@ func (s *exposedStateSuite) TestApplicationNotExposed(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestApplicationExposedToSpace(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 
@@ -55,7 +55,7 @@ func (s *exposedStateSuite) TestApplicationExposedToSpace(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestApplicationExposedCIDR(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
@@ -65,7 +65,7 @@ func (s *exposedStateSuite) TestApplicationExposedCIDR(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestExposedEndpointsEmpty(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 
 	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
@@ -74,7 +74,7 @@ func (s *exposedStateSuite) TestExposedEndpointsEmpty(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestExposedEndpointsOnlySpace(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 
@@ -85,7 +85,7 @@ func (s *exposedStateSuite) TestExposedEndpointsOnlySpace(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestExposedEndpointsOnlyCIDR(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
@@ -96,7 +96,7 @@ func (s *exposedStateSuite) TestExposedEndpointsOnlyCIDR(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestExposedEndpointsFull(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
@@ -110,7 +110,7 @@ func (s *exposedStateSuite) TestExposedEndpointsFull(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestExposedEndpointsWithWildcard(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 
 	err := s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
@@ -133,7 +133,7 @@ func (s *exposedStateSuite) TestExposedEndpointsWithWildcard(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestExposedEndpointsWithWildcardMultipleTimes(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 
 	err := s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
@@ -173,7 +173,7 @@ func (s *exposedStateSuite) TestExposedEndpointsWithWildcardMultipleTimes(c *tc.
 }
 
 func (s *exposedStateSuite) TestEndpointsOneNotExists(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 
@@ -182,7 +182,7 @@ func (s *exposedStateSuite) TestEndpointsOneNotExists(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestEndpointsAllNotExists(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
@@ -191,7 +191,7 @@ func (s *exposedStateSuite) TestEndpointsAllNotExists(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestEndpointsExist(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 
@@ -200,7 +200,7 @@ func (s *exposedStateSuite) TestEndpointsExist(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestSpacesOneNotExists(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 
@@ -209,7 +209,7 @@ func (s *exposedStateSuite) TestSpacesOneNotExists(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestSpacesAllNotExists(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
@@ -218,7 +218,7 @@ func (s *exposedStateSuite) TestSpacesAllNotExists(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestSpacesExist(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 
@@ -232,7 +232,7 @@ func (s *exposedStateSuite) TestGetSpaceUUIDByNameNotFound(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestGetSpaceUUIDByName(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 
 	uuid, err := s.state.GetSpaceUUIDByName(c.Context(), "space0")
@@ -241,7 +241,7 @@ func (s *exposedStateSuite) TestGetSpaceUUIDByName(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestUnsetExposeSettings(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
@@ -259,7 +259,7 @@ func (s *exposedStateSuite) TestUnsetExposeSettings(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestUnsetExposeSettingsOnlyOneEndpoint(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
@@ -286,7 +286,7 @@ func (s *exposedStateSuite) TestUnsetExposeSettingsOnlyOneEndpoint(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestUnsetExposeSettingsAllEndpoints(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
@@ -304,7 +304,7 @@ func (s *exposedStateSuite) TestUnsetExposeSettingsAllEndpoints(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestMergeExposeSettingsNewEntry(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 
 	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
@@ -330,7 +330,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsNewEntry(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestMergeExposeSettingsExistingOverwriteCIDR(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
@@ -353,7 +353,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsExistingOverwriteCIDR(c *tc.C
 }
 
 func (s *exposedStateSuite) TestMergeExposeSettingsExistingOverwriteSpace(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 	// Create a new space
@@ -385,7 +385,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsExistingOverwriteSpace(c *tc.
 }
 
 func (s *exposedStateSuite) TestMergeExposeSettingsWildcard(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	// Create a new space
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -421,7 +421,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsWildcard(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestMergeExposeSettingsWildcardOverwrite(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	// Create a new space
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -474,7 +474,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsWildcardOverwrite(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestMergeExposeSettingsDifferentEndpointsNotOverwritten(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	// Create a new endpoint
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

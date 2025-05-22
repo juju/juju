@@ -169,6 +169,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	}
 
 	repoDeploy := NewDeployFromRepositoryAPI(
+		modelInfo.Type,
 		state,
 		applicationService,
 		ctx.ObjectStore(),
@@ -2007,13 +2008,26 @@ func (api *APIBase) UnsetApplicationsConfig(ctx context.Context, args params.App
 	}
 	result.Results = make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
-		err := api.unsetApplicationConfig(arg)
+		err := api.unsetApplicationConfig(ctx, arg)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
+func (api *APIBase) unsetApplicationConfig(ctx context.Context, arg params.ApplicationUnset) error {
+	appID, err := api.applicationService.GetApplicationIDByName(ctx, arg.ApplicationName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return errors.NotFoundf("application %s", arg.ApplicationName)
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	err = api.applicationService.UnsetApplicationConfigKeys(ctx, appID, arg.Options)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return errors.NotFoundf("application %s", arg.ApplicationName)
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
 	app, err := api.backend.Application(arg.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)

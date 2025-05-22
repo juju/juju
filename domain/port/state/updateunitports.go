@@ -118,8 +118,8 @@ func (st *State) resolveWildcardEndpoints(
 		return nil, nil, errors.Errorf("cannot update unit ports with conflict(s) on co-located units: %w", err)
 	}
 
-	wildcardOpen, _ := openPorts[network.WildcardEndpoint]
-	wildcardClose, _ := closePorts[network.WildcardEndpoint]
+	wildcardOpen := openPorts[network.WildcardEndpoint]
+	wildcardClose := closePorts[network.WildcardEndpoint]
 
 	wildcardOpened, err := st.getWildcardEndpointOpenedPorts(ctx, tx, unitUUID)
 	if err != nil {

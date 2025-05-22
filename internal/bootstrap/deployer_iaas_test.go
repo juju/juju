@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/agent"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
-	coreunit "github.com/juju/juju/core/unit"
 	state "github.com/juju/juju/state"
 )
 
@@ -87,17 +86,6 @@ func (s *deployerIAASSuite) TestControllerCharmBase(c *tc.C) {
 	c.Assert(base, tc.Equals, corebase.MakeDefaultBase("ubuntu", "22.04"))
 }
 
-func (s *deployerIAASSuite) TestCompleteProcess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// There should be no expectations, as the CompleteProcess method doesn't
-	// call any methods.
-
-	deployer := s.newDeployer(c)
-	err := deployer.CompleteProcess(c.Context(), coreunit.Name("controller/0"))
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *deployerIAASSuite) newDeployer(c *tc.C) *IAASDeployer {
 	deployer, err := NewIAASDeployer(s.newConfig(c))
 	c.Assert(err, tc.IsNil)
@@ -118,6 +106,7 @@ func (s *deployerIAASSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *deployerIAASSuite) newConfig(c *tc.C) IAASDeployerConfig {
 	return IAASDeployerConfig{
 		BaseDeployerConfig: s.baseSuite.newConfig(c),
+		ApplicationService: s.iaasApplicationService,
 		MachineGetter:      s.machineGetter,
 	}
 }

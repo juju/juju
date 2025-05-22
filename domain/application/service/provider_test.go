@@ -50,7 +50,7 @@ func TestProviderServiceSuite(t *testing.T) {
 	tc.Run(t, &providerServiceSuite{})
 }
 
-func (s *providerServiceSuite) TestCreateApplication(c *tc.C) {
+func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -93,38 +93,40 @@ func (s *providerServiceSuite) TestCreateApplication(c *tc.C) {
 		Architecture: architecture.ARM64,
 	}
 
-	app := application.AddApplicationArg{
-		Charm: ch,
-		CharmDownloadInfo: &applicationcharm.DownloadInfo{
-			Provenance:         applicationcharm.ProvenanceDownload,
-			CharmhubIdentifier: "foo",
-			DownloadURL:        "https://example.com/foo",
-			DownloadSize:       42,
-		},
-		Platform: platform,
-		Scale:    1,
-		Resources: []application.AddApplicationResourceArg{
-			{
-				Name:   "foo",
-				Origin: charmresource.OriginUpload,
+	app := application.AddCAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: ch,
+			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+				Provenance:         applicationcharm.ProvenanceDownload,
+				CharmhubIdentifier: "foo",
+				DownloadURL:        "https://example.com/foo",
+				DownloadSize:       42,
 			},
-			{
-				Name:     "bar",
-				Revision: ptr(42),
-				Origin:   charmresource.OriginStore,
+			Platform: platform,
+			Resources: []application.AddApplicationResourceArg{
+				{
+					Name:   "foo",
+					Origin: charmresource.OriginUpload,
+				},
+				{
+					Name:     "bar",
+					Revision: ptr(42),
+					Origin:   charmresource.OriginStore,
+				},
+				{
+					Name: "baz",
+					// It is ok to not have revision with origin store in case of
+					// local charms
+					Revision: nil,
+					Origin:   charmresource.OriginStore,
+				},
 			},
-			{
-				Name: "baz",
-				// It is ok to not have revision with origin store in case of
-				// local charms
-				Revision: nil,
-				Origin:   charmresource.OriginStore,
+			EndpointBindings: map[string]network.SpaceName{
+				"":         "default",
+				"provider": "beta",
 			},
 		},
-		EndpointBindings: map[string]network.SpaceName{
-			"":         "default",
-			"provider": "beta",
-		},
+		Scale: 1,
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
@@ -133,7 +135,7 @@ func (s *providerServiceSuite) TestCreateApplication(c *tc.C) {
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 
 	var receivedArgs []application.AddUnitArg
-	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", app, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ application.AddApplicationArg, args []application.AddUnitArg) (coreapplication.ID, error) {
+	s.state.EXPECT().CreateCAASApplication(gomock.Any(), "ubuntu", app, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ application.AddCAASApplicationArg, args []application.AddUnitArg) (coreapplication.ID, error) {
 		receivedArgs = args
 		return id, nil
 	})
@@ -160,7 +162,7 @@ func (s *providerServiceSuite) TestCreateApplication(c *tc.C) {
 		},
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
+	_, err := s.service.CreateCAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -198,7 +200,7 @@ func (s *providerServiceSuite) TestCreateApplication(c *tc.C) {
 	c.Check(receivedArgs, tc.DeepEquals, us)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithApplicationStatus(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -217,8 +219,8 @@ func (s *providerServiceSuite) TestCreateApplicationWithApplicationStatus(c *tc.
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 
-	var receivedArgs application.AddApplicationArg
-	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, appArgs application.AddApplicationArg, _ []application.AddUnitArg) (coreapplication.ID, error) {
+	var receivedArgs application.AddIAASApplicationArg
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, appArgs application.AddIAASApplicationArg, _ []application.AddUnitArg) (coreapplication.ID, error) {
 		receivedArgs = appArgs
 		return id, nil
 	})
@@ -240,7 +242,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithApplicationStatus(c *tc.
 		Name: "ubuntu",
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -264,7 +266,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithApplicationStatus(c *tc.
 	c.Check(receivedArgs.Status, tc.DeepEquals, status)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -292,17 +294,18 @@ func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *tc.C) {
 	}
 
 	resourceUUID := resourcetesting.GenResourceUUID(c)
-	app := application.AddApplicationArg{
-		Charm: ch,
-		CharmDownloadInfo: &applicationcharm.DownloadInfo{
-			Provenance:         applicationcharm.ProvenanceDownload,
-			CharmhubIdentifier: "foo",
-			DownloadURL:        "https://example.com/foo",
-			DownloadSize:       42,
+	app := application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: ch,
+			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+				Provenance:         applicationcharm.ProvenanceDownload,
+				CharmhubIdentifier: "foo",
+				DownloadURL:        "https://example.com/foo",
+				DownloadSize:       42,
+			},
+			Platform:         platform,
+			PendingResources: []resource.UUID{resourceUUID},
 		},
-		Platform:         platform,
-		Scale:            1,
-		PendingResources: []resource.UUID{resourceUUID},
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
@@ -310,7 +313,7 @@ func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *tc.C) {
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 
-	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", app, gomock.Any()).Return(id, nil)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", app, gomock.Any()).Return(id, nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -332,7 +335,7 @@ func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *tc.C) {
 		},
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -350,10 +353,10 @@ func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidApplicationName(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidApplicationName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.CreateApplication(c.Context(), "666", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "666", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -363,14 +366,14 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidApplicationName(c
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidCharmName(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidCharmName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "666",
 	}).AnyTimes()
 
-	_, err := s.service.CreateApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -380,7 +383,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidCharmName(c *tc.C
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidReferenceName(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidReferenceName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
@@ -390,7 +393,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidReferenceName(c *
 		Bases: []charm.Base{{}},
 	}).AnyTimes()
 
-	_, err := s.service.CreateApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -405,40 +408,40 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidReferenceName(c *
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithNoCharmName(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithNoCharmName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
 
-	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithNoApplicationOrCharmName(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithNoApplicationOrCharmName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
 
-	_, err := s.service.CreateApplication(c.Context(), "", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithNoMeta(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithNoMeta(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(nil).MinTimes(1)
 
-	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmMetadataNotValid)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithNoArchitecture(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithNoArchitecture(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).MinTimes(1)
@@ -446,7 +449,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoArchitecture(c *tc.C) 
 		Bases: []charm.Base{{}},
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.Platform{Channel: "24.04", OS: "ubuntu"},
 	}, AddApplicationArgs{
@@ -477,7 +480,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesNotAllRe
 		}},
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.Local,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	},
@@ -487,12 +490,12 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesNotAllRe
 		})
 	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidResourceArgs)
 	c.Assert(err, tc.ErrorMatches,
-		"create application: charm has resources which have not provided: invalid resource args")
+		".*create application: charm has resources which have not provided: invalid resource args")
 }
 
 // TestCreateApplicationWithInvalidResourceBothTypes tests that resolved resources and
 // pending resources are mutually exclusive.
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourceBothTypes(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourceBothTypes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo", Resources: map[string]charmresource.Meta{
@@ -508,7 +511,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourceBothTypes
 		}},
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm,
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm,
 		corecharm.Origin{
 			Source:   corecharm.Local,
 			Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
@@ -522,10 +525,10 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourceBothTypes
 	// There are many places where InvalidResourceArgs are returned,
 	// verify we have the expected one.
 	c.Assert(err, tc.ErrorMatches,
-		"create application: cannot have both pending and resolved resources: invalid resource args")
+		".*create application: cannot have both pending and resolved resources: invalid resource args")
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesMoreResolvedThanCharmResources(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesMoreResolvedThanCharmResources(c *tc.C) {
 	resources := ResolvedResources{
 		{
 			Name:     "not-in-charm",
@@ -533,10 +536,10 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesMoreReso
 			Revision: ptr(42),
 		},
 	}
-	s.testCreateApplicationWithInvalidResource(c, resources)
+	s.testCreateIAASApplicationWithInvalidResource(c, resources)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesUploadWithRevision(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesUploadWithRevision(c *tc.C) {
 	resources := ResolvedResources{
 		{
 			Name:     "Upload-revision",
@@ -544,30 +547,30 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesUploadWi
 			Revision: ptr(42),
 		},
 	}
-	s.testCreateApplicationWithInvalidResource(c, resources)
+	s.testCreateIAASApplicationWithInvalidResource(c, resources)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesNoName(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesNoName(c *tc.C) {
 	resources := ResolvedResources{
 		{
 			Origin:   charmresource.OriginStore,
 			Revision: ptr(42),
 		},
 	}
-	s.testCreateApplicationWithInvalidResource(c, resources)
+	s.testCreateIAASApplicationWithInvalidResource(c, resources)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesInvalidOrigin(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesInvalidOrigin(c *tc.C) {
 	resources := ResolvedResources{
 		{
 			Name:   "invalid-origin",
 			Origin: 42,
 		},
 	}
-	s.testCreateApplicationWithInvalidResource(c, resources)
+	s.testCreateIAASApplicationWithInvalidResource(c, resources)
 }
 
-func (s *providerServiceSuite) testCreateApplicationWithInvalidResource(c *tc.C, resources ResolvedResources) {
+func (s *providerServiceSuite) testCreateIAASApplicationWithInvalidResource(c *tc.C, resources ResolvedResources) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).MinTimes(1)
@@ -581,7 +584,7 @@ func (s *providerServiceSuite) testCreateApplicationWithInvalidResource(c *tc.C,
 		}},
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.Local,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	},
@@ -592,7 +595,7 @@ func (s *providerServiceSuite) testCreateApplicationWithInvalidResource(c *tc.C,
 	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidResourceArgs)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationError(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -602,7 +605,7 @@ func (s *providerServiceSuite) TestCreateApplicationError(c *tc.C) {
 	rErr := errors.New("boom")
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", gomock.Any(), []application.AddUnitArg{}).Return(id, rErr)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), []application.AddUnitArg{}).Return(id, rErr)
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "foo",
@@ -615,7 +618,7 @@ func (s *providerServiceSuite) TestCreateApplicationError(c *tc.C) {
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
 
-	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{
@@ -628,10 +631,10 @@ func (s *providerServiceSuite) TestCreateApplicationError(c *tc.C) {
 		},
 	})
 	c.Check(err, tc.ErrorIs, rErr)
-	c.Assert(err, tc.ErrorMatches, `creating application "foo": boom`)
+	c.Assert(err, tc.ErrorMatches, `creating IAAS application "foo": boom`)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -676,23 +679,24 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *tc.C) {
 		OSType:       deployment.Ubuntu,
 		Architecture: architecture.AMD64,
 	}
-	app := application.AddApplicationArg{
-		Charm: ch,
-		CharmDownloadInfo: &applicationcharm.DownloadInfo{
-			CharmhubIdentifier: "foo",
-			DownloadURL:        "https://example.com/foo",
-			DownloadSize:       42,
-		},
-		Platform: platform,
-		Storage: []application.ApplicationStorageArg{{
-			Name:           "data",
-			PoolNameOrType: "loop",
-			Size:           10,
-			Count:          1,
-		}},
-		Scale: 1,
-		StoragePoolKind: map[string]storage.StorageKind{
-			"loop": storage.StorageKindBlock,
+	app := application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: ch,
+			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+				CharmhubIdentifier: "foo",
+				DownloadURL:        "https://example.com/foo",
+				DownloadSize:       42,
+			},
+			Platform: platform,
+			Storage: []application.ApplicationStorageArg{{
+				Name:           "data",
+				PoolNameOrType: "loop",
+				Size:           10,
+				Count:          1,
+			}},
+			StoragePoolKind: map[string]storage.StorageKind{
+				"loop": storage.StorageKindBlock,
+			},
 		},
 	}
 
@@ -700,7 +704,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *tc.C) {
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, us).Return(id, nil)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", app, us).Return(id, nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -726,7 +730,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *tc.C) {
 	pool := domainstorage.StoragePoolDetails{Name: "loop", Provider: "loop"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").Return(pool, nil).MaxTimes(2)
 
-	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.Local,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -741,7 +745,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSource(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -786,24 +790,25 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSourc
 		OSType:       deployment.Ubuntu,
 		Architecture: architecture.AMD64,
 	}
-	app := application.AddApplicationArg{
-		Charm: ch,
-		CharmDownloadInfo: &applicationcharm.DownloadInfo{
-			Provenance:         applicationcharm.ProvenanceDownload,
-			CharmhubIdentifier: "foo",
-			DownloadURL:        "https://example.com/foo",
-			DownloadSize:       42,
-		},
-		Platform: platform,
-		Storage: []application.ApplicationStorageArg{{
-			Name:           "data",
-			PoolNameOrType: "fast",
-			Size:           10,
-			Count:          2,
-		}},
-		Scale: 1,
-		StoragePoolKind: map[string]storage.StorageKind{
-			"fast": storage.StorageKindBlock,
+	app := application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: ch,
+			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+				Provenance:         applicationcharm.ProvenanceDownload,
+				CharmhubIdentifier: "foo",
+				DownloadURL:        "https://example.com/foo",
+				DownloadSize:       42,
+			},
+			Platform: platform,
+			Storage: []application.ApplicationStorageArg{{
+				Name:           "data",
+				PoolNameOrType: "fast",
+				Size:           10,
+				Count:          2,
+			}},
+			StoragePoolKind: map[string]storage.StorageKind{
+				"fast": storage.StorageKindBlock,
+			},
 		},
 	}
 
@@ -811,7 +816,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSourc
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultBlockSource: ptr("fast")}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, us).Return(id, nil)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", app, us).Return(id, nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -837,7 +842,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSourc
 	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped-block"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil).MaxTimes(2)
 
-	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -856,7 +861,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSourc
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -901,24 +906,25 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *tc.
 		OSType:       deployment.Ubuntu,
 		Architecture: architecture.AMD64,
 	}
-	app := application.AddApplicationArg{
-		Charm: ch,
-		CharmDownloadInfo: &applicationcharm.DownloadInfo{
-			Provenance:         applicationcharm.ProvenanceDownload,
-			CharmhubIdentifier: "foo",
-			DownloadURL:        "https://example.com/foo",
-			DownloadSize:       42,
-		},
-		Platform: platform,
-		Storage: []application.ApplicationStorageArg{{
-			Name:           "data",
-			PoolNameOrType: "rootfs",
-			Size:           10,
-			Count:          1,
-		}},
-		Scale: 1,
-		StoragePoolKind: map[string]storage.StorageKind{
-			"rootfs": storage.StorageKindFilesystem,
+	app := application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: ch,
+			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+				Provenance:         applicationcharm.ProvenanceDownload,
+				CharmhubIdentifier: "foo",
+				DownloadURL:        "https://example.com/foo",
+				DownloadSize:       42,
+			},
+			Platform: platform,
+			Storage: []application.ApplicationStorageArg{{
+				Name:           "data",
+				PoolNameOrType: "rootfs",
+				Size:           10,
+				Count:          1,
+			}},
+			StoragePoolKind: map[string]storage.StorageKind{
+				"rootfs": storage.StorageKindFilesystem,
+			},
 		},
 	}
 
@@ -926,7 +932,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *tc.
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, us).Return(id, nil)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", app, us).Return(id, nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -952,7 +958,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *tc.
 	pool := domainstorage.StoragePoolDetails{Name: "rootfs", Provider: "rootfs"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "rootfs").Return(pool, nil).MaxTimes(2)
 
-	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -968,7 +974,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *tc.
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefaultSource(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDefaultSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -1013,24 +1019,25 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefault
 		OSType:       deployment.Ubuntu,
 		Architecture: architecture.AMD64,
 	}
-	app := application.AddApplicationArg{
-		Charm: ch,
-		CharmDownloadInfo: &applicationcharm.DownloadInfo{
-			Provenance:         applicationcharm.ProvenanceDownload,
-			CharmhubIdentifier: "foo",
-			DownloadURL:        "https://example.com/foo",
-			DownloadSize:       42,
-		},
-		Platform: platform,
-		Storage: []application.ApplicationStorageArg{{
-			Name:           "data",
-			PoolNameOrType: "fast",
-			Size:           10,
-			Count:          2,
-		}},
-		Scale: 1,
-		StoragePoolKind: map[string]storage.StorageKind{
-			"fast": storage.StorageKindBlock,
+	app := application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: ch,
+			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+				Provenance:         applicationcharm.ProvenanceDownload,
+				CharmhubIdentifier: "foo",
+				DownloadURL:        "https://example.com/foo",
+				DownloadSize:       42,
+			},
+			Platform: platform,
+			Storage: []application.ApplicationStorageArg{{
+				Name:           "data",
+				PoolNameOrType: "fast",
+				Size:           10,
+				Count:          2,
+			}},
+			StoragePoolKind: map[string]storage.StorageKind{
+				"fast": storage.StorageKindBlock,
+			},
 		},
 	}
 
@@ -1038,7 +1045,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefault
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultFilesystemSource: ptr("fast")}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, us).Return(id, nil)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", app, us).Return(id, nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -1064,7 +1071,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefault
 	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil).MaxTimes(2)
 
-	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -1083,7 +1090,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefault
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithSharedStorageMissingDirectives(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorageMissingDirectives(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
@@ -1104,7 +1111,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithSharedStorageMissingDire
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
@@ -1118,7 +1125,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithSharedStorageMissingDire
 	c.Assert(err, tc.ErrorMatches, `.*adding default storage directives: no storage directive specified for shared charm storage "data"`)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithStorageValidates(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageValidates(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
@@ -1144,7 +1151,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageValidates(c *tc.C
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").
 		Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError).MaxTimes(1)
 
-	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
@@ -1434,7 +1441,7 @@ func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *tc.C) {
+func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1463,7 +1470,6 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *tc.C) {
 			},
 		},
 	}}
-	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.expectEmptyUnitConstraints(c, appUUID)
 
@@ -1473,12 +1479,12 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *tc.C) {
 		return []coreunit.Name{"foo/0"}, nil
 	})
 
-	err := s.service.AddUnits(c.Context(), "ubuntu", AddUnitArg{})
+	err := s.service.AddCAASUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(received, tc.DeepEquals, u)
 }
 
-func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *tc.C) {
+func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1529,7 +1535,6 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *tc.C) {
 			Directive: "0/lxd/0",
 		},
 	}}
-	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.expectAppConstraints(c, unitUUID, appUUID)
 
@@ -1542,12 +1547,12 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *tc.C) {
 	a := AddUnitArg{
 		Placement: instance.MustParsePlacement("0/lxd/0"),
 	}
-	err := s.service.AddUnits(c.Context(), "ubuntu", a)
+	err := s.service.AddCAASUnits(c.Context(), "ubuntu", a)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(received, tc.DeepEquals, u)
 }
 
-func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *tc.C) {
+func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1594,7 +1599,6 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *tc.C) {
 			},
 		},
 	}}
-	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.expectModelConstraints(c, unitUUID, appUUID)
 
@@ -1604,12 +1608,12 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *tc.C) {
 		return []coreunit.Name{"foo/0"}, nil
 	})
 
-	err := s.service.AddUnits(c.Context(), "ubuntu", AddUnitArg{})
+	err := s.service.AddCAASUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(received, tc.DeepEquals, u)
 }
 
-func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *tc.C) {
+func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1643,7 +1647,6 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *tc.C) {
 			},
 		},
 	}}
-	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
@@ -1653,12 +1656,12 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *tc.C) {
 		return []coreunit.Name{"foo/0"}, nil
 	})
 
-	err := s.service.AddUnits(c.Context(), "ubuntu", AddUnitArg{})
+	err := s.service.AddCAASUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(received, tc.DeepEquals, u)
 }
 
-func (s *providerServiceSuite) TestAddUnitsInvalidName(c *tc.C) {
+func (s *providerServiceSuite) TestAddIAASUnitsInvalidName(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1671,11 +1674,11 @@ func (s *providerServiceSuite) TestAddUnitsInvalidName(c *tc.C) {
 		})
 	defer ctrl.Finish()
 
-	err := s.service.AddUnits(c.Context(), "!!!", AddUnitArg{})
+	err := s.service.AddIAASUnits(c.Context(), "!!!", AddUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
-func (s *providerServiceSuite) TestAddUnitsNoUnits(c *tc.C) {
+func (s *providerServiceSuite) TestAddIAASUnitsNoUnits(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1688,11 +1691,11 @@ func (s *providerServiceSuite) TestAddUnitsNoUnits(c *tc.C) {
 		})
 	defer ctrl.Finish()
 
-	err := s.service.AddUnits(c.Context(), "foo")
+	err := s.service.AddIAASUnits(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestAddUnitsApplicationNotFound(c *tc.C) {
+func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1709,33 +1712,11 @@ func (s *providerServiceSuite) TestAddUnitsApplicationNotFound(c *tc.C) {
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, applicationerrors.ApplicationNotFound)
 
-	err := s.service.AddUnits(c.Context(), "ubuntu", AddUnitArg{})
+	err := s.service.AddIAASUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *providerServiceSuite) TestAddUnitsGetModelTypeError(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
-	defer ctrl.Finish()
-
-	appUUID := applicationtesting.GenApplicationUUID(c)
-
-	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", errors.Errorf("boom"))
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-
-	err := s.service.AddUnits(c.Context(), "ubuntu", AddUnitArg{})
-	c.Assert(err, tc.ErrorMatches, ".*boom")
-}
-
-func (s *providerServiceSuite) TestAddUnitsInvalidPlacement(c *tc.C) {
+func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1751,7 +1732,6 @@ func (s *providerServiceSuite) TestAddUnitsInvalidPlacement(c *tc.C) {
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
 
-	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
@@ -1763,7 +1743,7 @@ func (s *providerServiceSuite) TestAddUnitsInvalidPlacement(c *tc.C) {
 	a := AddUnitArg{
 		Placement: placement,
 	}
-	err := s.service.AddUnits(c.Context(), "ubuntu", a)
+	err := s.service.AddIAASUnits(c.Context(), "ubuntu", a)
 	c.Assert(err, tc.ErrorMatches, ".*invalid placement.*")
 }
 

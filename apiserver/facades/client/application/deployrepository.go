@@ -63,6 +63,7 @@ type DeployFromRepositoryState interface {
 // API facade for any given version. It is expected that any API
 // parameter changes should be performed before entering the API.
 type DeployFromRepositoryAPI struct {
+	modelType          model.ModelType
 	state              DeployFromRepositoryState
 	store              objectstore.ObjectStore
 	validator          DeployFromRepositoryValidator
@@ -73,12 +74,14 @@ type DeployFromRepositoryAPI struct {
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
 func NewDeployFromRepositoryAPI(
+	modelType model.ModelType,
 	state DeployFromRepositoryState, applicationService ApplicationService,
 	store objectstore.ObjectStore, validator DeployFromRepositoryValidator,
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) DeployFromRepository {
 	return &DeployFromRepositoryAPI{
+		modelType:          modelType,
 		state:              state,
 		store:              store,
 		validator:          validator,
@@ -149,7 +152,12 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		}
 	}
 
-	_, err = api.applicationService.CreateApplication(ctx, dt.applicationName, dt.charm, dt.origin,
+	createApplication := api.applicationService.CreateIAASApplication
+	if api.modelType == model.CAAS {
+		createApplication = api.applicationService.CreateCAASApplication
+	}
+
+	_, err = createApplication(ctx, dt.applicationName, dt.charm, dt.origin,
 		applicationservice.AddApplicationArgs{
 			ReferenceName: dt.charmURL.Name,
 			Storage:       dt.storage,

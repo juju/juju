@@ -988,7 +988,7 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 		logger,
 	)
 
-	_, err := svc.CreateApplication(c.Context(),
+	_, err := svc.CreateIAASApplication(c.Context(),
 		appName,
 		&stubCharm{},
 		corecharm.Origin{

@@ -51,9 +51,16 @@ type AgentBinaryStore interface {
 
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
-	// CreateApplication creates a new application with the given name and
+	// CreateIAASApplication creates a new IAAS application with the given name
+	// and charm.
+	CreateIAASApplication(
+		context.Context, string, charm.Charm, corecharm.Origin,
+		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
+	) (coreapplication.ID, error)
+
+	// CreateCAASApplication creates a new application with the given name and
 	// charm.
-	CreateApplication(
+	CreateCAASApplication(
 		context.Context, string, charm.Charm, corecharm.Origin,
 		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
 	) (coreapplication.ID, error)

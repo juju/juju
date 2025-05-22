@@ -7,13 +7,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/version"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/internal/errors"
 )
 
 // CloudService is the interface that is used to get the cloud service
@@ -31,6 +35,7 @@ type CloudServiceGetter interface {
 // CAASDeployerConfig holds the configuration for a CAASDeployer.
 type CAASDeployerConfig struct {
 	BaseDeployerConfig
+	ApplicationService CAASApplicationService
 	CloudServiceGetter CloudServiceGetter
 	UnitPassword       string
 }
@@ -38,10 +43,13 @@ type CAASDeployerConfig struct {
 // Validate validates the configuration.
 func (c CAASDeployerConfig) Validate() error {
 	if err := c.BaseDeployerConfig.Validate(); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
+	}
+	if c.ApplicationService == nil {
+		return jujuerrors.NotValidf("ApplicationService")
 	}
 	if c.CloudServiceGetter == nil {
-		return errors.NotValidf("CloudServiceGetter")
+		return jujuerrors.NotValidf("CloudServiceGetter")
 	}
 	return nil
 }
@@ -50,6 +58,7 @@ func (c CAASDeployerConfig) Validate() error {
 // for CAAS workloads.
 type CAASDeployer struct {
 	baseDeployer
+	applicationService CAASApplicationService
 	cloudServiceGetter CloudServiceGetter
 	unitPassword       string
 }
@@ -57,10 +66,11 @@ type CAASDeployer struct {
 // NewCAASDeployer returns a new ControllerCharmDeployer for CAAS workloads.
 func NewCAASDeployer(config CAASDeployerConfig) (*CAASDeployer, error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return &CAASDeployer{
 		baseDeployer:       makeBaseDeployer(config.BaseDeployerConfig),
+		applicationService: config.ApplicationService,
 		cloudServiceGetter: config.CloudServiceGetter,
 		unitPassword:       config.UnitPassword,
 	}, nil
@@ -71,7 +81,7 @@ func NewCAASDeployer(config CAASDeployerConfig) (*CAASDeployer, error) {
 func (d *CAASDeployer) ControllerAddress(ctx context.Context) (string, error) {
 	s, err := d.cloudServiceGetter.CloudService(d.controllerConfig.ControllerUUID())
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 	hp := network.SpaceAddressesWithPort(s.Addresses(), 0)
 	addr := hp.AllMatchingScope(network.ScopeMatchCloudLocal)
@@ -90,16 +100,68 @@ func (d *CAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 	return version.DefaultSupportedLTSBase(), nil
 }
 
-// CompleteProcess is called when the bootstrap process is complete.
-func (d *CAASDeployer) CompleteProcess(ctx context.Context, controllerUnit coreunit.Name) error {
+// AddCAASControllerApplication adds the CAAS controller application.
+func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) error {
+	if err := info.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
+	origin := *info.Origin
+
+	cfg, err := b.createCharmSettings(controllerAddress)
+	if err != nil {
+		return errors.Errorf("creating charm settings: %w", err)
+	}
+
+	downloadInfo, err := b.controllerDownloadInfo(info.URL.Schema, info.DownloadInfo)
+	if err != nil {
+		return errors.Errorf("creating download info: %w", err)
+	}
+
+	if _, err := b.applicationService.CreateCAASApplication(ctx,
+		bootstrap.ControllerApplicationName,
+		info.Charm,
+		origin,
+		applicationservice.AddApplicationArgs{
+			ReferenceName:        bootstrap.ControllerCharmName,
+			CharmStoragePath:     info.ArchivePath,
+			CharmObjectStoreUUID: info.ObjectStoreUUID,
+			DownloadInfo:         downloadInfo,
+			ApplicationConfig:    cfg,
+			ApplicationSettings: domainapplication.ApplicationSettings{
+				Trust: true,
+			},
+			ApplicationStatus: &status.StatusInfo{
+				Status: status.Unset,
+				Since:  ptr(b.clock.Now()),
+			},
+		},
+		applicationservice.AddUnitArg{},
+	); err != nil {
+		return errors.Errorf("creating CAAS controller application: %w", err)
+	}
+
+	return nil
+}
+
+// CompleteCAASProcess is called when the bootstrap process is complete.
+func (d *CAASDeployer) CompleteCAASProcess(ctx context.Context) error {
+	// We can deduce that the unit name must be controller/0 since we're
+	// currently bootstrapping the controller, so this unit is the first unit
+	// to be created.
+	controllerUnit, err := coreunit.NewNameFromParts(bootstrap.ControllerApplicationName, 0)
+	if err != nil {
+		return errors.Errorf("creating unit name %q: %w", bootstrap.ControllerApplicationName, err)
+	}
+
 	providerID := controllerProviderID(controllerUnit)
 	if err := d.applicationService.UpdateCAASUnit(ctx, controllerUnit, applicationservice.UpdateCAASUnitParams{
 		ProviderID: &providerID,
 	}); err != nil {
-		return errors.Annotatef(err, "updating controller unit")
+		return errors.Errorf("updating controller unit: %w", err)
 	}
 	if err := d.passwordService.SetUnitPassword(ctx, controllerUnit, d.unitPassword); err != nil {
-		return errors.Annotate(err, "setting controller unit password")
+		return errors.Errorf("setting controller unit password: %w", err)
 	}
 	return nil
 }

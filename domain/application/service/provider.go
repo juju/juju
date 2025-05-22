@@ -84,38 +84,11 @@ func NewProviderService(
 	}
 }
 
-func (s *Service) poolStorageProvider(
-	ctx context.Context,
-	registry storage.ProviderRegistry,
-	poolNameOrType string,
-) (storage.Provider, error) {
-	pool, err := s.st.GetStoragePoolByName(ctx, poolNameOrType)
-	if errors.Is(err, storageerrors.PoolNotFoundError) {
-		// If there's no pool called poolNameOrType, maybe a provider type
-		// has been specified directly.
-		providerType := storage.ProviderType(poolNameOrType)
-		aProvider, registryErr := registry.StorageProvider(providerType)
-		if registryErr != nil {
-			// The name can't be resolved as a storage provider type,
-			// so return the original "pool not found" error.
-			return nil, errors.Capture(err)
-		}
-		return aProvider, nil
-	} else if err != nil {
-		return nil, errors.Capture(err)
-	}
-	providerType := storage.ProviderType(pool.Provider)
-	aProvider, err := registry.StorageProvider(providerType)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return aProvider, nil
-}
-
-// CreateApplication creates the specified application and units if required,
-// returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
-// if the application already exists.
-func (s *ProviderService) CreateApplication(
+// CreateIAASApplication creates the specified IAAS application and units if
+// required, returning an error satisfying
+// [applicationerrors.ApplicationAlreadyExists] if the application already
+// exists.
+func (s *ProviderService) CreateIAASApplication(
 	ctx context.Context,
 	name string,
 	charm internalcharm.Charm,
@@ -126,34 +99,152 @@ func (s *ProviderService) CreateApplication(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	appName, appArg, unitArgs, err := s.makeIAASApplicationArg(ctx, name, charm, origin, args, units...)
+	if err != nil {
+		return "", errors.Errorf("preparing IAAS application args: %w", err)
+	}
+
+	appID, err := s.st.CreateIAASApplication(ctx, appName, appArg, unitArgs)
+	if err != nil {
+		return "", errors.Errorf("creating IAAS application %q: %w", appName, err)
+	}
+
+	s.logger.Infof(ctx, "created IAAS application %q with ID %q", appName, appID)
+
+	if args.ApplicationStatus != nil {
+		if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(appName), *args.ApplicationStatus); err != nil {
+			s.logger.Infof(ctx, "failed recording IAAS application status history: %w", err)
+		}
+	}
+
+	return appID, nil
+}
+
+// CreateCAASApplication creates the specified CAAS application and units if
+// required, returning an error satisfying
+// [applicationerrors.ApplicationAlreadyExists] if the application already
+// exists.
+func (s *ProviderService) CreateCAASApplication(
+	ctx context.Context,
+	name string,
+	charm internalcharm.Charm,
+	origin corecharm.Origin,
+	args AddApplicationArgs,
+	units ...AddUnitArg,
+) (coreapplication.ID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	appName, appArg, unitArgs, err := s.makeCAASApplicationArg(ctx, name, charm, origin, args, units...)
+	if err != nil {
+		return "", errors.Errorf("preparing CAAS application args: %w", err)
+	}
+
+	appID, err := s.st.CreateCAASApplication(ctx, appName, appArg, unitArgs)
+	if err != nil {
+		return "", errors.Errorf("creating CAAS application %q: %w", appName, err)
+	}
+
+	s.logger.Infof(ctx, "created CAAS application %q with ID %q", appName, appID)
+
+	if args.ApplicationStatus != nil {
+		if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(appName), *args.ApplicationStatus); err != nil {
+			s.logger.Infof(ctx, "failed recording CAAS application status history: %w", err)
+		}
+	}
+
+	return appID, nil
+}
+
+func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
+	name string,
+	charm internalcharm.Charm,
+	origin corecharm.Origin,
+	args AddApplicationArgs,
+	units ...AddUnitArg,
+) (string, application.AddIAASApplicationArg, []application.AddUnitArg, error) {
+	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
+	if err != nil {
+		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("preparing IAAS application args: %w", err)
+	}
+
+	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints))
+	if err != nil {
+		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("merging CAAS application and model constraints: %w", err)
+	}
+
+	unitArgs, err := s.makeIAASUnitArgs(units, constraints.DecodeConstraints(cons))
+	if err != nil {
+		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("making IAAS unit args: %w", err)
+	}
+	return appName, application.AddIAASApplicationArg{
+		BaseAddApplicationArg: arg,
+	}, unitArgs, nil
+}
+
+func (s *ProviderService) makeCAASApplicationArg(
+	ctx context.Context,
+	name string,
+	charm internalcharm.Charm,
+	origin corecharm.Origin,
+	args AddApplicationArgs,
+	units ...AddUnitArg,
+) (string, application.AddCAASApplicationArg, []application.AddUnitArg, error) {
+	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
+	if err != nil {
+		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("preparing CAAS application args: %w", err)
+	}
+
+	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints))
+	if err != nil {
+		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("merging CAAS application and model constraints: %w", err)
+	}
+
+	unitArgs, err := s.makeCAASUnitArgs(units, constraints.DecodeConstraints(cons))
+	if err != nil {
+		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("making CAAS unit args: %w", err)
+	}
+	return appName, application.AddCAASApplicationArg{
+		BaseAddApplicationArg: arg,
+		Scale:                 len(units),
+	}, unitArgs, nil
+}
+
+func (s *ProviderService) makeApplicationArg(
+	ctx context.Context,
+	name string,
+	charm internalcharm.Charm,
+	origin corecharm.Origin,
+	args AddApplicationArgs,
+) (string, application.BaseAddApplicationArg, error) {
 	if err := validateCharmAndApplicationParams(
 		name,
 		args.ReferenceName,
 		charm,
 		origin,
 	); err != nil {
-		return "", errors.Errorf("invalid application args: %w", err)
+		return "", application.BaseAddApplicationArg{}, errors.Errorf("invalid application args: %w", err)
 	}
 
 	if err := validateDownloadInfoParams(origin.Source, args.DownloadInfo); err != nil {
-		return "", errors.Errorf("invalid application args: %w", err)
+		return "", application.BaseAddApplicationArg{}, errors.Errorf("invalid application args: %w", err)
 	}
 
 	if err := validateCreateApplicationResourceParams(charm, args.ResolvedResources, args.PendingResources); err != nil {
-		return "", errors.Errorf("create application: %w", err)
+		return "", application.BaseAddApplicationArg{}, errors.Errorf("create application: %w", err)
 	}
 
 	if err := validateDeviceConstraints(args.Devices, charm.Meta()); err != nil {
-		return "", errors.Errorf("validating device constraints: %w", err)
+		return "", application.BaseAddApplicationArg{}, errors.Errorf("validating device constraints: %w", err)
 	}
 
 	modelType, err := s.st.GetModelType(ctx)
 	if err != nil {
-		return "", errors.Errorf("getting model type: %w", err)
+		return "", application.BaseAddApplicationArg{}, errors.Errorf("getting model type: %w", err)
 	}
 	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, charm, origin, args)
 	if err != nil {
-		return "", errors.Errorf("creating application args: %w", err)
+		return "", application.BaseAddApplicationArg{}, errors.Errorf("creating application args: %w", err)
 	}
 	// We know that the charm name is valid, so we can use it as the application
 	// name if that is not provided.
@@ -164,25 +255,12 @@ func (s *ProviderService) CreateApplication(
 		name = appArg.Charm.Metadata.Name
 	}
 
-	numUnits := len(units)
-	appArg.Scale = numUnits
-
-	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints))
-	if err != nil {
-		return "", errors.Errorf("merging application and model constraints: %w", err)
-	}
-
 	// Adding units with storage needs to know the kind of storage supported
 	// by the underlying provider so gather that here as it needs to be
 	// done outside a transaction.
 	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
 	if err != nil {
-		return "", err
-	}
-
-	unitArgs, err := s.makeUnitArgs(modelType, units, constraints.DecodeConstraints(cons))
-	if err != nil {
-		return "", errors.Errorf("making unit args: %w", err)
+		return "", application.BaseAddApplicationArg{}, err
 	}
 
 	if len(appArg.Storage) > 0 {
@@ -191,7 +269,7 @@ func (s *ProviderService) CreateApplication(
 	for _, arg := range appArg.Storage {
 		p, err := s.poolStorageProvider(ctx, registry, arg.PoolNameOrType)
 		if err != nil {
-			return "", err
+			return "", application.BaseAddApplicationArg{}, err
 		}
 		if p.Supports(storage.StorageKindFilesystem) {
 			appArg.StoragePoolKind[arg.PoolNameOrType] = storage.StorageKindFilesystem
@@ -200,20 +278,93 @@ func (s *ProviderService) CreateApplication(
 			appArg.StoragePoolKind[arg.PoolNameOrType] = storage.StorageKindBlock
 		}
 	}
-	appID, err := s.st.CreateApplication(ctx, name, appArg, unitArgs)
+	return name, appArg, nil
+}
+
+func makeCreateApplicationArgs(
+	ctx context.Context,
+	state State,
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	modelType coremodel.ModelType,
+	charm internalcharm.Charm,
+	origin corecharm.Origin,
+	args AddApplicationArgs,
+) (application.BaseAddApplicationArg, error) {
+	storageDirectives := make(map[string]storage.Directive)
+	for n, sc := range args.Storage {
+		storageDirectives[n] = sc
+	}
+
+	meta := charm.Meta()
+
+	var err error
+	if storageDirectives, err = addDefaultStorageDirectives(ctx, state, modelType, storageDirectives, meta.Storage); err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf("adding default storage directives: %w", err)
+	}
+	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, storageDirectives, meta); err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf("invalid storage directives: %w", err)
+	}
+
+	// When encoding the charm, this will also validate the charm metadata,
+	// when parsing it.
+	ch, _, err := encodeCharm(charm)
 	if err != nil {
-		return "", errors.Errorf("creating application %q: %w", name, err)
+		return application.BaseAddApplicationArg{}, errors.Errorf("encoding charm: %w", err)
 	}
 
-	s.logger.Infof(ctx, "created application %q with ID %q", name, appID)
-
-	if args.ApplicationStatus != nil {
-		if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(name), *args.ApplicationStatus); err != nil {
-			s.logger.Infof(ctx, "failed recording application status history: %w", err)
-		}
+	revision := -1
+	if origin.Revision != nil {
+		revision = *origin.Revision
 	}
 
-	return appID, nil
+	source, err := encodeCharmSource(origin.Source)
+	if err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf("encoding charm source: %w", err)
+	}
+
+	ch.Source = source
+	ch.ReferenceName = args.ReferenceName
+	ch.Revision = revision
+	ch.Hash = origin.Hash
+	ch.ArchivePath = args.CharmStoragePath
+	ch.ObjectStoreUUID = args.CharmObjectStoreUUID
+	ch.Architecture = encodeArchitecture(origin.Platform.Architecture)
+
+	// If we have a storage path, then we know the charm is available.
+	// This is passive for now, but once we update the application, the presence
+	// of the object store UUID will be used to determine if the charm is
+	// available.
+	ch.Available = args.CharmStoragePath != ""
+
+	channelArg, platformArg, err := encodeChannelAndPlatform(origin)
+	if err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf("encoding charm origin: %w", err)
+	}
+
+	applicationConfig, err := encodeApplicationConfig(args.ApplicationConfig, ch.Config)
+	if err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf("encoding application config: %w", err)
+	}
+
+	applicationStatus, err := encodeWorkloadStatus(args.ApplicationStatus)
+	if err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf("encoding application status: %w", err)
+	}
+
+	return application.BaseAddApplicationArg{
+		Charm:             ch,
+		CharmDownloadInfo: args.DownloadInfo,
+		Platform:          platformArg,
+		Channel:           channelArg,
+		EndpointBindings:  args.EndpointBindings,
+		Resources:         makeResourcesArgs(args.ResolvedResources),
+		PendingResources:  args.PendingResources,
+		Storage:           makeStorageArgs(storageDirectives),
+		Config:            applicationConfig,
+		Settings:          args.ApplicationSettings,
+		Status:            applicationStatus,
+		Devices:           args.Devices,
+	}, nil
 }
 
 // GetSupportedFeatures returns the set of features that the model makes
@@ -292,11 +443,10 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 	return validator, nil
 }
 
-// AddUnits adds the specified units to the application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application
-// doesn't exist.
-// If no units are provided, it will return nil.
-func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
+// AddIAASUnits adds the specified units to the IAAS application, returning an
+// error satisfying [applicationerrors.ApplicationNotFoundError] if the
+// application doesn't exist. If no units are provided, it will return nil.
+func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if len(units) == 0 {
@@ -312,11 +462,6 @@ func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ..
 		return errors.Errorf("getting application %q id: %w", appName, err)
 	}
 
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return errors.Errorf("getting model type: %w", err)
-	}
-
 	appCons, err := s.st.GetApplicationConstraints(ctx, appUUID)
 	if err != nil {
 		return errors.Errorf("getting application %q constraints: %w", appName, err)
@@ -327,19 +472,14 @@ func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ..
 		return errors.Capture(err)
 	}
 
-	args, err := s.makeUnitArgs(modelType, units, constraints.DecodeConstraints(cons))
+	args, err := s.makeIAASUnitArgs(units, constraints.DecodeConstraints(cons))
 	if err != nil {
-		return errors.Errorf("making unit args: %w", err)
+		return errors.Errorf("making IAAS unit args: %w", err)
 	}
 
-	var unitNames []coreunit.Name
-	if modelType == coremodel.IAAS {
-		unitNames, err = s.st.AddIAASUnits(ctx, appUUID, args...)
-	} else {
-		unitNames, err = s.st.AddCAASUnits(ctx, appUUID, args...)
-	}
+	unitNames, err := s.st.AddIAASUnits(ctx, appUUID, args...)
 	if err != nil {
-		return errors.Errorf("adding units to application %q: %w", appName, err)
+		return errors.Errorf("adding IAAS units to application %q: %w", appName, err)
 	}
 
 	for i, name := range unitNames {
@@ -352,34 +492,49 @@ func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ..
 	return nil
 }
 
-func (s *Service) recordStatusHistory(
-	ctx context.Context,
-	unitName coreunit.Name,
-	statusArg application.UnitStatusArg,
-) error {
-	// The agent and workload status are required to be provided when adding
-	// a unit.
-	if statusArg.AgentStatus == nil || statusArg.WorkloadStatus == nil {
-		return errors.Errorf("unit %q status not provided", unitName)
+// AddCAASUnits adds the specified units to the CAAS application, returning an
+// error satisfying [applicationerrors.ApplicationNotFoundError] if the
+// application doesn't exist. If no units are provided, it will return nil.
+func (s *ProviderService) AddCAASUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	if len(units) == 0 {
+		return nil
 	}
 
-	// Force the presence to be recorded as true, as the unit has just been
-	// added.
-	if agentStatus, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
-		StatusInfo: *statusArg.AgentStatus,
-		Present:    true,
-	}); err == nil && agentStatus != nil {
-		if err := s.statusHistory.RecordStatus(ctx, status.UnitAgentNamespace.WithID(unitName.String()), *agentStatus); err != nil {
-			s.logger.Infof(ctx, "failed recording agent status for unit %q: %v", unitName, err)
-		}
+	if !isValidApplicationName(appName) {
+		return applicationerrors.ApplicationNameNotValid
 	}
 
-	if workloadStatus, err := decodeUnitWorkloadStatus(&status.UnitStatusInfo[status.WorkloadStatusType]{
-		StatusInfo: *statusArg.WorkloadStatus,
-		Present:    true,
-	}); err == nil && workloadStatus != nil {
-		if err := s.statusHistory.RecordStatus(ctx, status.UnitWorkloadNamespace.WithID(unitName.String()), *workloadStatus); err != nil {
-			s.logger.Infof(ctx, "failed recording workload status for unit %q: %v", unitName, err)
+	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return errors.Errorf("getting application %q id: %w", appName, err)
+	}
+
+	appCons, err := s.st.GetApplicationConstraints(ctx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting application %q constraints: %w", appName, err)
+	}
+
+	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	args, err := s.makeCAASUnitArgs(units, constraints.DecodeConstraints(cons))
+	if err != nil {
+		return errors.Errorf("making CAAS unit args: %w", err)
+	}
+
+	unitNames, err := s.st.AddCAASUnits(ctx, appUUID, args...)
+	if err != nil {
+		return errors.Errorf("adding CAAS units to application %q: %w", appName, err)
+	}
+
+	for i, name := range unitNames {
+		arg := args[i]
+		if err := s.recordStatusHistory(ctx, name, arg.UnitStatusArg); err != nil {
+			return errors.Errorf("recording status history: %w", err)
 		}
 	}
 
@@ -556,4 +711,32 @@ func (s *ProviderService) validateConstraints(ctx context.Context, cons corecons
 	}
 
 	return nil
+}
+
+func (s *Service) poolStorageProvider(
+	ctx context.Context,
+	registry storage.ProviderRegistry,
+	poolNameOrType string,
+) (storage.Provider, error) {
+	pool, err := s.st.GetStoragePoolByName(ctx, poolNameOrType)
+	if errors.Is(err, storageerrors.PoolNotFoundError) {
+		// If there's no pool called poolNameOrType, maybe a provider type
+		// has been specified directly.
+		providerType := storage.ProviderType(poolNameOrType)
+		aProvider, registryErr := registry.StorageProvider(providerType)
+		if registryErr != nil {
+			// The name can't be resolved as a storage provider type,
+			// so return the original "pool not found" error.
+			return nil, errors.Capture(err)
+		}
+		return aProvider, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+	providerType := storage.ProviderType(pool.Provider)
+	aProvider, err := registry.StorageProvider(providerType)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return aProvider, nil
 }

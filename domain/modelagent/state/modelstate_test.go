@@ -243,48 +243,49 @@ func (s *modelStateSuite) createTestingApplicationWithName(
 	}
 	ctx := c.Context()
 
-	appID, err := appState.CreateApplication(ctx, appName, application.AddApplicationArg{
-		Platform: platform,
-		Channel:  channel,
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: appName,
-				Provides: map[string]charm.Relation{
-					"endpoint": {
-						Name:  "endpoint",
-						Role:  charm.RoleProvider,
-						Scope: charm.ScopeGlobal,
-					},
-					"misc": {
-						Name:  "misc",
-						Role:  charm.RoleProvider,
-						Scope: charm.ScopeGlobal,
-					},
-				},
-			},
-			Manifest: charm.Manifest{
-				Bases: []charm.Base{
-					{
-						Name: "ubuntu",
-						Channel: charm.Channel{
-							Risk: charm.RiskStable,
+	appID, err := appState.CreateIAASApplication(ctx, appName, application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: appName,
+					Provides: map[string]charm.Relation{
+						"endpoint": {
+							Name:  "endpoint",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
 						},
-						Architectures: []string{"amd64"},
+						"misc": {
+							Name:  "misc",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
 					},
 				},
+				Manifest: charm.Manifest{
+					Bases: []charm.Base{
+						{
+							Name: "ubuntu",
+							Channel: charm.Channel{
+								Risk: charm.RiskStable,
+							},
+							Architectures: []string{"amd64"},
+						},
+					},
+				},
+				ReferenceName: appName,
+				Source:        charm.CharmHubSource,
+				Revision:      42,
+				Hash:          "hash",
 			},
-			ReferenceName: appName,
-			Source:        charm.CharmHubSource,
-			Revision:      42,
-			Hash:          "hash",
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident",
+				DownloadURL:        "https://example.com",
+				DownloadSize:       42,
+			},
 		},
-		CharmDownloadInfo: &charm.DownloadInfo{
-			Provenance:         charm.ProvenanceDownload,
-			CharmhubIdentifier: "ident",
-			DownloadURL:        "https://example.com",
-			DownloadSize:       42,
-		},
-		Scale: 1,
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	return appID

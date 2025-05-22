@@ -142,6 +142,13 @@ type machineUUID struct {
 	UUID machine.UUID `db:"uuid"`
 }
 
+// machineExistsUUID represents the struct to be used for the uuid column
+// within the sqlair statements in the machine domain.
+type machineExistsUUID struct {
+	UUID  machine.UUID `db:"uuid"`
+	Count int          `db:"count"`
+}
+
 // machineIsController represents the struct to be used for the is_controller column within the sqlair statements in the machine domain.
 type machineIsController struct {
 	IsController bool `db:"is_controller"`

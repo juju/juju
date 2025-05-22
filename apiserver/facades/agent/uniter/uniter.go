@@ -1412,13 +1412,6 @@ func (u *UniterAPI) ProviderType(ctx context.Context) (params.StringResult, erro
 	return result, err
 }
 
-type subordinateCreator func(ctx context.Context, subordinateAppID application.ID, principalUnitName coreunit.Name) error
-
-// CreateSubordinate creates units on a subordinate application.
-func (c subordinateCreator) CreateSubordinate(ctx context.Context, subordinateAppID application.ID, principalUnitName coreunit.Name) error {
-	return c(ctx, subordinateAppID, principalUnitName)
-}
-
 // EnterScope ensures each unit has entered its scope in the relation,
 // for all of the given relation/unit pairs.
 func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (params.ErrorResults, error) {
@@ -1452,6 +1445,13 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 		}
 	}
 	return result, nil
+}
+
+type subordinateCreator func(ctx context.Context, subordinateAppID application.ID, principalUnitName coreunit.Name) error
+
+// CreateSubordinate creates units on a subordinate application.
+func (c subordinateCreator) CreateSubordinate(ctx context.Context, subordinateAppID application.ID, principalUnitName coreunit.Name) error {
+	return c(ctx, subordinateAppID, principalUnitName)
 }
 
 func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc, relTagStr string, unitTag names.UnitTag) error {
@@ -1496,7 +1496,7 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		relUUID,
 		unitName,
 		settings,
-		subordinateCreator(u.applicationService.AddSubordinateUnit),
+		subordinateCreator(u.applicationService.AddIAASSubordinateUnit),
 	)
 	if internalerrors.Is(err, relationerrors.PotentialRelationUnitNotValid) {
 		u.logger.Debugf(ctx, "ignoring %q EnterScope for %q, not valid", unitName, relKey.String())

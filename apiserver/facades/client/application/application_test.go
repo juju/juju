@@ -1292,7 +1292,7 @@ func (s *applicationSuite) expectAddApplication() {
 // api.Deploy(). DO NOT use for DeployFromRepository(), the expectations
 // are different.
 func (s *applicationSuite) expectCreateApplicationForDeploy(name string, retErr error) {
-	s.applicationService.EXPECT().CreateApplication(gomock.Any(),
+	s.applicationService.EXPECT().CreateIAASApplication(gomock.Any(),
 		name,
 		gomock.Any(),
 		gomock.Any(),
