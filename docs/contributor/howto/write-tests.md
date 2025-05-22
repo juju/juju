@@ -31,33 +31,8 @@ import (
 
 ## Setting up tests for new packages
 
-Lets say we are creating a new provider for "magic" cloud, and we have a package
-called "magic" that lives at "github.com/juju/juju/internal/provider/magic".  The
-general approach for testing in juju is to have the tests in a separate package.
-Continuing with this example the tests would be in a package called "magic_test".
-
-A common idiom that has occurred in juju is to setup to tc hooks in a special
-file called `package_test.go` that would look like this:
-
-
-```go
-// Copyright 2014 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
-package magic_test
-
-import (
-	"testing"
-
-	"github.com/juju/tc"
-)
-
-func Test(t *testing.T) {
-	tc.TestingT(t)
-}
-```
-
-or
+If the package is testing mongo functionality, you will need to implement a
+`TestMain` function to ensure mongo is ready for your test suites.
 
 ```go
 // Copyright 2014 Canonical Ltd.
@@ -79,9 +54,8 @@ func TestMain(m *stdtesting.M) {
 }
 ```
 
-The key difference here is that the first one just hooks up `gocheck`
-so it looks for the `gocheck` suites in the package.  The second makes
-sure that there is a mongo available for the duration of the package tests.
+This second makes sure that there is a mongo available for the duration of the
+package tests.
 
 A general rule is not to setup mongo for a package unless you really
 need to as it is extra overhead.
