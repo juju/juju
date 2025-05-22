@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -33,7 +32,6 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package state -destination charm_mock_test.go github.com/juju/juju/internal/charm Charm
-
 
 type baseSuite struct {
 	schematesting.ModelSuite

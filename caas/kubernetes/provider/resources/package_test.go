@@ -3,13 +3,6 @@
 
 package resources
 
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-
-
 type (
 	Operation = operation
 )

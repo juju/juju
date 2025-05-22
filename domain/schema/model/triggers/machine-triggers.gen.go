@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
 // ChangeLogTriggersForMachine generates the triggers for the
 // machine table.
 func ChangeLogTriggersForMachine(columnName string, namespaceID int) func() schema.Patch {
@@ -92,4 +91,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

@@ -4,13 +4,8 @@
 package internal
 
 import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/internal/docker"
 )
-
 
 type (
 	AzureContainerRegistry   = azureContainerRegistry

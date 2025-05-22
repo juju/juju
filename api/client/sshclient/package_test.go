@@ -4,13 +4,8 @@
 package sshclient
 
 import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/api/base"
 )
-
 
 func NewFacadeFromCaller(caller base.FacadeCaller) *Facade {
 	return &Facade{

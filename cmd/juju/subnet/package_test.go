@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-
 // BaseSubnetSuite is used for embedding in other suites.
 type BaseSubnetSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite

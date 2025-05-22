@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -32,7 +31,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination constraints_mock_test.go github.com/juju/juju/core/constraints Validator
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination caas_mock_test.go github.com/juju/juju/caas Application
-
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

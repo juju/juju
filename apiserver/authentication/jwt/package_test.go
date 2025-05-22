@@ -6,15 +6,12 @@ package jwt_test
 import (
 	"context"
 	"encoding/base64"
-	stdtesting "testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/juju/errors"
-	"github.com/juju/tc"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
-
 
 type testJWTParser struct {
 	notReady bool

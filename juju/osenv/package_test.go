@@ -11,7 +11,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-
 type importSuite struct {
 }
 

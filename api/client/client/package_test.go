@@ -4,13 +4,8 @@
 package client
 
 import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/api/base"
 )
-
 
 func NewClientFromFacadeCaller(facade base.FacadeCaller) *Client {
 	return &Client{

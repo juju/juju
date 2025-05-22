@@ -4,10 +4,6 @@
 package service
 
 import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -15,7 +11,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination provider_mock_test.go github.com/juju/juju/internal/secrets/provider SecretBackendProvider,SecretsBackend
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination watcher_mock_test.go github.com/juju/juju/core/watcher StringsWatcher,NotifyWatcher
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
-
 
 type goodToken struct{}
 

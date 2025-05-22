@@ -3,11 +3,4 @@
 
 package secret
 
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package secret -destination backend_mock_test.go github.com/juju/juju/domain/secret/service SecretBackendState
-

@@ -2,10 +2,3 @@
 // Licensed under the LGPLv3, see LICENSE file for details.
 
 package cmdtesting_test
-
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-

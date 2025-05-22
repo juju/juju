@@ -4,11 +4,8 @@
 package provider_test
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/tc"
 )
-
 
 type mockRunCommand struct {
 	c        *tc.C

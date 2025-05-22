@@ -4,12 +4,8 @@
 package state
 
 import (
-	stdtesting "testing"
-
 	"github.com/canonical/sqlair"
-	"github.com/juju/tc"
 )
-
 
 type preparer struct{}
 

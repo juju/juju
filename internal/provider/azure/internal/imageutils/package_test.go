@@ -3,11 +3,4 @@
 
 package imageutils_test
 
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package imageutils_test -destination environs_mock_test.go github.com/juju/juju/environs CredentialInvalidator
-

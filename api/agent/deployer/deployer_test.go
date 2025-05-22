@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-
 type deployerSuite struct {
 	coretesting.BaseSuite
 }

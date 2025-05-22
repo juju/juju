@@ -4,7 +4,6 @@
 package filenotifywatcher
 
 import (
-	stdtesting "testing"
 	time "time"
 
 	"github.com/juju/tc"
@@ -15,7 +14,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package filenotifywatcher -destination watcher_mock_test.go github.com/juju/juju/internal/worker/filenotifywatcher FileNotifyWatcher,FileWatcher
 //go:generate go run go.uber.org/mock/mockgen -typed -package filenotifywatcher -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

@@ -3,11 +3,4 @@
 
 package state
 
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-
-
 // tlm: Tests coming in following PR when integrated back into API

@@ -11,7 +11,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-
 type ImportTest struct{}
 
 func TestImportTest(t *stdtesting.T) { tc.Run(t, &ImportTest{}) }

@@ -7,8 +7,9 @@ import (
 	"os"
 	stdtesting "testing"
 
-	"github.com/juju/juju/internal/testing"
 	mgotesting "github.com/juju/mgo/v3/testing"
+
+	"github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/apiserver ControllerConfigService,ModelService

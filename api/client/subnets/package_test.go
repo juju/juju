@@ -3,10 +3,4 @@
 
 package subnets_test
 
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-
 // TestAll is the main test function for this package

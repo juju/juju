@@ -7,7 +7,6 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
-
 func NewClientFromCaller(caller base.FacadeCaller) *Client {
 	return &Client{
 		facade: caller,

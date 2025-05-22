@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
 // ChangeLogTriggersForUpgradeInfo generates the triggers for the
 // upgrade_info table.
 func ChangeLogTriggersForUpgradeInfo(columnName string, namespaceID int) func() schema.Patch {
@@ -84,4 +83,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

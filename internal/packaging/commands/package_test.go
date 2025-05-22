@@ -3,10 +3,3 @@
 // Licensed under the LGPLv3, see LICENCE file for details.
 
 package commands_test
-
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-

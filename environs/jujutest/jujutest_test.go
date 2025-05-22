@@ -2,10 +2,3 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujutest
-
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-

@@ -4,11 +4,9 @@
 package modelmigration
 
 import (
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
 )

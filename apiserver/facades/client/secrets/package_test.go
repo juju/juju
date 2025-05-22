@@ -4,10 +4,7 @@
 package secrets
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/names/v6"
-	"github.com/juju/tc"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"

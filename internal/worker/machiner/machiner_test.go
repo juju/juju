@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-
 type MachinerSuite struct {
 	coretesting.BaseSuite
 	accessor   *mockMachineAccessor

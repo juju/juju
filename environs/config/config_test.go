@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-
 type ConfigSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }

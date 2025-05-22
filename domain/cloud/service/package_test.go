@@ -4,8 +4,6 @@
 package service
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -13,7 +11,6 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/cloud/service State,WatcherFactory
-
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

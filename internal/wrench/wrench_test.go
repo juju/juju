@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/internal/wrench"
 )
 
-
 type wrenchSuite struct {
 	coretesting.BaseSuite
 	wrenchDir string

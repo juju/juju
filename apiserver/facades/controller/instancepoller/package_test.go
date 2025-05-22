@@ -4,10 +4,6 @@
 package instancepoller
 
 import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/state"
 )
 

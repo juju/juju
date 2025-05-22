@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 )
 
-
 type testingSuite struct{}
 
 func TestTestingSuite(t *stdtesting.T) { tc.Run(t, &testingSuite{}) }

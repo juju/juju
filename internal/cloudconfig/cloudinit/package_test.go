@@ -3,11 +3,4 @@
 
 package cloudinit_test
 
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package cloudinit_test -destination filetransporter_mock_test.go github.com/juju/juju/internal/cloudconfig/cloudinit FileTransporter
-

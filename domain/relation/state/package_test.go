@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -32,7 +31,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
-
 
 // baseRelationSuite is a struct embedding ModelSuite for testing relation
 // between application. It provides a set of builder function to create all

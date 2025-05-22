@@ -5,11 +5,9 @@ package path
 
 import (
 	"net/url"
-	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
-
 
 func MustParseURL(c *tc.C, path string) *url.URL {
 	u, err := url.Parse(path)

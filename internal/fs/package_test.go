@@ -2,10 +2,3 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package fs
-
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-

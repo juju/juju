@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 )
 
-
 type filestorageSuite struct {
 	dir    string
 	reader storage.StorageReader

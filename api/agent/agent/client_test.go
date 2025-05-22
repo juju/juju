@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-
 type clientSuite struct {
 	testhelpers.IsolationSuite
 }

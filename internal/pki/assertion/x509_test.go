@@ -7,11 +7,8 @@ import (
 	"crypto/x509"
 	stdtesting "testing"
 
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/internal/pki/assertion"
 )
-
 
 func TestHasExtKeyUsage(t *stdtesting.T) {
 	tests := []struct {

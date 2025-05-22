@@ -3,13 +3,6 @@
 
 package relation_test
 
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-
-
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/mock_statetracker.go github.com/juju/juju/internal/worker/uniter/relation RelationStateTracker
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/mock_relationer.go github.com/juju/juju/internal/worker/uniter/relation Relationer
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/mock_subordinate_destroyer.go github.com/juju/juju/internal/worker/uniter/relation SubordinateDestroyer

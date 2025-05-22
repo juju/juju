@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/internal/worker/certupdater"
 )
 
-
 type CertUpdaterSuite struct {
 	jujutesting.BaseSuite
 	stateServingInfo controller.StateServingInfo

@@ -4,13 +4,8 @@
 package highavailability
 
 import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/api/base"
 )
-
 
 func NewClientFromCaller(caller base.FacadeCaller, facade base.ClientFacade) *Client {
 	return &Client{

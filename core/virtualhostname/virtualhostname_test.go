@@ -9,7 +9,6 @@ import (
 	"github.com/juju/tc"
 )
 
-
 type HostnameSuite struct{}
 
 func TestHostnameSuite(t *stdtesting.T) { tc.Run(t, &HostnameSuite{}) }

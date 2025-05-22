@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-
 type machineRebootSuite struct {
 	coretesting.BaseSuite
 }

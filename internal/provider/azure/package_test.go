@@ -5,13 +5,9 @@ package azure
 
 import (
 	"context"
-	stdtesting "testing"
-
-	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
 )
-
 
 var (
 	GetArchFromResourceSKU = getArchFromResourceSKU

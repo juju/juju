@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
 // ChangeLogTriggersForIpAddress generates the triggers for the
 // ip_address table.
 func ChangeLogTriggersForIpAddress(columnName string, namespaceID int) func() schema.Patch {
@@ -91,4 +90,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

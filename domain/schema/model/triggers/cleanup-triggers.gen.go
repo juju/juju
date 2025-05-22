@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
 // ChangeLogTriggersForRemoval generates the triggers for the
 // removal table.
 func ChangeLogTriggersForRemoval(columnName string, namespaceID int) func() schema.Patch {
@@ -48,4 +47,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

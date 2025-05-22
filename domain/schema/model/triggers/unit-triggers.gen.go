@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
 // ChangeLogTriggersForUnit generates the triggers for the
 // unit table.
 func ChangeLogTriggersForUnit(columnName string, namespaceID int) func() schema.Patch {
@@ -122,4 +121,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

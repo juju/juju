@@ -5,7 +5,6 @@ package secretsmanager
 
 import (
 	"context"
-	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
@@ -18,7 +17,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 )
-
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/secrets.go -source service.go
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/secretsriggerwatcher.go github.com/juju/juju/core/watcher SecretTriggerWatcher

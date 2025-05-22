@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/instance"
 )
 
-
 type InstanceSuite struct{}
 
 func TestInstanceSuite(t *stdtesting.T) { tc.Run(t, &InstanceSuite{}) }

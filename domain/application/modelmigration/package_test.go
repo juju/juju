@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -25,7 +23,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/application/modelmigration ImportService,ExportService
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination description_mock_test.go github.com/juju/description/v9 CharmMetadata,CharmMetadataRelation,CharmMetadataStorage,CharmMetadataDevice,CharmMetadataResource,CharmMetadataContainer,CharmMetadataContainerMount,CharmManifest,CharmManifestBase,CharmActions,CharmAction,CharmConfigs,CharmConfig
-
 
 type exportSuite struct {
 	testhelpers.IsolationSuite

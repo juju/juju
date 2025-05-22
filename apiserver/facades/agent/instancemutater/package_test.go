@@ -4,8 +4,6 @@
 package instancemutater
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
@@ -17,7 +15,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutatorWatcher,InstanceMutaterState,Machine,Unit,Application,MachineService,ApplicationService,ModelInfoService
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/state NotifyWatcher,StringsWatcher
-
 
 // NewTestAPI is exported for use by tests that need
 // to create an instance-mutater API facade.

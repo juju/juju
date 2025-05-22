@@ -3,13 +3,6 @@
 
 package state
 
-import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
-)
-
-
 func ptr[T any](v T) *T {
 	return &v
 }

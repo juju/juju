@@ -4,15 +4,11 @@
 package engine_test
 
 import (
-	stdtesting "testing"
-
-	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
 )
-
 
 type dummyWorker struct {
 	worker.Worker

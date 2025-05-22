@@ -13,7 +13,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package pinger -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
-
 type ImportTest struct{}
 
 func TestImportTest(t *stdtesting.T) { tc.Run(t, &ImportTest{}) }

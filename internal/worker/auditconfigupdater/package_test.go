@@ -4,8 +4,6 @@
 package auditconfigupdater
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -16,7 +14,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package auditconfigupdater -destination servicefactory_mock_test.go github.com/juju/juju/internal/worker/auditconfigupdater ControllerConfigService
 //go:generate go run go.uber.org/mock/mockgen -typed -package auditconfigupdater -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
-
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

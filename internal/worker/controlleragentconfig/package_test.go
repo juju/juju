@@ -4,8 +4,6 @@
 package controlleragentconfig
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -13,7 +11,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
-
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
