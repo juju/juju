@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -114,7 +113,7 @@ type SubnetState interface {
 type LinkLayerDeviceState interface {
 	// AllMachinesAndNetNodes returns all machine names mapped to their
 	// net mode UUIDs in the model.
-	AllMachinesAndNetNodes(ctx context.Context) (map[machine.Name]network.NetNodeUUID, error)
+	AllMachinesAndNetNodes(ctx context.Context) (map[string]string, error)
 
 	// DeleteImportedLinkLayerDevices deletes all data added via the ImportLinkLayerDevices
 	// method.

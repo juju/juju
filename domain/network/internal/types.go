@@ -4,23 +4,22 @@
 package internal
 
 import (
-	"github.com/juju/juju/core/machine"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/network"
 )
 
 // ImportLinkLayerDevice represents a physical or virtual
 // network interface and its IP addresses.
 type ImportLinkLayerDevice struct {
+	UUID             string
 	IsAutoStart      bool
 	IsEnabled        bool
 	MTU              *int64
-	MachineID        machine.Name
+	MachineID        string
 	MACAddress       *string
-	NetNodeUUID      corenetwork.NetNodeUUID
+	NetNodeUUID      string
 	Name             string
 	ParentDeviceName string
-	ProviderID       *corenetwork.Id
-	Type             network.DeviceType
-	VirtualPortType  network.VirtualPortType
+	ProviderID       *string
+	Type             corenetwork.LinkLayerDeviceType
+	VirtualPortType  corenetwork.VirtualPortType
 }

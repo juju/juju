@@ -11,13 +11,11 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
-	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type linkLayerBaseSuite struct {
@@ -56,14 +54,14 @@ func (s *linkLayerBaseSuite) query(c *tc.C, query string, args ...any) {
 		errors.ErrorStack(err)))
 }
 
-func (s *linkLayerBaseSuite) addNetNode(c *tc.C) network.NetNodeUUID {
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
+func (s *linkLayerBaseSuite) addNetNode(c *tc.C) string {
+	netNodeUUID := uuid.MustNewUUID().String()
 	s.query(c, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
 	return netNodeUUID
 }
 
-func (s *linkLayerBaseSuite) addMachine(c *tc.C, name machine.Name, netNodeUUID network.NetNodeUUID) {
-	machineUUID := machinetesting.GenUUID(c)
+func (s *linkLayerBaseSuite) addMachine(c *tc.C, name string, netNodeUUID string) {
+	machineUUID := machinetesting.GenUUID(c).String()
 	s.query(c, "INSERT INTO machine (uuid, net_node_uuid, name, life_id) VALUES (?, ?, ? ,?)",
 		machineUUID, netNodeUUID, name, 0)
 }

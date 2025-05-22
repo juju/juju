@@ -11,8 +11,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
-	"github.com/juju/juju/core/machine"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -144,17 +142,22 @@ func transformImportData(in []internal.ImportLinkLayerDevice) ([]linkLayerDevice
 	providers := make([]providerLinkLayerDevice, 0)
 	// nameMap associates lld names and uuids for linking
 	// devices with any parent they may have.
-	nameMap := make(map[string]corenetwork.LinkLayerDeviceUUID)
+	nameMap := make(map[string]string)
 
 	// Fill in the linkLayerDevice and providerLinkLayerDevice structures.
 	for i, l := range in {
-		lldUUID, err := corenetwork.NewLinkLayerDeviceUUID()
+		devTypeID, err := encodeDeviceType(l.Type)
 		if err != nil {
-			return nil, nil, nil, errors.Errorf("creating link layer device uuid: %w", err)
+			return nil, nil, nil, errors.Capture(err)
 		}
-		nameMap[l.Name] = lldUUID
+
+		portTypeID, err := encodeVirtualPortType(l.VirtualPortType)
+		if err != nil {
+			return nil, nil, nil, errors.Capture(err)
+		}
+
 		lld := linkLayerDevice{
-			UUID:        lldUUID,
+			UUID:        l.UUID,
 			NetNodeUUID: l.NetNodeUUID,
 			Name:        l.Name,
 			MAC: sql.NullString{
@@ -167,19 +170,19 @@ func transformImportData(in []internal.ImportLinkLayerDevice) ([]linkLayerDevice
 			},
 			IsAutoStart:     l.IsAutoStart,
 			IsEnabled:       l.IsEnabled,
-			Type:            l.Type,
-			VirtualPortType: l.VirtualPortType,
+			Type:            devTypeID,
+			VirtualPortType: portTypeID,
 			VLAN:            0,
 		}
 		llds[i] = lld
 		if l.ProviderID != nil {
 			plld := providerLinkLayerDevice{
 				ProviderID: *l.ProviderID,
-				DeviceUUID: lldUUID,
+				DeviceUUID: l.UUID,
 			}
 			providers = append(providers, plld)
 		}
-		nameMap[uniqueLLDNameForParentMatching(l.MachineID, l.Name)] = lldUUID
+		nameMap[uniqueLLDNameForParentMatching(l.MachineID, l.Name)] = l.UUID
 	}
 
 	// Fill in the linkLayerDeviceParents
@@ -194,7 +197,7 @@ func transformImportData(in []internal.ImportLinkLayerDevice) ([]linkLayerDevice
 			return nil, nil, nil, errors.Errorf("programming error: processing parent link layer device %q ", l.ParentDeviceName)
 		}
 		// We must have seen the device before at this point.
-		device, ok := nameMap[l.Name]
+		device, ok := nameMap[uniqueLLDNameForParentMatching(l.MachineID, l.Name)]
 		if !ok {
 			return nil, nil, nil, errors.Errorf("programming error: processing parent of link layer device %q ", l.Name)
 		}
@@ -209,7 +212,7 @@ func transformImportData(in []internal.ImportLinkLayerDevice) ([]linkLayerDevice
 
 // AllMachinesAndNetNodes is part of the [service.LinkLayerDeviceState]
 // interface.
-func (st *State) AllMachinesAndNetNodes(ctx context.Context) (map[machine.Name]corenetwork.NetNodeUUID, error) {
+func (st *State) AllMachinesAndNetNodes(ctx context.Context) (map[string]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -237,7 +240,7 @@ FROM   machine
 		return nil, errors.Capture(err)
 	}
 
-	mapToNetNode := transform.SliceToMap(results, func(in machineNameNetNode) (machine.Name, corenetwork.NetNodeUUID) {
+	mapToNetNode := transform.SliceToMap(results, func(in machineNameNetNode) (string, string) {
 		return in.MachineName, in.NetNodeUUID
 	})
 
@@ -246,7 +249,7 @@ FROM   machine
 
 // uniqueLLDNameForParentMatching provides a unique identifier for matching
 // LLDs with any parent devices on migration import.
-func uniqueLLDNameForParentMatching(machine machine.Name, name string) string {
+func uniqueLLDNameForParentMatching(machine, name string) string {
 	return fmt.Sprintf("%s:%s", machine, name)
 }
 
