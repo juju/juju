@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
@@ -151,22 +152,26 @@ func transformImportData(in []internal.ImportLinkLayerDevice) ([]linkLayerDevice
 		if err != nil {
 			return nil, nil, nil, errors.Errorf("creating link layer device uuid: %w", err)
 		}
-		llds[i] = linkLayerDevice{
-			UUID:            lldUUID,
-			Name:            l.Name,
-			NetNodeUUID:     l.NetNodeUUID,
+		nameMap[l.Name] = lldUUID
+		lld := linkLayerDevice{
+			UUID:        lldUUID,
+			NetNodeUUID: l.NetNodeUUID,
+			Name:        l.Name,
+			MAC: sql.NullString{
+				String: dereferenceOrEmpty(l.MACAddress),
+				Valid:  isNotNil(l.MACAddress),
+			},
+			MTU: sql.NullInt64{
+				Int64: dereferenceOrEmpty(l.MTU),
+				Valid: isNotNil(l.MTU),
+			},
 			IsAutoStart:     l.IsAutoStart,
 			IsEnabled:       l.IsEnabled,
 			Type:            l.Type,
 			VirtualPortType: l.VirtualPortType,
 			VLAN:            0,
 		}
-		if l.MACAddress != nil {
-			llds[i].MAC = *l.MACAddress
-		}
-		if l.MTU != nil {
-			llds[i].MTU = *l.MTU
-		}
+		llds[i] = lld
 		if l.ProviderID != nil {
 			plld := providerLinkLayerDevice{
 				ProviderID: *l.ProviderID,
@@ -174,7 +179,7 @@ func transformImportData(in []internal.ImportLinkLayerDevice) ([]linkLayerDevice
 			}
 			providers = append(providers, plld)
 		}
-		nameMap[l.Name] = lldUUID
+		nameMap[uniqueLLDNameForParentMatching(l.MachineID, l.Name)] = lldUUID
 	}
 
 	// Fill in the linkLayerDeviceParents
@@ -184,7 +189,7 @@ func transformImportData(in []internal.ImportLinkLayerDevice) ([]linkLayerDevice
 			continue
 		}
 		// We must have seen the parent device before at this point.
-		parent, ok := nameMap[l.ParentDeviceName]
+		parent, ok := nameMap[uniqueLLDNameForParentMatching(l.MachineID, l.ParentDeviceName)]
 		if !ok {
 			return nil, nil, nil, errors.Errorf("programming error: processing parent link layer device %q ", l.ParentDeviceName)
 		}
@@ -237,4 +242,24 @@ FROM   machine
 	})
 
 	return mapToNetNode, nil
+}
+
+// uniqueLLDNameForParentMatching provides a unique identifier for matching
+// LLDs with any parent devices on migration import.
+func uniqueLLDNameForParentMatching(machine machine.Name, name string) string {
+	return fmt.Sprintf("%s:%s", machine, name)
+}
+
+// dereferenceOrEmpty is handy for assigning values to the sql.Null* types.
+func dereferenceOrEmpty[T any](val *T) T {
+	if val == nil {
+		var empty T
+		return empty
+	}
+	return *val
+}
+
+// isNotNil is handy for assigning validity to the sql.Null* types.
+func isNotNil[T any](val *T) bool {
+	return val != nil
 }

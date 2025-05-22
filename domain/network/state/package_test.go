@@ -76,5 +76,5 @@ func (s *linkLayerBaseSuite) checkRowCount(c *tc.C, table string, expected int) 
 		return tx.QueryRowContext(ctx, query).Scan(&obtained)
 	})
 	c.Assert(err, tc.IsNil, tc.Commentf("counting rows in table %q", table))
-	c.Check(obtained, tc.Equals, expected)
+	c.Check(obtained, tc.Equals, expected, tc.Commentf("count of %q rows", table))
 }
