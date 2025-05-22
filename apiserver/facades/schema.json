@@ -14278,12 +14278,6 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "jump-server-public-key": {
-                            "type": "array",
-                            "items": {
-                                "type": "integer"
-                            }
-                        },
                         "public-key": {
                             "type": "array",
                             "items": {
@@ -14293,8 +14287,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "public-key",
-                        "jump-server-public-key"
+                        "public-key"
                     ]
                 },
                 "SSHAddressResult": {

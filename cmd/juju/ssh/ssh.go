@@ -258,6 +258,7 @@ type ModelCommand interface {
 	NewAPIRoot() (api.Connection, error)
 	NewAPIClient() (*apiclient.Client, error)
 	ModelIdentifier() (string, error)
+	CurrentAccountDetails() (*jujuclient.AccountDetails, error)
 }
 
 // sshProvider is implemented by either a CaaS or IaaS model instance.

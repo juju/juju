@@ -1115,6 +1115,45 @@ func (c *MockModelCommandControllerDetailsCall) DoAndReturn(f func() (*jujuclien
 	return c
 }
 
+// CurrentAccountDetails mocks base method.
+func (m *MockModelCommand) CurrentAccountDetails() (*jujuclient.AccountDetails, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CurrentAccountDetails")
+	ret0, _ := ret[0].(*jujuclient.AccountDetails)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CurrentAccountDetails indicates an expected call of CurrentAccountDetails.
+func (mr *MockModelCommandMockRecorder) CurrentAccountDetails() *MockModelCommandCurrentAccountDetailsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentAccountDetails", reflect.TypeOf((*MockModelCommand)(nil).CurrentAccountDetails))
+	return &MockModelCommandCurrentAccountDetailsCall{Call: call}
+}
+
+// MockModelCommandCurrentAccountDetailsCall wrap *gomock.Call
+type MockModelCommandCurrentAccountDetailsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelCommandCurrentAccountDetailsCall) Return(arg0 *jujuclient.AccountDetails, arg1 error) *MockModelCommandCurrentAccountDetailsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelCommandCurrentAccountDetailsCall) Do(f func() (*jujuclient.AccountDetails, error)) *MockModelCommandCurrentAccountDetailsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelCommandCurrentAccountDetailsCall) DoAndReturn(f func() (*jujuclient.AccountDetails, error)) *MockModelCommandCurrentAccountDetailsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ModelDetails mocks base method.
 func (m *MockModelCommand) ModelDetails() (string, *jujuclient.ModelDetails, error) {
 	m.ctrl.T.Helper()

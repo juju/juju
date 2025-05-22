@@ -662,46 +662,36 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *gc.C) {
 	s.mockBackend.EXPECT().ControllerTag().Return(controllerTag).AnyTimes()
 	s.mockAuthoriser.EXPECT().HasPermission(permission.SuperuserAccess, controllerTag).AnyTimes()
 
-	// Test container target hits correct methods.
-	gomock.InOrder(
-		s.mockBackend.EXPECT().UnitVirtualPublicKey("postgresql/1").Return([]byte{1}, nil).Times(1),
-		s.mockBackend.EXPECT().JumpServerVirtualPublicKey().Return([]byte{2}, nil).Times(1),
-	)
+	s.mockBackend.EXPECT().UnitVirtualPublicKey("postgresql/1").Return([]byte{1}, nil).Times(1)
+
 	res := facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
 	c.Assert(res, gc.DeepEquals, params.PublicSSHHostKeyResult{
-		Error:               nil,
-		PublicKey:           []byte{1},
-		JumpServerPublicKey: []byte{2},
+		Error:     nil,
+		PublicKey: []byte{1},
 	})
 
 	// Test unit target hits correct methods.
-	gomock.InOrder(
-		s.mockBackend.EXPECT().UnitVirtualPublicKey("openfga/1").Return([]byte{1}, nil).Times(1),
-		s.mockBackend.EXPECT().JumpServerVirtualPublicKey().Return([]byte{2}, nil).Times(1),
-	)
+	s.mockBackend.EXPECT().UnitVirtualPublicKey("openfga/1").Return([]byte{1}, nil).Times(1)
+
 	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
 	c.Assert(res, gc.DeepEquals, params.PublicSSHHostKeyResult{
-		Error:               nil,
-		PublicKey:           []byte{1},
-		JumpServerPublicKey: []byte{2},
+		Error:     nil,
+		PublicKey: []byte{1},
 	})
 
 	// Test machine target hits correct methods.
-	gomock.InOrder(
-		s.mockBackend.EXPECT().MachineVirtualPublicKey("1").Return([]byte{1}, nil).Times(1),
-		s.mockBackend.EXPECT().JumpServerVirtualPublicKey().Return([]byte{2}, nil).Times(1),
-	)
+	s.mockBackend.EXPECT().MachineVirtualPublicKey("1").Return([]byte{1}, nil).Times(1)
+
 	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
 	c.Assert(res, gc.DeepEquals, params.PublicSSHHostKeyResult{
-		Error:               nil,
-		PublicKey:           []byte{1},
-		JumpServerPublicKey: []byte{2},
+		Error:     nil,
+		PublicKey: []byte{1},
 	})
 }
 
@@ -747,10 +737,8 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
 	c.Assert(res.Error, gc.ErrorMatches, "failed to get unit host key: an-error")
 
 	// Test SSHServerHostKey fail.
-	gomock.InOrder(
-		s.mockBackend.EXPECT().UnitVirtualPublicKey("postgresql/1").Return([]byte{}, nil).Times(1),
-		s.mockBackend.EXPECT().JumpServerVirtualPublicKey().Return([]byte{}, errors.New("an-error")).Times(1),
-	)
+	s.mockBackend.EXPECT().UnitVirtualPublicKey("postgresql/1").Return([]byte{}, nil).Times(1)
+
 	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})

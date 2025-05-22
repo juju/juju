@@ -25,7 +25,6 @@ type Backend interface {
 	Model() (Model, error)
 	CloudSpec() (environscloudspec.CloudSpec, error)
 
-	JumpServerVirtualPublicKey() ([]byte, error)
 	MachineVirtualPublicKey(string) ([]byte, error)
 	UnitVirtualPublicKey(string) ([]byte, error)
 }
@@ -139,21 +138,6 @@ func (b *backend) GetMachineForEntity(tagString string) (SSHMachine, error) {
 	default:
 		return nil, errors.Errorf("unsupported entity: %q", tagString)
 	}
-}
-
-// JumpServerVirtualAuthorizedKey returns the public key in SSH wire format.
-func (b *backend) JumpServerVirtualPublicKey() ([]byte, error) {
-	privKey, err := b.controllerState.SSHServerHostKey()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	key, err := getPublicKeyWireFormat([]byte(privKey))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return key, nil
 }
 
 // UnitVirtualAuthorizedKey returns the public key in SSH wire format.

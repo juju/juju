@@ -42,8 +42,7 @@ func (s *sshJumpSuite) TestResolveTarget(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any()).Return(params.PublicSSHHostKeyResult{
-		PublicKey:           publicKey.Marshal(),
-		JumpServerPublicKey: publicKey.Marshal(),
+		PublicKey: publicKey.Marshal(),
 	}, nil)
 	controllerAddress := "1.0.0.1"
 	sshJump := sshJump{
@@ -74,6 +73,7 @@ func (s *sshJumpSuite) TestShowCommandFlag(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	template, err := template.New("output").Parse(openSSHTemplate)
 	c.Assert(err, gc.IsNil)
+
 	sshJump := sshJump{
 		sshClient:            s.sshAPIJump,
 		controllersAddresses: []string{"1.0.0.1", "1.0.0.2"},
@@ -127,8 +127,7 @@ func (s *sshJumpSuite) TestShowCommandFlag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any()).Return(params.PublicSSHHostKeyResult{
-		PublicKey:           publicKey.Marshal(),
-		JumpServerPublicKey: publicKey.Marshal(),
+		PublicKey: publicKey.Marshal(),
 	}, nil).Times(len(tests))
 	for _, test := range tests {
 		c.Logf("running test %q", test.name)
