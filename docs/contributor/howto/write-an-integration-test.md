@@ -3,7 +3,7 @@
 
 This document demonstrates how to write an integration test for `juju`.
 
-First, navigate to https://github.com/juju/juju/tree/develop/tests/suites.
+First, navigate to the [suites](https://github.com/juju/juju/tree/main/tests/suites) folder.
 
 In this directory, create a subdirectory named after the integration test suite you want to use. Let's call ours
 `example_integration_test_suite`.
@@ -86,11 +86,11 @@ test_example() {
 }
 ```
 
-When you are done with your test file, navigate to [test folder](/tests), open the `main.sh`
+When you are done with your test file, navigate to the [tests folder](https://github.com/juju/juju/tree/main/tests), open the `main.sh`
 file (which is the entrypoint to your integration testing overall) and add your test suite name to the
 [`TEST_NAMES` variable](https://github.com/juju/juju/blob/main/tests/main.sh#L42).
 
-Finally, run your integration test, following the instructions in the [test folder](/tests) .
+Finally, run your integration test, following the instructions in the [tests folder](https://github.com/juju/juju/tree/main/tests).
 Essentially, what you need to do is as below:
 
 ```bash

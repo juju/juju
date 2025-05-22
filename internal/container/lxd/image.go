@@ -68,8 +68,13 @@ func (s *Server) FindImage(
 	if entry != nil {
 		// We already have an image with the given alias, so just use that.
 		target = entry.Target
-		if image, _, err := s.GetImage(target); err == nil && isCompatibleVirtType(virtType, image.Type) {
-			logger.Debugf(ctx, "Found image locally - %q %q", image.Filename, target)
+		image, _, err := s.GetImage(target)
+		if err != nil {
+			logger.Warningf(ctx, "failed to get local image %s: %s", target, err)
+		}
+
+		if err == nil && isCompatibleVirtType(virtType, image.Type) {
+			logger.Debugf(ctx, "found image locally - %q %q", image.Filename, target)
 			return SourcedImage{
 				Image:     image,
 				LXDServer: s.InstanceServer,

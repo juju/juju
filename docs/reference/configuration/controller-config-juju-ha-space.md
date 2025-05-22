@@ -1,4 +1,3 @@
-(controller-config-juju-ha-space)=
 # `juju-ha-space`
 
 This document describes the `juju-ha-space` controller configuration key.
