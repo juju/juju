@@ -174,7 +174,7 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 		}
 
 		// Associate a parent machine if parentName is provided.
-		if err := st.createParentMachine(ctx, tx, args); err != nil {
+		if err := st.createParentMachineLink(ctx, tx, args); err != nil {
 			return errors.Errorf("creating parent machine %q for machine %q: %w", args.parentName, mName, err)
 		}
 
@@ -186,7 +186,7 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 	return nil
 }
 
-func (st *State) createParentMachine(ctx context.Context, tx *sqlair.TX, args createMachineArgs) error {
+func (st *State) createParentMachineLink(ctx context.Context, tx *sqlair.TX, args createMachineArgs) error {
 	mName := args.name
 
 	// Prepare query for associating/verifying parent machine.
@@ -231,7 +231,7 @@ WHERE  machine_uuid = $machineUUID.uuid`
 		return errors.Errorf("querying parent machine %q for machine %q: %w", args.parentName, mName, err)
 	}
 
-	// Protect against a grandparent
+	// Protect against a grand-parenting.
 	machineParentUUID := machineUUID{
 		UUID: machineUUIDout.UUID,
 	}
@@ -418,7 +418,7 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 		// Query for the machine uuid
 		err := tx.Query(ctx, uuidQueryStmt, nameIdent).Get(&uuid)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
+			return errors.Errorf("getting machine status for %q: %w", mName, machineerrors.MachineNotFound)
 		} else if err != nil {
 			return errors.Errorf("querying uuid for machine %q: %w", mName, err)
 		}
