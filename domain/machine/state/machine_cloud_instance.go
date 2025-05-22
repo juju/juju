@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -46,9 +45,8 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, machineUUIDQuery).Get(&row)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("machine: %q: %w", machineUUID, machineerrors.NotProvisioned)
-		}
-		if err != nil {
+			return errors.Errorf("getting machine hardware characteristics for %q: %w", machineUUID, machineerrors.NotProvisioned)
+		} else if err != nil {
 			return errors.Errorf("querying machine cloud instance for machine %q: %w", machineUUID, err)
 		}
 		return nil
@@ -313,12 +311,10 @@ WHERE  machine_uuid = $machineUUID.uuid;`
 
 	var result instanceID
 
-	if err := tx.Query(ctx, queryStmt, mUUIDParam).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("machine: %q: %w", mUUID, machineerrors.NotProvisioned)
+	if err := tx.Query(ctx, queryStmt, mUUIDParam).Get(&result); errors.Is(err, sqlair.ErrNoRows) || result.ID == "" {
+		return "", errors.Errorf("getting machine instance id for %q: %w", mUUID, machineerrors.NotProvisioned)
 	} else if err != nil {
 		return "", errors.Errorf("querying instance for machine %q: %w", mUUID, err)
-	} else if result.ID == "" {
-		return "", errors.Errorf("machine: %q: %w", mUUID, machineerrors.NotProvisioned)
 	}
 
 	return result.ID, nil
@@ -413,8 +409,6 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 		} else if err != nil {
 			return errors.Errorf("querying cloud instance status and status data for machine %q: %w", mName, err)
 		}
-
-		fmt.Println("??????", status)
 
 		return nil
 	})

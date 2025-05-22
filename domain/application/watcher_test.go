@@ -910,7 +910,12 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	}
 	svc := s.setupService(c, factory)
 	st := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
-	machineSvc := machineservice.NewService(machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)))
+	machineSvc := machineservice.NewService(
+		machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	_, err := machineSvc.CreateMachine(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -970,7 +975,12 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 	}
 	svc := s.setupService(c, factory)
 	st := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
-	machineSvc := machineservice.NewService(machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)))
+	machineSvc := machineservice.NewService(
+		machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	_, err := machineSvc.CreateMachine(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
