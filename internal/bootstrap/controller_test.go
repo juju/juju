@@ -143,7 +143,9 @@ type CAASControllerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&CAASControllerSuite{})
+func TestCAASControllerSuite(t *testing.T) {
+	tc.Run(t, &CAASControllerSuite{})
+}
 
 func (s *CAASControllerSuite) TestPopulateCAASControllerCharmLocalCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
