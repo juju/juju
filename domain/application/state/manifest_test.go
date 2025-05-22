@@ -5,7 +5,7 @@ package state
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type manifestSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestManifestSuite(t *stdtesting.T) {
+func TestManifestSuite(t *testing.T) {
 	tc.Run(t, &manifestSuite{})
 }
 
@@ -230,7 +230,7 @@ type manifestStateSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestManifestStateSuite(t *stdtesting.T) {
+func TestManifestStateSuite(t *testing.T) {
 	tc.Run(t, &manifestStateSuite{})
 }
 

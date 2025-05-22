@@ -8,7 +8,7 @@ import (
 	"context"
 	"regexp"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -42,7 +42,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestCrossmodelRelationsSuite(t *stdtesting.T) {
+func TestCrossmodelRelationsSuite(t *testing.T) {
 	tc.Run(t, &crossmodelRelationsSuite{})
 }
 

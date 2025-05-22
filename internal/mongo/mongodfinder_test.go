@@ -6,7 +6,7 @@ package mongo_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -23,7 +23,7 @@ type MongodFinderSuite struct {
 	search *mongo.MockSearchTools
 }
 
-func TestMongodFinderSuite(t *stdtesting.T) {
+func TestMongodFinderSuite(t *testing.T) {
 	tc.Run(t, &MongodFinderSuite{})
 }
 
@@ -63,7 +63,7 @@ type OSSearchToolsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestOSSearchToolsSuite(t *stdtesting.T) {
+func TestOSSearchToolsSuite(t *testing.T) {
 	tc.Run(t, &OSSearchToolsSuite{})
 }
 

@@ -5,7 +5,7 @@ package bootstrap_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -29,7 +29,7 @@ type toolsSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestToolsSuite(t *stdtesting.T) {
+func TestToolsSuite(t *testing.T) {
 	tc.Run(t, &toolsSuite{})
 }
 

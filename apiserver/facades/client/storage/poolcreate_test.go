@@ -4,7 +4,7 @@
 package storage_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ type poolCreateSuite struct {
 	baseStorageSuite
 }
 
-func TestPoolCreateSuite(t *stdtesting.T) {
+func TestPoolCreateSuite(t *testing.T) {
 	tc.Run(t, &poolCreateSuite{})
 }
 

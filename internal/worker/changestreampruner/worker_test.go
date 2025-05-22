@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -24,7 +24,7 @@ type workerSuite struct {
 	baseSuite
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &workerSuite{})
 }

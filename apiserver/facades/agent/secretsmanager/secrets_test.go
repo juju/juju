@@ -5,7 +5,7 @@ package secretsmanager_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -56,7 +56,7 @@ type SecretsManagerSuite struct {
 	facade *secretsmanager.SecretsManagerAPI
 }
 
-func TestSecretsManagerSuite(t *stdtesting.T) {
+func TestSecretsManagerSuite(t *testing.T) {
 	tc.Run(t, &SecretsManagerSuite{})
 }
 

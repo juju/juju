@@ -6,7 +6,7 @@ package oci_test
 import (
 	"fmt"
 	"net/http"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -25,7 +25,7 @@ type storageVolumeSuite struct {
 	provider storage.Provider
 }
 
-func TestStorageVolumeSuite(t *stdtesting.T) {
+func TestStorageVolumeSuite(t *testing.T) {
 	tc.Run(t, &storageVolumeSuite{})
 }
 

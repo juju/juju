@@ -6,7 +6,7 @@ package lxd_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type connectionSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestConnectionSuite(t *stdtesting.T) {
+func TestConnectionSuite(t *testing.T) {
 	tc.Run(t, &connectionSuite{})
 }
 

@@ -5,7 +5,7 @@ package eventsource
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
@@ -23,7 +23,7 @@ import (
 
 type ImportTest struct{}
 
-func TestImportTest(t *stdtesting.T) {
+func TestImportTest(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &ImportTest{})
 }

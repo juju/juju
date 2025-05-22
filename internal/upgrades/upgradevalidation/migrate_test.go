@@ -4,7 +4,7 @@
 package upgradevalidation_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ func makeBases(os string, vers []string) []state.Base {
 	}
 	return bases
 }
-func TestMigrateSuite(t *stdtesting.T) {
+func TestMigrateSuite(t *testing.T) {
 	tc.Run(t, &migrateSuite{})
 }
 

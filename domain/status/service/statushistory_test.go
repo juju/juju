@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -26,7 +26,7 @@ type statusHistorySuite struct {
 	now           time.Time
 }
 
-func TestStatusHistorySuite(t *stdtesting.T) {
+func TestStatusHistorySuite(t *testing.T) {
 	tc.Run(t, &statusHistorySuite{})
 }
 

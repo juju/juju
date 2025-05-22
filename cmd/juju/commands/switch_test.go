@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -30,7 +30,7 @@ type SwitchSimpleSuite struct {
 	onRefresh func()
 }
 
-func TestSwitchSimpleSuite(t *stdtesting.T) {
+func TestSwitchSimpleSuite(t *testing.T) {
 	tc.Run(t, &SwitchSimpleSuite{})
 }
 

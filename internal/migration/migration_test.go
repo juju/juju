@@ -11,7 +11,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
@@ -44,7 +44,7 @@ type ExportSuite struct {
 	model                 *MockModel
 }
 
-func TestExportSuite(t *stdtesting.T) {
+func TestExportSuite(t *testing.T) {
 	tc.Run(t, &ExportSuite{})
 }
 
@@ -113,7 +113,7 @@ type ImportSuite struct {
 	agentBinaryStore *MockAgentBinaryStore
 }
 
-func TestImportSuite(t *stdtesting.T) {
+func TestImportSuite(t *testing.T) {
 	tc.Run(t, &ImportSuite{})
 }
 

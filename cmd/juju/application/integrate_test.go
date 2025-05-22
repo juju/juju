@@ -6,7 +6,7 @@ package application_test
 import (
 	"context"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -35,7 +35,7 @@ func (s *AddRelationSuite) SetUpTest(c *tc.C) {
 		return nil, s.mockAPI.NextErr()
 	}
 }
-func TestAddRelationSuite(t *stdtesting.T) {
+func TestAddRelationSuite(t *testing.T) {
 	tc.Run(t, &AddRelationSuite{})
 }
 

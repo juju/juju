@@ -4,7 +4,7 @@
 package instancemutater_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -35,7 +35,7 @@ type mutaterSuite struct {
 	mutaterMachine *instancemutater.MutaterMachine
 }
 
-func TestMutaterSuite(t *stdtesting.T) {
+func TestMutaterSuite(t *testing.T) {
 	tc.Run(t, &mutaterSuite{})
 }
 

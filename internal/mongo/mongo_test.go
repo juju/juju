@@ -9,7 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -35,7 +35,7 @@ type MongoSuite struct {
 	mongoSnapService *mongotest.MockMongoSnapService
 }
 
-func TestMongoSuite(t *stdtesting.T) {
+func TestMongoSuite(t *testing.T) {
 	tc.Run(t, &MongoSuite{})
 }
 

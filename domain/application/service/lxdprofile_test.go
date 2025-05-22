@@ -4,7 +4,7 @@
 package service
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type lxdProfileSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLxdProfileSuite(t *stdtesting.T) {
+func TestLxdProfileSuite(t *testing.T) {
 	tc.Run(t, &lxdProfileSuite{})
 }
 

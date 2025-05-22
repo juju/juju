@@ -4,7 +4,7 @@
 package secrets_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -14,7 +14,7 @@ import (
 
 type SecretBackendSuite struct{}
 
-func TestSecretBackendSuite(t *stdtesting.T) {
+func TestSecretBackendSuite(t *testing.T) {
 	tc.Run(t, &SecretBackendSuite{})
 }
 

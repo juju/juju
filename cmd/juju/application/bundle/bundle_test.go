@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -25,7 +25,7 @@ type buildModelRepSuite struct {
 	modelExtractor *mocks.MockModelExtractor
 }
 
-func TestBuildModelRepSuite(t *stdtesting.T) {
+func TestBuildModelRepSuite(t *testing.T) {
 	tc.Run(t, &buildModelRepSuite{})
 }
 
@@ -209,7 +209,7 @@ type composeAndVerifyRepSuite struct {
 	overlayFile      string
 }
 
-func TestComposeAndVerifyRepSuite(t *stdtesting.T) {
+func TestComposeAndVerifyRepSuite(t *testing.T) {
 	tc.Run(t, &composeAndVerifyRepSuite{})
 }
 func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleEmpty(c *tc.C) {

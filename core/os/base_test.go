@@ -4,7 +4,7 @@
 package os_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type baseSuite struct {
 	testhelpers.CleanupSuite
 }
 
-func TestBaseSuite(t *stdtesting.T) {
+func TestBaseSuite(t *testing.T) {
 	tc.Run(t, &baseSuite{})
 }
 

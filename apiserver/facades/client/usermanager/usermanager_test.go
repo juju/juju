@@ -5,7 +5,7 @@ package usermanager_test
 
 import (
 	"sort"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -43,7 +43,7 @@ type userManagerSuite struct {
 	blockCommandService *MockBlockCommandService
 }
 
-func TestUserManagerSuite(t *stdtesting.T) {
+func TestUserManagerSuite(t *testing.T) {
 	tc.Run(t, &userManagerSuite{})
 }
 

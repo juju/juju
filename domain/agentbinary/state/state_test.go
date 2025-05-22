@@ -11,7 +11,7 @@ import (
 	"encoding/hex"
 	"io"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -30,7 +30,7 @@ type stateSuite struct {
 	state *State
 }
 
-func TestStateSuite(t *stdtesting.T) {
+func TestStateSuite(t *testing.T) {
 	tc.Run(t, &stateSuite{})
 }
 

@@ -4,7 +4,7 @@
 package caasapplication_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestCAASApplicationSuite(t *stdtesting.T) {
+func TestCAASApplicationSuite(t *testing.T) {
 	tc.Run(t, &CAASApplicationSuite{})
 }
 

@@ -5,7 +5,7 @@ package controller_test
 
 import (
 	"encoding/json"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -32,7 +32,7 @@ type Suite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &Suite{})
 }
 

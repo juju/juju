@@ -4,7 +4,7 @@
 package remoterelations_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestRemoteRelationsSuite(t *stdtesting.T) {
+func TestRemoteRelationsSuite(t *testing.T) {
 	tc.Run(t, &remoteRelationsSuite{})
 }
 

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sync/atomic"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -55,7 +55,7 @@ type EntrySuite struct {
 	basePath string
 }
 
-func TestEntrySuite(t *stdtesting.T) {
+func TestEntrySuite(t *testing.T) {
 	tc.Run(t, &EntrySuite{})
 }
 

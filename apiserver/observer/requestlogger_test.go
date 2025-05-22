@@ -5,7 +5,7 @@ package observer_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -21,7 +21,7 @@ type RequestLoggerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRequestLoggerSuite(t *stdtesting.T) {
+func TestRequestLoggerSuite(t *testing.T) {
 	tc.Run(t, &RequestLoggerSuite{})
 }
 

@@ -4,7 +4,7 @@
 package vsphere_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -21,7 +21,7 @@ type InstanceSuite struct {
 	EnvironFixture
 }
 
-func TestInstanceSuite(t *stdtesting.T) {
+func TestInstanceSuite(t *testing.T) {
 	tc.Run(t, &InstanceSuite{})
 }
 

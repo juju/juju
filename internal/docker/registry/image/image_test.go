@@ -5,7 +5,7 @@ package image_test
 
 import (
 	"encoding/json"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
@@ -19,7 +19,7 @@ type imageSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestImageSuite(t *stdtesting.T) {
+func TestImageSuite(t *testing.T) {
 	tc.Run(t, &imageSuite{})
 }
 

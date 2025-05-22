@@ -6,7 +6,7 @@ package computeprovisioner
 import (
 	"errors"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -25,7 +25,7 @@ func (l *logSuite) SetUpTest(c *tc.C) {
 	l.LoggingSuite.SetUpTest(c)
 	l.JujuOSEnvSuite.SetUpTest(c)
 }
-func TestLogSuite(t *stdtesting.T) {
+func TestLogSuite(t *testing.T) {
 	tc.Run(t, &logSuite{})
 }
 

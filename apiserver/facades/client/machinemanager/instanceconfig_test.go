@@ -6,7 +6,7 @@ package machinemanager
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -38,7 +38,7 @@ type machineConfigSuite struct {
 	bootstrapEnviron        *MockBootstrapEnviron
 }
 
-func TestMachineConfigSuite(t *stdtesting.T) {
+func TestMachineConfigSuite(t *testing.T) {
 	tc.Run(t, &machineConfigSuite{})
 }
 

@@ -4,7 +4,7 @@
 package machine_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -32,7 +32,7 @@ type machinerSuite struct {
 	watcherRegistry *MockWatcherRegistry
 }
 
-func TestMachinerSuite(t *stdtesting.T) {
+func TestMachinerSuite(t *testing.T) {
 	tc.Run(t, &machinerSuite{})
 }
 

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -46,7 +46,7 @@ type legacyEnvironBrokerSuite struct {
 	statusCallbackStub testhelpers.Stub
 }
 
-func TestLegacyEnvironBrokerSuite(t *stdtesting.T) {
+func TestLegacyEnvironBrokerSuite(t *testing.T) {
 	tc.Run(t, &legacyEnvironBrokerSuite{})
 }
 func (s *legacyEnvironBrokerSuite) SetUpTest(c *tc.C) {
@@ -488,7 +488,7 @@ type environBrokerSuite struct {
 	imageServerURL string
 }
 
-func TestEnvironBrokerSuite(t *stdtesting.T) {
+func TestEnvironBrokerSuite(t *testing.T) {
 	tc.Run(t, &environBrokerSuite{})
 }
 

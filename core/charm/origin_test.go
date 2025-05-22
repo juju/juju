@@ -4,7 +4,7 @@
 package charm_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type sourceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSourceSuite(t *stdtesting.T) {
+func TestSourceSuite(t *testing.T) {
 	tc.Run(t, &sourceSuite{})
 }
 
@@ -34,7 +34,7 @@ type platformSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPlatformSuite(t *stdtesting.T) {
+func TestPlatformSuite(t *testing.T) {
 	tc.Run(t, &platformSuite{})
 }
 

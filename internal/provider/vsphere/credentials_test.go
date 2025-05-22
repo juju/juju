@@ -4,7 +4,7 @@
 package vsphere_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type credentialsSuite struct {
 	provider environs.EnvironProvider
 }
 
-func TestCredentialsSuite(t *stdtesting.T) {
+func TestCredentialsSuite(t *testing.T) {
 	tc.Run(t, &credentialsSuite{})
 }
 

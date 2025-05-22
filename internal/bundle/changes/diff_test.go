@@ -5,7 +5,7 @@ package bundlechanges_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
@@ -24,7 +24,7 @@ type diffSuite struct {
 	logger logger.Logger
 }
 
-func TestDiffSuite(t *stdtesting.T) {
+func TestDiffSuite(t *testing.T) {
 	tc.Run(t, &diffSuite{})
 }
 

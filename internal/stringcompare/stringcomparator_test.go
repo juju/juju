@@ -4,7 +4,7 @@
 package stringcompare_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type StringComparatorSuite struct{}
 
-func TestStringComparatorSuite(t *stdtesting.T) {
+func TestStringComparatorSuite(t *testing.T) {
 	tc.Run(t, &StringComparatorSuite{})
 }
 

@@ -4,7 +4,7 @@
 package repository
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +14,7 @@ import (
 
 type sanitiseCharmOriginSuite struct{}
 
-func TestSanitiseCharmOriginSuite(t *stdtesting.T) {
+func TestSanitiseCharmOriginSuite(t *testing.T) {
 	tc.Run(t, &sanitiseCharmOriginSuite{})
 }
 func (s *sanitiseCharmOriginSuite) TestSanitise(c *tc.C) {

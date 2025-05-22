@@ -4,7 +4,7 @@
 package crossmodel_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -27,7 +27,7 @@ type crossmodelSuite struct {
 	statusService *mocks.MockStatusService
 }
 
-func TestCrossmodelSuite(t *stdtesting.T) {
+func TestCrossmodelSuite(t *testing.T) {
 	tc.Run(t, &crossmodelSuite{})
 }
 

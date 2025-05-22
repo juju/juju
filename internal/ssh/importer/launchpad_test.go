@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -20,7 +20,7 @@ type launchpadSuite struct {
 	client *MockClient
 }
 
-func TestLaunchpadSuite(t *stdtesting.T) {
+func TestLaunchpadSuite(t *testing.T) {
 	tc.Run(t, &launchpadSuite{})
 }
 

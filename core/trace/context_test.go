@@ -5,7 +5,7 @@ package trace
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type contextSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestContextSuite(t *stdtesting.T) {
+func TestContextSuite(t *testing.T) {
 	tc.Run(t, &contextSuite{})
 }
 

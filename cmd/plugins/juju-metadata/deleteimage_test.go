@@ -5,7 +5,7 @@ package main
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type deleteImageSuite struct {
 	deletedIds []string
 }
 
-func TestDeleteImageSuite(t *stdtesting.T) {
+func TestDeleteImageSuite(t *testing.T) {
 	tc.Run(t, &deleteImageSuite{})
 }
 

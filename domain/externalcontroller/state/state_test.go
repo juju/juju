@@ -5,7 +5,7 @@ package state
 
 import (
 	"sort"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type stateSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestStateSuite(t *stdtesting.T) {
+func TestStateSuite(t *testing.T) {
 	tc.Run(t, &stateSuite{})
 }
 

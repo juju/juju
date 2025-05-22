@@ -6,14 +6,14 @@ package charm
 import (
 	"bytes"
 	"encoding/json"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type ActionsSuite struct{}
 
-func TestActionsSuite(t *stdtesting.T) {
+func TestActionsSuite(t *testing.T) {
 	tc.Run(t, &ActionsSuite{})
 }
 

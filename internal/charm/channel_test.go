@@ -4,7 +4,7 @@
 package charm_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ type channelSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestChannelSuite(t *stdtesting.T) {
+func TestChannelSuite(t *testing.T) {
 	tc.Run(t, &channelSuite{})
 }
 

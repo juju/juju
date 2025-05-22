@@ -11,7 +11,7 @@ import (
 	"path"
 	"sync"
 	"sync/atomic"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -27,7 +27,7 @@ type workerSuite struct {
 	baseSuite
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	tc.Run(t, &workerSuite{})
 }
 

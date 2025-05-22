@@ -4,7 +4,7 @@
 package secrets_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type RoleSuite struct{}
 
-func TestRoleSuite(t *stdtesting.T) {
+func TestRoleSuite(t *testing.T) {
 	tc.Run(t, &RoleSuite{})
 }
 

@@ -4,7 +4,7 @@
 package status
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type statusSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestStatusSuite(t *stdtesting.T) {
+func TestStatusSuite(t *testing.T) {
 	tc.Run(t, &statusSuite{})
 }
 

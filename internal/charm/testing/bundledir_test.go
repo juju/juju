@@ -6,7 +6,7 @@ package testing_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type BundleDirSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBundleDirSuite(t *stdtesting.T) {
+func TestBundleDirSuite(t *testing.T) {
 	tc.Run(t, &BundleDirSuite{})
 }
 

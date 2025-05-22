@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -24,7 +24,7 @@ type StateSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestStateSuite(t *stdtesting.T) {
+func TestStateSuite(t *testing.T) {
 	tc.Run(t, &StateSuite{})
 }
 

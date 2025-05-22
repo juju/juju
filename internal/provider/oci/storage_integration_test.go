@@ -4,7 +4,7 @@
 package oci_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type storageSuite struct {
 	provider storage.Provider
 }
 
-func TestStorageSuite(t *stdtesting.T) {
+func TestStorageSuite(t *testing.T) {
 	tc.Run(t, &storageSuite{})
 }
 

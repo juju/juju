@@ -9,7 +9,7 @@ package leadership_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -27,7 +27,7 @@ type leadershipSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLeadershipSuite(t *stdtesting.T) {
+func TestLeadershipSuite(t *testing.T) {
 	tc.Run(t, &leadershipSuite{})
 }
 

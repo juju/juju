@@ -5,7 +5,7 @@ package broker_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -49,7 +49,7 @@ type hostPreparerSuite struct {
 	Stub *testhelpers.Stub
 }
 
-func TestHostPreparerSuite(t *stdtesting.T) {
+func TestHostPreparerSuite(t *testing.T) {
 	tc.Run(t, &hostPreparerSuite{})
 }
 

@@ -5,7 +5,7 @@ package application
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -30,7 +30,7 @@ func (s *RemoveRelationSuite) SetUpTest(c *tc.C) {
 		return s.mockAPI.NextErr()
 	}
 }
-func TestRemoveRelationSuite(t *stdtesting.T) {
+func TestRemoveRelationSuite(t *testing.T) {
 	tc.Run(t, &RemoveRelationSuite{})
 }
 

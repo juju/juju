@@ -4,7 +4,7 @@
 package bootstrap
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type ControllerSuite struct {
 	baseSuite
 }
 
-func TestControllerSuite(t *stdtesting.T) {
+func TestControllerSuite(t *testing.T) {
 	tc.Run(t, &ControllerSuite{})
 }
 

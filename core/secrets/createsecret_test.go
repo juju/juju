@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ import (
 
 type CreateSecretSuite struct{}
 
-func TestCreateSecretSuite(t *stdtesting.T) {
+func TestCreateSecretSuite(t *testing.T) {
 	tc.Run(t, &CreateSecretSuite{})
 }
 

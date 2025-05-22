@@ -4,7 +4,7 @@
 package charm_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ import (
 
 type originSuite struct{}
 
-func TestOriginSuite(t *stdtesting.T) {
+func TestOriginSuite(t *testing.T) {
 	tc.Run(t, &originSuite{})
 }
 

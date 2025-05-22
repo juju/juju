@@ -11,7 +11,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -35,7 +35,7 @@ type nodeManagerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestNodeManagerSuite(t *stdtesting.T) {
+func TestNodeManagerSuite(t *testing.T) {
 	tc.Run(t, &nodeManagerSuite{})
 }
 
@@ -474,7 +474,7 @@ type slowQuerySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSlowQuerySuite(t *stdtesting.T) {
+func TestSlowQuerySuite(t *testing.T) {
 	tc.Run(t, &slowQuerySuite{})
 }
 

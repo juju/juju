@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -22,7 +22,7 @@ type ConfigGetSuite struct {
 	ContextSuite
 }
 
-func TestConfigGetSuite(t *stdtesting.T) {
+func TestConfigGetSuite(t *testing.T) {
 	tc.Run(t, &ConfigGetSuite{})
 }
 

@@ -4,7 +4,7 @@
 package model_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -21,7 +21,7 @@ type WrapAgentSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWrapAgentSuite(t *stdtesting.T) {
+func TestWrapAgentSuite(t *testing.T) {
 	tc.Run(t, &WrapAgentSuite{})
 }
 

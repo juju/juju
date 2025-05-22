@@ -10,7 +10,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -30,7 +30,7 @@ type SSHSuite struct {
 	SSHMachineSuite
 }
 
-func TestSSHSuite(t *stdtesting.T) {
+func TestSSHSuite(t *testing.T) {
 	tc.Run(t, &SSHSuite{})
 }
 

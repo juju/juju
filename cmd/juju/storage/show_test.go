@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -25,7 +25,7 @@ type ShowSuite struct {
 	mockAPI *mockShowAPI
 }
 
-func TestShowSuite(t *stdtesting.T) {
+func TestShowSuite(t *testing.T) {
 	tc.Run(t, &ShowSuite{})
 }
 

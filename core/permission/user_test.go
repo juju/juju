@@ -4,7 +4,7 @@
 package permission_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type userSuite struct{}
 
-func TestUserSuite(t *stdtesting.T) {
+func TestUserSuite(t *testing.T) {
 	tc.Run(t, &userSuite{})
 }
 

@@ -4,7 +4,7 @@
 package ec2_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/aws/smithy-go"
 	"github.com/juju/errors"
@@ -25,7 +25,7 @@ type ProviderSuite struct {
 	provider environs.EnvironProvider
 }
 
-func TestProviderSuite(t *stdtesting.T) {
+func TestProviderSuite(t *testing.T) {
 	tc.Run(t, &ProviderSuite{})
 }
 

@@ -4,7 +4,7 @@
 package charmhub
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type ConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) {
+func TestConfigSuite(t *testing.T) {
 	tc.Run(t, &ConfigSuite{})
 }
 

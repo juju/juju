@@ -5,7 +5,7 @@ package observer_test
 
 import (
 	"net/http"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type multiplexerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMultiplexerSuite(t *stdtesting.T) {
+func TestMultiplexerSuite(t *testing.T) {
 	tc.Run(t, &multiplexerSuite{})
 }
 

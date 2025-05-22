@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -18,7 +18,7 @@ import (
 
 type ConstraintsSuite struct{}
 
-func TestConstraintsSuite(t *stdtesting.T) {
+func TestConstraintsSuite(t *testing.T) {
 	tc.Run(t, &ConstraintsSuite{})
 }
 

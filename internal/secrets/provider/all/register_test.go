@@ -4,7 +4,7 @@
 package all_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +20,7 @@ type allSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAllSuite(t *stdtesting.T) {
+func TestAllSuite(t *testing.T) {
 	tc.Run(t, &allSuite{})
 }
 

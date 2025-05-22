@@ -4,7 +4,7 @@
 package internal_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -18,7 +18,7 @@ type providerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProviderSuite(t *stdtesting.T) {
+func TestProviderSuite(t *testing.T) {
 	tc.Run(t, &providerSuite{})
 }
 

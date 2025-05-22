@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/httprequest.v1"
@@ -17,7 +17,7 @@ type downloadSuite struct {
 	baseSuite
 }
 
-func TestDownloadSuite(t *stdtesting.T) {
+func TestDownloadSuite(t *testing.T) {
 	tc.Run(t, &downloadSuite{})
 }
 

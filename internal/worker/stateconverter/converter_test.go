@@ -4,7 +4,7 @@
 package stateconverter_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/internal/worker/stateconverter/mocks"
 )
 
-func TestConverterSuite(t *stdtesting.T) {
+func TestConverterSuite(t *testing.T) {
 	tc.Run(t, &converterSuite{})
 }
 

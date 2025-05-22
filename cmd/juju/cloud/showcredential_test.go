@@ -5,7 +5,7 @@ package cloud_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type ShowCredentialSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestShowCredentialSuite(t *stdtesting.T) {
+func TestShowCredentialSuite(t *testing.T) {
 	tc.Run(t, &ShowCredentialSuite{})
 }
 

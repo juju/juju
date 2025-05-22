@@ -4,7 +4,7 @@
 package backups
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -17,7 +17,7 @@ type createSuite struct {
 	baseSuite
 }
 
-func TestCreateSuite(t *stdtesting.T) {
+func TestCreateSuite(t *testing.T) {
 	tc.Run(t, &createSuite{})
 }
 

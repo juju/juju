@@ -5,7 +5,7 @@ package service
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -46,7 +46,7 @@ type providerServiceSuite struct {
 	baseSuite
 }
 
-func TestProviderServiceSuite(t *stdtesting.T) {
+func TestProviderServiceSuite(t *testing.T) {
 	tc.Run(t, &providerServiceSuite{})
 }
 

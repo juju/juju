@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type apiclientWhiteboxSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestApiclientWhiteboxSuite(t *stdtesting.T) {
+func TestApiclientWhiteboxSuite(t *testing.T) {
 	tc.Run(t, &apiclientWhiteboxSuite{})
 }
 

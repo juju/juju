@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -34,7 +34,7 @@ type LeadershipSuite struct {
 	machineApps []string
 }
 
-func TestLeadershipSuite(t *stdtesting.T) {
+func TestLeadershipSuite(t *testing.T) {
 	tc.Run(t, &LeadershipSuite{})
 }
 

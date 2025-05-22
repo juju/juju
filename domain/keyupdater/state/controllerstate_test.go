@@ -7,7 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"slices"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -33,7 +33,7 @@ type controllerStateSuite struct {
 	userUUID  user.UUID
 }
 
-func TestControllerStateSuite(t *stdtesting.T) {
+func TestControllerStateSuite(t *testing.T) {
 	tc.Run(t, &controllerStateSuite{})
 }
 

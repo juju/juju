@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -33,7 +33,7 @@ import (
 
 type ansiSuite struct{}
 
-func TestAnsiSuite(t *stdtesting.T) {
+func TestAnsiSuite(t *testing.T) {
 	tc.Run(t, &ansiSuite{})
 }
 

@@ -4,7 +4,7 @@
 package base_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -21,7 +21,7 @@ type apiCallerSuite struct {
 	apiCaller *mocks.MockAPICaller
 }
 
-func TestApiCallerSuite(t *stdtesting.T) {
+func TestApiCallerSuite(t *testing.T) {
 	tc.Run(t, &apiCallerSuite{})
 }
 

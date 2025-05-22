@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -22,13 +22,13 @@ type CmdSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCmdSuite(t *stdtesting.T) {
+func TestCmdSuite(t *testing.T) {
 	tc.Run(t, &CmdSuite{})
 }
 
 // Reentrancy point for testing (something as close as possible to) the juju
 // tool itself.
-func TestRunMain(t *stdtesting.T) {
+func TestRunMain(t *testing.T) {
 	if *flagRunMain {
 		os.Exit(Main(flag.Args()))
 	}

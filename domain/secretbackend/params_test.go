@@ -4,7 +4,7 @@
 package secretbackend
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type paramsSuite struct{}
 
-func TestParamsSuite(t *stdtesting.T) {
+func TestParamsSuite(t *testing.T) {
 	tc.Run(t, &paramsSuite{})
 }
 

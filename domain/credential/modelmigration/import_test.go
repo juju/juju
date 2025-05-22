@@ -5,7 +5,7 @@ package modelmigration
 
 import (
 	"regexp"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type importSuite struct {
 	service     *MockImportService
 }
 
-func TestImportSuite(t *stdtesting.T) {
+func TestImportSuite(t *testing.T) {
 	tc.Run(t, &importSuite{})
 }
 

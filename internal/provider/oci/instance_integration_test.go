@@ -5,7 +5,7 @@ package oci_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
@@ -24,7 +24,7 @@ type instanceSuite struct {
 	commonSuite
 }
 
-func TestInstanceSuite(t *stdtesting.T) {
+func TestInstanceSuite(t *testing.T) {
 	tc.Run(t, &instanceSuite{})
 }
 

@@ -7,7 +7,7 @@ import (
 	"net"
 	"os/exec"
 	"runtime"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type GatewaySuite struct {
 	network.BaseSuite
 }
 
-func TestGatewaySuite(t *stdtesting.T) {
+func TestGatewaySuite(t *testing.T) {
 	tc.Run(t, &GatewaySuite{})
 }
 

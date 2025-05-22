@@ -5,7 +5,7 @@ package caasfirewaller_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -42,7 +42,7 @@ type firewallerSuite struct {
 	modelTag names.ModelTag
 }
 
-func TestFirewallerSuite(t *stdtesting.T) {
+func TestFirewallerSuite(t *testing.T) {
 	tc.Run(t, &firewallerSuite{})
 }
 

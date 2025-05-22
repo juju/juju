@@ -4,7 +4,7 @@
 package api
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type ImportSuite struct{}
 
-func TestImportSuite(t *stdtesting.T) {
+func TestImportSuite(t *testing.T) {
 	tc.Run(t, &ImportSuite{})
 }
 

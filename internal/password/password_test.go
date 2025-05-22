@@ -4,7 +4,7 @@
 package password
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type passwordSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPasswordSuite(t *stdtesting.T) {
+func TestPasswordSuite(t *testing.T) {
 	tc.Run(t, &passwordSuite{})
 }
 

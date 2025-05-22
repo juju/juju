@@ -5,7 +5,7 @@ package service
 
 import (
 	"math/rand/v2"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -48,7 +48,7 @@ type applicationServiceSuite struct {
 	baseSuite
 }
 
-func TestApplicationServiceSuite(t *stdtesting.T) {
+func TestApplicationServiceSuite(t *testing.T) {
 	tc.Run(t, &applicationServiceSuite{})
 }
 
@@ -1110,7 +1110,7 @@ type applicationWatcherServiceSuite struct {
 	watcherFactory *MockWatcherFactory
 }
 
-func TestApplicationWatcherServiceSuite(t *stdtesting.T) {
+func TestApplicationWatcherServiceSuite(t *testing.T) {
 	tc.Run(t, &applicationWatcherServiceSuite{})
 }
 func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapper(c *tc.C) {

@@ -4,7 +4,7 @@
 package gce_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type environUpgradeSuite struct {
 	gce.BaseSuite
 }
 
-func TestEnvironUpgradeSuite(t *stdtesting.T) {
+func TestEnvironUpgradeSuite(t *testing.T) {
 	tc.Run(t, &environUpgradeSuite{})
 }
 

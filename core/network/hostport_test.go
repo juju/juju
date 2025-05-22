@@ -6,7 +6,7 @@ package network_test
 import (
 	"fmt"
 	"sort"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type HostPortSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestHostPortSuite(t *stdtesting.T) {
+func TestHostPortSuite(t *testing.T) {
 	tc.Run(t, &HostPortSuite{})
 }
 

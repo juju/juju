@@ -5,7 +5,7 @@ package common_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -28,7 +28,7 @@ type passwordSuite struct {
 	agentPasswordService *mocks.MockAgentPasswordService
 }
 
-func TestPasswordSuite(t *stdtesting.T) {
+func TestPasswordSuite(t *testing.T) {
 	tc.Run(t, &passwordSuite{})
 }
 

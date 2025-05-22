@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type cleanupSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestCleanupSuite(t *stdtesting.T) {
+func TestCleanupSuite(t *testing.T) {
 	tc.Run(t, &cleanupSuite{})
 }
 

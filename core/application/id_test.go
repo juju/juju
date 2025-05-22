@@ -4,7 +4,7 @@
 package application
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type ApplicationSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestApplicationSuite(t *stdtesting.T) {
+func TestApplicationSuite(t *testing.T) {
 	tc.Run(t, &ApplicationSuite{})
 }
 

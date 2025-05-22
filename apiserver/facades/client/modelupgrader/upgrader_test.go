@@ -4,7 +4,7 @@
 package modelupgrader
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type modelUpgradeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestModelUpgradeSuite(t *stdtesting.T) {
+func TestModelUpgradeSuite(t *testing.T) {
 	tc.Run(t, &modelUpgradeSuite{})
 }
 

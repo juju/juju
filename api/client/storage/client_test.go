@@ -5,7 +5,7 @@ package storage_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -23,7 +23,7 @@ import (
 type storageMockSuite struct {
 }
 
-func TestStorageMockSuite(t *stdtesting.T) {
+func TestStorageMockSuite(t *testing.T) {
 	tc.Run(t, &storageMockSuite{})
 }
 

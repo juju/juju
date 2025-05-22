@@ -8,7 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -42,7 +42,7 @@ type brokerSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestBrokerSuite(t *stdtesting.T) {
+func TestBrokerSuite(t *testing.T) {
 	tc.Run(t, &brokerSuite{})
 }
 

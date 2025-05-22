@@ -4,7 +4,7 @@
 package storage_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type storageNameSuite struct{}
 
-func TestStorageNameSuite(t *stdtesting.T) {
+func TestStorageNameSuite(t *testing.T) {
 	tc.Run(t, &storageNameSuite{})
 }
 
@@ -36,7 +36,7 @@ func assertStorageNameInvalid(c *tc.C, name string) {
 
 type storageIDSuite struct{}
 
-func TestStorageIDSuite(t *stdtesting.T) {
+func TestStorageIDSuite(t *testing.T) {
 	tc.Run(t, &storageIDSuite{})
 }
 

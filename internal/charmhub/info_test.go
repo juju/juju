@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type InfoSuite struct {
 	baseSuite
 }
 
-func TestInfoSuite(t *stdtesting.T) {
+func TestInfoSuite(t *testing.T) {
 	tc.Run(t, &InfoSuite{})
 }
 

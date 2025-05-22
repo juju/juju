@@ -5,7 +5,7 @@ package ec2
 
 import (
 	"sort"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 type cloudSuite struct {
 }
 
-func TestCloudSuite(t *stdtesting.T) {
+func TestCloudSuite(t *testing.T) {
 	tc.Run(t, &cloudSuite{})
 }
 

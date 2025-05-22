@@ -10,14 +10,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type TLSSuite struct{}
 
-func TestTLSSuite(t *stdtesting.T) {
+func TestTLSSuite(t *testing.T) {
 	tc.Run(t, &TLSSuite{})
 }
 

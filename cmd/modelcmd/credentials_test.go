@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -76,7 +76,7 @@ type credentialsSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestCredentialsSuite(t *stdtesting.T) {
+func TestCredentialsSuite(t *testing.T) {
 	tc.Run(t, &credentialsSuite{})
 }
 

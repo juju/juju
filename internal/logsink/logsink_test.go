@@ -12,7 +12,7 @@ import (
 	"math/rand"
 	"sort"
 	"sync/atomic"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -31,7 +31,7 @@ type logSinkSuite struct {
 	closed int64
 }
 
-func TestLogSinkSuite(t *stdtesting.T) {
+func TestLogSinkSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &logSinkSuite{})
 }

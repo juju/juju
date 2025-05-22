@@ -4,7 +4,7 @@
 package logger_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -31,7 +31,7 @@ type loggerSuite struct {
 	modelConfigService *MockModelConfigService
 }
 
-func TestLoggerSuite(t *stdtesting.T) {
+func TestLoggerSuite(t *testing.T) {
 	tc.Run(t, &loggerSuite{})
 }
 

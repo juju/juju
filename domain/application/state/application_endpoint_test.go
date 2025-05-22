@@ -6,7 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -36,7 +36,7 @@ type applicationEndpointStateSuite struct {
 	state *State
 }
 
-func TestApplicationEndpointStateSuite(t *stdtesting.T) {
+func TestApplicationEndpointStateSuite(t *testing.T) {
 	tc.Run(t, &applicationEndpointStateSuite{})
 }
 

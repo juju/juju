@@ -4,7 +4,7 @@
 package provider_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type providerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProviderSuite(t *stdtesting.T) {
+func TestProviderSuite(t *testing.T) {
 	tc.Run(t, &providerSuite{})
 }
 

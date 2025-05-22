@@ -5,7 +5,7 @@ package containerbroker_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type manifoldConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestManifoldConfigSuite(t *stdtesting.T) {
+func TestManifoldConfigSuite(t *testing.T) {
 	tc.Run(t, &manifoldConfigSuite{})
 }
 
@@ -121,7 +121,7 @@ type manifoldSuite struct {
 	machineLock *mocks.MockLock
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &manifoldSuite{})
 }
 

@@ -5,7 +5,7 @@ package caasmodeloperator
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -41,7 +41,7 @@ type ModelOperatorSuite struct {
 	passwordService         *MockAgentPasswordService
 }
 
-func TestModelOperatorSuite(t *stdtesting.T) {
+func TestModelOperatorSuite(t *testing.T) {
 	tc.Run(t, &ModelOperatorSuite{})
 }
 

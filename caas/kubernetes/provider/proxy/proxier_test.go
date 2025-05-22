@@ -4,7 +4,7 @@
 package proxy_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v3"
@@ -16,7 +16,7 @@ import (
 type proxySuite struct {
 }
 
-func TestProxySuite(t *stdtesting.T) {
+func TestProxySuite(t *testing.T) {
 	tc.Run(t, &proxySuite{})
 }
 

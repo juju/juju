@@ -4,7 +4,7 @@
 package proxyupdater_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -37,7 +37,7 @@ type ProxyUpdaterSuite struct {
 	controllerConfigService *MockControllerConfigService
 }
 
-func TestProxyUpdaterSuite(t *stdtesting.T) {
+func TestProxyUpdaterSuite(t *testing.T) {
 	tc.Run(t, &ProxyUpdaterSuite{})
 }
 

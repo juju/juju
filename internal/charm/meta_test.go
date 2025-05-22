@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -33,7 +33,7 @@ func repoMeta(c *tc.C, name string) io.Reader {
 
 type MetaSuite struct{}
 
-func TestMetaSuite(t *stdtesting.T) {
+func TestMetaSuite(t *testing.T) {
 	tc.Run(t, &MetaSuite{})
 }
 
@@ -1706,7 +1706,7 @@ var dummyMeta = &charm.Meta{
 
 type FormatMetaSuite struct{}
 
-func TestFormatMetaSuite(t *stdtesting.T) {
+func TestFormatMetaSuite(t *testing.T) {
 	tc.Run(t, &FormatMetaSuite{})
 }
 

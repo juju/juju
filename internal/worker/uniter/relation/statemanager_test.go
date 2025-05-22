@@ -4,7 +4,7 @@
 package relation_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -246,7 +246,7 @@ func (s *stateManagerSuite) TestRemoveFailRequest(c *tc.C) {
 	found := mgr.RelationFound(99)
 	c.Assert(found, tc.IsTrue)
 }
-func TestStateManagerSuite(t *stdtesting.T) {
+func TestStateManagerSuite(t *testing.T) {
 	tc.Run(t, &stateManagerSuite{})
 }
 

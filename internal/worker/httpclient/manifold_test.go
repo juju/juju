@@ -4,7 +4,7 @@
 package httpclient
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &manifoldSuite{})
 }

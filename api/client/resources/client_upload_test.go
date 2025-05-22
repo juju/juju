@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestUploadSuite(t *stdtesting.T) {
+func TestUploadSuite(t *testing.T) {
 	tc.Run(t, &UploadSuite{})
 }
 

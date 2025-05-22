@@ -4,7 +4,7 @@
 package lxdprofile_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type LXDProfileNameSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLXDProfileNameSuite(t *stdtesting.T) {
+func TestLXDProfileNameSuite(t *testing.T) {
 	tc.Run(t, &LXDProfileNameSuite{})
 }
 

@@ -5,7 +5,7 @@ package maas
 
 import (
 	"net/url"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ type environSuite struct {
 	maasSuite
 }
 
-func TestEnvironSuite(t *stdtesting.T) {
+func TestEnvironSuite(t *testing.T) {
 	tc.Run(t, &environSuite{})
 }
 

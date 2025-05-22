@@ -4,7 +4,7 @@
 package logsink
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type LoggersSuite struct {
 	modelUUID string
 }
 
-func TestLoggersSuite(t *stdtesting.T) {
+func TestLoggersSuite(t *testing.T) {
 	tc.Run(t, &LoggersSuite{})
 }
 

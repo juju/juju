@@ -4,7 +4,7 @@
 package caasupgrader_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -33,7 +33,7 @@ type UpgraderSuite struct {
 	initialCheckComplete gate.Lock
 }
 
-func TestUpgraderSuite(t *stdtesting.T) {
+func TestUpgraderSuite(t *testing.T) {
 	tc.Run(t, &UpgraderSuite{})
 }
 

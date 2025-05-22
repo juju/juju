@@ -5,7 +5,7 @@ package actions_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type actionsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestActionsSuite(t *stdtesting.T) {
+func TestActionsSuite(t *testing.T) {
 	tc.Run(t, &actionsSuite{})
 }
 

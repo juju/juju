@@ -4,7 +4,7 @@
 package provider
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type servicesSuite struct {
 	client *fake.Clientset
 }
 
-func TestServicesSuite(t *stdtesting.T) {
+func TestServicesSuite(t *testing.T) {
 	tc.Run(t, &servicesSuite{})
 }
 

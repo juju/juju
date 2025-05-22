@@ -5,7 +5,7 @@ package operation_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,7 +29,7 @@ type NewExecutorSuite struct {
 	mockStateRW *mocks.MockUnitStateReadWriter
 }
 
-func TestNewExecutorSuite(t *stdtesting.T) {
+func TestNewExecutorSuite(t *testing.T) {
 	tc.Run(t, &NewExecutorSuite{})
 }
 
@@ -118,7 +118,7 @@ type ExecutorSuite struct {
 	mockStateRW *mocks.MockUnitStateReadWriter
 }
 
-func TestExecutorSuite(t *stdtesting.T) {
+func TestExecutorSuite(t *testing.T) {
 	tc.Run(t, &ExecutorSuite{})
 }
 

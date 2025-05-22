@@ -5,7 +5,7 @@
 package retrystrategy_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestRetryStrategySuite(t *stdtesting.T) {
+func TestRetryStrategySuite(t *testing.T) {
 	tc.Run(t, &retryStrategySuite{})
 }
 

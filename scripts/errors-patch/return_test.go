@@ -8,14 +8,14 @@ import (
 	"go/printer"
 	"go/token"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type returnSuite struct{}
 
-func TestReturnSuite(t *stdtesting.T) {
+func TestReturnSuite(t *testing.T) {
 	tc.Run(t, &returnSuite{})
 }
 

@@ -5,7 +5,7 @@ package credentialvalidator
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -35,7 +35,7 @@ type CredentialValidatorSuite struct {
 	api *CredentialValidatorAPI
 }
 
-func TestCredentialValidatorSuite(t *stdtesting.T) {
+func TestCredentialValidatorSuite(t *testing.T) {
 	tc.Run(t, &CredentialValidatorSuite{})
 }
 func (s *CredentialValidatorSuite) SetupTest(c *tc.C) {

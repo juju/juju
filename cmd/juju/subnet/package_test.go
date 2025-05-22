@@ -5,7 +5,7 @@ package subnet_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -30,7 +30,7 @@ type BaseSubnetSuite struct {
 	api        *StubAPI
 }
 
-func TestBaseSubnetSuite(t *stdtesting.T) {
+func TestBaseSubnetSuite(t *testing.T) {
 	tc.Run(t, &BaseSubnetSuite{})
 }
 

@@ -5,7 +5,7 @@ package service
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type serviceSuite struct {
 	state            *MockState
 }
 
-func TestServiceSuite(t *stdtesting.T) {
+func TestServiceSuite(t *testing.T) {
 	tc.Run(t, &serviceSuite{})
 }
 

@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -74,7 +74,7 @@ type bootstrapSuite struct {
 	envtesting.ToolsFixture
 }
 
-func TestBootstrapSuite(t *stdtesting.T) {
+func TestBootstrapSuite(t *testing.T) {
 	tc.Run(t, &bootstrapSuite{})
 }
 
@@ -1654,7 +1654,7 @@ type BootstrapContextSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBootstrapContextSuite(t *stdtesting.T) {
+func TestBootstrapContextSuite(t *testing.T) {
 	tc.Run(t, &BootstrapContextSuite{})
 }
 

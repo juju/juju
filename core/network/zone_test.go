@@ -4,7 +4,7 @@
 package network
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type zoneSuite struct {
 	zones AvailabilityZones
 }
 
-func TestZoneSuite(t *stdtesting.T) {
+func TestZoneSuite(t *testing.T) {
 	tc.Run(t, &zoneSuite{})
 }
 

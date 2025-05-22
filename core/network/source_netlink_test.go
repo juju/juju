@@ -7,7 +7,7 @@ package network
 
 import (
 	"net"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/vishvananda/netlink"
@@ -20,7 +20,7 @@ type sourceNetlinkSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSourceNetlinkSuite(t *stdtesting.T) {
+func TestSourceNetlinkSuite(t *testing.T) {
 	tc.Run(t, &sourceNetlinkSuite{})
 }
 

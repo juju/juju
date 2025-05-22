@@ -5,7 +5,7 @@ package iptables_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type IptablesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestIptablesSuite(t *stdtesting.T) {
+func TestIptablesSuite(t *testing.T) {
 	tc.Run(t, &IptablesSuite{})
 }
 

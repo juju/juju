@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -29,7 +29,7 @@ type upgradeSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestUpgradeSuite(t *stdtesting.T) {
+func TestUpgradeSuite(t *testing.T) {
 	tc.Run(t, &upgradeSuite{})
 }
 

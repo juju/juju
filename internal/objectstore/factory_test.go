@@ -4,7 +4,7 @@
 package objectstore
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type objectStoreFactorySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestObjectStoreFactorySuite(t *stdtesting.T) {
+func TestObjectStoreFactorySuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &objectStoreFactorySuite{})
 }

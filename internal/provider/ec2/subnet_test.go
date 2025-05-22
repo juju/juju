@@ -4,7 +4,7 @@
 package ec2_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -15,7 +15,7 @@ import (
 
 type subnetMatcherSuite struct{}
 
-func TestSubnetMatcherSuite(t *stdtesting.T) {
+func TestSubnetMatcherSuite(t *testing.T) {
 	tc.Run(t, &subnetMatcherSuite{})
 }
 

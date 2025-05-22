@@ -5,7 +5,7 @@ package gen
 
 import (
 	"reflect"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -24,7 +24,7 @@ type GenSuite struct {
 	registry    *MockRegistry
 }
 
-func TestGenSuite(t *stdtesting.T) {
+func TestGenSuite(t *testing.T) {
 	tc.Run(t, &GenSuite{})
 }
 

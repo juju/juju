@@ -4,7 +4,7 @@
 package usermanager_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -19,7 +19,7 @@ import (
 
 type usermanagerSuite struct{}
 
-func TestUsermanagerSuite(t *stdtesting.T) {
+func TestUsermanagerSuite(t *testing.T) {
 	tc.Run(t, &usermanagerSuite{})
 }
 

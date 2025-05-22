@@ -5,14 +5,14 @@
 package config_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/packaging/config"
 )
 
-func TestAptSuite(t *stdtesting.T) {
+func TestAptSuite(t *testing.T) {
 	tc.Run(t, &AptSuite{})
 }
 

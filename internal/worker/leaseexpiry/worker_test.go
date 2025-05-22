@@ -4,7 +4,7 @@
 package leaseexpiry_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	time "time"
 
 	"github.com/juju/clock"
@@ -24,7 +24,7 @@ type workerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	tc.Run(t, &workerSuite{})
 }
 

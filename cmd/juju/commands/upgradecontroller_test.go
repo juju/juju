@@ -5,7 +5,7 @@ package commands
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -47,7 +47,7 @@ type upgradeControllerSuite struct {
 	store          *mocks.MockClientStore
 }
 
-func TestUpgradeControllerSuite(t *stdtesting.T) {
+func TestUpgradeControllerSuite(t *testing.T) {
 	tc.Run(t, &upgradeControllerSuite{})
 }
 

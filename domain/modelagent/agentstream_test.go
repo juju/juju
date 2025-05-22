@@ -3,7 +3,7 @@
 package modelagent
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type agentStreamSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestAgentStreamSuite(t *stdtesting.T) {
+func TestAgentStreamSuite(t *testing.T) {
 	tc.Run(t, &agentStreamSuite{})
 }
 

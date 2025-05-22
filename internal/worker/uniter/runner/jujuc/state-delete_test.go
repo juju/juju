@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type stateDeleteSuite struct {
 	stateSuite
 }
 
-func TestStateDeleteSuite(t *stdtesting.T) {
+func TestStateDeleteSuite(t *testing.T) {
 	tc.Run(t, &stateDeleteSuite{})
 }
 

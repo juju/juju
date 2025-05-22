@@ -4,7 +4,7 @@
 package lxd_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ type storageSuite struct {
 	lxdtesting.BaseSuite
 }
 
-func TestStorageSuite(t *stdtesting.T) {
+func TestStorageSuite(t *testing.T) {
 	tc.Run(t, &storageSuite{})
 }
 

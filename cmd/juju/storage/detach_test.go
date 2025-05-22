@@ -5,7 +5,7 @@ package storage_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type DetachStorageSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDetachStorageSuite(t *stdtesting.T) {
+func TestDetachStorageSuite(t *testing.T) {
 	tc.Run(t, &DetachStorageSuite{})
 }
 

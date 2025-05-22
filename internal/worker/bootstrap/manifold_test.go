@@ -5,7 +5,7 @@ package bootstrap
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -23,7 +23,7 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &manifoldSuite{})
 }

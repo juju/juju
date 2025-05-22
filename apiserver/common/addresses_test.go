@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +20,7 @@ type apiAddresserSuite struct {
 	fake      *fakeAddresses
 }
 
-func TestApiAddresserSuite(t *stdtesting.T) {
+func TestApiAddresserSuite(t *testing.T) {
 	tc.Run(t, &apiAddresserSuite{})
 }
 

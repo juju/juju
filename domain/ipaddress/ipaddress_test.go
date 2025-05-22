@@ -4,7 +4,7 @@
 package ipaddress
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type ipAddressSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestIpAddressSuite(t *stdtesting.T) {
+func TestIpAddressSuite(t *testing.T) {
 	tc.Run(t, &ipAddressSuite{})
 }
 

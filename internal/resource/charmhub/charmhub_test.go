@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/url"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -28,7 +28,7 @@ type CharmHubSuite struct {
 	downloader *MockDownloader
 }
 
-func TestCharmHubSuite(t *stdtesting.T) {
+func TestCharmHubSuite(t *testing.T) {
 	tc.Run(t, &CharmHubSuite{})
 }
 

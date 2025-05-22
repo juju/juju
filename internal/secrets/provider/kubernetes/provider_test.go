@@ -7,7 +7,7 @@ import (
 	"net"
 	"os"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -51,7 +51,7 @@ type providerSuite struct {
 	namespace string
 }
 
-func TestProviderSuite(t *stdtesting.T) {
+func TestProviderSuite(t *testing.T) {
 	tc.Run(t, &providerSuite{})
 }
 

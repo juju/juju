@@ -4,7 +4,7 @@
 package logsendermetrics_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -25,7 +25,7 @@ type bufferedLogWriterSuite struct {
 	collector logsendermetrics.BufferedLogWriterMetrics
 }
 
-func TestBufferedLogWriterSuite(t *stdtesting.T) {
+func TestBufferedLogWriterSuite(t *testing.T) {
 	tc.Run(t, &bufferedLogWriterSuite{})
 }
 

@@ -5,7 +5,7 @@ package http
 import (
 	"context"
 	"net/http"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -20,7 +20,7 @@ type DialContextMiddlewareSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDialContextMiddlewareSuite(t *stdtesting.T) {
+func TestDialContextMiddlewareSuite(t *testing.T) {
 	tc.Run(t, &DialContextMiddlewareSuite{})
 }
 
@@ -71,7 +71,7 @@ type LocalDialBreakerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLocalDialBreakerSuite(t *stdtesting.T) {
+func TestLocalDialBreakerSuite(t *testing.T) {
 	tc.Run(t, &LocalDialBreakerSuite{})
 }
 
@@ -117,7 +117,7 @@ type RetrySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRetrySuite(t *stdtesting.T) {
+func TestRetrySuite(t *testing.T) {
 	tc.Run(t, &RetrySuite{})
 }
 

@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
@@ -17,7 +17,7 @@ import (
 
 type ParserSuite struct{}
 
-func TestParserSuite(t *stdtesting.T) {
+func TestParserSuite(t *testing.T) {
 	tc.Run(t, &ParserSuite{})
 }
 

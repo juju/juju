@@ -4,7 +4,7 @@
 package resource_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/internal/charm/resource"
 )
 
-func TestMetaSuite(t *stdtesting.T) {
+func TestMetaSuite(t *testing.T) {
 	tc.Run(t, &MetaSuite{})
 }
 

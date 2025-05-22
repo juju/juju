@@ -4,7 +4,7 @@
 package vsphere_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/vmware/govmomi/object"
@@ -20,7 +20,7 @@ type environPolSuite struct {
 	EnvironFixture
 }
 
-func TestEnvironPolSuite(t *stdtesting.T) {
+func TestEnvironPolSuite(t *testing.T) {
 	tc.Run(t, &environPolSuite{})
 }
 

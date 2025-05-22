@@ -4,7 +4,7 @@
 package pki_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +14,7 @@ import (
 type SignerSuite struct {
 }
 
-func TestSignerSuite(t *stdtesting.T) {
+func TestSignerSuite(t *testing.T) {
 	tc.Run(t, &SignerSuite{})
 }
 

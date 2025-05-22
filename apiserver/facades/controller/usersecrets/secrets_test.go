@@ -4,7 +4,7 @@
 package usersecrets_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -28,7 +28,7 @@ type userSecretsSuite struct {
 	watcherRegistry *facademocks.MockWatcherRegistry
 }
 
-func TestUserSecretsSuite(t *stdtesting.T) {
+func TestUserSecretsSuite(t *testing.T) {
 	tc.Run(t, &userSecretsSuite{})
 }
 

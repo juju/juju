@@ -5,7 +5,7 @@ package mongometrics_test
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/mgo/v3/bson"
@@ -23,7 +23,7 @@ type TxnCollectorSuite struct {
 	collector *mongometrics.TxnCollector
 }
 
-func TestTxnCollectorSuite(t *stdtesting.T) {
+func TestTxnCollectorSuite(t *testing.T) {
 	tc.Run(t, &TxnCollectorSuite{})
 }
 

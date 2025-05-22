@@ -9,7 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
@@ -34,7 +34,7 @@ type credentialsSuite struct {
 	lxd.BaseSuite
 }
 
-func TestCredentialsSuite(t *stdtesting.T) {
+func TestCredentialsSuite(t *testing.T) {
 	tc.Run(t, &credentialsSuite{})
 }
 

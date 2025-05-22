@@ -5,7 +5,7 @@ package annotations_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
@@ -18,7 +18,7 @@ import (
 
 type annotationsMockSuite struct{}
 
-func TestAnnotationsMockSuite(t *stdtesting.T) {
+func TestAnnotationsMockSuite(t *testing.T) {
 	tc.Run(t, &annotationsMockSuite{})
 }
 

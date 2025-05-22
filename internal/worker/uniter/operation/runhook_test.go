@@ -4,7 +4,7 @@
 package operation_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type RunHookSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRunHookSuite(t *stdtesting.T) {
+func TestRunHookSuite(t *testing.T) {
 	tc.Run(t, &RunHookSuite{})
 }
 

@@ -9,7 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ import (
 
 type suite struct{}
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &suite{})
 }
 

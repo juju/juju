@@ -4,7 +4,7 @@
 package google
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -27,7 +27,7 @@ type rawConnSuite struct {
 	opCallErr              error
 }
 
-func TestRawConnSuite(t *stdtesting.T) {
+func TestRawConnSuite(t *testing.T) {
 	tc.Run(t, &rawConnSuite{})
 }
 
@@ -163,7 +163,7 @@ func (s *rawConnSuite) TestConnectionWaitOperationError(c *tc.C) {
 
 type firewallNameSuite struct{}
 
-func TestFirewallNameSuite(t *stdtesting.T) {
+func TestFirewallNameSuite(t *testing.T) {
 	tc.Run(t, &firewallNameSuite{})
 }
 

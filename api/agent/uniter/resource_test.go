@@ -7,7 +7,7 @@ import (
 	"context"
 	"io"
 	"net/http"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestResourcesFacadeClientSuite(t *stdtesting.T) {
+func TestResourcesFacadeClientSuite(t *testing.T) {
 	tc.Run(t, &ResourcesFacadeClientSuite{})
 }
 

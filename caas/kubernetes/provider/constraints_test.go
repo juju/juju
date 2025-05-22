@@ -5,7 +5,7 @@ package provider_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type ConstraintsSuite struct {
 	BaseSuite
 }
 
-func TestConstraintsSuite(t *stdtesting.T) {
+func TestConstraintsSuite(t *testing.T) {
 	tc.Run(t, &ConstraintsSuite{})
 }
 

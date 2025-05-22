@@ -4,7 +4,7 @@
 package uniter_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
@@ -12,7 +12,7 @@ import (
 type cloudSpecUniterSuite struct {
 }
 
-func TestCloudSpecUniterSuite(t *stdtesting.T) {
+func TestCloudSpecUniterSuite(t *testing.T) {
 	tc.Run(t, &cloudSpecUniterSuite{})
 }
 

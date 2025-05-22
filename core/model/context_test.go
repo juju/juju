@@ -4,14 +4,14 @@
 package model
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type contextSuite struct{}
 
-func TestContextSuite(t *stdtesting.T) {
+func TestContextSuite(t *testing.T) {
 	tc.Run(t, &contextSuite{})
 }
 

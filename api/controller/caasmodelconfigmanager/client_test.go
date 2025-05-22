@@ -4,7 +4,7 @@
 package caasmodelconfigmanager_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type caasmodelconfigmanagerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCaasmodelconfigmanagerSuite(t *stdtesting.T) {
+func TestCaasmodelconfigmanagerSuite(t *testing.T) {
 	tc.Run(t, &caasmodelconfigmanagerSuite{})
 }
 func newClient(f basetesting.APICallerFunc) (*caasmodelconfigmanager.Client, error) {

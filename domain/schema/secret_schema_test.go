@@ -6,7 +6,7 @@ package schema
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -20,7 +20,7 @@ type secretSchemaSuite struct {
 	schemaBaseSuite
 }
 
-func TestSecretSchemaSuite(t *stdtesting.T) {
+func TestSecretSchemaSuite(t *testing.T) {
 	tc.Run(t, &secretSchemaSuite{})
 }
 

@@ -5,7 +5,7 @@ package resource_test
 
 import (
 	"bytes"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestCharmTabularSuite(t *stdtesting.T) {
+func TestCharmTabularSuite(t *testing.T) {
 	tc.Run(t, &CharmTabularSuite{})
 }
 
@@ -91,7 +91,7 @@ func (s *CharmTabularSuite) TestFormatCharmTabularBadValue(c *tc.C) {
 	err := resourcecmd.FormatCharmTabular(nil, bogus)
 	c.Check(err, tc.ErrorMatches, `expected value of type .*`)
 }
-func TestAppTabularSuite(t *stdtesting.T) {
+func TestAppTabularSuite(t *testing.T) {
 	tc.Run(t, &AppTabularSuite{})
 }
 

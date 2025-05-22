@@ -4,7 +4,7 @@
 package upgrader_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type unitUpgraderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUnitUpgraderSuite(t *stdtesting.T) {
+func TestUnitUpgraderSuite(t *testing.T) {
 	tc.Run(t, &unitUpgraderSuite{})
 }
 

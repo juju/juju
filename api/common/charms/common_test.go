@@ -4,7 +4,7 @@
 package charms_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -22,7 +22,7 @@ type suite struct {
 	coretesting.BaseSuite
 }
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &suite{})
 }
 

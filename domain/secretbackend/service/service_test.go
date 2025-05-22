@@ -5,7 +5,7 @@ package service
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -130,7 +130,7 @@ type serviceSuite struct {
 	logger logger.Logger
 }
 
-func TestServiceSuite(t *stdtesting.T) {
+func TestServiceSuite(t *testing.T) {
 	tc.Run(t, &serviceSuite{})
 }
 

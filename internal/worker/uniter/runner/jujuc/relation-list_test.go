@@ -7,7 +7,7 @@ package jujuc_test
 import (
 	"fmt"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +20,7 @@ type RelationListSuite struct {
 	relationSuite
 }
 
-func TestRelationListSuite(t *stdtesting.T) {
+func TestRelationListSuite(t *testing.T) {
 	tc.Run(t, &RelationListSuite{})
 }
 

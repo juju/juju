@@ -4,7 +4,7 @@
 package observer
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type AgentPresenceSuite struct {
 	statusService        *MockStatusService
 }
 
-func TestAgentPresenceSuite(t *stdtesting.T) {
+func TestAgentPresenceSuite(t *testing.T) {
 	tc.Run(t, &AgentPresenceSuite{})
 }
 

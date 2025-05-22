@@ -8,7 +8,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"golang.org/x/sys/windows/registry"
@@ -125,7 +125,7 @@ type windowsNanoBaseSuite struct {
 	windowsBaseSuite
 }
 
-func TestWindowsNanoBaseSuite(t *stdtesting.T) {
+func TestWindowsNanoBaseSuite(t *testing.T) {
 	tc.Run(t, &windowsNanoBaseSuite{})
 }
 

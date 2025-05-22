@@ -5,7 +5,7 @@ package instancepoller_test
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type InstancePollerSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestInstancePollerSuite(t *stdtesting.T) {
+func TestInstancePollerSuite(t *testing.T) {
 	tc.Run(t, &InstancePollerSuite{})
 }
 

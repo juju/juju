@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -43,7 +43,7 @@ type ListSuite struct {
 	endpoints    []charm.Relation
 }
 
-func TestListSuite(t *stdtesting.T) {
+func TestListSuite(t *testing.T) {
 	tc.Run(t, &ListSuite{})
 }
 

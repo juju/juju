@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type ListOperationsSuite struct {
 	command        *action.ListOperationsCommand
 }
 
-func TestListOperationsSuite(t *stdtesting.T) {
+func TestListOperationsSuite(t *testing.T) {
 	tc.Run(t, &ListOperationsSuite{})
 }
 

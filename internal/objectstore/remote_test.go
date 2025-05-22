@@ -6,7 +6,7 @@ package objectstore
 import (
 	"bytes"
 	"io"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -28,7 +28,7 @@ type remoteFileObjectStoreSuite struct {
 	reader io.ReadCloser
 }
 
-func TestRemoteFileObjectStoreSuite(t *stdtesting.T) {
+func TestRemoteFileObjectStoreSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &remoteFileObjectStoreSuite{})
 }

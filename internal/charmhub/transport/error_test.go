@@ -5,7 +5,7 @@ package transport
 
 import (
 	"encoding/json"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type ErrorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestErrorSuite(t *stdtesting.T) {
+func TestErrorSuite(t *testing.T) {
 	tc.Run(t, &ErrorSuite{})
 }
 

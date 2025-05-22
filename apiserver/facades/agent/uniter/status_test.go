@@ -5,7 +5,7 @@ package uniter
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -54,7 +54,7 @@ type ApplicationStatusAPISuite struct {
 	statusBaseSuite
 }
 
-func TestApplicationStatusAPISuite(t *stdtesting.T) {
+func TestApplicationStatusAPISuite(t *testing.T) {
 	tc.Run(t, &ApplicationStatusAPISuite{})
 }
 func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnauthorised(c *tc.C) {
@@ -315,7 +315,7 @@ type UnitStatusAPISuite struct {
 	statusBaseSuite
 }
 
-func TestUnitStatusAPISuite(t *stdtesting.T) {
+func TestUnitStatusAPISuite(t *testing.T) {
 	tc.Run(t, &UnitStatusAPISuite{})
 }
 

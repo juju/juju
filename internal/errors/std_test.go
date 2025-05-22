@@ -6,7 +6,7 @@ package errors
 import (
 	"fmt"
 	"io/fs"
-	stdtesting "testing"
+	"testing"
 )
 
 // complexErrorMessage is a testing error interface that also defines a basic
@@ -76,11 +76,11 @@ func ExampleAsType() {
 // TestAsType generates a error chain containing error types that we want to
 // extract with AsType and confirm that both the type is found and the type
 // value returned is what we expect.
-func TestAsType(t *stdtesting.T) {
+func TestAsType(t *testing.T) {
 	// FindErrorAtChainEnd is wrapping a complexError within another error and
 	// checking to see that we can still extract a type of *complexError when
 	// the error is at the end of the chain.
-	t.Run("FindErrorAtChainEnd", func(t *stdtesting.T) {
+	t.Run("FindErrorAtChainEnd", func(t *testing.T) {
 		err := Errorf("some error with more info: %w", &complexError{"some value"})
 		te, is := AsType[*complexError](err)
 		if !is {
@@ -95,7 +95,7 @@ func TestAsType(t *stdtesting.T) {
 	// FindErrorAtChainMiddle is wrapping a complexError within another error
 	// and checking to see that we can still extract a type of *complexError
 	// when the error is in the middle of the chain.
-	t.Run("FindErrorAtChainMiddle", func(t *stdtesting.T) {
+	t.Run("FindErrorAtChainMiddle", func(t *testing.T) {
 		err := Errorf("start error: %w: %w", &complexError{"middle"}, New("end"))
 		te, is := AsType[*complexError](err)
 		if !is {
@@ -109,7 +109,7 @@ func TestAsType(t *stdtesting.T) {
 	// FindErrorAtChainStart is wrapping a complexError within another error
 	// and checking to see that we can still extract a type of *complexError
 	// when the error is at the start of the chain.
-	t.Run("FindErrorAtChainStart", func(t *stdtesting.T) {
+	t.Run("FindErrorAtChainStart", func(t *testing.T) {
 		te, is := AsType[*complexError](&complexError{"start"})
 		if !is {
 			t.Fatal("AsType for *complexError not found in chain")
@@ -122,7 +122,7 @@ func TestAsType(t *stdtesting.T) {
 	// AsTypeInChainWithInterface is wrapping a complexError within another
 	// error and checking to see that we can extract it back out with a
 	// interface type of complexErrorMessage.
-	t.Run("AsTypeInChainWithInterface", func(t *stdtesting.T) {
+	t.Run("AsTypeInChainWithInterface", func(t *testing.T) {
 		ce := &complexError{"error message"}
 		err := fmt.Errorf("error wrapping: %w", ce)
 
@@ -139,7 +139,7 @@ func TestAsType(t *stdtesting.T) {
 	// another error and checking to see if we can extract the same error out as
 	// another error type based on the fact that complexErrorOther implements
 	// the As() method.
-	t.Run("AsTypeInChainWithAsImplementation", func(t *stdtesting.T) {
+	t.Run("AsTypeInChainWithAsImplementation", func(t *testing.T) {
 		ce := &complexErrorOther{"error message"}
 		err := fmt.Errorf("error wrapping: %w", ce)
 
@@ -155,7 +155,7 @@ func TestAsType(t *stdtesting.T) {
 	// AsTypeNotFound is wrapping a complexError within another error and
 	// checking to see that we can not extract a error from the chain for a type
 	// that does not exist.
-	t.Run("AsTypeNotFound", func(t *stdtesting.T) {
+	t.Run("AsTypeNotFound", func(t *testing.T) {
 		ce := &complexError{"error message"}
 		err := fmt.Errorf("error wrapping: %w", ce)
 
@@ -184,10 +184,10 @@ func ExampleHasType() {
 
 // TestHasType generates a error chain containing error types that we want to
 // extract with AsType and confirm that type is found.
-func TestHasType(t *stdtesting.T) {
+func TestHasType(t *testing.T) {
 	// FindErrorAtChainEnd is wrapping a complexError within another error and
 	// checking to see that *complexError exists in the chain.
-	t.Run("FindErrorAtChainEnd", func(t *stdtesting.T) {
+	t.Run("FindErrorAtChainEnd", func(t *testing.T) {
 		err := Errorf("some error with more info: %w", &complexError{"some value"})
 		is := HasType[*complexError](err)
 		if !is {
@@ -197,7 +197,7 @@ func TestHasType(t *stdtesting.T) {
 
 	// FindErrorAtChainMiddle is wrapping a complexError within another error
 	// and checking to see that *complexError exists in the chain.
-	t.Run("FindErrorAtChainMiddle", func(t *stdtesting.T) {
+	t.Run("FindErrorAtChainMiddle", func(t *testing.T) {
 		err := Errorf("start error: %w: %w", &complexError{"middle"}, New("end"))
 		is := HasType[*complexError](err)
 		if !is {
@@ -207,7 +207,7 @@ func TestHasType(t *stdtesting.T) {
 
 	// FindErrorAtChainStart is wrapping a complexError within another error
 	// and checking to see that *complexError exists in the chain.
-	t.Run("FindErrorAtChainStart", func(t *stdtesting.T) {
+	t.Run("FindErrorAtChainStart", func(t *testing.T) {
 		is := HasType[*complexError](&complexError{"start"})
 		if !is {
 			t.Fatal("HasType for *complexError not found in chain")
@@ -217,7 +217,7 @@ func TestHasType(t *stdtesting.T) {
 	// AsTypeInChainWithInterface is wrapping a complexError within another
 	// error and checking to see that we can find the error with an interface
 	// type.
-	t.Run("HasTypeInChainWithInterface", func(t *stdtesting.T) {
+	t.Run("HasTypeInChainWithInterface", func(t *testing.T) {
 		ce := &complexError{"error message"}
 		err := fmt.Errorf("error wrapping: %w", ce)
 
@@ -230,7 +230,7 @@ func TestHasType(t *stdtesting.T) {
 	// HasTypeInChainWithAsImplementation is wrapping a complexErrorOther within
 	// another error and checking to see if we can find the error as a different
 	// type based on the fact that the other type implements the As() function.
-	t.Run("AsTypeInChainWithAsImplementation", func(t *stdtesting.T) {
+	t.Run("AsTypeInChainWithAsImplementation", func(t *testing.T) {
 		ce := &complexErrorOther{"error message"}
 		err := fmt.Errorf("error wrapping: %w", ce)
 
@@ -243,7 +243,7 @@ func TestHasType(t *stdtesting.T) {
 	// HasTypeNotFound is wrapping a complexError within another error and
 	// checking to see that HasType() returns false for a error that doesn't
 	// exist in the chain.
-	t.Run("HasTypeNotFound", func(t *stdtesting.T) {
+	t.Run("HasTypeNotFound", func(t *testing.T) {
 		ce := &complexError{"error message"}
 		err := fmt.Errorf("error wrapping: %w", ce)
 
@@ -256,25 +256,25 @@ func TestHasType(t *stdtesting.T) {
 
 // TestErrorf is a placeholder for Errorf testing. We skip this test for now as
 // we are just proxying stdlib.
-func TestErrorf(t *stdtesting.T) {
+func TestErrorf(t *testing.T) {
 	t.SkipNow()
 }
 
 // TestIs is a placeholder for Is testing. We skip this test for now as we are
 // just proxying stdlib.
-func TestIs(t *stdtesting.T) {
+func TestIs(t *testing.T) {
 	t.SkipNow()
 }
 
-func TestIsOf(t *stdtesting.T) {
-	t.Run("ReturnsFalseForEmptyTargets", func(t *stdtesting.T) {
+func TestIsOf(t *testing.T) {
+	t.Run("ReturnsFalseForEmptyTargets", func(t *testing.T) {
 		err := New("test error")
 		if IsOneOf(err) {
 			t.Errorf("IsOf with empty target list should return false")
 		}
 	})
 
-	t.Run("IsOfMultiple", func(t *stdtesting.T) {
+	t.Run("IsOfMultiple", func(t *testing.T) {
 		type1 := New("type 1")
 		type2 := New("type 2")
 		err := Errorf("%w", type1)
@@ -286,7 +286,7 @@ func TestIsOf(t *stdtesting.T) {
 }
 
 // TestJoin tests the Join function to ensure it correctly combines errors and verifies their presence using the Is function.
-func TestJoin(t *stdtesting.T) {
+func TestJoin(t *testing.T) {
 	fooErr := fmt.Errorf("foo")
 	barErr := fmt.Errorf("bar")
 	err := Join(fooErr, barErr)
@@ -297,7 +297,7 @@ func TestJoin(t *stdtesting.T) {
 
 // TestJoinWithMixedNil validates the Join function when given a mix of non-nil and nil errors,
 // ensuring that nil errors are discarded and the resultant error wraps all non-nil errors correctly.
-func TestJoinWithMixedNil(t *stdtesting.T) {
+func TestJoinWithMixedNil(t *testing.T) {
 	fooErr := fmt.Errorf("foo")
 	barErr := fmt.Errorf("bar")
 	err := Join(fooErr, nil, barErr)
@@ -307,14 +307,14 @@ func TestJoinWithMixedNil(t *stdtesting.T) {
 }
 
 // TestJoinWithEmptyArray verifies that calling Join with a nil or empty array results in a nil error.
-func TestJoinWithEmptyArray(t *stdtesting.T) {
+func TestJoinWithEmptyArray(t *testing.T) {
 	if err := Join(); err != nil {
 		t.Errorf("Join(nil) = %v, want: nil", err)
 	}
 }
 
 // TestJoinWithArrayOfNil verifies that the Join function correctly handles an array of nil errors by returning nil.
-func TestJoinWithArrayOfNil(t *stdtesting.T) {
+func TestJoinWithArrayOfNil(t *testing.T) {
 	if err := Join(nil, nil, nil); err != nil {
 		t.Errorf("Join(nil,nil,nil) = %v, want: nil", err)
 	}
@@ -322,27 +322,27 @@ func TestJoinWithArrayOfNil(t *stdtesting.T) {
 
 // TestNew is a placeholder for New testing. We skip this test for now as we
 // are just proxying stdlib.
-func TestNew(t *stdtesting.T) {
+func TestNew(t *testing.T) {
 	t.SkipNow()
 }
 
 // TestUnwrap is a placeholder for Unwrap testing. We skip this test for now as
 // we are just proxying stdlib.
-func TestUnwrap(t *stdtesting.T) {
+func TestUnwrap(t *testing.T) {
 	t.SkipNow()
 }
 
 // TestIsOneOf is testing [IsOneOf] and the various combinations of errors and
 // targets we are likely to expect.
-func TestIsOneOf(t *stdtesting.T) {
-	t.Run("ReturnsFalseForEmptyTargets", func(t *stdtesting.T) {
+func TestIsOneOf(t *testing.T) {
+	t.Run("ReturnsFalseForEmptyTargets", func(t *testing.T) {
 		err := New("test error")
 		if IsOneOf(err) {
 			t.Error("IsOf with empty target list should return false")
 		}
 	})
 
-	t.Run("ReturnsFalseForNilError", func(t *stdtesting.T) {
+	t.Run("ReturnsFalseForNilError", func(t *testing.T) {
 		err := New("test error")
 		if IsOneOf(nil, err) {
 			t.Error("IsOneOf with nil error should return false")
@@ -353,7 +353,7 @@ func TestIsOneOf(t *stdtesting.T) {
 		}
 	})
 
-	t.Run("IsOneOfMultiple", func(t *stdtesting.T) {
+	t.Run("IsOneOfMultiple", func(t *testing.T) {
 		type1 := New("type 1")
 		type2 := New("type 2")
 		err := Errorf("%w", type1)

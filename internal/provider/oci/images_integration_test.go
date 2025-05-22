@@ -4,7 +4,7 @@
 package oci_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type imagesSuite struct {
 	testCompartment string
 }
 
-func TestImagesSuite(t *stdtesting.T) {
+func TestImagesSuite(t *testing.T) {
 	tc.Run(t, &imagesSuite{})
 }
 

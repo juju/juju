@@ -6,7 +6,7 @@ package user_test
 import (
 	"context"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type ChangePasswordCommandSuite struct {
 	store   jujuclient.ClientStore
 }
 
-func TestChangePasswordCommandSuite(t *stdtesting.T) {
+func TestChangePasswordCommandSuite(t *testing.T) {
 	tc.Run(t, &ChangePasswordCommandSuite{})
 }
 func (s *ChangePasswordCommandSuite) SetUpTest(c *tc.C) {

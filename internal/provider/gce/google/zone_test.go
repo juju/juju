@@ -4,7 +4,7 @@
 package google_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"google.golang.org/api/compute/v1"
@@ -19,7 +19,7 @@ type zoneSuite struct {
 	zone google.AvailabilityZone
 }
 
-func TestZoneSuite(t *stdtesting.T) {
+func TestZoneSuite(t *testing.T) {
 	tc.Run(t, &zoneSuite{})
 }
 

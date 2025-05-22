@@ -7,7 +7,7 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ func newFingerprint(c *tc.C, data string) ([]byte, string) {
 	hexStr := hex.EncodeToString(raw)
 	return raw, hexStr
 }
-func TestFingerprintSuite(t *stdtesting.T) {
+func TestFingerprintSuite(t *testing.T) {
 	tc.Run(t, &FingerprintSuite{})
 }
 

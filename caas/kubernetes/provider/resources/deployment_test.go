@@ -4,7 +4,7 @@
 package resources_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type deploymentSuite struct {
 	resourceSuite
 }
 
-func TestDeploymentSuite(t *stdtesting.T) {
+func TestDeploymentSuite(t *testing.T) {
 	tc.Run(t, &deploymentSuite{})
 }
 

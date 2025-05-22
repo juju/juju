@@ -4,7 +4,7 @@
 package charmhub
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type filterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFilterSuite(t *stdtesting.T) {
+func TestFilterSuite(t *testing.T) {
 	tc.Run(t, &filterSuite{})
 }
 

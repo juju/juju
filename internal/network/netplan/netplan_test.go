@@ -11,7 +11,7 @@ import (
 	"path"
 	"reflect"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type NetplanSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestNetplanSuite(t *stdtesting.T) {
+func TestNetplanSuite(t *testing.T) {
 	tc.Run(t, &NetplanSuite{})
 }
 

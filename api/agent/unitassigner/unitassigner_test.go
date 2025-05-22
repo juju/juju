@@ -6,7 +6,7 @@ package unitassigner
 import (
 	"context"
 	"sync"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestUnitAssignerSuite(t *stdtesting.T) {
+func TestUnitAssignerSuite(t *testing.T) {
 	tc.Run(t, &unitAssignerSuite{})
 }
 

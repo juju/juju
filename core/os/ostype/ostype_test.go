@@ -4,14 +4,14 @@
 package ostype
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type osTypeSuite struct{}
 
-func TestOsTypeSuite(t *stdtesting.T) {
+func TestOsTypeSuite(t *testing.T) {
 	tc.Run(t, &osTypeSuite{})
 }
 

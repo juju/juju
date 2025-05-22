@@ -8,7 +8,7 @@ import (
 	"crypto/x509"
 	"net/rpc"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -25,7 +25,7 @@ func (f RpcCaller) TestCall(arg string, reply *string) error {
 type SocketSuite struct {
 }
 
-func TestSocketSuite(t *stdtesting.T) {
+func TestSocketSuite(t *testing.T) {
 	tc.Run(t, &SocketSuite{})
 }
 

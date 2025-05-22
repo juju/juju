@@ -5,7 +5,7 @@ package lxd_test
 
 import (
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type upgradesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUpgradesSuite(t *stdtesting.T) {
+func TestUpgradesSuite(t *testing.T) {
 	tc.Run(t, &upgradesSuite{})
 }
 

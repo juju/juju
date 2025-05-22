@@ -5,13 +5,13 @@ package pki_test
 
 import (
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/juju/internal/pki"
 	pki_test "github.com/juju/juju/internal/pki/test"
 )
 
-func TestMain(m *stdtesting.M) {
+func TestMain(m *testing.M) {
 	if pki_test.OriginalDefaultKeyProfile == nil {
 		panic("pki_test.OriginalDefaultKeyProfile not set")
 	}

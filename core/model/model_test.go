@@ -4,7 +4,7 @@
 package model
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type ModelSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestModelSuite(t *stdtesting.T) {
+func TestModelSuite(t *testing.T) {
 	tc.Run(t, &ModelSuite{})
 }
 

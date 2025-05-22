@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"golang.org/x/crypto/openpgp"
@@ -26,7 +26,7 @@ type Suite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &Suite{})
 }
 

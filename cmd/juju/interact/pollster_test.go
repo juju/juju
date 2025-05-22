@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
@@ -21,7 +21,7 @@ type PollsterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPollsterSuite(t *stdtesting.T) {
+func TestPollsterSuite(t *testing.T) {
 	tc.Run(t, &PollsterSuite{})
 }
 

@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -40,7 +40,7 @@ type workerSuite struct {
 	metricsUserName   coreuser.Name
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	tc.Run(t, &workerSuite{})
 }
 

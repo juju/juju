@@ -4,7 +4,7 @@
 package secret
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type rotatePolicySuite struct {
 	schematesting.ModelSuite
 }
 
-func TestRotatePolicySuite(t *stdtesting.T) {
+func TestRotatePolicySuite(t *testing.T) {
 	tc.Run(t, &rotatePolicySuite{})
 }
 

@@ -4,7 +4,7 @@
 package maas
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/names/v6"
@@ -19,7 +19,7 @@ type volumeSuite struct {
 	maasSuite
 }
 
-func TestVolumeSuite(t *stdtesting.T) {
+func TestVolumeSuite(t *testing.T) {
 	tc.Run(t, &volumeSuite{})
 }
 
@@ -182,7 +182,7 @@ type storageProviderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestStorageProviderSuite(t *stdtesting.T) {
+func TestStorageProviderSuite(t *testing.T) {
 	tc.Run(t, &storageProviderSuite{})
 }
 

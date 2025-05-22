@@ -4,7 +4,7 @@
 package utils_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
@@ -20,7 +20,7 @@ type LabelSuite struct {
 	client *fake.Clientset
 }
 
-func TestLabelSuite(t *stdtesting.T) {
+func TestLabelSuite(t *testing.T) {
 	tc.Run(t, &LabelSuite{})
 }
 

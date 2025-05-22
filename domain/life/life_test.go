@@ -4,7 +4,7 @@
 package life
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type lifeSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestLifeSuite(t *stdtesting.T) {
+func TestLifeSuite(t *testing.T) {
 	tc.Run(t, &lifeSuite{})
 }
 

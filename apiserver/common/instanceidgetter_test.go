@@ -6,7 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -24,7 +24,7 @@ type instanceIdGetterSuite struct {
 	machineService *mocks.MockMachineService
 }
 
-func TestInstanceIdGetterSuite(t *stdtesting.T) {
+func TestInstanceIdGetterSuite(t *testing.T) {
 	tc.Run(t, &instanceIdGetterSuite{})
 }
 

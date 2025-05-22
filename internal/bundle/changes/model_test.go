@@ -5,7 +5,7 @@ package bundlechanges
 
 import (
 	"bytes"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/naturalsort"
@@ -18,7 +18,7 @@ import (
 
 type modelSuite struct{}
 
-func TestModelSuite(t *stdtesting.T) {
+func TestModelSuite(t *testing.T) {
 	tc.Run(t, &modelSuite{})
 }
 
@@ -291,7 +291,7 @@ type inferMachineMapSuite struct {
 	data *charm.BundleData
 }
 
-func TestInferMachineMapSuite(t *stdtesting.T) {
+func TestInferMachineMapSuite(t *testing.T) {
 	tc.Run(t, &inferMachineMapSuite{})
 }
 
@@ -535,7 +535,7 @@ func (s *inferMachineMapSuite) TestBundleMachinesDeterminism(c *tc.C) {
 
 type applicationSuite struct{}
 
-func TestApplicationSuite(t *stdtesting.T) {
+func TestApplicationSuite(t *testing.T) {
 	tc.Run(t, &applicationSuite{})
 }
 

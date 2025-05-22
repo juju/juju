@@ -4,7 +4,7 @@
 package provisioner_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +21,7 @@ type containerProvisionerSuite struct {
 	provisionerSuite
 }
 
-func TestContainerProvisionerSuite(t *stdtesting.T) {
+func TestContainerProvisionerSuite(t *testing.T) {
 	tc.Run(t, &containerProvisionerSuite{})
 }
 func (s *containerProvisionerSuite) SetUpTest(c *tc.C) {

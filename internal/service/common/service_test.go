@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type serviceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestServiceSuite(t *stdtesting.T) {
+func TestServiceSuite(t *testing.T) {
 	tc.Run(t, &serviceSuite{})
 }
 

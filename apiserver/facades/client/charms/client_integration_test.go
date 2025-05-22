@@ -5,7 +5,7 @@ package charms_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -25,7 +25,7 @@ type clientMacaroonIntegrationSuite struct {
 	jujutesting.MacaroonSuite
 }
 
-func TestClientMacaroonIntegrationSuite(t *stdtesting.T) {
+func TestClientMacaroonIntegrationSuite(t *testing.T) {
 	tc.Run(t, &clientMacaroonIntegrationSuite{})
 }
 func (s *clientMacaroonIntegrationSuite) createTestClient(c *tc.C) *charms.LocalCharmClient {

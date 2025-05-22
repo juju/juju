@@ -4,7 +4,7 @@
 package lease
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type secretaryFinderSuite struct {
 	secretary *MockSecretary
 }
 
-func TestSecretaryFinderSuite(t *stdtesting.T) {
+func TestSecretaryFinderSuite(t *testing.T) {
 	tc.Run(t, &secretaryFinderSuite{})
 }
 

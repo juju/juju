@@ -4,14 +4,14 @@
 package charm
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type removeRelationsSuite struct{}
 
-func TestRemoveRelationsSuite(t *stdtesting.T) {
+func TestRemoveRelationsSuite(t *testing.T) {
 	tc.Run(t, &removeRelationsSuite{})
 }
 

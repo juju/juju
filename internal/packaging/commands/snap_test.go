@@ -4,7 +4,7 @@
 package commands_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/internal/packaging/commands"
 )
 
-func TestSnapSuite(t *stdtesting.T) {
+func TestSnapSuite(t *testing.T) {
 	tc.Run(t, &SnapSuite{})
 }
 

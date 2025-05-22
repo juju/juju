@@ -6,7 +6,7 @@ package tls_test
 import (
 	"crypto/tls"
 	"net"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +21,7 @@ type SNISuite struct {
 	sniGetter func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 }
 
-func TestSNISuite(t *stdtesting.T) {
+func TestSNISuite(t *testing.T) {
 	tc.Run(t, &SNISuite{})
 }
 

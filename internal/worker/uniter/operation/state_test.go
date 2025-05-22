@@ -4,7 +4,7 @@
 package operation_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type StateOpsSuite struct {
 	mockStateRW *mocks.MockUnitStateReadWriter
 }
 
-func TestStateOpsSuite(t *stdtesting.T) {
+func TestStateOpsSuite(t *testing.T) {
 	tc.Run(t, &StateOpsSuite{})
 }
 

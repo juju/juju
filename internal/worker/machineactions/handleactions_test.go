@@ -6,7 +6,7 @@ package machineactions_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type HandleSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHandleSuite(t *stdtesting.T) {
+func TestHandleSuite(t *testing.T) {
 	tc.Run(t, &HandleSuite{})
 }
 

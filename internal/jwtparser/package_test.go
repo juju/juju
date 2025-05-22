@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	. "testing"
 	"time"
 
 	"github.com/google/uuid"

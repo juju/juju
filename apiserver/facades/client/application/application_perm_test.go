@@ -4,7 +4,7 @@
 package application
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -579,7 +579,7 @@ type permSuiteIAAS struct {
 	permBaseSuite
 }
 
-func TestPermSuiteIAAS(t *stdtesting.T) {
+func TestPermSuiteIAAS(t *testing.T) {
 	tc.Run(t, &permSuiteIAAS{})
 }
 
@@ -656,7 +656,7 @@ type permSuiteCAAS struct {
 	permBaseSuite
 }
 
-func TestPermSuiteCAAS(t *stdtesting.T) {
+func TestPermSuiteCAAS(t *testing.T) {
 	tc.Run(t, &permSuiteCAAS{})
 }
 

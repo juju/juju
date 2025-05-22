@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +21,7 @@ import (
 
 type requestsSuite struct{}
 
-func TestRequestsSuite(t *stdtesting.T) {
+func TestRequestsSuite(t *testing.T) {
 	tc.Run(t, &requestsSuite{})
 }
 
@@ -326,7 +326,7 @@ type urlRewritingTransportSuite struct {
 	server *httptest.Server
 }
 
-func TestUrlRewritingTransportSuite(t *stdtesting.T) {
+func TestUrlRewritingTransportSuite(t *testing.T) {
 	tc.Run(t, &urlRewritingTransportSuite{})
 }
 func (s *urlRewritingTransportSuite) SetUpTest(c *tc.C) {

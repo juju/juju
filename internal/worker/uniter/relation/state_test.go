@@ -5,7 +5,7 @@ package relation_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +20,7 @@ type stateSuite struct {
 
 type msi map[string]int64
 
-func TestStateSuite(t *stdtesting.T) {
+func TestStateSuite(t *testing.T) {
 	tc.Run(t, &stateSuite{})
 }
 

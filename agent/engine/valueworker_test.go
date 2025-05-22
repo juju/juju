@@ -4,7 +4,7 @@
 package engine_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -17,7 +17,7 @@ type ValueWorkerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestValueWorkerSuite(t *stdtesting.T) {
+func TestValueWorkerSuite(t *testing.T) {
 	tc.Run(t, &ValueWorkerSuite{})
 }
 

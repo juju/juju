@@ -4,7 +4,7 @@
 package arch_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type archSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestArchSuite(t *stdtesting.T) {
+func TestArchSuite(t *testing.T) {
 	tc.Run(t, &archSuite{})
 }
 

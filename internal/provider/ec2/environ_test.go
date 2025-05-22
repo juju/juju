@@ -4,7 +4,7 @@
 package ec2
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -30,7 +30,7 @@ var (
 
 type Suite struct{}
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &Suite{})
 }
 

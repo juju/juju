@@ -4,7 +4,7 @@
 package controllerconfig
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -23,7 +23,7 @@ type controllerconfigSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestControllerconfigSuite(t *stdtesting.T) {
+func TestControllerconfigSuite(t *testing.T) {
 	tc.Run(t, &controllerconfigSuite{})
 }
 

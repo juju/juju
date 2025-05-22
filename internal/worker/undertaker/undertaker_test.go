@@ -5,7 +5,7 @@ package undertaker_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -33,7 +33,7 @@ type OldUndertakerSuite struct {
 	fix fixture
 }
 
-func TestOldUndertakerSuite(t *stdtesting.T) {
+func TestOldUndertakerSuite(t *testing.T) {
 	tc.Run(t, &OldUndertakerSuite{})
 }
 
@@ -296,7 +296,7 @@ func (s *OldUndertakerSuite) TestEnvironDestroyForceTimeoutZero(c *tc.C) {
 
 type UndertakerSuite struct{}
 
-func TestUndertakerSuite(t *stdtesting.T) {
+func TestUndertakerSuite(t *testing.T) {
 	tc.Run(t, &UndertakerSuite{})
 }
 

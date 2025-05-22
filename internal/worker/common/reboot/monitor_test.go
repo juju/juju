@@ -4,7 +4,7 @@
 package reboot_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -14,7 +14,7 @@ import (
 
 type monitorSuite struct{}
 
-func TestMonitorSuite(t *stdtesting.T) {
+func TestMonitorSuite(t *testing.T) {
 	tc.Run(t, &monitorSuite{})
 }
 

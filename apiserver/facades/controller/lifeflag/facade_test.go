@@ -4,7 +4,7 @@
 package lifeflag_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type FacadeSuite struct {
 	watcherRegistry *MockWatcherRegistry
 }
 
-func TestFacadeSuite(t *stdtesting.T) {
+func TestFacadeSuite(t *testing.T) {
 	tc.Run(t, &FacadeSuite{})
 }
 

@@ -4,7 +4,7 @@
 package firewall_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestFirewallSuite(t *stdtesting.T) {
+func TestFirewallSuite(t *testing.T) {
 	tc.Run(t, &FirewallSuite{})
 }
 

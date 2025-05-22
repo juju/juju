@@ -6,7 +6,7 @@ package commands_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/internal/packaging/commands"
 )
 
-func TestAptSuite(t *stdtesting.T) {
+func TestAptSuite(t *testing.T) {
 	tc.Run(t, &AptSuite{})
 }
 

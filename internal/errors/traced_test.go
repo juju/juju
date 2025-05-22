@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	jujuerrors "github.com/juju/errors"
 )
@@ -20,8 +20,8 @@ func returnError() error {
 // TestErrorStack is responsible for testing the various types of error chains
 // that could be provided to ErrorStack() and asserting what should be the
 // output for that chain.
-func TestErrorStack(t *stdtesting.T) {
-	t.Run("TracedErrorf", func(t *stdtesting.T) {
+func TestErrorStack(t *testing.T) {
+	t.Run("TracedErrorf", func(t *testing.T) {
 		err := Errorf("my error")
 		stack := ErrorStack(err)
 		expected := strings.Join([]string{
@@ -33,7 +33,7 @@ func TestErrorStack(t *stdtesting.T) {
 		}
 	})
 
-	t.Run("TracedNew", func(t *stdtesting.T) {
+	t.Run("TracedNew", func(t *testing.T) {
 		err := New("my error")
 
 		stack := ErrorStack(err)
@@ -48,7 +48,7 @@ func TestErrorStack(t *stdtesting.T) {
 
 	// AnnotatedStack is here to test the functionality of error chains when
 	// there is an annotated error in the middle.
-	t.Run("AnnotatedStack", func(t *stdtesting.T) {
+	t.Run("AnnotatedStack", func(t *testing.T) {
 		err := New("start error")
 		err = err.Add(ConstError("added error"))
 		err = Errorf("step %w", err)
@@ -64,7 +64,7 @@ func TestErrorStack(t *stdtesting.T) {
 		}
 	})
 
-	t.Run("jujuerrors.Trace", func(t *stdtesting.T) {
+	t.Run("jujuerrors.Trace", func(t *testing.T) {
 		err := New("start error")
 		errVal := jujuerrors.Trace(err)
 		err = Errorf("new error: %w", errVal)
@@ -82,7 +82,7 @@ func TestErrorStack(t *stdtesting.T) {
 		}
 	})
 
-	t.Run("callSiteTrace", func(t *stdtesting.T) {
+	t.Run("callSiteTrace", func(t *testing.T) {
 		err := Errorf("func error %w", returnError())
 
 		stack := ErrorStack(err)
@@ -97,7 +97,7 @@ func TestErrorStack(t *stdtesting.T) {
 		}
 	})
 
-	t.Run("GoRoutineError", func(t *stdtesting.T) {
+	t.Run("GoRoutineError", func(t *testing.T) {
 		ch := make(chan error)
 
 		go func() {
@@ -117,7 +117,7 @@ func TestErrorStack(t *stdtesting.T) {
 		}
 	})
 
-	t.Run("NonTracedChain", func(t *stdtesting.T) {
+	t.Run("NonTracedChain", func(t *testing.T) {
 		err := errors.New("foo bar")
 		err = fmt.Errorf("traced 1: %w", err)
 		err = fmt.Errorf("traced 2: %w", err)
@@ -133,7 +133,7 @@ func TestErrorStack(t *stdtesting.T) {
 		}
 	})
 
-	t.Run("CapturedError", func(t *stdtesting.T) {
+	t.Run("CapturedError", func(t *testing.T) {
 		err := Capture(errors.New("test"))
 
 		stack := ErrorStack(err)
@@ -148,14 +148,14 @@ func TestErrorStack(t *stdtesting.T) {
 }
 
 // TestErrorCapture is asserting the schematics around [Capture].
-func TestErrorCapture(t *stdtesting.T) {
-	t.Run("CaptureNil", func(t *stdtesting.T) {
+func TestErrorCapture(t *testing.T) {
+	t.Run("CaptureNil", func(t *testing.T) {
 		if Capture(nil) != nil {
 			t.Error("expected passing nil to Capture() will result in a nil Traced error")
 		}
 	})
 
-	t.Run("Capture", func(t *stdtesting.T) {
+	t.Run("Capture", func(t *testing.T) {
 		traced := Capture(errors.New("test"))
 		funcName, line := traced.Location()
 

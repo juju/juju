@@ -9,7 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type BasicAuthHandlerSuite struct {
 	server   *httptest.Server
 }
 
-func TestBasicAuthHandlerSuite(t *stdtesting.T) {
+func TestBasicAuthHandlerSuite(t *testing.T) {
 	tc.Run(t, &BasicAuthHandlerSuite{})
 }
 

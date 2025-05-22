@@ -6,7 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type ErrorsSuite struct {
 	credentialInvalidator *mocks.MockCredentialInvalidator
 }
 
-func TestErrorsSuite(t *stdtesting.T) {
+func TestErrorsSuite(t *testing.T) {
 	tc.Run(t, &ErrorsSuite{})
 }
 

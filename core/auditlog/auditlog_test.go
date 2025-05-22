@@ -6,7 +6,7 @@ package auditlog_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -21,7 +21,7 @@ type AuditLogSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAuditLogSuite(t *stdtesting.T) {
+func TestAuditLogSuite(t *testing.T) {
 	tc.Run(t, &AuditLogSuite{})
 }
 

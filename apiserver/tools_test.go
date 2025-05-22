@@ -10,7 +10,7 @@ import (
 	"net/http"
 	httptest "net/http/httptest"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -36,7 +36,7 @@ type toolsSuite struct {
 	blockChecker     *MockBlockChecker
 }
 
-func TestToolsSuite(t *stdtesting.T) {
+func TestToolsSuite(t *testing.T) {
 	tc.Run(t, &toolsSuite{})
 }
 

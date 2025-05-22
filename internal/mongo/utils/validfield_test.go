@@ -4,7 +4,7 @@
 package utils_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type ValidFieldSuite struct{}
 
-func TestValidFieldSuite(t *stdtesting.T) {
+func TestValidFieldSuite(t *testing.T) {
 	tc.Run(t, &ValidFieldSuite{})
 }
 

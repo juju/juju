@@ -5,7 +5,7 @@ package application
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ type ParseBindSuite struct {
 	testhelpers.LoggingSuite
 }
 
-func TestParseBindSuite(t *stdtesting.T) {
+func TestParseBindSuite(t *testing.T) {
 	tc.Run(t, &ParseBindSuite{})
 }
 

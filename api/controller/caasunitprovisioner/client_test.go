@@ -4,7 +4,7 @@
 package caasunitprovisioner_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type unitprovisionerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUnitprovisionerSuite(t *stdtesting.T) {
+func TestUnitprovisionerSuite(t *testing.T) {
 	tc.Run(t, &unitprovisionerSuite{})
 }
 

@@ -7,7 +7,7 @@ package jujuc_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +21,7 @@ type UnitGetSuite struct {
 	ContextSuite
 }
 
-func TestUnitGetSuite(t *stdtesting.T) {
+func TestUnitGetSuite(t *testing.T) {
 	tc.Run(t, &UnitGetSuite{})
 }
 

@@ -4,7 +4,7 @@
 package centralhub_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
@@ -23,7 +23,7 @@ type ManifoldSuite struct {
 	config centralhub.ManifoldConfig
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &ManifoldSuite{})
 }
 

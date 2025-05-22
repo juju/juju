@@ -4,7 +4,7 @@
 package azureauth_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type DiscoverySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDiscoverySuite(t *stdtesting.T) {
+func TestDiscoverySuite(t *testing.T) {
 	tc.Run(t, &DiscoverySuite{})
 }
 

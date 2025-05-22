@@ -5,7 +5,7 @@ package cleaner_test
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type CleanerSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestCleanerSuite(t *stdtesting.T) {
+func TestCleanerSuite(t *testing.T) {
 	tc.Run(t, &CleanerSuite{})
 }
 

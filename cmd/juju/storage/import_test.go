@@ -6,7 +6,7 @@ package storage_test
 import (
 	"context"
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type ImportFilesystemSuite struct {
 	importer mockStorageImporter
 }
 
-func TestImportFilesystemSuite(t *stdtesting.T) {
+func TestImportFilesystemSuite(t *testing.T) {
 	tc.Run(t, &ImportFilesystemSuite{})
 }
 

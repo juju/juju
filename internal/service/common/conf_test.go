@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/shell"
@@ -19,7 +19,7 @@ type confSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestConfSuite(t *stdtesting.T) {
+func TestConfSuite(t *testing.T) {
 	tc.Run(t, &confSuite{})
 }
 

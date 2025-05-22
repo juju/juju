@@ -5,7 +5,7 @@ package config_test
 
 import (
 	"net/http"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
@@ -15,7 +15,7 @@ import (
 
 type Suite struct{}
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &Suite{})
 }
 

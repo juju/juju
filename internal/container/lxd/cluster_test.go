@@ -5,7 +5,7 @@ package lxd_test
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -18,7 +18,7 @@ type clusterSuite struct {
 	lxdtesting.BaseSuite
 }
 
-func TestClusterSuite(t *stdtesting.T) {
+func TestClusterSuite(t *testing.T) {
 	tc.Run(t, &clusterSuite{})
 }
 

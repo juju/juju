@@ -4,7 +4,7 @@
 package secretbackends_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestSecretsSuite(t *stdtesting.T) {
+func TestSecretsSuite(t *testing.T) {
 	tc.Run(t, &SecretsSuite{})
 }
 

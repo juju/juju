@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/exec"
@@ -26,7 +26,7 @@ type aksSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAksSuite(t *stdtesting.T) {
+func TestAksSuite(t *testing.T) {
 	tc.Run(t, &aksSuite{})
 }
 

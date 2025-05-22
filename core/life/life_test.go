@@ -4,7 +4,7 @@
 package life_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type LifeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLifeSuite(t *stdtesting.T) {
+func TestLifeSuite(t *testing.T) {
 	tc.Run(t, &LifeSuite{})
 }
 

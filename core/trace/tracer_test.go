@@ -5,7 +5,7 @@ package trace
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type nameSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestNameSuite(t *stdtesting.T) {
+func TestNameSuite(t *testing.T) {
 	tc.Run(t, &nameSuite{})
 }
 
@@ -34,7 +34,7 @@ type namespaceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestNamespaceSuite(t *stdtesting.T) {
+func TestNamespaceSuite(t *testing.T) {
 	tc.Run(t, &namespaceSuite{})
 }
 

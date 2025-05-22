@@ -5,14 +5,14 @@ package charm
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type VersionSuite struct{}
 
-func TestVersionSuite(t *stdtesting.T) {
+func TestVersionSuite(t *testing.T) {
 	tc.Run(t, &VersionSuite{})
 }
 

@@ -4,7 +4,7 @@
 package tools_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +20,7 @@ type StorageSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestStorageSuite(t *stdtesting.T) {
+func TestStorageSuite(t *testing.T) {
 	tc.Run(t, &StorageSuite{})
 }
 

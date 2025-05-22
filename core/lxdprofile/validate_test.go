@@ -4,7 +4,7 @@
 package lxdprofile_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -19,7 +19,7 @@ type LXDProfileSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLXDProfileSuite(t *stdtesting.T) {
+func TestLXDProfileSuite(t *testing.T) {
 	tc.Run(t, &LXDProfileSuite{})
 }
 

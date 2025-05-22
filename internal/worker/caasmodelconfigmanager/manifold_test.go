@@ -4,7 +4,7 @@
 package caasmodelconfigmanager_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager/mocks"
 )
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &manifoldSuite{})
 }
 

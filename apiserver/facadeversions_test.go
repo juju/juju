@@ -4,7 +4,7 @@
 package apiserver_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type facadeVersionSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestFacadeVersionSuite(t *stdtesting.T) {
+func TestFacadeVersionSuite(t *testing.T) {
 	tc.Run(t, &facadeVersionSuite{})
 }
 

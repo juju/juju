@@ -4,7 +4,7 @@
 package operation_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type LeaderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLeaderSuite(t *stdtesting.T) {
+func TestLeaderSuite(t *testing.T) {
 	tc.Run(t, &LeaderSuite{})
 }
 

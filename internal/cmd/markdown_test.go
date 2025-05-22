@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ import (
 
 type markdownSuite struct{}
 
-func TestMarkdownSuite(t *stdtesting.T) {
+func TestMarkdownSuite(t *testing.T) {
 	tc.Run(t, &markdownSuite{})
 }
 

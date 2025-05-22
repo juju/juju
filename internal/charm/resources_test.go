@@ -4,14 +4,14 @@
 package charm_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm"
 )
 
-func TestResourceSuite(t *stdtesting.T) {
+func TestResourceSuite(t *testing.T) {
 	tc.Run(t, &resourceSuite{})
 }
 

@@ -4,7 +4,7 @@
 package secrets_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -38,7 +38,7 @@ type triggerSecretsSuite struct {
 	deletedSecrets  func([]string)
 }
 
-func TestTriggerSecretsSuite(t *stdtesting.T) {
+func TestTriggerSecretsSuite(t *testing.T) {
 	tc.Run(t, &triggerSecretsSuite{})
 }
 
@@ -236,7 +236,7 @@ type changeSecretsSuite struct {
 	resolver    resolver.Resolver
 }
 
-func TestChangeSecretsSuite(t *stdtesting.T) {
+func TestChangeSecretsSuite(t *testing.T) {
 	tc.Run(t, &changeSecretsSuite{})
 }
 
@@ -336,7 +336,7 @@ type removeSecretSuite struct {
 	resolver    resolver.Resolver
 }
 
-func TestRemoveSecretSuite(t *stdtesting.T) {
+func TestRemoveSecretSuite(t *testing.T) {
 	tc.Run(t, &removeSecretSuite{})
 }
 
@@ -439,7 +439,7 @@ type secretDeletedSuite struct {
 	deleted []string
 }
 
-func TestSecretDeletedSuite(t *stdtesting.T) {
+func TestSecretDeletedSuite(t *testing.T) {
 	tc.Run(t, &secretDeletedSuite{})
 }
 

@@ -6,7 +6,7 @@ package lxd_test
 import (
 	"fmt"
 	"reflect"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
@@ -31,7 +31,7 @@ type environBrokerSuite struct {
 	defaultProfile *api.Profile
 }
 
-func TestEnvironBrokerSuite(t *stdtesting.T) {
+func TestEnvironBrokerSuite(t *testing.T) {
 	tc.Run(t, &environBrokerSuite{})
 }
 

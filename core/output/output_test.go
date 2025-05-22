@@ -4,7 +4,7 @@
 package output_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/tc"
@@ -15,7 +15,7 @@ import (
 
 type OutputSuite struct{}
 
-func TestOutputSuite(t *stdtesting.T) {
+func TestOutputSuite(t *testing.T) {
 	tc.Run(t, &OutputSuite{})
 }
 

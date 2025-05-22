@@ -4,7 +4,7 @@
 package storage
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type storageKindSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestStorageKindSuite(t *stdtesting.T) {
+func TestStorageKindSuite(t *testing.T) {
 	tc.Run(t, &storageKindSuite{})
 }
 

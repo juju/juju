@@ -6,7 +6,7 @@ package crossmodel
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -32,7 +32,7 @@ type findSuite struct {
 	mockAPI *mockFindAPI
 }
 
-func TestFindSuite(t *stdtesting.T) {
+func TestFindSuite(t *testing.T) {
 	tc.Run(t, &findSuite{})
 }
 

@@ -7,7 +7,7 @@ package manager_test
 import (
 	"os"
 	"os/exec"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestRunSuite(t *stdtesting.T) {
+func TestRunSuite(t *testing.T) {
 	tc.Run(t, &RunSuite{})
 }
 

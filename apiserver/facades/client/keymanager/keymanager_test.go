@@ -4,7 +4,7 @@
 package keymanager
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
@@ -34,7 +34,7 @@ type keyManagerSuite struct {
 	modelID        coremodel.UUID
 }
 
-func TestKeyManagerSuite(t *stdtesting.T) {
+func TestKeyManagerSuite(t *testing.T) {
 	tc.Run(t, &keyManagerSuite{})
 }
 

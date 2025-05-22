@@ -4,7 +4,7 @@
 package assumes
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type FeatureSetSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFeatureSetSuite(t *stdtesting.T) {
+func TestFeatureSetSuite(t *testing.T) {
 	tc.Run(t, &FeatureSetSuite{})
 }
 

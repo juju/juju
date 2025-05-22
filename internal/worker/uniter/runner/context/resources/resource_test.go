@@ -5,7 +5,7 @@ package resources_test
 
 import (
 	"io"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 )
 
-func TestOpenedResourceSuite(t *stdtesting.T) {
+func TestOpenedResourceSuite(t *testing.T) {
 	tc.Run(t, &OpenedResourceSuite{})
 }
 

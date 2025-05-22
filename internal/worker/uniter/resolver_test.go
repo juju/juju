@@ -6,7 +6,7 @@ package uniter_test
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -68,13 +68,13 @@ type rebootResolverSuite struct {
 	baseResolverSuite
 }
 
-func TestCaasResolverSuite(t *stdtesting.T) { tc.Run(t, &caasResolverSuite{}) }
-func TestIaasResolverSuite(t *stdtesting.T) { tc.Run(t, &iaasResolverSuite{}) }
-func TestConflictedResolverSuite(t *stdtesting.T) {
+func TestCaasResolverSuite(t *testing.T) { tc.Run(t, &caasResolverSuite{}) }
+func TestIaasResolverSuite(t *testing.T) { tc.Run(t, &iaasResolverSuite{}) }
+func TestConflictedResolverSuite(t *testing.T) {
 	tc.Run(t, &conflictedResolverSuite{})
 }
 
-func TestRebootResolverSuite(t *stdtesting.T) { tc.Run(t, &rebootResolverSuite{}) }
+func TestRebootResolverSuite(t *testing.T) { tc.Run(t, &rebootResolverSuite{}) }
 
 const rebootNotDetected = false
 const rebootDetected = true

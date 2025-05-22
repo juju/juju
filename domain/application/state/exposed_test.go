@@ -6,7 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -26,7 +26,7 @@ type exposedStateSuite struct {
 	state *State
 }
 
-func TestExposedStateSuite(t *stdtesting.T) {
+func TestExposedStateSuite(t *testing.T) {
 	tc.Run(t, &exposedStateSuite{})
 }
 

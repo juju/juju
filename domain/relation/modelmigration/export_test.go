@@ -4,7 +4,7 @@
 package modelmigration
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type exportSuite struct {
 	exportService *MockExportService
 }
 
-func TestExportSuite(t *stdtesting.T) {
+func TestExportSuite(t *testing.T) {
 	tc.Run(t, &exportSuite{})
 }
 

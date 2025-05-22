@@ -4,7 +4,7 @@
 package controllernode_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
@@ -23,7 +23,7 @@ type watcherSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-func TestWatcherSuite(t *stdtesting.T) {
+func TestWatcherSuite(t *testing.T) {
 	tc.Run(t, &watcherSuite{})
 }
 

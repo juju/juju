@@ -4,7 +4,7 @@
 package openstack
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/go-goose/goose/v5/nova"
@@ -34,7 +34,7 @@ type networkingSuite struct {
 	ip3             string
 }
 
-func TestNetworkingSuite(t *stdtesting.T) {
+func TestNetworkingSuite(t *testing.T) {
 	tc.Run(t, &networkingSuite{})
 }
 

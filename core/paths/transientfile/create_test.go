@@ -8,14 +8,14 @@ package transientfile
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type transientFileSuite struct{}
 
-func TestTransientFileSuite(t *stdtesting.T) {
+func TestTransientFileSuite(t *testing.T) {
 	tc.Run(t, &transientFileSuite{})
 }
 

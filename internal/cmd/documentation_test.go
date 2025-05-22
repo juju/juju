@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ import (
 
 type documentationSuite struct{}
 
-func TestDocumentationSuite(t *stdtesting.T) {
+func TestDocumentationSuite(t *testing.T) {
 	tc.Run(t, &documentationSuite{})
 }
 

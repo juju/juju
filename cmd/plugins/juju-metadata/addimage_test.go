@@ -6,7 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type addImageSuite struct {
 	mockAPI *mockAddAPI
 }
 
-func TestAddImageSuite(t *stdtesting.T) {
+func TestAddImageSuite(t *testing.T) {
 	tc.Run(t, &addImageSuite{})
 }
 

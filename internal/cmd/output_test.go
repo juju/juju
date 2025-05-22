@@ -4,7 +4,7 @@
 package cmd_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
@@ -143,7 +143,7 @@ type OutputSuite struct {
 	ctx *cmd.Context
 }
 
-func TestOutputSuite(t *stdtesting.T) {
+func TestOutputSuite(t *testing.T) {
 	tc.Run(t, &OutputSuite{})
 }
 

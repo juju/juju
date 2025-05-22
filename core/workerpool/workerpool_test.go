@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func TestProvisionerWorkerPoolSuite(t *stdtesting.T) {
+func TestProvisionerWorkerPoolSuite(t *testing.T) {
 	tc.Run(t, &ProvisionerWorkerPoolSuite{})
 }
 

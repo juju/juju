@@ -6,7 +6,7 @@ package jujuc_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +20,7 @@ type ActionGetSuite struct {
 	jujuctesting.ContextSuite
 }
 
-func TestActionGetSuite(t *stdtesting.T) {
+func TestActionGetSuite(t *testing.T) {
 	tc.Run(t, &ActionGetSuite{})
 }
 

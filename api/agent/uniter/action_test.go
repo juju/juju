@@ -4,7 +4,7 @@
 package uniter_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -21,7 +21,7 @@ type actionSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestActionSuite(t *stdtesting.T) {
+func TestActionSuite(t *testing.T) {
 	tc.Run(t, &actionSuite{})
 }
 

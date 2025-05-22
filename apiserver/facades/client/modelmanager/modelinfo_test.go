@@ -4,7 +4,7 @@
 package modelmanager_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -25,7 +25,7 @@ import (
 
 type modelInfoSuite struct{}
 
-func TestModelInfoSuite(t *stdtesting.T) {
+func TestModelInfoSuite(t *testing.T) {
 	tc.Run(t, &modelInfoSuite{})
 }
 

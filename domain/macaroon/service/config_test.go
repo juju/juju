@@ -4,7 +4,7 @@
 package service
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/tc"
@@ -15,7 +15,7 @@ type configServiceSuite struct {
 	st *MockState
 }
 
-func TestConfigServiceSuite(t *stdtesting.T) {
+func TestConfigServiceSuite(t *testing.T) {
 	tc.Run(t, &configServiceSuite{})
 }
 

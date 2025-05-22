@@ -4,7 +4,7 @@
 package applicationoffers_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ import (
 type accessSuite struct {
 }
 
-func TestAccessSuite(t *stdtesting.T) {
+func TestAccessSuite(t *testing.T) {
 	tc.Run(t, &accessSuite{})
 }
 

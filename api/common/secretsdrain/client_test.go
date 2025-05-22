@@ -4,7 +4,7 @@
 package secretsdrain_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestSecretsDrainSuite(t *stdtesting.T) {
+func TestSecretsDrainSuite(t *testing.T) {
 	tc.Run(t, &secretsDrainSuite{})
 }
 

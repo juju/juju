@@ -4,7 +4,7 @@
 package vsphere_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -32,7 +32,7 @@ type vmTemplateSuite struct {
 	mockTemplate       *object.VirtualMachine
 }
 
-func TestVmTemplateSuite(t *stdtesting.T) {
+func TestVmTemplateSuite(t *testing.T) {
 	tc.Run(t, &vmTemplateSuite{})
 }
 

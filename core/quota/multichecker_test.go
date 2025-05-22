@@ -4,7 +4,7 @@
 package quota_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/core/quota"
 )
 
-func TestMultiCheckerSuite(t *stdtesting.T) {
+func TestMultiCheckerSuite(t *testing.T) {
 	tc.Run(t, &MultiCheckerSuite{})
 }
 

@@ -4,7 +4,7 @@
 package service
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -30,7 +30,7 @@ type storageSuite struct {
 	service *Service
 }
 
-func TestStorageSuite(t *stdtesting.T) {
+func TestStorageSuite(t *testing.T) {
 	tc.Run(t, &storageSuite{})
 }
 

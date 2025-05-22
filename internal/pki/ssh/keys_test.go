@@ -6,7 +6,7 @@ package ssh_test
 import (
 	"crypto"
 	"crypto/ed25519"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	gossh "golang.org/x/crypto/ssh"
@@ -17,7 +17,7 @@ import (
 type KeySuite struct {
 }
 
-func TestKeySuite(t *stdtesting.T) {
+func TestKeySuite(t *testing.T) {
 	tc.Run(t, &KeySuite{})
 }
 

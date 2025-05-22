@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -30,7 +30,7 @@ type socketListenerSuite struct {
 	logger logger.Logger
 }
 
-func TestSocketListenerSuite(t *stdtesting.T) {
+func TestSocketListenerSuite(t *testing.T) {
 	tc.Run(t, &socketListenerSuite{})
 }
 

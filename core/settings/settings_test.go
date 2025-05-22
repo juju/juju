@@ -4,14 +4,14 @@
 package settings
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type settingsSuite struct{}
 
-func TestSettingsSuite(t *stdtesting.T) {
+func TestSettingsSuite(t *testing.T) {
 	tc.Run(t, &settingsSuite{})
 }
 

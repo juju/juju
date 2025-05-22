@@ -6,7 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type migrationSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestMigrationSuite(t *stdtesting.T) {
+func TestMigrationSuite(t *testing.T) {
 	tc.Run(t, &migrationSuite{})
 }
 

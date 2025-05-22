@@ -4,7 +4,7 @@
 package imagemetadata_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type ImageMetadataUpdateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestImageMetadataUpdateSuite(t *stdtesting.T) {
+func TestImageMetadataUpdateSuite(t *testing.T) {
 	tc.Run(t, &ImageMetadataUpdateSuite{})
 }
 func (s *ImageMetadataUpdateSuite) TestControllerOnly(c *tc.C) {

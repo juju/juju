@@ -5,7 +5,7 @@ package assumes
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v3"
@@ -19,7 +19,7 @@ type SatCheckerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSatCheckerSuite(t *stdtesting.T) {
+func TestSatCheckerSuite(t *testing.T) {
 	tc.Run(t, &SatCheckerSuite{})
 }
 

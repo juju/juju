@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	admission "k8s.io/api/admission/v1beta1"
@@ -33,7 +33,7 @@ type HandlerSuite struct {
 	logger logger.Logger
 }
 
-func TestHandlerSuite(t *stdtesting.T) {
+func TestHandlerSuite(t *testing.T) {
 	tc.Run(t, &HandlerSuite{})
 }
 

@@ -4,14 +4,14 @@
 package instance
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type VirtTypeSuite struct{}
 
-func TestVirtTypeSuite(t *stdtesting.T) {
+func TestVirtTypeSuite(t *testing.T) {
 	tc.Run(t, &VirtTypeSuite{})
 }
 

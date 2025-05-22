@@ -4,7 +4,7 @@
 package containermetadataresource
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type ContainerMetadataResourceUUIDSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestContainerMetadataResourceUUIDSuite(t *stdtesting.T) {
+func TestContainerMetadataResourceUUIDSuite(t *testing.T) {
 	tc.Run(t, &ContainerMetadataResourceUUIDSuite{})
 }
 func (*ContainerMetadataResourceUUIDSuite) TestIDValidate(c *tc.C) {

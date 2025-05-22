@@ -4,7 +4,7 @@
 package lease_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -38,7 +38,7 @@ func (s *PinSuite) SetUpTest(c *tc.C) {
 		s.machine,
 	}
 }
-func TestPinSuite(t *stdtesting.T) {
+func TestPinSuite(t *testing.T) {
 	tc.Run(t, &PinSuite{})
 }
 

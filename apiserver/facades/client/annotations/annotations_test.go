@@ -6,7 +6,7 @@ package annotations
 import (
 	"errors"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -31,7 +31,7 @@ type annotationSuite struct {
 	annotationsAPI *API
 }
 
-func TestAnnotationSuite(t *stdtesting.T) {
+func TestAnnotationSuite(t *testing.T) {
 	tc.Run(t, &annotationSuite{})
 }
 

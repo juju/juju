@@ -5,7 +5,7 @@ package charms_test
 
 import (
 	"net/url"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ import (
 type charmS3DownloaderSuite struct {
 }
 
-func TestCharmS3DownloaderSuite(t *stdtesting.T) {
+func TestCharmS3DownloaderSuite(t *testing.T) {
 	tc.Run(t, &charmS3DownloaderSuite{})
 }
 

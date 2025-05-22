@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -60,7 +60,7 @@ type StatusSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestStatusSuite(t *stdtesting.T) {
+func TestStatusSuite(t *testing.T) {
 	tc.Run(t, &StatusSuite{})
 }
 

@@ -4,7 +4,7 @@
 package httpclient
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -21,7 +21,7 @@ type trackedWorkerSuite struct {
 	states chan string
 }
 
-func TestTrackedWorkerSuite(t *stdtesting.T) {
+func TestTrackedWorkerSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &trackedWorkerSuite{})
 }

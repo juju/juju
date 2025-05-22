@@ -4,7 +4,7 @@
 package resources_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type serviceAccountSuite struct {
 	resourceSuite
 }
 
-func TestServiceAccountSuite(t *stdtesting.T) {
+func TestServiceAccountSuite(t *testing.T) {
 	tc.Run(t, &serviceAccountSuite{})
 }
 

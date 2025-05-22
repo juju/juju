@@ -4,7 +4,7 @@
 package statushistory
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -20,7 +20,7 @@ type loggerSuite struct {
 	logger *MockLogger
 }
 
-func TestLoggerSuite(t *stdtesting.T) {
+func TestLoggerSuite(t *testing.T) {
 	tc.Run(t, &loggerSuite{})
 }
 

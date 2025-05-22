@@ -4,7 +4,7 @@
 package watcher_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +14,7 @@ import (
 
 type todoWatcherSuite struct{}
 
-func TestTodoWatcherSuite(t *stdtesting.T) {
+func TestTodoWatcherSuite(t *testing.T) {
 	tc.Run(t, &todoWatcherSuite{})
 }
 

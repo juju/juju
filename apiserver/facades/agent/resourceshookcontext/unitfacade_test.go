@@ -6,7 +6,7 @@ package resourceshookcontext
 import (
 	"context"
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -26,7 +26,7 @@ type unitFacadeSuite struct {
 	applicationService *MockApplicationService
 }
 
-func TestUnitFacadeSuite(t *stdtesting.T) {
+func TestUnitFacadeSuite(t *testing.T) {
 	tc.Run(t, &unitFacadeSuite{})
 }
 

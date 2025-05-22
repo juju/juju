@@ -4,7 +4,7 @@
 package client_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +20,7 @@ type permSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPermSuite(t *stdtesting.T) {
+func TestPermSuite(t *testing.T) {
 	tc.Run(t, &permSuite{})
 }
 
@@ -28,7 +28,7 @@ type watcherPermSuite struct {
 	permSuite
 }
 
-func TestWatcherPermSuite(t *stdtesting.T) {
+func TestWatcherPermSuite(t *testing.T) {
 	tc.Run(t, &watcherPermSuite{})
 }
 

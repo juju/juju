@@ -4,7 +4,7 @@
 package quota_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/quota"
 )
 
-func TestMapKeyValueCheckerSuite(t *stdtesting.T) {
+func TestMapKeyValueCheckerSuite(t *testing.T) {
 	tc.Run(t, &MapKeyValueCheckerSuite{})
 }
 

@@ -4,7 +4,7 @@
 package uniter_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
@@ -14,7 +14,7 @@ import (
 // suite, but embedded.
 type uniterGoalStateSuite struct{}
 
-func TestUniterGoalStateSuite(t *stdtesting.T) {
+func TestUniterGoalStateSuite(t *testing.T) {
 	tc.Run(t, &uniterGoalStateSuite{})
 }
 

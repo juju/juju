@@ -6,7 +6,7 @@ package application
 import (
 	"context"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -32,7 +32,7 @@ type BindSuite struct {
 	cmd               cmd.Command
 }
 
-func TestBindSuite(t *stdtesting.T) {
+func TestBindSuite(t *testing.T) {
 	tc.Run(t, &BindSuite{})
 }
 

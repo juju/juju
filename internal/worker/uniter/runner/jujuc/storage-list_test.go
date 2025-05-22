@@ -5,7 +5,7 @@ package jujuc_test
 
 import (
 	"encoding/json"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -20,7 +20,7 @@ type storageListSuite struct {
 	storageSuite
 }
 
-func TestStorageListSuite(t *stdtesting.T) {
+func TestStorageListSuite(t *testing.T) {
 	tc.Run(t, &storageListSuite{})
 }
 

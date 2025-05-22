@@ -5,7 +5,7 @@ package machiner_test
 
 import (
 	"net"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -30,7 +30,7 @@ type MachinerSuite struct {
 	addresses  []net.Addr
 }
 
-func TestMachinerSuite(t *stdtesting.T) {
+func TestMachinerSuite(t *testing.T) {
 	tc.Run(t, &MachinerSuite{})
 }
 

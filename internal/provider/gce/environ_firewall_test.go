@@ -4,7 +4,7 @@
 package gce_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type environFirewallSuite struct {
 	gce.BaseSuite
 }
 
-func TestEnvironFirewallSuite(t *stdtesting.T) {
+func TestEnvironFirewallSuite(t *testing.T) {
 	tc.Run(t, &environFirewallSuite{})
 }
 

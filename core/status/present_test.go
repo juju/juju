@@ -4,7 +4,7 @@
 package status_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type viableSuite struct{}
 
-func TestViableSuite(t *stdtesting.T) {
+func TestViableSuite(t *testing.T) {
 	tc.Run(t, &viableSuite{})
 }
 

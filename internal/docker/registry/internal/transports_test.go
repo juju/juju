@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type transportSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTransportSuite(t *stdtesting.T) {
+func TestTransportSuite(t *testing.T) {
 	tc.Run(t, &transportSuite{})
 }
 

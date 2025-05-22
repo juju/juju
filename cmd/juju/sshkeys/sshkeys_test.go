@@ -5,7 +5,7 @@ package sshkeys
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
@@ -23,7 +23,7 @@ type SSHKeysSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 }
 
-func TestSSHKeysSuite(t *stdtesting.T) {
+func TestSSHKeysSuite(t *testing.T) {
 	tc.Run(t, &SSHKeysSuite{})
 }
 
@@ -35,7 +35,7 @@ type ListKeysSuite struct {
 	keySuiteBase
 }
 
-func TestListKeysSuite(t *stdtesting.T) {
+func TestListKeysSuite(t *testing.T) {
 	tc.Run(t, &ListKeysSuite{})
 }
 
@@ -139,7 +139,7 @@ type AddKeySuite struct {
 	keySuiteBase
 }
 
-func TestAddKeySuite(t *stdtesting.T) {
+func TestAddKeySuite(t *testing.T) {
 	tc.Run(t, &AddKeySuite{})
 }
 
@@ -199,7 +199,7 @@ type RemoveKeySuite struct {
 	keySuiteBase
 }
 
-func TestRemoveKeySuite(t *stdtesting.T) {
+func TestRemoveKeySuite(t *testing.T) {
 	tc.Run(t, &RemoveKeySuite{})
 }
 
@@ -259,7 +259,7 @@ type ImportKeySuite struct {
 	keySuiteBase
 }
 
-func TestImportKeySuite(t *stdtesting.T) {
+func TestImportKeySuite(t *testing.T) {
 	tc.Run(t, &ImportKeySuite{})
 }
 

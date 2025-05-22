@@ -5,7 +5,7 @@ package toolsversionchecker_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/internal/worker/toolsversionchecker"
 )
 
-func TestToolsCheckerSuite(t *stdtesting.T) {
+func TestToolsCheckerSuite(t *testing.T) {
 	tc.Run(t, &ToolsCheckerSuite{})
 }
 

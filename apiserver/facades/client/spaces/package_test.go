@@ -4,7 +4,7 @@
 package spaces
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -35,7 +35,7 @@ type APISuite struct {
 	ApplicationService      *MockApplicationService
 }
 
-func TestAPISuite(t *stdtesting.T) {
+func TestAPISuite(t *testing.T) {
 	tc.Run(t, &APISuite{})
 }
 

@@ -5,7 +5,7 @@ package application_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -28,7 +28,7 @@ type ConsumeSuite struct {
 	store   *jujuclient.MemStore
 }
 
-func TestConsumeSuite(t *stdtesting.T) {
+func TestConsumeSuite(t *testing.T) {
 	tc.Run(t, &ConsumeSuite{})
 }
 

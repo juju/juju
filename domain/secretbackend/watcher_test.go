@@ -4,7 +4,7 @@
 package secretbackend_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -30,7 +30,7 @@ type watcherSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-func TestWatcherSuite(t *stdtesting.T) {
+func TestWatcherSuite(t *testing.T) {
 	tc.Run(t, &watcherSuite{})
 }
 

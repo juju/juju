@@ -4,7 +4,7 @@
 package block
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type blockSuite struct {
 	authorizer *MockAuthorizer
 }
 
-func TestBlockSuite(t *stdtesting.T) {
+func TestBlockSuite(t *testing.T) {
 	tc.Run(t, &blockSuite{})
 }
 

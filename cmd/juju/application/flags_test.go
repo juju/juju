@@ -4,7 +4,7 @@
 package application
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestFlagSuite(t *stdtesting.T) {
+func TestFlagSuite(t *testing.T) {
 	tc.Run(t, &FlagSuite{})
 }
 

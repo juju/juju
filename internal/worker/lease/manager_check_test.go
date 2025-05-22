@@ -4,7 +4,7 @@
 package lease_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -20,7 +20,7 @@ type TokenSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTokenSuite(t *stdtesting.T) {
+func TestTokenSuite(t *testing.T) {
 	tc.Run(t, &TokenSuite{})
 }
 

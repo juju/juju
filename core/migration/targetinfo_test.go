@@ -4,7 +4,7 @@
 package migration_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type TargetInfoSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestTargetInfoSuite(t *stdtesting.T) {
+func TestTargetInfoSuite(t *testing.T) {
 	tc.Run(t, new(TargetInfoSuite))
 }
 

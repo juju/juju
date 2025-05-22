@@ -6,7 +6,7 @@ package tools_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -38,7 +38,7 @@ type SimpleStreamsToolsSuite struct {
 	publicToolsDir     string
 }
 
-func TestSimpleStreamsToolsSuite(t *stdtesting.T) {
+func TestSimpleStreamsToolsSuite(t *testing.T) {
 	tc.Run(t, &SimpleStreamsToolsSuite{})
 }
 
@@ -462,7 +462,7 @@ func fakeToolsList(releases ...string) coretools.List {
 
 type ToolsListSuite struct{}
 
-func TestToolsListSuite(t *stdtesting.T) {
+func TestToolsListSuite(t *testing.T) {
 	tc.Run(t, &ToolsListSuite{})
 }
 

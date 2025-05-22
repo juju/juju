@@ -4,7 +4,7 @@
 package utils_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ import (
 
 type utilsSuite struct{}
 
-func TestUtilsSuite(t *stdtesting.T) {
+func TestUtilsSuite(t *testing.T) {
 	tc.Run(t, &utilsSuite{})
 }
 
@@ -50,7 +50,7 @@ type utilsResourceSuite struct {
 	resourceFacade *mocks.MockResourceLister
 }
 
-func TestUtilsResourceSuite(t *stdtesting.T) {
+func TestUtilsResourceSuite(t *testing.T) {
 	tc.Run(t, &utilsResourceSuite{})
 }
 

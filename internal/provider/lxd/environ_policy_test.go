@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
@@ -28,7 +28,7 @@ type environPolicySuite struct {
 	env environs.Environ
 }
 
-func TestEnvironPolicySuite(t *stdtesting.T) {
+func TestEnvironPolicySuite(t *testing.T) {
 	tc.Run(t, &environPolicySuite{})
 }
 

@@ -5,7 +5,7 @@ package upgradevalidation_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 )
 
-func TestUpgradeValidationSuite(t *stdtesting.T) {
+func TestUpgradeValidationSuite(t *testing.T) {
 	tc.Run(t, &upgradeValidationSuite{})
 }
 

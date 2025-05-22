@@ -4,7 +4,7 @@
 package observer_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -23,7 +23,7 @@ type recorderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRecorderSuite(t *stdtesting.T) {
+func TestRecorderSuite(t *testing.T) {
 	tc.Run(t, &recorderSuite{})
 }
 

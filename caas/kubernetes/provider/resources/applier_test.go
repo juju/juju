@@ -4,7 +4,7 @@
 package resources_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type applierSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestApplierSuite(t *stdtesting.T) {
+func TestApplierSuite(t *testing.T) {
 	tc.Run(t, &applierSuite{})
 }
 

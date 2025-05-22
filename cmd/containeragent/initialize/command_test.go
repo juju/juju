@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"io"
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -35,7 +35,7 @@ type initCommandSuit struct {
 	clock            testclock.AdvanceableClock
 }
 
-func TestInitCommandSuit(t *stdtesting.T) {
+func TestInitCommandSuit(t *testing.T) {
 	tc.Run(t, &initCommandSuit{})
 }
 

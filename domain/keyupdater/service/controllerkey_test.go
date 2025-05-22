@@ -5,7 +5,7 @@ package service
 
 import (
 	"slices"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -17,7 +17,7 @@ type controllerKeySuite struct {
 	state *MockControllerKeyState
 }
 
-func TestControllerKeySuite(t *stdtesting.T) {
+func TestControllerKeySuite(t *testing.T) {
 	tc.Run(t, &controllerKeySuite{})
 }
 

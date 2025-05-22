@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -74,7 +74,7 @@ func (s *cloudSuite) setup(c *tc.C, userTag names.UserTag) *gomock.Controller {
 	})
 	return ctrl
 }
-func TestCloudSuite(t *stdtesting.T) {
+func TestCloudSuite(t *testing.T) {
 	tc.Run(t, &cloudSuite{})
 }
 

@@ -4,7 +4,7 @@
 package caasagent_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestClientSuite(t *stdtesting.T) {
+func TestClientSuite(t *testing.T) {
 	tc.Run(t, &ClientSuite{})
 }
 

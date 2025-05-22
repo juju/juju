@@ -4,7 +4,7 @@
 package provisioner_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type provisionerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProvisionerSuite(t *stdtesting.T) {
+func TestProvisionerSuite(t *testing.T) {
 	tc.Run(t, &provisionerSuite{})
 }
 
@@ -699,7 +699,7 @@ func (s *provisionerSuite) TestSupportedContainers(c *tc.C) {
 	c.Assert(result, tc.SameContents, []instance.ContainerType{"lxd"})
 	c.Assert(determined, tc.IsTrue)
 }
-func TestProvisionerContainerSuite(t *stdtesting.T) {
+func TestProvisionerContainerSuite(t *testing.T) {
 	tc.Run(t, &provisionerContainerSuite{})
 }
 

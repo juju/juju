@@ -5,7 +5,7 @@ package cloudspec_test
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestCloudSpecSuite(t *stdtesting.T) {
+func TestCloudSpecSuite(t *testing.T) {
 	tc.Run(t, &CloudSpecSuite{})
 }
 

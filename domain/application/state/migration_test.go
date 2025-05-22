@@ -8,7 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -34,7 +34,7 @@ type migrationStateSuite struct {
 	baseSuite
 }
 
-func TestMigrationStateSuite(t *stdtesting.T) {
+func TestMigrationStateSuite(t *testing.T) {
 	tc.Run(t, &migrationStateSuite{})
 }
 

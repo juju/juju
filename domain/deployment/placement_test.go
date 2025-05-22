@@ -4,7 +4,7 @@
 package deployment
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type PlacementSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPlacementSuite(t *stdtesting.T) {
+func TestPlacementSuite(t *testing.T) {
 	tc.Run(t, &PlacementSuite{})
 }
 

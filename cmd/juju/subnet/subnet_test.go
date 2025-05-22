@@ -5,7 +5,7 @@ package subnet_test
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type SubnetCommandSuite struct {
 	BaseSubnetSuite
 }
 
-func TestSubnetCommandSuite(t *stdtesting.T) {
+func TestSubnetCommandSuite(t *testing.T) {
 	tc.Run(t, &SubnetCommandSuite{})
 }
 
@@ -31,7 +31,7 @@ func (s *SubnetCommandBaseSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.baseCmd = &subnet.SubnetCommandBase{}
 }
-func TestSubnetCommandBaseSuite(t *stdtesting.T) {
+func TestSubnetCommandBaseSuite(t *testing.T) {
 	tc.Run(t, &SubnetCommandBaseSuite{})
 }
 

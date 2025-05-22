@@ -5,7 +5,7 @@ package context_test
 
 import (
 	stdcontext "context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type RelationCacheSuite struct {
 	results []settingsResult
 }
 
-func TestRelationCacheSuite(t *stdtesting.T) {
+func TestRelationCacheSuite(t *testing.T) {
 	tc.Run(t, &RelationCacheSuite{})
 }
 

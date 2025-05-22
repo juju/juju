@@ -5,7 +5,7 @@ package modelmanager_test
 
 import (
 	"regexp"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,7 +29,7 @@ import (
 type modelmanagerSuite struct {
 }
 
-func TestModelmanagerSuite(t *stdtesting.T) {
+func TestModelmanagerSuite(t *testing.T) {
 	tc.Run(t, &modelmanagerSuite{})
 }
 
@@ -614,7 +614,7 @@ type dumpModelSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestDumpModelSuite(t *stdtesting.T) {
+func TestDumpModelSuite(t *testing.T) {
 	tc.Run(t, &dumpModelSuite{})
 }
 

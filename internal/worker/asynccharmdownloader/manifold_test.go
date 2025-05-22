@@ -4,7 +4,7 @@
 package asynccharmdownloader
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -20,7 +20,7 @@ type ManifoldConfigSuite struct {
 	config ManifoldConfig
 }
 
-func TestManifoldConfigSuite(t *stdtesting.T) {
+func TestManifoldConfigSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &ManifoldConfigSuite{})
 }

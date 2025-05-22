@@ -4,7 +4,7 @@
 package secrets_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -23,7 +23,7 @@ type grantSuite struct {
 	secretsAPI *mocks.MockGrantRevokeSecretsAPI
 }
 
-func TestGrantSuite(t *stdtesting.T) {
+func TestGrantSuite(t *testing.T) {
 	tc.Run(t, &grantSuite{})
 }
 
@@ -75,7 +75,7 @@ type revokeSuite struct {
 	secretsAPI *mocks.MockGrantRevokeSecretsAPI
 }
 
-func TestRevokeSuite(t *stdtesting.T) {
+func TestRevokeSuite(t *testing.T) {
 	tc.Run(t, &revokeSuite{})
 }
 

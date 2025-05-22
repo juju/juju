@@ -6,7 +6,7 @@ package backups_test
 import (
 	"io"
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,11 +19,11 @@ type workspaceSuiteV0 struct {
 	baseArchiveDataSuite
 }
 
-func TestWorkspaceSuiteV0(t *stdtesting.T) {
+func TestWorkspaceSuiteV0(t *testing.T) {
 	tc.Run(t, &workspaceSuiteV0{})
 }
 
-func TestWorkspaceSuiteV1(t *stdtesting.T) {
+func TestWorkspaceSuiteV1(t *testing.T) {
 	tc.Run(t, &workspaceSuiteV1{})
 }
 

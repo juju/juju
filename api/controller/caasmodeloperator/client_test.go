@@ -4,7 +4,7 @@
 package caasmodeloperator_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +20,7 @@ type ModelOperatorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestModelOperatorSuite(t *stdtesting.T) {
+func TestModelOperatorSuite(t *testing.T) {
 	tc.Run(t, &ModelOperatorSuite{})
 }
 

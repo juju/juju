@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +14,7 @@ import (
 
 type DiskSuite struct{}
 
-func TestDiskSuite(t *stdtesting.T) {
+func TestDiskSuite(t *testing.T) {
 	tc.Run(t, &DiskSuite{})
 }
 

@@ -5,7 +5,7 @@ package agenttools
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestAgentToolsSuite(t *stdtesting.T) {
+func TestAgentToolsSuite(t *testing.T) {
 	tc.Run(t, &AgentToolsSuite{})
 }
 

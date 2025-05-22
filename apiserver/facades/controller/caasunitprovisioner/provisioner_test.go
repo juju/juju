@@ -4,7 +4,7 @@
 package caasunitprovisioner_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestCAASProvisionerSuite(t *stdtesting.T) {
+func TestCAASProvisionerSuite(t *testing.T) {
 	tc.Run(t, &CAASProvisionerSuite{})
 }
 

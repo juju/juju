@@ -6,7 +6,7 @@ package store
 import (
 	"context"
 	"net/url"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type resolveSuite struct {
 	charmReader    *mocks.MockCharmReader
 }
 
-func TestResolveSuite(t *stdtesting.T) {
+func TestResolveSuite(t *testing.T) {
 	tc.Run(t, &resolveSuite{})
 }
 

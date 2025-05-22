@@ -6,7 +6,7 @@ package application_test
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -29,7 +29,7 @@ type ShowSuite struct {
 	mockAPI *mockShowAPI
 }
 
-func TestShowSuite(t *stdtesting.T) {
+func TestShowSuite(t *testing.T) {
 	tc.Run(t, &ShowSuite{})
 }
 

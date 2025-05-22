@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestSnapSuite(t *stdtesting.T) {
+func TestSnapSuite(t *testing.T) {
 	tc.Run(t, &SnapSuite{})
 }
 

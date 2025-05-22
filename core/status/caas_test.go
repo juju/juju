@@ -4,7 +4,7 @@
 package status_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type UnitCloudStatusSuite struct{}
 
-func TestUnitCloudStatusSuite(t *stdtesting.T) {
+func TestUnitCloudStatusSuite(t *testing.T) {
 	tc.Run(t, &UnitCloudStatusSuite{})
 }
 

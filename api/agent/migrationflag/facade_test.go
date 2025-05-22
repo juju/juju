@@ -5,7 +5,7 @@ package migrationflag_test
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -22,7 +22,7 @@ type FacadeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFacadeSuite(t *stdtesting.T) {
+func TestFacadeSuite(t *testing.T) {
 	tc.Run(t, &FacadeSuite{})
 }
 

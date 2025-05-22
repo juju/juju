@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 	charmtesting "github.com/juju/juju/internal/charm/testing"
 )
 
-func TestBundleArchiveSuite(t *stdtesting.T) {
+func TestBundleArchiveSuite(t *testing.T) {
 	tc.Run(t, &BundleArchiveSuite{})
 }
 

@@ -4,7 +4,7 @@
 package worker_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -20,7 +20,7 @@ type WorkerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	tc.Run(t, &WorkerSuite{})
 }
 

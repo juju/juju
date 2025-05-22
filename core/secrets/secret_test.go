@@ -5,7 +5,7 @@ package secrets_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -16,7 +16,7 @@ import (
 
 type SecretURISuite struct{}
 
-func TestSecretURISuite(t *stdtesting.T) {
+func TestSecretURISuite(t *testing.T) {
 	tc.Run(t, &SecretURISuite{})
 }
 
@@ -140,7 +140,7 @@ func (s *SecretURISuite) TestIsLocal(c *tc.C) {
 
 type SecretSuite struct{}
 
-func TestSecretSuite(t *stdtesting.T) {
+func TestSecretSuite(t *testing.T) {
 	tc.Run(t, &SecretSuite{})
 }
 

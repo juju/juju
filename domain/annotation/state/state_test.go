@@ -6,7 +6,7 @@ package state
 import (
 	"database/sql"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestStateSuite(t *stdtesting.T) {
+func TestStateSuite(t *testing.T) {
 	tc.Run(t, &stateSuite{})
 }
 

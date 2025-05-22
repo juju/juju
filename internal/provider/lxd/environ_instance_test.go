@@ -4,7 +4,7 @@
 package lxd_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type environInstSuite struct {
 	lxd.BaseSuite
 }
 
-func TestEnvironInstSuite(t *stdtesting.T) {
+func TestEnvironInstSuite(t *testing.T) {
 	tc.Run(t, &environInstSuite{})
 }
 

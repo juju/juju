@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -522,7 +522,7 @@ type InstanceModeSuite struct {
 	firewallerBaseSuite
 }
 
-func TestInstanceModeSuite(t *stdtesting.T) {
+func TestInstanceModeSuite(t *testing.T) {
 	tc.Run(t, &InstanceModeSuite{})
 }
 
@@ -1998,7 +1998,7 @@ type GlobalModeSuite struct {
 	firewallerBaseSuite
 }
 
-func TestGlobalModeSuite(t *stdtesting.T) {
+func TestGlobalModeSuite(t *testing.T) {
 	tc.Run(t, &GlobalModeSuite{})
 }
 
@@ -2312,7 +2312,7 @@ type NoneModeSuite struct {
 	firewallerBaseSuite
 }
 
-func TestNoneModeSuite(t *stdtesting.T) {
+func TestNoneModeSuite(t *testing.T) {
 	tc.Run(t, &NoneModeSuite{})
 }
 

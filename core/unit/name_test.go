@@ -5,14 +5,14 @@ package unit
 
 import (
 	"math"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type unitNameSuite struct{}
 
-func TestUnitNameSuite(t *stdtesting.T) {
+func TestUnitNameSuite(t *testing.T) {
 	tc.Run(t, &unitNameSuite{})
 }
 

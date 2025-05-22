@@ -4,7 +4,7 @@
 package resources
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
@@ -12,7 +12,7 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestClaimHasJujuLabel(t *stdtesting.T) {
+func TestClaimHasJujuLabel(t *testing.T) {
 	tests := []struct {
 		Name   string
 		Obj    interface{}
@@ -63,7 +63,7 @@ func TestClaimHasJujuLabel(t *stdtesting.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.Name, func(t *stdtesting.T) {
+		t.Run(test.Name, func(t *testing.T) {
 			r, err := claimHasJujuLabel(test.Obj)
 			if err != nil {
 				t.Errorf("unexpected error testing claim has juju label %v", err)
@@ -76,7 +76,7 @@ func TestClaimHasJujuLabel(t *stdtesting.T) {
 	}
 }
 
-func TestClaimHasJujuLabelBadData(t *stdtesting.T) {
+func TestClaimHasJujuLabelBadData(t *testing.T) {
 	r, err := claimHasJujuLabel(map[string]string{})
 	if r {
 		t.Error("expected claim has juju label with bad data returns false")
@@ -87,7 +87,7 @@ func TestClaimHasJujuLabelBadData(t *stdtesting.T) {
 	}
 }
 
-func TestClaimHasJujuLabelNilData(t *stdtesting.T) {
+func TestClaimHasJujuLabelNilData(t *testing.T) {
 	r, err := claimHasJujuLabel(nil)
 	if r {
 		t.Error("expected claim has juju label with nil data returns false")
@@ -98,7 +98,7 @@ func TestClaimHasJujuLabelNilData(t *stdtesting.T) {
 	}
 }
 
-func TestClaimIsManagedByJuju(t *stdtesting.T) {
+func TestClaimIsManagedByJuju(t *testing.T) {
 	tests := []struct {
 		Name   string
 		Obj    interface{}
@@ -169,7 +169,7 @@ func TestClaimIsManagedByJuju(t *stdtesting.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.Name, func(t *stdtesting.T) {
+		t.Run(test.Name, func(t *testing.T) {
 			r, err := claimIsManagedByJuju(test.Obj)
 			if err != nil {
 				t.Errorf("unexpected error testing is managed by juju %v", err)
@@ -182,7 +182,7 @@ func TestClaimIsManagedByJuju(t *stdtesting.T) {
 	}
 }
 
-func TestClaimIsManagedByJujuBadData(t *stdtesting.T) {
+func TestClaimIsManagedByJujuBadData(t *testing.T) {
 	r, err := claimHasJujuLabel(map[string]string{})
 	if r {
 		t.Error("expected claim is managed by juju with bad data returns false")
@@ -193,7 +193,7 @@ func TestClaimIsManagedByJujuBadData(t *stdtesting.T) {
 	}
 }
 
-func TestClaimIsManagedByJujuNilData(t *stdtesting.T) {
+func TestClaimIsManagedByJujuNilData(t *testing.T) {
 	r, err := claimHasJujuLabel(nil)
 	if r {
 		t.Error("expected claim is managed by juju with nil data returns false")
@@ -204,7 +204,7 @@ func TestClaimIsManagedByJujuNilData(t *stdtesting.T) {
 	}
 }
 
-func TestClaimOrAggregateWithEmptyClaimsReturnsFalse(t *stdtesting.T) {
+func TestClaimOrAggregateWithEmptyClaimsReturnsFalse(t *testing.T) {
 	r, err := ClaimAggregateOr().Assert(nil)
 	if err != nil {
 		t.Errorf("unexpected error for empty claim aggregate or %v", err)
@@ -214,7 +214,7 @@ func TestClaimOrAggregateWithEmptyClaimsReturnsFalse(t *stdtesting.T) {
 	}
 }
 
-func TestClaimAggregateOrReturnsTrue(t *stdtesting.T) {
+func TestClaimAggregateOrReturnsTrue(t *testing.T) {
 	r, err := ClaimAggregateOr(
 		ClaimFn(func(_ interface{}) (bool, error) {
 			return false, nil
@@ -231,7 +231,7 @@ func TestClaimAggregateOrReturnsTrue(t *stdtesting.T) {
 	}
 }
 
-func TestClaimAggregateOrReturnsFalse(t *stdtesting.T) {
+func TestClaimAggregateOrReturnsFalse(t *testing.T) {
 	r, err := ClaimAggregateOr(
 		ClaimFn(func(_ interface{}) (bool, error) {
 			return false, nil
@@ -248,7 +248,7 @@ func TestClaimAggregateOrReturnsFalse(t *stdtesting.T) {
 	}
 }
 
-func TestClaimAggregateOrReturnsError(t *stdtesting.T) {
+func TestClaimAggregateOrReturnsError(t *testing.T) {
 	r, err := ClaimAggregateOr(
 		ClaimFn(func(_ interface{}) (bool, error) {
 			return false, nil
@@ -265,7 +265,7 @@ func TestClaimAggregateOrReturnsError(t *stdtesting.T) {
 	}
 }
 
-func TestClaimJujuOwnership(t *stdtesting.T) {
+func TestClaimJujuOwnership(t *testing.T) {
 	tests := []struct {
 		Name   string
 		Obj    interface{}
@@ -367,7 +367,7 @@ func TestClaimJujuOwnership(t *stdtesting.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.Name, func(t *stdtesting.T) {
+		t.Run(test.Name, func(t *testing.T) {
 			r, err := ClaimJujuOwnership.Assert(test.Obj)
 			if err != nil {
 				t.Errorf("unexpected error testing claim juju ownership %v", err)

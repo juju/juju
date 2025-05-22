@@ -7,7 +7,7 @@ import (
 	"context"
 	"net/url"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -36,7 +36,7 @@ type WorkerSuite struct {
 	finished map[string]chan struct{}
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &WorkerSuite{})
 }

@@ -4,7 +4,7 @@
 package charms
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type clientNormalizeOriginSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestClientNormalizeOriginSuite(t *stdtesting.T) {
+func TestClientNormalizeOriginSuite(t *testing.T) {
 	tc.Run(t, &clientNormalizeOriginSuite{})
 }
 func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *tc.C) {
@@ -60,7 +60,7 @@ type clientValidateOriginSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestClientValidateOriginSuite(t *stdtesting.T) {
+func TestClientValidateOriginSuite(t *testing.T) {
 	tc.Run(t, &clientValidateOriginSuite{})
 }
 func (s *clientValidateOriginSuite) TestValidateOrigin(c *tc.C) {

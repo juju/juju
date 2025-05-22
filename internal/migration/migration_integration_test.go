@@ -4,7 +4,7 @@
 package migration_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -28,7 +28,7 @@ type ExportImportSuite struct {
 	objectStoreGetter       *MockModelObjectStoreGetter
 }
 
-func TestExportImportSuite(t *stdtesting.T) {
+func TestExportImportSuite(t *testing.T) {
 	tc.Run(t, &ExportImportSuite{})
 }
 

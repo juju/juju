@@ -5,7 +5,7 @@ package lxd_test
 
 import (
 	"net/http"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/canonical/lxd/shared/api"
@@ -29,7 +29,7 @@ type containerSuite struct {
 	lxdtesting.BaseSuite
 }
 
-func TestContainerSuite(t *stdtesting.T) {
+func TestContainerSuite(t *testing.T) {
 	tc.Run(t, &containerSuite{})
 }
 

@@ -4,7 +4,7 @@
 package secrets_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -40,7 +40,7 @@ type secretsDrainSuite struct {
 	facade *secrets.SecretsDrainAPI
 }
 
-func TestSecretsDrainSuite(t *stdtesting.T) {
+func TestSecretsDrainSuite(t *testing.T) {
 	tc.Run(t, &secretsDrainSuite{})
 }
 

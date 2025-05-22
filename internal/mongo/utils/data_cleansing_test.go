@@ -4,7 +4,7 @@
 package utils_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type dataCleansingSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDataCleansingSuite(t *stdtesting.T) {
+func TestDataCleansingSuite(t *testing.T) {
 	tc.Run(t, &dataCleansingSuite{})
 }
 

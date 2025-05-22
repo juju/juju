@@ -4,7 +4,7 @@
 package modelmigration
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -27,7 +27,7 @@ type importSuite struct {
 	txnRunner   *MockTxnRunner
 }
 
-func TestImportSuite(t *stdtesting.T) {
+func TestImportSuite(t *testing.T) {
 	tc.Run(t, &importSuite{})
 }
 

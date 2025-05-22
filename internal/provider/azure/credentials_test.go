@@ -6,7 +6,7 @@ package azure_test
 import (
 	"context"
 	"io"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -30,7 +30,7 @@ type credentialsSuite struct {
 	sender                  azuretesting.Senders
 }
 
-func TestCredentialsSuite(t *stdtesting.T) {
+func TestCredentialsSuite(t *testing.T) {
 	tc.Run(t, &credentialsSuite{})
 }
 

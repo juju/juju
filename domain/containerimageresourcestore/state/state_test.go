@@ -6,7 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -22,7 +22,7 @@ type containerImageMetadataSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestContainerImageMetadataSuite(t *stdtesting.T) {
+func TestContainerImageMetadataSuite(t *testing.T) {
 	tc.Run(t, &containerImageMetadataSuite{})
 }
 func (s *containerImageMetadataSuite) TestContainerImageMetadataPut(c *tc.C) {

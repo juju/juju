@@ -5,7 +5,7 @@ package provider
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
@@ -17,7 +17,7 @@ import (
 type UpgraderSuite struct {
 }
 
-func TestUpgraderSuite(t *stdtesting.T) {
+func TestUpgraderSuite(t *testing.T) {
 	tc.Run(t, &UpgraderSuite{})
 }
 

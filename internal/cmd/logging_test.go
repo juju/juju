@@ -6,7 +6,7 @@ package cmd_test
 import (
 	"io/ioutil"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type LogSuite struct {
 	testhelpers.LoggingCleanupSuite
 }
 
-func TestLogSuite(t *stdtesting.T) {
+func TestLogSuite(t *testing.T) {
 	tc.Run(t, &LogSuite{})
 }
 

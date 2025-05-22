@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"text/template"
 
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type k8sConfigSuite struct {
 	dir string
 }
 
-func TestK8sConfigSuite(t *stdtesting.T) {
+func TestK8sConfigSuite(t *testing.T) {
 	tc.Run(t, &k8sConfigSuite{})
 }
 

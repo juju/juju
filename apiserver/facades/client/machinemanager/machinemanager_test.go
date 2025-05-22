@@ -5,7 +5,7 @@ package machinemanager
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/collections/transform"
@@ -57,7 +57,7 @@ type AddMachineManagerSuite struct {
 	agentBinaryService      *MockAgentBinaryService
 }
 
-func TestAddMachineManagerSuite(t *stdtesting.T) {
+func TestAddMachineManagerSuite(t *testing.T) {
 	tc.Run(t, &AddMachineManagerSuite{})
 }
 
@@ -213,7 +213,7 @@ type DestroyMachineManagerSuite struct {
 	agentBinaryService      *MockAgentBinaryService
 }
 
-func TestDestroyMachineManagerSuite(t *stdtesting.T) {
+func TestDestroyMachineManagerSuite(t *testing.T) {
 	tc.Run(t, &DestroyMachineManagerSuite{})
 }
 func (s *DestroyMachineManagerSuite) SetUpTest(c *tc.C) {
@@ -734,7 +734,7 @@ type ProvisioningMachineManagerSuite struct {
 	agentBinaryService      *MockAgentBinaryService
 }
 
-func TestProvisioningMachineManagerSuite(t *stdtesting.T) {
+func TestProvisioningMachineManagerSuite(t *testing.T) {
 	tc.Run(t, &ProvisioningMachineManagerSuite{})
 }
 func (s *ProvisioningMachineManagerSuite) SetUpTest(c *tc.C) {

@@ -4,7 +4,7 @@
 package store
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type resourceStoreSuite struct {
 	resourceStore          *MockResourceStore
 }
 
-func TestResourceStoreSuite(t *stdtesting.T) {
+func TestResourceStoreSuite(t *testing.T) {
 	tc.Run(t, &resourceStoreSuite{})
 }
 

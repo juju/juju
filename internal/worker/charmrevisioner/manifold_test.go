@@ -4,7 +4,7 @@
 package charmrevisioner
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -23,7 +23,7 @@ type ManifoldConfigSuite struct {
 	config ManifoldConfig
 }
 
-func TestManifoldConfigSuite(t *stdtesting.T) {
+func TestManifoldConfigSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &ManifoldConfigSuite{})
 }

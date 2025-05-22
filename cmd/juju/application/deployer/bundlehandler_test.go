@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
@@ -57,7 +57,7 @@ type BundleDeployRepositorySuite struct {
 	output     *bytes.Buffer
 }
 
-func TestBundleDeployRepositorySuite(t *stdtesting.T) {
+func TestBundleDeployRepositorySuite(t *testing.T) {
 	tc.Run(t, &BundleDeployRepositorySuite{})
 }
 func (s *BundleDeployRepositorySuite) SetUpTest(_ *tc.C) {
@@ -2513,7 +2513,7 @@ type BundleHandlerOriginSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBundleHandlerOriginSuite(t *stdtesting.T) {
+func TestBundleHandlerOriginSuite(t *testing.T) {
 	tc.Run(t, &BundleHandlerOriginSuite{})
 }
 func (s *BundleHandlerOriginSuite) TestAddOrigin(c *tc.C) {
@@ -2616,7 +2616,7 @@ type BundleHandlerResolverSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBundleHandlerResolverSuite(t *stdtesting.T) {
+func TestBundleHandlerResolverSuite(t *testing.T) {
 	tc.Run(t, &BundleHandlerResolverSuite{})
 }
 func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *tc.C) {
@@ -2706,7 +2706,7 @@ type BundleHandlerMakeModelSuite struct {
 	deployerAPI *mocks.MockDeployerAPI
 }
 
-func TestBundleHandlerMakeModelSuite(t *stdtesting.T) {
+func TestBundleHandlerMakeModelSuite(t *testing.T) {
 	tc.Run(t, &BundleHandlerMakeModelSuite{})
 }
 func (s *BundleHandlerMakeModelSuite) TestEmptyModel(c *tc.C) {

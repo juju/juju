@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ import (
 
 type ControllerSuite struct{}
 
-func TestControllerSuite(t *stdtesting.T) {
+func TestControllerSuite(t *testing.T) {
 	tc.Run(t, &ControllerSuite{})
 }
 

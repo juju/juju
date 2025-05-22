@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -33,7 +33,7 @@ type deployerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDeployerSuite(t *stdtesting.T) {
+func TestDeployerSuite(t *testing.T) {
 	tc.Run(t, &deployerSuite{})
 }
 

@@ -12,7 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/google/uuid"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type jwtParserSuite struct {
 	client     mockHTTPClient
 }
 
-func TestJwtParserSuite(t *stdtesting.T) {
+func TestJwtParserSuite(t *testing.T) {
 	tc.Run(t, &jwtParserSuite{})
 }
 

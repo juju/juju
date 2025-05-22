@@ -4,7 +4,7 @@
 package objectstore
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type ObjectStoreUUIDSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestObjectStoreUUIDSuite(t *stdtesting.T) {
+func TestObjectStoreUUIDSuite(t *testing.T) {
 	tc.Run(t, &ObjectStoreUUIDSuite{})
 }
 

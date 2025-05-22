@@ -4,7 +4,7 @@
 package leadership_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 )
 
-func TestResolverSuite(t *stdtesting.T) {
+func TestResolverSuite(t *testing.T) {
 	tc.Run(t, &resolverSuite{})
 }
 

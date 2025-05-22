@@ -5,7 +5,7 @@ package storage_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -26,7 +26,7 @@ type validationSuite struct {
 	meta      *charm.Meta
 }
 
-func TestValidationSuite(t *stdtesting.T) {
+func TestValidationSuite(t *testing.T) {
 	tc.Run(t, &validationSuite{})
 }
 

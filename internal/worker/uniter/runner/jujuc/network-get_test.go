@@ -5,7 +5,7 @@ package jujuc_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type NetworkGetSuite struct {
 	ContextSuite
 }
 
-func TestNetworkGetSuite(t *stdtesting.T) {
+func TestNetworkGetSuite(t *testing.T) {
 	tc.Run(t, &NetworkGetSuite{})
 }
 

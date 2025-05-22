@@ -4,7 +4,7 @@
 package testhelpers
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -12,7 +12,7 @@ import (
 
 type logSuite struct{}
 
-func TestLogSuite(t *stdtesting.T) {
+func TestLogSuite(t *testing.T) {
 	tc.Run(t, &logSuite{})
 }
 

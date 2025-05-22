@@ -4,7 +4,7 @@
 package resource
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type StateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestStateSuite(t *stdtesting.T) {
+func TestStateSuite(t *testing.T) {
 	tc.Run(t, &StateSuite{})
 }
 

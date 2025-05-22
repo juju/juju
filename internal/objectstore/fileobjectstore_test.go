@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -33,7 +33,7 @@ type fileObjectStoreSuite struct {
 	remote *MockRemoteRetriever
 }
 
-func TestFileObjectStoreSuite(t *stdtesting.T) {
+func TestFileObjectStoreSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &fileObjectStoreSuite{})
 }

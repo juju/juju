@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type ConfigSuite struct {
 	baseControllerSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) {
+func TestConfigSuite(t *testing.T) {
 	tc.Run(t, &ConfigSuite{})
 }
 

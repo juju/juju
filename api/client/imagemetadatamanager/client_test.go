@@ -5,7 +5,7 @@ package imagemetadatamanager_test
 
 import (
 	"regexp"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ import (
 type imagemetadataSuite struct {
 }
 
-func TestImagemetadataSuite(t *stdtesting.T) {
+func TestImagemetadataSuite(t *testing.T) {
 	tc.Run(t, &imagemetadataSuite{})
 }
 

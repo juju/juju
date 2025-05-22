@@ -4,7 +4,7 @@
 package storage
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type provisioningStatusSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestProvisioningStatusSuite(t *stdtesting.T) {
+func TestProvisioningStatusSuite(t *testing.T) {
 	tc.Run(t, &provisioningStatusSuite{})
 }
 

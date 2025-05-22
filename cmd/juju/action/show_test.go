@@ -6,7 +6,7 @@ package action_test
 import (
 	"errors"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -22,7 +22,7 @@ type ShowSuite struct {
 	command        *action.ShowCommand
 }
 
-func TestShowSuite(t *stdtesting.T) {
+func TestShowSuite(t *testing.T) {
 	tc.Run(t, &ShowSuite{})
 }
 

@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -25,7 +25,7 @@ type ListSuite struct {
 	mockAPI *mockListAPI
 }
 
-func TestListSuite(t *stdtesting.T) {
+func TestListSuite(t *testing.T) {
 	tc.Run(t, &ListSuite{})
 }
 

@@ -4,7 +4,7 @@
 package version
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type seriesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSeriesSuite(t *stdtesting.T) {
+func TestSeriesSuite(t *testing.T) {
 	tc.Run(t, &seriesSuite{})
 }
 

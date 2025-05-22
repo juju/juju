@@ -5,7 +5,7 @@ package caasagent_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestCaasagentSuite(t *stdtesting.T) {
+func TestCaasagentSuite(t *testing.T) {
 	tc.Run(t, &caasagentSuite{})
 }
 

@@ -4,7 +4,7 @@
 package networkingcommon_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
@@ -45,7 +45,7 @@ type networkConfigSuite struct {
 	modelOp modelOpRecorder
 }
 
-func TestNetworkConfigSuite(t *stdtesting.T) {
+func TestNetworkConfigSuite(t *testing.T) {
 	tc.Run(t, &networkConfigSuite{})
 }
 

@@ -5,7 +5,7 @@ package params_test
 
 import (
 	"encoding/json"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -24,7 +24,7 @@ type (
 
 type NetworkSuite struct{}
 
-func TestNetworkSuite(t *stdtesting.T) {
+func TestNetworkSuite(t *testing.T) {
 	tc.Run(t, &NetworkSuite{})
 }
 

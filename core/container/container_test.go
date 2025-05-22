@@ -4,7 +4,7 @@
 package container_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +14,7 @@ import (
 
 type ContainerSuite struct{}
 
-func TestContainerSuite(t *stdtesting.T) {
+func TestContainerSuite(t *testing.T) {
 	tc.Run(t, &ContainerSuite{})
 }
 

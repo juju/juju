@@ -6,7 +6,7 @@ package provider_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ import (
 
 type providerCommonSuite struct{}
 
-func TestProviderCommonSuite(t *stdtesting.T) {
+func TestProviderCommonSuite(t *testing.T) {
 	tc.Run(t, &providerCommonSuite{})
 }
 

@@ -5,7 +5,7 @@ package store_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -25,7 +25,7 @@ type storeSuite struct {
 	charmAdder *mocks.MockCharmAdder
 }
 
-func TestStoreSuite(t *stdtesting.T) {
+func TestStoreSuite(t *testing.T) {
 	tc.Run(t, &storeSuite{})
 }
 

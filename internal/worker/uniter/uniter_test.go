@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -46,7 +46,7 @@ type UniterSuite struct {
 	deployer               *mockDeployer
 }
 
-func TestUniterSuite(t *stdtesting.T) {
+func TestUniterSuite(t *testing.T) {
 	tc.Run(t, &UniterSuite{})
 }
 

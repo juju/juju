@@ -4,7 +4,7 @@
 package agent
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -78,7 +78,7 @@ type agentLoggingSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAgentLoggingSuite(t *stdtesting.T) {
+func TestAgentLoggingSuite(t *testing.T) {
 	tc.Run(t, &agentLoggingSuite{})
 }
 

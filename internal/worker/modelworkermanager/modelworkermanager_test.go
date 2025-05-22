@@ -5,7 +5,7 @@ package modelworkermanager_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/collections/transform"
@@ -35,7 +35,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &suite{})
 }

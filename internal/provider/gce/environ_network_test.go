@@ -4,7 +4,7 @@
 package gce_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type environNetSuite struct {
 	NetEnv environs.NetworkingEnviron
 }
 
-func TestEnvironNetSuite(t *stdtesting.T) {
+func TestEnvironNetSuite(t *testing.T) {
 	tc.Run(t, &environNetSuite{})
 }
 

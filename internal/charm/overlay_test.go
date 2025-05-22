@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type bundleDataOverlaySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBundleDataOverlaySuite(t *stdtesting.T) {
+func TestBundleDataOverlaySuite(t *testing.T) {
 	tc.Run(t, &bundleDataOverlaySuite{})
 }
 

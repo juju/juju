@@ -4,7 +4,7 @@
 package provider_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 )
 
-func TestSecretsSuite(t *stdtesting.T) {
+func TestSecretsSuite(t *testing.T) {
 	tc.Run(t, &secretsSuite{})
 }
 

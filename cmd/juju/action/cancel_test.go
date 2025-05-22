@@ -5,7 +5,7 @@ package action_test
 
 import (
 	"bytes"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -22,7 +22,7 @@ type CancelSuite struct {
 	subcommand cmd.Command
 }
 
-func TestCancelSuite(t *stdtesting.T) {
+func TestCancelSuite(t *testing.T) {
 	tc.Run(t, &CancelSuite{})
 }
 

@@ -4,7 +4,7 @@
 package provisioner
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -27,7 +27,7 @@ type provisionerSuite struct {
 	keyUpdaterService       *MockKeyUpdaterService
 }
 
-func TestProvisionerSuite(t *stdtesting.T) {
+func TestProvisionerSuite(t *testing.T) {
 	tc.Run(t, &provisionerSuite{})
 }
 

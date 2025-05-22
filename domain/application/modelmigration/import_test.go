@@ -6,7 +6,7 @@ package modelmigration
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
@@ -56,7 +56,7 @@ type importSuite struct {
 	charmAction  *MockCharmAction
 }
 
-func TestImportSuite(t *stdtesting.T) {
+func TestImportSuite(t *testing.T) {
 	tc.Run(t, &importSuite{})
 }
 

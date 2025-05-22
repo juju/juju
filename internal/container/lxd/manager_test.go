@@ -5,7 +5,7 @@ package lxd_test
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	lxdclient "github.com/canonical/lxd/client"
 	lxdapi "github.com/canonical/lxd/shared/api"
@@ -42,7 +42,7 @@ type managerSuite struct {
 	manager        container.Manager
 }
 
-func TestManagerSuite(t *stdtesting.T) {
+func TestManagerSuite(t *testing.T) {
 	tc.Run(t, &managerSuite{})
 }
 

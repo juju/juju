@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -34,7 +34,7 @@ type stateSuite struct {
 	modelId  model.UUID
 }
 
-func TestStateSuite(t *stdtesting.T) {
+func TestStateSuite(t *testing.T) {
 	tc.Run(t, &stateSuite{})
 }
 

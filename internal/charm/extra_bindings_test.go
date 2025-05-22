@@ -4,14 +4,14 @@
 package charm_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm"
 )
 
-func TestExtraBindingsSuite(t *stdtesting.T) {
+func TestExtraBindingsSuite(t *testing.T) {
 	tc.Run(t, &extraBindingsSuite{})
 }
 

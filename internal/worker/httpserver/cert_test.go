@@ -7,7 +7,7 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/url"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type certSuite struct {
 	workerFixture
 }
 
-func TestCertSuite(t *stdtesting.T) {
+func TestCertSuite(t *testing.T) {
 	tc.Run(t, &certSuite{})
 }
 

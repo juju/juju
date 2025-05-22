@@ -4,7 +4,7 @@
 package operation_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type RunCommandsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRunCommandsSuite(t *stdtesting.T) {
+func TestRunCommandsSuite(t *testing.T) {
 	tc.Run(t, &RunCommandsSuite{})
 }
 

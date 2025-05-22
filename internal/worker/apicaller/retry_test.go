@@ -4,7 +4,7 @@
 package apicaller_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -35,7 +35,7 @@ type RetryStrategySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRetryStrategySuite(t *stdtesting.T) {
+func TestRetryStrategySuite(t *testing.T) {
 	tc.Run(t, &RetryStrategySuite{})
 }
 

@@ -4,7 +4,7 @@
 package agent
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ type mongoSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestMongoSuite(t *stdtesting.T) {
+func TestMongoSuite(t *testing.T) {
 	tc.Run(t, &mongoSuite{})
 }
 

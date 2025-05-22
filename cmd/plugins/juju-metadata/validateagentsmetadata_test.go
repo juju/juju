@@ -5,7 +5,7 @@ package main
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/tc"
@@ -28,7 +28,7 @@ type ValidateToolsMetadataSuite struct {
 	store       *jujuclient.MemStore
 }
 
-func TestValidateToolsMetadataSuite(t *stdtesting.T) {
+func TestValidateToolsMetadataSuite(t *testing.T) {
 	tc.Run(t, &ValidateToolsMetadataSuite{})
 }
 func runValidateAgentsMetadata(c *tc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {

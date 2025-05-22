@@ -5,7 +5,7 @@ package terminationworker_test
 
 import (
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/internal/worker/terminationworker"
 )
 
-func TestTerminationWorkerSuite(t *stdtesting.T) {
+func TestTerminationWorkerSuite(t *testing.T) {
 	tc.Run(t, &TerminationWorkerSuite{})
 }
 

@@ -4,14 +4,14 @@
 package probe_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/internal/observability/probe"
 )
 
-func TestProbeNotImplemented(t *stdtesting.T) {
+func TestProbeNotImplemented(t *testing.T) {
 	status, err := probe.NotImplemented.Probe()
 	if status {
 		t.Errorf("expected probe.NotImplemented to return a false probe success")
@@ -22,7 +22,7 @@ func TestProbeNotImplemented(t *stdtesting.T) {
 	}
 }
 
-func TestProbeSuccess(t *stdtesting.T) {
+func TestProbeSuccess(t *testing.T) {
 	status, err := probe.Success.Probe()
 	if err != nil {
 		t.Errorf("got unexpected error result: %v", err)

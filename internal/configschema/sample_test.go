@@ -6,7 +6,7 @@ package configschema_test
 import (
 	"bytes"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 
 type sampleSuite struct{}
 
-func TestSampleSuite(t *stdtesting.T) {
+func TestSampleSuite(t *testing.T) {
 	tc.Run(t, &sampleSuite{})
 }
 

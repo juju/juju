@@ -4,7 +4,7 @@
 package os
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type macOSXSeriesSuite struct {
 	testhelpers.CleanupSuite
 }
 
-func TestMacOSXSeriesSuite(t *stdtesting.T) {
+func TestMacOSXSeriesSuite(t *testing.T) {
 	tc.Run(t, &macOSXSeriesSuite{})
 }
 

@@ -9,7 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -24,7 +24,7 @@ import (
 
 type clientSuite struct{}
 
-func TestClientSuite(t *stdtesting.T) {
+func TestClientSuite(t *testing.T) {
 	tc.Run(t, &clientSuite{})
 }
 

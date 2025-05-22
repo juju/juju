@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -46,7 +46,7 @@ type resourcesUploadSuite struct {
 	srv *httptest.Server
 }
 
-func TestResourcesUploadSuite(t *stdtesting.T) {
+func TestResourcesUploadSuite(t *testing.T) {
 	tc.Run(t, &resourcesUploadSuite{})
 }
 

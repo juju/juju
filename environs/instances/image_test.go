@@ -4,7 +4,7 @@
 package instances
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type imageSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestImageSuite(t *stdtesting.T) {
+func TestImageSuite(t *testing.T) {
 	tc.Run(t, &imageSuite{})
 }
 

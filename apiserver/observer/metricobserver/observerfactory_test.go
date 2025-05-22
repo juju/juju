@@ -4,7 +4,7 @@
 package metricobserver_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -21,7 +21,7 @@ type observerFactorySuite struct {
 	clock *testclock.Clock
 }
 
-func TestObserverFactorySuite(t *stdtesting.T) {
+func TestObserverFactorySuite(t *testing.T) {
 	tc.Run(t, &observerFactorySuite{})
 }
 

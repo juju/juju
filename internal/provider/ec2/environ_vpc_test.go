@@ -6,7 +6,7 @@ package ec2
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -27,7 +27,7 @@ type vpcSuite struct {
 	stubAPI *stubVPCAPIClient
 }
 
-func TestVpcSuite(t *stdtesting.T) {
+func TestVpcSuite(t *testing.T) {
 	tc.Run(t, &vpcSuite{})
 }
 

@@ -4,7 +4,7 @@
 package migration
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -16,7 +16,7 @@ type PhaseInternalSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPhaseInternalSuite(t *stdtesting.T) {
+func TestPhaseInternalSuite(t *testing.T) {
 	tc.Run(t, new(PhaseInternalSuite))
 }
 

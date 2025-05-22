@@ -8,7 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -30,7 +30,7 @@ type userServiceSuite struct {
 	state *MockState
 }
 
-func TestUserServiceSuite(t *stdtesting.T) {
+func TestUserServiceSuite(t *testing.T) {
 	tc.Run(t, &userServiceSuite{})
 }
 
@@ -517,12 +517,12 @@ func (s *userServiceSuite) sealBox(key, nonce, payload []byte) []byte {
 // FuzzGetUser is a fuzz test for GetUser() that stresses the username input of
 // the function to make sure that no panics occur and all input is handled
 // gracefully.
-func FuzzGetUser(f *stdtesting.F) {
+func FuzzGetUser(f *testing.F) {
 	for _, valid := range usertesting.ValidUsernames {
 		f.Add(valid)
 	}
 
-	f.Fuzz(func(t *stdtesting.T, username string) {
+	f.Fuzz(func(t *testing.T, username string) {
 		ctrl := gomock.NewController(t)
 		state := NewMockState(ctrl)
 		defer ctrl.Finish()

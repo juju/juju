@@ -6,7 +6,7 @@ package cmd_test
 import (
 	"fmt"
 	"io"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type ArgsSuite struct {
 	testhelpers.LoggingSuite
 }
 
-func TestArgsSuite(t *stdtesting.T) {
+func TestArgsSuite(t *testing.T) {
 	tc.Run(t, &ArgsSuite{})
 }
 

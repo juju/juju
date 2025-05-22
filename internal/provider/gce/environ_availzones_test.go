@@ -4,7 +4,7 @@
 package gce_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type environAZSuite struct {
 	gce.BaseSuite
 }
 
-func TestEnvironAZSuite(t *stdtesting.T) {
+func TestEnvironAZSuite(t *testing.T) {
 	tc.Run(t, &environAZSuite{})
 }
 

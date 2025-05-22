@@ -4,7 +4,7 @@
 package charmhub
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -17,7 +17,7 @@ type unicodeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUnicodeSuite(t *stdtesting.T) {
+func TestUnicodeSuite(t *testing.T) {
 	tc.Run(t, &unicodeSuite{})
 }
 

@@ -8,7 +8,7 @@ import (
 	"errors"
 	"io"
 	"reflect"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +21,7 @@ type suite struct {
 	testhelpers.LoggingSuite
 }
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &suite{})
 }
 

@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -21,7 +21,7 @@ type statusGetSuite struct {
 	ContextSuite
 }
 
-func TestStatusGetSuite(t *stdtesting.T) {
+func TestStatusGetSuite(t *testing.T) {
 	tc.Run(t, &statusGetSuite{})
 }
 

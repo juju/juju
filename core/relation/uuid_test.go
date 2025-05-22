@@ -4,7 +4,7 @@
 package relation
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type relationUUIDSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRelationUUIDSuite(t *stdtesting.T) {
+func TestRelationUUIDSuite(t *testing.T) {
 	tc.Run(t, &relationUUIDSuite{})
 }
 
@@ -58,7 +58,7 @@ type relationUnitUUIDSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRelationUnitUUIDSuite(t *stdtesting.T) {
+func TestRelationUnitUUIDSuite(t *testing.T) {
 	tc.Run(t, &relationUnitUUIDSuite{})
 }
 
@@ -99,7 +99,7 @@ type relationEndpointUUIDSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRelationEndpointUUIDSuite(t *stdtesting.T) {
+func TestRelationEndpointUUIDSuite(t *testing.T) {
 	tc.Run(t, &relationEndpointUUIDSuite{})
 }
 func (*relationEndpointUUIDSuite) TestUUIDValidate(c *tc.C) {

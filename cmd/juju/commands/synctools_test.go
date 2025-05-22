@@ -6,7 +6,7 @@ package commands
 import (
 	"bytes"
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -32,7 +32,7 @@ type syncToolSuite struct {
 	store           *jujuclient.MemStore
 }
 
-func TestSyncToolSuite(t *stdtesting.T) {
+func TestSyncToolSuite(t *testing.T) {
 	tc.Run(t, &syncToolSuite{})
 }
 

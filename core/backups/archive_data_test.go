@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,11 +21,11 @@ type archiveDataSuiteV0 struct {
 	baseArchiveDataSuite
 }
 
-func TestArchiveDataSuiteV0(t *stdtesting.T) {
+func TestArchiveDataSuiteV0(t *testing.T) {
 	tc.Run(t, &archiveDataSuiteV0{})
 }
 
-func TestArchiveDataSuite(t *stdtesting.T) { tc.Run(t, &archiveDataSuite{}) }
+func TestArchiveDataSuite(t *testing.T) { tc.Run(t, &archiveDataSuite{}) }
 func (s *archiveDataSuiteV0) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV1)

@@ -4,7 +4,7 @@
 package service
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -25,7 +25,7 @@ type rootKeyServiceSuite struct {
 	clock macaroon.Clock
 }
 
-func TestRootKeyServiceSuite(t *stdtesting.T) {
+func TestRootKeyServiceSuite(t *testing.T) {
 	tc.Run(t, &rootKeyServiceSuite{})
 }
 

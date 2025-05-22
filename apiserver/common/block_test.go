@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type blockCheckerSuite struct {
 	blockchecker *common.BlockChecker
 }
 
-func TestBlockCheckerSuite(t *stdtesting.T) {
+func TestBlockCheckerSuite(t *testing.T) {
 	tc.Run(t, &blockCheckerSuite{})
 }
 

@@ -6,7 +6,7 @@ package service_test
 import (
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -26,7 +26,7 @@ type agentSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAgentSuite(t *stdtesting.T) {
+func TestAgentSuite(t *testing.T) {
 	tc.Run(t, &agentSuite{})
 }
 

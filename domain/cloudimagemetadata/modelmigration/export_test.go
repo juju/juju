@@ -4,7 +4,7 @@
 package modelmigration
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
@@ -22,7 +22,7 @@ type exportSuite struct {
 	clock       clock.Clock
 }
 
-func TestExportSuite(t *stdtesting.T) {
+func TestExportSuite(t *testing.T) {
 	tc.Run(t, &exportSuite{})
 }
 

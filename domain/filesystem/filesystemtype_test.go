@@ -4,7 +4,7 @@
 package filesystem
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type filesystemtypeSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestFilesystemtypeSuite(t *stdtesting.T) {
+func TestFilesystemtypeSuite(t *testing.T) {
 	tc.Run(t, &filesystemtypeSuite{})
 }
 

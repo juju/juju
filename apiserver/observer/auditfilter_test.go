@@ -5,7 +5,7 @@ package observer_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type auditFilterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAuditFilterSuite(t *stdtesting.T) {
+func TestAuditFilterSuite(t *testing.T) {
 	tc.Run(t, &auditFilterSuite{})
 }
 

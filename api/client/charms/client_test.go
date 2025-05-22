@@ -7,7 +7,7 @@ import (
 	"archive/zip"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -29,7 +29,7 @@ type charmsMockSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestCharmsMockSuite(t *stdtesting.T) {
+func TestCharmsMockSuite(t *testing.T) {
 	tc.Run(t, &charmsMockSuite{})
 }
 

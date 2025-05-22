@@ -4,7 +4,7 @@
 package provisioner
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -53,7 +53,7 @@ type provisionerMockSuite struct {
 	application *MockApplication
 }
 
-func TestProvisionerMockSuite(t *stdtesting.T) {
+func TestProvisionerMockSuite(t *testing.T) {
 	tc.Run(t, &provisionerMockSuite{})
 }
 

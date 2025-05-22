@@ -4,7 +4,7 @@
 package diskmanager_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type manifoldSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &manifoldSuite{})
 }
 

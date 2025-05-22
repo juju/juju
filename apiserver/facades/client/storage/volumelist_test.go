@@ -4,7 +4,7 @@
 package storage_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type volumeSuite struct {
 	baseStorageSuite
 }
 
-func TestVolumeSuite(t *stdtesting.T) {
+func TestVolumeSuite(t *testing.T) {
 	tc.Run(t, &volumeSuite{})
 }
 

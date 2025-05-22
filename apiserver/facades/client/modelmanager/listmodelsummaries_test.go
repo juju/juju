@@ -4,7 +4,7 @@
 package modelmanager_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ import (
 
 type ListModelsWithInfoSuite struct{}
 
-func TestListModelsWithInfoSuite(t *stdtesting.T) {
+func TestListModelsWithInfoSuite(t *testing.T) {
 	tc.Run(t, &ListModelsWithInfoSuite{})
 }
 

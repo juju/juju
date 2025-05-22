@@ -7,7 +7,7 @@ import (
 	"io/fs"
 	"slices"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"testing/fstest"
 
 	"github.com/juju/tc"
@@ -16,7 +16,7 @@ import (
 type authorizedKeysSuite struct {
 }
 
-func TestAuthorizedKeysSuite(t *stdtesting.T) {
+func TestAuthorizedKeysSuite(t *testing.T) {
 	tc.Run(t, &authorizedKeysSuite{})
 }
 

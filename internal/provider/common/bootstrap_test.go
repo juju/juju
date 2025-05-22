@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -47,7 +47,7 @@ type BootstrapSuite struct {
 	envtesting.ToolsFixture
 }
 
-func TestBootstrapSuite(t *stdtesting.T) {
+func TestBootstrapSuite(t *testing.T) {
 	tc.Run(t, &BootstrapSuite{})
 }
 
@@ -903,7 +903,7 @@ func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *tc.C) {
 
 type FormatHardwareSuite struct{}
 
-func TestFormatHardwareSuite(t *stdtesting.T) {
+func TestFormatHardwareSuite(t *testing.T) {
 	tc.Run(t, &FormatHardwareSuite{})
 }
 

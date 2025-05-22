@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -79,7 +79,7 @@ type InteractiveSuite struct {
 	newUUID func() (uuid.UUID, error)
 }
 
-func TestInteractiveSuite(t *stdtesting.T) {
+func TestInteractiveSuite(t *testing.T) {
 	tc.Run(t, &InteractiveSuite{})
 }
 

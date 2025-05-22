@@ -4,7 +4,7 @@
 package uniter_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type modelSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestModelSuite(t *stdtesting.T) {
+func TestModelSuite(t *testing.T) {
 	tc.Run(t, &modelSuite{})
 }
 

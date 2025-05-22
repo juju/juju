@@ -5,7 +5,7 @@ package secrets_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -26,7 +26,7 @@ type ListSuite struct {
 	secretsAPI *mocks.MockListSecretsAPI
 }
 
-func TestListSuite(t *stdtesting.T) {
+func TestListSuite(t *testing.T) {
 	tc.Run(t, &ListSuite{})
 }
 

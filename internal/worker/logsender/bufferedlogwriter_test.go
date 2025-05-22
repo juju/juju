@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/loggo/v2"
@@ -27,7 +27,7 @@ type bufferedLogWriterSuite struct {
 	shouldClose bool
 }
 
-func TestBufferedLogWriterSuite(t *stdtesting.T) {
+func TestBufferedLogWriterSuite(t *testing.T) {
 	tc.Run(t, &bufferedLogWriterSuite{})
 }
 

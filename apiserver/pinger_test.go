@@ -4,7 +4,7 @@
 package apiserver_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -27,7 +27,7 @@ type pingerSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-func TestPingerSuite(t *stdtesting.T) {
+func TestPingerSuite(t *testing.T) {
 	tc.Run(t, &pingerSuite{})
 }
 

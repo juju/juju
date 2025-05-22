@@ -4,7 +4,7 @@
 package mongometrics_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/mgo/v3"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type MgoStatsCollectorSuite struct {
 	getCurrentStats func() mgo.Stats
 }
 
-func TestMgoStatsCollectorSuite(t *stdtesting.T) {
+func TestMgoStatsCollectorSuite(t *testing.T) {
 	tc.Run(t, &MgoStatsCollectorSuite{})
 }
 

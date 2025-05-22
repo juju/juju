@@ -4,7 +4,7 @@
 package macaroon_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -27,7 +27,7 @@ type expirableStorageSuite struct {
 	now             time.Time
 }
 
-func TestExpirableStorageSuite(t *stdtesting.T) {
+func TestExpirableStorageSuite(t *testing.T) {
 	tc.Run(t, &expirableStorageSuite{})
 }
 

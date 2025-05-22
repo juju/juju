@@ -19,7 +19,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -52,7 +52,7 @@ type apiclientSuite struct {
 	jtesting.BaseSuite
 }
 
-func TestApiclientSuite(t *stdtesting.T) {
+func TestApiclientSuite(t *testing.T) {
 	tc.Run(t, &apiclientSuite{})
 }
 

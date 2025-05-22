@@ -5,7 +5,7 @@ package ssh_test
 
 import (
 	"net"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	_ "github.com/juju/errors"
@@ -21,7 +21,7 @@ type SSHReachableHostPortSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestSSHReachableHostPortSuite(t *stdtesting.T) {
+func TestSSHReachableHostPortSuite(t *testing.T) {
 	tc.Run(t, &SSHReachableHostPortSuite{})
 }
 

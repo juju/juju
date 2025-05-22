@@ -5,7 +5,7 @@ package cloud
 
 import (
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
@@ -13,7 +13,7 @@ import (
 type utilSuite struct {
 }
 
-func TestUtilSuite(t *stdtesting.T) {
+func TestUtilSuite(t *testing.T) {
 	tc.Run(t, &utilSuite{})
 }
 

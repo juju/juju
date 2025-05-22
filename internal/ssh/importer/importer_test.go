@@ -6,7 +6,7 @@ package importer
 import (
 	"net/url"
 	"slices"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type importerSuite struct {
 	resolver *MockResolver
 }
 
-func TestImporterSuite(t *stdtesting.T) {
+func TestImporterSuite(t *testing.T) {
 	tc.Run(t, &importerSuite{})
 }
 

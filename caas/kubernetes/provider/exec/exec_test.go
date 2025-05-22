@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"net/url"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -27,7 +27,7 @@ type execSuite struct {
 	BaseSuite
 }
 
-func TestExecSuite(t *stdtesting.T) {
+func TestExecSuite(t *testing.T) {
 	tc.Run(t, &execSuite{})
 }
 

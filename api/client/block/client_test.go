@@ -4,7 +4,7 @@
 package block_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ import (
 
 type blockMockSuite struct{}
 
-func TestBlockMockSuite(t *stdtesting.T) {
+func TestBlockMockSuite(t *testing.T) {
 	tc.Run(t, &blockMockSuite{})
 }
 

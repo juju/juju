@@ -6,7 +6,7 @@ package port_test
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -46,7 +46,7 @@ type watcherSuite struct {
 	appUUIDs [2]coreapplication.ID
 }
 
-func TestWatcherSuite(t *stdtesting.T) {
+func TestWatcherSuite(t *testing.T) {
 	tc.Run(t, &watcherSuite{})
 }
 

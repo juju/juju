@@ -4,7 +4,7 @@
 package container_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ import (
 
 type workloadSuite struct{}
 
-func TestWorkloadSuite(t *stdtesting.T) {
+func TestWorkloadSuite(t *testing.T) {
 	tc.Run(t, &workloadSuite{})
 }
 

@@ -4,7 +4,7 @@
 package azureauth_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type ErrorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestErrorSuite(t *stdtesting.T) {
+func TestErrorSuite(t *testing.T) {
 	tc.Run(t, &ErrorSuite{})
 }
 

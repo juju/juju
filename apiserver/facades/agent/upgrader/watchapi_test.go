@@ -5,7 +5,7 @@ package upgrader
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -29,7 +29,7 @@ type upgraderWatchSuite struct {
 	watcherRegistry *facademocks.MockWatcherRegistry
 }
 
-func TestUpgraderWatchSuite(t *stdtesting.T) {
+func TestUpgraderWatchSuite(t *testing.T) {
 	tc.Run(t, &upgraderWatchSuite{})
 }
 

@@ -5,7 +5,7 @@ package caas_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -46,7 +46,7 @@ type removeCAASSuite struct {
 	store              *fakeCredentialStore
 }
 
-func TestRemoveCAASSuite(t *stdtesting.T) {
+func TestRemoveCAASSuite(t *testing.T) {
 	tc.Run(t, &removeCAASSuite{})
 }
 

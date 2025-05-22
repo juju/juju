@@ -5,7 +5,7 @@ package logger_test
 
 import (
 	"encoding/json"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type LogRecordSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLogRecordSuite(t *stdtesting.T) {
+func TestLogRecordSuite(t *testing.T) {
 	tc.Run(t, &LogRecordSuite{})
 }
 

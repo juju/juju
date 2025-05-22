@@ -4,7 +4,7 @@
 package apiserver_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -25,7 +25,7 @@ type rateLimitSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-func TestRateLimitSuite(t *stdtesting.T) {
+func TestRateLimitSuite(t *testing.T) {
 	tc.Run(t, &rateLimitSuite{})
 }
 

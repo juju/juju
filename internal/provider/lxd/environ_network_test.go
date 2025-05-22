@@ -4,7 +4,7 @@
 package lxd_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
@@ -22,7 +22,7 @@ type environNetSuite struct {
 	lxd.EnvironSuite
 }
 
-func TestEnvironNetSuite(t *stdtesting.T) {
+func TestEnvironNetSuite(t *testing.T) {
 	tc.Run(t, &environNetSuite{})
 }
 

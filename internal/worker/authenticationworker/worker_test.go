@@ -5,7 +5,7 @@ package authenticationworker_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -30,7 +30,7 @@ type workerSuite struct {
 	existingKeys      []string
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	tc.Run(t, &workerSuite{})
 }
 

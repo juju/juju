@@ -4,7 +4,7 @@
 package firewall
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestIngressRuleSuite(t *stdtesting.T) {
+func TestIngressRuleSuite(t *testing.T) {
 	tc.Run(t, &IngressRuleSuite{})
 }
 

@@ -4,7 +4,7 @@
 package scale_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type ScaleSuite struct {
 	client *fake.Clientset
 }
 
-func TestScaleSuite(t *stdtesting.T) {
+func TestScaleSuite(t *testing.T) {
 	tc.Run(t, &ScaleSuite{})
 }
 

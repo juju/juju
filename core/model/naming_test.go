@@ -5,7 +5,7 @@ package model_test
 
 import (
 	"regexp"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type NamingSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestNamingSuite(t *stdtesting.T) {
+func TestNamingSuite(t *testing.T) {
 	tc.Run(t, &NamingSuite{})
 }
 

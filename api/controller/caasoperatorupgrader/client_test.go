@@ -4,7 +4,7 @@
 package caasoperatorupgrader_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type provisionerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProvisionerSuite(t *stdtesting.T) {
+func TestProvisionerSuite(t *testing.T) {
 	tc.Run(t, &provisionerSuite{})
 }
 

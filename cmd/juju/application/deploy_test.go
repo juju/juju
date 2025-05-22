@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -90,7 +90,7 @@ type DeploySuite struct {
 	DeploySuiteBase
 }
 
-func TestDeploySuite(t *stdtesting.T) {
+func TestDeploySuite(t *testing.T) {
 	tc.Run(t, &DeploySuite{})
 }
 
@@ -509,7 +509,7 @@ type CAASDeploySuite struct {
 	CAASDeploySuiteBase
 }
 
-func TestCAASDeploySuite(t *stdtesting.T) {
+func TestCAASDeploySuite(t *testing.T) {
 	tc.Run(t, &CAASDeploySuite{})
 }
 
@@ -879,7 +879,7 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 
 type ParseMachineMapSuite struct{}
 
-func TestParseMachineMapSuite(t *stdtesting.T) {
+func TestParseMachineMapSuite(t *testing.T) {
 	tc.Run(t, &ParseMachineMapSuite{})
 }
 
@@ -934,7 +934,7 @@ type DeployUnitTestSuite struct {
 	factory  *mocks.MockDeployerFactory
 }
 
-func TestDeployUnitTestSuite(t *stdtesting.T) {
+func TestDeployUnitTestSuite(t *testing.T) {
 	tc.Run(t, &DeployUnitTestSuite{})
 }
 

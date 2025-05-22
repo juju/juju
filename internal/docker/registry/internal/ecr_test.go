@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -37,7 +37,7 @@ type elasticContainerRegistrySuite struct {
 	isPrivate        bool
 }
 
-func TestElasticContainerRegistrySuite(t *stdtesting.T) {
+func TestElasticContainerRegistrySuite(t *testing.T) {
 	tc.Run(t, &elasticContainerRegistrySuite{})
 }
 func (s *elasticContainerRegistrySuite) getRegistry(c *tc.C, ensureAsserts func()) (*internal.ElasticContainerRegistry, *gomock.Controller) {

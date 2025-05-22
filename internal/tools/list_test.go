@@ -5,7 +5,7 @@ package tools_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 
 type ListSuite struct{}
 
-func TestListSuite(t *stdtesting.T) {
+func TestListSuite(t *testing.T) {
 	tc.Run(t, &ListSuite{})
 }
 

@@ -5,7 +5,7 @@ package google_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type connSuite struct {
 	google.BaseSuite
 }
 
-func TestConnSuite(t *stdtesting.T) {
+func TestConnSuite(t *testing.T) {
 	tc.Run(t, &connSuite{})
 }
 

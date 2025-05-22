@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type CredentialGetSuite struct {
 	ContextSuite
 }
 
-func TestCredentialGetSuite(t *stdtesting.T) {
+func TestCredentialGetSuite(t *testing.T) {
 	tc.Run(t, &CredentialGetSuite{})
 }
 

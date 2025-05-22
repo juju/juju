@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type FileVarSuite struct {
 	InvalidPath string // invalid path refers to a file which is not readable
 }
 
-func TestFileVarSuite(t *stdtesting.T) {
+func TestFileVarSuite(t *testing.T) {
 	tc.Run(t, &FileVarSuite{})
 }
 

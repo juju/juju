@@ -6,7 +6,7 @@ package google_test
 import (
 	"bytes"
 	"encoding/json"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ type credentialsSuite struct {
 	google.BaseSuite
 }
 
-func TestCredentialsSuite(t *stdtesting.T) {
+func TestCredentialsSuite(t *testing.T) {
 	tc.Run(t, &credentialsSuite{})
 }
 

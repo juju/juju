@@ -4,7 +4,7 @@
 package bundle_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -16,7 +16,7 @@ import (
 
 type bundleMockSuite struct{}
 
-func TestBundleMockSuite(t *stdtesting.T) {
+func TestBundleMockSuite(t *testing.T) {
 	tc.Run(t, &bundleMockSuite{})
 }
 

@@ -5,7 +5,7 @@ package state
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ type configSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) {
+func TestConfigSuite(t *testing.T) {
 	tc.Run(t, &configSuite{})
 }
 
@@ -302,7 +302,7 @@ type configStateSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestConfigStateSuite(t *stdtesting.T) {
+func TestConfigStateSuite(t *testing.T) {
 	tc.Run(t, &configStateSuite{})
 }
 

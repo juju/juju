@@ -4,7 +4,7 @@
 package charmhub
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type ErrorsSuite struct {
 	baseSuite
 }
 
-func TestErrorsSuite(t *stdtesting.T) {
+func TestErrorsSuite(t *testing.T) {
 	tc.Run(t, &ErrorsSuite{})
 }
 

@@ -5,7 +5,7 @@ package engine_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type AgentAPIManifoldSuite struct {
 	worker   worker.Worker
 }
 
-func TestAgentAPIManifoldSuite(t *stdtesting.T) {
+func TestAgentAPIManifoldSuite(t *testing.T) {
 	tc.Run(t, &AgentAPIManifoldSuite{})
 }
 

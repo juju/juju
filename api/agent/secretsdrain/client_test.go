@@ -4,7 +4,7 @@
 package secretsdrain_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -14,7 +14,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func TestSecretsDrainSuite(t *stdtesting.T) {
+func TestSecretsDrainSuite(t *testing.T) {
 	tc.Run(t, &secretsDrainSuite{})
 }
 

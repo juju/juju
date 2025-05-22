@@ -4,7 +4,7 @@
 package apiserver_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type WorkerStateSuite struct {
 	statetesting.StateSuite
 }
 
-func TestWorkerStateSuite(t *stdtesting.T) {
+func TestWorkerStateSuite(t *testing.T) {
 	tc.Run(t, &WorkerStateSuite{})
 }
 

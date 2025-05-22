@@ -4,7 +4,7 @@
 package bundle_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -28,7 +28,7 @@ type bundleSuite struct {
 	applicationService *MockApplicationService
 }
 
-func TestBundleSuite(t *stdtesting.T) {
+func TestBundleSuite(t *testing.T) {
 	tc.Run(t, &bundleSuite{})
 }
 

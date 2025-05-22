@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -23,7 +23,7 @@ type workerSuite struct {
 	controllerConfig *MockControllerConfigService
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	tc.Run(t, &workerSuite{})
 }
 

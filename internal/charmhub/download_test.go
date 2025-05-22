@@ -14,7 +14,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -29,7 +29,7 @@ type DownloadSuite struct {
 	baseSuite
 }
 
-func TestDownloadSuite(t *stdtesting.T) {
+func TestDownloadSuite(t *testing.T) {
 	tc.Run(t, &DownloadSuite{})
 }
 

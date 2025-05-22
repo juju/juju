@@ -5,7 +5,7 @@ package user_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type UserInfoCommandSuite struct {
 	BaseSuite
 }
 
-func TestUserInfoCommandSuite(t *stdtesting.T) {
+func TestUserInfoCommandSuite(t *testing.T) {
 	tc.Run(t, &UserInfoCommandSuite{})
 }
 

@@ -4,7 +4,7 @@
 package registry_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 type registrySuite struct {
 }
 
-func TestRegistrySuite(t *stdtesting.T) {
+func TestRegistrySuite(t *testing.T) {
 	tc.Run(t, &registrySuite{})
 }
 

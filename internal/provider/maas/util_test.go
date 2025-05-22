@@ -5,7 +5,7 @@ package maas
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -17,7 +17,7 @@ import (
 
 type utilSuite struct{}
 
-func TestUtilSuite(t *stdtesting.T) {
+func TestUtilSuite(t *testing.T) {
 	tc.Run(t, &utilSuite{})
 }
 

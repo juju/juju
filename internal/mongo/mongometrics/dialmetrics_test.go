@@ -7,7 +7,7 @@ import (
 	"errors"
 	"net"
 	"reflect"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type DialCollectorSuite struct {
 	collector *mongometrics.DialCollector
 }
 
-func TestDialCollectorSuite(t *stdtesting.T) {
+func TestDialCollectorSuite(t *testing.T) {
 	tc.Run(t, &DialCollectorSuite{})
 }
 

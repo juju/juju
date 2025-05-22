@@ -5,12 +5,12 @@ package tools_test
 
 import (
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestMain(m *stdtesting.M) {
+func TestMain(m *testing.M) {
 	testhelpers.ExecHelperProcess()
 	os.Exit(m.Run())
 }

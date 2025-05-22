@@ -10,7 +10,7 @@ import (
 	io "io"
 	"math/rand/v2"
 	"sync/atomic"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	jujuerrors "github.com/juju/errors"
@@ -38,7 +38,7 @@ type retrieverSuite struct {
 	clock            *MockClock
 }
 
-func TestRetrieverSuite(t *stdtesting.T) {
+func TestRetrieverSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &retrieverSuite{})
 }

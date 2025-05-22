@@ -5,7 +5,7 @@ package providertracker
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -27,7 +27,7 @@ type ephemeralProviderConfigGetter struct {
 	EphemeralProviderConfig
 }
 
-func TestProviderSuite(t *stdtesting.T) {
+func TestProviderSuite(t *testing.T) {
 	tc.Run(t, &providerSuite{})
 }
 

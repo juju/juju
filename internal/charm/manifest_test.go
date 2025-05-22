@@ -5,7 +5,7 @@ package charm
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type manifestSuite struct {
 	testhelpers.CleanupSuite
 }
 
-func TestManifestSuite(t *stdtesting.T) {
+func TestManifestSuite(t *testing.T) {
 	tc.Run(t, &manifestSuite{})
 }
 

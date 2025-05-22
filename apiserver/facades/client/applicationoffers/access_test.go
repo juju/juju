@@ -6,7 +6,7 @@ package applicationoffers_test
 import (
 	"context"
 	"regexp"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
@@ -35,7 +35,7 @@ type offerAccessSuite struct {
 	api *applicationoffers.OffersAPIv5
 }
 
-func TestOfferAccessSuite(t *stdtesting.T) {
+func TestOfferAccessSuite(t *testing.T) {
 	tc.Run(t, &offerAccessSuite{})
 }
 

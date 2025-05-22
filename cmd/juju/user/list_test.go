@@ -5,7 +5,7 @@ package user_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -27,7 +27,7 @@ type UserListCommandSuite struct {
 	BaseSuite
 }
 
-func TestUserListCommandSuite(t *stdtesting.T) {
+func TestUserListCommandSuite(t *testing.T) {
 	tc.Run(t, &UserListCommandSuite{})
 }
 

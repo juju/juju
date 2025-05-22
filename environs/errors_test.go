@@ -5,7 +5,7 @@ package environs_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 type errorsSuite struct {
 }
 
-func TestErrorsSuite(t *stdtesting.T) {
+func TestErrorsSuite(t *testing.T) {
 	tc.Run(t, &errorsSuite{})
 }
 

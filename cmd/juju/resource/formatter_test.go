@@ -6,7 +6,7 @@ package resource_test
 import (
 	"fmt"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestCharmFormatterSuite(t *stdtesting.T) {
+func TestCharmFormatterSuite(t *testing.T) {
 	tc.Run(t, &CharmFormatterSuite{})
 }
 
@@ -43,7 +43,7 @@ func (s *CharmFormatterSuite) TestFormatCharmResource(c *tc.C) {
 		Origin:      "store",
 	})
 }
-func TestSvcFormatterSuite(t *stdtesting.T) {
+func TestSvcFormatterSuite(t *testing.T) {
 	tc.Run(t, &SvcFormatterSuite{})
 }
 
@@ -174,7 +174,7 @@ func (s *SvcFormatterSuite) TestInitialOriginUpload(c *tc.C) {
 	f := resourcecmd.FormatAppResource(r)
 	c.Assert(f.CombinedOrigin, tc.Equals, "upload")
 }
-func TestDetailFormatterSuite(t *stdtesting.T) {
+func TestDetailFormatterSuite(t *testing.T) {
 	tc.Run(t, &DetailFormatterSuite{})
 }
 

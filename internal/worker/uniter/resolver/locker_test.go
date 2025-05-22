@@ -4,7 +4,7 @@
 package resolver_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type GuardSuite struct {
 	guard *mockCharmDirGuard
 }
 
-func TestGuardSuite(t *stdtesting.T) {
+func TestGuardSuite(t *testing.T) {
 	tc.Run(t, &GuardSuite{})
 }
 

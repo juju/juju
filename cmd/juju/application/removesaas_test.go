@@ -5,7 +5,7 @@ package application
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -27,7 +27,7 @@ type RemoveSaasSuite struct {
 	mockAPI *mockRemoveSaasAPI
 }
 
-func TestRemoveSaasSuite(t *stdtesting.T) {
+func TestRemoveSaasSuite(t *testing.T) {
 	tc.Run(t, &RemoveSaasSuite{})
 }
 

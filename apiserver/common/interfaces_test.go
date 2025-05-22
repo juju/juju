@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type AuthFuncSuite struct {
 	authorizer common.Authorizer
 }
 
-func TestAuthFuncSuite(t *stdtesting.T) {
+func TestAuthFuncSuite(t *testing.T) {
 	tc.Run(t, &AuthFuncSuite{})
 }
 

@@ -5,7 +5,7 @@ package tools_test
 
 import (
 	"encoding/json"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 )
 
-func TestMarshalSuite(t *stdtesting.T) {
+func TestMarshalSuite(t *testing.T) {
 	tc.Run(t, &marshalSuite{})
 }
 

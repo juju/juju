@@ -5,7 +5,7 @@ package hostkeyreporter_test
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type facadeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFacadeSuite(t *stdtesting.T) {
+func TestFacadeSuite(t *testing.T) {
 	tc.Run(t, &facadeSuite{})
 }
 

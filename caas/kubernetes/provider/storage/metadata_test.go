@@ -4,7 +4,7 @@
 package storage_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	storagev1 "k8s.io/api/storage/v1"
@@ -15,7 +15,7 @@ import (
 
 type metadataSuite struct{}
 
-func TestMetadataSuite(t *stdtesting.T) {
+func TestMetadataSuite(t *testing.T) {
 	tc.Run(t, &metadataSuite{})
 }
 

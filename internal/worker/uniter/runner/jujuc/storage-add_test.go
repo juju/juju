@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type storageAddSuite struct {
 	storageSuite
 }
 
-func TestStorageAddSuite(t *stdtesting.T) {
+func TestStorageAddSuite(t *testing.T) {
 	tc.Run(t, &storageAddSuite{})
 }
 

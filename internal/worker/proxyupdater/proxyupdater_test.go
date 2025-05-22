@@ -12,7 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -43,7 +43,7 @@ type ProxyUpdaterSuite struct {
 	config           proxyupdater.Config
 }
 
-func TestProxyUpdaterSuite(t *stdtesting.T) {
+func TestProxyUpdaterSuite(t *testing.T) {
 	tc.Run(t, &ProxyUpdaterSuite{})
 }
 

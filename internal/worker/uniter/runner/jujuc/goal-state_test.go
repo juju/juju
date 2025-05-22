@@ -6,7 +6,7 @@ package jujuc_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type GoalStateSuite struct {
 	ContextSuite
 }
 
-func TestGoalStateSuite(t *stdtesting.T) {
+func TestGoalStateSuite(t *testing.T) {
 	tc.Run(t, &GoalStateSuite{})
 }
 

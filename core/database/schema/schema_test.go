@@ -6,7 +6,7 @@ package schema
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -21,7 +21,7 @@ type patchSuite struct {
 	tx *MockTx
 }
 
-func TestPatchSuite(t *stdtesting.T) {
+func TestPatchSuite(t *testing.T) {
 	tc.Run(t, &patchSuite{})
 }
 
@@ -65,7 +65,7 @@ type schemaSuite struct {
 	databasetesting.DqliteSuite
 }
 
-func TestSchemaSuite(t *stdtesting.T) {
+func TestSchemaSuite(t *testing.T) {
 	tc.Run(t, &schemaSuite{})
 }
 

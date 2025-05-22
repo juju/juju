@@ -6,7 +6,7 @@ package upgradesteps
 import (
 	"context"
 	"errors"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type baseWorkerSuite struct {
 	baseSuite
 }
 
-func TestBaseWorkerSuite(t *stdtesting.T) {
+func TestBaseWorkerSuite(t *testing.T) {
 	tc.Run(t, &baseWorkerSuite{})
 }
 

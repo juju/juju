@@ -5,7 +5,7 @@ package vsphere_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -18,7 +18,7 @@ type environUpgradeSuite struct {
 	EnvironFixture
 }
 
-func TestEnvironUpgradeSuite(t *stdtesting.T) {
+func TestEnvironUpgradeSuite(t *testing.T) {
 	tc.Run(t, &environUpgradeSuite{})
 }
 

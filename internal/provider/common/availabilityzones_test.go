@@ -6,7 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -23,7 +23,7 @@ type AvailabilityZoneSuite struct {
 	env mockZonedEnviron
 }
 
-func TestAvailabilityZoneSuite(t *stdtesting.T) {
+func TestAvailabilityZoneSuite(t *testing.T) {
 	tc.Run(t, &AvailabilityZoneSuite{})
 }
 

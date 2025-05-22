@@ -4,7 +4,7 @@
 package domainservices
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -28,7 +28,7 @@ type workerSuite struct {
 	baseSuite
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	tc.Run(t, &workerSuite{})
 }
 

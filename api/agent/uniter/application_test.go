@@ -4,7 +4,7 @@
 package uniter_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -27,7 +27,7 @@ type applicationSuite struct {
 	statusSet bool
 }
 
-func TestApplicationSuite(t *stdtesting.T) {
+func TestApplicationSuite(t *testing.T) {
 	tc.Run(t, &applicationSuite{})
 }
 

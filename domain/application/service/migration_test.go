@@ -5,7 +5,7 @@ package service
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -37,7 +37,7 @@ type migrationServiceSuite struct {
 	service *MigrationService
 }
 
-func TestMigrationServiceSuite(t *stdtesting.T) {
+func TestMigrationServiceSuite(t *testing.T) {
 	tc.Run(t, &migrationServiceSuite{})
 }
 

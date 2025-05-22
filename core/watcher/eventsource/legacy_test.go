@@ -4,7 +4,7 @@
 package eventsource
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -15,7 +15,7 @@ import (
 
 type multiWatcherSuite struct{}
 
-func TestMultiWatcherSuite(t *stdtesting.T) {
+func TestMultiWatcherSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &multiWatcherSuite{})
 }

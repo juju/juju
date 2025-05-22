@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -22,7 +22,7 @@ type s3ClientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestS3ClientSuite(t *stdtesting.T) {
+func TestS3ClientSuite(t *testing.T) {
 	tc.Run(t, &s3ClientSuite{})
 }
 

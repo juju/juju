@@ -6,7 +6,7 @@ package resources_test
 import (
 	"sort"
 	"strconv"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +19,7 @@ type eventsSuite struct {
 	resourceSuite
 }
 
-func TestEventsSuite(t *stdtesting.T) {
+func TestEventsSuite(t *testing.T) {
 	tc.Run(t, &eventsSuite{})
 }
 

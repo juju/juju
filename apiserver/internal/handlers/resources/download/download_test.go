@@ -10,7 +10,7 @@ import (
 	"io"
 	"os"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -26,7 +26,7 @@ type ValidateSuite struct {
 	fileSystem *MockFileSystem
 }
 
-func TestValidateSuite(t *stdtesting.T) {
+func TestValidateSuite(t *testing.T) {
 	tc.Run(t, &ValidateSuite{})
 }
 

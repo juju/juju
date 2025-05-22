@@ -4,7 +4,7 @@
 package client_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type statusSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestStatusSuite(t *stdtesting.T) {
+func TestStatusSuite(t *testing.T) {
 	tc.Run(t, &statusSuite{})
 }
 
@@ -33,7 +33,7 @@ type statusUnitTestSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestStatusUnitTestSuite(t *stdtesting.T) {
+func TestStatusUnitTestSuite(t *testing.T) {
 	tc.Run(t, &statusUnitTestSuite{})
 }
 

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -49,7 +49,7 @@ type addCAASSuite struct {
 	credentialStoreAPI            *mocks.MockCredentialStoreAPI
 }
 
-func TestAddCAASSuite(t *stdtesting.T) {
+func TestAddCAASSuite(t *testing.T) {
 	tc.Run(t, &addCAASSuite{})
 }
 

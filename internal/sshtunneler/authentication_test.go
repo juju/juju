@@ -5,7 +5,7 @@ package sshtunneler
 
 import (
 	"encoding/base64"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ type authenticationSuite struct {
 	clock *MockClock
 }
 
-func TestAuthenticationSuite(t *stdtesting.T) {
+func TestAuthenticationSuite(t *testing.T) {
 	tc.Run(t, &authenticationSuite{})
 }
 

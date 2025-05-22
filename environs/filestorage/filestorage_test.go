@@ -13,7 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -29,7 +29,7 @@ type filestorageSuite struct {
 	writer storage.StorageWriter
 }
 
-func TestFilestorageSuite(t *stdtesting.T) {
+func TestFilestorageSuite(t *testing.T) {
 	tc.Run(t, &filestorageSuite{})
 }
 

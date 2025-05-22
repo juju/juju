@@ -4,7 +4,7 @@
 package schedule_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -18,7 +18,7 @@ type scheduleSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestScheduleSuite(t *stdtesting.T) {
+func TestScheduleSuite(t *testing.T) {
 	tc.Run(t, &scheduleSuite{})
 }
 

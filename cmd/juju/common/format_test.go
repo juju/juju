@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -15,7 +15,7 @@ import (
 
 type FormatTimeSuite struct{}
 
-func TestFormatTimeSuite(t *stdtesting.T) {
+func TestFormatTimeSuite(t *testing.T) {
 	tc.Run(t, &FormatTimeSuite{})
 }
 
@@ -56,7 +56,7 @@ func (s *FormatTimeSuite) TestFormatTime(c *tc.C) {
 
 type FormatTimeAsTimestampSuite struct{}
 
-func TestFormatTimeAsTimestampSuite(t *stdtesting.T) {
+func TestFormatTimeAsTimestampSuite(t *testing.T) {
 	tc.Run(t, &FormatTimeAsTimestampSuite{})
 }
 func (s *FormatTimeAsTimestampSuite) TestFormatTimeAsTimestamp(c *tc.C) {
@@ -101,7 +101,7 @@ func (s *FormatTimeAsTimestampSuite) TestFormatTimeAsTimestamp(c *tc.C) {
 
 type ConformSuite struct{}
 
-func TestConformSuite(t *stdtesting.T) {
+func TestConformSuite(t *testing.T) {
 	tc.Run(t, &ConformSuite{})
 }
 
@@ -210,7 +210,7 @@ type HumaniseSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHumaniseSuite(t *stdtesting.T) {
+func TestHumaniseSuite(t *testing.T) {
 	tc.Run(t, &HumaniseSuite{})
 }
 

@@ -4,7 +4,7 @@
 package context_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -19,7 +19,7 @@ type StorageSuite struct {
 	BaseHookContextSuite
 }
 
-func TestStorageSuite(t *stdtesting.T) {
+func TestStorageSuite(t *testing.T) {
 	tc.Run(t, &StorageSuite{})
 }
 

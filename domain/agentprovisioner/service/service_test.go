@@ -5,7 +5,7 @@ package service
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type suite struct {
 	providerGetter func(context.Context) (Provider, error)
 }
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &suite{})
 }
 

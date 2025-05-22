@@ -5,7 +5,7 @@ package config
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type agentConfSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestAgentConfSuite(t *stdtesting.T) {
+func TestAgentConfSuite(t *testing.T) {
 	tc.Run(t, &agentConfSuite{})
 }
 
@@ -65,7 +65,7 @@ type readAgentConfigSuite struct {
 	agentConfigReader *MockAgentConfigReader
 }
 
-func TestReadAgentConfigSuite(t *stdtesting.T) {
+func TestReadAgentConfigSuite(t *testing.T) {
 	tc.Run(t, &readAgentConfigSuite{})
 }
 

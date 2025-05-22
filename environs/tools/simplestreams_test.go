@@ -14,7 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/errors"
@@ -69,7 +69,7 @@ func getLiveURLs() (map[string]liveTestData, error) {
 	}, nil
 }
 
-func TestSimplestreamsSuite(t *stdtesting.T) {
+func TestSimplestreamsSuite(t *testing.T) {
 	tc.Run(t, &simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
 			Source:         sstesting.VerifyDefaultCloudDataSource("test", "test:"),
@@ -434,7 +434,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *tc.C) {
 
 type productSpecSuite struct{}
 
-func TestProductSpecSuite(t *stdtesting.T) {
+func TestProductSpecSuite(t *testing.T) {
 	tc.Run(t, &productSpecSuite{})
 }
 
@@ -570,7 +570,7 @@ type metadataHelperSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestMetadataHelperSuite(t *stdtesting.T) {
+func TestMetadataHelperSuite(t *testing.T) {
 	tc.Run(t, &metadataHelperSuite{})
 }
 
@@ -950,7 +950,7 @@ type signedSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestSignedSuite(t *stdtesting.T) {
+func TestSignedSuite(t *testing.T) {
 	tc.Run(t, &signedSuite{})
 }
 

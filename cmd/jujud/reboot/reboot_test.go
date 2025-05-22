@@ -6,7 +6,7 @@ package reboot_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -31,7 +31,7 @@ type NewRebootSuite struct {
 	clock            *mocks.MockClock
 }
 
-func TestNewRebootSuite(t *stdtesting.T) {
+func TestNewRebootSuite(t *testing.T) {
 	tc.Run(t, &NewRebootSuite{})
 }
 
@@ -136,7 +136,7 @@ type NixRebootSuite struct {
 	rebootScriptName string
 }
 
-func TestNixRebootSuite(t *stdtesting.T) {
+func TestNixRebootSuite(t *testing.T) {
 	tc.Run(t, &NixRebootSuite{})
 }
 

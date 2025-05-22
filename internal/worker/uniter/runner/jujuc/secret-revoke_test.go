@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type SecretRevokeSuite struct {
 	relationSuite
 }
 
-func TestSecretRevokeSuite(t *stdtesting.T) {
+func TestSecretRevokeSuite(t *testing.T) {
 	tc.Run(t, &SecretRevokeSuite{})
 }
 

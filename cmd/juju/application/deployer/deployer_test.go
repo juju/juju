@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -48,7 +48,7 @@ type deployerSuite struct {
 	deployResourceIDs map[string]string
 }
 
-func TestDeployerSuite(t *stdtesting.T) {
+func TestDeployerSuite(t *testing.T) {
 	tc.Run(t, &deployerSuite{})
 }
 

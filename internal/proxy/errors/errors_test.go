@@ -5,7 +5,7 @@ package errors_test
 
 import (
 	stderrors "errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestErrorsSuite(t *stdtesting.T) {
+func TestErrorsSuite(t *testing.T) {
 	tc.Run(t, &ErrorsSuite{})
 }
 

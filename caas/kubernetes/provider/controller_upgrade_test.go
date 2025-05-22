@@ -5,7 +5,7 @@ package provider
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -31,7 +31,7 @@ type ControllerUpgraderSuite struct {
 	broker *dummyUpgradeCAASController
 }
 
-func TestControllerUpgraderSuite(t *stdtesting.T) {
+func TestControllerUpgraderSuite(t *testing.T) {
 	tc.Run(t, &ControllerUpgraderSuite{})
 }
 

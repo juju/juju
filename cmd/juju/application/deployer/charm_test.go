@@ -6,7 +6,7 @@ package deployer
 import (
 	"bytes"
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -43,7 +43,7 @@ type charmSuite struct {
 	url               *charm.URL
 }
 
-func TestCharmSuite(t *stdtesting.T) {
+func TestCharmSuite(t *testing.T) {
 	tc.Run(t, &charmSuite{})
 }
 

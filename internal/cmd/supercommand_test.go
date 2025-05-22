@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
@@ -48,7 +48,7 @@ type SuperCommandSuite struct {
 	ctx *cmd.Context
 }
 
-func TestSuperCommandSuite(t *stdtesting.T) {
+func TestSuperCommandSuite(t *testing.T) {
 	tc.Run(t, &SuperCommandSuite{})
 }
 

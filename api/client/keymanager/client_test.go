@@ -4,7 +4,7 @@
 package keymanager_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ import (
 type keymanagerSuite struct {
 }
 
-func TestKeymanagerSuite(t *stdtesting.T) {
+func TestKeymanagerSuite(t *testing.T) {
 	tc.Run(t, &keymanagerSuite{})
 }
 

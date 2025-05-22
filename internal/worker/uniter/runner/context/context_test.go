@@ -6,7 +6,7 @@ package context_test
 import (
 	stdcontext "context"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -41,7 +41,7 @@ type InterfaceSuite struct {
 	BaseHookContextSuite
 }
 
-func TestInterfaceSuite(t *stdtesting.T) {
+func TestInterfaceSuite(t *testing.T) {
 	tc.Run(t, &InterfaceSuite{})
 }
 
@@ -737,7 +737,7 @@ func (p *mockProcess) Kill() error {
 func (p *mockProcess) Pid() int {
 	return 123
 }
-func TestHookContextSuite(t *stdtesting.T) {
+func TestHookContextSuite(t *testing.T) {
 	tc.Run(t, &HookContextSuite{})
 }
 

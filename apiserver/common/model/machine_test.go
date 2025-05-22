@@ -4,7 +4,7 @@
 package model_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -27,7 +27,7 @@ type machineSuite struct {
 	machineService *MockMachineService
 }
 
-func TestMachineSuite(t *stdtesting.T) {
+func TestMachineSuite(t *testing.T) {
 	tc.Run(t, &machineSuite{})
 }
 

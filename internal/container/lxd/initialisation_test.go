@@ -7,7 +7,7 @@ package lxd
 
 import (
 	"os/exec"
-	stdtesting "testing"
+	"testing"
 
 	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
@@ -42,7 +42,7 @@ type InitialiserSuite struct {
 	calledCmds []string
 }
 
-func TestInitialiserSuite(t *stdtesting.T) {
+func TestInitialiserSuite(t *testing.T) {
 	tc.Run(t, &InitialiserSuite{})
 }
 
@@ -233,7 +233,7 @@ type ConfigureInitialiserSuite struct {
 	initialiserTestSuite
 }
 
-func TestConfigureInitialiserSuite(t *stdtesting.T) {
+func TestConfigureInitialiserSuite(t *testing.T) {
 	tc.Run(t, &ConfigureInitialiserSuite{})
 }
 func (s *ConfigureInitialiserSuite) SetUpTest(c *tc.C) {

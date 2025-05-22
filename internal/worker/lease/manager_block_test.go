@@ -5,7 +5,7 @@ package lease_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -22,7 +22,7 @@ type WaitUntilExpiredSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWaitUntilExpiredSuite(t *stdtesting.T) {
+func TestWaitUntilExpiredSuite(t *testing.T) {
 	tc.Run(t, &WaitUntilExpiredSuite{})
 }
 

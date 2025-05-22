@@ -4,7 +4,7 @@
 package charms_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -33,7 +33,7 @@ type appCharmInfoSuite struct {
 	authorizer *facademocks.MockAuthorizer
 }
 
-func TestAppCharmInfoSuite(t *stdtesting.T) {
+func TestAppCharmInfoSuite(t *testing.T) {
 	tc.Run(t, &appCharmInfoSuite{})
 }
 

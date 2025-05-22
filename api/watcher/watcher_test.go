@@ -5,7 +5,7 @@ package watcher_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -39,7 +39,7 @@ type watcherSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWatcherSuite(t *stdtesting.T) {
+func TestWatcherSuite(t *testing.T) {
 	tc.Run(t, &watcherSuite{})
 }
 
@@ -658,7 +658,7 @@ type migrationSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMigrationSuite(t *stdtesting.T) {
+func TestMigrationSuite(t *testing.T) {
 	tc.Run(t, &migrationSuite{})
 }
 

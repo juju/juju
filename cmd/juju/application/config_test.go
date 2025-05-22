@@ -8,7 +8,7 @@ import (
 	"context"
 	"os"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"unicode/utf8"
 
 	"github.com/juju/collections/set"
@@ -36,7 +36,7 @@ type configCommandSuite struct {
 	defaultAppValues   map[string]interface{}
 }
 
-func TestConfigCommandSuite(t *stdtesting.T) {
+func TestConfigCommandSuite(t *testing.T) {
 	tc.Run(t, &configCommandSuite{})
 }
 

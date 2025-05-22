@@ -6,7 +6,7 @@ package service
 import (
 	"bytes"
 	"io"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -42,7 +42,7 @@ type resourceServiceSuite struct {
 	service *Service
 }
 
-func TestResourceServiceSuite(t *stdtesting.T) {
+func TestResourceServiceSuite(t *testing.T) {
 	tc.Run(t, &resourceServiceSuite{})
 }
 

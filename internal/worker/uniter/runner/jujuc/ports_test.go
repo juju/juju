@@ -5,7 +5,7 @@
 package jujuc_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type PortsSuite struct {
 	ContextSuite
 }
 
-func TestPortsSuite(t *stdtesting.T) {
+func TestPortsSuite(t *testing.T) {
 	tc.Run(t, &PortsSuite{})
 }
 

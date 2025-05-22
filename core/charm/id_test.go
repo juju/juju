@@ -4,7 +4,7 @@
 package charm
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type CharmSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCharmSuite(t *stdtesting.T) {
+func TestCharmSuite(t *testing.T) {
 	tc.Run(t, &CharmSuite{})
 }
 

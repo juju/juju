@@ -4,7 +4,7 @@
 package blockdevice_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type BlockDevicePathSuite struct{}
 
-func TestBlockDevicePathSuite(t *stdtesting.T) {
+func TestBlockDevicePathSuite(t *testing.T) {
 	tc.Run(t, &BlockDevicePathSuite{})
 }
 

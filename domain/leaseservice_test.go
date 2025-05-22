@@ -5,7 +5,7 @@ package domain
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type leaseServiceSuite struct {
 	token             *MockToken
 }
 
-func TestLeaseServiceSuite(t *stdtesting.T) {
+func TestLeaseServiceSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &leaseServiceSuite{})
 }

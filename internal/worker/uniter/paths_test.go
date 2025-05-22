@@ -5,7 +5,7 @@ package uniter_test
 
 import (
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type PathsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPathsSuite(t *stdtesting.T) {
+func TestPathsSuite(t *testing.T) {
 	tc.Run(t, &PathsSuite{})
 }
 

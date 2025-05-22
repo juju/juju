@@ -12,7 +12,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -30,7 +30,7 @@ type changesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestChangesSuite(t *stdtesting.T) {
+func TestChangesSuite(t *testing.T) {
 	tc.Run(t, &changesSuite{})
 }
 

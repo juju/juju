@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -19,7 +19,7 @@ import (
 	jujussh "github.com/juju/juju/internal/network/ssh"
 )
 
-func TestSCPSuiteLegacy(t *stdtesting.T) {
+func TestSCPSuiteLegacy(t *testing.T) {
 	tc.Run(t, &SCPSuiteLegacy{})
 }
 
@@ -214,7 +214,7 @@ var scpTests = []struct {
 func (s *SCPSuiteLegacy) TestSCPCommand(c *tc.C) {
 	for i, test := range scpTests {
 		c.Logf("test %d: %s -> %s\n", i, test.about, test.args)
-		c.Run(fmt.Sprintf("Test%d", i), func(t *stdtesting.T) {
+		c.Run(fmt.Sprintf("Test%d", i), func(t *testing.T) {
 			c := &tc.TBC{t}
 			s.setHostChecker(test.hostChecker)
 

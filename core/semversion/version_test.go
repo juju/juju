@@ -6,7 +6,7 @@ package semversion_test
 import (
 	"encoding/json"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v3"
@@ -16,7 +16,7 @@ import (
 
 type suite struct{}
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &suite{})
 }
 

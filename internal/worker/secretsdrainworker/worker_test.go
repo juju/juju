@@ -5,7 +5,7 @@ package secretsdrainworker_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -40,7 +40,7 @@ type workerSuite struct {
 	notifyBackendChangedCh chan struct{}
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	tc.Run(t, &workerSuite{})
 }
 

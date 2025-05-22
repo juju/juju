@@ -5,7 +5,7 @@ package network
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type linkLayerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLinkLayerSuite(t *stdtesting.T) {
+func TestLinkLayerSuite(t *testing.T) {
 	tc.Run(t, &linkLayerSuite{})
 }
 
@@ -151,7 +151,7 @@ func (s *linkLayerSuite) TestStringLengthBetweenWhenWithinLimit(c *tc.C) {
 type linkLayerDeviceUUIDSuite struct {
 }
 
-func TestLinkLayerDeviceUUIDSuite(t *stdtesting.T) {
+func TestLinkLayerDeviceUUIDSuite(t *testing.T) {
 	tc.Run(t, &linkLayerDeviceUUIDSuite{})
 }
 

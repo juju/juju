@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -28,7 +28,7 @@ type createSuite struct {
 	expectedErr string
 }
 
-func TestCreateSuite(t *stdtesting.T) {
+func TestCreateSuite(t *testing.T) {
 	tc.Run(t, &createSuite{})
 }
 

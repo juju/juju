@@ -4,7 +4,7 @@
 package proxyupdater_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
@@ -22,7 +22,7 @@ type ProxyUpdaterSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestProxyUpdaterSuite(t *stdtesting.T) {
+func TestProxyUpdaterSuite(t *testing.T) {
 	tc.Run(t, &ProxyUpdaterSuite{})
 }
 

@@ -4,7 +4,7 @@
 package schema
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -16,7 +16,7 @@ type controllerSchemaSuite struct {
 	schemaBaseSuite
 }
 
-func TestControllerSchemaSuite(t *stdtesting.T) {
+func TestControllerSchemaSuite(t *testing.T) {
 	tc.Run(t, &controllerSchemaSuite{})
 }
 

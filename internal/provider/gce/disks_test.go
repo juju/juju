@@ -4,7 +4,7 @@
 package gce_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type storageProviderSuite struct {
 	provider storage.Provider
 }
 
-func TestStorageProviderSuite(t *stdtesting.T) {
+func TestStorageProviderSuite(t *testing.T) {
 	tc.Run(t, &storageProviderSuite{})
 }
 
@@ -71,7 +71,7 @@ type volumeSourceSuite struct {
 	attachmentParams *storage.VolumeAttachmentParams
 }
 
-func TestVolumeSourceSuite(t *stdtesting.T) {
+func TestVolumeSourceSuite(t *testing.T) {
 	tc.Run(t, &volumeSourceSuite{})
 }
 

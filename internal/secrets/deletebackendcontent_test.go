@@ -4,7 +4,7 @@
 package secrets_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -23,7 +23,7 @@ type deleteBackendSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDeleteBackendSuite(t *stdtesting.T) {
+func TestDeleteBackendSuite(t *testing.T) {
 	tc.Run(t, &deleteBackendSuite{})
 }
 

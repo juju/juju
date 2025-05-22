@@ -4,7 +4,7 @@
 package changestream
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -19,7 +19,7 @@ type changestreamSuite struct {
 	txnRunner *MockTxnRunner
 }
 
-func TestChangestreamSuite(t *stdtesting.T) {
+func TestChangestreamSuite(t *testing.T) {
 	tc.Run(t, &changestreamSuite{})
 }
 

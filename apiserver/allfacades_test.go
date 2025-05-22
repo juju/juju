@@ -5,7 +5,7 @@ package apiserver
 
 import (
 	"sort"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ type AllFacadesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAllFacadesSuite(t *stdtesting.T) {
+func TestAllFacadesSuite(t *testing.T) {
 	tc.Run(t, &AllFacadesSuite{})
 }
 

@@ -5,7 +5,7 @@ package lease_test
 
 import (
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -22,7 +22,7 @@ type ClaimSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestClaimSuite(t *stdtesting.T) {
+func TestClaimSuite(t *testing.T) {
 	tc.Run(t, &ClaimSuite{})
 }
 

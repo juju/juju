@@ -4,7 +4,7 @@
 package storage_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type mountSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMountSuite(t *stdtesting.T) {
+func TestMountSuite(t *testing.T) {
 	tc.Run(t, &mountSuite{})
 }
 

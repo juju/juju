@@ -4,7 +4,7 @@
 package application
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -25,7 +25,7 @@ type TrustSuite struct {
 func (s *TrustSuite) SetUpTest(c *tc.C) {
 	s.store = jujuclienttesting.MinimalStore()
 }
-func TestTrustSuite(t *stdtesting.T) {
+func TestTrustSuite(t *testing.T) {
 	tc.Run(t, &TrustSuite{})
 }
 

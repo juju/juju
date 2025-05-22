@@ -6,7 +6,7 @@ package machineactions_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -28,7 +28,7 @@ type WorkerSuite struct {
 	lock   *mocks.MockLock
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	tc.Run(t, &WorkerSuite{})
 }
 

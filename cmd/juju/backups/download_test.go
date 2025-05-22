@@ -4,7 +4,7 @@
 package backups_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type downloadSuite struct {
 	command        *backups.DownloadCommand
 }
 
-func TestDownloadSuite(t *stdtesting.T) {
+func TestDownloadSuite(t *testing.T) {
 	tc.Run(t, &downloadSuite{})
 }
 

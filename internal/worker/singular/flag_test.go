@@ -5,7 +5,7 @@ package singular
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	jujuerrors "github.com/juju/errors"
@@ -34,7 +34,7 @@ type FlagSuite struct {
 	entityID string
 }
 
-func TestFlagSuite(t *stdtesting.T) {
+func TestFlagSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &FlagSuite{})
 }

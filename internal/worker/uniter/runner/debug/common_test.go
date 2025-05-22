@@ -4,7 +4,7 @@
 package debug_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type DebugHooksCommonSuite struct{}
 
-func TestDebugHooksCommonSuite(t *stdtesting.T) {
+func TestDebugHooksCommonSuite(t *testing.T) {
 	tc.Run(t, &DebugHooksCommonSuite{})
 }
 

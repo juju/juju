@@ -5,7 +5,7 @@ package service
 
 import (
 	"net/url"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -35,7 +35,7 @@ type serviceSuite struct {
 	modelUUID   model.UUID
 }
 
-func TestServiceSuite(t *stdtesting.T) {
+func TestServiceSuite(t *testing.T) {
 	tc.Run(t, &serviceSuite{})
 }
 

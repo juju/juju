@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/go-goose/goose/v5/neutron"
@@ -31,7 +31,7 @@ type localTests struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLocalTests(t *stdtesting.T) {
+func TestLocalTests(t *testing.T) {
 	tc.Run(t, &localTests{})
 }
 
@@ -634,7 +634,7 @@ type providerUnitTests struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProviderUnitTests(t *stdtesting.T) {
+func TestProviderUnitTests(t *testing.T) {
 	tc.Run(t, &providerUnitTests{})
 }
 

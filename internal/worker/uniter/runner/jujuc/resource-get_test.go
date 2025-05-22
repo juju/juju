@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/mocks"
 )
 
-func TestResourceGetCmdSuite(t *stdtesting.T) {
+func TestResourceGetCmdSuite(t *testing.T) {
 	tc.Run(t, &ResourceGetCmdSuite{})
 }
 

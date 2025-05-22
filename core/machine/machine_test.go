@@ -4,7 +4,7 @@
 package machine
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type machineSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMachineSuite(t *stdtesting.T) {
+func TestMachineSuite(t *testing.T) {
 	tc.Run(t, &machineSuite{})
 }
 

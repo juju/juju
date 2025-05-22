@@ -5,7 +5,7 @@ package stateconfigwatcher_test
 
 import (
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -30,7 +30,7 @@ type ManifoldSuite struct {
 	manifold           dependency.Manifold
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &ManifoldSuite{})
 }
 

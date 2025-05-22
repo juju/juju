@@ -6,7 +6,7 @@ package state
 import (
 	"context"
 	"slices"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type sequenceSuite struct {
 	state *domain.StateBase
 }
 
-func TestSequenceSuite(t *stdtesting.T) {
+func TestSequenceSuite(t *testing.T) {
 	tc.Run(t, &sequenceSuite{})
 }
 

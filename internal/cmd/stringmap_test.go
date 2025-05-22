@@ -4,7 +4,7 @@
 package cmd_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestStringMapSuite(t *stdtesting.T) {
+func TestStringMapSuite(t *testing.T) {
 	tc.Run(t, &StringMapSuite{})
 }
 

@@ -5,7 +5,7 @@ package undertaker_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -22,7 +22,7 @@ type ValidateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestValidateSuite(t *stdtesting.T) {
+func TestValidateSuite(t *testing.T) {
 	tc.Run(t, &ValidateSuite{})
 }
 

@@ -5,7 +5,7 @@ package client
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -25,7 +25,7 @@ type relationStatusSuite struct {
 	statusService   *MockStatusService
 }
 
-func TestRelationStatusSuite(t *stdtesting.T) {
+func TestRelationStatusSuite(t *testing.T) {
 	tc.Run(t, &relationStatusSuite{})
 }
 

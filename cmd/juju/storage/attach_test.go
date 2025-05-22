@@ -6,7 +6,7 @@ package storage_test
 import (
 	"context"
 	"regexp"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -22,7 +22,7 @@ type AttachStorageSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAttachStorageSuite(t *stdtesting.T) {
+func TestAttachStorageSuite(t *testing.T) {
 	tc.Run(t, &AttachStorageSuite{})
 }
 

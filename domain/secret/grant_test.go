@@ -4,7 +4,7 @@
 package secret
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type grantSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestGrantSuite(t *stdtesting.T) {
+func TestGrantSuite(t *testing.T) {
 	tc.Run(t, &grantSuite{})
 }
 

@@ -4,7 +4,7 @@
 package bootstrap
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type deployerCAASSuite struct {
 	cloudServiceGetter *MockCloudServiceGetter
 }
 
-func TestDeployerCAASSuite(t *stdtesting.T) {
+func TestDeployerCAASSuite(t *testing.T) {
 	tc.Run(t, &deployerCAASSuite{})
 }
 

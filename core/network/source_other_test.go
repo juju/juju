@@ -7,7 +7,7 @@ package network
 
 import (
 	"net"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type sourceOtherSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSourceOtherSuite(t *stdtesting.T) {
+func TestSourceOtherSuite(t *testing.T) {
 	tc.Run(t, &sourceOtherSuite{})
 }
 

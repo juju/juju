@@ -4,7 +4,7 @@
 package storage_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type defaultStoragePoolsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDefaultStoragePoolsSuite(t *stdtesting.T) {
+func TestDefaultStoragePoolsSuite(t *testing.T) {
 	tc.Run(t, &defaultStoragePoolsSuite{})
 }
 func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *tc.C) {

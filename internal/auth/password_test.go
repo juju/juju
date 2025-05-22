@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ import (
 type passwordSuite struct {
 }
 
-func TestPasswordSuite(t *stdtesting.T) {
+func TestPasswordSuite(t *testing.T) {
 	tc.Run(t, &passwordSuite{})
 }
 
@@ -194,7 +194,7 @@ func (*passwordSuite) TestDestroyPasswordMultiple(c *tc.C) {
 // FuzzPasswordHashing is a fuzz test to both try and break our password hashing
 // inputs and to also confirm that for a wide range of inputs that utils hashing
 // is the same this implementation in internal/password.
-func FuzzPasswordHashing(f *stdtesting.F) {
+func FuzzPasswordHashing(f *testing.F) {
 	corpase := []string{
 		"testmctestface",
 		"テストパスワード",
@@ -210,7 +210,7 @@ func FuzzPasswordHashing(f *stdtesting.F) {
 	}
 
 	salt := "xVwuRk5pzUg"
-	f.Fuzz(func(t *stdtesting.T, password string) {
+	f.Fuzz(func(t *testing.T, password string) {
 		utilsHash := internalpassword.UserPasswordHash(password, salt)
 		jujuHash, err := HashPassword(NewPassword(password), []byte(salt))
 		// Fuzz testing will give us a string that is all nil chars and that

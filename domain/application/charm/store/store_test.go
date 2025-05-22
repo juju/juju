@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -32,7 +32,7 @@ type storeSuite struct {
 	objectStoreGetter *MockModelObjectStoreGetter
 }
 
-func TestStoreSuite(t *stdtesting.T) {
+func TestStoreSuite(t *testing.T) {
 	tc.Run(t, &storeSuite{})
 }
 

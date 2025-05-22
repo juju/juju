@@ -6,7 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type agentEntityWatcherSuite struct {
 	watcherRegistry *mocks.MockWatcherRegistry
 }
 
-func TestAgentEntityWatcherSuite(t *stdtesting.T) {
+func TestAgentEntityWatcherSuite(t *testing.T) {
 	tc.Run(t, &agentEntityWatcherSuite{})
 }
 

@@ -4,7 +4,7 @@
 package containerprovisioner_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -22,7 +22,7 @@ type containerManifoldSuite struct {
 	getter  *MockContainerMachineGetter
 }
 
-func TestContainerManifoldSuite(t *stdtesting.T) {
+func TestContainerManifoldSuite(t *testing.T) {
 	tc.Run(t, &containerManifoldSuite{})
 }
 

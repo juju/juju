@@ -6,7 +6,7 @@ package watcher_test
 import (
 	"context"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type notifyWorkerSuite struct {
 	actor  *notifyHandler
 }
 
-func TestNotifyWorkerSuite(t *stdtesting.T) {
+func TestNotifyWorkerSuite(t *testing.T) {
 	tc.Run(t, &notifyWorkerSuite{})
 }
 

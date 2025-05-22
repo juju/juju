@@ -4,7 +4,7 @@
 package tools_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/tc"
@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/internal/tools"
 )
 
-func TestMarshalSuite(t *stdtesting.T) {
+func TestMarshalSuite(t *testing.T) {
 	tc.Run(t, &marshalSuite{})
 }
 

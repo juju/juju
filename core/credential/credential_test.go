@@ -4,7 +4,7 @@
 package credential
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type typeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTypeSuite(t *stdtesting.T) {
+func TestTypeSuite(t *testing.T) {
 	tc.Run(t, &typeSuite{})
 }
 

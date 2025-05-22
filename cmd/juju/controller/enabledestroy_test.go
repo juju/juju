@@ -5,7 +5,7 @@ package controller_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -22,7 +22,7 @@ type enableDestroyControllerSuite struct {
 	store *jujuclient.MemStore
 }
 
-func TestEnableDestroyControllerSuite(t *stdtesting.T) {
+func TestEnableDestroyControllerSuite(t *testing.T) {
 	tc.Run(t, &enableDestroyControllerSuite{})
 }
 func (s *enableDestroyControllerSuite) SetUpTest(c *tc.C) {

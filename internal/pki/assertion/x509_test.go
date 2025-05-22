@@ -5,12 +5,12 @@ package assertion_test
 
 import (
 	"crypto/x509"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/juju/internal/pki/assertion"
 )
 
-func TestHasExtKeyUsage(t *stdtesting.T) {
+func TestHasExtKeyUsage(t *testing.T) {
 	tests := []struct {
 		Name        string
 		ExtKeyUsage []x509.ExtKeyUsage
@@ -52,7 +52,7 @@ func TestHasExtKeyUsage(t *stdtesting.T) {
 	}
 
 	for _, test := range tests {
-		_ = t.Run(test.Name, func(t *stdtesting.T) {
+		_ = t.Run(test.Name, func(t *testing.T) {
 			rval := assertion.HasExtKeyUsage(&x509.Certificate{
 				ExtKeyUsage: test.ExtKeyUsage,
 			}, test.CheckKey)

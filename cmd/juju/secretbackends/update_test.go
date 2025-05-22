@@ -6,7 +6,7 @@ package secretbackends_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -25,7 +25,7 @@ type UpdateSuite struct {
 	updateSecretBackendsAPI *secretbackends.MockUpdateSecretBackendsAPI
 }
 
-func TestUpdateSuite(t *stdtesting.T) {
+func TestUpdateSuite(t *testing.T) {
 	tc.Run(t, &UpdateSuite{})
 }
 

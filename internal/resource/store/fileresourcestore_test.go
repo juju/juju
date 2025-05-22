@@ -8,7 +8,7 @@ import (
 	"crypto/sha512"
 	"fmt"
 	"io"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -28,7 +28,7 @@ type fileResourceStoreSuite struct {
 	file        io.ReadCloser
 }
 
-func TestFileResourceStoreSuite(t *stdtesting.T) {
+func TestFileResourceStoreSuite(t *testing.T) {
 	tc.Run(t, &fileResourceStoreSuite{})
 }
 

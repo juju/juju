@@ -4,7 +4,7 @@
 package upgradevalidation_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type versionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestVersionSuite(t *stdtesting.T) {
+func TestVersionSuite(t *testing.T) {
 	tc.Run(t, &versionSuite{})
 }
 

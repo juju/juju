@@ -6,7 +6,7 @@ package secretspruner_test
 import (
 	"context"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -32,7 +32,7 @@ type workerSuite struct {
 	changedCh chan struct{}
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	tc.Run(t, &workerSuite{})
 }
 

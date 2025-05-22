@@ -4,7 +4,7 @@
 package metricobserver_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type configSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) {
+func TestConfigSuite(t *testing.T) {
 	tc.Run(t, &configSuite{})
 }
 

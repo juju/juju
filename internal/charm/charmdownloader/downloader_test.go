@@ -7,7 +7,7 @@ import (
 	"context"
 	"net/url"
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -24,7 +24,7 @@ type downloaderSuite struct {
 	downloadClient *MockDownloadClient
 }
 
-func TestDownloaderSuite(t *stdtesting.T) {
+func TestDownloaderSuite(t *testing.T) {
 	tc.Run(t, &downloaderSuite{})
 }
 

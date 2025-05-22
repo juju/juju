@@ -5,7 +5,7 @@ package storageprovisioner
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -35,7 +35,7 @@ type caasProvisionerSuite struct {
 	resources            *MockResources
 }
 
-func TestCaasProvisionerSuite(t *stdtesting.T) {
+func TestCaasProvisionerSuite(t *testing.T) {
 	tc.Run(t, &caasProvisionerSuite{})
 }
 

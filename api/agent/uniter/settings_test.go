@@ -4,7 +4,7 @@
 package uniter_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type settingsSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestSettingsSuite(t *stdtesting.T) {
+func TestSettingsSuite(t *testing.T) {
 	tc.Run(t, &settingsSuite{})
 }
 

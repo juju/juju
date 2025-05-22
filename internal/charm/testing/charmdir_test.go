@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type CharmDirSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCharmDirSuite(t *stdtesting.T) {
+func TestCharmDirSuite(t *testing.T) {
 	tc.Run(t, &CharmDirSuite{})
 }
 

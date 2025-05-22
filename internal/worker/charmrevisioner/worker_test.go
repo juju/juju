@@ -5,7 +5,7 @@ package charmrevisioner
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -57,7 +57,7 @@ type WorkerSuite struct {
 	modelTag names.ModelTag
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &WorkerSuite{})
 }

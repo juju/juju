@@ -13,7 +13,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -45,9 +45,9 @@ type syncSuite struct {
 	localStorage string
 }
 
-func TestSyncSuite(t *stdtesting.T)   { tc.Run(t, &syncSuite{}) }
-func TestUploadSuite(t *stdtesting.T) { tc.Run(t, &uploadSuite{}) }
-func TestBadBuildSuite(t *stdtesting.T) {
+func TestSyncSuite(t *testing.T)   { tc.Run(t, &syncSuite{}) }
+func TestUploadSuite(t *testing.T) { tc.Run(t, &uploadSuite{}) }
+func TestBadBuildSuite(t *testing.T) {
 	tc.Run(t, &badBuildSuite{})
 }
 

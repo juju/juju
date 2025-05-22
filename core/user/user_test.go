@@ -4,7 +4,7 @@
 package user
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type userSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUserSuite(t *stdtesting.T) {
+func TestUserSuite(t *testing.T) {
 	tc.Run(t, &userSuite{})
 }
 

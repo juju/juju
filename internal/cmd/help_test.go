@@ -5,7 +5,7 @@ package cmd_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type HelpCommandSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHelpCommandSuite(t *stdtesting.T) {
+func TestHelpCommandSuite(t *testing.T) {
 	tc.Run(t, &HelpCommandSuite{})
 }
 

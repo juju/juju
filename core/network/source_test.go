@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type sourceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSourceSuite(t *stdtesting.T) {
+func TestSourceSuite(t *testing.T) {
 	tc.Run(t, &sourceSuite{})
 }
 

@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type TailerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTailerSuite(t *stdtesting.T) {
+func TestTailerSuite(t *testing.T) {
 	tc.Run(t, &TailerSuite{})
 }
 
@@ -251,7 +251,7 @@ type LogFilterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLogFilterSuite(t *stdtesting.T) {
+func TestLogFilterSuite(t *testing.T) {
 	tc.Run(t, &LogFilterSuite{})
 }
 

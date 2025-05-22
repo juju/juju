@@ -4,7 +4,7 @@
 package instancemutater_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,7 +28,7 @@ type instanceMutaterSuite struct {
 	apiCaller *mocks.MockAPICaller
 }
 
-func TestInstanceMutaterSuite(t *stdtesting.T) {
+func TestInstanceMutaterSuite(t *testing.T) {
 	tc.Run(t, &instanceMutaterSuite{})
 }
 

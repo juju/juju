@@ -5,7 +5,7 @@ package migrationmaster_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -24,7 +24,7 @@ type ValidateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestValidateSuite(t *stdtesting.T) {
+func TestValidateSuite(t *testing.T) {
 	tc.Run(t, &ValidateSuite{})
 }
 

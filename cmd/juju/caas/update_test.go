@@ -6,7 +6,7 @@ package caas_test
 import (
 	"context"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo/v2"
@@ -37,7 +37,7 @@ type updateCAASSuite struct {
 	clientStore                   *jujuclient.MemStore
 }
 
-func TestUpdateCAASSuite(t *stdtesting.T) {
+func TestUpdateCAASSuite(t *testing.T) {
 	tc.Run(t, &updateCAASSuite{})
 }
 

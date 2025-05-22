@@ -4,7 +4,7 @@
 package space_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -25,7 +25,7 @@ func setUpMocks(c *tc.C) (*gomock.Controller, *mocks.MockAPI) {
 
 	return ctrl, api
 }
-func TestSpaceCommandSuite(t *stdtesting.T) {
+func TestSpaceCommandSuite(t *testing.T) {
 	tc.Run(t, &SpaceCommandSuite{})
 }
 

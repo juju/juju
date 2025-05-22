@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 	"net/http"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -27,7 +27,7 @@ type RefreshSuite struct {
 	baseSuite
 }
 
-func TestRefreshSuite(t *stdtesting.T) {
+func TestRefreshSuite(t *testing.T) {
 	tc.Run(t, &RefreshSuite{})
 }
 
@@ -435,7 +435,7 @@ type RefreshConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRefreshConfigSuite(t *stdtesting.T) {
+func TestRefreshConfigSuite(t *testing.T) {
 	tc.Run(t, &RefreshConfigSuite{})
 }
 

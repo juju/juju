@@ -6,7 +6,7 @@ package azurecli_test
 import (
 	"os/exec"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -16,7 +16,7 @@ import (
 
 type azSuite struct{}
 
-func TestAzSuite(t *stdtesting.T) {
+func TestAzSuite(t *testing.T) {
 	tc.Run(t, &azSuite{})
 }
 

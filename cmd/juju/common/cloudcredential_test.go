@@ -5,7 +5,7 @@ package common_test
 
 import (
 	"bytes"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestCloudCredentialSuite(t *stdtesting.T) {
+func TestCloudCredentialSuite(t *testing.T) {
 	tc.Run(t, &cloudCredentialSuite{})
 }
 

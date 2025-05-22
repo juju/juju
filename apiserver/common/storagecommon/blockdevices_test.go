@@ -4,7 +4,7 @@
 package storagecommon_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ import (
 type BlockDeviceSuite struct {
 }
 
-func TestBlockDeviceSuite(t *stdtesting.T) {
+func TestBlockDeviceSuite(t *testing.T) {
 	tc.Run(t, &BlockDeviceSuite{})
 }
 

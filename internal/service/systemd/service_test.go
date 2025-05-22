@@ -8,7 +8,7 @@ import (
 	"os"
 	"path"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/juju/errors"
@@ -66,7 +66,7 @@ type initSystemSuite struct {
 	conf common.Conf
 }
 
-func TestInitSystemSuite(t *stdtesting.T) {
+func TestInitSystemSuite(t *testing.T) {
 	tc.Run(t, &initSystemSuite{})
 }
 

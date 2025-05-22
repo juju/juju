@@ -4,7 +4,7 @@
 package client
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -34,7 +34,7 @@ type statusSuite struct {
 	statusService    *MockStatusService
 }
 
-func TestStatusSuite(t *stdtesting.T) {
+func TestStatusSuite(t *testing.T) {
 	tc.Run(t, &statusSuite{})
 }
 

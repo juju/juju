@@ -6,7 +6,7 @@ package fortress_test
 import (
 	"context"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -23,7 +23,7 @@ type FortressSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFortressSuite(t *stdtesting.T) {
+func TestFortressSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &FortressSuite{})
 }

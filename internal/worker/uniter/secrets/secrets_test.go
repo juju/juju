@@ -4,7 +4,7 @@
 package secrets_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type secretsSuite struct {
 	secretsClient   *mocks.MockSecretsClient
 }
 
-func TestSecretsSuite(t *stdtesting.T) {
+func TestSecretsSuite(t *testing.T) {
 	tc.Run(t, &secretsSuite{})
 }
 

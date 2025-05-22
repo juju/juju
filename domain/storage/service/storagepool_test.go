@@ -4,7 +4,7 @@
 package service
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -27,7 +27,7 @@ type storagePoolServiceSuite struct {
 	registry storage.ProviderRegistry
 }
 
-func TestStoragePoolServiceSuite(t *stdtesting.T) {
+func TestStoragePoolServiceSuite(t *testing.T) {
 	tc.Run(t, &storagePoolServiceSuite{})
 }
 

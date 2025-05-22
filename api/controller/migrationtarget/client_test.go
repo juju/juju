@@ -13,7 +13,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -39,7 +39,7 @@ type ClientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestClientSuite(t *stdtesting.T) {
+func TestClientSuite(t *testing.T) {
 	tc.Run(t, &ClientSuite{})
 }
 

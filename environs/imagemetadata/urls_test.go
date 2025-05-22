@@ -6,7 +6,7 @@ package imagemetadata_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type URLsSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestURLsSuite(t *stdtesting.T) {
+func TestURLsSuite(t *testing.T) {
 	tc.Run(t, &URLsSuite{})
 }
 

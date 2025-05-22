@@ -5,7 +5,7 @@ package application
 
 import (
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type CmdSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 }
 
-func TestCmdSuite(t *stdtesting.T) {
+func TestCmdSuite(t *testing.T) {
 	tc.Run(t, &CmdSuite{})
 }
 

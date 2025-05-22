@@ -4,7 +4,7 @@
 package watcher_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -15,7 +15,7 @@ import (
 
 type normaliseWatcherSuite struct{}
 
-func TestNormaliseWatcherSuite(t *stdtesting.T) {
+func TestNormaliseWatcherSuite(t *testing.T) {
 	tc.Run(t, &normaliseWatcherSuite{})
 }
 

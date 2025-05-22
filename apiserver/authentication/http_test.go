@@ -5,7 +5,7 @@ package authentication_test
 
 import (
 	"net/http"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -42,7 +42,7 @@ type HTTPAuthenticatorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHTTPAuthenticatorSuite(t *stdtesting.T) {
+func TestHTTPAuthenticatorSuite(t *testing.T) {
 	tc.Run(t, &HTTPAuthenticatorSuite{})
 }
 

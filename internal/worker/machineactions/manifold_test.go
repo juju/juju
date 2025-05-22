@@ -5,7 +5,7 @@
 package machineactions_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -33,7 +33,7 @@ type ManifoldSuite struct {
 	newWorker  func(worker.Worker, error) func(machineactions.WorkerConfig) (worker.Worker, error)
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &ManifoldSuite{})
 }
 

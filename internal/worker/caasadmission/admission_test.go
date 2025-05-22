@@ -5,7 +5,7 @@ package caasadmission_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	admission "k8s.io/api/admissionregistration/v1"
@@ -22,7 +22,7 @@ type dummyAdmissionCreator struct {
 	EnsureMutatingWebhookConfigurationFunc func(ctx context.Context) (func(), error)
 }
 
-func TestAdmissionSuite(t *stdtesting.T) {
+func TestAdmissionSuite(t *testing.T) {
 	tc.Run(t, &AdmissionSuite{})
 }
 

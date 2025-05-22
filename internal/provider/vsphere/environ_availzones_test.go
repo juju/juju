@@ -5,7 +5,7 @@ package vsphere_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/vmware/govmomi/object"
@@ -21,7 +21,7 @@ type environAvailzonesSuite struct {
 	EnvironFixture
 }
 
-func TestEnvironAvailzonesSuite(t *stdtesting.T) {
+func TestEnvironAvailzonesSuite(t *testing.T) {
 	tc.Run(t, &environAvailzonesSuite{})
 }
 

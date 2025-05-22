@@ -5,7 +5,7 @@ package provider_test
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type K8sMetadataSuite struct {
 	BaseSuite
 }
 
-func TestK8sMetadataSuite(t *stdtesting.T) {
+func TestK8sMetadataSuite(t *testing.T) {
 	tc.Run(t, &K8sMetadataSuite{})
 }
 

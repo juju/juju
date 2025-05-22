@@ -4,7 +4,7 @@
 package model_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type ErrorsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestErrorsSuite(t *stdtesting.T) {
+func TestErrorsSuite(t *testing.T) {
 	tc.Run(t, &ErrorsSuite{})
 }
 

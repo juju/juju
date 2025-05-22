@@ -6,7 +6,7 @@ package loginprovider_test
 import (
 	"context"
 	"net/http"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ import (
 
 type tryInOrderLoginProviderSuite struct{}
 
-func TestTryInOrderLoginProviderSuite(t *stdtesting.T) {
+func TestTryInOrderLoginProviderSuite(t *testing.T) {
 	tc.Run(t, &tryInOrderLoginProviderSuite{})
 }
 func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *tc.C) {

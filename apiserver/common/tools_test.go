@@ -6,7 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -38,7 +38,7 @@ type getToolsSuite struct {
 	store             *mocks.MockObjectStore
 }
 
-func TestGetToolsSuite(t *stdtesting.T) {
+func TestGetToolsSuite(t *testing.T) {
 	tc.Run(t, &getToolsSuite{})
 }
 
@@ -136,7 +136,7 @@ type findToolsSuite struct {
 	mockAgentBinaryService *mocks.MockAgentBinaryService
 }
 
-func TestFindToolsSuite(t *stdtesting.T) {
+func TestFindToolsSuite(t *testing.T) {
 	tc.Run(t, &findToolsSuite{})
 }
 
@@ -307,7 +307,7 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "AllMetadata failed")
 }
 
-func TestGetUrlSuite(t *stdtesting.T) {
+func TestGetUrlSuite(t *testing.T) {
 	tc.Run(t, &getUrlSuite{})
 }
 

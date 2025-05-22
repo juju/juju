@@ -4,7 +4,7 @@
 package provider_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ type registrySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRegistrySuite(t *stdtesting.T) {
+func TestRegistrySuite(t *testing.T) {
 	tc.Run(t, &registrySuite{})
 }
 

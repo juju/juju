@@ -6,7 +6,7 @@ package resource_test
 import (
 	"bytes"
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestUploadSuite(t *stdtesting.T) {
+func TestUploadSuite(t *testing.T) {
 	tc.Run(t, &UploadSuite{})
 }
 

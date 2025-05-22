@@ -5,7 +5,7 @@ package domain
 
 import (
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 
 	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/juju/tc"
@@ -25,7 +25,7 @@ func (a asError) Error() string {
 
 type errorsSuite struct{}
 
-func TestErrorsSuite(t *stdtesting.T) {
+func TestErrorsSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &errorsSuite{})
 }

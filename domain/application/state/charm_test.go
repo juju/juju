@@ -7,7 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -36,7 +36,7 @@ type charmStateSuite struct {
 	baseSuite
 }
 
-func TestCharmStateSuite(t *stdtesting.T) {
+func TestCharmStateSuite(t *testing.T) {
 	tc.Run(t, &charmStateSuite{})
 }
 

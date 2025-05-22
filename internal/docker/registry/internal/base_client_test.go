@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -28,7 +28,7 @@ type baseSuite struct {
 	isPrivate        bool
 }
 
-func TestBaseSuite(t *stdtesting.T) {
+func TestBaseSuite(t *testing.T) {
 	tc.Run(t, &baseSuite{})
 }
 

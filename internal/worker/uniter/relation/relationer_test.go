@@ -5,7 +5,7 @@ package relation_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -30,7 +30,7 @@ type relationerSuite struct {
 	unitGetter   *mocks.MockUnitGetter
 }
 
-func TestRelationerSuite(t *stdtesting.T) {
+func TestRelationerSuite(t *testing.T) {
 	tc.Run(t, &relationerSuite{})
 }
 

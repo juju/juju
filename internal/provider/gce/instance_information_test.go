@@ -4,7 +4,7 @@
 package gce
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -18,7 +18,7 @@ type instanceInformationSuite struct {
 	BaseSuite
 }
 
-func TestInstanceInformationSuite(t *stdtesting.T) {
+func TestInstanceInformationSuite(t *testing.T) {
 	tc.Run(t, &instanceInformationSuite{})
 }
 func (s *instanceInformationSuite) TestInstanceTypesCacheExpiration(c *tc.C) {

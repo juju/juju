@@ -4,7 +4,7 @@
 package resource_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ type OriginSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestOriginSuite(t *stdtesting.T) {
+func TestOriginSuite(t *testing.T) {
 	tc.Run(t, &OriginSuite{})
 }
 

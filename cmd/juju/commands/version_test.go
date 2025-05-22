@@ -6,7 +6,7 @@ package commands
 import (
 	"bytes"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -22,7 +22,7 @@ type VersionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestVersionSuite(t *stdtesting.T) {
+func TestVersionSuite(t *testing.T) {
 	tc.Run(t, &VersionSuite{})
 }
 

@@ -5,7 +5,7 @@ package provider
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	apps "k8s.io/api/apps/v1"
@@ -28,7 +28,7 @@ type modelUpgraderSuite struct {
 	broker *dummyUpgradeCAASModel
 }
 
-func TestModelUpgraderSuite(t *stdtesting.T) {
+func TestModelUpgraderSuite(t *testing.T) {
 	tc.Run(t, &modelUpgraderSuite{})
 }
 

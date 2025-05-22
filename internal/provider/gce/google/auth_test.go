@@ -4,7 +4,7 @@
 package google
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type authSuite struct {
 	BaseSuite
 }
 
-func TestAuthSuite(t *stdtesting.T) {
+func TestAuthSuite(t *testing.T) {
 	tc.Run(t, &authSuite{})
 }
 

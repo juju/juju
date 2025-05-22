@@ -4,7 +4,7 @@
 package providertracker
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
@@ -16,7 +16,7 @@ type trackerTypeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTrackerTypeSuite(t *stdtesting.T) {
+func TestTrackerTypeSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &trackerTypeSuite{})
 }

@@ -5,7 +5,7 @@ package lxd_test
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type networkSuite struct {
 	lxdtesting.BaseSuite
 }
 
-func TestNetworkSuite(t *stdtesting.T) {
+func TestNetworkSuite(t *testing.T) {
 	tc.Run(t, &networkSuite{})
 }
 

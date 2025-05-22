@@ -4,7 +4,7 @@
 package gate_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type FlagSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFlagSuite(t *stdtesting.T) {
+func TestFlagSuite(t *testing.T) {
 	tc.Run(t, &FlagSuite{})
 }
 

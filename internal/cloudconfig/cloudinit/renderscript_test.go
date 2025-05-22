@@ -5,7 +5,7 @@ package cloudinit_test
 
 import (
 	"regexp"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type configureSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestConfigureSuite(t *stdtesting.T) {
+func TestConfigureSuite(t *testing.T) {
 	tc.Run(t, &configureSuite{})
 }
 

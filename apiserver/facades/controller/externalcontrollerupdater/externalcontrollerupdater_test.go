@@ -4,7 +4,7 @@
 package externalcontrollerupdater_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestCrossControllerSuite(t *stdtesting.T) {
+func TestCrossControllerSuite(t *testing.T) {
 	tc.Run(t, &CrossControllerSuite{})
 }
 

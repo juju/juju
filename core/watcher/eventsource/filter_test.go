@@ -4,7 +4,7 @@
 package eventsource
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
@@ -17,7 +17,7 @@ type filterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFilterSuite(t *stdtesting.T) {
+func TestFilterSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &filterSuite{})
 }

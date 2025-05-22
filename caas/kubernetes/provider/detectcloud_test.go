@@ -6,7 +6,7 @@ package provider_test
 import (
 	"context"
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func TestDetectCloudSuite(t *stdtesting.T) {
+func TestDetectCloudSuite(t *testing.T) {
 	tc.Run(t, &detectCloudSuite{})
 }
 

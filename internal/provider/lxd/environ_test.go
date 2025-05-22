@@ -4,7 +4,7 @@
 package lxd_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
@@ -31,7 +31,7 @@ type environSuite struct {
 	lxd.BaseSuite
 }
 
-func TestEnvironSuite(t *stdtesting.T) {
+func TestEnvironSuite(t *testing.T) {
 	tc.Run(t, &environSuite{})
 }
 
@@ -400,7 +400,7 @@ type environCloudProfileSuite struct {
 	cloudSpecEnv environs.CloudSpecSetter
 }
 
-func TestEnvironCloudProfileSuite(t *stdtesting.T) {
+func TestEnvironCloudProfileSuite(t *testing.T) {
 	tc.Run(t, &environCloudProfileSuite{})
 }
 func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *tc.C) {
@@ -479,7 +479,7 @@ type environProfileSuite struct {
 	lxdEnv environs.LXDProfiler
 }
 
-func TestEnvironProfileSuite(t *stdtesting.T) {
+func TestEnvironProfileSuite(t *testing.T) {
 	tc.Run(t, &environProfileSuite{})
 }
 

@@ -4,7 +4,7 @@
 package testing
 
 import (
-	stdtesting "testing"
+	testing "testing"
 	"time"
 
 	mgotesting "github.com/juju/mgo/v3/testing"
@@ -17,7 +17,7 @@ import (
 // tests. For tests that care about security (which should be few), use
 // MgoSSLTestPackage.
 // DEPRECATED: use MgoTestMain
-func MgoTestPackage(t *stdtesting.T) {
+func MgoTestPackage(t *testing.T) {
 	mgotesting.MgoServer.EnableReplicaSet = true
 	// Tests tend to cause enough contention that the default lock request
 	// timeout of 5ms is not enough. We may need to consider increasing the
@@ -53,7 +53,7 @@ func MgoTestMain() func() {
 // that requires a secure (SSL) connection to a MongoDB server.
 //
 // DEPRECATED: use MgoSSLTestMain
-func MgoSSLTestPackage(t *stdtesting.T) {
+func MgoSSLTestPackage(t *testing.T) {
 	mgotesting.MgoServer.EnableReplicaSet = true
 	// Tests tend to cause enough contention that the default lock request
 	// timeout of 5ms is not enough. We may need to consider increasing the

@@ -4,7 +4,7 @@
 package uniter_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -40,7 +40,7 @@ type uniterLegacySuite struct {
 	portService        *portservice.WatchableService
 }
 
-func TestUniterLegacySuite(t *stdtesting.T) {
+func TestUniterLegacySuite(t *testing.T) {
 	tc.Run(t, &uniterLegacySuite{})
 }
 

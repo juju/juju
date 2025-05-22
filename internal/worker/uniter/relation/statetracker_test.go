@@ -7,7 +7,7 @@ import (
 	stdcontext "context"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -50,7 +50,7 @@ type baseStateTrackerSuite struct {
 	watcher      *watchertest.MockNotifyWatcher
 }
 
-func TestStateTrackerSuite(t *stdtesting.T) {
+func TestStateTrackerSuite(t *testing.T) {
 	tc.Run(t, &stateTrackerSuite{})
 }
 
@@ -340,7 +340,7 @@ type syncScopesSuite struct {
 	charmDir string
 }
 
-func TestSyncScopesSuite(t *stdtesting.T) {
+func TestSyncScopesSuite(t *testing.T) {
 	tc.Run(t, &syncScopesSuite{})
 }
 

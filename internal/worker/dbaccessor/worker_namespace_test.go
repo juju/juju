@@ -6,7 +6,7 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
@@ -24,7 +24,7 @@ type namespaceSuite struct {
 	dbBaseSuite
 }
 
-func TestNamespaceSuite(t *stdtesting.T) {
+func TestNamespaceSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &namespaceSuite{})
 }

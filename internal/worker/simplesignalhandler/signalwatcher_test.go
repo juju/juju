@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"syscall"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ import (
 type signalSuite struct {
 }
 
-func TestSignalSuite(t *stdtesting.T) {
+func TestSignalSuite(t *testing.T) {
 	tc.Run(t, &signalSuite{})
 }
 

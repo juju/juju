@@ -6,7 +6,7 @@ package leadership_test
 import (
 	"context"
 	"errors"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -33,7 +33,7 @@ type TrackerSuite struct {
 	blockUntilReleasedErrors []error
 }
 
-func TestTrackerSuite(t *stdtesting.T) {
+func TestTrackerSuite(t *testing.T) {
 	tc.Run(t, &TrackerSuite{})
 }
 

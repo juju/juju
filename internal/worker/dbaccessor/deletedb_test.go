@@ -6,7 +6,7 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
@@ -21,7 +21,7 @@ type deleteDBSuite struct {
 	databasetesting.DqliteSuite
 }
 
-func TestDeleteDBSuite(t *stdtesting.T) {
+func TestDeleteDBSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &deleteDBSuite{})
 }

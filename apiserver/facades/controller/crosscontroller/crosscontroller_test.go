@@ -6,7 +6,7 @@ package crosscontroller
 import (
 	"context"
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestCrossControllerSuite(t *stdtesting.T) {
+func TestCrossControllerSuite(t *testing.T) {
 	tc.Run(t, &CrossControllerSuite{})
 }
 

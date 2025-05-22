@@ -5,7 +5,7 @@ package resource_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestCharmResourcesSuite(t *stdtesting.T) {
+func TestCharmResourcesSuite(t *testing.T) {
 	tc.Run(t, &CharmResourcesSuite{})
 }
 

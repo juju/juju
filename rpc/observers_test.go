@@ -4,7 +4,7 @@
 package rpc_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type multiplexerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMultiplexerSuite(t *stdtesting.T) {
+func TestMultiplexerSuite(t *testing.T) {
 	tc.Run(t, &multiplexerSuite{})
 }
 

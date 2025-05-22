@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -33,7 +33,7 @@ type statusHistorySuite struct {
 	recorder *MockRecorder
 }
 
-func TestStatusHistorySuite(t *stdtesting.T) {
+func TestStatusHistorySuite(t *testing.T) {
 	tc.Run(t, &statusHistorySuite{})
 }
 
@@ -190,7 +190,7 @@ type statusHistoryReaderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestStatusHistoryReaderSuite(t *stdtesting.T) {
+func TestStatusHistoryReaderSuite(t *testing.T) {
 	tc.Run(t, &statusHistoryReaderSuite{})
 }
 func (s *statusHistoryReaderSuite) TestWalk(c *tc.C) {

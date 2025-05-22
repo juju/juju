@@ -5,7 +5,7 @@ package upgrader_test
 
 import (
 	"os"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -54,11 +54,11 @@ type UpgraderSuite struct {
 
 type AllowedTargetVersionSuite struct{}
 
-func TestUpgraderSuite(t *stdtesting.T) {
+func TestUpgraderSuite(t *testing.T) {
 	tc.Run(t, &UpgraderSuite{})
 }
 
-func TestAllowedTargetVersionSuite(t *stdtesting.T) {
+func TestAllowedTargetVersionSuite(t *testing.T) {
 	tc.Run(t, &AllowedTargetVersionSuite{})
 }
 func (s *UpgraderSuite) SetUpTest(c *tc.C) {

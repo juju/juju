@@ -8,7 +8,7 @@ import (
 	"crypto"
 	"crypto/x509"
 	"net"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type AuthoritySuite struct {
 	signer crypto.Signer
 }
 
-func TestAuthoritySuite(t *stdtesting.T) {
+func TestAuthoritySuite(t *testing.T) {
 	tc.Run(t, &AuthoritySuite{})
 }
 

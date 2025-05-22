@@ -5,7 +5,7 @@
 package reboot_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
@@ -58,7 +58,7 @@ type rebootSuite struct {
 	machineService  *service.WatchableService
 }
 
-func TestRebootSuite(t *stdtesting.T) {
+func TestRebootSuite(t *testing.T) {
 	tc.Run(t, &rebootSuite{})
 }
 

@@ -6,7 +6,7 @@ package uniter
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -39,7 +39,7 @@ type UniterSecretsSuite struct {
 	facade *UniterAPI
 }
 
-func TestUniterSecretsSuite(t *stdtesting.T) {
+func TestUniterSecretsSuite(t *testing.T) {
 	tc.Run(t, &UniterSecretsSuite{})
 }
 

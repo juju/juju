@@ -6,7 +6,7 @@ package logger_test
 import (
 	"fmt"
 	"math/rand"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -23,7 +23,7 @@ type BufferedLogWriterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBufferedLogWriterSuite(t *stdtesting.T) {
+func TestBufferedLogWriterSuite(t *testing.T) {
 	tc.Run(t, &BufferedLogWriterSuite{})
 }
 

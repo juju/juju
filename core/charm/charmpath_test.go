@@ -6,7 +6,7 @@ package charm_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +21,7 @@ type charmPathSuite struct {
 	repoPath string
 }
 
-func TestCharmPathSuite(t *stdtesting.T) {
+func TestCharmPathSuite(t *testing.T) {
 	tc.Run(t, &charmPathSuite{})
 }
 

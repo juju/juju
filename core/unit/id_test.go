@@ -4,7 +4,7 @@
 package unit
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type unitSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUnitSuite(t *stdtesting.T) {
+func TestUnitSuite(t *testing.T) {
 	tc.Run(t, &unitSuite{})
 }
 

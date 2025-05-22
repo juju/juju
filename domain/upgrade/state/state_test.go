@@ -6,7 +6,7 @@ package state
 import (
 	"context"
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type stateSuite struct {
 	upgradeUUID domainupgrade.UUID
 }
 
-func TestStateSuite(t *stdtesting.T) {
+func TestStateSuite(t *testing.T) {
 	tc.Run(t, &stateSuite{})
 }
 

@@ -4,7 +4,7 @@
 package cloudinit_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type progressSuite struct{}
 
-func TestProgressSuite(t *stdtesting.T) {
+func TestProgressSuite(t *testing.T) {
 	tc.Run(t, &progressSuite{})
 }
 

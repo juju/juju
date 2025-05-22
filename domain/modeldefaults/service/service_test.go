@@ -4,7 +4,7 @@
 package service
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/schema"
 	"github.com/juju/tc"
@@ -25,7 +25,7 @@ type serviceSuite struct {
 	modelUUID           coremodel.UUID
 }
 
-func TestServiceSuite(t *stdtesting.T) {
+func TestServiceSuite(t *testing.T) {
 	tc.Run(t, &serviceSuite{})
 }
 

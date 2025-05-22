@@ -5,7 +5,7 @@ package bundlechanges
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -14,7 +14,7 @@ import (
 type changesSortSuite struct {
 }
 
-func TestChangesSortSuite(t *stdtesting.T) {
+func TestChangesSortSuite(t *testing.T) {
 	tc.Run(t, &changesSortSuite{})
 }
 

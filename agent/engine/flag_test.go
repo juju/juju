@@ -4,7 +4,7 @@
 package engine_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -17,7 +17,7 @@ type FlagSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFlagSuite(t *stdtesting.T) {
+func TestFlagSuite(t *testing.T) {
 	tc.Run(t, &FlagSuite{})
 }
 

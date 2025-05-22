@@ -5,7 +5,7 @@ package service
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -36,7 +36,7 @@ type relationServiceSuite struct {
 	service *Service
 }
 
-func TestRelationServiceSuite(t *stdtesting.T) {
+func TestRelationServiceSuite(t *testing.T) {
 	tc.Run(t, &relationServiceSuite{})
 }
 
@@ -1178,7 +1178,7 @@ type relationLeadershipServiceSuite struct {
 	leaderEnsurer     *MockEnsurer
 }
 
-func TestRelationLeadershipServiceSuite(t *stdtesting.T) {
+func TestRelationLeadershipServiceSuite(t *testing.T) {
 	tc.Run(t, &relationLeadershipServiceSuite{})
 }
 func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithLeader(c *tc.C) {

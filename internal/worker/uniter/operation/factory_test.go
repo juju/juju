@@ -4,7 +4,7 @@
 package operation_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type FactorySuite struct {
 	actionErr *params.Error
 }
 
-func TestFactorySuite(t *stdtesting.T) {
+func TestFactorySuite(t *testing.T) {
 	tc.Run(t, &FactorySuite{})
 }
 

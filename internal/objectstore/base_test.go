@@ -5,7 +5,7 @@ package objectstore
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -27,7 +27,7 @@ type baseObjectStoreSuite struct {
 	claimExtender *MockClaimExtender
 }
 
-func TestBaseObjectStoreSuite(t *stdtesting.T) {
+func TestBaseObjectStoreSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &baseObjectStoreSuite{})
 }

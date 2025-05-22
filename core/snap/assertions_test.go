@@ -8,14 +8,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/snap"
 )
 
-func TestSnapSuite(t *stdtesting.T) {
+func TestSnapSuite(t *testing.T) {
 	tc.Run(t, &SnapSuite{})
 }
 

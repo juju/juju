@@ -5,7 +5,7 @@ package instancepoller_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -55,7 +55,7 @@ type InstancePollerSuite struct {
 	clock clock.Clock
 }
 
-func TestInstancePollerSuite(t *stdtesting.T) {
+func TestInstancePollerSuite(t *testing.T) {
 	tc.Run(t, &InstancePollerSuite{})
 }
 

@@ -5,7 +5,7 @@ package state
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -26,7 +26,7 @@ type relatedUnitWatcherSuite struct {
 	baseRelationSuite
 }
 
-func TestRelatedUnitWatcherSuite(t *stdtesting.T) {
+func TestRelatedUnitWatcherSuite(t *testing.T) {
 	tc.Run(t, &relatedUnitWatcherSuite{})
 }
 

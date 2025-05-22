@@ -4,7 +4,7 @@
 package charm
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type baseSelectorSuite struct {
 	cfg    *MockSelectorModelConfig
 }
 
-func TestBaseSelectorSuite(t *stdtesting.T) {
+func TestBaseSelectorSuite(t *testing.T) {
 	tc.Run(t, &baseSelectorSuite{})
 }
 

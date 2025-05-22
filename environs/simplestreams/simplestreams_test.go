@@ -5,7 +5,7 @@ package simplestreams_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,11 +13,11 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 )
 
-func TestJsonSuite(t *stdtesting.T) {
+func TestJsonSuite(t *testing.T) {
 	tc.Run(t, &jsonSuite{})
 }
 
-func TestSimplestreamsSuite(t *stdtesting.T) {
+func TestSimplestreamsSuite(t *testing.T) {
 	tc.Run(t, &simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
 			Source:         sstesting.VerifyDefaultCloudDataSource("test", "test:"),

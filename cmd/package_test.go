@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -75,7 +75,7 @@ var ignoredPackages = set.NewStrings(
 
 type OSCallTest struct{}
 
-func TestOSCallTest(t *stdtesting.T) {
+func TestOSCallTest(t *testing.T) {
 	tc.Run(t, &OSCallTest{})
 }
 

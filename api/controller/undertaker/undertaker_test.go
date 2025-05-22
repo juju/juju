@@ -4,7 +4,7 @@
 package undertaker_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +21,7 @@ type UndertakerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUndertakerSuite(t *stdtesting.T) {
+func TestUndertakerSuite(t *testing.T) {
 	tc.Run(t, &UndertakerSuite{})
 }
 

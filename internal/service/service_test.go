@@ -5,7 +5,7 @@ package service_test
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -21,7 +21,7 @@ type serviceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestServiceSuite(t *stdtesting.T) {
+func TestServiceSuite(t *testing.T) {
 	tc.Run(t, &serviceSuite{})
 }
 
@@ -101,7 +101,7 @@ type restartSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRestartSuite(t *stdtesting.T) {
+func TestRestartSuite(t *testing.T) {
 	tc.Run(t, &restartSuite{})
 }
 

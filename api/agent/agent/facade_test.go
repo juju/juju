@@ -4,7 +4,7 @@
 package agent_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -21,7 +21,7 @@ type FacadeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFacadeSuite(t *stdtesting.T) {
+func TestFacadeSuite(t *testing.T) {
 	tc.Run(t, &FacadeSuite{})
 }
 

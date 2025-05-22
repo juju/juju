@@ -5,7 +5,7 @@ package testhelpers_test
 
 import (
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type cleanupSuite struct {
 	testhelpers.CleanupSuite
 }
 
-func TestCleanupSuite(t *stdtesting.T) {
+func TestCleanupSuite(t *testing.T) {
 	tc.Run(t, &cleanupSuite{})
 }
 
@@ -119,7 +119,7 @@ func (s cleanupSuite) TestAddCleanupPanicIfUnsafe(c *tc.C) {
 type cleanupSuiteAndTestLifetimes struct {
 }
 
-func TestCleanupSuiteAndTestLifetimes(t *stdtesting.T) {
+func TestCleanupSuiteAndTestLifetimes(t *testing.T) {
 	tc.Run(t, &cleanupSuiteAndTestLifetimes{})
 }
 func (s *cleanupSuiteAndTestLifetimes) TestAddCleanupBeforeSetUpSuite(c *tc.C) {

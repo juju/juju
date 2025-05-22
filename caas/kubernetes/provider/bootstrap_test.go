@@ -6,7 +6,7 @@ package provider_test
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -56,7 +56,7 @@ type bootstrapSuite struct {
 	controllerStackerGetter func() provider.ControllerStackerForTest
 }
 
-func TestBootstrapSuite(t *stdtesting.T) {
+func TestBootstrapSuite(t *testing.T) {
 	tc.Run(t, &bootstrapSuite{})
 }
 

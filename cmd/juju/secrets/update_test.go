@@ -6,7 +6,7 @@ package secrets_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -25,7 +25,7 @@ type updateSuite struct {
 	secretsAPI *mocks.MockUpdateSecretsAPI
 }
 
-func TestUpdateSuite(t *stdtesting.T) {
+func TestUpdateSuite(t *testing.T) {
 	tc.Run(t, &updateSuite{})
 }
 

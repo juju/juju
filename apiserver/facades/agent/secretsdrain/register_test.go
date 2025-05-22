@@ -4,7 +4,7 @@
 package secretsdrain_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -19,7 +19,7 @@ type drainSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDrainSuite(t *stdtesting.T) {
+func TestDrainSuite(t *testing.T) {
 	tc.Run(t, &drainSuite{})
 }
 

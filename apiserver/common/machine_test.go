@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 
 type machineSuite struct{}
 
-func TestMachineSuite(t *stdtesting.T) {
+func TestMachineSuite(t *testing.T) {
 	tc.Run(t, &machineSuite{})
 }
 

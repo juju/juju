@@ -4,7 +4,7 @@
 package lxd
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestServerSuite(t *stdtesting.T) {
+func TestServerSuite(t *testing.T) {
 	tc.Run(t, &serverSuite{})
 }
 

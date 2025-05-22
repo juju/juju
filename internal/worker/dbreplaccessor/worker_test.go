@@ -4,7 +4,7 @@
 package dbreplaccessor
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -22,7 +22,7 @@ type workerSuite struct {
 	driver    *MockDriver
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &workerSuite{})
 }

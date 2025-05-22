@@ -4,7 +4,7 @@
 package application_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -30,7 +30,7 @@ type charmSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestCharmSuite(t *stdtesting.T) {
+func TestCharmSuite(t *testing.T) {
 	tc.Run(t, &charmSuite{})
 }
 

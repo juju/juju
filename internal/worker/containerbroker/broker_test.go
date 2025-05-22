@@ -4,7 +4,7 @@
 package containerbroker_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -28,7 +28,7 @@ type brokerConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBrokerConfigSuite(t *stdtesting.T) {
+func TestBrokerConfigSuite(t *testing.T) {
 	tc.Run(t, &brokerConfigSuite{})
 }
 
@@ -127,7 +127,7 @@ type trackerSuite struct {
 	machineTag names.MachineTag
 }
 
-func TestTrackerSuite(t *stdtesting.T) {
+func TestTrackerSuite(t *testing.T) {
 	tc.Run(t, &trackerSuite{})
 }
 

@@ -4,7 +4,7 @@
 package model_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type ConstantsSuite struct{}
 
-func TestConstantsSuite(t *stdtesting.T) {
+func TestConstantsSuite(t *testing.T) {
 	tc.Run(t, &ConstantsSuite{})
 }
 

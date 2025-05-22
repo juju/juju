@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -41,7 +41,7 @@ type registrationSuite struct {
 	registrationURL string
 }
 
-func TestRegistrationSuite(t *stdtesting.T) {
+func TestRegistrationSuite(t *testing.T) {
 	tc.Run(t, &registrationSuite{})
 }
 

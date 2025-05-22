@@ -14,7 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
-	stdtesting "testing"
+	testing "testing"
 
 	"github.com/juju/errors"
 
@@ -38,7 +38,7 @@ type Socket struct {
 func Dialer(soc Socket) (net.Conn, error) {
 	var conn net.Conn
 	var err error
-	if stdtesting.Testing() &&
+	if testing.Testing() &&
 		soc.Network == "unix" &&
 		soc.Address != "" && soc.Address[0] != '@' {
 		conn, err = testUnixDial(soc)
@@ -93,7 +93,7 @@ func innerListen(soc Socket) (listener net.Listener, err error) {
 	defer syscall.Umask(oldmask)
 
 	// If we are testing, listen with long path support.
-	if stdtesting.Testing() {
+	if testing.Testing() {
 		return testUnixListen(soc)
 	}
 

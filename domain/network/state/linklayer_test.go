@@ -6,7 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type linkLayerSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestLinkLayerSuite(t *stdtesting.T) {
+func TestLinkLayerSuite(t *testing.T) {
 	tc.Run(t, &linkLayerSuite{})
 }
 

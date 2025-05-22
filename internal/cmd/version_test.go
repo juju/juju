@@ -5,7 +5,7 @@ package cmd_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type VersionSuite struct {
 	ctx *cmd.Context
 }
 
-func TestVersionSuite(t *stdtesting.T) {
+func TestVersionSuite(t *testing.T) {
 	tc.Run(t, &VersionSuite{})
 }
 

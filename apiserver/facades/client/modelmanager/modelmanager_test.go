@@ -5,7 +5,7 @@ package modelmanager_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -89,7 +89,7 @@ type modelManagerSuite struct {
 	modelStatusAPI *MockModelStatusAPI
 }
 
-func TestModelManagerSuite(t *stdtesting.T) {
+func TestModelManagerSuite(t *testing.T) {
 	tc.Run(t, &modelManagerSuite{})
 }
 
@@ -1000,7 +1000,7 @@ type modelManagerStateSuite struct {
 	controllerUUID uuid.UUID
 }
 
-func TestModelManagerStateSuite(t *stdtesting.T) {
+func TestModelManagerStateSuite(t *testing.T) {
 	tc.Run(t, &modelManagerStateSuite{})
 }
 

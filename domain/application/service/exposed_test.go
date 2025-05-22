@@ -5,7 +5,7 @@ package service
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type exposedServiceSuite struct {
 	baseSuite
 }
 
-func TestExposedServiceSuite(t *stdtesting.T) {
+func TestExposedServiceSuite(t *testing.T) {
 	tc.Run(t, &exposedServiceSuite{})
 }
 

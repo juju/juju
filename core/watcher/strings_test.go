@@ -6,7 +6,7 @@ package watcher_test
 import (
 	"context"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type stringsWorkerSuite struct {
 	actor  *stringsHandler
 }
 
-func TestStringsWorkerSuite(t *stdtesting.T) {
+func TestStringsWorkerSuite(t *testing.T) {
 	tc.Run(t, &stringsWorkerSuite{})
 }
 

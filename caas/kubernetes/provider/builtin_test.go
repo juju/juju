@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -25,7 +25,7 @@ import (
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
-func TestBuiltinSuite(t *stdtesting.T) {
+func TestBuiltinSuite(t *testing.T) {
 	tc.Run(t, &builtinSuite{})
 }
 

@@ -4,7 +4,7 @@
 package resources_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,7 +21,7 @@ type podSuite struct {
 	resourceSuite
 }
 
-func TestPodSuite(t *stdtesting.T) {
+func TestPodSuite(t *testing.T) {
 	tc.Run(t, &podSuite{})
 }
 
@@ -97,7 +97,7 @@ func (s *podSuite) TestDelete(c *tc.C) {
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
 
-func TestTerminatedPodJujuStatus(t *stdtesting.T) {
+func TestTerminatedPodJujuStatus(t *testing.T) {
 	pod := corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			DeletionTimestamp: &metav1.Time{Time: time.Now()},
@@ -133,7 +133,7 @@ func TestTerminatedPodJujuStatus(t *stdtesting.T) {
 	}
 }
 
-func TestPodConditionListJujuStatus(t *stdtesting.T) {
+func TestPodConditionListJujuStatus(t *testing.T) {
 	tests := []struct {
 		Name    string
 		Pod     corev1.Pod
@@ -463,7 +463,7 @@ func TestPodConditionListJujuStatus(t *stdtesting.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.Name, func(t *stdtesting.T) {
+		t.Run(test.Name, func(t *testing.T) {
 			testTime := time.Now()
 			eventGetter := func() ([]corev1.Event, error) {
 				return []corev1.Event{}, nil

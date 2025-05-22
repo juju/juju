@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -26,7 +26,7 @@ type APIRequesterSuite struct {
 	baseSuite
 }
 
-func TestAPIRequesterSuite(t *stdtesting.T) {
+func TestAPIRequesterSuite(t *testing.T) {
 	tc.Run(t, &APIRequesterSuite{})
 }
 
@@ -177,7 +177,7 @@ type RESTSuite struct {
 	baseSuite
 }
 
-func TestRESTSuite(t *stdtesting.T) {
+func TestRESTSuite(t *testing.T) {
 	tc.Run(t, &RESTSuite{})
 }
 

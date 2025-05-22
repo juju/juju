@@ -4,7 +4,7 @@
 package action_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
@@ -13,7 +13,7 @@ type operationSuite struct {
 	baseSuite
 }
 
-func TestOperationSuite(t *stdtesting.T) {
+func TestOperationSuite(t *testing.T) {
 	tc.Run(t, &operationSuite{})
 }
 

@@ -4,7 +4,7 @@
 package context_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -24,7 +24,7 @@ type ContextRelationSuite struct {
 	relUnit *uniterapi.MockRelationUnit
 }
 
-func TestContextRelationSuite(t *stdtesting.T) {
+func TestContextRelationSuite(t *testing.T) {
 	tc.Run(t, &ContextRelationSuite{})
 }
 

@@ -5,7 +5,7 @@ package network_test
 
 import (
 	"net"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type subnetSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSubnetSuite(t *stdtesting.T) {
+func TestSubnetSuite(t *testing.T) {
 	tc.Run(t, &subnetSuite{})
 }
 

@@ -4,7 +4,7 @@
 package modelconfig
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -44,7 +44,7 @@ type modelconfigSuite struct {
 	controllerUUID string
 }
 
-func TestModelconfigSuite(t *stdtesting.T) {
+func TestModelconfigSuite(t *testing.T) {
 	tc.Run(t, &modelconfigSuite{})
 }
 

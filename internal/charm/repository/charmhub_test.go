@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -42,7 +42,7 @@ type charmHubRepositorySuite struct {
 	client *mocks.MockCharmHubClient
 }
 
-func TestCharmHubRepositorySuite(t *stdtesting.T) {
+func TestCharmHubRepositorySuite(t *testing.T) {
 	tc.Run(t, &charmHubRepositorySuite{})
 }
 
@@ -957,7 +957,7 @@ type refreshConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRefreshConfigSuite(t *stdtesting.T) {
+func TestRefreshConfigSuite(t *testing.T) {
 	tc.Run(t, &refreshConfigSuite{})
 }
 
@@ -1104,7 +1104,7 @@ type selectNextBaseSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSelectNextBaseSuite(t *stdtesting.T) {
+func TestSelectNextBaseSuite(t *testing.T) {
 	tc.Run(t, &selectNextBaseSuite{})
 }
 
@@ -1259,7 +1259,7 @@ type composeSuggestionsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestComposeSuggestionsSuite(t *stdtesting.T) {
+func TestComposeSuggestionsSuite(t *testing.T) {
 	tc.Run(t, &composeSuggestionsSuite{})
 }
 

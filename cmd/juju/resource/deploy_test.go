@@ -9,7 +9,7 @@ import (
 	"os"
 	"path"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type DeploySuite struct {
 	stub *testhelpers.Stub
 }
 
-func TestDeploySuite(t *stdtesting.T) {
+func TestDeploySuite(t *testing.T) {
 	tc.Run(t, &DeploySuite{})
 }
 

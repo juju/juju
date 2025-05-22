@@ -4,7 +4,7 @@
 package subnets_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -20,7 +20,7 @@ import (
 type SubnetsSuite struct {
 }
 
-func TestSubnetsSuite(t *stdtesting.T) {
+func TestSubnetsSuite(t *testing.T) {
 	tc.Run(t, &SubnetsSuite{})
 }
 

@@ -4,7 +4,7 @@
 package caasapplication_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -20,7 +20,7 @@ type provisionerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProvisionerSuite(t *stdtesting.T) {
+func TestProvisionerSuite(t *testing.T) {
 	tc.Run(t, &provisionerSuite{})
 }
 

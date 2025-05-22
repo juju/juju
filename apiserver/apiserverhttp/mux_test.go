@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type MuxSuite struct {
 	client *http.Client
 }
 
-func TestMuxSuite(t *stdtesting.T) {
+func TestMuxSuite(t *testing.T) {
 	tc.Run(t, &MuxSuite{})
 }
 

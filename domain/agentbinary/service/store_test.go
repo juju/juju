@@ -10,7 +10,7 @@ import (
 	"encoding/hex"
 	io "io"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -36,7 +36,7 @@ type storeSuite struct {
 	mockObjectStore       *MockObjectStore
 }
 
-func TestStoreSuite(t *stdtesting.T) {
+func TestStoreSuite(t *testing.T) {
 	tc.Run(t, &storeSuite{})
 }
 

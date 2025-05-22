@@ -4,7 +4,7 @@
 package testing
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -18,7 +18,7 @@ import (
 
 type testingSuite struct{}
 
-func TestTestingSuite(t *stdtesting.T) {
+func TestTestingSuite(t *testing.T) {
 	tc.Run(t, &testingSuite{})
 }
 

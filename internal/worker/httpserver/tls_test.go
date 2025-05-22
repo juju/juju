@@ -9,7 +9,7 @@ import (
 	"crypto/x509"
 	"net/http"
 	"net/http/httptest"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"golang.org/x/crypto/acme"
@@ -46,7 +46,7 @@ type TLSStateSuite struct {
 	tlsStateFixture
 }
 
-func TestTLSStateSuite(t *stdtesting.T) {
+func TestTLSStateSuite(t *testing.T) {
 	tc.Run(t, &TLSStateSuite{})
 }
 
@@ -71,7 +71,7 @@ type TLSAutocertSuite struct {
 	autocertQueried bool
 }
 
-func TestTLSAutocertSuite(t *stdtesting.T) {
+func TestTLSAutocertSuite(t *testing.T) {
 	tc.Run(t, &TLSAutocertSuite{})
 }
 

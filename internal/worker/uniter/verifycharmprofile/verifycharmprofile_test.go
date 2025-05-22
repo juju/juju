@@ -4,7 +4,7 @@
 package verifycharmprofile_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ import (
 
 type verifySuite struct{}
 
-func TestVerifySuite(t *stdtesting.T) {
+func TestVerifySuite(t *testing.T) {
 	tc.Run(t, &verifySuite{})
 }
 

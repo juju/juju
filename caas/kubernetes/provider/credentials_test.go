@@ -5,7 +5,7 @@ package provider_test
 
 import (
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -23,7 +23,7 @@ type credentialsSuite struct {
 	provider environs.EnvironProvider
 }
 
-func TestCredentialsSuite(t *stdtesting.T) {
+func TestCredentialsSuite(t *testing.T) {
 	tc.Run(t, &credentialsSuite{})
 }
 

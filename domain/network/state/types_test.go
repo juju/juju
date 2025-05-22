@@ -4,7 +4,7 @@
 package state
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type typesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestTypesSuite(t *stdtesting.T) {
+func TestTypesSuite(t *testing.T) {
 	tc.Run(t, &typesSuite{})
 }
 

@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ import (
 
 type sshInitSuite struct{}
 
-func TestSshInitSuite(t *stdtesting.T) {
+func TestSshInitSuite(t *testing.T) {
 	tc.Run(t, &sshInitSuite{})
 }
 

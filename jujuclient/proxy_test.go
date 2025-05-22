@@ -4,7 +4,7 @@
 package jujuclient_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -19,7 +19,7 @@ type proxyWrapperSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProxyWrapperSuite(t *stdtesting.T) {
+func TestProxyWrapperSuite(t *testing.T) {
 	tc.Run(t, &proxyWrapperSuite{})
 }
 

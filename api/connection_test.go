@@ -5,7 +5,7 @@ package api_test
 
 import (
 	"encoding/json"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -25,7 +25,7 @@ type connectionSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestConnectionSuite(t *stdtesting.T) {
+func TestConnectionSuite(t *testing.T) {
 	tc.Run(t, &connectionSuite{})
 }
 
@@ -350,7 +350,7 @@ type slideSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestSlideSuite(t *stdtesting.T) {
+func TestSlideSuite(t *testing.T) {
 	tc.Run(t, &slideSuite{})
 }
 

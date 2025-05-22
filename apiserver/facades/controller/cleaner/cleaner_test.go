@@ -5,7 +5,7 @@ package cleaner_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -32,7 +32,7 @@ type CleanerSuite struct {
 	domainServices *MockDomainServices
 }
 
-func TestCleanerSuite(t *stdtesting.T) {
+func TestCleanerSuite(t *testing.T) {
 	tc.Run(t, &CleanerSuite{})
 }
 

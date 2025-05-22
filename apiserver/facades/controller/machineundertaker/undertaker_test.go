@@ -5,7 +5,7 @@ package machineundertaker_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type undertakerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUndertakerSuite(t *stdtesting.T) {
+func TestUndertakerSuite(t *testing.T) {
 	tc.Run(t, &undertakerSuite{})
 }
 

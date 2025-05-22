@@ -4,7 +4,7 @@
 package migration_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type PhaseSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestPhaseSuite(t *stdtesting.T) {
+func TestPhaseSuite(t *testing.T) {
 	tc.Run(t, new(PhaseSuite))
 }
 

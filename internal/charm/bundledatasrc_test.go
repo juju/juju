@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +20,7 @@ type BundleDataSourceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBundleDataSourceSuite(t *stdtesting.T) {
+func TestBundleDataSourceSuite(t *testing.T) {
 	tc.Run(t, &BundleDataSourceSuite{})
 }
 

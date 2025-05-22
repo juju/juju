@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
@@ -19,7 +19,7 @@ type ConfigSuite struct {
 	config *charm.Config
 }
 
-func TestConfigSuite(t *stdtesting.T) {
+func TestConfigSuite(t *testing.T) {
 	tc.Run(t, &ConfigSuite{})
 }
 

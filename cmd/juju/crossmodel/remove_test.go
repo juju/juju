@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -31,7 +31,7 @@ type removeSuite struct {
 	mockAPI *mockRemoveAPI
 }
 
-func TestRemoveSuite(t *stdtesting.T) {
+func TestRemoveSuite(t *testing.T) {
 	tc.Run(t, &removeSuite{})
 }
 

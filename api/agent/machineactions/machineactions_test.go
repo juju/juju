@@ -5,7 +5,7 @@
 package machineactions_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -22,7 +22,7 @@ type ClientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestClientSuite(t *stdtesting.T) {
+func TestClientSuite(t *testing.T) {
 	tc.Run(t, &ClientSuite{})
 }
 

@@ -4,7 +4,7 @@
 package network
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 type netNodeUUIDSuite struct {
 }
 
-func TestNetNodeUUIDSuite(t *stdtesting.T) {
+func TestNetNodeUUIDSuite(t *testing.T) {
 	tc.Run(t, &netNodeUUIDSuite{})
 }
 

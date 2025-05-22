@@ -5,7 +5,7 @@ package context
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/tomb.v2"
@@ -18,7 +18,7 @@ type contextSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestContextSuite(t *stdtesting.T) {
+func TestContextSuite(t *testing.T) {
 	tc.Run(t, &contextSuite{})
 }
 

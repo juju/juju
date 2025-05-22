@@ -4,7 +4,7 @@
 package service
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type relationSuite struct {
 	baseSuite
 }
 
-func TestRelationSuite(t *stdtesting.T) {
+func TestRelationSuite(t *testing.T) {
 	tc.Run(t, &relationSuite{})
 }
 

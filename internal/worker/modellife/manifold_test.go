@@ -5,7 +5,7 @@ package modellife
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -26,7 +26,7 @@ type ManifoldSuite struct {
 	modelService *MockModelService
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &ManifoldSuite{})
 }

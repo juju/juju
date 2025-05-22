@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -93,7 +93,7 @@ func (f *fakeHAClient) EnableHA(ctx context.Context, numControllers int, cons co
 
 	return f.result, nil
 }
-func TestEnableHASuite(t *stdtesting.T) {
+func TestEnableHASuite(t *testing.T) {
 	tc.Run(t, &EnableHASuite{})
 }
 

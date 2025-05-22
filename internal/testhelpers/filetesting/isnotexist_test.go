@@ -7,14 +7,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type isNotExistSuite struct{}
 
-func TestIsNotExistSuite(t *stdtesting.T) {
+func TestIsNotExistSuite(t *testing.T) {
 	tc.Run(t, &isNotExistSuite{})
 }
 

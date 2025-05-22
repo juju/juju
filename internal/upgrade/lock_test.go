@@ -4,7 +4,7 @@
 package upgrade
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -22,7 +22,7 @@ type lockSuite struct {
 	agentConfig *MockConfig
 }
 
-func TestLockSuite(t *stdtesting.T) {
+func TestLockSuite(t *testing.T) {
 	tc.Run(t, &lockSuite{})
 }
 

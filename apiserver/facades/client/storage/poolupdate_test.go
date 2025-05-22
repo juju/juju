@@ -5,7 +5,7 @@ package storage_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -19,7 +19,7 @@ type poolUpdateSuite struct {
 	baseStorageSuite
 }
 
-func TestPoolUpdateSuite(t *stdtesting.T) {
+func TestPoolUpdateSuite(t *testing.T) {
 	tc.Run(t, &poolUpdateSuite{})
 }
 

@@ -5,7 +5,7 @@ package crossmodel
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -40,7 +40,7 @@ type offerSuite struct {
 	args    []string
 }
 
-func TestOfferSuite(t *stdtesting.T) {
+func TestOfferSuite(t *testing.T) {
 	tc.Run(t, &offerSuite{})
 }
 

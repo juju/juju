@@ -5,7 +5,7 @@ package service
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -51,7 +51,7 @@ type providerServiceSuite struct {
 	mockWatcherFactory  *MockWatcherFactory
 }
 
-func TestProviderServiceSuite(t *stdtesting.T) {
+func TestProviderServiceSuite(t *testing.T) {
 	tc.Run(t, &providerServiceSuite{})
 }
 

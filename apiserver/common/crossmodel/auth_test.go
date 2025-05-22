@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestAuthSuite(t *stdtesting.T) {
+func TestAuthSuite(t *testing.T) {
 	tc.Run(t, &authSuite{})
 }
 

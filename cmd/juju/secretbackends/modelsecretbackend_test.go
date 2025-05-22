@@ -4,7 +4,7 @@
 package secretbackends_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type modelSecretBackendCommandSuite struct {
 	secretsAPI *secretbackends.MockModelSecretBackendAPI
 }
 
-func TestModelSecretBackendCommandSuite(t *stdtesting.T) {
+func TestModelSecretBackendCommandSuite(t *testing.T) {
 	tc.Run(t, &modelSecretBackendCommandSuite{})
 }
 func (s *modelSecretBackendCommandSuite) SetUpTest(c *tc.C) {

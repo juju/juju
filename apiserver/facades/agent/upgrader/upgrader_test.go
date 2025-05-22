@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -61,7 +61,7 @@ type upgraderSuite struct {
 	watcherRegistry *facademocks.MockWatcherRegistry
 }
 
-func TestUpgraderSuite(t *stdtesting.T) {
+func TestUpgraderSuite(t *testing.T) {
 	tc.Run(t, &upgraderSuite{})
 }
 

@@ -4,7 +4,7 @@
 package network_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/google/uuid"
 	"github.com/juju/collections/set"
@@ -21,7 +21,7 @@ type spaceSuite struct {
 	spaces network.SpaceInfos
 }
 
-func TestSpaceSuite(t *stdtesting.T) {
+func TestSpaceSuite(t *testing.T) {
 	tc.Run(t, &spaceSuite{})
 }
 

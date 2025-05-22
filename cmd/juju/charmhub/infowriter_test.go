@@ -5,7 +5,7 @@ package charmhub
 
 import (
 	"bytes"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type printInfoSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPrintInfoSuite(t *stdtesting.T) {
+func TestPrintInfoSuite(t *testing.T) {
 	tc.Run(t, &printInfoSuite{})
 }
 

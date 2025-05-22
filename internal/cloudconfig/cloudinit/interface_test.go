@@ -5,7 +5,7 @@
 package cloudinit
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
@@ -14,7 +14,7 @@ var _ CloudConfig = (*ubuntuCloudConfig)(nil)
 
 type InterfaceSuite struct{}
 
-func TestInterfaceSuite(t *stdtesting.T) {
+func TestInterfaceSuite(t *testing.T) {
 	tc.Run(t, &InterfaceSuite{})
 }
 

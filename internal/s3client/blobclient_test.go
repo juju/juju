@@ -6,7 +6,7 @@ package s3client
 import (
 	"bytes"
 	"io"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -18,7 +18,7 @@ type charmsS3ClientSuite struct {
 	session *MockSession
 }
 
-func TestCharmsS3ClientSuite(t *stdtesting.T) {
+func TestCharmsS3ClientSuite(t *testing.T) {
 	tc.Run(t, &charmsS3ClientSuite{})
 }
 

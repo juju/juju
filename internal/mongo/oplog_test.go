@@ -6,7 +6,7 @@ package mongo_test
 import (
 	"errors"
 	"reflect"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/mgo/v3"
@@ -24,7 +24,7 @@ type oplogSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestOplogSuite(t *stdtesting.T) {
+func TestOplogSuite(t *testing.T) {
 	tc.Run(t, &oplogSuite{})
 }
 

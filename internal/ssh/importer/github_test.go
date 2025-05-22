@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -22,7 +22,7 @@ type githubSuite struct {
 	client *MockClient
 }
 
-func TestGithubSuite(t *stdtesting.T) {
+func TestGithubSuite(t *testing.T) {
 	tc.Run(t, &githubSuite{})
 }
 

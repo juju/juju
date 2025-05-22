@@ -4,7 +4,7 @@
 package lease_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -19,7 +19,7 @@ type RevokeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRevokeSuite(t *stdtesting.T) {
+func TestRevokeSuite(t *testing.T) {
 	tc.Run(t, &RevokeSuite{})
 }
 

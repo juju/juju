@@ -6,7 +6,7 @@ package schema
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -19,7 +19,7 @@ type querySuite struct {
 	databasetesting.DqliteSuite
 }
 
-func TestQuerySuite(t *stdtesting.T) {
+func TestQuerySuite(t *testing.T) {
 	tc.Run(t, &querySuite{})
 }
 

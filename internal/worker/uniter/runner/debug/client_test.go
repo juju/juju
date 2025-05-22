@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"regexp"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -17,7 +17,7 @@ import (
 
 type DebugHooksClientSuite struct{}
 
-func TestDebugHooksClientSuite(t *stdtesting.T) {
+func TestDebugHooksClientSuite(t *testing.T) {
 	tc.Run(t, &DebugHooksClientSuite{})
 }
 

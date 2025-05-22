@@ -5,7 +5,7 @@ package unitassigner
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -29,7 +29,7 @@ type testsuite struct {
 	statusService *MockStatusService
 }
 
-func TestTestsuite(t *stdtesting.T) {
+func TestTestsuite(t *testing.T) {
 	tc.Run(t, &testsuite{})
 }
 

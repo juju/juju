@@ -5,14 +5,14 @@ package sync
 
 import (
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package sync_test -destination simplestreams_mock_test.go github.com/juju/juju/environs/tools SimplestreamsFetcher
 
-func TestMain(m *stdtesting.M) {
+func TestMain(m *testing.M) {
 	testhelpers.ExecHelperProcess()
 	os.Exit(m.Run())
 }

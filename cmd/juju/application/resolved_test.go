@@ -5,7 +5,7 @@ package application_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -25,7 +25,7 @@ func (s *ResolvedSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mockAPI = &mockResolveAPI{Stub: &testhelpers.Stub{}}
 }
-func TestResolvedSuite(t *stdtesting.T) {
+func TestResolvedSuite(t *testing.T) {
 	tc.Run(t, &ResolvedSuite{})
 }
 

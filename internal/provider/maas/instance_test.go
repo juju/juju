@@ -4,7 +4,7 @@
 package maas
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ type maasInstanceSuite struct {
 	maasSuite
 }
 
-func TestMaasInstanceSuite(t *stdtesting.T) {
+func TestMaasInstanceSuite(t *testing.T) {
 	tc.Run(t, &maasInstanceSuite{})
 }
 

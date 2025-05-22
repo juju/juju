@@ -4,7 +4,7 @@
 package lease_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -25,7 +25,7 @@ type CrossSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCrossSuite(t *stdtesting.T) {
+func TestCrossSuite(t *testing.T) {
 	tc.Run(t, &CrossSuite{})
 }
 

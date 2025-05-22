@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -58,7 +58,7 @@ type maasEnvironSuite struct {
 	maasSuite
 }
 
-func TestMaasEnvironSuite(t *stdtesting.T) {
+func TestMaasEnvironSuite(t *testing.T) {
 	tc.Run(t, &maasEnvironSuite{})
 }
 

@@ -4,7 +4,7 @@
 package unitcommon
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -23,7 +23,7 @@ type UnitAccessorSuite struct {
 	applicationService *MockApplicationService
 }
 
-func TestUnitAccessorSuite(t *stdtesting.T) {
+func TestUnitAccessorSuite(t *testing.T) {
 	tc.Run(t, &UnitAccessorSuite{})
 }
 

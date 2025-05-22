@@ -8,7 +8,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type prompterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPrompterSuite(t *stdtesting.T) {
+func TestPrompterSuite(t *testing.T) {
 	tc.Run(t, &prompterSuite{})
 }
 

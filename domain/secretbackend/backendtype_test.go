@@ -4,7 +4,7 @@
 package secretbackend
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type backendtypeSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestBackendtypeSuite(t *stdtesting.T) {
+func TestBackendtypeSuite(t *testing.T) {
 	tc.Run(t, &backendtypeSuite{})
 }
 

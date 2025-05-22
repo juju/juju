@@ -13,7 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -75,7 +75,7 @@ type WorkerValidationSuite struct {
 	workerFixture
 }
 
-func TestWorkerValidationSuite(t *stdtesting.T) {
+func TestWorkerValidationSuite(t *testing.T) {
 	tc.Run(t, &WorkerValidationSuite{})
 }
 
@@ -120,7 +120,7 @@ type WorkerSuite struct {
 	worker *httpserver.Worker
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	tc.Run(t, &WorkerSuite{})
 }
 
@@ -344,7 +344,7 @@ type WorkerControllerPortSuite struct {
 	workerFixture
 }
 
-func TestWorkerControllerPortSuite(t *stdtesting.T) {
+func TestWorkerControllerPortSuite(t *testing.T) {
 	tc.Run(t, &WorkerControllerPortSuite{})
 }
 func (s *WorkerControllerPortSuite) newWorker(c *tc.C) *httpserver.Worker {

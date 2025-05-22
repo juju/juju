@@ -5,7 +5,7 @@ package migrationmaster_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -61,7 +61,7 @@ type Suite struct {
 	cloudSpec      environscloudspec.CloudSpec
 }
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &Suite{})
 }
 

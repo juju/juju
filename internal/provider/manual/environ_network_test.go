@@ -4,7 +4,7 @@
 package manual
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type environNetworkSuite struct {
 	baseEnvironSuite
 }
 
-func TestEnvironNetworkSuite(t *stdtesting.T) {
+func TestEnvironNetworkSuite(t *testing.T) {
 	tc.Run(t, &environNetworkSuite{})
 }
 

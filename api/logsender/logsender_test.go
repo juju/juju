@@ -8,7 +8,7 @@ import (
 	"errors"
 	"io"
 	"net/url"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type LogSenderSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestLogSenderSuite(t *stdtesting.T) {
+func TestLogSenderSuite(t *testing.T) {
 	tc.Run(t, &LogSenderSuite{})
 }
 

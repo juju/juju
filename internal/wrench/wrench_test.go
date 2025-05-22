@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type wrenchSuite struct {
 	logWriter loggo.TestWriter
 }
 
-func TestWrenchSuite(t *stdtesting.T) {
+func TestWrenchSuite(t *testing.T) {
 	tc.Run(t, &wrenchSuite{})
 }
 

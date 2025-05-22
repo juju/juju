@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"sync"
 	"sync/atomic"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -31,7 +31,7 @@ type RemoteSuite struct {
 	apiConnection *MockConnection
 }
 
-func TestRemoteSuite(t *stdtesting.T) {
+func TestRemoteSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &RemoteSuite{})
 }

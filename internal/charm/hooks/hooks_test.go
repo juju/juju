@@ -4,12 +4,12 @@
 package hooks
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
-func TestHooksSuite(t *stdtesting.T) {
+func TestHooksSuite(t *testing.T) {
 	tc.Run(t, &HooksSuite{})
 }
 

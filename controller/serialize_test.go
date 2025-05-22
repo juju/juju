@@ -4,7 +4,7 @@
 package controller_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type EncodeToStringSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestEncodeToStringSuite(t *stdtesting.T) {
+func TestEncodeToStringSuite(t *testing.T) {
 	tc.Run(t, &EncodeToStringSuite{})
 }
 

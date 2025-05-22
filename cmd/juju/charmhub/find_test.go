@@ -4,7 +4,7 @@
 package charmhub
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -23,7 +23,7 @@ type findSuite struct {
 	charmHubAPI *mocks.MockCharmHubClient
 }
 
-func TestFindSuite(t *stdtesting.T) {
+func TestFindSuite(t *testing.T) {
 	tc.Run(t, &findSuite{})
 }
 

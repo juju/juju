@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"os"
 	"syscall"
-	stdtesting "testing"
+	"testing"
 
 	client "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestServerIntegrationSuite(t *stdtesting.T) {
+func TestServerIntegrationSuite(t *testing.T) {
 	tc.Run(t, &serverIntegrationSuite{})
 }
 

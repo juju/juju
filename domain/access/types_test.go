@@ -4,7 +4,7 @@
 package access
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 
 type typesSuite struct{}
 
-func TestTypesSuite(t *stdtesting.T) {
+func TestTypesSuite(t *testing.T) {
 	tc.Run(t, &typesSuite{})
 }
 

@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -45,7 +45,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestCAASApplicationProvisionerSuite(t *stdtesting.T) {
+func TestCAASApplicationProvisionerSuite(t *testing.T) {
 	tc.Run(t, &CAASApplicationProvisionerSuite{})
 }
 

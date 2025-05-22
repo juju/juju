@@ -4,14 +4,14 @@
 package uniter_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type uniterNetworkInfoSuite struct{}
 
-func TestUniterNetworkInfoSuite(t *stdtesting.T) {
+func TestUniterNetworkInfoSuite(t *testing.T) {
 	tc.Run(t, &uniterNetworkInfoSuite{})
 }
 

@@ -4,7 +4,7 @@
 package constraints
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type constraintsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestConstraintsSuite(t *stdtesting.T) {
+func TestConstraintsSuite(t *testing.T) {
 	tc.Run(t, &constraintsSuite{})
 }
 

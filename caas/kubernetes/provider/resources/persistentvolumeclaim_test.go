@@ -5,7 +5,7 @@ package resources_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type persistentVolumeClaimSuite struct {
 	resourceSuite
 }
 
-func TestPersistentVolumeClaimSuite(t *stdtesting.T) {
+func TestPersistentVolumeClaimSuite(t *testing.T) {
 	tc.Run(t, &persistentVolumeClaimSuite{})
 }
 func (s *persistentVolumeClaimSuite) TestApply(c *tc.C) {

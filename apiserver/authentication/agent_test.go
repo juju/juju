@@ -4,7 +4,7 @@
 package authentication_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -25,7 +25,7 @@ type agentAuthenticatorSuite struct {
 	agentPasswordService *MockAgentPasswordService
 }
 
-func TestAgentAuthenticatorSuite(t *stdtesting.T) {
+func TestAgentAuthenticatorSuite(t *testing.T) {
 	tc.Run(t, &agentAuthenticatorSuite{})
 }
 

@@ -4,7 +4,7 @@
 package storage_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ type filesystemSuite struct {
 	baseStorageSuite
 }
 
-func TestFilesystemSuite(t *stdtesting.T) {
+func TestFilesystemSuite(t *testing.T) {
 	tc.Run(t, &filesystemSuite{})
 }
 

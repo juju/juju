@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"regexp"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
-func TestDebugCodeSuite(t *stdtesting.T) {
+func TestDebugCodeSuite(t *testing.T) {
 	tc.Run(t, &DebugCodeSuite{})
 }
 

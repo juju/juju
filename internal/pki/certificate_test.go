@@ -8,7 +8,7 @@ import (
 	"crypto/x509/pkix"
 	"net"
 	"net/url"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ import (
 type CertificateSuite struct {
 }
 
-func TestCertificateSuite(t *stdtesting.T) {
+func TestCertificateSuite(t *testing.T) {
 	tc.Run(t, &CertificateSuite{})
 }
 

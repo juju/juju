@@ -5,7 +5,7 @@ package os
 
 import (
 	"runtime"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 type osSuite struct {
 }
 
-func TestOsSuite(t *stdtesting.T) {
+func TestOsSuite(t *testing.T) {
 	tc.Run(t, &osSuite{})
 }
 

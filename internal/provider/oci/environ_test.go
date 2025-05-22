@@ -4,7 +4,7 @@
 package oci
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
@@ -16,7 +16,7 @@ import (
 type environSuite struct {
 }
 
-func TestEnvironSuite(t *stdtesting.T) {
+func TestEnvironSuite(t *testing.T) {
 	tc.Run(t, &environSuite{})
 }
 

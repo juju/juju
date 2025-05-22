@@ -5,7 +5,7 @@ package common_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -51,7 +51,7 @@ type unitSetStatusSuite struct {
 	unitStatusSuite
 }
 
-func TestUnitSetStatusSuite(t *stdtesting.T) {
+func TestUnitSetStatusSuite(t *testing.T) {
 	tc.Run(t, &unitSetStatusSuite{})
 }
 
@@ -162,7 +162,7 @@ type unitGetStatusSuite struct {
 	unitStatusSuite
 }
 
-func TestUnitGetStatusSuite(t *stdtesting.T) {
+func TestUnitGetStatusSuite(t *testing.T) {
 	tc.Run(t, &unitGetStatusSuite{})
 }
 

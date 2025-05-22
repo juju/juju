@@ -4,7 +4,7 @@
 package model_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type destroyModelSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDestroyModelSuite(t *stdtesting.T) {
+func TestDestroyModelSuite(t *testing.T) {
 	tc.Run(t, &destroyModelSuite{})
 }
 

@@ -5,7 +5,7 @@ package firewaller_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &ManifoldSuite{})
 }
 
@@ -71,7 +71,7 @@ type ManifoldConfigSuite struct {
 	config firewaller.ManifoldConfig
 }
 
-func TestManifoldConfigSuite(t *stdtesting.T) {
+func TestManifoldConfigSuite(t *testing.T) {
 	tc.Run(t, &ManifoldConfigSuite{})
 }
 

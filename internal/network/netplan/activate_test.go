@@ -7,7 +7,7 @@ import (
 	"os"
 	"path"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type ActivateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestActivateSuite(t *stdtesting.T) {
+func TestActivateSuite(t *testing.T) {
 	tc.Run(t, &ActivateSuite{})
 }
 

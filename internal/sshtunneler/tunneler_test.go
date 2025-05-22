@@ -9,7 +9,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -28,7 +28,7 @@ type sshTunnelerSuite struct {
 	clock      *MockClock
 }
 
-func TestSshTunnelerSuite(t *stdtesting.T) {
+func TestSshTunnelerSuite(t *testing.T) {
 	tc.Run(t, &sshTunnelerSuite{})
 }
 

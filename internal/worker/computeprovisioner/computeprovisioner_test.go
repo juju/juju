@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -313,7 +313,7 @@ type ProvisionerSuite struct {
 	CommonProvisionerSuite
 }
 
-func TestProvisionerSuite(t *stdtesting.T) {
+func TestProvisionerSuite(t *testing.T) {
 	tc.Run(t, &ProvisionerSuite{})
 }
 

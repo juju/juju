@@ -5,7 +5,7 @@ package deployer
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -36,7 +36,7 @@ type deployerSuite struct {
 	badTag names.Tag
 }
 
-func TestDeployerSuite(t *stdtesting.T) {
+func TestDeployerSuite(t *testing.T) {
 	tc.Run(t, &deployerSuite{})
 }
 

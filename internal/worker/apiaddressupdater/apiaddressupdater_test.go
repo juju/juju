@@ -4,7 +4,7 @@
 package apiaddressupdater_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -27,7 +27,7 @@ type APIAddressUpdaterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAPIAddressUpdaterSuite(t *stdtesting.T) {
+func TestAPIAddressUpdaterSuite(t *testing.T) {
 	tc.Run(t, &APIAddressUpdaterSuite{})
 }
 
@@ -261,7 +261,7 @@ type ValidateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestValidateSuite(t *stdtesting.T) {
+func TestValidateSuite(t *testing.T) {
 	tc.Run(t, &ValidateSuite{})
 }
 

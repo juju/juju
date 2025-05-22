@@ -7,7 +7,7 @@ import (
 	"context"
 	"net"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -75,7 +75,7 @@ type listenerSuite struct {
 	listener *MockListener
 }
 
-func TestListenerSuite(t *stdtesting.T) {
+func TestListenerSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &listenerSuite{})
 }

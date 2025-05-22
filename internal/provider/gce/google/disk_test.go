@@ -4,7 +4,7 @@
 package google_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"google.golang.org/api/compute/v1"
@@ -16,7 +16,7 @@ type diskSuite struct {
 	google.BaseSuite
 }
 
-func TestDiskSuite(t *stdtesting.T) {
+func TestDiskSuite(t *testing.T) {
 	tc.Run(t, &diskSuite{})
 }
 

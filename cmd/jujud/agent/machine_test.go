@@ -7,7 +7,7 @@ import (
 	"context"
 	"path/filepath"
 	"reflect"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -57,7 +57,7 @@ type MachineSuite struct {
 	agentStorage envstorage.Storage
 }
 
-func TestMachineSuite(t *stdtesting.T) {
+func TestMachineSuite(t *testing.T) {
 	tc.Run(t, &MachineSuite{})
 }
 

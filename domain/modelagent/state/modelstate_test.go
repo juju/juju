@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -52,7 +52,7 @@ type modelStateSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestModelStateSuite(t *stdtesting.T) {
+func TestModelStateSuite(t *testing.T) {
 	tc.Run(t, &modelStateSuite{})
 }
 

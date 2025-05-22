@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -25,7 +25,7 @@ type addSuite struct {
 	args    []string
 }
 
-func TestAddSuite(t *stdtesting.T) {
+func TestAddSuite(t *testing.T) {
 	tc.Run(t, &addSuite{})
 }
 

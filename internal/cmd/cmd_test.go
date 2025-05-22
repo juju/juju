@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestCmdSuite(t *stdtesting.T)     { tc.Run(t, &CmdSuite{}) }
-func TestCmdHelpSuite(t *stdtesting.T) { tc.Run(t, &CmdHelpSuite{}) }
-func TestCmdDocumentationSuite(t *stdtesting.T) {
+func TestCmdSuite(t *testing.T)     { tc.Run(t, &CmdSuite{}) }
+func TestCmdHelpSuite(t *testing.T) { tc.Run(t, &CmdHelpSuite{}) }
+func TestCmdDocumentationSuite(t *testing.T) {
 	tc.Run(t, &CmdDocumentationSuite{})
 }
 

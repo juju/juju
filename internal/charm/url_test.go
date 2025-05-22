@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
@@ -18,7 +18,7 @@ import (
 
 type URLSuite struct{}
 
-func TestURLSuite(t *stdtesting.T) {
+func TestURLSuite(t *testing.T) {
 	tc.Run(t, &URLSuite{})
 }
 
@@ -268,7 +268,7 @@ func (s *URLSuite) TestJSONGarbage(c *tc.C) {
 
 type QuoteSuite struct{}
 
-func TestQuoteSuite(t *stdtesting.T) {
+func TestQuoteSuite(t *testing.T) {
 	tc.Run(t, &QuoteSuite{})
 }
 

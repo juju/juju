@@ -4,7 +4,7 @@
 package migrationmaster_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -21,7 +21,7 @@ type ManifoldConfigSuite struct {
 	config migrationmaster.ManifoldConfig
 }
 
-func TestManifoldConfigSuite(t *stdtesting.T) {
+func TestManifoldConfigSuite(t *testing.T) {
 	tc.Run(t, &ManifoldConfigSuite{})
 }
 

@@ -4,7 +4,7 @@
 package space_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ type AddSuite struct {
 	BaseSpaceSuite
 }
 
-func TestAddSuite(t *stdtesting.T) {
+func TestAddSuite(t *testing.T) {
 	tc.Run(t, &AddSuite{})
 }
 

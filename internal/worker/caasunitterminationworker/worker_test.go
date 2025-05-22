@@ -6,7 +6,7 @@ package caasunitterminationworker_test
 import (
 	"context"
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/internal/worker/caasunitterminationworker"
 )
 
-func TestTerminationWorkerSuite(t *stdtesting.T) {
+func TestTerminationWorkerSuite(t *testing.T) {
 	tc.Run(t, &TerminationWorkerSuite{})
 }
 

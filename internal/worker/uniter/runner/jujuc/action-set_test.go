@@ -5,7 +5,7 @@ package jujuc_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/jujuctesting"
 )
 
-func TestActionSetSuite(t *stdtesting.T) {
+func TestActionSetSuite(t *testing.T) {
 	tc.Run(t, &ActionSetSuite{})
 }
 

@@ -8,7 +8,7 @@ import (
 	"crypto/rsa"
 	"fmt"
 	net "net"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/gliderlabs/ssh"
@@ -37,7 +37,7 @@ type sshServerSuite struct {
 	sessionHandler *MockSessionHandler
 }
 
-func TestSshServerSuite(t *stdtesting.T) {
+func TestSshServerSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &sshServerSuite{})
 }

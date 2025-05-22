@@ -4,7 +4,7 @@
 package mongo_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type preallocSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestPreallocSuite(t *stdtesting.T) {
+func TestPreallocSuite(t *testing.T) {
 	tc.Run(t, &preallocSuite{})
 }
 

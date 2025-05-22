@@ -6,7 +6,7 @@ package domain
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -29,7 +29,7 @@ type watcherSuite struct {
 	events *MockEventSource
 }
 
-func TestWatcherSuite(t *stdtesting.T) {
+func TestWatcherSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &watcherSuite{})
 }

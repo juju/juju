@@ -4,7 +4,7 @@
 package client_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type CAASStatusSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCAASStatusSuite(t *stdtesting.T) {
+func TestCAASStatusSuite(t *testing.T) {
 	tc.Run(t, &CAASStatusSuite{})
 }
 

@@ -4,7 +4,7 @@
 package base_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type ImportTest struct{}
 
-func TestImportTest(t *stdtesting.T) {
+func TestImportTest(t *testing.T) {
 	tc.Run(t, &ImportTest{})
 }
 

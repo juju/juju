@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -35,7 +35,7 @@ type charmServiceSuite struct {
 	baseSuite
 }
 
-func TestCharmServiceSuite(t *stdtesting.T) {
+func TestCharmServiceSuite(t *testing.T) {
 	tc.Run(t, &charmServiceSuite{})
 }
 
@@ -1900,7 +1900,7 @@ type watchableServiceSuite struct {
 	service *WatchableService
 }
 
-func TestWatchableServiceSuite(t *stdtesting.T) {
+func TestWatchableServiceSuite(t *testing.T) {
 	tc.Run(t, &watchableServiceSuite{})
 }
 

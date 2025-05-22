@@ -5,7 +5,7 @@ package bootstrap
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type addressFinderSuite struct {
 	instanceLister *MockInstanceLister
 }
 
-func TestAddressFinderSuite(t *stdtesting.T) {
+func TestAddressFinderSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &addressFinderSuite{})
 }

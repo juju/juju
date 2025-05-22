@@ -4,7 +4,7 @@
 package exec_test
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -20,7 +20,7 @@ type statusSuite struct {
 	BaseSuite
 }
 
-func TestStatusSuite(t *stdtesting.T) {
+func TestStatusSuite(t *testing.T) {
 	tc.Run(t, &statusSuite{})
 }
 

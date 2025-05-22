@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type dnsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDnsSuite(t *stdtesting.T) {
+func TestDnsSuite(t *testing.T) {
 	tc.Run(t, &dnsSuite{})
 }
 

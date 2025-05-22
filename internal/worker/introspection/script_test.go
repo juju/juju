@@ -6,7 +6,7 @@ package introspection
 import (
 	"os"
 	"runtime"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type profileSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestProfileSuite(t *stdtesting.T) {
+func TestProfileSuite(t *testing.T) {
 	tc.Run(t, &profileSuite{})
 }
 

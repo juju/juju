@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -37,7 +37,7 @@ type workerConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestWorkerConfigSuite(t *stdtesting.T) {
+func TestWorkerConfigSuite(t *testing.T) {
 	tc.Run(t, &workerConfigSuite{})
 }
 
@@ -174,7 +174,7 @@ type workerSuite struct {
 	newWorkerFunc func(instancemutater.Config, instancemutater.RequiredMutaterContextFunc) (worker.Worker, error)
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	tc.Run(t, &workerSuite{})
 }
 
@@ -195,7 +195,7 @@ type workerEnvironSuite struct {
 	workerSuite
 }
 
-func TestWorkerEnvironSuite(t *stdtesting.T) {
+func TestWorkerEnvironSuite(t *testing.T) {
 	tc.Run(t, &workerEnvironSuite{})
 }
 
@@ -708,7 +708,7 @@ type workerContainerSuite struct {
 	lxdContainer    *mocks.MockMutaterMachine
 }
 
-func TestWorkerContainerSuite(t *stdtesting.T) {
+func TestWorkerContainerSuite(t *testing.T) {
 	tc.Run(t, &workerContainerSuite{})
 }
 

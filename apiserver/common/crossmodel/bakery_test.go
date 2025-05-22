@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
@@ -33,7 +33,7 @@ type bakerySuite struct {
 	mockExpirableStorageBakery *mocks.MockExpirableStorageBakery
 }
 
-func TestBakerySuite(t *stdtesting.T) {
+func TestBakerySuite(t *testing.T) {
 	tc.Run(t, &bakerySuite{})
 }
 

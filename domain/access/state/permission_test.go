@@ -7,7 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"sort"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -34,7 +34,7 @@ type permissionStateSuite struct {
 	debug            bool
 }
 
-func TestPermissionStateSuite(t *stdtesting.T) {
+func TestPermissionStateSuite(t *testing.T) {
 	tc.Run(t, &permissionStateSuite{})
 }
 

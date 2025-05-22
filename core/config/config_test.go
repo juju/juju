@@ -4,7 +4,7 @@
 package config_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/schema"
@@ -19,7 +19,7 @@ type ConfigSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) {
+func TestConfigSuite(t *testing.T) {
 	tc.Run(t, &ConfigSuite{})
 }
 

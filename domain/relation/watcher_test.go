@@ -8,7 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -50,7 +50,7 @@ type watcherSuite struct {
 	relationCount int
 }
 
-func TestWatcherSuite(t *stdtesting.T) {
+func TestWatcherSuite(t *testing.T) {
 	tc.Run(t, &watcherSuite{})
 }
 

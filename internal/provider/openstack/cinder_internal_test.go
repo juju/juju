@@ -4,7 +4,7 @@
 package openstack
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/go-goose/goose/v5/client"
 	"github.com/go-goose/goose/v5/identity"
@@ -23,7 +23,7 @@ type cinderInternalSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCinderInternalSuite(t *stdtesting.T) {
+func TestCinderInternalSuite(t *testing.T) {
 	tc.Run(t, &cinderInternalSuite{})
 }
 

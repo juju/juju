@@ -6,7 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ import (
 
 type commonSuite struct{}
 
-func TestCommonSuite(t *stdtesting.T) {
+func TestCommonSuite(t *testing.T) {
 	tc.Run(t, &commonSuite{})
 }
 

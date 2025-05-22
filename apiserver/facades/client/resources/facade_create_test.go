@@ -4,14 +4,14 @@
 package resources
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-func TestFacadeSuite(t *stdtesting.T) {
+func TestFacadeSuite(t *testing.T) {
 	tc.Run(t, &FacadeSuite{})
 }
 

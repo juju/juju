@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 	time "time"
 
 	"github.com/juju/tc"
@@ -25,7 +25,7 @@ type loggerSuite struct {
 	logger *MockLogger
 }
 
-func TestLoggerSuite(t *stdtesting.T) {
+func TestLoggerSuite(t *testing.T) {
 	tc.Run(t, &loggerSuite{})
 }
 

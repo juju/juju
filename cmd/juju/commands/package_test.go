@@ -5,7 +5,7 @@ package commands_test
 
 import (
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -16,7 +16,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/modelconfig_mock.go github.com/juju/juju/cmd/juju/commands ModelConfigAPI
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/jujuclient_mock.go github.com/juju/juju/jujuclient ClientStore,CookieJar
 
-func TestMain(m *stdtesting.M) {
+func TestMain(m *testing.M) {
 	testhelpers.ExecHelperProcess()
 	os.Exit(m.Run())
 }

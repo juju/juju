@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -29,7 +29,7 @@ type BundlesDirSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBundlesDirSuite(t *stdtesting.T) {
+func TestBundlesDirSuite(t *testing.T) {
 	tc.Run(t, &BundlesDirSuite{})
 }
 
@@ -147,7 +147,7 @@ type ClearDownloadsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestClearDownloadsSuite(t *stdtesting.T) {
+func TestClearDownloadsSuite(t *testing.T) {
 	tc.Run(t, &ClearDownloadsSuite{})
 }
 

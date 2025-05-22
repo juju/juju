@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"io"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -22,7 +22,7 @@ type BSInteractSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBSInteractSuite(t *stdtesting.T) {
+func TestBSInteractSuite(t *testing.T) {
 	tc.Run(t, &BSInteractSuite{})
 }
 

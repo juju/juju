@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ type ApplicationVersionSetSuite struct {
 	ContextSuite
 }
 
-func TestApplicationVersionSetSuite(t *stdtesting.T) {
+func TestApplicationVersionSetSuite(t *testing.T) {
 	tc.Run(t, &ApplicationVersionSetSuite{})
 }
 func (s *ApplicationVersionSetSuite) createCommand(c *tc.C, err error) (*Context, cmd.Command) {

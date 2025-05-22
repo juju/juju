@@ -7,7 +7,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type ControllerCommandSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestControllerCommandSuite(t *stdtesting.T) {
+func TestControllerCommandSuite(t *testing.T) {
 	tc.Run(t, &ControllerCommandSuite{})
 }
 
@@ -151,7 +151,7 @@ type OptionalControllerCommandSuite struct {
 	coretesting.JujuOSEnvSuite
 }
 
-func TestOptionalControllerCommandSuite(t *stdtesting.T) {
+func TestOptionalControllerCommandSuite(t *testing.T) {
 	tc.Run(t, &OptionalControllerCommandSuite{})
 }
 func (s *OptionalControllerCommandSuite) SetUpTest(c *tc.C) {

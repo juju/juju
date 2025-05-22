@@ -13,7 +13,7 @@ import (
 	"path"
 	"runtime"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -31,7 +31,7 @@ type suite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &suite{})
 }
 
@@ -76,7 +76,7 @@ type introspectionSuite struct {
 	gatherer prometheus.Gatherer
 }
 
-func TestIntrospectionSuite(t *stdtesting.T) {
+func TestIntrospectionSuite(t *testing.T) {
 	tc.Run(t, &introspectionSuite{})
 }
 

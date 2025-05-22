@@ -5,7 +5,7 @@ package modelconfig_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ import (
 
 type modelconfigSuite struct{}
 
-func TestModelconfigSuite(t *stdtesting.T) {
+func TestModelconfigSuite(t *testing.T) {
 	tc.Run(t, &modelconfigSuite{})
 }
 

@@ -4,7 +4,7 @@
 package docker_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type DockerResourceSuite struct{}
 
-func TestDockerResourceSuite(t *stdtesting.T) {
+func TestDockerResourceSuite(t *testing.T) {
 	tc.Run(t, &DockerResourceSuite{})
 }
 

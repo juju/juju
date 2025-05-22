@@ -6,7 +6,7 @@ package resources_test
 import (
 	"io"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 )
 
-func TestContentSuite(t *stdtesting.T) {
+func TestContentSuite(t *testing.T) {
 	tc.Run(t, &ContentSuite{})
 }
 
@@ -71,7 +71,7 @@ func (s *ContentSuite) TestVerifyBadFingerprint(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `resource fingerprint does not match expected .*`)
 	s.stub.CheckNoCalls(c)
 }
-func TestCheckerSuite(t *stdtesting.T) {
+func TestCheckerSuite(t *testing.T) {
 	tc.Run(t, &CheckerSuite{})
 }
 

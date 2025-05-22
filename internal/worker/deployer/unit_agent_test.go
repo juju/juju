@@ -4,7 +4,7 @@
 package deployer_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -30,7 +30,7 @@ type UnitAgentSuite struct {
 	config  deployer.UnitAgentConfig
 }
 
-func TestUnitAgentSuite(t *stdtesting.T) {
+func TestUnitAgentSuite(t *testing.T) {
 	tc.Run(t, &UnitAgentSuite{})
 }
 

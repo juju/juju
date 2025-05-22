@@ -5,7 +5,7 @@ package service
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -30,7 +30,7 @@ type spaceSuite struct {
 	notSupportedZoneProviderGetter    func(context.Context) (ProviderWithZones, error)
 }
 
-func TestSpaceSuite(t *stdtesting.T) {
+func TestSpaceSuite(t *testing.T) {
 	tc.Run(t, &spaceSuite{})
 }
 

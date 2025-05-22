@@ -5,7 +5,7 @@ package fs
 
 import (
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +14,7 @@ import (
 
 type copySuite struct{}
 
-func TestCopySuite(t *stdtesting.T) {
+func TestCopySuite(t *testing.T) {
 	tc.Run(t, &copySuite{})
 }
 

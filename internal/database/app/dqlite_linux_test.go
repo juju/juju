@@ -7,7 +7,7 @@ package app
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type onceErrorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestOnceErrorSuite(t *stdtesting.T) {
+func TestOnceErrorSuite(t *testing.T) {
 	tc.Run(t, &onceErrorSuite{})
 }
 

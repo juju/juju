@@ -6,7 +6,7 @@ package removal
 import (
 	"context"
 	"reflect"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -30,7 +30,7 @@ type workerSuite struct {
 	clk *MockClock
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &workerSuite{})
 }

@@ -4,7 +4,7 @@
 package netplan
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -13,7 +13,7 @@ import (
 type NetplanConfigurationMergeSuite struct {
 }
 
-func TestNetplanConfigurationMergeSuite(t *stdtesting.T) {
+func TestNetplanConfigurationMergeSuite(t *testing.T) {
 	tc.Run(t, &NetplanConfigurationMergeSuite{})
 }
 func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsWithEmptyBaseFile(c *tc.C) {

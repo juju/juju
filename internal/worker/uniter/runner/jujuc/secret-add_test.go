@@ -6,7 +6,7 @@ package jujuc_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type SecretAddSuite struct {
 	ContextSuite
 }
 
-func TestSecretAddSuite(t *stdtesting.T) {
+func TestSecretAddSuite(t *testing.T) {
 	tc.Run(t, &SecretAddSuite{})
 }
 

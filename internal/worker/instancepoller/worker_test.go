@@ -6,7 +6,7 @@ package instancepoller
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -31,12 +31,12 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
-func TestPollGroupEntrySuite(t *stdtesting.T) {
+func TestConfigSuite(t *testing.T) { tc.Run(t, &configSuite{}) }
+func TestPollGroupEntrySuite(t *testing.T) {
 	tc.Run(t, &pollGroupEntrySuite{})
 }
 
-func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
+func TestWorkerSuite(t *testing.T) { tc.Run(t, &workerSuite{}) }
 
 var (
 	testAddrs = network.ProviderAddresses{

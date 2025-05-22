@@ -5,7 +5,7 @@ package machinemanager
 
 import (
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -17,7 +17,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package machinemanager -destination environ_mock_test.go github.com/juju/juju/environs Environ,InstanceTypesFetcher,BootstrapEnviron
 //go:generate go run go.uber.org/mock/mockgen -typed -package machinemanager -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 
-func TestMain(m *stdtesting.M) {
+func TestMain(m *testing.M) {
 	os.Exit(func() int {
 		defer coretesting.MgoTestMain()()
 		return m.Run()

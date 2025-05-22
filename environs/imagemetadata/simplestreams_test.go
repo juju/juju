@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -26,7 +26,7 @@ type liveTestData struct {
 	validCloudSpec simplestreams.CloudSpec
 }
 
-func TestSimplestreamsSuite(t *stdtesting.T) {
+func TestSimplestreamsSuite(t *testing.T) {
 	cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{
 			Region:   "us-east-1",
@@ -266,7 +266,7 @@ func (s *simplestreamsSuite) TestFetch(c *tc.C) {
 
 type productSpecSuite struct{}
 
-func TestProductSpecSuite(t *stdtesting.T) {
+func TestProductSpecSuite(t *testing.T) {
 	tc.Run(t, &productSpecSuite{})
 }
 
@@ -315,7 +315,7 @@ type signedSuite struct {
 	server  *httptest.Server
 }
 
-func TestSignedSuite(t *stdtesting.T) {
+func TestSignedSuite(t *testing.T) {
 	tc.Run(t, &signedSuite{})
 }
 

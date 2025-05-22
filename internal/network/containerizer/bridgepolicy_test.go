@@ -5,7 +5,7 @@ package containerizer
 
 import (
 	"strconv"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type bridgePolicySuite struct {
 	guest  *MockContainer
 }
 
-func TestBridgePolicySuite(t *stdtesting.T) {
+func TestBridgePolicySuite(t *testing.T) {
 	tc.Run(t, &bridgePolicySuite{})
 }
 

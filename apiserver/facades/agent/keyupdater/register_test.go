@@ -4,7 +4,7 @@
 package keyupdater
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type registerSuite struct {
 	machineTag   names.MachineTag
 }
 
-func TestRegisterSuite(t *stdtesting.T) {
+func TestRegisterSuite(t *testing.T) {
 	tc.Run(t, &registerSuite{})
 }
 

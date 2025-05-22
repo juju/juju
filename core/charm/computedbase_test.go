@@ -4,7 +4,7 @@
 package charm
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -19,7 +19,7 @@ type computedBaseSuite struct {
 	testhelpers.CleanupSuite
 }
 
-func TestComputedBaseSuite(t *stdtesting.T) {
+func TestComputedBaseSuite(t *testing.T) {
 	tc.Run(t, &computedBaseSuite{})
 }
 

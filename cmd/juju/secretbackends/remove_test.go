@@ -4,7 +4,7 @@
 package secretbackends_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type RemoveSuite struct {
 	removeSecretBackendsAPI *secretbackends.MockRemoveSecretBackendsAPI
 }
 
-func TestRemoveSuite(t *stdtesting.T) {
+func TestRemoveSuite(t *testing.T) {
 	tc.Run(t, &RemoveSuite{})
 }
 

@@ -4,7 +4,7 @@
 package resources_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type secretSuite struct {
 	resourceSuite
 }
 
-func TestSecretSuite(t *stdtesting.T) {
+func TestSecretSuite(t *testing.T) {
 	tc.Run(t, &secretSuite{})
 }
 

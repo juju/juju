@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -26,7 +26,7 @@ type bootstrapSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBootstrapSuite(t *stdtesting.T) {
+func TestBootstrapSuite(t *testing.T) {
 	tc.Run(t, &bootstrapSuite{})
 }
 

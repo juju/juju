@@ -4,7 +4,7 @@
 package machinemanager
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type instanceTypesSuite struct {
 	instanceTypesFetcher *MockInstanceTypesFetcher
 }
 
-func TestInstanceTypesSuite(t *stdtesting.T) {
+func TestInstanceTypesSuite(t *testing.T) {
 	tc.Run(t, &instanceTypesSuite{})
 }
 

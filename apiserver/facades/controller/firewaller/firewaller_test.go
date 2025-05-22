@@ -4,7 +4,7 @@
 package firewaller_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type legacyFirewallerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLegacyFirewallerSuite(t *stdtesting.T) {
+func TestLegacyFirewallerSuite(t *testing.T) {
 	tc.Run(t, &legacyFirewallerSuite{})
 }
 

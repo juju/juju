@@ -4,7 +4,7 @@
 package secretbackendmanager
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -30,7 +30,7 @@ type SecretsManagerSuite struct {
 	facade          *SecretBackendsManagerAPI
 }
 
-func TestSecretsManagerSuite(t *stdtesting.T) {
+func TestSecretsManagerSuite(t *testing.T) {
 	tc.Run(t, &SecretsManagerSuite{})
 }
 

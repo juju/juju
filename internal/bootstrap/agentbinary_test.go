@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -26,7 +26,7 @@ type agentBinarySuite struct {
 	baseSuite
 }
 
-func TestAgentBinarySuite(t *stdtesting.T) {
+func TestAgentBinarySuite(t *testing.T) {
 	tc.Run(t, &agentBinarySuite{})
 }
 

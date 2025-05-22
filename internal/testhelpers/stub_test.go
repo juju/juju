@@ -4,7 +4,7 @@
 package testhelpers_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -44,7 +44,7 @@ type stubSuite struct {
 	stub *testhelpers.Stub
 }
 
-func TestStubSuite(t *stdtesting.T) {
+func TestStubSuite(t *testing.T) {
 	tc.Run(t, &stubSuite{})
 }
 

@@ -5,7 +5,7 @@ package base
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type BaseValidateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBaseValidateSuite(t *stdtesting.T) {
+func TestBaseValidateSuite(t *testing.T) {
 	tc.Run(t, &BaseValidateSuite{})
 }
 

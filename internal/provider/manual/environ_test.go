@@ -5,7 +5,7 @@ package manual
 
 import (
 	"os"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -39,7 +39,7 @@ type environSuite struct {
 	baseEnvironSuite
 }
 
-func TestEnvironSuite(t *stdtesting.T) {
+func TestEnvironSuite(t *testing.T) {
 	tc.Run(t, &environSuite{})
 }
 
@@ -204,7 +204,7 @@ type controllerInstancesSuite struct {
 	baseEnvironSuite
 }
 
-func TestControllerInstancesSuite(t *stdtesting.T) {
+func TestControllerInstancesSuite(t *testing.T) {
 	tc.Run(t, &controllerInstancesSuite{})
 }
 func (s *controllerInstancesSuite) TestControllerInstances(c *tc.C) {

@@ -5,7 +5,7 @@ package common_test
 
 import (
 	"sync"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +14,7 @@ import (
 
 type resourceSuite struct{}
 
-func TestResourceSuite(t *stdtesting.T) {
+func TestResourceSuite(t *testing.T) {
 	tc.Run(t, &resourceSuite{})
 }
 

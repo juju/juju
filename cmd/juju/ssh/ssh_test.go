@@ -4,7 +4,7 @@
 package ssh
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type CmdSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCmdSuite(t *stdtesting.T) {
+func TestCmdSuite(t *testing.T) {
 	tc.Run(t, &CmdSuite{})
 }
 

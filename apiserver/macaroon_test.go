@@ -6,7 +6,7 @@ package apiserver_test
 import (
 	"net/http"
 	"net/url"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestMacaroonLoginSuite(t *stdtesting.T) {
+func TestMacaroonLoginSuite(t *testing.T) {
 	tc.Run(t, &macaroonLoginSuite{})
 }
 

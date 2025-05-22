@@ -5,7 +5,7 @@ package application_test
 
 import (
 	stderrors "errors"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -30,7 +30,7 @@ import (
 
 type applicationSuite struct{}
 
-func TestApplicationSuite(t *stdtesting.T) {
+func TestApplicationSuite(t *testing.T) {
 	tc.Run(t, &applicationSuite{})
 }
 

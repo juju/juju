@@ -6,7 +6,7 @@ package apicaller_test
 import (
 	"context"
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -30,7 +30,7 @@ type ScaryConnectSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestScaryConnectSuite(t *stdtesting.T) {
+func TestScaryConnectSuite(t *testing.T) {
 	tc.Run(t, &ScaryConnectSuite{})
 }
 

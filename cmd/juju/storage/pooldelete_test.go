@@ -5,7 +5,7 @@ package storage_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type PoolRemoveSuite struct {
 	mockAPI *mockPoolRemoveAPI
 }
 
-func TestPoolRemoveSuite(t *stdtesting.T) {
+func TestPoolRemoveSuite(t *testing.T) {
 	tc.Run(t, &PoolRemoveSuite{})
 }
 

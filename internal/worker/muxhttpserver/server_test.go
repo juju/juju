@@ -7,7 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net/http"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -22,7 +22,7 @@ type ServerSuite struct {
 	client    *http.Client
 }
 
-func TestServerSuite(t *stdtesting.T) {
+func TestServerSuite(t *testing.T) {
 	tc.Run(t, &ServerSuite{})
 }
 

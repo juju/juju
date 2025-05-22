@@ -5,7 +5,7 @@ package undertaker_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -34,11 +34,11 @@ type IAASManifoldSuite struct {
 	manifoldSuite
 }
 
-func TestIAASManifoldSuite(t *stdtesting.T) {
+func TestIAASManifoldSuite(t *testing.T) {
 	tc.Run(t, &IAASManifoldSuite{})
 }
 
-func TestCAASManifoldSuite(t *stdtesting.T) {
+func TestCAASManifoldSuite(t *testing.T) {
 	tc.Run(t, &CAASManifoldSuite{})
 }
 

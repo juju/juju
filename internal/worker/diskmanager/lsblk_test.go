@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/internal/worker/diskmanager"
 )
 
-func TestListBlockDevicesSuite(t *stdtesting.T) {
+func TestListBlockDevicesSuite(t *testing.T) {
 	tc.Run(t, &ListBlockDevicesSuite{})
 }
 

@@ -11,7 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -79,7 +79,7 @@ type RefreshSuite struct {
 	BaseRefreshSuite
 }
 
-func TestRefreshSuite(t *stdtesting.T) {
+func TestRefreshSuite(t *testing.T) {
 	tc.Run(t, &RefreshSuite{})
 }
 
@@ -1026,7 +1026,7 @@ type RefreshCharmHubSuite struct {
 	BaseRefreshSuite
 }
 
-func TestRefreshCharmHubSuite(t *stdtesting.T) {
+func TestRefreshCharmHubSuite(t *testing.T) {
 	tc.Run(t, &RefreshCharmHubSuite{})
 }
 

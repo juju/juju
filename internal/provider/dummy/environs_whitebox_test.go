@@ -4,7 +4,7 @@
 package dummy
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ var (
 	_ environs.NetworkingEnviron = (*environ)(nil)
 )
 
-func TestEnvironWhiteboxSuite(t *stdtesting.T) {
+func TestEnvironWhiteboxSuite(t *testing.T) {
 	tc.Run(t, &environWhiteboxSuite{})
 }
 

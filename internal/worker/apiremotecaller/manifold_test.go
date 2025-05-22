@@ -4,7 +4,7 @@
 package apiremotecaller
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
@@ -26,7 +26,7 @@ type ManifoldSuite struct {
 	config ManifoldConfig
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &ManifoldSuite{})
 }

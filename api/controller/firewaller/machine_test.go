@@ -4,7 +4,7 @@
 package firewaller_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type machineSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestMachineSuite(t *stdtesting.T) {
+func TestMachineSuite(t *testing.T) {
 	tc.Run(t, &machineSuite{})
 }
 

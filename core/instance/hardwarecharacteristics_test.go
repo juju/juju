@@ -4,7 +4,7 @@
 package instance_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type HardwareSuite struct{}
 
-func TestHardwareSuite(t *stdtesting.T) {
+func TestHardwareSuite(t *testing.T) {
 	tc.Run(t, &HardwareSuite{})
 }
 

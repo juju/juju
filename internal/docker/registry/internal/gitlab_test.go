@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -32,7 +32,7 @@ type gitlabSuite struct {
 	authToken        string
 }
 
-func TestGitlabSuite(t *stdtesting.T) {
+func TestGitlabSuite(t *testing.T) {
 	tc.Run(t, &gitlabSuite{})
 }
 

@@ -4,7 +4,7 @@
 package network_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type DeviceNamesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDeviceNamesSuite(t *stdtesting.T) {
+func TestDeviceNamesSuite(t *testing.T) {
 	tc.Run(t, &DeviceNamesSuite{})
 }
 

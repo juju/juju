@@ -6,7 +6,7 @@ package modellife
 import (
 	"context"
 	"sync/atomic"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	jujuerrors "github.com/juju/errors"
@@ -34,7 +34,7 @@ type workerSuite struct {
 	modelUUID model.UUID
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &workerSuite{})
 }

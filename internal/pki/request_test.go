@@ -7,7 +7,7 @@ import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type RequestSigner struct {
 	signer crypto.Signer
 }
 
-func TestRequestSigner(t *stdtesting.T) {
+func TestRequestSigner(t *testing.T) {
 	tc.Run(t, &RequestSigner{})
 }
 

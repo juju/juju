@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"text/template"
 
 	"github.com/juju/loggo/v2"
@@ -42,7 +42,7 @@ type GenerateAgentsSuite struct {
 	publicStorageDir string
 }
 
-func TestGenerateAgentsSuite(t *stdtesting.T) {
+func TestGenerateAgentsSuite(t *testing.T) {
 	tc.Run(t, &GenerateAgentsSuite{})
 }
 

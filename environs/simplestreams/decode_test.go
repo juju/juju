@@ -5,7 +5,7 @@ package simplestreams_test
 
 import (
 	"bytes"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +14,7 @@ import (
 
 type decodeSuite struct{}
 
-func TestDecodeSuite(t *stdtesting.T) {
+func TestDecodeSuite(t *testing.T) {
 	tc.Run(t, &decodeSuite{})
 }
 

@@ -4,7 +4,7 @@
 package uuid
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type uuidSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestUuidSuite(t *stdtesting.T) {
+func TestUuidSuite(t *testing.T) {
 	tc.Run(t, &uuidSuite{})
 }
 

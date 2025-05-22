@@ -6,7 +6,7 @@ package bootstrap
 import (
 	"context"
 	"database/sql"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type bootstrapSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestBootstrapSuite(t *stdtesting.T) {
+func TestBootstrapSuite(t *testing.T) {
 	tc.Run(t, &bootstrapSuite{})
 }
 

@@ -5,7 +5,7 @@ package lxd
 
 import (
 	"encoding/pem"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type sharedSuite struct {
 	lxdtesting.BaseSuite
 }
 
-func TestSharedSuite(t *stdtesting.T) {
+func TestSharedSuite(t *testing.T) {
 	tc.Run(t, &sharedSuite{})
 }
 

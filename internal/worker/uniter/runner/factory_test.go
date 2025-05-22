@@ -5,7 +5,7 @@ package runner_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type FactorySuite struct {
 	ContextSuite
 }
 
-func TestFactorySuite(t *stdtesting.T) {
+func TestFactorySuite(t *testing.T) {
 	tc.Run(t, &FactorySuite{})
 }
 

@@ -4,7 +4,7 @@
 package lifeflag_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ type ValidateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestValidateSuite(t *stdtesting.T) {
+func TestValidateSuite(t *testing.T) {
 	tc.Run(t, &ValidateSuite{})
 }
 

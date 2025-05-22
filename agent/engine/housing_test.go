@@ -5,7 +5,7 @@ package engine_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -25,7 +25,7 @@ type HousingSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHousingSuite(t *stdtesting.T) {
+func TestHousingSuite(t *testing.T) {
 	tc.Run(t, &HousingSuite{})
 }
 

@@ -5,7 +5,7 @@ package resources
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -23,7 +23,7 @@ type HelpersSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHelpersSuite(t *stdtesting.T) {
+func TestHelpersSuite(t *testing.T) {
 	tc.Run(t, &HelpersSuite{})
 }
 

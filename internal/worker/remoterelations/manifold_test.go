@@ -5,7 +5,7 @@ package remoterelations_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type ManifoldConfigSuite struct {
 	config remoterelations.ManifoldConfig
 }
 
-func TestManifoldConfigSuite(t *stdtesting.T) {
+func TestManifoldConfigSuite(t *testing.T) {
 	tc.Run(t, &ManifoldConfigSuite{})
 }
 

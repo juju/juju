@@ -4,7 +4,7 @@
 package featureflag
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type flagSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFlagSuite(t *stdtesting.T) {
+func TestFlagSuite(t *testing.T) {
 	tc.Run(t, &flagSuite{})
 }
 

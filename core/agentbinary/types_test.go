@@ -4,7 +4,7 @@
 package agentbinary
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 
 type typeSuite struct{}
 
-func TestTypeSuite(t *stdtesting.T) {
+func TestTypeSuite(t *testing.T) {
 	tc.Run(t, &typeSuite{})
 }
 

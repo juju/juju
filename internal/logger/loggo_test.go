@@ -5,7 +5,7 @@ package logger
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type loggoSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestLoggoSuite(t *stdtesting.T) {
+func TestLoggoSuite(t *testing.T) {
 	tc.Run(t, &loggoSuite{})
 }
 

@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -28,7 +28,7 @@ type ShowUnitSuite struct {
 	mockAPI *mockShowUnitAPI
 }
 
-func TestShowUnitSuite(t *stdtesting.T) {
+func TestShowUnitSuite(t *testing.T) {
 	tc.Run(t, &ShowUnitSuite{})
 }
 

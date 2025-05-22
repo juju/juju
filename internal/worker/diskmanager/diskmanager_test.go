@@ -5,7 +5,7 @@ package diskmanager_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/internal/worker/diskmanager"
 )
 
-func TestDiskManagerWorkerSuite(t *stdtesting.T) {
+func TestDiskManagerWorkerSuite(t *testing.T) {
 	tc.Run(t, &DiskManagerWorkerSuite{})
 }
 

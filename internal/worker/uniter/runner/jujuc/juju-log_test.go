@@ -6,7 +6,7 @@ package jujuc_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -24,7 +24,7 @@ type JujuLogSuite struct {
 	relationSuite
 }
 
-func TestJujuLogSuite(t *stdtesting.T) {
+func TestJujuLogSuite(t *testing.T) {
 	tc.Run(t, &JujuLogSuite{})
 }
 

@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -32,7 +32,7 @@ type googleContainerRegistrySuite struct {
 	authToken        string
 }
 
-func TestGoogleContainerRegistrySuite(t *stdtesting.T) {
+func TestGoogleContainerRegistrySuite(t *testing.T) {
 	tc.Run(t, &googleContainerRegistrySuite{})
 }
 func (s *googleContainerRegistrySuite) getRegistry(c *tc.C) (registry.Registry, *gomock.Controller) {

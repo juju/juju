@@ -8,7 +8,7 @@ import (
 	"io"
 	net "net"
 	"sync/atomic"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
@@ -28,7 +28,7 @@ type machineSessionSuite struct {
 	mockConnector *MockSSHConnector
 }
 
-func TestMachineSessionSuite(t *stdtesting.T) {
+func TestMachineSessionSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &machineSessionSuite{})
 }

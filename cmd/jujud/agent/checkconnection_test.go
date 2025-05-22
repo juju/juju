@@ -6,7 +6,7 @@ package agent_test
 import (
 	"context"
 	"io"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type checkConnectionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestCheckConnectionSuite(t *stdtesting.T) {
+func TestCheckConnectionSuite(t *testing.T) {
 	tc.Run(t, &checkConnectionSuite{})
 }
 

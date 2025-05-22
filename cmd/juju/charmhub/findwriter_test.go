@@ -5,7 +5,7 @@ package charmhub
 
 import (
 	"bytes"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ type columnFindSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestColumnFindSuite(t *stdtesting.T) {
+func TestColumnFindSuite(t *testing.T) {
 	tc.Run(t, &columnFindSuite{})
 }
 
@@ -46,7 +46,7 @@ type printFindSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPrintFindSuite(t *stdtesting.T) {
+func TestPrintFindSuite(t *testing.T) {
 	tc.Run(t, &printFindSuite{})
 }
 

@@ -4,7 +4,7 @@
 package upgradedatabase
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -28,7 +28,7 @@ type manifoldSuite struct {
 	worker *MockWorker
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &manifoldSuite{})
 }
 

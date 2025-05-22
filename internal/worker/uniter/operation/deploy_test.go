@@ -4,7 +4,7 @@
 package operation_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type DeploySuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDeploySuite(t *stdtesting.T) {
+func TestDeploySuite(t *testing.T) {
 	tc.Run(t, &DeploySuite{})
 }
 

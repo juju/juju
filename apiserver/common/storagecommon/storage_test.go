@@ -4,7 +4,7 @@
 package storagecommon_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -30,7 +30,7 @@ type VolumeStorageAttachmentInfoSuite struct {
 	blockDevices         []blockdevice.BlockDevice
 }
 
-func TestVolumeStorageAttachmentInfoSuite(t *stdtesting.T) {
+func TestVolumeStorageAttachmentInfoSuite(t *testing.T) {
 	tc.Run(t, &VolumeStorageAttachmentInfoSuite{})
 }
 func (s *VolumeStorageAttachmentInfoSuite) SetUpTest(c *tc.C) {
@@ -240,7 +240,7 @@ type FilesystemStorageAttachmentInfoSuite struct {
 	filesystemAttachment *fakeFilesystemAttachment
 }
 
-func TestFilesystemStorageAttachmentInfoSuite(t *stdtesting.T) {
+func TestFilesystemStorageAttachmentInfoSuite(t *testing.T) {
 	tc.Run(t, &FilesystemStorageAttachmentInfoSuite{})
 }
 func (s *FilesystemStorageAttachmentInfoSuite) SetUpTest(c *tc.C) {

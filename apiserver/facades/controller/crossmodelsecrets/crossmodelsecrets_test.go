@@ -5,7 +5,7 @@ package crossmodelsecrets_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestCrossModelSecretsSuite(t *stdtesting.T) {
+func TestCrossModelSecretsSuite(t *testing.T) {
 	tc.Run(t, &CrossModelSecretsSuite{})
 }
 

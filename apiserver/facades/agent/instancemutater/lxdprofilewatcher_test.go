@@ -4,7 +4,7 @@
 package instancemutater_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -44,7 +44,7 @@ type lxdProfileWatcherSuite struct {
 	wc0 watchertest.NotifyWatcherC
 }
 
-func TestLxdProfileWatcherSuite(t *stdtesting.T) {
+func TestLxdProfileWatcherSuite(t *testing.T) {
 	tc.Run(t, &lxdProfileWatcherSuite{})
 }
 

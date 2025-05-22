@@ -4,7 +4,7 @@
 package snap
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -16,7 +16,7 @@ type confinementSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestConfinementSuite(t *stdtesting.T) {
+func TestConfinementSuite(t *testing.T) {
 	tc.Run(t, &confinementSuite{})
 }
 
@@ -51,7 +51,7 @@ type appSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAppSuite(t *stdtesting.T) {
+func TestAppSuite(t *testing.T) {
 	tc.Run(t, &appSuite{})
 }
 

@@ -4,7 +4,7 @@
 package cloudinit
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
@@ -12,7 +12,7 @@ import (
 
 type HelperSuite struct{}
 
-func TestHelperSuite(t *stdtesting.T) {
+func TestHelperSuite(t *testing.T) {
 	tc.Run(t, &HelperSuite{})
 }
 

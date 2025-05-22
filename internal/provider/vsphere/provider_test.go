@@ -6,7 +6,7 @@ package vsphere_test
 import (
 	"errors"
 	"net/url"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -22,7 +22,7 @@ type providerSuite struct {
 	ProviderFixture
 }
 
-func TestProviderSuite(t *stdtesting.T) {
+func TestProviderSuite(t *testing.T) {
 	tc.Run(t, &providerSuite{})
 }
 
@@ -107,7 +107,7 @@ type pingSuite struct {
 	ProviderFixture
 }
 
-func TestPingSuite(t *stdtesting.T) {
+func TestPingSuite(t *testing.T) {
 	tc.Run(t, &pingSuite{})
 }
 

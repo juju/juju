@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ type hashFileSystemAccessorSuite struct {
 	baseSuite
 }
 
-func TestHashFileSystemAccessorSuite(t *stdtesting.T) {
+func TestHashFileSystemAccessorSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &hashFileSystemAccessorSuite{})
 }

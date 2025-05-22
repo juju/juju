@@ -4,7 +4,7 @@
 package spaces_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -23,7 +23,7 @@ type moveSubnetsAPISuite struct {
 	spaces.APISuite
 }
 
-func TestMoveSubnetsAPISuite(t *stdtesting.T) {
+func TestMoveSubnetsAPISuite(t *testing.T) {
 	tc.Run(t, &moveSubnetsAPISuite{})
 }
 

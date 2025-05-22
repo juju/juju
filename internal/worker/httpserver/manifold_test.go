@@ -6,7 +6,7 @@ package httpserver_test
 import (
 	"context"
 	"crypto/tls"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -54,7 +54,7 @@ type ManifoldSuite struct {
 	stub testhelpers.Stub
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &ManifoldSuite{})
 }
 

@@ -4,7 +4,7 @@
 package context
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestPortRangeChangeRecorderSuite(t *stdtesting.T) {
+func TestPortRangeChangeRecorderSuite(t *testing.T) {
 	tc.Run(t, &PortRangeChangeRecorderSuite{})
 }
 

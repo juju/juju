@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -23,7 +23,7 @@ type RelationSetSuite struct {
 	relationSuite
 }
 
-func TestRelationSetSuite(t *stdtesting.T) {
+func TestRelationSetSuite(t *testing.T) {
 	tc.Run(t, &RelationSetSuite{})
 }
 

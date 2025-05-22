@@ -5,7 +5,7 @@ package common_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -26,7 +26,7 @@ type statusGetterSuite struct {
 	badTag names.Tag
 }
 
-func TestStatusGetterSuite(t *stdtesting.T) {
+func TestStatusGetterSuite(t *testing.T) {
 	tc.Run(t, &statusGetterSuite{})
 }
 

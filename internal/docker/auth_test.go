@@ -6,7 +6,7 @@ package docker_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type authSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestAuthSuite(t *stdtesting.T) {
+func TestAuthSuite(t *testing.T) {
 	tc.Run(t, &authSuite{})
 }
 

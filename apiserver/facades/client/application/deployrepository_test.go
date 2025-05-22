@@ -5,7 +5,7 @@ package application
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -23,7 +23,7 @@ type deployRepositorySuite struct {
 	baseSuite
 }
 
-func TestDeployRepositorySuite(t *stdtesting.T) {
+func TestDeployRepositorySuite(t *testing.T) {
 	tc.Run(t, &deployRepositorySuite{})
 }
 

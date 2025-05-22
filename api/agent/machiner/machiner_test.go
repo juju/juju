@@ -4,7 +4,7 @@
 package machiner_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type machinerSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestMachinerSuite(t *stdtesting.T) {
+func TestMachinerSuite(t *testing.T) {
 	tc.Run(t, &machinerSuite{})
 }
 

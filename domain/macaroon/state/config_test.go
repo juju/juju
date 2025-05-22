@@ -4,7 +4,7 @@
 package state
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type configStateSuite struct {
 	schematesting.ControllerSuite
 }
 
-func TestConfigStateSuite(t *stdtesting.T) {
+func TestConfigStateSuite(t *testing.T) {
 	tc.Run(t, &configStateSuite{})
 }
 

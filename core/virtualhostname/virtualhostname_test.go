@@ -4,14 +4,14 @@
 package virtualhostname
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
 
 type HostnameSuite struct{}
 
-func TestHostnameSuite(t *stdtesting.T) {
+func TestHostnameSuite(t *testing.T) {
 	tc.Run(t, &HostnameSuite{})
 }
 

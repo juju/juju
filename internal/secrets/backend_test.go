@@ -4,7 +4,7 @@
 package secrets_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type backendSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBackendSuite(t *stdtesting.T) {
+func TestBackendSuite(t *testing.T) {
 	tc.Run(t, &backendSuite{})
 }
 

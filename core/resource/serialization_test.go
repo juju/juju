@@ -5,7 +5,7 @@ package resource_test
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type SerializationSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSerializationSuite(t *stdtesting.T) {
+func TestSerializationSuite(t *testing.T) {
 	tc.Run(t, &SerializationSuite{})
 }
 

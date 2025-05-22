@@ -5,7 +5,7 @@ package runcommands_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -32,7 +32,7 @@ type runcommandsSuite struct {
 	commandCompleted func(string)
 }
 
-func TestRuncommandsSuite(t *stdtesting.T) {
+func TestRuncommandsSuite(t *testing.T) {
 	tc.Run(t, &runcommandsSuite{})
 }
 

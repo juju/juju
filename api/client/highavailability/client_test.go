@@ -4,7 +4,7 @@
 package highavailability_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -18,7 +18,7 @@ import (
 type clientSuite struct {
 }
 
-func TestClientSuite(t *stdtesting.T) {
+func TestClientSuite(t *testing.T) {
 	tc.Run(t, &clientSuite{})
 }
 

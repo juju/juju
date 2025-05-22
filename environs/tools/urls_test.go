@@ -6,7 +6,7 @@ package tools_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type URLsSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestURLsSuite(t *stdtesting.T) {
+func TestURLsSuite(t *testing.T) {
 	tc.Run(t, &URLsSuite{})
 }
 

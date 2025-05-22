@@ -9,7 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -27,7 +27,7 @@ type UpgradeModelSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestUpgradeModelSuite(t *stdtesting.T) {
+func TestUpgradeModelSuite(t *testing.T) {
 	tc.Run(t, &UpgradeModelSuite{})
 }
 

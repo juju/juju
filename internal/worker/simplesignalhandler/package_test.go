@@ -2,7 +2,3 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package simplesignalhandler_test
-
-import (
-	. "testing"
-)

@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type SecretGrantSuite struct {
 	relationSuite
 }
 
-func TestSecretGrantSuite(t *stdtesting.T) {
+func TestSecretGrantSuite(t *testing.T) {
 	tc.Run(t, &SecretGrantSuite{})
 }
 

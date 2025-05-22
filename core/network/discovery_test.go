@@ -5,7 +5,7 @@ package network_test
 
 import (
 	"net"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -27,7 +27,7 @@ type networkConfigSuite struct {
 	bridgePorts           map[string][]string
 }
 
-func TestNetworkConfigSuite(t *stdtesting.T) {
+func TestNetworkConfigSuite(t *testing.T) {
 	tc.Run(t, &networkConfigSuite{})
 }
 

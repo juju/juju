@@ -6,7 +6,7 @@ package space_test
 import (
 	"context"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -34,7 +34,7 @@ type BaseSpaceSuite struct {
 	api        *StubAPI
 }
 
-func TestBaseSpaceSuite(t *stdtesting.T) {
+func TestBaseSpaceSuite(t *testing.T) {
 	tc.Run(t, &BaseSpaceSuite{})
 }
 

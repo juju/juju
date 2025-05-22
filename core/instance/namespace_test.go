@@ -4,7 +4,7 @@
 package instance_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type NamespaceSuite struct{}
 
-func TestNamespaceSuite(t *stdtesting.T) {
+func TestNamespaceSuite(t *testing.T) {
 	tc.Run(t, &NamespaceSuite{})
 }
 

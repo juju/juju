@@ -7,7 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -60,7 +60,7 @@ type Suite struct {
 	facadeContext facadetest.ModelContext
 }
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &Suite{})
 }
 

@@ -20,7 +20,7 @@ package progress_test
 import (
 	"bytes"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -32,7 +32,7 @@ import (
 
 type ProgressTestSuite struct{}
 
-func TestProgressTestSuite(t *stdtesting.T) {
+func TestProgressTestSuite(t *testing.T) {
 	tc.Run(t, &ProgressTestSuite{})
 }
 

@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type statusSetSuite struct {
 	ContextSuite
 }
 
-func TestStatusSetSuite(t *stdtesting.T) {
+func TestStatusSetSuite(t *testing.T) {
 	tc.Run(t, &statusSetSuite{})
 }
 

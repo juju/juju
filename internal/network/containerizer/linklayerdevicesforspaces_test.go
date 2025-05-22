@@ -5,7 +5,7 @@ package containerizer
 
 import (
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -18,7 +18,7 @@ type linkLayerDevForSpacesSuite struct {
 	baseSuite
 }
 
-func TestLinkLayerDevForSpacesSuite(t *stdtesting.T) {
+func TestLinkLayerDevForSpacesSuite(t *testing.T) {
 	tc.Run(t, &linkLayerDevForSpacesSuite{})
 }
 func (s *linkLayerDevForSpacesSuite) policy() *BridgePolicy {

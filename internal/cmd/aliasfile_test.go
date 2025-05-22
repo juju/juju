@@ -7,7 +7,7 @@ import (
 	_ "fmt"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type ParseAliasFileSuite struct {
 	testhelpers.LoggingSuite
 }
 
-func TestParseAliasFileSuite(t *stdtesting.T) {
+func TestParseAliasFileSuite(t *testing.T) {
 	tc.Run(t, &ParseAliasFileSuite{})
 }
 

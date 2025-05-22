@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/collections/set"
@@ -32,7 +32,7 @@ type providerSuite struct {
 	mockRoundTripper *mocks.MockRoundTripper
 }
 
-func TestProviderSuite(t *stdtesting.T) {
+func TestProviderSuite(t *testing.T) {
 	tc.Run(t, &providerSuite{})
 }
 

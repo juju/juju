@@ -5,7 +5,7 @@ package caasfirewaller_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -36,7 +36,7 @@ type firewallerSuite struct {
 	objType string
 }
 
-func TestFirewallerSuite(t *stdtesting.T) {
+func TestFirewallerSuite(t *testing.T) {
 	tc.Run(t, &firewallerSuite{
 		objType: "CAASFirewaller",
 		newFunc: func(caller base.APICaller) clientCommmon {

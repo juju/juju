@@ -4,7 +4,7 @@
 package relation
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 type encodeWatchEventSuite struct {
 }
 
-func TestEncodeWatchEventSuite(t *stdtesting.T) {
+func TestEncodeWatchEventSuite(t *testing.T) {
 	tc.Run(t, &encodeWatchEventSuite{})
 }
 

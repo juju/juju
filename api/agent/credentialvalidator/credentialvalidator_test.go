@@ -4,7 +4,7 @@
 package credentialvalidator_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestCredentialValidatorSuite(t *stdtesting.T) {
+func TestCredentialValidatorSuite(t *testing.T) {
 	tc.Run(t, &CredentialValidatorSuite{})
 }
 

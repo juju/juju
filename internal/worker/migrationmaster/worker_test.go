@@ -9,7 +9,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"reflect"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -52,7 +52,7 @@ type Suite struct {
 	config        migrationmaster.Config
 }
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &Suite{})
 }
 

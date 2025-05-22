@@ -4,7 +4,7 @@
 package bootstrap
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -24,7 +24,7 @@ type deployerIAASSuite struct {
 	machineGetter *MockMachineGetter
 }
 
-func TestDeployerIAASSuite(t *stdtesting.T) {
+func TestDeployerIAASSuite(t *testing.T) {
 	tc.Run(t, &deployerIAASSuite{})
 }
 

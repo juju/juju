@@ -5,7 +5,7 @@ package uniter
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -60,7 +60,7 @@ type uniterSuite struct {
 	uniter *UniterAPI
 }
 
-func TestUniterSuite(t *stdtesting.T) {
+func TestUniterSuite(t *testing.T) {
 	tc.Run(t, &uniterSuite{})
 }
 
@@ -812,7 +812,7 @@ type uniterv19Suite struct {
 	leadershipUniterSuite
 }
 
-func TestUniterv19Suite(t *stdtesting.T) {
+func TestUniterv19Suite(t *testing.T) {
 	tc.Run(t, &uniterv19Suite{})
 }
 
@@ -839,7 +839,7 @@ type uniterv20Suite struct {
 	leadershipUniterSuite
 }
 
-func TestUniterv20Suite(t *stdtesting.T) {
+func TestUniterv20Suite(t *testing.T) {
 	tc.Run(t, &uniterv20Suite{})
 }
 
@@ -877,7 +877,7 @@ type uniterRelationSuite struct {
 	uniter *UniterAPI
 }
 
-func TestUniterRelationSuite(t *stdtesting.T) {
+func TestUniterRelationSuite(t *testing.T) {
 	tc.Run(t, &uniterRelationSuite{})
 }
 
@@ -1884,7 +1884,7 @@ type commitHookChangesSuite struct {
 	uniter *UniterAPI
 }
 
-func TestCommitHookChangesSuite(t *stdtesting.T) {
+func TestCommitHookChangesSuite(t *testing.T) {
 	tc.Run(t, &commitHookChangesSuite{})
 }
 

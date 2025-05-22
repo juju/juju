@@ -4,7 +4,7 @@
 package service
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -21,7 +21,7 @@ type metadataSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMetadataSuite(t *stdtesting.T) {
+func TestMetadataSuite(t *testing.T) {
 	tc.Run(t, &metadataSuite{})
 }
 

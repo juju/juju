@@ -4,7 +4,7 @@
 package context_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +20,7 @@ type LeaderSuite struct {
 	context context.LeadershipContext
 }
 
-func TestLeaderSuite(t *stdtesting.T) {
+func TestLeaderSuite(t *testing.T) {
 	tc.Run(t, &LeaderSuite{})
 }
 

@@ -6,7 +6,7 @@ package resources_test
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 )
 
-func TestContextSuite(t *stdtesting.T) {
+func TestContextSuite(t *testing.T) {
 	tc.Run(t, &ContextSuite{})
 }
 

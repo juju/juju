@@ -4,7 +4,7 @@
 package worker_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -14,7 +14,7 @@ import (
 
 type FinishedSuite struct{}
 
-func TestFinishedSuite(t *stdtesting.T) {
+func TestFinishedSuite(t *testing.T) {
 	tc.Run(t, &FinishedSuite{})
 }
 

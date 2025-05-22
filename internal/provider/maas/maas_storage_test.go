@@ -6,7 +6,7 @@ package maas
 import (
 	"bytes"
 	"io"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
@@ -19,7 +19,7 @@ type maasStorageSuite struct {
 	maasSuite
 }
 
-func TestMaasStorageSuite(t *stdtesting.T) {
+func TestMaasStorageSuite(t *testing.T) {
 	tc.Run(t, &maasStorageSuite{})
 }
 

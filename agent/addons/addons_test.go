@@ -5,7 +5,7 @@ package addons_test
 
 import (
 	"runtime"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -28,7 +28,7 @@ type introspectionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestIntrospectionSuite(t *stdtesting.T) {
+func TestIntrospectionSuite(t *testing.T) {
 	tc.Run(t, &introspectionSuite{})
 }
 
@@ -130,7 +130,7 @@ type registerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRegisterSuite(t *stdtesting.T) {
+func TestRegisterSuite(t *testing.T) {
 	tc.Run(t, &registerSuite{})
 }
 

@@ -4,7 +4,7 @@
 package kubernetes
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -16,7 +16,7 @@ type rulesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestRulesSuite(t *stdtesting.T) {
+func TestRulesSuite(t *testing.T) {
 	tc.Run(t, &rulesSuite{})
 }
 

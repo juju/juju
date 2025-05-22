@@ -4,7 +4,7 @@
 package service
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -21,7 +21,7 @@ type migrationServiceSuite struct {
 	state *MockMigrationState
 }
 
-func TestMigrationServiceSuite(t *stdtesting.T) {
+func TestMigrationServiceSuite(t *testing.T) {
 	tc.Run(t, &migrationServiceSuite{})
 }
 

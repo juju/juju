@@ -6,7 +6,7 @@ package provider_test
 import (
 	"context"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo/v2"
@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestCloudSuite(t *stdtesting.T) {
+func TestCloudSuite(t *testing.T) {
 	tc.Run(t, &cloudSuite{})
 }
 

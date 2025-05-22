@@ -6,7 +6,7 @@ package bootstrap
 import (
 	"os"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type BootstrapSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestBootstrapSuite(t *stdtesting.T) {
+func TestBootstrapSuite(t *testing.T) {
 	tc.Run(t, &BootstrapSuite{})
 }
 

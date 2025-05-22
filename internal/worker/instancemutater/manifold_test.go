@@ -5,7 +5,7 @@ package instancemutater_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -27,7 +27,7 @@ type modelManifoldConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestModelManifoldConfigSuite(t *stdtesting.T) {
+func TestModelManifoldConfigSuite(t *testing.T) {
 	tc.Run(t, &modelManifoldConfigSuite{})
 }
 func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *tc.C) {
@@ -146,7 +146,7 @@ type environAPIManifoldSuite struct {
 	worker    *mocks.MockWorker
 }
 
-func TestEnvironAPIManifoldSuite(t *stdtesting.T) {
+func TestEnvironAPIManifoldSuite(t *testing.T) {
 	tc.Run(t, &environAPIManifoldSuite{})
 }
 
@@ -240,7 +240,7 @@ type modelManifoldSuite struct {
 	api         *mocks.MockInstanceMutaterAPI
 }
 
-func TestModelManifoldSuite(t *stdtesting.T) {
+func TestModelManifoldSuite(t *testing.T) {
 	tc.Run(t, &modelManifoldSuite{})
 }
 
@@ -399,7 +399,7 @@ type machineManifoldConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestMachineManifoldConfigSuite(t *stdtesting.T) {
+func TestMachineManifoldConfigSuite(t *testing.T) {
 	tc.Run(t, &machineManifoldConfigSuite{})
 }
 func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *tc.C) {
@@ -518,7 +518,7 @@ type brokerAPIManifoldSuite struct {
 	worker    *mocks.MockWorker
 }
 
-func TestBrokerAPIManifoldSuite(t *stdtesting.T) {
+func TestBrokerAPIManifoldSuite(t *testing.T) {
 	tc.Run(t, &brokerAPIManifoldSuite{})
 }
 
@@ -612,7 +612,7 @@ type machineManifoldSuite struct {
 	api         *mocks.MockInstanceMutaterAPI
 }
 
-func TestMachineManifoldSuite(t *stdtesting.T) {
+func TestMachineManifoldSuite(t *testing.T) {
 	tc.Run(t, &machineManifoldSuite{})
 }
 

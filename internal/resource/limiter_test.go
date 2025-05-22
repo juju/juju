@@ -6,7 +6,7 @@ package resource
 import (
 	"sync"
 	"sync/atomic"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ import (
 type LimiterSuite struct {
 }
 
-func TestLimiterSuite(t *stdtesting.T) {
+func TestLimiterSuite(t *testing.T) {
 	tc.Run(t, &LimiterSuite{})
 }
 

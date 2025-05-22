@@ -4,7 +4,7 @@
 package path
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ type PathSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestPathSuite(t *stdtesting.T) {
+func TestPathSuite(t *testing.T) {
 	tc.Run(t, &PathSuite{})
 }
 

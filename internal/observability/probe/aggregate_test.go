@@ -5,12 +5,12 @@ package probe_test
 
 import (
 	"errors"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/juju/internal/observability/probe"
 )
 
-func TestAggregateProbeSuccess(t *stdtesting.T) {
+func TestAggregateProbeSuccess(t *testing.T) {
 	agg := probe.Aggregate{}
 	agg.AddProber("1", probe.Success)
 	agg.AddProber("2", probe.Success)
@@ -29,7 +29,7 @@ func TestAggregateProbeSuccess(t *stdtesting.T) {
 	}
 }
 
-func TestEmptyAggregateSuccess(t *stdtesting.T) {
+func TestEmptyAggregateSuccess(t *testing.T) {
 	agg := probe.Aggregate{}
 	val, n, err := agg.Probe()
 	if !val {
@@ -43,7 +43,7 @@ func TestEmptyAggregateSuccess(t *stdtesting.T) {
 	}
 }
 
-func TestSingleFalseAggregateProbe(t *stdtesting.T) {
+func TestSingleFalseAggregateProbe(t *testing.T) {
 	agg := probe.Aggregate{}
 	agg.AddProber("1", probe.Success)
 	agg.AddProber("2", probe.ProberFn(func() (bool, error) {
@@ -62,7 +62,7 @@ func TestSingleFalseAggregateProbe(t *stdtesting.T) {
 	}
 }
 
-func TestMultipleFalseAggregateProbe(t *stdtesting.T) {
+func TestMultipleFalseAggregateProbe(t *testing.T) {
 	agg := probe.Aggregate{}
 	agg.AddProber("1", probe.Success)
 	agg.AddProber("2", probe.ProberFn(func() (bool, error) {
@@ -85,7 +85,7 @@ func TestMultipleFalseAggregateProbe(t *stdtesting.T) {
 	}
 }
 
-func TestAggregateProbeWithError(t *stdtesting.T) {
+func TestAggregateProbeWithError(t *testing.T) {
 	agg := probe.Aggregate{}
 	agg.AddProber("1", probe.Success)
 	agg.AddProber("2", probe.ProberFn(func() (bool, error) {
@@ -105,7 +105,7 @@ func TestAggregateProbeWithError(t *stdtesting.T) {
 	}
 }
 
-func TestAggregateProbeCallback(t *stdtesting.T) {
+func TestAggregateProbeCallback(t *testing.T) {
 	agg := probe.Aggregate{}
 	agg.AddProber("1", probe.Success)
 	agg.AddProber("2", probe.ProberFn(func() (bool, error) {

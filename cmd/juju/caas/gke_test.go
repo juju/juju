@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/exec"
@@ -26,7 +26,7 @@ type gkeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestGkeSuite(t *stdtesting.T) {
+func TestGkeSuite(t *testing.T) {
 	tc.Run(t, &gkeSuite{})
 }
 

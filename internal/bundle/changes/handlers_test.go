@@ -5,7 +5,7 @@ package bundlechanges
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +18,7 @@ type resolverSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestResolverSuite(t *stdtesting.T) {
+func TestResolverSuite(t *testing.T) {
 	tc.Run(t, &resolverSuite{})
 }
 

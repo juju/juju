@@ -7,26 +7,26 @@ import (
 	"io"
 	"net/http"
 	"sync"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/bmizerany/pat"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 )
 
-func BenchmarkMux(b *stdtesting.B) {
+func BenchmarkMux(b *testing.B) {
 	mux := apiserverhttp.NewMux()
 	mux.AddHandler("GET", "/hello/:name", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	benchmarkMux(b, mux)
 }
 
-func BenchmarkPatMux(b *stdtesting.B) {
+func BenchmarkPatMux(b *testing.B) {
 	mux := pat.New()
 	mux.Add("GET", "/hello/:name", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	benchmarkMux(b, mux)
 }
 
-func benchmarkMux(b *stdtesting.B, mux http.Handler) {
+func benchmarkMux(b *testing.B, mux http.Handler) {
 	req := newRequest("GET", "/hello/blake", nil)
 	b.ResetTimer()
 	var wg sync.WaitGroup

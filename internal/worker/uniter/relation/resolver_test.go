@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -43,14 +43,14 @@ type relationResolverSuite struct {
 	leadershipContext context.LeadershipContext
 }
 
-func TestRelationResolverSuite(t *stdtesting.T) {
+func TestRelationResolverSuite(t *testing.T) {
 	tc.Run(t, &relationResolverSuite{})
 }
 
-func TestRelationCreatedResolverSuite(t *stdtesting.T) {
+func TestRelationCreatedResolverSuite(t *testing.T) {
 	tc.Run(t, &relationCreatedResolverSuite{})
 }
-func TestMockRelationResolverSuite(t *stdtesting.T) {
+func TestMockRelationResolverSuite(t *testing.T) {
 	tc.Run(t, &mockRelationResolverSuite{})
 }
 

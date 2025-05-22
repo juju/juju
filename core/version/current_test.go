@@ -5,7 +5,7 @@ package version
 
 import (
 	"os/exec"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +14,7 @@ import (
 
 type CurrentSuite struct{}
 
-func TestCurrentSuite(t *stdtesting.T) {
+func TestCurrentSuite(t *testing.T) {
 	tc.Run(t, &CurrentSuite{})
 }
 

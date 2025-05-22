@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ type httpSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestHttpSuite(t *stdtesting.T) {
+func TestHttpSuite(t *testing.T) {
 	tc.Run(t, &httpSuite{})
 }
 

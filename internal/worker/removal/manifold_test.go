@@ -4,7 +4,7 @@
 package removal
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ type manifoldConfigSuite struct {
 	config ManifoldConfig
 }
 
-func TestManifoldConfigSuite(t *stdtesting.T) {
+func TestManifoldConfigSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &manifoldConfigSuite{})
 }
@@ -79,7 +79,7 @@ type manifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &manifoldSuite{})
 }
 

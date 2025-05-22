@@ -5,7 +5,7 @@ package google_test
 
 import (
 	"sort"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"google.golang.org/api/compute/v1"
@@ -18,7 +18,7 @@ type networkSuite struct {
 	google.BaseSuite
 }
 
-func TestNetworkSuite(t *stdtesting.T) {
+func TestNetworkSuite(t *testing.T) {
 	tc.Run(t, &networkSuite{})
 }
 

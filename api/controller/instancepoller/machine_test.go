@@ -6,7 +6,7 @@ package instancepoller_test
 import (
 	"context"
 	"reflect"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -29,7 +29,7 @@ type MachineSuite struct {
 	tag names.MachineTag
 }
 
-func TestMachineSuite(t *stdtesting.T) {
+func TestMachineSuite(t *testing.T) {
 	tc.Run(t, &MachineSuite{})
 }
 

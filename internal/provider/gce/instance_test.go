@@ -4,7 +4,7 @@
 package gce_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type instanceSuite struct {
 	gce.BaseSuite
 }
 
-func TestInstanceSuite(t *stdtesting.T) {
+func TestInstanceSuite(t *testing.T) {
 	tc.Run(t, &instanceSuite{})
 }
 

@@ -4,7 +4,7 @@
 package action_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 type CommonSuite struct{}
 
-func TestCommonSuite(t *stdtesting.T) {
+func TestCommonSuite(t *testing.T) {
 	tc.Run(t, &CommonSuite{})
 }
 

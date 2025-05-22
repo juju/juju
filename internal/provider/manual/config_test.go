@@ -4,7 +4,7 @@
 package manual
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type configSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 }
 
-func TestConfigSuite(t *stdtesting.T) {
+func TestConfigSuite(t *testing.T) {
 	tc.Run(t, &configSuite{})
 }
 

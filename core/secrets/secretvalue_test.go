@@ -5,7 +5,7 @@ package secrets_test
 
 import (
 	"encoding/base64"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +14,7 @@ import (
 
 type SecretValueSuite struct{}
 
-func TestSecretValueSuite(t *stdtesting.T) {
+func TestSecretValueSuite(t *testing.T) {
 	tc.Run(t, &SecretValueSuite{})
 }
 

@@ -4,7 +4,7 @@
 package secretbackends
 
 import (
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -35,7 +35,7 @@ type SecretsSuite struct {
 	mockBackendService *MockSecretBackendService
 }
 
-func TestSecretsSuite(t *stdtesting.T) {
+func TestSecretsSuite(t *testing.T) {
 	tc.Run(t, &SecretsSuite{})
 }
 

@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +17,7 @@ type SecretIdsSuite struct {
 	ContextSuite
 }
 
-func TestSecretIdsSuite(t *stdtesting.T) {
+func TestSecretIdsSuite(t *testing.T) {
 	tc.Run(t, &SecretIdsSuite{})
 }
 

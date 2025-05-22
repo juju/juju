@@ -4,7 +4,7 @@
 package configschema_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/schema"
 	"github.com/juju/tc"
@@ -14,7 +14,7 @@ import (
 
 type fieldsSuite struct{}
 
-func TestFieldsSuite(t *stdtesting.T) {
+func TestFieldsSuite(t *testing.T) {
 	tc.Run(t, &fieldsSuite{})
 }
 

@@ -8,7 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type validationSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestValidationSuite(t *stdtesting.T) {
+func TestValidationSuite(t *testing.T) {
 	tc.Run(t, &validationSuite{})
 }
 
@@ -116,7 +116,7 @@ type snapSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestSnapSuite(t *stdtesting.T) {
+func TestSnapSuite(t *testing.T) {
 	tc.Run(t, &snapSuite{})
 }
 
@@ -166,7 +166,7 @@ type serviceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestServiceSuite(t *stdtesting.T) {
+func TestServiceSuite(t *testing.T) {
 	tc.Run(t, &serviceSuite{})
 }
 

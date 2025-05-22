@@ -4,12 +4,12 @@
 package utils_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
-func TestCleanupsHappenInReverse(t *stdtesting.T) {
+func TestCleanupsHappenInReverse(t *testing.T) {
 	var (
 		firstCleanUpCalled  = false
 		secondCleanUpCalled = false
@@ -32,6 +32,6 @@ func TestCleanupsHappenInReverse(t *stdtesting.T) {
 	}
 }
 
-func TestEmptyCleanUps(_ *stdtesting.T) {
+func TestEmptyCleanUps(_ *testing.T) {
 	utils.RunCleanUps([]func(){})
 }

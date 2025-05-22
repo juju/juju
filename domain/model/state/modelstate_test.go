@@ -4,7 +4,7 @@
 package state
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -33,7 +33,7 @@ type modelSuite struct {
 	controllerUUID uuid.UUID
 }
 
-func TestModelSuite(t *stdtesting.T) {
+func TestModelSuite(t *testing.T) {
 	tc.Run(t, &modelSuite{})
 }
 

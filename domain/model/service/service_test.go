@@ -7,7 +7,7 @@ import (
 	"context"
 	"slices"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/collections/transform"
@@ -55,7 +55,7 @@ type serviceSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-func TestServiceSuite(t *stdtesting.T) {
+func TestServiceSuite(t *testing.T) {
 	tc.Run(t, &serviceSuite{})
 }
 

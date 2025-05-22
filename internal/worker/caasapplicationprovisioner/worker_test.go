@@ -5,7 +5,7 @@ package caasapplicationprovisioner_test
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestCAASApplicationSuite(t *stdtesting.T) {
+func TestCAASApplicationSuite(t *testing.T) {
 	tc.Run(t, &CAASApplicationSuite{})
 }
 

@@ -5,7 +5,7 @@ package singular
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -34,7 +34,7 @@ type ManifoldSuite struct {
 	modelTag names.ModelTag
 }
 
-func TestManifoldSuite(t *stdtesting.T) {
+func TestManifoldSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &ManifoldSuite{})
 }

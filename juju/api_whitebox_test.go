@@ -4,7 +4,7 @@
 package juju
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 )
@@ -12,7 +12,7 @@ import (
 type APIHelperSuite struct {
 }
 
-func TestAPIHelperSuite(t *stdtesting.T) {
+func TestAPIHelperSuite(t *testing.T) {
 	tc.Run(t, &APIHelperSuite{})
 }
 

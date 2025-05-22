@@ -6,7 +6,7 @@ package controller_test
 import (
 	"encoding/json"
 	"fmt"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,7 +26,7 @@ type ListControllersSuite struct {
 	api func(string) controller.ControllerAccessAPI
 }
 
-func TestListControllersSuite(t *stdtesting.T) {
+func TestListControllersSuite(t *testing.T) {
 	tc.Run(t, &ListControllersSuite{})
 }
 

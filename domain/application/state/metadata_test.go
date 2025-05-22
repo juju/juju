@@ -5,7 +5,7 @@ package state
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ type metadataSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestMetadataSuite(t *stdtesting.T) {
+func TestMetadataSuite(t *testing.T) {
 	tc.Run(t, &metadataSuite{})
 }
 
@@ -447,7 +447,7 @@ type metadataStateSuite struct {
 	schematesting.ModelSuite
 }
 
-func TestMetadataStateSuite(t *stdtesting.T) {
+func TestMetadataStateSuite(t *testing.T) {
 	tc.Run(t, &metadataStateSuite{})
 }
 

@@ -5,7 +5,7 @@ package uniter_test
 
 import (
 	"reflect"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -15,7 +15,7 @@ import (
 
 type timerSuite struct{}
 
-func TestTimerSuite(t *stdtesting.T) {
+func TestTimerSuite(t *testing.T) {
 	tc.Run(t, &timerSuite{})
 }
 

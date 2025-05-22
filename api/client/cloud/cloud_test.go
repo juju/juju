@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -26,7 +26,7 @@ import (
 type cloudSuite struct {
 }
 
-func TestCloudSuite(t *stdtesting.T) {
+func TestCloudSuite(t *testing.T) {
 	tc.Run(t, &cloudSuite{})
 }
 

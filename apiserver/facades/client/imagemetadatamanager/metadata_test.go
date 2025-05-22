@@ -5,7 +5,7 @@ package imagemetadatamanager
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ type metadataSuite struct {
 	baseImageMetadataSuite
 }
 
-func TestMetadataSuite(t *stdtesting.T) {
+func TestMetadataSuite(t *testing.T) {
 	tc.Run(t, &metadataSuite{})
 }
 

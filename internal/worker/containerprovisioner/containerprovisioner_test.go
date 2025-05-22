@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -87,7 +87,7 @@ func (s *lxdProvisionerSuite) expectStartup(c *tc.C) {
 		return controllerCfg, nil
 	})
 }
-func TestLxdProvisionerSuite(t *stdtesting.T) {
+func TestLxdProvisionerSuite(t *testing.T) {
 	tc.Run(t, &lxdProvisionerSuite{})
 }
 

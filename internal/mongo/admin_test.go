@@ -4,7 +4,7 @@
 package mongo_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -19,7 +19,7 @@ type adminSuite struct {
 	coretesting.BaseSuite
 }
 
-func TestAdminSuite(t *stdtesting.T) {
+func TestAdminSuite(t *testing.T) {
 	tc.Run(t, &adminSuite{})
 }
 

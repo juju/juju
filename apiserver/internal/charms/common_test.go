@@ -4,7 +4,7 @@
 package charms
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 
@@ -22,7 +22,7 @@ type exportSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestExportSuite(t *stdtesting.T) {
+func TestExportSuite(t *testing.T) {
 	tc.Run(t, &exportSuite{})
 }
 

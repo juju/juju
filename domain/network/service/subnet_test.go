@@ -5,7 +5,7 @@ package service
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -22,7 +22,7 @@ type subnetSuite struct {
 	st *MockState
 }
 
-func TestSubnetSuite(t *stdtesting.T) {
+func TestSubnetSuite(t *testing.T) {
 	tc.Run(t, &subnetSuite{})
 }
 

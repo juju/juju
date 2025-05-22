@@ -7,7 +7,7 @@ import (
 	"context"
 	"reflect"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -50,7 +50,7 @@ type Suite struct {
 	clock  *testclock.Clock
 }
 
-func TestSuite(t *stdtesting.T) {
+func TestSuite(t *testing.T) {
 	tc.Run(t, &Suite{})
 }
 

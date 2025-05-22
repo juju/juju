@@ -5,7 +5,7 @@
 package jujuc_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ type JujuRebootSuite struct {
 	ContextSuite
 }
 
-func TestJujuRebootSuite(t *stdtesting.T) {
+func TestJujuRebootSuite(t *testing.T) {
 	tc.Run(t, &JujuRebootSuite{})
 }
 

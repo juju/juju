@@ -6,7 +6,7 @@ package certupdater_test
 import (
 	"context"
 	"net"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -26,7 +26,7 @@ type CertUpdaterSuite struct {
 	stateServingInfo controller.StateServingInfo
 }
 
-func TestCertUpdaterSuite(t *stdtesting.T) {
+func TestCertUpdaterSuite(t *testing.T) {
 	tc.Run(t, &CertUpdaterSuite{})
 }
 

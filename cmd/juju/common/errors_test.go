@@ -5,7 +5,7 @@ package common_test
 
 import (
 	"bytes"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
@@ -19,7 +19,7 @@ type errorsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestErrorsSuite(t *stdtesting.T) {
+func TestErrorsSuite(t *testing.T) {
 	tc.Run(t, &errorsSuite{})
 }
 

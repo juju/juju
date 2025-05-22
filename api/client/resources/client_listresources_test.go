@@ -4,7 +4,7 @@
 package resources_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestListResourcesSuite(t *stdtesting.T) {
+func TestListResourcesSuite(t *testing.T) {
 	tc.Run(t, &ListResourcesSuite{})
 }
 
