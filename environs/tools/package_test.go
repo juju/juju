@@ -7,16 +7,8 @@ import (
 	"os"
 	stdtesting "testing"
 
-	"github.com/juju/tc"
-
 	"github.com/juju/juju/internal/testhelpers"
 )
-
-func Test(t *stdtesting.T) {
-	setupToolsTests()
-	setupSimpleStreamsTests(t)
-	tc.TestingT(t)
-}
 
 func TestMain(m *stdtesting.M) {
 	testhelpers.ExecHelperProcess()

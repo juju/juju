@@ -148,7 +148,9 @@ func (s *linkLayerSuite) TestStringLengthBetweenWhenWithinLimit(c *tc.C) {
 type linkLayerDeviceUUIDSuite struct {
 }
 
-var _ = tc.Suite(&linkLayerDeviceUUIDSuite{})
+func TestLinkLayerDeviceUUIDSuite(t *stdtesting.T) {
+	tc.Run(t, &linkLayerDeviceUUIDSuite{})
+}
 
 func (*linkLayerDeviceUUIDSuite) TestUUIDValidate(c *tc.C) {
 	// Test that the uuid.Validate method succeeds and

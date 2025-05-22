@@ -13,14 +13,12 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 )
 
-func Test(t *stdtesting.T) {
-	registerSimpleStreamsTests()
-	tc.Suite(&jsonSuite{})
-	tc.TestingT(t)
+func TestJsonSuite(t *stdtesting.T) {
+	tc.Run(t, &jsonSuite{})
 }
 
-func registerSimpleStreamsTests() {
-	tc.Suite(&simplestreamsSuite{
+func TestSimplestreamsSuite(t *stdtesting.T) {
+	tc.Run(t, &simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
 			Source:         sstesting.VerifyDefaultCloudDataSource("test", "test:"),
 			RequireSigned:  false,

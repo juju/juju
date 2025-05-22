@@ -24,12 +24,8 @@ import (
 
 const adminSecret = "admin-secret"
 
-func TestPackage(t *stdtesting.T) {
-	tc.TestingT(t)
-}
-
-func init() {
-	tc.Suite(&suite{
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &suite{
 		Tests: jujutest.Tests{
 			TestConfig: testing.FakeConfig(),
 		},

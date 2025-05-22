@@ -13,7 +13,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	stdtesting "testing"
 
@@ -21,7 +20,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
@@ -71,34 +69,8 @@ func getLiveURLs() (map[string]liveTestData, error) {
 	}, nil
 }
 
-func setupSimpleStreamsTests(t *stdtesting.T) {
-	if *live {
-		if *vendor == "" {
-			t.Fatal("missing vendor")
-		}
-		var ok bool
-		var testData liveTestData
-		liveURLs, err := getLiveURLs()
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		if testData, ok = liveURLs[*vendor]; !ok {
-			keys := reflect.ValueOf(liveURLs).MapKeys()
-			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
-		}
-		registerLiveSimpleStreamsTests(testData.baseURL,
-			tools.NewVersionedToolsConstraint(semversion.MustParse("1.13.0"), simplestreams.LookupParams{
-				CloudSpec: testData.validCloudSpec,
-				Releases:  []string{coreos.HostOSTypeName()},
-				Arches:    []string{"amd64"},
-				Stream:    "released",
-			}), testData.requireSigned)
-	}
-	registerSimpleStreamsTests()
-}
-
-func registerSimpleStreamsTests() {
-	tc.Suite(&simplestreamsSuite{
+func TestSimplestreamsSuite(t *stdtesting.T) {
+	tc.Run(t, &simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
 			Source:         sstesting.VerifyDefaultCloudDataSource("test", "test:"),
 			RequireSigned:  false,
@@ -114,24 +86,6 @@ func registerSimpleStreamsTests() {
 				Stream:   "released",
 			}),
 		},
-	})
-	tc.Suite(&signedSuite{})
-}
-
-func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simplestreams.LookupConstraint, requireSigned bool) {
-	factory := sstesting.TestDataSourceFactory()
-	tc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source: factory.NewDataSource(simplestreams.Config{
-			Description:          "test",
-			BaseURL:              baseURL,
-			HostnameVerification: true,
-			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
-			RequireSigned:        requireSigned,
-		}),
-		RequireSigned:   requireSigned,
-		DataType:        tools.ContentDownload,
-		StreamsVersion:  tools.CurrentStreamsVersion,
-		ValidConstraint: validToolsConstraint,
 	})
 }
 
@@ -988,6 +942,10 @@ func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *tc.C) {
 
 type signedSuite struct {
 	coretesting.BaseSuite
+}
+
+func TestSignedSuite(t *stdtesting.T) {
+	tc.Run(t, &signedSuite{})
 }
 
 func (s *signedSuite) SetUpSuite(c *tc.C) {
