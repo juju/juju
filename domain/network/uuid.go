@@ -30,6 +30,25 @@ func (u uuid) validate() error {
 	return nil
 }
 
+// NetNodeUUID uniquely identifies a net node.
+type NetNodeUUID uuid
+
+// NewNetNodeUUID creates a new, valid IP net node identifier.
+func NewNetNodeUUID() (NetNodeUUID, error) {
+	u, err := newUUID()
+	return NetNodeUUID(u), err
+}
+
+// Validate returns an error if the receiver is not a valid UUID.
+func (u NetNodeUUID) Validate() error {
+	return uuid(u).validate()
+}
+
+// String returns the identifier in string form.
+func (u NetNodeUUID) String() string {
+	return string(u)
+}
+
 // InterfaceUUID uniquely identifies a network device.
 type InterfaceUUID uuid
 
@@ -63,7 +82,7 @@ func (u AddressUUID) Validate() error {
 	return uuid(u).validate()
 }
 
-// String returns the identifier in string for.
+// String returns the identifier in string form.
 func (u AddressUUID) String() string {
 	return string(u)
 }

@@ -64,6 +64,25 @@ func (s *uuidSuite) TestAddressUUIDValidate(c *tc.C) {
 	}
 }
 
+func (s *uuidSuite) TestNetNodeUUIDValidate(c *tc.C) {
+	for i, test := range getSubTests() {
+		c.Logf("test %d: %q", i, test.uuid)
+
+		c.Run(fmt.Sprintf("Test%d", i), func(t *testing.T) {
+			c := &tc.TBC{TB: t}
+
+			err := NetNodeUUID(test.uuid).Validate()
+
+			if test.err == nil {
+				c.Check(err, tc.IsNil)
+				return
+			}
+
+			c.Check(err, tc.ErrorMatches, *test.err)
+		})
+	}
+}
+
 func getSubTests() []subTest {
 	return []subTest{
 		{
