@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-const jumpUser = "admin"
 const finalDestinationUser = "ubuntu"
 
 const openSSHTemplate = `ssh -o "ProxyCommand=ssh -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.DestinationUser}}@{{.VirtualHostname}} {{.Args}}`
@@ -65,6 +64,7 @@ type sshJump struct {
 	controllerClient       SSHControllerAPI
 	hostChecker            jujussh.ReachableChecker
 	publicKeyRetryStrategy retry.CallArgs
+	loggedInUser           string
 	jumpHostPort           int
 	jumpHostKey            string
 	showCommand            bool
@@ -152,7 +152,7 @@ func (p *sshJump) getTarget() string {
 func (p *sshJump) resolveTarget(target string) (*resolvedTarget, error) {
 	user, entity := splitUserTarget(target)
 	if user == "" {
-		user = jumpUser
+		user = p.loggedInUser
 	}
 	resolvedTargetName, err := p.maybeResolveLeaderUnit(entity)
 	if err != nil {
@@ -339,6 +339,11 @@ func (p *sshJump) setPublicKeyRetryStrategy(retryStrategy retry.CallArgs) {
 func (p *sshJump) setRetryStrategy(strategy retry.CallArgs) {}
 
 func (p *sshJump) ensureAPIClient(mc ModelCommand) error {
+	accountDetails, err := mc.CurrentAccountDetails()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	p.loggedInUser = accountDetails.User
 	if p.sshClient != nil && p.controllerClient != nil && p.leaderAPI != nil {
 		return nil
 	}

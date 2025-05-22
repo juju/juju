@@ -54,12 +54,13 @@ func (s *sshJumpSuite) TestResolveTarget(c *gc.C) {
 		},
 		publicKeyRetryStrategy: baseTestingRetryStrategy,
 		jumpHostPort:           17022,
+		loggedInUser:           "admin",
 	}
 
 	resolvedTarget, err := sshJump.resolveTarget("test-target")
 	c.Check(err, gc.IsNil)
 	via := ResolvedTarget{
-		user: jumpUser,
+		user: "admin",
 		host: controllerAddress,
 	}
 	c.Check(resolvedTarget, gc.DeepEquals, &ResolvedTarget{
@@ -85,6 +86,7 @@ func (s *sshJumpSuite) TestShowCommandFlag(c *gc.C) {
 		jumpHostPort:           17022,
 		showCommand:            true,
 		outputTemplate:         template,
+		loggedInUser:           "admin",
 	}
 
 	tests := []struct {
