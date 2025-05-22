@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -430,9 +431,13 @@ func (p *StatePool) Close() error {
 	// workers. These need to be stopped before we start closing connections
 	// as those workers use the pool.
 	p.closing = true
+
+	// Clone the pool so we can release the lock while stopping
+	// the workers.
+	pool := maps.Clone(p.pool)
 	p.mu.Unlock()
 
-	for uuid, item := range p.pool {
+	for uuid, item := range pool {
 		if err := item.state.stopWorkers(); err != nil {
 			logger.Infof(context.TODO(), "state workers for model %s did not stop: %v", uuid, err)
 		}
@@ -445,14 +450,14 @@ func (p *StatePool) Close() error {
 	// Hopefully by now any workers running that may have released objects
 	// to the pool should be fine.
 	p.mu.Lock()
-	pool := p.pool
 	p.pool = nil
+	p.mu.Unlock()
+
 	var lastErr error
 	// We release the lock as we are closing the state objects to allow
 	// other goroutines that may be attempting to Get a model from the pool
 	// to continue. The Get method will fail with a closed pool.
 	// We do this just in case the workers didn't stop above when we were trying.
-	p.mu.Unlock()
 	for _, item := range pool {
 		if item.refCount() != 0 || item.remove {
 			logger.Warningf(context.TODO(),
@@ -467,12 +472,14 @@ func (p *StatePool) Close() error {
 			lastErr = err
 		}
 	}
+
 	p.mu.Lock()
 	if p.watcherRunner != nil {
 		_ = worker.Stop(p.watcherRunner)
 		p.txnWatcherSession.Close()
 	}
 	p.mu.Unlock()
+
 	// As with above and the other watchers, unlock while releasing the state
 	// session.
 	if err := p.systemState.Close(); err != nil {
