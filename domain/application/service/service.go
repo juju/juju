@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -693,15 +692,12 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 // addresses.
 // This notifies on any changes to the net nodes addresses. It is up to the
 // caller to determine if the addresses they're interested in has changed.
-func (s *WatchableService) WatchNetNodeAddress(ctx context.Context, netNodeUUIDs ...network.NetNodeUUID) (watcher.NotifyWatcher, error) {
-	uuids := transform.Slice(netNodeUUIDs, func(in network.NetNodeUUID) string {
-		return in.String()
-	})
+func (s *WatchableService) WatchNetNodeAddress(_ context.Context, netNodeUUIDs ...string) (watcher.NotifyWatcher, error) {
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchNetNodeAddress(),
 			changestream.All,
-			eventsource.ContainsPredicate(uuids),
+			eventsource.ContainsPredicate(netNodeUUIDs),
 		),
 	)
 }
