@@ -4,6 +4,7 @@
 package sshserver
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -20,7 +21,7 @@ type listenerSuite struct {
 	listener *MockListener
 }
 
-func TestListenerSuite(t *testing.T) {
+func TestListenerSuite(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &listenerSuite{})
 }
