@@ -195,20 +195,45 @@ func (s *importSuite) TestImportLinkLayerDevices(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestRollbackLinkLayerDevices(c *tc.C) {
-	// Arrange
+func (s *importSuite) TestImportLinkLayerDevicesOptionalValues(c *tc.C) {
+	// Arrange: ensure input not containing an MTU, ProviderID, nor
+	// MACAddress values to see nil values in the data passed to the
+	// service.
 	defer s.setupMocks(c).Finish()
 	model := description.NewModel(description.ModelArgs{})
 	dArgs := description.LinkLayerDeviceArgs{
 		Name:        "test-device",
-		MTU:         1500,
-		ProviderID:  "net-lxdbr0",
 		MachineID:   "77",
 		Type:        "ethernet",
-		MACAddress:  "00:16:3e:ad:4e:01",
 		IsAutoStart: true,
 		IsUp:        true,
 	}
+	model.AddLinkLayerDevice(dArgs)
+
+	args := []internal.ImportLinkLayerDevice{
+		{
+			IsAutoStart: dArgs.IsAutoStart,
+			IsEnabled:   dArgs.IsUp,
+			MachineID:   machine.Name(dArgs.MachineID),
+			Name:        dArgs.Name,
+			Type:        2,
+		},
+	}
+	s.migrationService.EXPECT().ImportLinkLayerDevices(gomock.Any(), args).Return(nil)
+
+	// Act
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestRollbackLinkLayerDevices(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	model := description.NewModel(description.ModelArgs{})
+	dArgs := description.LinkLayerDeviceArgs{}
 	model.AddLinkLayerDevice(dArgs)
 	s.migrationService.EXPECT().DeleteImportedLinkLayerDevices(gomock.Any()).Return(nil)
 
