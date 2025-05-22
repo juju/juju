@@ -231,7 +231,9 @@ func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (
 		return machineUUID, errors.Errorf("creating machine %q: %w", machineName, err)
 	}
 
-	s.recordMachineStatusHistory(ctx, machineName)
+	if err := s.recordCreateMachineStatusHistory(ctx, machineName); err != nil {
+		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
+	}
 
 	return machineUUID, nil
 }
@@ -258,23 +260,26 @@ func (s *Service) CreateMachineWithParent(ctx context.Context, machineName, pare
 		return machineUUID, errors.Errorf("creating machine %q with parent %q: %w", machineName, parentName, err)
 	}
 
-	s.recordMachineStatusHistory(ctx, machineName)
+	if err := s.recordCreateMachineStatusHistory(ctx, machineName); err != nil {
+		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
+	}
 
 	return machineUUID, nil
 }
 
-func (s *Service) recordMachineStatusHistory(ctx context.Context, machineName machine.Name) {
+func (s *Service) recordCreateMachineStatusHistory(ctx context.Context, machineName machine.Name) error {
 	info := status.StatusInfo{
 		Status: status.Pending,
 		Since:  ptr(s.clock.Now()),
 	}
 
 	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineNamespace.WithID(machineName.String()), info); err != nil {
-		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
+		return errors.Errorf("recording machine status history: %w", err)
 	}
 	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineInstanceNamespace.WithID(machineName.String()), info); err != nil {
-		s.logger.Infof(ctx, "failed recording instance status history: %w", err)
+		return errors.Errorf("recording instance status history: %w", err)
 	}
+	return nil
 }
 
 // createUUIDs generates a new UUID for the machine and the net-node.
