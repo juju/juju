@@ -153,10 +153,10 @@ type ApplicationService interface {
 	// GetUnitRefreshAttributes returns the refresh attributes for the unit.
 	GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (domainapplication.UnitAttributes, error)
 
-	// AddSubordinateUnit adds a unit to the specified subordinate application
-	// to the application on the same machine as the given principal unit and
-	// records the principal-subordinate relationship.
-	AddSubordinateUnit(ctx context.Context, subordinateAppID coreapplication.ID, principalUnitName coreunit.Name) error
+	// AddIAASSubordinateUnit adds a IAAS unit to the specified subordinate
+	// application to the application on the same machine as the given principal
+	// unit and records the principal-subordinate relationship.
+	AddIAASSubordinateUnit(ctx context.Context, subordinateAppID coreapplication.ID, principalUnitName coreunit.Name) error
 
 	// SetUnitWorkloadVersion sets the workload version for the given unit.
 	SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error
@@ -164,9 +164,9 @@ type ApplicationService interface {
 	// GetUnitWorkloadVersion returns the workload version for the given unit.
 	GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error)
 
-	// GetApplicationConfigWithDefaults returns the application config attributes
-	// for the configuration, or their charm default if the config attribute is not
-	// set.
+	// GetApplicationConfigWithDefaults returns the application config
+	// attributes for the configuration, or their charm default if the config
+	// attribute is not set.
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.

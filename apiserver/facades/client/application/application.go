@@ -169,6 +169,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	}
 
 	repoDeploy := NewDeployFromRepositoryAPI(
+		modelInfo.Type,
 		state,
 		applicationService,
 		ctx.ObjectStore(),

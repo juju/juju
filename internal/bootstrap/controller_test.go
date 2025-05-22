@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 )
@@ -20,13 +19,13 @@ var (
 	defaultBase = base.MustParseBaseFromString("22.04@ubuntu")
 )
 
-type ControllerSuite struct {
+type IAASControllerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&ControllerSuite{})
+var _ = tc.Suite(&IAASControllerSuite{})
 
-func (s *ControllerSuite) TestPopulateControllerCharmLocalCharm(c *tc.C) {
+func (s *IAASControllerSuite) TestPopulateIAASControllerCharmLocalCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	origin := corecharm.Origin{
@@ -38,24 +37,23 @@ func (s *ControllerSuite) TestPopulateControllerCharmLocalCharm(c *tc.C) {
 	s.expectCharmInfo()
 	s.expectLocalDeployment(origin)
 	s.expectAddApplication(origin)
-	s.expectCompletion()
 
-	err := PopulateControllerCharm(c.Context(), s.deployer)
+	err := PopulateIAASControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ControllerSuite) TestPopulateControllerCharmLocalCharmFails(c *tc.C) {
+func (s *IAASControllerSuite) TestPopulateIAASControllerCharmLocalCharmFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectControllerAddress()
 	s.expectCharmInfo()
 	s.expectLocalCharmError()
 
-	err := PopulateControllerCharm(c.Context(), s.deployer)
+	err := PopulateIAASControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
-func (s *ControllerSuite) TestPopulateControllerCharmCharmhubCharm(c *tc.C) {
+func (s *IAASControllerSuite) TestPopulateIAASControllerCharmCharmhubCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	origin := corecharm.Origin{
@@ -68,13 +66,12 @@ func (s *ControllerSuite) TestPopulateControllerCharmCharmhubCharm(c *tc.C) {
 	s.expectLocalCharmNotFound()
 	s.expectCharmhubDeployment(origin)
 	s.expectAddApplication(origin)
-	s.expectCompletion()
 
-	err := PopulateControllerCharm(c.Context(), s.deployer)
+	err := PopulateIAASControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ControllerSuite) TestPopulateControllerAlreadyExists(c *tc.C) {
+func (s *IAASControllerSuite) TestPopulateControllerAlreadyExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	origin := corecharm.Origin{
@@ -86,27 +83,27 @@ func (s *ControllerSuite) TestPopulateControllerAlreadyExists(c *tc.C) {
 	s.expectCharmInfo()
 	s.expectLocalCharmNotFound()
 	s.expectCharmhubDeployment(origin)
-	s.deployer.EXPECT().AddControllerApplication(gomock.Any(), DeployCharmInfo{
+
+	s.deployer.EXPECT().AddIAASControllerApplication(gomock.Any(), DeployCharmInfo{
 		URL:    charm.MustParseURL("juju-controller"),
 		Origin: &origin,
 		Charm:  s.charm,
-	}, "10.0.0.1").Return(coreunit.Name("controller/0"), applicationerrors.ApplicationAlreadyExists)
-	s.expectCompletion()
+	}, "10.0.0.1").Return(applicationerrors.ApplicationAlreadyExists)
 
-	err := PopulateControllerCharm(c.Context(), s.deployer)
+	err := PopulateIAASControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ControllerSuite) expectControllerAddress() {
+func (s *IAASControllerSuite) expectControllerAddress() {
 	s.deployer.EXPECT().ControllerAddress(gomock.Any()).Return("10.0.0.1", nil)
 }
 
-func (s *ControllerSuite) expectCharmInfo() {
+func (s *IAASControllerSuite) expectCharmInfo() {
 	s.deployer.EXPECT().ControllerCharmArch().Return(arch.DefaultArchitecture)
 	s.deployer.EXPECT().ControllerCharmBase().Return(defaultBase, nil)
 }
 
-func (s *ControllerSuite) expectLocalDeployment(origin corecharm.Origin) {
+func (s *IAASControllerSuite) expectLocalDeployment(origin corecharm.Origin) {
 	s.deployer.EXPECT().DeployLocalCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return(DeployCharmInfo{
 		URL:    charm.MustParseURL("juju-controller"),
 		Origin: &origin,
@@ -114,15 +111,15 @@ func (s *ControllerSuite) expectLocalDeployment(origin corecharm.Origin) {
 	}, nil)
 }
 
-func (s *ControllerSuite) expectLocalCharmNotFound() {
+func (s *IAASControllerSuite) expectLocalCharmNotFound() {
 	s.deployer.EXPECT().DeployLocalCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return(DeployCharmInfo{}, errors.NotFoundf("not found"))
 }
 
-func (s *ControllerSuite) expectLocalCharmError() {
+func (s *IAASControllerSuite) expectLocalCharmError() {
 	s.deployer.EXPECT().DeployLocalCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return(DeployCharmInfo{}, errors.Errorf("boom"))
 }
 
-func (s *ControllerSuite) expectCharmhubDeployment(origin corecharm.Origin) {
+func (s *IAASControllerSuite) expectCharmhubDeployment(origin corecharm.Origin) {
 	s.deployer.EXPECT().DeployCharmhubCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return(DeployCharmInfo{
 		URL:    charm.MustParseURL("juju-controller"),
 		Origin: &origin,
@@ -130,14 +127,134 @@ func (s *ControllerSuite) expectCharmhubDeployment(origin corecharm.Origin) {
 	}, nil)
 }
 
-func (s *ControllerSuite) expectAddApplication(origin corecharm.Origin) {
-	s.deployer.EXPECT().AddControllerApplication(gomock.Any(), DeployCharmInfo{
+func (s *IAASControllerSuite) expectAddApplication(origin corecharm.Origin) {
+	s.deployer.EXPECT().AddIAASControllerApplication(gomock.Any(), DeployCharmInfo{
 		URL:    charm.MustParseURL("juju-controller"),
 		Origin: &origin,
 		Charm:  s.charm,
-	}, "10.0.0.1").Return(coreunit.Name("controller/0"), nil)
+	}, "10.0.0.1").Return(nil)
 }
 
-func (s *ControllerSuite) expectCompletion() {
-	s.deployer.EXPECT().CompleteProcess(gomock.Any(), coreunit.Name("controller/0")).Return(nil)
+type CAASControllerSuite struct {
+	baseSuite
+}
+
+var _ = tc.Suite(&CAASControllerSuite{})
+
+func (s *CAASControllerSuite) TestPopulateCAASControllerCharmLocalCharm(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	origin := corecharm.Origin{
+		Source: corecharm.Local,
+		ID:     "deadbeef",
+	}
+
+	s.expectControllerAddress()
+	s.expectCharmInfo()
+	s.expectLocalDeployment(origin)
+	s.expectAddApplication(origin)
+	s.expectCAASCompletion()
+
+	err := PopulateCAASControllerCharm(c.Context(), s.deployer)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *CAASControllerSuite) TestPopulateCAASControllerCharmLocalCharmFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectControllerAddress()
+	s.expectCharmInfo()
+	s.expectLocalCharmError()
+
+	err := PopulateCAASControllerCharm(c.Context(), s.deployer)
+	c.Assert(err, tc.ErrorMatches, `.*boom`)
+}
+
+func (s *CAASControllerSuite) TestPopulateCAASControllerCharmCharmhubCharm(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	origin := corecharm.Origin{
+		Source: corecharm.CharmHub,
+		ID:     "deadbeef",
+	}
+
+	s.expectControllerAddress()
+	s.expectCharmInfo()
+	s.expectLocalCharmNotFound()
+	s.expectCharmhubDeployment(origin)
+	s.expectAddApplication(origin)
+	s.expectCAASCompletion()
+
+	err := PopulateCAASControllerCharm(c.Context(), s.deployer)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *CAASControllerSuite) TestPopulateControllerAlreadyExists(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	origin := corecharm.Origin{
+		Source: corecharm.CharmHub,
+		ID:     "deadbeef",
+	}
+
+	s.expectControllerAddress()
+	s.expectCharmInfo()
+	s.expectLocalCharmNotFound()
+	s.expectCharmhubDeployment(origin)
+
+	s.deployer.EXPECT().AddCAASControllerApplication(gomock.Any(), DeployCharmInfo{
+		URL:    charm.MustParseURL("juju-controller"),
+		Origin: &origin,
+		Charm:  s.charm,
+	}, "10.0.0.1").Return(applicationerrors.ApplicationAlreadyExists)
+
+	s.expectCAASCompletion()
+
+	err := PopulateCAASControllerCharm(c.Context(), s.deployer)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *CAASControllerSuite) expectControllerAddress() {
+	s.deployer.EXPECT().ControllerAddress(gomock.Any()).Return("10.0.0.1", nil)
+}
+
+func (s *CAASControllerSuite) expectCharmInfo() {
+	s.deployer.EXPECT().ControllerCharmArch().Return(arch.DefaultArchitecture)
+	s.deployer.EXPECT().ControllerCharmBase().Return(defaultBase, nil)
+}
+
+func (s *CAASControllerSuite) expectLocalDeployment(origin corecharm.Origin) {
+	s.deployer.EXPECT().DeployLocalCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return(DeployCharmInfo{
+		URL:    charm.MustParseURL("juju-controller"),
+		Origin: &origin,
+		Charm:  s.charm,
+	}, nil)
+}
+
+func (s *CAASControllerSuite) expectLocalCharmNotFound() {
+	s.deployer.EXPECT().DeployLocalCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return(DeployCharmInfo{}, errors.NotFoundf("not found"))
+}
+
+func (s *CAASControllerSuite) expectLocalCharmError() {
+	s.deployer.EXPECT().DeployLocalCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return(DeployCharmInfo{}, errors.Errorf("boom"))
+}
+
+func (s *CAASControllerSuite) expectCharmhubDeployment(origin corecharm.Origin) {
+	s.deployer.EXPECT().DeployCharmhubCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return(DeployCharmInfo{
+		URL:    charm.MustParseURL("juju-controller"),
+		Origin: &origin,
+		Charm:  s.charm,
+	}, nil)
+}
+
+func (s *CAASControllerSuite) expectAddApplication(origin corecharm.Origin) {
+	s.deployer.EXPECT().AddCAASControllerApplication(gomock.Any(), DeployCharmInfo{
+		URL:    charm.MustParseURL("juju-controller"),
+		Origin: &origin,
+		Charm:  s.charm,
+	}, "10.0.0.1").Return(nil)
+}
+
+func (s *CAASControllerSuite) expectCAASCompletion() {
+	s.deployer.EXPECT().CompleteCAASProcess(gomock.Any()).Return(nil)
 }

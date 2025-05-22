@@ -3639,7 +3639,7 @@ func (s *charmStateSuite) TestGetCharmIDByApplicationIDNotFound(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmIDByApplicationID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	uuid := s.createApplication(c, "foo", life.Alive)
+	uuid := s.createIAASApplication(c, "foo", life.Alive)
 
 	charmUUID, err := st.GetCharmIDByApplicationName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)

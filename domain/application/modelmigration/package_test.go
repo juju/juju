@@ -13,7 +13,6 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/model"
 	unit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -60,7 +59,6 @@ func (s *exportSuite) expectApplicationFor(c *tc.C, name string) {
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      name,
-		ModelType: model.IAAS,
 		CharmUUID: charmUUID,
 		CharmLocator: charm.CharmLocator{
 			Source:       charm.CharmHubSource,

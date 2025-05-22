@@ -33,7 +33,9 @@ func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *tc.C) {
 
 	exportOp := s.newExportOperation()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: "iaas",
+	})
 
 	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)

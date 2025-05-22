@@ -66,6 +66,7 @@ func NewExporter(
 // This is a convenience function that can be used by the main migration package
 // to register all the export operations.
 func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGetter) {
+	model.RegisterExport(e.coordinator, e.logger.Child("model"))
 	sequence.RegisterExport(e.coordinator)
 	blockcommand.RegisterExport(e.coordinator, e.logger.Child("blockcommand"))
 	modelconfig.RegisterExport(e.coordinator)
@@ -85,7 +86,6 @@ func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGet
 	status.RegisterExport(e.coordinator, e.clock, e.logger.Child("status"))
 	resource.RegisterExport(e.coordinator, e.clock, e.logger.Child("resource"))
 	cloudimagemetadata.RegisterExport(e.coordinator, e.logger.Child("cloudimagemetadata"), e.clock)
-	model.RegisterExport(e.coordinator, e.logger.Child("model"))
 	unitstate.RegisterExport(e.coordinator)
 
 	// model agent must come after machine and unit

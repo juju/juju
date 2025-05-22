@@ -155,8 +155,13 @@ func (e *exportOperation) Execute(ctx context.Context, m description.Model) erro
 		return errors.Errorf("getting applications: %w", err)
 	}
 
+	modelType := coremodel.ModelType(m.Type())
+	if !modelType.IsValid() {
+		return errors.Errorf("invalid model type %q", modelType)
+	}
+
 	for _, app := range applications {
-		appArgs, err := e.createApplicationArgs(ctx, app)
+		appArgs, err := e.createApplicationArgs(ctx, modelType, app)
 		if err != nil {
 			return errors.Errorf("creating application args: %w", err)
 		}
@@ -210,7 +215,7 @@ func (e *exportOperation) Execute(ctx context.Context, m description.Model) erro
 			return errors.Errorf("exporting application units %q: %w", app.Name, err)
 		}
 
-		if app.ModelType != coremodel.CAAS {
+		if modelType != coremodel.CAAS {
 			continue
 		}
 
@@ -225,8 +230,8 @@ func (e *exportOperation) Execute(ctx context.Context, m description.Model) erro
 	return nil
 }
 
-func (e *exportOperation) createApplicationArgs(ctx context.Context, app application.ExportApplication) (description.ApplicationArgs, error) {
-	modelType, err := e.exportModelType(app.ModelType)
+func (e *exportOperation) createApplicationArgs(ctx context.Context, modelType coremodel.ModelType, app application.ExportApplication) (description.ApplicationArgs, error) {
+	mType, err := e.exportModelType(modelType)
 	if err != nil {
 		return description.ApplicationArgs{}, errors.Capture(err)
 	}
@@ -252,7 +257,7 @@ func (e *exportOperation) createApplicationArgs(ctx context.Context, app applica
 
 	args := description.ApplicationArgs{
 		Name:                 app.Name,
-		Type:                 modelType,
+		Type:                 mType,
 		Subordinate:          app.Subordinate,
 		CharmURL:             charmURL,
 		CharmModifiedVersion: app.CharmModifiedVersion,

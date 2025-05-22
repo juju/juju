@@ -10,7 +10,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -38,16 +37,8 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 		return nil, errors.Errorf("preparing statement: %w", err)
 	}
 
-	var (
-		modelType model.ModelType
-		apps      []exportApplication
-	)
+	var apps []exportApplication
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		modelType, err = st.getModelType(ctx, tx)
-		if err != nil {
-			return err
-		}
-
 		err := tx.Query(ctx, stmt).GetAll(&apps)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
@@ -88,7 +79,6 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 		exportApps[i] = application.ExportApplication{
 			UUID:                 app.UUID,
 			Name:                 app.Name,
-			ModelType:            modelType,
 			CharmUUID:            app.CharmUUID,
 			Life:                 app.Life,
 			Subordinate:          app.Subordinate,

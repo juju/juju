@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -678,15 +677,15 @@ func (st *State) AddCAASUnits(
 	return unitNames, errors.Capture(err)
 }
 
-// AddSubordinateUnit adds a unit to the specified subordinate application to
-// the application on the same machine as the given principal unit and records
-// the principal-subordinate relationship.
+// AddIAASSubordinateUnit adds a unit to the specified subordinate application
+// to the IAAS application on the same machine as the given principal unit and
+// records the principal-subordinate relationship.
 //
 // The following error types can be expected:
 //   - [applicationerrors.ApplicationNotFound] when the subordinate application
 //     cannot be found.
 //   - [applicationerrors.UnitNotFound] when the unit cannot be found.
-func (st *State) AddSubordinateUnit(
+func (st *State) AddIAASSubordinateUnit(
 	ctx context.Context,
 	arg application.SubordinateUnitArg,
 ) (coreunit.Name, error) {
@@ -723,27 +722,18 @@ func (st *State) AddSubordinateUnit(
 			UnitName:      unitName,
 			UnitStatusArg: arg.UnitStatusArg,
 		}
-		switch arg.ModelType {
-		case model.IAAS:
-			// Place the subordinate on the same machine as the principal unit.
-			machineName, err := st.getUnitMachineName(ctx, tx, arg.PrincipalUnitName)
-			if err != nil {
-				return errors.Errorf("getting unit machine name: %w", err)
-			}
-			insertArg.Placement = deployment.Placement{
-				Type:      deployment.PlacementTypeMachine,
-				Directive: machineName.String(),
-			}
+		// Place the subordinate on the same machine as the principal unit.
+		machineName, err := st.getUnitMachineName(ctx, tx, arg.PrincipalUnitName)
+		if err != nil {
+			return errors.Errorf("getting unit machine name: %w", err)
+		}
+		insertArg.Placement = deployment.Placement{
+			Type:      deployment.PlacementTypeMachine,
+			Directive: machineName.String(),
+		}
 
-			if err := st.insertIAASUnit(ctx, tx, arg.SubordinateAppID, insertArg); err != nil {
-				return errors.Errorf("inserting subordinate unit %q: %w", unitName, err)
-			}
-		case model.CAAS:
-			if err := st.insertCAASUnit(ctx, tx, arg.SubordinateAppID, insertArg); err != nil {
-				return errors.Errorf("inserting subordinate unit %q: %w", unitName, err)
-			}
-		default:
-			return errors.Errorf("unknown model type %q", arg.ModelType)
+		if err := st.insertIAASUnit(ctx, tx, arg.SubordinateAppID, insertArg); err != nil {
+			return errors.Errorf("inserting subordinate unit %q: %w", unitName, err)
 		}
 
 		// Record the principal/subordinate relationship.

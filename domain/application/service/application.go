@@ -50,15 +50,26 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
 
-	// CreateApplication creates an application, returning an error satisfying
-	// [applicationerrors.ApplicationAlreadyExists] if the application already
-	// exists. If returns as error satisfying [applicationerrors.CharmNotFound]
-	// if the charm for the application is not found.
-	CreateApplication(context.Context, string, application.AddApplicationArg, []application.AddUnitArg) (coreapplication.ID, error)
+	// CreateIAASApplication creates an application, returning an error
+	// satisfying [applicationerrors.ApplicationAlreadyExists] if the
+	// application already exists. If returns as error satisfying
+	// [applicationerrors.CharmNotFound] if the charm for the application is not
+	// found.
+	CreateIAASApplication(context.Context, string, application.AddIAASApplicationArg, []application.AddUnitArg) (coreapplication.ID, error)
+
+	// CreateCAASApplication creates an application, returning an error
+	// satisfying [applicationerrors.ApplicationAlreadyExists] if the
+	// application already exists. If returns as error satisfying
+	// [applicationerrors.CharmNotFound] if the charm for the application is not
+	// found.
+	CreateCAASApplication(context.Context, string, application.AddCAASApplicationArg, []application.AddUnitArg) (coreapplication.ID, error)
 
 	// GetModelType returns the model type for the underlying model. If the
 	// model does not exist then an error satisfying [modelerrors.NotFound] will
 	// be returned.
+	// Deprecated: This method will be removed, as there should be no need to
+	// determine the model type from the state or service. That's an artifact of
+	// the caller to call the correct methods.
 	GetModelType(context.Context) (coremodel.ModelType, error)
 
 	// StorageDefaults returns the default storage sources for a model.
@@ -549,92 +560,6 @@ func validateDeviceConstraints(cons map[string]devices.Constraints, charmMeta *i
 		}
 	}
 	return nil
-}
-
-func makeCreateApplicationArgs(
-	ctx context.Context,
-	state State,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	modelType coremodel.ModelType,
-	charm internalcharm.Charm,
-	origin corecharm.Origin,
-	args AddApplicationArgs,
-) (application.AddApplicationArg, error) {
-	storageDirectives := make(map[string]storage.Directive)
-	for n, sc := range args.Storage {
-		storageDirectives[n] = sc
-	}
-
-	meta := charm.Meta()
-
-	var err error
-	if storageDirectives, err = addDefaultStorageDirectives(ctx, state, modelType, storageDirectives, meta.Storage); err != nil {
-		return application.AddApplicationArg{}, errors.Errorf("adding default storage directives: %w", err)
-	}
-	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, storageDirectives, meta); err != nil {
-		return application.AddApplicationArg{}, errors.Errorf("invalid storage directives: %w", err)
-	}
-
-	// When encoding the charm, this will also validate the charm metadata,
-	// when parsing it.
-	ch, _, err := encodeCharm(charm)
-	if err != nil {
-		return application.AddApplicationArg{}, errors.Errorf("encoding charm: %w", err)
-	}
-
-	revision := -1
-	if origin.Revision != nil {
-		revision = *origin.Revision
-	}
-
-	source, err := encodeCharmSource(origin.Source)
-	if err != nil {
-		return application.AddApplicationArg{}, errors.Errorf("encoding charm source: %w", err)
-	}
-
-	ch.Source = source
-	ch.ReferenceName = args.ReferenceName
-	ch.Revision = revision
-	ch.Hash = origin.Hash
-	ch.ArchivePath = args.CharmStoragePath
-	ch.ObjectStoreUUID = args.CharmObjectStoreUUID
-	ch.Architecture = encodeArchitecture(origin.Platform.Architecture)
-
-	// If we have a storage path, then we know the charm is available.
-	// This is passive for now, but once we update the application, the presence
-	// of the object store UUID will be used to determine if the charm is
-	// available.
-	ch.Available = args.CharmStoragePath != ""
-
-	channelArg, platformArg, err := encodeChannelAndPlatform(origin)
-	if err != nil {
-		return application.AddApplicationArg{}, errors.Errorf("encoding charm origin: %w", err)
-	}
-
-	applicationConfig, err := encodeApplicationConfig(args.ApplicationConfig, ch.Config)
-	if err != nil {
-		return application.AddApplicationArg{}, errors.Errorf("encoding application config: %w", err)
-	}
-
-	applicationStatus, err := encodeWorkloadStatus(args.ApplicationStatus)
-	if err != nil {
-		return application.AddApplicationArg{}, errors.Errorf("encoding application status: %w", err)
-	}
-
-	return application.AddApplicationArg{
-		Charm:             ch,
-		CharmDownloadInfo: args.DownloadInfo,
-		Platform:          platformArg,
-		Channel:           channelArg,
-		EndpointBindings:  args.EndpointBindings,
-		Resources:         makeResourcesArgs(args.ResolvedResources),
-		PendingResources:  args.PendingResources,
-		Storage:           makeStorageArgs(storageDirectives),
-		Config:            applicationConfig,
-		Settings:          args.ApplicationSettings,
-		Status:            applicationStatus,
-		Devices:           args.Devices,
-	}, nil
 }
 
 // GetApplicationIDByUnitName returns the application ID for the named unit,

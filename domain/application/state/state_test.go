@@ -22,7 +22,7 @@ type stateSuite struct {
 var _ = tc.Suite(&stateSuite{})
 
 func (s *stateSuite) TestCheckApplicationNameAvailable(c *tc.C) {
-	s.createApplication(c, "foo", life.Alive)
+	s.createIAASApplication(c, "foo", life.Alive)
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -42,7 +42,7 @@ func (s *stateSuite) TestCheckApplicationNameAvailableNoApplication(c *tc.C) {
 }
 
 func (s *stateSuite) TestCheckApplication(c *tc.C) {
-	id := s.createApplication(c, "foo", life.Alive)
+	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -62,7 +62,7 @@ func (s *stateSuite) TestCheckApplicationExistsNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestCheckApplicationDying(c *tc.C) {
-	id := s.createApplication(c, "foo", life.Dying)
+	id := s.createIAASApplication(c, "foo", life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -73,7 +73,7 @@ func (s *stateSuite) TestCheckApplicationDying(c *tc.C) {
 }
 
 func (s *stateSuite) TestCheckApplicationExistsDead(c *tc.C) {
-	id := s.createApplication(c, "foo", life.Dead)
+	id := s.createIAASApplication(c, "foo", life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -84,7 +84,7 @@ func (s *stateSuite) TestCheckApplicationExistsDead(c *tc.C) {
 }
 
 func (s *stateSuite) TestCheckApplicationExistsAlive(c *tc.C) {
-	id := s.createApplication(c, "foo", life.Dying)
+	id := s.createIAASApplication(c, "foo", life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 

@@ -49,6 +49,9 @@ import (
 // GetModelType returns the model type for the underlying model. If the model
 // does not exist then an error satisfying [modelerrors.NotFound] will be
 // returned.
+// Deprecated: This method will be removed, as there should be no need to
+// determine the model type from the state or service. That's an artifact of
+// the caller to call the correct methods.
 func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -67,6 +70,9 @@ func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) 
 	return modelType, nil
 }
 
+// Deprecated: This method will be removed, as there should be no need to
+// determine the model type from the state or service. That's an artifact of
+// the caller to call the correct methods.
 func (st *State) getModelType(ctx context.Context, tx *sqlair.TX) (coremodel.ModelType, error) {
 	var result modelInfo
 	stmt, err := st.Prepare("SELECT &modelInfo.type FROM model", result)
@@ -83,14 +89,15 @@ func (st *State) getModelType(ctx context.Context, tx *sqlair.TX) (coremodel.Mod
 	return coremodel.ModelType(result.ModelType), nil
 }
 
-// CreateApplication creates an application, returning an error satisfying
-// [applicationerrors.ApplicationAlreadyExists] if the application already
-// exists. It returns as error satisfying [applicationerrors.CharmNotFound] if
-// the charm for the application is not found.
-func (st *State) CreateApplication(
+// CreateIAASApplication creates an IAAS application, returning an error
+// satisfying [applicationerrors.ApplicationAlreadyExists] if the application
+// already exists. It returns as error satisfying
+// [applicationerrors.CharmNotFound] if the charm for the application is not
+// found.
+func (st *State) CreateIAASApplication(
 	ctx context.Context,
 	name string,
-	args application.AddApplicationArg,
+	args application.AddIAASApplicationArg,
 	units []application.AddUnitArg,
 ) (coreapplication.ID, error) {
 	db, err := st.DB()
@@ -103,9 +110,89 @@ func (st *State) CreateApplication(
 		return "", errors.Capture(err)
 	}
 
-	charmID, err := corecharm.NewID()
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.insertApplication(ctx, tx, name, appUUID, args.BaseAddApplicationArg); err != nil {
+			return errors.Errorf("inserting IAAS application %q: %w", name, err)
+		}
+
+		if len(units) == 0 {
+			return nil
+		}
+		if err = st.insertIAASApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
+			return errors.Errorf("inserting IAAS units for application %q: %w", appUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Errorf("creating IAAS application %q: %w", name, err)
+	}
+	return appUUID, nil
+}
+
+// CreateCAASApplication creates an CAAS application, returning an error
+// satisfying [applicationerrors.ApplicationAlreadyExists] if the application
+// already exists. It returns as error satisfying
+// [applicationerrors.CharmNotFound] if the charm for the application is not
+// found.
+func (st *State) CreateCAASApplication(
+	ctx context.Context,
+	name string,
+	args application.AddCAASApplicationArg,
+	units []application.AddUnitArg,
+) (coreapplication.ID, error) {
+	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
+	}
+
+	appUUID, err := coreapplication.NewID()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	scaleInfo := applicationScale{
+		ApplicationID: appUUID,
+		Scale:         args.Scale,
+	}
+	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
+	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.insertApplication(ctx, tx, name, appUUID, args.BaseAddApplicationArg); err != nil {
+			return errors.Errorf("inserting IAAS application %q: %w", name, err)
+		}
+
+		if err := tx.Query(ctx, createScaleStmt, scaleInfo).Run(); err != nil {
+			return errors.Errorf("inserting scale row for application %q: %w", name, err)
+		}
+
+		if len(units) == 0 {
+			return nil
+		}
+		if err = st.insertCAASApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
+			return errors.Errorf("inserting IAAS units for application %q: %w", appUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Errorf("creating IAAS application %q: %w", name, err)
+	}
+	return appUUID, nil
+}
+
+func (st *State) insertApplication(
+	ctx context.Context,
+	tx *sqlair.TX,
+	name string,
+	appUUID coreapplication.ID,
+	args application.BaseAddApplicationArg,
+) error {
+	charmID, err := corecharm.NewID()
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	appDetails := applicationDetails{
@@ -127,17 +214,7 @@ func (st *State) CreateApplication(
 	createApplication := `INSERT INTO application (*) VALUES ($applicationDetails.*)`
 	createApplicationStmt, err := st.Prepare(createApplication, appDetails)
 	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	scaleInfo := applicationScale{
-		ApplicationID: appUUID,
-		Scale:         args.Scale,
-	}
-	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
-	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
-	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	platformInfo := applicationPlatform{
@@ -149,7 +226,7 @@ func (st *State) CreateApplication(
 	createPlatform := `INSERT INTO application_platform (*) VALUES ($applicationPlatform.*)`
 	createPlatformStmt, err := st.Prepare(createPlatform, platformInfo)
 	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	var (
@@ -171,115 +248,99 @@ func (st *State) CreateApplication(
 		}
 		createChannel := `INSERT INTO application_channel (*) VALUES ($applicationChannel.*)`
 		if createChannelStmt, err = st.Prepare(createChannel, channelInfo); err != nil {
-			return "", errors.Capture(err)
+			return errors.Capture(err)
 		}
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Check if the application already exists.
-		if err := st.checkApplicationNameAvailable(ctx, tx, name); err != nil {
-			return errors.Errorf("checking if application %q exists: %w", name, err)
-		}
-
-		shouldInsertCharm := true
-
-		// Check if the charm already exists.
-		existingCharmID, err := st.checkCharmReferenceExists(ctx, tx, referenceName, revision)
-		if err != nil && !errors.Is(err, applicationerrors.CharmAlreadyExists) {
-			return errors.Errorf("checking if charm %q exists: %w", charmName, err)
-		} else if errors.Is(err, applicationerrors.CharmAlreadyExists) {
-			// We already have an existing charm, in this case we just want
-			// to point the application to the existing charm.
-			appDetails.CharmUUID = existingCharmID
-
-			shouldInsertCharm = false
-		}
-
-		if shouldInsertCharm {
-			if err := st.setCharm(ctx, tx, charmID, args.Charm, args.CharmDownloadInfo); err != nil {
-				return errors.Errorf("setting charm: %w", err)
-			}
-		}
-
-		// If the application doesn't exist, create it.
-		if err := tx.Query(ctx, createApplicationStmt, appDetails).Run(); err != nil {
-			return errors.Errorf("inserting row for application %q: %w", name, err)
-		}
-		if err := tx.Query(ctx, createPlatformStmt, platformInfo).Run(); err != nil {
-			return errors.Errorf("inserting platform row for application %q: %w", name, err)
-		}
-		if err := tx.Query(ctx, createScaleStmt, scaleInfo).Run(); err != nil {
-			return errors.Errorf("inserting scale row for application %q: %w", name, err)
-		}
-		if err := st.createApplicationResources(
-			ctx, tx,
-			insertResourcesArgs{
-				appID:        appDetails.UUID,
-				charmUUID:    appDetails.CharmUUID,
-				charmSource:  args.Charm.Source,
-				appResources: args.Resources,
-			},
-			args.PendingResources,
-		); err != nil {
-			return errors.Errorf("inserting or resolving resources for application %q: %w", name, err)
-		}
-		if err := st.insertApplicationStorage(ctx, tx, appDetails, args.Storage); err != nil {
-			return errors.Errorf("inserting storage for application %q: %w", name, err)
-		}
-		if err := st.insertApplicationConfig(ctx, tx, appDetails.UUID, args.Config); err != nil {
-			return errors.Errorf("inserting config for application %q: %w", name, err)
-		}
-		if err := st.insertApplicationSettings(ctx, tx, appDetails.UUID, args.Settings); err != nil {
-			return errors.Errorf("inserting settings for application %q: %w", name, err)
-		}
-		if err := st.updateConfigHash(ctx, tx, applicationID{ID: appUUID}); err != nil {
-			return errors.Errorf("refreshing config hash for application %q: %w", name, err)
-		}
-		if err := st.insertApplicationStatus(ctx, tx, appDetails.UUID, args.Status); err != nil {
-			return errors.Errorf("inserting status for application %q: %w", name, err)
-		}
-		if err := st.insertApplicationEndpoints(ctx, tx, insertApplicationEndpointsParams{
-			appID:     appDetails.UUID,
-			charmUUID: appDetails.CharmUUID,
-			bindings:  args.EndpointBindings,
-		}); err != nil {
-			return errors.Errorf("inserting exposed endpoints for application %q: %w", name, err)
-		}
-		if err := st.insertPeerRelations(ctx, tx, appDetails.UUID); err != nil {
-			return errors.Errorf("inserting peer relation for application %q: %w", name, err)
-		}
-		if err = st.insertApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
-			return errors.Errorf("inserting units for application %q: %w", appUUID, err)
-		}
-		if err := st.insertDeviceConstraints(ctx, tx, appUUID, args.Devices); err != nil {
-			return errors.Errorf("inserting device constraints for application %q: %w", appUUID, err)
-		}
-
-		// The channel is optional for local charms. Although, it would be
-		// nice to have a channel for local charms, it's not a requirement.
-		if createChannelStmt != nil {
-			if err := tx.Query(ctx, createChannelStmt, channelInfo).Run(); err != nil {
-				return errors.Errorf("inserting channel row for application %q: %w", name, err)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return "", errors.Errorf("creating application %q: %w", name, err)
+	// Check if the application already exists.
+	if err := st.checkApplicationNameAvailable(ctx, tx, name); err != nil {
+		return errors.Errorf("checking if application %q exists: %w", name, err)
 	}
-	return appUUID, nil
+
+	shouldInsertCharm := true
+
+	// Check if the charm already exists.
+	existingCharmID, err := st.checkCharmReferenceExists(ctx, tx, referenceName, revision)
+	if err != nil && !errors.Is(err, applicationerrors.CharmAlreadyExists) {
+		return errors.Errorf("checking if charm %q exists: %w", charmName, err)
+	} else if errors.Is(err, applicationerrors.CharmAlreadyExists) {
+		// We already have an existing charm, in this case we just want
+		// to point the application to the existing charm.
+		appDetails.CharmUUID = existingCharmID
+
+		shouldInsertCharm = false
+	}
+
+	if shouldInsertCharm {
+		if err := st.setCharm(ctx, tx, charmID, args.Charm, args.CharmDownloadInfo); err != nil {
+			return errors.Errorf("setting charm: %w", err)
+		}
+	}
+
+	// If the application doesn't exist, create it.
+	if err := tx.Query(ctx, createApplicationStmt, appDetails).Run(); err != nil {
+		return errors.Errorf("inserting row for application %q: %w", name, err)
+	}
+	if err := tx.Query(ctx, createPlatformStmt, platformInfo).Run(); err != nil {
+		return errors.Errorf("inserting platform row for application %q: %w", name, err)
+	}
+	if err := st.createApplicationResources(
+		ctx, tx,
+		insertResourcesArgs{
+			appID:        appDetails.UUID,
+			charmUUID:    appDetails.CharmUUID,
+			charmSource:  args.Charm.Source,
+			appResources: args.Resources,
+		},
+		args.PendingResources,
+	); err != nil {
+		return errors.Errorf("inserting or resolving resources for application %q: %w", name, err)
+	}
+	if err := st.insertApplicationStorage(ctx, tx, appDetails, args.Storage); err != nil {
+		return errors.Errorf("inserting storage for application %q: %w", name, err)
+	}
+	if err := st.insertApplicationConfig(ctx, tx, appDetails.UUID, args.Config); err != nil {
+		return errors.Errorf("inserting config for application %q: %w", name, err)
+	}
+	if err := st.insertApplicationSettings(ctx, tx, appDetails.UUID, args.Settings); err != nil {
+		return errors.Errorf("inserting settings for application %q: %w", name, err)
+	}
+	if err := st.updateConfigHash(ctx, tx, applicationID{ID: appUUID}); err != nil {
+		return errors.Errorf("refreshing config hash for application %q: %w", name, err)
+	}
+	if err := st.insertApplicationStatus(ctx, tx, appDetails.UUID, args.Status); err != nil {
+		return errors.Errorf("inserting status for application %q: %w", name, err)
+	}
+	if err := st.insertApplicationEndpoints(ctx, tx, insertApplicationEndpointsParams{
+		appID:     appDetails.UUID,
+		charmUUID: appDetails.CharmUUID,
+		bindings:  args.EndpointBindings,
+	}); err != nil {
+		return errors.Errorf("inserting exposed endpoints for application %q: %w", name, err)
+	}
+	if err := st.insertPeerRelations(ctx, tx, appDetails.UUID); err != nil {
+		return errors.Errorf("inserting peer relation for application %q: %w", name, err)
+	}
+	if err := st.insertDeviceConstraints(ctx, tx, appUUID, args.Devices); err != nil {
+		return errors.Errorf("inserting device constraints for application %q: %w", appUUID, err)
+	}
+
+	// The channel is optional for local charms. Although, it would be
+	// nice to have a channel for local charms, it's not a requirement.
+	if createChannelStmt != nil {
+		if err := tx.Query(ctx, createChannelStmt, channelInfo).Run(); err != nil {
+			return errors.Errorf("inserting channel row for application %q: %w", name, err)
+		}
+	}
+	return nil
 }
 
-func (st *State) insertApplicationUnits(
+func (st *State) insertIAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
-	args application.AddApplicationArg,
+	args application.AddIAASApplicationArg,
 	units []application.AddUnitArg,
 ) error {
-	if len(units) == 0 {
-		return nil
-	}
-
 	insertUnits := make([]application.InsertUnitArg, len(units))
 	for i, unit := range units {
 		unitName, err := st.newUnitName(ctx, tx, appUUID)
@@ -299,23 +360,46 @@ func (st *State) insertApplicationUnits(
 		}
 	}
 
-	modelType, err := st.GetModelType(ctx)
-	if err != nil {
-		return errors.Errorf("getting model type: %w", err)
-	}
-	if modelType == coremodel.IAAS {
-		for _, arg := range insertUnits {
-			if err := st.insertIAASUnit(ctx, tx, appUUID, arg); err != nil {
-				return errors.Errorf("inserting IAAS unit %q: %w", arg.UnitName, err)
-			}
-		}
-	} else {
-		for _, arg := range insertUnits {
-			if err := st.insertCAASUnit(ctx, tx, appUUID, arg); err != nil {
-				return errors.Errorf("inserting CAAS unit %q: %w", arg.UnitName, err)
-			}
+	for _, arg := range insertUnits {
+		if err := st.insertIAASUnit(ctx, tx, appUUID, arg); err != nil {
+			return errors.Errorf("inserting IAAS unit %q: %w", arg.UnitName, err)
 		}
 	}
+
+	return nil
+}
+
+func (st *State) insertCAASApplicationUnits(
+	ctx context.Context, tx *sqlair.TX,
+	appUUID coreapplication.ID,
+	args application.AddCAASApplicationArg,
+	units []application.AddUnitArg,
+) error {
+	insertUnits := make([]application.InsertUnitArg, len(units))
+	for i, unit := range units {
+		unitName, err := st.newUnitName(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
+		}
+		insertUnits[i] = application.InsertUnitArg{
+			UnitName:        unitName,
+			Constraints:     unit.Constraints,
+			Placement:       unit.Placement,
+			Storage:         args.Storage,
+			StoragePoolKind: args.StoragePoolKind,
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus:    unit.UnitStatusArg.AgentStatus,
+				WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
+			},
+		}
+	}
+
+	for _, arg := range insertUnits {
+		if err := st.insertCAASUnit(ctx, tx, appUUID, arg); err != nil {
+			return errors.Errorf("inserting CAAS unit %q: %w", arg.UnitName, err)
+		}
+	}
+
 	return nil
 }
 
@@ -3470,8 +3554,7 @@ func precheckUpgradeRelation(meta *internalcharm.Meta, relations []relationInfo)
 		}
 		// The relation will always be found. If not, it would have caused
 		// the previous check to fail.
-		spec, _ := relSpec[rel.Name]
-		if rel.Count > spec.Limit {
+		if spec := relSpec[rel.Name]; rel.Count > spec.Limit {
 			return errors.Errorf("new charm version imposes a maximum relation limit of %d for %s:%s which cannot be"+
 				" satisfied by the number of already established relations (%d)", spec.Limit, rel.ApplicationName,
 				rel.Name, rel.Count)
