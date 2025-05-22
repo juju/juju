@@ -49,7 +49,6 @@ func (s *manifoldSuite) newManifoldConfig(modifier func(cfg *ManifoldConfig)) *M
 		NewServerWorker:        func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		Logger:                 loggo.GetLogger("test"),
 		APICallerName:          "api-caller",
-		NewSSHServerListener:   newTestingSSHServerListener,
 		JWTParserName:          "jwt-parser",
 		SSHTunnelerName:        "ssh-tunneler",
 		PrometheusRegisterer:   s.MockRegisterer,
@@ -91,12 +90,6 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	// Empty APICallerName.
 	cfg = s.newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.APICallerName = ""
-	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
-
-	// Empty NewSSHServerListener.
-	cfg = s.newManifoldConfig(func(cfg *ManifoldConfig) {
-		cfg.NewSSHServerListener = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
@@ -152,7 +145,7 @@ func (a mockAPICaller) BestFacadeVersion(facade string) int {
 	return 0
 }
 
-func (s *manifoldSuite) TestManifolUninstall(c *gc.C) {
+func (s *manifoldSuite) TestManifoldUninstall(c *gc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	// Unset feature flag

@@ -127,7 +127,7 @@ func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneEnabled(c *gc.C) {
 	s.provider.EXPECT().NewBackend(cfg).Return(s.backend, nil)
 	s.backend.EXPECT().DeleteContent(gomock.Any(), "rev-666").Return(nil)
 	s.provider.EXPECT().CleanupSecrets(
-		cfg, names.NewUserTag("foo"),
+		cfg, coretesting.ModelTag,
 		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
 	).Return(nil)
 
