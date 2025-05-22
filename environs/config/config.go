@@ -440,7 +440,8 @@ const (
 //
 // The attrs map can not be nil, otherwise a panic is raised.
 func New(withDefaults Defaulting, attrs map[string]any) (*Config, error) {
-	initSchema.Do(initSchemas)
+	ensureSchema()
+
 	checker := noDefaultsChecker
 	if withDefaults {
 		checker = withDefaultsChecker
@@ -635,23 +636,38 @@ func (c *Config) setLoggingFromEnviron() error {
 }
 
 // CoerceForStorage transforms attributes prior to being saved in a persistent store.
-func CoerceForStorage(attrs map[string]any) map[string]any {
+func CoerceForStorage(attrs map[string]any) (map[string]any, error) {
+	ensureSchema()
+
 	coercedAttrs := make(map[string]any, len(attrs))
-	for attrName, attrValue := range attrs {
-		if attrName == ResourceTagsKey {
-			// Resource Tags are specified by the user as a string but transformed
-			// to a map when config is parsed. We want to store as a string.
-			var tagsSlice []string
-			if tags, ok := attrValue.(map[string]string); ok {
-				for resKey, resValue := range tags {
-					tagsSlice = append(tagsSlice, fmt.Sprintf("%v=%v", resKey, resValue))
-				}
-				attrValue = strings.Join(tagsSlice, " ")
-			}
+	// Only coerce the fields we have values for.
+	for k, v := range attrs {
+		checker, ok := allFields[k]
+		if !ok {
+			// Preserve unknown attributes.
+			coercedAttrs[k] = v
+			continue
 		}
-		coercedAttrs[attrName] = attrValue
+		coercedValue, err := checker.Coerce(v, nil)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", k, err)
+		}
+		coercedAttrs[k] = coercedValue
 	}
-	return coercedAttrs
+
+	if v, ok := coercedAttrs[ResourceTagsKey]; ok {
+		// Resource Tags are specified by the user as a string but transformed
+		// to a map when config is parsed. We want to store as a string.
+		if tags, ok := v.(map[string]string); ok {
+			var tagsSlice []string
+			for resKey, resValue := range tags {
+				tagsSlice = append(tagsSlice, fmt.Sprintf("%v=%v", resKey, resValue))
+			}
+			coercedAttrs[ResourceTagsKey] = strings.Join(tagsSlice, " ")
+		}
+	}
+
+	return coercedAttrs, nil
 }
 
 func initSchemas() {
@@ -1840,6 +1856,10 @@ var (
 	noDefaultsChecker   schema.Checker
 	coerceChecker       schema.Checker
 )
+
+func ensureSchema() {
+	initSchema.Do(initSchemas)
+}
 
 // ValidateUnknownAttrs checks the unknown attributes of the config against
 // the supplied fields and defaults, and returns an error if any fails to

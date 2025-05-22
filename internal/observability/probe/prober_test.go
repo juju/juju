@@ -20,6 +20,9 @@ func TestProbeNotImplemented(t *testing.T) {
 	if !errors.Is(err, errors.NotImplemented) {
 		t.Errorf("expected probe.NotImplemented to return an error that satisfies errors.IsNotImplemented")
 	}
+	if err.Error() != "probe not implemented" {
+		t.Errorf(`expected probe.NotImplemented to string to "probe not implemented" got: %q`, err.Error())
+	}
 }
 
 func TestProbeSuccess(t *testing.T) {
