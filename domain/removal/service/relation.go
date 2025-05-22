@@ -141,7 +141,8 @@ func (s *Service) processRelationRemovalJob(ctx context.Context, job removal.Job
 		// The relation has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil
-	} else if err != nil {
+	}
+	if err != nil {
 		return errors.Errorf("getting relation %q life: %w", job.EntityUUID, err)
 	}
 

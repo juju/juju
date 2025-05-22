@@ -60,7 +60,10 @@ func (s *Service) RemoveUnit(
 		return "", errors.Errorf("unit %q does not exist", unitUUID).Add(applicationerrors.UnitNotFound)
 	}
 
-	// Ensure the unit is not alive.
+	// Ensure the unit is not alive. If it is the last one on the machine,
+	// then we will return the machine UUID, which will be used to schedule
+	// the removal of the machine.
+	// If the machine UUID is returned, then the machine was also set to dying.
 	machineUUID, err := s.st.EnsureUnitNotAlive(ctx, unitUUID.String())
 	if err != nil {
 		return "", errors.Errorf("unit %q: %w", unitUUID, err)
@@ -81,6 +84,9 @@ func (s *Service) RemoveUnit(
 			s.logger.Infof(ctx, "ignoring wait duration for non-forced removal of unit %q", unitUUID.String())
 			wait = 0
 		}
+
+		// TODO (stickupkid): Check that we don't have any storage attachments.
+		// If we do, we need to schedule a removal job for the unit.
 	}
 
 	unitJobUUID, err := s.unitScheduleRemoval(ctx, unitUUID, force, wait)

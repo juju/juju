@@ -79,7 +79,8 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 
 	if errors.Is(err, removalerrors.RemovalJobIncomplete) {
 		return nil
-	} else if err != nil {
+	}
+	if err != nil {
 		return errors.Capture(err)
 	}
 
