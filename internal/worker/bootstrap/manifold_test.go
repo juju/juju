@@ -13,6 +13,7 @@ import (
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/bootstrap"
 )
@@ -100,11 +101,11 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
 			return func() {}, nil
 		},
-		ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
+		ControllerCharmDeployer: func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 			return nil, nil
 		},
-		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
-			return nil
+		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) (network.ProviderAddresses, error) {
+			return nil, nil
 		},
 		ControllerUnitPassword: func(context.Context) (string, error) {
 			return "", nil

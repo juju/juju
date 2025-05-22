@@ -26,6 +26,7 @@ import (
 	userservice "github.com/juju/juju/domain/access/service"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
@@ -50,6 +51,7 @@ type WorkerConfig struct {
 	ObjectStoreGetter          ObjectStoreGetter
 	ControllerAgentBinaryStore AgentBinaryStore
 	ControllerConfigService    ControllerConfigService
+	ControllerNodeService      ControllerNodeService
 	CloudService               CloudService
 	UserService                UserService
 	StorageService             StorageService
@@ -69,6 +71,7 @@ type WorkerConfig struct {
 	PopulateControllerCharm    PopulateControllerCharmFunc
 	CharmhubHTTPClient         HTTPClient
 	UnitPassword               string
+	ServiceManagerGetter       ServiceManagerGetterFunc
 	BootstrapAddressFinder     BootstrapAddressFinderFunc
 	Logger                     logger.Logger
 	Clock                      clock.Clock
@@ -90,6 +93,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ControllerConfigService == nil {
 		return errors.NotValidf("nil ControllerConfigService")
+	}
+	if c.ControllerNodeService == nil {
+		return errors.NotValidf("nil ControllerNodeService")
 	}
 	if c.CloudService == nil {
 		return errors.NotValidf("nil CloudService")
@@ -236,13 +242,25 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	if err := w.seedControllerCharm(ctx, dataDir, bootstrapParams); err != nil {
+	addrs, err := w.seedControllerCharm(ctx, dataDir, bootstrapParams)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
+	// TODO(nvinuesa): As soon as machines (including their addresses) are
+	// migrated to dqlite, we will be able to remove this because we don't need
+	// to start mongodb before adding the cloudservice to k8s.
+	// Until then, we'll continue getting the k8s service address in
+	// `seedControllerCharm` and set the bootstrap address to "localhost" in the
+	// case of k8s cloud.
+	//
 	// Retrieve controller addresses needed to set the API host ports.
 	bootstrapAddresses, err := w.cfg.BootstrapAddressFinder(ctx, bootstrapParams.BootstrapMachineInstanceId)
-	if err != nil {
+	if errors.Is(err, errors.NotSupported) {
+		// This is a k8s cloud, so we can use the k8s service address returned
+		// by the controller seed process.
+		bootstrapAddresses = addrs
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -283,6 +301,7 @@ func (w *bootstrapWorker) loop() error {
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
 	if err := w.initAPIHostPorts(ctx, controllerConfig, bootstrapAddresses, servingInfo.APIPort); err != nil {
+		w.logger.Errorf(ctx, "unable to set API host ports %v:%w", bootstrapAddresses, err)
 		return errors.Trace(err)
 	}
 
@@ -426,13 +445,30 @@ func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig
 	if err != nil {
 		return errors.Trace(err)
 	}
+	hostPorts := network.SpaceAddressesWithPort(addrs, apiPort)
 
-	hostPorts := []network.SpaceHostPorts{network.SpaceAddressesWithPort(addrs, apiPort)}
+	mgmtSpaceCfg := controllerConfig.JujuManagementSpace()
+	mgmtSpace, err := w.cfg.NetworkService.SpaceByName(ctx, mgmtSpaceCfg)
+	if err != nil && !errors.Is(err, networkerrors.SpaceNotFound) {
+		return errors.Trace(err)
+	}
+	// TODO(nvinuesa): Remove when we can pass a pointer to the space in
+	// SetAPIAddresses.
+	if mgmtSpace == nil {
+		mgmtSpace = &network.SpaceInfo{
+			ID: "unknown",
+		}
+	}
 
-	mgmtSpace := controllerConfig.JujuManagementSpace()
-	hostPortsForAgents := w.filterHostPortsForManagementSpace(ctx, mgmtSpace, hostPorts, allSpaces)
+	// During bootstrap, the controller node will always be "0".
+	if err := w.cfg.ControllerNodeService.SetAPIAddresses(ctx, "0", hostPorts, *mgmtSpace); err != nil {
+		return errors.Trace(err)
+	}
 
-	return w.cfg.SystemState.SetAPIHostPorts(controllerConfig, hostPorts, hostPortsForAgents)
+	// TODO(nvinuesa): Remove this double write to mongodb once we wire the
+	// apiaddresssetter worker.
+	hostPortsForAgents := w.filterHostPortsForManagementSpace(ctx, mgmtSpaceCfg, []network.SpaceHostPorts{hostPorts}, allSpaces)
+	return w.cfg.SystemState.SetAPIHostPorts(controllerConfig, []network.SpaceHostPorts{hostPorts}, hostPortsForAgents)
 }
 
 // We filter the collection of API addresses based on the configured
@@ -505,10 +541,10 @@ func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (
 	return cleanup, nil
 }
 
-func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir string, bootstrapArgs instancecfg.StateInitializationParams) error {
+func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir string, bootstrapArgs instancecfg.StateInitializationParams) (network.ProviderAddresses, error) {
 	controllerConfig, err := w.cfg.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(
@@ -516,11 +552,11 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 		w.cfg.ControllerModel.UUID.String(),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get object store: %w", err)
+		return nil, fmt.Errorf("failed to get object store: %w", err)
 	}
 
 	// Controller charm seeder will populate the charm for the controller.
-	deployer, err := w.cfg.ControllerCharmDeployer(ControllerCharmDeployerConfig{
+	deployer, err := w.cfg.ControllerCharmDeployer(ctx, ControllerCharmDeployerConfig{
 		StateBackend:                w.cfg.SystemState,
 		AgentPasswordService:        w.cfg.AgentPasswordService,
 		ApplicationService:          w.cfg.ApplicationService,
@@ -534,11 +570,12 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 		ControllerCharmChannel:      bootstrapArgs.ControllerCharmChannel,
 		CharmhubHTTPClient:          w.cfg.CharmhubHTTPClient,
 		UnitPassword:                w.cfg.UnitPassword,
+		ServiceManagerGetter:        w.cfg.ServiceManagerGetter,
 		Logger:                      w.cfg.Logger,
 		Clock:                       w.cfg.Clock,
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	return w.cfg.PopulateControllerCharm(ctx, deployer)

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	network "github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
@@ -38,10 +39,11 @@ func (s *ControllerSuite) TestPopulateControllerCharmLocalCharm(c *tc.C) {
 	s.expectCharmInfo()
 	s.expectLocalDeployment(origin)
 	s.expectAddApplication(origin)
-	s.expectCompletion()
+	expectedAddrs := s.expectCompletion()
 
-	err := PopulateControllerCharm(c.Context(), s.deployer)
+	obtainedAddrs, err := PopulateControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedAddrs, tc.DeepEquals, expectedAddrs)
 }
 
 func (s *ControllerSuite) TestPopulateControllerCharmLocalCharmFails(c *tc.C) {
@@ -51,7 +53,7 @@ func (s *ControllerSuite) TestPopulateControllerCharmLocalCharmFails(c *tc.C) {
 	s.expectCharmInfo()
 	s.expectLocalCharmError()
 
-	err := PopulateControllerCharm(c.Context(), s.deployer)
+	_, err := PopulateControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
@@ -68,10 +70,11 @@ func (s *ControllerSuite) TestPopulateControllerCharmCharmhubCharm(c *tc.C) {
 	s.expectLocalCharmNotFound()
 	s.expectCharmhubDeployment(origin)
 	s.expectAddApplication(origin)
-	s.expectCompletion()
+	expectedAddrs := s.expectCompletion()
 
-	err := PopulateControllerCharm(c.Context(), s.deployer)
+	obtainedAddrs, err := PopulateControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedAddrs, tc.DeepEquals, expectedAddrs)
 }
 
 func (s *ControllerSuite) TestPopulateControllerAlreadyExists(c *tc.C) {
@@ -90,11 +93,12 @@ func (s *ControllerSuite) TestPopulateControllerAlreadyExists(c *tc.C) {
 		URL:    charm.MustParseURL("juju-controller"),
 		Origin: &origin,
 		Charm:  s.charm,
-	}, "10.0.0.1").Return(coreunit.Name("controller/0"), applicationerrors.ApplicationAlreadyExists)
-	s.expectCompletion()
+	}, "10.0.0.1").Return(applicationerrors.ApplicationAlreadyExists)
+	expectedAddrs := s.expectCompletion()
 
-	err := PopulateControllerCharm(c.Context(), s.deployer)
+	obtainedAddrs, err := PopulateControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedAddrs, tc.DeepEquals, expectedAddrs)
 }
 
 func (s *ControllerSuite) expectControllerAddress() {
@@ -135,9 +139,20 @@ func (s *ControllerSuite) expectAddApplication(origin corecharm.Origin) {
 		URL:    charm.MustParseURL("juju-controller"),
 		Origin: &origin,
 		Charm:  s.charm,
-	}, "10.0.0.1").Return(coreunit.Name("controller/0"), nil)
+	}, "10.0.0.1").Return(nil)
 }
 
-func (s *ControllerSuite) expectCompletion() {
-	s.deployer.EXPECT().CompleteProcess(gomock.Any(), coreunit.Name("controller/0")).Return(nil)
+func (s *ControllerSuite) expectCompletion() network.ProviderAddresses {
+	pAddrs := network.ProviderAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.1",
+			},
+			SpaceName:       network.AlphaSpaceName,
+			ProviderSpaceID: network.AlphaSpaceId,
+			ProviderID:      network.Id("42"),
+		},
+	}
+	s.deployer.EXPECT().CompleteProcess(gomock.Any(), coreunit.Name("controller/0")).Return(pAddrs, nil)
+	return pAddrs
 }

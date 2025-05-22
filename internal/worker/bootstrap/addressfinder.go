@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
@@ -51,9 +49,7 @@ func getInstanceAddresses(
 }
 
 // BootstrapAddressFinder is responsible for finding the bootstrap network
-// addresses for a bootstrap instance. If the provider does not implement the
-// [environs.InstanceLister] interface then "localhost" will be returned. This
-// is the case for CAAS providers.
+// addresses for a bootstrap instance.
 func BootstrapAddressFinder(
 	providerGetter providertracker.ProviderGetter[environs.InstanceLister],
 ) BootstrapAddressFinderFunc {
@@ -63,9 +59,7 @@ func BootstrapAddressFinder(
 	) (network.ProviderAddresses, error) {
 
 		lister, err := providerGetter(ctx)
-		if errors.Is(err, errors.NotSupported) {
-			return network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(), nil
-		} else if err != nil {
+		if err != nil {
 			return network.ProviderAddresses{}, fmt.Errorf(
 				"cannot get instance lister from provider for finding bootstrap addresses: %w",
 				err,

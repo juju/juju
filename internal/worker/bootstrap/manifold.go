@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/flags"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
@@ -43,11 +44,11 @@ type ObjectStoreGetter interface {
 
 // ControllerCharmDeployerFunc is the function that is used to upload the
 // controller charm.
-type ControllerCharmDeployerFunc func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error)
+type ControllerCharmDeployerFunc func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error)
 
 // PopulateControllerCharmFunc is the function that is used to populate the
 // controller charm.
-type PopulateControllerCharmFunc func(context.Context, bootstrap.ControllerCharmDeployer) error
+type PopulateControllerCharmFunc func(context.Context, bootstrap.ControllerCharmDeployer) (network.ProviderAddresses, error)
 
 // ControllerUnitPasswordFunc is the function that is used to get the
 // controller unit password.
@@ -201,6 +202,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			)
 			addressFinder := BootstrapAddressFinder(instanceListerProvider)
 
+			serviceManagerGetter := providertracker.ProviderRunner[ServiceManager](
+				providerFactory, controllerModel.UUID.String(),
+			)
+
 			var objectStoreGetter objectstore.ObjectStoreGetter
 			if err := getter.Get(config.ObjectStoreName, &objectStoreGetter); err != nil {
 				return nil, errors.Trace(err)
@@ -264,6 +269,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ObjectStoreGetter:          objectStoreGetter,
 				ControllerAgentBinaryStore: controllerDomainServices.ControllerAgentBinaryStore(),
 				ControllerConfigService:    controllerDomainServices.ControllerConfig(),
+				ControllerNodeService:      controllerDomainServices.ControllerNode(),
 				CloudService:               controllerDomainServices.Cloud(),
 				UserService:                controllerDomainServices.Access(),
 				StorageService:             controllerModelDomainServices.Storage(),
@@ -286,6 +292,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				PopulateControllerCharm: config.PopulateControllerCharm,
 				CharmhubHTTPClient:      charmhubHTTPClient,
 				UnitPassword:            unitPassword,
+				ServiceManagerGetter:    serviceManagerGetter,
 				Logger:                  config.Logger,
 				Clock:                   config.Clock,
 				BootstrapAddressFinder:  addressFinder,
@@ -314,6 +321,6 @@ func RequiresBootstrap(ctx context.Context, flagService FlagService) (bool, erro
 
 // PopulateControllerCharm is the function that is used to populate the
 // controller charm.
-func PopulateControllerCharm(ctx context.Context, controllerCharmDeployer bootstrap.ControllerCharmDeployer) error {
+func PopulateControllerCharm(ctx context.Context, controllerCharmDeployer bootstrap.ControllerCharmDeployer) (network.ProviderAddresses, error) {
 	return bootstrap.PopulateControllerCharm(ctx, controllerCharmDeployer)
 }
