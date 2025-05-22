@@ -1,7 +1,7 @@
 CREATE TABLE machine_cloud_instance (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
-    instance_id TEXT NOT NULL,
-    display_name TEXT NOT NULL,
+    instance_id TEXT,
+    display_name TEXT,
     arch TEXT,
     mem INT,
     root_disk INT,
@@ -17,6 +17,12 @@ CREATE TABLE machine_cloud_instance (
     FOREIGN KEY (availability_zone_uuid)
     REFERENCES availability_zone (uuid)
 );
+
+CREATE UNIQUE INDEX idx_machine_cloud_instance_instance_id
+ON machine_cloud_instance (instance_id);
+
+CREATE UNIQUE INDEX idx_machine_cloud_instance_display_name
+ON machine_cloud_instance (display_name);
 
 CREATE VIEW v_hardware_characteristics AS
 SELECT
@@ -50,9 +56,10 @@ CREATE TABLE machine_cloud_instance_status_value (
 
 INSERT INTO machine_cloud_instance_status_value VALUES
 (0, 'unknown'),
-(1, 'allocating'),
-(2, 'running'),
-(3, 'provisioning error');
+(1, 'pending'),
+(2, 'allocating'),
+(3, 'running'),
+(4, 'provisioning error');
 
 CREATE TABLE machine_cloud_instance_status (
     machine_uuid TEXT NOT NULL PRIMARY KEY,

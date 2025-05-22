@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -16,7 +17,6 @@ import (
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -115,9 +115,24 @@ func (st *State) SetMachineCloudInstance(
 		return errors.Capture(err)
 	}
 
+	// We will **always** have a machine_cloud_instance entry for a machine.
+	// This is done, when we create the machine. This is so we can have a
+	// status associated with the machine cloud instance. Thus we just need
+	// to update the existing entry.
 	setInstanceData := `
-INSERT INTO machine_cloud_instance (*)
-VALUES ($instanceData.*)
+UPDATE machine_cloud_instance
+SET
+	  instance_id=$instanceData.instance_id,
+	  display_name=$instanceData.display_name,
+	  arch=$instanceData.arch,
+	  mem=$instanceData.mem,
+	  root_disk=$instanceData.root_disk,
+	  root_disk_source=$instanceData.root_disk_source,
+	  cpu_cores=$instanceData.cpu_cores,
+	  cpu_power=$instanceData.cpu_power,
+	  virt_type=$instanceData.virt_type,
+	  availability_zone_uuid=$instanceData.availability_zone_uuid
+WHERE machine_uuid=$instanceData.machine_uuid
 `
 	setInstanceDataStmt, err := st.Prepare(setInstanceData, instanceData{})
 	if err != nil {
@@ -149,11 +164,21 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// If the machine is not
+		_, err := st.getInstanceID(ctx, tx, machineUUID)
+		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
+			return errors.Errorf("querying instance id for machine %q: %w", machineUUID, err)
+		} else if err == nil {
+			// The instance id is already set, so we can just ignore this change.
+			return errors.Errorf("%w for machine %q", machineerrors.MachineCloudInstanceAlreadyExists, machineUUID)
+		}
+
 		instanceData := instanceData{
 			MachineUUID: machineUUID,
 			InstanceID:  instanceID.String(),
 			DisplayName: displayName,
 		}
+
 		if hardwareCharacteristics != nil {
 			instanceData.Arch = hardwareCharacteristics.Arch
 			instanceData.Mem = hardwareCharacteristics.Mem
@@ -162,6 +187,7 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 			instanceData.CPUCores = hardwareCharacteristics.CpuCores
 			instanceData.CPUPower = hardwareCharacteristics.CpuPower
 			instanceData.VirtType = hardwareCharacteristics.VirtType
+
 			if hardwareCharacteristics.AvailabilityZone != nil && *hardwareCharacteristics.AvailabilityZone != "" {
 				azUUID := availabilityZoneName{}
 				if err := tx.Query(ctx, retrieveAZUUIDStmt, azName).Get(&azUUID); err != nil {
@@ -173,12 +199,11 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 				instanceData.AvailabilityZoneUUID = &azUUID.UUID
 			}
 		}
+
 		if err := tx.Query(ctx, setInstanceDataStmt, instanceData).Run(); err != nil {
-			if database.IsErrConstraintPrimaryKey(err) {
-				return errors.Errorf("%w for machine %q", machineerrors.MachineCloudInstanceAlreadyExists, machineUUID)
-			}
 			return errors.Errorf("inserting machine cloud instance for machine %q: %w", machineUUID, err)
 		}
+
 		if instanceTags := tagsFromHardwareCharacteristics(machineUUID, hardwareCharacteristics); len(instanceTags) > 0 {
 			if err := tx.Query(ctx, setInstanceTagStmt, instanceTags).Run(); err != nil {
 				return errors.Errorf("inserting instance tags for machine %q: %w", machineUUID, err)
@@ -259,6 +284,23 @@ func (st *State) InstanceID(ctx context.Context, mUUID machine.UUID) (string, er
 		return "", errors.Capture(err)
 	}
 
+	var instanceId string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		instanceId, err = st.getInstanceID(ctx, tx, mUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return instanceId, nil
+}
+
+func (st *State) getInstanceID(ctx context.Context, tx *sqlair.TX, mUUID machine.UUID) (string, error) {
 	mUUIDParam := machineUUID{UUID: mUUID}
 	query := `
 SELECT &instanceID.instance_id
@@ -269,24 +311,17 @@ WHERE  machine_uuid = $machineUUID.uuid;`
 		return "", errors.Capture(err)
 	}
 
-	var instanceId string
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var result instanceID
-		err := tx.Query(ctx, queryStmt, mUUIDParam).Get(&result)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("machine: %q: %w", mUUID, machineerrors.NotProvisioned)
-			}
-			return errors.Errorf("querying instance for machine %q: %w", mUUID, err)
-		}
+	var result instanceID
 
-		instanceId = result.ID
-		return nil
-	})
-	if err != nil {
-		return "", errors.Capture(err)
+	if err := tx.Query(ctx, queryStmt, mUUIDParam).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("machine: %q: %w", mUUID, machineerrors.NotProvisioned)
+	} else if err != nil {
+		return "", errors.Errorf("querying instance for machine %q: %w", mUUID, err)
+	} else if result.ID == "" {
+		return "", errors.Errorf("machine: %q: %w", mUUID, machineerrors.NotProvisioned)
 	}
-	return instanceId, nil
+
+	return result.ID, nil
 }
 
 // InstanceIDAndName returns the cloud specific instance ID and display name for
@@ -374,10 +409,12 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 		// Query for the machine cloud instance status and status data combined
 		err = tx.Query(ctx, statusCombinedQueryStmt, uuid).Get(&status)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("machine: %q: %w", mName, machineerrors.StatusNotSet)
+			return errors.Errorf("machine instance: %q: %w", mName, machineerrors.StatusNotSet)
 		} else if err != nil {
 			return errors.Errorf("querying cloud instance status and status data for machine %q: %w", mName, err)
 		}
+
+		fmt.Println("??????", status)
 
 		return nil
 	})
@@ -422,14 +459,44 @@ func (st *State) SetInstanceStatus(ctx context.Context, mName machine.Name, newS
 		return errors.Capture(err)
 	}
 
-	status := setMachineStatus{
+	status := setStatusInfo{
 		StatusID: statusID,
 		Message:  newStatus.Message,
 		Data:     newStatus.Data,
 		Updated:  newStatus.Since,
 	}
 
-	// Prepare query for machine uuid
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.insertMachineInstanceStatus(ctx, tx, mName, status)
+	})
+}
+
+func (st *State) insertMachineInstance(
+	ctx context.Context,
+	tx *sqlair.TX,
+	mUUID machine.UUID,
+) error {
+	// Prepare query for setting the machine cloud instance.
+	setInstanceData := `
+INSERT INTO machine_cloud_instance (*)
+VALUES ($machineInstanceUUID.*);
+`
+	setInstanceDataStmt, err := st.Prepare(setInstanceData, machineInstanceUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return tx.Query(ctx, setInstanceDataStmt, machineInstanceUUID{
+		MachineUUID: mUUID,
+	}).Run()
+}
+
+func (st *State) insertMachineInstanceStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	mName machine.Name,
+	status setStatusInfo,
+) error {
 	nameIdent := machineName{Name: mName}
 
 	var mUUID machineUUID
@@ -443,34 +510,34 @@ func (st *State) SetInstanceStatus(ctx context.Context, mName machine.Name, newS
 	statusQuery := `
 INSERT INTO machine_cloud_instance_status (*)
 VALUES ($setMachineStatus.*)
-  ON CONFLICT (machine_uuid)
-  DO UPDATE SET 
-  	status_id = excluded.status_id, 
-	message = excluded.message, 
-	updated_at = excluded.updated_at,
-	data = excluded.data;
+ON CONFLICT (machine_uuid)
+DO UPDATE SET 
+  status_id = excluded.status_id, 
+message = excluded.message, 
+updated_at = excluded.updated_at,
+data = excluded.data;
 `
-	statusQueryStmt, err := st.Prepare(statusQuery, status)
+	statusQueryStmt, err := st.Prepare(statusQuery, setMachineStatus{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Query for the machine uuid
-		err := tx.Query(ctx, queryMachineStmt, nameIdent).Get(&mUUID)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return machineerrors.MachineNotFound
-		} else if err != nil {
-			return errors.Errorf("querying uuid for machine %q: %w", mName, err)
-		}
+	if err := tx.Query(ctx, queryMachineStmt, nameIdent).Get(&mUUID); errors.Is(err, sqlair.ErrNoRows) {
+		return machineerrors.MachineNotFound
+	} else if err != nil {
+		return errors.Errorf("querying uuid for machine %q: %w", mName, err)
+	}
 
-		status.MachineUUID = mUUID.UUID
-
-		// Query for setting the machine cloud instance status
-		err = tx.Query(ctx, statusQueryStmt, status).Run()
-		if err != nil {
-			return errors.Errorf("setting machine status for machine %q: %w", mName, err)
-		}
-		return nil
-	})
+	// Query for setting the machine cloud instance status
+	err = tx.Query(ctx, statusQueryStmt, setMachineStatus{
+		MachineUUID: mUUID.UUID,
+		StatusID:    status.StatusID,
+		Message:     status.Message,
+		Data:        status.Data,
+		Updated:     status.Updated,
+	}).Run()
+	if err != nil {
+		return errors.Errorf("setting machine status for machine %q: %w", mName, err)
+	}
+	return nil
 }

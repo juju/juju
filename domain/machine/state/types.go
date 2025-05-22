@@ -107,14 +107,19 @@ type machineStatus struct {
 	Updated sql.NullTime `db:"updated_at"`
 }
 
-// setMachineStatus represents the struct to be used for the columns of the
-// machine_status table within the sqlair statements in the machine domain.
+type setStatusInfo struct {
+	StatusID int        `db:"status_id"`
+	Message  string     `db:"message"`
+	Data     []byte     `db:"data"`
+	Updated  *time.Time `db:"updated_at"`
+}
+
 type setMachineStatus struct {
-	MachineUUID machine.UUID `db:"machine_uuid"`
 	StatusID    int          `db:"status_id"`
 	Message     string       `db:"message"`
 	Data        []byte       `db:"data"`
 	Updated     *time.Time   `db:"updated_at"`
+	MachineUUID machine.UUID `db:"machine_uuid"`
 }
 
 // availabilityZoneName represents the struct to be used for the name column
@@ -140,6 +145,10 @@ type machineMarkForRemoval struct {
 // within the sqlair statements in the machine domain.
 type machineUUID struct {
 	UUID machine.UUID `db:"uuid"`
+}
+
+type machineInstanceUUID struct {
+	MachineUUID machine.UUID `db:"machine_uuid"`
 }
 
 // machineExistsUUID represents the struct to be used for the uuid column
@@ -224,6 +233,8 @@ func decodeCloudInstanceStatus(s string) (domainmachine.InstanceStatusType, erro
 	switch s {
 	case "unknown", "":
 		result = domainmachine.InstanceStatusUnset
+	case "pending":
+		result = domainmachine.InstanceStatusPending
 	case "allocating":
 		result = domainmachine.InstanceStatusAllocating
 	case "running":
@@ -241,12 +252,14 @@ func encodeCloudInstanceStatus(s domainmachine.InstanceStatusType) (int, error) 
 	switch s {
 	case domainmachine.InstanceStatusUnset:
 		result = 0
-	case domainmachine.InstanceStatusAllocating:
+	case domainmachine.InstanceStatusPending:
 		result = 1
-	case domainmachine.InstanceStatusRunning:
+	case domainmachine.InstanceStatusAllocating:
 		result = 2
-	case domainmachine.InstanceStatusProvisioningError:
+	case domainmachine.InstanceStatusRunning:
 		result = 3
+	case domainmachine.InstanceStatusProvisioningError:
+		result = 4
 	default:
 		return -1, errors.Errorf("unknown status %q", s)
 	}
