@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/clock"
@@ -17,8 +18,10 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	statushistory "github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -47,6 +50,8 @@ func (s *serviceSuite) TestCreateMachineSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().CreateMachine(gomock.Any(), machine.Name("666"), gomock.Any(), gomock.Any()).Return(nil)
+
+	s.expectCreateMachineStatusHistory(c)
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).CreateMachine(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
@@ -84,6 +89,8 @@ func (s *serviceSuite) TestCreateMachineWithParentSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("666"), machine.Name("parent"), gomock.Any(), gomock.Any()).Return(nil)
+
+	s.expectCreateMachineStatusHistory(c)
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).CreateMachineWithParent(c.Context(), machine.Name("666"), machine.Name("parent"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -344,6 +351,7 @@ func (s *serviceSuite) TestSetMachineStatusSuccess(c *tc.C) {
 	s.state.EXPECT().SetMachineStatus(gomock.Any(), machine.Name("666"), domainmachine.StatusInfo[domainmachine.MachineStatusType]{
 		Status: domainmachine.MachineStatusStarted,
 	}).Return(nil)
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineNamespace.WithID("666"), newStatus).Return(nil)
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).SetMachineStatus(c.Context(), "666", newStatus)
 	c.Check(err, tc.ErrorIsNil)
@@ -407,6 +415,7 @@ func (s *serviceSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 	s.state.EXPECT().SetInstanceStatus(gomock.Any(), machine.Name("666"), domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
 		Status: domainmachine.InstanceStatusRunning,
 	}).Return(nil)
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineInstanceNamespace.WithID("666"), newStatus).Return(nil)
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).SetInstanceStatus(c.Context(), "666", newStatus)
 	c.Check(err, tc.ErrorIsNil)
@@ -774,4 +783,15 @@ func (s *serviceSuite) TestSetLXDProfilesError(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).SetAppliedLXDProfileNames(c.Context(), "666", []string{"profile1", "profile2"})
 	c.Check(err, tc.ErrorIs, rErr)
+}
+
+func (s *serviceSuite) expectCreateMachineStatusHistory(c *tc.C) {
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineNamespace.WithID("666"), gomock.Any()).DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
+		c.Check(si.Status, tc.Equals, status.Pending)
+		return nil
+	})
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineInstanceNamespace.WithID("666"), gomock.Any()).DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
+		c.Check(si.Status, tc.Equals, status.Pending)
+		return nil
+	})
 }
