@@ -277,6 +277,7 @@ func wrapLogger(logger corelogger.Logger) *wrappedLogger {
 
 // Debug logs a message at the debug level.
 func (c *wrappedLogger) Debugf(msg string, args ...any) {
+	c.logger.Helper()
 	// We should either fix the goose logger to use a context, or we should
 	// instantiate a new client for each request rather than caching it for
 	// the lifetime of the provider.

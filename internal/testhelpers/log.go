@@ -12,15 +12,6 @@ import (
 	"github.com/juju/tc"
 )
 
-var logLocation = false
-
-func init() {
-	switch os.Getenv("TEST_LOGGING_LOCATION") {
-	case "true", "1", "yes":
-		logLocation = true
-	}
-}
-
 // LoggingSuite redirects the juju logger to the test logger
 // when embedded in a gocheck suite type.
 type LoggingSuite struct {
@@ -45,11 +36,8 @@ func (w *gocheckWriter) Write(entry loggo.Entry) {
 	w.s.mut.RLock()
 	defer w.s.mut.RUnlock()
 	filename := filepath.Base(entry.Filename)
-	if logLocation {
-		w.c.Logf("%s %s %s:%d %s", entry.Level, entry.Module, filename, entry.Line, entry.Message)
-	} else {
-		w.c.Logf("%s %s %s", entry.Level, entry.Module, entry.Message)
-	}
+	w.c.Logf("%s:%d: %s %s %s", filename, entry.Line,
+		entry.Level, entry.Module, entry.Message)
 }
 
 func (s *LoggingSuite) SetUpSuite(c *tc.C) {

@@ -54,6 +54,7 @@ func (s *loggerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.logger = NewMockLogger(ctrl)
+	s.logger.EXPECT().Helper().AnyTimes()
 
 	return ctrl
 }

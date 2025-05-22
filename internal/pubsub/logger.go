@@ -23,15 +23,18 @@ func WrapLogger(logger logger.Logger) *WrappedLogger {
 
 // Error logs a message at the error level.
 func (c *WrappedLogger) Errorf(msg string, args ...any) {
+	c.logger.Helper()
 	c.logger.Errorf(context.Background(), msg, args...)
 }
 
 // Debug logs a message at the debug level.
 func (c *WrappedLogger) Debugf(msg string, args ...any) {
+	c.logger.Helper()
 	c.logger.Debugf(context.Background(), msg, args...)
 }
 
 // Trace logs a message at the info level.
 func (c *WrappedLogger) Tracef(msg string, args ...any) {
+	c.logger.Helper()
 	c.logger.Tracef(context.Background(), msg, args...)
 }

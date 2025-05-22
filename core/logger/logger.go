@@ -148,6 +148,9 @@ type Logger interface {
 
 	// GetChildByName returns a child logger with the given name.
 	GetChildByName(name string) Logger
+
+	// Helper marks the caller as a helper function.
+	Helper()
 }
 
 // LoggerContext is an interface that provides a method to get loggers.

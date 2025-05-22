@@ -18,10 +18,17 @@ import (
 type CheckLogger interface {
 	Logf(string, ...any)
 	Context() context.Context
+	Helper()
+}
+
+// helper exposes Helper method without introducing a new callsite.
+type helper interface {
+	Helper()
 }
 
 // checkLogger is a loggo.Logger that logs to a *testing.T or *check.C.
 type checkLogger struct {
+	helper
 	log   CheckLogger
 	level logger.Level
 	name  string
@@ -36,8 +43,9 @@ func WrapCheckLog(log CheckLogger) logger.Logger {
 // with the given default level.
 func WrapCheckLogWithLevel(log CheckLogger, level logger.Level) logger.Logger {
 	return checkLogger{
-		log:   log,
-		level: level,
+		helper: log,
+		log:    log,
+		level:  level,
 	}
 }
 
@@ -49,6 +57,7 @@ func formatMsg(level, name, msg string) string {
 }
 
 func (c checkLogger) Criticalf(ctx context.Context, msg string, args ...any) {
+	c.log.Helper()
 	select {
 	case <-c.log.Context().Done():
 		return
@@ -58,6 +67,7 @@ func (c checkLogger) Criticalf(ctx context.Context, msg string, args ...any) {
 }
 
 func (c checkLogger) Errorf(ctx context.Context, msg string, args ...any) {
+	c.log.Helper()
 	select {
 	case <-c.log.Context().Done():
 		return
@@ -67,6 +77,7 @@ func (c checkLogger) Errorf(ctx context.Context, msg string, args ...any) {
 }
 
 func (c checkLogger) Warningf(ctx context.Context, msg string, args ...any) {
+	c.log.Helper()
 	select {
 	case <-c.log.Context().Done():
 		return
@@ -76,6 +87,7 @@ func (c checkLogger) Warningf(ctx context.Context, msg string, args ...any) {
 }
 
 func (c checkLogger) Infof(ctx context.Context, msg string, args ...any) {
+	c.log.Helper()
 	select {
 	case <-c.log.Context().Done():
 		return
@@ -85,6 +97,7 @@ func (c checkLogger) Infof(ctx context.Context, msg string, args ...any) {
 }
 
 func (c checkLogger) Debugf(ctx context.Context, msg string, args ...any) {
+	c.log.Helper()
 	select {
 	case <-c.log.Context().Done():
 		return
@@ -94,6 +107,7 @@ func (c checkLogger) Debugf(ctx context.Context, msg string, args ...any) {
 }
 
 func (c checkLogger) Tracef(ctx context.Context, msg string, args ...any) {
+	c.log.Helper()
 	select {
 	case <-c.log.Context().Done():
 		return
@@ -103,6 +117,7 @@ func (c checkLogger) Tracef(ctx context.Context, msg string, args ...any) {
 }
 
 func (c checkLogger) Logf(ctx context.Context, level logger.Level, labels logger.Labels, msg string, args ...any) {
+	c.log.Helper()
 	if !c.IsLevelEnabled(level) {
 		return
 	}
@@ -115,12 +130,12 @@ func (c checkLogger) Logf(ctx context.Context, level logger.Level, labels logger
 }
 
 func (c checkLogger) Child(name string, tags ...string) logger.Logger {
-	return checkLogger{log: c.log, name: name}
+	return checkLogger{helper: c.log, log: c.log, name: name}
 }
 
 // GetChildByName returns a child logger with the given name.
 func (c checkLogger) GetChildByName(name string) logger.Logger {
-	return checkLogger{log: c.log, name: name}
+	return checkLogger{helper: c.log, log: c.log, name: name}
 }
 
 func (c checkLogger) IsLevelEnabled(level logger.Level) bool {

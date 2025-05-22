@@ -73,7 +73,7 @@ require (
 	github.com/juju/replicaset/v3 v3.0.1
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
-	github.com/juju/tc v0.0.0-20250514125847-7dcebc1fd940
+	github.com/juju/tc v0.0.0-20250516102601-801bd4886c4f
 	github.com/juju/testing v1.2.0
 	github.com/juju/txn/v3 v3.0.2
 	github.com/juju/utils/v4 v4.0.3
@@ -314,3 +314,5 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
 replace go.uber.org/mock => go.uber.org/mock v0.4.0
 
 replace gopkg.in/check.v1 => github.com/hpidcock/gc-compat-tc v0.0.0-20250508070538-894dc8262d3d
+
+replace github.com/juju/loggo/v2 => github.com/juju/loggo/v2 v2.0.0-20250522055930-3a3c6d932936
