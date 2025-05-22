@@ -574,7 +574,7 @@ func (c *MockStateEndpointsExistCall) DoAndReturn(f func(context.Context, applic
 }
 
 // GetAddressesHash mocks base method.
-func (m *MockState) GetAddressesHash(ctx context.Context, appUUID application.ID, netNodeUUID network.NetNodeUUID) (string, error) {
+func (m *MockState) GetAddressesHash(ctx context.Context, appUUID application.ID, netNodeUUID string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAddressesHash", ctx, appUUID, netNodeUUID)
 	ret0, _ := ret[0].(string)
@@ -601,13 +601,13 @@ func (c *MockStateGetAddressesHashCall) Return(arg0 string, arg1 error) *MockSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetAddressesHashCall) Do(f func(context.Context, application.ID, network.NetNodeUUID) (string, error)) *MockStateGetAddressesHashCall {
+func (c *MockStateGetAddressesHashCall) Do(f func(context.Context, application.ID, string) (string, error)) *MockStateGetAddressesHashCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAddressesHashCall) DoAndReturn(f func(context.Context, application.ID, network.NetNodeUUID) (string, error)) *MockStateGetAddressesHashCall {
+func (c *MockStateGetAddressesHashCall) DoAndReturn(f func(context.Context, application.ID, string) (string, error)) *MockStateGetAddressesHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2263,10 +2263,10 @@ func (c *MockStateGetLatestPendingCharmhubCharmCall) DoAndReturn(f func(context.
 }
 
 // GetMachineNetNodeUUIDFromName mocks base method.
-func (m *MockState) GetMachineNetNodeUUIDFromName(arg0 context.Context, arg1 machine.Name) (network.NetNodeUUID, error) {
+func (m *MockState) GetMachineNetNodeUUIDFromName(arg0 context.Context, arg1 machine.Name) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachineNetNodeUUIDFromName", arg0, arg1)
-	ret0, _ := ret[0].(network.NetNodeUUID)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2284,19 +2284,19 @@ type MockStateGetMachineNetNodeUUIDFromNameCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachineNetNodeUUIDFromNameCall) Return(arg0 network.NetNodeUUID, arg1 error) *MockStateGetMachineNetNodeUUIDFromNameCall {
+func (c *MockStateGetMachineNetNodeUUIDFromNameCall) Return(arg0 string, arg1 error) *MockStateGetMachineNetNodeUUIDFromNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachineNetNodeUUIDFromNameCall) Do(f func(context.Context, machine.Name) (network.NetNodeUUID, error)) *MockStateGetMachineNetNodeUUIDFromNameCall {
+func (c *MockStateGetMachineNetNodeUUIDFromNameCall) Do(f func(context.Context, machine.Name) (string, error)) *MockStateGetMachineNetNodeUUIDFromNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachineNetNodeUUIDFromNameCall) DoAndReturn(f func(context.Context, machine.Name) (network.NetNodeUUID, error)) *MockStateGetMachineNetNodeUUIDFromNameCall {
+func (c *MockStateGetMachineNetNodeUUIDFromNameCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockStateGetMachineNetNodeUUIDFromNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2380,10 +2380,10 @@ func (c *MockStateGetModelTypeCall) DoAndReturn(f func(context.Context) (model.M
 }
 
 // GetNetNodeUUIDByUnitName mocks base method.
-func (m *MockState) GetNetNodeUUIDByUnitName(ctx context.Context, name unit.Name) (network.NetNodeUUID, error) {
+func (m *MockState) GetNetNodeUUIDByUnitName(ctx context.Context, name unit.Name) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetNetNodeUUIDByUnitName", ctx, name)
-	ret0, _ := ret[0].(network.NetNodeUUID)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2401,19 +2401,19 @@ type MockStateGetNetNodeUUIDByUnitNameCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetNetNodeUUIDByUnitNameCall) Return(arg0 network.NetNodeUUID, arg1 error) *MockStateGetNetNodeUUIDByUnitNameCall {
+func (c *MockStateGetNetNodeUUIDByUnitNameCall) Return(arg0 string, arg1 error) *MockStateGetNetNodeUUIDByUnitNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetNetNodeUUIDByUnitNameCall) Do(f func(context.Context, unit.Name) (network.NetNodeUUID, error)) *MockStateGetNetNodeUUIDByUnitNameCall {
+func (c *MockStateGetNetNodeUUIDByUnitNameCall) Do(f func(context.Context, unit.Name) (string, error)) *MockStateGetNetNodeUUIDByUnitNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetNetNodeUUIDByUnitNameCall) DoAndReturn(f func(context.Context, unit.Name) (network.NetNodeUUID, error)) *MockStateGetNetNodeUUIDByUnitNameCall {
+func (c *MockStateGetNetNodeUUIDByUnitNameCall) DoAndReturn(f func(context.Context, unit.Name) (string, error)) *MockStateGetNetNodeUUIDByUnitNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2770,7 +2770,7 @@ func (c *MockStateGetUnitNamesForApplicationCall) DoAndReturn(f func(context.Con
 }
 
 // GetUnitNamesForNetNode mocks base method.
-func (m *MockState) GetUnitNamesForNetNode(arg0 context.Context, arg1 network.NetNodeUUID) ([]unit.Name, error) {
+func (m *MockState) GetUnitNamesForNetNode(arg0 context.Context, arg1 string) ([]unit.Name, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitNamesForNetNode", arg0, arg1)
 	ret0, _ := ret[0].([]unit.Name)
@@ -2797,22 +2797,22 @@ func (c *MockStateGetUnitNamesForNetNodeCall) Return(arg0 []unit.Name, arg1 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitNamesForNetNodeCall) Do(f func(context.Context, network.NetNodeUUID) ([]unit.Name, error)) *MockStateGetUnitNamesForNetNodeCall {
+func (c *MockStateGetUnitNamesForNetNodeCall) Do(f func(context.Context, string) ([]unit.Name, error)) *MockStateGetUnitNamesForNetNodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitNamesForNetNodeCall) DoAndReturn(f func(context.Context, network.NetNodeUUID) ([]unit.Name, error)) *MockStateGetUnitNamesForNetNodeCall {
+func (c *MockStateGetUnitNamesForNetNodeCall) DoAndReturn(f func(context.Context, string) ([]unit.Name, error)) *MockStateGetUnitNamesForNetNodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitNetNodes mocks base method.
-func (m *MockState) GetUnitNetNodes(ctx context.Context, uuid unit.UUID) ([]network.NetNodeUUID, error) {
+func (m *MockState) GetUnitNetNodes(ctx context.Context, uuid unit.UUID) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitNetNodes", ctx, uuid)
-	ret0, _ := ret[0].([]network.NetNodeUUID)
+	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2830,19 +2830,19 @@ type MockStateGetUnitNetNodesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetUnitNetNodesCall) Return(arg0 []network.NetNodeUUID, arg1 error) *MockStateGetUnitNetNodesCall {
+func (c *MockStateGetUnitNetNodesCall) Return(arg0 []string, arg1 error) *MockStateGetUnitNetNodesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitNetNodesCall) Do(f func(context.Context, unit.UUID) ([]network.NetNodeUUID, error)) *MockStateGetUnitNetNodesCall {
+func (c *MockStateGetUnitNetNodesCall) Do(f func(context.Context, unit.UUID) ([]string, error)) *MockStateGetUnitNetNodesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitNetNodesCall) DoAndReturn(f func(context.Context, unit.UUID) ([]network.NetNodeUUID, error)) *MockStateGetUnitNetNodesCall {
+func (c *MockStateGetUnitNetNodesCall) DoAndReturn(f func(context.Context, unit.UUID) ([]string, error)) *MockStateGetUnitNetNodesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3122,7 +3122,7 @@ func (c *MockStateInitialWatchStatementApplicationsWithPendingCharmsCall) DoAndR
 }
 
 // InitialWatchStatementUnitAddressesHash mocks base method.
-func (m *MockState) InitialWatchStatementUnitAddressesHash(appUUID application.ID, netNodeUUID network.NetNodeUUID) (string, string, eventsource.NamespaceQuery) {
+func (m *MockState) InitialWatchStatementUnitAddressesHash(appUUID application.ID, netNodeUUID string) (string, string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitialWatchStatementUnitAddressesHash", appUUID, netNodeUUID)
 	ret0, _ := ret[0].(string)
@@ -3150,19 +3150,19 @@ func (c *MockStateInitialWatchStatementUnitAddressesHashCall) Return(arg0, arg1 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementUnitAddressesHashCall) Do(f func(application.ID, network.NetNodeUUID) (string, string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementUnitAddressesHashCall {
+func (c *MockStateInitialWatchStatementUnitAddressesHashCall) Do(f func(application.ID, string) (string, string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementUnitAddressesHashCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementUnitAddressesHashCall) DoAndReturn(f func(application.ID, network.NetNodeUUID) (string, string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementUnitAddressesHashCall {
+func (c *MockStateInitialWatchStatementUnitAddressesHashCall) DoAndReturn(f func(application.ID, string) (string, string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementUnitAddressesHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // InitialWatchStatementUnitInsertDeleteOnNetNode mocks base method.
-func (m *MockState) InitialWatchStatementUnitInsertDeleteOnNetNode(netNodeUUID network.NetNodeUUID) (string, eventsource.NamespaceQuery) {
+func (m *MockState) InitialWatchStatementUnitInsertDeleteOnNetNode(netNodeUUID string) (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitialWatchStatementUnitInsertDeleteOnNetNode", netNodeUUID)
 	ret0, _ := ret[0].(string)
@@ -3189,13 +3189,13 @@ func (c *MockStateInitialWatchStatementUnitInsertDeleteOnNetNodeCall) Return(arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementUnitInsertDeleteOnNetNodeCall) Do(f func(network.NetNodeUUID) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementUnitInsertDeleteOnNetNodeCall {
+func (c *MockStateInitialWatchStatementUnitInsertDeleteOnNetNodeCall) Do(f func(string) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementUnitInsertDeleteOnNetNodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementUnitInsertDeleteOnNetNodeCall) DoAndReturn(f func(network.NetNodeUUID) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementUnitInsertDeleteOnNetNodeCall {
+func (c *MockStateInitialWatchStatementUnitInsertDeleteOnNetNodeCall) DoAndReturn(f func(string) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementUnitInsertDeleteOnNetNodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
