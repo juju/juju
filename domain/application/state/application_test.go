@@ -3939,7 +3939,7 @@ func (s *applicationStateSuite) assertIAASApplication(
 		gotChannel   deployment.Channel
 		gotAvailable bool
 	)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid, charm_uuid, name FROM application WHERE name=?", name).Scan(&gotUUID, &gotCharmUUID, &gotName)
 		if err != nil {
 			return err

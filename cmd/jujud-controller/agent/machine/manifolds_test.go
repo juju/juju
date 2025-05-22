@@ -339,7 +339,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"file-notify-watcher",
 		"is-primary-controller-flag",
 		"jwt-parser",
-		"object-store-fortress",
 		"query-logger",
 		"ssh-server",
 		"upgrade-database-flag",
