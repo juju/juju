@@ -481,7 +481,8 @@ func (fw *Firewaller) startMachine(ctx context.Context, tag names.MachineTag) er
 		fw.logger.Debugf(ctx, "not watching manual %q", tag)
 		return nil
 	}
-	unitw, err := m.WatchUnits(ctx)
+	machineName := machine.Name(tag.Id())
+	unitw, err := fw.applicationService.WatchUnitAddRemoveOnMachine(ctx, machineName)
 	if err != nil {
 		return errors.Trace(err)
 	}

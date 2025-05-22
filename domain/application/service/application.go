@@ -268,6 +268,11 @@ type ApplicationState interface {
 	// (ip_address and application_endpoint)
 	InitialWatchStatementUnitAddressesHash(appUUID coreapplication.ID, netNodeUUID network.NetNodeUUID) (string, string, eventsource.NamespaceQuery)
 
+	// InitialWatchStatementUnitInsertDeleteOnNetNode returns the initial namespace
+	// query for unit insert and delete events on a specific net node, as well as
+	// the watcher namespace to watch.
+	InitialWatchStatementUnitInsertDeleteOnNetNode(netNodeUUID network.NetNodeUUID) (string, eventsource.NamespaceQuery)
+
 	// GetAddressesHash returns the sha256 hash of the application unit and cloud
 	// service (if any) addresses along with the associated endpoint bindings.
 	GetAddressesHash(ctx context.Context, appUUID coreapplication.ID, netNodeUUID network.NetNodeUUID) (string, error)

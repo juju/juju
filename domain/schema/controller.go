@@ -26,7 +26,7 @@ import (
 var controllerSchemaDir embed.FS
 
 const (
-	tableExternalController tableNamespaceID = iota
+	tableExternalController tableNamespaceID = iota + reservedCustomNamespaceIDOffset
 	tableControllerNode
 	tableControllerConfig
 	tableModelMigrationStatus
