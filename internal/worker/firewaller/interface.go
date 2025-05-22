@@ -100,6 +100,13 @@ type ApplicationService interface {
 	// [applicationerrors.NotFound] will be returned.
 	WatchApplicationExposed(ctx context.Context, name string) (watcher.NotifyWatcher, error)
 
+	// WatchUnitAddRemoveOnMachine returns a watcher that observes changes to the
+	// units on a specified machine, emitting the names of the units. That is, we
+	// emit unit names only when a unit is create or deleted on the specified machine.
+	// The following errors may be returned:
+	// - [applicationerrors.MachineNotFound] if the machine does not exist
+	WatchUnitAddRemoveOnMachine(context.Context, machine.Name) (watcher.StringsWatcher, error)
+
 	// IsApplicationExposed returns whether the provided application is exposed or not.
 	//
 	// If no application is found, an error satisfying
@@ -143,7 +150,6 @@ type EnvironInstance interface {
 // Machine represents a model machine.
 type Machine interface {
 	Tag() names.MachineTag
-	WatchUnits(context.Context) (watcher.StringsWatcher, error)
 	InstanceId(context.Context) (instance.Id, error)
 	Life() life.Value
 	IsManual(context.Context) (bool, error)

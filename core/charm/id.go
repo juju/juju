@@ -12,7 +12,7 @@ import (
 // ID represents a charm unique identifier.
 type ID string
 
-// NewID is a convince function for generating a new charm uuid.
+// NewID is a convenience function for generating a new charm uuid.
 func NewID() (ID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {

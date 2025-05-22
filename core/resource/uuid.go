@@ -12,7 +12,7 @@ import (
 // UUID represents a resource unique identifier.
 type UUID string
 
-// NewUUID is a convince function for generating a new resource uuid.
+// NewUUID is a convenience function for generating a new resource uuid.
 func NewUUID() (UUID, error) {
 	id, err := uuid.NewUUID()
 	if err != nil {

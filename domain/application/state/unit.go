@@ -181,6 +181,7 @@ func (st *State) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, 
 
 	for _, table := range []string{
 		"unit_agent_version",
+		"unit_principal",
 		"unit_state",
 		"unit_state_charm",
 		"unit_state_relation",
@@ -202,7 +203,7 @@ func (st *State) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, 
 	return nil
 }
 
-func (st *State) getUnitLifeAndNetNode(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID) (life.Life, string, error) {
+func (st *State) getUnitLifeAndNetNode(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID) (life.Life, network.NetNodeUUID, error) {
 	unit := minimalUnit{UUID: unitUUID}
 	queryUnit := `
 SELECT &minimalUnit.*
@@ -367,6 +368,60 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 		return errors.Capture(err)
 	}
 	return nil
+}
+
+// InitialWatchStatementUnitAddressesHash returns the initial namespace query
+// for the unit addresses hash watcher as well as the tables to be watched
+// (ip_address and application_endpoint)
+func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.ID, netNodeUUID network.NetNodeUUID) (string, string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+
+		var (
+			spaceAddresses   []spaceAddress
+			endpointBindings map[string]string
+		)
+		err := runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			var err error
+			spaceAddresses, err = st.getNetNodeSpaceAddresses(ctx, tx, netNodeUUID)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			endpointBindings, err = st.getEndpointBindings(ctx, tx, appUUID)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Errorf("querying application %q addresses hash: %w", appUUID, err)
+		}
+		hash, err := st.hashAddressesAndEndpoints(spaceAddresses, endpointBindings)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		return []string{hash}, nil
+	}
+	return "ip_address", "application_endpoint", queryFunc
+}
+
+// InitialWatchStatementUnitInsertDeleteOnNetNode returns the initial namespace
+// query for unit insert and deletes events on a specific net node, as well as
+// the watcher namespace to watch.
+func (st *State) InitialWatchStatementUnitInsertDeleteOnNetNode(netNodeUUID network.NetNodeUUID) (string, eventsource.NamespaceQuery) {
+	return "unit_insert_delete", func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		var unitNames []coreunit.Name
+		err := runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			var err error
+			unitNames, err = st.getUnitNamesForNetNode(ctx, tx, netNodeUUID)
+			return err
+		})
+		if err != nil {
+			return nil, errors.Errorf("querying unit names for net node %q: %w", netNodeUUID, err)
+		}
+		return transform.Slice(unitNames, func(unitName coreunit.Name) string {
+			return unitName.String()
+		}), nil
+	}
 }
 
 // InitialWatchStatementUnitLife returns the initial namespace query for the
@@ -644,6 +699,9 @@ func (st *State) AddSubordinateUnit(
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check the application is alive.
 		if err := st.checkApplicationAlive(ctx, tx, arg.SubordinateAppID); err != nil {
+			return errors.Capture(err)
+		}
+		if err := st.checkUnitNotDeadByName(ctx, tx, arg.PrincipalUnitName); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -1279,7 +1337,7 @@ func (st *State) insertUnit(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
 	unitUUID coreunit.UUID,
-	netNodeUUID string,
+	netNodeUUID network.NetNodeUUID,
 	args insertUnitArg,
 ) error {
 	if err := st.checkApplicationAlive(ctx, tx, appUUID); err != nil {
@@ -1597,12 +1655,25 @@ func (st *State) GetUnitNamesForApplication(ctx context.Context, uuid coreapplic
 
 // GetUnitNamesForNetNode returns a slice of the unit names for the given net node
 // The following errors may be returned:
-func (st *State) GetUnitNamesForNetNode(ctx context.Context, uuid string) ([]coreunit.Name, error) {
+func (st *State) GetUnitNamesForNetNode(ctx context.Context, uuid network.NetNodeUUID) ([]coreunit.Name, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
+	var unitNames []coreunit.Name
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		unitNames, err = st.getUnitNamesForNetNode(ctx, tx, uuid)
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("querying unit names for net node %q: %w", uuid, err)
+	}
+	return unitNames, nil
+}
+
+func (st *State) getUnitNamesForNetNode(ctx context.Context, tx *sqlair.TX, uuid network.NetNodeUUID) ([]coreunit.Name, error) {
 	netNodeUUID := netNodeUUID{NetNodeUUID: uuid}
 	verifyExistsQuery := `SELECT COUNT(*) AS &countResult.count FROM net_node WHERE uuid = $netNodeUUID.uuid`
 	verifyExistsStmt, err := st.Prepare(verifyExistsQuery, countResult{}, netNodeUUID)
@@ -1616,27 +1687,22 @@ func (st *State) GetUnitNamesForNetNode(ctx context.Context, uuid string) ([]cor
 		return nil, errors.Capture(err)
 	}
 
-	var result []unitName
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var count countResult
-		if err := tx.Query(ctx, verifyExistsStmt, netNodeUUID).Get(&count); err != nil {
-			return errors.Capture(err)
-		}
-		if count.Count == 0 {
-			return applicationerrors.NetNodeNotFound
-		}
-
-		err := tx.Query(ctx, stmt, netNodeUUID).GetAll(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Errorf("querying unit names for net node %q: %w", uuid, err)
+	var count countResult
+	if err := tx.Query(ctx, verifyExistsStmt, netNodeUUID).Get(&count); err != nil {
+		return nil, errors.Capture(err)
 	}
+	if count.Count == 0 {
+		return nil, applicationerrors.NetNodeNotFound
+	}
+
+	var result []unitName
+	err = tx.Query(ctx, stmt, netNodeUUID).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	return transform.Slice(result, func(r unitName) coreunit.Name {
 		return r.Name
 	}), nil
@@ -1941,7 +2007,7 @@ WHERE     u.uuid = $unitUUID.uuid
 //
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
-func (st *State) GetUnitNetNodes(ctx context.Context, uuid coreunit.UUID) ([]string, error) {
+func (st *State) GetUnitNetNodes(ctx context.Context, uuid coreunit.UUID) ([]network.NetNodeUUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1975,7 +2041,7 @@ WHERE n.uuid = $unitUUID.uuid
 		return nil, errors.Capture(err)
 	}
 
-	netNodeUUIDstrs := make([]string, len(netNodeUUIDs))
+	netNodeUUIDstrs := make([]network.NetNodeUUID, len(netNodeUUIDs))
 	for i, n := range netNodeUUIDs {
 		netNodeUUIDstrs[i] = n.NetNodeUUID
 	}
@@ -2170,7 +2236,7 @@ ON CONFLICT (unit_uuid) DO NOTHING
 }
 
 func (st *State) upsertUnitCloudContainer(
-	ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, unitUUID coreunit.UUID, netNodeUUID string, cc *application.CloudContainer,
+	ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, unitUUID coreunit.UUID, netNodeUUID network.NetNodeUUID, cc *application.CloudContainer,
 ) error {
 	containerInfo := cloudContainer{
 		UnitUUID:   unitUUID,
@@ -2237,7 +2303,7 @@ WHERE unit_uuid = $cloudContainer.unit_uuid
 }
 
 func (st *State) upsertCloudContainerAddress(
-	ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, netNodeUUID string, address application.ContainerAddress,
+	ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, netNodeUUID network.NetNodeUUID, address application.ContainerAddress,
 ) error {
 	// First ensure the address link layer device is upserted.
 	// For cloud containers, the device is a placeholder without
@@ -2379,7 +2445,7 @@ DO NOTHING
 	return nil
 }
 
-func (st *State) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, netNodeUUID string) error {
+func (st *State) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, netNodeUUID network.NetNodeUUID) error {
 	cloudContainer := cloudContainer{UnitUUID: unitUUID}
 
 	if err := st.deleteCloudContainerPorts(ctx, tx, unitUUID); err != nil {
@@ -2403,7 +2469,7 @@ WHERE unit_uuid = $cloudContainer.unit_uuid`, cloudContainer)
 	return nil
 }
 
-func (st *State) deleteCloudContainerAddresses(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
+func (st *State) deleteCloudContainerAddresses(ctx context.Context, tx *sqlair.TX, netNodeID network.NetNodeUUID) error {
 	unit := minimalUnit{
 		NetNodeID: netNodeID,
 	}

@@ -19,7 +19,9 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -557,6 +559,68 @@ func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName 
 	)
 }
 
+// WatchUnitAddRemoveOnMachine returns a watcher that observes changes to the
+// units on a specified machine, emitting the names of the units. That is, we
+// emit unit names only when a unit is created or deleted on the specified machine.
+// The following errors may be returned:
+// - [applicationerrors.MachineNotFound] if the machine does not exist
+func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, machineName machine.Name) (watcher.StringsWatcher, error) {
+	desiredNetNodeUUID, err := s.st.GetMachineNetNodeUUIDFromName(ctx, machineName)
+	if err != nil {
+		return nil, errors.Errorf("getting net node uuid for machine %q: %w", machineName, err)
+	}
+
+	unitNamesOnMachineCache := map[coreunit.Name]struct{}{}
+
+	newUnitNamespace, query := s.st.InitialWatchStatementUnitInsertDeleteOnNetNode(desiredNetNodeUUID)
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
+			initialResults, err := query(ctx, txn)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			for _, result := range initialResults {
+				unitNamesOnMachineCache[coreunit.Name(result)] = struct{}{}
+			}
+			return initialResults, nil
+		},
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+			// If there are no changes, return no changes.
+			if len(changes) == 0 {
+				return nil, nil
+			}
+
+			filteredChanges := make([]changestream.ChangeEvent, 0, len(changes))
+			for _, change := range changes {
+				unitName, err := coreunit.NewName(change.Changed())
+				if err != nil {
+					return nil, err
+				}
+				netNodeUUID, err := s.st.GetNetNodeUUIDByUnitName(ctx, unitName)
+				if errors.Is(err, applicationerrors.UnitNotFound) {
+					// the emitted unit is not found, therefore we know this must
+					// be a delete event.
+
+					if _, ok := unitNamesOnMachineCache[unitName]; ok {
+						filteredChanges = append(filteredChanges, change)
+						delete(unitNamesOnMachineCache, unitName)
+					}
+					continue
+				} else if err != nil {
+					return nil, errors.Capture(err)
+				}
+				if netNodeUUID == desiredNetNodeUUID {
+					filteredChanges = append(filteredChanges, change)
+					unitNamesOnMachineCache[unitName] = struct{}{}
+				}
+			}
+
+			return filteredChanges, nil
+		},
+		eventsource.NamespaceFilter(newUnitNamespace, changestream.All),
+	)
+}
+
 // WatchApplicationExposed watches for changes to the specified application's
 // exposed endpoints.
 // This notifies on any changes to the application's exposed endpoints. It is up
@@ -593,13 +657,15 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 // addresses.
 // This notifies on any changes to the net nodes addresses. It is up to the
 // caller to determine if the addresses they're interested in has changed.
-func (s *WatchableService) WatchNetNodeAddress(ctx context.Context, netNodeUUIDs ...string) (watcher.NotifyWatcher, error) {
-
+func (s *WatchableService) WatchNetNodeAddress(ctx context.Context, netNodeUUIDs ...network.NetNodeUUID) (watcher.NotifyWatcher, error) {
+	uuids := transform.Slice(netNodeUUIDs, func(in network.NetNodeUUID) string {
+		return in.String()
+	})
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchNetNodeAddress(),
 			changestream.All,
-			eventsource.ContainsPredicate(netNodeUUIDs),
+			eventsource.ContainsPredicate(uuids),
 		),
 	)
 }

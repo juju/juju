@@ -132,6 +132,7 @@ func (ctx *Context) write(format string, params ...interface{}) {
 // quiet is true the message is logged.
 func (ctx *Context) Infof(format string, params ...interface{}) {
 	if ctx.quiet {
+		logger.Helper()
 		//Here we use the Loggo.logger method `Logf` as opposed to
 		//`logger.Infof` to avoid introducing an additional call stack
 		//level (since `Infof` calls `Logf` internally). This is done so
@@ -148,6 +149,7 @@ func (ctx *Context) Infof(format string, params ...interface{}) {
 // command to fail (e.g. an error message used as a deprecation warning that
 // will be upgraded to a real error message at some point in the future.)
 func (ctx *Context) Warningf(format string, params ...interface{}) {
+	logger.Helper()
 	// Here we use the Loggo.logger method `Logf` as opposed to
 	// `logger.Warningf` to avoid introducing an additional call stack level
 	// (since `Warningf` calls Logf internally). This is done so that this
@@ -161,6 +163,7 @@ func (ctx *Context) Verbosef(format string, params ...interface{}) {
 	if ctx.verbose {
 		ctx.write(format, params...)
 	} else {
+		logger.Helper()
 		// Here we use the Loggo.logger method `Logf` as opposed to
 		// `logger.Infof` to avoid introducing an additional call stack
 		// level (since `Infof` calls `Logf` internally). This is done so
@@ -176,6 +179,7 @@ func (ctx *Context) Verbosef(format string, params ...interface{}) {
 // not always sufficient. For instance, if the client has performed multiple
 // actions
 func (ctx *Context) Errorf(format string, params ...interface{}) {
+	logger.Helper()
 	// Here we use the Loggo.logger method `Logf` as opposed to
 	// `logger.Errorf` to avoid introducing an additional call stack
 	// level (since `Errorf` calls `Logf` internally). This is done so

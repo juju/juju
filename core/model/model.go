@@ -98,7 +98,7 @@ type Model struct {
 // UUID represents a model unique identifier.
 type UUID string
 
-// NewUUID is a convince function for generating a new model uuid.
+// NewUUID is a convenience function for generating a new model uuid.
 func NewUUID() (UUID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {

@@ -269,6 +269,7 @@ func (s *firewallerBaseSuite) addModelMachine(ctrl *gomock.Controller, manual bo
 
 	m := mocks.NewMockMachine(ctrl)
 	tag := names.NewMachineTag(id)
+	machineName := machine.Name(id)
 	s.firewaller.EXPECT().Machine(gomock.Any(), tag).Return(m, nil).MinTimes(1)
 	m.EXPECT().Tag().Return(tag).AnyTimes()
 	m.EXPECT().Life().DoAndReturn(func() life.Value {
@@ -286,7 +287,7 @@ func (s *firewallerBaseSuite) addModelMachine(ctrl *gomock.Controller, manual bo
 		// Added machine watches units.
 		unitsCh = make(chan []string, 5)
 		unitWatch := watchertest.NewMockStringsWatcher(unitsCh)
-		m.EXPECT().WatchUnits(gomock.Any()).Return(unitWatch, nil).AnyTimes()
+		s.applicationService.EXPECT().WatchUnitAddRemoveOnMachine(gomock.Any(), machineName).Return(unitWatch, nil).AnyTimes()
 		// Initial event.
 		unitsCh <- nil
 	}

@@ -102,14 +102,14 @@ type unitName struct {
 }
 
 type unitDetails struct {
-	UnitUUID                coreunit.UUID      `db:"uuid"`
-	CharmUUID               corecharm.ID       `db:"charm_uuid"`
-	NetNodeID               string             `db:"net_node_uuid"`
-	Name                    coreunit.Name      `db:"name"`
-	ApplicationID           coreapplication.ID `db:"application_uuid"`
-	LifeID                  life.Life          `db:"life_id"`
-	PasswordHash            sql.NullString     `db:"password_hash"`
-	PasswordHashAlgorithmID sql.NullInt16      `db:"password_hash_algorithm_id"`
+	UnitUUID                coreunit.UUID       `db:"uuid"`
+	CharmUUID               corecharm.ID        `db:"charm_uuid"`
+	NetNodeID               network.NetNodeUUID `db:"net_node_uuid"`
+	Name                    coreunit.Name       `db:"name"`
+	ApplicationID           coreapplication.ID  `db:"application_uuid"`
+	LifeID                  life.Life           `db:"life_id"`
+	PasswordHash            sql.NullString      `db:"password_hash"`
+	PasswordHashAlgorithmID sql.NullInt16       `db:"password_hash_algorithm_id"`
 }
 
 type unitAttributes struct {
@@ -129,10 +129,10 @@ type unitPassword struct {
 type unitUUIDs []coreunit.UUID
 
 type minimalUnit struct {
-	UUID      coreunit.UUID `db:"uuid"`
-	NetNodeID string        `db:"net_node_uuid"`
-	Name      coreunit.Name `db:"name"`
-	LifeID    life.Life     `db:"life_id"`
+	UUID      coreunit.UUID       `db:"uuid"`
+	NetNodeID network.NetNodeUUID `db:"net_node_uuid"`
+	Name      coreunit.Name       `db:"name"`
+	LifeID    life.Life           `db:"life_id"`
 }
 
 type unitCount struct {
@@ -155,18 +155,18 @@ type cloudContainer struct {
 }
 
 type cloudService struct {
-	UUID            string             `db:"uuid"`
-	ApplicationUUID coreapplication.ID `db:"application_uuid"`
-	NetNodeUUID     string             `db:"net_node_uuid"`
-	ProviderID      string             `db:"provider_id"`
+	UUID            string              `db:"uuid"`
+	ApplicationUUID coreapplication.ID  `db:"application_uuid"`
+	NetNodeUUID     network.NetNodeUUID `db:"net_node_uuid"`
+	ProviderID      string              `db:"provider_id"`
 }
 
 type cloudServiceDevice struct {
-	UUID              string `db:"uuid"`
-	Name              string `db:"name"`
-	NetNodeID         string `db:"net_node_uuid"`
-	DeviceTypeID      int    `db:"device_type_id"`
-	VirtualPortTypeID int    `db:"virtual_port_type_id"`
+	UUID              string              `db:"uuid"`
+	Name              string              `db:"name"`
+	NetNodeID         network.NetNodeUUID `db:"net_node_uuid"`
+	DeviceTypeID      int                 `db:"device_type_id"`
+	VirtualPortTypeID int                 `db:"virtual_port_type_id"`
 }
 
 type applicationCharmUUID struct {
@@ -174,11 +174,11 @@ type applicationCharmUUID struct {
 }
 
 type cloudContainerDevice struct {
-	UUID              string `db:"uuid"`
-	Name              string `db:"name"`
-	NetNodeID         string `db:"net_node_uuid"`
-	DeviceTypeID      int    `db:"device_type_id"`
-	VirtualPortTypeID int    `db:"virtual_port_type_id"`
+	UUID              string              `db:"uuid"`
+	Name              string              `db:"name"`
+	NetNodeID         network.NetNodeUUID `db:"net_node_uuid"`
+	DeviceTypeID      int                 `db:"device_type_id"`
+	VirtualPortTypeID int                 `db:"virtual_port_type_id"`
 }
 
 type cloudContainerPort struct {
@@ -187,14 +187,14 @@ type cloudContainerPort struct {
 }
 
 type ipAddress struct {
-	AddressUUID  string `db:"uuid"`
-	Value        string `db:"address_value"`
-	NetNodeUUID  string `db:"net_node_uuid"`
-	ConfigTypeID int    `db:"config_type_id"`
-	TypeID       int    `db:"type_id"`
-	OriginID     int    `db:"origin_id"`
-	ScopeID      int    `db:"scope_id"`
-	DeviceID     string `db:"device_uuid"`
+	AddressUUID  string              `db:"uuid"`
+	Value        string              `db:"address_value"`
+	NetNodeUUID  network.NetNodeUUID `db:"net_node_uuid"`
+	ConfigTypeID int                 `db:"config_type_id"`
+	TypeID       int                 `db:"type_id"`
+	OriginID     int                 `db:"origin_id"`
+	ScopeID      int                 `db:"scope_id"`
+	DeviceID     string              `db:"device_uuid"`
 }
 
 type spaceAddress struct {
@@ -945,7 +945,7 @@ type storageInstanceVolume struct {
 
 type filesystemAttachment struct {
 	UUID                 corestorage.FilesystemAttachmentUUID `db:"uuid"`
-	NetNodeUUID          string                               `db:"net_node_uuid"`
+	NetNodeUUID          network.NetNodeUUID                  `db:"net_node_uuid"`
 	FilesystemUUID       corestorage.FilesystemUUID           `db:"storage_filesystem_uuid"`
 	LifeID               life.Life                            `db:"life_id"`
 	MountPoint           string                               `db:"mount_point"`
@@ -955,7 +955,7 @@ type filesystemAttachment struct {
 
 type volumeAttachment struct {
 	UUID                 corestorage.VolumeAttachmentUUID `db:"uuid"`
-	NetNodeUUID          string                           `db:"net_node_uuid"`
+	NetNodeUUID          network.NetNodeUUID              `db:"net_node_uuid"`
 	VolumeUUID           corestorage.VolumeUUID           `db:"storage_volume_uuid"`
 	LifeID               life.Life                        `db:"life_id"`
 	ReadOnly             bool                             `db:"read_only"`
@@ -1188,15 +1188,15 @@ type setDeviceConstraintAttribute struct {
 }
 
 type createMachine struct {
-	MachineUUID machine.UUID `db:"uuid"`
-	NetNodeUUID string       `db:"net_node_uuid"`
-	Name        machine.Name `db:"name"`
-	LifeID      life.Life    `db:"life_id"`
+	MachineUUID machine.UUID        `db:"uuid"`
+	NetNodeUUID network.NetNodeUUID `db:"net_node_uuid"`
+	Name        machine.Name        `db:"name"`
+	LifeID      life.Life           `db:"life_id"`
 }
 
 type machineNameWithNetNode struct {
-	Name        machine.Name `db:"name"`
-	NetNodeUUID string       `db:"net_node_uuid"`
+	Name        machine.Name        `db:"name"`
+	NetNodeUUID network.NetNodeUUID `db:"net_node_uuid"`
 }
 
 type machineNameWithMachineUUID struct {
@@ -1205,11 +1205,11 @@ type machineNameWithMachineUUID struct {
 }
 
 type netNodeUUID struct {
-	NetNodeUUID string `db:"uuid"`
+	NetNodeUUID network.NetNodeUUID `db:"uuid"`
 }
 
 type unitNetNodeUUID struct {
-	NetNodeUUID string `db:"net_node_uuid"`
+	NetNodeUUID network.NetNodeUUID `db:"net_node_uuid"`
 }
 
 type machinePlacement struct {

@@ -33,6 +33,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.clock = NewMockClock(ctrl)
 	s.timer = NewMockTimer(ctrl)
 	s.logger = NewMockLogger(ctrl)
+	s.logger.EXPECT().Helper().AnyTimes()
 
 	return ctrl
 }

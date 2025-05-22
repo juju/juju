@@ -1596,53 +1596,6 @@ func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, sql.ErrNoRows, tc.Commentf("(Assert) resource_retrieved_by table has been updated: %v", errors.ErrorStack(err)))
 }
 
-func (s *resourceSuite) TestSetApplicationResource(c *tc.C) {
-	// Arrange: insert a resource.
-	resID := "resource-id"
-	input := resourceData{
-		UUID:            resID,
-		ApplicationUUID: s.constants.fakeApplicationUUID1,
-		CreatedAt:       time.Now().Truncate(time.Second).UTC(),
-		Name:            "resource-name",
-		Type:            charmresource.TypeContainerImage,
-	}
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := input.insert(c.Context(), tx); err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
-
-	addedAt := time.Now().Truncate(time.Second).UTC()
-	// Act set application resource.
-	err = s.state.SetApplicationResource(
-		c.Context(),
-		coreresource.UUID(resID),
-	)
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute SetApplicationResource: %v", errors.ErrorStack(err)))
-
-	// Assert
-	var foundAddedAt time.Time
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRow(`
-SELECT added_at FROM kubernetes_application_resource
-WHERE resource_uuid = ?`,
-			resID).Scan(&foundAddedAt)
-	})
-	c.Check(foundAddedAt, tc.TimeBetween(addedAt, time.Now()))
-	c.Check(err, tc.ErrorIsNil, tc.Commentf("(Assert) kubernetes_application_resource table not updated: %v", errors.ErrorStack(err)))
-}
-
-func (s *resourceSuite) TestSetApplicationResourceNotFound(c *tc.C) {
-	// Act set supplied by with application type
-	err := s.state.SetApplicationResource(
-		c.Context(),
-		"bad-uuid",
-	)
-	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
-}
-
 func (s *resourceSuite) TestGetResourceTypeContainerImage(c *tc.C) {
 	// Arrange: insert a resource.
 	resID := "resource-id"
@@ -1703,54 +1656,6 @@ func (s *resourceSuite) TestGetResourceTypeNotFound(c *tc.C) {
 		coreresource.UUID(resID),
 	)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
-}
-
-func (s *resourceSuite) TestSetApplicationResourceDoesNothingIfAlreadyExists(c *tc.C) {
-	// Arrange: insert the charm resource, the resource and the initial
-	// application resource.
-	initialTime := time.Now()
-	resID := "resource-id"
-	input := resourceData{
-		UUID:            resID,
-		ApplicationUUID: s.constants.fakeApplicationUUID1,
-		CreatedAt:       time.Now().Truncate(time.Second).UTC(),
-		Name:            "resource-name",
-		Type:            charmresource.TypeContainerImage,
-	}
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := input.insert(c.Context(), tx); err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Set initial application resource.
-	err = s.state.SetApplicationResource(
-		c.Context(),
-		coreresource.UUID(resID),
-	)
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to execute SetApplicationResource: %v", errors.ErrorStack(err)))
-
-	// Act: set application resource a second time.
-	inbetweenTime := time.Now()
-	err = s.state.SetApplicationResource(
-		c.Context(),
-		coreresource.UUID(resID),
-	)
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute second SetApplicationResource: %v", errors.ErrorStack(err)))
-
-	// Assert: check that the application resource has the original added by
-	// time.
-	var foundAddedAt time.Time
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRow(`
-SELECT added_at FROM kubernetes_application_resource
-WHERE resource_uuid = ?`,
-			resID).Scan(&foundAddedAt)
-	})
-	c.Check(foundAddedAt, tc.TimeBetween(initialTime, inbetweenTime))
-	c.Check(err, tc.ErrorIsNil, tc.Commentf("(Assert) kubernetes_application_resource has been unexpectedly updated: %v", errors.ErrorStack(err)))
 }
 
 // TestListResourcesNoResources verifies that no resources are listed for an
@@ -2630,10 +2535,6 @@ func (s *resourceSuite) TestImportResources(c *tc.C) {
 	// Assert: Check the unit resources were set.
 	s.checkUnitResourceSet(c, app1Res1UUID, s.constants.fakeUnitUUID1, app1Res1Unit)
 	s.checkUnitResourceSet(c, app1Res2UUID, s.constants.fakeUnitUUID1, app1Res2Unit)
-
-	// Assert: Check that the container image resources were all set on their
-	// applications.
-	s.checkKubernetesResourceSet(c, app2ResUUID, app2Res)
 }
 
 // TestImportResourcesOnLocalCharm checks that repository resources are not set for
@@ -3184,24 +3085,6 @@ WHERE  resource_uuid = ?
 	c.Check(appID, tc.Equals, expectedAppID)
 }
 
-func (s *resourceSuite) checkKubernetesResourceSet(
-	c *tc.C,
-	resourceUUID string,
-	res resource.ImportResourceInfo,
-) {
-	var addedAt time.Time
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRow(`
-SELECT added_at
-FROM   kubernetes_application_resource
-WHERE  resource_uuid = ?
-`, resourceUUID).Scan(&addedAt)
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addedAt, tc.Equals, res.Timestamp)
-
-}
-
 func (s *resourceSuite) checkUnitResourceSet(
 	c *tc.C,
 	resourceUUID string,
@@ -3267,14 +3150,6 @@ FROM   application_resource
 		return tx.QueryRow(`
 SELECT resource_uuid
 FROM   unit_resource
-`).Scan(&uuid)
-	})
-	c.Check(err, tc.ErrorIs, sql.ErrNoRows)
-
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRow(`
-SELECT resource_uuid
-FROM   kubernetes_application_resource
 `).Scan(&uuid)
 	})
 	c.Check(err, tc.ErrorIs, sql.ErrNoRows)
@@ -3512,9 +3387,6 @@ type resourceData struct {
 	Description     string
 	UnitUUID        string
 	AddedAt         time.Time
-	// KubernetesApplication indicates if this resource is set for a kubernetes
-	// application in the kubernetes_application_resource table.
-	KubernetesApplication bool
 	// ObjectStoreUUID indicates if the resource is a file type resource stored
 	// in the object store. If it is then it will be inserted along with the
 	// Size and SHA384.
@@ -3640,16 +3512,6 @@ VALUES (?, ?, ?)`, d.UUID, RetrievedByTypeID(d.RetrievedByType), d.RetrievedByNa
 		_, err = tx.Exec(`
 INSERT INTO unit_resource (resource_uuid, unit_uuid, added_at)
 VALUES (?, ?, ?)`, d.UUID, d.UnitUUID, d.AddedAt)
-		if err != nil {
-			return errors.Capture(err)
-		}
-	}
-
-	// Populate kubernetes application resource if required.
-	if d.KubernetesApplication {
-		_, err = tx.Exec(`
-INSERT INTO kubernetes_application_resource (resource_uuid, added_at)
-VALUES (?, ?)`, d.UUID, d.AddedAt)
 		if err != nil {
 			return errors.Capture(err)
 		}

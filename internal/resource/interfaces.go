@@ -100,13 +100,6 @@ type ResourceService interface {
 		resourceUUID coreresource.UUID,
 		unitUUID coreunit.UUID,
 	) error
-
-	// SetApplicationResource marks an existing resource as in use by a CAAS
-	// application.
-	SetApplicationResource(
-		ctx context.Context,
-		resourceUUID coreresource.UUID,
-	) error
 }
 
 // ResourceClientGetter gets a client for getting resources.

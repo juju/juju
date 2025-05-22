@@ -6,6 +6,10 @@ package network
 import (
 	"runtime"
 	"strings"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // LinkLayerDeviceType defines the type of a link-layer network device.
@@ -85,4 +89,43 @@ var whitespaceReplacer = strings.NewReplacer(
 func stringLengthBetween(value string, minLength, maxLength uint) bool {
 	length := uint(len(value))
 	return length >= minLength && length <= maxLength
+}
+
+// LinkLayerDeviceUUID represents a relation unique identifier.
+type LinkLayerDeviceUUID string
+
+// NewLinkLayerDeviceUUID is a convenience function for generating a new
+// link layer device uuid.
+func NewLinkLayerDeviceUUID() (LinkLayerDeviceUUID, error) {
+	id, err := uuid.NewUUID()
+	if err != nil {
+		return LinkLayerDeviceUUID(""), err
+	}
+	return LinkLayerDeviceUUID(id.String()), nil
+}
+
+// ParseUUID returns a new UUID from the given string. If the string is not a
+// valid uuid an error satisfying [errors.NotValid] will be returned.
+func ParseLinkLayerDeviceUUID(value string) (LinkLayerDeviceUUID, error) {
+	if !uuid.IsValidUUIDString(value) {
+		return "", errors.Errorf("parsing relation uuid %q: %w", value, coreerrors.NotValid)
+	}
+	return LinkLayerDeviceUUID(value), nil
+}
+
+// String implements the stringer interface for UUID.
+func (u LinkLayerDeviceUUID) String() string {
+	return string(u)
+}
+
+// Validate ensures the consistency of the UUID. If the uuid is invalid an error
+// satisfying [errors.NotValid] will be returned.
+func (u LinkLayerDeviceUUID) Validate() error {
+	if u == "" {
+		return errors.Errorf("relation uuid cannot be empty").Add(coreerrors.NotValid)
+	}
+	if !uuid.IsValidUUIDString(string(u)) {
+		return errors.Errorf("relation uuid %q: %w", u, coreerrors.NotValid)
+	}
+	return nil
 }

@@ -51,11 +51,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationScopeGlobal(c *tc.C
 	s.expectGetRelationEndpointScope(relUUID, subordinateID, scope, nil)
 
 	// Act
-	watcher := &subordinateLifeSuspendedStatusWatcher{
-		s:           s.service,
-		parentAppID: principalID,
-		appID:       subordinateID,
-	}
+	watcher := s.getSubordinateWatcher(principalID, subordinateID)
 	change, err := watcher.watchNewRelation(
 		c.Context(),
 		relUUID,
@@ -86,11 +82,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationAnotherSubordinate(
 	s.expectGetOtherRelatedEndpointApplicationData(relUUID, subordinateID, otherAppData, nil)
 
 	// Act
-	watcher := &subordinateLifeSuspendedStatusWatcher{
-		s:           s.service,
-		parentAppID: principalID,
-		appID:       subordinateID,
-	}
+	watcher := s.getSubordinateWatcher(principalID, subordinateID)
 	change, err := watcher.watchNewRelation(
 		c.Context(),
 		relUUID,
@@ -119,11 +111,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationPrincipal(c *tc.C) 
 	s.expectGetOtherRelatedEndpointApplicationData(relUUID, subordinateID, otherAppData, nil)
 
 	// Act
-	watcher := &subordinateLifeSuspendedStatusWatcher{
-		s:           s.service,
-		parentAppID: principalID,
-		appID:       subordinateID,
-	}
+	watcher := s.getSubordinateWatcher(principalID, subordinateID)
 	change, err := watcher.watchNewRelation(
 		c.Context(),
 		relUUID,
@@ -154,11 +142,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationNoChange(c *tc.C) {
 	s.expectGetOtherRelatedEndpointApplicationData(relUUID, subordinateID, otherAppData, nil)
 
 	// Act
-	watcher := &subordinateLifeSuspendedStatusWatcher{
-		s:           s.service,
-		parentAppID: principalID,
-		appID:       subordinateID,
-	}
+	watcher := s.getSubordinateWatcher(principalID, subordinateID)
 	change, err := watcher.watchNewRelation(
 		c.Context(),
 		relUUID,
@@ -230,12 +214,8 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 	currentRelations[principalSubordinateRelUUID] = currentRelData
 
 	// Act
-	watcher := &subordinateLifeSuspendedStatusWatcher{
-		s:                s.service,
-		parentAppID:      principalID,
-		appID:            subordinateID,
-		currentRelations: currentRelations,
-	}
+	watcher := s.getSubordinateWatcher(principalID, subordinateID)
+	watcher.currentRelations = currentRelations
 
 	relationsIgnored := set.NewStrings()
 	obtainedChanges, err := watcher.filterChangeEvents(
@@ -271,6 +251,11 @@ func (s *watcherSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
 	s.service = NewWatchableService(s.state, s.watcherFactory, nil, loggertesting.WrapCheckLog(c))
 
+	c.Cleanup(func() {
+		s.state = nil
+		s.service = nil
+		s.watcherFactory = nil
+	})
 	return ctrl
 }
 
@@ -306,4 +291,16 @@ func (s *watcherSuite) expectGetMapperDataForWatchLifeSuspendedStatus(
 	err error,
 ) {
 	s.state.EXPECT().GetMapperDataForWatchLifeSuspendedStatus(gomock.Any(), relUUID, appID).Return(data, err)
+}
+
+func (s *watcherSuite) getSubordinateWatcher(principalID coreapplication.ID, subordinateID coreapplication.ID) *subordinateLifeSuspendedStatusWatcher {
+	w := &subordinateLifeSuspendedStatusWatcher{
+		parentAppID: principalID,
+	}
+	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher{
+		s:             s.service,
+		appID:         subordinateID,
+		processChange: w.processChange,
+	}
+	return w
 }

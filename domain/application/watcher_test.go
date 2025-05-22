@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	stdtesting "testing"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -18,7 +19,9 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -28,6 +31,9 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/life"
+	machineservice "github.com/juju/juju/domain/machine/service"
+	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/resolve"
 	resolvestate "github.com/juju/juju/domain/resolve/state"
 	"github.com/juju/juju/domain/status"
@@ -39,7 +45,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
-	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -56,7 +62,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
-		`, modelUUID.String(), coretesting.ControllerTag.Id())
+		`, modelUUID.String(), testing.ControllerTag.Id())
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -858,6 +864,169 @@ func (s *watcherSuite) TestWatchUnitAddressesHashBadName(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
+func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineInitialEvents(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert")
+	svc := s.setupService(c, factory)
+
+	s.createApplication(c, svc, "foo",
+		service.AddUnitArg{},
+		service.AddUnitArg{},
+		service.AddUnitArg{
+			Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+		},
+	)
+
+	ctx := c.Context()
+	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, "0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case initial := <-watcher.Changes():
+		c.Assert(initial, tc.DeepEquals, []string{"foo/0", "foo/2"})
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for initial change")
+	}
+}
+
+func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert")
+	modelDB := func() (database.TxnRunner, error) {
+		return s.ModelTxnRunner(), nil
+	}
+	svc := s.setupService(c, factory)
+	st := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
+	machineSvc := machineservice.NewService(machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)))
+
+	_, err := machineSvc.CreateMachine(c.Context(), "0")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = machineSvc.CreateMachine(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	ctx := c.Context()
+	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, "0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	harness.AddTest(func(c *tc.C) {
+		s.createApplication(c, svc, "foo",
+			service.AddUnitArg{
+				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+			},
+			service.AddUnitArg{
+				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "1"},
+			},
+			service.AddUnitArg{
+				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+			},
+		)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"foo/0", "foo/2"}))
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		err := st.SetUnitLife(ctx, "foo/0", life.Dying)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := st.DeleteUnit(ctx, "foo/0")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"foo/0"}))
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := st.DeleteUnit(ctx, "foo/1")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, []string{})
+}
+
+func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert")
+	modelDB := func() (database.TxnRunner, error) {
+		return s.ModelTxnRunner(), nil
+	}
+	svc := s.setupService(c, factory)
+	st := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
+	machineSvc := machineservice.NewService(machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)))
+
+	_, err := machineSvc.CreateMachine(c.Context(), "0")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = machineSvc.CreateMachine(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	ctx := c.Context()
+	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, "0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	harness.AddTest(func(c *tc.C) {
+		s.createApplication(c, svc, "foo",
+			service.AddUnitArg{
+				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+			},
+			service.AddUnitArg{
+				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "1"},
+			},
+		)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"foo/0"}))
+	})
+
+	var subordinateAppID coreapplication.ID
+	harness.AddTest(func(c *tc.C) {
+		subordinateAppID = s.createApplicationWithCharmAndStoragePath(c, svc, "bar", &stubCharm{subordinate: true}, "deadbeef")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		err := svc.AddSubordinateUnit(ctx, subordinateAppID, "foo/0")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"bar/0"}))
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		err := svc.AddSubordinateUnit(ctx, subordinateAppID, "foo/1")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := st.DeleteUnit(ctx, "bar/0")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"bar/0"}))
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := st.DeleteUnit(ctx, "bar/1")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, []string{})
+}
+
+func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineBadName(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert")
+	svc := s.setupService(c, factory)
+
+	_, err := svc.WatchUnitAddRemoveOnMachine(c.Context(), "bad-name")
+	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
+}
+
 func (s *watcherSuite) TestWatchApplicationExposed(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "v_application_exposed_endpoint")
 
@@ -1101,11 +1270,12 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	ctx := context.Background()
+	netNodeUUID := networktesting.GenNetNodeUUID(c)
 
 	// Insert a net node first.
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
-		_, err := tx.ExecContext(ctx, insertNetNode0, "net-node-uuid")
+		_, err := tx.ExecContext(ctx, insertNetNode0, netNodeUUID)
 		if err != nil {
 			return err
 		}
@@ -1113,7 +1283,7 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	watcher, err := svc.WatchNetNodeAddress(ctx, "net-node-uuid")
+	watcher, err := svc.WatchNetNodeAddress(ctx, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -1122,7 +1292,7 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 	harness.AddTest(func(c *tc.C) {
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			insertLLD := `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
-			_, err = tx.ExecContext(ctx, insertLLD, "lld0-uuid", "net-node-uuid", "lld0-name", 1500, "00:11:22:33:44:55", 0, 0)
+			_, err = tx.ExecContext(ctx, insertLLD, "lld0-uuid", netNodeUUID, "lld0-name", 1500, "00:11:22:33:44:55", 0, 0)
 			if err != nil {
 				return err
 			}
@@ -1137,7 +1307,7 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 				return err
 			}
 			insertIPAddress := `INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-			_, err = tx.ExecContext(ctx, insertIPAddress, "ip-address0-uuid", "lld0-uuid", "10.0.0.1", "net-node-uuid", 0, 3, 1, 1, "subnet-uuid")
+			_, err = tx.ExecContext(ctx, insertIPAddress, "ip-address0-uuid", "lld0-uuid", "10.0.0.1", netNodeUUID, 0, 3, 1, 1, "subnet-uuid")
 			if err != nil {
 				return err
 			}
@@ -1152,7 +1322,7 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 	harness.AddTest(func(c *tc.C) {
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			updateIPAddress := `UPDATE ip_address SET address_value = ? WHERE net_node_uuid = ?`
-			_, err = tx.ExecContext(ctx, updateIPAddress, "10.0.0.255", "net-node-uuid")
+			_, err = tx.ExecContext(ctx, updateIPAddress, "10.0.0.255", netNodeUUID)
 			if err != nil {
 				return err
 			}
@@ -1167,7 +1337,7 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 	harness.AddTest(func(c *tc.C) {
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			updateIPAddress := `UPDATE ip_address SET scope_id = ? WHERE net_node_uuid = ?`
-			_, err = tx.ExecContext(ctx, updateIPAddress, 1, "net-node-uuid")
+			_, err = tx.ExecContext(ctx, updateIPAddress, 1, netNodeUUID)
 			if err != nil {
 				return err
 			}
