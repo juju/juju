@@ -10,8 +10,8 @@ import (
 	"github.com/juju/tc"
 	admission "k8s.io/api/admissionregistration/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	pkitest "github.com/juju/juju/internal/pki/test"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/worker/caasadmission"
 )
 

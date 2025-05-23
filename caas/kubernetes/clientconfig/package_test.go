@@ -4,7 +4,6 @@
 package clientconfig
 
 var (
-	NewK8sClientSet               = newK8sClientSet
 	EnsureJujuAdminServiceAccount = ensureJujuAdminServiceAccount
 	GetOrCreateClusterRole        = getOrCreateClusterRole
 	GetOrCreateServiceAccount     = getOrCreateServiceAccount

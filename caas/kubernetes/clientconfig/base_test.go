@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/juju/juju/caas/kubernetes/provider/mocks"
+	"github.com/juju/juju/caas/kubernetes/clientconfig/mocks"
 	"github.com/juju/juju/internal/testing"
 )
 

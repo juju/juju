@@ -24,8 +24,8 @@ import (
 	kubernetes2 "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/secrets"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/secrets/provider"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"

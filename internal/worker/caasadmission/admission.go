@@ -12,9 +12,9 @@ import (
 	admission "k8s.io/api/admissionregistration/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/internal/pki"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	k8sutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 )
 
 // AdmissionCreator represents a creator of mutating webhooks that is context aware of the

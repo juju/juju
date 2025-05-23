@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )

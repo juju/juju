@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	corelogger "github.com/juju/juju/core/logger"
@@ -588,7 +587,7 @@ func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs
 		return err
 	}
 
-	if cloudArgs.Cloud.Type != k8sconstants.CAASProviderType {
+	if cloudArgs.Cloud.Type != cloud.CloudTypeKubernetes {
 		// All non-k8s cloud need to go through whitelist.
 		controllerCloud, err := api.cloudService.Cloud(ctx, api.controllerCloud)
 		if err != nil {

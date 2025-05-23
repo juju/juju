@@ -15,9 +15,6 @@ import (
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -25,6 +22,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/internal/provider/kubernetes/proxy"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
@@ -155,7 +154,7 @@ func (c *UpdateCAASCommand) Init(args []string) error {
 }
 
 func (c *UpdateCAASCommand) newK8sClusterBroker(ctx context.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
-	openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
+	openParams, err := kubernetes.BaseKubeCloudOpenParams(cloud, credential)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -254,8 +253,8 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	if newCloud.Type != k8sconstants.CAASProviderType {
-		ctx.Infof("The %q cloud is a %q cloud and not a %q cloud.", c.caasName, newCloud.Type, k8sconstants.CAASProviderType)
+	if newCloud.Type != jujucloud.CloudTypeKubernetes {
+		ctx.Infof("The %q cloud is a %q cloud and not a %q cloud.", c.caasName, newCloud.Type, jujucloud.CloudTypeKubernetes)
 		return cmd.ErrSilent
 	}
 
@@ -310,8 +309,8 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
-		if existing.Type != k8sconstants.CAASProviderType {
-			ctx.Infof("The %q cloud on the controller is a %q cloud and not a %q cloud.", c.caasName, existing.Type, k8sconstants.CAASProviderType)
+		if existing.Type != jujucloud.CloudTypeKubernetes {
+			ctx.Infof("The %q cloud on the controller is a %q cloud and not a %q cloud.", c.caasName, existing.Type, jujucloud.CloudTypeKubernetes)
 			return cmd.ErrSilent
 		}
 
