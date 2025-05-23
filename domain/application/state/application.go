@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
@@ -99,17 +100,18 @@ func (st *State) CreateIAASApplication(
 	name string,
 	args application.AddIAASApplicationArg,
 	units []application.AddUnitArg,
-) (coreapplication.ID, error) {
+) (coreapplication.ID, []coremachine.Name, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", nil, errors.Capture(err)
 	}
 
 	appUUID, err := coreapplication.NewID()
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", nil, errors.Capture(err)
 	}
 
+	var machineNames []coremachine.Name
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.insertApplication(ctx, tx, name, appUUID, args.BaseAddApplicationArg); err != nil {
 			return errors.Errorf("inserting IAAS application %q: %w", name, err)
@@ -118,15 +120,15 @@ func (st *State) CreateIAASApplication(
 		if len(units) == 0 {
 			return nil
 		}
-		if err = st.insertIAASApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
+		if machineNames, err = st.insertIAASApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
 			return errors.Errorf("inserting IAAS units for application %q: %w", appUUID, err)
 		}
 		return nil
 	})
 	if err != nil {
-		return "", errors.Errorf("creating IAAS application %q: %w", name, err)
+		return "", nil, errors.Errorf("creating IAAS application %q: %w", name, err)
 	}
-	return appUUID, nil
+	return appUUID, machineNames, nil
 }
 
 // CreateCAASApplication creates an CAAS application, returning an error
@@ -340,12 +342,12 @@ func (st *State) insertIAASApplicationUnits(
 	appUUID coreapplication.ID,
 	args application.AddIAASApplicationArg,
 	units []application.AddUnitArg,
-) error {
+) ([]coremachine.Name, error) {
 	insertUnits := make([]application.InsertUnitArg, len(units))
 	for i, unit := range units {
 		unitName, err := st.newUnitName(ctx, tx, appUUID)
 		if err != nil {
-			return errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
+			return nil, errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 		}
 		insertUnits[i] = application.InsertUnitArg{
 			UnitName:        unitName,
@@ -360,13 +362,16 @@ func (st *State) insertIAASApplicationUnits(
 		}
 	}
 
+	var machineNames []coremachine.Name
 	for _, arg := range insertUnits {
-		if err := st.insertIAASUnit(ctx, tx, appUUID, arg); err != nil {
-			return errors.Errorf("inserting IAAS unit %q: %w", arg.UnitName, err)
+		mNames, err := st.insertIAASUnit(ctx, tx, appUUID, arg)
+		if err != nil {
+			return nil, errors.Errorf("inserting IAAS unit %q: %w", arg.UnitName, err)
 		}
+		machineNames = append(machineNames, mNames...)
 	}
 
-	return nil
+	return machineNames, nil
 }
 
 func (st *State) insertCAASApplicationUnits(

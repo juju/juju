@@ -17,8 +17,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/instance"
-	coremachine "github.com/juju/juju/core/machine"
-	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	testing2 "github.com/juju/juju/core/network/testing"
@@ -35,7 +33,6 @@ import (
 	portstate "github.com/juju/juju/domain/port/state"
 	"github.com/juju/juju/domain/status"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type unitStateSuite struct {
@@ -1693,63 +1690,22 @@ WHERE uuid=?`, constraintUUID)
 	return constraintSpaces, constraintTags, constraintZones
 }
 
-func (s *unitStateSuite) addUnit(c *tc.C, unitName coreunit.Name, appUUID coreapplication.ID) coreunit.UUID {
-	return s.addUnitWithLife(c, unitName, appUUID, life.Alive)
-}
-
-func (s *unitStateSuite) addUnitWithLife(c *tc.C, unitName coreunit.Name, appUUID coreapplication.ID, l life.Life) coreunit.UUID {
-	unitUUID := coreunittesting.GenUnitUUID(c)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		netNodeUUID := uuid.MustNewUUID().String()
-		_, err := tx.Exec(`
-INSERT INTO net_node (uuid)
-VALUES (?)
-`, netNodeUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.Exec(`
-INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
-SELECT ?, ?, ?, ?, uuid, charm_uuid
-FROM application
-WHERE uuid = ?
-`, unitUUID, unitName, l, netNodeUUID, appUUID)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return unitUUID
-}
-
-func (s *unitStateSuite) addMachineToUnit(c *tc.C, unitUUID coreunit.UUID) (coremachine.Name, coremachine.UUID) {
-	machineUUID := coremachinetesting.GenUUID(c)
-	machineName := coremachine.Name("0")
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.Exec(`
-INSERT INTO machine (uuid, name, life_id, net_node_uuid)
-SELECT ?, ?, ?, net_node_uuid
-FROM unit
-WHERE uuid = ?
-`, machineUUID, machineName, 0 /* alive */, unitUUID)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return machineName, machineUUID
-}
-
 type unitStateSubordinateSuite struct {
-	unitStateSuite
+	baseSuite
+
+	state *State
 }
 
 func TestUnitStateSubordinateSuite(t *stdtesting.T) {
 	tc.Run(t, &unitStateSubordinateSuite{})
 }
+
+func (s *unitStateSubordinateSuite) SetUpTest(c *tc.C) {
+	s.baseSuite.SetUpTest(c)
+
+	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+}
+
 func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnit(c *tc.C) {
 	// Arrange:
 	pUnitName := coreunittesting.GenNewName(c, "foo/666")
@@ -1960,10 +1916,14 @@ func (s *unitStateSubordinateSuite) TestIsSubordinateApplicationNotFound(c *tc.C
 func (s *unitStateSubordinateSuite) TestGetUnitPrincipal(c *tc.C) {
 	principalAppID := s.createIAASApplication(c, "principal", life.Alive)
 	subAppID := s.createSubordinateApplication(c, "sub", life.Alive)
+
 	principalName := coreunittesting.GenNewName(c, "principal/0")
+
 	subName := coreunittesting.GenNewName(c, "sub/0")
+
 	principalUUID := s.addUnit(c, principalName, principalAppID)
 	subUUID := s.addUnit(c, subName, subAppID)
+
 	s.addUnitPrincipal(c, principalUUID, subUUID)
 
 	foundPrincipalName, ok, err := s.state.GetUnitPrincipal(c.Context(), subName)
@@ -1975,8 +1935,10 @@ func (s *unitStateSubordinateSuite) TestGetUnitPrincipal(c *tc.C) {
 func (s *unitStateSubordinateSuite) TestGetUnitPrincipalSubordinateNotPrincipal(c *tc.C) {
 	principalAppID := s.createIAASApplication(c, "principal", life.Alive)
 	subAppID := s.createSubordinateApplication(c, "sub", life.Alive)
+
 	principalName := coreunittesting.GenNewName(c, "principal/0")
 	subName := coreunittesting.GenNewName(c, "sub/0")
+
 	s.addUnit(c, principalName, principalAppID)
 	s.addUnit(c, subName, subAppID)
 
@@ -1997,14 +1959,19 @@ func (s *unitStateSubordinateSuite) TestGetUnitSubordinates(c *tc.C) {
 	principalAppID := s.createIAASApplication(c, "principal", life.Alive)
 	subAppID1 := s.createSubordinateApplication(c, "sub1", life.Alive)
 	subAppID2 := s.createSubordinateApplication(c, "sub2", life.Alive)
+
 	principalName := coreunittesting.GenNewName(c, "principal/0")
+
 	subName1 := coreunittesting.GenNewName(c, "sub1/0")
 	subName2 := coreunittesting.GenNewName(c, "sub2/0")
 	subName3 := coreunittesting.GenNewName(c, "sub2/1")
+
 	principalUnitUUID := s.addUnit(c, principalName, principalAppID)
+
 	subUnitUUID1 := s.addUnit(c, subName1, subAppID1)
 	subUnitUUID2 := s.addUnit(c, subName2, subAppID2)
 	subUnitUUID3 := s.addUnit(c, subName3, subAppID2)
+
 	s.addUnitPrincipal(c, principalUnitUUID, subUnitUUID1)
 	s.addUnitPrincipal(c, principalUnitUUID, subUnitUUID2)
 	s.addUnitPrincipal(c, principalUnitUUID, subUnitUUID3)
@@ -2062,21 +2029,6 @@ VALUES (?, ?)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *unitStateSubordinateSuite) assertUnitPrincipal(c *tc.C, principalName, subordinateName coreunit.Name) {
-	var foundPrincipalName coreunit.Name
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRow(`
-SELECT u1.name
-FROM unit u1
-JOIN unit_principal up ON up.principal_uuid = u1.uuid
-JOIN unit u2 ON u2.uuid = up.unit_uuid
-WHERE u2.name = ?
-`, subordinateName).Scan(&foundPrincipalName)
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(foundPrincipalName, tc.Equals, principalName)
 }
 
 func (s *unitStateSubordinateSuite) createSubordinateApplication(c *tc.C, name string, l life.Life) coreapplication.ID {
