@@ -30,22 +30,21 @@ func (s *ModelSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.watchableDB = NewTestWatchableDB(c, s.ModelUUID(), s.TxnRunner())
+	c.Cleanup(func() {
+		// We could use workertest.DirtyKill here, but some workers are already
+		// dead when we get here and it causes unwanted logs. This just ensures
+		// that we don't have any addition workers running.
+		if s.watchableDB != nil {
+			s.watchableDB.Kill()
+			_ = s.watchableDB.Wait()
+			s.watchableDB = nil
+		}
+	})
 
 	// Prime the change stream, so that there is at least some
 	// value in the stream, otherwise the changestream won't have any
 	// bounds (terms) to work on.
 	s.PrimeChangeStream(c)
-}
-
-func (s *ModelSuite) TearDownTest(c *tc.C) {
-	if s.watchableDB != nil {
-		// We could use workertest.DirtyKill here, but some workers are already
-		// dead when we get here and it causes unwanted logs. This just ensures
-		// that we don't have any addition workers running.
-		killAndWait(c, s.watchableDB)
-	}
-
-	s.ModelSuite.TearDownTest(c)
 }
 
 // GetWatchableDB allows the ModelSuite to be a WatchableDBGetter

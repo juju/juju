@@ -31,16 +31,18 @@ func (s *ControllerModelSuite) SetUpTest(c *tc.C) {
 	s.watchableDBs = map[string]*TestWatchableDB{
 		coredatabase.ControllerNS: NewTestWatchableDB(c, coredatabase.ControllerNS, s.TxnRunner()),
 	}
-}
-
-func (s *ControllerModelSuite) TearDownTest(c *tc.C) {
-	for _, watchableDB := range s.watchableDBs {
+	c.Cleanup(func() {
 		// We could use workertest.DirtyKill here, but some workers are already
 		// dead when we get here and it causes unwanted logs. This just ensures
 		// that we don't have any addition workers running.
-		killAndWait(c, watchableDB)
-	}
-	s.ControllerModelSuite.TearDownTest(c)
+		for _, watchableDB := range s.watchableDBs {
+			watchableDB.Kill()
+		}
+		for _, watchableDB := range s.watchableDBs {
+			_ = watchableDB.Wait()
+		}
+		s.watchableDBs = nil
+	})
 }
 
 // InitWatchableDB ensures there is a TestWatchableDB for the given namespace.
