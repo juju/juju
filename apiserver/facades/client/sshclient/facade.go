@@ -341,8 +341,7 @@ func (facade *Facade) getExecSecretToken(cloudSpec environscloudspec.CloudSpec, 
 	return broker.GetSecretToken(k8sprovider.ExecRBACResourceName)
 }
 
-// PublicHostKeyForTarget returns the virtual host key for the target host. In addition, it also returns
-// the jump server's host key.
+// PublicHostKeyForTarget returns the virtual host key for the target host.
 func (facade *Facade) PublicHostKeyForTarget(arg params.SSHVirtualHostKeyRequestArg) params.PublicSSHHostKeyResult {
 	var res params.PublicSSHHostKeyResult
 
@@ -380,14 +379,6 @@ func (facade *Facade) PublicHostKeyForTarget(arg params.SSHVirtualHostKeyRequest
 	}
 
 	res.PublicKey = pubKey
-
-	jumpServerPubKey, err := facade.backend.JumpServerVirtualPublicKey()
-	if err != nil {
-		res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get controller jumpserver host key"))
-		return res
-	}
-
-	res.JumpServerPublicKey = jumpServerPubKey
 
 	return res
 }

@@ -462,8 +462,7 @@ func (s *FacadeSuite) TestPublicHostKeyForTarget(c *gc.C) {
 
 	res := new(params.PublicSSHHostKeyResult)
 	ress1 := params.PublicSSHHostKeyResult{
-		PublicKey:           []byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3"),
-		JumpServerPublicKey: []byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC4"),
+		PublicKey: []byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3"),
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
@@ -473,5 +472,4 @@ func (s *FacadeSuite) TestPublicHostKeyForTarget(c *gc.C) {
 	result, err := facade.PublicHostKeyForTarget("virtual-hostname")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.PublicKey, gc.DeepEquals, []byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3"))
-	c.Check(result.JumpServerPublicKey, gc.DeepEquals, []byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC4"))
 }

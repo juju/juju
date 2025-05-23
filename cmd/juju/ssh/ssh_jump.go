@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-const jumpUser = "admin"
 const finalDestinationUser = "ubuntu"
 
 const openSSHTemplate = `ssh -o "ProxyCommand=ssh -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.DestinationUser}}@{{.VirtualHostname}} {{.Args}}`
@@ -65,7 +64,9 @@ type sshJump struct {
 	controllerClient       SSHControllerAPI
 	hostChecker            jujussh.ReachableChecker
 	publicKeyRetryStrategy retry.CallArgs
+	loggedInUser           string
 	jumpHostPort           int
+	jumpHostKey            string
 	showCommand            bool
 
 	outputTemplate *template.Template
@@ -85,7 +86,11 @@ func (p *sshJump) initRun(cmd ModelCommand) error {
 		return errors.Trace(err)
 	}
 	p.jumpHostPort = controllerConfig.SSHServerPort()
-
+	jumpHostKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(controllerConfig.SSHHostKey()))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	p.jumpHostKey = string(gossh.MarshalAuthorizedKey(jumpHostKey))
 	details, err := cmd.ControllerDetails()
 	if err != nil {
 		return errors.Trace(err)
@@ -147,7 +152,7 @@ func (p *sshJump) getTarget() string {
 func (p *sshJump) resolveTarget(target string) (*resolvedTarget, error) {
 	user, entity := splitUserTarget(target)
 	if user == "" {
-		user = jumpUser
+		user = p.loggedInUser
 	}
 	resolvedTargetName, err := p.maybeResolveLeaderUnit(entity)
 	if err != nil {
@@ -166,18 +171,18 @@ func (p *sshJump) resolveTarget(target string) (*resolvedTarget, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	jumpHostKey, virtualHostKey, err := p.getKeysWithRetry(virtualHostname)
+	virtualHostKey, err := p.getKeysWithRetry(virtualHostname)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	availableAddresses := network.NewMachineHostPorts(p.jumpHostPort, p.controllersAddresses...).HostPorts()
-	address, err := p.hostChecker.FindHost(availableAddresses, []string{jumpHostKey})
+	address, err := p.hostChecker.FindHost(availableAddresses, []string{p.jumpHostKey})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	err = p.generateTemporaryKnownHosts(
 		hostKeys{
-			jumpHostKey:     jumpHostKey,
+			jumpHostKey:     p.jumpHostKey,
 			jumpHostname:    address.Host(),
 			virtualHostKey:  virtualHostKey,
 			virtualHostname: virtualHostname,
@@ -219,7 +224,7 @@ func (p *sshJump) generateTemporaryKnownHosts(hostKeys hostKeys) error {
 // getKeysWithRetry retrieves the public SSH host keys for the jump and target server, and converts them
 // to the SSH authrorized key format.
 // The reason we need a retry strategy is because the machine might not have been provisioned yet.
-func (p *sshJump) getKeysWithRetry(virtualHostname string) (string, string, error) {
+func (p *sshJump) getKeysWithRetry(virtualHostname string) (string, error) {
 	var hostKeysResult params.PublicSSHHostKeyResult
 	strategy := p.publicKeyRetryStrategy
 	strategy.IsFatalError = func(err error) bool {
@@ -235,17 +240,13 @@ func (p *sshJump) getKeysWithRetry(virtualHostname string) (string, string, erro
 	}
 	err := retry.Call(strategy)
 	if err != nil {
-		return "", "", err
-	}
-	jumpPublicKey, err := ssh.ParsePublicKey(hostKeysResult.JumpServerPublicKey)
-	if err != nil {
-		return "", "", errors.Annotate(err, "parsing jump server public key")
+		return "", err
 	}
 	publicKeyVirtualHostname, err := ssh.ParsePublicKey(hostKeysResult.PublicKey)
 	if err != nil {
-		return "", "", errors.Annotate(err, "parsing virtual hostname public key")
+		return "", errors.Annotate(err, "parsing virtual hostname public key")
 	}
-	return string(gossh.MarshalAuthorizedKey(jumpPublicKey)), string(gossh.MarshalAuthorizedKey(publicKeyVirtualHostname)), nil
+	return string(gossh.MarshalAuthorizedKey(publicKeyVirtualHostname)), nil
 }
 
 // maybePopulateTargetViaField is here to satisfy the interface.
@@ -338,6 +339,11 @@ func (p *sshJump) setPublicKeyRetryStrategy(retryStrategy retry.CallArgs) {
 func (p *sshJump) setRetryStrategy(strategy retry.CallArgs) {}
 
 func (p *sshJump) ensureAPIClient(mc ModelCommand) error {
+	accountDetails, err := mc.CurrentAccountDetails()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	p.loggedInUser = accountDetails.User
 	if p.sshClient != nil && p.controllerClient != nil && p.leaderAPI != nil {
 		return nil
 	}

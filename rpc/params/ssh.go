@@ -85,9 +85,8 @@ type SSHVirtualHostKeyRequestArg struct {
 // Additionally, it returns the controller's jump server's public key
 // in SSH wire format.
 type PublicSSHHostKeyResult struct {
-	Error               *Error `json:"error,omitempty"`
-	PublicKey           []byte `json:"public-key"`
-	JumpServerPublicKey []byte `json:"jump-server-public-key"`
+	Error     *Error `json:"error,omitempty"`
+	PublicKey []byte `json:"public-key"`
 }
 
 // SSHConnRequestArg holds the necessary info to create a ssh connection requests.

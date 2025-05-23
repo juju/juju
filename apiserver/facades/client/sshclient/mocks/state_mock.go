@@ -102,21 +102,6 @@ func (mr *MockBackendMockRecorder) GetSSHHostKeys(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSSHHostKeys", reflect.TypeOf((*MockBackend)(nil).GetSSHHostKeys), arg0)
 }
 
-// JumpServerVirtualPublicKey mocks base method.
-func (m *MockBackend) JumpServerVirtualPublicKey() ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "JumpServerVirtualPublicKey")
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// JumpServerVirtualPublicKey indicates an expected call of JumpServerVirtualPublicKey.
-func (mr *MockBackendMockRecorder) JumpServerVirtualPublicKey() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JumpServerVirtualPublicKey", reflect.TypeOf((*MockBackend)(nil).JumpServerVirtualPublicKey))
-}
-
 // MachineVirtualPublicKey mocks base method.
 func (m *MockBackend) MachineVirtualPublicKey(arg0 string) ([]byte, error) {
 	m.ctrl.T.Helper()
