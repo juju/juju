@@ -16,7 +16,6 @@ import (
 )
 
 type exportSuite struct {
-	coordinator   *MockCoordinator
 	exportService *MockExportService
 }
 
@@ -27,8 +26,11 @@ func TestExportSuite(t *testing.T) {
 func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.coordinator = NewMockCoordinator(ctrl)
 	s.exportService = NewMockExportService(ctrl)
+	
+	c.Cleanup(func() {
+		s.exportService = nil
+	})
 
 	return ctrl
 }

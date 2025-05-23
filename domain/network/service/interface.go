@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/environs"
 )
 
@@ -45,6 +46,7 @@ type WatcherFactory interface {
 // State describes retrieval and persistence methods needed for the network
 // domain service.
 type State interface {
+	LinkLayerDeviceState
 	SpaceState
 	SubnetState
 }
@@ -104,4 +106,20 @@ type SubnetState interface {
 	// NamespaceForWatchSubnet returns the namespace identifier used for
 	// observing changes to subnets.
 	NamespaceForWatchSubnet() string
+}
+
+// LinkLayerDeviceState describes persistence layer methods for the
+// link layer device (sub-) domain.
+type LinkLayerDeviceState interface {
+	// AllMachinesAndNetNodes returns all machine names mapped to their
+	// net mode UUIDs in the model.
+	AllMachinesAndNetNodes(ctx context.Context) (map[string]string, error)
+
+	// DeleteImportedLinkLayerDevices deletes all data added via the ImportLinkLayerDevices
+	// method.
+	DeleteImportedLinkLayerDevices(ctx context.Context) error
+
+	// ImportLinkLayerDevices adds link layer devices into the model as part
+	// of the migration import process.
+	ImportLinkLayerDevices(ctx context.Context, input []internal.ImportLinkLayerDevice) error
 }
