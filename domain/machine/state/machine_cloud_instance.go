@@ -171,10 +171,20 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 			return errors.Errorf("%w for machine %q", machineerrors.MachineCloudInstanceAlreadyExists, machineUUID)
 		}
 
+		var instID sql.Null[string]
+		if v := instanceID.String(); v != "" {
+			instID = sql.Null[string]{V: v, Valid: true}
+		}
+
+		var disName sql.Null[string]
+		if v := displayName; v != "" {
+			disName = sql.Null[string]{V: v, Valid: true}
+		}
+
 		instanceData := instanceData{
 			MachineUUID: machineUUID,
-			InstanceID:  instanceID.String(),
-			DisplayName: displayName,
+			InstanceID:  instID,
+			DisplayName: disName,
 		}
 
 		if hardwareCharacteristics != nil {

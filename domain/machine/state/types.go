@@ -17,17 +17,17 @@ import (
 // instanceData represents the struct to be inserted into the instance_data
 // table.
 type instanceData struct {
-	MachineUUID          machine.UUID `db:"machine_uuid"`
-	InstanceID           string       `db:"instance_id"`
-	DisplayName          string       `db:"display_name"`
-	Arch                 *string      `db:"arch"`
-	Mem                  *uint64      `db:"mem"`
-	RootDisk             *uint64      `db:"root_disk"`
-	RootDiskSource       *string      `db:"root_disk_source"`
-	CPUCores             *uint64      `db:"cpu_cores"`
-	CPUPower             *uint64      `db:"cpu_power"`
-	AvailabilityZoneUUID *string      `db:"availability_zone_uuid"`
-	VirtType             *string      `db:"virt_type"`
+	MachineUUID          machine.UUID     `db:"machine_uuid"`
+	InstanceID           sql.Null[string] `db:"instance_id"`
+	DisplayName          sql.Null[string] `db:"display_name"`
+	Arch                 *string          `db:"arch"`
+	Mem                  *uint64          `db:"mem"`
+	RootDisk             *uint64          `db:"root_disk"`
+	RootDiskSource       *string          `db:"root_disk_source"`
+	CPUCores             *uint64          `db:"cpu_cores"`
+	CPUPower             *uint64          `db:"cpu_power"`
+	AvailabilityZoneUUID *string          `db:"availability_zone_uuid"`
+	VirtType             *string          `db:"virt_type"`
 }
 
 // instanceDataResult represents the struct used to retrieve rows when joining
