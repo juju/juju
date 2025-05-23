@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 
 	"github.com/juju/clock"
+
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
