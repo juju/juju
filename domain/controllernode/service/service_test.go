@@ -17,6 +17,7 @@ import (
 	controllernode "github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -43,7 +44,7 @@ func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *tc.C) {
 
 	s.state.EXPECT().CurateNodes(gomock.Any(), []string{"3", "4"}, []string{"1"})
 
-	err := NewService(s.state).CurateNodes(c.Context(), []string{"3", "4"}, []string{"1"})
+	err := NewService(s.state, loggertesting.WrapCheckLog(c)).CurateNodes(c.Context(), []string{"3", "4"}, []string{"1"})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -52,7 +53,7 @@ func (s *serviceSuite) TestUpdateDqliteNode(c *tc.C) {
 
 	s.state.EXPECT().UpdateDqliteNode(gomock.Any(), "0", uint64(12345), "192.168.5.60")
 
-	err := NewService(s.state).UpdateDqliteNode(c.Context(), "0", 12345, "192.168.5.60")
+	err := NewService(s.state, loggertesting.WrapCheckLog(c)).UpdateDqliteNode(c.Context(), "0", 12345, "192.168.5.60")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -68,7 +69,7 @@ func (s *serviceSuite) TestIsModelKnownToController(c *tc.C) {
 		exp.SelectDatabaseNamespace(gomock.Any(), knownID).Return(knownID, nil),
 	)
 
-	svc := NewService(s.state)
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	known, err := svc.IsKnownDatabaseNamespace(c.Context(), fakeID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -90,7 +91,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionSuccess(c *tc.C) {
 
 	s.state.EXPECT().SetRunningAgentBinaryVersion(gomock.Any(), controllerID, ver).Return(nil)
 
-	svc := NewService(s.state)
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 	err := svc.SetControllerNodeReportedAgentVersion(
 		c.Context(),
 		controllerID,
@@ -101,7 +102,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionSuccess(c *tc.C) {
 
 func (s *serviceSuite) TestSetControllerNodeAgentVersionNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state)
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	controllerID := "1"
 
@@ -129,7 +130,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotValid(c *tc.C) {
 
 func (s *serviceSuite) TestSetControllerNodeAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state)
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	controllerID := "1"
 	ver := coreagentbinary.Version{
@@ -159,7 +160,7 @@ func (s *serviceSuite) TestIsControllerNode(c *tc.C) {
 		exp.IsControllerNode(gomock.Any(), controllerID).Return(true, nil),
 	)
 
-	svc := NewService(s.state)
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	is, err := svc.IsControllerNode(c.Context(), fakeID)
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
@@ -172,7 +173,7 @@ func (s *serviceSuite) TestIsControllerNode(c *tc.C) {
 
 func (s *serviceSuite) TestIsControllerNodeNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state)
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	controllerID := ""
 
@@ -183,18 +184,18 @@ func (s *serviceSuite) TestIsControllerNodeNotValid(c *tc.C) {
 
 func (s *serviceSuite) TestSetAPIAddressesStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state)
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	controllerID := "1"
 	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerID, gomock.Any()).Return(internalerrors.New("boom"))
 
-	err := svc.SetAPIAddresses(c.Context(), controllerID, network.SpaceHostPorts{{}}, network.SpaceInfo{})
+	err := svc.SetAPIAddresses(c.Context(), controllerID, network.SpaceHostPorts{{}}, &network.SpaceInfo{})
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *serviceSuite) TestSetAPIAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state)
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	controllerID := "1"
 
@@ -231,16 +232,149 @@ func (s *serviceSuite) TestSetAPIAddresses(c *tc.C) {
 			NetPort: network.NetPort(17070),
 		},
 	}
-	err := svc.SetAPIAddresses(c.Context(), controllerID, addrs, network.SpaceInfo{
+	err := svc.SetAPIAddresses(c.Context(), controllerID, addrs, &network.SpaceInfo{
 		ID:   "space0-uuid",
 		Name: "space0",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *serviceSuite) TestSetAPIAddressesNilMgmtSpace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	controllerID := "1"
+
+	controllerApiAddrs := []controllernode.APIAddress{
+		{
+			Address: "10.0.0.1:17070",
+			IsAgent: true,
+		},
+		{
+			Address: "10.0.0.2:17070",
+			IsAgent: true,
+		},
+	}
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerID, controllerApiAddrs).Return(nil)
+
+	addrs := network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.1",
+				},
+				SpaceID: "space0-uuid",
+			},
+			NetPort: network.NetPort(17070),
+		},
+		{
+			// This address is in a different space.
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.2",
+				},
+				SpaceID: "space1-uuid",
+			},
+			NetPort: network.NetPort(17070),
+		},
+	}
+	err := svc.SetAPIAddresses(c.Context(), controllerID, addrs, nil)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetAPIAddressesAllAddrsFilteredAgents(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	controllerID := "1"
+
+	controllerApiAddrs := []controllernode.APIAddress{
+		{
+			Address: "10.0.0.1:17070",
+			IsAgent: true,
+		},
+		{
+			Address: "10.0.0.2:17070",
+			IsAgent: true,
+		},
+	}
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerID, controllerApiAddrs).Return(nil)
+
+	addrs := network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.1",
+				},
+				SpaceID: "space1-uuid",
+			},
+			NetPort: network.NetPort(17070),
+		},
+		{
+			// This address is in a different space.
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.2",
+				},
+				SpaceID: "space2-uuid",
+			},
+			NetPort: network.NetPort(17070),
+		},
+	}
+	err := svc.SetAPIAddresses(c.Context(), controllerID, addrs, &network.SpaceInfo{
+		ID: "space0-uuid",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetAPIAddressesNotAllAddrsFilteredAgents(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	controllerID := "1"
+
+	controllerApiAddrs := []controllernode.APIAddress{
+		{
+			Address: "10.0.0.1:17070",
+			IsAgent: false,
+		},
+		{
+			Address: "10.0.0.2:17070",
+			IsAgent: true,
+		},
+	}
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerID, controllerApiAddrs).Return(nil)
+
+	addrs := network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.1",
+				},
+				SpaceID: "space1-uuid",
+			},
+			NetPort: network.NetPort(17070),
+		},
+		{
+			// This address is in a different space.
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.2",
+				},
+				SpaceID: "space0-uuid",
+			},
+			NetPort: network.NetPort(17070),
+		},
+	}
+	err := svc.SetAPIAddresses(c.Context(), controllerID, addrs, &network.SpaceInfo{
+		ID: "space0-uuid",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *serviceSuite) TestGetControllerIDs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state)
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	s.state.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1", "2"}, nil)
 

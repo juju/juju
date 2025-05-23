@@ -91,6 +91,7 @@ func (s *ControllerServices) ControllerNode() *controllernodeservice.WatchableSe
 	return controllernodeservice.NewWatchableService(
 		controllernodestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.controllerWatcherFactory("controllernode"),
+		s.logger.Child("controllernode"),
 	)
 }
 

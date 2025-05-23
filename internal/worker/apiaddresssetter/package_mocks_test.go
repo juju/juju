@@ -329,7 +329,7 @@ func (c *MockControllerNodeServiceGetControllerIDsCall) DoAndReturn(f func(conte
 }
 
 // SetAPIAddresses mocks base method.
-func (m *MockControllerNodeService) SetAPIAddresses(arg0 context.Context, arg1 string, arg2 network.SpaceHostPorts, arg3 network.SpaceInfo) error {
+func (m *MockControllerNodeService) SetAPIAddresses(arg0 context.Context, arg1 string, arg2 network.SpaceHostPorts, arg3 *network.SpaceInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetAPIAddresses", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -355,13 +355,13 @@ func (c *MockControllerNodeServiceSetAPIAddressesCall) Return(arg0 error) *MockC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerNodeServiceSetAPIAddressesCall) Do(f func(context.Context, string, network.SpaceHostPorts, network.SpaceInfo) error) *MockControllerNodeServiceSetAPIAddressesCall {
+func (c *MockControllerNodeServiceSetAPIAddressesCall) Do(f func(context.Context, string, network.SpaceHostPorts, *network.SpaceInfo) error) *MockControllerNodeServiceSetAPIAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerNodeServiceSetAPIAddressesCall) DoAndReturn(f func(context.Context, string, network.SpaceHostPorts, network.SpaceInfo) error) *MockControllerNodeServiceSetAPIAddressesCall {
+func (c *MockControllerNodeServiceSetAPIAddressesCall) DoAndReturn(f func(context.Context, string, network.SpaceHostPorts, *network.SpaceInfo) error) *MockControllerNodeServiceSetAPIAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

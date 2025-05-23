@@ -79,5 +79,6 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 	return service.NewWatchableService(
 		state.NewState(modelDB),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
+		loggertesting.WrapCheckLog(c),
 	)
 }

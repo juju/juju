@@ -11,6 +11,7 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
@@ -85,9 +86,10 @@ type WatchableService struct {
 func NewWatchableService(
 	st State,
 	watcherFactory WatcherFactory,
+	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
-		Service:        &Service{st},
+		Service:        NewService(st, logger),
 		watcherFactory: watcherFactory,
 	}
 }
@@ -109,12 +111,13 @@ func (s *WatchableService) WatchControllerNodes(ctx context.Context) (watcher.No
 
 // Service provides the API for working with controller nodes.
 type Service struct {
-	st State
+	st     State
+	logger logger.Logger
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State) *Service {
-	return &Service{st}
+func NewService(st State, logger logger.Logger) *Service {
+	return &Service{st, logger}
 }
 
 // CurateNodes modifies the known control plane by adding and removing
@@ -205,21 +208,32 @@ func (s *Service) IsControllerNode(ctx context.Context, nodeID string) (bool, er
 //
 // The following errors can be expected:
 // - [controllernodeerrors.NotFound] if the controller node does not exist.
-func (s *Service) SetAPIAddresses(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, mgmtSpace network.SpaceInfo) error {
+func (s *Service) SetAPIAddresses(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, mgmtSpace *network.SpaceInfo) error {
 	// We map the SpaceHostPorts addresses to controller api addresses by
 	// checking if the address is available for agents (this is the case if the
 	// space ID of the address matches the management space ID), and also by
 	// joining the address host and port to a string "host:port".
 	addresses := make([]controllernode.APIAddress, 0, len(addrs))
+	emptyAgentAddresses := true
 	for _, spHostPort := range addrs {
-		// Check if the address is available for agents.
-		isAvailableForAgents := spHostPort.SpaceID == mgmtSpace.ID
+		// Check if the address is available for agents. If no management space
+		// is set, all addresses are available for agents.
+		isAvailableForAgents := mgmtSpace == nil || spHostPort.SpaceID == mgmtSpace.ID
 		// Join the address host and port to a string "host:port".
 		address := net.JoinHostPort(spHostPort.Host(), strconv.Itoa(spHostPort.Port()))
 		addresses = append(addresses, controllernode.APIAddress{
 			Address: address,
 			IsAgent: isAvailableForAgents,
 		})
+		emptyAgentAddresses = emptyAgentAddresses && !isAvailableForAgents
+	}
+	// If we have filtered out all addresses, set all to agents to ensure that
+	// the API is always reachable for agents.
+	if emptyAgentAddresses {
+		for i := range addresses {
+			addresses[i].IsAgent = true
+		}
+		s.logger.Warningf(ctx, "all provided API addresses were filtered out with regards to the management space, forcing all addresses to be agents to ensure API connectivity")
 	}
 
 	return s.st.SetAPIAddresses(ctx, controllerID, addresses)
