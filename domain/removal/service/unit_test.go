@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -22,7 +23,9 @@ type unitSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&unitSuite{})
+func TestUnitSuite(t *testing.T) {
+	tc.Run(t, &unitSuite{})
+}
 
 func (s *unitSuite) TestRemoveUnitNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()

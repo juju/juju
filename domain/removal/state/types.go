@@ -33,9 +33,9 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
-// entityAssoicationCount holds a Count in int form and the UUID in string form
+// entityAssociationCount holds a Count in int form and the UUID in string form
 // for the associated entity.
-type entityAssoicationCount struct {
+type entityAssociationCount struct {
 	// UUID uniquely identifies a associated domain entity.
 	UUID string `db:"uuid"`
 	// Count counts the number of entities.

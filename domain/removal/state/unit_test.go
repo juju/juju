@@ -6,11 +6,13 @@ package state
 import (
 	"context"
 	"database/sql"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
@@ -21,6 +23,7 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -40,7 +43,9 @@ type unitSuite struct {
 	changestreamtesting.ModelSuite
 }
 
-var _ = tc.Suite(&unitSuite{})
+func TestUnitSuite(t *testing.T) {
+	tc.Run(t, &unitSuite{})
+}
 
 func (s *unitSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
@@ -312,7 +317,7 @@ func (s *unitSuite) TestGetUnitLifeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *unitSuite) TestDeleteUnit(c *tc.C) {
+func (s *unitSuite) TestDeleteIAASUnit(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
@@ -332,6 +337,43 @@ func (s *unitSuite) TestDeleteUnit(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 }
 
+func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.expectK8sPodCount(c, unitUUID, 1)
+
+	err := st.DeleteUnit(context.Background(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The unit should be gone.
+	exists, err := st.UnitExists(context.Background(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	s.expectK8sPodCount(c, unitUUID, 0)
+}
+
+func (s *unitSuite) expectK8sPodCount(c *tc.C, unitUUID unit.UUID, expected int) {
+	var count int
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM k8s_pod WHERE unit_uuid = ?`, unitUUID.String())
+		if err := row.Scan(&count); err != nil {
+			return err
+		}
+		return row.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, expected)
+}
+
 func (s *unitSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *applicationservice.WatchableService {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
@@ -344,7 +386,7 @@ func (s *unitSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *ap
 		return nil, coreerrors.NotSupported
 	}
 	notSupportedCAASApplicationproviderGetter := func(ctx context.Context) (applicationservice.CAASApplicationProvider, error) {
-		return nil, coreerrors.NotSupported
+		return caasApplicationProvider{}, nil
 	}
 
 	return applicationservice.NewWatchableService(
@@ -364,9 +406,8 @@ func (s *unitSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *ap
 }
 
 func (s *unitSuite) createIAASApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
-	ctx := context.Background()
 	ch := &stubCharm{name: "test-charm"}
-	appID, err := svc.CreateIAASApplication(ctx, name, ch, corecharm.Origin{
+	appID, err := svc.CreateIAASApplication(c.Context(), name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
 			Channel:      "24.04",
@@ -381,6 +422,34 @@ func (s *unitSuite) createIAASApplication(c *tc.C, svc *applicationservice.Watch
 		},
 	}, units...)
 	c.Assert(err, tc.ErrorIsNil)
+
+	return appID
+}
+
+func (s *unitSuite) createCAASApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
+	ch := &stubCharm{name: "test-charm"}
+	appID, err := svc.CreateCAASApplication(c.Context(), name, ch, corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Platform: corecharm.Platform{
+			Channel:      "24.04",
+			OS:           "ubuntu",
+			Architecture: "amd64",
+		},
+	}, applicationservice.AddApplicationArgs{
+		ReferenceName: name,
+		DownloadInfo: &charm.DownloadInfo{
+			Provenance:  charm.ProvenanceDownload,
+			DownloadURL: "http://example.com",
+		},
+	}, units...)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, _, err = svc.RegisterCAASUnit(c.Context(), application.RegisterCAASUnitParams{
+		ApplicationName: name,
+		ProviderID:      name + "-0",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	return appID
 }
 
@@ -482,4 +551,20 @@ func (s *stubCharm) Revision() int {
 
 func (s *stubCharm) Version() string {
 	return ""
+}
+
+type caasApplicationProvider struct{}
+
+func (caasApplicationProvider) Application(string, caas.DeploymentType) caas.Application {
+	return &caasApplication{}
+}
+
+type caasApplication struct {
+	caas.Application
+}
+
+func (caasApplication) Units() ([]caas.Unit, error) {
+	return []caas.Unit{{
+		Id: "some-app-0",
+	}}, nil
 }

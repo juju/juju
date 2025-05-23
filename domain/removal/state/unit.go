@@ -75,11 +75,11 @@ With machines AS (
 	LEFT JOIN unit AS u ON u.net_node_uuid = nn.uuid
 	GROUP BY  m.uuid
 )
-SELECT unit_count AS &entityAssoicationCount.count,
-	   machine_uuid AS &entityAssoicationCount.uuid
+SELECT unit_count AS &entityAssociationCount.count,
+	   machine_uuid AS &entityAssociationCount.uuid
 FROM   machines
 WHERE  unit_uuid = $entityUUID.uuid;
-	`, unitUUID, entityAssoicationCount{})
+	`, unitUUID, entityAssociationCount{})
 	if err != nil {
 		return "", errors.Errorf("preparing unit count query: %w", err)
 	}
@@ -87,8 +87,8 @@ WHERE  unit_uuid = $entityUUID.uuid;
 	updateMachineStmt, err := st.Prepare(`
 UPDATE machine
 SET    life_id = 1
-WHERE  uuid = $entityAssoicationCount.uuid
-AND    life_id = 0`, entityAssoicationCount{})
+WHERE  uuid = $entityAssociationCount.uuid
+AND    life_id = 0`, entityAssociationCount{})
 	if err != nil {
 		return "", errors.Errorf("preparing machine life update: %w", err)
 	}
@@ -99,7 +99,7 @@ AND    life_id = 0`, entityAssoicationCount{})
 			return errors.Errorf("advancing unit life: %w", err)
 		}
 
-		var unitCount entityAssoicationCount
+		var unitCount entityAssociationCount
 		if err := tx.Query(ctx, lastUnitStmt, unitUUID).Get(&unitCount); errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
@@ -227,7 +227,7 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 			return errors.Errorf("deleting annotations for unit %q: %w", unitUUID, err)
 		}
 
-		if err := st.deleteCloudContainer(ctx, tx, unitUUID, netNodeUUIDRec.UUID); err != nil {
+		if err := st.deleteK8sPod(ctx, tx, unitUUID, netNodeUUIDRec.UUID); err != nil {
 			return errors.Errorf("deleting cloud container for unit %q: %w", unitUUID, err)
 		}
 
@@ -259,31 +259,52 @@ WHERE  uuid = $unitUUID.unit_uuid`, unitUUIDRec)
 	return nil
 }
 
-func (st *State) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, uUUID, netNodeUUID string) error {
+func (st *State) deleteK8sPod(ctx context.Context, tx *sqlair.TX, uUUID, netNodeUUID string) error {
 	unitUUIDRec := unitUUID{UUID: uUUID}
 
-	if err := st.deleteCloudContainerPorts(ctx, tx, uUUID); err != nil {
+	// Only delete the address if it's not on a machine (it's a k8s pod).
+	// We don't want to delete the address if it's on a machine, because
+	// the machine may still be alive and the address may be in use.
+
+	selectK8sPodStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &entityAssociationCount.count
+FROM   k8s_pod
+WHERE  unit_uuid = $unitUUID.unit_uuid`, unitUUIDRec, entityAssociationCount{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var k8sPodCount entityAssociationCount
+	if err := tx.Query(ctx, selectK8sPodStmt, unitUUIDRec).Get(&k8sPodCount); errors.Is(err, sqlair.ErrNoRows) || k8sPodCount.Count == 0 {
+		// No k8s pod, nothing to do.
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting k8s pod count: %w", err)
+	}
+
+	// Delete the k8s pod ports and addresses.
+
+	if err := st.deleteK8sPodPorts(ctx, tx, uUUID); err != nil {
 		return errors.Errorf("removing cloud container ports: %w", err)
 	}
 
-	if err := st.deleteCloudContainerAddresses(ctx, tx, netNodeUUID); err != nil {
+	if err := st.deletedK8sPodAddresses(ctx, tx, netNodeUUID); err != nil {
 		return errors.Errorf("removing cloud container addresses: %w", err)
 	}
 
-	deleteCloudContainerStmt, err := st.Prepare(`
+	deleteK8sPodStmt, err := st.Prepare(`
 DELETE FROM k8s_pod
 WHERE unit_uuid = $unitUUID.unit_uuid`, unitUUIDRec)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, deleteCloudContainerStmt, unitUUIDRec).Run(); err != nil {
+	if err := tx.Query(ctx, deleteK8sPodStmt, unitUUIDRec).Run(); err != nil {
 		return errors.Capture(err)
 	}
 	return nil
 }
 
-func (st *State) deleteCloudContainerAddresses(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
+func (st *State) deletedK8sPodAddresses(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
 	netNodeIDRec := entityUUID{UUID: netNodeID}
 
 	deleteAddressStmt, err := st.Prepare(`
@@ -311,7 +332,7 @@ WHERE net_node_uuid = $entityUUID.uuid`, netNodeIDRec)
 	return nil
 }
 
-func (st *State) deleteCloudContainerPorts(ctx context.Context, tx *sqlair.TX, uUUID string) error {
+func (st *State) deleteK8sPodPorts(ctx context.Context, tx *sqlair.TX, uUUID string) error {
 	unitUUIDRec := unitUUID{UUID: uUUID}
 
 	deleteStmt, err := st.Prepare(`
