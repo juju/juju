@@ -19,7 +19,6 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/blockcommand"
-	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -58,7 +57,6 @@ type baseStorageSuite struct {
 
 	storageService     *storage.MockStorageService
 	applicationService *storage.MockApplicationService
-	registry           jujustorage.StaticProviderRegistry
 	poolsInUse         []string
 }
 
@@ -82,7 +80,6 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 		return machine.Name(s.machineTag.Id()), nil
 	}).AnyTimes()
 
-	s.registry = jujustorage.StaticProviderRegistry{Providers: map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.poolsInUse = []string{}
 
 	s.controllerUUID = uuid.MustNewUUID().String()
@@ -90,19 +87,15 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.api = storage.NewStorageAPI(
 		s.controllerUUID, s.modelUUID, coremodel.IAAS,
 		s.storageAccessor, s.blockDeviceGetter,
-		s.storageService, s.applicationService, s.storageRegistryGetter,
+		s.storageService, s.applicationService,
 		s.authorizer, s.blockCommandService)
 	s.apiCaas = storage.NewStorageAPI(
 		s.controllerUUID, s.modelUUID, coremodel.CAAS,
 		s.storageAccessor, s.blockDeviceGetter,
-		s.storageService, s.applicationService, s.storageRegistryGetter,
+		s.storageService, s.applicationService,
 		s.authorizer, s.blockCommandService)
 
 	return ctrl
-}
-
-func (s *baseStorageSuite) storageRegistryGetter(context.Context) (jujustorage.ProviderRegistry, error) {
-	return s.registry, nil
 }
 
 // TODO(axw) get rid of assertCalls, use stub directly everywhere.
@@ -125,15 +118,11 @@ const (
 	machineFilesystemAttachmentsCall        = "machineFilesystemAttachments"
 	filesystemAttachmentsCall               = "filesystemAttachments"
 	allFilesystemsCall                      = "allFilesystems"
-	addStorageForUnitCall                   = "addStorageForUnit"
 	volumeAttachmentCall                    = "volumeAttachment"
 	volumeAttachmentPlanCall                = "volumeAttachmentPlan"
 	volumeAttachmentPlansCall               = "volumeAttachmentPlans"
-	attachStorageCall                       = "attachStorage"
-	detachStorageCall                       = "detachStorage"
 	destroyStorageInstanceCall              = "destroyStorageInstance"
 	releaseStorageInstanceCall              = "releaseStorageInstance"
-	addExistingFilesystemCall               = "addExistingFilesystem"
 )
 
 func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
@@ -281,32 +270,6 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 			s.stub.AddCall(allFilesystemsCall)
 			return []state.Filesystem{s.filesystem}, nil
 		},
-		addStorageForUnit: func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
-			s.stub.AddCall(addStorageForUnitCall)
-			return nil, nil
-		},
-		detachStorage: func(storage names.StorageTag, unit names.UnitTag, force bool) error {
-			s.stub.AddCall(detachStorageCall, storage, unit, force)
-			if storage == s.storageTag && unit == s.unitTag {
-				return nil
-			}
-			return errors.NotFoundf(
-				"attachment of %s to %s",
-				names.ReadableString(storage),
-				names.ReadableString(unit),
-			)
-		},
-		attachStorage: func(storage names.StorageTag, unit names.UnitTag) error {
-			s.stub.AddCall(attachStorageCall, storage, unit)
-			if storage == s.storageTag && unit == s.unitTag {
-				return nil
-			}
-			return errors.Errorf(
-				"cannot attach %s to %s",
-				names.ReadableString(storage),
-				names.ReadableString(unit),
-			)
-		},
 		destroyStorageInstance: func(tag names.StorageTag, destroyAttached bool, force bool) error {
 			s.stub.AddCall(destroyStorageInstanceCall, tag, destroyAttached, force)
 			return errors.New("cannae do it")
@@ -314,10 +277,6 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 		releaseStorageInstance: func(tag names.StorageTag, destroyAttached bool, force bool) error {
 			s.stub.AddCall(releaseStorageInstanceCall, tag, destroyAttached, force)
 			return errors.New("cannae do it")
-		},
-		addExistingFilesystem: func(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error) {
-			s.stub.AddCall(addExistingFilesystemCall, f, v, storageName)
-			return s.storageTag, s.stub.NextErr()
 		},
 	}
 }
