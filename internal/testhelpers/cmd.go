@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -205,9 +206,15 @@ type PatchExecConfig struct {
 	Args chan<- []string
 }
 
+var hasExecHelperInTestMain atomic.Bool
+var fullPathArg0 string
+
 // ExecCommand returns a function that can be used to patch out a use of
 // exec.Command. See PatchExecConfig for details about the arguments.
 func ExecCommand(cfg PatchExecConfig) func(string, ...string) *exec.Cmd {
+	if !hasExecHelperInTestMain.Load() {
+		panic("TestMain did not call ExecHelperProcess")
+	}
 	// This method doesn't technically need to be a method on PatchExecHelper,
 	// but serves as a reminder to embed PatchExecHelper.
 	return func(command string, args ...string) *exec.Cmd {
@@ -222,7 +229,7 @@ func ExecCommand(cfg PatchExecConfig) func(string, ...string) *exec.Cmd {
 		// run.
 		cs := []string{"--", command}
 		cs = append(cs, args...)
-		cmd := exec.Command(os.Args[0], cs...)
+		cmd := exec.Command(fullPathArg0, cs...)
 
 		cmd.Env = append(
 			// We must preserve os.Environ() on Windows,
@@ -246,6 +253,10 @@ func ExecCommand(cfg PatchExecConfig) func(string, ...string) *exec.Cmd {
 
 // ExecHelperProcess should be called from within TestMain(*testing.M).
 func ExecHelperProcess() {
+	if hasExecHelperInTestMain.Swap(true) {
+		panic("ExecHelperProcess must be only called once")
+	}
+	fullPathArg0, _ = filepath.Abs(os.Args[0])
 	if os.Getenv("JUJU_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
