@@ -3315,13 +3315,14 @@ func (st State) InitialWatchStatementForObsoleteRevision(
 
 // GetRevisionIDsForObsolete filters the revision IDs that are obsolete and
 // owned by the specified owners.Either revisionUUIDs, appOwners,
-// or unitOwners must be specified.
+// or unitOwners must be specified. It returns a map of revision UUIDs
+// to their corresponding secret IDs.
 func (st State) GetRevisionIDsForObsolete(
 	ctx context.Context,
 	appOwners domainsecret.ApplicationOwners,
 	unitOwners domainsecret.UnitOwners,
 	revisionUUIDs ...string,
-) ([]string, error) {
+) (map[string]string, error) {
 	if len(revisionUUIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
 		return nil, nil
 	}
@@ -3330,15 +3331,21 @@ func (st State) GetRevisionIDsForObsolete(
 		return nil, errors.Capture(err)
 	}
 
-	var rows obsoleteRevisionRows
+	var revisions []secretRevision
 	if err := st.getRevisionForObsolete(
-		ctx, db,
-		"(sr.revision, sr.secret_id) AS (&obsoleteRevisionRow.*)", obsoleteRevisionRow{}, &rows,
+		ctx, db, `
+sr.secret_id AS &secretRevision.secret_id,
+sr.revision AS &secretRevision.revision,
+sro.revision_uuid AS &secretRevision.uuid`, secretRevision{}, &revisions,
 		appOwners, unitOwners, revisionUUIDs...,
 	); err != nil {
 		return nil, errors.Capture(err)
 	}
-	return rows.toRevIDs(), nil
+	result := make(map[string]string, len(revisions))
+	for _, rev := range revisions {
+		result[rev.ID] = fmt.Sprintf("%s/%d", rev.SecretID, rev.Revision)
+	}
+	return result, nil
 }
 
 func (st State) getRevisionForObsolete(
