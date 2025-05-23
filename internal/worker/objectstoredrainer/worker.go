@@ -116,7 +116,7 @@ func (w *Worker) loop() error {
 			// We're not draining, so we can unlock the guard and wait
 			// for the next change.
 			if !phase.IsDraining() {
-				w.config.Logger.Debugf(ctx, "object store is not draining, unlocking guard")
+				w.config.Logger.Infof(ctx, "object store is not draining, unlocking guard")
 
 				if err := w.config.Guard.Unlock(ctx); err != nil {
 					return errors.Errorf("failed to update guard: %v", err)
