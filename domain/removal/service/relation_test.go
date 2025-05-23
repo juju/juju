@@ -10,7 +10,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	corerelation "github.com/juju/juju/core/relation"
+	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
@@ -28,7 +28,7 @@ func TestRelationSuite(t *testing.T) {
 func (s *relationSuite) TestRemoveRelationNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	rUUID := newRelUUID(c)
+	rUUID := relationtesting.GenRelationUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -46,7 +46,7 @@ func (s *relationSuite) TestRemoveRelationNoForceSuccess(c *tc.C) {
 func (s *relationSuite) TestRemoveRelationForceNoWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	rUUID := newRelUUID(c)
+	rUUID := relationtesting.GenRelationUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -64,7 +64,7 @@ func (s *relationSuite) TestRemoveRelationForceNoWaitSuccess(c *tc.C) {
 func (s *relationSuite) TestRemoveRelationForceWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	rUUID := newRelUUID(c)
+	rUUID := relationtesting.GenRelationUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
@@ -87,7 +87,7 @@ func (s *relationSuite) TestRemoveRelationForceWaitSuccess(c *tc.C) {
 func (s *relationSuite) TestRemoveRelationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	rUUID := newRelUUID(c)
+	rUUID := relationtesting.GenRelationUUID(c)
 
 	s.state.EXPECT().RelationExists(gomock.Any(), rUUID.String()).Return(false, nil)
 
@@ -182,12 +182,6 @@ func newRelationJob(c *tc.C) removal.Job {
 	return removal.Job{
 		UUID:        jUUID,
 		RemovalType: removal.RelationJob,
-		EntityUUID:  newRelUUID(c).String(),
+		EntityUUID:  relationtesting.GenRelationUUID(c).String(),
 	}
-}
-
-func newRelUUID(c *tc.C) corerelation.UUID {
-	rUUID, err := corerelation.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	return rUUID
 }

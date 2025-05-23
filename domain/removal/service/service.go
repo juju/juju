@@ -20,6 +20,8 @@ import (
 // State describes retrieval and persistence methods for entity removal.
 type State interface {
 	RelationState
+	UnitState
+	MachineState
 
 	// GetAllJobs returns all removal jobs.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)
@@ -66,15 +68,19 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	switch job.RemovalType {
 	case removal.RelationJob:
 		err = s.processRelationRemovalJob(ctx, job)
+
+	case removal.UnitJob:
+		err = s.processUnitRemovalJob(ctx, job)
+
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotSupported)
 	}
 
+	if errors.Is(err, removalerrors.RemovalJobIncomplete) {
+		return nil
+	}
 	if err != nil {
-		if errors.Is(err, removalerrors.RemovalJobIncomplete) {
-			return nil
-		}
 		return errors.Capture(err)
 	}
 

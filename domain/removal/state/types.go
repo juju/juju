@@ -33,7 +33,22 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// entityAssociationCount holds a Count in int form and the UUID in string form
+// for the associated entity.
+type entityAssociationCount struct {
+	// UUID uniquely identifies a associated domain entity.
+	UUID string `db:"uuid"`
+	// Count counts the number of entities.
+	Count int `db:"count"`
+}
+
 // entityLife holds an entity's life in integer
 type entityLife struct {
 	Life life.Life `db:"life_id"`
+}
+
+// unitUUID holds a unit UUID in string form.
+type unitUUID struct {
+	// UUID uniquely identifies a unit.
+	UUID string `db:"unit_uuid"`
 }

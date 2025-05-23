@@ -624,7 +624,7 @@ func (s *ProviderService) RegisterCAASUnit(
 	splitPodName := strings.Split(params.ProviderID, "-")
 	ord, err := strconv.Atoi(splitPodName[len(splitPodName)-1])
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", "", errors.Errorf("parsing unit number from pod name %q: %w", params.ProviderID, err)
 	}
 	unitName, err := coreunit.NewNameFromParts(appName, ord)
 	if err != nil {
