@@ -50,6 +50,13 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
 
+	// GetApplicationName returns the application name for the given application ID.
+	// Usage of this signifies an area that must be converted to use application IDs
+	// but efforts have not yet completed.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationName(ctx context.Context, id coreapplication.ID) (string, error)
+
 	// CreateIAASApplication creates an application, returning an error
 	// satisfying [applicationerrors.ApplicationAlreadyExists] if the
 	// application already exists. If returns as error satisfying
@@ -694,6 +701,23 @@ func (s *Service) GetApplicationIDByName(ctx context.Context, name string) (core
 		return "", errors.Capture(err)
 	}
 	return appID, nil
+}
+
+// GetApplicationName returns the application name for the given application ID.
+// Usage of this signifies an area that must be converted to use application IDs
+// but efforts have not yet completed.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *Service) GetApplicationName(ctx context.Context, id coreapplication.ID) (string, error) {
+	if err := id.Validate(); err != nil {
+		return "", errors.Errorf("application ID: %w", err).Add(applicationerrors.ApplicationIDNotValid)
+	}
+
+	name, err := s.st.GetApplicationName(ctx, id)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return name, nil
 }
 
 // GetCharmLocatorByApplicationName returns a CharmLocator by application name.
