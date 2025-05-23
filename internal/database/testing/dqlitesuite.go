@@ -147,6 +147,11 @@ func (s *DqliteSuite) TearDownTest(c *tc.C) {
 	s.references = nil
 	s.mutex.Unlock()
 
+	err := s.db.Close()
+	c.Check(err, tc.ErrorIsNil)
+	s.db = nil
+	s.trackedDB = nil
+
 	if s.dqlite != nil {
 		err := s.dqlite.Close()
 		c.Check(err, tc.ErrorIsNil)
