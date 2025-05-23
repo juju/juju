@@ -7,6 +7,8 @@ import (
 	"context"
 	"sort"
 
+	"github.com/juju/collections/transform"
+
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
@@ -20,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
@@ -732,7 +735,7 @@ func (s *Service) GetUnitSubordinates(ctx context.Context, unitName coreunit.Nam
 //
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
-func (s *Service) GetUnitNetNodes(ctx context.Context, unitName coreunit.Name) ([]string, error) {
+func (s *Service) GetUnitNetNodes(ctx context.Context, unitName coreunit.Name) ([]domainnetwork.NetNodeUUID, error) {
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -742,5 +745,7 @@ func (s *Service) GetUnitNetNodes(ctx context.Context, unitName coreunit.Name) (
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return netNodeUUIDs, nil
+	return transform.Slice(netNodeUUIDs, func(s string) domainnetwork.NetNodeUUID {
+		return domainnetwork.NetNodeUUID(s)
+	}), nil
 }

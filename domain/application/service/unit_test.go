@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
@@ -1119,10 +1121,12 @@ func (s *serviceSuite) TestGetUnitNetNodes(c *tc.C) {
 
 	netNodeUUIDs := []string{"node-uuid-1", "node-uuid-2"}
 
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return("foo-uuid", nil)
 	s.state.EXPECT().GetUnitNetNodes(gomock.Any(), coreunit.UUID("foo-uuid")).Return(netNodeUUIDs, nil)
 
 	netNodes, err := s.service.GetUnitNetNodes(context.Background(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(netNodes, tc.DeepEquals, netNodeUUIDs)
+	c.Check(netNodes, tc.DeepEquals, transform.Slice(netNodeUUIDs, func(s string) domainnetwork.NetNodeUUID {
+		return domainnetwork.NetNodeUUID(s)
+	}))
 }
