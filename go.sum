@@ -335,8 +335,8 @@ github.com/hashicorp/vault/api v1.10.0 h1:/US7sIjWN6Imp4o/Rj1Ce2Nr5bki/AXi9vAW3p
 github.com/hashicorp/vault/api v1.10.0/go.mod h1:jo5Y/ET+hNyz+JnKDt8XLAdKs+AM0G5W0Vp1IrFI8N8=
 github.com/hpcloud/tail v1.0.0 h1:nfCOvKYfkgYP8hkirhJocXT2+zOD8yUNjXaWfTlyFKI=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
-github.com/hpidcock/gc-compat-tc v0.0.0-20250508070538-894dc8262d3d h1:GxGyW0NqJtwAcJoILWSOugeFopjHz8Yvy2TsosdnN8o=
-github.com/hpidcock/gc-compat-tc v0.0.0-20250508070538-894dc8262d3d/go.mod h1:Z+W7ocrkIOb8EaYuq/MVItOKIwruxqx+pJ/d7nxba68=
+github.com/hpidcock/gc-compat-tc v0.0.0-20250523041742-c3a83c867edf h1:sFwkVpTbk799e1EPlDfWLULd5/+w5EuMv2z5koBa908=
+github.com/hpidcock/gc-compat-tc v0.0.0-20250523041742-c3a83c867edf/go.mod h1:lyEaDukSWSGyb/L0YGDaS1hU2p40qb5s/Ck6qm4CneU=
 github.com/icza/backscanner v0.0.0-20241124160932-dff01ac50250 h1:BNmTcPx0VddsU1pIgq3GoXtO8ek6tygVtj+l37Dcqo0=
 github.com/icza/backscanner v0.0.0-20241124160932-dff01ac50250/go.mod h1:GYeBD1CF7AqnKZK+UCytLcY3G+UKo0ByXX/3xfdNyqQ=
 github.com/icza/mighty v0.0.0-20180919140131-cfd07d671de6 h1:8UsGZ2rr2ksmEru6lToqnXgA8Mz1DP11X4zSJ159C3k=
@@ -408,8 +408,8 @@ github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e/go.mod h1:vgyd7OREkbtVE
 github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4/go.mod h1:NIXFioti1SmKAlKNuUwbMenNdef59IF52+ZzuOmHYkg=
 github.com/juju/loggo v1.0.0 h1:Y6ZMQOGR9Aj3BGkiWx7HBbIx6zNwNkxhVNOHU2i1bl0=
 github.com/juju/loggo v1.0.0/go.mod h1:NIXFioti1SmKAlKNuUwbMenNdef59IF52+ZzuOmHYkg=
-github.com/juju/loggo/v2 v2.0.0-20250522055930-3a3c6d932936 h1:LTFhAT5c6tyiUgt6oig45vAhLohME9lgntRtRr+cmvQ=
-github.com/juju/loggo/v2 v2.0.0-20250522055930-3a3c6d932936/go.mod h1:647d6WvXBLj5lvka2qBvccr7vMIvF2KFkEH+0ZuFOUM=
+github.com/juju/loggo/v2 v2.2.0 h1:sXcqSo1Kt14HAJSgohBhd975yd89F0a+Ei7PTKLRsdo=
+github.com/juju/loggo/v2 v2.2.0/go.mod h1:647d6WvXBLj5lvka2qBvccr7vMIvF2KFkEH+0ZuFOUM=
 github.com/juju/lru v1.0.0 h1:FP8mBNF3jBnKwGO5PtsR+8iIegx8DREfhRhpcGpYcn4=
 github.com/juju/lru v1.0.0/go.mod h1:YauKGp6PAhOQyGuTOkiFdXVP1jR3vLkp/FI71GcpYcQ=
 github.com/juju/lumberjack/v2 v2.0.2 h1:FlxrR62Vb7FfN7jwpSBqqereyq5bBQUF0LqOhZ2VGeI=
@@ -455,9 +455,8 @@ github.com/juju/retry v1.0.1/go.mod h1:SssN1eYeK3A2qjnFGTiVMbdzGJ2BfluaJblJXvuvg
 github.com/juju/schema v1.0.0/go.mod h1:Y+ThzXpUJ0E7NYYocAbuvJ7vTivXfrof/IfRPq/0abI=
 github.com/juju/schema v1.2.0 h1:+XywM0pYzuhGebQiK1aR4Bj7Q7nLV5MihcOgq6dLLxs=
 github.com/juju/schema v1.2.0/go.mod h1:VdljuJLc45loM79LYm4yKKmPJwK1bPKRekvMVlfywU0=
-github.com/juju/tc v0.0.0-20250507150813-1d13c1fc4d6c/go.mod h1:YdExdo5XpLqX+BT6eCcS8HCqbZO09fP3mwoiJXv35Vg=
-github.com/juju/tc v0.0.0-20250516102601-801bd4886c4f h1:c+9a1wosNDcybuksf+SDWzuHtzaKcLS7yCU6xPN6Wwk=
-github.com/juju/tc v0.0.0-20250516102601-801bd4886c4f/go.mod h1:YdExdo5XpLqX+BT6eCcS8HCqbZO09fP3mwoiJXv35Vg=
+github.com/juju/tc v0.0.0-20250523041547-7f66c35f9f03 h1:x/rsZcDhRKEubIDOnSXRUMTs5I6/lGyT7Sd7xAmkazo=
+github.com/juju/tc v0.0.0-20250523041547-7f66c35f9f03/go.mod h1:YdExdo5XpLqX+BT6eCcS8HCqbZO09fP3mwoiJXv35Vg=
 github.com/juju/testing v0.0.0-20180402130637-44801989f0f7/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20180517134105-72703b1e95eb/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20190723135506-ce30eb24acd2/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
