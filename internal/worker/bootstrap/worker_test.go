@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -378,7 +377,7 @@ func (s *workerSuite) ensureState(c *tc.C, st string) {
 	select {
 	case state := <-s.states:
 		c.Assert(state, tc.Equals, st)
-	case <-time.After(testing.ShortWait * 10):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for %s", st)
 	}
 }
