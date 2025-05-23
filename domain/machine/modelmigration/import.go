@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/internal/errors"
@@ -56,7 +57,12 @@ func (i *importOperation) Name() string {
 }
 
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.service = service.NewService(state.NewState(scope.ModelDB(), i.clock, i.logger))
+	i.service = service.NewService(
+		state.NewState(scope.ModelDB(), i.clock, i.logger),
+		domain.NewStatusHistory(i.logger, i.clock),
+		i.clock,
+		i.logger,
+	)
 	return nil
 }
 
