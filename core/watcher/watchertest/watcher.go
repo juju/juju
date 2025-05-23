@@ -132,7 +132,6 @@ func (w WatcherC[T]) AssertNChanges(n int) {
 // function is called repeatedly until it returns true, or the test times out.
 func (w *WatcherC[T]) Check(assertion WatcherAssert[T]) {
 	var received []T
-	timeout := time.After(testing.LongWait)
 	for a := testing.LongAttempt.Start(); a.Next(); {
 		select {
 		case actual, ok := <-w.Watcher.Changes():
@@ -155,7 +154,7 @@ func (w *WatcherC[T]) Check(assertion WatcherAssert[T]) {
 			if assertion(w.c, received) {
 				return
 			}
-		case <-timeout:
+		case <-w.c.Context().Done():
 			if len(received) == 0 {
 				w.c.Fatalf("watcher did not send change")
 			} else {
