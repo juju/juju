@@ -73,7 +73,7 @@ When you deploy (an) application(s) from a charm or a bundle, choose the charm /
 
 - Choose charms whose `charmcraft.yaml > containers > uid` and `gid` are not 0 (do not require root access). If not possible, make sure to audit those charms.
 
-- *Starting with Juju 3.6:* Choose charms whose `charmcraft.yaml > containers > charm-user` field set to `non-root`. If not possible, make sure to audit those charms.
+- *Starting with Juju 3.6:* Choose charms whose `charmcraft.yaml > charm-user` field set to `non-root`. If not possible, make sure to audit those charms.
 
 - Choose charms that support secrets (see more:  {ref}`secret`).
 
