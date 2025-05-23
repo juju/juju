@@ -689,14 +689,19 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 	)
 }
 
-// WatchNetNodeAddress watches for changes to the specified net nodes
-// addresses.
-// This notifies on any changes to the net nodes addresses. It is up to the
-// caller to determine if the addresses they're interested in has changed.
-func (s *WatchableService) WatchNetNodeAddress(ctx context.Context, netNodeUUIDs ...network.NetNodeUUID) (watcher.NotifyWatcher, error) {
+// WatchUnitAddresses watches for changes to the addresses of the specified
+// unit.
+// This notifies on any changes to the unit addresses and it is up to the
+// caller to determine if the addresses they're interested in have changed.
+func (s *WatchableService) WatchUnitAddresses(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error) {
+	netNodeUUIDs, err := s.st.GetUnitNetNodesByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 	uuids := transform.Slice(netNodeUUIDs, func(in network.NetNodeUUID) string {
 		return in.String()
 	})
+
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchNetNodeAddress(),

@@ -159,14 +159,14 @@ type UnitState interface {
 	// given principal unit.
 	GetUnitSubordinates(ctx context.Context, unitName coreunit.Name) ([]coreunit.Name, error)
 
-	// GetUnitNetNodes returns the net node UUIDs associated with the specified
-	// unit. The net nodes are selected in the same way as in GetUnitAddresses, i.e.
-	// the union of the net nodes of the cloud service (if any) and the net node
-	// of the unit.
+	// GetUnitNetNodesByName returns the net node UUIDs associated with the
+	// specified unit. The net nodes are selected in the same way as in
+	// GetUnitAddresses, i.e. the union of the net nodes of the cloud service (if
+	// any) and the net node of the unit.
 	//
 	// The following errors may be returned:
 	// - [uniterrors.UnitNotFound] if the unit does not exist
-	GetUnitNetNodes(ctx context.Context, uuid coreunit.UUID) ([]network.NetNodeUUID, error)
+	GetUnitNetNodesByName(ctx context.Context, name coreunit.Name) ([]network.NetNodeUUID, error)
 }
 
 func (s *Service) makeIAASUnitArgs(units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
@@ -723,24 +723,4 @@ func (s *Service) GetUnitSubordinates(ctx context.Context, unitName coreunit.Nam
 	}
 
 	return s.st.GetUnitSubordinates(ctx, unitName)
-}
-
-// GetUnitNetNodes returns the net node UUIDs associated with the specified
-// unit. The net nodes are selected in the same way as in GetUnitAddresses, i.e.
-// the union of the net nodes of the cloud service (if any) and the net node
-// of the unit.
-//
-// The following errors may be returned:
-// - [uniterrors.UnitNotFound] if the unit does not exist
-func (s *Service) GetUnitNetNodes(ctx context.Context, unitName coreunit.Name) ([]network.NetNodeUUID, error) {
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	netNodeUUIDs, err := s.st.GetUnitNetNodes(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return netNodeUUIDs, nil
 }

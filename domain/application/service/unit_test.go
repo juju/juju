@@ -1101,29 +1101,3 @@ func (s *unitServiceSuite) TestGetUnitSubordinatesError(c *tc.C) {
 	_, err := s.service.GetUnitSubordinates(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIs, boom)
 }
-
-func (s *serviceSuite) TestGetUnitNetNodesNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := coreunit.Name("foo/0")
-
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return("", applicationerrors.UnitNotFound)
-
-	_, err := s.service.GetUnitNetNodes(context.Background(), unitName)
-	c.Assert(err, tc.ErrorMatches, "unit not found")
-}
-
-func (s *serviceSuite) TestGetUnitNetNodes(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := coreunit.Name("foo/0")
-
-	netNodeUUIDs := []network.NetNodeUUID{testing.GenNetNodeUUID(c), testing.GenNetNodeUUID(c)}
-
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
-	s.state.EXPECT().GetUnitNetNodes(gomock.Any(), coreunit.UUID("foo-uuid")).Return(netNodeUUIDs, nil)
-
-	netNodes, err := s.service.GetUnitNetNodes(context.Background(), unitName)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(netNodes, tc.DeepEquals, netNodeUUIDs)
-}

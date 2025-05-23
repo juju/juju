@@ -1516,7 +1516,7 @@ func (s *unitStateSuite) TestGetUnitAddresses(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitNetNodesNotFound(c *tc.C) {
-	_, err := s.state.GetUnitNetNodes(c.Context(), "unknown-unit-uuid")
+	_, err := s.state.GetUnitNetNodesByName(c.Context(), "unknown-unit")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -1524,13 +1524,11 @@ func (s *unitStateSuite) TestGetUnitNetNodesK8s(c *tc.C) {
 	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
-	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
-	c.Assert(err, tc.ErrorIsNil)
 
 	unitNetNodeUUID := testing2.GenNetNodeUUID(c)
 	serviceNetNodeUUID := testing2.GenNetNodeUUID(c)
 
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
 		_, err := tx.ExecContext(ctx, insertNetNode0, unitNetNodeUUID)
 		if err != nil {
@@ -1555,7 +1553,7 @@ func (s *unitStateSuite) TestGetUnitNetNodesK8s(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	netNodeUUID, err := s.state.GetUnitNetNodes(c.Context(), unitUUID)
+	netNodeUUID, err := s.state.GetUnitNetNodesByName(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNodeUUID, tc.SameContents, []network.NetNodeUUID{serviceNetNodeUUID, unitNetNodeUUID})
 }
@@ -1564,10 +1562,8 @@ func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *tc.C) {
 	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
-	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
-	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
 		_, err := tx.ExecContext(ctx, insertNetNode0, "machine-net-node-uuid")
 		if err != nil {
@@ -1582,7 +1578,7 @@ func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	netNodeUUID, err := s.state.GetUnitNetNodes(c.Context(), unitUUID)
+	netNodeUUID, err := s.state.GetUnitNetNodesByName(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNodeUUID, tc.SameContents, []network.NetNodeUUID{"machine-net-node-uuid"})
 }
