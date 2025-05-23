@@ -4,6 +4,8 @@
 package objectstore
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,7 +15,9 @@ type phaseSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&phaseSuite{})
+func TestPhaseSuite(t *testing.T) {
+	tc.Run(t, &phaseSuite{})
+}
 
 func (s *phaseSuite) TestPhase(c *tc.C) {
 	tests := []struct {

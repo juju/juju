@@ -71,7 +71,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	}
 
 	worker, err := config.NewWorker(Config{
-		FortressVistor:    guest,
+		FortressVisitor:   guest,
 		ObjectStoreGetter: objectStoreGetter,
 		Logger:            config.Logger,
 	})

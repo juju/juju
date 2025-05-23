@@ -21,7 +21,7 @@ const (
 	// ErrTimeoutWaitingForDraining is used to indicate that the object store
 	// worker is taking too long to drain. This is used to indicate to
 	// *third parties* that the object store worker is draining.
-	ErrTimeoutWaitingForDraining = errors.ConstError("timeout waiting for draining to complete")
+	ErrTimeoutWaitingForDraining = errors.ConstError("timeout waiting for object store draining to complete")
 )
 
 // Client provides access to the object store.

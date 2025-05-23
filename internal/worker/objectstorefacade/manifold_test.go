@@ -4,12 +4,15 @@
 package objectstorefacade
 
 import (
+	"testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -19,7 +22,11 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&manifoldSuite{})
+func TestManifoldSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
+	tc.Run(t, &manifoldSuite{})
+}
 
 func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
