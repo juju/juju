@@ -6,11 +6,11 @@ package storage
 import (
 	"maps"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	coremodel "github.com/juju/juju/core/model"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 )

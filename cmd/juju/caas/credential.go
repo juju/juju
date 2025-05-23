@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucloud "github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
@@ -85,7 +85,7 @@ func cleanUpCredentialRBAC(ctx context.Context, cloud jujucloud.Cloud, credentia
 	if err != nil {
 		return errors.Trace(err)
 	}
-	restConfig, err := provider.CloudSpecToK8sRestConfig(cloudSpec)
+	restConfig, err := kubernetes.CloudSpecToK8sRestConfig(cloudSpec)
 	if err != nil {
 		return errors.Trace(err)
 	}

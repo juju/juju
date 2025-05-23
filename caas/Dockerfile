@@ -5,7 +5,7 @@ ARG TARGETARCH
 # Add the syslog user for audit logging.
 RUN useradd --system --no-create-home --shell /usr/sbin/nologin syslog
 # Add the juju and sjuju user for rootless agents.
-# 170 and 171 uid/gid must be updated here and in caas/kubernetes/provider/constants/constants.go
+# 170 and 171 uid/gid must be updated here and in internal/provider/kubernetes/constants/constants.go
 RUN groupadd --gid 170 juju
 RUN useradd --uid 170 --gid 170 --no-create-home --shell /usr/bin/bash juju
 RUN groupadd --gid 171 sjuju

@@ -12,8 +12,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4/catacomb"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 type Mux interface {

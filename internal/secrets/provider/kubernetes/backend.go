@@ -14,9 +14,9 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/core/secrets"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
 )
 
 type k8sBackend struct {

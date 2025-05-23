@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/tc"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/internal/observability/probe"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/worker/caasprober"
 )
 

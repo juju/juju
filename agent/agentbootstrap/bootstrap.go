@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	coreagent "github.com/juju/juju/core/agent"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
@@ -49,6 +48,7 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/password"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
