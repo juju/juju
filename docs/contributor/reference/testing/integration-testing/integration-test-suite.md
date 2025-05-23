@@ -3,6 +3,6 @@
 > Source: https://github.com/juju/juju/tree/main/tests/suites
 
 An **integration test suite** is a collection of integration tests. Each suite has a distinct set-up and tear-down
-logic. Integration test suites are often composed of [test includes](test-includes.md).
+logic. Integration test suites are often composed of [test includes](#test-include).
 
 <!--util functions, which live in the [test includes](https://github.com/juju/juju/tree/develop/tests/includes) directory of `juju`.-->
