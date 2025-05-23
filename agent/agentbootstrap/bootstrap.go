@@ -6,6 +6,7 @@ package agentbootstrap
 import (
 	stdcontext "context"
 	"fmt"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent/agent"
@@ -70,6 +72,17 @@ type bootstrapController interface {
 	SetMongoPassword(password string) error
 }
 
+// CheckJWKSReachable checks if the given JWKS URL is reachable.
+func CheckJWKSReachable(url string) error {
+	ctx, cancelF := stdcontext.WithTimeout(stdcontext.TODO(), 30*time.Second)
+	defer cancelF()
+	_, err := jwk.Fetch(ctx, url)
+	if err != nil {
+		return errors.Annotatef(err, "failed to fetch jwks")
+	}
+	return nil
+}
+
 // InitializeState should be called with the bootstrap machine's agent
 // configuration. It uses that information to create the controller, dial the
 // controller, and initialize it. It also generates a new password for the
@@ -98,6 +111,7 @@ func InitializeState(
 	if !ok {
 		return nil, errors.Errorf("state serving information not available")
 	}
+
 	// N.B. no users are set up when we're initializing the state,
 	// so don't use any tag or password when opening it.
 	info, ok := c.MongoInfo()

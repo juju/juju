@@ -73,10 +73,6 @@ func (j *Parser) SetJWKSCache(ctx context.Context, refreshURL string) error {
 	if err != nil {
 		return fmt.Errorf("registering jwk cache with url %q: %w", refreshURL, err)
 	}
-	_, err = j.cache.Refresh(ctx, refreshURL)
-	if err != nil {
-		return fmt.Errorf("refreshing jwk cache at %q: %w", refreshURL, err)
-	}
 	j.refreshURL = refreshURL
 	return nil
 }

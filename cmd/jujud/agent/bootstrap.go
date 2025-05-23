@@ -57,6 +57,7 @@ import (
 var (
 	initiateMongoServer  = peergrouper.InitiateMongoServer
 	agentInitializeState = agentbootstrap.InitializeState
+	checkJWKSReachable   = agentbootstrap.CheckJWKSReachable
 	sshGenerateKey       = ssh.GenerateKey
 	minSocketTimeout     = 1 * time.Minute
 )
@@ -173,6 +174,16 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	var args instancecfg.StateInitializationParams
 	if err := args.Unmarshal(bootstrapParamsData); err != nil {
 		return errors.Trace(err)
+	}
+
+	// The JWKS refresh URL is a public key that we trust for federated
+	// auth. This is conventionally a JIMM controller. Check that JIMM
+	// is reachable to fail fast and validate the URL.
+	jwksRefreshURL := args.ControllerConfig.LoginTokenRefreshURL()
+	if jwksRefreshURL != "" {
+		if err := checkJWKSReachable(jwksRefreshURL); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	isCAAS := args.ControllerCloud.Type == k8sconstants.CAASProviderType
