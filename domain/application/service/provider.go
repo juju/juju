@@ -104,7 +104,7 @@ func (s *ProviderService) CreateIAASApplication(
 		return "", errors.Errorf("preparing IAAS application args: %w", err)
 	}
 
-	appID, err := s.st.CreateIAASApplication(ctx, appName, appArg, unitArgs)
+	appID, machineNames, err := s.st.CreateIAASApplication(ctx, appName, appArg, unitArgs)
 	if err != nil {
 		return "", errors.Errorf("creating IAAS application %q: %w", appName, err)
 	}
@@ -115,6 +115,10 @@ func (s *ProviderService) CreateIAASApplication(
 		if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(appName), *args.ApplicationStatus); err != nil {
 			s.logger.Infof(ctx, "failed recording IAAS application status history: %w", err)
 		}
+	}
+
+	for _, name := range machineNames {
+		s.recordCreateMachineStatusHistory(ctx, name)
 	}
 
 	return appID, nil

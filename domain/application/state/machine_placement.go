@@ -48,23 +48,27 @@ func (st *State) GetMachineNetNodeUUIDFromName(ctx context.Context, name machine
 
 // placeMachine places the net node and machines if required, depending
 // on the placement.
-func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive deployment.Placement) (network.NetNodeUUID, error) {
+func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive deployment.Placement) (network.NetNodeUUID, []machine.Name, error) {
 	switch directive.Type {
 	case deployment.PlacementTypeUnset:
 		// The placement is unset, so we need to create a machine for the
 		// net node to link the unit to.
 		machineName, err := st.nextMachineSequence(ctx, tx)
 		if err != nil {
-			return "", errors.Capture(err)
+			return "", nil, errors.Capture(err)
 		}
 
 		_, netNode, err := st.insertMachineAndNetNode(ctx, tx, machineName)
-		return netNode, errors.Capture(err)
+		return netNode, []machine.Name{machineName}, errors.Capture(err)
 
 	case deployment.PlacementTypeMachine:
 		// Look up the existing machine by name (example: 0 or 0/lxd/0) and then
 		// return the associated net node UUID.
-		return st.getMachineNetNodeUUIDFromName(ctx, tx, machine.Name(directive.Directive))
+		netNodeUUID, err := st.getMachineNetNodeUUIDFromName(ctx, tx, machine.Name(directive.Directive))
+		if err != nil {
+			return "", nil, errors.Capture(err)
+		}
+		return netNodeUUID, nil, nil
 
 	case deployment.PlacementTypeContainer:
 		// The placement is container scoped (example: lxd or lxd:0). If there
@@ -75,17 +79,17 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 		// machine.
 		machineUUID, machineName, err := st.acquireParentMachineForContainer(ctx, tx, directive.Directive)
 		if err != nil {
-			return "", errors.Capture(err)
+			return "", nil, errors.Capture(err)
 		}
 
 		// Use the container type to determine the scope of the container.
 		// For example, lxd.
 		scope := directive.Container.String()
-		childNetNode, err := st.insertChildMachineForContainerPlacement(ctx, tx, machineUUID, machineName, scope)
+		childNetNode, childMachineName, err := st.insertChildMachineForContainerPlacement(ctx, tx, machineUUID, machineName, scope)
 		if err != nil {
-			return "", errors.Errorf("inserting child machine for container placement: %w", err)
+			return "", nil, errors.Errorf("inserting child machine for container placement: %w", err)
 		}
-		return childNetNode, nil
+		return childNetNode, []machine.Name{machineName, childMachineName}, nil
 
 	case deployment.PlacementTypeProvider:
 		// The placement is handled by the provider, so we need to create a
@@ -93,20 +97,20 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 		// for the machine.
 		machineName, err := st.nextMachineSequence(ctx, tx)
 		if err != nil {
-			return "", errors.Capture(err)
+			return "", nil, errors.Capture(err)
 		}
 
-		machine, netNode, err := st.insertMachineAndNetNode(ctx, tx, machineName)
+		machineUUID, netNode, err := st.insertMachineAndNetNode(ctx, tx, machineName)
 		if err != nil {
-			return "", errors.Capture(err)
+			return "", nil, errors.Capture(err)
 		}
-		if err := st.insertMachineProviderPlacement(ctx, tx, machine, directive.Directive); err != nil {
-			return "", errors.Errorf("inserting machine provider placement: %w", err)
+		if err := st.insertMachineProviderPlacement(ctx, tx, machineUUID, directive.Directive); err != nil {
+			return "", nil, errors.Errorf("inserting machine provider placement: %w", err)
 		}
-		return netNode, nil
+		return netNode, []machine.Name{machineName}, nil
 
 	default:
-		return "", errors.Errorf("invalid placement type: %v", directive.Type)
+		return "", nil, errors.Errorf("invalid placement type: %v", directive.Type)
 	}
 }
 
@@ -288,15 +292,15 @@ func (st *State) insertChildMachineForContainerPlacement(
 	parentUUID machine.UUID,
 	parentName machine.Name,
 	scope string,
-) (network.NetNodeUUID, error) {
+) (network.NetNodeUUID, machine.Name, error) {
 	machineName, err := st.nextContainerSequence(ctx, tx, scope, parentName)
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
 	machineUUID, netNodeUUID, err := st.insertMachineAndNetNode(ctx, tx, machineName)
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
 	parentMachineQuery := `
@@ -309,13 +313,13 @@ VALUES ($machineParent.*);
 	}
 	parentMachineStmt, err := st.Prepare(parentMachineQuery, p)
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
 	if err := tx.Query(ctx, parentMachineStmt, p).Run(); err != nil {
-		return "", errors.Errorf("creating new container machine parent: %w", err)
+		return "", "", errors.Errorf("creating new container machine parent: %w", err)
 	}
-	return netNodeUUID, nil
+	return netNodeUUID, machineName, nil
 }
 
 func (st *State) nextMachineSequence(ctx context.Context, tx *sqlair.TX) (machine.Name, error) {

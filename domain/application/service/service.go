@@ -97,7 +97,7 @@ func NewService(
 	}
 }
 
-func (s *Service) recordStatusHistory(
+func (s *Service) recordUnitStatusHistory(
 	ctx context.Context,
 	unitName coreunit.Name,
 	statusArg application.UnitStatusArg,
