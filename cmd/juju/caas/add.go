@@ -24,8 +24,6 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
@@ -34,6 +32,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
+	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -549,7 +549,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	if !c.skipStorage {
-		storageParams := provider.KubeCloudStorageParams{
+		storageParams := k8sprovider.KubeCloudStorageParams{
 			WorkloadStorage:        c.workloadStorage,
 			HostCloudRegion:        c.hostCloudRegion,
 			MetadataChecker:        broker,
@@ -558,9 +558,9 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 
 		var err error
 		var preferredStorageErr *environs.PreferredStorageNotFound
-		newCloud, err = provider.UpdateKubeCloudWithStorage(newCloud, storageParams)
+		newCloud, err = k8sprovider.UpdateKubeCloudWithStorage(newCloud, storageParams)
 		if err != nil {
-			if provider.IsClusterQueryError(err) {
+			if k8sprovider.IsClusterQueryError(err) {
 				cloudArg := "--cloud=<cloud> to specify the cloud"
 				if c.ControllerName == "jaas" {
 					cloudArg = "--region=<cloud>/<someregion> to specify the cloud/region"
@@ -696,7 +696,7 @@ func checkCloudRegion(given, detected string) error {
 }
 
 func (c *AddCAASCommand) newK8sClusterBroker(ctx context.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
-	openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
+	openParams, err := k8sprovider.BaseKubeCloudOpenParams(cloud, credential)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -837,8 +837,8 @@ func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion strin
 	return "", errors.NotValidf("cloud region %q", cloudRegion)
 }
 
-func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) provider.GetClusterMetadataFunc {
-	return func(storageParams provider.KubeCloudStorageParams) (*k8s.ClusterMetadata, error) {
+func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) k8sprovider.GetClusterMetadataFunc {
+	return func(storageParams k8sprovider.KubeCloudStorageParams) (*k8s.ClusterMetadata, error) {
 		interrupted := make(chan os.Signal, 1)
 		defer close(interrupted)
 		ctx.InterruptNotify(interrupted)

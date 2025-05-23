@@ -23,8 +23,7 @@ import (
 	"github.com/juju/juju/agent/agentbootstrap"
 	agentconfig "github.com/juju/juju/agent/config"
 	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
@@ -47,6 +46,8 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
+	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/peergrouper"
@@ -178,7 +179,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	// Fixes: lp2040947
 	args.ControllerCloud.IsControllerCloud = true
 
-	isCAAS := args.ControllerCloud.Type == k8sconstants.CAASProviderType
+	isCAAS := args.ControllerCloud.Type == cloud.CloudTypeKubernetes
 
 	if isCAAS {
 		if err := c.ensureConfigFilesForCaas(); err != nil {

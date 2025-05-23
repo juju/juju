@@ -17,13 +17,13 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/common/charms"
-	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
-	k8smocks "github.com/juju/juju/caas/kubernetes/provider/mocks"
 	"github.com/juju/juju/cmd/juju/ssh"
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/charm"
+	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
+	k8smocks "github.com/juju/juju/internal/provider/kubernetes/mocks"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )

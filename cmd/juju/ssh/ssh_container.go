@@ -20,11 +20,11 @@ import (
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/sshclient"
 	controllerapi "github.com/juju/juju/api/controller/controller"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
 	jujussh "github.com/juju/juju/internal/network/ssh"
+	"github.com/juju/juju/internal/provider/kubernetes"
+	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -132,7 +132,7 @@ func (c *sshContainer) initRun(ctx context.Context, mc ModelCommand) (err error)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		c.namespace = provider.DecideControllerNamespace(controllerCfg.ControllerName())
+		c.namespace = kubernetes.DecideControllerNamespace(controllerCfg.ControllerName())
 	}
 
 	if c.execClient == nil {

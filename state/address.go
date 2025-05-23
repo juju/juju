@@ -15,10 +15,10 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/mongo"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 const (

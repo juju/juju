@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/mitchellh/mapstructure"
 
-	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
+	k8sproxy "github.com/juju/juju/internal/provider/kubernetes/proxy"
 	"github.com/juju/juju/internal/proxy"
 )
 

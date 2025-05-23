@@ -22,10 +22,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	providerconst "github.com/juju/juju/caas/kubernetes/provider/constants"
-	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	providerconst "github.com/juju/juju/internal/provider/kubernetes/constants"
+	providerutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 	rbacmappertest "github.com/juju/juju/internal/worker/caasrbacmapper/test"
 )
 

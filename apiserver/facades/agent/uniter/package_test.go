@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	k8s "github.com/juju/juju/caas/kubernetes"
+	k8stesting "github.com/juju/juju/caas/kubernetes/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/objectstore"
@@ -105,7 +105,7 @@ func (s *uniterSuiteBase) SetUpTest(c *tc.C) {
 
 	s.leadershipChecker = &fakeLeadershipChecker{false}
 	s.uniter = s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
-	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
+	s.PatchValue(&k8s.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
 }

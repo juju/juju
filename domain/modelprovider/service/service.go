@@ -7,7 +7,6 @@ import (
 	"context"
 
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucloud "github.com/juju/juju/cloud"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/domain/modelprovider"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/errors"
+	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
 )
 
 // State describes retrieval and persistence methods for credentials.

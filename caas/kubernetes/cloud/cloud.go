@@ -10,7 +10,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 )
 
@@ -100,7 +99,7 @@ func CloudFromKubeConfigContext(
 ) (cloud.Cloud, error) {
 	newCloud := cloud.Cloud{
 		Name:            params.Name,
-		Type:            constants.CAASProviderType,
+		Type:            cloud.CloudTypeKubernetes,
 		HostCloudRegion: params.HostCloudRegion,
 		Regions:         params.Regions,
 		Description:     params.Description,
@@ -147,7 +146,7 @@ func CloudFromKubeConfigCluster(
 ) (cloud.Cloud, error) {
 	newCloud := cloud.Cloud{
 		Name:            params.Name,
-		Type:            constants.CAASProviderType,
+		Type:            cloud.CloudTypeKubernetes,
 		HostCloudRegion: params.HostCloudRegion,
 		Regions:         params.Regions,
 		Description:     params.Description,
