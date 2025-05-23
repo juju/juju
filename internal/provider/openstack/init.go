@@ -9,6 +9,8 @@ import (
 )
 
 const (
+	// providerType is the unique identifier that the openstack provider gets
+	// registered with.
 	providerType = "openstack"
 
 	// Default root disk size when root-disk-source is volume.

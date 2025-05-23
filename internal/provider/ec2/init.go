@@ -6,6 +6,8 @@ package ec2
 import "github.com/juju/juju/environs"
 
 const (
+	// providerType is the unique identifier that the ec2 provider gets
+	// registered with.
 	providerType = "ec2"
 )
 

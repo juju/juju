@@ -6,6 +6,8 @@ package gce
 import "github.com/juju/juju/environs"
 
 const (
+	// providerType is the unique identifier that the gce provider gets
+	// registered with.
 	providerType = "gce"
 )
 

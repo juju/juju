@@ -12,6 +12,8 @@ import (
 )
 
 const (
+	// providerType is the unique identifier that the vsphere provider gets
+	// registered with.
 	providerType = "vsphere"
 )
 
