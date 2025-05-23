@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -44,7 +45,7 @@ func (s *ModelSuite) SetUpTest(c *tc.C) {
 	// Prime the change stream, so that there is at least some
 	// value in the stream, otherwise the changestream won't have any
 	// bounds (terms) to work on.
-	s.PrimeChangeStream(c)
+	PrimeChangeStream(c, s.TxnRunner())
 }
 
 // GetWatchableDB allows the ModelSuite to be a WatchableDBGetter
@@ -75,8 +76,8 @@ func (s *ModelSuite) AssertChangeStreamIdle(c *tc.C) {
 // model, if this changes, we could remove the need for this.
 // This is only for tests as we depend on the change stream to have at least
 // some data, other wise we can't detect if the change stream is idle.
-func (s *ModelSuite) PrimeChangeStream(c *tc.C) {
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+func PrimeChangeStream(c *tc.C, db coredatabase.TxnRunner) {
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO change_log_namespace (id, namespace, description) VALUES (666, 'test', 'all your bases are belong to us')
 `); err != nil {
