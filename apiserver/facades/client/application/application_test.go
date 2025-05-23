@@ -21,6 +21,7 @@ import (
 	coreassumes "github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	corerelation "github.com/juju/juju/core/relation"
@@ -1248,6 +1249,143 @@ func (s *applicationSuite) TestDestroyRelationWithForceMaxWait(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestUnitsInfoCAASUnitTag(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.testUnitsInfoCAAS(c, names.NewUnitTag("foo/666"), coreunit.Name("foo/666"))
+}
+
+func (s *applicationSuite) TestUnitsInfoCAASApplicationTag(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "foo").Return([]coreunit.Name{"foo/666"}, nil)
+
+	s.testUnitsInfoCAAS(c, names.NewApplicationTag("foo"), coreunit.Name("foo/666"))
+}
+
+func (s *applicationSuite) testUnitsInfoCAAS(c *tc.C, inputTag names.Tag, resultingUnitName coreunit.Name) {
+	// Arrange
+	s.setupAPI(c)
+
+	s.leadershipReader.EXPECT().Leaders().Return(map[string]string{
+		resultingUnitName.Application(): resultingUnitName.String(),
+	}, nil)
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil).AnyTimes()
+
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), resultingUnitName).Return(life.Alive, nil)
+	s.applicationService.EXPECT().GetUnitWorkloadVersion(gomock.Any(), resultingUnitName).Return("1.0.0", nil)
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "foo").Return(applicationcharm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   applicationcharm.LocalSource,
+	}, nil)
+
+	s.relationService.EXPECT().ApplicationRelationsInfo(gomock.Any(), appID).Return([]relation.EndpointRelationData{{
+		RelationID:      3,
+		Endpoint:        "relation",
+		RelatedEndpoint: "fake-provides",
+		ApplicationData: map[string]interface{}{},
+		UnitRelationData: map[string]relation.RelationData{
+			"foo/0": {
+				InScope:  true,
+				UnitData: map[string]interface{}{"foo": "bar"},
+			},
+			"foo/1": {
+				InScope:  true,
+				UnitData: map[string]interface{}{"foo": "baz"},
+			},
+		},
+	}}, nil)
+
+	s.applicationService.EXPECT().GetUnitMachineName(gomock.Any(), resultingUnitName).Return("", applicationerrors.UnitMachineNotAssigned)
+
+	s.applicationService.EXPECT().GetUnitK8sPodInfo(gomock.Any(), resultingUnitName).Return(domainapplication.K8sPodInfo{
+		ProviderID: "provider-id",
+		Address:    "10.0.0.0",
+		Ports:      []string{"666", "667"},
+	}, nil)
+
+	// Act
+	result, err := s.api.UnitsInfo(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: inputTag.String()}},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.UnitInfoResults{
+		Results: []params.UnitInfoResult{{
+			Result: &params.UnitResult{
+				Tag:             names.NewUnitTag(resultingUnitName.String()).String(),
+				Charm:           "local:amd64/foo-42",
+				Leader:          true,
+				WorkloadVersion: "1.0.0",
+				OpenedPorts:     []string{"666", "667"},
+				Address:         "10.0.0.0",
+				ProviderId:      "provider-id",
+				Life:            "alive",
+				RelationData: []params.EndpointRelationData{{
+					RelationId:      3,
+					Endpoint:        "relation",
+					RelatedEndpoint: "fake-provides",
+					ApplicationData: map[string]interface{}{},
+					UnitRelationData: map[string]params.RelationData{
+						"foo/0": {
+							InScope:  true,
+							UnitData: map[string]interface{}{"foo": "bar"},
+						},
+						"foo/1": {
+							InScope:  true,
+							UnitData: map[string]interface{}{"foo": "baz"},
+						},
+					},
+				}},
+			},
+		}},
+	})
+}
+
+func (s *applicationSuite) TestUnitsInfoUnitNotFound(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	s.leadershipReader.EXPECT().Leaders().Return(map[string]string{}, nil)
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), coreunit.Name("foo/666")).Return("", applicationerrors.UnitNotFound)
+
+	s.setupAPI(c)
+
+	// Act
+	res, err := s.api.UnitsInfo(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: names.NewUnitTag("foo/666").String()}},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *applicationSuite) TestUnitsInfoApplicationNotFound(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	s.leadershipReader.EXPECT().Leaders().Return(map[string]string{}, nil)
+	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "foo").Return(nil, applicationerrors.ApplicationNotFound)
+
+	s.setupAPI(c)
+
+	// Act
+	res, err := s.api.UnitsInfo(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: names.NewApplicationTag("foo").String()}},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *applicationSuite) TestSetRelationsSuspendedStub(c *tc.C) {

@@ -181,6 +181,14 @@ type ApplicationService interface {
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
 	GetUnitNamesForApplication(context.Context, string) ([]unit.Name, error)
 
+	// GetUnitWorkloadVersion returns the workload version for the given unit.
+	GetUnitWorkloadVersion(ctx context.Context, unitName unit.Name) (string, error)
+
+	// GetUnitK8sPodInfo returns information about the k8s pod for the given unit.
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit does not exist
+	GetUnitK8sPodInfo(context.Context, unit.Name) (application.K8sPodInfo, error)
+
 	// GetSupportedFeatures returns the set of features that the model makes
 	// available for charms to use.
 	GetSupportedFeatures(context.Context) (assumes.FeatureSet, error)
@@ -319,9 +327,6 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	MergeExposeSettings(ctx context.Context, appName string, exposedEndpoints map[string]application.ExposedEndpoint) error
-
-	// GetUnitWorkloadVersion returns the workload version for the given unit.
-	GetUnitWorkloadVersion(ctx context.Context, unitName unit.Name) (string, error)
 }
 
 type ResolveService interface {

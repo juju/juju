@@ -127,6 +127,12 @@ type UnitState interface {
 	// even if it's dead.
 	GetUnitRefreshAttributes(context.Context, coreunit.Name) (application.UnitAttributes, error)
 
+	// GetUnitK8sPodInfo returns information about the k8s pod for the given unit.
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit does not exist
+	// - [applicationerrors.UnitIsDead] if the unit is dead
+	GetUnitK8sPodInfo(context.Context, coreunit.Name) (application.K8sPodInfo, error)
+
 	// GetAllUnitNames returns a slice of all unit names in the model.
 	GetAllUnitNames(context.Context) ([]coreunit.Name, error)
 
@@ -641,7 +647,7 @@ func (s *Service) GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.
 // machine.
 //
 // The following errors may be returned:
-// - [uniterrors.UnitNotFound] if the unit does not exist
+// - [applicationerrors.UnitNotFound] if the unit does not exist
 // - [network.NoAddressError] if the unit has no public address associated
 func (s *Service) GetUnitPublicAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -657,7 +663,7 @@ func (s *Service) GetUnitPublicAddress(ctx context.Context, unitName coreunit.Na
 // GetUnitPublicAddresses returns all public addresses for the specified unit.
 //
 // The following errors may be returned:
-// - [uniterrors.UnitNotFound] if the unit does not exist
+// - [applicationerrors.UnitNotFound] if the unit does not exist
 // - [network.NoAddressError] if the unit has no public address associated
 func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName coreunit.Name) (network.SpaceAddresses, error) {
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
@@ -686,7 +692,8 @@ func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName coreunit.
 // machine.
 //
 // The following errors may be returned:
-// - [uniterrors.UnitNotFound] if the unit does not exist
+// - [applicationerrors.UnitNotFound] if the unit does not exist
+// - [network.NoAddressError] if the unit has no private address associated
 func (s *Service) GetUnitPrivateAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -699,6 +706,9 @@ func (s *Service) GetUnitPrivateAddress(ctx context.Context, unitName coreunit.N
 	if err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)
 	}
+	if len(addrs) == 0 {
+		return network.SpaceAddress{}, network.NoAddressError("private")
+	}
 
 	// First match the scope.
 	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
@@ -710,6 +720,21 @@ func (s *Service) GetUnitPrivateAddress(ctx context.Context, unitName coreunit.N
 	sort.Slice(matchedAddrs, matchedAddrs.Less)
 
 	return matchedAddrs[0], nil
+}
+
+// GetUnitK8sPodInfo returns information about the k8s pod for the given unit.
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] if the unit does not exist
+// - [applicationerrors.UnitIsDead] if the unit is dead
+func (s *Service) GetUnitK8sPodInfo(ctx context.Context, name coreunit.Name) (application.K8sPodInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := name.Validate(); err != nil {
+		return application.K8sPodInfo{}, errors.Capture(err)
+	}
+
+	return s.st.GetUnitK8sPodInfo(ctx, name)
 }
 
 // GetUnitSubordinates returns the names of all the subordinate units of the

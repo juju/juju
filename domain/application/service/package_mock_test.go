@@ -2613,6 +2613,45 @@ func (c *MockStateGetUnitAndK8sServiceAddressesCall) DoAndReturn(f func(context.
 	return c
 }
 
+// GetUnitK8sPodInfo mocks base method.
+func (m *MockState) GetUnitK8sPodInfo(arg0 context.Context, arg1 unit.Name) (application0.K8sPodInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitK8sPodInfo", arg0, arg1)
+	ret0, _ := ret[0].(application0.K8sPodInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitK8sPodInfo indicates an expected call of GetUnitK8sPodInfo.
+func (mr *MockStateMockRecorder) GetUnitK8sPodInfo(arg0, arg1 any) *MockStateGetUnitK8sPodInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitK8sPodInfo", reflect.TypeOf((*MockState)(nil).GetUnitK8sPodInfo), arg0, arg1)
+	return &MockStateGetUnitK8sPodInfoCall{Call: call}
+}
+
+// MockStateGetUnitK8sPodInfoCall wrap *gomock.Call
+type MockStateGetUnitK8sPodInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitK8sPodInfoCall) Return(arg0 application0.K8sPodInfo, arg1 error) *MockStateGetUnitK8sPodInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitK8sPodInfoCall) Do(f func(context.Context, unit.Name) (application0.K8sPodInfo, error)) *MockStateGetUnitK8sPodInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitK8sPodInfoCall) DoAndReturn(f func(context.Context, unit.Name) (application0.K8sPodInfo, error)) *MockStateGetUnitK8sPodInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitLife mocks base method.
 func (m *MockState) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Life, error) {
 	m.ctrl.T.Helper()
