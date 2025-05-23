@@ -28,7 +28,7 @@ const (
 
 // Config holds the dependencies and configuration for a Worker.
 type Config struct {
-	FortressVistor    fortress.Guest
+	FortressVisitor   fortress.Guest
 	ObjectStoreGetter coreobjectstore.ObjectStoreGetter
 	Logger            logger.Logger
 }
@@ -36,8 +36,8 @@ type Config struct {
 // Validate returns an error if the config cannot be expected to
 // drive a functional Worker.
 func (config Config) Validate() error {
-	if config.FortressVistor == nil {
-		return errors.NotValidf("nil FortressVistor")
+	if config.FortressVisitor == nil {
+		return errors.NotValidf("nil FortressVisitor")
 	}
 	if config.ObjectStoreGetter == nil {
 		return errors.NotValidf("nil ObjectStoreGetter")
@@ -89,8 +89,8 @@ func (w *Worker) GetObjectStore(ctx context.Context, namespace string) (coreobje
 	}
 
 	return objectStoreFacade{
-		ObjectStore:    objectStore,
-		FortressVistor: w.config.FortressVistor,
+		ObjectStore:     objectStore,
+		FortressVisitor: w.config.FortressVisitor,
 	}, nil
 }
 
@@ -104,8 +104,8 @@ func (w *Worker) loop() error {
 // the object store can be draining, and we want to be able to wait for the
 // draining to complete before we start using the object store.
 type objectStoreFacade struct {
-	ObjectStore    coreobjectstore.ObjectStore
-	FortressVistor fortress.Guest
+	ObjectStore     coreobjectstore.ObjectStore
+	FortressVisitor fortress.Guest
 }
 
 // Get returns an io.ReadCloser for data at path, namespaced to the model.
@@ -120,7 +120,7 @@ func (o objectStoreFacade) Get(ctx context.Context, path string) (io.ReadCloser,
 		reader io.ReadCloser
 		size   int64
 	)
-	if visitErr := o.FortressVistor.Visit(visitCtx, func() error {
+	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
 		var err error
 		reader, size, err = o.ObjectStore.Get(ctx, path)
 		if err != nil {
@@ -148,7 +148,7 @@ func (o objectStoreFacade) GetBySHA256(ctx context.Context, sha256 string) (io.R
 		reader io.ReadCloser
 		size   int64
 	)
-	if visitErr := o.FortressVistor.Visit(visitCtx, func() error {
+	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
 		var err error
 		reader, size, err = o.ObjectStore.GetBySHA256(ctx, sha256)
 		if err != nil {
@@ -176,7 +176,7 @@ func (o objectStoreFacade) GetBySHA256Prefix(ctx context.Context, sha256Prefix s
 		reader io.ReadCloser
 		size   int64
 	)
-	if visitErr := o.FortressVistor.Visit(visitCtx, func() error {
+	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
 		var err error
 		reader, size, err = o.ObjectStore.GetBySHA256Prefix(ctx, sha256Prefix)
 		if err != nil {
@@ -200,7 +200,7 @@ func (o objectStoreFacade) Put(ctx context.Context, path string, r io.Reader, si
 	defer cancel()
 
 	var uuid coreobjectstore.UUID
-	if visitErr := o.FortressVistor.Visit(visitCtx, func() error {
+	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
 		var err error
 		uuid, err = o.ObjectStore.Put(ctx, path, r, size)
 		if err != nil {
@@ -224,7 +224,7 @@ func (o objectStoreFacade) PutAndCheckHash(ctx context.Context, path string, r i
 	defer cancel()
 
 	var uuid coreobjectstore.UUID
-	if visitErr := o.FortressVistor.Visit(visitCtx, func() error {
+	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
 		var err error
 		uuid, err = o.ObjectStore.PutAndCheckHash(ctx, path, r, size, sha384)
 		if err != nil {
@@ -247,7 +247,7 @@ func (o objectStoreFacade) Remove(ctx context.Context, path string) error {
 	visitCtx, cancel := context.WithTimeout(ctx, visitWaitTimeout)
 	defer cancel()
 
-	if visitErr := o.FortressVistor.Visit(visitCtx, func() error {
+	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
 		return o.ObjectStore.Remove(ctx, path)
 	}); errors.Is(visitErr, fortress.ErrAborted) {
 		return coreobjectstore.ErrTimeoutWaitingForDraining

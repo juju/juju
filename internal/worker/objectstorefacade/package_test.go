@@ -4,10 +4,7 @@
 package objectstorefacade
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
@@ -17,12 +14,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstorefacade -destination service_mock_test.go github.com/juju/juju/core/objectstore ObjectStoreGetter,ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstorefacade -destination fortress_mock_test.go github.com/juju/juju/internal/worker/fortress Guest
-
-func TestPackage(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.TestingT(t)
-}
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

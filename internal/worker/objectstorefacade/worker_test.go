@@ -7,10 +7,12 @@ import (
 	"context"
 	"io"
 	"strings"
+	"testing"
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
@@ -23,7 +25,11 @@ type workerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&workerSuite{})
+func TestWorkerSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
+	tc.Run(t, &workerSuite{})
+}
 
 func (s *workerSuite) TestObjectStoreGetObjectStore(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -410,7 +416,7 @@ func (s *workerSuite) TestRemoveWithVisitReturnsObjectStoreError(c *tc.C) {
 
 func (s *workerSuite) newWorker(c *tc.C) *Worker {
 	w, err := NewWorker(Config{
-		FortressVistor:    s.guest,
+		FortressVisitor:   s.guest,
 		ObjectStoreGetter: s.objectStoreGetter,
 		Logger:            loggertesting.WrapCheckLog(c),
 	})
@@ -420,7 +426,7 @@ func (s *workerSuite) newWorker(c *tc.C) *Worker {
 
 func (s *workerSuite) newObjectStoreFacade() *objectStoreFacade {
 	return &objectStoreFacade{
-		FortressVistor: s.guest,
-		ObjectStore:    s.objectStore,
+		FortressVisitor: s.guest,
+		ObjectStore:     s.objectStore,
 	}
 }
