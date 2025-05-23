@@ -19,10 +19,12 @@ CREATE TABLE machine_cloud_instance (
 );
 
 CREATE UNIQUE INDEX idx_machine_cloud_instance_instance_id
-ON machine_cloud_instance (instance_id);
+ON machine_cloud_instance (instance_id)
+WHERE instance_id IS NOT NULL AND instance_id != '';
 
 CREATE UNIQUE INDEX idx_machine_cloud_instance_display_name
-ON machine_cloud_instance (display_name);
+ON machine_cloud_instance (display_name)
+WHERE display_name IS NOT NULL AND display_name != '';
 
 CREATE VIEW v_hardware_characteristics AS
 SELECT
