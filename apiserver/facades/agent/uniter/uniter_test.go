@@ -577,7 +577,7 @@ func (s *uniterSuite) TestCharmURL(c *tc.C) {
 	s.badTag = names.NewApplicationTag("bar")
 
 	// Act:
-	result, err := s.uniter.CharmURL(context.Background(), args)
+	result, err := s.uniter.CharmURL(c.Context(), args)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)

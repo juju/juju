@@ -96,6 +96,8 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		// Object store metadata
 		"object_store_metadata",
 		"object_store_metadata_path",
+		"object_store_drain_info",
+		"object_store_drain_phase_type",
 
 		// SSH Keys
 		"ssh_fingerprint_hash_algorithm",
@@ -265,6 +267,10 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_user_authentication_insert",
 		"trg_log_user_authentication_update",
 		"trg_log_user_authentication_delete",
+
+		"trg_log_object_store_drain_info_insert",
+		"trg_log_object_store_drain_info_update",
+		"trg_log_object_store_drain_info_delete",
 	)
 
 	// These are additional triggers that are not change log triggers, but

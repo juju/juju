@@ -51,7 +51,7 @@ func (s *unitSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := uuid.MustNewUUID()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
@@ -72,11 +72,11 @@ func (s *unitSuite) TestUnitExists(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	exists, err := st.UnitExists(context.Background(), unitUUID.String())
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, true)
 
-	exists, err = st.UnitExists(context.Background(), "not-today-henry")
+	exists, err = st.UnitExists(c.Context(), "not-today-henry")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
 }
@@ -94,7 +94,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAlive(context.Background(), unitUUID.String())
+	machineUUID, err := st.EnsureUnitNotAlive(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(machineUUID, tc.Equals, unitMachineUUID.String())
@@ -131,7 +131,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitMachineAlreadyDyi
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAlive(context.Background(), unitUUID.String())
+	machineUUID, err := st.EnsureUnitNotAlive(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(machineUUID, tc.Equals, unitMachineUUID.String())
@@ -169,7 +169,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAlive(context.Background(), unitUUID.String())
+	machineUUID, err := st.EnsureUnitNotAlive(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// This isn't the last unit on the machine, so we don't expect a machine
@@ -201,7 +201,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveDyingSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.EnsureUnitNotAlive(context.Background(), unitUUID.String())
+	_, err := st.EnsureUnitNotAlive(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Unit was already "dying" and should be unchanged.
@@ -216,7 +216,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	_, err := st.EnsureUnitNotAlive(context.Background(), "some-unit-uuid")
+	_, err := st.EnsureUnitNotAlive(c.Context(), "some-unit-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -233,7 +233,7 @@ func (s *unitSuite) TestUnitRemovalNormalSuccess(c *tc.C) {
 
 	when := time.Now().UTC()
 	err := st.UnitScheduleRemoval(
-		context.Background(), "removal-uuid", unitUUID.String(), false, when,
+		c.Context(), "removal-uuid", unitUUID.String(), false, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -262,7 +262,7 @@ func (s *unitSuite) TestUnitRemovalNotExistsSuccess(c *tc.C) {
 
 	when := time.Now().UTC()
 	err := st.UnitScheduleRemoval(
-		context.Background(), "removal-uuid", "some-unit-uuid", true, when,
+		c.Context(), "removal-uuid", "some-unit-uuid", true, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -305,7 +305,7 @@ func (s *unitSuite) TestGetUnitLifeSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	l, err := st.GetUnitLife(context.Background(), unitUUID.String())
+	l, err := st.GetUnitLife(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(l, tc.Equals, life.Dying)
 }
@@ -313,7 +313,7 @@ func (s *unitSuite) TestGetUnitLifeSuccess(c *tc.C) {
 func (s *unitSuite) TestGetUnitLifeNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.GetUnitLife(context.Background(), "some-unit-uuid")
+	_, err := st.GetUnitLife(c.Context(), "some-unit-uuid")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -328,11 +328,11 @@ func (s *unitSuite) TestDeleteIAASUnit(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteUnit(context.Background(), unitUUID.String())
+	err := st.DeleteUnit(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The unit should be gone.
-	exists, err := st.UnitExists(context.Background(), unitUUID.String())
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
 }
@@ -350,11 +350,11 @@ func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 
 	s.expectK8sPodCount(c, unitUUID, 1)
 
-	err := st.DeleteUnit(context.Background(), unitUUID.String())
+	err := st.DeleteUnit(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The unit should be gone.
-	exists, err := st.UnitExists(context.Background(), unitUUID.String())
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
 
@@ -363,7 +363,7 @@ func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 
 func (s *unitSuite) expectK8sPodCount(c *tc.C, unitUUID unit.UUID, expected int) {
 	var count int
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM k8s_pod WHERE unit_uuid = ?`, unitUUID.String())
 		if err := row.Scan(&count); err != nil {
 			return err
@@ -455,7 +455,7 @@ func (s *unitSuite) createCAASApplication(c *tc.C, svc *applicationservice.Watch
 
 func (s *unitSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UUID {
 	var unitUUIDs []unit.UUID
-	err := s.ModelTxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM unit WHERE application_uuid = ?`, appID)
 		if err != nil {
 			return err
@@ -477,7 +477,7 @@ func (s *unitSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UU
 
 func (s *unitSuite) getUnitMachineUUID(c *tc.C, unitUUID unit.UUID) machine.UUID {
 	var machineUUIDs []machine.UUID
-	err := s.ModelTxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 SELECT m.uuid
 FROM   machine AS m

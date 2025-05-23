@@ -1914,7 +1914,7 @@ func (s *watchableServiceSuite) TestWatchCharms(c *tc.C) {
 	s.state.EXPECT().NamespaceForWatchCharm().Return("charm")
 	s.watcherFactory.EXPECT().NewUUIDsWatcher("charm", changestream.All).Return(stringsWatcher, nil)
 
-	watcher, err := s.service.WatchCharms(context.Background())
+	watcher, err := s.service.WatchCharms(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(watcher, tc.Equals, stringsWatcher)
 }
