@@ -40,3 +40,8 @@ func (s *ModelSuite) ModelUUID() string {
 func (s *ModelSuite) ModelTxnRunner() coredatabase.TxnRunner {
 	return s.TxnRunner()
 }
+
+// ControllerTxnRunner returns a txn runner attached to the controller database.
+func (s *ModelSuite) ControllerTxnRunner() coredatabase.TxnRunner {
+	return s.TxnRunner()
+}

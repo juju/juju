@@ -34,8 +34,9 @@ import (
 )
 
 type serviceSuite struct {
-	state         *MockState
-	statusHistory *statusHistoryRecorder
+	state           *MockState
+	controllerState *MockControllerState
+	statusHistory   *statusHistoryRecorder
 
 	service *Service
 }
@@ -1468,10 +1469,12 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
+	s.controllerState = NewMockControllerState(ctrl)
 	s.statusHistory = &statusHistoryRecorder{}
 
 	s.service = NewService(
 		s.state,
+		s.controllerState,
 		model.UUID("test-model"),
 		s.statusHistory,
 		func() (StatusHistoryReader, error) {
