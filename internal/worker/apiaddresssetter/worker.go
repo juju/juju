@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 )
@@ -56,7 +57,7 @@ type ApplicationService interface {
 	// addresses.
 	// This notifies on any changes to the net nodes addresses. It is up to the
 	// caller to determine if the addresses they're interested in has changed.
-	WatchNetNodeAddress(ctx context.Context, netNodeUUIDs ...network.NetNodeUUID) (watcher.NotifyWatcher, error)
+	WatchNetNodeAddress(ctx context.Context, netNodeUUIDs ...domainnetwork.NetNodeUUID) (watcher.NotifyWatcher, error)
 
 	// GetUnitNetNodes returns the net node UUIDs associated with the specified
 	// unit. The net nodes are selected in the same way as in GetUnitAddresses, i.e.
@@ -65,7 +66,7 @@ type ApplicationService interface {
 	//
 	// The following errors may be returned:
 	// - [uniterrors.UnitNotFound] if the unit does not exist
-	GetUnitNetNodes(ctx context.Context, unitName unit.Name) ([]network.NetNodeUUID, error)
+	GetUnitNetNodes(ctx context.Context, unitName unit.Name) ([]domainnetwork.NetNodeUUID, error)
 
 	// GetUnitPublicAddresses returns all public addresses for the specified unit.
 	//

@@ -23,7 +23,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
@@ -3724,7 +3723,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.NewSpaceAddresses("10.0.0.1"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	var netNodeUUID network.NetNodeUUID
+	var netNodeUUID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM k8s_service WHERE application_uuid=?", appID).Scan(&netNodeUUID)
 		if err != nil {
@@ -3747,7 +3746,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBind
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.NewSpaceAddresses("10.0.0.1"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	var netNodeUUID network.NetNodeUUID
+	var netNodeUUID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM k8s_service WHERE application_uuid=?", appID).Scan(&netNodeUUID)
 		if err != nil {
@@ -3862,7 +3861,7 @@ func (s *applicationStateSuite) TestGetNetNodeFromUnit(c *tc.C) {
 	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
-	expectedNetNodeUUID := networktesting.GenNetNodeUUID(c)
+	expectedNetNodeUUID := "net-node-uuid"
 
 	// Insert the unit net node to make sure the k8s service one is
 	// returned.

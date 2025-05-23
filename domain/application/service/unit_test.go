@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -19,13 +20,13 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/testing"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
@@ -344,7 +345,7 @@ func (s *unitServiceSuite) TestGetUnitNamesOnMachineNotFound(c *tc.C) {
 func (s *unitServiceSuite) TestGetUnitNamesOnMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	netNodeUUID := testing.GenNetNodeUUID(c)
+	netNodeUUID := "net-node-uuid"
 	s.state.EXPECT().GetMachineNetNodeUUIDFromName(gomock.Any(), machine.Name("0")).Return(netNodeUUID, nil)
 	s.state.EXPECT().GetUnitNamesForNetNode(gomock.Any(), netNodeUUID).Return([]coreunit.Name{"foo/666", "bar/667"}, nil)
 
@@ -1118,12 +1119,14 @@ func (s *serviceSuite) TestGetUnitNetNodes(c *tc.C) {
 
 	unitName := coreunit.Name("foo/0")
 
-	netNodeUUIDs := []network.NetNodeUUID{testing.GenNetNodeUUID(c), testing.GenNetNodeUUID(c)}
+	netNodeUUIDs := []string{"node-uuid-1", "node-uuid-2"}
 
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return("foo-uuid", nil)
 	s.state.EXPECT().GetUnitNetNodes(gomock.Any(), coreunit.UUID("foo-uuid")).Return(netNodeUUIDs, nil)
 
 	netNodes, err := s.service.GetUnitNetNodes(context.Background(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(netNodes, tc.DeepEquals, netNodeUUIDs)
+	c.Check(netNodes, tc.DeepEquals, transform.Slice(netNodeUUIDs, func(s string) domainnetwork.NetNodeUUID {
+		return domainnetwork.NetNodeUUID(s)
+	}))
 }

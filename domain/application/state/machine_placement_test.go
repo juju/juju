@@ -13,7 +13,6 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/network"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
@@ -34,7 +33,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesInvalidPlacement(c *tc.C) {
 func (s *unitStateSuite) TestPlaceNetNodeMachinesUnset(c *tc.C) {
 	// Ensure the machine got created.
 
-	var netNode network.NetNodeUUID
+	var netNode string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
@@ -58,7 +57,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
 	// Ensure that the machines are sequenced correctly.
 	// The first machine should be 0, the second 1, and so on.
 
-	var netNodes []network.NetNodeUUID
+	var netNodes []string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		for range total {
 			netNode, err := s.state.placeMachine(ctx, tx, deployment.Placement{
@@ -74,7 +73,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	var resultNetNodes []network.NetNodeUUID
+	var resultNetNodes []string
 	for i := range total {
 		netNode, err := s.state.GetMachineNetNodeUUIDFromName(c.Context(), machine.Name(strconv.Itoa(i)))
 		c.Assert(err, tc.ErrorIsNil)
@@ -96,7 +95,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *t
 	//
 	// 0, 1, 2, 3, 5, 6, 7, 8, 9
 
-	var netNodes []network.NetNodeUUID
+	var netNodes []string
 	createMachines := func() {
 		err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 			for range stepTotal {
@@ -133,7 +132,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *t
 	createMachines()
 	s.ensureSequenceForMachineNamespace(c, (stepTotal*2)-1)
 
-	var resultNetNodes []network.NetNodeUUID
+	var resultNetNodes []string
 	for i := range stepTotal * 2 {
 		netNode, err := s.state.GetMachineNetNodeUUIDFromName(c.Context(), machine.Name(strconv.Itoa(i)))
 		if errors.Is(err, applicationerrors.MachineNotFound) && i == stepTotal-1 {
@@ -150,7 +149,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *t
 func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
 	// Create the machine, then try to place it on the same machine.
 
-	var netNode network.NetNodeUUID
+	var netNode string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
@@ -160,7 +159,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	var resultNetNode network.NetNodeUUID
+	var resultNetNode string
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		resultNetNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
@@ -189,7 +188,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachineNotFound(c *tc.C
 func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 	// Ensure the parent and child machine got created.
 
-	var netNode network.NetNodeUUID
+	var netNode string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
@@ -201,12 +200,12 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNode, tc.Not(tc.Equals), "")
 
-	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(c.Context(), machine.Name("0/lxd/0"))
+	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(c.Context(), "0/lxd/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
 
 	s.ensureSequenceForMachineNamespace(c, 0)
-	s.ensureSequenceForContainerNamespace(c, machine.Name("0"), 0)
+	s.ensureSequenceForContainerNamespace(c, "0", 0)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C) {
@@ -221,7 +220,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	var netNode network.NetNodeUUID
+	var netNode string
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
@@ -234,12 +233,12 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNode, tc.Not(tc.Equals), "")
 
-	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(c.Context(), machine.Name("0/lxd/0"))
+	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(c.Context(), "0/lxd/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
 
 	s.ensureSequenceForMachineNamespace(c, 0)
-	s.ensureSequenceForContainerNamespace(c, machine.Name("0"), 0)
+	s.ensureSequenceForContainerNamespace(c, "0", 0)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirectiveMachineNotFound(c *tc.C) {
@@ -260,7 +259,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *tc.C)
 	// Ensure that the machines are sequenced correctly.
 	// The first machine should be 0/lxd/0, the second 1/lxd/0, and so on.
 
-	var netNodes []network.NetNodeUUID
+	var netNodes []string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		for range total {
 			netNode, err := s.state.placeMachine(ctx, tx, deployment.Placement{
@@ -277,7 +276,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *tc.C)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	var resultNetNodes []network.NetNodeUUID
+	var resultNetNodes []string
 	for i := range total {
 		name := fmt.Sprintf("%d/lxd/0", i)
 		netNode, err := s.state.GetMachineNetNodeUUIDFromName(c.Context(), machine.Name(name))
@@ -303,7 +302,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimesWithGaps(
 	// 0/lxd/0, 1/lxd/0, 2/lxd/0, 3/lxd/0, 5/lxd/0, 6/lxd/0, 7/lxd/0, 8/lxd/0,
 	// 9/lxd/0
 
-	var netNodes []network.NetNodeUUID
+	var netNodes []string
 	createMachines := func() {
 		err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 			for range stepTotal {
@@ -366,7 +365,7 @@ WHERE m.net_node_uuid = ?
 	createMachines()
 	s.ensureSequenceForMachineNamespace(c, (stepTotal*2)-1)
 
-	var resultNetNodes []network.NetNodeUUID
+	var resultNetNodes []string
 	for i := range stepTotal * 2 {
 		name := fmt.Sprintf("%d/lxd/0", i)
 		netNode, err := s.state.GetMachineNetNodeUUIDFromName(c.Context(), machine.Name(name))
@@ -385,7 +384,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesProvider(c *tc.C) {
 	// Ensure that the parent placement is correctly set on the
 	// machine_placement table.
 
-	var netNode network.NetNodeUUID
+	var netNode string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
@@ -397,7 +396,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesProvider(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNode, tc.Not(tc.Equals), "")
 
-	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(c.Context(), machine.Name("0"))
+	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
 

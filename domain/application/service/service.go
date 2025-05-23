@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -37,6 +36,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
@@ -693,15 +693,16 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 // addresses.
 // This notifies on any changes to the net nodes addresses. It is up to the
 // caller to determine if the addresses they're interested in has changed.
-func (s *WatchableService) WatchNetNodeAddress(ctx context.Context, netNodeUUIDs ...network.NetNodeUUID) (watcher.NotifyWatcher, error) {
-	uuids := transform.Slice(netNodeUUIDs, func(in network.NetNodeUUID) string {
-		return in.String()
-	})
+func (s *WatchableService) WatchNetNodeAddress(
+	_ context.Context, netNodeUUIDs ...network.NetNodeUUID,
+) (watcher.NotifyWatcher, error) {
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchNetNodeAddress(),
 			changestream.All,
-			eventsource.ContainsPredicate(uuids),
+			eventsource.ContainsPredicate(transform.Slice(netNodeUUIDs, func(uuid network.NetNodeUUID) string {
+				return uuid.String()
+			})),
 		),
 	)
 }

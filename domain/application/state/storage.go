@@ -13,7 +13,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -284,7 +283,7 @@ func (st *State) attachUnitStorage(
 	ctx context.Context, tx *sqlair.TX,
 	poolKinds map[string]storage.StorageKind,
 	unitUUID coreunit.UUID,
-	netNodeUUID network.NetNodeUUID,
+	netNodeUUID string,
 	args []attachStorageArgs,
 ) error {
 
@@ -645,7 +644,7 @@ func ensureCharmStorageCountChange(charmStorage charmStorage, current, n uint64)
 }
 
 func (st *State) attachStorage(
-	ctx context.Context, tx *sqlair.TX, inst storageInstance, unitUUID coreunit.UUID, netNodeUUID network.NetNodeUUID,
+	ctx context.Context, tx *sqlair.TX, inst storageInstance, unitUUID coreunit.UUID, netNodeUUID string,
 	charmStorage charmStorage,
 ) error {
 	su := storageUnit{StorageUUID: inst.StorageUUID, UnitUUID: unitUUID}
@@ -886,7 +885,7 @@ INSERT INTO storage_attachment (*) VALUES ($storageAttachment.*)
 }
 
 func (st *State) attachFilesystemToNode(
-	ctx context.Context, tx *sqlair.TX, netNodeUUID network.NetNodeUUID, args filesystemAttachmentParams,
+	ctx context.Context, tx *sqlair.TX, netNodeUUID string, args filesystemAttachmentParams,
 ) error {
 	uuid, err := corestorage.NewFilesystemAttachmentUUID()
 	if err != nil {
@@ -915,7 +914,7 @@ INSERT INTO storage_filesystem_attachment (*) VALUES ($filesystemAttachment.*)
 }
 
 func (st *State) attachVolumeToNode(
-	ctx context.Context, tx *sqlair.TX, netNodeUUID network.NetNodeUUID, args volumeAttachmentParams,
+	ctx context.Context, tx *sqlair.TX, netNodeUUID string, args volumeAttachmentParams,
 ) error {
 	uuid, err := corestorage.NewVolumeAttachmentUUID()
 	if err != nil {
@@ -943,7 +942,7 @@ INSERT INTO storage_volume_attachment (*) VALUES ($volumeAttachment.*)
 }
 
 func (st *State) createFilesystem(
-	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID network.NetNodeUUID,
+	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID string,
 ) (corestorage.FilesystemUUID, error) {
 	filesystemId, err := sequencestate.NextValue(ctx, st, tx, filesystemNamespace)
 	if err != nil {
@@ -993,7 +992,7 @@ INSERT INTO storage_instance_filesystem (*) VALUES ($storageInstanceFilesystem.*
 }
 
 func (st *State) createVolume(
-	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID network.NetNodeUUID,
+	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID string,
 ) (corestorage.VolumeUUID, error) {
 	volumeId, err := sequencestate.NextValue(ctx, st, tx, volumeNamespace)
 	if err != nil {
