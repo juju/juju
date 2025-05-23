@@ -1417,8 +1417,8 @@ func (h *bundleHandler) consumeOffer(ctx context.Context, change *bundlechanges.
 	if url.HasEndpoint() {
 		return errors.Errorf("saas offer %q shouldn't include endpoint", p.URL)
 	}
-	if url.User == "" {
-		url.User = h.accountUser
+	if url.ModelNamespace == "" {
+		url.ModelNamespace = h.accountUser
 	}
 	if url.Source == "" {
 		url.Source = h.controllerName

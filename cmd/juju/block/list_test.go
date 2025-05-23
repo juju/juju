@@ -65,20 +65,20 @@ func (s *listCommandSuite) mock() *mockListClient {
 		},
 		modelBlocks: []params.ModelBlockInfo{
 			{
-				Name:     "controller",
-				UUID:     "fake-uuid-1",
-				OwnerTag: "user-admin",
-				Blocks:   []string{"BlockDestroy", "BlockRemove"},
+				Name:      "controller",
+				UUID:      "fake-uuid-1",
+				Namespace: "admin",
+				Blocks:    []string{"BlockDestroy", "BlockRemove"},
 			}, {
-				Name:     "model-a",
-				UUID:     "fake-uuid-2",
-				OwnerTag: "user-bob@external",
-				Blocks:   []string{"BlockChange"},
+				Name:      "model-a",
+				UUID:      "fake-uuid-2",
+				Namespace: "bob@external",
+				Blocks:    []string{"BlockChange"},
 			}, {
-				Name:     "model-b",
-				UUID:     "fake-uuid-3",
-				OwnerTag: "user-charlie@external",
-				Blocks:   []string{"BlockDestroy", "BlockChange"},
+				Name:      "model-b",
+				UUID:      "fake-uuid-3",
+				Namespace: "charlie@external",
+				Blocks:    []string{"BlockDestroy", "BlockChange"},
 			},
 		},
 	}
@@ -129,7 +129,7 @@ func (s *listCommandSuite) TestListAll(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, ""+
-		"Name        Model UUID   Owner             Disabled commands\n"+
+		"Name        Model UUID   Namespace         Disabled commands\n"+
 		"controller  fake-uuid-1  admin             destroy-model, remove-object\n"+
 		"model-a     fake-uuid-2  bob@external      all\n"+
 		"model-b     fake-uuid-3  charlie@external  all, destroy-model\n")
@@ -142,18 +142,18 @@ func (s *listCommandSuite) TestListAllYAML(c *tc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, ""+
 		"- name: controller\n"+
 		"  model-uuid: fake-uuid-1\n"+
-		"  owner: admin\n"+
+		"  namespace: admin\n"+
 		"  disabled-commands:\n"+
 		"  - destroy-model\n"+
 		"  - remove-object\n"+
 		"- name: model-a\n"+
 		"  model-uuid: fake-uuid-2\n"+
-		"  owner: bob@external\n"+
+		"  namespace: bob@external\n"+
 		"  disabled-commands:\n"+
 		"  - all\n"+
 		"- name: model-b\n"+
 		"  model-uuid: fake-uuid-3\n"+
-		"  owner: charlie@external\n"+
+		"  namespace: charlie@external\n"+
 		"  disabled-commands:\n"+
 		"  - all\n"+
 		"  - destroy-model\n")
@@ -164,9 +164,9 @@ func (s *listCommandSuite) TestListAllJSON(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "json", "--all")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "["+
-		`{"name":"controller","model-uuid":"fake-uuid-1","owner":"admin","disabled-commands":["destroy-model","remove-object"]},`+
-		`{"name":"model-a","model-uuid":"fake-uuid-2","owner":"bob@external","disabled-commands":["all"]},`+
-		`{"name":"model-b","model-uuid":"fake-uuid-3","owner":"charlie@external","disabled-commands":["all","destroy-model"]}`+
+		`{"name":"controller","model-uuid":"fake-uuid-1","namespace":"admin","disabled-commands":["destroy-model","remove-object"]},`+
+		`{"name":"model-a","model-uuid":"fake-uuid-2","namespace":"bob@external","disabled-commands":["all"]},`+
+		`{"name":"model-b","model-uuid":"fake-uuid-3","namespace":"charlie@external","disabled-commands":["all","destroy-model"]}`+
 		"]\n")
 }
 

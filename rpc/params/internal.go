@@ -123,6 +123,11 @@ type ModelCreateArgs struct {
 	// Name is the name for the new model.
 	Name string `json:"name"`
 
+	// TODO - we will use namespace as soon as owner is removed.
+	// Namespace is the model's namespace.
+	Namespace string `json:"namespace"`
+
+	// TODO - owner will be removed.
 	// OwnerTag represents the user that will own the new model.
 	// The OwnerTag must be a valid user tag.  If the user tag represents
 	// a local user, that user must exist.
@@ -155,10 +160,10 @@ type ModelCreateArgs struct {
 // Model holds the result of an API call returning a name and UUID
 // for a model and the tag of the server in which it is running.
 type Model struct {
-	Name     string `json:"name"`
-	UUID     string `json:"uuid"`
-	Type     string `json:"type"`
-	OwnerTag string `json:"owner-tag"`
+	Name      string `json:"name"`
+	UUID      string `json:"uuid"`
+	Type      string `json:"type"`
+	Namespace string `json:"namespace"`
 }
 
 // UserModel holds information about a model and the last

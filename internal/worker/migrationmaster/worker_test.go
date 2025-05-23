@@ -138,7 +138,7 @@ var (
 		{FuncName: "MigrationTarget.Prechecks", Args: []interface{}{params.MigrationModelInfo{
 			UUID:         modelUUID,
 			Name:         modelName,
-			OwnerTag:     ownerTag.String(),
+			Namespace:    ownerTag.Id(),
 			AgentVersion: modelVersion,
 			ModelDescription: func() []byte {
 				modelDescription := description.NewModel(description.ModelArgs{})
@@ -180,7 +180,7 @@ func (s *Suite) SetUpTest(c *tc.C) {
 		controllerVersion: params.ControllerVersionResults{
 			Version: "2.9.99",
 		},
-		facadeVersion: 2,
+		facadeVersion: 5,
 	}
 	s.connectionErr = nil
 
@@ -1348,7 +1348,7 @@ func (f *stubMasterFacade) ModelInfo(ctx context.Context) (coremigration.ModelIn
 	return coremigration.ModelInfo{
 		UUID:             modelUUID,
 		Name:             modelName,
-		Owner:            ownerTag,
+		Namespace:        ownerTag.Id(),
 		AgentVersion:     modelVersion,
 		ModelDescription: description.NewModel(description.ModelArgs{}),
 	}, nil

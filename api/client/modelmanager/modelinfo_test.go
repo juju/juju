@@ -36,13 +36,13 @@ func (s *modelInfoSuite) assertResponse(c *tc.C, result interface{}) *params.Mod
 }
 
 func (s *modelInfoSuite) assertExpectedModelInfo(c *tc.C, expectedInfo params.ModelInfoResults) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, result interface{}) error {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: func(objType string, version int, id, request string, a, result interface{}) error {
 			s.checkCall(c, objType, id, request)
 			resp := s.assertResponse(c, result)
 			*resp = expectedInfo
 			return nil
-		})
+		}, BestVersion: 11}
 	client := modelmanager.NewClient(apiCaller)
 	input := []names.ModelTag{}
 	for i := 0; i < len(expectedInfo.Results); i++ {
@@ -102,8 +102,8 @@ func (s *modelInfoSuite) TestModelInfoWithSupportedFeatures(c *tc.C) {
 }
 
 func (s *modelInfoSuite) TestInvalidResultCount(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, result interface{}) error {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: func(objType string, version int, id, request string, a, result interface{}) error {
 			s.checkCall(c, objType, id, request)
 			c.Assert(a, tc.DeepEquals, params.Entities{
 				Entities: []params.Entity{{testing.ModelTag.String()}, {testing.ModelTag.String()}},
@@ -111,8 +111,8 @@ func (s *modelInfoSuite) TestInvalidResultCount(c *tc.C) {
 			resp := s.assertResponse(c, result)
 			*resp = params.ModelInfoResults{Results: []params.ModelInfoResult{{}}}
 			return nil
-		},
-	)
+		}, BestVersion: 11,
+	}
 	client := modelmanager.NewClient(apiCaller)
 	_, err := client.ModelInfo(c.Context(), []names.ModelTag{testing.ModelTag, testing.ModelTag})
 	c.Assert(err, tc.ErrorMatches, "expected 2 result\\(s\\), got 1")

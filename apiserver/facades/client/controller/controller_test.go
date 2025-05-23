@@ -280,19 +280,17 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *tc.C) {
 
 func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	owner := names.NewUserTag("owner")
-	remoteUserTag := names.NewUserTag("user").WithDomain("remote")
 
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]model.Model{
 			{
 				Name:      "first",
-				OwnerName: user.NameFromTag(owner),
+				Namespace: "owner",
 				UUID:      modeltesting.GenModelUUID(c),
 			},
 			{
 				Name:      "second",
-				OwnerName: user.NameFromTag(remoteUserTag),
+				Namespace: "user@remote",
 				UUID:      modeltesting.GenModelUUID(c),
 			},
 		}, nil,
@@ -300,7 +298,7 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 	s.mockModelService.EXPECT().ControllerModel(gomock.Any()).Return(
 		model.Model{
 			Name:      "controller",
-			OwnerName: user.NameFromTag(owner),
+			Namespace: "owner",
 			UUID:      s.ControllerModelUUID,
 		}, nil,
 	)
@@ -312,9 +310,9 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 	two := results.Models[1]
 
 	c.Assert(one.Name, tc.Equals, "first")
-	c.Assert(one.OwnerTag, tc.Equals, owner.String())
+	c.Assert(one.Namespace, tc.Equals, "owner")
 	c.Assert(two.Name, tc.Equals, "second")
-	c.Assert(two.OwnerTag, tc.Equals, remoteUserTag.String())
+	c.Assert(two.Namespace, tc.Equals, "user@remote")
 }
 
 func (s *controllerSuite) makeCloudSpec(c *tc.C, pSpec *params.CloudSpec) environscloudspec.CloudSpec {
@@ -382,7 +380,7 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 		{
 			UUID:      s.DomainServicesSuite.DefaultModelUUID,
 			Name:      "test",
-			OwnerName: user.NameFromTag(s.Owner),
+			Namespace: s.Owner.Id(),
 			ModelType: model.IAAS,
 		},
 	}
@@ -395,9 +393,9 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 
 	c.Assert(list.Models, tc.DeepEquals, []params.ModelBlockInfo{
 		{
-			Name:     "test",
-			UUID:     s.DomainServicesSuite.DefaultModelUUID.String(),
-			OwnerTag: s.Owner.String(),
+			Name:      "test",
+			UUID:      s.DomainServicesSuite.DefaultModelUUID.String(),
+			Namespace: s.Owner.Id(),
 			Blocks: []string{
 				"BlockChange",
 				"BlockDestroy",
@@ -503,7 +501,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(model1.UUID()),
 			Name:      model1.Name(),
-			OwnerName: user.NameFromTag(model1.Owner()),
+			Namespace: model1.Owner().Id(),
 		}, nil,
 	)
 
@@ -515,7 +513,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(model2.UUID()),
 			Name:      model2.Name(),
-			OwnerName: user.NameFromTag(model2.Owner()),
+			Namespace: model2.Owner().Id(),
 		}, nil,
 	)
 
@@ -609,7 +607,7 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			OwnerName: user.NameFromTag(m.Owner()),
+			Namespace: m.Owner().Id(),
 		}, nil,
 	)
 	out, err := s.controller.InitiateMigration(c.Context(), args)
@@ -633,7 +631,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			OwnerName: user.NameFromTag(m.Owner()),
+			Namespace: m.Owner().Id(),
 		}, nil,
 	)
 
@@ -697,7 +695,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			OwnerName: user.NameFromTag(m.Owner()),
+			Namespace: m.Owner().Id(),
 		}, nil,
 	)
 	out, err := s.controller.InitiateMigration(c.Context(), args)
@@ -724,7 +722,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			OwnerName: user.NameFromTag(m.Owner()),
+			Namespace: m.Owner().Id(),
 		}, nil,
 	)
 
@@ -1246,28 +1244,26 @@ func (s *accessSuite) TestGetControllerAccessPermissions(c *tc.C) {
 func (s *accessSuite) TestAllModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	testAdmin := names.NewUserTag("test-admin")
-	admin := names.NewUserTag("foobar")
-	remoteUserTag := names.NewUserTag("user").WithDomain("remote")
 
 	models := []model.Model{
 		{
 			Name:      "controller",
-			OwnerName: user.NameFromTag(testAdmin),
+			Namespace: "admin",
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "no-access",
-			OwnerName: user.NameFromTag(remoteUserTag),
+			Namespace: "user@remote",
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "owned",
-			OwnerName: user.NameFromTag(admin),
+			Namespace: "admin",
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "user",
-			OwnerName: user.NameFromTag(remoteUserTag),
+			Namespace: "user@remote",
 			ModelType: model.IAAS,
 		},
 	}
@@ -1284,10 +1280,10 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	for i, userModel := range response.UserModels {
-		c.Assert(userModel.Type, tc.DeepEquals, model.IAAS.String())
-		c.Assert(models[i].Name, tc.DeepEquals, userModel.Name)
-		c.Assert(names.NewUserTag(models[i].OwnerName.Name()).String(), tc.DeepEquals, userModel.OwnerTag)
-		c.Assert(models[i].ModelType.String(), tc.DeepEquals, userModel.Type)
+		c.Assert(userModel.Type, tc.Equals, model.IAAS.String())
+		c.Assert(models[i].Name, tc.Equals, userModel.Name)
+		c.Assert(models[i].Namespace, tc.Equals, userModel.Namespace)
+		c.Assert(models[i].ModelType.String(), tc.Equals, userModel.Type)
 	}
 }
 

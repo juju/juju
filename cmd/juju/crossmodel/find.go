@@ -37,7 +37,7 @@ type findCommand struct {
 
 	url            string
 	source         string
-	modelOwnerName string
+	modelNamespace string
 	modelName      string
 	offerName      string
 	interfaceName  string
@@ -118,9 +118,9 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	filter := crossmodel.ApplicationOfferFilter{
-		OwnerName: c.modelOwnerName,
-		ModelName: c.modelName,
-		OfferName: c.offerName,
+		ModelNamespace: c.modelNamespace,
+		ModelName:      c.modelName,
+		OfferName:      c.offerName,
 	}
 	if c.interfaceName != "" {
 		filter.Endpoints = []crossmodel.EndpointFilterTerm{{
@@ -161,15 +161,15 @@ func (c *findCommand) validateOrSetURL() error {
 	} else {
 		c.source = controllerName
 	}
-	user := urlParts.User
-	if user == "" {
+	namespace := urlParts.ModelNamespace
+	if namespace == "" {
 		accountDetails, err := c.CurrentAccountDetails()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		user = accountDetails.User
+		namespace = accountDetails.User
 	}
-	c.modelOwnerName = user
+	c.modelNamespace = namespace
 	c.modelName = urlParts.ModelName
 	c.offerName = urlParts.ApplicationName
 	return nil

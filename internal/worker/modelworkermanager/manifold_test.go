@@ -166,7 +166,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	modelConfig := modelworkermanager.NewModelConfig{
 		Authority:    s.authority,
 		ModelName:    "test",
-		ModelOwner:   "owner",
+		Namespace:    "namespace",
 		ModelUUID:    "foo",
 		ModelType:    coremodel.IAAS,
 		ModelMetrics: dummyMetricSink{},

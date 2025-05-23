@@ -106,8 +106,7 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 			Cloud: credentialCloudName,
 			Owner: credOwnerName,
 		},
-		Owner:     user.UUID(m.OwnerUUID),
-		OwnerName: ownerName,
+		Namespace: ownerName.String(),
 	}, nil
 }
 
