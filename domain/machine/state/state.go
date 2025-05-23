@@ -1013,11 +1013,18 @@ ORDER BY array_index ASC`, lxdProfileQuery)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var instanceData instanceData
 		err := tx.Query(ctx, isProvisionedStmt, instanceDataQuery).Get(&instanceData)
-		if errors.Is(err, sqlair.ErrNoRows) || instanceData.InstanceID == "" {
+		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("machine %q: %w", mUUID, machineerrors.NotProvisioned)
 		} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("checking machine cloud instance for machine %q: %w", mUUID, err)
 		}
+
+		// If the machine is not provisioned, return an error.
+		instanceID := instanceData.InstanceID
+		if !instanceID.Valid || instanceID.V == "" {
+			return errors.Errorf("machine %q: %w", mUUID, machineerrors.NotProvisioned)
+		}
+
 		err = tx.Query(ctx, queryStmt, lxdProfileQuery).GetAll(&result)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("retrieving lxd profiles for machine %q: %w", mUUID, err)
@@ -1104,10 +1111,16 @@ VALUES      ($lxdProfile.*)`, lxdProfile{})
 		// Check if the machine is provisioned
 		var instanceData instanceData
 		err = tx.Query(ctx, isProvisionedStmt, instanceDataQuery).Get(&instanceData)
-		if errors.Is(err, sqlair.ErrNoRows) || instanceData.InstanceID == "" {
+		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("machine %q: %w", mUUID, machineerrors.NotProvisioned)
 		} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("checking machine cloud instance for machine %q: %w", mUUID, err)
+		}
+
+		// If the machine is not provisioned, return an error.
+		instanceID := instanceData.InstanceID
+		if !instanceID.Valid || instanceID.V == "" {
+			return errors.Errorf("machine %q: %w", mUUID, machineerrors.NotProvisioned)
 		}
 
 		// Retrieve the existing profiles to check if the input is the exactly

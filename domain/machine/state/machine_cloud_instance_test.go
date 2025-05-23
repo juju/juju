@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"time"
 
 	"github.com/juju/tc"
@@ -101,9 +102,9 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	var machineUUID machine.UUID
 	row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name='42'")
-	c.Assert(row.Err(), tc.ErrorIsNil)
 	err = row.Scan(&machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 	// Add a reference AZ.
 	_, err = db.ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
 	c.Assert(err, tc.ErrorIsNil)
@@ -144,8 +145,8 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceData.MachineUUID, tc.Equals, machineUUID)
-	c.Check(instanceData.InstanceID, tc.Equals, "1")
-	c.Check(instanceData.DisplayName, tc.Equals, "one")
+	c.Check(instanceData.InstanceID, tc.DeepEquals, sql.Null[string]{V: "1", Valid: true})
+	c.Check(instanceData.DisplayName, tc.DeepEquals, sql.Null[string]{V: "one", Valid: true})
 	c.Check(*instanceData.Arch, tc.Equals, "arm64")
 	c.Check(*instanceData.Mem, tc.Equals, uint64(1024))
 	c.Check(*instanceData.RootDisk, tc.Equals, uint64(256))
@@ -169,6 +170,99 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	c.Check(instanceTags, tc.HasLen, 2)
 	c.Check(instanceTags[0], tc.Equals, "tag1")
 	c.Check(instanceTags[1], tc.Equals, "tag2")
+}
+
+func (s *stateSuite) TestSetInstanceDataEmptyInstanceID(c *tc.C) {
+	db := s.DB()
+
+	// Create a reference machine.
+	err := s.state.CreateMachine(c.Context(), "42", "", "")
+	c.Assert(err, tc.ErrorIsNil)
+	var machineUUID machine.UUID
+	row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name='42'")
+	err = row.Scan(&machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
+
+	err = s.state.SetMachineCloudInstance(
+		c.Context(),
+		machineUUID,
+		instance.Id(""),
+		"one",
+		&instance.HardwareCharacteristics{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var instanceID sql.Null[string]
+	row = db.QueryRowContext(c.Context(), "SELECT instance_id FROM machine_cloud_instance WHERE machine_uuid=?", machineUUID)
+	err = row.Scan(
+		&instanceID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
+	c.Check(instanceID.Valid, tc.IsFalse)
+}
+
+func (s *stateSuite) TestSetInstanceDataEmptyDisplayName(c *tc.C) {
+	db := s.DB()
+
+	// Create a reference machine.
+	err := s.state.CreateMachine(c.Context(), "42", "", "")
+	c.Assert(err, tc.ErrorIsNil)
+	var machineUUID machine.UUID
+	row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name='42'")
+	err = row.Scan(&machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
+
+	err = s.state.SetMachineCloudInstance(
+		c.Context(),
+		machineUUID,
+		instance.Id("1"),
+		"",
+		&instance.HardwareCharacteristics{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var displayName sql.Null[string]
+	row = db.QueryRowContext(c.Context(), "SELECT display_name FROM machine_cloud_instance WHERE machine_uuid=?", machineUUID)
+	c.Assert(row.Err(), tc.ErrorIsNil)
+	err = row.Scan(
+		&displayName,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(displayName.Valid, tc.IsFalse)
+}
+
+func (s *stateSuite) TestSetInstanceDataEmptyUniqueIndex(c *tc.C) {
+	db := s.DB()
+
+	// Ensure that setting empty instance IDs and display names does not
+	// violate the unique index on the machine_cloud_instance table.
+
+	for i := range 10 {
+		name := strconv.Itoa(i + 1)
+
+		uuid := coremachinetesting.GenUUID(c)
+
+		// Create a reference machine.
+		err := s.state.CreateMachine(c.Context(), machine.Name(name), name, uuid)
+		c.Assert(err, tc.ErrorIsNil)
+		var machineUUID machine.UUID
+		row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name=?", name)
+		err = row.Scan(&machineUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(row.Err(), tc.ErrorIsNil)
+
+		err = s.state.SetMachineCloudInstance(
+			c.Context(),
+			machineUUID,
+			instance.Id(""),
+			"",
+			&instance.HardwareCharacteristics{},
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}
 }
 
 func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *tc.C) {
