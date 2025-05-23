@@ -4,7 +4,6 @@
 package service
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -40,7 +39,7 @@ func (s *unitSuite) TestRemoveUnitNoForceSuccess(c *tc.C) {
 	exp.EnsureUnitNotAlive(gomock.Any(), uUUID.String()).Return("some-machine-id", nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveUnit(context.Background(), uUUID, false, 0)
+	jobUUID, err := s.newService(c).RemoveUnit(c.Context(), uUUID, false, 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -58,7 +57,7 @@ func (s *unitSuite) TestRemoveUnitForceNoWaitSuccess(c *tc.C) {
 	exp.EnsureUnitNotAlive(gomock.Any(), uUUID.String()).Return("", nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), true, when.UTC()).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveUnit(context.Background(), uUUID, true, 0)
+	jobUUID, err := s.newService(c).RemoveUnit(c.Context(), uUUID, true, 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -81,7 +80,7 @@ func (s *unitSuite) TestRemoveUnitForceWaitSuccess(c *tc.C) {
 	// The forced removal scheduled after the wait duration.
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveUnit(context.Background(), uUUID, true, time.Minute)
+	jobUUID, err := s.newService(c).RemoveUnit(c.Context(), uUUID, true, time.Minute)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -93,7 +92,7 @@ func (s *unitSuite) TestRemoveUnitNotFound(c *tc.C) {
 
 	s.state.EXPECT().UnitExists(gomock.Any(), uUUID.String()).Return(false, nil)
 
-	_, err := s.newService(c).RemoveUnit(context.Background(), uUUID, false, 0)
+	_, err := s.newService(c).RemoveUnit(c.Context(), uUUID, false, 0)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -104,7 +103,7 @@ func (s *unitSuite) TestProcessRemovalJobInvalidJobType(c *tc.C) {
 		RemovalType: invalidJobType,
 	}
 
-	err := s.newService(c).processUnitRemovalJob(context.Background(), job)
+	err := s.newService(c).processUnitRemovalJob(c.Context(), job)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobTypeNotValid)
 }
 
@@ -117,7 +116,7 @@ func (s *unitSuite) TestExecuteJobForUnitNotFound(c *tc.C) {
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(-1, applicationerrors.UnitNotFound)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
-	err := s.newService(c).ExecuteJob(context.Background(), j)
+	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -129,7 +128,7 @@ func (s *unitSuite) TestExecuteJobForUnitError(c *tc.C) {
 	exp := s.state.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(-1, errors.Errorf("the front fell off"))
 
-	err := s.newService(c).ExecuteJob(context.Background(), j)
+	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
 }
 
@@ -141,7 +140,7 @@ func (s *unitSuite) TestExecuteJobForUnitStillAlive(c *tc.C) {
 	exp := s.state.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Alive, nil)
 
-	err := s.newService(c).ExecuteJob(context.Background(), j)
+	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 }
 
@@ -155,7 +154,7 @@ func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnit(c *tc.C) {
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
-	err := s.newService(c).ExecuteJob(context.Background(), j)
+	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -168,7 +167,7 @@ func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnitError(c *tc.C) {
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(errors.Errorf("the front fell off"))
 
-	err := s.newService(c).ExecuteJob(context.Background(), j)
+	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
 }
 
