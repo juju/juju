@@ -95,7 +95,7 @@ func (w *WatcherC[T]) AssertChange() {
 	select {
 	case _, ok := <-w.Watcher.Changes():
 		w.c.Assert(ok, tc.Equals, true)
-	case <-time.After(testing.LongWait):
+	case <-w.c.Context().Done():
 		w.c.Fatalf("watcher did not send change")
 	}
 }
@@ -118,7 +118,7 @@ func (w WatcherC[T]) AssertNChanges(n int) {
 			// Ensure we have no more changes.
 			w.AssertNoChange()
 			return
-		case <-time.After(testing.LongWait):
+		case <-w.c.Context().Done():
 			if received == 0 {
 				w.c.Fatalf("watcher did not send any changes")
 			} else {
@@ -143,7 +143,7 @@ func (w *WatcherC[T]) Check(assertion WatcherAssert[T]) {
 					wait <- w.Watcher.Wait()
 				}()
 				select {
-				case <-time.After(testing.LongWait):
+				case <-w.c.Context().Done():
 					w.c.Fatalf("watcher never stopped")
 				case err := <-wait:
 					w.c.Fatalf("watcher killed with err: %q", err.Error())
@@ -175,7 +175,7 @@ func (w *WatcherC[T]) AssertKilled() {
 		wait <- w.Watcher.Wait()
 	}()
 	select {
-	case <-time.After(testing.LongWait):
+	case <-w.c.Context().Done():
 		w.c.Fatalf("watcher never stopped")
 	case err := <-wait:
 		w.c.Assert(err, tc.ErrorIsNil)
