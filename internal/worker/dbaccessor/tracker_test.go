@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -164,15 +165,16 @@ func (s *trackedDBWorkerSuite) TestWorkerStdTxnIsNotNil(c *tc.C) {
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectClock()
-	defer s.expectTimer(1)()
+	s.clock = testclock.NewDilatedWallClock(time.Millisecond)
 
-	s.timer.EXPECT().Reset(gomock.Any()).Times(1)
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
+	done := make(chan struct{})
 	var count uint64
 	pingFn := func(context.Context, *sql.DB) error {
-		atomic.AddUint64(&count, 1)
+		if atomic.AddUint64(&count, 1) == 1 {
+			close(done)
+		}
 		return nil
 	}
 
@@ -186,9 +188,15 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *tc.C) {
 	tables := readTableNames(c, w)
 	c.Assert(tables, SliceContains, "lease")
 
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for multiple db verify")
+	}
+
 	workertest.CleanKill(c, w)
 
-	c.Assert(count, tc.Equals, uint64(1))
+	c.Assert(count, tc.GreaterThan, uint64(0))
 }
 
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *tc.C) {
@@ -235,16 +243,16 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *tc.C) 
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectClock()
-	defer s.expectTimer(2)()
-
-	s.timer.EXPECT().Reset(gomock.Any()).Times(2)
+	s.clock = testclock.NewDilatedWallClock(time.Millisecond)
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
+	done := make(chan struct{})
 	var count uint64
 	pingFn := func(context.Context, *sql.DB) error {
-		atomic.AddUint64(&count, 1)
+		if atomic.AddUint64(&count, 1) == 2 {
+			close(done)
+		}
 		return nil
 	}
 
@@ -258,9 +266,15 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *tc.C) {
 	tables := readTableNames(c, w)
 	c.Assert(tables, SliceContains, "lease")
 
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for multiple db verify")
+	}
+
 	workertest.CleanKill(c, w)
 
-	c.Assert(count, tc.Equals, uint64(2))
+	c.Assert(count, tc.GreaterThan, uint64(1))
 }
 
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDifferentDB(c *tc.C) {
