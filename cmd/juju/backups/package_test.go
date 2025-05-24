@@ -62,6 +62,7 @@ type BaseBackupsSuite struct {
 
 func (s *BaseBackupsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	c.Chdir(c.MkDir())
 
 	s.metaresult = &params.BackupsMetadataResult{
 		ID:       "backup-id",
@@ -76,17 +77,6 @@ func (s *BaseBackupsSuite) SetUpTest(c *tc.C) {
 		ModelType: model.IAAS,
 	}
 	s.store.Models["arthur"] = models
-}
-
-func (s *BaseBackupsSuite) TearDownTest(c *tc.C) {
-	if s.filename != "" {
-		err := os.Remove(s.filename)
-		if !os.IsNotExist(err) {
-			c.Check(err, tc.ErrorIsNil)
-		}
-	}
-
-	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {
@@ -139,14 +129,6 @@ func (s *BaseBackupsSuite) checkArchive(c *tc.C) {
 	archive, err := os.Open(s.filename)
 	c.Assert(err, tc.ErrorIsNil)
 	defer archive.Close()
-
-	// Test file created successfully. Clean it up after the test is run.
-	s.AddCleanup(func(c *tc.C) {
-		err := os.Remove(s.filename)
-		if !os.IsNotExist(err) {
-			c.Fatalf("could not remove test file %v: %v", s.filename, err)
-		}
-	})
 
 	data, err := io.ReadAll(archive)
 	c.Assert(err, tc.ErrorIsNil)

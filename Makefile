@@ -174,17 +174,9 @@ ifeq ($(GOOS), linux)
     INSTALL_TARGETS += pebble
 endif
 
-# Allow the tests to take longer on restricted platforms.
-ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/golang/'), golang)
-    TEST_TIMEOUT ?= 5400s
-else
-    TEST_TIMEOUT ?= 2700s
-endif
-TEST_TIMEOUT := $(TEST_TIMEOUT)
-
 TEST_ARGS ?=
 # Limit concurrency on s390x.
-ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(s390x).*/golang/'), golang)
+ifeq ($(GOARCH), s390x)
     TEST_ARGS += -p 4
 endif
 
@@ -494,7 +486,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 # 7. Filter out packages in the mocks directory.
 # 8. Filter out all mocks.
 	$(eval TEST_PACKAGES := $(shell make -s test-packages))
-	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES $(TEST_EXTRA_ARGS)'
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) $$TEST_PACKAGES $(TEST_EXTRA_ARGS)'
 	@TMPDIR=$(TMP) \
 		PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
@@ -503,7 +495,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
-		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) $(TEST_EXTRA_ARGS)
+		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${CGO_LINK_FLAGS} $(TEST_PACKAGES) $(TEST_EXTRA_ARGS)
 	@rm -r $(TMP)
 
 .PHONY: test-packages
@@ -527,7 +519,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TEST_PACKAGES ?= "./...")
 	$(eval TEST_FILTER ?= "")
-	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)'
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) $$TEST_PACKAGES -test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)'
 	@PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
@@ -535,7 +527,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
-		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) ${TEST_PACKAGES} -test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)
+		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${CGO_LINK_FLAGS} ${TEST_PACKAGES} -test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)
 
 go-test-alias: musl-install-if-missing dqlite-install-if-missing
 ## go-test-alias: Prints out an alias command for easy running of tests.

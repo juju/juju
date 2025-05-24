@@ -200,7 +200,7 @@ func (s *workerSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
 		c.Assert(state, tc.Equals, stateStarted)
-	case <-time.After(testing.ShortWait * 10):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for startup")
 	}
 }

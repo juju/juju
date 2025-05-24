@@ -74,7 +74,7 @@ func (c StringsWatcherC) AssertOneChange() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, tc.IsTrue)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("watcher did not send change")
 	}
 	c.AssertNoChange()
@@ -88,7 +88,7 @@ func (c StringsWatcherC) AssertChanges() {
 	case change, ok := <-c.Watcher.Changes():
 		c.Logf("received change: %#v", change)
 		c.Assert(ok, tc.IsTrue)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("watcher did not send change")
 	}
 	c.AssertNoChange()
@@ -100,7 +100,7 @@ func (c StringsWatcherC) AssertAtLeastOneChange() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, tc.IsTrue)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("watcher did not send change")
 	}
 }
@@ -139,7 +139,7 @@ func (c StringsWatcherC) assertStops(changesClosed bool) {
 		wait <- c.Watcher.Wait()
 	}()
 	select {
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("watcher never stopped")
 	case err := <-wait:
 		c.Assert(err, tc.ErrorIsNil)
@@ -192,23 +192,24 @@ func (c StringsWatcherC) assertChange(single bool, expect ...string) {
 // collectChanges gets up to the max number of changes within the
 // testing.LongWait period.
 func (c StringsWatcherC) collectChanges(single bool, max int) []string {
-	timeout := time.After(testing.LongWait)
+	var timeout <-chan time.Time
 	var actual []string
-	gotOneChange := false
 loop:
 	for {
 		select {
 		case changes, ok := <-c.Watcher.Changes():
 			c.Assert(ok, tc.IsTrue)
-			gotOneChange = true
+			if timeout == nil {
+				// start timeout after first expected change.
+				timeout = time.After(testing.LongWait)
+			}
 			actual = append(actual, changes...)
 			if single || len(actual) >= max {
 				break loop
 			}
+		case <-c.Context().Done():
+			c.Fatalf("watcher did not send change")
 		case <-timeout:
-			if !gotOneChange {
-				c.Fatalf("watcher did not send change")
-			}
 			break loop
 		}
 	}

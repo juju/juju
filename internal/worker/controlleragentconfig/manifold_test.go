@@ -4,6 +4,7 @@
 package controlleragentconfig
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/juju/clock"
@@ -20,7 +21,8 @@ import (
 type manifoldSuite struct {
 	baseSuite
 
-	agent *mockAgent
+	agent     *mockAgent
+	socketDir string
 }
 
 func TestManifoldSuite(t *testing.T) {
@@ -29,6 +31,8 @@ func TestManifoldSuite(t *testing.T) {
 
 func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
+
+	s.socketDir = c.MkDir()
 
 	s.agent = new(mockAgent)
 	s.agent.conf.tag = names.NewMachineTag("99")
@@ -67,7 +71,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		Logger:            s.logger,
 		Clock:             clock.WallClock,
 		NewSocketListener: NewSocketListener,
-		SocketName:        "test.socket",
+		SocketName:        filepath.Join(s.socketDir, "test.socket"),
 	}
 }
 

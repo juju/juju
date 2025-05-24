@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -117,9 +116,6 @@ func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
-	ctx, cancel := jujutesting.LongWaitContext()
-	defer cancel()
-
 	var defaults modelDefaultsProviderFunc = func(_ context.Context) (modeldefaults.Defaults, error) {
 		return modeldefaults.Defaults{
 			"foo": modeldefaults.DefaultAttributeValue{
@@ -150,27 +146,33 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
 	watcher, err := svc.Watch()
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = bootstrap.SetModelConfig(s.modelID, attrs, defaults)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.modelID.String()))
-	c.Assert(err, tc.ErrorIsNil)
+	harness := watchertest.NewHarness(idler, watchertest.NewWatcherC(c, watcher))
+	harness.AddTest(func(c *tc.C) {
+		// Changestream becomes idle and then we receive the bootstrap changes
+		// from the model config.
+		err = bootstrap.SetModelConfig(s.modelID, attrs, defaults)(
+			c.Context(),
+			s.ControllerTxnRunner(),
+			s.ModelTxnRunner(c, s.modelID.String()))
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert("name", "uuid", "type", "foo", "logging-config"),
+		)
+	})
 
-	w := watchertest.NewStringsWatcherC(c, watcher)
+	harness.AddTest(func(c *tc.C) {
+		// Now insert the change and watch it come through.
+		attrs["logging-config"] = "<root>=WARNING"
+		err = svc.SetModelConfig(c.Context(), attrs)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert("logging-config"),
+		)
+	})
 
-	// Changestream becomes idle and then we receive the bootstrap changes
-	// from the model config.
-	w.AssertChange("name", "uuid", "type", "foo", "logging-config")
-
-	// Ensure that the changestream is idle.
-	idler.AssertChangeStreamIdle(c)
-
-	// Now insert the change and watch it come through.
-	attrs["logging-config"] = "<root>=WARNING"
-
-	err = svc.SetModelConfig(ctx, attrs)
-	c.Assert(err, tc.ErrorIsNil)
-
-	idler.AssertChangeStreamIdle(c)
-
-	w.AssertChange("logging-config")
+	harness.Run(c, []string(nil))
 }
 
 type modelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, error)

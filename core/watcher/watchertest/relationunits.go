@@ -46,7 +46,6 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 	// Get all items in changed in a map for easy lookup.
 	changedNames := set.NewStrings(changed...)
 	appChangedNames := set.NewStrings(appChanged...)
-	timeout := time.After(testing.LongWait)
 	select {
 	case actual, ok := <-c.Watcher.Changes():
 		c.Logf("got change %v", actual)
@@ -81,7 +80,7 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 			c.appSettingsVersions[k] = version
 		}
 		c.Assert(actual.Departed, tc.SameContents, departed)
-	case <-timeout:
+	case <-c.Context().Done():
 		c.Fatalf("watcher did not send change")
 	}
 }
@@ -96,7 +95,7 @@ func (c RelationUnitsWatcherC) AssertStops() {
 		wait <- c.Watcher.Wait()
 	}()
 	select {
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("watcher never stopped")
 	case err := <-wait:
 		c.Assert(err, tc.ErrorIsNil)

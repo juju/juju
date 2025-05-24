@@ -73,7 +73,7 @@ func (c NotifyWatcherC) AssertOneChange() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, tc.IsTrue)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("watcher did not send change")
 	}
 	c.AssertNoChange()
@@ -85,7 +85,7 @@ func (c NotifyWatcherC) AssertAtLeastOneChange() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, tc.IsTrue)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("watcher did not send change")
 	}
 }
@@ -108,7 +108,7 @@ func (c NotifyWatcherC) AssertChanges(duration time.Duration) {
 			// for a given time.
 			c.AssertNoChange()
 			return
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatalf("watcher did not send a change")
 		}
 	}
@@ -132,7 +132,7 @@ func (c NotifyWatcherC) AssertNChanges(n int) {
 			// Ensure we have no more changes.
 			c.AssertNoChange()
 			return
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			if received == 0 {
 				c.Fatalf("watcher did not send any changes")
 			} else {
@@ -159,7 +159,7 @@ func (c NotifyWatcherC) assertStops(changesClosed bool) {
 		wait <- c.Watcher.Wait()
 	}()
 	select {
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("watcher never stopped")
 	case err := <-wait:
 		c.Assert(err, tc.ErrorIsNil)
