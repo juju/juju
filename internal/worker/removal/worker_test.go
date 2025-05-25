@@ -5,7 +5,6 @@ package removal
 
 import (
 	"context"
-	"reflect"
 	"testing"
 	"time"
 
@@ -138,19 +137,22 @@ func (s *workerSuite) TestWorkerNotifiedSchedulesDueJob(c *tc.C) {
 // - We query for jobs, receive two, but one has already been scheduled.
 // - Only the unscheduled job is scheduled with the runner.
 func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
-	defer s.setUpMocks(c).Finish()
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
 
 	ch := make(chan []string)
 	watch := watchertest.NewMockStringsWatcher(ch)
 	s.svc.EXPECT().WatchRemovals().Return(watch, nil)
 
-	// Fire it straight away.
-	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).DoAndReturn(func(d time.Duration) clock.Timer {
-		return clock.WallClock.NewTimer(time.Millisecond)
-	})
+	timerChan := make(chan time.Time)
+	timer := NewMockTimer(ctrl)
+	timer.EXPECT().Chan().Return(timerChan).MaxTimes(2)
+	timer.EXPECT().Reset(gomock.Any()).Return(true)
+	timer.EXPECT().Stop().Return(true)
+	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(timer)
 
 	now := time.Now().UTC()
-	s.clk.EXPECT().Now().Return(now)
+	s.clk.EXPECT().Now().Return(now).AnyTimes()
 
 	dueJob := removal.Job{
 		UUID:         "due-job-uuid",
@@ -166,13 +168,19 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
 		Force:        false,
 		ScheduledFor: now.Add(-time.Hour),
 	}
-	s.svc.EXPECT().GetAllJobs(gomock.Any()).Return([]removal.Job{dueJob, scheduledJob}, nil)
+	s.svc.EXPECT().GetAllJobs(gomock.Any()).DoAndReturn(func(context.Context) ([]removal.Job, error) {
+		return []removal.Job{dueJob, scheduledJob}, nil
+	})
 
 	// Use job execution as a synchronisation point below.
 	// so that we know we can kill the worker.
 	sync := make(chan struct{})
-	s.svc.EXPECT().ExecuteJob(gomock.Any(), dueJob).DoAndReturn(func(_ context.Context, job removal.Job) error {
-		sync <- struct{}{}
+	s.svc.EXPECT().ExecuteJob(gomock.Any(), dueJob).DoAndReturn(func(ctx context.Context, job removal.Job) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case sync <- struct{}{}:
+		}
 		return nil
 	})
 
@@ -197,30 +205,18 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	// We need to wait until it is actually reported starting.
-	// This is because StartWorker above is not synchronous.
-	var count int
-	for {
-		if reflect.DeepEqual(rw.runner.WorkerNames(), []string{"scheduled-job-uuid"}) {
-			break
-		}
-		count++
-		if count > 200 {
-			c.Fatalf("timed out waiting for runner to schedule job")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-
+	// Once the worker is scheduled in the runner, fire the timer to ensure only
+	// the required worker is started.
 	select {
-	case ch <- []string{"due-job-uuid"}:
-	case <-time.After(testhelpers.ShortWait):
-		c.Fatalf("timed out waiting for watcher event consumption")
+	case timerChan <- now:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for timer to fire")
 	}
 
 	select {
 	case <-sync:
-	case <-time.After(testhelpers.ShortWait):
-		c.Fatalf("timed out waiting for job execution")
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for job execution")
 	}
 
 	workertest.CleanKill(c, w)
