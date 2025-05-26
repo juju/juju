@@ -26,10 +26,6 @@ type AtomicState interface {
 	domain.AtomicStateBase
 
 	DeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, revs []int) error
-	GetSecretsForOwners(
-		ctx domain.AtomicContext, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-	) ([]*secrets.URI, error)
-
 	GetApplicationUUID(ctx domain.AtomicContext, appName string) (coreapplication.ID, error)
 	GetUnitUUID(ctx domain.AtomicContext, name coreunit.Name) (coreunit.UUID, error)
 	GetSecretOwner(ctx domain.AtomicContext, uri *secrets.URI) (domainsecret.Owner, error)
@@ -92,6 +88,9 @@ type State interface {
 	ChangeSecretBackend(
 		ctx context.Context, revisionID uuid.UUID, valueRef *secrets.ValueRef, data secrets.SecretData,
 	) error
+	GetOwnedSecretIDs(
+		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) ([]string, error)
 
 	// For watching obsolete secret revision changes.
 	InitialWatchStatementForObsoleteRevision(
@@ -136,11 +135,6 @@ type State interface {
 	InitialWatchStatementForOwnedSecrets(
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) (string, eventsource.NamespaceQuery)
-	IsSecretOwnedBy(
-		ctx context.Context,
-		uri *secrets.URI,
-		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-	) (bool, error)
 
 	// Methods for loading secrets to be exported.
 	AllSecretGrants(ctx context.Context) (map[string][]domainsecret.GrantParams, error)
@@ -223,6 +217,12 @@ type WatcherFactory interface {
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 
+	// NewNamespaceMapperWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. Change-log events will be emitted only if
+	// the filter accepts them, and dispatching the notifications via the
+	// Changes channel. A filter option is required, though additional filter
+	// options can be provided. The mapper is used to transform the changes
+	// before they are emitted.
 	NewNamespaceMapperWatcher(
 		initialQuery eventsource.NamespaceQuery,
 		mapper eventsource.Mapper,

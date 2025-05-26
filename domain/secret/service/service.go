@@ -637,12 +637,6 @@ func (s *SecretService) updateSecret(ctx domain.AtomicContext, uri *secrets.URI,
 	return errors.Capture(err)
 }
 
-// GetSecretsForOwners returns the secrets owned by the specified apps and/or units.
-func (s *SecretService) GetSecretsForOwners(ctx domain.AtomicContext, owners ...CharmSecretOwner) ([]*secrets.URI, error) {
-	appOwners, unitOwners := splitCharmSecretOwners(owners...)
-	return s.secretState.GetSecretsForOwners(ctx, appOwners, unitOwners)
-}
-
 // ListSecrets returns the secrets matching the specified terms.
 // If multiple values for a given term are specified, secrets matching any of the
 // values for that term are included.

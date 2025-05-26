@@ -150,136 +150,151 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 		return append(initials, obsoleteRevisionChanges...), nil
 	}
 
-	splitEvents := func(events []changestream.ChangeEvent) (secretEvents, revisionEvents []changestream.ChangeEvent) {
-		if len(events) == 0 {
-			return
-		}
-
-		// The source watcher may emit events from secret_metadata and secret_revision_obsolete tables.
-		// We need to split the events into secret URI change events and revision UUID change events.
-		for _, e := range events {
-			switch e.Namespace() {
-			case tableSecrets:
-				secretEvents = append(secretEvents, e)
-			case tableObsoleteRevisions:
-				// We are only interested in the obsolete revision UUIDs.
-				revisionEvents = append(revisionEvents, e)
-			default:
-				// This should never happen, but just in case.
-				// We are not interested in any other events.
-				s.logger.Warningf(ctx, "unknown event with namespace: %q received in obsolete watcher", e.Namespace())
-			}
-		}
-		return
-	}
-
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		initialQuery,
-		obsoleteWatcherMapperFunc(ctx, s.logger, s.secretState, appOwners, unitOwners, splitEvents),
+		obsoleteWatcherMapperFunc(
+			s.logger,
+			s.secretState,
+			appOwners, unitOwners,
+			tableSecrets, tableObsoleteRevisions,
+		),
 		eventsource.NamespaceFilter(tableSecrets, changestream.All),
 		eventsource.NamespaceFilter(tableObsoleteRevisions, changestream.Changed),
 	)
 }
 
 func obsoleteWatcherMapperFunc(
-	ctx context.Context,
 	logger logger.Logger,
 	state State,
 	appOwners secret.ApplicationOwners,
 	unitOwners secret.UnitOwners,
-	splitEvents func([]changestream.ChangeEvent) (secretEvents, revisionEvents []changestream.ChangeEvent),
+	tableSecrets, tableObsoleteRevisions string,
 ) eventsource.Mapper {
+	// knownSecretURIs is a set of currently owned secret URIs.
+	// Tracking this set allows us to identify if a deletion event corresponds to a previously owned secret.
+	// When a deletion event is received, the secret data is no longer available in the database,
+	// so we cannot query the database to determine if the secret was previously owned.
 	knownSecretURIs := set.NewStrings()
 
-	mergeSecretChanges := func(currentChanges, receivedSecretChanges []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-		if len(receivedSecretChanges) == 0 {
+	mergeSecretChange := func(
+		currentChanges []changestream.ChangeEvent,
+		currentOwnedSecretIDs set.Strings,
+		secretChange changestream.ChangeEvent,
+	) ([]changestream.ChangeEvent, error) {
+		// pushChanges pushes the secret ID to the changes slice.
+		// At the same time, any previously added obsolete revisions of this secret are removed from the slice.
+		pushChanges := func(change changestream.ChangeEvent) {
+			currentChanges = slices.DeleteFunc(currentChanges, func(c changestream.ChangeEvent) bool {
+				id, _ := splitSecretRevision(c.Changed())
+				return id == change.Changed()
+			})
+			currentChanges = append(currentChanges, change)
+		}
+
+		secretChangeID := secretChange.Changed()
+		if currentOwnedSecretIDs.Contains(secretChangeID) {
+			// It's still owned, so the event must be triggered by an update.
+			// Ensure we are tracking the secret URI.
+			knownSecretURIs.Add(secretChangeID)
+
+			// We are only interested in a previously owned secret that has been deleted,
+			// so ignore this one.
 			return currentChanges, nil
 		}
 
-		// pushChanges pushes the secret ID to the changes slice.
-		// At the same time, any previously added obsolete revisions of this secret are removed from the slice.
-		pushChanges := func(secretChange changestream.ChangeEvent) {
-			currentChanges = slices.DeleteFunc(currentChanges, func(change changestream.ChangeEvent) bool {
-				id, _ := splitSecretRevision(change.Changed())
-				return id == secretChange.Changed()
-			})
-			currentChanges = append(currentChanges, secretChange)
-		}
+		if knownSecretURIs.Contains(secretChangeID) {
+			// An owned secret has been deleted, we need to notify the URI change.
+			pushChanges(secretChange)
 
-		for _, secretChange := range receivedSecretChanges {
-			uri, err := coresecrets.ParseURI(secretChange.Changed())
-			if err != nil {
-				return currentChanges, errors.Capture(err)
-			}
-			owned, err := state.IsSecretOwnedBy(ctx, uri, appOwners, unitOwners)
-			if err != nil {
-				return currentChanges, errors.Capture(err)
-			}
-			if owned {
-				// It's still owned, so the event must be triggered by an update.
-				// Ensure we are tracking the secret URI.
-				knownSecretURIs.Add(uri.ID)
-
-				// We are only interested in a previously owned secret that has been deleted,
-				// so ignore this one and continue.
-				continue
-			}
-
-			if knownSecretURIs.Contains(uri.ID) {
-				// An onwed secret has been deleted, we need to notify the URI change.
-				pushChanges(newMaskedChangeIDEvent(secretChange, uri.ID))
-
-				// No need to track this one anymore.
-				knownSecretURIs.Remove(uri.ID)
-			}
+			// No need to track this one anymore.
+			knownSecretURIs.Remove(secretChangeID)
 		}
 		return currentChanges, nil
 	}
 
-	mergeRevisionChanges := func(currentChanges, newChanges []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-		if len(newChanges) == 0 {
-			return currentChanges, nil
-		}
+	mergeRevisionChange := func(
+		currentChanges []changestream.ChangeEvent,
+		revisionUUIDAndIDMap map[string]string,
+		revisionChange changestream.ChangeEvent,
+	) ([]changestream.ChangeEvent, error) {
 		// We are receiving all the obsolete revision UUIDs changes in the model, so we need to filter
-		// only the ones that are owned.
-		revisionUUIDs := make([]string, len(newChanges))
-		for i, change := range newChanges {
-			revisionUUIDs[i] = change.Changed()
-		}
-		revisionIDs, err := state.GetRevisionIDsForObsolete(
-			ctx, appOwners, unitOwners, revisionUUIDs...,
-		)
-		if err != nil {
-			return currentChanges, errors.Capture(err)
-		}
-		for _, change := range newChanges {
-			if revisionID, ok := revisionIDs[change.Changed()]; ok {
-				currentChanges = append(currentChanges, newMaskedChangeIDEvent(change, revisionID))
-			}
+		// only the one that is owned.
+		if revisionID, ok := revisionUUIDAndIDMap[revisionChange.Changed()]; ok {
+			currentChanges = append(currentChanges, newMaskedChangeIDEvent(revisionChange, revisionID))
 		}
 		return currentChanges, nil
+	}
+
+	splitEvents := func(events []changestream.ChangeEvent) (secretEventValues, revisionEventValues []string) {
+		if len(events) == 0 {
+			return
+		}
+
+		// The source watcher may emit events from secret_metadata and secret_revision_obsolete tables.
+		// We need to split the events into secret URI strings and revision UUIDs strings.
+		for _, e := range events {
+			if _, err := coresecrets.ParseURI(e.Changed()); err == nil {
+				secretEventValues = append(secretEventValues, e.Changed())
+				continue
+			}
+			revisionEventValues = append(revisionEventValues, e.Changed())
+		}
+		return
 	}
 
 	return func(ctx context.Context, changes []changestream.ChangeEvent) (result []changestream.ChangeEvent, err error) {
-		defer func() {
-			if err != nil {
-				logger.Errorf(ctx, "running obsolete watcher mapper func: %v", err)
-			}
-		}()
 		if len(changes) == 0 {
-			return nil, nil
+			return changes, nil
 		}
 
-		secretEvents, revisionEvents := splitEvents(changes)
-		result, err = mergeSecretChanges(result, secretEvents)
-		if err != nil {
-			return nil, errors.Capture(err)
+		secretEventValues, revisionEventValues := splitEvents(changes)
+
+		// We fetch current owned secret IDs and revision UUIDs once
+		// per batch of changes, to avoid multiple queries for each
+		// change event. This is more efficient than querying the
+		// database for each change event. We ensure that we have the
+		// latest owned secrets and revisions but may miss the database
+		// changes that happen during the processing of the changes.
+		// This is acceptable because the source watcher will emit the
+		// changes again for these changes.
+		var currentOwnedSecretIDs set.Strings
+		var revisionUUIDAndIDMap map[string]string
+		if len(secretEventValues) > 0 {
+			ownedSecretIDs, err := state.GetOwnedSecretIDs(ctx, appOwners, unitOwners)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			currentOwnedSecretIDs = set.NewStrings(ownedSecretIDs...)
 		}
-		result, err = mergeRevisionChanges(result, revisionEvents)
-		if err != nil {
-			return nil, errors.Capture(err)
+		if len(revisionEventValues) > 0 {
+			revisionUUIDAndIDMap, err = state.GetRevisionIDsForObsolete(
+				ctx, appOwners, unitOwners, revisionEventValues...,
+			)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
 		}
 
+		// The source watcher may emit events from secret_metadata
+		// and secret_revision_obsolete tables.
+		for _, change := range changes {
+			switch change.Namespace() {
+			case tableSecrets:
+				result, err = mergeSecretChange(result, currentOwnedSecretIDs, change)
+			case tableObsoleteRevisions:
+				result, err = mergeRevisionChange(result, revisionUUIDAndIDMap, change)
+			default:
+				// This should never happen, but just in case.
+				// We are not interested in any other events.
+				logger.Warningf(ctx, "unknown event with namespace: %q received in obsolete watcher", change.Namespace())
+			}
+			if err != nil {
+				return nil, errors.Errorf(
+					"processing change event %s/%s in obsolete watcher mapper: %v",
+					change.Namespace(), change.Changed(), err,
+				)
+			}
+		}
 		return result, nil
 	}
 }
