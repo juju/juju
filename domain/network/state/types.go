@@ -11,6 +11,11 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+type entityUUID struct {
+	// UUID uniquely identifies an entity.
+	UUID string `db:"uuid"`
+}
+
 // subnet represents a single row from the subnet table.
 type subnet struct {
 	// UUID is the subnet's UUID.
@@ -371,6 +376,7 @@ func encodeVirtualPortType(kind corenetwork.VirtualPortType) (int64, error) {
 // ipAddressDML is for writing data to the ip_address table.
 type ipAddressDML struct {
 	UUID         string  `db:"uuid"`
+	NodeUUID     string  `db:"net_node_uuid"`
 	DeviceUUID   string  `db:"device_uuid"`
 	AddressValue string  `db:"address_value"`
 	SubnetUUID   *string `db:"subnet_uuid"`
@@ -390,13 +396,10 @@ type ipAddressDML struct {
 // address.
 // It is expected that the maps will be populated as part of the reconciliation
 // process prior to calling this method.
-func netAddrToDML(addr network.NetAddr, devNameToUUID, ipToUUID map[string]string) (ipAddressDML, error) {
+func netAddrToDML(
+	addr network.NetAddr, nodeUUID, devUUID string, ipToUUID map[string]string,
+) (ipAddressDML, error) {
 	var dml ipAddressDML
-
-	devUUID, ok := devNameToUUID[addr.InterfaceName]
-	if !ok {
-		return dml, errors.Errorf("no UUID associated with device %q", addr.InterfaceName)
-	}
 
 	addrUUID, ok := ipToUUID[addr.AddressValue]
 	if !ok {
@@ -425,6 +428,7 @@ func netAddrToDML(addr network.NetAddr, devNameToUUID, ipToUUID map[string]strin
 
 	dml = ipAddressDML{
 		UUID:         addrUUID,
+		NodeUUID:     nodeUUID,
 		DeviceUUID:   devUUID,
 		AddressValue: addr.AddressValue,
 		SubnetUUID:   nil,
