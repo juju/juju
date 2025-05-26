@@ -513,7 +513,7 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *tc.C) {
 	case term = <-stream.Terms():
 		results = term.Changes()
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -551,7 +551,7 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *tc.C) {
 	case term = <-stream.Terms():
 		results = term.Changes()
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
