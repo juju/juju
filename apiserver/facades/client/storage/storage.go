@@ -36,15 +36,21 @@ type StorageService interface {
 	DeleteStoragePool(ctx context.Context, name string) error
 	ReplaceStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
 	ListStoragePools(ctx context.Context, filter domainstorage.Names, providers domainstorage.Providers) ([]*storage.Config, error)
-	ImportFilesystem(ctx context.Context, arg storageservice.ImportStorageParams) (corestorage.ID, error)
+	ImportProviderStorage(ctx context.Context, arg storageservice.ImportStorageParams) (corestorage.ID, error)
 }
 
-// ApplicationService defines apis on the application service.
+// ApplicationService is a subset of the [github.com/juju/juju/domain/application.Service] functionality
+// related to attaching and detaching storage.
 type ApplicationService interface {
+	// GetUnitMachineName gets the name of the unit's machine.
 	GetUnitMachineName(ctx context.Context, unitName unit.Name) (machine.Name, error)
-	AttachStorage(ctx context.Context, storageID corestorage.ID, unitName unit.Name) error
+	// AttachStorageToUnit attaches the specified storage to the specified unit.
+	AttachStorageToUnit(ctx context.Context, storageID corestorage.ID, unitName unit.Name) error
+	// DetachStorageForUnit detaches the specified storage from the specified unit.
 	DetachStorageForUnit(ctx context.Context, storageID corestorage.ID, unitName unit.Name) error
-	DetachStorage(ctx context.Context, storageID corestorage.ID) error
+	// DetachStorageFromUnit detaches the specified storage from whatever node it is attached to.
+	DetachStorageFromUnit(ctx context.Context, storageID corestorage.ID) error
+	// AddStorageForUnit adds storage instances to the given unit.
 	AddStorageForUnit(ctx context.Context, storageName corestorage.Name, unitName unit.Name, stor storage.Directive) ([]corestorage.ID, error)
 }
 
@@ -483,20 +489,12 @@ func (a *StorageAPI) addToUnit(ctx context.Context, args params.StoragesAddParam
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if one.StorageName == "" {
-			result[i].Error = apiservererrors.ServerError(errors.New("storage name missing"))
-			continue
-
-		}
-		storageName, err := corestorage.ParseName(one.StorageName)
-		if err != nil {
-			result[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
 		storageIDs, err := a.applicationService.AddStorageForUnit(
-			ctx, storageName, unit.Name(u.Id()), paramsToStorage(one.Directives),
+			ctx, corestorage.Name(one.StorageName), unit.Name(u.Id()), paramsToStorage(one.Directives),
 		)
 		switch {
+		case errors.Is(err, corestorage.InvalidStorageName):
+			err = errors.NotValidf("storage name %q", one.StorageName)
 		case errors.Is(err, storageerrors.StorageNotFound):
 			err = errors.NotFoundf("storage %s", one.StorageName)
 		case errors.Is(err, applicationerrors.UnitNotFound):
@@ -504,6 +502,7 @@ func (a *StorageAPI) addToUnit(ctx context.Context, args params.StoragesAddParam
 		}
 		if err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
 		tagStrings := make([]string, len(storageIDs))
 		for i, id := range storageIDs {
@@ -583,12 +582,6 @@ func (a *StorageAPI) internalDetach(ctx context.Context, args params.StorageAtta
 			}
 		}
 		err = a.detachStorage(ctx, storageTag, unitTag)
-		switch {
-		case errors.Is(err, storageerrors.StorageNotFound):
-			err = errors.NotFoundf("storage %s", storageTag.Id())
-		case errors.Is(err, storageerrors.StorageAttachmentNotFound):
-			err = errors.NotFoundf("attachment of storage %s to unit %s", storageTag.Id(), unitTag.Id())
-		}
 		return errors.Trace(err)
 	}
 
@@ -600,12 +593,21 @@ func (a *StorageAPI) internalDetach(ctx context.Context, args params.StorageAtta
 }
 
 func (a *StorageAPI) detachStorage(ctx context.Context, storageTag names.StorageTag, unitTag names.UnitTag) error {
+	var err error
 	if unitTag != (names.UnitTag{}) {
 		// The caller has specified a unit explicitly. Do
 		// not filter out "not found" errors in this case.
-		return a.applicationService.DetachStorageForUnit(ctx, corestorage.ID(storageTag.Id()), unit.Name(unitTag.Id()))
+		err = a.applicationService.DetachStorageForUnit(ctx, corestorage.ID(storageTag.Id()), unit.Name(unitTag.Id()))
+	} else {
+		err = a.applicationService.DetachStorageFromUnit(ctx, corestorage.ID(storageTag.Id()))
 	}
-	return a.applicationService.DetachStorage(ctx, corestorage.ID(storageTag.Id()))
+	switch {
+	case errors.Is(err, storageerrors.StorageNotFound):
+		err = errors.NotFoundf("storage %s", storageTag.Id())
+	case errors.Is(err, storageerrors.StorageAttachmentNotFound):
+		err = errors.NotFoundf("attachment of storage %s to unit %s", storageTag.Id(), unitTag.Id())
+	}
+	return errors.Trace(err)
 }
 
 // Attach attaches existing storage instances to units.
@@ -629,7 +631,7 @@ func (a *StorageAPI) Attach(ctx context.Context, args params.StorageAttachmentId
 		if err != nil {
 			return err
 		}
-		err = a.applicationService.AttachStorage(ctx, corestorage.ID(storageTag.Id()), unit.Name(unitTag.Id()))
+		err = a.applicationService.AttachStorageToUnit(ctx, corestorage.ID(storageTag.Id()), unit.Name(unitTag.Id()))
 		switch {
 		case errors.Is(err, storageerrors.StorageNotFound):
 			err = errors.NotFoundf("storage %s", storageTag.Id())
@@ -681,7 +683,7 @@ func (a *StorageAPI) importStorage(ctx context.Context, arg params.ImportStorage
 		ProviderId:  arg.ProviderId,
 		StorageName: storageName,
 	}
-	storageID, err := a.storageService.ImportFilesystem(ctx, p)
+	storageID, err := a.storageService.ImportProviderStorage(ctx, p)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

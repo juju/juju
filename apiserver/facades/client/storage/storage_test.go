@@ -332,7 +332,7 @@ func (s *storageSuite) TestDetach(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
 	s.applicationService.EXPECT().DetachStorageForUnit(gomock.Any(), corestorage.ID("data/0"), coreunit.Name("mysql/0"))
-	s.applicationService.EXPECT().DetachStorage(gomock.Any(), corestorage.ID("data/0"))
+	s.applicationService.EXPECT().DetachStorageFromUnit(gomock.Any(), corestorage.ID("data/0"))
 
 	results, err := s.api.DetachStorage(
 		c.Context(),
@@ -386,7 +386,7 @@ func (s *storageSuite) TestDetachNoAttachmentsStorageNotFound(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
-	s.applicationService.EXPECT().DetachStorage(gomock.Any(), corestorage.ID("foo/42")).Return(storageerrors.StorageNotFound)
+	s.applicationService.EXPECT().DetachStorageFromUnit(gomock.Any(), corestorage.ID("foo/42")).Return(storageerrors.StorageNotFound)
 
 	results, err := s.api.DetachStorage(
 		c.Context(),
@@ -409,7 +409,7 @@ func (s *storageSuite) TestAttach(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
-	s.applicationService.EXPECT().AttachStorage(gomock.Any(), corestorage.ID("data/0"), coreunit.Name("mysql/0"))
+	s.applicationService.EXPECT().AttachStorageToUnit(gomock.Any(), corestorage.ID("data/0"), coreunit.Name("mysql/0"))
 
 	results, err := s.api.Attach(c.Context(),
 		params.StorageAttachmentIds{Ids: []params.StorageAttachmentId{
@@ -431,7 +431,7 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
-	s.storageService.EXPECT().ImportFilesystem(gomock.Any(), service.ImportStorageParams{
+	s.storageService.EXPECT().ImportProviderStorage(gomock.Any(), service.ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -457,7 +457,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
-	s.storageService.EXPECT().ImportFilesystem(gomock.Any(), service.ImportStorageParams{
+	s.storageService.EXPECT().ImportProviderStorage(gomock.Any(), service.ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -482,7 +482,7 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
-	s.storageService.EXPECT().ImportFilesystem(gomock.Any(), service.ImportStorageParams{
+	s.storageService.EXPECT().ImportProviderStorage(gomock.Any(), service.ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",

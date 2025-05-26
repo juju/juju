@@ -36,12 +36,12 @@ type StorageService struct {
 	registryGetter corestorage.ModelStorageRegistryGetter
 }
 
-// ImportFilesystem associates a filesystem (either native or volume backed) hosted by a cloud provider
+// ImportProviderStorage associates storage hosted by a cloud provider
 // with a new storage instance (and storage pool) in a model.
 // The following error types can be expected:
 // - [coreerrors.NotSupported]: when the importing the kind of storage is not supported by the provider.
 // - [storageerrors.InvalidPoolNameError]: when the supplied pool name is invalid.
-func (s *StorageService) ImportFilesystem(ctx context.Context, arg ImportStorageParams) (corestorage.ID, error) {
+func (s *StorageService) ImportProviderStorage(ctx context.Context, arg ImportStorageParams) (corestorage.ID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

@@ -126,13 +126,13 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *tc.C) {
 	}
 	msg := "storage name missing"
 	s.applicationService.EXPECT().AddStorageForUnit(
-		gomock.Any(), corestorage.Name("data"), coreunit.Name(s.unitTag.Id()), storage.Directive{}).DoAndReturn(
+		gomock.Any(), gomock.Any(), coreunit.Name(s.unitTag.Id()), storage.Directive{}).DoAndReturn(
 		func(_ context.Context, name corestorage.Name, unit coreunit.Name, directive storage.Directive) ([]corestorage.ID, error) {
 			if name == "" {
 				return nil, errors.New(msg)
 			}
 			return nil, nil
-		})
+		}).Times(2)
 	failures, err := s.api.AddToUnit(c.Context(), params.StoragesAddParams{
 		Storages: []params.StorageAddParams{
 			wrong0,

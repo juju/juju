@@ -65,7 +65,7 @@ type StorageState interface {
 	DetachStorage(ctx context.Context, storageUUID corestorage.UUID) error
 }
 
-// AttachStorage attached the specified storage to the specified unit.
+// AttachStorageToUnit attached the specified storage to the specified unit.
 // If the attachment already exists, the result is a no op.
 // The following error types can be expected:
 // - [github.com/juju/juju/core/unit.InvalidUnitName]: when the unit name is not valid.
@@ -79,7 +79,7 @@ type StorageState interface {
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-func (s *Service) AttachStorage(ctx context.Context, storageID corestorage.ID, unitName coreunit.Name) error {
+func (s *Service) AttachStorageToUnit(ctx context.Context, storageID corestorage.ID, unitName coreunit.Name) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if err := unitName.Validate(); err != nil {
@@ -160,12 +160,12 @@ func (s *Service) DetachStorageForUnit(ctx context.Context, storageID corestorag
 	return s.st.DetachStorageForUnit(ctx, storageUUID, unitUUID)
 }
 
-// DetachStorage detaches the specified storage from whatever node it is attached to.
+// DetachStorageFromUnit detaches the specified storage from whatever node it is attached to.
 // The following error types can be expected:
 // - [github.com/juju/juju/core/storage.InvalidStorageID]: when the storage ID is not valid.
 // - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 // - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
-func (s *Service) DetachStorage(ctx context.Context, storageID corestorage.ID) error {
+func (s *Service) DetachStorageFromUnit(ctx context.Context, storageID corestorage.ID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if err := storageID.Validate(); err != nil {
