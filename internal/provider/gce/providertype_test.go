@@ -8,15 +8,15 @@ import (
 
 	"github.com/juju/tc"
 
-	corecloud "github.com/juju/juju/core/cloud"
+	domaincloud "github.com/juju/juju/domain/cloud"
 )
 
-// TestGCEProviderTypeEqualsCoreCloudValue checks that the unique provider
+// TestGCEProviderTypeEqualsDomainCloudValue checks that the unique provider
 // type value that the gce provider gets registered with is equal to that of
-// [corecloud.CloudTypeGCE].
+// [domaincloud.CloudTypeGCE].
 //
 // This is important test to make sure that enum values are kept in sync across
 // Juju.
-func TestGCEProviderTypeEqualsCoreCloudValue(t *testing.T) {
-	tc.Assert(t, providerType, tc.Equals, corecloud.CloudTypeGCE.String())
+func TestGCEProviderTypeEqualsDomainCloudValue(t *testing.T) {
+	tc.Assert(t, providerType, tc.Equals, domaincloud.CloudTypeGCE.String())
 }

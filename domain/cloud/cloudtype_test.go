@@ -4,11 +4,11 @@
 package cloud
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/juju/tc"
 
-	corecloud "github.com/juju/juju/core/cloud"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -42,51 +42,49 @@ func (s *cloudTypeSuite) TestCloudTypeDBValues(c *tc.C) {
 		err := rows.Scan(&id, &typeName)
 		c.Assert(err, tc.ErrorIsNil)
 		dbValues[CloudType(id)] = typeName
+
+		// If this sub test fails it indicates that the cloud type enums have
+		// not been defined correctly.
+		c.Run(fmt.Sprintf("cloud type id %d/%s bounds check", id, typeName),
+			func(t *testing.T) {
+				ct := CloudType(id)
+				if ct <= cloudTypeInvalidLow || ct >= cloudTypeInvalidHigh {
+					t.Errorf("database cloud type %d/%q lives not within enum range", id, typeName)
+				}
+			},
+		)
 	}
 
 	c.Check(dbValues, tc.DeepEquals, map[CloudType]string{
-		CloudTypeKubernetes: "kubernetes",
-		CloudTypeLXD:        "lxd",
-		CloudTypeMAAS:       "maas",
-		CloudTypeManual:     "manual",
-		CloudTypeAzure:      "azure",
-		CloudTypeEC2:        "ec2",
-		CloudTypeGCE:        "gce",
-		CloudTypeOCI:        "oci",
-		CloudTypeOpenStack:  "openstack",
-		CloudTypevSphere:    "vsphere",
+		CloudTypeKubernetes: CloudTypeKubernetes.String(),
+		CloudTypeLXD:        CloudTypeLXD.String(),
+		CloudTypeMAAS:       CloudTypeMAAS.String(),
+		CloudTypeManual:     CloudTypeManual.String(),
+		CloudTypeAzure:      CloudTypeAzure.String(),
+		CloudTypeEC2:        CloudTypeEC2.String(),
+		CloudTypeGCE:        CloudTypeGCE.String(),
+		CloudTypeOCI:        CloudTypeOCI.String(),
+		CloudTypeOpenStack:  CloudTypeOpenStack.String(),
+		CloudTypeVSphere:    CloudTypeVSphere.String(),
 	})
 }
 
-// TestCloudTypeDBValuesAgainstCoreCloudTypes tests that the database type
-// strings in the cloud_type table match the constants defined in
-// [corecloud.CloudType]. If this tests fails it means the database has a
-// disconnect with the core cloud types and this needs to be corrected to be
-// able to establish providers correctly in the controller.
-func (s *cloudTypeSuite) TestCloudTypeDBValuesAgainstCoreCloudTypes(c *tc.C) {
+// TestCloudTypeIsValid tests that the values in the cloud_type table are all
+// considered valid when converted to a [CloudType] enum.
+func (s *cloudTypeSuite) TestCloudTypeIsValid(c *tc.C) {
 	db := s.DB()
-	rows, err := db.Query("SELECT type FROM cloud_type")
+	rows, err := db.Query("SELECT id FROM cloud_type")
 	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
-	var dbValues []corecloud.CloudType
 	for rows.Next() {
-		var typeName string
-		err := rows.Scan(&typeName)
+		var id int
+		err := rows.Scan(&id)
 		c.Assert(err, tc.ErrorIsNil)
-		dbValues = append(dbValues, corecloud.CloudType(typeName))
-	}
 
-	c.Check(dbValues, tc.SameContents, []corecloud.CloudType{
-		corecloud.CloudTypeAzure,
-		corecloud.CloudTypeEC2,
-		corecloud.CloudTypeGCE,
-		corecloud.CloudTypeKubernetes,
-		corecloud.CloudTypeLXD,
-		corecloud.CloudTypeManual,
-		corecloud.CloudTypeMAAS,
-		corecloud.CloudTypeOCI,
-		corecloud.CloudTypeOpenStack,
-		corecloud.CloudTypevSphere,
-	})
+		c.Run(fmt.Sprintf("cloud type id %d", id), func(t *testing.T) {
+			ct := CloudType(id)
+			tc.Check(t, ct.IsValid(), tc.IsTrue)
+		})
+	}
 }

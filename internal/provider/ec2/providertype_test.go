@@ -8,15 +8,15 @@ import (
 
 	"github.com/juju/tc"
 
-	corecloud "github.com/juju/juju/core/cloud"
+	domaincloud "github.com/juju/juju/domain/cloud"
 )
 
-// TestEC2ProviderTypeEqualsCoreCloudValue checks that the unique provider
+// TestEC2ProviderTypeEqualsDomainCloudValue checks that the unique provider
 // type value that the ec2 provider gets registered with is equal to that of
-// [corecloud.CloudTypeEC2].
+// [domaincloud.CloudTypeEC2].
 //
 // This is important test to make sure that enum values are kept in sync across
 // Juju.
-func TestEC2ProviderTypeEqualsCoreCloudValue(t *testing.T) {
-	tc.Assert(t, providerType, tc.Equals, corecloud.CloudTypeEC2.String())
+func TestEC2ProviderTypeEqualsDomainCloudValue(t *testing.T) {
+	tc.Assert(t, providerType, tc.Equals, domaincloud.CloudTypeEC2.String())
 }

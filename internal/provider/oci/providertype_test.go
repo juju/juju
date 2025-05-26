@@ -8,15 +8,15 @@ import (
 
 	"github.com/juju/tc"
 
-	corecloud "github.com/juju/juju/core/cloud"
+	domaincloud "github.com/juju/juju/domain/cloud"
 )
 
-// TestOCIProviderTypeEqualsCoreCloudValue checks that the unique provider
+// TestOCIProviderTypeEqualsDomainCloudValue checks that the unique provider
 // type value that the oci provider gets registered with is equal to that of
-// [corecloud.CloudTypeOCI].
+// [domaincloud.CloudTypeOCI].
 //
 // This is important test to make sure that enum values are kept in sync across
 // Juju.
-func TestOCIProviderTypeEqualsCoreCloudValue(t *testing.T) {
-	tc.Assert(t, providerType, tc.Equals, corecloud.CloudTypeOCI.String())
+func TestOCIProviderTypeEqualsDomainCloudValue(t *testing.T) {
+	tc.Assert(t, providerType, tc.Equals, domaincloud.CloudTypeOCI.String())
 }

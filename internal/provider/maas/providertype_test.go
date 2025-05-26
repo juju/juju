@@ -8,15 +8,15 @@ import (
 
 	"github.com/juju/tc"
 
-	corecloud "github.com/juju/juju/core/cloud"
+	domaincloud "github.com/juju/juju/domain/cloud"
 )
 
-// TestMAASProviderTypeEqualsCoreCloudValue checks that the unique provider
+// TestMAASProviderTypeEqualsDomainCloudValue checks that the unique provider
 // type value that the maas provider gets registered with is equal to that of
-// [corecloud.CloudTypeMAAS].
+// [domaincloud.CloudTypeMAAS].
 //
 // This is important test to make sure that enum values are kept in sync across
 // Juju.
-func TestMAASProviderTypeEqualsCoreCloudValue(t *testing.T) {
-	tc.Assert(t, providerType, tc.Equals, corecloud.CloudTypeMAAS.String())
+func TestMAASProviderTypeEqualsDomainCloudValue(t *testing.T) {
+	tc.Assert(t, providerType, tc.Equals, domaincloud.CloudTypeMAAS.String())
 }
