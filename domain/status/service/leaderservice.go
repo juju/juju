@@ -24,7 +24,7 @@ import (
 // LeadershipService provides the API for working with the statuses of applications
 // and units, including the API handlers that require leadership checks.
 type LeadershipService struct {
-	*Service
+	*StatusService
 	leaderEnsurer leadership.Ensurer
 }
 
@@ -41,7 +41,7 @@ func NewLeadershipService(
 	logger logger.Logger,
 ) *LeadershipService {
 	return &LeadershipService{
-		Service: NewService(
+		StatusService: NewStatusService(
 			st,
 			controllerState,
 			modelUUID,
@@ -81,13 +81,13 @@ func (s *LeadershipService) SetApplicationStatusForUnitLeader(
 	// is because we're doing a reverse lookup from the unit to the application.
 	// We can't return the application not found, as we're not looking up the
 	// application directly.
-	appID, appName, err := s.st.GetApplicationIDAndNameByUnitName(ctx, unitName)
+	appID, appName, err := s.modelState.GetApplicationIDAndNameByUnitName(ctx, unitName)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-		return s.st.SetApplicationStatus(ctx, appID, encodedStatus)
+		return s.modelState.SetApplicationStatus(ctx, appID, encodedStatus)
 	})
 	if errors.Is(err, corelease.ErrNotHeld) {
 		return statuserrors.UnitNotLeader
@@ -119,7 +119,7 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 	}
 
 	appName := unitName.Application()
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appID, err := s.modelState.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return corestatus.StatusInfo{}, nil, errors.Errorf("getting application id: %w", err)
 	}
@@ -128,11 +128,11 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 	var fullUnitStatuses domainstatus.FullUnitStatuses
 	err = s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
 		var err error
-		applicationStatus, err = s.st.GetApplicationStatus(ctx, appID)
+		applicationStatus, err = s.modelState.GetApplicationStatus(ctx, appID)
 		if err != nil {
 			return errors.Errorf("getting application status: %w", err)
 		}
-		fullUnitStatuses, err = s.st.GetAllFullUnitStatusesForApplication(ctx, appID)
+		fullUnitStatuses, err = s.modelState.GetAllFullUnitStatusesForApplication(ctx, appID)
 		if err != nil {
 			return errors.Errorf("getting unit workload and container statuses")
 		}
@@ -197,60 +197,10 @@ func (s *LeadershipService) SetRelationStatus(
 			return errors.Errorf("encoding relation status: %w", err)
 		}
 
-		return s.st.SetRelationStatus(ctx, relationUUID, relationStatus)
+		return s.modelState.SetRelationStatus(ctx, relationUUID, relationStatus)
 	}); err != nil {
 		return errors.Capture(err)
 	}
 
 	return nil
-}
-
-// GetModelStatus returns the current status of the model.
-//
-// The following error types can be expected to be returned:
-// - [modelerrors.NotFound]: When the model does not exist.
-func (s *Service) GetModelStatus(ctx context.Context) (domainstatus.ModelStatus, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-	modelState, err := s.controllerState.GetModelState(ctx, s.modelUUID)
-	if err != nil {
-		return domainstatus.ModelStatus{}, errors.Capture(err)
-	}
-	return s.statusFromModelState(ctx, modelState), nil
-}
-
-// statusFromModelState is responsible for converting the a [model.ModelState]
-// into a model status representation.
-func (s *Service) statusFromModelState(
-	ctx context.Context,
-	statusState domainstatus.ModelState,
-) domainstatus.ModelStatus {
-	now := s.clock.Now()
-	if statusState.HasInvalidCloudCredential {
-		return domainstatus.ModelStatus{
-			Status:  corestatus.Suspended,
-			Message: "suspended since cloud credential is not valid",
-			Reason:  statusState.InvalidCloudCredentialReason,
-			Since:   now,
-		}
-	}
-	if statusState.Destroying {
-		return domainstatus.ModelStatus{
-			Status:  corestatus.Destroying,
-			Message: "the model is being destroyed",
-			Since:   now,
-		}
-	}
-	if statusState.Migrating {
-		return domainstatus.ModelStatus{
-			Status:  corestatus.Busy,
-			Message: "the model is being migrated",
-			Since:   now,
-		}
-	}
-
-	return domainstatus.ModelStatus{
-		Status: corestatus.Available,
-		Since:  now,
-	}
 }

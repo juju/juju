@@ -19,77 +19,32 @@ import (
 // ControllerState represents a type for interacting with the underlying model state.
 type ControllerState struct {
 	*domain.StateBase
+
+	modelUUID coremodel.UUID
 }
 
 // NewControllerState returns a new ControllerState for interacting with the underlying model state.
 func NewControllerState(
 	factory database.TxnRunnerFactory,
+	modelUUID coremodel.UUID,
 ) *ControllerState {
 	return &ControllerState{
 		StateBase: domain.NewStateBase(factory),
+		modelUUID: modelUUID,
 	}
-}
-
-// GetModel returns the model associated with the provided uuid.
-// If the model does not exist then an error satisfying [modelerrors.NotFound]
-// will be returned.
-func (s *ControllerState) GetModel(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
-	db, err := s.DB()
-	if err != nil {
-		return coremodel.Model{}, errors.Capture(err)
-	}
-
-	var model coremodel.Model
-	return model, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		model, err = GetModel(ctx, tx, uuid)
-		return err
-	})
-}
-
-// GetModel returns the model associated with the provided uuid.
-// If the model does not exist then an error satisfying [modelerrors.NotFound]
-// will be returned.
-func GetModel(
-	ctx context.Context,
-	tx *sqlair.TX,
-	uuid coremodel.UUID,
-) (coremodel.Model, error) {
-	q := `
-SELECT &dbModel.*
-FROM v_model
-WHERE uuid = $dbModel.uuid
-`
-	model := dbModel{UUID: uuid.String()}
-	stmt, err := sqlair.Prepare(q, model)
-	if err != nil {
-		return coremodel.Model{}, errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, stmt, model).Get(&model)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return coremodel.Model{}, errors.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
-	} else if err != nil {
-		return coremodel.Model{}, errors.Errorf("getting model %q: %w", uuid, err)
-	}
-
-	coreModel, err := model.toCoreModel()
-	if err != nil {
-		return coremodel.Model{}, errors.Capture(err)
-	}
-	return coreModel, nil
 }
 
 // GetModelState is responsible for returning a set of boolean indicators for
 // key aspects about a model so that a model's status can be derived from this
 // information. If no model exists for the provided UUID then an error
 // satisfying [modelerrors.NotFound] will be returned.
-func (s *ControllerState) GetModelState(ctx context.Context, uuid coremodel.UUID) (status.ModelState, error) {
+func (s *ControllerState) GetModelState(ctx context.Context) (status.ModelState, error) {
 	db, err := s.DB()
 	if err != nil {
 		return status.ModelState{}, errors.Capture(err)
 	}
 
+	uuid := s.modelUUID
 	modelUUIDVal := dbModelUUID{UUID: uuid.String()}
 	modelState := dbModelState{}
 

@@ -166,7 +166,7 @@ func (s *leadershipSuite) setupService(c *tc.C) *service.LeadershipService {
 
 	return service.NewLeadershipService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
-		state.NewControllerState(controllerDB),
+		state.NewControllerState(controllerDB, model.UUID(s.ModelUUID())),
 		domain.NewLeaseService(leaseGetter{
 			Checker: s.leadership,
 		}),

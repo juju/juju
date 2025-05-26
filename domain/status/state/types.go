@@ -8,15 +8,10 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/credential"
-	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
-	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/core/user"
 	domainlife "github.com/juju/juju/domain/life"
-	"github.com/juju/juju/internal/errors"
 )
 
 type applicationID struct {
@@ -223,95 +218,4 @@ type dbModelState struct {
 	CredentialInvalid       bool   `db:"cloud_credential_invalid"`
 	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
 	Migrating               bool   `db:"migrating"`
-}
-
-// dbModel represents the state of a model.
-type dbModel struct {
-	// Name is the human friendly name of the model.
-	Name string `db:"name"`
-
-	// Life is the current state of the model.
-	// Options are alive, dying, dead. Every model starts as alive, only
-	// during the destruction of the model it transitions to dying and then
-	// dead.
-	Life string `db:"life"`
-
-	// UUID is the universally unique identifier of the model.
-	UUID string `db:"uuid"`
-
-	// ModelType is the type of model.
-	ModelType string `db:"model_type"`
-
-	// CloudName is the name of the cloud to associate with the model.
-	CloudName string `db:"cloud_name"`
-
-	// CloudType is the type of the underlying cloud (e.g. lxd, azure, ...)
-	CloudType string `db:"cloud_type"`
-
-	// CloudRegion is the region that the model will use in the cloud.
-	CloudRegion sql.NullString `db:"cloud_region_name"`
-
-	// CredentialName is the name of the model cloud credential.
-	CredentialName sql.NullString `db:"cloud_credential_name"`
-
-	// CredentialCloudName is the cloud name that the model cloud credential applies to.
-	CredentialCloudName sql.NullString `db:"cloud_credential_cloud_name"`
-
-	// CredentialOwnerName is the owner of the model cloud credential.
-	CredentialOwnerName string `db:"cloud_credential_owner_name"`
-
-	// OwnerUUID is the uuid of the user that owns this model in the Juju controller.
-	OwnerUUID string `db:"owner_uuid"`
-
-	// OwnerName is the name of the model owner in the Juju controller.
-	OwnerName string `db:"owner_name"`
-
-	// ControllerUUID is the uuid of the controller that the model is in.
-	ControllerUUID string `db:"controller_uuid"`
-}
-
-func (m *dbModel) toCoreModel() (coremodel.Model, error) {
-	ownerName, err := user.NewName(m.OwnerName)
-	if err != nil {
-		return coremodel.Model{}, errors.Capture(err)
-	}
-	var credOwnerName user.Name
-	if m.CredentialOwnerName != "" {
-		credOwnerName, err = user.NewName(m.CredentialOwnerName)
-		if err != nil {
-			return coremodel.Model{}, errors.Capture(err)
-		}
-	}
-
-	var cloudRegion string
-	if m.CloudRegion.Valid {
-		cloudRegion = m.CloudRegion.String
-	}
-
-	var credentialName string
-	if m.CredentialName.Valid {
-		credentialName = m.CredentialName.String
-	}
-
-	var credentialCloudName string
-	if m.CredentialCloudName.Valid {
-		credentialCloudName = m.CredentialCloudName.String
-	}
-
-	return coremodel.Model{
-		Name:        m.Name,
-		Life:        corelife.Value(m.Life),
-		UUID:        coremodel.UUID(m.UUID),
-		ModelType:   coremodel.ModelType(m.ModelType),
-		Cloud:       m.CloudName,
-		CloudType:   m.CloudType,
-		CloudRegion: cloudRegion,
-		Credential: credential.Key{
-			Name:  credentialName,
-			Cloud: credentialCloudName,
-			Owner: credOwnerName,
-		},
-		Owner:     user.UUID(m.OwnerUUID),
-		OwnerName: ownerName,
-	}, nil
 }

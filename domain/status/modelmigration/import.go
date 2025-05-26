@@ -80,9 +80,9 @@ func (i *importOperation) Name() string {
 // This will create a new service instance.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.serviceGetter = func(modelUUID model.UUID) ImportService {
-		return service.NewService(
+		return service.NewStatusService(
 			state.NewState(scope.ModelDB(), i.clock, i.logger),
-			state.NewControllerState(scope.ControllerDB()),
+			nil,
 			modelUUID,
 			// TODO(jack): This is currently the wrong logger. We should construct
 			// the StatusHistory using the model logger, however, at the moment, we
