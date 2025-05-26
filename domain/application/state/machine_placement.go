@@ -10,11 +10,11 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/network"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/errors"
@@ -23,13 +23,13 @@ import (
 // GetMachineNetNodeUUIDFromName returns the net node UUID for the named machine.
 // The following errors may be returned:
 // - [applicationerrors.MachineNotFound] if the machine does not exist
-func (st *State) GetMachineNetNodeUUIDFromName(ctx context.Context, name machine.Name) (network.NetNodeUUID, error) {
+func (st *State) GetMachineNetNodeUUIDFromName(ctx context.Context, name machine.Name) (string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	var netNodeUUID network.NetNodeUUID
+	var netNodeUUID string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		netNodeUUID, err = st.getMachineNetNodeUUIDFromName(ctx, tx, name)
@@ -47,7 +47,7 @@ func (st *State) GetMachineNetNodeUUIDFromName(ctx context.Context, name machine
 
 // placeMachine places the net node and machines if required, depending
 // on the placement.
-func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive deployment.Placement) (network.NetNodeUUID, error) {
+func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive deployment.Placement) (string, error) {
 	switch directive.Type {
 	case deployment.PlacementTypeUnset:
 		// The placement is unset, so we need to create a machine for the
@@ -158,7 +158,7 @@ WHERE name = $machineNameWithMachineUUID.name
 	return machine.UUID, nil
 }
 
-func (st *State) getMachineNetNodeUUIDFromName(ctx context.Context, tx *sqlair.TX, name machine.Name) (network.NetNodeUUID, error) {
+func (st *State) getMachineNetNodeUUIDFromName(ctx context.Context, tx *sqlair.TX, name machine.Name) (string, error) {
 	machine := machineNameWithNetNode{Name: name}
 	query := `
 SELECT &machineNameWithNetNode.net_node_uuid
@@ -179,13 +179,13 @@ WHERE name = $machineNameWithNetNode.name
 	return machine.NetNodeUUID, nil
 }
 
-func (st *State) insertNetNode(ctx context.Context, tx *sqlair.TX) (network.NetNodeUUID, error) {
-	uuid, err := network.NewNetNodeUUID()
+func (st *State) insertNetNode(ctx context.Context, tx *sqlair.TX) (string, error) {
+	uuid, err := domainnetwork.NewNetNodeUUID()
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	netNodeUUID := netNodeUUID{NetNodeUUID: uuid}
+	netNodeUUID := netNodeUUID{NetNodeUUID: uuid.String()}
 
 	createNode := `INSERT INTO net_node (uuid) VALUES ($netNodeUUID.*)`
 	createNodeStmt, err := st.Prepare(createNode, netNodeUUID)
@@ -200,7 +200,7 @@ func (st *State) insertNetNode(ctx context.Context, tx *sqlair.TX) (network.NetN
 	return netNodeUUID.NetNodeUUID, nil
 }
 
-func (st *State) insertMachineAndNetNode(ctx context.Context, tx *sqlair.TX, machineName machine.Name) (machine.UUID, network.NetNodeUUID, error) {
+func (st *State) insertMachineAndNetNode(ctx context.Context, tx *sqlair.TX, machineName machine.Name) (machine.UUID, string, error) {
 	netNodeUUID, err := st.insertNetNode(ctx, tx)
 	if err != nil {
 		return "", "", errors.Capture(err)
@@ -259,7 +259,7 @@ func (st *State) insertChildMachineForContainerPlacement(
 	parentUUID machine.UUID,
 	parentName machine.Name,
 	scope string,
-) (network.NetNodeUUID, error) {
+) (string, error) {
 	machineName, err := st.nextContainerSequence(ctx, tx, scope, parentName)
 	if err != nil {
 		return "", errors.Capture(err)
