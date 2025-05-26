@@ -214,19 +214,35 @@ CREATE TABLE storage_attachment (
 CREATE INDEX idx_storage_attachment_unit
 ON storage_attachment (unit_uuid);
 
-CREATE TABLE storage_provisioning_status (
+CREATE TABLE storage_volume_status_value (
     id INT PRIMARY KEY,
-    name TEXT NOT NULL,
-    description TEXT
+    status TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX idx_storage_provisioning_status
-ON storage_provisioning_status (name);
+CREATE UNIQUE INDEX idx_storage_volume_status_value
+ON storage_volume_status_value (status);
 
-INSERT INTO storage_provisioning_status VALUES
-(0, 'pending', 'Creation or attachment is awaiting completion'),
-(1, 'provisioned', 'Requested creation or attachment has been completed'),
-(2, 'error', 'An error was encountered during creation or attachment');
+INSERT INTO storage_volume_status_value VALUES
+(0, 'pending'),
+(1, 'error'),
+(2, 'attaching'),
+(3, 'attached'),
+(4, 'detaching'),
+(5, 'detached'),
+(6, 'destroying');
+
+CREATE TABLE storage_volume_status (
+    volume_uuid TEXT NOT NULL PRIMARY KEY,
+    status_id INT NOT NULL,
+    message TEXT,
+    updated_at DATETIME,
+    CONSTRAINT fk_storage_volume_status_storage_volume
+    FOREIGN KEY (volume_uuid)
+    REFERENCES storage_volume (uuid),
+    CONSTRAINT fk_storage_volume_status_status
+    FOREIGN KEY (status_id)
+    REFERENCES storage_volume_status_value (id)
+);
 
 CREATE TABLE storage_volume (
     uuid TEXT NOT NULL PRIMARY KEY,
@@ -237,13 +253,9 @@ CREATE TABLE storage_volume (
     hardware_id TEXT,
     wwn TEXT,
     persistent BOOLEAN,
-    provisioning_status_id INT NOT NULL,
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id),
-    CONSTRAINT fk_storage_vol_provisioning_status
-    FOREIGN KEY (provisioning_status_id)
-    REFERENCES storage_provisioning_status (id)
+    REFERENCES life (id)
 );
 
 CREATE UNIQUE INDEX idx_storage_volume_id
@@ -272,7 +284,6 @@ CREATE TABLE storage_volume_attachment (
     life_id INT NOT NULL,
     block_device_uuid TEXT,
     read_only BOOLEAN,
-    provisioning_status_id INT NOT NULL,
     CONSTRAINT fk_storage_volume_attachment_vol
     FOREIGN KEY (storage_volume_uuid)
     REFERENCES storage_volume (uuid),
@@ -284,10 +295,37 @@ CREATE TABLE storage_volume_attachment (
     REFERENCES life (id),
     CONSTRAINT fk_storage_volume_attachment_block
     FOREIGN KEY (block_device_uuid)
-    REFERENCES block_device (uuid),
-    CONSTRAINT fk_storage_vol_att_provisioning_status
-    FOREIGN KEY (provisioning_status_id)
-    REFERENCES storage_provisioning_status (id)
+    REFERENCES block_device (uuid)
+);
+
+CREATE TABLE storage_filesystem_status_value (
+    id INT PRIMARY KEY,
+    status TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_storage_filesystem_status_value
+ON storage_filesystem_status_value (status);
+
+INSERT INTO storage_filesystem_status_value VALUES
+(0, 'pending'),
+(1, 'error'),
+(2, 'attaching'),
+(3, 'attached'),
+(4, 'detaching'),
+(5, 'detached'),
+(6, 'destroying');
+
+CREATE TABLE storage_filesystem_status (
+    filesystem_uuid TEXT NOT NULL PRIMARY KEY,
+    status_id INT NOT NULL,
+    message TEXT,
+    updated_at DATETIME,
+    CONSTRAINT fk_storage_filesystem_status_storage_filesystem
+    FOREIGN KEY (filesystem_uuid)
+    REFERENCES storage_filesystem (uuid),
+    CONSTRAINT fk_storage_filesystem_status_status
+    FOREIGN KEY (status_id)
+    REFERENCES storage_filesystem_status_value (id)
 );
 
 CREATE TABLE storage_filesystem (
@@ -296,13 +334,9 @@ CREATE TABLE storage_filesystem (
     life_id INT NOT NULL,
     provider_id TEXT,
     size_mib INT,
-    provisioning_status_id INT NOT NULL,
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id),
-    CONSTRAINT fk_storage_fs_provisioning_status
-    FOREIGN KEY (provisioning_status_id)
-    REFERENCES storage_provisioning_status (id)
+    REFERENCES life (id)
 );
 
 CREATE UNIQUE INDEX idx_storage_filesystem_id
@@ -331,7 +365,6 @@ CREATE TABLE storage_filesystem_attachment (
     life_id INT NOT NULL,
     mount_point TEXT,
     read_only BOOLEAN,
-    provisioning_status_id INT NOT NULL,
     CONSTRAINT fk_storage_filesystem_attachment_fs
     FOREIGN KEY (storage_filesystem_uuid)
     REFERENCES storage_filesystem (uuid),
@@ -340,10 +373,7 @@ CREATE TABLE storage_filesystem_attachment (
     REFERENCES net_node (uuid),
     CONSTRAINT fk_storage_filesystem_attachment_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id),
-    CONSTRAINT fk_storage_fs_provisioning_status
-    FOREIGN KEY (provisioning_status_id)
-    REFERENCES storage_provisioning_status (id)
+    REFERENCES life (id)
 );
 
 CREATE TABLE storage_volume_device_type (
@@ -366,7 +396,6 @@ CREATE TABLE storage_volume_attachment_plan (
     life_id INT NOT NULL,
     device_type_id INT,
     block_device_uuid TEXT,
-    provisioning_status_id INT NOT NULL,
     CONSTRAINT fk_storage_volume_attachment_plan_vol
     FOREIGN KEY (storage_volume_uuid)
     REFERENCES storage_volume (uuid),
@@ -381,10 +410,7 @@ CREATE TABLE storage_volume_attachment_plan (
     REFERENCES storage_volume_device_type (id),
     CONSTRAINT fk_storage_volume_attachment_plan_block
     FOREIGN KEY (block_device_uuid)
-    REFERENCES block_device (uuid),
-    CONSTRAINT fk_storage_fs_provisioning_status
-    FOREIGN KEY (provisioning_status_id)
-    REFERENCES storage_provisioning_status (id)
+    REFERENCES block_device (uuid)
 );
 
 CREATE TABLE storage_volume_attachment_plan_attr (

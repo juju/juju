@@ -892,13 +892,12 @@ func (st *State) attachFilesystemToNode(
 		return errors.Capture(err)
 	}
 	fsa := filesystemAttachment{
-		UUID:                 uuid,
-		NetNodeUUID:          netNodeUUID,
-		FilesystemUUID:       args.filesystemUUID,
-		LifeID:               life.Alive,
-		MountPoint:           args.location,
-		ReadOnly:             args.readOnly,
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		UUID:           uuid,
+		NetNodeUUID:    netNodeUUID,
+		FilesystemUUID: args.filesystemUUID,
+		LifeID:         life.Alive,
+		MountPoint:     args.location,
+		ReadOnly:       args.readOnly,
 	}
 	stmt, err := st.Prepare(`
 INSERT INTO storage_filesystem_attachment (*) VALUES ($filesystemAttachment.*)
@@ -921,12 +920,11 @@ func (st *State) attachVolumeToNode(
 		return errors.Capture(err)
 	}
 	fsa := volumeAttachment{
-		UUID:                 uuid,
-		NetNodeUUID:          netNodeUUID,
-		VolumeUUID:           args.volumeUUID,
-		LifeID:               life.Alive,
-		ReadOnly:             args.readOnly,
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		UUID:        uuid,
+		NetNodeUUID: netNodeUUID,
+		VolumeUUID:  args.volumeUUID,
+		LifeID:      life.Alive,
+		ReadOnly:    args.readOnly,
 	}
 	stmt, err := st.Prepare(`
 INSERT INTO storage_volume_attachment (*) VALUES ($volumeAttachment.*)
@@ -955,13 +953,12 @@ func (st *State) createFilesystem(
 	}
 
 	fs := filesystem{
-		UUID:                 uuid,
-		FilesystemID:         fmt.Sprint(filesystemId),
-		LifeID:               life.Alive,
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		UUID:         uuid,
+		FilesystemID: fmt.Sprint(filesystemId),
+		LifeID:       life.Alive,
 	}
 	insertFilesystemStmt, err := st.Prepare(`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provisioning_status_id) VALUES ($filesystem.*)
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id) VALUES ($filesystem.*)
 `, fs)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -1004,13 +1001,12 @@ func (st *State) createVolume(
 	}
 
 	vol := volume{
-		UUID:                 volumeUUID,
-		VolumeID:             fmt.Sprint(volumeId),
-		LifeID:               life.Alive,
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		UUID:     volumeUUID,
+		VolumeID: fmt.Sprint(volumeId),
+		LifeID:   life.Alive,
 	}
 	insertVolumeStmt, err := st.Prepare(`
-INSERT INTO storage_volume (uuid, volume_id, life_id, provisioning_status_id) VALUES ($volume.*)
+INSERT INTO storage_volume (uuid, volume_id, life_id) VALUES ($volume.*)
 `, vol)
 	if err != nil {
 		return "", errors.Errorf("creating storage volume: %w", err)

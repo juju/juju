@@ -17,7 +17,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/storage"
 )
 
 // These structs represent the persistent block device entity schema in the database.
@@ -912,12 +911,11 @@ type volumeUUID struct {
 }
 
 type filesystem struct {
-	UUID                 corestorage.FilesystemUUID `db:"uuid"`
-	LifeID               life.Life                  `db:"life_id"`
-	FilesystemID         string                     `db:"filesystem_id"`
-	ProviderID           string                     `db:"provider_id"`
-	SizeMIB              uint64                     `db:"size_mib"`
-	ProvisioningStatusID storage.ProvisioningStatus `db:"provisioning_status_id"`
+	UUID         corestorage.FilesystemUUID `db:"uuid"`
+	LifeID       life.Life                  `db:"life_id"`
+	FilesystemID string                     `db:"filesystem_id"`
+	ProviderID   string                     `db:"provider_id"`
+	SizeMIB      uint64                     `db:"size_mib"`
 }
 
 type storageInstanceFilesystem struct {
@@ -926,16 +924,15 @@ type storageInstanceFilesystem struct {
 }
 
 type volume struct {
-	UUID                 corestorage.VolumeUUID     `db:"uuid"`
-	LifeID               life.Life                  `db:"life_id"`
-	VolumeID             string                     `db:"volume_id"`
-	ProviderID           string                     `db:"provider_id"`
-	SizeMIB              uint64                     `db:"size_mib"`
-	Name                 string                     `db:"name"`
-	HardwareIDID         string                     `db:"hardware_id"`
-	WWN                  string                     `db:"wwn"`
-	Persistent           bool                       `db:"persistent"`
-	ProvisioningStatusID storage.ProvisioningStatus `db:"provisioning_status_id"`
+	UUID         corestorage.VolumeUUID `db:"uuid"`
+	LifeID       life.Life              `db:"life_id"`
+	VolumeID     string                 `db:"volume_id"`
+	ProviderID   string                 `db:"provider_id"`
+	SizeMIB      uint64                 `db:"size_mib"`
+	Name         string                 `db:"name"`
+	HardwareIDID string                 `db:"hardware_id"`
+	WWN          string                 `db:"wwn"`
+	Persistent   bool                   `db:"persistent"`
 }
 
 type storageInstanceVolume struct {
@@ -944,22 +941,20 @@ type storageInstanceVolume struct {
 }
 
 type filesystemAttachment struct {
-	UUID                 corestorage.FilesystemAttachmentUUID `db:"uuid"`
-	NetNodeUUID          string                               `db:"net_node_uuid"`
-	FilesystemUUID       corestorage.FilesystemUUID           `db:"storage_filesystem_uuid"`
-	LifeID               life.Life                            `db:"life_id"`
-	MountPoint           string                               `db:"mount_point"`
-	ReadOnly             bool                                 `db:"read_only"`
-	ProvisioningStatusID storage.ProvisioningStatus           `db:"provisioning_status_id"`
+	UUID           corestorage.FilesystemAttachmentUUID `db:"uuid"`
+	NetNodeUUID    string                               `db:"net_node_uuid"`
+	FilesystemUUID corestorage.FilesystemUUID           `db:"storage_filesystem_uuid"`
+	LifeID         life.Life                            `db:"life_id"`
+	MountPoint     string                               `db:"mount_point"`
+	ReadOnly       bool                                 `db:"read_only"`
 }
 
 type volumeAttachment struct {
-	UUID                 corestorage.VolumeAttachmentUUID `db:"uuid"`
-	NetNodeUUID          string                           `db:"net_node_uuid"`
-	VolumeUUID           corestorage.VolumeUUID           `db:"storage_volume_uuid"`
-	LifeID               life.Life                        `db:"life_id"`
-	ReadOnly             bool                             `db:"read_only"`
-	ProvisioningStatusID storage.ProvisioningStatus       `db:"provisioning_status_id"`
+	UUID        corestorage.VolumeAttachmentUUID `db:"uuid"`
+	NetNodeUUID string                           `db:"net_node_uuid"`
+	VolumeUUID  corestorage.VolumeUUID           `db:"storage_volume_uuid"`
+	LifeID      life.Life                        `db:"life_id"`
+	ReadOnly    bool                             `db:"read_only"`
 }
 
 type setUnitConstraint struct {
