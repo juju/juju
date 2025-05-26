@@ -8,6 +8,8 @@ import (
 )
 
 const (
+	// providerType is the unique identifier that the maas provider gets
+	// registered with.
 	providerType = "maas"
 )
 
