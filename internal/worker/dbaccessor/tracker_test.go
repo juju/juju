@@ -165,6 +165,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStdTxnIsNotNil(c *tc.C) {
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// This test uses a dialated wall clock to test retries.
 	s.clock = testclock.NewDilatedWallClock(time.Millisecond)
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
@@ -243,6 +244,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *tc.C) 
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// This test uses a dialated wall clock to test retries.
 	s.clock = testclock.NewDilatedWallClock(time.Millisecond)
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
