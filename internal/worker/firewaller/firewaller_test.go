@@ -347,18 +347,27 @@ func (s *firewallerBaseSuite) addUnit(c *tc.C, ctrl *gomock.Controller, app *moc
 func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) worker.Worker {
 	s.ensureMocks(c, ctrl)
 
-	s.modelFlushed = make(chan bool, 5)
-	s.machineFlushed = make(chan string, 5)
-	s.watchingMachine = make(chan names.MachineTag, 5)
+	s.modelFlushed = make(chan bool, 1)
+	s.machineFlushed = make(chan string, 1)
+	s.watchingMachine = make(chan names.MachineTag, 1)
 
 	flushMachineNotify := func(id string) {
-		s.machineFlushed <- id
+		select {
+		case s.machineFlushed <- id:
+		default:
+		}
 	}
 	flushModelNotify := func() {
-		s.modelFlushed <- true
+		select {
+		case s.modelFlushed <- true:
+		default:
+		}
 	}
 	watchMachineNotify := func(tag names.MachineTag) {
-		s.watchingMachine <- tag
+		select {
+		case s.watchingMachine <- tag:
+		default:
+		}
 	}
 
 	cfg := firewaller.Config{
