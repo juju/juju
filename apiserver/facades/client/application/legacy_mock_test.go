@@ -340,44 +340,6 @@ func (c *MockApplicationDestroyOperationCall) DoAndReturn(f func(objectstore.Obj
 	return c
 }
 
-// MergeBindings mocks base method.
-func (m *MockApplication) MergeBindings(arg0 *state.Bindings, arg1 bool) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MergeBindings", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// MergeBindings indicates an expected call of MergeBindings.
-func (mr *MockApplicationMockRecorder) MergeBindings(arg0, arg1 any) *MockApplicationMergeBindingsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeBindings", reflect.TypeOf((*MockApplication)(nil).MergeBindings), arg0, arg1)
-	return &MockApplicationMergeBindingsCall{Call: call}
-}
-
-// MockApplicationMergeBindingsCall wrap *gomock.Call
-type MockApplicationMergeBindingsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationMergeBindingsCall) Return(arg0 error) *MockApplicationMergeBindingsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationMergeBindingsCall) Do(f func(*state.Bindings, bool) error) *MockApplicationMergeBindingsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationMergeBindingsCall) DoAndReturn(f func(*state.Bindings, bool) error) *MockApplicationMergeBindingsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetCharm mocks base method.
 func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig, arg1 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()

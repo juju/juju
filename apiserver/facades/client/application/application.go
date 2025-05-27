@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
@@ -2322,25 +2323,27 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 			res[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		app, err := api.backend.Application(tag.Name)
-		if err != nil {
+
+		appID, err := api.applicationService.GetApplicationIDByName(ctx, tag.Id())
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			res[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Id())
+			continue
+		} else if err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(ctx, arg.Bindings)
-		if err != nil {
-			res[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		bindings, err := state.NewBindings(api.backend, bindingsWithSpaceIDs)
-		if err != nil {
-			res[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
+		bindings := transform.Map(arg.Bindings, func(k string, v string) (string, network.SpaceName) {
+			return k, network.SpaceName(v)
+		})
 
-		if err := app.MergeBindings(bindings, arg.Force); err != nil {
+		err = api.applicationService.MergeApplicationEndpointBindings(ctx, appID, bindings, arg.Force)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			res[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Id())
+			continue
+		} else if err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
 	}
 	return params.ErrorResults{Results: res}, nil
