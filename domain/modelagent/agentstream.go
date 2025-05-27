@@ -45,3 +45,13 @@ func AgentStreamFromCoreAgentStream(
 		"agent stream %q is not recognised as a valid value", agentStream,
 	).Add(coreerrors.NotValid)
 }
+
+// IsValid checks if the [AgentStream] is a valid value.
+func (s AgentStream) IsValid() bool {
+	switch s {
+	case AgentStreamReleased, AgentStreamProposed, AgentStreamTesting, AgentStreamDevel:
+		return true
+	default:
+		return false
+	}
+}
