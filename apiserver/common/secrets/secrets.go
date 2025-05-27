@@ -745,7 +745,8 @@ func newCachedBackendGetter(adminConfigGetter BackendAdminConfigGetter) (*cached
 
 // removeSecretFromExternal removes the specified secret from its respective secret backends.
 // Can be called for specific revisions, or omit revisions to remove all revisions of the secret.
-func removeSecretFromExternal(removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter, authTag names.Tag, uri *coresecrets.URI, revisions ...int) error {
+func removeUserSecretFromExternal(removeState SecretsRemoveState,
+	adminConfigGetter BackendAdminConfigGetter, modelUUID string, uri *coresecrets.URI, revisions ...int) error {
 	var (
 		revs []*coresecrets.SecretRevisionMetadata
 		err  error
@@ -851,12 +852,16 @@ func removeSecretFromExternal(removeState SecretsRemoveState, adminConfigGetter 
 		if err != nil {
 			return errors.Annotate(err, "getting secrets provider during provider cleanup")
 		}
+		if backendCfg.ModelUUID != modelUUID {
+			return errors.Errorf("inconsistent secret backend model UUID: %s", backendCfg.ModelUUID)
+		}
 		p, err := GetProvider(backendCfg.BackendType)
 		if err != nil {
 			return errors.Annotate(err, "getting secrets provider during provider cleanup")
 		}
 
-		if err := p.CleanupSecrets(backendCfg, authTag, secretRevisions); err != nil {
+		modelTag := names.NewModelTag(modelUUID)
+		if err := p.CleanupSecrets(backendCfg, modelTag, secretRevisions); err != nil {
 			return errors.Annotate(err, "cleaning up secrets in provider")
 		}
 	}
@@ -868,7 +873,7 @@ func removeSecretFromExternal(removeState SecretsRemoveState, adminConfigGetter 
 // The secrets are removed from the state and backend, and the caller must have model admin access.
 func RemoveUserSecrets(
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
-	authTag names.Tag, args params.DeleteSecretArgs,
+	args params.DeleteSecretArgs,
 	modelUUID string,
 	canDelete func(*coresecrets.URI) error,
 ) (params.ErrorResults, error) {
@@ -887,7 +892,7 @@ func RemoveUserSecrets(
 			continue
 		}
 		// We remove the secret from the backend first.
-		if err := removeSecretFromExternal(removeState, adminConfigGetter, authTag, uri, arg.Revisions...); err != nil {
+		if err := removeUserSecretFromExternal(removeState, adminConfigGetter, modelUUID, uri, arg.Revisions...); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

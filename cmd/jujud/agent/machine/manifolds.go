@@ -795,7 +795,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                 loggo.GetLogger("juju.worker.sshserver"),
 			NewServerWrapperWorker: sshserver.NewServerWrapperWorker,
 			NewServerWorker:        sshserver.NewServerWorker,
-			NewSSHServerListener:   sshserver.NewSSHServerListener,
 			SSHTunnelerName:        sshTunnelerName,
 			PrometheusRegisterer:   config.PrometheusRegisterer,
 		})),

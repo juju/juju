@@ -31,13 +31,12 @@ var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) newWorkerConfig(modifier func(*ServerWrapperWorkerConfig)) ServerWrapperWorkerConfig {
 	cfg := &ServerWrapperWorkerConfig{
-		NewServerWorker:      func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
-		Logger:               loggo.GetLogger("test"),
-		FacadeClient:         s.facadeClient,
-		NewSSHServerListener: newTestingSSHServerListener,
-		ProxyFactory:         s.proxyFactory,
-		JWTParser:            s.jwtParser,
-		metricsCollector:     NewMetricsCollector(),
+		NewServerWorker:  func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
+		Logger:           loggo.GetLogger("test"),
+		FacadeClient:     s.facadeClient,
+		ProxyFactory:     s.proxyFactory,
+		JWTParser:        s.jwtParser,
+		metricsCollector: NewMetricsCollector(),
 	}
 
 	if modifier != nil {
@@ -83,14 +82,6 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	cfg = s.newWorkerConfig(
 		func(cfg *ServerWrapperWorkerConfig) {
 			cfg.NewServerWorker = nil
-		},
-	)
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	// Test no NewSSHServerListener.
-	cfg = s.newWorkerConfig(
-		func(cfg *ServerWrapperWorkerConfig) {
-			cfg.NewSSHServerListener = nil
 		},
 	)
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)

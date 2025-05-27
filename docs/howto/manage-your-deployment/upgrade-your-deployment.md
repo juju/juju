@@ -13,6 +13,7 @@ None of these upgrades are systematically related (e.g., compatibility between J
 
 However, in principle, you should always try to keep all the various pieces up to date, the main caveats being that the Juju components are more tightly coupled to one another than to charms and that, due to the way controller upgrades work, keeping your client, controller, and models aligned is quite different if you're upgrading your Juju patch version vs. minor or major version.
 
+(upgrade-your-juju-components-patch-version)=
 ## Upgrade your Juju components' patch version
 > e.g., 3.4.4 -> 3.4.5
 
@@ -43,6 +44,7 @@ juju refresh <charm>
 > - {ref}`upgrade-an-application`
 
 
+(upgrade-your-juju-components-minor-or-major-version)=
 ## Upgrade your Juju components' minor or major version
 > e.g., 3.5 -> 3.6 or  2.9 -> 3.0
 
