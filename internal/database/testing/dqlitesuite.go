@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 
 	"github.com/canonical/sqlair"
@@ -24,6 +23,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/client"
+	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/database/pragma"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
@@ -60,9 +60,6 @@ type DqliteSuite struct {
 	dqlite    *app.App
 	db        *sql.DB
 	trackedDB coredatabase.TxnRunner
-
-	mutex      sync.Mutex
-	references map[string][]*sql.DB
 }
 
 // SetUpTest creates a new sql.DB reference and ensures that the
@@ -70,21 +67,25 @@ type DqliteSuite struct {
 func (s *DqliteSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	// Ensure TearDownTest is called.
-	c.Cleanup(func() {
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
-		if s.references != nil {
-			panic("database references left: TearDownTest not called!")
-		}
-	})
-
 	s.rootPath = c.MkDir()
 
 	path := filepath.Join(s.rootPath, "dqlite")
 	err := os.Mkdir(path, 0700)
 	c.Assert(err, tc.ErrorIsNil)
 	s.dbPath = path
+	c.Cleanup(func() {
+		if dqlite.Enabled {
+			return
+		}
+		// Sometimes an Sqlite3 database will be writing after the test has
+		// finished, despite the database being closed properly. This brute
+		// force directory removal ensures the testing framework does not
+		// fail when removing the test temp directory.
+		for err = error(nil); err == nil; _, err = os.Stat(s.dbPath) {
+			_ = os.RemoveAll(s.dbPath)
+		}
+		s.dbPath = ""
+	})
 
 	endpoint := ""
 
@@ -123,6 +124,11 @@ func (s *DqliteSuite) SetUpTest(c *tc.C) {
 		}),
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(func() {
+		err := s.dqlite.Close()
+		c.Check(err, tc.ErrorIsNil)
+		s.dqlite = nil
+	})
 
 	// Enable super verbose mode.
 	s.Verbose = verbose && includeSQLOutput != ""
@@ -131,29 +137,6 @@ func (s *DqliteSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.trackedDB, s.db = s.OpenDB(c)
-}
-
-// TearDownTest is responsible for cleaning up the testing resources created
-// with the ControllerSuite
-func (s *DqliteSuite) TearDownTest(c *tc.C) {
-	// Ensure we clean up any databases that were opened during the tests.
-	s.mutex.Lock()
-	for _, ref := range s.references {
-		for _, db := range ref {
-			err := db.Close()
-			c.Check(err, tc.ErrorIsNil)
-		}
-	}
-	s.references = nil
-	s.mutex.Unlock()
-
-	if s.dqlite != nil {
-		err := s.dqlite.Close()
-		c.Check(err, tc.ErrorIsNil)
-		s.dqlite = nil
-	}
-
-	s.IsolationSuite.TearDownTest(c)
 }
 
 // DB returns a sql.DB reference.
@@ -214,7 +197,10 @@ func (s *DqliteSuite) OpenDBForNamespace(c *tc.C, domain string, foreignKey bool
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure we close all databases that are opened during the tests.
-	s.cleanupDB(domain, db)
+	c.Cleanup(func() {
+		err := db.Close()
+		c.Check(err, tc.ErrorIsNil)
+	})
 
 	err = pragma.SetPragma(c.Context(), db, pragma.ForeignKeysPragma, foreignKey)
 	c.Assert(err, tc.ErrorIsNil)
@@ -222,7 +208,6 @@ func (s *DqliteSuite) OpenDBForNamespace(c *tc.C, domain string, foreignKey bool
 	trackedDB := &txnRunner{
 		db: sqlair.NewDB(db),
 	}
-
 	return trackedDB, trackedDB.db.PlainDB()
 }
 
@@ -245,16 +230,6 @@ func (s *DqliteSuite) NoopTxnRunner() coredatabase.TxnRunner {
 // in production code.
 func (s *DqliteSuite) DumpTable(c *tc.C, table string, additionalTables ...string) {
 	DumpTable(c, s.DB(), table, additionalTables...)
-}
-
-func (s *DqliteSuite) cleanupDB(namespace string, db *sql.DB) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.references == nil {
-		s.references = make(map[string][]*sql.DB)
-	}
-	s.references[namespace] = append(s.references[namespace], db)
 }
 
 // FindTCPPort finds an unused TCP port and returns it.

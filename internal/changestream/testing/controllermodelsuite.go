@@ -4,15 +4,12 @@
 package testing
 
 import (
-	"time"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
-	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 // ControllerModelSuite is used to provide a sql.DB reference to tests.
@@ -31,16 +28,18 @@ func (s *ControllerModelSuite) SetUpTest(c *tc.C) {
 	s.watchableDBs = map[string]*TestWatchableDB{
 		coredatabase.ControllerNS: NewTestWatchableDB(c, coredatabase.ControllerNS, s.TxnRunner()),
 	}
-}
-
-func (s *ControllerModelSuite) TearDownTest(c *tc.C) {
-	for _, watchableDB := range s.watchableDBs {
+	c.Cleanup(func() {
 		// We could use workertest.DirtyKill here, but some workers are already
 		// dead when we get here and it causes unwanted logs. This just ensures
 		// that we don't have any addition workers running.
-		killAndWait(c, watchableDB)
-	}
-	s.ControllerModelSuite.TearDownTest(c)
+		for _, watchableDB := range s.watchableDBs {
+			watchableDB.Kill()
+		}
+		for _, watchableDB := range s.watchableDBs {
+			_ = watchableDB.Wait()
+		}
+		s.watchableDBs = nil
+	})
 }
 
 // InitWatchableDB ensures there is a TestWatchableDB for the given namespace.
@@ -48,7 +47,12 @@ func (s *ControllerModelSuite) InitWatchableDB(c *tc.C, namespace string) (*Test
 	if watchableDB, ok := s.watchableDBs[namespace]; ok {
 		return watchableDB, &Idler{watchableDB: watchableDB}
 	}
-	watchableDB := NewTestWatchableDB(c, namespace, s.ModelTxnRunner(c, namespace))
+	db := s.ModelTxnRunner(c, namespace)
+	watchableDB := NewTestWatchableDB(c, namespace, db)
+	// Prime the change stream, so that there is at least some
+	// value in the stream, otherwise the changestream won't have any
+	// bounds (terms) to work on.
+	PrimeChangeStream(c, db)
 	s.watchableDBs[namespace] = watchableDB
 	return watchableDB, &Idler{watchableDB: watchableDB}
 }
@@ -70,14 +74,15 @@ type Idler struct {
 // This is useful to ensure that the change stream is not processing any
 // events before running a test.
 func (idler *Idler) AssertChangeStreamIdle(c *tc.C) {
-	timeout := time.After(jujutesting.LongWait)
 	for {
 		select {
-		case state := <-idler.watchableDB.states:
-			if state == stateIdle {
-				return
+		case states := <-idler.watchableDB.states:
+			for _, state := range states {
+				if state == stateIdle {
+					return
+				}
 			}
-		case <-timeout:
+		case <-c.Context().Done():
 			c.Fatalf("timed out waiting for idle state")
 		}
 	}

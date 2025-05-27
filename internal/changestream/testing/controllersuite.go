@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
@@ -29,16 +28,16 @@ func (s *ControllerSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	s.watchableDB = NewTestWatchableDB(c, coredatabase.ControllerNS, s.TxnRunner())
-}
-
-func (s *ControllerSuite) TearDownTest(c *tc.C) {
-	if s.watchableDB != nil {
+	c.Cleanup(func() {
 		// We could use workertest.DirtyKill here, but some workers are already
 		// dead when we get here and it causes unwanted logs. This just ensures
 		// that we don't have any addition workers running.
-		killAndWait(c, s.watchableDB)
-	}
-	s.ControllerSuite.TearDownTest(c)
+		if s.watchableDB != nil {
+			s.watchableDB.Kill()
+			_ = s.watchableDB.Wait()
+			s.watchableDB = nil
+		}
+	})
 }
 
 // GetWatchableDB allows the ControllerSuite to be a WatchableDBGetter
@@ -53,23 +52,14 @@ func (w *ControllerSuite) AssertChangeStreamIdle(c *tc.C) {
 	timeout := time.After(jujutesting.LongWait)
 	for {
 		select {
-		case state := <-w.watchableDB.states:
-			if state == stateIdle {
-				return
+		case states := <-w.watchableDB.states:
+			for _, state := range states {
+				if state == stateIdle {
+					return
+				}
 			}
 		case <-timeout:
 			c.Fatalf("timed out waiting for idle state")
 		}
-	}
-}
-
-func killAndWait(_ *tc.C, w worker.Worker) {
-	wait := make(chan error, 1)
-	go func() {
-		wait <- w.Wait()
-	}()
-	select {
-	case <-wait:
-	case <-time.After(jujutesting.LongWait):
 	}
 }

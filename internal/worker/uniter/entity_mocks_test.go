@@ -92,7 +92,7 @@ func (u *unit) String() string {
 	return u.MockUnit.Name()
 }
 
-func (ctx *testContext) makeUnit(c *tc.C, unitTag names.UnitTag, l life.Value) *unit {
+func (ctx *testContext) makeUnit(c tc.LikeC, unitTag names.UnitTag, l life.Value) *unit {
 	u := &unit{
 		MockUnit: uniterapi.NewMockUnit(ctx.ctrl),
 		life:     l,
@@ -303,7 +303,7 @@ type relation struct {
 	life life.Value
 }
 
-func (ctx *testContext) makeRelation(c *tc.C, relTag names.RelationTag, l life.Value, otherApp string) *relation {
+func (ctx *testContext) makeRelation(c tc.LikeC, relTag names.RelationTag, l life.Value, otherApp string) *relation {
 	r := &relation{
 		MockRelation: uniterapi.NewMockRelation(ctx.ctrl),
 		life:         l,
@@ -338,7 +338,7 @@ type relationUnit struct {
 	*uniterapi.MockRelationUnit
 }
 
-func (ctx *testContext) makeRelationUnit(c *tc.C, rel *relation, u *unit) *relationUnit {
+func (ctx *testContext) makeRelationUnit(c tc.LikeC, rel *relation, u *unit) *relationUnit {
 	ru := &relationUnit{
 		MockRelationUnit: uniterapi.NewMockRelationUnit(ctx.ctrl),
 	}

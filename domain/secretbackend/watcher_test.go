@@ -178,26 +178,22 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, watcher)
 
-	wc := watchertest.NewNotifyWatcherC(c, watcher)
-	// Wait for the initial change.
-	wc.AssertAtLeastOneChange()
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+	harness.AddTest(func(c *tc.C) {
+		err := state.SetModelSecretBackend(c.Context(), modelUUID, vaultBackendName)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(wc watchertest.WatcherC[struct{}]) {
+		wc.AssertChange()
+	})
 
-	ctx := c.Context()
-	err = state.SetModelSecretBackend(ctx, modelUUID, vaultBackendName)
-	c.Assert(err, tc.ErrorIsNil)
-	wc.AssertOneChange()
+	harness.AddTest(func(c *tc.C) {
+		err := state.SetModelSecretBackend(c.Context(), modelUUID, internalBackendName)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(wc watchertest.WatcherC[struct{}]) {
+		wc.AssertChange()
+	})
 
-	err = state.SetModelSecretBackend(ctx, modelUUID, internalBackendName)
-	c.Assert(err, tc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Pretend that the agent restarted and the watcher is re-created.
-	watcher1, err := svc.WatchModelSecretBackendChanged(c.Context(), modelUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.CleanKill(c, watcher1)
-	wc1 := watchertest.NewNotifyWatcherC(c, watcher1)
-	// Wait for the initial change.
-	wc1.AssertOneChange()
+	harness.Run(c, struct{}{})
 }
 
 func (s *watcherSuite) createModel(c *tc.C, st *state.State, txnRunner database.TxnRunnerFactory, name string) (coremodel.UUID, string, string) {

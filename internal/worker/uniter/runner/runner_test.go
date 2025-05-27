@@ -569,7 +569,17 @@ func (s *RunMockContextSuite) TestRunActionCancelled(c *tc.C) {
 		actionParams:  params,
 		actionResults: map[string]interface{}{},
 	}
-	_, err := runner.NewRunner(ctx, s.paths).RunAction(c.Context(), "juju-exec")
+	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
+		select {
+		case <-params.Cancel:
+			return &exec.ExecResponse{}, exec.ErrCancelled
+		case <-c.Context().Done():
+			c.Fatalf("timed out waiting to cancel")
+		}
+		return &exec.ExecResponse{}, nil
+	}
+	_, err := runner.NewRunner(ctx, s.paths,
+		runner.WithExecutor(execFunc)).RunAction(c.Context(), "juju-exec")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ctx.flushBadge, tc.Equals, "juju-exec")
 	c.Assert(ctx.flushFailure, tc.Equals, exec.ErrCancelled)

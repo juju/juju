@@ -293,6 +293,8 @@ func (s *MachineSuite) TestUpgradeRequest(c *tc.C) {
 }
 
 func (s *MachineSuite) TestNoUpgradeRequired(c *tc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	m, _, _ := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()

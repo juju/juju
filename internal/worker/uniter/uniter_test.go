@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -77,18 +78,18 @@ func (s *UniterSuite) TearDownTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func (s *UniterSuite) Reset(c *tc.C) {
+func (s *UniterSuite) Reset(c tc.LikeC) {
 	s.ResetContext(c)
 }
 
-func (s *UniterSuite) ResetContext(c *tc.C) {
+func (s *UniterSuite) ResetContext(c tc.LikeC) {
 	s.runner = &mockRunner{}
 	s.deployer = &mockDeployer{}
 	err := os.RemoveAll(s.unitDir)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *UniterSuite) newContext(c *tc.C) (*testContext, *gomock.Controller) {
+func (s *UniterSuite) newContext(c tc.LikeC) (*testContext, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 	ctx := &testContext{
 		ctrl:                   ctrl,
@@ -131,21 +132,22 @@ func (s *UniterSuite) newContext(c *tc.C) (*testContext, *gomock.Controller) {
 }
 
 func (s *UniterSuite) runUniterTests(c *tc.C, uniterTests []uniterTest) {
-	for i, t := range uniterTests {
-		c.Logf("\ntest %d: %s\n", i, t.summary)
-		func() {
+	for i, test := range uniterTests {
+		c.Logf("\ntest %d: %s\n", i, test.summary)
+		c.Run(fmt.Sprintf("Test%d", i), func(t *testing.T) {
+			c := &tc.TBC{TB: t}
 			defer s.Reset(c)
 			ctx, ctrl := s.newContext(c)
-			ctx.run(c, t.steps)
-			ctrl.Finish()
-		}()
+			defer ctrl.Finish()
+			ctx.run(c, test.steps)
+		})
 	}
 }
 
 func (s *UniterSuite) runUniterTest(c *tc.C, steps ...stepper) {
 	ctx, ctrl := s.newContext(c)
+	defer ctrl.Finish()
 	ctx.run(c, steps)
-	ctrl.Finish()
 }
 
 func (s *UniterSuite) TestRunUniterTestsNoop(c *tc.C) {
@@ -276,7 +278,7 @@ func (s *UniterSuite) TestUniterStartupStatusCharmProfile(c *tc.C) {
 	// adding an lxd profile for the charm. We do it here rather
 	// than in the charm itself to avoid modifying all of the other
 	// scenarios.
-	addCharmProfile := func(c *tc.C, ctx *testContext, path string) {
+	addCharmProfile := func(c tc.LikeC, ctx *testContext, path string) {
 		f, err := os.OpenFile(filepath.Join(path, "lxd-profile.yaml"), os.O_RDWR|os.O_CREATE, 0644)
 		c.Assert(err, tc.ErrorIsNil)
 		defer func() {
@@ -823,7 +825,7 @@ func (s *UniterSuite) TestUpdateResourceCausesUpgrade(c *tc.C) {
 	// adding a "wp-content" filesystem store. We do it here rather
 	// than in the charm itself to avoid modifying all of the other
 	// scenarios.
-	appendResource := func(c *tc.C, ctx *testContext, path string) {
+	appendResource := func(c tc.LikeC, ctx *testContext, path string) {
 		f, err := os.OpenFile(filepath.Join(path, "metadata.yaml"), os.O_RDWR|os.O_APPEND, 0644)
 		c.Assert(err, tc.ErrorIsNil)
 		defer func() {
@@ -1012,7 +1014,7 @@ func (s *UniterSuite) TestUniterRelationsSimpleJoinedChangedDeparted(c *tc.C) {
 
 func (s *UniterSuite) TestUniterRelations(c *tc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	waitDyingHooks := custom{func(c *tc.C, ctx *testContext) {
+	waitDyingHooks := custom{func(c tc.LikeC, ctx *testContext) {
 		// There is no ordering relationship between relation hooks and
 		// leader-settings-changed hooks; and while we're dying we may
 		// never get to leader-settings-changed before it's time to run
@@ -1176,7 +1178,7 @@ func (s *UniterSuite) TestUniterRelationErrorsLostRelation(c *tc.C) {
 			"ignore pending relation hook when relation deleted while stopped",
 			quickStart{},
 			stopUniter{},
-			custom{func(c *tc.C, ctx *testContext) {
+			custom{func(c tc.LikeC, ctx *testContext) {
 				opState := operation.State{}
 				opState.Kind = operation.RunHook
 				opState.Step = operation.Pending
@@ -1364,7 +1366,7 @@ func (s *UniterSuite) TestStorage(c *tc.C) {
 	// adding a "wp-content" filesystem store. We do it here rather
 	// than in the charm itself to avoid modifying all of the other
 	// scenarios.
-	appendStorageMetadata := func(c *tc.C, ctx *testContext, path string) {
+	appendStorageMetadata := func(c tc.LikeC, ctx *testContext, path string) {
 		f, err := os.OpenFile(filepath.Join(path, "metadata.yaml"), os.O_RDWR|os.O_APPEND, 0644)
 		c.Assert(err, tc.ErrorIsNil)
 		defer func() {

@@ -332,6 +332,9 @@ func (s *CharmArchiveSuite) TestExpandToWithBadLink(c *tc.C) {
 }
 
 func extCharmArchiveDirPath(c *tc.C, dirpath string) string {
+	if _, err := exec.LookPath("zip"); err != nil {
+		c.Skip("zip tool missing")
+	}
 	path := filepath.Join(c.MkDir(), "archive.charm")
 	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %s; zip --fifo --symlinks -r %s .", dirpath, path))
 	output, err := cmd.CombinedOutput()

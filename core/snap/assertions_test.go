@@ -106,5 +106,5 @@ func (s *SnapSuite) TestConfigureProxyFromURLWithAmbiguousAssertions(c *tc.C) {
 	srvURLWithPassword := fmt.Sprintf("http://42:secret@%s", srv.Listener.Addr())
 	_, _, err := snap.LookupAssertions(srvURLWithPassword)
 	expErr := fmt.Sprintf(`assertions response from proxy at "%s" is ambiguous as it contains multiple entries with the same proxy URL but different store ID`, srv.URL)
-	c.Assert(err, tc.ErrorMatches, expErr)
+	c.Assert(err.Error(), tc.Equals, expErr)
 }

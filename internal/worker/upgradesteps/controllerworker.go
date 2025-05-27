@@ -174,6 +174,11 @@ func (w *controllerWorker) run() error {
 	// Kick off the upgrade steps for the controller in a new managed context.
 	stepsWorker := newControllerStepsWorker(w.base)
 	if err := w.catacomb.Add(stepsWorker); err != nil {
+		w.logger.Errorf(ctx, "upgrade worker is dying whilst starting upgrade steps: %s, marking upgrade as failed", upgradeUUID)
+		// We didn't perform the upgrade, so we need to mark it as failed.
+		if err := w.upgradeService.SetDBUpgradeFailed(ctx, upgradeUUID); err != nil {
+			w.logger.Errorf(ctx, "failed to set db upgrade failed: %v, manual intervention required.", err)
+		}
 		return errors.Trace(err)
 	}
 
@@ -310,11 +315,11 @@ func (w *controllerStepsWorker) run() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
+	err := w.runUpgrades(ctx)
 	select {
 	case <-w.tomb.Dying():
 		return tomb.ErrDying
-
-	case w.status <- w.runUpgrades(ctx):
+	case w.status <- err:
 		return nil
 	}
 }

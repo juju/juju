@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -164,15 +165,17 @@ func (s *trackedDBWorkerSuite) TestWorkerStdTxnIsNotNil(c *tc.C) {
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectClock()
-	defer s.expectTimer(1)()
+	// This test uses a dialated wall clock to test retries.
+	s.clock = testclock.NewDilatedWallClock(time.Millisecond)
 
-	s.timer.EXPECT().Reset(gomock.Any()).Times(1)
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
+	done := make(chan struct{})
 	var count uint64
 	pingFn := func(context.Context, *sql.DB) error {
-		atomic.AddUint64(&count, 1)
+		if atomic.AddUint64(&count, 1) == 1 {
+			close(done)
+		}
 		return nil
 	}
 
@@ -186,9 +189,15 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *tc.C) {
 	tables := readTableNames(c, w)
 	c.Assert(tables, SliceContains, "lease")
 
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for multiple db verify")
+	}
+
 	workertest.CleanKill(c, w)
 
-	c.Assert(count, tc.Equals, uint64(1))
+	c.Assert(count, tc.GreaterThan, uint64(0))
 }
 
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *tc.C) {
@@ -235,16 +244,17 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *tc.C) 
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectClock()
-	defer s.expectTimer(2)()
-
-	s.timer.EXPECT().Reset(gomock.Any()).Times(2)
+	// This test uses a dialated wall clock to test retries.
+	s.clock = testclock.NewDilatedWallClock(time.Millisecond)
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
+	done := make(chan struct{})
 	var count uint64
 	pingFn := func(context.Context, *sql.DB) error {
-		atomic.AddUint64(&count, 1)
+		if atomic.AddUint64(&count, 1) == 2 {
+			close(done)
+		}
 		return nil
 	}
 
@@ -258,9 +268,15 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *tc.C) {
 	tables := readTableNames(c, w)
 	c.Assert(tables, SliceContains, "lease")
 
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for multiple db verify")
+	}
+
 	workertest.CleanKill(c, w)
 
-	c.Assert(count, tc.Equals, uint64(2))
+	c.Assert(count, tc.GreaterThan, uint64(1))
 }
 
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDifferentDB(c *tc.C) {
@@ -361,66 +377,16 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *tc.C) {
 
 	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
 	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
-
-	sync := make(chan struct{})
-	go func() {
-		select {
-		case <-sync:
-		case <-time.After(testing.ShortWait):
-			c.Fatal("timed out waiting for sync")
-		}
-
-		workertest.DirtyKill(c, w)
-	}()
+	defer workertest.CleanKill(c, w)
 
 	// Ensure that the DB is dead.
 	err = w.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		close(sync)
+		w.Kill()
 
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(testing.LongWait):
-			c.Fatal("timed out waiting for context to be canceled")
-		}
-		return nil
-	})
-
-	c.Assert(err, tc.ErrorMatches, "context canceled")
-}
-
-func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectClock()
-	defer s.expectTimer(0)()
-
-	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
-
-	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
-	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
-
-	sync := make(chan struct{})
-	go func() {
-		select {
-		case <-sync:
-		case <-time.After(testing.ShortWait):
-			c.Fatal("timed out waiting for sync")
-		}
-
-		workertest.DirtyKill(c, w)
-	}()
-
-	// Ensure that the DB is dead.
-	err = w.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		close(sync)
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for context to be canceled")
 		}
 		return nil

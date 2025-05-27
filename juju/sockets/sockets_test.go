@@ -6,6 +6,8 @@ package sockets_test
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
+	"net"
 	"net/rpc"
 	"path/filepath"
 	"testing"
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/tc"
 
 	jujutesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -31,15 +34,16 @@ func TestSocketSuite(t *testing.T) {
 
 func (s *SocketSuite) TestTCP(c *tc.C) {
 	socketDesc := sockets.Socket{
-		Address: "127.0.0.1:32134",
+		Address: fmt.Sprintf("127.0.0.1:%d", randomTCPPort(c)),
 		Network: "tcp",
 	}
 	s.testConn(c, socketDesc, socketDesc)
 }
 
 func (s *SocketSuite) TestAbstractDomain(c *tc.C) {
+	id := uuid.MustNewUUID()
 	socketDesc := sockets.Socket{
-		Address: "@hello-juju",
+		Address: "@" + id.String(),
 		Network: "unix",
 	}
 	s.testConn(c, socketDesc, socketDesc)
@@ -58,15 +62,16 @@ func (s *SocketSuite) TestUNIXSocket(c *tc.C) {
 func (s *SocketSuite) TestTLSOverTCP(c *tc.C) {
 	roots := x509.NewCertPool()
 	roots.AddCert(jujutesting.CACertX509)
+	addr := fmt.Sprintf("127.0.0.1:%d", randomTCPPort(c))
 	serverSocketDesc := sockets.Socket{
-		Address: "127.0.0.1:32135",
+		Address: addr,
 		Network: "tcp",
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{*jujutesting.ServerTLSCert},
 		},
 	}
 	clientSocketDesc := sockets.Socket{
-		Address: "127.0.0.1:32135",
+		Address: addr,
 		Network: "tcp",
 		TLSConfig: &tls.Config{
 			RootCAs:            roots,
@@ -106,4 +111,13 @@ func (s *SocketSuite) testConn(c *tc.C, serverSocketDesc, clientSocketDesc socke
 	err = l.Close()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(called, tc.IsTrue)
+}
+
+func randomTCPPort(c *tc.C) int {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	c.Assert(err, tc.ErrorIsNil)
+	addr := l.Addr()
+	err = l.Close()
+	c.Assert(err, tc.ErrorIsNil)
+	return addr.(*net.TCPAddr).Port
 }

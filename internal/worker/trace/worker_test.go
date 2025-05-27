@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
-	"github.com/juju/juju/internal/testing"
 )
 
 type workerSuite struct {
@@ -185,7 +184,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 }
 
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
-	s.states = make(chan string)
+	s.states = make(chan string, 1)
 	atomic.StoreInt64(&s.called, 0)
 
 	ctrl := s.baseSuite.setupMocks(c)
@@ -200,7 +199,7 @@ func (s *workerSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
 		c.Assert(state, tc.Equals, stateStarted)
-	case <-time.After(testing.ShortWait * 10):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for startup")
 	}
 }
@@ -215,7 +214,7 @@ func assertWait(c *tc.C, wait func()) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting")
 	}
 }

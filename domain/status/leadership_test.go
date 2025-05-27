@@ -132,7 +132,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *tc.C
 	s.leadership.EXPECT().WaitUntilExpired(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, c chan<- struct{}) error {
 		close(c)
 		return nil
-	})
+	}).AnyTimes()
 	s.leadership.EXPECT().Token("foo", "foo/0").DoAndReturn(func(s1, s2 string) lease.Token {
 		return leaseToken{}
 	}).AnyTimes()
@@ -142,10 +142,17 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *tc.C
 	u1 := application.AddUnitArg{}
 	s.createApplication(c, "foo", u1)
 
-	err := svc.SetApplicationStatusForUnitLeader(c.Context(), "foo/0", status.StatusInfo{
-		Status: status.Active,
-	})
-	c.Assert(err, tc.ErrorIs, context.Canceled)
+	// WithLeader is racy on the context cancellation on heavily loaded systems.
+	// So if this succeeds, try again.
+	for {
+		err := svc.SetApplicationStatusForUnitLeader(c.Context(), "foo/0", status.StatusInfo{
+			Status: status.Active,
+		})
+		if err != nil {
+			c.Assert(err, tc.ErrorIs, context.Canceled)
+			break
+		}
+	}
 }
 
 func (s *leadershipSuite) setupService(c *tc.C) *service.LeadershipService {

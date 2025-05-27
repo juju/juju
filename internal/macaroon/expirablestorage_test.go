@@ -207,38 +207,53 @@ func (s *expirableStorageSuite) TestIsValidWithPolicy(c *tc.C) {
 	}
 }
 
-func (s *expirableStorageSuite) TestRootKeyUsesKeysValidWithPolicy(c *tc.C) {
+func (s *expirableStorageSuite) TestRootKeyUsesKeysValidWithPolicy0(c *tc.C) {
+	s.testRootKeyUsesKeysValidWithPolicy(c, 0)
+}
+
+func (s *expirableStorageSuite) TestRootKeyUsesKeysValidWithPolicy1(c *tc.C) {
+	s.testRootKeyUsesKeysValidWithPolicy(c, 1)
+}
+
+func (s *expirableStorageSuite) TestRootKeyUsesKeysValidWithPolicy2(c *tc.C) {
+	s.testRootKeyUsesKeysValidWithPolicy(c, 2)
+}
+
+func (s *expirableStorageSuite) TestRootKeyUsesKeysValidWithPolicy3(c *tc.C) {
+	s.testRootKeyUsesKeysValidWithPolicy(c, 3)
+}
+
+func (s *expirableStorageSuite) TestRootKeyUsesKeysValidWithPolicy4(c *tc.C) {
+	s.testRootKeyUsesKeysValidWithPolicy(c, 4)
+}
+
+func (s *expirableStorageSuite) testRootKeyUsesKeysValidWithPolicy(c *tc.C, i int) {
 	// We re-use the TestIsValidWithPolicy tests so that we
 	// know that the mongo logic uses the same behaviour.
-	for _, test := range isValidWithPolicyTests {
-		s.SetUpTest(c)
+	test := isValidWithPolicyTests[i]
 
-		if test.key.RootKey == nil {
-			// We don't store empty root keys in the database.
-			c.Log("skipping test with empty root key")
-			continue
-		}
-		s.now = test.now
-		// Prime the collection with the root key document.
-		err := s.macaroonService.InsertKeyContext(c.Context(), test.key)
-		c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.about))
-
-		store := internalmacaroon.NewExpirableStorage(s.macaroonService, test.policy.ExpiryDuration, s.clock)
-		key, id, err := store.RootKey(c.Context())
-		c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.about))
-		if test.expect {
-			c.Assert(string(id), tc.Equals, "id", tc.Commentf(test.about))
-			c.Assert(string(key), tc.Equals, "key", tc.Commentf(test.about))
-		} else {
-			// If it didn't match then RootKey will have
-			// generated a new key.
-			c.Assert(key, tc.HasLen, 24, tc.Commentf(test.about))
-			c.Assert(id, tc.HasLen, 32, tc.Commentf(test.about))
-		}
-		c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.about))
-
-		s.TearDownTest(c)
+	if test.key.RootKey == nil {
+		// We don't store empty root keys in the database.
+		c.Skip("skipping test with empty root key")
 	}
+	s.now = test.now
+	// Prime the collection with the root key document.
+	err := s.macaroonService.InsertKeyContext(c.Context(), test.key)
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.about))
+
+	store := internalmacaroon.NewExpirableStorage(s.macaroonService, test.policy.ExpiryDuration, s.clock)
+	key, id, err := store.RootKey(c.Context())
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.about))
+	if test.expect {
+		c.Assert(string(id), tc.Equals, "id", tc.Commentf(test.about))
+		c.Assert(string(key), tc.Equals, "key", tc.Commentf(test.about))
+	} else {
+		// If it didn't match then RootKey will have
+		// generated a new key.
+		c.Assert(key, tc.HasLen, 24, tc.Commentf(test.about))
+		c.Assert(id, tc.HasLen, 32, tc.Commentf(test.about))
+	}
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.about))
 }
 
 func (s *expirableStorageSuite) TestRootKey(c *tc.C) {
@@ -279,16 +294,8 @@ func (s *expirableStorageSuite) TestRootKey(c *tc.C) {
 	c.Assert(id2, tc.DeepEquals, id1)
 }
 
-var preferredRootKeyTests = []struct {
-	about          string
-	now            time.Time
-	keys           []dbrootkeystore.RootKey
-	expiryDuration time.Duration
-	expectId       []byte
-}{{
-	about: "latest creation time is preferred",
-	now:   moment.Add(5 * time.Minute),
-	keys: []dbrootkeystore.RootKey{{
+func (s *expirableStorageSuite) TestPreferredRootKeyFromDatabaseLatest(c *tc.C) {
+	keys := []dbrootkeystore.RootKey{{
 		Created: moment.Add(4 * time.Minute),
 		Expires: moment.Add(15 * time.Minute),
 		Id:      []byte("id0"),
@@ -303,13 +310,22 @@ var preferredRootKeyTests = []struct {
 		Expires: moment.Add(16 * time.Minute),
 		Id:      []byte("id2"),
 		RootKey: []byte("key2"),
-	}},
-	expiryDuration: 7 * time.Minute,
-	expectId:       []byte("id1"),
-}, {
-	about: "ineligible keys are exluded",
-	now:   moment.Add(5 * time.Minute),
-	keys: []dbrootkeystore.RootKey{{
+	}}
+
+	for _, key := range keys {
+		err := s.macaroonService.InsertKeyContext(c.Context(), key)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	store := internalmacaroon.NewExpirableStorage(s.macaroonService, 7*time.Minute, s.clock)
+	s.now = moment.Add(5 * time.Minute)
+	_, id, err := store.RootKey(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(id, tc.DeepEquals, []byte("id1"))
+}
+
+func (s *expirableStorageSuite) TestPreferredRootKeyFromDatabaseExclude(c *tc.C) {
+	keys := []dbrootkeystore.RootKey{{
 		Created: moment.Add(4 * time.Minute),
 		Expires: moment.Add(15 * time.Minute),
 		Id:      []byte("id0"),
@@ -324,27 +340,18 @@ var preferredRootKeyTests = []struct {
 		Expires: moment.Add(time.Hour),
 		Id:      []byte("id2"),
 		RootKey: []byte("key2"),
-	}},
-	expiryDuration: 7 * time.Minute,
-	expectId:       []byte("id1"),
-}}
+	}}
 
-func (s *expirableStorageSuite) TestPreferredRootKeyFromDatabase(c *tc.C) {
-	for _, test := range preferredRootKeyTests {
-		s.SetUpTest(c)
-
-		for _, key := range test.keys {
-			err := s.macaroonService.InsertKeyContext(c.Context(), key)
-			c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.about))
-		}
-		store := internalmacaroon.NewExpirableStorage(s.macaroonService, test.expiryDuration, s.clock)
-		s.now = test.now
-		_, id, err := store.RootKey(c.Context())
-		c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.about))
-		c.Assert(id, tc.DeepEquals, test.expectId, tc.Commentf(test.about))
-
-		s.TearDownTest(c)
+	for _, key := range keys {
+		err := s.macaroonService.InsertKeyContext(c.Context(), key)
+		c.Assert(err, tc.ErrorIsNil)
 	}
+
+	store := internalmacaroon.NewExpirableStorage(s.macaroonService, 7*time.Minute, s.clock)
+	s.now = moment.Add(5 * time.Minute)
+	_, id, err := store.RootKey(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(id, tc.DeepEquals, []byte("id1"))
 }
 
 func (s *expirableStorageSuite) TestGet(c *tc.C) {

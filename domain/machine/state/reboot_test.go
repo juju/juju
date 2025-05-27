@@ -135,76 +135,120 @@ func (s *stateSuite) TestCancelMachineRebootSeveralMachine(c *tc.C) {
 	c.Assert(isRebootNeeded, tc.IsTrue)
 }
 
-func (s *stateSuite) TestRebootLogic(c *tc.C) {
-	for _, testCase := range []struct {
-		description     string
-		hasParent       bool
-		isParentReboot  bool
-		isMachineReboot bool
-		expectedAction  coremachine.RebootAction
-	}{
-		{
-			description:    "orphan, non-rebooting machine, should do nothing",
-			expectedAction: coremachine.ShouldDoNothing,
-		},
-		{
-			description:     "orphan, rebooting machine, should reboot",
-			isMachineReboot: true,
-			expectedAction:  coremachine.ShouldReboot,
-		},
-		{
-			description:    "non-rebooting machine with non-rebooting parent, should do nothing",
-			hasParent:      true,
-			expectedAction: coremachine.ShouldDoNothing,
-		},
-		{
-			description:     "rebooting machine with non-rebooting parent, should reboot",
-			hasParent:       true,
-			isMachineReboot: true,
-			expectedAction:  coremachine.ShouldReboot,
-		},
-		{
-			description:    "non-rebooting machine with rebooting parent, should shutdown",
-			hasParent:      true,
-			isParentReboot: true,
-			expectedAction: coremachine.ShouldShutdown,
-		},
-		{
-			description:     "rebooting machine with rebooting parent, should shutdown",
-			hasParent:       true,
-			isParentReboot:  true,
-			isMachineReboot: true,
-			expectedAction:  coremachine.ShouldShutdown,
-		},
-	} {
-		s.SetUpTest(c) // reset db
-		// Setup: machines and parent if any and setup reboot if required in test case
-		err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
-		c.Assert(err, tc.ErrorIsNil)
-		if testCase.isMachineReboot {
-			err = s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("machine")`)
-			c.Assert(err, tc.ErrorIsNil)
-		}
-		if testCase.hasParent {
-			err := s.state.CreateMachine(c.Context(), "parent", "parent", "parent")
-			c.Assert(err, tc.ErrorIsNil)
-			err = s.runQuery(c, `INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES ("machine", "parent")`)
-			c.Assert(err, tc.ErrorIsNil)
-			if testCase.isParentReboot {
-				err = s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("parent")`)
-				c.Assert(err, tc.ErrorIsNil)
-			}
-		}
+func (s *stateSuite) TestRebootNotOrphan(c *tc.C) {
+	description := "orphan, non-rebooting machine, should do nothing"
 
-		// Call the function under test
-		rebootAction, err := s.state.ShouldRebootOrShutdown(c.Context(), "machine")
-		c.Assert(err, tc.ErrorIsNil, tc.Commentf("use case: %s", testCase.description))
+	// Setup: machines and parent if any and setup reboot if required in test case
+	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
+	c.Assert(err, tc.ErrorIsNil)
 
-		// Verify: Check which machine needs reboot
-		c.Check(rebootAction, tc.Equals, testCase.expectedAction, tc.Commentf("use case: %s", testCase.description))
+	// Call the function under test
+	rebootAction, err := s.state.ShouldRebootOrShutdown(c.Context(), "machine")
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("use case: %s", description))
 
-		s.TearDownTest(c)
-	}
+	// Verify: Check which machine needs reboot
+	c.Check(rebootAction, tc.Equals, coremachine.ShouldDoNothing, tc.Commentf("use case: %s", description))
+}
+
+func (s *stateSuite) TestRebootOrphan(c *tc.C) {
+	description := "orphan, rebooting machine, should reboot"
+
+	// Setup: machines and parent if any and setup reboot if required in test case
+	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("machine")`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Call the function under test
+	rebootAction, err := s.state.ShouldRebootOrShutdown(c.Context(), "machine")
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("use case: %s", description))
+
+	// Verify: Check which machine needs reboot
+	c.Check(rebootAction, tc.Equals, coremachine.ShouldReboot, tc.Commentf("use case: %s", description))
+}
+
+func (s *stateSuite) TestRebootNotParentChild(c *tc.C) {
+	description := "non-rebooting machine with non-rebooting parent, should do nothing"
+
+	// Setup: machines and parent if any and setup reboot if required in test case
+	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent")
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.runQuery(c, `INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES ("machine", "parent")`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Call the function under test
+	rebootAction, err := s.state.ShouldRebootOrShutdown(c.Context(), "machine")
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("use case: %s", description))
+
+	// Verify: Check which machine needs reboot
+	c.Check(rebootAction, tc.Equals, coremachine.ShouldDoNothing, tc.Commentf("use case: %s", description))
+}
+
+func (s *stateSuite) TestRebootChildNotParent(c *tc.C) {
+	description := "rebooting machine with non-rebooting parent, should reboot"
+
+	// Setup: machines and parent if any and setup reboot if required in test case
+	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("machine")`)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent")
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.runQuery(c, `INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES ("machine", "parent")`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Call the function under test
+	rebootAction, err := s.state.ShouldRebootOrShutdown(c.Context(), "machine")
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("use case: %s", description))
+
+	// Verify: Check which machine needs reboot
+	c.Check(rebootAction, tc.Equals, coremachine.ShouldReboot, tc.Commentf("use case: %s", description))
+}
+
+func (s *stateSuite) TestRebootParentNotChild(c *tc.C) {
+	description := "non-rebooting machine with rebooting parent, should shutdown"
+
+	// Setup: machines and parent if any and setup reboot if required in test case
+	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent")
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.runQuery(c, `INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES ("machine", "parent")`)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("parent")`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Call the function under test
+	rebootAction, err := s.state.ShouldRebootOrShutdown(c.Context(), "machine")
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("use case: %s", description))
+
+	// Verify: Check which machine needs reboot
+	c.Check(rebootAction, tc.Equals, coremachine.ShouldShutdown, tc.Commentf("use case: %s", description))
+}
+
+func (s *stateSuite) TestRebootParentChild(c *tc.C) {
+	description := "rebooting machine with rebooting parent, should shutdown"
+
+	// Setup: machines and parent if any and setup reboot if required in test case
+	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("machine")`)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent")
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.runQuery(c, `INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES ("machine", "parent")`)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("parent")`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Call the function under test
+	rebootAction, err := s.state.ShouldRebootOrShutdown(c.Context(), "machine")
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("use case: %s", description))
+
+	// Verify: Check which machine needs reboot
+	c.Check(rebootAction, tc.Equals, coremachine.ShouldShutdown, tc.Commentf("use case: %s", description))
 }
 
 func (s *stateSuite) TestRebootLogicGrandParentNotSupported(c *tc.C) {

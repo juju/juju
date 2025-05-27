@@ -292,6 +292,9 @@ func (w *tracerWorker) scopedContext() (context.Context, context.CancelFunc) {
 }
 
 func (w *tracerWorker) reportInternalState(state string) {
+	if w.internalStates == nil {
+		return
+	}
 	select {
 	case <-w.catacomb.Dying():
 	case w.internalStates <- state:

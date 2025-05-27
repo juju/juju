@@ -977,7 +977,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *tc.C
 	}, nil).MinTimes(1).Do(func(context.Context, environs.StartInstanceParams) {
 		select {
 		case step <- struct{}{}:
-		case <-time.After(testhelpers.LongWait):
+		case <-c.Context().Done():
 			c.Fatalf("timed out writing to step channel")
 		}
 	})
@@ -987,7 +987,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *tc.C
 	syncStep := func() {
 		select {
 		case <-step:
-		case <-time.After(testhelpers.LongWait):
+		case <-c.Context().Done():
 			c.Fatalf("timed out reading from step channel")
 		}
 	}

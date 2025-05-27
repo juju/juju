@@ -38,13 +38,13 @@ type TestWatchableDB struct {
 	stream *stream.Stream
 	mux    *eventmultiplexer.EventMultiplexer
 
-	states chan string
+	states chan []string
 }
 
 // NewTestWatchableDB creates a test changestream based on the id and
 // runnner.
 func NewTestWatchableDB(c *tc.C, id string, db database.TxnRunner) *TestWatchableDB {
-	states := make(chan string, 1)
+	states := make(chan []string, 1)
 
 	logger := loggertesting.WrapCheckLog(c)
 	stream := stream.NewInternalStates(id, db, newNoopFileWatcher(), clock.WallClock, noopMetrics{}, logger, states)

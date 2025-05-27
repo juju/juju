@@ -84,7 +84,12 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersStartStop(c
 	s.watcher.EXPECT().WatchControllerInfo(gomock.Any()).DoAndReturn(func(context.Context) (corewatcher.NotifyWatcher, error) {
 		return infoWatcher, nil
 	})
-	s.watcher.EXPECT().Close()
+
+	finalise := make(chan struct{})
+	s.watcher.EXPECT().Close().DoAndReturn(func() error {
+		close(finalise)
+		return nil
+	})
 
 	w, err := externalcontrollerupdater.New(s.client, func(_ context.Context, gotInfo *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
 		defer close(started)
@@ -100,11 +105,17 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersStartStop(c
 
 	select {
 	case <-started:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for watcher to start")
 	}
 
 	workertest.CleanKill(c, w)
+
+	select {
+	case <-finalise:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for final call")
+	}
 }
 
 func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersError(c *tc.C) {
@@ -123,8 +134,9 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersError(c *tc
 		return nil, errors.New("watcher error")
 	})
 	// Close should be called on error.
-	s.watcher.EXPECT().Close().Do(func() {
+	s.watcher.EXPECT().Close().DoAndReturn(func() error {
 		close(done)
+		return nil
 	})
 
 	w, err := externalcontrollerupdater.New(s.client, func(context.Context, *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
@@ -135,7 +147,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersError(c *tc
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for watcher client to close")
 	}
 
@@ -173,15 +185,26 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersErrorRestar
 		defer close(done)
 		return infoWatcher, nil
 	})
-	s.watcher.EXPECT().Close()
+
+	finalise := make(chan struct{})
+	s.watcher.EXPECT().Close().DoAndReturn(func() error {
+		close(finalise)
+		return nil
+	})
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for watcher to restart")
 	}
 
 	workertest.CleanKill(c, w)
+
+	select {
+	case <-finalise:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for final call")
+	}
 }
 
 func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersChange(c *tc.C) {
@@ -237,7 +260,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersChange(c *t
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for controller update")
 	}
 

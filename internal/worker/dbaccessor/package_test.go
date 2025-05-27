@@ -27,7 +27,8 @@ import (
 type baseSuite struct {
 	logger logger.Logger
 
-	clock                   *MockClock
+	clock                   clock.Clock
+	mockClock               *MockClock
 	timer                   *MockTimer
 	dbApp                   *MockDBApp
 	client                  *MockClient
@@ -40,7 +41,8 @@ type baseSuite struct {
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.clock = NewMockClock(ctrl)
+	s.mockClock = NewMockClock(ctrl)
+	s.clock = s.mockClock
 	s.timer = NewMockTimer(ctrl)
 	s.dbApp = NewMockDBApp(ctrl)
 	s.client = NewMockClient(ctrl)
@@ -55,13 +57,13 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *baseSuite) expectClock() {
-	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
-	s.clock.EXPECT().After(gomock.Any()).AnyTimes()
+	s.mockClock.EXPECT().Now().Return(time.Now()).AnyTimes()
+	s.mockClock.EXPECT().After(gomock.Any()).AnyTimes()
 }
 
 func (s *baseSuite) setupTimer(interval time.Duration) chan time.Time {
 	s.timer.EXPECT().Stop().MinTimes(1)
-	s.clock.EXPECT().NewTimer(interval).Return(s.timer)
+	s.mockClock.EXPECT().NewTimer(interval).Return(s.timer)
 
 	ch := make(chan time.Time)
 	s.timer.EXPECT().Chan().Return(ch).AnyTimes()
@@ -116,7 +118,7 @@ func (s *baseSuite) expectNodeStartupAndShutdown() {
 }
 
 func (s *baseSuite) expectWorkerRetry() {
-	s.clock.EXPECT().After(10 * time.Second).AnyTimes().DoAndReturn(func(d time.Duration) <-chan time.Time {
+	s.mockClock.EXPECT().After(10 * time.Second).AnyTimes().DoAndReturn(func(d time.Duration) <-chan time.Time {
 		return clock.WallClock.After(10 * time.Millisecond)
 	})
 }

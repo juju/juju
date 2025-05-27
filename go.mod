@@ -78,7 +78,7 @@ require (
 	github.com/juju/txn/v3 v3.0.2
 	github.com/juju/utils/v4 v4.0.3
 	github.com/juju/webbrowser v1.0.0
-	github.com/juju/worker/v4 v4.1.0
+	github.com/juju/worker/v4 v4.2.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.3.1
 	github.com/lestrrat-go/jwx/v2 v2.0.21

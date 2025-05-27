@@ -108,7 +108,7 @@ func FakeCloudSpec() environscloudspec.CloudSpec {
 
 // ModelConfig returns a default environment configuration suitable for
 // setting in the state.
-func ModelConfig(c *tc.C) *config.Config {
+func ModelConfig(c tc.LikeC) *config.Config {
 	uuid := mustUUID()
 	return CustomModelConfig(c, Attrs{"uuid": uuid})
 }
@@ -124,7 +124,7 @@ func mustUUID() string {
 
 // CustomModelConfig returns an environment configuration with
 // additional specified keys added.
-func CustomModelConfig(c *tc.C, extra Attrs) *config.Config {
+func CustomModelConfig(c tc.LikeC, extra Attrs) *config.Config {
 	attrs := FakeConfig().Merge(Attrs{
 		"agent-version": "2.0.0",
 		"charmhub-url":  charmhub.DefaultServerURL,

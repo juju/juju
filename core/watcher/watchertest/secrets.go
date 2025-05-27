@@ -42,7 +42,6 @@ func (c SecretsTriggerWatcherC) AssertNoChange() {
 // but does not assume there are no following changes.
 func (c SecretsTriggerWatcherC) AssertChange(expect ...watcher.SecretTriggerChange) {
 	var received []watcher.SecretTriggerChange
-	timeout := time.After(testing.LongWait)
 	for a := testing.LongAttempt.Start(); a.Next(); {
 		select {
 		case actual, ok := <-c.Watcher.Changes():
@@ -55,7 +54,7 @@ func (c SecretsTriggerWatcherC) AssertChange(expect ...watcher.SecretTriggerChan
 				c.Assert(received, mc, expect)
 				return
 			}
-		case <-timeout:
+		case <-c.Context().Done():
 			c.Fatalf("watcher did not send change")
 		}
 	}
@@ -99,7 +98,6 @@ func (c SecretBackendRotateWatcherC) AssertNoChange() {
 // but does not assume there are no following changes.
 func (c SecretBackendRotateWatcherC) AssertChanges(expect ...watcher.SecretBackendRotateChange) {
 	var received []watcher.SecretBackendRotateChange
-	timeout := time.After(testing.LongWait)
 	for a := testing.LongAttempt.Start(); a.Next(); {
 		select {
 		case actual, ok := <-c.Watcher.Changes():
@@ -115,7 +113,7 @@ func (c SecretBackendRotateWatcherC) AssertChanges(expect ...watcher.SecretBacke
 				c.Assert(received, mc, expect)
 				return
 			}
-		case <-timeout:
+		case <-c.Context().Done():
 			c.Fatalf("watcher did not send change")
 		}
 	}

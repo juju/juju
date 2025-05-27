@@ -68,6 +68,16 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.statusSetter = NewMockStatusSetter(ctrl)
 	s.apiCaller = NewMockAPICaller(ctrl)
 
+	c.Cleanup(func() {
+		s.agent = nil
+		s.config = nil
+		s.configSetter = nil
+		s.lock = nil
+		s.clock = nil
+		s.statusSetter = nil
+		s.apiCaller = nil
+	})
+
 	return ctrl
 }
 
@@ -82,7 +92,7 @@ func (s *baseSuite) dispatchChange(c *tc.C, ch chan struct{}) {
 	// Send initial event.
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testhelpers.ShortWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting to enqueue change")
 	}
 }
