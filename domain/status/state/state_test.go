@@ -1921,8 +1921,8 @@ func (s *stateSuite) addRelationToApplication(c *tc.C, appUUID coreapplication.I
 			return err
 		}
 
-		endpointUUID := uuid.MustNewUUID().String()
-		_, err = tx.ExecContext(ctx, `INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid) VALUES (?, ?, ?);`, endpointUUID, appUUID, charmRelationUUID)
+		var endpointUUID string
+		err = tx.QueryRowContext(ctx, `SELECT uuid FROM application_endpoint WHERE application_uuid = ? AND charm_relation_uuid = ?`, appUUID, charmRelationUUID).Scan(&endpointUUID)
 		if err != nil {
 			return err
 		}
@@ -1933,7 +1933,7 @@ func (s *stateSuite) addRelationToApplication(c *tc.C, appUUID coreapplication.I
 			return err
 		}
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO application_exposed_endpoint_cidr (application_uuid, application_endpoint_uuid, cidr) VALUES (?, ?, "10.0.0.0/24");`, appUUID, endpointUUID)
+		_, err = tx.ExecContext(ctx, `INSERT INTO application_exposed_endpoint_cidr (application_uuid, application_endpoint_uuid, cidr) VALUES (?, ?, "10.0.0.0/24") ON CONFLICT DO NOTHING;`, appUUID, endpointUUID)
 		if err != nil {
 			return err
 		}

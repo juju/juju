@@ -152,9 +152,7 @@ type ApplicationState interface {
 	// platform for the specified application ID.
 	//
 	// If the application does not exist, an error satisfying
-	// [applicationerrors.ApplicationNotFoundError] is returned.
-	// If the charm for the application does not exist, an error satisfying
-	// [applicationerrors.CharmNotFoundError] is returned.
+	// [applicationerrors.ApplicationNotFound] is returned.
 	GetCharmByApplicationID(context.Context, coreapplication.ID) (charm.Charm, error)
 
 	// GetCharmIDByApplicationName returns a charm ID by application name. It
@@ -360,6 +358,15 @@ type ApplicationState interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]string, error)
+
+	// ValidateEndpointBindingsForApplication
+	ValidateEndpointBindingsForApplication(context.Context, coreapplication.ID, map[string]network.SpaceName) error
+
+	// MergeApplicationEndpointBindings merge the provided bindings into the bindings
+	// for the specified application.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotFound] if the application does not exist
+	MergeApplicationEndpointBindings(context.Context, coreapplication.ID, map[string]network.SpaceName) error
 
 	// NamespaceForWatchNetNodeAddress returns the namespace identifier for
 	// net node address changes, which is the ip_address table.
@@ -740,11 +747,9 @@ func (s *Service) GetCharmModifiedVersion(ctx context.Context, id coreapplicatio
 // ID.
 //
 // If the application does not exist, an error satisfying
-// [applicationerrors.ApplicationNotFound] is returned. If the charm for the
-// application does not exist, an error satisfying
-// [applicationerrors.CharmNotFound is returned. If the application name is not
-// valid, an error satisfying [applicationerrors.ApplicationNameNotValid] is
-// returned.
+// [applicationerrors.ApplicationNotFound] is returned. If the application name
+// is not valid, an error satisfying [applicationerrors.ApplicationNameNotValid]
+// is returned.
 func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplication.ID) (
 	internalcharm.Charm,
 	charm.CharmLocator,
@@ -1412,12 +1417,36 @@ func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreappli
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) GetApplicationEndpointBindings(ctx context.Context, appID coreapplication.ID) (map[string]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := appID.Validate(); err != nil {
 		return nil, errors.Errorf("validating application ID: %w", err)
 	}
 
 	bindings, err := s.st.GetApplicationEndpointBindings(ctx, appID)
 	return bindings, errors.Capture(err)
+}
+
+// MergeApplicationEndpointBindings merge the provided bindings into the bindings
+// for the specified application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
+func (s *Service) MergeApplicationEndpointBindings(ctx context.Context, appID coreapplication.ID, bindings map[string]network.SpaceName, force bool) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appID.Validate(); err != nil {
+		return errors.Errorf("validating application ID: %w", err)
+	}
+
+	if !force {
+		if err := s.st.ValidateEndpointBindingsForApplication(ctx, appID, bindings); err != nil {
+			return errors.Errorf("validating endpoint bindings: %w", err)
+		}
+	}
+
+	return s.st.MergeApplicationEndpointBindings(ctx, appID, bindings)
 }
 
 // GetDeviceConstraints returns the device constraints for an application.

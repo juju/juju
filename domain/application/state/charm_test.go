@@ -3636,7 +3636,7 @@ func (s *charmStateSuite) TestGetCharmIDByApplicationIDNotFound(c *tc.C) {
 		_, err := st.getCharmIDByApplicationID(c.Context(), tx, applicationtesting.GenApplicationUUID(c))
 		return err
 	})
-	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmIDByApplicationID(c *tc.C) {

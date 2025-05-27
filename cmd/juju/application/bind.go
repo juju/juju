@@ -155,6 +155,8 @@ func (c *bindCommand) Run(ctx *cmd.Context) error {
 
 	appDefaultSpace := curBindings[""]
 
+	// TODO(jack-w-shaw): merging is handled server-side by the service layer.
+	// Stop merging here
 	var bindingsChangelog []string
 	c.Bindings, bindingsChangelog = mergeBindings(curCharmEndpoints, curBindings, c.Bindings, appDefaultSpace)
 
