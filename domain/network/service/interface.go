@@ -134,4 +134,11 @@ type NetConfigMigrationState interface {
 	// ImportLinkLayerDevices adds link layer devices into the model as part
 	// of the migration import process.
 	ImportLinkLayerDevices(ctx context.Context, input []internal.ImportLinkLayerDevice) error
+
+	// MergeLinkLayerDevice merges the existing link layer devices with the
+	// incoming ones.
+	MergeLinkLayerDevice(
+		ctx context.Context,
+		machineUUID string, incoming []domainnetwork.NetInterface,
+	) error
 }

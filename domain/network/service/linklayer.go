@@ -46,6 +46,19 @@ func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []in
 	return s.st.ImportLinkLayerDevices(ctx, useData)
 }
 
+// MergeLinkLayerDevice merges the existing link layer devices with the
+// incoming ones.
+func (s *Service) MergeLinkLayerDevice(
+	ctx context.Context,
+	machineUUID machine.UUID,
+	incoming []network.NetInterface,
+) error {
+	if err := machineUUID.Validate(); err != nil {
+		return errors.Errorf("invalid machine UUID: %w", err)
+	}
+	return errors.Capture(s.st.MergeLinkLayerDevice(ctx, machineUUID.String(), incoming))
+}
+
 // SetMachineNetConfig updates the detected network configuration for
 // the machine with the input UUID.
 func (s *Service) SetMachineNetConfig(ctx context.Context, mUUID machine.UUID, nics []network.NetInterface) error {

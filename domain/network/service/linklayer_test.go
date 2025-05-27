@@ -27,6 +27,17 @@ type linkLayerSuite struct {
 	st *MockState
 }
 
+func (s *linkLayerSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.st = NewMockState(ctrl)
+	c.Cleanup(func() { s.st = nil })
+	return ctrl
+}
+
+func (s *linkLayerSuite) service(c *tc.C) *Service {
+	return NewService(s.st, loggertesting.WrapCheckLog(c))
+}
+
 func TestLinkLayerSuite(t *testing.T) {
 	tc.Run(t, &linkLayerSuite{})
 }
@@ -103,7 +114,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigBadUUIDError(c *tc.C) {
 
 	mUUID := machine.UUID("bad-machine-uuid")
 
-	err := NewService(s.st, loggertesting.WrapCheckLog(c)).SetMachineNetConfig(c.Context(), mUUID, nil)
+	err := s.service(c).SetMachineNetConfig(c.Context(), mUUID, nil)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -117,7 +128,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNodeNotFoundError(c *tc.C) {
 
 	nics := []network.NetInterface{{Name: "eth0"}}
 
-	err = NewService(s.st, loggertesting.WrapCheckLog(c)).SetMachineNetConfig(c.Context(), mUUID, nics)
+	err = s.service(c).SetMachineNetConfig(c.Context(), mUUID, nics)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
@@ -134,7 +145,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigSetCallError(c *tc.C) {
 	exp.GetMachineNetNodeUUID(gomock.Any(), mUUID.String()).Return(nUUID, nil)
 	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics).Return(errors.New("boom"))
 
-	err = NewService(s.st, loggertesting.WrapCheckLog(c)).SetMachineNetConfig(c.Context(), mUUID, nics)
+	err = s.service(c).SetMachineNetConfig(c.Context(), mUUID, nics)
 	c.Assert(err, tc.ErrorMatches, "setting net config for machine .* boom")
 }
 
@@ -144,7 +155,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigEmpty(c *tc.C) {
 	mUUID, err := machine.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = NewService(s.st, loggertesting.WrapCheckLog(c)).SetMachineNetConfig(c.Context(), mUUID, nil)
+	err = s.service(c).SetMachineNetConfig(c.Context(), mUUID, nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -177,13 +188,53 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 	exp.GetMachineNetNodeUUID(gomock.Any(), mUUID.String()).Return(nUUID, nil)
 	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics).Return(nil)
 
-	err = NewService(s.st, loggertesting.WrapCheckLog(c)).SetMachineNetConfig(ctx, mUUID, nics)
+	err = s.service(c).SetMachineNetConfig(ctx, mUUID, nics)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *linkLayerSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.st = NewMockState(ctrl)
-	c.Cleanup(func() { s.st = nil })
-	return ctrl
+func (s *linkLayerSuite) TestMergeLinkLayerDevicesInvalidMachineUUID(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	invalidUUID := machine.UUID("invalid-uuid")
+
+	// Act
+	err := s.service(c).MergeLinkLayerDevice(c.Context(), invalidUUID, nil)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `invalid machine UUID: id "invalid-uuid" not valid`)
+}
+
+func (s *linkLayerSuite) TestMergeLinkLayerDevicesError(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machine.UUID(uuid.MustNewUUID().String())
+	incoming := []network.NetInterface{{}, {}}
+	stateErr := errors.New("boom")
+
+	s.st.EXPECT().MergeLinkLayerDevice(gomock.Any(), machineUUID.String(),
+		incoming).Return(stateErr)
+
+	// Act
+	err := s.service(c).MergeLinkLayerDevice(c.Context(), machineUUID, incoming)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, stateErr)
+}
+
+func (s *linkLayerSuite) TestMergeLinkLayerDevices(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	machineUUID := machine.UUID(uuid.MustNewUUID().String())
+	incoming := []network.NetInterface{
+		{},
+		{},
+	}
+	s.st.EXPECT().MergeLinkLayerDevice(gomock.Any(), machineUUID.String(), incoming).Return(nil)
+
+	// Act
+	err := s.service(c).MergeLinkLayerDevice(c.Context(), machineUUID, incoming)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
 }
