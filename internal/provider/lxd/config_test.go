@@ -7,11 +7,13 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/testing"
@@ -22,6 +24,11 @@ type configSuite struct {
 
 	provider environs.EnvironProvider
 	config   *config.Config
+
+	creds         *environtesting.MockProviderCredentials
+	credsRegister *environtesting.MockProviderCredentialsRegister
+	factory       *lxd.MockServerFactory
+	configReader  *lxd.MockLXCConfigReader
 }
 
 func TestConfigSuite(t *stdtesting.T) {
@@ -36,6 +43,27 @@ func (s *configSuite) SetUpTest(c *tc.C) {
 	cfg, err := testing.ModelConfig(c).Apply(lxd.ConfigAttrs)
 	c.Assert(err, tc.ErrorIsNil)
 	s.config = cfg
+}
+
+func (s *configSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.creds = environtesting.NewMockProviderCredentials(ctrl)
+	s.credsRegister = environtesting.NewMockProviderCredentialsRegister(ctrl)
+	s.factory = lxd.NewMockServerFactory(ctrl)
+	s.configReader = lxd.NewMockLXCConfigReader(ctrl)
+
+	s.provider = lxd.NewProviderWithMocks(s.creds, s.credsRegister, s.factory, s.configReader)
+
+	c.Cleanup(func() {
+		s.creds = nil
+		s.credsRegister = nil
+		s.factory = nil
+		s.configReader = nil
+		s.provider = nil
+	})
+
+	return ctrl
 }
 
 func (s *configSuite) TestDefaults(c *tc.C) {
@@ -137,11 +165,18 @@ var newConfigTests = []configTestSpec{{
 }}
 
 func (s *configSuite) TestNewModelConfig(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	server := lxd.NewMockServer(ctrl)
+	s.factory.EXPECT().RemoteServer(gomock.Any()).Return(server, nil).AnyTimes()
+	server.EXPECT().HasProfile(gomock.Any()).Return(true, nil).AnyTimes()
+
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		environ, err := environs.New(c.Context(), environs.OpenParams{
+		environ, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 			Cloud:  lxdCloudSpec(),
 			Config: testConfig,
 		}, environs.NoopCredentialInvalidator())
@@ -156,6 +191,9 @@ func (s *configSuite) TestNewModelConfig(c *tc.C) {
 }
 
 func (s *configSuite) TestValidateNewConfig(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
@@ -173,6 +211,9 @@ func (s *configSuite) TestValidateNewConfig(c *tc.C) {
 }
 
 func (s *configSuite) TestValidateOldConfig(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
@@ -212,6 +253,9 @@ var changeConfigTests = []configTestSpec{{
 }}
 
 func (s *configSuite) TestValidateChange(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
@@ -228,10 +272,17 @@ func (s *configSuite) TestValidateChange(c *tc.C) {
 }
 
 func (s *configSuite) TestSetConfig(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	server := lxd.NewMockServer(ctrl)
+	s.factory.EXPECT().RemoteServer(gomock.Any()).Return(server, nil).AnyTimes()
+	server.EXPECT().HasProfile(gomock.Any()).Return(true, nil).AnyTimes()
+
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(c.Context(), environs.OpenParams{
+		environ, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 			Cloud:  lxdCloudSpec(),
 			Config: s.config,
 		}, environs.NoopCredentialInvalidator())
@@ -253,6 +304,9 @@ func (s *configSuite) TestSetConfig(c *tc.C) {
 }
 
 func (s *configSuite) TestSchema(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	fields := s.provider.(interface {
 		Schema() configschema.Fields
 	}).Schema()

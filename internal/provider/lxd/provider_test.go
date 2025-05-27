@@ -29,9 +29,8 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
-func TestProviderFunctionalSuite(t *stdtesting.T) {
-	tc.Run(t, &ProviderFunctionalSuite{})
+func TestProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &providerSuite{})
 }
 
 type providerSuite struct {
@@ -528,26 +527,18 @@ func (s *providerSuite) TestPingFailWithHTTP(c *tc.C) {
 		httpsURL))
 }
 
-type ProviderFunctionalSuite struct {
-	lxd.BaseSuite
-
-	provider environs.EnvironProvider
-}
-
-func (s *ProviderFunctionalSuite) SetUpTest(c *tc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	provider, err := environs.Provider("lxd")
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.provider = provider
-}
-
-func (s *ProviderFunctionalSuite) TestOpen(c *tc.C) {
+func (s *providerSuite) TestOpen(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	env, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
+	deps := s.createProvider(ctrl)
+	server := lxd.NewMockServer(ctrl)
+	deps.factory.EXPECT().RemoteServer(gomock.Any()).DoAndReturn(func(cs lxd.CloudSpec) (lxd.Server, error) {
+		return server, nil
+	})
+	server.EXPECT().HasProfile(gomock.Any()).Return(true, nil)
+
+	env, err := environs.Open(c.Context(), deps.provider, environs.OpenParams{
 		Cloud:  lxdCloudSpec(),
 		Config: s.Config,
 	}, environs.NoopCredentialInvalidator())
@@ -557,30 +548,36 @@ func (s *ProviderFunctionalSuite) TestOpen(c *tc.C) {
 	c.Check(envConfig.Name(), tc.Equals, "testmodel")
 }
 
-func (s *ProviderFunctionalSuite) TestValidateCloud(c *tc.C) {
+func (s *providerSuite) TestValidateCloud(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	err := s.provider.ValidateCloud(c.Context(), lxdCloudSpec())
+	deps := s.createProvider(ctrl)
+
+	err := deps.provider.ValidateCloud(c.Context(), lxdCloudSpec())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedEndpointScheme(c *tc.C) {
+func (s *providerSuite) TestValidateCloudUnsupportedEndpointScheme(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
 
 	cloudSpec := lxdCloudSpec()
 	cloudSpec.Endpoint = "unix://foo"
-	err := s.provider.ValidateCloud(c.Context(), cloudSpec)
+	err := deps.provider.ValidateCloud(c.Context(), cloudSpec)
 	c.Assert(err, tc.ErrorMatches, `validating cloud spec: invalid URL "unix://foo": only HTTPS is supported`)
 }
 
-func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedAuthType(c *tc.C) {
+func (s *providerSuite) TestValidateCloudUnsupportedAuthType(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
+	deps := s.createProvider(ctrl)
+
 	cred := cloud.NewCredential("foo", nil)
-	err := s.provider.ValidateCloud(c.Context(), environscloudspec.CloudSpec{
+	err := deps.provider.ValidateCloud(c.Context(), environscloudspec.CloudSpec{
 		Type:       "lxd",
 		Name:       "remotehost",
 		Credential: &cred,
@@ -588,12 +585,14 @@ func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedAuthType(c *tc.C) 
 	c.Assert(err, tc.ErrorMatches, `validating cloud spec: "foo" auth-type not supported`)
 }
 
-func (s *ProviderFunctionalSuite) TestValidateCloudInvalidCertificateAttrs(c *tc.C) {
+func (s *providerSuite) TestValidateCloudInvalidCertificateAttrs(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
+	deps := s.createProvider(ctrl)
+
 	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{})
-	err := s.provider.ValidateCloud(c.Context(), environscloudspec.CloudSpec{
+	err := deps.provider.ValidateCloud(c.Context(), environscloudspec.CloudSpec{
 		Type:       "lxd",
 		Name:       "remotehost",
 		Credential: &cred,
@@ -601,12 +600,14 @@ func (s *ProviderFunctionalSuite) TestValidateCloudInvalidCertificateAttrs(c *tc
 	c.Assert(err, tc.ErrorMatches, `validating cloud spec: certificate credentials not valid`)
 }
 
-func (s *ProviderFunctionalSuite) TestValidateCloudEmptyAuthNonLocal(c *tc.C) {
+func (s *providerSuite) TestValidateCloudEmptyAuthNonLocal(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
+	deps := s.createProvider(ctrl)
+
 	cred := cloud.NewEmptyCredential()
-	err := s.provider.ValidateCloud(c.Context(), environscloudspec.CloudSpec{
+	err := deps.provider.ValidateCloud(c.Context(), environscloudspec.CloudSpec{
 		Type:       "lxd",
 		Name:       "remotehost",
 		Endpoint:   "8.8.8.8",
