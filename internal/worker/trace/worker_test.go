@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
-	"github.com/juju/juju/internal/testing"
 )
 
 type workerSuite struct {
@@ -215,7 +214,7 @@ func assertWait(c *tc.C, wait func()) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting")
 	}
 }
