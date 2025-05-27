@@ -622,7 +622,7 @@ func (st *State) normalizeLinkLayeredDevices(
 					func(addr network.NetAddr) mergeAddress {
 						return mergeAddress{
 							Value:      addr.AddressValue,
-							ProviderID: string(deref(dev.ProviderID)),
+							ProviderID: string(deref(addr.ProviderID)),
 						}
 					}),
 			}

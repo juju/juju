@@ -123,11 +123,23 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
 	s.addProviderLinkLayerDevice(c, "old-provider-id-1", device1UUID)
 	s.addProviderLinkLayerDevice(c, "provider-id-2", device2UUID)
 
+	// Add Ips addresses
+	eth01 := s.addIPAddress(c, device1UUID, netNodeUUID, "192.168.1.1/24")
+	eth11 := s.addIPAddress(c, device2UUID, netNodeUUID, "100.168.1.1/24")
+
+	s.addProviderIPAddress(c, eth01, "provider-ip-1")
+	s.addProviderIPAddress(c, eth11, "old-provider-ip-2")
+
 	// Create incoming devices with updated provider ID for eth0
 	incoming := []network.NetInterface{
 		s.createNetInterface("eth0", "00:11:22:33:44:55", "new-provider-id-1",
-			nil),
-		s.createNetInterface("eth1", "00:11:22:33:44:66", "provider-id-2", nil),
+			[]network.NetAddr{
+				s.createNetAddr("192.168.1.1/24", "provider-ip-1"),
+			}),
+		s.createNetInterface("eth1", "00:11:22:33:44:66", "provider-id-2",
+			[]network.NetAddr{
+				s.createNetAddr("100.168.1.1/24", "new-provider-ip-2"),
+			}),
 	}
 
 	// Act
@@ -151,6 +163,18 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
 				MacAddress: "00:11:22:33:44:66",
 			},
 		})
+	c.Check(s.fetchLinkLayerAddresses(c, netNodeUUID), tc.SameContents,
+		[]mergedLinkLayerAddress{{
+			UUID:       eth01,
+			Address:    "192.168.1.1/24",
+			ProviderID: "provider-ip-1",
+			Origin:     "provider",
+		}, {
+			UUID:       eth11,
+			Address:    "100.168.1.1/24",
+			ProviderID: "new-provider-ip-2",
+			Origin:     "provider",
+		}})
 }
 
 // testNoAddressToRelinquish tests the case where a provider without
@@ -737,6 +761,16 @@ func (s *mergeLinkLayerSuite) addProviderIPAddress(
 		INSERT INTO provider_ip_address (provider_id, address_uuid)
 		VALUES (?, ?)
 	`, providerID, addressUUID)
+}
+
+// createNetInterface creates a network.NetInterface for testing.
+func (s *mergeLinkLayerSuite) createNetAddr(value,
+	providerID string) network.NetAddr {
+	provider := corenetwork.Id(providerID)
+	return network.NetAddr{
+		ProviderID:   &provider,
+		AddressValue: value,
+	}
 }
 
 // createNetInterface creates a network.NetInterface for testing.
