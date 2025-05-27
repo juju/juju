@@ -29,7 +29,9 @@ type MigrationService struct {
 // NewMigrationService returns a new migration service reference wrapping
 // the input state. These methods are specific to migration only and not
 // intended to be used outside of the domain.
-func NewMigrationService(st State, logger logger.Logger) *MigrationService {
+func NewMigrationService(
+	st LinkLayerDeviceState, logger logger.Logger,
+) *MigrationService {
 	return &MigrationService{
 		st:     st,
 		logger: logger,
