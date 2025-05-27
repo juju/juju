@@ -16,37 +16,75 @@ import (
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	jujuversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
-type suite struct {
-	state *MockState
+// modelUpgradeSuite is a set of tests for confirming the behaviour of upgrading
+// a model.
+type modelUpgradeSuite struct {
+	agentBinaryFinder *MockAgentBinaryFinder
+	state             *MockState
 }
 
-func TestSuite(t *testing.T) {
-	tc.Run(t, &suite{})
+type serviceSuite struct {
+	agentBinaryFinder *MockAgentBinaryFinder
+	state             *MockState
 }
 
-func (s *suite) setupMocks(c *tc.C) *gomock.Controller {
+// TestModelUpgradeSuite runs the tests that comprise the model upgrade suite.
+func TestModelUpgradeSuite(t *testing.T) {
+	tc.Run(t, &modelUpgradeSuite{})
+}
+
+// TestServiceSuite runs the tests that comprise the service suite.
+func TestServiceSuite(t *testing.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
+func (s *modelUpgradeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+	s.agentBinaryFinder = NewMockAgentBinaryFinder(ctrl)
 	s.state = NewMockState(ctrl)
 	return ctrl
 }
 
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.agentBinaryFinder = NewMockAgentBinaryFinder(ctrl)
+	s.state = NewMockState(ctrl)
+	return ctrl
+}
+
+// TearDownTest is called after each test to nil out the mocks. This helps
+// ensure correct setup of mocks for each test.
+func (s *modelUpgradeSuite) TearDownTest(c *tc.C) {
+	s.agentBinaryFinder = nil
+	s.state = nil
+}
+
+// TearDownTest is called after each test to nil out the mocks. This helps
+// ensure correct setup of mocks for each test.
+func (s *serviceSuite) TearDownTest(c *tc.C) {
+	s.agentBinaryFinder = nil
+	s.state = nil
+}
+
 // TestGetModelAgentVersionSuccess tests the happy path for
 // Service.GetModelAgentVersion.
-func (s *suite) TestGetModelAgentVersionSuccess(c *tc.C) {
+func (s *serviceSuite) TestGetModelAgentVersionSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expectedVersion, err := semversion.Parse("4.21.65")
 	c.Assert(err, tc.ErrorIsNil)
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expectedVersion, nil)
 
-	svc := NewService(s.state)
+	svc := NewService(s.agentBinaryFinder, s.state)
 	ver, err := svc.GetModelTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.DeepEquals, expectedVersion)
@@ -54,19 +92,19 @@ func (s *suite) TestGetModelAgentVersionSuccess(c *tc.C) {
 
 // TestGetModelAgentVersionNotFound tests that Service.GetModelAgentVersion
 // returns an appropriate error when the agent version cannot be found.
-func (s *suite) TestGetModelAgentVersionModelNotFound(c *tc.C) {
+func (s *serviceSuite) TestGetModelAgentVersionModelNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, modelagenterrors.AgentVersionNotFound)
 
-	svc := NewService(s.state)
+	svc := NewService(s.agentBinaryFinder, s.state)
 	_, err := svc.GetModelTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
 // TestGetMachineTargetAgentVersion is asserting the happy path for getting
 // a machine's target agent version.
-func (s *suite) TestGetMachineTargetAgentVersion(c *tc.C) {
+func (s *serviceSuite) TestGetMachineTargetAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineName := coremachine.Name("0")
@@ -79,7 +117,8 @@ func (s *suite) TestGetMachineTargetAgentVersion(c *tc.C) {
 	s.state.EXPECT().GetMachineUUIDByName(gomock.Any(), machineName).Return(uuid, nil)
 	s.state.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), uuid).Return(ver, nil)
 
-	rval, err := NewService(s.state).GetMachineTargetAgentVersion(c.Context(), machineName)
+	svc := NewService(s.agentBinaryFinder, s.state)
+	rval, err := svc.GetMachineTargetAgentVersion(c.Context(), machineName)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, ver)
 }
@@ -87,14 +126,15 @@ func (s *suite) TestGetMachineTargetAgentVersion(c *tc.C) {
 // TestGetMachineTargetAgentVersionNotFound is testing that the service
 // returns a [machineerrors.MachineNotFound] error when no machine exists for
 // a given name.
-func (s *suite) TestGetMachineTargetAgentVersionNotFound(c *tc.C) {
+func (s *serviceSuite) TestGetMachineTargetAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetMachineUUIDByName(gomock.Any(), coremachine.Name("0")).Return(
 		"", machineerrors.MachineNotFound,
 	)
 
-	_, err := NewService(s.state).GetMachineTargetAgentVersion(
+	svc := NewService(s.agentBinaryFinder, s.state)
+	_, err := svc.GetMachineTargetAgentVersion(
 		c.Context(),
 		coremachine.Name("0"),
 	)
@@ -103,7 +143,7 @@ func (s *suite) TestGetMachineTargetAgentVersionNotFound(c *tc.C) {
 
 // TestGetUnitTargetAgentVersion is asserting the happy path for getting
 // a unit's target agent version.
-func (s *suite) TestGetUnitTargetAgentVersion(c *tc.C) {
+func (s *serviceSuite) TestGetUnitTargetAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ver := coreagentbinary.Version{
@@ -115,7 +155,8 @@ func (s *suite) TestGetUnitTargetAgentVersion(c *tc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(uuid, nil)
 	s.state.EXPECT().GetUnitTargetAgentVersion(gomock.Any(), uuid).Return(ver, nil)
 
-	rval, err := NewService(s.state).GetUnitTargetAgentVersion(c.Context(), "foo/0")
+	svc := NewService(s.agentBinaryFinder, s.state)
+	rval, err := svc.GetUnitTargetAgentVersion(c.Context(), "foo/0")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, ver)
 }
@@ -123,14 +164,15 @@ func (s *suite) TestGetUnitTargetAgentVersion(c *tc.C) {
 // TestGetUnitTargetAgentVersionNotFound is testing that the service
 // returns a [applicationerrors.UnitNotFound] error when no unit exists for
 // a given name.
-func (s *suite) TestGetUnitTargetAgentVersionNotFound(c *tc.C) {
+func (s *serviceSuite) TestGetUnitTargetAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(
 		"", applicationerrors.UnitNotFound,
 	)
 
-	_, err := NewService(s.state).GetUnitTargetAgentVersion(
+	svc := NewService(s.agentBinaryFinder, s.state)
+	_, err := svc.GetUnitTargetAgentVersion(
 		c.Context(),
 		"foo/0",
 	)
@@ -140,14 +182,15 @@ func (s *suite) TestGetUnitTargetAgentVersionNotFound(c *tc.C) {
 // TestWatchUnitTargetAgentVersionNotFound is testing that the service
 // returns a [applicationerrors.UnitNotFound] error when no unit exists for
 // a given name.
-func (s *suite) TestWatchUnitTargetAgentVersionNotFound(c *tc.C) {
+func (s *serviceSuite) TestWatchUnitTargetAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(
 		"", applicationerrors.UnitNotFound,
 	)
 
-	_, err := NewWatchableService(s.state, nil).WatchUnitTargetAgentVersion(
+	svc := NewWatchableService(s.agentBinaryFinder, s.state, nil)
+	_, err := svc.WatchUnitTargetAgentVersion(
 		c.Context(),
 		"foo/0",
 	)
@@ -157,24 +200,26 @@ func (s *suite) TestWatchUnitTargetAgentVersionNotFound(c *tc.C) {
 // TestWatchMachineTargetAgentVersionNotFound is testing that the service
 // returns a [machineerrors.MachineNotFound] error when no machine exists for
 // a given name.
-func (s *suite) TestWatchMachineTargetAgentVersionNotFound(c *tc.C) {
+func (s *serviceSuite) TestWatchMachineTargetAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetMachineUUIDByName(gomock.Any(), coremachine.Name("0")).Return(
 		"", machineerrors.MachineNotFound,
 	)
 
-	_, err := NewWatchableService(s.state, nil).WatchMachineTargetAgentVersion(c.Context(), "0")
+	svc := NewWatchableService(s.agentBinaryFinder, s.state, nil)
+	_, err := svc.WatchMachineTargetAgentVersion(c.Context(), "0")
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestSetMachineReportedAgentVersionInvalid is here to assert that if pass a
 // junk agent binary version to [Service.SetMachineReportedAgentVersion] we get
 // back an error that satisfies [coreerrors.NotValid].
-func (s *suite) TestSetMachineReportedAgentVersionInvalid(c *tc.C) {
+func (s *serviceSuite) TestSetMachineReportedAgentVersionInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewService(s.state).SetMachineReportedAgentVersion(
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.SetMachineReportedAgentVersion(
 		c.Context(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
@@ -189,7 +234,7 @@ func (s *suite) TestSetMachineReportedAgentVersionInvalid(c *tc.C) {
 // satisfying [machineerrors.MachineNotFound]. Because the service relied on
 // state for producing this error we need to simulate this in two different
 // locations to assert the full functionality.
-func (s *suite) TestSetMachineReportedAgentVersionNotFound(c *tc.C) {
+func (s *serviceSuite) TestSetMachineReportedAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// MachineNotFound error location 1.
@@ -197,7 +242,8 @@ func (s *suite) TestSetMachineReportedAgentVersionNotFound(c *tc.C) {
 		"", machineerrors.MachineNotFound,
 	)
 
-	err := NewService(s.state).SetMachineReportedAgentVersion(
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.SetMachineReportedAgentVersion(
 		c.Context(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
@@ -224,7 +270,7 @@ func (s *suite) TestSetMachineReportedAgentVersionNotFound(c *tc.C) {
 		},
 	).Return(machineerrors.MachineNotFound)
 
-	err = NewService(s.state).SetMachineReportedAgentVersion(
+	err = svc.SetMachineReportedAgentVersion(
 		c.Context(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
@@ -235,7 +281,7 @@ func (s *suite) TestSetMachineReportedAgentVersionNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *suite) TestSetMachineReportedAgentVersionDead(c *tc.C) {
+func (s *serviceSuite) TestSetMachineReportedAgentVersionDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineUUID, err := uuid.NewUUID()
@@ -254,7 +300,8 @@ func (s *suite) TestSetMachineReportedAgentVersionDead(c *tc.C) {
 		},
 	).Return(machineerrors.MachineIsDead)
 
-	err = NewService(s.state).SetMachineReportedAgentVersion(
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err = svc.SetMachineReportedAgentVersion(
 		c.Context(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
@@ -267,7 +314,7 @@ func (s *suite) TestSetMachineReportedAgentVersionDead(c *tc.C) {
 
 // TestSetMachineReportedAgentVersion asserts the happy path of
 // [Service.SetMachineReportedAgentVersion].
-func (s *suite) TestSetMachineReportedAgentVersion(c *tc.C) {
+func (s *serviceSuite) TestSetMachineReportedAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineUUID, err := uuid.NewUUID()
@@ -285,7 +332,8 @@ func (s *suite) TestSetMachineReportedAgentVersion(c *tc.C) {
 		},
 	).Return(nil)
 
-	err = NewService(s.state).SetMachineReportedAgentVersion(
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err = svc.SetMachineReportedAgentVersion(
 		c.Context(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
@@ -299,10 +347,11 @@ func (s *suite) TestSetMachineReportedAgentVersion(c *tc.C) {
 // TestSetReportedUnitAgentVersionInvalid is here to assert that if pass a
 // junk agent binary version to [Service.SetReportedUnitAgentVersion] we get
 // back an error that satisfies [coreerrors.NotValid].
-func (s *suite) TestSetReportedUnitAgentVersionInvalid(c *tc.C) {
+func (s *serviceSuite) TestSetReportedUnitAgentVersionInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewService(s.state).SetUnitReportedAgentVersion(
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.SetUnitReportedAgentVersion(
 		c.Context(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
@@ -317,7 +366,7 @@ func (s *suite) TestSetReportedUnitAgentVersionInvalid(c *tc.C) {
 // satisfying [applicationerrors.UnitNotFound]. Because the service relied on
 // state for producing this error we need to simulate this in two different
 // locations to assert the full functionality.
-func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *tc.C) {
+func (s *serviceSuite) TestSetReportedUnitAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// UnitNotFound error location 1.
@@ -325,7 +374,8 @@ func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *tc.C) {
 		"", applicationerrors.UnitNotFound,
 	)
 
-	err := NewService(s.state).SetUnitReportedAgentVersion(
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.SetUnitReportedAgentVersion(
 		c.Context(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
@@ -351,7 +401,7 @@ func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *tc.C) {
 		},
 	).Return(applicationerrors.UnitNotFound)
 
-	err = NewService(s.state).SetUnitReportedAgentVersion(
+	err = svc.SetUnitReportedAgentVersion(
 		c.Context(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
@@ -365,7 +415,7 @@ func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *tc.C) {
 // TestSetReportedUnitAgentVersionDead asserts that if we try to set the
 // reported agent version for a dead unit we get an error satisfying
 // [applicationerrors.UnitIsDead].
-func (s *suite) TestSetReportedUnitAgentVersionDead(c *tc.C) {
+func (s *serviceSuite) TestSetReportedUnitAgentVersionDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -383,7 +433,8 @@ func (s *suite) TestSetReportedUnitAgentVersionDead(c *tc.C) {
 		},
 	).Return(applicationerrors.UnitIsDead)
 
-	err := NewService(s.state).SetUnitReportedAgentVersion(
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.SetUnitReportedAgentVersion(
 		c.Context(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
@@ -396,7 +447,7 @@ func (s *suite) TestSetReportedUnitAgentVersionDead(c *tc.C) {
 
 // TestSetReportedUnitAgentVersion asserts the happy path of
 // [Service.SetReportedUnitAgentVersion].
-func (s *suite) TestSetReportedUnitAgentVersion(c *tc.C) {
+func (s *serviceSuite) TestSetReportedUnitAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -414,7 +465,8 @@ func (s *suite) TestSetReportedUnitAgentVersion(c *tc.C) {
 		},
 	).Return(nil)
 
-	err := NewService(s.state).SetUnitReportedAgentVersion(
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.SetUnitReportedAgentVersion(
 		c.Context(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
@@ -428,7 +480,7 @@ func (s *suite) TestSetReportedUnitAgentVersion(c *tc.C) {
 // TestGetMachineReportedAgentVersionMachineNotFound asserts that if we ask for
 // the reported agent version of a machine and the machine does not exist we get
 // back an error that satisfies [machineerrors.MachineNotFound].
-func (s *suite) TestGetMachineReportedAgentVersionMachineNotFound(c *tc.C) {
+func (s *serviceSuite) TestGetMachineReportedAgentVersionMachineNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineName := coremachine.Name("0")
@@ -437,7 +489,7 @@ func (s *suite) TestGetMachineReportedAgentVersionMachineNotFound(c *tc.C) {
 	s.state.EXPECT().GetMachineUUIDByName(gomock.Any(), machineName).Return(
 		"", machineerrors.MachineNotFound)
 
-	svc := NewService(s.state)
+	svc := NewService(s.agentBinaryFinder, s.state)
 	_, err := svc.GetMachineReportedAgentVersion(c.Context(), machineName)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 
@@ -456,7 +508,7 @@ func (s *suite) TestGetMachineReportedAgentVersionMachineNotFound(c *tc.C) {
 // TestGetMachineReportedAgentVersionAgentVersionNotFound asserts that if we ask
 // for the reported agent version of a machine and one has not been set that an
 // error statisfying [modelagenterrors.AgentVersionNotFound].
-func (s *suite) TestGetMachineReportedAgentVersionAgentVersionNotFound(c *tc.C) {
+func (s *serviceSuite) TestGetMachineReportedAgentVersionAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineName := coremachine.Name("0")
@@ -467,14 +519,14 @@ func (s *suite) TestGetMachineReportedAgentVersionAgentVersionNotFound(c *tc.C) 
 		coreagentbinary.Version{}, modelagenterrors.AgentVersionNotFound,
 	)
 
-	svc := NewService(s.state)
+	svc := NewService(s.agentBinaryFinder, s.state)
 	_, err := svc.GetMachineReportedAgentVersion(c.Context(), machineName)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
 // TestGetMachineReportedAgentVersion is a happy path test of
 // [Service.GetMachineReportedAgentVersion].
-func (s *suite) TestGetMachineReportedAgentVersion(c *tc.C) {
+func (s *serviceSuite) TestGetMachineReportedAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineName := coremachine.Name("0")
@@ -488,7 +540,7 @@ func (s *suite) TestGetMachineReportedAgentVersion(c *tc.C) {
 		}, nil,
 	)
 
-	svc := NewService(s.state)
+	svc := NewService(s.agentBinaryFinder, s.state)
 	ver, err := svc.GetMachineReportedAgentVersion(c.Context(), machineName)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.DeepEquals, coreagentbinary.Version{
@@ -500,7 +552,7 @@ func (s *suite) TestGetMachineReportedAgentVersion(c *tc.C) {
 // TestGetUnitReportedAgentVersionUnitNotFound asserts that if we ask for
 // the reported agent version of a unit and the unit does not exist we get
 // back an error that satisfies [applicationerrors.UnitNotFound].
-func (s *suite) TestGetUnitReportedAgentVersionUnitNotFound(c *tc.C) {
+func (s *serviceSuite) TestGetUnitReportedAgentVersionUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unittesting.GenNewName(c, "foo/0")
@@ -509,7 +561,7 @@ func (s *suite) TestGetUnitReportedAgentVersionUnitNotFound(c *tc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(
 		"", applicationerrors.UnitNotFound)
 
-	svc := NewService(s.state)
+	svc := NewService(s.agentBinaryFinder, s.state)
 	_, err := svc.GetUnitReportedAgentVersion(c.Context(), unitName)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 
@@ -528,7 +580,7 @@ func (s *suite) TestGetUnitReportedAgentVersionUnitNotFound(c *tc.C) {
 // TestGetUnitReportedAgentVersionAgentVersionNotFound asserts that if we ask
 // for the reported agent version of a unit and one has not been set that an
 // error statisfying [modelagenterrors.AgentVersionNotFound].
-func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotFound(c *tc.C) {
+func (s *serviceSuite) TestGetUnitReportedAgentVersionAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unittesting.GenNewName(c, "foo/0")
@@ -539,14 +591,14 @@ func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotFound(c *tc.C) {
 		coreagentbinary.Version{}, modelagenterrors.AgentVersionNotFound,
 	)
 
-	svc := NewService(s.state)
+	svc := NewService(s.agentBinaryFinder, s.state)
 	_, err := svc.GetUnitReportedAgentVersion(c.Context(), unitName)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
 // TestGetUnitReportedAgentVersion is a happy path test of
 // [Service.GetMachineReportedAgentVersion].
-func (s *suite) TestGetUnitReportedAgentVersion(c *tc.C) {
+func (s *serviceSuite) TestGetUnitReportedAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unittesting.GenNewName(c, "foo/0")
@@ -560,7 +612,7 @@ func (s *suite) TestGetUnitReportedAgentVersion(c *tc.C) {
 		}, nil,
 	)
 
-	svc := NewService(s.state)
+	svc := NewService(s.agentBinaryFinder, s.state)
 	ver, err := svc.GetUnitReportedAgentVersion(c.Context(), unitName)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.DeepEquals, coreagentbinary.Version{
@@ -572,12 +624,12 @@ func (s *suite) TestGetUnitReportedAgentVersion(c *tc.C) {
 // TestGetMachinesReportedAgentVersionAgentVersionNotSet asserts error
 // pass through on state of modelagenterrors.AgentVersionNotSet to
 // satisfy contract.
-func (s *suite) TestGetMachinesReportedAgentVersionAgentVersionNotSet(c *tc.C) {
+func (s *serviceSuite) TestGetMachinesReportedAgentVersionAgentVersionNotSet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().GetMachinesAgentBinaryMetadata(gomock.Any()).Return(
 		nil, modelagenterrors.AgentVersionNotSet,
 	)
-	svc := NewService(s.state)
+	svc := NewService(s.agentBinaryFinder, s.state)
 	_, err := svc.GetMachinesAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 }
@@ -585,12 +637,12 @@ func (s *suite) TestGetMachinesReportedAgentVersionAgentVersionNotSet(c *tc.C) {
 // TestGetMachinesReportedAgentVersionMissingAgentBinaries asserts error pass
 // through on state of modelagenterrors.MissingAgentBinaries to satisfy
 // contract.
-func (s *suite) TestGetMachinesReportedAgentVersionMissingAgentBinaries(c *tc.C) {
+func (s *serviceSuite) TestGetMachinesReportedAgentVersionMissingAgentBinaries(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().GetMachinesAgentBinaryMetadata(gomock.Any()).Return(
 		nil, modelagenterrors.MissingAgentBinaries,
 	)
-	svc := NewService(s.state)
+	svc := NewService(s.agentBinaryFinder, s.state)
 	_, err := svc.GetMachinesAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 }
@@ -598,12 +650,12 @@ func (s *suite) TestGetMachinesReportedAgentVersionMissingAgentBinaries(c *tc.C)
 // TestGetUnitReportedAgentVersionAgentVersionNotSet asserts error pass
 // through on state of modelagenterrors.AgentVersionNotSet to satisfy
 // contract.
-func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotSet(c *tc.C) {
+func (s *serviceSuite) TestGetUnitReportedAgentVersionAgentVersionNotSet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().GetUnitsAgentBinaryMetadata(gomock.Any()).Return(
 		nil, modelagenterrors.AgentVersionNotSet,
 	)
-	svc := NewService(s.state)
+	svc := NewService(s.agentBinaryFinder, s.state)
 	_, err := svc.GetUnitsAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 }
@@ -611,12 +663,12 @@ func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotSet(c *tc.C) {
 // TestGetUnitReportedAgentVersionMissingAgentBinaries asserts error pass
 // through on state of modelagenterrors.MissingAgentBinaries to satisfy
 // contract.
-func (s *suite) TestGetUnitReportedAgentVersionMissingAgentBinaries(c *tc.C) {
+func (s *serviceSuite) TestGetUnitReportedAgentVersionMissingAgentBinaries(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().GetUnitsAgentBinaryMetadata(gomock.Any()).Return(
 		nil, modelagenterrors.MissingAgentBinaries,
 	)
-	svc := NewService(s.state)
+	svc := NewService(s.agentBinaryFinder, s.state)
 	_, err := svc.GetUnitsAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 }
@@ -624,13 +676,14 @@ func (s *suite) TestGetUnitReportedAgentVersionMissingAgentBinaries(c *tc.C) {
 // TestSetAgentStreamNotValidAgentStream is testing that if we supply an
 // unknown agent stream to [Service.SetModelAgentStream] we get back an error
 // satisfying [coreerrors.NotValid].
-func (s *suite) TestSetAgentStreamNotValidAgentStream(c *tc.C) {
+func (s *serviceSuite) TestSetAgentStreamNotValidAgentStream(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// This is a fake stream that doesn't exist.
 	agentStream := coreagentbinary.AgentStream("bad value")
 
-	err := NewService(s.state).SetModelAgentStream(
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.SetModelAgentStream(
 		c.Context(),
 		agentStream,
 	)
@@ -639,7 +692,7 @@ func (s *suite) TestSetAgentStreamNotValidAgentStream(c *tc.C) {
 
 // TestSetAgentStream is testing the happy path of setting the model's agent
 // stream.
-func (s *suite) TestSetAgentStream(c *tc.C) {
+func (s *serviceSuite) TestSetAgentStream(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().SetModelAgentStream(
@@ -647,9 +700,409 @@ func (s *suite) TestSetAgentStream(c *tc.C) {
 		modelagent.AgentStreamTesting,
 	).Return(nil)
 
-	err := NewService(s.state).SetModelAgentStream(
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.SetModelAgentStream(
 		c.Context(),
 		coreagentbinary.AgentStreamTesting,
+	)
+	c.Check(err, tc.ErrorIsNil)
+}
+
+// getVersionMinorLess is a helper function for getting back a version that is
+// one minor version less then the current version of Juju. This exists to
+// support upgrade tests by contriving a version that needs to be upgraded
+// relative to the current version of Juju.
+func (s *modelUpgradeSuite) getVersionMinorLess() semversion.Number {
+	rval := jujuversion.Current
+	// We don't want to drag the Minor version into negative numbers
+	if rval.Minor > 0 {
+		rval.Minor--
+	} else {
+		rval.Major--
+	}
+	return rval
+}
+
+// TestUpgradeModelTargetAgentVersionControllerModel tests that if a caller asks
+// for the current model's target agent version to be upgrade, but the model
+// hosts the current Juju controller. No upgrade is performed and the caller
+// gets back an error satisfying
+// [modelagenterrors.CannotUpgradeControllerModel].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionControllerModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(gomock.Any()).Return(true, nil)
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	_, err := svc.UpgradeModelTargetAgentVersion(c.Context())
+	c.Check(err, tc.ErrorIs, modelagenterrors.CannotUpgradeControllerModel)
+}
+
+// TestUpgradeModelTargetAgentVersionMachineBaseValidation tests that if a
+// caller asks for the for the current model's target agent version to be
+// upgraded, but there are machines in the model that are not running a
+// supported base. The upgrade must fail with an error satisfying
+// [modelagenterrors.ModelUpgradeBlocker].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionMachineBaseValidation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(gomock.Any()).Return(true, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(1, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	_, err := svc.UpgradeModelTargetAgentVersion(c.Context())
+	_, isBlockedErr := errors.AsType[modelagenterrors.ModelUpgradeBlocker](err)
+	c.Check(isBlockedErr, tc.IsTrue)
+}
+
+// TestUpgradeModelTargetAgentVersion is a happy path test of
+// [Service.UpgradeMoelTargetAgentVersion]. In this test we want to see that the
+// model is upgraded to that highest available version available.
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersion(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(0, nil)
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
+	s.state.EXPECT().SetModelTargetAgentVersion(
+		gomock.Any(),
+		currentTargetVersion,
+		jujuversion.Current,
+	).Return(nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	newVer, err := svc.UpgradeModelTargetAgentVersion(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(newVer, tc.Equals, jujuversion.Current)
+}
+
+// TestUpgradeModelTargetAgentVersionStreamControllerModel tests that if a
+// caller asks for the current model's target agent version to be upgrade, but
+// the model hosts the current Juju controller. No upgrade is performed and the
+// caller gets back an error satisfying
+// [modelagenterrors.CannotUpgradeControllerModel].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamControllerModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(gomock.Any()).Return(true, nil)
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	_, err := svc.UpgradeModelTargetAgentVersionStream(
+		c.Context(), modelagent.AgentStreamDevel,
+	)
+	c.Check(err, tc.ErrorIs, modelagenterrors.CannotUpgradeControllerModel)
+}
+
+// TestUpgradeModelTargetAgentVersionStreamNotValid is a test that asserts if a
+// caller asks for the current model's target agent version to be upgraded with
+// an invalid agent stream, the caller gets back an error satisfying
+// [coreerrors.NotValid].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	agentStream := modelagent.AgentStream(-1)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	_, err := svc.UpgradeModelTargetAgentVersionStream(c.Context(), agentStream)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestUpgradeModelTargetAgentVersionStreamMachineBaseValidation tests that if a
+// caller asks for the for the current model's target agent version to be
+// upgraded, but there are machines in the model that are not running a
+// supported base. The upgrade must fail with an error satisfying
+// [modelagenterrors.ModelUpgradeBlocker].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamMachineBaseValidation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(gomock.Any()).Return(true, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(1, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	_, err := svc.UpgradeModelTargetAgentVersionStream(
+		c.Context(), modelagent.AgentStreamDevel,
+	)
+	_, isBlockedErr := errors.AsType[modelagenterrors.ModelUpgradeBlocker](err)
+	c.Check(isBlockedErr, tc.IsTrue)
+}
+
+// TestUpgradeModelTargetAgentVersionStream is a happy path test of
+// [Service.UpgradeMoelTargetAgentVersionStream]. In this test we want to see
+// that the model is upgraded to that highest available version available.
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStream(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(0, nil)
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
+	s.state.EXPECT().SetModelTargetAgentVersionAndStream(
+		gomock.Any(),
+		currentTargetVersion,
+		jujuversion.Current,
+		modelagent.AgentStreamDevel,
+	).Return(nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	newVer, err := svc.UpgradeModelTargetAgentVersionStream(
+		c.Context(), modelagent.AgentStreamDevel,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(newVer, tc.Equals, jujuversion.Current)
+}
+
+// TestUpgradeModelTargetAgentVersionToDowngrade is a test that asserts if a
+// model upgrade is requested to a specific version and it would be considered a
+// downgrade, the caller gets back an error satisfying
+// [modelagenterrors.DowngradeNotSupport].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToDowngrade(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+
+	upgradeTo := semversion.MustParse("3.6.1")
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), upgradeTo)
+	c.Check(err, tc.ErrorIs, modelagenterrors.DowngradeNotSupported)
+}
+
+// TestUpgradeModelTargetAgentVersionToOverMax is a test that asserts if a model
+// upgrade is requested to a version that is greater then the max supported
+// version of the controller. The caller gets back an error satisfying
+// [modelagenterrors.AgentVersionNotSupported].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToOverMax(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+
+	// This is a version that is greater then the max supported version of the
+	// controller.
+	upgradeTo := jujuversion.Current
+	upgradeTo.Minor++
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), upgradeTo)
+	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSupported)
+}
+
+// TestUpgradeModelTargetAgentVersionToMissingAgentBinaries is a test that
+// asserts if a model upgrade is requested to a version that does not have
+// agent binaries available, the caller gets back an error satisfying
+// [modelagenterrors.MissingAgentBinaries].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToMissingAgentBinaries(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(false, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), jujuversion.Current)
+	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
+}
+
+// TestUpgradeModelTargetAgentVersionToControllerModel is a test that asserts
+// if the controller model is attempted to be upgraded the caller gets back an
+// error satisfying [modelagenterrors.CannotUpgradeControllerModel].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToControllerModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
+	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), jujuversion.Current)
+	c.Check(err, tc.ErrorIs, modelagenterrors.CannotUpgradeControllerModel)
+}
+
+// TestUpgradeModelTargetAgentVersionToMachineBaseValidation is a test that
+// asserts a model cannot be upgraded to a new version when there exists
+// machines in the model that are running unsupported bases. This test expects
+// that the caller gets back an error satisfying
+// [modelagenterrors.ModelUpgradeBlocker].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToMachineBaseValidation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
+	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(1, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), jujuversion.Current)
+	_, isBlockedErr := errors.AsType[modelagenterrors.ModelUpgradeBlocker](err)
+	c.Check(isBlockedErr, tc.IsTrue)
+}
+
+// TestUpgradeModelTargetAgentVersionTo is a happy path test for upgrading a
+// model to a specific target agent version.
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionTo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
+	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(0, nil)
+	s.state.EXPECT().SetModelTargetAgentVersion(
+		gomock.Any(),
+		currentTargetVersion,
+		jujuversion.Current,
+	).Return(nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), jujuversion.Current)
+	c.Check(err, tc.ErrorIsNil)
+}
+
+// TestUpgradeModelTargetAgentVersionStreamToDowngrade is a test that asserts if
+// a model upgrade is requested to a specific version and it would be considered
+// a downgrade, the caller gets back an error satisfying
+// [modelagenterrors.DowngradeNotSupport].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToDowngrade(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+
+	upgradeTo := semversion.MustParse("3.6.1")
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.UpgradeModelTargetAgentVersionStreamTo(
+		c.Context(), upgradeTo, modelagent.AgentStreamDevel,
+	)
+	c.Check(err, tc.ErrorIs, modelagenterrors.DowngradeNotSupported)
+}
+
+// TestUpgradeModelTargetAgentVersionStreamToOverMax is a test that asserts if a
+// model upgrade is requested to a version that is greater then the max
+// supported version of the controller. The caller gets back an error satisfying
+// [modelagenterrors.AgentVersionNotSupported].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToOverMax(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+
+	// This is a version that is greater then the max supported version of the
+	// controller.
+	upgradeTo := jujuversion.Current
+	upgradeTo.Minor++
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.UpgradeModelTargetAgentVersionStreamTo(
+		c.Context(), upgradeTo, modelagent.AgentStreamDevel,
+	)
+	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSupported)
+}
+
+// TestUpgradeModelTargetAgentVersionStreamToMissingAgentBinaries is a test that
+// asserts if a model upgrade is requested to a version that does not have
+// agent binaries available, the caller gets back an error satisfying
+// [modelagenterrors.MissingAgentBinaries].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToMissingAgentBinaries(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(false, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.UpgradeModelTargetAgentVersionStreamTo(
+		c.Context(), jujuversion.Current, modelagent.AgentStreamDevel,
+	)
+	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
+}
+
+// TestUpgradeModelTargetAgentVersionStreamToControllerModel is a test that
+// asserts if the controller model is attempted to be upgraded the caller gets
+// back an error satisfying [modelagenterrors.CannotUpgradeControllerModel].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToControllerModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
+	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.UpgradeModelTargetAgentVersionStreamTo(
+		c.Context(), jujuversion.Current, modelagent.AgentStreamDevel,
+	)
+	c.Check(err, tc.ErrorIs, modelagenterrors.CannotUpgradeControllerModel)
+}
+
+// TestUpgradeModelTargetAgentVersionStreamToInvalidStream is a test that
+// asserts when upgrade a model to a specific version and stream, if the stream
+// supplied is not valid, the caller gets back an error satisfying
+// [coreerrors.NotValid].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToInvalidStream(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	agentStream := modelagent.AgentStream(-1)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.UpgradeModelTargetAgentVersionStreamTo(
+		c.Context(), jujuversion.Current, agentStream,
+	)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestUpgradeModelTargetAgentVersionToMachineBaseValidation is a test that
+// asserts a model cannot be upgraded to a new version when there exists
+// machines in the model that are running unsupported bases. This test expects
+// that the caller gets back an error satisfying
+// [modelagenterrors.ModelUpgradeBlocker].
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToMachineBaseValidation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
+	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(1, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.UpgradeModelTargetAgentVersionStreamTo(
+		c.Context(), jujuversion.Current, modelagent.AgentStreamReleased,
+	)
+	_, isBlockedErr := errors.AsType[modelagenterrors.ModelUpgradeBlocker](err)
+	c.Check(isBlockedErr, tc.IsTrue)
+}
+
+// TestUpgradeModelTargetAgentVersionTo is a happy path test for upgrading a
+// model to a specific target agent version.
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamTo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := s.getVersionMinorLess()
+	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
+	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(0, nil)
+	s.state.EXPECT().SetModelTargetAgentVersionAndStream(
+		gomock.Any(),
+		currentTargetVersion,
+		jujuversion.Current,
+		modelagent.AgentStreamProposed,
+	).Return(nil)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	err := svc.UpgradeModelTargetAgentVersionStreamTo(
+		c.Context(), jujuversion.Current, modelagent.AgentStreamProposed,
 	)
 	c.Check(err, tc.ErrorIsNil)
 }

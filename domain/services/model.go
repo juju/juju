@@ -356,6 +356,7 @@ func (s *ModelServices) ModelSecretBackend() *secretbackendservice.ModelSecretBa
 // Agent returns the model's agent service.
 func (s *ModelServices) Agent() *modelagentservice.WatchableService {
 	return modelagentservice.NewWatchableService(
+		modelagentservice.DefaultAgentBinaryFinder(),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.modelWatcherFactory("modelagent"),
 	)

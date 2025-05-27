@@ -225,6 +225,7 @@ func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 // needed services used during import of a model agents information.
 func (b *baseAgentBinaryImportOperation) Setup(scope modelmigration.Scope) error {
 	b.importService = modelagentservice.NewService(
+		modelagentservice.DefaultAgentBinaryFinder(),
 		modelagentstate.NewState(scope.ModelDB()),
 	)
 	return nil
