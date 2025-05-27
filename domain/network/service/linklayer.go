@@ -6,7 +6,9 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -42,4 +44,29 @@ func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []in
 		useData[i].NetNodeUUID = netNodeUUID
 	}
 	return s.st.ImportLinkLayerDevices(ctx, useData)
+}
+
+// SetMachineNetConfig updates the detected network configuration for
+// the machine with the input UUID.
+func (s *Service) SetMachineNetConfig(ctx context.Context, mUUID machine.UUID, nics []network.NetInterface) error {
+	s.logger.Debugf(ctx, "setting network config for machine %q: %#v", mUUID, nics)
+
+	if err := mUUID.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
+	if len(nics) == 0 {
+		return nil
+	}
+
+	nodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, mUUID.String())
+	if err != nil {
+		return errors.Errorf("setting net config for machine %q: %w", mUUID, err)
+	}
+
+	if err := s.st.SetMachineNetConfig(ctx, nodeUUID, nics); err != nil {
+		return errors.Errorf("setting net config for machine %q: %w", mUUID, err)
+	}
+
+	return nil
 }

@@ -9,13 +9,20 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/machine"
+	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type linkLayerSuite struct {
+	testhelpers.IsolationSuite
+
 	st *MockState
 }
 
@@ -86,13 +93,65 @@ func (s *linkLayerSuite) TestDeleteImportedLinkLayerDevices(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
+func (s *linkLayerSuite) migrationService(c *tc.C) *MigrationService {
+	return NewMigrationService(s.st, loggertesting.WrapCheckLog(c))
+}
+
+func (s *linkLayerSuite) TestSetMachineNetConfigBadUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := machine.UUID("bad-machine-uuid")
+
+	err := NewService(s.st, loggertesting.WrapCheckLog(c)).SetMachineNetConfig(c.Context(), mUUID, nil)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *linkLayerSuite) TestSetMachineNetConfigEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID, err := machine.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = NewService(s.st, loggertesting.WrapCheckLog(c)).SetMachineNetConfig(c.Context(), mUUID, nil)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ctx := c.Context()
+
+	nUUID := "set-node-uuid"
+	mUUID, err := machine.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	nics := []network.NetInterface{
+		{
+			Name: "eth0",
+			Addrs: []network.NetAddr{
+				{
+					InterfaceName: "eth0",
+					AddressValue:  "10.0.0.5/16",
+					AddressType:   corenetwork.IPv4Address,
+					ConfigType:    corenetwork.ConfigDHCP,
+					Origin:        corenetwork.OriginMachine,
+					Scope:         corenetwork.ScopeCloudLocal,
+				},
+			},
+		},
+	}
+
+	exp := s.st.EXPECT()
+	exp.GetMachineNetNodeUUID(gomock.Any(), mUUID.String()).Return(nUUID, nil)
+	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics)
+
+	err = NewService(s.st, loggertesting.WrapCheckLog(c)).SetMachineNetConfig(ctx, mUUID, nics)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *linkLayerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.st = NewMockState(ctrl)
 	c.Cleanup(func() { s.st = nil })
 	return ctrl
-}
-
-func (s *linkLayerSuite) migrationService(c *tc.C) *MigrationService {
-	return NewMigrationService(s.st, loggertesting.WrapCheckLog(c))
 }
