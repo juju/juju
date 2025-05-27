@@ -377,66 +377,16 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *tc.C) {
 
 	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
 	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
-
-	sync := make(chan struct{})
-	go func() {
-		select {
-		case <-sync:
-		case <-time.After(testing.ShortWait):
-			c.Fatal("timed out waiting for sync")
-		}
-
-		workertest.DirtyKill(c, w)
-	}()
+	defer workertest.CleanKill(c, w)
 
 	// Ensure that the DB is dead.
 	err = w.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		close(sync)
+		w.Kill()
 
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(testing.LongWait):
-			c.Fatal("timed out waiting for context to be canceled")
-		}
-		return nil
-	})
-
-	c.Assert(err, tc.ErrorMatches, "context canceled")
-}
-
-func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectClock()
-	defer s.expectTimer(0)()
-
-	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
-
-	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
-	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
-
-	sync := make(chan struct{})
-	go func() {
-		select {
-		case <-sync:
-		case <-time.After(testing.ShortWait):
-			c.Fatal("timed out waiting for sync")
-		}
-
-		workertest.DirtyKill(c, w)
-	}()
-
-	// Ensure that the DB is dead.
-	err = w.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		close(sync)
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for context to be canceled")
 		}
 		return nil
