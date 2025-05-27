@@ -184,7 +184,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 }
 
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
-	s.states = make(chan string)
+	s.states = make(chan string, 1)
 	atomic.StoreInt64(&s.called, 0)
 
 	ctrl := s.baseSuite.setupMocks(c)
