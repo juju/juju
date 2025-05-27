@@ -3,4 +3,4 @@
 
 package modelmigration
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/network/modelmigration Coordinator,ImportService,ExportService
+//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/network/modelmigration ImportService,ExportService,MigrationService

@@ -540,3 +540,38 @@ type machineInterfaceRow struct {
 	IsSecondary       sql.NullBool   `db:"is_secondary"`
 	IsShadow          sql.NullBool   `db:"is_shadow"`
 }
+
+type machineNameNetNode struct {
+	MachineName string `db:"name"`
+	NetNodeUUID string `db:"net_node_uuid"`
+}
+
+// linkLayerDevice is slightly different from linkLayerDeviceDML
+// It's used to import LLDs.
+type linkLayerDevice struct {
+	UUID        string         `db:"uuid"`
+	NetNodeUUID string         `db:"net_node_uuid"`
+	Name        string         `db:"name"`
+	MTU         sql.NullInt64  `db:"mtu"`
+	MAC         sql.NullString `db:"mac_address"`
+	// GatewayAddress is not provided in the first round of
+	// model migration data from the link layer devices.
+	// By using sql.NullString, we ensure the value is NULL
+	// until it's available.
+	GatewayAddress  sql.NullString `db:"gateway_address"`
+	IsAutoStart     bool           `db:"is_auto_start"`
+	IsEnabled       bool           `db:"is_enabled"`
+	Type            int64          `db:"device_type_id"`
+	VirtualPortType int64          `db:"virtual_port_type_id"`
+	VLAN            int            `db:"vlan_tag"`
+}
+
+type linkLayerDeviceParent struct {
+	DeviceUUID string `db:"device_uuid"`
+	ParentUUID string `db:"parent_uuid"`
+}
+
+type providerLinkLayerDevice struct {
+	ProviderID string `db:"provider_id"`
+	DeviceUUID string `db:"device_uuid"`
+}

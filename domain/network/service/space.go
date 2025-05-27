@@ -21,22 +21,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// Service provides the API for working with spaces.
-type Service struct {
-	// The space service needs the full state because we make use of the
-	// UpsertSubnets method from the SubnetState.
-	st     State
-	logger logger.Logger
-}
-
-// NewService returns a new service reference wrapping the input state.
-func NewService(st State, logger logger.Logger) *Service {
-	return &Service{
-		st:     st,
-		logger: logger,
-	}
-}
-
 // AddSpace creates and returns a new space.
 func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
