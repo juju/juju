@@ -12,8 +12,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/worker/caasadmission"
 	rbacmappertest "github.com/juju/juju/internal/worker/caasrbacmapper/test"
 )

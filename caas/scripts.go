@@ -29,7 +29,7 @@ cp %[3]s/jujud $JUJU_TOOLS_DIR/jujud
 	// MongoStartupShTemplate is used to generate the start script for mongodb.
 	// Mongo is very specific about what permissions the shared secret must have,
 	// so we must copy it and lock it down for rootless k8s controllers.
-	// NOTE: 170 uid/gid must be updated here and in caas/kubernetes/provider/constants/constants.go
+	// NOTE: 170 uid/gid must be updated here and in internal/provider/kubernetes/constants/constants.go
 	MongoStartupShTemplate = `
 args="%[1]s"
 ipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)

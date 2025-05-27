@@ -18,9 +18,9 @@ import (
 	"github.com/juju/names/v6"
 	jujutxn "github.com/juju/txn/v3"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	stateerrors "github.com/juju/juju/state/errors"

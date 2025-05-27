@@ -18,9 +18,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 
-	providerconst "github.com/juju/juju/caas/kubernetes/provider/constants"
-	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/logger"
+	providerconst "github.com/juju/juju/internal/provider/kubernetes/constants"
+	providerutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 )
 
 type patchOperation struct {

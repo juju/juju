@@ -11,7 +11,6 @@ import (
 	"github.com/juju/tc"
 
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 )
 
@@ -154,7 +153,7 @@ users:
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cl.Name, tc.Equals, "test1")
-	c.Assert(cl.Type, tc.Equals, constants.CAASProviderType)
+	c.Assert(cl.Type, tc.Equals, cloud.CloudTypeKubernetes)
 	c.Assert(cl.HostCloudRegion, tc.Equals, "jujutest")
 	c.Assert(cl.Description, tc.Equals, "description")
 	c.Assert(cl.Regions, tc.DeepEquals, []cloud.Region{
@@ -203,7 +202,7 @@ users:
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cl.Name, tc.Equals, "test1")
-	c.Assert(cl.Type, tc.Equals, constants.CAASProviderType)
+	c.Assert(cl.Type, tc.Equals, cloud.CloudTypeKubernetes)
 	c.Assert(cl.HostCloudRegion, tc.Equals, "jujutest")
 	c.Assert(cl.Description, tc.Equals, "description")
 	c.Assert(cl.Regions, tc.DeepEquals, []cloud.Region{
@@ -255,7 +254,7 @@ users:
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cl.Name, tc.Equals, "test1")
-	c.Assert(cl.Type, tc.Equals, constants.CAASProviderType)
+	c.Assert(cl.Type, tc.Equals, cloud.CloudTypeKubernetes)
 	c.Assert(cl.HostCloudRegion, tc.Equals, "jujutest")
 	c.Assert(cl.Description, tc.Equals, "description")
 	c.Assert(cl.Regions, tc.DeepEquals, []cloud.Region{
@@ -389,7 +388,7 @@ users:
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cl.Name, tc.Equals, "test1")
-	c.Assert(cl.Type, tc.Equals, constants.CAASProviderType)
+	c.Assert(cl.Type, tc.Equals, cloud.CloudTypeKubernetes)
 	c.Assert(cl.HostCloudRegion, tc.Equals, "jujutest")
 	c.Assert(cl.Description, tc.Equals, "description")
 	c.Assert(cl.Regions, tc.DeepEquals, []cloud.Region{

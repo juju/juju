@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/juju/juju/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/internal/provider/kubernetes/proxy"
 )
 
 const (
@@ -43,8 +43,10 @@ func getRBACResourceName(uid string) string {
 type cleanUpFuncs []func()
 
 // To regenerate the mocks for the kubernetes Client used by this package,
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination ../provider/mocks/restclient_mock.go -mock_names=Interface=MockRestClientInterface k8s.io/client-go/rest  Interface
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination ../provider/mocks/serviceaccount_mock.go k8s.io/client-go/kubernetes/typed/core/v1 ServiceAccountInterface
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/k8sclient_mock.go k8s.io/client-go/kubernetes Interface
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/serviceaccount_mock.go k8s.io/client-go/kubernetes/typed/core/v1 ServiceAccountInterface
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/rbacv1_mock.go k8s.io/client-go/kubernetes/typed/rbac/v1 RbacV1Interface,ClusterRoleBindingInterface,ClusterRoleInterface
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface,SecretInterface
 
 func newK8sClientSet(config *clientcmdapi.Config, contextName string) (*kubernetes.Clientset, error) {
 	clientCfg, err := clientcmd.NewNonInteractiveClientConfig(

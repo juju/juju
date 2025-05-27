@@ -22,7 +22,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/constants"
@@ -50,6 +49,7 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/featureflag"
 	_ "github.com/juju/juju/internal/provider/all" // Import all the providers for bootstrap.
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/ssh"
@@ -1016,7 +1016,7 @@ See `[1:]+"`juju kill-controller`"+`.`)
 		}
 	}
 
-	if cloud.Type == k8sconstants.CAASProviderType {
+	if cloud.Type == jujucloud.CloudTypeKubernetes {
 		if cloud.HostCloudRegion == k8s.K8sCloudOther {
 			ctx.Infof("Bootstrap to generic Kubernetes cluster")
 		} else {

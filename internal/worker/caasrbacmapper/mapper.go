@@ -18,8 +18,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/provider/kubernetes"
 )
 
 // Mapper describes an interface for mapping k8s service account UID's to juju
@@ -180,7 +180,7 @@ func (d *DefaultMapper) processNextQueueItem(ctx context.Context) bool {
 		return true
 	}
 
-	appName, err := provider.AppNameForServiceAccount(sa)
+	appName, err := kubernetes.AppNameForServiceAccount(sa)
 	if errors.Is(err, errors.NotFound) {
 		return true
 	} else if err != nil {
