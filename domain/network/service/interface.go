@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/environs"
 )
@@ -122,4 +123,11 @@ type LinkLayerDeviceState interface {
 	// ImportLinkLayerDevices adds link layer devices into the model as part
 	// of the migration import process.
 	ImportLinkLayerDevices(ctx context.Context, input []internal.ImportLinkLayerDevice) error
+
+	// MergeLinkLayerDevice merges the existing link layer devices with the
+	// incoming ones.
+	MergeLinkLayerDevice(
+		ctx context.Context,
+		machineUUID string, incoming []domainnetwork.NetInterface,
+	) error
 }
