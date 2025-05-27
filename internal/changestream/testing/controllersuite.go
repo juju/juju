@@ -52,9 +52,11 @@ func (w *ControllerSuite) AssertChangeStreamIdle(c *tc.C) {
 	timeout := time.After(jujutesting.LongWait)
 	for {
 		select {
-		case state := <-w.watchableDB.states:
-			if state == stateIdle {
-				return
+		case states := <-w.watchableDB.states:
+			for _, state := range states {
+				if state == stateIdle {
+					return
+				}
 			}
 		case <-timeout:
 			c.Fatalf("timed out waiting for idle state")

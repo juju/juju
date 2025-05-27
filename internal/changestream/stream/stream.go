@@ -37,7 +37,8 @@ const (
 
 const (
 	// States which report the state of the worker.
-	stateIdle = "idle"
+	stateIdle  = "idle"
+	stateBegin = "begin"
 )
 
 var (
@@ -107,7 +108,7 @@ func (v *termView) String() string {
 
 // Stream defines a worker that will poll the database for change events.
 type Stream struct {
-	internalStates chan string
+	internalStates chan []string
 	tomb           tomb.Tomb
 
 	id           string
@@ -144,7 +145,7 @@ func NewInternalStates(
 	clock clock.Clock,
 	metrics MetricsCollector,
 	logger logger.Logger,
-	internalStates chan string,
+	internalStates chan []string,
 ) *Stream {
 	stream := &Stream{
 		id:             id,
@@ -230,6 +231,9 @@ func (s *Stream) loop() error {
 
 	ctx, cancel := s.scopedContext()
 	defer cancel()
+
+	// Report the begin state after the watermark has been created.
+	s.reportState(stateBegin)
 
 	var attempt int
 	for {
@@ -711,14 +715,31 @@ func (s *Stream) reportIdleState(ctx context.Context, attempt int) error {
 		s.logger.Tracef(ctx, "no changes, backing off after %d attempt", attempt)
 
 		// Report the idle state to the internal states channel.
-		select {
-		case <-s.tomb.Dying():
-		case s.internalStates <- stateIdle:
-		default:
-		}
+		s.reportState(stateIdle)
 	}
 
 	return nil
+}
+
+// reportState reports the specified state to the internal states channel.
+func (s *Stream) reportState(state string) {
+	// If there are no internal states, then we don't need to report the begin
+	// state. This is only used for testing.
+	if s.internalStates == nil {
+		return
+	}
+
+	states := []string(nil)
+	select {
+	// Take existing states off the channel and append the next state.
+	case states = <-s.internalStates:
+	default:
+	}
+	select {
+	case <-s.tomb.Dying():
+	case s.internalStates <- append(states, state):
+	default:
+	}
 }
 
 // latestChangeLogID returns the latest change log ID and is used to determine

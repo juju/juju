@@ -76,9 +76,11 @@ type Idler struct {
 func (idler *Idler) AssertChangeStreamIdle(c *tc.C) {
 	for {
 		select {
-		case state := <-idler.watchableDB.states:
-			if state == stateIdle {
-				return
+		case states := <-idler.watchableDB.states:
+			for _, state := range states {
+				if state == stateIdle {
+					return
+				}
 			}
 		case <-c.Context().Done():
 			c.Fatalf("timed out waiting for idle state")
