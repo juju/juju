@@ -12,9 +12,36 @@ import (
 	coredependency "github.com/juju/juju/core/dependency"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
 )
+
+// ControllerDomainServices is an interface that defines the
+// controller domain services required by the api address setter.
+type ControllerDomainServices interface {
+	// ControllerConfig returns the controller configuration service.
+	ControllerConfig() ControllerConfigService
+	// ControllerNode returns the controller node service.
+	ControllerNode() ControllerNodeService
+	// Model returns the model service.
+	Model() ModelService
+}
+
+// ModelService is the interface that the worker uses to get model information.
+type ModelService interface {
+	// ControllerModel returns information for the controller model.
+	ControllerModel(context.Context) (model.Model, error)
+}
+
+// DomainServices is an interface that defines the domain services required by
+// the api address setter.
+type DomainServices interface {
+	// Application returns the application service.
+	Application() ApplicationService
+	// Network returns the network service.
+	Network() NetworkService
+}
 
 // ManifoldConfig contains the configuration passed to this
 // worker's manifold when run by the dependency engine.
@@ -24,7 +51,11 @@ type ManifoldConfig struct {
 
 	// GetDomainServices is used to extract the domain services from the
 	// dependency getter.
-	GetDomainServices func(getter dependency.Getter, name string) (DomainServices, error)
+	GetDomainServices func(getter dependency.Getter, name string, controllerModelUUID model.UUID) (DomainServices, error)
+
+	// GetControllerDomainServices is used to extract the controller domain
+	// services from the dependency getter.
+	GetControllerDomainServices func(getter dependency.Getter, name string) (ControllerDomainServices, error)
 
 	// NewWorker creates and returns a apiaddressetter worker.
 	NewWorker func(Config) (worker.Worker, error)
@@ -41,6 +72,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.GetDomainServices == nil {
 		return errors.New("nil GetDomainServices not valid").Add(coreerrors.NotValid)
+	}
+	if config.GetControllerDomainServices == nil {
+		return errors.New("nil GetControllerDomainServices not valid").Add(coreerrors.NotValid)
 	}
 	if config.NewWorker == nil {
 		return errors.New("nil NewWorker not valid").Add(coreerrors.NotValid)
@@ -63,14 +97,25 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Capture(err)
 			}
 
-			domainServices, err := config.GetDomainServices(getter, config.DomainServicesName)
+			controllerDomainServices, err := config.GetControllerDomainServices(getter, config.DomainServicesName)
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
 
-			controllerConfigService := domainServices.ControllerConfig()
+			controllerModel, err := controllerDomainServices.Model().ControllerModel(ctx)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			controllerModelUUID := controllerModel.UUID
+
+			domainServices, err := config.GetDomainServices(getter, config.DomainServicesName, controllerModelUUID)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+
+			controllerConfigService := controllerDomainServices.ControllerConfig()
+			controllerNodeService := controllerDomainServices.ControllerNode()
 			applicationService := domainServices.Application()
-			controllerNodeService := domainServices.ControllerNode()
 			networkService := domainServices.Network()
 
 			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
@@ -84,7 +129,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ControllerNodeService:   controllerNodeService,
 				NetworkService:          networkService,
 				APIPort:                 controllerConfig.APIPort(),
-				ControllerAPIPort:       controllerConfig.ControllerAPIPort(),
 				Logger:                  config.Logger,
 			})
 			if err != nil {
@@ -95,48 +139,68 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// GetDomainServices extracts the domain services from the input dependency
-// getter, then returns the domain services from it.
-func GetDomainServices(getter dependency.Getter, name string) (DomainServices, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory services.DomainServices) DomainServices {
-		return newDomainServicesShim(factory)
+// GetDomainServices retrieves the domain services from the dependency getter.
+func GetDomainServices(getter dependency.Getter, name string, controllerModelUUID model.UUID) (DomainServices, error) {
+	domainServicesGetter, err := coredependency.GetDependencyByName(getter, name, func(s services.DomainServicesGetter) services.DomainServicesGetter {
+		return s
 	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	services, err := domainServicesGetter.ServicesForModel(context.Background(), controllerModelUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return domainServices{
+		ApplicationService: services.Application(),
+		NetworkService:     services.Network(),
+	}, nil
 }
 
-// DomainServices is a subset of the services.DomainServices interface that
-// is implemented by the DomainServicesShim.
-type DomainServices interface {
-	Network() NetworkService
-	ControllerConfig() ControllerConfigService
-	Application() ApplicationService
-	ControllerNode() ControllerNodeService
-}
-
-func newDomainServicesShim(factory services.DomainServices) DomainServicesShim {
-	return DomainServicesShim{factory}
-}
-
-// DomainServicesShim is a shim that implements the DomainServices interface.
-type DomainServicesShim struct {
-	factory services.DomainServices
-}
-
-// Network returns the network service.
-func (d DomainServicesShim) Network() NetworkService {
-	return d.factory.Network()
-}
-
-// ControllerConfig returns the controller config service.
-func (d DomainServicesShim) ControllerConfig() ControllerConfigService {
-	return d.factory.ControllerConfig()
+type domainServices struct {
+	ApplicationService
+	NetworkService
 }
 
 // Application returns the application service.
-func (d DomainServicesShim) Application() ApplicationService {
-	return d.factory.Application()
+func (s domainServices) Application() ApplicationService {
+	return s.ApplicationService
+}
+
+// Network returns the network service.
+func (s domainServices) Network() NetworkService {
+	return s.NetworkService
+}
+
+// GetControllerDomainServices retrieves the controller domain services
+// from the dependency getter.
+func GetControllerDomainServices(getter dependency.Getter, name string) (ControllerDomainServices, error) {
+	return coredependency.GetDependencyByName(getter, name, func(s services.ControllerDomainServices) ControllerDomainServices {
+		return controllerDomainServices{
+			ControllerConfigService: s.ControllerConfig(),
+			ControllerNodeService:   s.ControllerNode(),
+			ModelService:            s.Model(),
+		}
+	})
+}
+
+type controllerDomainServices struct {
+	ControllerConfigService
+	ControllerNodeService
+	ModelService
+}
+
+// ControllerConfig returns the controller configuration service.
+func (s controllerDomainServices) ControllerConfig() ControllerConfigService {
+	return s.ControllerConfigService
 }
 
 // ControllerNode returns the controller node service.
-func (d DomainServicesShim) ControllerNode() ControllerNodeService {
-	return d.factory.ControllerNode()
+func (s controllerDomainServices) ControllerNode() ControllerNodeService {
+	return s.ControllerNodeService
+}
+
+// ModelService returns the model service.
+func (s controllerDomainServices) Model() ModelService {
+	return s.ModelService
 }

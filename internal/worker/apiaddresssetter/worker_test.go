@@ -77,7 +77,6 @@ func (s *workerSuite) TestWorkerCleanKill(c *tc.C) {
 		ControllerNodeService:   s.controllerNodeService,
 		NetworkService:          s.networkService,
 		APIPort:                 17070,
-		ControllerAPIPort:       17070,
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}
 	w, err := New(cfg)
@@ -143,7 +142,6 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 		ControllerNodeService:   s.controllerNodeService,
 		NetworkService:          s.networkService,
 		APIPort:                 17070,
-		ControllerAPIPort:       17070,
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}
 	w, err := New(cfg)
@@ -232,7 +230,6 @@ func (s *workerSuite) TestConfigChange(c *tc.C) {
 		ControllerNodeService:   s.controllerNodeService,
 		NetworkService:          s.networkService,
 		APIPort:                 17070,
-		ControllerAPIPort:       17070,
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}
 	w, err := New(cfg)
@@ -338,7 +335,6 @@ func (s *workerSuite) TestNodeAddressChange(c *tc.C) {
 		ControllerNodeService:   s.controllerNodeService,
 		NetworkService:          s.networkService,
 		APIPort:                 17070,
-		ControllerAPIPort:       17070,
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}
 	w, err := New(cfg)

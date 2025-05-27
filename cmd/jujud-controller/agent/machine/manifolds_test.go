@@ -67,6 +67,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 		[]string{
 			"agent-config-updater",
 			"agent",
+			"api-address-setter",
 			"api-address-updater",
 			"api-caller",
 			"api-config-watcher",
@@ -159,6 +160,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 		[]string{
 			"agent-config-updater",
 			"agent",
+			"api-address-setter",
 			"api-caller",
 			"api-config-watcher",
 			"api-remote-caller",
@@ -249,6 +251,7 @@ func (*ManifoldsSuite) TestUpgradesBlockMigration(c *tc.C) {
 func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 	exempt := set.NewStrings(
 		"agent",
+		"api-address-setter",
 		"api-caller",
 		"api-config-watcher",
 		"api-remote-caller",
@@ -332,6 +335,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 
 	// Explicitly guarded by ifController.
 	controllerWorkers := set.NewStrings(
+		"api-address-setter",
 		"api-remote-caller",
 		"certificate-watcher",
 		"controller-agent-config",
@@ -573,6 +577,31 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-database-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
+	},
+
+	"api-address-setter": {
+		"agent",
+		"change-stream",
+		"clock",
+		"controller-agent-config",
+		"db-accessor",
+		"domain-services",
+		"file-notify-watcher",
+		"http-client",
+		"is-controller-flag",
+		"lease-manager",
+		"log-sink",
+		"object-store",
+		"object-store-s3-caller",
+		"object-store-services",
+		"provider-services",
+		"provider-tracker",
+		"query-logger",
+		"state-config-watcher",
+		"storage-registry",
+		"trace",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"api-address-updater": {
@@ -1628,6 +1657,31 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-database-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
+	},
+
+	"api-address-setter": {
+		"agent",
+		"change-stream",
+		"clock",
+		"controller-agent-config",
+		"db-accessor",
+		"domain-services",
+		"file-notify-watcher",
+		"http-client",
+		"is-controller-flag",
+		"lease-manager",
+		"log-sink",
+		"object-store",
+		"object-store-s3-caller",
+		"object-store-services",
+		"provider-services",
+		"provider-tracker",
+		"query-logger",
+		"state-config-watcher",
+		"storage-registry",
+		"trace",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"api-caller": {"agent", "api-config-watcher"},
