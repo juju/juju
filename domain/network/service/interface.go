@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/environs"
 )
@@ -46,9 +47,10 @@ type WatcherFactory interface {
 // State describes retrieval and persistence methods needed for the network
 // domain service.
 type State interface {
-	LinkLayerDeviceState
 	SpaceState
 	SubnetState
+	NetConfigState
+	NetConfigMigrationState
 }
 
 // SpaceState describes persistence layer methods for the space (sub-) domain.
@@ -108,9 +110,17 @@ type SubnetState interface {
 	NamespaceForWatchSubnet() string
 }
 
-// LinkLayerDeviceState describes persistence layer methods for the
-// link layer device (sub-) domain.
-type LinkLayerDeviceState interface {
+// NetConfigState describes persistence layer methods for
+// working with link-layer devices and IP addresses.
+type NetConfigState interface {
+	// GetMachineNetNodeUUID returns the net node UUID for the input machine UUID.
+	GetMachineNetNodeUUID(ctx context.Context, machineUUID string) (string, error)
+	// SetMachineNetConfig updates the network configuration for the machine with
+	// the input net node UUID.
+	SetMachineNetConfig(ctx context.Context, nodeUUID string, nics []domainnetwork.NetInterface) error
+}
+
+type NetConfigMigrationState interface {
 	// AllMachinesAndNetNodes returns all machine names mapped to their
 	// net mode UUIDs in the model.
 	AllMachinesAndNetNodes(ctx context.Context) (map[string]string, error)

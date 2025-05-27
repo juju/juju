@@ -8,9 +8,39 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
+
+// GetMachineNetNodeUUID returns the net node UUID for the input machine UUID.
+// If such a machine does not exist, an error is returned matching
+// [github.com/juju/juju/domain/application/errors.MachineNotFound].
+func (st *State) GetMachineNetNodeUUID(ctx context.Context, machineUUID string) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	mUUID := entityUUID{UUID: machineUUID}
+	var nUUID netNodeUUID
+
+	stmt, err := st.Prepare("SELECT &netNodeUUID.* FROM machine WHERE uuid = $entityUUID.uuid", mUUID, nUUID)
+	if err != nil {
+		return "", errors.Errorf("preparing machine net node statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, mUUID).Get(&nUUID); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return applicationerrors.MachineNotFound
+			}
+			return errors.Errorf("querying machine net node: %w", err)
+		}
+		return nil
+	})
+	return nUUID.UUID, errors.Capture(err)
+}
 
 // SetMachineNetConfig updates the network configuration for the machine with
 // the input net node UUID.

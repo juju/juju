@@ -16,6 +16,11 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
+type netNodeUUID struct {
+	// UUID uniquely identifies a net node.
+	UUID string `db:"net_node_uuid"`
+}
+
 // subnet represents a single row from the subnet table.
 type subnet struct {
 	// UUID is the subnet's UUID.
