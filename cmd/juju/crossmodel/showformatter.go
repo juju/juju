@@ -107,18 +107,31 @@ func breakLines(text string) []string {
 	numLines := len(text)/columnWidth + 1
 	lines := make([]string, numLines)
 
-	index := 0
+	var index int
 	for _, aWord := range words {
+		if index >= len(lines) {
+			break
+		}
+
 		if len(lines[index]) == 0 {
 			lines[index] = aWord
 			continue
 		}
+
 		tp := fmt.Sprintf("%v %v", lines[index], aWord)
 		if len(tp) > columnWidth {
 			index++
+			if index >= len(lines) {
+				// There is an overflow because of the last word being too long
+				// and we need it to wrap to the next line. So, grow the line
+				// by one to accommodate the last word.
+				lines = append(lines, "")
+			}
+
 			lines[index] = aWord
 			continue
 		}
+
 		lines[index] = tp
 	}
 
