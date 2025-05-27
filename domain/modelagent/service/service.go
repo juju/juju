@@ -607,7 +607,7 @@ func (s *Service) UpgradeModelTargetAgentVersion(
 	// UpgradeModelTargetAgentVersion. Specifically the errors returned don't
 	// align with the expecations of the caller. The below switch statement
 	// re-writes the error cases to better explain the very unlikely error that
-	// has occured. These exists to point a developer at the problem and not to
+	// has occurred. These exists to point a developer at the problem and not to
 	// offer any actionable item for a caller.
 	switch {
 	case errors.Is(err, modelagenterrors.DowngradeNotSupported):
@@ -668,7 +668,7 @@ func (s *Service) UpgradeModelTargetAgentVersionStream(
 	// UpgradeModelTargetAgentVersion. Specifically the errors returned don't
 	// align with the expecations of the caller. The below switch statement
 	// re-writes the error cases to better explain the very unlikely error that
-	// has occured. These exists to point a developer at the problem and not to
+	// has occurred. These exists to point a developer at the problem and not to
 	// offer any actionable item for a caller.
 	switch {
 	case errors.Is(err, modelagenterrors.DowngradeNotSupported):
@@ -819,7 +819,7 @@ func (s *Service) UpgradeModelTargetAgentVersionStreamTo(
 // about the state of the model and if it suitable to be upgraded.
 //
 // This check always assumes that the caller is upgrading the version and never
-// downgrading. The validation performed is not gauranteed to still be valid
+// downgrading. The validation performed is not guaranteed to still be valid
 // after this func returns.
 //
 // The following errors may be expected:
