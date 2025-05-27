@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/worker/v4"
-
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
@@ -118,25 +116,6 @@ type RelationUnitStatusResult struct {
 // units known to have entered.
 type RelationUnitsWatcher interface {
 	watcher.Watcher[watcher.RelationUnitsChange]
-}
-
-// TODO: uncomment the below types when the methods are implemented,
-// copied from state for use.
-
-// RelationScopeChange contains information about units that have
-// entered or left a particular scope.
-//type RelationScopeChange struct {
-//	Entered []string
-//	Left    []string
-//}
-
-// RelationScopeWatcher observes changes to the set of units
-// in a particular relation scope.
-type RelationScopeWatcher struct {
-	worker.Worker
-	//prefix string
-	//ignore string
-	//out    chan *RelationScopeChange
 }
 
 // CandidateEndpointIdentifier is the natural key of a relation endpoint when
