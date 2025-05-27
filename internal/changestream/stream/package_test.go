@@ -70,6 +70,16 @@ func (s *baseSuite) expectTermAfterAnyTimes() {
 	s.clock.EXPECT().After(defaultWaitTermTimeout).Return(make(chan time.Time)).AnyTimes()
 }
 
+func (s *baseSuite) expectAfterWithoutTermTimeout() {
+	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(d time.Duration) <-chan time.Time {
+		if d == defaultWaitTermTimeout {
+			// Never timeout a term.
+			return make(chan time.Time)
+		}
+		return time.After(d)
+	}).AnyTimes()
+}
+
 func (s *baseSuite) expectAnyAfterAnyTimes() {
 	s.clock.EXPECT().After(gomock.Any()).Return(make(chan time.Time)).AnyTimes()
 }

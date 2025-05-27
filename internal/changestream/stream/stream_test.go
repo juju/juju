@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -487,16 +488,32 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectFileNotifyWatcher()
-	s.expectTermAfterAnyTimes()
-	s.expectAnyAfterAnyTimes()
+	s.expectAfterWithoutTermTimeout()
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
+	statesChan := make(chan []string, 1)
+	stream := NewInternalStates(uuid.MustNewUUID().String(),
+		s.TxnRunner(),
+		s.FileNotifier,
+		s.clock,
+		s.metrics,
+		loggertesting.WrapCheckLog(c),
+		statesChan)
 	defer workertest.DirtyKill(c, stream)
+
+	// Ensure the stream has started.
+	select {
+	case states := <-statesChan:
+		if !slices.Contains(states, stateBegin) {
+			c.Fatal("missing begin state")
+		}
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for begin state")
+	}
 
 	// Insert a change and wait for it to be streamed.
 	chg := change{
