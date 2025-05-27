@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
@@ -162,6 +163,17 @@ func (st *State) checkUnitNotDead(
 	default:
 		return nil
 	}
+}
+
+// GetMachineCountNotUsingBases returns the number of machines that are not
+// using one of the supplied bases. If no machines exist in the model or if
+// no machines exist that are using a base not in the set provided, zero is
+// returned with no error.
+func (st *State) GetMachineCountNotUsingBases(
+	ctx context.Context,
+	bases []corebase.Base,
+) (int, error) {
+	return 0, errors.New("not implemented")
 }
 
 // GetMachinesAgentBinaryMetadata reports the agent binary metadata that each
@@ -935,6 +947,12 @@ func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (cor
 	return unitUUID.UnitUUID, nil
 }
 
+// IsControllerModel indicates if this model is running the Juju controller
+// that owns this model. True is returned when this is the case.
+func (s *State) IsControllerModel(ctx context.Context) (bool, error) {
+	return false, errors.New("not implemented")
+}
+
 // NamespaceForWatchAgentVersion returns the namespace identifier
 // to watch for the agent version.
 func (*State) NamespaceForWatchAgentVersion() string {
@@ -1049,6 +1067,33 @@ UPDATE agent_version SET stream_id = $agentVersionStream.stream_id
 		}
 		return nil
 	})
+}
+
+// SetModelTargetAgentVersion is responsible for setting the current target
+// agent version of the model. This function expects a precondition version
+// to be supplied. The precondition signals the expected model target agent
+// version that the set was calculated from. If the model is not at the
+// precondition version an error is returned.
+func (st *State) SetModelTargetAgentVersion(
+	ctx context.Context,
+	preCondition semversion.Number,
+	toVersion semversion.Number,
+) error {
+	return errors.New("not implemented")
+}
+
+// SetModelTargetAgentVersionAndStream is responsible for setting the
+// current target agent version of the model and the agent stream that is
+// used. This function expects a precondition version to be supplied. The
+// precondition signals the expected model target agent version that the set
+// was calculated from. If the precondition fails an error is returned.
+func (st *State) SetModelTargetAgentVersionAndStream(
+	ctx context.Context,
+	preCondition semversion.Number,
+	toVersion semversion.Number,
+	stream modelagent.AgentStream,
+) error {
+	return errors.New("not implemented")
 }
 
 // SetUnitRunningAgentBinaryVersion sets the running agent binary version for
