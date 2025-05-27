@@ -4,6 +4,7 @@
 package upgrader_test
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -159,12 +160,22 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *tc.C) {
 	u := s.makeUpgrader(c, client)
 	s.waitForUpgradeCheck(c)
 
-	newVersion := vers
-	newVersion.Minor++
-	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(newVersion.Number, nil)
+	done := make(chan struct{})
+	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").
+		DoAndReturn(func(ctx context.Context, s string) (semversion.Number, error) {
+			defer close(done)
+			newVersion := vers.Number
+			newVersion.Minor++
+			return newVersion, nil
+		})
 	client.EXPECT().Tools(gomock.Any(), "machine-666").Return(coretools.List{}, nil)
 
 	ch <- struct{}{}
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for next check")
+	}
 
 	workertest.CleanKill(c, u)
 }
