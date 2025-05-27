@@ -889,7 +889,7 @@ func (s *unitServiceSuite) TestGetPublicAddresses(c *tc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
 	s.state.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), coreunit.UUID("foo")).Return(unitAddresses, nil)
 
-	addrs, err := s.service.GetUnitPublicAddresses(context.Background(), unitName)
+	addrs, err := s.service.GetUnitPublicAddresses(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 	// The two public addresses should be returned.
 	c.Check(addrs, tc.DeepEquals, unitAddresses[0:2])
@@ -942,11 +942,23 @@ func (s *unitServiceSuite) TestGetPublicAddressesCloudLocal(c *tc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
 	s.state.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), coreunit.UUID("foo")).Return(unitAddresses, nil)
 
-	addrs, err := s.service.GetUnitPublicAddresses(context.Background(), unitName)
+	addrs, err := s.service.GetUnitPublicAddresses(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 	// The two cloud-local addresses should be returned because there are no
 	// public ones.
 	c.Check(addrs, tc.DeepEquals, unitAddresses[0:2])
+}
+
+func (s *unitServiceSuite) TestGetPublicAddressesNoAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
+	s.state.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), coreunit.UUID("foo")).Return(network.SpaceAddresses{}, nil)
+
+	_, err := s.service.GetUnitPublicAddresses(c.Context(), unitName)
+	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
 }
 
 func (s *unitServiceSuite) TestGetPrivateAddressUnitNotFound(c *tc.C) {
@@ -1069,6 +1081,47 @@ func (s *unitServiceSuite) TestGetPrivateAddressMatchingAddress(c *tc.C) {
 	// Since the second address is higher in hierarchy of scope match, it should
 	// be returned.
 	c.Check(addrs, tc.DeepEquals, matchingScopeAddrs[1])
+}
+
+func (s *unitServiceSuite) TestGetUnitPrivateAddressNoAddress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
+	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(network.SpaceAddresses{}, nil)
+
+	_, err := s.service.GetUnitPrivateAddress(c.Context(), unitName)
+	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
+}
+
+func (s *unitServiceSuite) TestGetUnitK8sPodInfo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	ports := []string{"666", "668"}
+	s.state.EXPECT().GetUnitK8sPodInfo(gomock.Any(), unitName).Return(application.K8sPodInfo{
+		ProviderID: "some-id",
+		Address:    "10.6.6.6",
+		Ports:      ports,
+	}, nil)
+
+	info, err := s.service.GetUnitK8sPodInfo(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.ProviderID, tc.Equals, network.Id("some-id"))
+	c.Check(info.Address, tc.Equals, "10.6.6.6")
+	c.Check(info.Ports, tc.DeepEquals, ports)
+}
+
+func (s *unitServiceSuite) TestGetUnitK8sPodInfoUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+
+	s.state.EXPECT().GetUnitK8sPodInfo(gomock.Any(), unitName).Return(application.K8sPodInfo{}, applicationerrors.UnitNotFound)
+
+	_, err := s.service.GetUnitK8sPodInfo(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitServiceSuite) TestGetUnitSubordinates(c *tc.C) {

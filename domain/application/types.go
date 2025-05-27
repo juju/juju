@@ -398,6 +398,13 @@ type UnitAttributes struct {
 	ResolveMode string
 }
 
+// K8sPodInfo contains information about a unit's k8s pod.
+type K8sPodInfo struct {
+	ProviderID network.Id
+	Address    string
+	Ports      []string
+}
+
 // InsertApplicationArgs contains arguments for importing an application to the
 // model.
 type InsertApplicationArgs struct {
