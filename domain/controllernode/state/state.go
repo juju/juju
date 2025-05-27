@@ -302,22 +302,43 @@ WHERE controller_id = $controllerID.controller_id
 		return errors.Capture(err)
 	}
 
-	deleteExistingAddressesStmt, err := st.Prepare(`
-DELETE FROM controller_api_address
+	getExistingAddressesStmt, err := st.Prepare(`
+SELECT &controllerAPIAddress.* 
+FROM controller_api_address
 WHERE controller_id = $controllerID.controller_id
-	`, ident)
+`, controllerAPIAddress{}, ident)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	controllerAPIAddresses := encodeAPIAddresses(ctrlID, addrs)
+	type toRemoveAddresses []string
+	deleteAddressesStmt, err := st.Prepare(`
+DELETE FROM controller_api_address
+WHERE controller_id = $controllerID.controller_id
+AND address IN ($toRemoveAddresses[:])
+`, ident, toRemoveAddresses{})
+	if err != nil {
+		return errors.Capture(err)
+	}
 
-	insertAddrStmt, err := st.Prepare(`
+	insertAddressesStmt, err := st.Prepare(`
 INSERT INTO controller_api_address (*) VALUES ($controllerAPIAddress.*)
 `, controllerAPIAddress{})
 	if err != nil {
 		return errors.Capture(err)
 	}
+
+	updateAddressesStmt, err := st.Prepare(`
+UPDATE controller_api_address
+SET is_agent = $controllerAPIAddress.is_agent
+WHERE controller_id = $controllerAPIAddress.controller_id
+AND address = $controllerAPIAddress.address
+`, controllerAPIAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	controllerAPIAddresses := encodeAPIAddresses(ctrlID, addrs)
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var countResult countResult
@@ -328,12 +349,32 @@ INSERT INTO controller_api_address (*) VALUES ($controllerAPIAddress.*)
 			return errors.Errorf("controller node %q does not exist", ctrlID).Add(controllernodeerrors.NotFound)
 		}
 
-		if err := tx.Query(ctx, deleteExistingAddressesStmt, ident).Run(); err != nil {
-			return errors.Errorf("deleting existing api addresses for controller node %q: %w", ctrlID, err)
+		var existingAddresses []controllerAPIAddress
+		if err := tx.Query(ctx, getExistingAddressesStmt, ident).GetAll(&existingAddresses); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("retrieving existing api addresses for controller node %q: %w", ctrlID, err)
 		}
-		if err := tx.Query(ctx, insertAddrStmt, controllerAPIAddresses).Run(); err != nil {
-			return errors.Errorf("setting api address for controller node %q: %w", ctrlID, err)
+
+		// Determine addresses to add and remove
+		toAdd, toUpdate, toRemove := calculateAddressDeltas(existingAddresses, controllerAPIAddresses)
+
+		if len(toAdd) > 0 {
+			if err := tx.Query(ctx, insertAddressesStmt, toAdd).Run(); err != nil {
+				return errors.Errorf("inserting api address for controller node %q: %w", ctrlID, err)
+			}
 		}
+
+		if len(toRemove) > 0 {
+			if err := tx.Query(ctx, deleteAddressesStmt, ident, toRemoveAddresses(toRemove)).Run(); err != nil {
+				return errors.Errorf("deleting api address for controller node %q: %w", ctrlID, err)
+
+			}
+		}
+		if len(toUpdate) > 0 {
+			if err := tx.Query(ctx, updateAddressesStmt, toUpdate).Run(); err != nil {
+				return errors.Errorf("updating api address for controller node %q: %w", ctrlID, err)
+			}
+		}
+
 		return nil
 	}))
 }
@@ -348,6 +389,77 @@ func encodeAPIAddresses(controllerID string, addrs []controllernode.APIAddress) 
 		})
 	}
 	return result
+}
+
+// GetAPIAddresses returns the list of API addresses for the provided controller
+// node.
+func (st *State) GetAPIAddresses(ctx context.Context, ctrlID string) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ident := controllerID{ID: ctrlID}
+
+	stmt, err := st.Prepare(`
+SELECT &controllerAPIAddressStr.* 
+FROM controller_api_address
+WHERE controller_id = $controllerID.controller_id
+`, controllerAPIAddressStr{}, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []controllerAPIAddressStr
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).GetAll(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return controllernodeerrors.EmptyAPIAddresses
+		} else if err != nil {
+			return errors.Errorf("getting api addresses for controller node %q: %w", ctrlID, err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return decodeAPIAddresses(result), nil
+}
+
+// GetAPIAddressesForAgents returns the list of API addresses for the provided
+// controller node that are available for agents.
+func (st *State) GetAPIAddressesForAgents(ctx context.Context, ctrlID string) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ident := controllerID{ID: ctrlID}
+
+	stmt, err := st.Prepare(`
+SELECT &controllerAPIAddressStr.* 
+FROM controller_api_address
+WHERE controller_id = $controllerID.controller_id
+AND is_agent = true
+`, controllerAPIAddressStr{}, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []controllerAPIAddressStr
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).GetAll(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return controllernodeerrors.EmptyAPIAddresses
+		} else if err != nil {
+			return errors.Errorf("getting api addresses for controller node %q: %w", ctrlID, err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return decodeAPIAddresses(result), nil
 }
 
 // GetControllerIDs returns the list of controller IDs from the controller node
@@ -384,4 +496,52 @@ FROM controller_node
 		res[i] = c.ID
 	}
 	return res, nil
+}
+
+// calculateAddressDeltas returns the list of addresses to add, remove, and
+// update from the controller node table given the existing and new addresses.
+// The updated addresses are the list of addresses for which the IsAgent flag
+// has changed.
+func calculateAddressDeltas(existing, new []controllerAPIAddress) (toAdd []controllerAPIAddress, toUpdate []controllerAPIAddress, toRemove []string) {
+	existingMap := make(map[string]controllerAPIAddress)
+	newMap := make(map[string]controllerAPIAddress)
+
+	for _, addr := range existing {
+		existingMap[addr.Address] = addr
+	}
+	for _, addr := range new {
+		newMap[addr.Address] = addr
+	}
+
+	// Check each address in the new set to determine additions and updates.
+	for key, addr := range newMap {
+		if existingAddr, found := existingMap[key]; !found {
+			// Address doesn't exist in current state, so it needs to be added.
+			toAdd = append(toAdd, addr)
+		} else if existingAddr.IsAgent != addr.IsAgent {
+			// Address exists but the IsAgent flag has changed, so it needs
+			// updating.
+			toUpdate = append(toUpdate, addr)
+		}
+		// If address exists with same IsAgent flag, no action needed.
+	}
+
+	// Check each address in the existing set to find removals.
+	for key, addr := range existingMap {
+		if _, found := newMap[key]; !found {
+			// Address exists in current state but not in new set, so it needs
+			// to be removed.
+			toRemove = append(toRemove, addr.Address)
+		}
+	}
+
+	return toAdd, toUpdate, toRemove
+}
+
+func decodeAPIAddresses(addrs []controllerAPIAddressStr) []string {
+	result := make([]string, 0, len(addrs))
+	for _, addr := range addrs {
+		result = append(result, addr.Address)
+	}
+	return result
 }

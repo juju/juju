@@ -7,8 +7,6 @@ import (
 	"context"
 	"sort"
 
-	"github.com/juju/collections/transform"
-
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
@@ -22,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
-	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
@@ -162,14 +159,14 @@ type UnitState interface {
 	// given principal unit.
 	GetUnitSubordinates(ctx context.Context, unitName coreunit.Name) ([]coreunit.Name, error)
 
-	// GetUnitNetNodes returns the net node UUIDs associated with the specified
-	// unit. The net nodes are selected in the same way as in GetUnitAddresses, i.e.
-	// the union of the net nodes of the cloud service (if any) and the net node
-	// of the unit.
+	// GetUnitNetNodesByName returns the net node UUIDs associated with the
+	// specified unit. The net nodes are selected in the same way as in
+	// GetUnitAddresses, i.e. the union of the net nodes of the cloud service (if
+	// any) and the net node of the unit.
 	//
 	// The following errors may be returned:
 	// - [uniterrors.UnitNotFound] if the unit does not exist
-	GetUnitNetNodes(ctx context.Context, uuid coreunit.UUID) ([]string, error)
+	GetUnitNetNodesByName(ctx context.Context, name coreunit.Name) ([]string, error)
 }
 
 func (s *Service) makeIAASUnitArgs(units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
@@ -726,26 +723,4 @@ func (s *Service) GetUnitSubordinates(ctx context.Context, unitName coreunit.Nam
 	}
 
 	return s.st.GetUnitSubordinates(ctx, unitName)
-}
-
-// GetUnitNetNodes returns the net node UUIDs associated with the specified
-// unit. The net nodes are selected in the same way as in GetUnitAddresses, i.e.
-// the union of the net nodes of the cloud service (if any) and the net node
-// of the unit.
-//
-// The following errors may be returned:
-// - [uniterrors.UnitNotFound] if the unit does not exist
-func (s *Service) GetUnitNetNodes(ctx context.Context, unitName coreunit.Name) ([]domainnetwork.NetNodeUUID, error) {
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	netNodeUUIDs, err := s.st.GetUnitNetNodes(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return transform.Slice(netNodeUUIDs, func(s string) domainnetwork.NetNodeUUID {
-		return domainnetwork.NetNodeUUID(s)
-	}), nil
 }

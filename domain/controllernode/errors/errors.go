@@ -17,4 +17,8 @@ const (
 	// EmptyControllerIDs describes an error that occurs when no controller IDs
 	// are found.
 	EmptyControllerIDs = errors.ConstError("no controller IDs found")
+
+	// EmptyAPIAddresses describes an error that occurs when no API addresses
+	// are found.
+	EmptyAPIAddresses = errors.ConstError("no API addresses found")
 )
