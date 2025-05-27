@@ -1218,16 +1218,13 @@ func (w *RemoteStateWatcher) storageChanged(ctx context.Context, keys []string) 
 			if err != nil {
 				return errors.Annotate(err, "watching storage attachment")
 			}
-			if err := w.catacomb.Add(saw); err != nil {
-				return errors.Trace(err)
-			}
 			if err := w.watchStorageAttachment(ctx, tag, result.Life, saw); err != nil {
 				return errors.Trace(err)
 			}
 		} else if params.IsCodeNotFound(result.Error) {
 			if watcher, ok := w.storageAttachmentWatchers[tag]; ok {
 				// already under catacomb management, any error tracked already
-				_ = worker.Stop(watcher)
+				watcher.Kill()
 				delete(w.storageAttachmentWatchers, tag)
 			}
 			delete(w.current.Storage, tag)
@@ -1253,9 +1250,11 @@ func (w *RemoteStateWatcher) watchStorageAttachment(
 	var storageSnapshot StorageSnapshot
 	select {
 	case <-w.catacomb.Dying():
+		saw.Kill()
 		return w.catacomb.ErrDying()
 	case _, ok := <-saw.Changes():
 		if !ok {
+			saw.Kill()
 			return errors.Errorf("storage attachment watcher closed for %s", w.unit.Tag().Id())
 		}
 		var err error
@@ -1267,6 +1266,7 @@ func (w *RemoteStateWatcher) watchStorageAttachment(
 			// pending storage attachments to be provisioned.
 			storageSnapshot = StorageSnapshot{Life: life}
 		} else if err != nil {
+			saw.Kill()
 			return errors.Annotatef(err, "processing initial storage attachment change for %s", w.unit.Tag().Id())
 		}
 	}
@@ -1276,7 +1276,14 @@ func (w *RemoteStateWatcher) watchStorageAttachment(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	err = w.catacomb.Add(innerSAW)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	w.current.Storage[tag] = storageSnapshot
+	if prev := w.storageAttachmentWatchers[tag]; prev != nil {
+		prev.Kill()
+	}
 	w.storageAttachmentWatchers[tag] = innerSAW
 	return nil
 }
