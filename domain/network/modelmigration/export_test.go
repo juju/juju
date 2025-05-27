@@ -27,7 +27,7 @@ func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.exportService = NewMockExportService(ctrl)
-	
+
 	c.Cleanup(func() {
 		s.exportService = nil
 	})
