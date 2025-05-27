@@ -4,6 +4,7 @@
 package ssh_test
 
 import (
+	"crypto/rand"
 	"net"
 	"testing"
 	"time"
@@ -119,9 +120,13 @@ func (s *SSHReachableHostPortSuite) TestMultiplePublicKeys(c *tc.C) {
 // saves their port numbers so we're unlikely to find a real listener at that
 // address.
 func closedTCPHostPorts(c *tc.C, count int) network.HostPorts {
+	randomSuffix := [3]byte{}
+	_, _ = rand.Read(randomSuffix[:])
+	randomLocal := net.IPv4(127, randomSuffix[0], randomSuffix[1], randomSuffix[2])
+	c.Assert(randomLocal.IsLoopback(), tc.IsTrue)
 	ports := make(network.MachineHostPorts, count)
-	for i := 0; i < count; i++ {
-		listener, err := net.Listen("tcp", "127.0.0.1:0")
+	for i := range count {
+		listener, err := net.Listen("tcp", net.JoinHostPort(randomLocal.String(), "0"))
 		c.Assert(err, tc.ErrorIsNil)
 		defer func() { _ = listener.Close() }()
 		listenAddress := listener.Addr().String()
