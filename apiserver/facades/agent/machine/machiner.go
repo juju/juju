@@ -5,7 +5,6 @@ package machine
 
 import (
 	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -27,8 +27,7 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
+// NetworkService describes the service for working with networking concerns.
 type NetworkService interface {
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
@@ -36,6 +35,9 @@ type NetworkService interface {
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 	// AddSubnet creates and returns a new subnet.
 	AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error)
+	// SetMachineNetConfig updates the detected network configuration for
+	// the machine with the input UUID.
+	SetMachineNetConfig(ctx context.Context, mUUID machine.UUID, nics []domainnetwork.NetInterface) error
 }
 
 // MachineService defines the methods that the facade assumes from the Machine
@@ -48,6 +50,8 @@ type MachineService interface {
 	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
 	IsMachineController(context.Context, machine.Name) (bool, error)
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
 }
 
 // ModelInfoService is the interface that is used to ask questions about the
@@ -75,7 +79,7 @@ type MachinerAPI struct {
 	getCanRead              common.GetAuthFunc
 }
 
-// MachinerAPI5 stubs out the Jobs() and SetMachineAddresses() methods.
+// MachinerAPIv5 stubs out the Jobs() and SetMachineAddresses() methods.
 type MachinerAPIv5 struct {
 	*MachinerAPI
 }
@@ -121,6 +125,14 @@ func NewMachinerAPIForState(
 		getCanModify:            getCanAccess,
 		getCanRead:              getCanAccess,
 	}, nil
+}
+
+// SetObservedNetworkConfig updates network interfaces
+// and IP addresses for a single machine.
+func (api *MachinerAPI) SetObservedNetworkConfig(ctx context.Context, args params.SetMachineNetworkConfig) error {
+	// TODO (manadart 2025-05-27): Remove this once bridgepolicy and IP address
+	// handling is wholly handled by Dqlite.
+	return api.NetworkConfigAPI.SetObservedNetworkConfig(ctx, args)
 }
 
 func (api *MachinerAPI) getMachine(tag string, authChecker common.AuthFunc) (*state.Machine, error) {

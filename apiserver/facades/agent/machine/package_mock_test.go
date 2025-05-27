@@ -15,6 +15,7 @@ import (
 
 	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
+	network0 "github.com/juju/juju/domain/network"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -158,6 +159,44 @@ func (c *MockNetworkServiceGetAllSubnetsCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// SetMachineNetConfig mocks base method.
+func (m *MockNetworkService) SetMachineNetConfig(arg0 context.Context, arg1 machine.UUID, arg2 []network0.NetInterface) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetMachineNetConfig", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMachineNetConfig indicates an expected call of SetMachineNetConfig.
+func (mr *MockNetworkServiceMockRecorder) SetMachineNetConfig(arg0, arg1, arg2 any) *MockNetworkServiceSetMachineNetConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineNetConfig", reflect.TypeOf((*MockNetworkService)(nil).SetMachineNetConfig), arg0, arg1, arg2)
+	return &MockNetworkServiceSetMachineNetConfigCall{Call: call}
+}
+
+// MockNetworkServiceSetMachineNetConfigCall wrap *gomock.Call
+type MockNetworkServiceSetMachineNetConfigCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkServiceSetMachineNetConfigCall) Return(arg0 error) *MockNetworkServiceSetMachineNetConfigCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkServiceSetMachineNetConfigCall) Do(f func(context.Context, machine.UUID, []network0.NetInterface) error) *MockNetworkServiceSetMachineNetConfigCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkServiceSetMachineNetConfigCall) DoAndReturn(f func(context.Context, machine.UUID, []network0.NetInterface) error) *MockNetworkServiceSetMachineNetConfigCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockMachineService is a mock of MachineService interface.
 type MockMachineService struct {
 	ctrl     *gomock.Controller
@@ -215,6 +254,45 @@ func (c *MockMachineServiceEnsureDeadMachineCall) Do(f func(context.Context, mac
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceEnsureDeadMachineCall) DoAndReturn(f func(context.Context, machine.Name) error) *MockMachineServiceEnsureDeadMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachineUUID mocks base method.
+func (m *MockMachineService) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (machine.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineUUID", arg0, arg1)
+	ret0, _ := ret[0].(machine.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineUUID indicates an expected call of GetMachineUUID.
+func (mr *MockMachineServiceMockRecorder) GetMachineUUID(arg0, arg1 any) *MockMachineServiceGetMachineUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineUUID", reflect.TypeOf((*MockMachineService)(nil).GetMachineUUID), arg0, arg1)
+	return &MockMachineServiceGetMachineUUIDCall{Call: call}
+}
+
+// MockMachineServiceGetMachineUUIDCall wrap *gomock.Call
+type MockMachineServiceGetMachineUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceGetMachineUUIDCall) Return(arg0 machine.UUID, arg1 error) *MockMachineServiceGetMachineUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceGetMachineUUIDCall) Do(f func(context.Context, machine.Name) (machine.UUID, error)) *MockMachineServiceGetMachineUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (machine.UUID, error)) *MockMachineServiceGetMachineUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
