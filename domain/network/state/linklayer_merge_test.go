@@ -103,6 +103,52 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceNoExistingDevices(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestMergeLinkLayerDeviceIncomingProviderIDDuplicated verifies that merging
+// incoming devices with duplicated provider IDs results in an appropriate error.
+func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceIncomingProviderIDDuplicated(c *tc.C) {
+	// Arrange
+	st := s.State(c)
+
+	// Create a net node and a machine
+	netNodeUUID := s.addNetNode(c)
+	machineUUID := s.addMachine(c, netNodeUUID, "0")
+
+	// Create two existing devices
+	device1UUID := s.addLinkLayerDevice(
+		c, netNodeUUID, "eth0",
+		"00:11:22:33:44:55", corenetwork.EthernetDevice,
+	)
+	device2UUID := s.addLinkLayerDevice(
+		c, netNodeUUID, "eth1",
+		"00:11:22:33:44:66", corenetwork.EthernetDevice,
+	)
+
+	// Add provider IDs to the devices
+	s.addProviderLinkLayerDevice(c, "provider-id-1", device1UUID)
+	s.addProviderLinkLayerDevice(c, "provider-id-2", device2UUID)
+
+	// Create incoming devices with updated the same provider id
+	incoming := []network.NetInterface{
+		s.createNetInterface(
+			"eth0", "00:11:22:33:44:55", "new-provider-id",
+			[]network.NetAddr{},
+		),
+		s.createNetInterface(
+			"eth1", "00:11:22:33:44:66", "new-provider-id",
+			[]network.NetAddr{},
+		),
+	}
+
+	// Act
+	err := st.MergeLinkLayerDevice(
+		c.Context(), machineUUID,
+		incoming,
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "unable to set provider IDs .*new-provider-id.* for multiple devices")
+}
+
 // TestMergeLinkLayerDevice tests the case where one device is updated and
 // one is untouched.
 func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
