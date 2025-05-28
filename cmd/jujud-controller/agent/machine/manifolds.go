@@ -94,6 +94,8 @@ import (
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/objectstore"
+	"github.com/juju/juju/internal/worker/objectstoredrainer"
+	"github.com/juju/juju/internal/worker/objectstorefacade"
 	"github.com/juju/juju/internal/worker/objectstores3caller"
 	"github.com/juju/juju/internal/worker/objectstoreservices"
 	"github.com/juju/juju/internal/worker/peergrouper"
@@ -600,7 +602,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuditConfigUpdaterName: auditConfigUpdaterName,
 			HTTPClientName:         httpClientName,
 			TraceName:              traceName,
-			ObjectStoreName:        objectStoreName,
+			ObjectStoreName:        objectStoreFacadeName,
 			JWTParserName:          jwtParserName,
 
 			// Note that although there is a transient dependency on dbaccessor
@@ -648,7 +650,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
 			ProviderFactoryName:         providerTrackerName,
-			ObjectStoreName:             objectStoreName,
+			ObjectStoreName:             objectStoreFacadeName,
 			StorageRegistryName:         storageRegistryName,
 			HTTPClientName:              httpClientName,
 			LeaseManagerName:            leaseManagerName,
@@ -783,6 +785,21 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetControllerConfigService: sshserver.GetControllerConfigService,
 		})),
 
+		// The objectstore draining workers collaborate to run draining of blobs
+		// between underlying object stores (s3 compatible). They are used to
+		// drain; and to create a mechanism for running other workers so they
+		// can't accidentally interfere with a draining in progress. Such a
+		// manifold should depend on the objectstore facade, which will guard
+		// against any objectstore operations while the draining is in progress.
+		objectStoreFortressName: fortress.Manifold(),
+		objectStoreDrainerName: objectstoredrainer.Manifold(objectstoredrainer.ManifoldConfig{
+			ObjectStoreServicesName: objectStoreServicesName,
+			FortressName:            objectStoreFortressName,
+			GeObjectStoreServicesFn: objectstoredrainer.GeObjectStoreServices,
+			NewWorker:               objectstoredrainer.NewWorker,
+			Logger:                  internallogger.GetLogger("juju.worker.objectstoredrainer"),
+		}),
+
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
 			AgentName:                  agentName,
 			TraceName:                  traceName,
@@ -796,6 +813,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetMetadataService:         objectstore.GetMetadataService,
 			IsBootstrapController:      internalbootstrap.IsBootstrapController,
 		})),
+
+		// The objectstore facade is a thin wrapper around the objectstore
+		// worker. It guards against any objectstore operations while the
+		// draining is in progress.
+		objectStoreFacadeName: objectstorefacade.Manifold(objectstorefacade.ManifoldConfig{
+			ObjectStoreName: objectStoreName,
+			FortressName:    objectStoreFortressName,
+			NewWorker:       objectstorefacade.NewWorker,
+			Logger:          internallogger.GetLogger("juju.worker.objectstorefacade"),
+		}),
 
 		objectStoreServicesName: objectstoreservices.Manifold(objectstoreservices.ManifoldConfig{
 			ChangeStreamName:             changeStreamName,
@@ -897,7 +924,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
 			AgentName:               agentName,
 			StateName:               stateName,
-			ObjectStoreName:         objectStoreName,
+			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
@@ -1112,7 +1139,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
 			AgentName:               agentName,
 			StateName:               stateName,
-			ObjectStoreName:         objectStoreName,
+			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
@@ -1320,6 +1347,10 @@ const (
 	objectStoreName               = "object-store"
 	objectStoreS3CallerName       = "object-store-s3-caller"
 	objectStoreServicesName       = "object-store-services"
+	objectStoreFortressName       = "object-store-fortress"
+	objectStoreFacadeName         = "object-store-facade"
+	objectStoreDrainingFlagName   = "object-store-draining-flag"
+	objectStoreDrainerName        = "object-store-drainer"
 	peergrouperName               = "peer-grouper"
 	providerDomainServicesName    = "provider-services"
 	providerTrackerName           = "provider-tracker"

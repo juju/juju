@@ -327,8 +327,103 @@ AND NOT EXISTS (
 	return nil
 }
 
+// SetDrainingPhase sets the phase of the object store to draining.
+func (s *State) SetDrainingPhase(ctx context.Context, uuid string, phase coreobjectstore.Phase) error {
+	db, err := s.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	phaseTypeID, err := encodePhaseTypeID(phase)
+	if err != nil {
+		return errors.Errorf("encoding phase type id: %w", err)
+	}
+
+	args := dbSetPhaseInfo{
+		UUID:        uuid,
+		PhaseTypeID: phaseTypeID,
+	}
+
+	stmt, err := s.Prepare(`
+INSERT INTO object_store_drain_info (uuid, phase_type_id)
+VALUES ($dbSetPhaseInfo.*)
+ON CONFLICT (uuid) DO UPDATE SET
+	phase_type_id = $dbSetPhaseInfo.phase_type_id;
+	`, args)
+	if err != nil {
+		return errors.Errorf("preparing insert draining phase statement: %w", err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, args).Run()
+		if database.IsErrConstraintUnique(err) {
+			return objectstoreerrors.ErrDrainingAlreadyInProgress
+		} else if err != nil {
+			return errors.Errorf("inserting draining phase: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("setting draining phase: %w", err)
+	}
+	return nil
+}
+
+// GetActiveDrainingPhase returns the phase of the object store.
+func (s *State) GetActiveDrainingPhase(ctx context.Context) (string, coreobjectstore.Phase, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	stmt, err := s.Prepare(`
+SELECT di.uuid AS &dbGetPhaseInfo.uuid,
+	   pt.type AS &dbGetPhaseInfo.phase
+FROM object_store_drain_info AS di
+JOIN object_store_drain_phase_type AS pt ON di.phase_type_id=pt.id
+WHERE di.phase_type_id <= 1;
+`, dbGetPhaseInfo{})
+	if err != nil {
+		return "", "", errors.Errorf("preparing select draining phase statement: %w", err)
+	}
+
+	var phaseInfo dbGetPhaseInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&phaseInfo)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return objectstoreerrors.ErrDrainingPhaseNotFound
+		} else if err != nil {
+			return errors.Errorf("retrieving draining phase: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", "", errors.Errorf("getting draining phase: %w", err)
+	}
+
+	return phaseInfo.UUID, phaseInfo.Phase, nil
+}
+
 // InitialWatchStatement returns the initial watch statement for the
 // persistence path.
 func (s *State) InitialWatchStatement() (string, string) {
 	return "object_store_metadata_path", "SELECT path FROM object_store_metadata_path"
+}
+
+// InitialWatchDrainingTable returns the table for the draining phase.
+func (s *State) InitialWatchDrainingTable() string {
+	return "object_store_drain_info"
+}
+
+func encodePhaseTypeID(phase coreobjectstore.Phase) (int, error) {
+	switch phase {
+	case coreobjectstore.PhaseUnknown:
+		return 0, nil
+	case coreobjectstore.PhaseDraining:
+		return 1, nil
+	case coreobjectstore.PhaseError:
+		return 2, nil
+	case coreobjectstore.PhaseCompleted:
+		return 3, nil
+	default:
+		return -1, errors.Errorf("invalid phase %q", phase)
+	}
 }

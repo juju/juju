@@ -75,7 +75,7 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchCharms(context.Background())
+	watcher, err := svc.WatchCharms(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -152,7 +152,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	watcher, err := svc.WatchApplicationUnitLife(context.Background(), "foo")
+	watcher, err := svc.WatchApplicationUnitLife(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -334,7 +334,7 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *tc.C) {
 
 	}
 
-	watcher, err := svc.WatchApplicationUnitLife(context.Background(), "foo")
+	watcher, err := svc.WatchApplicationUnitLife(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
@@ -1272,13 +1272,12 @@ func (s *watcherSuite) TestWatchUnitAddresses(c *tc.C) {
 
 	svc := s.setupService(c, factory)
 
-	ctx := context.Background()
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	s.createIAASApplication(c, svc, "foo", service.AddUnitArg{})
 
 	// Insert a net node first.
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
 		_, err := tx.ExecContext(ctx, insertNetNode0, netNodeUUID)
 		if err != nil {
@@ -1292,14 +1291,14 @@ func (s *watcherSuite) TestWatchUnitAddresses(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	watcher, err := svc.WatchUnitAddresses(ctx, unit.Name("foo/0"))
+	watcher, err := svc.WatchUnitAddresses(c.Context(), unit.Name("foo/0"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Assert that an insertion to the net node address triggers the watcher.
 	harness.AddTest(func(c *tc.C) {
-		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			insertLLD := `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
 			_, err = tx.ExecContext(ctx, insertLLD, "lld0-uuid", netNodeUUID, "lld0-name", 1500, "00:11:22:33:44:55", 0, 0)
 			if err != nil {
@@ -1329,7 +1328,7 @@ func (s *watcherSuite) TestWatchUnitAddresses(c *tc.C) {
 
 	// Assert that a change of value to the net node address triggers the watcher.
 	harness.AddTest(func(c *tc.C) {
-		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			updateIPAddress := `UPDATE ip_address SET address_value = ? WHERE net_node_uuid = ?`
 			_, err = tx.ExecContext(ctx, updateIPAddress, "10.0.0.255", netNodeUUID)
 			if err != nil {
@@ -1344,7 +1343,7 @@ func (s *watcherSuite) TestWatchUnitAddresses(c *tc.C) {
 
 	// Assert that a change of scope to the net node address triggers the watcher.
 	harness.AddTest(func(c *tc.C) {
-		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			updateIPAddress := `UPDATE ip_address SET scope_id = ? WHERE net_node_uuid = ?`
 			_, err = tx.ExecContext(ctx, updateIPAddress, 1, netNodeUUID)
 			if err != nil {

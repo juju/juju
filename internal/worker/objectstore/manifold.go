@@ -22,7 +22,6 @@ import (
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/trace"
 )
 
@@ -197,9 +196,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 func output(in worker.Worker, out any) error {
-	if w, ok := in.(*common.CleanupWorker); ok {
-		in = w.Worker
-	}
 	w, ok := in.(*objectStoreWorker)
 	if !ok {
 		return errors.Errorf("expected input of objectStoreWorker, got %T", in)
@@ -210,7 +206,7 @@ func output(in worker.Worker, out any) error {
 		var target coreobjectstore.ObjectStoreGetter = w
 		*out = target
 	default:
-		return errors.Errorf("expected output of ObjectStore, got %T", out)
+		return errors.Errorf("expected output of ObjectStoreGetter, got %T", out)
 	}
 	return nil
 }

@@ -684,7 +684,7 @@ func (s *stateSuite) TestSetAPIAddressControllerNodeNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetAPIAddresses(c *tc.C) {
-	err := s.state.CurateNodes(context.Background(), []string{"0", "1", "2"}, nil)
+	err := s.state.CurateNodes(c.Context(), []string{"0", "1", "2"}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	addrs := []controllernode.APIAddress{
@@ -693,7 +693,7 @@ func (s *stateSuite) TestGetAPIAddresses(c *tc.C) {
 	}
 
 	err = s.state.SetAPIAddresses(
-		context.Background(),
+		c.Context(),
 		"0",
 		addrs,
 	)
@@ -703,21 +703,21 @@ func (s *stateSuite) TestGetAPIAddresses(c *tc.C) {
 		"10.0.0.1:17070",
 		"192.168.0.1:17070",
 	}
-	resultAddresses, err := s.state.GetAPIAddresses(context.Background(), "0")
+	resultAddresses, err := s.state.GetAPIAddresses(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultAddresses, tc.DeepEquals, expectedAddresses)
 }
 
 func (s *stateSuite) TestGetAPIAddressesEmpty(c *tc.C) {
-	err := s.state.CurateNodes(context.Background(), []string{"0", "1", "2"}, nil)
+	err := s.state.CurateNodes(c.Context(), []string{"0", "1", "2"}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.GetAPIAddresses(context.Background(), "42")
+	_, err = s.state.GetAPIAddresses(c.Context(), "42")
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
 }
 
 func (s *stateSuite) TestGetAPIAddressesForAgents(c *tc.C) {
-	err := s.state.CurateNodes(context.Background(), []string{"0", "1", "2"}, nil)
+	err := s.state.CurateNodes(c.Context(), []string{"0", "1", "2"}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	addrs := []controllernode.APIAddress{
@@ -727,7 +727,7 @@ func (s *stateSuite) TestGetAPIAddressesForAgents(c *tc.C) {
 	}
 
 	err = s.state.SetAPIAddresses(
-		context.Background(),
+		c.Context(),
 		"0",
 		addrs,
 	)
@@ -737,16 +737,16 @@ func (s *stateSuite) TestGetAPIAddressesForAgents(c *tc.C) {
 		"10.0.0.1:17070",
 		"10.0.0.2:17070",
 	}
-	resultAddresses, err := s.state.GetAPIAddressesForAgents(context.Background(), "0")
+	resultAddresses, err := s.state.GetAPIAddressesForAgents(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultAddresses, tc.DeepEquals, expectedAddresses)
 }
 
 func (s *stateSuite) TestGetAPIAddressesForAgentsEmpty(c *tc.C) {
-	err := s.state.CurateNodes(context.Background(), []string{"0", "1", "2"}, nil)
+	err := s.state.CurateNodes(c.Context(), []string{"0", "1", "2"}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.GetAPIAddressesForAgents(context.Background(), "42")
+	_, err = s.state.GetAPIAddressesForAgents(c.Context(), "42")
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
 }
 
