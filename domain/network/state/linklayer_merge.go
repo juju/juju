@@ -398,39 +398,6 @@ func findMatchingAddresses(
 	return mergeAddress{}, false
 }
 
-// getAllAddressesUUIDForLinkLayerDeviceUUIDs retrieves all IP address UUIDs
-// associated with a given set of link-layer device UUIDs from the database.
-func (st *State) getAllAddressesUUIDForLinkLayerDeviceUUIDs(
-	ctx context.Context, tx *sqlair.TX,
-	relinquish []string,
-) ([]string, error) {
-	type address struct {
-		UUID string `db:"uuid"`
-	}
-	type uuids []string
-	stmt, err := st.Prepare(`
-SELECT &address.uuid 
-FROM ip_address 
-WHERE device_uuid in ($uuids[:])
-`, address{}, uuids{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	var addresses []address
-	err = tx.Query(
-		ctx, stmt, uuids(relinquish),
-	).GetAll(&addresses)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Errorf(
-			"getting all addresses for link layer devices %q: %w",
-			relinquish, err,
-		)
-	}
-	return transform.Slice(addresses, func(f address) string {
-		return f.UUID
-	}), nil
-}
-
 // getExistingLinkLayerDevices retrieves existing link layer devices for a given net node UUID.
 // It queries the database to fetch devices and their associated IP addresses.
 func (st *State) getExistingLinkLayerDevices(
@@ -520,38 +487,6 @@ WHERE ip.net_node_uuid = $netNode.uuid`, address{}, netNode{})
 	}
 
 	return result, nil
-}
-
-// getMachineNetNodeUUID retrieves the NetNodeUUID associated with a given
-// Machine UUID from the database using a prepared SQL statement.
-// Returns the NetNodeUUID or an error if the operation fails.
-func (st *State) getMachineNetNodeUUID(
-	ctx context.Context, tx *sqlair.TX,
-	machineUUID string,
-) (string, error) {
-	type node struct {
-		MachineUUID string `db:"machine_uuid"`
-		NetNodeUUID string `db:"net_node_uuid"`
-	}
-
-	machine := node{MachineUUID: machineUUID}
-
-	stmt, err := st.Prepare(
-		`
-SELECT &node.net_node_uuid 
-FROM   machine 
-WHERE  uuid = $node.machine_uuid
-`, machine,
-	)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	return machine.NetNodeUUID, errors.Capture(
-		tx.Query(
-			ctx, stmt, machine,
-		).Get(&machine),
-	)
 }
 
 // matchByName matches the incoming devices by name.
