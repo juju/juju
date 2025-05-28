@@ -51,7 +51,7 @@ type mergeLinkLayerDevicesChanges struct {
 	// ToRemove are the provider IDs to remove from provider_link_layer_device
 	toRemove []string
 	// toRelinquish is a list of LinkLayerDeviceUUIDs to
-	// relinquish to the machine.
+	// relinquish to the machine, i.e., set all their addresses origin to machine.
 	toRelinquish []string
 	// newDevices are the incoming devices that did not match any we already
 	// have in state.
@@ -263,9 +263,7 @@ func (st *State) applyMergeLinkLayerChanges(
 }
 
 // deleteProviderLinkLayerDevice removes provider-link layer devices mappings
-// for
-// given
-// provider IDs.
+// for  given provider IDs.
 func (st *State) deleteProviderLinkLayerDevice(
 	ctx context.Context, tx *sqlair.TX, providerUUIDs []string,
 ) error {
@@ -626,7 +624,8 @@ func (st *State) normalizeLinkLayeredDevices(
 						}
 					}),
 			}
-		})
+		},
+	)
 
 	// Check that the incoming data is not using a provider ID for more
 	// than one device. This is not verified by transaction assertions.
@@ -655,7 +654,8 @@ func (st *State) normalizeLinkLayeredDevices(
 		return normalizedIncoming, namelessHWAddrs, nil
 	}
 
-	// First get the best device per hardware address.
+	// Given that the incoming devices do not have names, first get the best
+	// device per hardware address.
 	devByHWAddr := make(map[string]mergeLinkLayerDevice)
 	for _, dev := range devices {
 		hwAddr := dev.MACAddress
