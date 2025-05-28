@@ -98,7 +98,7 @@ func (s *workerSuite) TestGetDBNotFound(c *tc.C) {
 
 	// The error isn't passed through, although we really should expose this
 	// in the runner.
-	c.Assert(err, tc.ErrorIs, worker.ErrDead)
+	c.Assert(err, tc.ErrorMatches, `worker "other" not found`)
 }
 
 func (s *workerSuite) TestGetDBFound(c *tc.C) {

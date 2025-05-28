@@ -125,9 +125,10 @@ func NewWorker(cfg WorkerConfig) (*dbReplWorker, error) {
 		// that case we do want to cause the dbaccessor to go down. This
 		// will then bring up a new dqlite app.
 		IsFatal: func(err error) bool {
-			// If a database is dead we should not kill the worker of the
-			// runner.
-			if errors.Is(err, database.ErrDBDead) {
+			// If a database is dead or not found we should not kill the worker
+			// of the runner.
+			if errors.Is(err, database.ErrDBDead) ||
+				errors.Is(err, database.ErrDBNotFound) {
 				return false
 			}
 
@@ -138,7 +139,8 @@ func NewWorker(cfg WorkerConfig) (*dbReplWorker, error) {
 			return !errors.Is(err, errTryAgain)
 		},
 		ShouldRestart: func(err error) bool {
-			return !errors.Is(err, database.ErrDBDead)
+			return !errors.Is(err, database.ErrDBDead) &&
+				!errors.Is(err, database.ErrDBNotFound)
 		},
 		RestartDelay: time.Second * 1,
 		Logger:       internalworker.WrapLogger(cfg.Logger),
