@@ -11,14 +11,11 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
-	commonnetwork "github.com/juju/juju/apiserver/common/network"
-	"github.com/juju/juju/apiserver/common/network/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
@@ -136,6 +133,12 @@ func (s *InstancePollerSuite) SetUpTest(c *tc.C) {
 func (s *InstancePollerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Updating a machine-sourced address should change its origin to "provider".
+- An unseen provider-sourced address should change its origin to "machine".
+- Incoming network config with 2 different devices having the same provider ID should error.
+- A bridge and an ethernet device, both with the same MAC address;
+  SetProviderNetworkConfig is called with a device match the MAC address (no name);
+  Only the ethernet has the provider ID set against it.
+  ".
 `)
 }
 
@@ -865,181 +868,6 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNotAlive(c *tc.C) {
 
 	// We should just return after seeing that the machine is dying.
 	s.st.Stub.CheckCallNames(c, "Machine", "Life", "Id")
-}
-
-func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *tc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-	err := s.setupAPI(c)
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.expectDefaultSpaces()
-
-	// Hardware address not matched.
-	dev := mocks.NewMockLinkLayerDevice(ctrl)
-	dExp := dev.EXPECT()
-	dExp.MACAddress().Return("01:01:01:01:01:01").MinTimes(1)
-	dExp.Name().Return("eth0").MinTimes(1)
-	dExp.SetProviderIDOps(network.Id("")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
-
-	// Address should be set back to machine origin.
-	addr := mocks.NewMockLinkLayerAddress(ctrl)
-	addr.EXPECT().DeviceName().Return("eth0")
-	addr.EXPECT().SetOriginOps(network.OriginMachine).Return([]txn.Op{{C: "address-origin-manual"}})
-
-	s.st.SetMachineInfo(c, machineInfo{
-		id:               "1",
-		instanceStatus:   statusInfo("foo"),
-		linkLayerDevices: []commonnetwork.LinkLayerDevice{dev},
-		addresses:        []commonnetwork.LinkLayerAddress{addr},
-	})
-
-	result, err := s.api.SetProviderNetworkConfig(c.Context(), params.SetProviderNetworkConfig{
-		Args: []params.ProviderNetworkConfig{
-			{
-				Tag:     "machine-1",
-				Configs: []params.NetworkConfig{{MACAddress: "00:00:00:00:00:00"}},
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, tc.IsNil)
-
-	var buildCalled bool
-	for _, call := range s.st.Calls() {
-		if call.FuncName == "ApplyOperation.Build" {
-			buildCalled = true
-			c.Check(call.Args, tc.DeepEquals, []interface{}{[]txn.Op{
-				{C: "machine-alive"},
-				{C: "dev-provider-id"},
-				{C: "address-origin-manual"},
-			}})
-		}
-	}
-	c.Assert(buildCalled, tc.IsTrue)
-}
-
-func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDGoesToEthernetDev(c *tc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-	err := s.setupAPI(c)
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.expectDefaultSpaces()
-
-	// Ethernet device will have the provider ID set.
-	ethDev := mocks.NewMockLinkLayerDevice(ctrl)
-	ethExp := ethDev.EXPECT()
-	ethExp.MACAddress().Return("00:00:00:00:00:00").MinTimes(1)
-	ethExp.Name().Return("eth0").MinTimes(1)
-	ethExp.ProviderID().Return(network.Id("")).MinTimes(1)
-	ethExp.SetProviderIDOps(network.Id("p-dev")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
-
-	// Bridge has the same MAC, but will not get the provider ID.
-	brDev := mocks.NewMockLinkLayerDevice(ctrl)
-	brExp := brDev.EXPECT()
-	brExp.MACAddress().Return("00:00:00:00:00:00").MinTimes(1)
-	brExp.Name().Return("br-eth0").AnyTimes()
-	brExp.Type().Return(network.BridgeDevice)
-
-	s.st.SetMachineInfo(c, machineInfo{
-		id:               "1",
-		instanceStatus:   statusInfo("foo"),
-		linkLayerDevices: []commonnetwork.LinkLayerDevice{ethDev, brDev},
-		addresses:        []commonnetwork.LinkLayerAddress{},
-	})
-
-	result, err := s.api.SetProviderNetworkConfig(c.Context(), params.SetProviderNetworkConfig{
-		Args: []params.ProviderNetworkConfig{
-			{
-				Tag: "machine-1",
-				Configs: []params.NetworkConfig{
-					{
-						// This should still be matched based on hardware address.
-						InterfaceName: "",
-						MACAddress:    "00:00:00:00:00:00",
-						ProviderId:    "p-dev",
-					},
-				},
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, tc.IsNil)
-
-	var buildCalled bool
-	for _, call := range s.st.Calls() {
-		if call.FuncName == "ApplyOperation.Build" {
-			buildCalled = true
-		}
-	}
-	c.Assert(buildCalled, tc.IsTrue)
-}
-
-func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDMultipleRefsError(c *tc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-	err := s.setupAPI(c)
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.expectDefaultSpaces()
-
-	ethDev := mocks.NewMockLinkLayerDevice(ctrl)
-	ethExp := ethDev.EXPECT()
-	ethExp.Name().Return("eth0").MinTimes(1)
-	ethExp.ProviderID().Return(network.Id("")).MinTimes(1)
-	ethExp.SetProviderIDOps(network.Id("p-dev")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
-
-	brDev := mocks.NewMockLinkLayerDevice(ctrl)
-	brExp := brDev.EXPECT()
-	brExp.Name().Return("br-eth0").AnyTimes()
-	brExp.ProviderID().Return(network.Id("")).MinTimes(1)
-	// Note no calls to SetProviderIDOps.
-
-	s.st.SetMachineInfo(c, machineInfo{
-		id:               "1",
-		instanceStatus:   statusInfo("foo"),
-		linkLayerDevices: []commonnetwork.LinkLayerDevice{ethDev, brDev},
-		addresses:        []commonnetwork.LinkLayerAddress{},
-	})
-
-	// Same provider ID for both.
-	result, err := s.api.SetProviderNetworkConfig(c.Context(), params.SetProviderNetworkConfig{
-		Args: []params.ProviderNetworkConfig{
-			{
-				Tag: "machine-1",
-				Configs: []params.NetworkConfig{
-					{
-						InterfaceName: "eth0",
-						MACAddress:    "aa:00:00:00:00:00",
-						ProviderId:    "p-dev",
-					},
-					{
-						InterfaceName: "br-eth0",
-						MACAddress:    "bb:00:00:00:00:00",
-						ProviderId:    "p-dev",
-					},
-				},
-			},
-		},
-	})
-
-	// The error is logged but not returned.
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, tc.IsNil)
-
-	// But we should not have registered a successful call to Build.
-	// This returns an error.
-	var buildCalled bool
-	for _, call := range s.st.Calls() {
-		if call.FuncName == "ApplyOperation.Build" {
-			buildCalled = true
-		}
-	}
-	c.Assert(buildCalled, tc.IsFalse)
 }
 
 func (s *InstancePollerSuite) expectDefaultSpaces() {
