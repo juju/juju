@@ -304,7 +304,7 @@ Further, the use of nested functions is discouraged, instead, use either private
 f-strings are the preferred way of including variables in a string. For example:
 
 ```python
-​​foo = "substring"
+foo = "substring"
 
 # .format is not preferred
 
