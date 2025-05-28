@@ -64,39 +64,20 @@ func (s *mergeLinkLayerSuite) State(c *tc.C) *State {
 	return NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 }
 
-// TestMergeLinkLayerDeviceNoNetNode tests the case where there is no net node for the machine.
-func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceNoNetNode(c *tc.C) {
-	// Arrange
-	st := s.State(c)
-
-	// Create non empty incoming devices (placeholder)
-	incoming := []network.NetInterface{{}}
-
-	// Act
-	err := st.MergeLinkLayerDevice(c.Context(), "machine-without-netnode-uuid",
-		incoming)
-
-	// Assert: Expect an error because there is no net node
-	c.Assert(err, tc.NotNil)
-	c.Assert(err, tc.ErrorMatches,
-		`getting net node UUID for machine "machine-without-netnode-uuid": .*`)
-}
-
 // TestMergeLinkLayerDeviceNoExistingDevices tests the case where there are no
 // existing devices for the machine.
 func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceNoExistingDevices(c *tc.C) {
 	// Arrange
 	st := s.State(c)
 
-	// Create a net node and a machine
+	// Create a net node
 	netNodeUUID := s.addNetNode(c)
-	machineUUID := s.addMachine(c, netNodeUUID, "0")
 
 	// Create non empty incoming devices (placeholder)
 	incoming := []network.NetInterface{{}}
 
 	// Act
-	err := st.MergeLinkLayerDevice(c.Context(), machineUUID,
+	err := st.MergeLinkLayerDevice(c.Context(), netNodeUUID,
 		incoming)
 
 	// Asser: Expect no error, but no changes either (noop)
@@ -109,9 +90,8 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceIncomingProviderIDDuplicat
 	// Arrange
 	st := s.State(c)
 
-	// Create a net node and a machine
+	// Create a net node
 	netNodeUUID := s.addNetNode(c)
-	machineUUID := s.addMachine(c, netNodeUUID, "0")
 
 	// Create two existing devices
 	device1UUID := s.addLinkLayerDevice(
@@ -141,7 +121,7 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceIncomingProviderIDDuplicat
 
 	// Act
 	err := st.MergeLinkLayerDevice(
-		c.Context(), machineUUID,
+		c.Context(), netNodeUUID,
 		incoming,
 	)
 
@@ -158,9 +138,8 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceBridgeAndEthernet(c *tc.C)
 	// Arrange
 	st := s.State(c)
 
-	// Create a net node and a machine
+	// Create a net node
 	netNodeUUID := s.addNetNode(c)
-	machineUUID := s.addMachine(c, netNodeUUID, "0")
 
 	// Create two existing devices
 	macAddress := "00:11:22:33:44:55"
@@ -177,7 +156,7 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceBridgeAndEthernet(c *tc.C)
 
 	// Act
 	err := st.MergeLinkLayerDevice(
-		c.Context(), machineUUID,
+		c.Context(), netNodeUUID,
 		incoming,
 	)
 
@@ -205,9 +184,8 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
 	// Arrange
 	st := s.State(c)
 
-	// Create a net node and a machine
+	// Create a net node
 	netNodeUUID := s.addNetNode(c)
-	machineUUID := s.addMachine(c, netNodeUUID, "0")
 
 	// Create two existing devices
 	device1UUID := s.addLinkLayerDevice(c, netNodeUUID, "eth0",
@@ -239,7 +217,7 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
 	}
 
 	// Act
-	err := st.MergeLinkLayerDevice(c.Context(), machineUUID,
+	err := st.MergeLinkLayerDevice(c.Context(), netNodeUUID,
 		incoming)
 
 	// Assert
@@ -789,18 +767,6 @@ func (s *mergeLinkLayerSuite) addNetNode(c *tc.C) string {
 			INSERT INTO net_node (uuid)
 			VALUES (?)`, nodeUUID)
 	return nodeUUID
-}
-
-// addMachine adds a machine to the database and returns its UUID.
-func (s *mergeLinkLayerSuite) addMachine(
-	c *tc.C, netNodeUUID string, name string,
-) string {
-	machineUUID := "machine-" + name + "-uuid"
-	s.query(c, `
-			INSERT INTO machine (uuid, net_node_uuid, name, life_id)
-			VALUES (?,?,?,?)
-		`, machineUUID, netNodeUUID, name, 0)
-	return machineUUID
 }
 
 // addLinkLayerDevice adds a link layer device to the database and returns its UUID.
