@@ -684,9 +684,9 @@ func (st *State) normalizeLinkLayeredDevices(
 	}
 
 	// Set the names and remembers normalized nameless addresses
-	for _, dev := range normalizedIncoming {
+	for i, dev := range normalizedIncoming {
 		if existing, ok := devByHWAddr[dev.MACAddress]; ok && dev.Name == "" {
-			dev.Name = existing.Name
+			normalizedIncoming[i].Name = existing.Name
 			namelessHWAddrs.Add(dev.MACAddress)
 		}
 	}
