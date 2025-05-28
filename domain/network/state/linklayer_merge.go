@@ -37,19 +37,16 @@ type mergeLinkLayerDevice struct {
 //
 // It contains only the fields that are used to identify and merge the addresses
 type mergeAddress struct {
-	UUID       string
-	Value      string
-	ProviderID string
+	UUID             string
+	Value            string
+	ProviderID       string
+	ProviderSubnetID string
 }
 
 // mergeLinkLayerDevicesChanges contains the changes to be applied to the
 // link layer devices.
 type mergeLinkLayerDevicesChanges struct {
-	// toAdd maps provider IDs to LinkLayerDeviceUUIDs to be added
-	// in provider_link_layer_device.
-	toAdd map[string]string
-	// ToRemove are the provider IDs to remove from provider_link_layer_device
-	toRemove []string
+	mergeProviderIDs
 	// toRelinquish is a list of LinkLayerDeviceUUIDs to
 	// relinquish to the machine, i.e., set all their addresses origin to machine.
 	toRelinquish []string
@@ -61,14 +58,41 @@ type mergeLinkLayerDevicesChanges struct {
 // mergeAddressesChanges contains the changes to be applied to the
 // addresses.
 type mergeAddressesChanges struct {
-	// toAdd maps provider IDs to ip_address UUID to be added
-	// in provider_link_layer_device.
-	toAdd map[string]string
-	// ToRemove are the provider IDs to remove from provider_ip_address
-	toRemove []string
+	// AddressProviderIDs represents provider id changes for for addresses.
+	AddressProviderIDs mergeProviderIDs
+	// SubnetProviderIDs represents provider id changes for for addresses subnets.
+	SubnetProviderIDs mergeProviderIDs
 	// toRelinquish are a list of ip_address to
 	// relinquish to machine, i.e., set their origin to machine.
 	toRelinquish []string
+}
+
+// mergeAddressProviderIDs represents a mapping for provider provider and subnet IDs.
+// ProviderID is the identifier for the provider entity.
+// ProviderSubnetID is the identifier for the subnet within the provider.
+type mergeProviderIDs struct {
+	// toAdd maps provider IDs to an entity UUID to be added
+	toAdd map[string]string
+	// ToRemove are the provider IDs to remove for this entity
+	toRemove []string
+}
+
+// setToAdd adds a mapping of providerID to uuid in the toAdd map.
+// If providerID is an empty string, the method exits without changes.
+func (m *mergeProviderIDs) setToAdd(providerID, uuid string) {
+	if providerID == "" {
+		return
+	}
+	m.toAdd[providerID] = uuid
+}
+
+// setToRemove appends the given providerID to the toRemove slice.
+// It performs no action if providerID is an empty string.
+func (m *mergeProviderIDs) setToRemove(providerID string) {
+	if providerID == "" {
+		return
+	}
+	m.toRemove = append(m.toRemove, providerID)
 }
 
 // MergeLinkLayerDevice merges the existing link layer devices with the
@@ -199,6 +223,42 @@ VALUES ($insert.provider_id, $insert.address_uuid)
 	return nil
 }
 
+// addProviderSubnet associates provider IDs with subnet related to an address uuid
+// in the database
+// It inserts mappings from the input map into the provider_subnet table.
+// Returns an error if the database operation fails.
+func (st *State) addProviderSubnet(
+	ctx context.Context, tx *sqlair.TX, add map[string]string,
+) error {
+	type insert struct {
+		ProviderSubnetID string `db:"provider_id"`
+		AddressUUID      string `db:"address_uuid"`
+	}
+	stmt, err := st.Prepare(
+		`
+INSERT INTO provider_subnet
+SELECT 
+    $insert.provider_id AS provider_id,
+    ipa.subnet_uuid AS subnet_uuid
+FROM ip_address AS ipa
+WHERE ipa.uuid = $insert.address_uuid
+AND ipa.subnet_uuid IS NOT NULL -- mitigate the case where the address is not associated with a subnet
+`, insert{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	for providerID, addressUUID := range add {
+		insert := insert{
+			ProviderSubnetID: providerID,
+			AddressUUID:      addressUUID,
+		}
+		if err := tx.Query(ctx, stmt, insert).Run(); err != nil {
+			return errors.Capture(err)
+		}
+	}
+	return nil
+}
+
 // applyMergeLinkLayerChanges applies the changes to the link layer devices.
 func (st *State) applyMergeLinkLayerChanges(
 	ctx context.Context, tx *sqlair.TX,
@@ -226,9 +286,16 @@ func (st *State) applyMergeLinkLayerChanges(
 			"removing provider IDs from link layer devices: %w", err,
 		)
 	}
-	err = st.deleteProviderAddress(ctx, tx, addressChanges.toRemove)
+	err = st.deleteProviderAddress(ctx, tx,
+		addressChanges.AddressProviderIDs.toRemove)
 	if err != nil {
 		return errors.Errorf("removing provider IDs from addresses: %w", err)
+	}
+
+	err = st.deleteProviderSubnets(ctx, tx,
+		addressChanges.SubnetProviderIDs.toRemove)
+	if err != nil {
+		return errors.Errorf("removing provider IDs from subnets: %w", err)
 	}
 	err = st.addProviderLinkLayerDevice(ctx, tx, lldChanges.toAdd)
 	if err != nil {
@@ -237,9 +304,15 @@ func (st *State) applyMergeLinkLayerChanges(
 			err,
 		)
 	}
-	err = st.addProviderAddress(ctx, tx, addressChanges.toAdd)
+	err = st.addProviderAddress(ctx, tx,
+		addressChanges.AddressProviderIDs.toAdd)
 	if err != nil {
 		return errors.Errorf("adding provider IDs to addresses: %w", err)
+	}
+	err = st.addProviderSubnet(ctx, tx,
+		addressChanges.SubnetProviderIDs.toAdd)
+	if err != nil {
+		return errors.Errorf("adding provider IDs to subnets: %w", err)
 	}
 	err = st.relinquishAddresses(ctx, tx, addressChanges.toRelinquish)
 	if err != nil {
@@ -280,16 +353,33 @@ WHERE provider_id IN ($uuids[:])`, uuids{})
 // deleteProviderAddress removes provider-addresses mappings for given
 // provider IDs.
 func (st *State) deleteProviderAddress(
-	ctx context.Context, tx *sqlair.TX, providerUUIDs []string,
+	ctx context.Context, tx *sqlair.TX, providerIDs []string,
 ) error {
-	type uuids []string
+	type ids []string
 	stmt, err := st.Prepare(`
 DELETE FROM provider_ip_address
-WHERE provider_id IN ($uuids[:])`, uuids{})
+WHERE provider_id IN ($ids[:])`, ids{})
 	if err != nil {
 		return errors.Capture(err)
 	}
-	return tx.Query(ctx, stmt, uuids(providerUUIDs)).Run()
+	return errors.Capture(tx.Query(ctx, stmt,
+		ids(providerIDs)).Run())
+}
+
+// deleteProviderSubnets removes provider-subnet mappings for given
+// provider IDs.
+func (st *State) deleteProviderSubnets(
+	ctx context.Context, tx *sqlair.TX, providerIDs []string,
+) error {
+	type ids []string
+	stmt, err := st.Prepare(`
+DELETE FROM provider_subnet
+WHERE provider_id IN ($ids[:])`, ids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(tx.Query(ctx, stmt,
+		ids(providerIDs)).Run())
 }
 
 // computeMergeAddressChanges prepares the changes to be applied to the addresses.
@@ -307,26 +397,34 @@ func (st *State) computeMergeAddressChanges(
 	}
 
 	result := mergeAddressesChanges{
-		toAdd:        make(map[string]string),
-		toRemove:     nil,
-		toRelinquish: nil,
+		AddressProviderIDs: mergeProviderIDs{
+			toAdd: make(map[string]string),
+		},
+		SubnetProviderIDs: mergeProviderIDs{
+			toAdd: make(map[string]string),
+		},
 	}
 	for _, device := range existingDevices {
 		deviceName, addresses := device.Name, device.Addresses
 		incomings, _ := incomingAddresses[deviceName]
 		for _, existing := range addresses {
 			matchIncoming, ok := findMatchingAddresses(existing, incomings)
-			if ok && matchIncoming.ProviderID == existing.ProviderID {
+			if ok &&
+				matchIncoming.ProviderID == existing.ProviderID &&
+				matchIncoming.ProviderSubnetID == existing.ProviderSubnetID {
 				continue
 			}
-			result.toRemove = append(
-				result.toRemove, existing.ProviderID,
-			)
+			result.AddressProviderIDs.setToRemove(existing.ProviderID)
+			result.SubnetProviderIDs.setToRemove(existing.ProviderSubnetID)
 			if !ok {
 				result.toRelinquish = append(result.toRelinquish, existing.UUID)
 				continue
 			}
-			result.toAdd[matchIncoming.ProviderID] = existing.UUID
+			result.AddressProviderIDs.setToAdd(matchIncoming.ProviderID,
+				existing.UUID)
+			result.SubnetProviderIDs.setToAdd(matchIncoming.ProviderSubnetID,
+				existing.UUID)
+
 		}
 	}
 	return result
@@ -352,9 +450,9 @@ func (st *State) computeMergeLinkLayerDeviceChanges(
 		)...,
 	)
 	lldChanges := mergeLinkLayerDevicesChanges{
-		toAdd:        make(map[string]string),
-		toRemove:     make([]string, 0),
-		toRelinquish: make([]string, 0),
+		mergeProviderIDs: mergeProviderIDs{
+			toAdd: make(map[string]string),
+		},
 	}
 	for _, device := range existingDevices {
 		notProcessed.Remove(device.Name)
@@ -466,9 +564,10 @@ func (st *State) getExistingLinkLayerDevices(
 		TypeID     int64  `db:"device_type_id"`
 	}
 	type address struct {
-		UUID       string `db:"uuid"`
-		Value      string `db:"address_value"`
-		ProviderID string `db:"provider_id"`
+		UUID             string `db:"uuid"`
+		Value            string `db:"address_value"`
+		ProviderID       string `db:"provider_id"`
+		ProviderSubnetID string `db:"provider_subnet_id"`
 	}
 	type netNode struct {
 		UUID string `db:"uuid"`
@@ -483,9 +582,14 @@ WHERE lld.net_node_uuid = $netNode.uuid
 		return nil, errors.Capture(err)
 	}
 	getAddressesStmt, err := st.Prepare(`
-SELECT &address.*
+SELECT 
+    &address.uuid,
+    &address.address_value,
+    pip.provider_id AS &address.provider_id,
+    ps.provider_id AS &address.provider_subnet_id
 FROM ip_address AS ip
 LEFT JOIN provider_ip_address AS pip ON ip.uuid = pip.address_uuid
+LEFT JOIN provider_subnet AS ps ON ip.subnet_uuid = ps.subnet_uuid                                     
 WHERE ip.device_uuid = ($device.uuid)`, address{}, device{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -524,9 +628,10 @@ WHERE ip.device_uuid = ($device.uuid)`, address{}, device{})
 			Addresses: transform.Slice(addresses,
 				func(a address) mergeAddress {
 					return mergeAddress{
-						UUID:       a.UUID,
-						Value:      a.Value,
-						ProviderID: a.ProviderID,
+						UUID:             a.UUID,
+						Value:            a.Value,
+						ProviderID:       a.ProviderID,
+						ProviderSubnetID: a.ProviderSubnetID,
 					}
 				}),
 		})
@@ -622,8 +727,9 @@ func (st *State) normalizeLinkLayeredDevices(
 				Addresses: transform.Slice(dev.Addrs,
 					func(addr network.NetAddr) mergeAddress {
 						return mergeAddress{
-							Value:      addr.AddressValue,
-							ProviderID: string(deref(addr.ProviderID)),
+							Value:            addr.AddressValue,
+							ProviderID:       string(deref(addr.ProviderID)),
+							ProviderSubnetID: string(deref(addr.ProviderSubnetID)),
 						}
 					}),
 			}
