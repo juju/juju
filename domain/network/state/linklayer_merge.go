@@ -458,6 +458,7 @@ func (st *State) getExistingLinkLayerDevices(
 	}
 	type address struct {
 		UUID       string `db:"uuid"`
+		DeviceUUID string `db:"device_uuid"`
 		Value      string `db:"address_value"`
 		ProviderID string `db:"provider_id"`
 	}
@@ -477,7 +478,7 @@ WHERE lld.net_node_uuid = $netNode.uuid
 SELECT &address.*
 FROM ip_address AS ip
 LEFT JOIN provider_ip_address AS pip ON ip.uuid = pip.address_uuid
-WHERE ip.device_uuid = ($device.uuid)`, address{}, device{})
+WHERE ip.net_node_uuid = $netNode.uuid`, address{}, netNode{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -487,20 +488,27 @@ WHERE ip.device_uuid = ($device.uuid)`, address{}, device{})
 		netNode{UUID: netNodeUUID}).GetAll(
 		&devices); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Errorf(
-			"getting all link layer devices from net notd %q: %w",
+			"getting all link layer devices from net node %q: %w",
 			netNodeUUID, err)
+	}
+	var addresses []address
+	if err := tx.Query(ctx, getAddressesStmt,
+		netNode{UUID: netNodeUUID}).GetAll(
+		&addresses); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf(
+			"getting all addresses from net node %q: %w",
+			netNodeUUID, err)
+	}
+	addressByDeviceUUID := make(map[string][]address)
+	for _, address := range addresses {
+		addressByDeviceUUID[address.DeviceUUID] = append(
+			addressByDeviceUUID[address.DeviceUUID], address,
+		)
 	}
 
 	var result []mergeLinkLayerDevice
 	for _, device := range devices {
-		var addresses []address
-		if err := tx.Query(ctx, getAddressesStmt,
-			device).GetAll(&addresses); err != nil &&
-			!errors.Is(err, sqlair.ErrNoRows) {
-			return nil, errors.Errorf(
-				"getting all addresses for link layer device %q: %w",
-				device.UUID, err)
-		}
+		addresses, _ := addressByDeviceUUID[device.UUID]
 		deviceType, err := decodeDeviceType(device.TypeID)
 		if err != nil {
 			return nil, errors.Errorf(
