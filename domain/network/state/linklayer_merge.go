@@ -121,10 +121,10 @@ func (st *State) MergeLinkLayerDevice(
 				return errors.Capture(err)
 			}
 
-			lldChanges := st.prepareMergeLinkLayerDevices(
+			lldChanges := st.computeMergeLinkLayerDeviceChanges(
 				ctx, existingDevices, normalized, namelessHWAddrs,
 			)
-			addressChanges := st.prepareMergeAddresses(
+			addressChanges := st.computeMergeAddressChanges(
 				normalized, existingDevices,
 			)
 
@@ -292,11 +292,11 @@ WHERE provider_id IN ($uuids[:])`, uuids{})
 	return tx.Query(ctx, stmt, uuids(providerUUIDs)).Run()
 }
 
-// prepareMergeAddresses prepares the changes to be applied to the addresses.
+// computeMergeAddressChanges prepares the changes to be applied to the addresses.
 //
 // It takes the normalized devices and the existing devices and returns the
 // changes to be applied to the addresses.
-func (st *State) prepareMergeAddresses(
+func (st *State) computeMergeAddressChanges(
 	normalized []mergeLinkLayerDevice, existingDevices []mergeLinkLayerDevice,
 ) mergeAddressesChanges {
 	incomingAddresses := make(map[string][]mergeAddress)
@@ -332,12 +332,12 @@ func (st *State) prepareMergeAddresses(
 	return result
 }
 
-// prepareMergeLinkLayerDevices prepares the changes to be applied to the
+// computeMergeLinkLayerDeviceChanges prepares the changes to be applied to the
 // link layer devices.
 //
 // It takes the normalized devices and the existing devices and returns the
 // changes to be applied to the link layer devices.
-func (st *State) prepareMergeLinkLayerDevices(
+func (st *State) computeMergeLinkLayerDeviceChanges(
 	ctx context.Context,
 	existingDevices []mergeLinkLayerDevice,
 	incomingDevices []mergeLinkLayerDevice,
