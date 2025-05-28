@@ -352,12 +352,6 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *tc.C) {
 	var counter atomic.Int64
 	s.apiConnectHandler = func(ctx context.Context) error {
 		counter.Add(1)
-
-		select {
-		case s.apiConnect <- struct{}{}:
-		case <-time.After(time.Second):
-			c.Fatalf("timed out waiting for API connect")
-		}
 		return nil
 	}
 
@@ -377,7 +371,8 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *tc.C) {
 	w.UpdateAddresses([]string{addr.String()})
 
 	select {
-	case <-s.apiConnect:
+	case state := <-s.states:
+		c.Assert(state, tc.Equals, stateChanged)
 	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for API connect")
 	}
@@ -385,8 +380,8 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *tc.C) {
 	w.UpdateAddresses([]string{addr.String()})
 
 	select {
-	case <-s.apiConnect:
-		c.Fatalf("the connection should not be called")
+	case state := <-s.states:
+		c.Fatalf("state should not have changed, got: %v", state)
 	case <-time.After(time.Second):
 	}
 
