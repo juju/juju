@@ -583,7 +583,7 @@ func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithMatchingNameDifferen
 	namelessHWAddrs := set.NewStrings()
 
 	// Act
-	ctx := context.Background()
+	ctx := c.Context()
 	changes := st.computeMergeLinkLayerDeviceChanges(ctx, existingDevices,
 		incomingDevices, namelessHWAddrs)
 
@@ -622,7 +622,7 @@ func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithMatchingNameSameProv
 	namelessHWAddrs := set.NewStrings()
 
 	// Act
-	ctx := context.Background()
+	ctx := c.Context()
 	changes := st.computeMergeLinkLayerDeviceChanges(ctx, existingDevices,
 		incomingDevices, namelessHWAddrs)
 
@@ -662,7 +662,7 @@ func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithNoMatchingNameMatchi
 	namelessHWAddrs := set.NewStrings("00:11:22:33:44:55")
 
 	// Act
-	ctx := context.Background()
+	ctx := c.Context()
 	changes := st.computeMergeLinkLayerDeviceChanges(ctx, existingDevices,
 		incomingDevices, namelessHWAddrs)
 
@@ -702,7 +702,7 @@ func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithNoMatchingNameNoMatc
 	namelessHWAddrs := set.NewStrings()
 
 	// Act
-	ctx := context.Background()
+	ctx := c.Context()
 	changes := st.computeMergeLinkLayerDeviceChanges(ctx, existingDevices,
 		incomingDevices, namelessHWAddrs)
 
@@ -746,7 +746,7 @@ func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesIncomingWithNoMatchingEx
 	namelessHWAddrs := set.NewStrings()
 
 	// Act
-	ctx := context.Background()
+	ctx := c.Context()
 	changes := st.computeMergeLinkLayerDeviceChanges(ctx, existingDevices,
 		incomingDevices, namelessHWAddrs)
 
