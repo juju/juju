@@ -382,11 +382,23 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *tc.C) {
 		c.Fatalf("timed out waiting for API connect")
 	}
 
+	// Fix a race condition by making sure the connection has been correctly
+	// established. Without this instruction, the second UpdateAddresses can
+	// trigger a canceler(newChangeRequestError),
+	// which cancels the establishment of the previous connection and makes the
+	// test flaky
+	err := w.Connection(c.Context(),
+		func(ctx context.Context, c api.Connection) error {
+			return nil
+		})
+	c.Assert(err, tc.ErrorIsNil)
+
 	w.UpdateAddresses([]string{addr.String()})
 
 	select {
 	case <-s.apiConnect:
-		c.Fatalf("the connection should not be called")
+		// fail fast: Assert on counter will fails anyway,
+		// with a bigger call count
 	case <-time.After(time.Second):
 	}
 
