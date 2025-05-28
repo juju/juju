@@ -149,6 +149,56 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceIncomingProviderIDDuplicat
 	c.Assert(err, tc.ErrorMatches, "unable to set provider IDs .*new-provider-id.* for multiple devices")
 }
 
+// TestMergeLinkLayerDeviceBridgeAndEthernet verifies the merging behavior of
+// link-layer devices, specifically bridge and Ethernet types with same MAC
+// address.
+// It ensures that incoming device details are applied only to the ethernet
+// device if no names are provided.
+func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceBridgeAndEthernet(c *tc.C) {
+	// Arrange
+	st := s.State(c)
+
+	// Create a net node and a machine
+	netNodeUUID := s.addNetNode(c)
+	machineUUID := s.addMachine(c, netNodeUUID, "0")
+
+	// Create two existing devices
+	macAddress := "00:11:22:33:44:55"
+	deviceUUID := s.addLinkLayerDevice(c, netNodeUUID, "eth0", macAddress, corenetwork.EthernetDevice)
+	bridgeUUID := s.addLinkLayerDevice(c, netNodeUUID, "bridge", macAddress, corenetwork.BridgeDevice)
+
+	// Create incoming devices with updated the same provider id
+	incoming := []network.NetInterface{
+		s.createNetInterface(
+			"", macAddress, "new-provider-id",
+			[]network.NetAddr{},
+		),
+	}
+
+	// Act
+	err := st.MergeLinkLayerDevice(
+		c.Context(), machineUUID,
+		incoming,
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.fetchLinkLayerDevices(c, netNodeUUID), tc.SameContents,
+		[]mergedLinkLayerDevice{
+			{
+				UUID:       deviceUUID,
+				Name:       "eth0",
+				ProviderID: "new-provider-id",
+				MacAddress: macAddress,
+			},
+			{
+				UUID:       bridgeUUID,
+				Name:       "bridge",
+				MacAddress: macAddress,
+			},
+		})
+}
+
 // TestMergeLinkLayerDevice tests the case where one device is updated and
 // one is untouched.
 func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
