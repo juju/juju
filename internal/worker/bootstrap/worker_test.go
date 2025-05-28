@@ -108,15 +108,13 @@ func (s *workerSuite) TestSeedAgentBinary(c *tc.C) {
 				called = true
 				return func() {}, nil
 			},
-			ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
+			ControllerCharmDeployer: func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 				return nil, nil
 			},
 			PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 				return nil
 			},
-			SystemState:     s.state,
-			ControllerModel: s.controllerModel,
-			Logger:          s.logger,
+			Logger: s.logger,
 		},
 	}
 	cleanup, err := w.seedAgentBinary(c.Context(), c.MkDir())
@@ -326,6 +324,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 		UserService:                s.userService,
 		AgentPasswordService:       s.agentPasswordService,
 		ApplicationService:         s.applicationService,
+		ControllerNodeService:      s.controllerNodeService,
 		ModelConfigService:         s.modelConfigService,
 		MachineService:             s.machineService,
 		ControllerModel:            s.controllerModel,
@@ -343,7 +342,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
 			return func() {}, nil
 		},
-		ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
+		ControllerCharmDeployer: func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 			return nil, nil
 		},
 		BootstrapAddressFinder: func(context.Context, instance.Id) (network.ProviderAddresses, error) {
@@ -385,7 +384,8 @@ func (s *workerSuite) ensureState(c *tc.C, st string) {
 func (s *workerSuite) expectControllerConfig() {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
 		Return(controller.Config{
-			controller.ControllerUUIDKey: "test-uuid",
+			controller.ControllerUUIDKey:   "test-uuid",
+			controller.JujuManagementSpace: "mgmt-space",
 		}, nil).Times(3)
 }
 
@@ -432,9 +432,21 @@ func (s *workerSuite) expectBootstrapFlagSet() {
 }
 
 func (s *workerSuite) expectSetAPIHostPorts() {
+	mgmtSpace := &network.SpaceInfo{
+		Name: network.SpaceName("mgmt-space"),
+		Subnets: []network.SubnetInfo{
+			{
+				CIDR: "10.0.0.0/24",
+			},
+		},
+	}
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), "mgmt-space").Return(mgmtSpace, nil)
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), "0", gomock.Any(), mgmtSpace)
+
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 	s.state.EXPECT().SetAPIHostPorts(controller.Config{
-		controller.ControllerUUIDKey: "test-uuid",
+		controller.ControllerUUIDKey:   "test-uuid",
+		controller.JujuManagementSpace: "mgmt-space",
 	}, gomock.Any(), gomock.Any())
 }
 

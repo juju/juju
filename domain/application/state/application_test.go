@@ -1184,57 +1184,6 @@ func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) TestCloudServiceAddresses(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive)
-
-	expectedAddresses := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginProvider,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginProvider,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
-				Scope:      network.ScopeLinkLocal,
-			},
-		},
-	}
-	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.SpaceAddresses{
-		{
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-			},
-		},
-		{
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
-				Scope:      network.ScopeLinkLocal,
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	addresses, err := s.state.GetCloudServiceAddresses(c.Context(), appID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addresses, tc.HasLen, 2)
-	c.Check(addresses, tc.DeepEquals, expectedAddresses)
-}
-
 func (s *applicationStateSuite) TestGetApplicationIDByUnitName(c *tc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",

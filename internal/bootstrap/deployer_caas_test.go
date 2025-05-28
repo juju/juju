@@ -10,18 +10,19 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/caas"
+	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/version"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/environs/bootstrap"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type deployerCAASSuite struct {
 	baseSuite
-
-	cloudService       *MockCloudService
-	cloudServiceGetter *MockCloudServiceGetter
+	serviceManager *MockServiceManager
 }
 
 func TestDeployerCAASSuite(t *testing.T) {
@@ -36,7 +37,7 @@ func (s *deployerCAASSuite) TestValidate(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	cfg = s.newConfig(c)
-	cfg.CloudServiceGetter = nil
+	cfg.ServiceManager = nil
 	err = cfg.Validate()
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
@@ -46,8 +47,16 @@ func (s *deployerCAASSuite) TestControllerAddress(c *tc.C) {
 
 	cfg := s.newConfig(c)
 
-	s.cloudService.EXPECT().Addresses().Return(network.NewSpaceAddresses("10.0.0.1"))
-	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
+	s.serviceManager.EXPECT().GetService(gomock.Any(), k8sconstants.JujuControllerStackName, true).Return(&caas.Service{
+		Addresses: network.ProviderAddresses{
+			{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.1",
+				},
+				ProviderID: network.Id("0"),
+			},
+		},
+	}, nil)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(c.Context())
@@ -62,8 +71,22 @@ func (s *deployerCAASSuite) TestControllerAddressMultipleAddresses(c *tc.C) {
 
 	cfg := s.newConfig(c)
 
-	s.cloudService.EXPECT().Addresses().Return(network.NewSpaceAddresses("10.0.0.1", "10.0.0.2"))
-	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
+	s.serviceManager.EXPECT().GetService(gomock.Any(), k8sconstants.JujuControllerStackName, true).Return(&caas.Service{
+		Addresses: network.ProviderAddresses{
+			{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.1",
+				},
+				ProviderID: network.Id("0"),
+			},
+			{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.2",
+				},
+				ProviderID: network.Id("1"),
+			},
+		},
+	}, nil)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(c.Context())
@@ -78,8 +101,22 @@ func (s *deployerCAASSuite) TestControllerAddressMultipleAddressesScopeNonLocal(
 
 	cfg := s.newConfig(c)
 
-	s.cloudService.EXPECT().Addresses().Return(network.NewSpaceAddresses("2.201.120.241", "10.0.0.2"))
-	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
+	s.serviceManager.EXPECT().GetService(gomock.Any(), k8sconstants.JujuControllerStackName, true).Return(&caas.Service{
+		Addresses: network.ProviderAddresses{
+			{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.2",
+				},
+				ProviderID: network.Id("0"),
+			},
+			{
+				MachineAddress: network.MachineAddress{
+					Value: "2.201.120.241",
+				},
+				ProviderID: network.Id("1"),
+			},
+		},
+	}, nil)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(c.Context())
@@ -95,8 +132,16 @@ func (s *deployerCAASSuite) TestControllerAddressScopeNonLocal(c *tc.C) {
 
 	cfg := s.newConfig(c)
 
-	s.cloudService.EXPECT().Addresses().Return(network.NewSpaceAddresses("2.201.120.241"))
-	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
+	s.serviceManager.EXPECT().GetService(gomock.Any(), k8sconstants.JujuControllerStackName, true).Return(&caas.Service{
+		Addresses: network.ProviderAddresses{
+			{
+				MachineAddress: network.MachineAddress{
+					Value: "2.201.120.241",
+				},
+				ProviderID: network.Id("0"),
+			},
+		},
+	}, nil)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(c.Context())
@@ -109,13 +154,13 @@ func (s *deployerCAASSuite) TestControllerAddressNoAddresses(c *tc.C) {
 
 	cfg := s.newConfig(c)
 
-	s.cloudService.EXPECT().Addresses().Return(network.NewSpaceAddresses())
-	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
+	s.serviceManager.EXPECT().GetService(gomock.Any(), k8sconstants.JujuControllerStackName, true).Return(&caas.Service{
+		Addresses: network.ProviderAddresses{},
+	}, nil)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-	address, err := deployer.ControllerAddress(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(address, tc.Equals, "")
+	_, err := deployer.ControllerAddress(c.Context())
+	c.Assert(err, tc.ErrorMatches, "k8s controller service .* address not provisioned")
 }
 
 func (s *deployerCAASSuite) TestControllerCharmBase(c *tc.C) {
@@ -127,6 +172,45 @@ func (s *deployerCAASSuite) TestControllerCharmBase(c *tc.C) {
 	c.Assert(base, tc.DeepEquals, version.DefaultSupportedLTSBase())
 }
 
+func (s *deployerCAASSuite) TestCompleteProcessWithSpaceInAddress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newConfig(c)
+
+	unitName := unit.Name("controller/0")
+
+	s.serviceManager.EXPECT().GetService(gomock.Any(), k8sconstants.JujuControllerStackName, true).Return(&caas.Service{
+		Addresses: network.ProviderAddresses{
+			{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.1",
+				},
+				SpaceName:  network.SpaceName("mgmt-space"),
+				ProviderID: network.Id("0"),
+			},
+		},
+	}, nil)
+	// If there's a space in the provider address, then we override it with
+	// the alpha space ID.
+	alphaAddresses := network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.1",
+			},
+			SpaceID: network.AlphaSpaceId,
+		},
+	}
+	s.caasApplicationService.EXPECT().UpdateCloudService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), alphaAddresses).Return(nil)
+	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
+		ProviderID: ptr("controller-0"),
+	})
+	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
+
+	deployer := s.newDeployerWithConfig(c, cfg)
+	err := deployer.CompleteCAASProcess(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -134,6 +218,24 @@ func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 
 	unitName := unit.Name("controller/0")
 
+	s.serviceManager.EXPECT().GetService(gomock.Any(), k8sconstants.JujuControllerStackName, true).Return(&caas.Service{
+		Addresses: network.ProviderAddresses{
+			{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.1",
+				},
+				ProviderID: network.Id("0"),
+			},
+		},
+	}, nil)
+	alphaAddresses := network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.1",
+			},
+		},
+	}
+	s.caasApplicationService.EXPECT().UpdateCloudService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), alphaAddresses).Return(nil)
 	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
 		ProviderID: ptr("controller-0"),
 	})
@@ -157,8 +259,7 @@ func (s *deployerCAASSuite) newDeployerWithConfig(c *tc.C, cfg CAASDeployerConfi
 func (s *deployerCAASSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
-	s.cloudService = NewMockCloudService(ctrl)
-	s.cloudServiceGetter = NewMockCloudServiceGetter(ctrl)
+	s.serviceManager = NewMockServiceManager(ctrl)
 
 	return ctrl
 }
@@ -167,7 +268,7 @@ func (s *deployerCAASSuite) newConfig(c *tc.C) CAASDeployerConfig {
 	return CAASDeployerConfig{
 		BaseDeployerConfig: s.baseSuite.newConfig(c),
 		ApplicationService: s.caasApplicationService,
-		CloudServiceGetter: s.cloudServiceGetter,
 		UnitPassword:       uuid.MustNewUUID().String(),
+		ServiceManager:     s.serviceManager,
 	}
 }

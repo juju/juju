@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
@@ -43,11 +42,15 @@ type ObjectStoreGetter interface {
 
 // ControllerCharmDeployerFunc is the function that is used to upload the
 // controller charm.
-type ControllerCharmDeployerFunc func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error)
+type ControllerCharmDeployerFunc func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error)
 
 // PopulateControllerCharmFunc is the function that is used to populate the
 // controller charm.
 type PopulateControllerCharmFunc func(context.Context, bootstrap.ControllerCharmDeployer) error
+
+// BootstrapAddressFinderGetter is the function that is used to get the
+// bootstrap address finder.
+type BootstrapAddressFinderGetter func(providerFactory providertracker.ProviderFactory, namespace string) BootstrapAddressFinderFunc
 
 // ControllerUnitPasswordFunc is the function that is used to get the
 // controller unit password.
@@ -73,11 +76,12 @@ type ManifoldConfig struct {
 	ProviderFactoryName string
 	StorageRegistryName string
 
-	AgentBinaryUploader     AgentBinaryBootstrapFunc
-	ControllerCharmDeployer ControllerCharmDeployerFunc
-	ControllerUnitPassword  ControllerUnitPasswordFunc
-	RequiresBootstrap       RequiresBootstrapFunc
-	PopulateControllerCharm PopulateControllerCharmFunc
+	AgentBinaryUploader          AgentBinaryBootstrapFunc
+	ControllerCharmDeployer      ControllerCharmDeployerFunc
+	ControllerUnitPassword       ControllerUnitPasswordFunc
+	RequiresBootstrap            RequiresBootstrapFunc
+	PopulateControllerCharm      PopulateControllerCharmFunc
+	BootstrapAddressFinderGetter BootstrapAddressFinderGetter
 
 	Logger logger.Logger
 	Clock  clock.Clock
@@ -129,6 +133,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.PopulateControllerCharm == nil {
 		return errors.NotValidf("nil PopulateControllerCharm")
+	}
+	if cfg.BootstrapAddressFinderGetter == nil {
+		return errors.NotValidf("nil BootstrapAddressFinderGetter")
 	}
 	return nil
 }
@@ -196,10 +203,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				)
 			}
 
-			instanceListerProvider := providertracker.ProviderRunner[environs.InstanceLister](
+			serviceManagerGetter := providertracker.ProviderRunner[ServiceManager](
 				providerFactory, controllerModel.UUID.String(),
 			)
-			addressFinder := BootstrapAddressFinder(instanceListerProvider)
 
 			var objectStoreGetter objectstore.ObjectStoreGetter
 			if err := getter.Get(config.ObjectStoreName, &objectStoreGetter); err != nil {
@@ -264,6 +270,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ObjectStoreGetter:          objectStoreGetter,
 				ControllerAgentBinaryStore: controllerDomainServices.ControllerAgentBinaryStore(),
 				ControllerConfigService:    controllerDomainServices.ControllerConfig(),
+				ControllerNodeService:      controllerDomainServices.ControllerNode(),
 				CloudService:               controllerDomainServices.Cloud(),
 				UserService:                controllerDomainServices.Access(),
 				StorageService:             controllerModelDomainServices.Storage(),
@@ -286,9 +293,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				PopulateControllerCharm: config.PopulateControllerCharm,
 				CharmhubHTTPClient:      charmhubHTTPClient,
 				UnitPassword:            unitPassword,
+				ServiceManagerGetter:    serviceManagerGetter,
+				BootstrapAddressFinder:  config.BootstrapAddressFinderGetter(providerFactory, controllerModel.UUID.String()),
 				Logger:                  config.Logger,
 				Clock:                   config.Clock,
-				BootstrapAddressFinder:  addressFinder,
 			})
 			if err != nil {
 				_ = stTracker.Done()

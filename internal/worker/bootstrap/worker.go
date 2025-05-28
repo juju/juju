@@ -26,6 +26,7 @@ import (
 	userservice "github.com/juju/juju/domain/access/service"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
@@ -50,6 +51,7 @@ type WorkerConfig struct {
 	ObjectStoreGetter          ObjectStoreGetter
 	ControllerAgentBinaryStore AgentBinaryStore
 	ControllerConfigService    ControllerConfigService
+	ControllerNodeService      ControllerNodeService
 	CloudService               CloudService
 	UserService                UserService
 	StorageService             StorageService
@@ -63,13 +65,14 @@ type WorkerConfig struct {
 	FlagService                FlagService
 	NetworkService             NetworkService
 	BakeryConfigService        BakeryConfigService
+	BootstrapAddressFinder     BootstrapAddressFinderFunc
 	BootstrapUnlocker          gate.Unlocker
 	AgentBinaryUploader        AgentBinaryBootstrapFunc
 	ControllerCharmDeployer    ControllerCharmDeployerFunc
 	PopulateControllerCharm    PopulateControllerCharmFunc
 	CharmhubHTTPClient         HTTPClient
 	UnitPassword               string
-	BootstrapAddressFinder     BootstrapAddressFinderFunc
+	ServiceManagerGetter       ServiceManagerGetterFunc
 	Logger                     logger.Logger
 	Clock                      clock.Clock
 
@@ -90,6 +93,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ControllerConfigService == nil {
 		return errors.NotValidf("nil ControllerConfigService")
+	}
+	if c.ControllerNodeService == nil {
+		return errors.NotValidf("nil ControllerNodeService")
 	}
 	if c.CloudService == nil {
 		return errors.NotValidf("nil CloudService")
@@ -283,6 +289,7 @@ func (w *bootstrapWorker) loop() error {
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
 	if err := w.initAPIHostPorts(ctx, controllerConfig, bootstrapAddresses, servingInfo.APIPort); err != nil {
+		w.logger.Errorf(ctx, "unable to set API host ports %v:%w", bootstrapAddresses, err)
 		return errors.Trace(err)
 	}
 
@@ -426,13 +433,23 @@ func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig
 	if err != nil {
 		return errors.Trace(err)
 	}
+	hostPorts := network.SpaceAddressesWithPort(addrs, apiPort)
 
-	hostPorts := []network.SpaceHostPorts{network.SpaceAddressesWithPort(addrs, apiPort)}
+	mgmtSpaceCfg := controllerConfig.JujuManagementSpace()
+	mgmtSpace, err := w.cfg.NetworkService.SpaceByName(ctx, mgmtSpaceCfg)
+	if err != nil && !errors.Is(err, networkerrors.SpaceNotFound) {
+		return errors.Trace(err)
+	}
 
-	mgmtSpace := controllerConfig.JujuManagementSpace()
-	hostPortsForAgents := w.filterHostPortsForManagementSpace(ctx, mgmtSpace, hostPorts, allSpaces)
+	// During bootstrap, the controller node will always be "0".
+	if err := w.cfg.ControllerNodeService.SetAPIAddresses(ctx, "0", hostPorts, mgmtSpace); err != nil {
+		return errors.Trace(err)
+	}
 
-	return w.cfg.SystemState.SetAPIHostPorts(controllerConfig, hostPorts, hostPortsForAgents)
+	// TODO(nvinuesa): Remove this double write to mongodb once we wire the
+	// apiaddresssetter worker.
+	hostPortsForAgents := w.filterHostPortsForManagementSpace(ctx, mgmtSpaceCfg, []network.SpaceHostPorts{hostPorts}, allSpaces)
+	return w.cfg.SystemState.SetAPIHostPorts(controllerConfig, []network.SpaceHostPorts{hostPorts}, hostPortsForAgents)
 }
 
 // We filter the collection of API addresses based on the configured
@@ -520,7 +537,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 	}
 
 	// Controller charm seeder will populate the charm for the controller.
-	deployer, err := w.cfg.ControllerCharmDeployer(ControllerCharmDeployerConfig{
+	deployer, err := w.cfg.ControllerCharmDeployer(ctx, ControllerCharmDeployerConfig{
 		StateBackend:                w.cfg.SystemState,
 		AgentPasswordService:        w.cfg.AgentPasswordService,
 		ApplicationService:          w.cfg.ApplicationService,
@@ -534,6 +551,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 		ControllerCharmChannel:      bootstrapArgs.ControllerCharmChannel,
 		CharmhubHTTPClient:          w.cfg.CharmhubHTTPClient,
 		UnitPassword:                w.cfg.UnitPassword,
+		ServiceManagerGetter:        w.cfg.ServiceManagerGetter,
 		Logger:                      w.cfg.Logger,
 		Clock:                       w.cfg.Clock,
 	})

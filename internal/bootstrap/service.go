@@ -8,6 +8,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -30,6 +31,10 @@ type ApplicationService interface {
 		ctx context.Context,
 		resolve application.ResolveControllerCharmDownload,
 	) (application.ResolvedControllerCharmDownload, error)
+
+	// UpdateCloudService updates the cloud service for the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
 }
 
 // IAASApplicationService instances create an IAAS application.
@@ -53,6 +58,10 @@ type CAASApplicationService interface {
 
 	// UpdateApplication updates the application with the given name.
 	UpdateCAASUnit(ctx context.Context, unitName unit.Name, params applicationservice.UpdateCAASUnitParams) error
+
+	// UpdateCloudService updates the cloud service for the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
 }
 
 // ModelConfigService provides access to the model configuration.
