@@ -1071,9 +1071,8 @@ UPDATE agent_version SET stream_id = $agentVersionStream.stream_id
 
 // SetModelTargetAgentVersion is responsible for setting the current target
 // agent version of the model. This function expects a precondition version
-// to be supplied. The precondition signals the expected model target agent
-// version that the set was calculated from. If the model is not at the
-// precondition version an error is returned.
+// to be supplied. The model's target version at the time the operation is
+// applied must match the preCondition version or else an error is returned.
 func (st *State) SetModelTargetAgentVersion(
 	ctx context.Context,
 	preCondition semversion.Number,
@@ -1085,8 +1084,8 @@ func (st *State) SetModelTargetAgentVersion(
 // SetModelTargetAgentVersionAndStream is responsible for setting the
 // current target agent version of the model and the agent stream that is
 // used. This function expects a precondition version to be supplied. The
-// precondition signals the expected model target agent version that the set
-// was calculated from. If the precondition fails an error is returned.
+// model's target version at the time the operation is applied must match
+// the preCondition version or else an error is returned.
 func (st *State) SetModelTargetAgentVersionAndStream(
 	ctx context.Context,
 	preCondition semversion.Number,
