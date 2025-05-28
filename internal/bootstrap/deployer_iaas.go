@@ -61,6 +61,8 @@ func NewIAASDeployer(config IAASDeployerConfig) (*IAASDeployer, error) {
 
 // ControllerAddress returns the address of the controller that should be
 // used.
+// This address is retrieved from the database, since the machine information
+// is available already.
 func (d *IAASDeployer) ControllerAddress(ctx context.Context) (string, error) {
 	m, err := d.machineGetter.Machine(agent.BootstrapControllerId)
 	if err != nil {

@@ -74,6 +74,10 @@ type ApplicationService interface {
 
 	// UpdateApplication updates the application with the given name.
 	UpdateCAASUnit(ctx context.Context, unitName unit.Name, params applicationservice.UpdateCAASUnitParams) error
+
+	// UpdateCloudService updates the cloud service for the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
 }
 
 // BakeryConfigService describes the service used to initialise the
@@ -86,6 +90,16 @@ type BakeryConfigService interface {
 // controller configuration.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ControllerNodeService provides access to controller nodes.
+type ControllerNodeService interface {
+	// SetAPIAddresses sets the provided addresses associated with the provided
+	// controller ID.
+	//
+	// The following errors can be expected:
+	// - [controllernodeerrors.NotFound] if the controller node does not exist.
+	SetAPIAddresses(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, mgmtSpace *network.SpaceInfo) error
 }
 
 // CloudService is the interface that is used to interact with the

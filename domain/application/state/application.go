@@ -919,40 +919,6 @@ WHERE application_uuid = $applicationScale.application_uuid
 	return errors.Capture(err)
 }
 
-// GetCloudServiceAddresses returns the addresses of the cloud service for the
-// specified application.
-func (st *State) GetCloudServiceAddresses(ctx context.Context, appUUID coreapplication.ID) (network.SpaceAddresses, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	var addresses []spaceAddress
-	ident := dbUUID{UUID: appUUID.String()}
-	queryCloudServiceAddressesStmt, err := st.Prepare(`
-SELECT    &spaceAddress.*
-FROM      ip_address AS ip
-JOIN      link_layer_device AS lld ON lld.uuid = ip.device_uuid
-JOIN      net_node AS nn ON nn.uuid = lld.net_node_uuid
-JOIN      k8s_service AS ks ON nn.uuid = ks.net_node_uuid
-LEFT JOIN subnet sn ON sn.uuid = ip.subnet_uuid
-WHERE     ks.application_uuid = $dbUUID.uuid;
-`, spaceAddress{}, ident)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err = tx.Query(ctx, queryCloudServiceAddressesStmt, ident).GetAll(&addresses); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("querying cloud service addresses for application %q: %w", appUUID, err)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return encodeIpAddresses(addresses), nil
-}
-
 // UpsertCloudService updates the cloud service for the specified application,
 // returning an error satisfying [applicationerrors.ApplicationNotFoundError] if
 // the application doesn't exist.

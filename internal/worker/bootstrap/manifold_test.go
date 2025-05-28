@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/bootstrap"
 )
 
@@ -88,6 +89,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg = s.getConfig()
 	cfg.ControllerUnitPassword = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.BootstrapAddressFinderGetter = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -105,7 +110,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
 			return func() {}, nil
 		},
-		ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
+		ControllerCharmDeployer: func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 			return nil, nil
 		},
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
@@ -113,6 +118,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		},
 		ControllerUnitPassword: func(context.Context) (string, error) {
 			return "", nil
+		},
+		BootstrapAddressFinderGetter: func(providerFactory providertracker.ProviderFactory, namespace string) BootstrapAddressFinderFunc {
+			return nil
 		},
 		RequiresBootstrap: func(context.Context, FlagService) (bool, error) {
 			return false, nil

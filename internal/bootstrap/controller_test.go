@@ -93,7 +93,6 @@ func (s *IAASControllerSuite) TestPopulateControllerAlreadyExists(c *tc.C) {
 		Origin: &origin,
 		Charm:  s.charm,
 	}, "10.0.0.1").Return(applicationerrors.ApplicationAlreadyExists)
-
 	err := PopulateIAASControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorIsNil)
 }

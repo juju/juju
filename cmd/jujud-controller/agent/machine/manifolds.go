@@ -908,9 +908,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ProviderFactoryName:     providerTrackerName,
 			StorageRegistryName:     storageRegistryName,
 
-			AgentBinaryUploader:     bootstrap.IAASAgentBinaryUploader,
-			ControllerCharmDeployer: bootstrap.IAASControllerCharmUploader,
-			ControllerUnitPassword:  bootstrap.IAASControllerUnitPassword,
+			AgentBinaryUploader:          bootstrap.IAASAgentBinaryUploader,
+			ControllerCharmDeployer:      bootstrap.IAASControllerCharmUploader,
+			ControllerUnitPassword:       bootstrap.IAASControllerUnitPassword,
+			BootstrapAddressFinderGetter: bootstrap.IAASAddressFinder,
 		})),
 
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
@@ -1122,9 +1123,10 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ProviderFactoryName:     providerTrackerName,
 			StorageRegistryName:     storageRegistryName,
 
-			AgentBinaryUploader:     bootstrap.CAASAgentBinaryUploader,
-			ControllerCharmDeployer: bootstrap.CAASControllerCharmUploader,
-			ControllerUnitPassword:  bootstrap.CAASControllerUnitPassword,
+			AgentBinaryUploader:          bootstrap.CAASAgentBinaryUploader,
+			ControllerCharmDeployer:      bootstrap.CAASControllerCharmUploader,
+			ControllerUnitPassword:       bootstrap.CAASControllerUnitPassword,
+			BootstrapAddressFinderGetter: bootstrap.CAASAddressFinder,
 		})),
 
 		// TODO(caas) - when we support HA, only want this on primary
