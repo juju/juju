@@ -75,7 +75,7 @@ type mergeAddressesChanges struct {
 // incoming ones.
 func (st *State) MergeLinkLayerDevice(
 	ctx context.Context,
-	machineUUID string,
+	netNodeUUID string,
 	incoming []network.NetInterface,
 ) error {
 	db, err := st.DB()
@@ -85,22 +85,13 @@ func (st *State) MergeLinkLayerDevice(
 
 	return db.Txn(
 		ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			nodeUUID, err := st.getMachineNetNodeUUID(ctx, tx,
-				machineUUID)
-			if err != nil {
-				return errors.Errorf(
-					"getting net node UUID for machine %q: %w",
-					machineUUID, err,
-				)
-			}
-
 			existingDevices, err := st.getExistingLinkLayerDevices(
-				ctx, tx, nodeUUID,
+				ctx, tx, netNodeUUID,
 			)
 			if err != nil {
 				return errors.Errorf(
 					"getting existing link layer devices for node %q: %w",
-					nodeUUID, err,
+					netNodeUUID, err,
 				)
 			}
 
@@ -108,7 +99,7 @@ func (st *State) MergeLinkLayerDevice(
 				// Noop
 				st.logger.Debugf(ctx, "no existing devices, "+
 					"ignoring %d incoming device for net node %q",
-					len(incoming), nodeUUID)
+					len(incoming), netNodeUUID)
 				return nil
 			}
 
