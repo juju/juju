@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
+	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloud"
@@ -156,7 +156,7 @@ func (api *API) ListSubnets(ctx context.Context, args params.SubnetsFilters) (re
 			continue
 		}
 
-		results.Results = append(results.Results, networkingcommon.BackingSubnetToParamsSubnet(subnet))
+		results.Results = append(results.Results, commonnetwork.SubnetInfoToParamsSubnet(subnet))
 	}
 	return results, nil
 }
@@ -188,7 +188,7 @@ func (api *API) SubnetsByCIDR(ctx context.Context, arg params.CIDRParams) (param
 
 		subnetResults := make([]params.SubnetV2, len(subnets))
 		for j, subnet := range subnets {
-			subnetResults[j] = networkingcommon.BackingSubnetToParamsSubnetV2(subnet)
+			subnetResults[j] = commonnetwork.SubnetInfoToParamsSubnetWithID(subnet)
 		}
 		results[i].Subnets = subnetResults
 	}

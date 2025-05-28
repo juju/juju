@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package networkingcommon
+package network
 
 import (
 	"context"
@@ -10,44 +10,16 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
-// NetworkBacking defines the methods needed by the API facade to store and
-// retrieve information from the underlying persistence layer (state
-// DB).
-type NetworkBacking interface {
-	environs.EnvironConfigGetter
-
-	// AvailabilityZones returns all cached availability zones (i.e.
-	// not from the provider, but in state).
-	AvailabilityZones() (network.AvailabilityZones, error)
-
-	// SetAvailabilityZones replaces the cached list of availability
-	// zones with the given zones.
-	SetAvailabilityZones(network.AvailabilityZones) error
-}
-
-// BackingSubnetToParamsSubnetV2 converts a network backing subnet to the new
+// SubnetInfoToParamsSubnetWithID converts a network backing subnet to the new
 // version of the subnet API parameter.
-func BackingSubnetToParamsSubnetV2(subnet network.SubnetInfo) params.SubnetV2 {
+func SubnetInfoToParamsSubnetWithID(subnet network.SubnetInfo) params.SubnetV2 {
 	return params.SubnetV2{
 		ID:     subnet.ID.String(),
-		Subnet: BackingSubnetToParamsSubnet(subnet),
-	}
-}
-
-func BackingSubnetToParamsSubnet(subnet network.SubnetInfo) params.Subnet {
-	return params.Subnet{
-		CIDR:              subnet.CIDR,
-		VLANTag:           subnet.VLANTag,
-		ProviderId:        subnet.ProviderId.String(),
-		ProviderNetworkId: subnet.ProviderNetworkId.String(),
-		Zones:             subnet.AvailabilityZones,
-		SpaceTag:          names.NewSpaceTag(subnet.SpaceName).String(),
-		Life:              subnet.Life,
+		Subnet: SubnetInfoToParamsSubnet(subnet),
 	}
 }
 

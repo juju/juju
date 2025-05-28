@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
+	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloud"
@@ -243,7 +243,7 @@ func (api *API) ListSpaces(ctx context.Context) (results params.ListSpacesResult
 
 		result.Subnets = make([]params.Subnet, len(subnets))
 		for i, subnet := range subnets {
-			result.Subnets[i] = networkingcommon.SubnetInfoToParamsSubnet(subnet)
+			result.Subnets[i] = commonnetwork.SubnetInfoToParamsSubnet(subnet)
 		}
 		results.Results[i] = result
 	}
@@ -293,7 +293,7 @@ func (api *API) ShowSpace(ctx context.Context, entities params.Entities) (params
 
 		result.Space.Subnets = make([]params.Subnet, len(subnets))
 		for i, subnet := range subnets {
-			result.Space.Subnets[i] = networkingcommon.SubnetInfoToParamsSubnet(subnet)
+			result.Space.Subnets[i] = commonnetwork.SubnetInfoToParamsSubnet(subnet)
 		}
 
 		// TODO(nvinuesa): This logic should be implemented in the

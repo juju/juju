@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
-	"github.com/juju/juju/apiserver/common/networkingcommon"
+	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -56,7 +56,7 @@ type ProvisionerAPI struct {
 	*commonmodel.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.ToolsGetter
-	*networkingcommon.NetworkConfigAPI
+	*commonnetwork.NetworkConfigAPI
 
 	networkService            NetworkService
 	st                        *state.State
@@ -158,7 +158,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 	storageProviderRegistry := provider.NewStorageProviderRegistry(env)
 
-	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(
+	netConfigAPI, err := commonnetwork.NewNetworkConfigAPI(
 		stdCtx, st, domainServices.ModelInfo(), domainServices.Network(), getCanModify)
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
@@ -772,7 +772,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 		}
 
 		ifaces := params.InterfaceInfoFromNetworkConfig(arg.NetworkConfig)
-		devicesArgs, devicesAddrs := networkingcommon.NetworkInterfacesToStateArgs(ifaces)
+		devicesArgs, devicesAddrs := commonnetwork.NetworkInterfacesToStateArgs(ifaces)
 
 		// TODO(nvinuesa): Remove double writing after finishing
 		// implementing instance data on dqlite.

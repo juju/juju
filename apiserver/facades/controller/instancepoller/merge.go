@@ -12,7 +12,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
+	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -22,7 +22,7 @@ import (
 // provider-sourced network configuration with existing data for a single
 // machine/host/container.
 type mergeMachineLinkLayerOp struct {
-	*networkingcommon.MachineLinkLayerOp
+	*commonnetwork.MachineLinkLayerOp
 
 	// namelessHWAddrs stores the hardware addresses of
 	// incoming devices that have no accompanying name.
@@ -37,11 +37,11 @@ type mergeMachineLinkLayerOp struct {
 }
 
 func newMergeMachineLinkLayerOp(
-	machine networkingcommon.LinkLayerMachine, incoming network.InterfaceInfos,
+	machine commonnetwork.LinkLayerMachine, incoming network.InterfaceInfos,
 	logger corelogger.Logger,
 ) *mergeMachineLinkLayerOp {
 	return &mergeMachineLinkLayerOp{
-		MachineLinkLayerOp: networkingcommon.NewMachineLinkLayerOp("provider", machine, incoming),
+		MachineLinkLayerOp: commonnetwork.NewMachineLinkLayerOp("provider", machine, incoming),
 		namelessHWAddrs:    set.NewStrings(),
 		logger:             logger,
 	}
@@ -112,7 +112,7 @@ func (o *mergeMachineLinkLayerOp) normaliseIncoming() {
 	}
 
 	// First get the best device per hardware address.
-	devByHWAddr := make(map[string]networkingcommon.LinkLayerDevice)
+	devByHWAddr := make(map[string]commonnetwork.LinkLayerDevice)
 	for _, dev := range o.ExistingDevices() {
 		hwAddr := dev.MACAddress()
 
@@ -145,7 +145,7 @@ func (o *mergeMachineLinkLayerOp) normaliseIncoming() {
 	}
 }
 
-func (o *mergeMachineLinkLayerOp) processExistingDevice(ctx context.Context, dev networkingcommon.LinkLayerDevice) ([]txn.Op, error) {
+func (o *mergeMachineLinkLayerOp) processExistingDevice(ctx context.Context, dev commonnetwork.LinkLayerDevice) ([]txn.Op, error) {
 	incomingDev := o.MatchingIncoming(dev)
 
 	var ops []txn.Op
@@ -227,7 +227,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(ctx context.Context, dev
 // ensure that a device has no provider ID and that the origin for all
 // addresses on the device is relinquished to the machine.
 func (o *mergeMachineLinkLayerOp) opsForDeviceOriginRelinquishment(
-	dev networkingcommon.LinkLayerDevice,
+	dev commonnetwork.LinkLayerDevice,
 ) ([]txn.Op, error) {
 	ops, err := dev.SetProviderIDOps("")
 	if err != nil {
@@ -242,8 +242,8 @@ func (o *mergeMachineLinkLayerOp) opsForDeviceOriginRelinquishment(
 }
 
 func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
-	dev networkingcommon.LinkLayerDevice,
-	addr networkingcommon.LinkLayerAddress,
+	dev commonnetwork.LinkLayerDevice,
+	addr commonnetwork.LinkLayerAddress,
 	incomingAddrs []state.LinkLayerDeviceAddress,
 ) ([]txn.Op, error) {
 	addrValue := addr.Value()

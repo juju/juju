@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/networkingcommon"
+	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
@@ -64,7 +64,7 @@ type MachinerAPI struct {
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 	*common.APIAddresser
-	*networkingcommon.NetworkConfigAPI
+	*commonnetwork.NetworkConfigAPI
 
 	networkService          NetworkService
 	machineService          MachineService
@@ -101,7 +101,7 @@ func NewMachinerAPIForState(
 		return authorizer.AuthOwner, nil
 	}
 
-	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(ctx, st, modelInfoService, networkService, getCanAccess)
+	netConfigAPI, err := commonnetwork.NewNetworkConfigAPI(ctx, st, modelInfoService, networkService, getCanAccess)
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}
