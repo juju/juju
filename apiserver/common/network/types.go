@@ -10,25 +10,9 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-// NetworkBacking defines the methods needed by the API facade to store and
-// retrieve information from the underlying persistence layer (state
-// DB).
-type NetworkBacking interface {
-	environs.EnvironConfigGetter
-
-	// AvailabilityZones returns all cached availability zones (i.e.
-	// not from the provider, but in state).
-	AvailabilityZones() (network.AvailabilityZones, error)
-
-	// SetAvailabilityZones replaces the cached list of availability
-	// zones with the given zones.
-	SetAvailabilityZones(network.AvailabilityZones) error
-}
 
 // SubnetInfoToParamsSubnetWithID converts a network backing subnet to the new
 // version of the subnet API parameter.

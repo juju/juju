@@ -826,7 +826,6 @@ func (s *LegacySuite) SetUpTest(c *tc.C) {
 	apiservertesting.BackingInstance.SetUp(
 		c,
 		apiservertesting.StubZonedNetworkingEnvironName,
-		apiservertesting.WithZones,
 		apiservertesting.WithSpaces,
 		apiservertesting.WithSubnets,
 	)

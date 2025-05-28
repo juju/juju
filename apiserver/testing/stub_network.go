@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
-	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -138,44 +137,6 @@ type StubMethodCall struct {
 	Args     []interface{}
 }
 
-// BackingCall makes it easy to check method calls on BackingInstance.
-func BackingCall(name string, args ...interface{}) StubMethodCall {
-	return StubMethodCall{
-		Receiver: BackingInstance,
-		FuncName: name,
-		Args:     args,
-	}
-}
-
-// ProviderCall makes it easy to check method calls on ProviderInstance.
-func ProviderCall(name string, args ...interface{}) StubMethodCall {
-	return StubMethodCall{
-		Receiver: ProviderInstance,
-		FuncName: name,
-		Args:     args,
-	}
-}
-
-// ZonedEnvironCall makes it easy to check method calls on
-// ZonedEnvironInstance.
-func ZonedEnvironCall(name string, args ...interface{}) StubMethodCall {
-	return StubMethodCall{
-		Receiver: ZonedEnvironInstance,
-		FuncName: name,
-		Args:     args,
-	}
-}
-
-// ZonedNetworkingEnvironCall makes it easy to check method calls on
-// ZonedNetworkingEnvironInstance.
-func ZonedNetworkingEnvironCall(name string, args ...interface{}) StubMethodCall {
-	return StubMethodCall{
-		Receiver: ZonedNetworkingEnvironInstance,
-		FuncName: name,
-		Args:     args,
-	}
-}
-
 // CheckMethodCalls works like testing.Stub.CheckCalls, but also
 // checks the receivers.
 func CheckMethodCalls(c *tc.C, stub *testhelpers.Stub, calls ...StubMethodCall) {
@@ -227,17 +188,14 @@ type StubBacking struct {
 	Zones network.AvailabilityZones
 }
 
-var _ commonnetwork.NetworkBacking = (*StubBacking)(nil)
-
 type SetUpFlag bool
 
 const (
-	WithZones   SetUpFlag = true
 	WithSpaces  SetUpFlag = true
 	WithSubnets SetUpFlag = true
 )
 
-func (sb *StubBacking) SetUp(c *tc.C, envName string, withZones, withSpaces, withSubnets SetUpFlag) {
+func (sb *StubBacking) SetUp(c *tc.C, envName string, withSpaces, withSubnets SetUpFlag) {
 	// This method must be called at the beginning of each test, which
 	// needs access to any of the mocks, to reset the recorded calls
 	// and errors, as well as to initialize the mocks as needed.
@@ -256,11 +214,6 @@ func (sb *StubBacking) SetUp(c *tc.C, envName string, withZones, withSpaces, wit
 		Endpoint:         "endpoint",
 		IdentityEndpoint: "identity-endpoint",
 		StorageEndpoint:  "storage-endpoint",
-	}
-	sb.Zones = network.AvailabilityZones{}
-	if withZones {
-		sb.Zones = make(network.AvailabilityZones, len(ProviderInstance.Zones))
-		copy(sb.Zones, ProviderInstance.Zones)
 	}
 }
 
@@ -282,19 +235,6 @@ func (sb *StubBacking) CloudSpec(_ context.Context) (environscloudspec.CloudSpec
 		return environscloudspec.CloudSpec{}, err
 	}
 	return sb.Cloud, nil
-}
-
-func (sb *StubBacking) AvailabilityZones() (network.AvailabilityZones, error) {
-	sb.MethodCall(sb, "AvailabilityZones")
-	if err := sb.NextErr(); err != nil {
-		return nil, err
-	}
-	return sb.Zones, nil
-}
-
-func (sb *StubBacking) SetAvailabilityZones(zones network.AvailabilityZones) error {
-	sb.MethodCall(sb, "SetAvailabilityZones", zones)
-	return sb.NextErr()
 }
 
 func (sb *StubBacking) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID string) error {
