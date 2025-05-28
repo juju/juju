@@ -349,9 +349,9 @@ func (s *mergeLinkLayerSuite) TestApplyLinkLayerChanges(c *tc.C) {
 		})
 }
 
-// TestPrepareMergeAddressesNotToBeUpdated tests the case where some
+// TestComputeMergeAddressChangesNotToBeUpdated tests the case where some
 // addresses  are not to be updated.
-func (s *mergeLinkLayerSuite) TestPrepareMergeAddressesNotToBeUpdated(c *tc.C) {
+func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesNotToBeUpdated(c *tc.C) {
 	// Arrange
 	st := s.State(c)
 
@@ -382,7 +382,7 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeAddressesNotToBeUpdated(c *tc.C) {
 	}
 
 	// Act
-	changes := st.prepareMergeAddresses(incomingDevices, existingDevices)
+	changes := st.computeMergeAddressChanges(incomingDevices, existingDevices)
 
 	// Assert: Verify that no changes are made
 	c.Check(changes.toAdd, tc.HasLen, 0)
@@ -390,9 +390,9 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeAddressesNotToBeUpdated(c *tc.C) {
 	c.Check(changes.toRelinquish, tc.HasLen, 0)
 }
 
-// TestPrepareMergeAddressesToBeRelinquished tests the case where some addresses
+// TestComputeMergeAddressChangesToBeRelinquished tests the case where some addresses
 // are to be relinquished.
-func (s *mergeLinkLayerSuite) TestPrepareMergeAddressesToBeRelinquished(c *tc.C) {
+func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesToBeRelinquished(c *tc.C) {
 	// Arrange
 	st := s.State(c)
 
@@ -429,7 +429,7 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeAddressesToBeRelinquished(c *tc.C)
 	}
 
 	// Act
-	changes := st.prepareMergeAddresses(incomingDevices, existingDevices)
+	changes := st.computeMergeAddressChanges(incomingDevices, existingDevices)
 
 	// Assert: Verify that the second address is relinquished
 	c.Check(changes.toAdd, tc.HasLen, 0)
@@ -439,9 +439,9 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeAddressesToBeRelinquished(c *tc.C)
 		[]string{"no-matching-uuid"})
 }
 
-// TestPrepareMergeAddressesProviderIDUpdated tests the case where some
+// TestComputeMergeAddressChangesProviderIDUpdated tests the case where some
 // addresses have their provider ID updated.
-func (s *mergeLinkLayerSuite) TestPrepareMergeAddressesProviderIDUpdated(c *tc.C) {
+func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesProviderIDUpdated(c *tc.C) {
 	// Arrange
 	st := s.State(c)
 
@@ -473,7 +473,7 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeAddressesProviderIDUpdated(c *tc.C
 	}
 
 	// Act
-	changes := st.prepareMergeAddresses(incomingDevices, existingDevices)
+	changes := st.computeMergeAddressChanges(incomingDevices, existingDevices)
 
 	// Assert: Verify that the address provider ID is updated
 	c.Check(changes.toAdd, tc.DeepEquals,
@@ -482,9 +482,9 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeAddressesProviderIDUpdated(c *tc.C
 	c.Check(changes.toRelinquish, tc.HasLen, 0)
 }
 
-// TestPrepareMergeLinkLayerDevicesWithMatchingNameDifferentProviderID
+// TestComputeMergeLLDChangesWithMatchingNameDifferentProviderID
 // tests the case where a device has a matching name but different provider ID.
-func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesWithMatchingNameDifferentProviderID(c *tc.C) {
+func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithMatchingNameDifferentProviderID(c *tc.C) {
 	// Arrange
 	st := s.State(c)
 
@@ -510,7 +510,7 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesWithMatchingNameDi
 
 	// Act
 	ctx := context.Background()
-	changes := st.prepareMergeLinkLayerDevices(ctx, existingDevices,
+	changes := st.computeMergeLinkLayerDeviceChanges(ctx, existingDevices,
 		incomingDevices, namelessHWAddrs)
 
 	// Assert: Verify that the provider ID is updated
@@ -521,9 +521,9 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesWithMatchingNameDi
 	c.Check(changes.newDevices, tc.HasLen, 0)
 }
 
-// TestPrepareMergeLinkLayerDevicesWithMatchingNameSameProviderID tests the case
+// TestComputeMergeLLDChangesWithMatchingNameSameProviderID tests the case
 // where a device has a matching name and same provider ID.
-func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesWithMatchingNameSameProviderID(c *tc.C) {
+func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithMatchingNameSameProviderID(c *tc.C) {
 	// Arrange
 	st := s.State(c)
 
@@ -549,7 +549,7 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesWithMatchingNameSa
 
 	// Act
 	ctx := context.Background()
-	changes := st.prepareMergeLinkLayerDevices(ctx, existingDevices,
+	changes := st.computeMergeLinkLayerDeviceChanges(ctx, existingDevices,
 		incomingDevices, namelessHWAddrs)
 
 	// Assert: Verify that no changes are made
@@ -559,9 +559,9 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesWithMatchingNameSa
 	c.Check(changes.newDevices, tc.HasLen, 0)
 }
 
-// TestPrepareMergeLinkLayerDevicesWithNoMatchingNameMatchingHWAddr tests
+// TestComputeMergeLLDChangesWithNoMatchingNameMatchingHWAddr tests
 // the case where a device has no matching name but matching hardware address.
-func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesWithNoMatchingNameMatchingHWAddr(c *tc.C) {
+func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithNoMatchingNameMatchingHWAddr(c *tc.C) {
 	// Arrange
 	st := s.State(c)
 
@@ -589,7 +589,7 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesWithNoMatchingName
 
 	// Act
 	ctx := context.Background()
-	changes := st.prepareMergeLinkLayerDevices(ctx, existingDevices,
+	changes := st.computeMergeLinkLayerDeviceChanges(ctx, existingDevices,
 		incomingDevices, namelessHWAddrs)
 
 	// Assert: Verify that the device is not relinquished
@@ -600,9 +600,9 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesWithNoMatchingName
 	c.Check(changes.newDevices[0].Name, tc.Equals, "eth1")
 }
 
-// TestPrepareMergeLinkLayerDevicesWithNoMatchingNameNoMatchingHWAddr tests
+// TestComputeMergeLLDChangesWithNoMatchingNameNoMatchingHWAddr tests
 // the case where a device has no matching name and no matching hardware address.
-func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesWithNoMatchingNameNoMatchingHWAddr(c *tc.C) {
+func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithNoMatchingNameNoMatchingHWAddr(c *tc.C) {
 	// Arrange
 	st := s.State(c)
 
@@ -629,7 +629,7 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesWithNoMatchingName
 
 	// Act
 	ctx := context.Background()
-	changes := st.prepareMergeLinkLayerDevices(ctx, existingDevices,
+	changes := st.computeMergeLinkLayerDeviceChanges(ctx, existingDevices,
 		incomingDevices, namelessHWAddrs)
 
 	// Assert: Verify that the device is relinquished
@@ -640,9 +640,9 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesWithNoMatchingName
 	c.Check(changes.newDevices[0].Name, tc.Equals, "eth1")
 }
 
-// TestPrepareMergeLinkLayerDevicesIncomingWithNoMatchingExisting tests the case
+// TestComputeMergeLLDChangesIncomingWithNoMatchingExisting tests the case
 // where an incoming device has no matching existing device.
-func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesIncomingWithNoMatchingExisting(c *tc.C) {
+func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesIncomingWithNoMatchingExisting(c *tc.C) {
 	// Arrange
 	st := s.State(c)
 
@@ -673,7 +673,7 @@ func (s *mergeLinkLayerSuite) TestPrepareMergeLinkLayerDevicesIncomingWithNoMatc
 
 	// Act
 	ctx := context.Background()
-	changes := st.prepareMergeLinkLayerDevices(ctx, existingDevices,
+	changes := st.computeMergeLinkLayerDeviceChanges(ctx, existingDevices,
 		incomingDevices, namelessHWAddrs)
 
 	// Assert: Verify that the new device is added to newDevices
