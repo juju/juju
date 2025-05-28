@@ -588,8 +588,11 @@ func (st *State) matchByName(
 	return result
 }
 
-// normaliseIncoming is intended to accommodate providers such as EC2
-// that know device hardware addresses, but not device names.
+// normaliseIncoming matches existing devices with incoming devices to mitigate
+// various provider behavior.
+//
+// For instance, in some providers, such as EC2, know device hardware addresses,
+// but not device names.
 // We populate names on the incoming data based on
 // matching existing devices by hardware address.
 // If we locate multiple existing devices with the hardware address,
