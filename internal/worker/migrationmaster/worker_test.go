@@ -1182,8 +1182,7 @@ func assertExpectedCallArgs(c *tc.C, stub *testhelpers.Stub, expectedCalls []tes
 
 		if call.FuncName == "MigrationTarget.Prechecks" {
 			mc := tc.NewMultiChecker()
-			mc.AddExpr("_.FacadeVersions", tc.Not(tc.HasLen), 0)
-
+			mc.AddExpr("_[0].FacadeVersions", tc.Not(tc.HasLen), 0)
 			c.Assert(stubCall.Args, mc, call.Args, tc.Commentf("call %s", call.FuncName))
 			continue
 		}
