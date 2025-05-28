@@ -681,14 +681,13 @@ func (st *State) normalizeLinkLayeredDevices(
 	}
 
 	// Set the names and remembers normalized nameless addresses
-	return transform.Slice(normalizedIncoming,
-		func(dev mergeLinkLayerDevice) mergeLinkLayerDevice {
-			if existing, ok := devByHWAddr[dev.MACAddress]; ok && dev.Name == "" {
-				dev.Name = existing.Name
-				namelessHWAddrs.Add(dev.MACAddress)
-			}
-			return dev
-		}), namelessHWAddrs, nil
+	for _, dev := range normalizedIncoming {
+		if existing, ok := devByHWAddr[dev.MACAddress]; ok && dev.Name == "" {
+			dev.Name = existing.Name
+			namelessHWAddrs.Add(dev.MACAddress)
+		}
+	}
+	return normalizedIncoming, namelessHWAddrs, nil
 }
 
 // relinquishAddresses relinquish ip addresses associated with input uuids to
