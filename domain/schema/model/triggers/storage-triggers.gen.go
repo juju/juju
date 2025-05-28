@@ -117,8 +117,7 @@ WHEN
 	NEW.filesystem_id != OLD.filesystem_id OR
 	NEW.life_id != OLD.life_id OR
 	(NEW.provider_id != OLD.provider_id OR (NEW.provider_id IS NOT NULL AND OLD.provider_id IS NULL) OR (NEW.provider_id IS NULL AND OLD.provider_id IS NOT NULL)) OR
-	(NEW.size_mib != OLD.size_mib OR (NEW.size_mib IS NOT NULL AND OLD.size_mib IS NULL) OR (NEW.size_mib IS NULL AND OLD.size_mib IS NOT NULL)) OR
-	NEW.provisioning_status_id != OLD.provisioning_status_id 
+	(NEW.size_mib != OLD.size_mib OR (NEW.size_mib IS NOT NULL AND OLD.size_mib IS NULL) OR (NEW.size_mib IS NULL AND OLD.size_mib IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
@@ -158,8 +157,7 @@ WHEN
 	NEW.net_node_uuid != OLD.net_node_uuid OR
 	NEW.life_id != OLD.life_id OR
 	(NEW.mount_point != OLD.mount_point OR (NEW.mount_point IS NOT NULL AND OLD.mount_point IS NULL) OR (NEW.mount_point IS NULL AND OLD.mount_point IS NOT NULL)) OR
-	(NEW.read_only != OLD.read_only OR (NEW.read_only IS NOT NULL AND OLD.read_only IS NULL) OR (NEW.read_only IS NULL AND OLD.read_only IS NOT NULL)) OR
-	NEW.provisioning_status_id != OLD.provisioning_status_id 
+	(NEW.read_only != OLD.read_only OR (NEW.read_only IS NOT NULL AND OLD.read_only IS NULL) OR (NEW.read_only IS NULL AND OLD.read_only IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
@@ -201,8 +199,7 @@ WHEN
 	(NEW.size_mib != OLD.size_mib OR (NEW.size_mib IS NOT NULL AND OLD.size_mib IS NULL) OR (NEW.size_mib IS NULL AND OLD.size_mib IS NOT NULL)) OR
 	(NEW.hardware_id != OLD.hardware_id OR (NEW.hardware_id IS NOT NULL AND OLD.hardware_id IS NULL) OR (NEW.hardware_id IS NULL AND OLD.hardware_id IS NOT NULL)) OR
 	(NEW.wwn != OLD.wwn OR (NEW.wwn IS NOT NULL AND OLD.wwn IS NULL) OR (NEW.wwn IS NULL AND OLD.wwn IS NOT NULL)) OR
-	(NEW.persistent != OLD.persistent OR (NEW.persistent IS NOT NULL AND OLD.persistent IS NULL) OR (NEW.persistent IS NULL AND OLD.persistent IS NOT NULL)) OR
-	NEW.provisioning_status_id != OLD.provisioning_status_id 
+	(NEW.persistent != OLD.persistent OR (NEW.persistent IS NOT NULL AND OLD.persistent IS NULL) OR (NEW.persistent IS NULL AND OLD.persistent IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
@@ -242,8 +239,7 @@ WHEN
 	NEW.net_node_uuid != OLD.net_node_uuid OR
 	NEW.life_id != OLD.life_id OR
 	(NEW.block_device_uuid != OLD.block_device_uuid OR (NEW.block_device_uuid IS NOT NULL AND OLD.block_device_uuid IS NULL) OR (NEW.block_device_uuid IS NULL AND OLD.block_device_uuid IS NOT NULL)) OR
-	(NEW.read_only != OLD.read_only OR (NEW.read_only IS NOT NULL AND OLD.read_only IS NULL) OR (NEW.read_only IS NULL AND OLD.read_only IS NOT NULL)) OR
-	NEW.provisioning_status_id != OLD.provisioning_status_id 
+	(NEW.read_only != OLD.read_only OR (NEW.read_only IS NOT NULL AND OLD.read_only IS NULL) OR (NEW.read_only IS NULL AND OLD.read_only IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
@@ -283,8 +279,7 @@ WHEN
 	NEW.net_node_uuid != OLD.net_node_uuid OR
 	NEW.life_id != OLD.life_id OR
 	(NEW.device_type_id != OLD.device_type_id OR (NEW.device_type_id IS NOT NULL AND OLD.device_type_id IS NULL) OR (NEW.device_type_id IS NULL AND OLD.device_type_id IS NOT NULL)) OR
-	(NEW.block_device_uuid != OLD.block_device_uuid OR (NEW.block_device_uuid IS NOT NULL AND OLD.block_device_uuid IS NULL) OR (NEW.block_device_uuid IS NULL AND OLD.block_device_uuid IS NOT NULL)) OR
-	NEW.provisioning_status_id != OLD.provisioning_status_id 
+	(NEW.block_device_uuid != OLD.block_device_uuid OR (NEW.block_device_uuid IS NOT NULL AND OLD.block_device_uuid IS NULL) OR (NEW.block_device_uuid IS NULL AND OLD.block_device_uuid IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));

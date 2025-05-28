@@ -436,15 +436,15 @@ func (s *baseStorageSuite) createFilesystem(c *tc.C, storageUUID corestorage.UUI
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_filesystem(uuid, life_id, filesystem_id, provisioning_status_id)
-VALUES (?, ?, ?, ?)`, filesystemUUID, life.Alive, s.filesystemCount, domainstorage.ProvisioningStatusPending)
+INSERT INTO storage_filesystem(uuid, life_id, filesystem_id)
+VALUES (?, ?, ?)`, filesystemUUID, life.Alive, s.filesystemCount)
 		if err != nil {
 			return err
 		}
 		for _, a := range attachments {
 			_, err = tx.ExecContext(ctx, `
-INSERT INTO storage_filesystem_attachment(uuid, storage_filesystem_uuid, net_node_uuid, life_id, provisioning_status_id, mount_point, read_only)
-VALUES (?, ?, (SELECT net_node_uuid FROM unit WHERE uuid = ?), ?, ?, ?, ?)`, attachmentUUID, filesystemUUID, a.unitUUID, life.Alive, domainstorage.ProvisioningStatusPending, a.mountPoint, a.readOnly)
+INSERT INTO storage_filesystem_attachment(uuid, storage_filesystem_uuid, net_node_uuid, life_id, mount_point, read_only)
+VALUES (?, ?, (SELECT net_node_uuid FROM unit WHERE uuid = ?), ?, ?, ?)`, attachmentUUID, filesystemUUID, a.unitUUID, life.Alive, a.mountPoint, a.readOnly)
 			if err != nil {
 				return err
 			}
@@ -474,15 +474,15 @@ func (s *baseStorageSuite) createVolume(c *tc.C, storageUUID corestorage.UUID, a
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_volume(uuid, life_id, volume_id, provisioning_status_id)
-VALUES (?, ?, ?, ?)`, volumeUUID, life.Alive, 667, domainstorage.ProvisioningStatusPending)
+INSERT INTO storage_volume(uuid, life_id, volume_id)
+VALUES (?, ?, ?)`, volumeUUID, life.Alive, 667)
 		if err != nil {
 			return err
 		}
 		for _, a := range attachments {
 			_, err = tx.ExecContext(ctx, `
-INSERT INTO storage_volume_attachment(uuid, storage_volume_uuid, net_node_uuid, life_id, provisioning_status_id, read_only)
-VALUES (?, ?, (SELECT net_node_uuid FROM unit WHERE uuid = ?), ?, ?, ?, ?)`, attachmentUUID, volumeUUID, a.unitUUID, life.Alive, domainstorage.ProvisioningStatusPending, a.readOnly)
+INSERT INTO storage_volume_attachment(uuid, storage_volume_uuid, net_node_uuid, life_id, read_only)
+VALUES (?, ?, (SELECT net_node_uuid FROM unit WHERE uuid = ?), ?, ?, ?)`, attachmentUUID, volumeUUID, a.unitUUID, life.Alive, a.readOnly)
 			if err != nil {
 				return err
 			}
@@ -506,9 +506,8 @@ type storageInstanceFilesystemArg struct {
 	StoragePoolOrType string
 	SizeMIB           uint64
 	// Filesystem.
-	FilesystemLifeID     life.Life
-	FilesystemID         string
-	ProvisioningStatusID domainstorage.ProvisioningStatus
+	FilesystemLifeID life.Life
+	FilesystemID     string
 }
 
 func (s *baseStorageSuite) assertFilesystems(c *tc.C, charmUUID corecharm.ID, expected []storageInstanceFilesystemArg) {
@@ -551,9 +550,8 @@ type storageInstanceVolumeArg struct {
 	StoragePool string
 	SizeMIB     uint64
 	// Volume.
-	VolumeLifeID         life.Life
-	VolumeID             string
-	ProvisioningStatusID domainstorage.ProvisioningStatus
+	VolumeLifeID life.Life
+	VolumeID     string
 }
 
 func (s *baseStorageSuite) assertVolumes(c *tc.C, charmUUID corecharm.ID, expected []storageInstanceVolumeArg) {
@@ -871,94 +869,84 @@ WHERE charm_uuid = ?`, charmUUID)
 	c.Assert(foundStorageInstances, tc.SameContents, expectedStorageInstances)
 
 	s.assertFilesystems(c, charmUUID, []storageInstanceFilesystemArg{{
-		StorageID:            "logs/2",
-		StorageName:          "logs",
-		LifeID:               life.Alive,
-		StoragePoolOrType:    "rootfs",
-		SizeMIB:              20,
-		FilesystemLifeID:     life.Alive,
-		FilesystemID:         "0",
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		StorageID:         "logs/2",
+		StorageName:       "logs",
+		LifeID:            life.Alive,
+		StoragePoolOrType: "rootfs",
+		SizeMIB:           20,
+		FilesystemLifeID:  life.Alive,
+		FilesystemID:      "0",
 	}, {
-		StorageID:            "cache/3",
-		StorageName:          "cache",
-		LifeID:               life.Alive,
-		StoragePoolOrType:    "loop",
-		SizeMIB:              30,
-		FilesystemLifeID:     life.Alive,
-		FilesystemID:         "1",
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		StorageID:         "cache/3",
+		StorageName:       "cache",
+		LifeID:            life.Alive,
+		StoragePoolOrType: "loop",
+		SizeMIB:           30,
+		FilesystemLifeID:  life.Alive,
+		FilesystemID:      "1",
 	}})
 	storageUUID, ok := storageUUIDByID["logs/2"]
 	c.Assert(ok, tc.IsTrue)
 	s.assertStorageAttached(c, unitUUID, storageUUID)
 	s.assertFilesystemAttachment(c, unitUUID, storageUUID, filesystemAttachment{
-		MountPoint:           "/var/lib/juju/storage/logs/2",
-		ReadOnly:             false,
-		LifeID:               life.Alive,
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		MountPoint: "/var/lib/juju/storage/logs/2",
+		ReadOnly:   false,
+		LifeID:     life.Alive,
 	})
 	storageUUID, ok = storageUUIDByID["cache/3"]
 	c.Assert(ok, tc.IsTrue)
 	s.assertStorageAttached(c, unitUUID, storageUUID)
 	s.assertFilesystemAttachment(c, unitUUID, storageUUID, filesystemAttachment{
-		MountPoint:           "/var/lib/juju/storage/cache/3",
-		ReadOnly:             false,
-		LifeID:               life.Alive,
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		MountPoint: "/var/lib/juju/storage/cache/3",
+		ReadOnly:   false,
+		LifeID:     life.Alive,
 	})
 
 	s.assertVolumes(c, charmUUID, []storageInstanceVolumeArg{{
-		StorageID:            "database/0",
-		StorageName:          "database",
-		LifeID:               life.Alive,
-		StoragePool:          "ebs",
-		SizeMIB:              10,
-		VolumeLifeID:         life.Alive,
-		VolumeID:             "0",
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		StorageID:    "database/0",
+		StorageName:  "database",
+		LifeID:       life.Alive,
+		StoragePool:  "ebs",
+		SizeMIB:      10,
+		VolumeLifeID: life.Alive,
+		VolumeID:     "0",
 	}, {
-		StorageID:            "database/1",
-		StorageName:          "database",
-		LifeID:               life.Alive,
-		StoragePool:          "ebs",
-		SizeMIB:              10,
-		VolumeLifeID:         life.Alive,
-		VolumeID:             "1",
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		StorageID:    "database/1",
+		StorageName:  "database",
+		LifeID:       life.Alive,
+		StoragePool:  "ebs",
+		SizeMIB:      10,
+		VolumeLifeID: life.Alive,
+		VolumeID:     "1",
 	}, {
-		StorageID:            "cache/3",
-		StorageName:          "cache",
-		LifeID:               life.Alive,
-		StoragePool:          "loop",
-		SizeMIB:              30,
-		VolumeLifeID:         life.Alive,
-		VolumeID:             "2",
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		StorageID:    "cache/3",
+		StorageName:  "cache",
+		LifeID:       life.Alive,
+		StoragePool:  "loop",
+		SizeMIB:      30,
+		VolumeLifeID: life.Alive,
+		VolumeID:     "2",
 	}})
 	storageUUID, ok = storageUUIDByID["database/0"]
 	c.Assert(ok, tc.IsTrue)
 	s.assertStorageAttached(c, unitUUID, storageUUID)
 	s.assertVolumeAttachment(c, unitUUID, storageUUID, volumeAttachment{
-		ReadOnly:             false,
-		LifeID:               life.Alive,
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		ReadOnly: false,
+		LifeID:   life.Alive,
 	})
 	storageUUID, ok = storageUUIDByID["database/1"]
 	c.Assert(ok, tc.IsTrue)
 	s.assertStorageAttached(c, unitUUID, storageUUID)
 	s.assertVolumeAttachment(c, unitUUID, storageUUID, volumeAttachment{
-		ReadOnly:             false,
-		LifeID:               life.Alive,
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		ReadOnly: false,
+		LifeID:   life.Alive,
 	})
 	storageUUID, ok = storageUUIDByID["cache/3"]
 	c.Assert(ok, tc.IsTrue)
 	s.assertStorageAttached(c, unitUUID, storageUUID)
 	s.assertVolumeAttachment(c, unitUUID, storageUUID, volumeAttachment{
-		ReadOnly:             false,
-		LifeID:               life.Alive,
-		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
+		ReadOnly: false,
+		LifeID:   life.Alive,
 	})
 }
 
