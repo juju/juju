@@ -4827,7 +4827,7 @@ func (c *MockStateUpdateCAASUnitCall) DoAndReturn(f func(context.Context, unit.N
 }
 
 // UpsertCloudService mocks base method.
-func (m *MockState) UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error {
+func (m *MockState) UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpsertCloudService", ctx, appName, providerID, sAddrs)
 	ret0, _ := ret[0].(error)
@@ -4853,13 +4853,13 @@ func (c *MockStateUpsertCloudServiceCall) Return(arg0 error) *MockStateUpsertClo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpsertCloudServiceCall) Do(f func(context.Context, string, string, network.SpaceAddresses) error) *MockStateUpsertCloudServiceCall {
+func (c *MockStateUpsertCloudServiceCall) Do(f func(context.Context, string, string, network.ProviderAddresses) error) *MockStateUpsertCloudServiceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpsertCloudServiceCall) DoAndReturn(f func(context.Context, string, string, network.SpaceAddresses) error) *MockStateUpsertCloudServiceCall {
+func (c *MockStateUpsertCloudServiceCall) DoAndReturn(f func(context.Context, string, string, network.ProviderAddresses) error) *MockStateUpsertCloudServiceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

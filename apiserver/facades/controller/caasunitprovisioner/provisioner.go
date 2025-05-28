@@ -22,25 +22,17 @@ import (
 	statewatcher "github.com/juju/juju/state/watcher"
 )
 
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-}
-
 // ApplicationService is used to interact with the application service.
 type ApplicationService interface {
 	GetApplicationScale(ctx context.Context, appName string) (int, error)
 	SetApplicationScale(ctx context.Context, appName string, scale int) error
-	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
+	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 	WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error)
 }
 
 type Facade struct {
 	watcherRegistry facade.WatcherRegistry
 
-	networkService     NetworkService
 	applicationService ApplicationService
 	resources          facade.Resources
 	state              CAASUnitProvisionerState
@@ -53,7 +45,6 @@ func NewFacade(
 	watcherRegistry facade.WatcherRegistry,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	networkService NetworkService,
 	applicationService ApplicationService,
 	st CAASUnitProvisionerState,
 	clock clock.Clock,
@@ -64,7 +55,6 @@ func NewFacade(
 	}
 	return &Facade{
 		watcherRegistry:    watcherRegistry,
-		networkService:     networkService,
 		applicationService: applicationService,
 		resources:          resources,
 		state:              st,
@@ -210,10 +200,6 @@ func (f *Facade) UpdateApplicationsService(ctx context.Context, args params.Upda
 	if len(args.Args) == 0 {
 		return result, nil
 	}
-	allSpaces, err := f.networkService.GetAllSpaces(ctx)
-	if err != nil {
-		return result, apiservererrors.ServerError(err)
-	}
 	for i, appUpdate := range args.Args {
 		appTag, err := names.ParseApplicationTag(appUpdate.ApplicationTag)
 		if err != nil {
@@ -221,14 +207,9 @@ func (f *Facade) UpdateApplicationsService(ctx context.Context, args params.Upda
 			continue
 		}
 		pas := params.ToProviderAddresses(appUpdate.Addresses...)
-		sAddrs, err := pas.ToSpaceAddresses(allSpaces)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
 
 		appName := appTag.Id()
-		if err := f.applicationService.UpdateCloudService(ctx, appName, appUpdate.ProviderId, sAddrs); err != nil {
+		if err := f.applicationService.UpdateCloudService(ctx, appName, appUpdate.ProviderId, pas); err != nil {
 			if errors.Is(err, applicationerrors.ApplicationNotFound) {
 				err = errors.NotFoundf("application %s not found", appName)
 			}

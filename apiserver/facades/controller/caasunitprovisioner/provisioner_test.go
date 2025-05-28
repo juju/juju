@@ -80,7 +80,7 @@ func (s *CAASProvisionerSuite) setUpFacade(c *tc.C) *gomock.Controller {
 
 	var err error
 	facade, err := caasunitprovisioner.NewFacade(
-		s.watcherRegistry, s.resources, s.authorizer, nil, s.applicationService, s.st, s.clock, loggertesting.WrapCheckLog(c))
+		s.watcherRegistry, s.resources, s.authorizer, s.applicationService, s.st, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 	s.facade = facade
 	return ctrl
@@ -91,7 +91,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *tc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasunitprovisioner.NewFacade(
-		nil, s.resources, s.authorizer, nil, nil, s.st, s.clock, loggertesting.WrapCheckLog(c))
+		nil, s.resources, s.authorizer, nil, s.st, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 

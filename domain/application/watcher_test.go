@@ -809,7 +809,13 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	ctx := c.Context()
 
 	// Add a cloud service to get an initial state.
-	err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.NewSpaceAddresses("10.0.0.1"))
+	err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.ProviderAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.1",
+			},
+		},
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
@@ -819,7 +825,13 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 
 	harness.AddTest(func(c *tc.C) {
 		// Change the address for the cloud service should trigger a change.
-		err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.NewSpaceAddresses("192.168.0.1"))
+		err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.ProviderAddresses{
+			{
+				MachineAddress: network.MachineAddress{
+					Value: "192.168.0.1",
+				},
+			},
+		})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertChange()
@@ -856,7 +868,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	})
 
 	// Hash of the initial state.
-	harness.Run(c, []string{"722ba9e367e446b51bd7a473ab0a6002f8eb2f848a03169d7dfa63b7a88e3e8a"})
+	harness.Run(c, []string{"e9daa2b006ff0740cebfce4a761243bc032d518221fdfa16df53e3aa701591cc"})
 }
 
 func (s *watcherSuite) TestWatchUnitAddressesHashBadName(c *tc.C) {

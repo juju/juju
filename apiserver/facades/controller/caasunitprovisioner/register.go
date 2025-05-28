@@ -24,7 +24,6 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		ctx.WatcherRegistry(),
 		ctx.Resources(),
 		ctx.Auth(),
-		ctx.DomainServices().Network(),
 		applicationService,
 		stateShim{ctx.State()},
 		ctx.Clock(),

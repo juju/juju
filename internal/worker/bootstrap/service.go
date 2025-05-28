@@ -77,7 +77,7 @@ type ApplicationService interface {
 
 	// UpdateCloudService updates the cloud service for the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
+	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 }
 
 // BakeryConfigService describes the service used to initialise the

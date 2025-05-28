@@ -836,7 +836,7 @@ func (c *MockApplicationServiceUpdateCAASUnitCall) DoAndReturn(f func(context.Co
 }
 
 // UpdateCloudService mocks base method.
-func (m *MockApplicationService) UpdateCloudService(arg0 context.Context, arg1, arg2 string, arg3 network.SpaceAddresses) error {
+func (m *MockApplicationService) UpdateCloudService(arg0 context.Context, arg1, arg2 string, arg3 network.ProviderAddresses) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCloudService", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -862,13 +862,13 @@ func (c *MockApplicationServiceUpdateCloudServiceCall) Return(arg0 error) *MockA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceUpdateCloudServiceCall) Do(f func(context.Context, string, string, network.SpaceAddresses) error) *MockApplicationServiceUpdateCloudServiceCall {
+func (c *MockApplicationServiceUpdateCloudServiceCall) Do(f func(context.Context, string, string, network.ProviderAddresses) error) *MockApplicationServiceUpdateCloudServiceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceUpdateCloudServiceCall) DoAndReturn(f func(context.Context, string, string, network.SpaceAddresses) error) *MockApplicationServiceUpdateCloudServiceCall {
+func (c *MockApplicationServiceUpdateCloudServiceCall) DoAndReturn(f func(context.Context, string, string, network.ProviderAddresses) error) *MockApplicationServiceUpdateCloudServiceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
