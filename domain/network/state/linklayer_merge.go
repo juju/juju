@@ -104,7 +104,7 @@ func (st *State) MergeLinkLayerDevice(
 			}
 
 			normalized, namelessHWAddrs,
-				err := st.normalizeLinkLayeredDevices(ctx,
+				err := st.normalizeLinkLayerDevices(ctx,
 				incoming,
 				existingDevices,
 			)
@@ -587,8 +587,8 @@ func (st *State) matchByName(
 	return result
 }
 
-// normaliseIncoming matches existing devices with incoming devices to mitigate
-// various provider behavior.
+// normalizeLinkLayerDevices matches existing devices with incoming devices
+// to mitigate various provider behavior.
 //
 // For instance, in some providers, such as EC2, know device hardware addresses,
 // but not device names.
@@ -600,7 +600,7 @@ func (st *State) matchByName(
 //   - If there is a device that already has a provider ID, use that name.
 //   - If the devices are of different types, choose an ethernet device over
 //     a bridge (as observed for MAAS).
-func (st *State) normalizeLinkLayeredDevices(
+func (st *State) normalizeLinkLayerDevices(
 	ctx context.Context,
 	incoming []network.NetInterface,
 	devices []mergeLinkLayerDevice,
@@ -682,7 +682,7 @@ func (st *State) normalizeLinkLayeredDevices(
 		}
 	}
 
-	// Set the names and remembers normalized nameless addresses
+	// Set the names and remember normalized nameless addresses
 	for i, dev := range normalizedIncoming {
 		if existing, ok := devByHWAddr[dev.MACAddress]; ok && dev.Name == "" {
 			normalizedIncoming[i].Name = existing.Name
