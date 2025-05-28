@@ -4,7 +4,7 @@
 // The networkconfigapi package implements the network config parts
 // common to machiner and provisioner interface
 
-package networkingcommon
+package network
 
 import (
 	"context"

@@ -4,7 +4,7 @@
 package instancepoller
 
 import (
-	"github.com/juju/juju/apiserver/common/networkingcommon"
+	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -14,7 +14,7 @@ import (
 // StateMachine represents a machine from state package.
 type StateMachine interface {
 	state.Entity
-	networkingcommon.LinkLayerMachine
+	commonnetwork.LinkLayerMachine
 
 	ProviderAddresses() network.SpaceAddresses
 	SetProviderAddresses(controller.Config, ...network.SpaceAddress) error
@@ -42,13 +42,13 @@ type machineShim struct {
 	*state.Machine
 }
 
-func (s machineShim) AllLinkLayerDevices() ([]networkingcommon.LinkLayerDevice, error) {
+func (s machineShim) AllLinkLayerDevices() ([]commonnetwork.LinkLayerDevice, error) {
 	devList, err := s.Machine.AllLinkLayerDevices()
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]networkingcommon.LinkLayerDevice, len(devList))
+	out := make([]commonnetwork.LinkLayerDevice, len(devList))
 	for i, dev := range devList {
 		out[i] = dev
 	}
@@ -56,13 +56,13 @@ func (s machineShim) AllLinkLayerDevices() ([]networkingcommon.LinkLayerDevice, 
 	return out, nil
 }
 
-func (s machineShim) AllDeviceAddresses() ([]networkingcommon.LinkLayerAddress, error) {
+func (s machineShim) AllDeviceAddresses() ([]commonnetwork.LinkLayerAddress, error) {
 	addrList, err := s.Machine.AllDeviceAddresses()
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]networkingcommon.LinkLayerAddress, len(addrList))
+	out := make([]commonnetwork.LinkLayerAddress, len(addrList))
 	for i, addr := range addrList {
 		out[i] = addr
 	}

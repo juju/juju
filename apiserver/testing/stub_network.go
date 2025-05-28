@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
+	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -216,7 +216,7 @@ func ResetStub(stub *testhelpers.Stub) {
 	*stub = testhelpers.Stub{}
 }
 
-// StubBacking implements networkingcommon.NetworkBacking and records calls to its
+// StubBacking implements network.NetworkBacking and records calls to its
 // methods.
 type StubBacking struct {
 	*testhelpers.Stub
@@ -227,17 +227,14 @@ type StubBacking struct {
 	Zones network.AvailabilityZones
 }
 
-var _ networkingcommon.NetworkBacking = (*StubBacking)(nil)
+var _ commonnetwork.NetworkBacking = (*StubBacking)(nil)
 
 type SetUpFlag bool
 
 const (
-	WithZones      SetUpFlag = true
-	WithoutZones   SetUpFlag = false
-	WithSpaces     SetUpFlag = true
-	WithoutSpaces  SetUpFlag = false
-	WithSubnets    SetUpFlag = true
-	WithoutSubnets SetUpFlag = false
+	WithZones   SetUpFlag = true
+	WithSpaces  SetUpFlag = true
+	WithSubnets SetUpFlag = true
 )
 
 func (sb *StubBacking) SetUp(c *tc.C, envName string, withZones, withSpaces, withSubnets SetUpFlag) {

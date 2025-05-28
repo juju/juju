@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package networkingcommon
+package network
 
 import (
 	"context"
@@ -30,24 +30,12 @@ type NetworkBacking interface {
 	SetAvailabilityZones(network.AvailabilityZones) error
 }
 
-// BackingSubnetToParamsSubnetV2 converts a network backing subnet to the new
+// SubnetInfoToParamsSubnetWithID converts a network backing subnet to the new
 // version of the subnet API parameter.
-func BackingSubnetToParamsSubnetV2(subnet network.SubnetInfo) params.SubnetV2 {
+func SubnetInfoToParamsSubnetWithID(subnet network.SubnetInfo) params.SubnetV2 {
 	return params.SubnetV2{
 		ID:     subnet.ID.String(),
-		Subnet: BackingSubnetToParamsSubnet(subnet),
-	}
-}
-
-func BackingSubnetToParamsSubnet(subnet network.SubnetInfo) params.Subnet {
-	return params.Subnet{
-		CIDR:              subnet.CIDR,
-		VLANTag:           subnet.VLANTag,
-		ProviderId:        subnet.ProviderId.String(),
-		ProviderNetworkId: subnet.ProviderNetworkId.String(),
-		Zones:             subnet.AvailabilityZones,
-		SpaceTag:          names.NewSpaceTag(subnet.SpaceName).String(),
-		Life:              subnet.Life,
+		Subnet: SubnetInfoToParamsSubnet(subnet),
 	}
 }
 

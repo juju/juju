@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package networkingcommon
+package network
 
 import (
 	"github.com/juju/juju/apiserver/common"
@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/common/networkingcommon LinkLayerDevice,LinkLayerAddress,LinkLayerMachine,LinkLayerState,LinkLayerAndSubnetsState,NetworkService
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/common/network LinkLayerDevice,LinkLayerAddress,LinkLayerMachine,LinkLayerState,LinkLayerAndSubnetsState,NetworkService
 
 type BaseSuite struct {
 	testhelpers.IsolationSuite

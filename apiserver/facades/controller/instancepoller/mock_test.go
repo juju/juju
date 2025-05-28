@@ -16,7 +16,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
+	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
@@ -227,8 +227,8 @@ type machineInfo struct {
 	life              state.Life
 	isManual          bool
 
-	linkLayerDevices []networkingcommon.LinkLayerDevice
-	addresses        []networkingcommon.LinkLayerAddress
+	linkLayerDevices []commonnetwork.LinkLayerDevice
+	addresses        []commonnetwork.LinkLayerAddress
 }
 
 type mockMachine struct {
@@ -300,7 +300,7 @@ func (m *mockMachine) SetProviderAddresses(controllerConfig controller.Config, a
 }
 
 // AllLinkLayerDevices implements StateMachine.
-func (m *mockMachine) AllLinkLayerDevices() ([]networkingcommon.LinkLayerDevice, error) {
+func (m *mockMachine) AllLinkLayerDevices() ([]commonnetwork.LinkLayerDevice, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -312,7 +312,7 @@ func (m *mockMachine) AllLinkLayerDevices() ([]networkingcommon.LinkLayerDevice,
 }
 
 // AllDeviceAddresses implements StateMachine.
-func (m *mockMachine) AllDeviceAddresses() ([]networkingcommon.LinkLayerAddress, error) {
+func (m *mockMachine) AllDeviceAddresses() ([]commonnetwork.LinkLayerAddress, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

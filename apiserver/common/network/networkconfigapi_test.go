@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package networkingcommon_test
+package network_test
 
 import (
 	"testing"
@@ -12,8 +12,8 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/apiserver/common/networkingcommon/mocks"
+	commonnetwork "github.com/juju/juju/apiserver/common/network"
+	"github.com/juju/juju/apiserver/common/network/mocks"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -34,7 +34,7 @@ func (modelOpRecorder) Done(_ error) error {
 }
 
 type networkConfigSuite struct {
-	networkingcommon.BaseSuite
+	commonnetwork.BaseSuite
 
 	tag names.MachineTag
 
@@ -210,8 +210,8 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 
 	s.expectMachine()
 	mExp := s.machine.EXPECT()
-	mExp.AllLinkLayerDevices().Return([]networkingcommon.LinkLayerDevice{lbDev, ethDev, delDev}, nil)
-	mExp.AllDeviceAddresses().Return([]networkingcommon.LinkLayerAddress{lbAddr, delAddr}, nil)
+	mExp.AllLinkLayerDevices().Return([]commonnetwork.LinkLayerDevice{lbDev, ethDev, delDev}, nil)
+	mExp.AllDeviceAddresses().Return([]commonnetwork.LinkLayerAddress{lbAddr, delAddr}, nil)
 	mExp.AddLinkLayerDeviceOps(
 		state.LinkLayerDeviceArgs{
 			Name:        "eth1",
@@ -303,8 +303,8 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 
 	s.expectMachine()
 	mExp := s.machine.EXPECT()
-	mExp.AllLinkLayerDevices().Return([]networkingcommon.LinkLayerDevice{delDev}, nil)
-	mExp.AllDeviceAddresses().Return([]networkingcommon.LinkLayerAddress{delAddr}, nil)
+	mExp.AllLinkLayerDevices().Return([]commonnetwork.LinkLayerDevice{delDev}, nil)
+	mExp.AllDeviceAddresses().Return([]commonnetwork.LinkLayerAddress{delAddr}, nil)
 	mExp.AddLinkLayerDeviceOps(
 		state.LinkLayerDeviceArgs{
 			Name:        "eth1",
@@ -427,7 +427,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerAddressOpNewSubnetsAdded(
 		IsDefaultGateway: true,
 	}).Return([]txn.Op{{}}, nil)
 
-	mExp.AllLinkLayerDevices().Return([]networkingcommon.LinkLayerDevice{ethDev}, nil)
+	mExp.AllLinkLayerDevices().Return([]commonnetwork.LinkLayerDevice{ethDev}, nil)
 	mExp.AllDeviceAddresses().Return(nil, nil)
 
 	// Since there is a new address, then we process (and therefore add)
@@ -486,8 +486,8 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 
 	s.expectMachine()
 	mExp := s.machine.EXPECT()
-	mExp.AllLinkLayerDevices().Return([]networkingcommon.LinkLayerDevice{childDev}, nil)
-	mExp.AllDeviceAddresses().Return([]networkingcommon.LinkLayerAddress{childAddr}, nil)
+	mExp.AllLinkLayerDevices().Return([]commonnetwork.LinkLayerDevice{childDev}, nil)
+	mExp.AllDeviceAddresses().Return([]commonnetwork.LinkLayerAddress{childAddr}, nil)
 	mExp.AddLinkLayerDeviceOps(
 		state.LinkLayerDeviceArgs{
 			Name:        "br-eth0",
@@ -599,7 +599,7 @@ func (s *networkConfigSuite) callAPI(c *tc.C, config []params.NetworkConfig) {
 }
 
 func (s *networkConfigSuite) getModelOp(
-	_ networkingcommon.LinkLayerMachine, devs network.InterfaceInfos,
+	_ commonnetwork.LinkLayerMachine, devs network.InterfaceInfos,
 ) state.ModelOperation {
 	s.modelOp.devs = devs
 	return s.modelOp

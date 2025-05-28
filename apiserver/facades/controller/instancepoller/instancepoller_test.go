@@ -17,8 +17,8 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/apiserver/common/networkingcommon/mocks"
+	commonnetwork "github.com/juju/juju/apiserver/common/network"
+	"github.com/juju/juju/apiserver/common/network/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
@@ -890,8 +890,8 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *tc
 	s.st.SetMachineInfo(c, machineInfo{
 		id:               "1",
 		instanceStatus:   statusInfo("foo"),
-		linkLayerDevices: []networkingcommon.LinkLayerDevice{dev},
-		addresses:        []networkingcommon.LinkLayerAddress{addr},
+		linkLayerDevices: []commonnetwork.LinkLayerDevice{dev},
+		addresses:        []commonnetwork.LinkLayerAddress{addr},
 	})
 
 	result, err := s.api.SetProviderNetworkConfig(c.Context(), params.SetProviderNetworkConfig{
@@ -946,8 +946,8 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDGoesToEthernetDev(
 	s.st.SetMachineInfo(c, machineInfo{
 		id:               "1",
 		instanceStatus:   statusInfo("foo"),
-		linkLayerDevices: []networkingcommon.LinkLayerDevice{ethDev, brDev},
-		addresses:        []networkingcommon.LinkLayerAddress{},
+		linkLayerDevices: []commonnetwork.LinkLayerDevice{ethDev, brDev},
+		addresses:        []commonnetwork.LinkLayerAddress{},
 	})
 
 	result, err := s.api.SetProviderNetworkConfig(c.Context(), params.SetProviderNetworkConfig{
@@ -1001,8 +1001,8 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDMultipleRefsError(
 	s.st.SetMachineInfo(c, machineInfo{
 		id:               "1",
 		instanceStatus:   statusInfo("foo"),
-		linkLayerDevices: []networkingcommon.LinkLayerDevice{ethDev, brDev},
-		addresses:        []networkingcommon.LinkLayerAddress{},
+		linkLayerDevices: []commonnetwork.LinkLayerDevice{ethDev, brDev},
+		addresses:        []commonnetwork.LinkLayerAddress{},
 	})
 
 	// Same provider ID for both.
