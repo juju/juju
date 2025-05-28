@@ -211,13 +211,13 @@ func (st *State) applyMergeLinkLayerChanges(
 		addressChanges.toRelinquish, addresses...,
 	)
 
-	err = st.deleteProviderLinkLayerDevice(ctx, tx, lldChanges.toRemove)
+	err = st.removeProviderIDFromDevice(ctx, tx, lldChanges.toRemove)
 	if err != nil {
 		return errors.Errorf(
 			"removing provider IDs from link layer devices: %w", err,
 		)
 	}
-	err = st.deleteProviderAddress(ctx, tx, addressChanges.toRemove)
+	err = st.removeProviderIDFromAddress(ctx, tx, addressChanges.toRemove)
 	if err != nil {
 		return errors.Errorf("removing provider IDs from addresses: %w", err)
 	}
@@ -253,9 +253,9 @@ func (st *State) applyMergeLinkLayerChanges(
 	return nil
 }
 
-// deleteProviderLinkLayerDevice removes provider-link layer devices mappings
+// removeProviderIDFromDevice removes provider-link layer devices mappings
 // for  given provider IDs.
-func (st *State) deleteProviderLinkLayerDevice(
+func (st *State) removeProviderIDFromDevice(
 	ctx context.Context, tx *sqlair.TX, providerUUIDs []string,
 ) error {
 	type uuids []string
@@ -268,9 +268,9 @@ WHERE provider_id IN ($uuids[:])`, uuids{})
 	return tx.Query(ctx, stmt, uuids(providerUUIDs)).Run()
 }
 
-// deleteProviderAddress removes provider-addresses mappings for given
+// removeProviderIDFromAddress removes provider-addresses mappings for given
 // provider IDs.
-func (st *State) deleteProviderAddress(
+func (st *State) removeProviderIDFromAddress(
 	ctx context.Context, tx *sqlair.TX, providerUUIDs []string,
 ) error {
 	type uuids []string
