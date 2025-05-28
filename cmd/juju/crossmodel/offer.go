@@ -167,11 +167,11 @@ func (c *offerCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	unqualifiedModelName, namespace, err := jujuclient.SplitModelName(c.QualifiedModelName)
+	unqualifiedModelName, qualifier, err := jujuclient.SplitModelName(c.QualifiedModelName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	url := jujucrossmodel.MakeURL(namespace, unqualifiedModelName, c.OfferName, "")
+	url := jujucrossmodel.MakeURL(qualifier, unqualifiedModelName, c.OfferName, "")
 	ep := strings.Join(c.Endpoints, ", ")
 	ctx.Infof("Application %q endpoints [%s] available at %q", c.Application, ep, url)
 	return nil

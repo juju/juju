@@ -665,15 +665,15 @@ func (c *fakeController) MongoVersion(ctx context.Context) (string, error) {
 func (c *fakeController) AllModels(ctx context.Context) (result []base.UserModel, _ error) {
 	models := map[string][]base.UserModel{
 		"aws-test": {
-			{Name: "controller", UUID: "ghi", Namespace: "admin", Type: model.IAAS},
+			{Name: "controller", UUID: "ghi", Qualifier: "admin", Type: model.IAAS},
 		},
 		"mallards": {
-			{Name: "controller", UUID: "abc", Namespace: "admin", Type: model.IAAS},
-			{Name: "my-model", UUID: "def", Namespace: "admin", Type: model.IAAS},
+			{Name: "controller", UUID: "abc", Qualifier: "admin", Type: model.IAAS},
+			{Name: "my-model", UUID: "def", Qualifier: "admin", Type: model.IAAS},
 		},
 		"k8s-controller": {
-			{Name: "controller", UUID: "xyz", Namespace: "admin", Type: model.CAAS},
-			{Name: "my-k8s-model", UUID: "def", Namespace: "admin", Type: model.CAAS},
+			{Name: "controller", UUID: "xyz", Qualifier: "admin", Type: model.CAAS},
+			{Name: "my-k8s-model", UUID: "def", Qualifier: "admin", Type: model.CAAS},
 		},
 	}
 	all, exists := models[c.controllerName]

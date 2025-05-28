@@ -508,7 +508,7 @@ func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, store jujuclien
 		// There is exactly one model shared,
 		// so set it as the current model.
 		model := models[0]
-		modelName := jujuclient.QualifyModelName(model.Namespace, model.Name)
+		modelName := jujuclient.QualifyModelName(model.Qualifier, model.Name)
 		err := store.SetCurrentModel(controllerName, modelName)
 		if err != nil {
 			return errors.Trace(err)
@@ -523,11 +523,11 @@ one of them:
 	ownerModelNames := make(set.Strings)
 	otherModelNames := make(set.Strings)
 	for _, model := range models {
-		if model.Namespace == userName {
+		if model.Qualifier == userName {
 			ownerModelNames.Add(model.Name)
 			continue
 		}
-		modelName := common.UserQualifiedModelName(model.Name, model.Namespace, userName)
+		modelName := common.UserQualifiedModelName(model.Name, model.Qualifier, userName)
 		otherModelNames.Add(modelName)
 	}
 	for _, modelName := range ownerModelNames.SortedValues() {

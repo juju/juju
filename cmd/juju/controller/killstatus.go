@@ -31,7 +31,7 @@ type ctrData struct {
 
 type modelData struct {
 	UUID      string
-	Namespace string
+	Qualifier string
 	Name      string
 	Life      life.Value
 
@@ -140,7 +140,7 @@ func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID 
 		}
 		modelData := modelData{
 			UUID:                      model.UUID,
-			Namespace:                 model.Namespace,
+			Qualifier:                 model.Qualifier,
 			Name:                      modelName[model.UUID],
 			Life:                      model.Life,
 			HostedMachineCount:        model.HostedMachineCount,
@@ -238,7 +238,7 @@ func fmtCtrStatus(data ctrData) string {
 }
 
 func fmtModelStatus(data modelData) string {
-	out := fmt.Sprintf("\t%s/%s (%s)", data.Namespace, data.Name, data.Life)
+	out := fmt.Sprintf("\t%s/%s (%s)", data.Qualifier, data.Name, data.Life)
 
 	if machineNo := data.HostedMachineCount; machineNo > 0 {
 		out += fmt.Sprintf(", %d machine%s", machineNo, s(machineNo))

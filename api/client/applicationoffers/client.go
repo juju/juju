@@ -70,7 +70,7 @@ func filtersToLegacyFilters(in params.OfferFilters) params.OfferFiltersLegacy {
 	}
 	for i, f := range in.Filters {
 		out.Filters[i] = params.OfferFilterLegacy{
-			OwnerName:              f.ModelNamespace,
+			OwnerName:              f.ModelQualifier,
 			ModelName:              f.ModelName,
 			OfferName:              f.OfferName,
 			ApplicationName:        f.ApplicationName,
@@ -93,7 +93,7 @@ func (c *Client) ListOffers(ctx context.Context, filters ...crossmodel.Applicati
 	)
 	for _, f := range filters {
 		filterTerm := params.OfferFilter{
-			ModelNamespace:      f.ModelNamespace,
+			ModelQualifier:      f.ModelQualifier,
 			ModelName:           f.ModelName,
 			OfferName:           f.OfferName,
 			ApplicationName:     f.ApplicationName,
@@ -275,7 +275,7 @@ func (c *Client) FindApplicationOffers(ctx context.Context, filters ...crossmode
 		filterTerm := params.OfferFilter{
 			OfferName:      f.OfferName,
 			ModelName:      f.ModelName,
-			ModelNamespace: f.ModelNamespace,
+			ModelQualifier: f.ModelQualifier,
 		}
 		filterTerm.Endpoints = make([]params.EndpointFilterAttributes, len(f.Endpoints))
 		for i, ep := range f.Endpoints {

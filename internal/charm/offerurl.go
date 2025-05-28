@@ -21,9 +21,8 @@ type OfferURL struct {
 	// If empty, the model is another model in the same controller.
 	Source string // "<controller-name>" or "<jaas>" or ""
 
-	// ModelNamespace is the namespace whose namespace in which the offer is made.
-	// Where a model is specified, the namespace is the model owner.
-	ModelNamespace string
+	// ModelQualifier disambiguates the name of the model hosting the offer.
+	ModelQualifier string
 
 	// ModelName is the name of the model providing the exported endpoints.
 	// It is only used for local URLs or for specifying models in the same
@@ -37,8 +36,8 @@ type OfferURL struct {
 // Path returns the path component of the URL.
 func (u *OfferURL) Path() string {
 	var parts []string
-	if u.ModelNamespace != "" {
-		parts = append(parts, u.ModelNamespace)
+	if u.ModelQualifier != "" {
+		parts = append(parts, u.ModelQualifier)
 	}
 	if u.ModelName != "" {
 		parts = append(parts, u.ModelName)
@@ -68,8 +67,8 @@ func (u *OfferURL) HasEndpoint() bool {
 	return strings.Contains(u.ApplicationName, ":")
 }
 
-// modelApplicationRegexp parses urls of the form controller:namespace/model.application[:relname]
-var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<namespace>[^/]+)/)?(?P<model>[^.]*)(\.(?P<application>[^:]*(:.*)?))?)?`)
+// modelApplicationRegexp parses urls of the form controller:qualifier/model.application[:relname]
+var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<qualifier>[^/]+)/)?(?P<model>[^.]*)(\.(?P<application>[^:]*(:.*)?))?)?`)
 
 // IsValidOfferURL ensures that a URL string is a valid OfferURL.
 func IsValidOfferURL(urlStr string) bool {
@@ -82,10 +81,10 @@ func IsValidOfferURL(urlStr string) bool {
 //
 //	<model-name>.<application-name>
 //	<model-name>.<application-name>:<relation-name>
-//	<namespace>/<model-name>.<application-name>
-//	<namespace>/<model-name>.<application-name>:<relation-name>
-//	<controller>:<namespace>/<model-name>.<application-name>
-//	<controller>:<namespace>/<model-name>.<application-name>:<relation-name>
+//	<qualifier>/<model-name>.<application-name>
+//	<qualifier>/<model-name>.<application-name>:<relation-name>
+//	<controller>:<qualifier>/<model-name>.<application-name>
+//	<controller>:<qualifier>/<model-name>.<application-name>:<relation-name>
 func ParseOfferURL(urlStr string) (*OfferURL, error) {
 	return parseOfferURL(urlStr)
 }
@@ -133,13 +132,13 @@ func parseOfferURLParts(urlStr string, allowIncomplete bool) (*OfferURLParts, er
 	valid = valid && modelApplicationRegexp.MatchString(urlParts)
 	if valid {
 		result.Source = source
-		result.ModelNamespace = modelApplicationRegexp.ReplaceAllString(urlParts, "$namespace")
+		result.ModelQualifier = modelApplicationRegexp.ReplaceAllString(urlParts, "$qualifier")
 		result.ModelName = modelApplicationRegexp.ReplaceAllString(urlParts, "$model")
 		result.ApplicationName = modelApplicationRegexp.ReplaceAllString(urlParts, "$application")
 	}
 	if !valid || strings.Contains(result.ModelName, "/") || strings.Contains(result.ApplicationName, "/") {
 		// TODO(wallyworld) - update error message when we support multi-controller and JAAS CMR
-		return nil, errors.Errorf("application offer URL has invalid form, must be [<namespace/]<model>.<appname>: %q", urlStr)
+		return nil, errors.Errorf("application offer URL has invalid form, must be [<qualifier/]<model>.<appname>: %q", urlStr)
 	}
 	if !allowIncomplete && result.ModelName == "" {
 		return nil, errors.Errorf("application offer URL is missing model")
@@ -152,8 +151,8 @@ func parseOfferURLParts(urlStr string, allowIncomplete bool) (*OfferURLParts, er
 	// before validating the name.
 	appName := strings.Split(result.ApplicationName, ":")[0]
 	// Validate the resulting URL part values.
-	if result.ModelNamespace != "" && !model.IsValidNamespace(result.ModelNamespace) {
-		return nil, errors.NotValidf("namespace %q", result.ModelNamespace)
+	if result.ModelQualifier != "" && !model.IsValidQualifier(result.ModelQualifier) {
+		return nil, errors.NotValidf("qualifier %q", result.ModelQualifier)
 	}
 	if result.ModelName != "" && !names.IsValidModelName(result.ModelName) {
 		return nil, errors.NotValidf("model name %q", result.ModelName)
@@ -165,8 +164,8 @@ func parseOfferURLParts(urlStr string, allowIncomplete bool) (*OfferURLParts, er
 }
 
 // MakeURL constructs an offer URL from the specified components.
-func MakeURL(namespace, model, application, controller string) string {
-	base := fmt.Sprintf("%s/%s.%s", namespace, model, application)
+func MakeURL(qualifier, model, application, controller string) string {
+	base := fmt.Sprintf("%s/%s.%s", qualifier, model, application)
 	if controller == "" {
 		return base
 	}

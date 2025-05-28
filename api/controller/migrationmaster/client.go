@@ -165,7 +165,7 @@ func (c *Client) ModelInfo(ctx context.Context) (migration.ModelInfo, error) {
 	return migration.ModelInfo{
 		UUID:                   info.UUID,
 		Name:                   info.Name,
-		Namespace:              info.Namespace,
+		Qualifier:              info.Qualifier,
 		AgentVersion:           info.AgentVersion,
 		ControllerAgentVersion: info.ControllerAgentVersion,
 		ModelDescription:       modelDescription,

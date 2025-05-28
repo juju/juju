@@ -94,32 +94,32 @@ func (s *MigrateSuite) SetUpTest(c *tc.C) {
 			Name:      "model",
 			UUID:      modelUUID,
 			Type:      model.IAAS,
-			Namespace: "sourceuser",
+			Qualifier: "sourceuser",
 		}, {
 			Name:      "production",
 			UUID:      "prod-1-uuid",
 			Type:      model.IAAS,
-			Namespace: "alpha",
+			Qualifier: "alpha",
 		}, {
 			Name:      "production",
 			UUID:      "prod-2-uuid",
 			Type:      model.IAAS,
-			Namespace: "sourceuser",
+			Qualifier: "sourceuser",
 		}, {
 			Name:      "model-with-extra-local-users",
 			UUID:      "extra-local-users-uuid",
 			Type:      model.IAAS,
-			Namespace: "sourceuser",
+			Qualifier: "sourceuser",
 		}, {
 			Name:      "model-with-extra-external-users",
 			UUID:      "extra-external-users-uuid",
 			Type:      model.IAAS,
-			Namespace: "sourceuser",
+			Qualifier: "sourceuser",
 		}, {
 			Name:      "model-with-extra-users",
 			UUID:      "extra-users-uuid",
 			Type:      model.IAAS,
-			Namespace: "sourceuser",
+			Qualifier: "sourceuser",
 		}},
 		modelInfo: []params.ModelInfo{
 			{

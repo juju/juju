@@ -255,9 +255,9 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 		userModel := params.UserModel{
 			Model: params.Model{
 				Name:      model.Name,
+				Qualifier: model.Qualifier,
 				UUID:      model.UUID.String(),
 				Type:      model.ModelType.String(),
-				Namespace: model.Namespace,
 			},
 		}
 
@@ -316,7 +316,7 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 		results.Models = append(results.Models, params.ModelBlockInfo{
 			UUID:      model.UUID.String(),
 			Name:      model.Name,
-			Namespace: model.Namespace,
+			Qualifier: model.Qualifier,
 			Blocks:    blockTypes.SortedValues(),
 		})
 	}
@@ -365,7 +365,7 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 
 		config := params.HostedModelConfig{
 			Name:      model.Name,
-			Namespace: model.Namespace,
+			Qualifier: model.Qualifier,
 		}
 		svc, err := c.modelConfigServiceGetter(ctx, model.UUID)
 		if err != nil {
@@ -930,10 +930,9 @@ func makeModelInfo(ctx context.Context, st *state.State,
 
 	ul.identityURL = coreConf.IdentityURL()
 	return coremigration.ModelInfo{
-		UUID: model.UUID.String(),
-		Name: model.Name,
-		//Owner:                  names.NewUserTag(model.OwnerName.Name()),
-		Namespace:              model.Namespace,
+		UUID:                   model.UUID.String(),
+		Name:                   model.Name,
+		Qualifier:              model.Qualifier,
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerModel.AgentVersion,
 		ModelDescription:       description,
@@ -992,10 +991,10 @@ func (o orderedBlockInfo) Less(i, j int) bool {
 		return false
 	}
 
-	if o[i].Namespace < o[j].Namespace {
+	if o[i].Qualifier < o[j].Qualifier {
 		return true
 	}
-	if o[i].Namespace > o[j].Namespace {
+	if o[i].Qualifier > o[j].Qualifier {
 		return false
 	}
 

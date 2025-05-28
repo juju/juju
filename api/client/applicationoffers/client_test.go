@@ -111,7 +111,7 @@ func (s *crossmodelMockSuite) TestList(c *tc.C) {
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := jujucrossmodel.ApplicationOfferFilter{
-		ModelNamespace:   "fred",
+		ModelQualifier:   "fred",
 		ModelName:        "prod",
 		OfferName:        offerName,
 		Endpoints:        relations,
@@ -123,7 +123,7 @@ func (s *crossmodelMockSuite) TestList(c *tc.C) {
 
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			ModelNamespace:  "fred",
+			ModelQualifier:  "fred",
 			ModelName:       "prod",
 			OfferName:       filter.OfferName,
 			ApplicationName: filter.ApplicationName,
@@ -194,7 +194,7 @@ func (s *crossmodelMockSuite) TestListError(c *tc.C) {
 
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			ModelNamespace:      filter.ModelNamespace,
+			ModelQualifier:      filter.ModelQualifier,
 			ModelName:           filter.ModelName,
 			OfferName:           filter.OfferName,
 			ApplicationName:     filter.ApplicationName,
@@ -373,14 +373,14 @@ func (s *crossmodelMockSuite) TestFind(c *tc.C) {
 	defer ctrl.Finish()
 
 	offerName := "hosted-db2"
-	namespace := "owner"
+	qualifier := "owner"
 	modelName := "model"
 	url := fmt.Sprintf("fred/model.%s", offerName)
 	endpoints := []params.RemoteEndpoint{{Name: "endPointA"}}
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := jujucrossmodel.ApplicationOfferFilter{
-		ModelNamespace: namespace,
+		ModelQualifier: qualifier,
 		ModelName:      modelName,
 		OfferName:      offerName,
 		Endpoints:      relations,
@@ -388,7 +388,7 @@ func (s *crossmodelMockSuite) TestFind(c *tc.C) {
 
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			ModelNamespace:  filter.ModelNamespace,
+			ModelQualifier:  filter.ModelQualifier,
 			ModelName:       filter.ModelName,
 			OfferName:       filter.OfferName,
 			ApplicationName: filter.ApplicationName,
@@ -449,7 +449,7 @@ func (s *crossmodelMockSuite) TestFindError(c *tc.C) {
 	}
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			ModelNamespace:  filter.ModelNamespace,
+			ModelQualifier:  filter.ModelQualifier,
 			ModelName:       filter.ModelName,
 			OfferName:       filter.OfferName,
 			ApplicationName: filter.ApplicationName,

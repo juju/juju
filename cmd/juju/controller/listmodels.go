@@ -142,11 +142,11 @@ func (c *modelsCommand) currentModelName() (qualified, name string) {
 	if err == nil {
 		qualified, name = current, current
 		if c.user != "" {
-			unqualifiedModelName, namespace, err := jujuclient.SplitModelName(current)
+			unqualifiedModelName, qualifier, err := jujuclient.SplitModelName(current)
 			if err == nil {
-				// If current model's namespace is this user, un-qualify model name.
+				// If current model's qualifier is this user, un-qualify model name.
 				name = common.UserQualifiedModelName(
-					unqualifiedModelName, namespace, c.runVars.currentUser,
+					unqualifiedModelName, qualifier, c.runVars.currentUser,
 				)
 			}
 		}
@@ -212,24 +212,24 @@ type ModelSummarySet struct {
 	CurrentModel string `yaml:"current-model,omitempty" json:"current-model,omitempty"`
 
 	// CurrentModelQualified is the fully qualified name for the current
-	// model, i.e. having the format $owner/$model.
+	// model, i.e. having the format $qualifier/$model.
 	CurrentModelQualified string `yaml:"-" json:"-"`
 }
 
 // ModelSummary contains a summary of some information about a model.
 type ModelSummary struct {
-	// Name is a fully qualified model name, i.e. having the format $owner/$model.
+	// Name is a fully qualified model name, i.e. having the format $qualifier/$model.
 	Name string `json:"name" yaml:"name"`
 
 	// ShortName is un-qualified model name.
 	ShortName string          `json:"short-name" yaml:"short-name"`
+	Qualifier string          `json:"-" yaml:"-"`
 	UUID      string          `json:"model-uuid" yaml:"model-uuid"`
 	Type      model.ModelType `json:"model-type" yaml:"model-type"`
 
 	ControllerUUID     string                  `json:"controller-uuid" yaml:"controller-uuid"`
 	ControllerName     string                  `json:"controller-name" yaml:"controller-name"`
 	IsController       bool                    `json:"is-controller" yaml:"is-controller"`
-	Namespace          string                  `json:"namespace" yaml:"namespace"`
 	Cloud              string                  `json:"cloud" yaml:"cloud"`
 	CloudRegion        string                  `json:"region,omitempty" yaml:"region,omitempty"`
 	CloudCredential    *common.ModelCredential `json:"credential,omitempty" yaml:"credential,omitempty"`
@@ -254,12 +254,12 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 	}
 	summary := ModelSummary{
 		ShortName:      apiSummary.Name,
-		Name:           jujuclient.QualifyModelName(apiSummary.Namespace, apiSummary.Name),
+		Name:           jujuclient.QualifyModelName(apiSummary.Qualifier, apiSummary.Name),
 		UUID:           apiSummary.UUID,
 		Type:           apiSummary.Type,
 		ControllerUUID: apiSummary.ControllerUUID,
 		IsController:   apiSummary.IsController,
-		Namespace:      apiSummary.Namespace,
+		Qualifier:      apiSummary.Qualifier,
 		Life:           apiSummary.Life,
 		Cloud:          apiSummary.Cloud,
 		CloudRegion:    apiSummary.CloudRegion,
@@ -357,7 +357,7 @@ type ModelSet struct {
 	CurrentModel string `yaml:"current-model,omitempty" json:"current-model,omitempty"`
 
 	// CurrentModelQualified is the fully qualified name for the current
-	// model, i.e. having the format $owner/$model.
+	// model, i.e. having the format $qualifier/$model.
 	CurrentModelQualified string `yaml:"-" json:"-"`
 }
 
@@ -411,7 +411,7 @@ func (c *modelsCommand) tabularSummaries(writer io.Writer, modelSet ModelSummary
 	for _, model := range modelSet.Models {
 		cloudRegion := strings.Trim(model.Cloud+"/"+model.CloudRegion, "/")
 		name := model.Name
-		if c.runVars.currentUser == model.Namespace {
+		if c.runVars.currentUser == model.Qualifier {
 			// No need to display fully qualified model name to its owner.
 			name = model.ShortName
 		}

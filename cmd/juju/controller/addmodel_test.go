@@ -56,7 +56,7 @@ func (s *AddModelSuite) SetUpTest(c *tc.C) {
 			Name:         "test",
 			Type:         model.IAAS,
 			UUID:         "fake-model-uuid",
-			Namespace:    "ignored-for-now",
+			Qualifier:    "ignored-for-now",
 			AgentVersion: &agentVersion,
 		},
 	}

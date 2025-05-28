@@ -196,7 +196,7 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 			Models: []params.HostedModelConfig{
 				{
 					Name:      "first",
-					Namespace: "foo@bar",
+					Qualifier: "foo@bar",
 					Config: map[string]interface{}{
 						"name": "first",
 					},
@@ -206,7 +206,7 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 					},
 				}, {
 					Name:      "second",
-					Namespace: "foo@bar",
+					Qualifier: "foo@bar",
 					Config: map[string]interface{}{
 						"name": "second",
 					},
@@ -224,7 +224,7 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	first := config[0]
 	c.Assert(first.Name, tc.Equals, "first")
-	c.Assert(first.Namespace, tc.Equals, "foo@bar")
+	c.Assert(first.Qualifier, tc.Equals, "foo@bar")
 	c.Assert(first.Config, tc.DeepEquals, map[string]interface{}{
 		"name": "first",
 	})
@@ -309,7 +309,7 @@ func (s *Suite) TestModelStatus(c *tc.C) {
 			out.Results = []params.ModelStatus{
 				{
 					ModelTag:           coretesting.ModelTag.String(),
-					Namespace:          "glenda",
+					Qualifier:          "glenda",
 					ApplicationCount:   3,
 					HostedMachineCount: 2,
 					Life:               "alive",
@@ -330,10 +330,10 @@ func (s *Suite) TestModelStatus(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results[0], tc.DeepEquals, base.ModelStatus{
 		UUID:               coretesting.ModelTag.Id(),
+		Qualifier:          "glenda",
 		TotalMachineCount:  1,
 		HostedMachineCount: 2,
 		ApplicationCount:   3,
-		Namespace:          "glenda",
 		Life:               life.Alive,
 		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},
 	})
@@ -443,9 +443,9 @@ func (s *Suite) TestAllModels(c *tc.C) {
 			UserModels: []params.UserModel{{
 				Model: params.Model{
 					Name:      "test",
+					Qualifier: "fred",
 					UUID:      coretesting.ModelTag.Id(),
 					Type:      "iaas",
-					Namespace: "fred",
 				},
 				LastConnection: &now,
 			}},
@@ -458,9 +458,9 @@ func (s *Suite) TestAllModels(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m, tc.DeepEquals, []base.UserModel{{
 		Name:           "test",
+		Qualifier:      "fred",
 		UUID:           coretesting.ModelTag.Id(),
 		Type:           "iaas",
-		Namespace:      "fred",
 		LastConnection: &now,
 	}})
 }
@@ -496,8 +496,8 @@ func (s *Suite) TestListBlockedModels(c *tc.C) {
 		*(result.(*params.ModelBlockInfoList)) = params.ModelBlockInfoList{
 			Models: []params.ModelBlockInfo{{
 				Name:      "controller",
+				Qualifier: "fred",
 				UUID:      coretesting.ModelTag.Id(),
-				Namespace: "fred",
 				Blocks: []string{
 					"BlockChange",
 					"BlockDestroy",
@@ -513,8 +513,8 @@ func (s *Suite) TestListBlockedModels(c *tc.C) {
 	c.Assert(results, tc.DeepEquals, []params.ModelBlockInfo{
 		{
 			Name:      "controller",
+			Qualifier: "fred",
 			UUID:      coretesting.ModelTag.Id(),
-			Namespace: "fred",
 			Blocks: []string{
 				"BlockChange",
 				"BlockDestroy",

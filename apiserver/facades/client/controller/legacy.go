@@ -38,7 +38,7 @@ func (c *ControllerAPIV12) ModelStatus(ctx context.Context, req params.Entities)
 			HostedMachineCount: r.HostedMachineCount,
 			ApplicationCount:   r.ApplicationCount,
 			UnitCount:          r.UnitCount,
-			OwnerTag:           names.NewUserTag(r.Namespace).String(),
+			OwnerTag:           names.NewUserTag(r.Qualifier).String(),
 			Applications:       r.Applications,
 			Machines:           r.Machines,
 			Volumes:            r.Volumes,
@@ -64,7 +64,7 @@ func (c *ControllerAPIV12) AllModels(ctx context.Context) (params.UserModelListL
 				Name:     model.Name,
 				UUID:     model.UUID,
 				Type:     model.Type,
-				OwnerTag: names.NewUserTag(model.Namespace).String(),
+				OwnerTag: names.NewUserTag(model.Qualifier).String(),
 			},
 			LastConnection: model.LastConnection,
 		}
@@ -88,7 +88,7 @@ func (c *ControllerAPIV12) ListBlockedModels(ctx context.Context) (params.ModelB
 		result.Models[i] = params.ModelBlockInfoLegacy{
 			Name:     model.Name,
 			UUID:     model.UUID,
-			OwnerTag: names.NewUserTag(model.Namespace).String(),
+			OwnerTag: names.NewUserTag(model.Qualifier).String(),
 			Blocks:   model.Blocks,
 		}
 	}
@@ -115,7 +115,7 @@ func (c *ControllerAPIV12) HostedModelConfigs(ctx context.Context) (params.Hoste
 		}
 		result.Models[i] = params.HostedModelConfigLegacy{
 			Name:      model.Name,
-			OwnerTag:  names.NewUserTag(model.Namespace).String(),
+			OwnerTag:  names.NewUserTag(model.Qualifier).String(),
 			Config:    model.Config,
 			CloudSpec: model.CloudSpec,
 		}

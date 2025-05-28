@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -210,7 +211,7 @@ func getControllerAPI(ctx context.Context, c newControllerAPIRoot) (*controller.
 type modelBlockInfo struct {
 	Name        string   `yaml:"name" json:"name"`
 	UUID        string   `yaml:"model-uuid" json:"model-uuid"`
-	Namespace   string   `yaml:"namespace" json:"namespace"`
+	Qualifier   string   `yaml:"qualifier" json:"qualifier"`
 	CommandSets []string `yaml:"disabled-commands,omitempty" json:"disabled-commands,omitempty"`
 }
 
@@ -220,7 +221,7 @@ func FormatModelBlockInfo(all []params.ModelBlockInfo) ([]modelBlockInfo, error)
 		output[i] = modelBlockInfo{
 			Name:        one.Name,
 			UUID:        one.UUID,
-			Namespace:   one.Namespace,
+			Qualifier:   one.Qualifier,
 			CommandSets: blocksToStr(one.Blocks),
 		}
 	}
@@ -237,9 +238,9 @@ func FormatTabularBlockedModels(writer io.Writer, value interface{}) error {
 
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{TabWriter: tw}
-	w.Println("Name", "Model UUID", "Namespace", "Disabled commands")
+	w.Println("Name", "Model UUID", "Disabled commands")
 	for _, model := range models {
-		w.Println(model.Name, model.UUID, model.Namespace, strings.Join(model.CommandSets, ", "))
+		w.Println(jujuclient.QualifyModelName(model.Qualifier, model.Name), model.UUID, strings.Join(model.CommandSets, ", "))
 	}
 	tw.Flush()
 	return nil

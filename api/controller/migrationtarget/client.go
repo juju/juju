@@ -80,7 +80,7 @@ func (c *Client) Prechecks(ctx context.Context, model coremigration.ModelInfo) e
 		args := params.MigrationModelInfoLegacy{
 			UUID:                   model.UUID,
 			Name:                   model.Name,
-			OwnerTag:               names.NewUserTag(model.Namespace).String(),
+			OwnerTag:               names.NewUserTag(model.Qualifier).String(),
 			AgentVersion:           model.AgentVersion,
 			ControllerAgentVersion: model.ControllerAgentVersion,
 			FacadeVersions:         versions,
@@ -92,7 +92,7 @@ func (c *Client) Prechecks(ctx context.Context, model coremigration.ModelInfo) e
 	args := params.MigrationModelInfo{
 		UUID:                   model.UUID,
 		Name:                   model.Name,
-		Namespace:              model.Namespace,
+		Qualifier:              model.Qualifier,
 		AgentVersion:           model.AgentVersion,
 		ControllerAgentVersion: model.ControllerAgentVersion,
 		FacadeVersions:         versions,

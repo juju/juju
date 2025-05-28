@@ -67,7 +67,7 @@ var urlTests = []struct {
 	err: `application name "application@bad" not valid`,
 }, {
 	s:   "user[bad/model.application",
-	err: `model namespace "user\[bad" not valid`,
+	err: `model qualifier "user\[bad" not valid`,
 }, {
 	s:   "user/[badmodel.application",
 	err: `model name "\[badmodel" not valid`,
@@ -127,7 +127,7 @@ var urlPartsTests = []struct {
 	err: `application name "application@bad" not valid`,
 }, {
 	s:   "controller:/user[bad/modelname.application",
-	err: `model namespace "user\[bad" not valid`,
+	err: `model qualifier "user\[bad" not valid`,
 }, {
 	s:   ":foo",
 	err: `application offer URL has invalid form, must be \[<user/\]<model>.<appname>: $URL`,

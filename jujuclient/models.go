@@ -150,9 +150,9 @@ type ControllerModels struct {
 	PreviousModel string `yaml:"previous-model,omitempty"`
 }
 
-// QualifyModelName returns a model name qualified with the model namespace.
-func QualifyModelName(namespace string, modelName string) string {
-	return fmt.Sprintf("%s/%s", namespace, modelName)
+// QualifyModelName returns a model name qualified with the model qualifier.
+func QualifyModelName(qualifier string, modelName string) string {
+	return fmt.Sprintf("%s/%s", qualifier, modelName)
 }
 
 // IsQualifiedModelName returns true if the provided model name is qualified
@@ -169,10 +169,10 @@ func SplitModelName(name string) (string, string, error) {
 	if i < 0 {
 		return "", "", errors.NotValidf("unqualified model name %q", name)
 	}
-	namespace := name[:i]
-	if !model.IsValidNamespace(namespace) {
-		return "", "", errors.NotValidf("namespace %q", namespace)
+	qualifier := name[:i]
+	if !model.IsValidQualifier(qualifier) {
+		return "", "", errors.NotValidf("qualifier %q", qualifier)
 	}
 	name = name[i+1:]
-	return name, namespace, nil
+	return name, qualifier, nil
 }

@@ -57,7 +57,7 @@ type SerializedModel struct {
 // ModelInfo is used to report basic details about a model.
 type ModelInfo struct {
 	UUID                   string
-	Namespace              string
+	Qualifier              string
 	Name                   string
 	AgentVersion           semversion.Number
 	ControllerAgentVersion semversion.Number
@@ -77,8 +77,8 @@ func (i *ModelInfo) Validate() error {
 	if i.UUID == "" {
 		return errors.Errorf("empty UUID %w", coreerrors.NotValid)
 	}
-	if i.Namespace == "" {
-		return errors.Errorf("empty Namespace %w", coreerrors.NotValid)
+	if i.Qualifier == "" {
+		return errors.Errorf("empty Qualifier %w", coreerrors.NotValid)
 	}
 	if i.Name == "" {
 		return errors.Errorf("empty Name %w", coreerrors.NotValid)

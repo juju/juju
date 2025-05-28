@@ -262,7 +262,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	switch {
 	case errors.Is(err, modelerrors.AlreadyExists):
 		return result, internalerrors.Errorf(
-			"model already exists for name %q and namespace %q", args.Name, args.Namespace,
+			"model %q/%q already exists", args.Qualifier, args.Name,
 		).Add(coreerrors.AlreadyExists)
 	case errors.Is(err, modelerrors.CredentialNotValid):
 		return result, internalerrors.Errorf(
@@ -270,8 +270,8 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		).Add(coreerrors.NotFound)
 	case err != nil:
 		return result, internalerrors.Errorf(
-			"creating new model %q in namespace %q: %w",
-			args.Name, args.Namespace, err,
+			"creating new model %q/%q: %w",
+			args.Qualifier, args.Name, err,
 		)
 	}
 
@@ -299,8 +299,8 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	case errors.Is(err, modelerrors.AlreadyExists):
 		return result, apiservererrors.ParamsErrorf(
 			params.CodeAlreadyExists,
-			"model %q in namespace %q already exists in model database",
-			creationArgs.Name, args.Namespace,
+			"model %q/%q already exists in model database",
+			args.Qualifier, creationArgs.Name,
 		)
 	case errors.Is(err, modelerrors.AgentVersionNotSupported):
 		return result, apiservererrors.ParamsErrorf(
@@ -348,7 +348,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		CloudName:       cloudTag.Id(),
 		CloudRegion:     modelInfo.CloudRegion,
 		CloudCredential: credentialTag,
-		Owner:           names.NewUserTag(args.Namespace),
+		Owner:           names.NewUserTag(args.Qualifier),
 	})
 	if err != nil {
 		return result, errors.Annotatef(err, "creating new model for %q", creationArgs.Name)
@@ -693,7 +693,7 @@ func makeModelSummary(ctx context.Context, mi coremodel.ModelSummary) (*params.M
 		Name:           mi.Name,
 		UUID:           mi.UUID.String(),
 		Type:           mi.ModelType.String(),
-		Namespace:      mi.Namespace,
+		Qualifier:      mi.Qualifier,
 		ControllerUUID: mi.ControllerUUID,
 		IsController:   mi.IsController,
 		Life:           mi.Life,
@@ -791,7 +791,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 				Name:      mi.Name,
 				UUID:      mi.UUID.String(),
 				Type:      string(mi.ModelType),
-				Namespace: mi.Namespace,
+				Qualifier: mi.Qualifier,
 			},
 			LastConnection: lastConnection,
 		})
@@ -1004,7 +1004,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.
 		UUID:           modelUUID.String(),
 		ControllerUUID: m.controllerUUID.String(),
 		IsController:   modelInfo.IsControllerModel,
-		Namespace:      model.Namespace,
+		Qualifier:      model.Qualifier,
 		Life:           model.Life,
 		CloudTag:       names.NewCloudTag(model.Cloud).String(),
 		CloudRegion:    model.CloudRegion,

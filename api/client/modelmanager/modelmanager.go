@@ -76,7 +76,7 @@ func (c *Client) CreateModel(
 	}
 	createArgs := params.ModelCreateArgs{
 		Name:      name,
-		Namespace: owner,
+		Qualifier: owner,
 		// TODO - owner will be removed.
 		OwnerTag:           names.NewUserTag(owner).String(),
 		Config:             config,
@@ -110,6 +110,7 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 	}
 	result := base.ModelInfo{
 		Name:            modelInfo.Name,
+		Qualifier:       modelInfo.Qualifier,
 		UUID:            modelInfo.UUID,
 		ControllerUUID:  modelInfo.ControllerUUID,
 		IsController:    modelInfo.IsController,
@@ -117,7 +118,6 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 		Cloud:           cloud.Id(),
 		CloudRegion:     modelInfo.CloudRegion,
 		CloudCredential: credential,
-		Namespace:       modelInfo.Namespace,
 		Life:            modelInfo.Life,
 		AgentVersion:    modelInfo.AgentVersion,
 	}
@@ -196,9 +196,9 @@ func (c *Client) ListModels(ctx context.Context, user string) ([]base.UserModel,
 		}
 		result[i] = base.UserModel{
 			Name:           usermodel.Name,
+			Qualifier:      usermodel.Qualifier,
 			UUID:           usermodel.UUID,
 			Type:           modelType,
-			Namespace:      usermodel.Namespace,
 			LastConnection: usermodel.LastConnection,
 		}
 	}
@@ -237,6 +237,7 @@ func (c *Client) composeModelSummaries(results []params.ModelSummaryResult) ([]b
 		}
 		summaries[i] = base.UserModelSummary{
 			Name:               summary.Name,
+			Qualifier:          summary.Qualifier,
 			UUID:               summary.UUID,
 			Type:               modelType,
 			ControllerUUID:     summary.ControllerUUID,
@@ -244,7 +245,6 @@ func (c *Client) composeModelSummaries(results []params.ModelSummaryResult) ([]b
 			ProviderType:       summary.ProviderType,
 			CloudRegion:        summary.CloudRegion,
 			Life:               summary.Life,
-			Namespace:          summary.Namespace,
 			ModelUserAccess:    string(summary.UserAccess),
 			UserLastConnection: summary.UserLastConnection,
 			Counts:             make([]base.EntityCount, len(summary.Counts)),

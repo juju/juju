@@ -42,7 +42,7 @@ func (c *Client) modelInfoCompat(ctx context.Context) (migration.ModelInfo, erro
 	return migration.ModelInfo{
 		UUID:                   info.UUID,
 		Name:                   info.Name,
-		Namespace:              owner.Id(),
+		Qualifier:              owner.Id(),
 		AgentVersion:           info.AgentVersion,
 		ControllerAgentVersion: info.ControllerAgentVersion,
 		ModelDescription:       modelDescription,

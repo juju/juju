@@ -67,17 +67,17 @@ func (s *listCommandSuite) mock() *mockListClient {
 			{
 				Name:      "controller",
 				UUID:      "fake-uuid-1",
-				Namespace: "admin",
+				Qualifier: "admin",
 				Blocks:    []string{"BlockDestroy", "BlockRemove"},
 			}, {
 				Name:      "model-a",
 				UUID:      "fake-uuid-2",
-				Namespace: "bob@external",
+				Qualifier: "bob@external",
 				Blocks:    []string{"BlockChange"},
 			}, {
 				Name:      "model-b",
 				UUID:      "fake-uuid-3",
-				Namespace: "charlie@external",
+				Qualifier: "charlie@external",
 				Blocks:    []string{"BlockDestroy", "BlockChange"},
 			},
 		},
@@ -129,10 +129,10 @@ func (s *listCommandSuite) TestListAll(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, ""+
-		"Name        Model UUID   Namespace         Disabled commands\n"+
-		"controller  fake-uuid-1  admin             destroy-model, remove-object\n"+
-		"model-a     fake-uuid-2  bob@external      all\n"+
-		"model-b     fake-uuid-3  charlie@external  all, destroy-model\n")
+		"Name                      Model UUID   Disabled commands\n"+
+		"admin/controller          fake-uuid-1  destroy-model, remove-object\n"+
+		"bob@external/model-a      fake-uuid-2  all\n"+
+		"charlie@external/model-b  fake-uuid-3  all, destroy-model\n")
 }
 
 func (s *listCommandSuite) TestListAllYAML(c *tc.C) {
@@ -142,18 +142,18 @@ func (s *listCommandSuite) TestListAllYAML(c *tc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, ""+
 		"- name: controller\n"+
 		"  model-uuid: fake-uuid-1\n"+
-		"  namespace: admin\n"+
+		"  qualifier: admin\n"+
 		"  disabled-commands:\n"+
 		"  - destroy-model\n"+
 		"  - remove-object\n"+
 		"- name: model-a\n"+
 		"  model-uuid: fake-uuid-2\n"+
-		"  namespace: bob@external\n"+
+		"  qualifier: bob@external\n"+
 		"  disabled-commands:\n"+
 		"  - all\n"+
 		"- name: model-b\n"+
 		"  model-uuid: fake-uuid-3\n"+
-		"  namespace: charlie@external\n"+
+		"  qualifier: charlie@external\n"+
 		"  disabled-commands:\n"+
 		"  - all\n"+
 		"  - destroy-model\n")
@@ -164,9 +164,9 @@ func (s *listCommandSuite) TestListAllJSON(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "json", "--all")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "["+
-		`{"name":"controller","model-uuid":"fake-uuid-1","namespace":"admin","disabled-commands":["destroy-model","remove-object"]},`+
-		`{"name":"model-a","model-uuid":"fake-uuid-2","namespace":"bob@external","disabled-commands":["all"]},`+
-		`{"name":"model-b","model-uuid":"fake-uuid-3","namespace":"charlie@external","disabled-commands":["all","destroy-model"]}`+
+		`{"name":"controller","model-uuid":"fake-uuid-1","qualifier":"admin","disabled-commands":["destroy-model","remove-object"]},`+
+		`{"name":"model-a","model-uuid":"fake-uuid-2","qualifier":"bob@external","disabled-commands":["all"]},`+
+		`{"name":"model-b","model-uuid":"fake-uuid-3","qualifier":"charlie@external","disabled-commands":["all","destroy-model"]}`+
 		"]\n")
 }
 

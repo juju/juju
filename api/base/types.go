@@ -18,18 +18,18 @@ import (
 // side structure that translates the owner tag into a user facing string.
 type UserModel struct {
 	Name           string
+	Qualifier      string
 	UUID           string
 	Type           model.ModelType
-	Namespace      string
 	LastConnection *time.Time
 }
 
 // ModelStatus holds information about the status of a juju model.
 type ModelStatus struct {
 	UUID               string
+	Qualifier          string
 	Life               life.Value
 	ModelType          model.ModelType
-	Namespace          string
 	TotalMachineCount  int
 	CoreCount          int
 	HostedMachineCount int
@@ -65,6 +65,7 @@ type Application struct {
 // ModelInfo holds information about a model.
 type ModelInfo struct {
 	Name            string
+	Qualifier       string
 	UUID            string
 	Type            model.ModelType
 	ControllerUUID  string
@@ -73,7 +74,6 @@ type ModelInfo struct {
 	Cloud           string
 	CloudRegion     string
 	CloudCredential string
-	Namespace       string
 	Life            life.Value
 	Status          Status
 	Users           []UserInfo
@@ -118,6 +118,7 @@ type Filesystem struct {
 // UserModelSummary holds summary about a model for a user.
 type UserModelSummary struct {
 	Name               string
+	Qualifier          string
 	UUID               string
 	Type               model.ModelType
 	ControllerUUID     string
@@ -126,7 +127,6 @@ type UserModelSummary struct {
 	Cloud              string
 	CloudRegion        string
 	CloudCredential    string
-	Namespace          string
 	Life               life.Value
 	Status             Status
 	ModelUserAccess    string

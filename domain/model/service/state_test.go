@@ -94,8 +94,8 @@ func (d *dummyState) Create(
 	}
 
 	for _, v := range d.models {
-		if v.Name == args.Name && v.Namespace == userName.String() {
-			return errors.Errorf("%w for name %q and owner %q", modelerrors.AlreadyExists, v.Name, v.Namespace)
+		if v.Name == args.Name && v.Qualifier == userName.String() {
+			return errors.Errorf("%w for name %q and owner %q", modelerrors.AlreadyExists, v.Name, v.Qualifier)
 		}
 	}
 
@@ -138,7 +138,7 @@ func (d *dummyState) Create(
 		Cloud:       args.Cloud,
 		CloudRegion: args.CloudRegion,
 		Credential:  args.Credential,
-		Namespace:   userName.String(),
+		Qualifier:   userName.String(),
 		Life:        life.Alive,
 	}
 	return nil
@@ -187,7 +187,7 @@ func (d *dummyState) GetModelByName(
 	modelName string,
 ) (coremodel.Model, error) {
 	for _, model := range d.models {
-		if model.Namespace == userName.String() && model.Name == modelName {
+		if model.Qualifier == userName.String() && model.Name == modelName {
 			return model, nil
 		}
 	}
@@ -237,7 +237,7 @@ func (d *dummyState) ListModelsForUser(
 		if !ok {
 			continue
 		}
-		if m.Namespace == userName.String() {
+		if m.Qualifier == userName.String() {
 			rval = append(rval, m)
 		}
 	}
@@ -318,7 +318,7 @@ func (d *dummyState) GetModelUsers(_ context.Context, _ coremodel.UUID) ([]corem
 func (d *dummyState) ListModelSummariesForUser(_ context.Context, userName user.Name) ([]coremodel.UserModelSummary, error) {
 	var rval []coremodel.UserModelSummary
 	for _, m := range d.models {
-		if m.Namespace == userName.String() {
+		if m.Qualifier == userName.String() {
 			rval = append(rval, coremodel.UserModelSummary{
 				UserAccess: permission.AdminAccess,
 				ModelSummary: coremodel.ModelSummary{
@@ -330,7 +330,7 @@ func (d *dummyState) ListModelSummariesForUser(_ context.Context, userName user.
 					CloudRegion:    m.CloudRegion,
 					ControllerUUID: jujutesting.ControllerTag.Id(),
 					IsController:   m.UUID == d.controllerModelUUID,
-					Namespace:      m.Namespace,
+					Qualifier:      m.Qualifier,
 					Life:           m.Life,
 					AgentVersion:   version.Current,
 				},
@@ -352,7 +352,7 @@ func (d *dummyState) ListAllModelSummaries(_ context.Context) ([]coremodel.Model
 			CloudRegion:    m.CloudRegion,
 			ControllerUUID: jujutesting.ControllerTag.Id(),
 			IsController:   m.UUID == d.controllerModelUUID,
-			Namespace:      m.Namespace,
+			Qualifier:      m.Qualifier,
 			Life:           m.Life,
 			AgentVersion:   version.Current,
 		})

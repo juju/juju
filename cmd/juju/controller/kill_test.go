@@ -115,7 +115,7 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *tc.C) {
 	s.addModel("model-1", base.ModelStatus{
 		UUID:               test2UUID,
 		Life:               life.Dying,
-		Namespace:          "admin",
+		Qualifier:          "admin",
 		HostedMachineCount: 2,
 		ApplicationCount:   2,
 	})
@@ -134,7 +134,7 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *tc.C) {
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test2UUID,
 		Life:               life.Dying,
-		Namespace:          "admin",
+		Qualifier:          "admin",
 		HostedMachineCount: 1,
 	})
 	s.clock.Advance(5 * time.Second)
@@ -163,7 +163,7 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *tc.C) {
 	s.addModel("controller", base.ModelStatus{
 		UUID:               test1UUID,
 		Life:               life.Alive,
-		Namespace:          "admin",
+		Qualifier:          "admin",
 		TotalMachineCount:  3,
 		HostedMachineCount: 2,
 	})
@@ -184,7 +184,7 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *tc.C) {
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test1UUID,
 		Life:               life.Dying,
-		Namespace:          "admin",
+		Qualifier:          "admin",
 		HostedMachineCount: 1,
 	})
 	s.clock.Advance(5 * time.Second)
@@ -193,7 +193,7 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *tc.C) {
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test1UUID,
 		Life:               life.Dying,
-		Namespace:          "admin",
+		Qualifier:          "admin",
 		HostedMachineCount: 0,
 	})
 	s.clock.Advance(5 * time.Second)
@@ -217,7 +217,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *tc.C) {
 	s.addModel("model-1", base.ModelStatus{
 		UUID:               test2UUID,
 		Life:               life.Dying,
-		Namespace:          "admin",
+		Qualifier:          "admin",
 		HostedMachineCount: 2,
 		ApplicationCount:   2,
 	})
@@ -239,7 +239,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *tc.C) {
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test2UUID,
 		Life:               life.Dying,
-		Namespace:          "admin",
+		Qualifier:          "admin",
 		HostedMachineCount: 1,
 	})
 	s.clock.Advance(5 * time.Second)
@@ -268,7 +268,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutWithNoChange(c *tc.C) {
 	s.addModel("model-1", base.ModelStatus{
 		UUID:               test2UUID,
 		Life:               life.Dying,
-		Namespace:          "admin",
+		Qualifier:          "admin",
 		HostedMachineCount: 2,
 		ApplicationCount:   2,
 	})
@@ -317,7 +317,7 @@ func (s *KillSuite) resetAPIModels(c *tc.C) {
 	s.addModel("controller", base.ModelStatus{
 		UUID:              test1UUID,
 		Life:              life.Alive,
-		Namespace:         "admin",
+		Qualifier:         "admin",
 		TotalMachineCount: 1,
 	})
 }
@@ -326,7 +326,7 @@ func (s *KillSuite) addModel(name string, status base.ModelStatus) {
 	s.api.allModels = append(s.api.allModels, base.UserModel{
 		Name:      name,
 		UUID:      status.UUID,
-		Namespace: status.Namespace,
+		Qualifier: status.Qualifier,
 	})
 	s.api.modelStatus[status.UUID] = status
 }
@@ -487,13 +487,13 @@ func (s *KillSuite) TestControllerStatus(c *tc.C) {
 	s.api.allModels = []base.UserModel{
 		{Name: "admin",
 			UUID:      "123",
-			Namespace: "admin",
+			Qualifier: "admin",
 		}, {Name: "env1",
 			UUID:      "456",
-			Namespace: "bob",
+			Qualifier: "bob",
 		}, {Name: "env2",
 			UUID:      "789",
-			Namespace: "jo",
+			Qualifier: "jo",
 		},
 	}
 
@@ -504,7 +504,7 @@ func (s *KillSuite) TestControllerStatus(c *tc.C) {
 			Life:               life.Dying,
 			HostedMachineCount: 2,
 			ApplicationCount:   1,
-			Namespace:          m.Namespace,
+			Qualifier:          m.Qualifier,
 		}
 	}
 
@@ -516,27 +516,27 @@ func (s *KillSuite) TestControllerStatus(c *tc.C) {
 	c.Assert(environmentStatus.Models, tc.HasLen, 2)
 
 	for i, expected := range []struct {
-		Namespace          string
+		Qualifier          string
 		Name               string
 		Life               life.Value
 		HostedMachineCount int
 		ApplicationCount   int
 	}{
 		{
-			Namespace:          "bob",
+			Qualifier:          "bob",
 			Name:               "env1",
 			Life:               life.Dying,
 			HostedMachineCount: 2,
 			ApplicationCount:   1,
 		}, {
-			Namespace:          "jo",
+			Qualifier:          "jo",
 			Name:               "env2",
 			Life:               life.Dying,
 			HostedMachineCount: 2,
 			ApplicationCount:   1,
 		},
 	} {
-		c.Assert(environmentStatus.Models[i].Namespace, tc.Equals, expected.Namespace)
+		c.Assert(environmentStatus.Models[i].Qualifier, tc.Equals, expected.Qualifier)
 		c.Assert(environmentStatus.Models[i].Name, tc.Equals, expected.Name)
 		c.Assert(environmentStatus.Models[i].Life, tc.Equals, expected.Life)
 		c.Assert(environmentStatus.Models[i].HostedMachineCount, tc.Equals, expected.HostedMachineCount)

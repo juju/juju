@@ -442,7 +442,7 @@ func (c *CommandBase) SetControllerModels(store jujuclient.ClientStore, controll
 	modelsToStore := make(map[string]jujuclient.ModelDetails, len(models))
 	for _, model := range models {
 		modelDetails := jujuclient.ModelDetails{ModelUUID: model.UUID, ModelType: model.Type}
-		modelName := jujuclient.QualifyModelName(model.Namespace, model.Name)
+		modelName := jujuclient.QualifyModelName(model.Qualifier, model.Name)
 		modelsToStore[modelName] = modelDetails
 	}
 	if err := store.SetModels(controllerName, modelsToStore); err != nil {

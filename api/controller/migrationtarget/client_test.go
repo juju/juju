@@ -65,7 +65,7 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 
 	err = client.Prechecks(c.Context(), coremigration.ModelInfo{
 		UUID:                   "uuid",
-		Namespace:              "namespace",
+		Qualifier:              "production",
 		Name:                   "name",
 		AgentVersion:           vers,
 		ControllerAgentVersion: controllerVers,
@@ -76,7 +76,7 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 	expectedArg := params.MigrationModelInfo{
 		UUID:                   "uuid",
 		Name:                   "name",
-		Namespace:              "namespace",
+		Qualifier:              "production",
 		AgentVersion:           vers,
 		ControllerAgentVersion: controllerVers,
 		ModelDescription:       bytes,

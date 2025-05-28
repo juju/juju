@@ -21,7 +21,7 @@ func legacyFiltersToFilters(in params.OfferFiltersLegacy) params.OfferFilters {
 	}
 	for i, f := range in.Filters {
 		out.Filters[i] = params.OfferFilter{
-			ModelNamespace:         f.OwnerName,
+			ModelQualifier:         f.OwnerName,
 			ModelName:              f.ModelName,
 			OfferName:              f.OfferName,
 			ApplicationName:        f.ApplicationName,

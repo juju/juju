@@ -31,6 +31,9 @@ type ModelSummary struct {
 	// Name is the model name.
 	Name string
 
+	// Qualifier disambiguates the model name.
+	Qualifier string
+
 	// UUID is the model unique identifier.
 	UUID UUID
 
@@ -54,9 +57,6 @@ type ModelSummary struct {
 
 	// IsController indicates if the model is a controller.
 	IsController bool
-
-	// Namespace is the namespace of the model.
-	Namespace string
 
 	// Life is the current lifecycle state of the model.
 	Life life.Value

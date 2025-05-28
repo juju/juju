@@ -290,7 +290,7 @@ with an earlier version of the target controller and try again.
 		migration.PoolShim(api.pool), coremigration.ModelInfo{
 			UUID:                   model.UUID,
 			Name:                   model.Name,
-			Namespace:              model.Namespace,
+			Qualifier:              model.Qualifier,
 			AgentVersion:           model.AgentVersion,
 			ControllerAgentVersion: model.ControllerAgentVersion,
 			ModelDescription:       modelDescription,

@@ -309,7 +309,7 @@ func (m *stateSuite) TestGetModel(c *tc.C) {
 			Name:  "foobar",
 		},
 		Name:      "my-test-model",
-		Namespace: m.userName.String(),
+		Qualifier: m.userName.String(),
 		ModelType: coremodel.IAAS,
 		Life:      corelife.Alive,
 	})
@@ -1152,7 +1152,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *tc.C) {
 			CloudType:   "ec2",
 			CloudRegion: "my-region",
 			ModelType:   coremodel.IAAS,
-			Namespace:   m.userName.String(),
+			Qualifier:   m.userName.String(),
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -1167,7 +1167,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *tc.C) {
 			CloudType:   "ec2",
 			CloudRegion: "my-region",
 			ModelType:   coremodel.IAAS,
-			Namespace:   m.userName.String(),
+			Qualifier:   m.userName.String(),
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -1182,7 +1182,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *tc.C) {
 			CloudType:   "ec2",
 			CloudRegion: "my-region",
 			ModelType:   coremodel.IAAS,
-			Namespace:   m.userName.String(),
+			Qualifier:   m.userName.String(),
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -1217,7 +1217,7 @@ func (m *stateSuite) TestAllModels(c *tc.C) {
 			CloudType:   "ec2",
 			CloudRegion: "my-region",
 			ModelType:   coremodel.IAAS,
-			Namespace:   m.userName.String(),
+			Qualifier:   m.userName.String(),
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -1289,7 +1289,7 @@ func (m *stateSuite) TestGetModelByName(c *tc.C) {
 			Owner: usertesting.GenNewName(c, "test-user"),
 			Name:  "foobar",
 		},
-		Namespace: m.userName.String(),
+		Qualifier: m.userName.String(),
 	})
 }
 
@@ -1462,7 +1462,7 @@ func (m *stateSuite) TestGetControllerModel(c *tc.C) {
 			Owner: m.userName,
 			Name:  "foobar",
 		},
-		Namespace: m.userName.String(),
+		Qualifier: m.userName.String(),
 	})
 }
 
@@ -1752,7 +1752,7 @@ func (m *stateSuite) TestGetEmptyCredentialsModel(c *tc.C) {
 		c.Check(retrievedModel.CloudRegion, tc.Equals, modelCreationArgs.CloudRegion)
 		c.Check(retrievedModel.Credential, tc.DeepEquals, modelCreationArgs.Credential)
 		c.Check(retrievedModel.Name, tc.Equals, modelCreationArgs.Name)
-		c.Check(retrievedModel.Namespace, tc.Equals, m.userName.String())
+		c.Check(retrievedModel.Qualifier, tc.Equals, m.userName.String())
 	}
 }
 

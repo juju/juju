@@ -138,7 +138,7 @@ var (
 		{FuncName: "MigrationTarget.Prechecks", Args: []interface{}{params.MigrationModelInfo{
 			UUID:         modelUUID,
 			Name:         modelName,
-			Namespace:    ownerTag.Id(),
+			Qualifier:    ownerTag.Id(),
 			AgentVersion: modelVersion,
 			ModelDescription: func() []byte {
 				modelDescription := description.NewModel(description.ModelArgs{})
@@ -1348,7 +1348,7 @@ func (f *stubMasterFacade) ModelInfo(ctx context.Context) (coremigration.ModelIn
 	return coremigration.ModelInfo{
 		UUID:             modelUUID,
 		Name:             modelName,
-		Namespace:        ownerTag.Id(),
+		Qualifier:        ownerTag.Id(),
 		AgentVersion:     modelVersion,
 		ModelDescription: description.NewModel(description.ModelArgs{}),
 	}, nil

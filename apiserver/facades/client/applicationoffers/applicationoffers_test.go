@@ -359,7 +359,7 @@ func (s *applicationOffersSuite) assertList(c *tc.C, offerUUID string, expectedC
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
-				ModelNamespace:  "fred@external",
+				ModelQualifier:  "fred@external",
 				ModelName:       "prod",
 				OfferName:       "hosted-db2",
 				ApplicationName: "test",
@@ -454,7 +454,7 @@ func (s *applicationOffersSuite) TestListPermission(c *tc.C) {
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
-				ModelNamespace:  "fred@external",
+				ModelQualifier:  "fred@external",
 				ModelName:       "prod",
 				OfferName:       "hosted-db2",
 				ApplicationName: "test",
@@ -474,7 +474,7 @@ func (s *applicationOffersSuite) TestListError(c *tc.C) {
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
-				ModelNamespace:  "fred@external",
+				ModelQualifier:  "fred@external",
 				ModelName:       "prod",
 				OfferName:       "hosted-db2",
 				ApplicationName: "test",
@@ -701,7 +701,7 @@ func (s *applicationOffersSuite) TestShowError(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", fredUser).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Namespace: "fred@external",
+			Qualifier: "fred@external",
 			UUID:      coremodel.UUID(s.modelUUID.String()),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -729,7 +729,7 @@ func (s *applicationOffersSuite) TestShowNotFound(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", fredUser).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Namespace: "fred@external",
+			Qualifier: "fred@external",
 			UUID:      coremodel.UUID(s.modelUUID.String()),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -783,7 +783,7 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", userFred).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Namespace: "fred@external",
+			Qualifier: "fred@external",
 			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -791,7 +791,7 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "test", userFred).Return(
 		coremodel.Model{
 			Name:      "test",
-			Namespace: "fred@external",
+			Qualifier: "fred@external",
 			UUID:      coremodel.UUID("uuid2"),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -872,7 +872,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", coreuser.NameFromTag(names.NewUserTag("fred@external"))).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Namespace: "fred@external",
+			Qualifier: "fred@external",
 			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -880,7 +880,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "test", coreuser.NameFromTag(names.NewUserTag("mary"))).Return(
 		coremodel.Model{
 			Name:      "test",
-			Namespace: "mary",
+			Qualifier: "mary",
 			UUID:      coremodel.UUID("uuid2"),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -1174,22 +1174,22 @@ func (s *applicationOffersSuite) TestFindMulti(c *tc.C) {
 		Filters: []params.OfferFilter{
 			{
 				OfferName:      "hosted-db2",
-				ModelNamespace: "fred@external",
+				ModelQualifier: "fred@external",
 				ModelName:      "prod",
 			},
 			{
 				OfferName:      "hosted-mysql",
-				ModelNamespace: "mary",
+				ModelQualifier: "mary",
 				ModelName:      "another",
 			},
 			{
 				OfferName:      "hosted-postgresql",
-				ModelNamespace: "mary",
+				ModelQualifier: "mary",
 				ModelName:      "another",
 			},
 			{
 				OfferName:      "badoffer",
-				ModelNamespace: "mary",
+				ModelQualifier: "mary",
 				ModelName:      "another",
 			},
 		},
@@ -1223,7 +1223,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", coreuser.NameFromTag(names.NewUserTag("fred@external"))).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Namespace: "fred@external",
+			Qualifier: "fred@external",
 			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -1231,7 +1231,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "another", coreuser.NameFromTag(names.NewUserTag("mary"))).Return(
 		coremodel.Model{
 			Name:      "another",
-			Namespace: "mary",
+			Qualifier: "mary",
 			UUID:      coremodel.UUID("uuid2"),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -1314,7 +1314,7 @@ func (s *applicationOffersSuite) TestFindError(c *tc.C) {
 		[]coremodel.Model{
 			{
 				Name:      "prod",
-				Namespace: "fred@external",
+				Qualifier: "fred@external",
 				UUID:      coremodel.UUID(s.modelUUID.String()),
 				ModelType: coremodel.IAAS,
 			},
@@ -1323,7 +1323,7 @@ func (s *applicationOffersSuite) TestFindError(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", userFred).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Namespace: "fred@external",
+			Qualifier: "fred@external",
 			UUID:      coremodel.UUID(s.modelUUID.String()),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -1630,7 +1630,7 @@ func (s *consumeSuite) setupOffer(c *tc.C) string {
 		[]coremodel.Model{
 			{
 				Name:      "prod",
-				Namespace: "fred@external",
+				Qualifier: "fred@external",
 				UUID:      modelUUID,
 				ModelType: coremodel.IAAS,
 			},
@@ -1639,7 +1639,7 @@ func (s *consumeSuite) setupOffer(c *tc.C) string {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", userFred).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Namespace: "fred@external",
+			Qualifier: "fred@external",
 			UUID:      modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,

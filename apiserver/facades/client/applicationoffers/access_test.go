@@ -113,7 +113,7 @@ func (s *offerAccessSuite) setupOffer(c *tc.C, modelUUID, modelName, owner, offe
 		[]coremodel.Model{
 			{
 				Name:      modelName,
-				Namespace: owner,
+				Qualifier: owner,
 				UUID:      coremodel.UUID(modelUUID),
 				ModelType: coremodel.IAAS,
 			},
@@ -122,7 +122,7 @@ func (s *offerAccessSuite) setupOffer(c *tc.C, modelUUID, modelName, owner, offe
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), modelName, ownerName).Return(
 		coremodel.Model{
 			Name:      modelName,
-			Namespace: owner,
+			Qualifier: owner,
 			UUID:      coremodel.UUID(modelUUID),
 			ModelType: coremodel.IAAS,
 		}, nil,

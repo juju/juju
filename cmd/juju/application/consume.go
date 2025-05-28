@@ -133,8 +133,8 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 	if url.HasEndpoint() {
 		return errors.Errorf("saas offer %q shouldn't include endpoint", c.remoteApplication)
 	}
-	if url.ModelNamespace == "" {
-		url.ModelNamespace = accountDetails.User
+	if url.ModelQualifier == "" {
+		url.ModelQualifier = accountDetails.User
 		c.remoteApplication = url.Path()
 	}
 	sourceClient, err := c.getSourceAPI(ctx, url)

@@ -188,10 +188,10 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	}
 	modelFilesystems := ModelFilesystemInfo(filesystems)
 
-	// TODO: add life and namespace values when they are supported in model DB
+	// TODO: add life and qualifier values when they are supported in model DB
 	result := params.ModelStatus{
 		ModelTag:           tag,
-		Namespace:          "foobar",
+		Qualifier:          "foobar",
 		Life:               "",
 		Type:               modelInfo.Type.String(),
 		HostedMachineCount: hostedMachineCount,

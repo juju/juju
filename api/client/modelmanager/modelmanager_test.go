@@ -57,7 +57,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 
 	args := params.ModelCreateArgs{
 		Name:        "new-model",
-		Namespace:   "bob",
+		Qualifier:   "bob",
 		OwnerTag:    "user-bob",
 		Config:      map[string]interface{}{"abc": 123},
 		CloudTag:    "cloud-nimbus",
@@ -67,13 +67,13 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 	result := new(params.ModelInfo)
 	ress := params.ModelInfo{}
 	ress.Name = "dowhatimean"
+	ress.Qualifier = "fnord"
 	ress.Type = "iaas"
 	ress.UUID = "youyoueyedee"
 	ress.ControllerUUID = "youyoueyedeetoo"
 	ress.ProviderType = "C-123"
 	ress.CloudTag = "cloud-nimbus"
 	ress.CloudRegion = "catbus"
-	ress.Namespace = "fnord"
 	ress.Life = "alive"
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
@@ -93,13 +93,13 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 
 	c.Assert(newModel, tc.DeepEquals, base.ModelInfo{
 		Name:           "dowhatimean",
+		Qualifier:      "fnord",
 		Type:           model.IAAS,
 		UUID:           "youyoueyedee",
 		ControllerUUID: "youyoueyedeetoo",
 		ProviderType:   "C-123",
 		Cloud:          "nimbus",
 		CloudRegion:    "catbus",
-		Namespace:      "fnord",
 		Life:           "alive",
 		Status: base.Status{
 			Data: make(map[string]interface{}),
@@ -130,17 +130,17 @@ func (s *modelmanagerSuite) TestListModels(c *tc.C) {
 		UserModels: []params.UserModel{{
 			Model: params.Model{
 				Name:      "yo",
+				Qualifier: "user@remote",
 				UUID:      "wei",
 				Type:      "caas",
-				Namespace: "user@remote",
 			},
 			LastConnection: &lastConnection,
 		}, {
 			Model: params.Model{
 				Name:      "sup",
+				Qualifier: "phyllis@thrace",
 				UUID:      "hazzagarn",
 				Type:      "iaas",
-				Namespace: "phyllis@thrace",
 			},
 		}},
 	}
@@ -153,15 +153,15 @@ func (s *modelmanagerSuite) TestListModels(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(models, tc.DeepEquals, []base.UserModel{{
 		Name:           "yo",
+		Qualifier:      "user@remote",
 		UUID:           "wei",
 		Type:           model.CAAS,
-		Namespace:      "user@remote",
 		LastConnection: &lastConnection,
 	}, {
 		Name:      "sup",
+		Qualifier: "phyllis@thrace",
 		UUID:      "hazzagarn",
 		Type:      model.IAAS,
-		Namespace: "phyllis@thrace",
 	}})
 }
 
@@ -309,7 +309,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *tc.C) {
 		Results: []params.ModelStatus{
 			{
 				ModelTag:           coretesting.ModelTag.String(),
-				Namespace:          "glenda",
+				Qualifier:          "glenda",
 				ApplicationCount:   3,
 				HostedMachineCount: 2,
 				Life:               "alive",
@@ -336,7 +336,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *tc.C) {
 		TotalMachineCount:  1,
 		HostedMachineCount: 2,
 		ApplicationCount:   3,
-		Namespace:          "glenda",
+		Qualifier:          "glenda",
 		Life:               life.Alive,
 		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},
 	})
@@ -388,6 +388,7 @@ func (s *modelmanagerSuite) TestModelStatusError(c *tc.C) {
 func createModelSummary() *params.ModelSummary {
 	return &params.ModelSummary{
 		Name:               "name",
+		Qualifier:          "admin",
 		UUID:               "uuid",
 		Type:               "iaas",
 		ControllerUUID:     "controllerUUID",
@@ -395,7 +396,6 @@ func createModelSummary() *params.ModelSummary {
 		CloudTag:           "cloud-aws",
 		CloudRegion:        "us-east-1",
 		CloudCredentialTag: "cloudcred-foo_bob_one",
-		Namespace:          "admin",
 		Life:               life.Alive,
 		Status:             params.EntityStatus{Status: status.Status("active")},
 		UserAccess:         params.ModelAdminAccess,
@@ -433,13 +433,13 @@ func (s *modelmanagerSuite) TestListModelSummaries(c *tc.C) {
 	c.Assert(results, tc.HasLen, 2)
 	c.Assert(results[0], tc.DeepEquals, base.UserModelSummary{Name: testModelInfo.Name,
 		UUID:            testModelInfo.UUID,
+		Qualifier:       "admin",
 		Type:            model.IAAS,
 		ControllerUUID:  testModelInfo.ControllerUUID,
 		ProviderType:    testModelInfo.ProviderType,
 		Cloud:           "aws",
 		CloudRegion:     "us-east-1",
 		CloudCredential: "foo/bob/one",
-		Namespace:       "admin",
 		Life:            "alive",
 		Status: base.Status{
 			Status: status.Active,

@@ -375,8 +375,8 @@ func (api *OffersAPI) getApplicationOffers(ctx context.Context, user names.UserT
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if url.ModelNamespace == "" {
-			url.ModelNamespace = user.Id()
+		if url.ModelQualifier == "" {
+			url.ModelQualifier = user.Id()
 		}
 		if url.HasEndpoint() {
 			results.Results[i].Error = apiservererrors.ServerError(
@@ -430,7 +430,7 @@ func (api *OffersAPI) FindApplicationOffers(ctx context.Context, filters params.
 		for _, m := range models {
 			modelFilter := filters.Filters[0]
 			modelFilter.ModelName = m.Name
-			modelFilter.ModelNamespace = m.Namespace
+			modelFilter.ModelQualifier = m.Qualifier
 			filtersToUse.Filters = append(filtersToUse.Filters, modelFilter)
 		}
 	} else {
@@ -556,7 +556,7 @@ func (api *OffersAPI) RemoteApplicationInfo(ctx context.Context, args params.Off
 
 func (api *OffersAPI) filterFromURL(url *jujucrossmodel.OfferURL) params.OfferFilter {
 	f := params.OfferFilter{
-		ModelNamespace: url.ModelNamespace,
+		ModelQualifier: url.ModelQualifier,
 		ModelName:      url.ModelName,
 		OfferName:      url.ApplicationName,
 	}

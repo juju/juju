@@ -71,9 +71,9 @@ func (c *Client) AllModels(ctx context.Context) ([]base.UserModel, error) {
 		}
 		result[i] = base.UserModel{
 			Name:           usermodel.Name,
+			Qualifier:      usermodel.Qualifier,
 			UUID:           usermodel.UUID,
 			Type:           modelType,
-			Namespace:      usermodel.Namespace,
 			LastConnection: usermodel.LastConnection,
 		}
 	}
@@ -90,7 +90,7 @@ func (c *Client) CloudSpec(ctx context.Context, modelTag names.ModelTag) (enviro
 // model such that direct access to the provider can be used.
 type HostedConfig struct {
 	Name      string
-	Namespace string
+	Qualifier string
 	Config    map[string]interface{}
 	CloudSpec environscloudspec.CloudSpec
 	Error     error
@@ -113,7 +113,7 @@ func (c *Client) HostedModelConfigs(ctx context.Context) ([]HostedConfig, error)
 	hostedConfigs := make([]HostedConfig, len(result.Models))
 	for i, modelConfig := range result.Models {
 		hostedConfigs[i].Name = modelConfig.Name
-		hostedConfigs[i].Namespace = modelConfig.Namespace
+		hostedConfigs[i].Qualifier = modelConfig.Qualifier
 		if modelConfig.Error != nil {
 			hostedConfigs[i].Error = errors.Trace(modelConfig.Error)
 			continue

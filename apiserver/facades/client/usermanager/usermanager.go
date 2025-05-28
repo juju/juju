@@ -190,7 +190,7 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 	if err != nil {
 		return deletions, errors.Trace(err)
 	}
-	owner, err := coreuser.NewName(controllerModel.Namespace)
+	owner, err := coreuser.NewName(controllerModel.Qualifier)
 	if err != nil {
 		return deletions, errors.Trace(err)
 	}

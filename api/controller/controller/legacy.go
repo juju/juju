@@ -32,9 +32,9 @@ func (c *Client) allModelsCompat(ctx context.Context) ([]base.UserModel, error) 
 		}
 		result[i] = base.UserModel{
 			Name:           usermodel.Name,
+			Qualifier:      owner.Id(),
 			UUID:           usermodel.UUID,
 			Type:           modelType,
-			Namespace:      owner.Id(),
 			LastConnection: usermodel.LastConnection,
 		}
 	}
@@ -58,7 +58,7 @@ func (c *Client) hostedModelConfigsCompat(ctx context.Context) ([]HostedConfig, 
 			hostedConfigs[i].Error = errors.Trace(err)
 			continue
 		}
-		hostedConfigs[i].Namespace = tag.Id()
+		hostedConfigs[i].Qualifier = tag.Id()
 		if modelConfig.Error != nil {
 			hostedConfigs[i].Error = errors.Trace(modelConfig.Error)
 			continue

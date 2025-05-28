@@ -126,7 +126,7 @@ func (s *LoginCommandSuite) TestLoginWithOneAvailableModel(c *tc.C) {
 		return []apibase.UserModel{{
 			Name:      "foo",
 			UUID:      "some-uuid",
-			Namespace: "bob",
+			Qualifier: "bob",
 			Type:      "iaas",
 		}}, nil
 	})
@@ -146,12 +146,12 @@ func (s *LoginCommandSuite) TestLoginWithSeveralAvailableModels(c *tc.C) {
 		return []apibase.UserModel{{
 			Name:      "foo",
 			UUID:      "some-uuid",
-			Namespace: "bob",
+			Qualifier: "bob",
 			Type:      "iaas",
 		}, {
 			Name:      "bar",
 			UUID:      "some-uuid",
-			Namespace: "alice",
+			Qualifier: "alice",
 			Type:      "iaas",
 		}}, nil
 	})

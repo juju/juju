@@ -285,12 +285,12 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 		[]model.Model{
 			{
 				Name:      "first",
-				Namespace: "owner",
+				Qualifier: "owner",
 				UUID:      modeltesting.GenModelUUID(c),
 			},
 			{
 				Name:      "second",
-				Namespace: "user@remote",
+				Qualifier: "user@remote",
 				UUID:      modeltesting.GenModelUUID(c),
 			},
 		}, nil,
@@ -298,7 +298,7 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 	s.mockModelService.EXPECT().ControllerModel(gomock.Any()).Return(
 		model.Model{
 			Name:      "controller",
-			Namespace: "owner",
+			Qualifier: "owner",
 			UUID:      s.ControllerModelUUID,
 		}, nil,
 	)
@@ -310,9 +310,9 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 	two := results.Models[1]
 
 	c.Assert(one.Name, tc.Equals, "first")
-	c.Assert(one.Namespace, tc.Equals, "owner")
+	c.Assert(one.Qualifier, tc.Equals, "owner")
 	c.Assert(two.Name, tc.Equals, "second")
-	c.Assert(two.Namespace, tc.Equals, "user@remote")
+	c.Assert(two.Qualifier, tc.Equals, "user@remote")
 }
 
 func (s *controllerSuite) makeCloudSpec(c *tc.C, pSpec *params.CloudSpec) environscloudspec.CloudSpec {
@@ -380,7 +380,7 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 		{
 			UUID:      s.DomainServicesSuite.DefaultModelUUID,
 			Name:      "test",
-			Namespace: s.Owner.Id(),
+			Qualifier: s.Owner.Id(),
 			ModelType: model.IAAS,
 		},
 	}
@@ -395,7 +395,7 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 		{
 			Name:      "test",
 			UUID:      s.DomainServicesSuite.DefaultModelUUID.String(),
-			Namespace: s.Owner.Id(),
+			Qualifier: s.Owner.Id(),
 			Blocks: []string{
 				"BlockChange",
 				"BlockDestroy",
@@ -501,7 +501,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(model1.UUID()),
 			Name:      model1.Name(),
-			Namespace: model1.Owner().Id(),
+			Qualifier: model1.Owner().Id(),
 		}, nil,
 	)
 
@@ -513,7 +513,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(model2.UUID()),
 			Name:      model2.Name(),
-			Namespace: model2.Owner().Id(),
+			Qualifier: model2.Owner().Id(),
 		}, nil,
 	)
 
@@ -607,7 +607,7 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			Namespace: m.Owner().Id(),
+			Qualifier: m.Owner().Id(),
 		}, nil,
 	)
 	out, err := s.controller.InitiateMigration(c.Context(), args)
@@ -631,7 +631,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			Namespace: m.Owner().Id(),
+			Qualifier: m.Owner().Id(),
 		}, nil,
 	)
 
@@ -695,7 +695,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			Namespace: m.Owner().Id(),
+			Qualifier: m.Owner().Id(),
 		}, nil,
 	)
 	out, err := s.controller.InitiateMigration(c.Context(), args)
@@ -722,7 +722,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			Namespace: m.Owner().Id(),
+			Qualifier: m.Owner().Id(),
 		}, nil,
 	)
 
@@ -1248,22 +1248,22 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 	models := []model.Model{
 		{
 			Name:      "controller",
-			Namespace: "admin",
+			Qualifier: "admin",
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "no-access",
-			Namespace: "user@remote",
+			Qualifier: "user@remote",
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "owned",
-			Namespace: "admin",
+			Qualifier: "admin",
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "user",
-			Namespace: "user@remote",
+			Qualifier: "user@remote",
 			ModelType: model.IAAS,
 		},
 	}
@@ -1282,7 +1282,7 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 	for i, userModel := range response.UserModels {
 		c.Assert(userModel.Type, tc.Equals, model.IAAS.String())
 		c.Assert(models[i].Name, tc.Equals, userModel.Name)
-		c.Assert(models[i].Namespace, tc.Equals, userModel.Namespace)
+		c.Assert(models[i].Qualifier, tc.Equals, userModel.Qualifier)
 		c.Assert(models[i].ModelType.String(), tc.Equals, userModel.Type)
 	}
 }

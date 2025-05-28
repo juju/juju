@@ -573,7 +573,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			Namespace:    "admin",
+			Qualifier:    "admin",
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
@@ -588,7 +588,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			Namespace:    "tlm",
+			Qualifier:    "tlm",
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
@@ -608,7 +608,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			Namespace:    "admin",
+			Qualifier:    "admin",
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
@@ -623,7 +623,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			Namespace:    "tlm",
+			Qualifier:    "tlm",
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
@@ -695,7 +695,7 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 			Cloud:       "aws",
 			CloudRegion: "myregion",
 			ModelType:   coremodel.IAAS,
-			Namespace:   "tlm",
+			Qualifier:   "tlm",
 			Credential:  cred,
 			Life:        life.Alive,
 		},
@@ -705,7 +705,7 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 			Cloud:       "aws",
 			CloudRegion: "myregion",
 			ModelType:   coremodel.IAAS,
-			Namespace:   "tlm",
+			Qualifier:   "tlm",
 			Credential:  cred,
 			Life:        life.Alive,
 		},
@@ -789,7 +789,7 @@ func (s *serviceSuite) TestControllerModel(c *tc.C) {
 		Cloud:       "controller-cloud",
 		CloudRegion: "ap-southeast-2",
 		Credential:  cred,
-		Namespace:   coremodel.ControllerModelOwnerUsername.String(),
+		Qualifier:   coremodel.ControllerModelOwnerUsername.String(),
 	})
 }
 
@@ -1093,7 +1093,7 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerSuccess(c *tc.C) {
 		Cloud:        "aws",
 		CloudRegion:  "testregion",
 		ModelType:    coremodel.IAAS,
-		Namespace:    "user",
+		Qualifier:    "user",
 		Credential: credential.Key{
 			Cloud: "aws",
 			Name:  "testcredential",

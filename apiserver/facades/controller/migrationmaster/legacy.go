@@ -29,7 +29,7 @@ func (api *APIV4) ModelInfo(ctx context.Context) (params.MigrationModelInfoLegac
 	return params.MigrationModelInfoLegacy{
 		UUID:             modelInfo.UUID,
 		Name:             modelInfo.Name,
-		OwnerTag:         names.NewUserTag(modelInfo.Namespace).String(),
+		OwnerTag:         names.NewUserTag(modelInfo.Qualifier).String(),
 		AgentVersion:     modelInfo.AgentVersion,
 		ModelDescription: modelInfo.ModelDescription,
 	}, nil

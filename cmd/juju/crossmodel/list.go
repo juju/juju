@@ -159,12 +159,12 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	unqualifiedModelName, namespace, err := jujuclient.SplitModelName(modelName)
+	unqualifiedModelName, qualifier, err := jujuclient.SplitModelName(modelName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	c.filters = []crossmodel.ApplicationOfferFilter{{
-		ModelNamespace:  namespace,
+		ModelQualifier:  qualifier,
 		ModelName:       unqualifiedModelName,
 		ApplicationName: c.applicationName,
 	}}

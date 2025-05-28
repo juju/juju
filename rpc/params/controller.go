@@ -41,9 +41,9 @@ type DestroyControllerArgs struct {
 // ModelBlockInfo holds information about a model and its
 // current blocks.
 type ModelBlockInfo struct {
-	Name      string   `json:"name"`
 	UUID      string   `json:"model-uuid"`
-	Namespace string   `json:"namespace"`
+	Name      string   `json:"name"`
+	Qualifier string   `json:"qualifier"`
 	Blocks    []string `json:"blocks"`
 }
 
@@ -63,12 +63,12 @@ type RemoveBlocksArgs struct {
 // ModelStatus holds information about the status of a juju model.
 type ModelStatus struct {
 	ModelTag           string                 `json:"model-tag"`
+	Qualifier          string                 `json:"qualifier"`
 	Life               life.Value             `json:"life"`
 	Type               string                 `json:"type"`
 	HostedMachineCount int                    `json:"hosted-machine-count"`
 	ApplicationCount   int                    `json:"application-count"`
 	UnitCount          int                    `json:"unit-count"`
-	Namespace          string                 `json:"namespace"`
 	Applications       []ModelApplicationInfo `json:"applications,omitempty"`
 	Machines           []ModelMachineInfo     `json:"machines,omitempty"`
 	Volumes            []ModelVolumeInfo      `json:"volumes,omitempty"`

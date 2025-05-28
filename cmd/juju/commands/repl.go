@@ -229,8 +229,8 @@ func (c *replCommand) getPrompt() (prompt string, err error) {
 	if userName != "" {
 		controllerName = userName + "@" + controllerName
 		if jujuclient.IsQualifiedModelName(modelName) {
-			baseModelName, namespace, _ := jujuclient.SplitModelName(modelName)
-			if userName == namespace {
+			baseModelName, qualifier, _ := jujuclient.SplitModelName(modelName)
+			if userName == qualifier {
 				modelName = baseModelName
 			}
 		}

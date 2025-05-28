@@ -27,7 +27,7 @@ func (api *APIV4) Prechecks(ctx context.Context, model params.MigrationModelInfo
 	info := params.MigrationModelInfo{
 		UUID:                   model.UUID,
 		Name:                   model.Name,
-		Namespace:              ownerTag.Id(),
+		Qualifier:              ownerTag.Id(),
 		AgentVersion:           model.AgentVersion,
 		ControllerAgentVersion: model.ControllerAgentVersion,
 		FacadeVersions:         model.FacadeVersions,

@@ -21,7 +21,7 @@ func (c *Client) createModelCompat(
 ) (base.ModelInfo, error) {
 	createArgsLegacy := params.ModelCreateArgsLegacy{
 		Name:               createArgs.Name,
-		OwnerTag:           names.NewUserTag(createArgs.Namespace).String(),
+		OwnerTag:           names.NewUserTag(createArgs.Qualifier).String(),
 		Config:             createArgs.Config,
 		CloudTag:           createArgs.CloudTag,
 		CloudRegion:        createArgs.CloudRegion,
@@ -38,6 +38,7 @@ func (c *Client) createModelCompat(
 	}
 	info := params.ModelInfo{
 		Name:                    result.Name,
+		Qualifier:               ownerTag.Id(),
 		Type:                    result.Type,
 		UUID:                    result.UUID,
 		ControllerUUID:          result.ControllerUUID,
@@ -47,7 +48,6 @@ func (c *Client) createModelCompat(
 		CloudRegion:             result.CloudRegion,
 		CloudCredentialTag:      result.CloudCredentialTag,
 		CloudCredentialValidity: result.CloudCredentialValidity,
-		Namespace:               ownerTag.Id(),
 		Life:                    result.Life,
 		Status:                  result.Status,
 		Users:                   result.Users,
@@ -79,9 +79,9 @@ func (c *Client) listModelsCompat(ctx context.Context, user string) ([]base.User
 		}
 		result[i] = base.UserModel{
 			Name:           usermodel.Name,
+			Qualifier:      owner.Id(),
 			UUID:           usermodel.UUID,
 			Type:           modelType,
-			Namespace:      owner.Id(),
 			LastConnection: usermodel.LastConnection,
 		}
 	}
@@ -102,18 +102,19 @@ func (c *Client) listModelSummariesCompat(ctx context.Context, user string, all 
 			continue
 		}
 		result := r.Result
-		var namespace string
+		var qualifier string
 		if owner, err := names.ParseUserTag(result.OwnerTag); err != nil {
 			results[i].Error = &params.Error{
 				Message: fmt.Sprintf("parsing model owner tag: %v", err),
 			}
 			continue
 		} else {
-			namespace = owner.Id()
+			qualifier = owner.Id()
 		}
 		results[i] = params.ModelSummaryResult{
 			Result: &params.ModelSummary{
 				Name:               result.Name,
+				Qualifier:          qualifier,
 				UUID:               result.UUID,
 				Type:               result.Type,
 				ControllerUUID:     result.ControllerUUID,
@@ -122,7 +123,6 @@ func (c *Client) listModelSummariesCompat(ctx context.Context, user string, all 
 				CloudTag:           result.CloudTag,
 				CloudRegion:        result.CloudRegion,
 				CloudCredentialTag: result.CloudCredentialTag,
-				Namespace:          namespace,
 				Life:               result.Life,
 				Status:             result.Status,
 				UserAccess:         result.UserAccess,
@@ -172,6 +172,7 @@ func (c *Client) modelInfoCompat(ctx context.Context, tags []names.ModelTag) ([]
 		info[i] = params.ModelInfoResult{
 			Result: &params.ModelInfo{
 				Name:                    result.Name,
+				Qualifier:               ownerTag.Id(),
 				Type:                    result.Type,
 				UUID:                    result.UUID,
 				ControllerUUID:          result.ControllerUUID,
@@ -181,7 +182,6 @@ func (c *Client) modelInfoCompat(ctx context.Context, tags []names.ModelTag) ([]
 				CloudRegion:             result.CloudRegion,
 				CloudCredentialTag:      result.CloudCredentialTag,
 				CloudCredentialValidity: result.CloudCredentialValidity,
-				Namespace:               ownerTag.Id(),
 				Life:                    result.Life,
 				Status:                  result.Status,
 				Users:                   result.Users,

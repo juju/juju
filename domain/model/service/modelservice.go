@@ -242,7 +242,7 @@ func (s *ModelService) GetModelSummary(
 		CloudRegion:    miSummary.CloudRegion,
 		ControllerUUID: miSummary.ControllerUUID,
 		IsController:   miSummary.IsController,
-		Namespace:      mSummary.OwnerName.String(),
+		Qualifier:      mSummary.OwnerName.String(),
 		Life:           mSummary.Life,
 		AgentVersion:   miSummary.AgentVersion,
 		Status: corestatus.StatusInfo{
@@ -303,7 +303,7 @@ func (s *ModelService) GetUserModelSummary(
 			CloudRegion:    miSummary.CloudRegion,
 			ControllerUUID: miSummary.ControllerUUID,
 			IsController:   miSummary.IsController,
-			Namespace:      userSummary.OwnerName.String(),
+			Qualifier:      userSummary.OwnerName.String(),
 			Life:           userSummary.Life,
 			AgentVersion:   miSummary.AgentVersion,
 			Status: corestatus.StatusInfo{

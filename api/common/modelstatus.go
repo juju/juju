@@ -64,12 +64,12 @@ func (c *ModelStatusAPI) processModelStatusResults(rs []params.ModelStatus) ([]b
 			results[i].Error = errors.Trace(err)
 			continue
 		}
-		results[i] = constructModelStatus(aModel, r.Namespace, r)
+		results[i] = constructModelStatus(aModel, r.Qualifier, r)
 	}
 	return results, nil
 }
 
-func constructModelStatus(m names.ModelTag, namespace string, r params.ModelStatus) base.ModelStatus {
+func constructModelStatus(m names.ModelTag, qualifier string, r params.ModelStatus) base.ModelStatus {
 	volumes := make([]base.Volume, len(r.Volumes))
 	for i, in := range r.Volumes {
 		volumes[i] = base.Volume{
@@ -94,8 +94,8 @@ func constructModelStatus(m names.ModelTag, namespace string, r params.ModelStat
 
 	result := base.ModelStatus{
 		UUID:               m.Id(),
+		Qualifier:          qualifier,
 		Life:               r.Life,
-		Namespace:          namespace,
 		ModelType:          model.ModelType(r.Type),
 		HostedMachineCount: r.HostedMachineCount,
 		ApplicationCount:   r.ApplicationCount,

@@ -123,9 +123,9 @@ type ModelCreateArgs struct {
 	// Name is the name for the new model.
 	Name string `json:"name"`
 
-	// TODO - we will use namespace as soon as owner is removed.
-	// Namespace is the model's namespace.
-	Namespace string `json:"namespace"`
+	// TODO - we will use qualifier as soon as owner is removed.
+	// Qualifier disambiguates the name of the model.
+	Qualifier string `json:"qualifier"`
 
 	// TODO - owner will be removed.
 	// OwnerTag represents the user that will own the new model.
@@ -161,9 +161,9 @@ type ModelCreateArgs struct {
 // for a model and the tag of the server in which it is running.
 type Model struct {
 	Name      string `json:"name"`
+	Qualifier string `json:"qualifier"`
 	UUID      string `json:"uuid"`
 	Type      string `json:"type"`
-	Namespace string `json:"namespace"`
 }
 
 // UserModel holds information about a model and the last

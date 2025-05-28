@@ -24,11 +24,11 @@ var offerURLTests = []struct {
 	exact  string
 	url    *charm.OfferURL
 }{{
-	s:   "controller:namespace/modelname.applicationname",
-	url: &charm.OfferURL{"controller", "namespace", "modelname", "applicationname"},
+	s:   "controller:qualifier/modelname.applicationname",
+	url: &charm.OfferURL{"controller", "qualifier", "modelname", "applicationname"},
 }, {
-	s:   "controller:namespace/modelname.applicationname:rel",
-	url: &charm.OfferURL{"controller", "namespace", "modelname", "applicationname:rel"},
+	s:   "controller:qualifier/modelname.applicationname:rel",
+	url: &charm.OfferURL{"controller", "qualifier", "modelname", "applicationname:rel"},
 }, {
 	s:   "modelname.applicationname",
 	url: &charm.OfferURL{"", "", "modelname", "applicationname"},
@@ -36,8 +36,8 @@ var offerURLTests = []struct {
 	s:   "modelname.applicationname:rel",
 	url: &charm.OfferURL{"", "", "modelname", "applicationname:rel"},
 }, {
-	s:   "namespace/modelname.applicationname:rel",
-	url: &charm.OfferURL{"", "namespace", "modelname", "applicationname:rel"},
+	s:   "qualifier/modelname.applicationname:rel",
+	url: &charm.OfferURL{"", "qualifier", "modelname", "applicationname:rel"},
 }, {
 	s:     "/modelname.applicationname",
 	url:   &charm.OfferURL{"", "", "modelname", "applicationname"},
@@ -47,28 +47,28 @@ var offerURLTests = []struct {
 	url:   &charm.OfferURL{"", "", "modelname", "applicationname:rel"},
 	exact: "modelname.applicationname:rel",
 }, {
-	s:   "namespace/modelname.applicationname",
-	url: &charm.OfferURL{"", "namespace", "modelname", "applicationname"},
+	s:   "qualifier/modelname.applicationname",
+	url: &charm.OfferURL{"", "qualifier", "modelname", "applicationname"},
 }, {
 	s:   "controller:modelname",
 	err: `application offer URL is missing application`,
 }, {
-	s:   "controller:namespace/modelname",
+	s:   "controller:qualifier/modelname",
 	err: `application offer URL is missing application`,
 }, {
 	s:   "model",
 	err: `application offer URL is missing application`,
 }, {
-	s:   "/namespace/model",
+	s:   "/qualifier/model",
 	err: `application offer URL is missing application`,
 }, {
 	s:   "model.application@bad",
 	err: `application name "application@bad" not valid`,
 }, {
-	s:   "namespace[bad/model.application",
-	err: `namespace "namespace\[bad" not valid`,
+	s:   "qualifier[bad/model.application",
+	err: `qualifier "qualifier\[bad" not valid`,
 }, {
-	s:   "namespace/[badmodel.application",
+	s:   "qualifier/[badmodel.application",
 	err: `model name "\[badmodel" not valid`,
 }}
 
@@ -98,14 +98,14 @@ var urlPartsTests = []struct {
 	s, err string
 	url    *charm.OfferURLParts
 }{{
-	s:   "controller:/namespace/modelname.applicationname",
-	url: &charm.OfferURLParts{"controller", "namespace", "modelname", "applicationname"},
+	s:   "controller:/qualifier/modelname.applicationname",
+	url: &charm.OfferURLParts{"controller", "qualifier", "modelname", "applicationname"},
 }, {
-	s:   "namespace/modelname.applicationname",
-	url: &charm.OfferURLParts{"", "namespace", "modelname", "applicationname"},
+	s:   "qualifier/modelname.applicationname",
+	url: &charm.OfferURLParts{"", "qualifier", "modelname", "applicationname"},
 }, {
-	s:   "namespace/modelname",
-	url: &charm.OfferURLParts{"", "namespace", "modelname", ""},
+	s:   "qualifier/modelname",
+	url: &charm.OfferURLParts{"", "qualifier", "modelname", ""},
 }, {
 	s:   "modelname.application",
 	url: &charm.OfferURLParts{"", "", "modelname", "application"},
@@ -119,17 +119,17 @@ var urlPartsTests = []struct {
 	s:   "",
 	url: &charm.OfferURLParts{},
 }, {
-	s:   "namespace/prod/applicationname/extra",
-	err: `application offer URL has invalid form, must be \[<namespace/\]<model>.<appname>: "namespace/prod/applicationname/extra"`,
+	s:   "qualifier/prod/applicationname/extra",
+	err: `application offer URL has invalid form, must be \[<qualifier/\]<model>.<appname>: "qualifier/prod/applicationname/extra"`,
 }, {
-	s:   "controller:/namespace/modelname.application@bad",
+	s:   "controller:/qualifier/modelname.application@bad",
 	err: `application name "application@bad" not valid`,
 }, {
-	s:   "controller:/namespace[bad/modelname.application",
-	err: `namespace "namespace\[bad" not valid`,
+	s:   "controller:/qualifier[bad/modelname.application",
+	err: `qualifier "qualifier\[bad" not valid`,
 }, {
 	s:   ":foo",
-	err: `application offer URL has invalid form, must be \[<namespace/\]<model>.<appname>: $URL`,
+	err: `application offer URL has invalid form, must be \[<qualifier/\]<model>.<appname>: $URL`,
 }}
 
 func (s *OfferURLSuite) TestParseURLParts(c *tc.C) {
@@ -156,19 +156,19 @@ func (s *OfferURLSuite) TestHasEndpoint(c *tc.C) {
 	url, err = charm.ParseOfferURL("model.application")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), tc.IsFalse)
-	url, err = charm.ParseOfferURL("controller:/namespace/model.application:thing")
+	url, err = charm.ParseOfferURL("controller:/qualifier/model.application:thing")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), tc.IsTrue)
-	url, err = charm.ParseOfferURL("controller:/namespace/model.application")
+	url, err = charm.ParseOfferURL("controller:/qualifier/model.application")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), tc.IsFalse)
 }
 
 func (s *OfferURLSuite) TestMakeURL(c *tc.C) {
-	url := charm.MakeURL("namespace", "model", "app", "")
-	c.Assert(url, tc.Equals, "namespace/model.app")
-	url = charm.MakeURL("namespace", "model", "app", "ctrl")
-	c.Assert(url, tc.Equals, "ctrl:namespace/model.app")
+	url := charm.MakeURL("qualifier", "model", "app", "")
+	c.Assert(url, tc.Equals, "qualifier/model.app")
+	url = charm.MakeURL("qualifier", "model", "app", "ctrl")
+	c.Assert(url, tc.Equals, "ctrl:qualifier/model.app")
 }
 
 func (s *OfferURLSuite) TestAsLocal(c *tc.C) {

@@ -111,7 +111,7 @@ func (s *RegisterSuite) TestRegisterOneModel(c *tc.C) {
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:      "theoneandonly",
-			Namespace: "carol",
+			Qualifier: "carol",
 			UUID:      mockControllerUUID,
 			Type:      model.IAAS,
 		}}, nil
@@ -140,12 +140,12 @@ func (s *RegisterSuite) TestRegisterMultipleModels(c *tc.C) {
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:      "model1",
-			Namespace: "bob",
+			Qualifier: "bob",
 			UUID:      mockControllerUUID,
 			Type:      model.IAAS,
 		}, {
 			Name:      "model2",
-			Namespace: "bob",
+			Qualifier: "bob",
 			UUID:      "eeeeeeee-12e9-11e4-8a70-b2227cce2b55",
 			Type:      model.IAAS,
 		}}, nil
@@ -344,7 +344,7 @@ func (s *RegisterSuite) TestControllerUUIDExists(c *tc.C) {
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:      "model-name",
-			Namespace: "bob",
+			Qualifier: "bob",
 			UUID:      mockControllerUUID,
 			Type:      model.IAAS,
 		}}, nil
@@ -436,7 +436,7 @@ func (s *RegisterSuite) TestProposedControllerNameExists(c *tc.C) {
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:      "model-name",
-			Namespace: "bob",
+			Qualifier: "bob",
 			UUID:      mockControllerUUID,
 			Type:      model.IAAS,
 		}}, nil
@@ -492,7 +492,7 @@ func (s *RegisterSuite) TestControllerUUIDExistsReplace(c *tc.C) {
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:      "model-name",
-			Namespace: "bob",
+			Qualifier: "bob",
 			UUID:      mockControllerUUID,
 			Type:      model.IAAS,
 		}}, nil
@@ -529,7 +529,7 @@ func (s *RegisterSuite) TestControllerUUIDExistsRenameNotAllowed(c *tc.C) {
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:      "model-name",
-			Namespace: "bob",
+			Qualifier: "bob",
 			UUID:      mockControllerUUID,
 			Type:      model.IAAS,
 		}}, nil

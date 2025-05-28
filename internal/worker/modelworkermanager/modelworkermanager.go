@@ -56,7 +56,7 @@ type GetControllerConfigFunc func(ctx context.Context, domainServices services.D
 // to start the workers for the specified model
 type NewModelConfig struct {
 	Authority              pki.Authority
-	Namespace              string
+	Qualifier              string
 	ModelName              string
 	ModelUUID              string
 	ModelType              model.ModelType
@@ -240,7 +240,7 @@ func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string)
 	cfg := NewModelConfig{
 		Authority:    m.config.Authority,
 		ModelName:    model.Name,
-		Namespace:    model.Namespace,
+		Qualifier:    model.Qualifier,
 		ModelUUID:    modelUUID,
 		ModelType:    model.ModelType,
 		ModelMetrics: m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
@@ -265,7 +265,7 @@ func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string)
 
 func (m *modelWorkerManager) newWorkerFuncFromConfig(ctx context.Context, cfg NewModelConfig) (func(context.Context) (worker.Worker, error), error) {
 	modelUUID := model.UUID(cfg.ModelUUID)
-	modelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s-%s", cfg.Namespace, cfg.ModelName), modelUUID)
+	modelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s-%s", cfg.Qualifier, cfg.ModelName), modelUUID)
 
 	// Get the provider domain services for the model.
 	cfg.ProviderServicesGetter = m.config.ProviderServicesGetter

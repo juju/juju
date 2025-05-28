@@ -29,7 +29,6 @@ type ModelInfo struct {
 	ControllerUUID string                       `json:"controller-uuid" yaml:"controller-uuid"`
 	ControllerName string                       `json:"controller-name" yaml:"controller-name"`
 	IsController   bool                         `json:"is-controller" yaml:"is-controller"`
-	Namespace      string                       `json:"namespace" yaml:"namespace"`
 	Cloud          string                       `json:"cloud" yaml:"cloud"`
 	CloudRegion    string                       `json:"region,omitempty" yaml:"region,omitempty"`
 	ProviderType   string                       `json:"type,omitempty" yaml:"type,omitempty"`
@@ -118,12 +117,11 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 	}
 	modelInfo := ModelInfo{
 		ShortName:      info.Name,
-		Name:           jujuclient.QualifyModelName(info.Namespace, info.Name),
+		Name:           jujuclient.QualifyModelName(info.Qualifier, info.Name),
 		Type:           model.ModelType(info.Type),
 		UUID:           info.UUID,
 		ControllerUUID: info.ControllerUUID,
 		IsController:   info.IsController,
-		Namespace:      info.Namespace,
 		Life:           string(info.Life),
 		Cloud:          cloudTag.Id(),
 		CloudRegion:    info.CloudRegion,

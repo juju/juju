@@ -57,7 +57,7 @@ import (
 func createArgs(owner string) params.ModelCreateArgs {
 	return params.ModelCreateArgs{
 		Name:      "test-model",
-		Namespace: owner,
+		Qualifier: owner,
 		OwnerTag:  names.NewUserTag(owner).String(),
 		Config: map[string]interface{}{
 			"authorized-keys": "ssh-key",
@@ -214,7 +214,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	expectedCloudRegion string,
 ) coremodel.UUID {
 	modelUUID := modeltesting.GenModelUUID(c)
-	ownerName := usertesting.GenNewName(c, modelCreateArgs.Namespace)
+	ownerName := usertesting.GenNewName(c, modelCreateArgs.Qualifier)
 	ownerUUID := usertesting.GenUserUUID(c)
 
 	defaultCred := credential.Key{
@@ -247,7 +247,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	expectedModelInfo := coremodel.Model{
 		Name:        "foo",
 		UUID:        modelUUID,
-		Namespace:   modelCreateArgs.Namespace,
+		Qualifier:   modelCreateArgs.Qualifier,
 		Cloud:       expectedCloudName,
 		CloudRegion: expectedCloudRegion,
 	}
@@ -344,7 +344,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *tc.C) {
 	}
 	args := params.ModelCreateArgs{
 		Name:      "foo",
-		Namespace: "admin",
+		Qualifier: "admin",
 		OwnerTag:  "user-admin",
 		Config: map[string]interface{}{
 			"bar": "baz",
@@ -370,7 +370,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *tc.C) {
 
 	args := params.ModelCreateArgs{
 		Name:      "foo",
-		Namespace: "admin",
+		Qualifier: "admin",
 		OwnerTag:  "user-admin",
 	}
 
@@ -390,7 +390,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *tc.C) {
 
 	args := params.ModelCreateArgs{
 		Name:      "foo",
-		Namespace: "admin",
+		Qualifier: "admin",
 		OwnerTag:  "user-admin",
 	}
 
@@ -417,7 +417,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *tc.C) {
 	}
 	args := params.ModelCreateArgs{
 		Name:      "foo",
-		Namespace: "admin",
+		Qualifier: "admin",
 		OwnerTag:  "user-admin",
 		Config: map[string]interface{}{
 			"bar":                  "baz",
@@ -449,7 +449,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *tc.C
 	}
 	args := params.ModelCreateArgs{
 		Name:      "foo",
-		Namespace: "admin",
+		Qualifier: "admin",
 		OwnerTag:  "user-admin",
 		Config: map[string]interface{}{
 			"bar":                  "baz",
@@ -881,8 +881,8 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 	now := time.Now()
 	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), user.NameFromTag(userTag)).Return(userUUID, nil)
 	s.modelService.EXPECT().ListAllModels(gomock.Any()).Return([]coremodel.Model{
-		{UUID: modelUUID, Namespace: userTag.Id()},
-		{UUID: modelUUIDNeverAccessed, Namespace: userTag.Id()},
+		{UUID: modelUUID, Qualifier: userTag.Id()},
+		{UUID: modelUUIDNeverAccessed, Qualifier: userTag.Id()},
 		{UUID: modelUUIDNotExist},
 	}, nil)
 
@@ -903,14 +903,14 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 			{
 				Model: params.Model{
 					UUID:      modelUUID.String(),
-					Namespace: userTag.Id(),
+					Qualifier: userTag.Id(),
 				},
 				LastConnection: &now,
 			},
 			{
 				Model: params.Model{
 					UUID:      modelUUIDNeverAccessed.String(),
-					Namespace: userTag.Id(),
+					Qualifier: userTag.Id(),
 				},
 			},
 		},
@@ -930,8 +930,8 @@ func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 	now := time.Now()
 	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), user.NameFromTag(userTag)).Return(userUUID, nil)
 	s.modelService.EXPECT().ListModelsForUser(gomock.Any(), userUUID).Return([]coremodel.Model{
-		{UUID: modelUUID, Namespace: userTag.Id()},
-		{UUID: modelUUIDNeverAccessed, Namespace: userTag.Id()},
+		{UUID: modelUUID, Qualifier: userTag.Id()},
+		{UUID: modelUUIDNeverAccessed, Qualifier: userTag.Id()},
 		{UUID: modelUUIDNotExist},
 	}, nil)
 
@@ -952,14 +952,14 @@ func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 			{
 				Model: params.Model{
 					UUID:      modelUUID.String(),
-					Namespace: userTag.Id(),
+					Qualifier: userTag.Id(),
 				},
 				LastConnection: &now,
 			},
 			{
 				Model: params.Model{
 					UUID:      modelUUIDNeverAccessed.String(),
-					Namespace: userTag.Id(),
+					Qualifier: userTag.Id(),
 				},
 			},
 		},

@@ -682,7 +682,7 @@ func TestTargetPrecheckSuite(t *stdtesting.T) {
 func (s *TargetPrecheckSuite) SetUpTest(c *tc.C) {
 	s.modelInfo = coremigration.ModelInfo{
 		UUID:         modelUUID,
-		Namespace:    modelOwner.Id(),
+		Qualifier:    modelOwner.Id(),
 		Name:         modelName,
 		AgentVersion: backendVersion,
 	}

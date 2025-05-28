@@ -183,7 +183,7 @@ func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *tc.C) {
 		*(result.(*params.MigrationModelInfo)) = params.MigrationModelInfo{
 			UUID:                   "uuid",
 			Name:                   "name",
-			Namespace:              "owner",
+			Qualifier:              "owner",
 			AgentVersion:           semversion.MustParse("1.2.3"),
 			ControllerAgentVersion: semversion.MustParse("1.2.4"),
 		}
@@ -199,7 +199,7 @@ func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *tc.C) {
 	c.Check(model, tc.DeepEquals, migration.ModelInfo{
 		UUID:                   "uuid",
 		Name:                   "name",
-		Namespace:              "owner",
+		Qualifier:              "owner",
 		AgentVersion:           semversion.MustParse("1.2.3"),
 		ControllerAgentVersion: semversion.MustParse("1.2.4"),
 	})
@@ -218,7 +218,7 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 		*(result.(*params.MigrationModelInfo)) = params.MigrationModelInfo{
 			UUID:                   "uuid",
 			Name:                   "name",
-			Namespace:              "owner",
+			Qualifier:              "owner",
 			AgentVersion:           semversion.MustParse("1.2.3"),
 			ControllerAgentVersion: semversion.MustParse("1.2.4"),
 			ModelDescription:       serialized,
@@ -235,7 +235,7 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 	c.Check(model, tc.DeepEquals, migration.ModelInfo{
 		UUID:                   "uuid",
 		Name:                   "name",
-		Namespace:              "owner",
+		Qualifier:              "owner",
 		AgentVersion:           semversion.MustParse("1.2.3"),
 		ControllerAgentVersion: semversion.MustParse("1.2.4"),
 		ModelDescription:       modelDescription,

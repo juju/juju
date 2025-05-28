@@ -56,20 +56,23 @@ func ParseModelType(s string) (ModelType, error) {
 
 var (
 	// TODO - we want to restrict the allow characters to be [a-z][-] and restrict length
-	//  and add a conversion helper for existing user name baded namespaces.
-	validNamespaceSnippet = "[a-zA-Z0-9][a-zA-Z0-9.+-]*[a-zA-Z0-9]"
-	validNamespace        = regexp.MustCompile(fmt.Sprintf("^(?P<name>%s)(?:@(?P<domain>%s))?$", validNamespaceSnippet, validNamespaceSnippet))
+	//  and add a conversion helper for existing user name based qualifiers.
+	validQualifierSnippet = "[a-zA-Z0-9][a-zA-Z0-9.+-]*[a-zA-Z0-9]"
+	validQualifier        = regexp.MustCompile(fmt.Sprintf("^(?P<name>%s)(?:@(?P<domain>%s))?$", validQualifierSnippet, validQualifierSnippet))
 )
 
-// IsValidNamespace returns true if the model namespace is valid.
-func IsValidNamespace(namespace string) bool {
-	return validNamespace.MatchString(namespace)
+// IsValidQualifier returns true if the model qualifier is valid.
+func IsValidQualifier(qualifier string) bool {
+	return validQualifier.MatchString(qualifier)
 }
 
 // Model represents the state of a model.
 type Model struct {
 	// Name returns the human friendly name of the model.
 	Name string
+
+	// Qualifier disambiguates the model name.
+	Qualifier string
 
 	// Life is the current state of the model.
 	// Options are alive, dying, dead. Every model starts as alive, only
@@ -101,9 +104,6 @@ type Model struct {
 	// Credential can be the zero value of the struct to not have a credential
 	// associated with the model.
 	Credential credential.Key
-
-	// Namespace is the model namespace.
-	Namespace string
 }
 
 // UUID represents a model unique identifier.

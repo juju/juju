@@ -172,15 +172,15 @@ func makeURLFromCurrentModel(urlStr, offerSource, currentModel string) (*crossmo
 	// We may have just been given an offer name.
 	// Try again with the current model as the host model.
 	modelName := currentModel
-	namespace := ""
+	qualifier := ""
 	if jujuclient.IsQualifiedModelName(currentModel) {
-		baseName, modelNamespace, err := jujuclient.SplitModelName(currentModel)
+		baseName, modelQualifier, err := jujuclient.SplitModelName(currentModel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		modelName = baseName
-		namespace = modelNamespace
+		qualifier = modelQualifier
 	}
-	derivedUrl := crossmodel.MakeURL(namespace, modelName, urlStr, offerSource)
+	derivedUrl := crossmodel.MakeURL(qualifier, modelName, urlStr, offerSource)
 	return crossmodel.ParseOfferURL(derivedUrl)
 }

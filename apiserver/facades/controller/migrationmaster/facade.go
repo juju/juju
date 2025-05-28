@@ -182,7 +182,7 @@ func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error
 	return params.MigrationModelInfo{
 		UUID:             modelInfo.UUID.String(),
 		Name:             modelInfo.Name,
-		Namespace:        modelInfo.CredentialOwner.String(),
+		Qualifier:        modelInfo.CredentialOwner.String(),
 		AgentVersion:     modelInfo.AgentVersion,
 		ModelDescription: modelDescription,
 	}, nil

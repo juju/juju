@@ -3825,7 +3825,7 @@
                         "model-name": {
                             "type": "string"
                         },
-                        "model-namespace": {
+                        "model-qualifier": {
                             "type": "string"
                         },
                         "offer-name": {
@@ -3834,7 +3834,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "model-namespace",
+                        "model-qualifier",
                         "model-name",
                         "offer-name",
                         "application-name",
@@ -8212,14 +8212,14 @@
                         "name": {
                             "type": "string"
                         },
-                        "namespace": {
+                        "qualifier": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "name",
-                        "namespace"
+                        "qualifier"
                     ]
                 },
                 "HostedModelConfigsResults": {
@@ -8377,7 +8377,7 @@
                         "name": {
                             "type": "string"
                         },
-                        "namespace": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "type": {
@@ -8390,9 +8390,9 @@
                     "additionalProperties": false,
                     "required": [
                         "name",
+                        "qualifier",
                         "uuid",
-                        "type",
-                        "namespace"
+                        "type"
                     ]
                 },
                 "ModelApplicationInfo": {
@@ -8422,15 +8422,15 @@
                         "name": {
                             "type": "string"
                         },
-                        "namespace": {
+                        "qualifier": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "name",
                         "model-uuid",
-                        "namespace",
+                        "name",
+                        "qualifier",
                         "blocks"
                     ]
                 },
@@ -8542,7 +8542,7 @@
                         "model-tag": {
                             "type": "string"
                         },
-                        "namespace": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "type": {
@@ -8561,12 +8561,12 @@
                     "additionalProperties": false,
                     "required": [
                         "model-tag",
+                        "qualifier",
                         "life",
                         "type",
                         "hosted-machine-count",
                         "application-count",
-                        "unit-count",
-                        "namespace"
+                        "unit-count"
                     ]
                 },
                 "ModelStatusResults": {
@@ -10842,7 +10842,7 @@
                         "name": {
                             "type": "string"
                         },
-                        "namespace": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "type": {
@@ -10855,9 +10855,9 @@
                     "additionalProperties": false,
                     "required": [
                         "name",
+                        "qualifier",
                         "uuid",
-                        "type",
-                        "namespace"
+                        "type"
                     ]
                 },
                 "ModelApplicationInfo": {
@@ -10893,10 +10893,10 @@
                         "name": {
                             "type": "string"
                         },
-                        "namespace": {
+                        "owner-tag": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "region": {
@@ -10906,7 +10906,7 @@
                     "additionalProperties": false,
                     "required": [
                         "name",
-                        "namespace",
+                        "qualifier",
                         "owner-tag"
                     ]
                 },
@@ -11068,10 +11068,10 @@
                         "name": {
                             "type": "string"
                         },
-                        "namespace": {
+                        "provider-type": {
                             "type": "string"
                         },
-                        "provider-type": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "secret-backends": {
@@ -11110,7 +11110,7 @@
                         "controller-uuid",
                         "is-controller",
                         "cloud-tag",
-                        "namespace",
+                        "qualifier",
                         "life",
                         "users",
                         "machines",
@@ -11238,7 +11238,7 @@
                         "model-tag": {
                             "type": "string"
                         },
-                        "namespace": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "type": {
@@ -11257,12 +11257,12 @@
                     "additionalProperties": false,
                     "required": [
                         "model-tag",
+                        "qualifier",
                         "life",
                         "type",
                         "hosted-machine-count",
                         "application-count",
-                        "unit-count",
-                        "namespace"
+                        "unit-count"
                     ]
                 },
                 "ModelStatusResults": {
@@ -11335,10 +11335,10 @@
                         "name": {
                             "type": "string"
                         },
-                        "namespace": {
+                        "provider-type": {
                             "type": "string"
                         },
-                        "provider-type": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "status": {
@@ -11357,12 +11357,12 @@
                     "additionalProperties": false,
                     "required": [
                         "name",
+                        "qualifier",
                         "uuid",
                         "type",
                         "controller-uuid",
                         "is-controller",
                         "cloud-tag",
-                        "namespace",
                         "life",
                         "user-access",
                         "last-connection",

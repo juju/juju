@@ -37,7 +37,7 @@ type findCommand struct {
 
 	url            string
 	source         string
-	modelNamespace string
+	modelQualifier string
 	modelName      string
 	offerName      string
 	interfaceName  string
@@ -118,7 +118,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	filter := crossmodel.ApplicationOfferFilter{
-		ModelNamespace: c.modelNamespace,
+		ModelQualifier: c.modelQualifier,
 		ModelName:      c.modelName,
 		OfferName:      c.offerName,
 	}
@@ -161,15 +161,15 @@ func (c *findCommand) validateOrSetURL() error {
 	} else {
 		c.source = controllerName
 	}
-	namespace := urlParts.ModelNamespace
-	if namespace == "" {
+	qualifier := urlParts.ModelQualifier
+	if qualifier == "" {
 		accountDetails, err := c.CurrentAccountDetails()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		namespace = accountDetails.User
+		qualifier = accountDetails.User
 	}
-	c.modelNamespace = namespace
+	c.modelQualifier = qualifier
 	c.modelName = urlParts.ModelName
 	c.offerName = urlParts.ApplicationName
 	return nil
