@@ -192,17 +192,22 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
 		"00:11:22:33:44:55", corenetwork.EthernetDevice)
 	device2UUID := s.addLinkLayerDevice(c, netNodeUUID, "eth1",
 		"00:11:22:33:44:66", corenetwork.EthernetDevice)
+	toRelinquishUUID := s.addLinkLayerDevice(c, netNodeUUID, "eth2",
+		"00:11:22:33:44:77", corenetwork.EthernetDevice)
 
 	// Add provider IDs to the devices
 	s.addProviderLinkLayerDevice(c, "old-provider-id-1", device1UUID)
 	s.addProviderLinkLayerDevice(c, "provider-id-2", device2UUID)
+	s.addProviderLinkLayerDevice(c, "provider-id-3", toRelinquishUUID)
 
 	// Add Ips addresses
 	eth01 := s.addIPAddress(c, device1UUID, netNodeUUID, "192.168.1.1/24")
 	eth11 := s.addIPAddress(c, device2UUID, netNodeUUID, "100.168.1.1/24")
+	eth21 := s.addIPAddress(c, toRelinquishUUID, netNodeUUID, "10.168.1.1/24")
 
 	s.addProviderIPAddress(c, eth01, "provider-ip-1")
 	s.addProviderIPAddress(c, eth11, "old-provider-ip-2")
+	s.addProviderIPAddress(c, eth21, "old-provider-ip-3")
 
 	// Create incoming devices with updated provider ID for eth0
 	incoming := []network.NetInterface{
@@ -236,6 +241,12 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
 				ProviderID: "provider-id-2",
 				MacAddress: "00:11:22:33:44:66",
 			},
+			{
+				UUID:       toRelinquishUUID,
+				Name:       "eth2",
+				ProviderID: "",
+				MacAddress: "00:11:22:33:44:77",
+			},
 		})
 	c.Check(s.fetchLinkLayerAddresses(c, netNodeUUID), tc.SameContents,
 		[]mergedLinkLayerAddress{{
@@ -248,6 +259,11 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
 			Address:    "100.168.1.1/24",
 			ProviderID: "new-provider-ip-2",
 			Origin:     "provider",
+		}, {
+			UUID:       eth21,
+			Address:    "10.168.1.1/24",
+			ProviderID: "",
+			Origin:     "machine",
 		}})
 }
 
@@ -339,7 +355,7 @@ func (s *mergeLinkLayerSuite) TestApplyLinkLayerChanges(c *tc.C) {
 		toRemove: []string{
 			"old-provider-eth0", "relinquished-provider-eth2",
 		},
-		toRelinquish: []string{eth2UUID},
+		toRelinquish: []string{eth21},
 		newDevices: []mergeLinkLayerDevice{
 			{
 				UUID:       "new-device",
@@ -356,7 +372,7 @@ func (s *mergeLinkLayerSuite) TestApplyLinkLayerChanges(c *tc.C) {
 		toRemove: []string{
 			"old-eth0-ip-1", "old-eth1-ip-1", "eth2-ip-1",
 		},
-		toRelinquish: []string{eth21},
+		toRelinquish: []string{eth12},
 	}
 
 	// Act
@@ -412,7 +428,7 @@ func (s *mergeLinkLayerSuite) TestApplyLinkLayerChanges(c *tc.C) {
 				UUID:       eth12,
 				Address:    "100.168.2.1/24",
 				ProviderID: "eth1-ip-2",
-				Origin:     "provider",
+				Origin:     "machine",
 			},
 			{
 				UUID:       eth21,
@@ -686,6 +702,13 @@ func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithNoMatchingNameNoMatc
 			UUID:       "device1-uuid",
 			Name:       "eth0",
 			ProviderID: "provider-id-1",
+			Addresses: []mergeAddress{
+				{
+					UUID:       "address1-uuid",
+					Value:      "192.168.1.1/24",
+					ProviderID: "provider-ip-1",
+				},
+			},
 		},
 	}
 
@@ -709,7 +732,7 @@ func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithNoMatchingNameNoMatc
 	// Assert: Verify that the device is relinquished
 	c.Check(changes.toAdd, tc.DeepEquals, map[string]string{})
 	c.Check(changes.toRemove, tc.SameContents, []string{"provider-id-1"})
-	c.Check(changes.toRelinquish, tc.SameContents, []string{"device1-uuid"})
+	c.Check(changes.toRelinquish, tc.SameContents, []string{"address1-uuid"})
 	c.Check(changes.newDevices, tc.HasLen, 1)
 	c.Check(changes.newDevices[0].Name, tc.Equals, "eth1")
 }
