@@ -1,5 +1,8 @@
 CREATE TABLE machine_cloud_instance (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
+    -- Instance ID is optional, because it won't be set until the instance
+    -- is actually created in the cloud provider. Otherwise, the record is used
+    -- to track the status of the instance creation process.
     instance_id TEXT,
     display_name TEXT,
     arch TEXT,

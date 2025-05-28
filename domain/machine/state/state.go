@@ -329,7 +329,7 @@ DELETE FROM net_node WHERE uuid IN
 
 		// Remove the machine and instance rows.
 		if err := tx.Query(ctx, deleteMachineInstanceStmt, machineUUIDParam).Run(); err != nil {
-			return errors.Errorf("deleting machine %q: %w", mName, err)
+			return errors.Errorf("deleting machine instance %q: %w", mName, err)
 		}
 		if err := tx.Query(ctx, deleteMachineStmt, machineNameParam).Run(); err != nil {
 			return errors.Errorf("deleting machine %q: %w", mName, err)
