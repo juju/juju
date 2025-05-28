@@ -635,7 +635,7 @@ func (st *State) normalizeLinkLayeredDevices(
 	seenProviders := set.Strings{}
 	duplicatedProviders := set.Strings{}
 	for _, dev := range normalizedIncoming {
-		if dev.ProviderID != "" {
+		if dev.ProviderID == "" {
 			continue
 		}
 		if seenProviders.Contains(dev.ProviderID) {
