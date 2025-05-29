@@ -101,7 +101,7 @@ func (s *stateSuite) setupModel(c *tc.C) coremodel.UUID {
 		Credential:    key,
 		Name:          "test",
 		Qualifier:     "prod",
-		Creator:       userUUID,
+		AdminUsers:    []user.UUID{userUUID},
 		SecretBackend: juju.BackendName,
 	})
 	c.Assert(err, tc.ErrorIsNil)

@@ -172,7 +172,7 @@ func (m *stateSuite) SetUpTest(c *tc.C) {
 			},
 			Name:          "my-test-model",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -237,7 +237,7 @@ func (m *stateSuite) TestModelCloudInfoController(c *tc.C) {
 			},
 			Name:          coremodel.ControllerModelName,
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -338,7 +338,7 @@ func (m *stateSuite) TestGetModelSeedInformationNotActivated(c *tc.C) {
 			},
 			Name:          "my-amazing-model",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -431,7 +431,7 @@ func (m *stateSuite) TestCreateModelWithExisting(c *tc.C) {
 				CloudRegion:   "my-region",
 				Name:          "fantasticmodel",
 				Qualifier:     "prod",
-				Creator:       m.userUUID,
+				AdminUsers:    []user.UUID{m.userUUID},
 				SecretBackend: juju.BackendName,
 			},
 		)
@@ -454,7 +454,7 @@ func (m *stateSuite) TestCreateModelWithSameNameAndOwner(c *tc.C) {
 			CloudRegion:   "my-region",
 			Name:          "my-test-model",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -473,7 +473,7 @@ func (m *stateSuite) TestCreateModelWithInvalidCloudRegion(c *tc.C) {
 			CloudRegion:   "noexist",
 			Name:          "noregion",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -488,10 +488,10 @@ func (m *stateSuite) TestCreateWithEmptyRegion(c *tc.C) {
 		testUUID,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			Cloud:     "my-cloud",
-			Name:      "noregion",
-			Qualifier: "prod",
-			Creator:   m.userUUID,
+			Cloud:      "my-cloud",
+			Name:       "noregion",
+			Qualifier:  "prod",
+			AdminUsers: []user.UUID{m.userUUID},
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -522,7 +522,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *tc.C) {
 			CloudRegion: "my-region",
 			Name:        "controller",
 			Qualifier:   "prod",
-			Creator:     m.userUUID,
+			AdminUsers:  []user.UUID{m.userUUID},
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -539,10 +539,10 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *tc.C) {
 		testUUID,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			Cloud:     "my-cloud",
-			Name:      "noregion",
-			Qualifier: "prod",
-			Creator:   m.userUUID,
+			Cloud:      "my-cloud",
+			Name:       "noregion",
+			Qualifier:  "prod",
+			AdminUsers: []user.UUID{m.userUUID},
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -575,7 +575,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 			CloudRegion: "my-region",
 			Name:        "controller",
 			Qualifier:   "prod",
-			Creator:     m.userUUID,
+			AdminUsers:  []user.UUID{m.userUUID},
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -599,10 +599,10 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 		testUUID,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			Cloud:     "other-cloud",
-			Name:      "noregion",
-			Qualifier: "prod",
-			Creator:   m.userUUID,
+			Cloud:      "other-cloud",
+			Name:       "noregion",
+			Qualifier:  "prod",
+			AdminUsers: []user.UUID{m.userUUID},
 			Credential: corecredential.Key{
 				Cloud: "other-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -640,7 +640,7 @@ func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *tc.C) {
 			CloudRegion:   "noexist",
 			Name:          "noregion",
 			Qualifier:     "prod",
-			Creator:       user.UUID("noexist"), // does not exist
+			AdminUsers:    []user.UUID{"noexist"}, // does not exist
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -666,7 +666,7 @@ func (m *stateSuite) TestCreateModelWithRemovedOwner(c *tc.C) {
 			CloudRegion:   "noexist",
 			Name:          "noregion",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -693,7 +693,7 @@ func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *tc.C) {
 			},
 			Name:          "listtest1",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -720,7 +720,7 @@ func (m *stateSuite) TestCreateModelWithInvalidCloud(c *tc.C) {
 			CloudRegion:   "my-region",
 			Name:          "noregion",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -825,7 +825,7 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *tc.C) {
 			},
 			Name:          "controller",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: kubernetes.BackendName,
 		},
 	)
@@ -916,7 +916,7 @@ func (m *stateSuite) TestListModelUUIDs(c *tc.C) {
 			},
 			Name:          "listtest1",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -939,7 +939,7 @@ func (m *stateSuite) TestListModelUUIDs(c *tc.C) {
 			},
 			Name:          "listtest2",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1042,7 +1042,7 @@ func (m *stateSuite) TestListUserModelUUIDs(c *tc.C) {
 			},
 			Name:          "owned1",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1079,7 +1079,7 @@ func (m *stateSuite) TestListUserModelUUIDs(c *tc.C) {
 			},
 			Name:          "owned2",
 			Qualifier:     "prod",
-			Creator:       user2UUID,
+			AdminUsers:    []user.UUID{user2UUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1165,7 +1165,7 @@ func (m *stateSuite) TestSecretBackendNotFoundForModelCreate(c *tc.C) {
 			},
 			Name:          "secretfailure",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: "no-exist",
 		},
 	)
@@ -1230,7 +1230,7 @@ func (m *stateSuite) TestCleanupBrokenModel(c *tc.C) {
 			},
 			Name:          "broken-model",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1254,7 +1254,7 @@ func (m *stateSuite) TestCleanupBrokenModel(c *tc.C) {
 			},
 			Name:          "broken-model",
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1286,7 +1286,7 @@ func (m *stateSuite) TestIsControllerModelDDL(c *tc.C) {
 			},
 			Name:          coremodel.ControllerModelName,
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1350,7 +1350,7 @@ func (m *stateSuite) TestGetControllerModel(c *tc.C) {
 			},
 			Name:          coremodel.ControllerModelName,
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1649,7 +1649,7 @@ func (m *stateSuite) TestGetEmptyCredentialsModel(c *tc.C) {
 			CloudRegion:   "my-region",
 			Name:          test.modelName,
 			Qualifier:     "prod",
-			Creator:       m.userUUID,
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		}
 
@@ -1725,7 +1725,7 @@ func (m *stateSuite) createTestModelWithoutActivation(
 			},
 			Name:          name,
 			Qualifier:     "prod",
-			Creator:       creatorUUID,
+			AdminUsers:    []user.UUID{creatorUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1829,7 +1829,7 @@ func (s *stateSuite) TestGetControllerModelUUID(c *tc.C) {
 			},
 			Name:          coremodel.ControllerModelName,
 			Qualifier:     "prod",
-			Creator:       s.userUUID,
+			AdminUsers:    []user.UUID{s.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1972,7 +1972,7 @@ func (s *stateSuite) TestCheckModelExistsNotActivated(c *tc.C) {
 			},
 			Name:          "my-amazing-model",
 			Qualifier:     "prod",
-			Creator:       s.userUUID,
+			AdminUsers:    []user.UUID{s.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)

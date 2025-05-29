@@ -113,7 +113,7 @@ func (s *serviceSuite) setupControllerModel(c *tc.C) {
 		Cloud:       "controller-cloud",
 		CloudRegion: "ap-southeast-2",
 		Credential:  cred,
-		Creator:     adminUUID,
+		AdminUsers:  []user.UUID{adminUUID},
 		Name:        coremodel.ControllerModelName,
 		Qualifier:   "prod",
 	})
@@ -168,7 +168,7 @@ func (s *serviceSuite) TestModelCreation(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Creator:     s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
 		Qualifier:   "prod",
 	})
@@ -213,7 +213,7 @@ func (s *serviceSuite) TestModelCreationSecretBackendNotFound(c *tc.C) {
 		Cloud:         "aws",
 		CloudRegion:   "myregion",
 		Credential:    cred,
-		Creator:       s.userUUID,
+		AdminUsers:    []user.UUID{s.userUUID},
 		Name:          "my-awesome-model",
 		Qualifier:     "prod",
 		SecretBackend: "no-exist",
@@ -228,7 +228,7 @@ func (s *serviceSuite) TestModelCreationInvalidCloud(c *tc.C) {
 	_, _, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Creator:     s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
 		Qualifier:   "prod",
 	})
@@ -245,7 +245,7 @@ func (s *serviceSuite) TestModelCreationNoCloudRegion(c *tc.C) {
 	_, _, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "noexist",
-		Creator:     s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
 		Qualifier:   "prod",
 	})
@@ -268,7 +268,7 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *tc.C) {
 	_, _, err = svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Creator:     notFoundUser,
+		AdminUsers:  []user.UUID{notFoundUser},
 		Name:        "my-awesome-model",
 		Qualifier:   "prod",
 	})
@@ -291,9 +291,9 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *tc.C) {
 			Name:  "foo",
 			Owner: usertesting.GenNewName(c, "owner"),
 		},
-		Creator:   s.userUUID,
-		Name:      "my-awesome-model",
-		Qualifier: "prod",
+		AdminUsers: []user.UUID{s.userUUID},
+		Name:       "my-awesome-model",
+		Qualifier:  "prod",
 	})
 
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
@@ -309,7 +309,7 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *tc.C) {
 	_, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Creator:     s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
 		Qualifier:   "prod",
 	})
@@ -319,7 +319,7 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *tc.C) {
 	_, _, err = svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Creator:     s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
 		Qualifier:   "prod",
 	})
@@ -357,7 +357,7 @@ func (s *serviceSuite) TestUpdateModelCredential(c *tc.C) {
 	id, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Creator:     s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
 		Qualifier:   "prod",
 	})
@@ -393,7 +393,7 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Creator:     s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
 		Qualifier:   "prod",
 	})
@@ -422,7 +422,7 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *tc.C) {
 	id, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Creator:     s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
 		Qualifier:   "prod",
 	})
@@ -463,7 +463,7 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Creator:     s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
 		Qualifier:   "prod",
 	})
@@ -498,7 +498,7 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Creator:     s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
 		Qualifier:   "prod",
 	})
@@ -527,7 +527,7 @@ func (s *serviceSuite) TestDeleteModel(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Creator:     s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
 		Qualifier:   "prod",
 	})
@@ -680,7 +680,7 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Creator:     usr1,
+		AdminUsers:  []user.UUID{usr1},
 		Name:        "my-awesome-model",
 		Qualifier:   "tlm",
 	})
@@ -691,7 +691,7 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Creator:     usr1,
+		AdminUsers:  []user.UUID{usr1},
 		Name:        "my-awesome-model1",
 		Qualifier:   "tlm",
 	})
@@ -751,7 +751,7 @@ func (s *serviceSuite) TestImportModel(c *tc.C) {
 			Cloud:       "aws",
 			CloudRegion: "myregion",
 			Credential:  cred,
-			Creator:     s.userUUID,
+			AdminUsers:  []user.UUID{s.userUUID},
 			Name:        "my-awesome-model",
 			Qualifier:   "prod",
 		},
@@ -916,7 +916,7 @@ func (s *serviceSuite) TestCreateModelEmptyCredentialNotSupported(c *tc.C) {
 		Cloud:       "foo",
 		CloudRegion: "ap-southeast-2",
 		Credential:  credential.Key{}, // zero value of credential implies empty
-		Creator:     usertesting.GenUserUUID(c),
+		AdminUsers:  []user.UUID{usertesting.GenUserUUID(c)},
 		Name:        "new-test-model",
 		Qualifier:   "prod",
 	})

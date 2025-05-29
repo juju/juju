@@ -242,7 +242,7 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 			Credential:  cred,
 			Name:        modelName,
 			Qualifier:   owner.String(),
-			Creator:     user.UUID,
+			AdminUsers:  []coreuser.UUID{user.UUID},
 		},
 		UUID: modelID,
 	}

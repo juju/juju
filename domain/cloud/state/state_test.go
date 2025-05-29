@@ -348,7 +348,7 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *tc.C) {
 			Cloud:         testCloud.Name,
 			Name:          coremodel.ControllerModelName,
 			Qualifier:     "admin",
-			Creator:       user.UUID(s.adminUUID.String()),
+			AdminUsers:    []user.UUID{user.UUID(s.adminUUID.String())},
 			SecretBackend: juju.BackendName,
 		},
 	)
