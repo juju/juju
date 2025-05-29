@@ -229,7 +229,7 @@ func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType,
 			},
 			Name:          name,
 			Qualifier:     "prod",
-			Creator:       userUUID,
+			AdminUsers:    []user.UUID{userUUID},
 			SecretBackend: "my-backend",
 		},
 	)

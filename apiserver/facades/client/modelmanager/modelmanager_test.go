@@ -236,7 +236,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	s.modelService.EXPECT().CreateModel(gomock.Any(), domainmodel.GlobalModelCreationArgs{
 		Name:        modelCreateArgs.Name,
 		Qualifier:   userTag.Id(),
-		Creator:     ownerUUID,
+		AdminUsers:  []user.UUID{ownerUUID},
 		Cloud:       expectedCloudName,
 		CloudRegion: expectedCloudRegion,
 		Credential:  expectedCloudCredential,

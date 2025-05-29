@@ -160,7 +160,7 @@ func CreateTestModel(
 			},
 			Name:          name,
 			Qualifier:     "prod",
-			Creator:       userUUID,
+			AdminUsers:    []user.UUID{userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)

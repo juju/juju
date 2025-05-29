@@ -33,8 +33,8 @@ type GlobalModelCreationArgs struct {
 	// associated with the model.
 	Credential credential.Key
 
-	// Creator is the uuid of the user who created this model in the Juju controller.
-	Creator user.UUID
+	// AdminUsers are given admin permissions on the new model.
+	AdminUsers []user.UUID
 
 	// Name is the name of the model.
 	// Must not be empty for a valid struct.
@@ -64,8 +64,10 @@ func (m GlobalModelCreationArgs) Validate() error {
 	if m.Qualifier == "" {
 		return errors.Errorf("%w qualifier cannot be empty", coreerrors.NotValid)
 	}
-	if err := m.Creator.Validate(); err != nil {
-		return errors.Errorf("%w creator: %w", coreerrors.NotValid, err)
+	for _, u := range m.AdminUsers {
+		if err := u.Validate(); err != nil {
+			return errors.Errorf("%w admin users: %w", coreerrors.NotValid, err)
+		}
 	}
 	if !m.Credential.IsZero() {
 		if err := m.Credential.Validate(); err != nil {

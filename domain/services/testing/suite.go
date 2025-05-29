@@ -192,7 +192,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 		Credential:  s.CredentialKey,
 		Name:        model.ControllerModelName,
 		Qualifier:   "prod",
-		Creator:     s.AdminUserUUID,
+		AdminUsers:  []coreuser.UUID{s.AdminUserUUID},
 	}
 
 	fn := modelbootstrap.CreateGlobalModelRecord(s.ControllerModelUUID, controllerArgs)
@@ -218,7 +218,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 		Credential: s.CredentialKey,
 		Name:       "test",
 		Qualifier:  "prod",
-		Creator:    s.AdminUserUUID,
+		AdminUsers: []coreuser.UUID{s.AdminUserUUID},
 	}
 
 	fn = modelbootstrap.CreateGlobalModelRecord(s.DefaultModelUUID, modelArgs)

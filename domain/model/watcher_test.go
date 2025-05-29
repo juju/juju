@@ -141,7 +141,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *tc.C) {
 			},
 			Name:          modelName,
 			Qualifier:     "prod",
-			Creator:       s.userUUID,
+			AdminUsers:    []user.UUID{s.userUUID},
 			SecretBackend: juju.BackendName,
 		})
 		c.Assert(err, tc.ErrorIsNil)
@@ -214,7 +214,7 @@ func (s *watcherSuite) TestWatchModel(c *tc.C) {
 		},
 		Name:          modelName,
 		Qualifier:     "prod",
-		Creator:       s.userUUID,
+		AdminUsers:    []user.UUID{s.userUUID},
 		SecretBackend: juju.BackendName,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -280,7 +280,7 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *tc.C) {
 			Credential:    originalKey,
 			Name:          coremodel.ControllerModelName,
 			Qualifier:     "prod",
-			Creator:       s.userUUID,
+			AdminUsers:    []user.UUID{s.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)

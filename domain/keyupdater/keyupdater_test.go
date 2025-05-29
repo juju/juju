@@ -101,9 +101,9 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 			Name:  credentialName,
 			Owner: user.AdminUserName,
 		},
-		Name:      "test",
-		Qualifier: "prod",
-		Creator:   s.userID,
+		Name:       "test",
+		Qualifier:  "prod",
+		AdminUsers: []user.UUID{s.userID},
 	})
 	s.modelID = modelUUID
 

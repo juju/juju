@@ -99,9 +99,11 @@ func (d *dummyState) Create(
 		return errors.Errorf("%w cloud %q", coreerrors.NotFound, args.Cloud)
 	}
 
-	_, exists = d.users[user.UUID(args.Creator.String())]
-	if !exists {
-		return errors.Errorf("%w for creator %q", usererrors.UserNotFound, args.Creator)
+	for _, u := range args.AdminUsers {
+		_, exists = d.users[u]
+		if !exists {
+			return errors.Errorf("%w for creator %q", usererrors.UserNotFound, u)
+		}
 	}
 
 	hasRegion := false

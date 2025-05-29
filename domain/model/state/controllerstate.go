@@ -197,13 +197,15 @@ func Create(
 		)
 	}
 
-	// Add permissions for the model creator to be an admin of the newly created
+	// Add permissions for the model admins to be an admin of the newly created
 	// model.
-	if err := addAdminPermissions(ctx, preparer, tx, modelID, input.Creator); err != nil {
-		return errors.Errorf(
-			"adding admin permissions to model %q with id %q for user %q: %w",
-			input.Name, modelID, input.Creator, err,
-		)
+	for _, u := range input.AdminUsers {
+		if err := addAdminPermissions(ctx, preparer, tx, modelID, u); err != nil {
+			return errors.Errorf(
+				"adding admin permissions to model %q with id %q for user %q: %w",
+				input.Name, modelID, u, err,
+			)
+		}
 	}
 
 	// Sets the secret backend to be used for the newly created model.
@@ -663,21 +665,23 @@ func createModel(
 		return errors.Errorf("getting cloud %q uuid: %w", input.Cloud, err)
 	}
 
-	creatorUUID := dbUserUUID{UUID: input.Creator.String()}
-	userStmt, err := preparer.Prepare(`
+	for _, u := range input.AdminUsers {
+		creatorUUID := dbUserUUID{UUID: u.String()}
+		userStmt, err := preparer.Prepare(`
 		SELECT &dbUserUUID.uuid
 		FROM user
 		WHERE uuid = $dbUserUUID.uuid
 		AND removed = false
 	`, creatorUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, userStmt, creatorUUID).Get(&creatorUUID)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("%w for model creator %q", accesserrors.UserNotFound, input.Creator)
-	} else if err != nil {
-		return errors.Errorf("getting user uuid for setting model %q creator: %w", input.Name, err)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, userStmt, creatorUUID).Get(&creatorUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("%w for model creator %q", accesserrors.UserNotFound, u)
+		} else if err != nil {
+			return errors.Errorf("getting user uuid for setting model %q creator: %w", input.Name, err)
+		}
 	}
 
 	// If a model with this qualifier/name was previously created, clean it up

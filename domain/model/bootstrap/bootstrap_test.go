@@ -111,9 +111,9 @@ func (s *bootstrapSuite) TestUUIDIsRespected(c *tc.C) {
 				Name:  s.credentialName,
 				Owner: coreuser.AdminUserName,
 			},
-			Name:      "test",
-			Qualifier: "prod",
-			Creator:   s.adminUserUUID,
+			Name:       "test",
+			Qualifier:  "prod",
+			AdminUsers: []coreuser.UUID{s.adminUserUUID},
 		})
 
 	err := fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
@@ -131,9 +131,9 @@ func (s *bootstrapSuite) TestCreateModelDetails(c *tc.C) {
 			Name:  s.credentialName,
 			Owner: coreuser.AdminUserName,
 		},
-		Name:      "test",
-		Qualifier: "prod",
-		Creator:   s.adminUserUUID,
+		Name:       "test",
+		Qualifier:  "prod",
+		AdminUsers: []coreuser.UUID{s.adminUserUUID},
 	}
 
 	// Create a model and then create a read-only model from it.
@@ -196,7 +196,7 @@ func (s *bootstrapSuite) TestCreateModelUnsupportedCredential(c *tc.C) {
 		Credential: credential.Key{},
 		Name:       "test",
 		Qualifier:  "prod",
-		Creator:    s.adminUserUUID,
+		AdminUsers: []coreuser.UUID{s.adminUserUUID},
 	}
 
 	// Create a model and then create a read-only model from it.
@@ -224,7 +224,7 @@ func (s *bootstrapSuite) TestCreateModelWithEmptyCredential(c *tc.C) {
 		Credential: credential.Key{},
 		Name:       "test",
 		Qualifier:  "prod",
-		Creator:    s.adminUserUUID,
+		AdminUsers: []coreuser.UUID{s.adminUserUUID},
 	}
 
 	fn = CreateGlobalModelRecord(modelUUID, args)
@@ -256,9 +256,9 @@ func (s *bootstrapSuite) TestSetModelConstraints(c *tc.C) {
 			Name:  s.credentialName,
 			Owner: coreuser.AdminUserName,
 		},
-		Name:      "test",
-		Qualifier: "prod",
-		Creator:   s.adminUserUUID,
+		Name:       "test",
+		Qualifier:  "prod",
+		AdminUsers: []coreuser.UUID{s.adminUserUUID},
 	}
 
 	// Create a model and then create a read-only model from it.
@@ -328,9 +328,9 @@ func (s *bootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C) {
 			Name:  s.credentialName,
 			Owner: coreuser.AdminUserName,
 		},
-		Name:      "test",
-		Qualifier: "prod",
-		Creator:   s.adminUserUUID,
+		Name:       "test",
+		Qualifier:  "prod",
+		AdminUsers: []coreuser.UUID{s.adminUserUUID},
 	}
 
 	// Create a model and then create a read-only model from it.
@@ -372,9 +372,9 @@ func (s *bootstrapSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *tc.C) 
 			Name:  s.credentialName,
 			Owner: coreuser.AdminUserName,
 		},
-		Name:      "test",
-		Qualifier: "prod",
-		Creator:   s.adminUserUUID,
+		Name:       "test",
+		Qualifier:  "prod",
+		AdminUsers: []coreuser.UUID{s.adminUserUUID},
 	}
 
 	// Create a model and then create a read-only model from it.
