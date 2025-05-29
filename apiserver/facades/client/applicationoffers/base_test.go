@@ -138,7 +138,7 @@ func (s *baseSuite) setupOffersForUUID(c *tc.C, offerUUID, filterAppName string,
 		[]coremodel.Model{
 			{
 				Name:      "prod",
-				OwnerName: userFred,
+				Qualifier: userFred.Name(),
 				UUID:      s.modelUUID,
 				ModelType: coremodel.IAAS,
 			},
@@ -148,7 +148,7 @@ func (s *baseSuite) setupOffersForUUID(c *tc.C, offerUUID, filterAppName string,
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", userFred).Return(
 		coremodel.Model{
 			Name:      "prod",
-			OwnerName: userFred,
+			Qualifier: userFred.Name(),
 			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,

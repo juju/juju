@@ -1189,7 +1189,7 @@ func (c *MockStateGetModelCall) DoAndReturn(f func(context.Context, model.UUID) 
 }
 
 // GetModelByName mocks base method.
-func (m *MockState) GetModelByName(arg0 context.Context, arg1 user.Name, arg2 string) (model.Model, error) {
+func (m *MockState) GetModelByName(arg0 context.Context, arg1, arg2 string) (model.Model, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelByName", arg0, arg1, arg2)
 	ret0, _ := ret[0].(model.Model)
@@ -1216,13 +1216,13 @@ func (c *MockStateGetModelByNameCall) Return(arg0 model.Model, arg1 error) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelByNameCall) Do(f func(context.Context, user.Name, string) (model.Model, error)) *MockStateGetModelByNameCall {
+func (c *MockStateGetModelByNameCall) Do(f func(context.Context, string, string) (model.Model, error)) *MockStateGetModelByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelByNameCall) DoAndReturn(f func(context.Context, user.Name, string) (model.Model, error)) *MockStateGetModelByNameCall {
+func (c *MockStateGetModelByNameCall) DoAndReturn(f func(context.Context, string, string) (model.Model, error)) *MockStateGetModelByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

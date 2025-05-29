@@ -394,7 +394,7 @@ func (api *BaseAPI) getApplicationOffersDetails(
 		model := models[modelUUID]
 
 		for _, offerDetails := range offers {
-			offerDetails.OfferURL = jujucrossmodel.MakeURL(model.OwnerName.Name(), model.Name, offerDetails.OfferName, "")
+			offerDetails.OfferURL = jujucrossmodel.MakeURL(model.Qualifier, model.Name, offerDetails.OfferName, "")
 			result = append(result, offerDetails)
 		}
 	}

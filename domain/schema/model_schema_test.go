@@ -586,8 +586,8 @@ func (s *modelSchemaSuite) TestModelTriggersForImmutableTables(c *tc.C) {
 	modelUUID := utils.MustNewUUID().String()
 	controllerUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
-INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, cloud_region)
-VALUES (?, ?, 'my-model', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');`,
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type, cloud_region)
+VALUES (?, ?, 'my-model', 'prod', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');`,
 		modelUUID, controllerUUID)
 
 	s.assertExecSQLError(c,

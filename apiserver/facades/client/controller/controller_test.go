@@ -287,12 +287,12 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 		[]model.Model{
 			{
 				Name:      "first",
-				OwnerName: user.NameFromTag(owner),
+				Qualifier: owner.Id(),
 				UUID:      modeltesting.GenModelUUID(c),
 			},
 			{
 				Name:      "second",
-				OwnerName: user.NameFromTag(remoteUserTag),
+				Qualifier: remoteUserTag.Id(),
 				UUID:      modeltesting.GenModelUUID(c),
 			},
 		}, nil,
@@ -300,7 +300,7 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 	s.mockModelService.EXPECT().ControllerModel(gomock.Any()).Return(
 		model.Model{
 			Name:      "controller",
-			OwnerName: user.NameFromTag(owner),
+			Qualifier: owner.Id(),
 			UUID:      s.ControllerModelUUID,
 		}, nil,
 	)
@@ -382,7 +382,7 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 		{
 			UUID:      s.DomainServicesSuite.DefaultModelUUID,
 			Name:      "test",
-			OwnerName: user.NameFromTag(s.Owner),
+			Qualifier: s.Owner.Id(),
 			ModelType: model.IAAS,
 		},
 	}
@@ -503,7 +503,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(model1.UUID()),
 			Name:      model1.Name(),
-			OwnerName: user.NameFromTag(model1.Owner()),
+			Qualifier: model1.Owner().Id(),
 		}, nil,
 	)
 
@@ -515,7 +515,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(model2.UUID()),
 			Name:      model2.Name(),
-			OwnerName: user.NameFromTag(model2.Owner()),
+			Qualifier: model2.Owner().Id(),
 		}, nil,
 	)
 
@@ -609,7 +609,7 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			OwnerName: user.NameFromTag(m.Owner()),
+			Qualifier: m.Owner().Id(),
 		}, nil,
 	)
 	out, err := s.controller.InitiateMigration(c.Context(), args)
@@ -633,7 +633,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			OwnerName: user.NameFromTag(m.Owner()),
+			Qualifier: m.Owner().Id(),
 		}, nil,
 	)
 
@@ -697,7 +697,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			OwnerName: user.NameFromTag(m.Owner()),
+			Qualifier: m.Owner().Id(),
 		}, nil,
 	)
 	out, err := s.controller.InitiateMigration(c.Context(), args)
@@ -724,7 +724,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			OwnerName: user.NameFromTag(m.Owner()),
+			Qualifier: m.Owner().Id(),
 		}, nil,
 	)
 
@@ -1252,22 +1252,22 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 	models := []model.Model{
 		{
 			Name:      "controller",
-			OwnerName: user.NameFromTag(testAdmin),
+			Qualifier: testAdmin.Id(),
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "no-access",
-			OwnerName: user.NameFromTag(remoteUserTag),
+			Qualifier: remoteUserTag.Id(),
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "owned",
-			OwnerName: user.NameFromTag(admin),
+			Qualifier: admin.Id(),
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "user",
-			OwnerName: user.NameFromTag(remoteUserTag),
+			Qualifier: remoteUserTag.Id(),
 			ModelType: model.IAAS,
 		},
 	}
@@ -1286,7 +1286,7 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 	for i, userModel := range response.UserModels {
 		c.Assert(userModel.Type, tc.DeepEquals, model.IAAS.String())
 		c.Assert(models[i].Name, tc.DeepEquals, userModel.Name)
-		c.Assert(names.NewUserTag(models[i].OwnerName.Name()).String(), tc.DeepEquals, userModel.OwnerTag)
+		c.Assert(names.NewUserTag(models[i].Qualifier).String(), tc.DeepEquals, userModel.OwnerTag)
 		c.Assert(models[i].ModelType.String(), tc.DeepEquals, userModel.Type)
 	}
 }

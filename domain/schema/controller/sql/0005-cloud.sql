@@ -69,15 +69,14 @@ CREATE TABLE cloud (
 CREATE VIEW v_cloud
 AS
 -- This selects the controller model's cloud uuid. We use this when loading
--- clouds to know if the cloud is the controllers cloud.
+-- clouds to know if the cloud is the controller's cloud.
 WITH
 controllers AS (
     SELECT m.cloud_uuid
     FROM model AS m
-    JOIN user AS u ON m.owner_uuid = u.uuid
     WHERE
         m.name = 'controller'
-        AND u.name = 'admin'
+        AND m.qualifier = 'admin'
         AND m.activated = true
 )
 

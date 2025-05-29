@@ -20,6 +20,9 @@ type ModelInfo struct {
 	// Name is the name of the model.
 	Name string
 
+	// Qualifier disambiguates the model name.
+	Qualifier string
+
 	// Type is the type of the model.
 	Type ModelType
 

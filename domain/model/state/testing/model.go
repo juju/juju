@@ -159,7 +159,8 @@ func CreateTestModel(
 				Name:  "foobar",
 			},
 			Name:          name,
-			Owner:         userUUID,
+			Qualifier:     "prod",
+			Creator:       userUUID,
 			SecretBackend: juju.BackendName,
 		},
 	)

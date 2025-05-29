@@ -241,7 +241,8 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 			CloudRegion: model.CloudRegion(),
 			Credential:  cred,
 			Name:        modelName,
-			Owner:       user.UUID,
+			Qualifier:   owner.String(),
+			Creator:     user.UUID,
 		},
 		UUID: modelID,
 	}

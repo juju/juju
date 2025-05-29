@@ -62,8 +62,8 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	modelUUID := uuid.MustNewUUID()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "prod",  "iaas", "test-model", "ec2")
 		`, modelUUID.String(), testing.ControllerTag.Id())
 		return err
 	})
