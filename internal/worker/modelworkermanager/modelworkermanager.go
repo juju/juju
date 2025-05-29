@@ -57,7 +57,7 @@ type GetControllerConfigFunc func(ctx context.Context, domainServices services.D
 type NewModelConfig struct {
 	Authority              pki.Authority
 	ModelName              string
-	ModelQualifier         string
+	ModelQualifier         model.Qualifier
 	ModelUUID              string
 	ModelType              model.ModelType
 	ModelMetrics           MetricSink

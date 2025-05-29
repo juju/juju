@@ -24,7 +24,7 @@ type ModelInfoSummary struct {
 	Name string
 
 	// Qualifier disambiguates the model name.
-	Qualifier string
+	Qualifier coremodel.Qualifier
 
 	// UUID is the model unique identifier.
 	UUID coremodel.UUID

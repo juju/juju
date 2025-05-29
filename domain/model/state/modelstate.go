@@ -695,7 +695,7 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 	info := coremodel.ModelInfo{
 		UUID:              coremodel.UUID(m.UUID),
 		Name:              m.Name,
-		Qualifier:         m.Qualifier,
+		Qualifier:         coremodel.Qualifier(m.Qualifier),
 		Type:              coremodel.ModelType(m.Type),
 		Cloud:             m.Cloud,
 		CloudType:         m.CloudType,
@@ -942,7 +942,7 @@ FROM   model, agent_version, machine_count, unit_count, core_count
 
 	rval := model.ModelInfoSummary{
 		Name:           infoSummary.Name,
-		Qualifier:      infoSummary.Qualifier,
+		Qualifier:      coremodel.Qualifier(infoSummary.Qualifier),
 		UUID:           coremodel.UUID(infoSummary.UUID),
 		ModelType:      coremodel.ModelType(infoSummary.Type),
 		CloudName:      infoSummary.Cloud,
@@ -999,7 +999,7 @@ func InsertModelInfo(
 		UUID:              args.UUID.String(),
 		ControllerUUID:    args.ControllerUUID.String(),
 		Name:              args.Name,
-		Qualifier:         args.Qualifier,
+		Qualifier:         args.Qualifier.String(),
 		Type:              args.Type.String(),
 		Cloud:             args.Cloud,
 		CloudType:         args.CloudType,

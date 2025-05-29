@@ -89,7 +89,7 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 
 	return coremodel.Model{
 		Name:        m.Name,
-		Qualifier:   m.Qualifier,
+		Qualifier:   coremodel.Qualifier(m.Qualifier),
 		Life:        corelife.Value(m.Life),
 		UUID:        coremodel.UUID(m.UUID),
 		ModelType:   coremodel.ModelType(m.ModelType),

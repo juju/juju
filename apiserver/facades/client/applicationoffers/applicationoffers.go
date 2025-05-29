@@ -430,7 +430,11 @@ func (api *OffersAPIv5) FindApplicationOffers(ctx context.Context, filters param
 		for _, m := range models {
 			modelFilter := filters.Filters[0]
 			modelFilter.ModelName = m.Name
-			modelFilter.OwnerName = m.Qualifier
+			tag, err := model.UserTagFromQualifier(m.Qualifier)
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			modelFilter.OwnerName = tag.Id()
 			filtersToUse.Filters = append(filtersToUse.Filters, modelFilter)
 		}
 	} else {

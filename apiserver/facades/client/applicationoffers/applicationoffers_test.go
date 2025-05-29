@@ -701,7 +701,7 @@ func (s *applicationOffersSuite) TestShowError(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", fredUser).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Qualifier: fredUser.Name(),
+			Qualifier: coremodel.Qualifier(coremodel.Qualifier(fredUser.Name())),
 			UUID:      coremodel.UUID(s.modelUUID.String()),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -729,7 +729,7 @@ func (s *applicationOffersSuite) TestShowNotFound(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", fredUser).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Qualifier: fredUser.Name(),
+			Qualifier: coremodel.Qualifier(fredUser.Name()),
 			UUID:      coremodel.UUID(s.modelUUID.String()),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -783,7 +783,7 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", userFred).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Qualifier: userFred.Name(),
+			Qualifier: coremodel.Qualifier(userFred.Name()),
 			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -791,7 +791,7 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "test", userFred).Return(
 		coremodel.Model{
 			Name:      "test",
-			Qualifier: userFred.Name(),
+			Qualifier: coremodel.Qualifier(userFred.Name()),
 			UUID:      coremodel.UUID("uuid2"),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -1314,7 +1314,7 @@ func (s *applicationOffersSuite) TestFindError(c *tc.C) {
 		[]coremodel.Model{
 			{
 				Name:      "prod",
-				Qualifier: userFred.Name(),
+				Qualifier: coremodel.Qualifier(userFred.Name()),
 				UUID:      coremodel.UUID(s.modelUUID.String()),
 				ModelType: coremodel.IAAS,
 			},
@@ -1323,7 +1323,7 @@ func (s *applicationOffersSuite) TestFindError(c *tc.C) {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", userFred).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Qualifier: userFred.Name(),
+			Qualifier: coremodel.Qualifier(userFred.Name()),
 			UUID:      coremodel.UUID(s.modelUUID.String()),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -1630,7 +1630,7 @@ func (s *consumeSuite) setupOffer(c *tc.C) string {
 		[]coremodel.Model{
 			{
 				Name:      "prod",
-				Qualifier: userFred.Name(),
+				Qualifier: coremodel.Qualifier(userFred.Name()),
 				UUID:      modelUUID,
 				ModelType: coremodel.IAAS,
 			},
@@ -1639,7 +1639,7 @@ func (s *consumeSuite) setupOffer(c *tc.C) string {
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", userFred).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Qualifier: userFred.Name(),
+			Qualifier: coremodel.Qualifier(userFred.Name()),
 			UUID:      modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,

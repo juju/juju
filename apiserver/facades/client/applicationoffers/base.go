@@ -391,10 +391,14 @@ func (api *BaseAPI) getApplicationOffersDetails(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		model := models[modelUUID]
+		m := models[modelUUID]
+		ownerTag, err := model.UserTagFromQualifier(m.Qualifier)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
 		for _, offerDetails := range offers {
-			offerDetails.OfferURL = jujucrossmodel.MakeURL(model.Qualifier, model.Name, offerDetails.OfferName, "")
+			offerDetails.OfferURL = jujucrossmodel.MakeURL(ownerTag.Id(), m.Name, offerDetails.OfferName, "")
 			result = append(result, offerDetails)
 		}
 	}

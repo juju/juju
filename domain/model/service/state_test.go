@@ -189,7 +189,7 @@ func (d *dummyState) GetModelByName(
 	modelName string,
 ) (coremodel.Model, error) {
 	for _, model := range d.models {
-		if model.Qualifier == qualifier && model.Name == modelName {
+		if model.Qualifier.String() == qualifier && model.Name == modelName {
 			return model, nil
 		}
 	}
@@ -239,7 +239,7 @@ func (d *dummyState) ListModelsForUser(
 		if !ok {
 			continue
 		}
-		if m.Qualifier == userName.String() {
+		if m.Qualifier.String() == userName.String() {
 			rval = append(rval, m)
 		}
 	}
@@ -320,7 +320,7 @@ func (d *dummyState) GetModelUsers(_ context.Context, _ coremodel.UUID) ([]corem
 func (d *dummyState) ListModelSummariesForUser(_ context.Context, userName user.Name) ([]coremodel.UserModelSummary, error) {
 	var rval []coremodel.UserModelSummary
 	for _, m := range d.models {
-		if m.Qualifier == userName.String() {
+		if m.Qualifier.String() == userName.String() {
 			rval = append(rval, coremodel.UserModelSummary{
 				UserAccess: permission.AdminAccess,
 				ModelSummary: coremodel.ModelSummary{
