@@ -3,6 +3,7 @@
 package modelagent
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/juju/tc"
@@ -37,6 +38,10 @@ func (s *agentStreamSuite) TestAgentStreamDBValues(c *tc.C) {
 		err := rows.Scan(&id, &name)
 		c.Assert(err, tc.ErrorIsNil)
 		dbValues[AgentStream(id)] = name
+
+		c.Run(fmt.Sprintf("test agent stream %d/%s IsValid()", id, name), func(t *testing.T) {
+			tc.Assert(t, AgentStream(id).IsValid(), tc.IsTrue)
+		})
 	}
 	c.Assert(dbValues, tc.DeepEquals, map[AgentStream]string{
 		AgentStreamReleased: "released",

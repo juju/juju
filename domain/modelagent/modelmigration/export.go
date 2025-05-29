@@ -223,6 +223,7 @@ func RegisterExport(coordinator Coordinator, logger logger.Logger) {
 // needed services used during export of a model agents information.
 func (b *baseAgentBinaryExportOperation) Setup(scope modelmigration.Scope) error {
 	b.exportService = modelagentservice.NewService(
+		modelagentservice.DefaultAgentBinaryFinder(),
 		modelagentstate.NewState(scope.ModelDB()),
 	)
 	return nil
