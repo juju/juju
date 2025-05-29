@@ -32,7 +32,7 @@ type ModelSummary struct {
 	Name string
 
 	// Qualifier disambiguates the model name.
-	Qualifier string
+	Qualifier Qualifier
 
 	// UUID is the model unique identifier.
 	UUID UUID

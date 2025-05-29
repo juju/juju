@@ -69,11 +69,13 @@ func (api *BaseAPI) checkControllerAdmin(ctx context.Context) error {
 // - [coreerrors.NotValid] when ownerName is not valid.
 func (api *BaseAPI) modelForName(ctx context.Context, modelName, ownerName string) (model.Model, error) {
 	modelPath := fmt.Sprintf("%s/%s", ownerName, modelName)
-	ownerUsername, err := coreuser.NewName(ownerName)
+	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
+	qualifier := model.QualifierFromUserTag(names.NewUserTag(ownerName))
+	qualifierName, err := coreuser.NewName(qualifier.String())
 	if err != nil {
 		return model.Model{}, errors.Trace(err)
 	}
-	m, err := api.modelService.GetModelByNameAndOwner(ctx, modelName, ownerUsername)
+	m, err := api.modelService.GetModelByNameAndOwner(ctx, modelName, qualifierName)
 	if interrors.Is(err, modelerrors.NotFound) {
 		return model.Model{}, interrors.Errorf("model %q %w", modelPath, coreerrors.NotFound)
 	} else if interrors.Is(err, accesserrors.UserNameNotValid) {
@@ -391,10 +393,14 @@ func (api *BaseAPI) getApplicationOffersDetails(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		model := models[modelUUID]
+		m := models[modelUUID]
+		ownerTag, err := model.UserTagFromQualifier(m.Qualifier)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
 		for _, offerDetails := range offers {
-			offerDetails.OfferURL = jujucrossmodel.MakeURL(model.Qualifier, model.Name, offerDetails.OfferName, "")
+			offerDetails.OfferURL = jujucrossmodel.MakeURL(ownerTag.Id(), m.Name, offerDetails.OfferName, "")
 			result = append(result, offerDetails)
 		}
 	}

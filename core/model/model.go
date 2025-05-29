@@ -4,6 +4,11 @@
 package model
 
 import (
+	"regexp"
+	"strings"
+
+	"github.com/juju/names/v6"
+
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
@@ -57,7 +62,7 @@ type Model struct {
 	Name string
 
 	// Qualifier disambiguates the model name.
-	Qualifier string
+	Qualifier Qualifier
 
 	// Life is the current state of the model.
 	// Options are alive, dying, dead. Every model starts as alive, only
@@ -118,4 +123,46 @@ func (u UUID) Validate() error {
 		return errors.Errorf("uuid %q %w", u, coreerrors.NotValid)
 	}
 	return nil
+}
+
+// Qualifier represents a string type used
+// to disambiguate a model name.
+type Qualifier string
+
+// String implements [Stringer].
+func (q Qualifier) String() string {
+	return string(q)
+}
+
+var (
+	validModelNameSnippet = regexp.MustCompile(`^[a-z0-9]+[a-z0-9-]*$`)
+)
+
+// Validate returns an error if the model qualifier is not valid.
+func (q Qualifier) Validate() error {
+	if !validModelNameSnippet.MatchString(q.String()) || len(q.String()) > 63 {
+		return errors.Errorf("model qualifier %q %w", q, coreerrors.NotValid)
+	}
+	return nil
+}
+
+// QualifierFromUserTag returns a model qualifier created
+// from the supplied user tag.
+func QualifierFromUserTag(u names.UserTag) Qualifier {
+	validQualifier := strings.ToLower(u.Id())
+	// Replace chars from a valid user tag that we
+	// don't want in a qualifier with "-".
+	validQualifier = strings.NewReplacer(
+		".", "-", "+", "-", "@", "-",
+	).Replace(validQualifier)
+	return Qualifier(validQualifier)
+}
+
+// UserTagFromQualifier creates a valid user tag
+// from the supplied qualifier.
+func UserTagFromQualifier(q Qualifier) (names.UserTag, error) {
+	if err := q.Validate(); err != nil {
+		return names.UserTag{}, err
+	}
+	return names.NewUserTag(q.String()), nil
 }

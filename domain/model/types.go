@@ -42,7 +42,7 @@ type GlobalModelCreationArgs struct {
 
 	// Qualifier disambiguates the model name.
 	// Must not be empty for a valid struct.
-	Qualifier string
+	Qualifier coremodel.Qualifier
 
 	// SecretBackend dictates the secret backend to be used for the newly
 	// created model. SecretBackend can be left empty and a default will be
@@ -61,8 +61,8 @@ func (m GlobalModelCreationArgs) Validate() error {
 	if m.Name == "" {
 		return errors.Errorf("%w name cannot be empty", coreerrors.NotValid)
 	}
-	if m.Qualifier == "" {
-		return errors.Errorf("%w qualifier cannot be empty", coreerrors.NotValid)
+	if err := m.Qualifier.Validate(); err != nil {
+		return errors.Errorf("%w model qualifier: %w", coreerrors.NotValid, err)
 	}
 	for _, u := range m.AdminUsers {
 		if err := u.Validate(); err != nil {
@@ -94,8 +94,7 @@ type ModelDetailArgs struct {
 	Name string
 
 	// Qualifier disambiguates the model name.
-	// Must not be empty for a valid struct.
-	Qualifier string
+	Qualifier coremodel.Qualifier
 
 	// Type is the type of the model.
 	// Type must satisfy IsValid() for a valid struct.

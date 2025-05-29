@@ -225,7 +225,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	creationArgs := model.GlobalModelCreationArgs{
 		CloudRegion: args.CloudRegion,
 		Name:        args.Name,
-		Qualifier:   ownerTag.Id(),
+		Qualifier:   coremodel.QualifierFromUserTag(ownerTag),
 		Cloud:       cloudTag.Id(),
 	}
 	if args.CloudCredentialTag != "" {
@@ -685,13 +685,17 @@ func makeModelSummary(ctx context.Context, mi coremodel.ModelSummary) (*params.M
 		)
 	}
 	cloudTag := names.NewCloudTag(mi.CloudName)
-	userTag := names.NewUserTag(mi.Qualifier)
+
+	ownerTag, err := coremodel.UserTagFromQualifier(mi.Qualifier)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	summary := &params.ModelSummary{
 		Name:           mi.Name,
 		UUID:           mi.UUID.String(),
 		Type:           mi.ModelType.String(),
-		OwnerTag:       userTag.String(),
+		OwnerTag:       ownerTag.String(),
 		ControllerUUID: mi.ControllerUUID,
 		IsController:   mi.IsController,
 		Life:           mi.Life,
@@ -783,13 +787,17 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 		} else {
 			lastConnection = &lc
 		}
+		ownerTag, err := coremodel.UserTagFromQualifier(mi.Qualifier)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
 
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
 				Name:     mi.Name,
 				UUID:     mi.UUID.String(),
 				Type:     string(mi.ModelType),
-				OwnerTag: names.NewUserTag(mi.Qualifier).String(),
+				OwnerTag: ownerTag.String(),
 			},
 			LastConnection: lastConnection,
 		})
@@ -996,13 +1004,17 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.
 	// read access otherwise we would've returned on the initial check at the
 	// beginning of this method.
 
+	ownerTag, err := coremodel.UserTagFromQualifier(model.Qualifier)
+	if err != nil {
+		return params.ModelInfo{}, errors.Trace(err)
+	}
 	info := params.ModelInfo{
 		Name:           model.Name,
 		Type:           model.ModelType.String(),
 		UUID:           modelUUID.String(),
 		ControllerUUID: m.controllerUUID.String(),
 		IsController:   modelInfo.IsControllerModel,
-		OwnerTag:       names.NewUserTag(model.Qualifier).String(),
+		OwnerTag:       ownerTag.String(),
 		Life:           model.Life,
 		CloudTag:       names.NewCloudTag(model.Cloud).String(),
 		CloudRegion:    model.CloudRegion,

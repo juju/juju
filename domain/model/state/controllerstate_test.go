@@ -1667,7 +1667,7 @@ func (m *stateSuite) TestGetEmptyCredentialsModel(c *tc.C) {
 		c.Check(retrievedModel.CloudRegion, tc.Equals, modelCreationArgs.CloudRegion)
 		c.Check(retrievedModel.Credential, tc.DeepEquals, modelCreationArgs.Credential)
 		c.Check(retrievedModel.Name, tc.Equals, modelCreationArgs.Name)
-		c.Check(retrievedModel.Qualifier, tc.Equals, "prod")
+		c.Check(retrievedModel.Qualifier.String(), tc.Equals, "prod")
 	}
 }
 

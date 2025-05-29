@@ -608,7 +608,7 @@ func makeModel(
 		Cloud:         "dummy",
 		CloudRegion:   "dummy-region",
 		Name:          uniqueName,
-		Owner:         ownerUUID,
+		Qualifier:     "prod",
 		SecretBackend: juju.BackendName,
 	})
 	c.Assert(err, tc.ErrorIsNil)

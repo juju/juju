@@ -107,22 +107,24 @@ func (s *offerAccessSuite) revoke(c *tc.C, user names.UserTag, access params.Off
 }
 
 func (s *offerAccessSuite) setupOffer(c *tc.C, modelUUID, modelName, owner, offerName string) string {
-	ownerName := usertesting.GenNewName(c, owner)
+	qualifier := coremodel.QualifierFromUserTag(names.NewUserTag(owner))
 
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]coremodel.Model{
 			{
 				Name:      modelName,
-				Qualifier: owner,
+				Qualifier: qualifier,
 				UUID:      coremodel.UUID(modelUUID),
 				ModelType: coremodel.IAAS,
 			},
 		}, nil,
 	).AnyTimes()
+	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
+	ownerName := usertesting.GenNewName(c, qualifier.String())
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), modelName, ownerName).Return(
 		coremodel.Model{
 			Name:      modelName,
-			Qualifier: owner,
+			Qualifier: qualifier,
 			UUID:      coremodel.UUID(modelUUID),
 			ModelType: coremodel.IAAS,
 		}, nil,
