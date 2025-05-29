@@ -167,13 +167,48 @@ func (st *State) checkUnitNotDead(
 
 // GetMachineCountNotUsingBase returns the number of machines that are not
 // using one of the supplied bases. If no machines exist in the model or if
-// no machines exist that are using a base not in the set provided, zero is
-// returned with no error.
+// no machines exist using a different base, zero is returned with no error. If
+// a empty set of bases is provided every machine in the model will be included
+// in the count.
 func (st *State) GetMachineCountNotUsingBase(
 	ctx context.Context,
 	bases []corebase.Base,
 ) (int, error) {
-	return 0, errors.New("not implemented")
+	db, err := st.DB()
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	machineBaseValues := make(machineBaseValues, 0, len(bases))
+	for _, base := range bases {
+		machineBaseValues = append(machineBaseValues, base.String())
+	}
+	machineCount := machineCount{}
+
+	stmt, err := st.Prepare(`
+SELECT count(*) AS &machineCount.count
+FROM   machine
+WHERE  base NOT IN ($machineBaseValues[:])
+`,
+		machineBaseValues, machineCount)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, machineBaseValues).Get(&machineCount)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	return machineCount.Count, nil
 }
 
 // GetMachinesAgentBinaryMetadata reports the agent binary metadata that each

@@ -21,6 +21,7 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
 	corearch "github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	coremachinetesting "github.com/juju/juju/core/machine/testing"
@@ -80,6 +81,46 @@ func (s *modelStateSuite) addMachineWithName(c *tc.C, name machine.Name) string 
 	c.Assert(machineUUID, tc.Equals, uuid.String())
 
 	return uuid.String()
+}
+
+// addMachineWithBase adds a new machine to the model using the provided base.
+// The new machine's UUID is returned to the caller.
+func (s *modelStateSuite) addMachineWithBase(
+	c *tc.C, base corebase.Base,
+) machine.UUID {
+	netNodeUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID := coremachinetesting.GenUUID(c)
+
+	netNodeInsert := `
+INSERT INTO net_node(uuid) VALUES (?)
+`
+	machineInsert := `
+INSERT INTO machine (uuid, name, base, net_node_uuid, life_id)
+VALUES (?, ?, ?, ?, ?)
+`
+
+	err = s.ModelTxnRunner().StdTxn(
+		c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, netNodeInsert, netNodeUUID.String())
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.ExecContext(
+				ctx,
+				machineInsert,
+				machineUUID.String(),
+				machineUUID.String(),
+				base.String(),
+				netNodeUUID.String(),
+				life.Alive,
+			)
+			return err
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUID
 }
 
 // registerAgentBinary is a testing utility function that registers the fact
@@ -1167,4 +1208,64 @@ INSERT INTO agent_version (stream_id, target_version) VALUES (1, '4.1.1')
 	agentStream, err = st.GetModelAgentStream(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(agentStream, tc.Equals, modelagent.AgentStreamProposed)
+}
+
+// TestGetMachineCountNotUsingBaseNilMachines tests that when no machines
+// exist in the model [State.GetMachineCountNotUsingBase] returns zero. This is
+// always regardless of the bases supplied.
+func (s *modelStateSuite) TestGetMachineCountNotUsingBaseNilMachines(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	machines, err := st.GetMachineCountNotUsingBase(c.Context(), []corebase.Base{
+		corebase.MakeDefaultBase(corebase.UbuntuOS, "22.04"),
+		corebase.MakeDefaultBase(corebase.UbuntuOS, "23.04"),
+	})
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(machines, tc.Equals, 0)
+}
+
+// TestGetMachineCountNotUsingBaseEmptyBases tests that when no bases are
+// supplied to check against the count of all machines in the model is returned.
+func (s *modelStateSuite) TestGetMachineCountNotUsingBaseEmptyBases(c *tc.C) {
+	s.addMachineWithBase(c, corebase.MakeDefaultBase(corebase.UbuntuOS, "24.04"))
+	st := NewState(s.TxnRunnerFactory())
+
+	machines, err := st.GetMachineCountNotUsingBase(c.Context(), []corebase.Base{})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(machines, tc.Equals, 1)
+}
+
+// TestGetMachineCountNotUsingBaseHas tests that machines not running one of the
+// bases in the supplied list are correctly identified. This test case expects
+// machines to be found in the model.
+func (s *modelStateSuite) TestGetMachineCountNotUsingBasesHas(c *tc.C) {
+	s.addMachineWithBase(c, corebase.MakeDefaultBase(corebase.UbuntuOS, "24.04"))
+	s.addMachineWithBase(c, corebase.MakeDefaultBase(corebase.UbuntuOS, "24.04"))
+	s.addMachineWithBase(c, corebase.MakeDefaultBase(corebase.UbuntuOS, "25.04"))
+	st := NewState(s.TxnRunnerFactory())
+
+	machines, err := st.GetMachineCountNotUsingBase(c.Context(), []corebase.Base{
+		corebase.MakeDefaultBase(corebase.UbuntuOS, "25.04"),
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(machines, tc.Equals, 2)
+}
+
+// TestGetMachineCountNotUsingBaseHasNone tests that when all machines in the
+// model are running one of the supplied bases, that no machines are identified
+// as part of the count.
+func (s *modelStateSuite) TestGetMachineCountNotUsingBasesHasNot(c *tc.C) {
+	s.addMachineWithBase(c, corebase.MakeDefaultBase(corebase.UbuntuOS, "23.04"))
+	s.addMachineWithBase(c, corebase.MakeDefaultBase(corebase.UbuntuOS, "24.04"))
+	s.addMachineWithBase(c, corebase.MakeDefaultBase(corebase.UbuntuOS, "24.04"))
+	s.addMachineWithBase(c, corebase.MakeDefaultBase(corebase.UbuntuOS, "25.04"))
+	st := NewState(s.TxnRunnerFactory())
+
+	machines, err := st.GetMachineCountNotUsingBase(c.Context(), []corebase.Base{
+		corebase.MakeDefaultBase(corebase.UbuntuOS, "25.04"),
+		corebase.MakeDefaultBase(corebase.UbuntuOS, "24.04"),
+		corebase.MakeDefaultBase(corebase.UbuntuOS, "23.04"),
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(machines, tc.Equals, 0)
 }

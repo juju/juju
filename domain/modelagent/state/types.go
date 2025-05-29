@@ -44,6 +44,17 @@ type machineAgentVersionInfo struct {
 	Architecture string `db:"architecture_name"`
 }
 
+// machineBaseValues represents a set of base values associated with a machine.
+type machineBaseValues []string
+
+// machineCount represents the result of counting the number of machines that
+// match a sql expression.
+type machineCount struct {
+	// Count represents the number of machine that have been counted for a
+	// query.
+	Count int `db:"count"`
+}
+
 // rowCount is a quick type that can be used with aggregation queries to store
 // the value of a count().
 type rowCount struct {
