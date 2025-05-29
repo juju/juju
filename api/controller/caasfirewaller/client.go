@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/api/common"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -106,22 +105,6 @@ func (c *Client) Life(ctx context.Context, appName string) (life.Value, error) {
 		return "", params.TranslateWellKnownError(err)
 	}
 	return results.Results[0].Life, nil
-}
-
-// ApplicationConfig returns the config for the specified application.
-func (c *Client) ApplicationConfig(ctx context.Context, applicationName string) (config.ConfigAttributes, error) {
-	var results params.ApplicationGetConfigResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
-	}
-	err := c.facade.FacadeCall(ctx, "ApplicationsConfig", args, &results)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(results.Results) != len(args.Entities) {
-		return nil, errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(results.Results))
-	}
-	return config.ConfigAttributes(results.Results[0].Config), nil
 }
 
 // IsExposed returns whether the specified CAAS application

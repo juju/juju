@@ -8,7 +8,6 @@ import (
 
 	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
@@ -31,7 +30,6 @@ type CAASFirewallerAPI interface {
 	WatchApplication(context.Context, string) (watcher.NotifyWatcher, error)
 
 	IsExposed(context.Context, string) (bool, error)
-	ApplicationConfig(context.Context, string) (config.ConfigAttributes, error)
 
 	ApplicationCharmInfo(ctx context.Context, appName string) (*charmscommon.CharmInfo, error)
 }

@@ -87,31 +87,6 @@ func (f *Facade) isExposed(ctx context.Context, tagString string) (bool, error) 
 	return f.applicationService.IsApplicationExposed(ctx, tag.Id())
 }
 
-// ApplicationsConfig returns the config for the specified applications.
-func (f *Facade) ApplicationsConfig(ctx context.Context, args params.Entities) (params.ApplicationGetConfigResults, error) {
-	results := params.ApplicationGetConfigResults{
-		Results: make([]params.ConfigResult, len(args.Entities)),
-	}
-	for i, arg := range args.Entities {
-		result, err := f.getApplicationConfig(arg.Tag)
-		results.Results[i].Config = result
-		results.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return results, nil
-}
-
-func (f *Facade) getApplicationConfig(tagString string) (map[string]interface{}, error) {
-	tag, err := names.ParseApplicationTag(tagString)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	app, err := f.state.Application(tag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return app.ApplicationConfig()
-}
-
 // WatchApplications starts a StringsWatcher to watch applications
 // deployed to this model.
 func (f *Facade) WatchApplications(ctx context.Context) (params.StringsWatchResult, error) {

@@ -43,7 +43,7 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		resources,
 		ctx.WatcherRegistry(),
 		authorizer,
-		&stateShim{State: ctx.State()},
+		ctx.State(),
 		commonCharmsAPI,
 		appCharmInfoAPI,
 		applicationService,
