@@ -28,6 +28,7 @@ require (
 	github.com/canonical/pebble v1.19.1
 	github.com/chzyer/readline v1.5.1
 	github.com/coreos/go-systemd/v22 v22.5.0
+	github.com/distribution/reference v0.6.0
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gliderlabs/ssh v0.3.8
@@ -173,7 +174,6 @@ require (
 	github.com/creack/pty v1.1.15 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
-	github.com/distribution/reference v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/fatih/color v1.16.0 // indirect
