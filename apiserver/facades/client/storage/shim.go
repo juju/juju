@@ -39,17 +39,6 @@ type storageInterface interface {
 	// identified unit.
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 
-	// AddStorageForUnit is required for storage add functionality.
-	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
-
-	// AttachStorage attaches the storage instance with the
-	// specified tag to the unit with the specified tag.
-	AttachStorage(names.StorageTag, names.UnitTag) error
-
-	// DetachStorage detaches the storage instance with the
-	// specified tag from the unit with the specified tag.
-	DetachStorage(names.StorageTag, names.UnitTag, bool, time.Duration) error
-
 	// DestroyStorageInstance destroys the storage instance with the specified tag.
 	DestroyStorageInstance(names.StorageTag, bool, bool, time.Duration) error
 
@@ -73,9 +62,6 @@ type storageVolume interface {
 
 	// Volume is required for volume functionality.
 	Volume(tag names.VolumeTag) (state.Volume, error)
-
-	// AddExistingFilesystem imports an existing filesystem into the model.
-	AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
 }
 
 type storageFile interface {
@@ -92,9 +78,6 @@ type storageFile interface {
 
 	// Filesystem is required for filesystem functionality.
 	Filesystem(tag names.FilesystemTag) (state.Filesystem, error)
-
-	// AddExistingFilesystem imports an existing filesystem into the model.
-	AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
 }
 
 var getStorageAccessor = func(
