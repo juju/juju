@@ -159,13 +159,13 @@ func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(cont
 		_ = w.claimer.Release(ctx, hash)
 	}()
 
-	runnerCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	runnerCtx, runnerCtxCancel := context.WithCancelCause(ctx)
+	defer runnerCtxCancel(nil)
 
 	// Extend the lock for the duration of the operation.
 	var runner tomb.Tomb
 	runner.Go(func() error {
-		defer cancel()
+		defer runnerCtxCancel(nil)
 
 		return f(runnerCtx)
 	})
@@ -179,18 +179,18 @@ func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(cont
 	// I've only ever witnessed this in tests, but it's a possibility in the
 	// real world.
 	go func() {
-		defer cancel()
-
 		for {
 			select {
 			case <-w.tomb.Dying():
+				// Cancel runnerCtx with tomb dying as the reason.
+				runnerCtxCancel(tomb.ErrDying)
 				return
 			case <-runnerCtx.Done():
 				return
-
 			case <-w.clock.After(extender.Duration()):
 				// Attempt to extend the lock if the function is still running.
 				if err := extender.Extend(runnerCtx); err != nil {
+					runnerCtxCancel(nil)
 					w.logger.Infof(ctx, "failed to extend lock for %q: %v", hash, err)
 					return
 				}
@@ -202,12 +202,20 @@ func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(cont
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-runner.Dying():
-		return runner.Err()
+		err := runner.Err()
+		if errors.Is(err, context.Canceled) &&
+			errors.Is(context.Cause(runnerCtx), tomb.ErrDying) {
+			// If the reason the context was cancelled was because w.tomb was killed,
+			// then this is the true error. Otherwise context cancelled is the error.
+			return tomb.ErrDying
+		}
+		return errors.Trace(err)
 	case <-w.tomb.Dying():
 		// Ensure that we cancel the context if the runner is dying.
 		runner.Kill(nil)
-		if err := runner.Wait(); err != nil {
-			return errors.Trace(err)
+		err := runner.Wait()
+		if err != nil {
+			w.logger.Errorf(ctx, "error while object store dying in lock: %v", err)
 		}
 		return tomb.ErrDying
 	}

@@ -1115,7 +1115,7 @@ func (s *modelServiceSuite) TestGetUserModelSummary(c *tc.C) {
 	)
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr("_.Status.Since", tc.Ignore)
+	mc.AddExpr("_.ModelSummary.Status.Since", tc.Ignore)
 	summary, err := svc.GetUserModelSummary(c.Context(), userUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(summary, mc, coremodel.UserModelSummary{

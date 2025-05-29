@@ -932,8 +932,10 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *tc.C
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
+	step := make(chan struct{})
+
 	s.instances = []instances.Instance{&testInstance{id: "0"}}
-	m0 := &testMachine{c: c, id: "0", life: life.Alive}
+	m0 := &testMachine{c: c, id: "0", life: life.Alive, infoSet: step}
 	s.expectMachines(m0)
 	s.expectProvisioningInfo(m0)
 
@@ -967,20 +969,12 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *tc.C
 		exp.AvailabilityZones(gomock.Any()).Return(network.AvailabilityZones{az1}, nil),
 	)
 
-	step := make(chan struct{}, 1)
-
 	// We really don't care about these calls.
 	// StartInstance is just a synchronisation point.
 	exp.DeriveAvailabilityZones(gomock.Any(), gomock.Any()).Return([]string{}, nil).AnyTimes()
 	exp.StartInstance(gomock.Any(), gomock.Any()).Return(&environs.StartInstanceResult{
 		Instance: &testInstance{id: "instance-0"},
-	}, nil).MinTimes(1).Do(func(context.Context, environs.StartInstanceParams) {
-		select {
-		case step <- struct{}{}:
-		case <-c.Context().Done():
-			c.Fatalf("timed out writing to step channel")
-		}
-	})
+	}, nil).MinTimes(3)
 
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, defaultHarvestMode)
 
@@ -1708,6 +1702,8 @@ type testMachine struct {
 	idErr         error
 	ensureDeadErr error
 	statusErr     error
+
+	infoSet chan struct{}
 }
 
 func (m *testMachine) Id() string {
@@ -1844,6 +1840,13 @@ func (m *testMachine) SetInstanceInfo(
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.instance = &testInstance{id: string(instId)}
+	if m.infoSet != nil {
+		select {
+		case m.infoSet <- struct{}{}:
+		case <-m.c.Context().Done():
+			m.c.Fatal("timed out waiting to send status info set notification")
+		}
+	}
 	return nil
 }
 

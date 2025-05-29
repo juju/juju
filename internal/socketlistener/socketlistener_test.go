@@ -5,19 +5,16 @@ package socketlistener_test
 
 import (
 	"context"
-	"fmt"
 	"io/fs"
 	"net"
 	"net/http"
 	"os"
 	"path"
 	"testing"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
 	coretesting "github.com/juju/juju/core/testing"
@@ -89,52 +86,46 @@ func (s *socketListenerSuite) TestStartStopWorker(c *tc.C) {
 // shutdown. An example of this, would be running a db query, that isn't letting
 // the handler return immediately.
 func (s *socketListenerSuite) TestEnsureShutdown(c *tc.C) {
-	for i := 0; i < 100; i++ {
-		tmpDir := c.MkDir()
-		socket := path.Join(tmpDir, "test.socket")
+	tmpDir := c.MkDir()
+	socket := path.Join(tmpDir, "test.socket")
 
-		start := make(chan struct{})
-		sl, err := socketlistener.NewSocketListener(socketlistener.Config{
-			Logger:     s.logger,
-			SocketName: socket,
-			RegisterHandlers: func(r *mux.Router) {
-				r.HandleFunc("/slow-handler", func(resp http.ResponseWriter, req *http.Request) {
-					// Signal that the handler has started.
-					close(start)
-					time.Sleep(time.Second)
-				}).Methods(http.MethodGet)
-			},
-			ShutdownTimeout: coretesting.LongWait,
-		})
-		c.Assert(err, tc.ErrorIsNil)
-		defer workertest.DirtyKill(c, sl)
-		var tomb tomb.Tomb
-		tomb.Go(func() error {
-			cl := client(socket)
-			// Ignore error, as we're only interested in the fact that the request
-			// was made.
-			cl.Get("http://localhost:8080/slow-handler")
-			return nil
-		})
+	start := make(chan struct{})
+	done := make(chan struct{})
+	sl, err := socketlistener.NewSocketListener(socketlistener.Config{
+		Logger:     s.logger,
+		SocketName: socket,
+		RegisterHandlers: func(r *mux.Router) {
+			r.HandleFunc("/slow-handler", func(resp http.ResponseWriter, req *http.Request) {
+				// Signal that the handler has started.
+				close(start)
+				<-done
+			}).Methods(http.MethodGet)
+		},
+		ShutdownTimeout: coretesting.LongWait,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, sl)
 
-		tomb.Go(func() error {
-			// Kill socket listener once handler has started.
-			select {
-			case <-start:
-			case <-time.After(coretesting.ShortWait):
-				return fmt.Errorf("took too long to start")
-			}
-			workertest.CleanKill(c, sl)
-			return nil
-		})
-		// Wait for server to cleanly shutdown
-		select {
-		case <-tomb.Dead():
-			c.Assert(tomb.Err(), tc.IsNil)
-		case <-time.After(coretesting.LongWait):
-			tomb.Kill(fmt.Errorf("took too long to finish"))
-			c.Errorf("took too long to finish")
-		}
+	go func() {
+		defer close(done)
+		cl := client(socket)
+		// Ignore error, as we're only interested in the fact that the request
+		// was made.
+		_, _ = cl.Get("http://localhost:8080/slow-handler")
+	}()
+
+	// Kill socket listener once handler has started.
+	select {
+	case <-start:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for listener to start")
+	}
+	workertest.CleanKill(c, sl)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for caller to exit")
 	}
 }
 

@@ -200,9 +200,6 @@ func (s *baseObjectStoreSuite) TestLockingForTombKill(c *tc.C) {
 		clock:   clock.WallClock,
 	}
 
-	ctx, _ := w.scopedContext()
-	c.Assert(ctx.Err(), tc.ErrorIsNil)
-
 	wait := make(chan struct{})
 
 	go func() {
@@ -215,7 +212,7 @@ func (s *baseObjectStoreSuite) TestLockingForTombKill(c *tc.C) {
 		}
 	}()
 
-	err := w.withLock(ctx, "hash", func(ctx context.Context) error {
+	err := w.withLock(c.Context(), "hash", func(ctx context.Context) error {
 		close(block)
 		time.Sleep(time.Millisecond * 100)
 		return nil

@@ -88,9 +88,9 @@ func (s *certSuite) TestAutocertFailure(c *tc.C) {
 	})
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_._`, tc.Ignore)
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
 	// We will log the failure to get the certificate, thus assuring us that we actually tried.
 	c.Assert(entries, mc, []loggo.Entry{{
 		Level:   loggo.DEBUG,

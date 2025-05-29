@@ -407,29 +407,52 @@ func (s *MachineSuite) setupIgnoreAddresses(c *tc.C, expectedIgnoreValue bool) c
 	return ignoreAddressCh
 }
 
-func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *tc.C) {
-	for _, expectedIgnoreValue := range []bool{true, false} {
-		ignoreAddressCh := s.setupIgnoreAddresses(c, expectedIgnoreValue)
+func (s *MachineSuite) TestMachineAgentIgnoreAddressesTrue(c *tc.C) {
+	expectedIgnoreValue := true
+	ignoreAddressCh := s.setupIgnoreAddresses(c, expectedIgnoreValue)
 
-		m, _, _ := s.primeAgent(c, state.JobHostUnits)
-		ctrl, a := s.newAgent(c, m)
-		defer ctrl.Finish()
-		defer a.Stop()
-		doneCh := make(chan error)
-		go func() {
-			doneCh <- a.Run(cmdtesting.Context(c))
-		}()
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	ctrl, a := s.newAgent(c, m)
+	defer ctrl.Finish()
+	defer a.Stop()
+	doneCh := make(chan error)
+	go func() {
+		doneCh <- a.Run(cmdtesting.Context(c))
+	}()
 
-		select {
-		case ignoreMachineAddresses := <-ignoreAddressCh:
-			if ignoreMachineAddresses != expectedIgnoreValue {
-				c.Fatalf("expected ignore-machine-addresses = %v, got = %v", expectedIgnoreValue, ignoreMachineAddresses)
-			}
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out waiting for the machiner to start")
+	select {
+	case ignoreMachineAddresses := <-ignoreAddressCh:
+		if ignoreMachineAddresses != expectedIgnoreValue {
+			c.Fatalf("expected ignore-machine-addresses = %v, got = %v", expectedIgnoreValue, ignoreMachineAddresses)
 		}
-		s.waitStopped(c, state.JobHostUnits, a, doneCh)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for the machiner to start")
 	}
+	s.waitStopped(c, state.JobHostUnits, a, doneCh)
+}
+
+func (s *MachineSuite) TestMachineAgentIgnoreAddressesFalse(c *tc.C) {
+	expectedIgnoreValue := false
+	ignoreAddressCh := s.setupIgnoreAddresses(c, expectedIgnoreValue)
+
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	ctrl, a := s.newAgent(c, m)
+	defer ctrl.Finish()
+	defer a.Stop()
+	doneCh := make(chan error)
+	go func() {
+		doneCh <- a.Run(cmdtesting.Context(c))
+	}()
+
+	select {
+	case ignoreMachineAddresses := <-ignoreAddressCh:
+		if ignoreMachineAddresses != expectedIgnoreValue {
+			c.Fatalf("expected ignore-machine-addresses = %v, got = %v", expectedIgnoreValue, ignoreMachineAddresses)
+		}
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for the machiner to start")
+	}
+	s.waitStopped(c, state.JobHostUnits, a, doneCh)
 }
 
 func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *tc.C) {
