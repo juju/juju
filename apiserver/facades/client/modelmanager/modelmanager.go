@@ -252,7 +252,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 			ownerTag.Name(), args.Name, err,
 		)
 	}
-	creationArgs.Creator = userUUID
+	creationArgs.AdminUsers = []user.UUID{userUUID}
 
 	// Create the model in the controller database.
 	modelUUID, activator, err := m.modelService.CreateModel(ctx, creationArgs)
