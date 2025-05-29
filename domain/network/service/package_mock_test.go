@@ -16,6 +16,7 @@ import (
 	database "github.com/juju/juju/core/database"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
+	network0 "github.com/juju/juju/domain/network"
 	internal "github.com/juju/juju/domain/network/internal"
 	environs "github.com/juju/juju/environs"
 	names "github.com/juju/names/v6"
@@ -625,6 +626,44 @@ func (c *MockStateIsSpaceUsedInConstraintsCall) Do(f func(context.Context, netwo
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateIsSpaceUsedInConstraintsCall) DoAndReturn(f func(context.Context, network.SpaceName) (bool, error)) *MockStateIsSpaceUsedInConstraintsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MergeLinkLayerDevice mocks base method.
+func (m *MockState) MergeLinkLayerDevice(arg0 context.Context, arg1 string, arg2 []network0.NetInterface) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MergeLinkLayerDevice", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MergeLinkLayerDevice indicates an expected call of MergeLinkLayerDevice.
+func (mr *MockStateMockRecorder) MergeLinkLayerDevice(arg0, arg1, arg2 any) *MockStateMergeLinkLayerDeviceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeLinkLayerDevice", reflect.TypeOf((*MockState)(nil).MergeLinkLayerDevice), arg0, arg1, arg2)
+	return &MockStateMergeLinkLayerDeviceCall{Call: call}
+}
+
+// MockStateMergeLinkLayerDeviceCall wrap *gomock.Call
+type MockStateMergeLinkLayerDeviceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateMergeLinkLayerDeviceCall) Return(arg0 error) *MockStateMergeLinkLayerDeviceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateMergeLinkLayerDeviceCall) Do(f func(context.Context, string, []network0.NetInterface) error) *MockStateMergeLinkLayerDeviceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateMergeLinkLayerDeviceCall) DoAndReturn(f func(context.Context, string, []network0.NetInterface) error) *MockStateMergeLinkLayerDeviceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
