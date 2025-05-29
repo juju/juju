@@ -10,7 +10,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/user"
 )
 
 // ModelInfoSummary represents a summary of model information from the model's
@@ -23,6 +22,9 @@ import (
 type ModelInfoSummary struct {
 	// Name is the model name.
 	Name string
+
+	// Qualifier disambiguates the model name.
+	Qualifier coremodel.Qualifier
 
 	// UUID is the model unique identifier.
 	UUID coremodel.UUID
@@ -64,9 +66,6 @@ type ModelInfoSummary struct {
 type ModelSummary struct {
 	// Life is the current model's life cycle value.
 	Life corelife.Value
-
-	// OwnerName is the name of the owner of the model.
-	OwnerName user.Name
 
 	// State is the state of the model for calculating the model's status.
 	State ModelState

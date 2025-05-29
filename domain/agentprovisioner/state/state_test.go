@@ -115,6 +115,7 @@ func (s *suite) TestModelID(c *tc.C) {
 		AgentStream:    modelagent.AgentStreamReleased,
 		ControllerUUID: uuid.MustNewUUID(),
 		Name:           "test-model",
+		Qualifier:      "prod",
 		Type:           coremodel.IAAS,
 		Cloud:          "aws",
 		CloudType:      "ec2",
