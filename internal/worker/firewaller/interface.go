@@ -121,6 +121,15 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error)
+
+	// GetUnitMachineName gets the name of the unit's machine.
+	//
+	// The following errors may be returned:
+	//   - [applicationerrors.UnitMachineNotAssigned] if the unit does not have a
+	//     machine assigned.
+	//   - [applicationerrors.UnitNotFound] if the unit cannot be found.
+	//   - [applicationerrors.UnitIsDead] if the unit is dead.
+	GetUnitMachineName(context.Context, unit.Name) (machine.Name, error)
 }
 
 // EnvironFirewaller defines methods to allow the worker to perform
@@ -161,7 +170,6 @@ type Unit interface {
 	Life() life.Value
 	Refresh(ctx context.Context) error
 	Application() (Application, error)
-	AssignedMachine(context.Context) (names.MachineTag, error)
 }
 
 // Application represents a model application.

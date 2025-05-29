@@ -80,42 +80,6 @@ func (s *unitSuite) TestRefresh(c *tc.C) {
 	c.Assert(calls, tc.Equals, 2)
 }
 
-func (s *unitSuite) TestAssignedMachine(c *tc.C) {
-	calls := 0
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, tc.Equals, "Firewaller")
-		c.Check(version, tc.Equals, 0)
-		c.Check(id, tc.Equals, "")
-		c.Assert(arg, tc.DeepEquals, params.Entities{
-			Entities: []params.Entity{{Tag: "unit-mysql-666"}},
-		})
-		if calls > 0 {
-			c.Check(request, tc.Equals, "GetAssignedMachine")
-			c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
-			*(result.(*params.StringResults)) = params.StringResults{
-				Results: []params.StringResult{{Result: "machine-666"}},
-			}
-		} else {
-			c.Check(request, tc.Equals, "Life")
-			c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
-			*(result.(*params.LifeResults)) = params.LifeResults{
-				Results: []params.LifeResult{{Life: life.Alive}},
-			}
-		}
-		calls++
-		return nil
-	})
-	tag := names.NewUnitTag("mysql/666")
-	client, err := firewaller.NewClient(apiCaller)
-	c.Assert(err, tc.ErrorIsNil)
-	u, err := client.Unit(c.Context(), tag)
-	c.Assert(err, tc.ErrorIsNil)
-	m, err := u.AssignedMachine(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(m.Id(), tc.Equals, "666")
-	c.Assert(calls, tc.Equals, 2)
-}
-
 func (s *unitSuite) TestApplication(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "Firewaller")

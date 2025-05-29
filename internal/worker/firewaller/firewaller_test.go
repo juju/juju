@@ -73,8 +73,8 @@ type firewallerBaseSuite struct {
 
 	firewallerStarted bool
 	modelFlushed      chan bool
-	machineFlushed    chan string
-	watchingMachine   chan names.MachineTag
+	machineFlushed    chan machine.Name
+	watchingMachine   chan machine.Name
 
 	mode                string
 	withIpv6            bool
@@ -269,10 +269,10 @@ func (s *firewallerBaseSuite) waitForModelFlush(c *tc.C) {
 	}
 }
 
-func (s *firewallerBaseSuite) waitForMachine(c *tc.C, id string) {
+func (s *firewallerBaseSuite) waitForMachine(c *tc.C, id machine.Name) {
 	select {
 	case got := <-s.watchingMachine:
-		c.Assert(got, tc.Equals, names.NewMachineTag(id))
+		c.Assert(got, tc.Equals, id)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting to watch machine %v", id)
 	}
@@ -312,7 +312,7 @@ func (s *firewallerBaseSuite) addModelMachine(ctrl *gomock.Controller, manual bo
 	}
 
 	// Add a machine.
-	s.machinesCh <- []string{tag.Id()}
+	s.machinesCh <- []string{id}
 	return m, unitsCh
 }
 
@@ -339,7 +339,7 @@ func (s *firewallerBaseSuite) addUnit(c *tc.C, ctrl *gomock.Controller, app *moc
 	u.EXPECT().Life().Return(life.Alive)
 	u.EXPECT().Name().Return(unitName.String()).AnyTimes()
 	u.EXPECT().Application().Return(app, nil).AnyTimes()
-	u.EXPECT().AssignedMachine(gomock.Any()).Return(m.Tag(), nil).AnyTimes()
+	s.applicationService.EXPECT().GetUnitMachineName(gomock.Any(), unitName).Return(machine.Name(m.Tag().Id()), nil).AnyTimes()
 
 	machineUUID := coremachinetesting.GenUUID(c)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(m.Tag().Id())).Return(machineUUID, nil).AnyTimes()
@@ -365,10 +365,10 @@ func (s *firewallerBaseSuite) addUnit(c *tc.C, ctrl *gomock.Controller, app *moc
 
 func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) worker.Worker {
 	s.modelFlushed = make(chan bool, 1)
-	s.machineFlushed = make(chan string, 1)
-	s.watchingMachine = make(chan names.MachineTag, 1)
+	s.machineFlushed = make(chan machine.Name, 1)
+	s.watchingMachine = make(chan machine.Name, 1)
 
-	flushMachineNotify := func(id string) {
+	flushMachineNotify := func(id machine.Name) {
 		select {
 		case s.machineFlushed <- id:
 		default:
@@ -380,9 +380,9 @@ func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) wo
 		default:
 		}
 	}
-	watchMachineNotify := func(tag names.MachineTag) {
+	watchMachineNotify := func(name machine.Name) {
 		select {
-		case s.watchingMachine <- tag:
+		case s.watchingMachine <- name:
 		default:
 		}
 	}
@@ -872,7 +872,7 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *tc.C) {
 	}
 
 	m, _ := s.addMachine(ctrl)
-	s.waitForMachine(c, m.Tag().Id())
+	s.waitForMachine(c, machine.Name(m.Tag().Id()))
 }
 
 func (s *InstanceModeSuite) TestSetClearExposedApplication(c *tc.C) {
@@ -2447,11 +2447,11 @@ func (s *firewallerBaseSuite) mustOpenPortRanges(c *tc.C, u *mocks.MockUnit, end
 		return
 	}
 
-	m, err := u.AssignedMachine(c.Context())
+	machineName, err := s.applicationService.GetUnitMachineName(c.Context(), coreunit.Name(u.Name()))
 	c.Assert(err, tc.ErrorIsNil)
 
 	if s.firewallerStarted {
-		s.openedPortsCh <- []string{m.Id()}
+		s.openedPortsCh <- []string{machineName.String()}
 	}
 }
 
@@ -2469,10 +2469,10 @@ func (s *firewallerBaseSuite) mustClosePortRanges(c *tc.C, u *mocks.MockUnit, en
 		return
 	}
 
-	m, err := u.AssignedMachine(c.Context())
+	machineName, err := s.applicationService.GetUnitMachineName(c.Context(), coreunit.Name(u.Name()))
 	c.Assert(err, tc.ErrorIsNil)
 
 	if s.firewallerStarted {
-		s.openedPortsCh <- []string{m.Id()}
+		s.openedPortsCh <- []string{machineName.String()}
 	}
 }

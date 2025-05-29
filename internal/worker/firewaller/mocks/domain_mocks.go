@@ -246,6 +246,45 @@ func (c *MockApplicationServiceGetExposedEndpointsCall) DoAndReturn(f func(conte
 	return c
 }
 
+// GetUnitMachineName mocks base method.
+func (m *MockApplicationService) GetUnitMachineName(arg0 context.Context, arg1 unit.Name) (machine.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitMachineName", arg0, arg1)
+	ret0, _ := ret[0].(machine.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitMachineName indicates an expected call of GetUnitMachineName.
+func (mr *MockApplicationServiceMockRecorder) GetUnitMachineName(arg0, arg1 any) *MockApplicationServiceGetUnitMachineNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitMachineName", reflect.TypeOf((*MockApplicationService)(nil).GetUnitMachineName), arg0, arg1)
+	return &MockApplicationServiceGetUnitMachineNameCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitMachineNameCall wrap *gomock.Call
+type MockApplicationServiceGetUnitMachineNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitMachineNameCall) Return(arg0 machine.Name, arg1 error) *MockApplicationServiceGetUnitMachineNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitMachineNameCall) Do(f func(context.Context, unit.Name) (machine.Name, error)) *MockApplicationServiceGetUnitMachineNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitMachineNameCall) DoAndReturn(f func(context.Context, unit.Name) (machine.Name, error)) *MockApplicationServiceGetUnitMachineNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // IsApplicationExposed mocks base method.
 func (m *MockApplicationService) IsApplicationExposed(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
