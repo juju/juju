@@ -1018,76 +1018,53 @@ func (st State) InitialWatchStatementForOwnedSecrets(
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 ) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
-		var ownedURIs []*coresecrets.URI
-		err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-			var err error
-			ownedURIs, err = st.GetSecretsForOwners(ctx, appOwners, unitOwners)
+		var dbSecrets secretIDs
+		err := runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) (err error) {
+			dbSecrets, err = st.getSecretsForOwners(ctx, tx, appOwners, unitOwners)
 			return errors.Capture(err)
 		})
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		ids := make([]string, len(ownedURIs))
-		for i, uri := range ownedURIs {
-			ids[i] = uri.ID
+		var ids []string
+		for _, secret := range dbSecrets {
+			ids = append(ids, secret.ID)
 		}
 		return ids, nil
 	}
 	return "secret_metadata", queryFunc
 }
 
-// IsSecretOwnedBy returns whether the secret with the given URI is owned by the specified apps and/or units.
-// If no secret is found, it returns false and no error.
-func (st State) IsSecretOwnedBy(
-	ctx context.Context,
-	uri *coresecrets.URI,
-	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-) (bool, error) {
+// GetOwnedSecretIDs returns a slice of the secret ID owned by the specified apps and/or units.
+func (st State) GetOwnedSecretIDs(
+	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) ([]string, error) {
 	if len(appOwners) == 0 && len(unitOwners) == 0 {
-		return false, errors.New("must supply at least one app owner or unit owner")
+		return nil, errors.New("must supply at least one app owner or unit owner")
 	}
 
 	db, err := st.DB()
 	if err != nil {
-		return false, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	query := `
-SELECT COUNT(*) AS &count.num
-FROM   secret_metadata sm
-       LEFT JOIN secret_application_owner sao ON sao.secret_id = sm.secret_id
-       LEFT JOIN application a ON a.uuid = sao.application_uuid
-       LEFT JOIN secret_unit_owner suo ON suo.secret_id = sm.secret_id
-       LEFT JOIN unit u ON u.uuid = suo.unit_uuid
-WHERE  (sao.application_uuid <> "" OR suo.unit_uuid <> "")
-AND    (a.name IN ($ApplicationOwners[:]) OR u.name IN ($UnitOwners[:]))
-AND    sm.secret_id = $secretID.id
-`
-
-	count := count{}
-	secretID := secretID{ID: uri.ID}
-	queryStmt, err := st.Prepare(query, count, appOwners, unitOwners, secretID)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
+	var dbSecrets secretIDs
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, queryStmt, appOwners, unitOwners, secretID).Get(&count)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			// We don't care if it exists or not, just whether it's owned by the specified apps/units.
-			return nil
-		}
+		dbSecrets, err = st.getSecretsForOwners(ctx, tx, appOwners, unitOwners)
 		return errors.Capture(err)
 	}); err != nil {
-		return false, errors.Capture(err)
+		return nil, errors.Errorf("getting owned secret IDs: %w", err)
 	}
-	return count.Num > 0, nil
+	var result []string
+	for _, secret := range dbSecrets {
+		result = append(result, secret.ID)
+	}
+	return result, nil
 }
 
-// GetSecretsForOwners returns the secrets owned by the specified apps and/or units.
-func (st State) GetSecretsForOwners(
-	ctx domain.AtomicContext, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-) ([]*coresecrets.URI, error) {
+func (st State) getSecretsForOwners(
+	ctx context.Context, tx *sqlair.TX, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) (secretIDs, error) {
 	if len(appOwners) == 0 && len(unitOwners) == 0 {
 		return nil, errors.New("must supply at least one app owner or unit owner")
 	}
@@ -1114,21 +1091,12 @@ AND    (a.name IN ($ApplicationOwners[:]) OR u.name IN ($UnitOwners[:]))
 		return nil, errors.Capture(err)
 	}
 
-	var (
-		dbSecrets secretIDs
-		uris      []*coresecrets.URI
-	)
-	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, queryStmt, appOwners, unitOwners).GetAll(&dbSecrets)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
-		}
-		uris, err = dbSecrets.toSecretURIs()
-		return errors.Capture(err)
-	}); err != nil {
+	var dbSecrets secretIDs
+	err = tx.Query(ctx, queryStmt, appOwners, unitOwners).GetAll(&dbSecrets)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Capture(err)
 	}
-	return uris, nil
+	return dbSecrets, nil
 }
 
 // ListSecrets returns the secrets matching the specified criteria.
@@ -3315,13 +3283,14 @@ func (st State) InitialWatchStatementForObsoleteRevision(
 
 // GetRevisionIDsForObsolete filters the revision IDs that are obsolete and
 // owned by the specified owners.Either revisionUUIDs, appOwners,
-// or unitOwners must be specified.
+// or unitOwners must be specified. It returns a map of revision UUIDs
+// to their corresponding secret IDs.
 func (st State) GetRevisionIDsForObsolete(
 	ctx context.Context,
 	appOwners domainsecret.ApplicationOwners,
 	unitOwners domainsecret.UnitOwners,
 	revisionUUIDs ...string,
-) ([]string, error) {
+) (map[string]string, error) {
 	if len(revisionUUIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
 		return nil, nil
 	}
@@ -3330,15 +3299,21 @@ func (st State) GetRevisionIDsForObsolete(
 		return nil, errors.Capture(err)
 	}
 
-	var rows obsoleteRevisionRows
+	var revisions []secretRevision
 	if err := st.getRevisionForObsolete(
-		ctx, db,
-		"(sr.revision, sr.secret_id) AS (&obsoleteRevisionRow.*)", obsoleteRevisionRow{}, &rows,
+		ctx, db, `
+sr.secret_id AS &secretRevision.secret_id,
+sr.revision AS &secretRevision.revision,
+sro.revision_uuid AS &secretRevision.uuid`, secretRevision{}, &revisions,
 		appOwners, unitOwners, revisionUUIDs...,
 	); err != nil {
 		return nil, errors.Capture(err)
 	}
-	return rows.toRevIDs(), nil
+	result := make(map[string]string, len(revisions))
+	for _, rev := range revisions {
+		result[rev.ID] = getRevisionID(rev.SecretID, rev.Revision)
+	}
+	return result, nil
 }
 
 func (st State) getRevisionForObsolete(

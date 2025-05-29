@@ -265,14 +265,16 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *tc.C) {
 	})
 
 	// We create a new revision 3, then the old revision 2 of each secret should become obsolete.
-	// We watch for the unit owned secrets, so the application owned secret uri1 should not be included.
+	// Then delete the uri2 secret, so we should only receive the uri2 event without the previous
+	// obsoleted revision event.
 	harness.AddTest(func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
+		removeSecret(c, ctx, st, uri2)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
-				revID(uri2, 2),
+				uri2.ID, // Only the uri2 secret event is received.
 			),
 		)
 	})

@@ -299,18 +299,6 @@ type (
 	secretExternalRevisions []secretExternalRevision
 )
 
-func (rows secretIDs) toSecretURIs() ([]*coresecrets.URI, error) {
-	result := make([]*coresecrets.URI, len(rows))
-	for i, row := range rows {
-		uri, err := coresecrets.ParseURI(row.ID)
-		if err != nil {
-			return nil, errors.Errorf("secret URI %q not valid", row.ID)
-		}
-		result[i] = uri
-	}
-	return result, nil
-}
-
 func (rows secretIDs) toSecretMetadataForDrain(revRows secretExternalRevisions) ([]*coresecrets.SecretMetadataForDrain, error) {
 	if len(rows) != len(revRows) {
 		// Should never happen.
@@ -491,7 +479,7 @@ func (rows secretAccessors) toSecretGrantsBySecret(scopes secretAccessScopes) (m
 
 type obsoleteRevisionRow struct {
 	SecretID string `db:"secret_id"`
-	Revision string `db:"revision"`
+	Revision int    `db:"revision"`
 }
 
 type obsoleteRevisionRows []obsoleteRevisionRow
@@ -499,7 +487,7 @@ type obsoleteRevisionRows []obsoleteRevisionRow
 func (rows obsoleteRevisionRows) toRevIDs() []string {
 	result := make([]string, len(rows))
 	for i, row := range rows {
-		result[i] = fmt.Sprintf("%s/%s", row.SecretID, row.Revision)
+		result[i] = getRevisionID(row.SecretID, row.Revision)
 	}
 	return result
 }
@@ -507,4 +495,10 @@ func (rows obsoleteRevisionRows) toRevIDs() []string {
 type count struct {
 	// Num is the number of rows.
 	Num int `db:"num"`
+}
+
+// getRevisionID returns a unique identifier for a secret revision.
+// The format is "secretID/revision".
+func getRevisionID(secretID string, revision int) string {
+	return fmt.Sprintf("%s/%d", secretID, revision)
 }

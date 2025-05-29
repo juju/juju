@@ -519,44 +519,29 @@ func (s *stateSuite) createOwnedSecrets(c *tc.C) (appSecretURI *coresecrets.URI,
 	return uri1, uri2
 }
 
-func (s *stateSuite) TestGetSecretsForAppOwners(c *tc.C) {
+func (s *stateSuite) TestGetOwnedSecretIDsForForAppOwners(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
 	uri1, _ := s.createOwnedSecrets(c)
-	var gotURIs []*coresecrets.URI
-	err := st.RunAtomic(c.Context(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotURIs, err = st.GetSecretsForOwners(ctx, domainsecret.ApplicationOwners{"mysql"}, domainsecret.NilUnitOwners)
-		return err
-	})
+	gotURIs, err := st.GetOwnedSecretIDs(c.Context(), domainsecret.ApplicationOwners{"mysql"}, domainsecret.NilUnitOwners)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(gotURIs, tc.SameContents, []*coresecrets.URI{uri1})
+	c.Assert(gotURIs, tc.SameContents, []string{uri1.ID})
 }
 
-func (s *stateSuite) TestGetSecretsForUnitOwners(c *tc.C) {
+func (s *stateSuite) TestGetOwnedSecretIDsForForUnitOwners(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
 	_, uri2 := s.createOwnedSecrets(c)
-	var gotURIs []*coresecrets.URI
-	err := st.RunAtomic(c.Context(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotURIs, err = st.GetSecretsForOwners(ctx, domainsecret.NilApplicationOwners, domainsecret.UnitOwners{"mysql/1"})
-		return err
-	})
+	gotURIs, err := st.GetOwnedSecretIDs(c.Context(), domainsecret.NilApplicationOwners, domainsecret.UnitOwners{"mysql/1"})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(gotURIs, tc.SameContents, []*coresecrets.URI{uri2})
+	c.Assert(gotURIs, tc.SameContents, []string{uri2.ID})
 }
 
-func (s *stateSuite) TestGetSecretsNone(c *tc.C) {
+func (s *stateSuite) TestGetOwnedSecretIDsWithEmptyResult(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
 	s.createOwnedSecrets(c)
-	var gotURIs []*coresecrets.URI
-	err := st.RunAtomic(c.Context(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotURIs, err = st.GetSecretsForOwners(ctx, domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/1"})
-		return err
-	})
+	gotURIs, err := st.GetOwnedSecretIDs(c.Context(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/1"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotURIs, tc.HasLen, 0)
 }
@@ -3321,11 +3306,11 @@ func (s *stateSuite) TestGetRevisionIDsForObsolete(c *tc.C) {
 		getRevUUID(c, s.DB(), uri4, 2),
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.SameContents, []string{
-		revID(uri1, 1),
-		revID(uri2, 1),
-		revID(uri3, 1),
-		revID(uri4, 1),
+	c.Check(result, tc.DeepEquals, map[string]string{
+		getRevUUID(c, s.DB(), uri1, 1): revID(uri1, 1),
+		getRevUUID(c, s.DB(), uri2, 1): revID(uri2, 1),
+		getRevUUID(c, s.DB(), uri3, 1): revID(uri3, 1),
+		getRevUUID(c, s.DB(), uri4, 1): revID(uri4, 1),
 	})
 
 	// appOwners, unitOwners, revUUIDs.
@@ -3348,11 +3333,11 @@ func (s *stateSuite) TestGetRevisionIDsForObsolete(c *tc.C) {
 		getRevUUID(c, s.DB(), uri4, 2),
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.SameContents, []string{
-		revID(uri1, 1),
-		revID(uri2, 1),
-		revID(uri3, 1),
-		revID(uri4, 1),
+	c.Check(result, tc.DeepEquals, map[string]string{
+		getRevUUID(c, s.DB(), uri1, 1): revID(uri1, 1),
+		getRevUUID(c, s.DB(), uri2, 1): revID(uri2, 1),
+		getRevUUID(c, s.DB(), uri3, 1): revID(uri3, 1),
+		getRevUUID(c, s.DB(), uri4, 1): revID(uri4, 1),
 	})
 
 	// appOwners, unitOwners, no revisions.
@@ -3367,11 +3352,11 @@ func (s *stateSuite) TestGetRevisionIDsForObsolete(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.SameContents, []string{
-		revID(uri1, 1),
-		revID(uri2, 1),
-		revID(uri3, 1),
-		revID(uri4, 1),
+	c.Check(result, tc.DeepEquals, map[string]string{
+		getRevUUID(c, s.DB(), uri1, 1): revID(uri1, 1),
+		getRevUUID(c, s.DB(), uri2, 1): revID(uri2, 1),
+		getRevUUID(c, s.DB(), uri3, 1): revID(uri3, 1),
+		getRevUUID(c, s.DB(), uri4, 1): revID(uri4, 1),
 	})
 
 	// appOwners, unitOwners, revUUIDs(with unknown app owned revisions).
@@ -3393,10 +3378,10 @@ func (s *stateSuite) TestGetRevisionIDsForObsolete(c *tc.C) {
 		getRevUUID(c, s.DB(), uri4, 2),
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.SameContents, []string{
-		revID(uri1, 1),
-		revID(uri2, 1),
-		revID(uri4, 1),
+	c.Check(result, tc.DeepEquals, map[string]string{
+		getRevUUID(c, s.DB(), uri1, 1): revID(uri1, 1),
+		getRevUUID(c, s.DB(), uri2, 1): revID(uri2, 1),
+		getRevUUID(c, s.DB(), uri4, 1): revID(uri4, 1),
 	})
 
 	// appOwners, unitOwners, revUUIDs(with unknown unit owned revisions).
@@ -3418,10 +3403,10 @@ func (s *stateSuite) TestGetRevisionIDsForObsolete(c *tc.C) {
 		getRevUUID(c, s.DB(), uri4, 2),
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.SameContents, []string{
-		revID(uri1, 1),
-		revID(uri2, 1),
-		revID(uri3, 1),
+	c.Check(result, tc.DeepEquals, map[string]string{
+		getRevUUID(c, s.DB(), uri1, 1): revID(uri1, 1),
+		getRevUUID(c, s.DB(), uri2, 1): revID(uri2, 1),
+		getRevUUID(c, s.DB(), uri3, 1): revID(uri3, 1),
 	})
 
 	// appOwners, unitOwners, revUUIDs(with part of the owned revisions).
@@ -3438,8 +3423,8 @@ func (s *stateSuite) TestGetRevisionIDsForObsolete(c *tc.C) {
 		getRevUUID(c, s.DB(), uri1, 2),
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.SameContents, []string{
-		revID(uri1, 1),
+	c.Check(result, tc.DeepEquals, map[string]string{
+		getRevUUID(c, s.DB(), uri1, 1): revID(uri1, 1),
 	})
 }
 
@@ -4447,57 +4432,4 @@ func (s *stateSuite) TestInitialWatchStatementForSecretMatadataGetForUnitOwners(
 	c.Check(result, tc.SameContents, []string{
 		uri2.ID,
 	})
-}
-
-func (s *stateSuite) TestIsSecretOwnedBy(c *tc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-	ctx := c.Context()
-
-	s.setupUnits(c, "mysql")
-	s.setupUnits(c, "mediawiki")
-
-	sp := domainsecret.UpsertSecretParams{
-		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
-	}
-	uri1 := coresecrets.NewURI()
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-	c.Assert(err, tc.ErrorIsNil)
-
-	uri2 := coresecrets.NewURI()
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
-	c.Assert(err, tc.ErrorIsNil)
-	updateSecretContent(c, st, uri2)
-
-	// uri1 is owned by application mysql.
-	owned, err := st.IsSecretOwnedBy(ctx, uri1, domainsecret.ApplicationOwners{"mysql"}, nil)
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(owned, tc.IsTrue)
-
-	// uri1 is not owned by the unit mysql/0.
-	owned, err = st.IsSecretOwnedBy(ctx, uri1, nil, domainsecret.UnitOwners{"mysql/0"})
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(owned, tc.IsFalse)
-
-	// uri1 is not owned by the unit mediawiki/0 and application mediawiki.
-	owned, err = st.IsSecretOwnedBy(ctx, uri1, domainsecret.ApplicationOwners{"mediawiki"}, domainsecret.UnitOwners{"mediawiki/0"})
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(owned, tc.IsFalse)
-
-	// uri2 is owned by the unit mysql/0.
-	owned, err = st.IsSecretOwnedBy(ctx, uri2, nil, domainsecret.UnitOwners{"mysql/0"})
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(owned, tc.IsTrue)
-
-	// uri2 is not owned by the application mysql.
-	owned, err = st.IsSecretOwnedBy(ctx, uri2, domainsecret.ApplicationOwners{"mysql"}, nil)
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(owned, tc.IsFalse)
-
-	// uri2 is not owned by the application mediawiki and unit mediawiki/0.
-	owned, err = st.IsSecretOwnedBy(ctx, uri2, domainsecret.ApplicationOwners{"mediawiki"}, domainsecret.UnitOwners{"mediawiki/0"})
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(owned, tc.IsFalse)
-
 }
