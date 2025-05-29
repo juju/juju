@@ -57,7 +57,7 @@ type GetControllerConfigFunc func(ctx context.Context, domainServices services.D
 type NewModelConfig struct {
 	Authority              pki.Authority
 	ModelName              string
-	ModelOwner             string
+	ModelQualifier         string
 	ModelUUID              string
 	ModelType              model.ModelType
 	ModelMetrics           MetricSink
@@ -238,12 +238,12 @@ func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string)
 	}
 
 	cfg := NewModelConfig{
-		Authority:    m.config.Authority,
-		ModelName:    model.Name,
-		ModelOwner:   model.OwnerName.Name(),
-		ModelUUID:    modelUUID,
-		ModelType:    model.ModelType,
-		ModelMetrics: m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
+		Authority:      m.config.Authority,
+		ModelName:      model.Name,
+		ModelQualifier: model.Qualifier,
+		ModelUUID:      modelUUID,
+		ModelType:      model.ModelType,
+		ModelMetrics:   m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
 	}
 
 	// Creates a new worker func based on the model config.
@@ -265,7 +265,7 @@ func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string)
 
 func (m *modelWorkerManager) newWorkerFuncFromConfig(ctx context.Context, cfg NewModelConfig) (func(context.Context) (worker.Worker, error), error) {
 	modelUUID := model.UUID(cfg.ModelUUID)
-	modelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s-%s", cfg.ModelOwner, cfg.ModelName), modelUUID)
+	modelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s/%s", cfg.ModelQualifier, cfg.ModelName), modelUUID)
 
 	// Get the provider domain services for the model.
 	cfg.ProviderServicesGetter = m.config.ProviderServicesGetter

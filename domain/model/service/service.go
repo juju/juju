@@ -76,10 +76,10 @@ type State interface {
 	// GetModel returns the model associated with the provided uuid.
 	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
 
-	// GetModelByName returns the model associated with the given user and name.
-	// If no model exists for the provided user or model name then an error of
+	// GetModelByName returns the model associated with the given qualifier and name.
+	// If no model exists for the provided qualified model name then an error of
 	// [modelerrors.NotFound] will be returned.
-	GetModelByName(context.Context, coreuser.Name, string) (coremodel.Model, error)
+	GetModelByName(context.Context, string, string) (coremodel.Model, error)
 
 	// GetControllerModel returns the model the controller is running in.
 	// If no controller model exists then an error satisfying
@@ -690,7 +690,7 @@ func (s *Service) GetModelByNameAndOwner(ctx context.Context, name string, owner
 	if ownerName.IsZero() {
 		return coremodel.Model{}, errors.Errorf("invalid owner name: %w", accesserrors.UserNameNotValid)
 	}
-	return s.st.GetModelByName(ctx, ownerName, name)
+	return s.st.GetModelByName(ctx, ownerName.String(), name)
 }
 
 // getWatchActivatedModelsMapper returns a mapper function that filters change

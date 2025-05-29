@@ -8,7 +8,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -57,6 +56,9 @@ type Model struct {
 	// Name returns the human friendly name of the model.
 	Name string
 
+	// Qualifier disambiguates the model name.
+	Qualifier string
+
 	// Life is the current state of the model.
 	// Options are alive, dying, dead. Every model starts as alive, only
 	// during the destruction of the model it transitions to dying and then
@@ -87,12 +89,6 @@ type Model struct {
 	// Credential can be the zero value of the struct to not have a credential
 	// associated with the model.
 	Credential credential.Key
-
-	// Owner is the uuid of the user that owns this model in the Juju controller.
-	Owner user.UUID
-
-	// OwnerName is the name of the owner in the Juju controller.
-	OwnerName user.Name
 }
 
 // UUID represents a model unique identifier.
