@@ -133,22 +133,26 @@ func (s *baseSuite) setupOffersForUUID(c *tc.C, offerUUID, filterAppName string,
 	}
 	userFred, err := coreuser.NewName("fred@external")
 	c.Assert(err, tc.ErrorIsNil)
+	qualifier := coremodel.QualifierFromUserTag(names.NewUserTag(userFred.Name()))
 
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]coremodel.Model{
 			{
 				Name:      "prod",
-				Qualifier: userFred.Name(),
+				Qualifier: qualifier,
 				UUID:      s.modelUUID,
 				ModelType: coremodel.IAAS,
 			},
 		}, nil,
 	).AnyTimes()
 
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", userFred).Return(
+	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
+	qualifierName, err := coreuser.NewName(qualifier.String())
+	c.Assert(err, tc.ErrorIsNil)
+	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", qualifierName).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Qualifier: userFred.Name(),
+			Qualifier: qualifier,
 			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,

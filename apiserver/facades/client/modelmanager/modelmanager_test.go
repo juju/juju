@@ -235,7 +235,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	// Create model in controller database.
 	s.modelService.EXPECT().CreateModel(gomock.Any(), domainmodel.GlobalModelCreationArgs{
 		Name:        modelCreateArgs.Name,
-		Qualifier:   userTag.Id(),
+		Qualifier:   coremodel.Qualifier(userTag.Id()),
 		AdminUsers:  []user.UUID{ownerUUID},
 		Cloud:       expectedCloudName,
 		CloudRegion: expectedCloudRegion,
@@ -249,7 +249,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	expectedModelInfo := coremodel.Model{
 		Name:        "foo",
 		UUID:        modelUUID,
-		Qualifier:   userTag.Id(),
+		Qualifier:   coremodel.Qualifier(userTag.Id()),
 		Cloud:       expectedCloudName,
 		CloudRegion: expectedCloudRegion,
 	}
@@ -870,7 +870,7 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	userUUID := usertesting.GenUserUUID(c)
-	userTag := names.NewUserTag("non-admin@remote")
+	userTag := names.NewUserTag("non-admin")
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	modelUUIDNeverAccessed := modeltesting.GenModelUUID(c)
@@ -879,8 +879,8 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 	now := time.Now()
 	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), user.NameFromTag(userTag)).Return(userUUID, nil)
 	s.modelService.EXPECT().ListAllModels(gomock.Any()).Return([]coremodel.Model{
-		{UUID: modelUUID, Qualifier: userTag.Id()},
-		{UUID: modelUUIDNeverAccessed, Qualifier: userTag.Id()},
+		{UUID: modelUUID, Qualifier: coremodel.QualifierFromUserTag(userTag)},
+		{UUID: modelUUIDNeverAccessed, Qualifier: coremodel.QualifierFromUserTag(userTag)},
 		{UUID: modelUUIDNotExist},
 	}, nil)
 
@@ -917,7 +917,7 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 
 func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 	userUUID := usertesting.GenUserUUID(c)
-	userTag := names.NewUserTag("non-admin@remote")
+	userTag := names.NewUserTag("non-admin")
 
 	defer s.setUpAPIWithUser(c, userTag).Finish()
 
@@ -928,8 +928,8 @@ func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 	now := time.Now()
 	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), user.NameFromTag(userTag)).Return(userUUID, nil)
 	s.modelService.EXPECT().ListModelsForUser(gomock.Any(), userUUID).Return([]coremodel.Model{
-		{UUID: modelUUID, Qualifier: userTag.Id()},
-		{UUID: modelUUIDNeverAccessed, Qualifier: userTag.Id()},
+		{UUID: modelUUID, Qualifier: coremodel.QualifierFromUserTag(userTag)},
+		{UUID: modelUUIDNeverAccessed, Qualifier: coremodel.QualifierFromUserTag(userTag)},
 		{UUID: modelUUIDNotExist},
 	}, nil)
 

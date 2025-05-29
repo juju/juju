@@ -462,7 +462,7 @@ WHERE uuid = $dbModel.uuid
 	info := coremodel.ModelInfo{
 		UUID:           coremodel.UUID(model.UUID),
 		Name:           model.Name,
-		Qualifier:      model.Qualifier,
+		Qualifier:      coremodel.Qualifier(model.Qualifier),
 		Type:           coremodel.ModelType(model.ModelType),
 		Cloud:          model.CloudName,
 		CloudType:      model.CloudType,
@@ -686,7 +686,7 @@ func createModel(
 
 	// If a model with this qualifier/name was previously created, clean it up
 	// before creating the new model.
-	if err := cleanupBrokenModel(ctx, preparer, tx, input.Name, input.Qualifier); err != nil {
+	if err := cleanupBrokenModel(ctx, preparer, tx, input.Qualifier, input.Name); err != nil {
 		return errors.Errorf("deleting broken model with name %s/%s: %w", input.Qualifier, input.Name, err)
 	}
 
@@ -696,7 +696,7 @@ func createModel(
 		ModelType: modelType.String(),
 		LifeID:    int(life.Alive),
 		Name:      input.Name,
-		Qualifier: input.Qualifier,
+		Qualifier: input.Qualifier.String(),
 	}
 
 	stmt, err := preparer.Prepare(`
@@ -1557,12 +1557,13 @@ func cleanupBrokenModel(
 	ctx context.Context,
 	preparer domain.Preparer,
 	tx *sqlair.TX,
-	modelName, modelQualifier string,
+	modelQualifier coremodel.Qualifier,
+	modelName string,
 ) error {
 	var uuid = dbUUID{}
 	nameAndQualifier := dbModelNameAndQualifier{
 		Name:      modelName,
-		Qualifier: modelQualifier,
+		Qualifier: modelQualifier.String(),
 	}
 	// Find the UUID for the broken model
 	findBrokenModelStmt, err := preparer.Prepare(`
