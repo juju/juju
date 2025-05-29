@@ -31,6 +31,11 @@ func NewFilesystemUUID() (FilesystemUUID, error) {
 	return FilesystemUUID(id.String()), nil
 }
 
+// String implements the stringer interface.
+func (u FilesystemUUID) String() string {
+	return string(u)
+}
+
 // VolumeUUID represents a volume unique identifier.
 type VolumeUUID string
 
@@ -41,6 +46,11 @@ func NewVolumeUUID() (VolumeUUID, error) {
 		return "", err
 	}
 	return VolumeUUID(id.String()), nil
+}
+
+// String implements the stringer interface.
+func (u VolumeUUID) String() string {
+	return string(u)
 }
 
 // FilesystemAttachmentUUID represents a filesystem attachment unique identifier.
@@ -55,6 +65,11 @@ func NewFilesystemAttachmentUUID() (FilesystemAttachmentUUID, error) {
 	return FilesystemAttachmentUUID(id.String()), nil
 }
 
+// String implements the stringer interface.
+func (u FilesystemAttachmentUUID) String() string {
+	return string(u)
+}
+
 // VolumeAttachmentUUID represents a volume attachment unique identifier.
 type VolumeAttachmentUUID string
 
@@ -65,4 +80,9 @@ func NewVolumeAttachmentUUID() (VolumeAttachmentUUID, error) {
 		return "", err
 	}
 	return VolumeAttachmentUUID(id.String()), nil
+}
+
+// String implements the stringer interface.
+func (u VolumeAttachmentUUID) String() string {
+	return string(u)
 }

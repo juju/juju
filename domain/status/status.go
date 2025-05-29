@@ -15,7 +15,9 @@ import (
 
 // StatusID represents the status of an entity.
 type StatusID interface {
-	K8sPodStatusType | RelationStatusType | UnitAgentStatusType | WorkloadStatusType
+	K8sPodStatusType | RelationStatusType |
+		UnitAgentStatusType | WorkloadStatusType |
+		StorageFilesystemStatusType | StorageVolumeStatusType
 }
 
 // StatusInfo holds details about the status of an entity.
@@ -31,7 +33,7 @@ type UnitStatusID interface {
 	UnitAgentStatusType | WorkloadStatusType
 }
 
-// UnitAgentStatusInfo holds details about the status of a unit agent. This
+// UnitStatusInfo holds details about the status of a unit agent. This
 // indicates if the unit agent is present and currently active in the model.
 type UnitStatusInfo[T UnitStatusID] struct {
 	StatusInfo[T]
