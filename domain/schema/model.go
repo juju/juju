@@ -193,14 +193,18 @@ func ModelDDL() *schema.Schema {
 	// We emit the new target agent version.
 	patches = append(patches, func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+INSERT INTO change_log_namespace VALUES (%[1]d, 'agent_version', 'Agent version changes based on target version');
+
 CREATE TRIGGER trg_log_agent_version_update
 AFTER UPDATE ON agent_version FOR EACH ROW
-WHEN 
+WHEN
 	NEW.target_version != OLD.target_version
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %d, NEW.target_version, DATETIME('now'));
-END;`, tableAgentVersion))
+    VALUES (2, %[1]d, NEW.target_version, DATETIME('now'));
+END;
+`,
+			tableAgentVersion))
 	})
 
 	// Add a custom namespace that only watches for insert and delete operations
