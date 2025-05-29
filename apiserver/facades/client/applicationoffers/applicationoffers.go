@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
-	access "github.com/juju/juju/domain/access"
+	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
@@ -430,7 +430,7 @@ func (api *OffersAPIv5) FindApplicationOffers(ctx context.Context, filters param
 		for _, m := range models {
 			modelFilter := filters.Filters[0]
 			modelFilter.ModelName = m.Name
-			modelFilter.OwnerName = m.OwnerName.Name()
+			modelFilter.OwnerName = m.Qualifier
 			filtersToUse.Filters = append(filtersToUse.Filters, modelFilter)
 		}
 	} else {

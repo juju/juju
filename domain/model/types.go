@@ -33,12 +33,16 @@ type GlobalModelCreationArgs struct {
 	// associated with the model.
 	Credential credential.Key
 
+	// Creator is the uuid of the user who created this model in the Juju controller.
+	Creator user.UUID
+
 	// Name is the name of the model.
 	// Must not be empty for a valid struct.
 	Name string
 
-	// Owner is the uuid of the user that owns this model in the Juju controller.
-	Owner user.UUID
+	// Qualifier disambiguates the model name.
+	// Must not be empty for a valid struct.
+	Qualifier string
 
 	// SecretBackend dictates the secret backend to be used for the newly
 	// created model. SecretBackend can be left empty and a default will be
@@ -57,8 +61,11 @@ func (m GlobalModelCreationArgs) Validate() error {
 	if m.Name == "" {
 		return errors.Errorf("%w name cannot be empty", coreerrors.NotValid)
 	}
-	if err := m.Owner.Validate(); err != nil {
-		return errors.Errorf("%w owner: %w", coreerrors.NotValid, err)
+	if m.Qualifier == "" {
+		return errors.Errorf("%w qualifier cannot be empty", coreerrors.NotValid)
+	}
+	if err := m.Creator.Validate(); err != nil {
+		return errors.Errorf("%w creator: %w", coreerrors.NotValid, err)
 	}
 	if !m.Credential.IsZero() {
 		if err := m.Credential.Validate(); err != nil {
@@ -83,6 +90,10 @@ type ModelDetailArgs struct {
 	// Name is the name of the model.
 	// Must not be empty for a valid struct.
 	Name string
+
+	// Qualifier disambiguates the model name.
+	// Must not be empty for a valid struct.
+	Qualifier string
 
 	// Type is the type of the model.
 	// Type must satisfy IsValid() for a valid struct.

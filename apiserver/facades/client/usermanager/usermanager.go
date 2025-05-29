@@ -23,6 +23,7 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/auth"
 	interrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -186,15 +187,6 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 		return deletions, errors.Trace(err)
 	}
 
-	controllerModel, err := api.modelService.ControllerModel(ctx)
-	if err != nil {
-		return deletions, errors.Trace(err)
-	}
-	controllerOwner, err := api.accessService.GetUser(ctx, controllerModel.Owner)
-	if err != nil {
-		return deletions, errors.Trace(err)
-	}
-
 	// Create the results list to populate.
 	deletions.Results = make([]params.ErrorResult, len(entities.Entities))
 
@@ -214,7 +206,9 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 			continue
 		}
 
-		if controllerOwner.Name.String() == userTag.Id() {
+		// TODO - check if user is the last admin of any models
+		//  do not allow last admin to be deleted.
+		if environs.AdminUser == userTag.Id() {
 			deletions.Results[i].Error = apiservererrors.ServerError(
 				errors.Errorf("cannot delete controller owner %q", userTag.Name()))
 			continue

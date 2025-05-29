@@ -101,8 +101,9 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 				Name:  credentialName,
 				Owner: coreuser.AdminUserName,
 			},
-			Name:  "test",
-			Owner: userID,
+			Name:      "test",
+			Qualifier: "prod",
+			Creator:   userID,
 		},
 	)
 	s.modelID = modelUUID

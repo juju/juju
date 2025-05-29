@@ -225,6 +225,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	creationArgs := model.GlobalModelCreationArgs{
 		CloudRegion: args.CloudRegion,
 		Name:        args.Name,
+		Qualifier:   ownerTag.Id(),
 		Cloud:       cloudTag.Id(),
 	}
 	if args.CloudCredentialTag != "" {
@@ -251,7 +252,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 			ownerTag.Name(), args.Name, err,
 		)
 	}
-	creationArgs.Owner = userUUID
+	creationArgs.Creator = userUUID
 
 	// Create the model in the controller database.
 	modelUUID, activator, err := m.modelService.CreateModel(ctx, creationArgs)
@@ -684,7 +685,7 @@ func makeModelSummary(ctx context.Context, mi coremodel.ModelSummary) (*params.M
 		)
 	}
 	cloudTag := names.NewCloudTag(mi.CloudName)
-	userTag := names.NewUserTag(mi.OwnerName.Name())
+	userTag := names.NewUserTag(mi.Qualifier)
 
 	summary := &params.ModelSummary{
 		Name:           mi.Name,
@@ -788,7 +789,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 				Name:     mi.Name,
 				UUID:     mi.UUID.String(),
 				Type:     string(mi.ModelType),
-				OwnerTag: names.NewUserTag(mi.OwnerName.Name()).String(),
+				OwnerTag: names.NewUserTag(mi.Qualifier).String(),
 			},
 			LastConnection: lastConnection,
 		})
@@ -1001,7 +1002,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.
 		UUID:           modelUUID.String(),
 		ControllerUUID: m.controllerUUID.String(),
 		IsController:   modelInfo.IsControllerModel,
-		OwnerTag:       names.NewUserTag(model.OwnerName.Name()).String(),
+		OwnerTag:       names.NewUserTag(model.Qualifier).String(),
 		Life:           model.Life,
 		CloudTag:       names.NewCloudTag(model.Cloud).String(),
 		CloudRegion:    model.CloudRegion,
