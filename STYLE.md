@@ -4,7 +4,8 @@ All code **must** be formatted using `go fmt`.
 
 #### Line length
 
-Line length must not exceed 80 characters.
+Line length must not exceed 120 characters for code, and 80 characters for
+comments.
 
 ### Imports
 
