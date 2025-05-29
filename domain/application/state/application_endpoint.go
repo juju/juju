@@ -11,6 +11,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -42,6 +43,35 @@ func (st *State) GetApplicationEndpointBindings(ctx context.Context, appUUID cor
 		return nil, errors.Capture(err)
 	}
 	return result, nil
+}
+
+// GetApplicationEndpointNames returns the names of the endpoints for the given
+// application.
+// The following errors may be returned:
+//   - [applicationerrors.ApplicationNotFound] is returned if the application
+//     doesn't exist.
+func (st *State) GetApplicationEndpointNames(ctx context.Context, appUUID coreapplication.ID) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var eps []charmRelationName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf("getting charm for application %q: %w", appUUID, err)
+		}
+		eps, err = st.getCharmRelationNames(ctx, tx, charmID{UUID: charmUUID})
+		if err != nil {
+			return errors.Errorf("getting endpoint names for application %q: %w", appUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return transform.Slice(eps, func(r charmRelationName) string { return r.Name }), nil
 }
 
 // insertApplicationEndpointsParams contains parameters required to insert

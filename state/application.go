@@ -573,20 +573,6 @@ func (a *Application) Endpoints() (eps []relation.Endpoint, err error) {
 	return eps, nil
 }
 
-// Endpoint returns the relation endpoint with the supplied name, if it exists.
-func (a *Application) Endpoint(relationName string) (relation.Endpoint, error) {
-	eps, err := a.Endpoints()
-	if err != nil {
-		return relation.Endpoint{}, err
-	}
-	for _, ep := range eps {
-		if ep.Name == relationName {
-			return ep, nil
-		}
-	}
-	return relation.Endpoint{}, errors.Errorf("application %q has no %q relation", a, relationName)
-}
-
 func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []*Unit) (_ []txn.Op, err error) {
 	// Make sure no storage instances are added or removed.
 

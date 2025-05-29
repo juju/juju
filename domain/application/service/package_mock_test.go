@@ -886,6 +886,45 @@ func (c *MockStateGetApplicationEndpointBindingsCall) DoAndReturn(f func(context
 	return c
 }
 
+// GetApplicationEndpointNames mocks base method.
+func (m *MockState) GetApplicationEndpointNames(arg0 context.Context, arg1 application.ID) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationEndpointNames", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationEndpointNames indicates an expected call of GetApplicationEndpointNames.
+func (mr *MockStateMockRecorder) GetApplicationEndpointNames(arg0, arg1 any) *MockStateGetApplicationEndpointNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationEndpointNames", reflect.TypeOf((*MockState)(nil).GetApplicationEndpointNames), arg0, arg1)
+	return &MockStateGetApplicationEndpointNamesCall{Call: call}
+}
+
+// MockStateGetApplicationEndpointNamesCall wrap *gomock.Call
+type MockStateGetApplicationEndpointNamesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationEndpointNamesCall) Return(arg0 []string, arg1 error) *MockStateGetApplicationEndpointNamesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationEndpointNamesCall) Do(f func(context.Context, application.ID) ([]string, error)) *MockStateGetApplicationEndpointNamesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationEndpointNamesCall) DoAndReturn(f func(context.Context, application.ID) ([]string, error)) *MockStateGetApplicationEndpointNamesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationIDAndNameByUnitName mocks base method.
 func (m *MockState) GetApplicationIDAndNameByUnitName(ctx context.Context, name unit.Name) (application.ID, string, error) {
 	m.ctrl.T.Helper()

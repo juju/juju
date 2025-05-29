@@ -1229,6 +1229,45 @@ func (c *MockApplicationServiceGetApplicationEndpointBindingsCall) DoAndReturn(f
 	return c
 }
 
+// GetApplicationEndpointNames mocks base method.
+func (m *MockApplicationService) GetApplicationEndpointNames(arg0 context.Context, arg1 application.ID) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationEndpointNames", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationEndpointNames indicates an expected call of GetApplicationEndpointNames.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationEndpointNames(arg0, arg1 any) *MockApplicationServiceGetApplicationEndpointNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationEndpointNames", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationEndpointNames), arg0, arg1)
+	return &MockApplicationServiceGetApplicationEndpointNamesCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationEndpointNamesCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationEndpointNamesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationEndpointNamesCall) Return(arg0 []string, arg1 error) *MockApplicationServiceGetApplicationEndpointNamesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationEndpointNamesCall) Do(f func(context.Context, application.ID) ([]string, error)) *MockApplicationServiceGetApplicationEndpointNamesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationEndpointNamesCall) DoAndReturn(f func(context.Context, application.ID) ([]string, error)) *MockApplicationServiceGetApplicationEndpointNamesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationIDByName mocks base method.
 func (m *MockApplicationService) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.ID, error) {
 	m.ctrl.T.Helper()

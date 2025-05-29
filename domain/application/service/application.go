@@ -361,6 +361,13 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]string, error)
 
+	// GetApplicationEndpointNames returns the names of the endpoints for the given
+	// application.
+	// The following errors may be returned:
+	//   - [applicationerrors.ApplicationNotFound] is returned if the application
+	//     doesn't exist.
+	GetApplicationEndpointNames(context.Context, coreapplication.ID) ([]string, error)
+
 	// NamespaceForWatchNetNodeAddress returns the namespace identifier for
 	// net node address changes, which is the ip_address table.
 	NamespaceForWatchNetNodeAddress() string
@@ -1418,6 +1425,20 @@ func (s *Service) GetApplicationEndpointBindings(ctx context.Context, appID core
 
 	bindings, err := s.st.GetApplicationEndpointBindings(ctx, appID)
 	return bindings, errors.Capture(err)
+}
+
+// GetApplicationEndpointNames returns the names of the endpoints for the given
+// application.
+// The following errors may be returned:
+//   - [applicationerrors.ApplicationNotFound] is returned if the application
+//     doesn't exist.
+func (s *Service) GetApplicationEndpointNames(ctx context.Context, appUUID coreapplication.ID) ([]string, error) {
+	if err := appUUID.Validate(); err != nil {
+		return nil, errors.Errorf("validating application UUID: %w", err)
+	}
+
+	eps, err := s.st.GetApplicationEndpointNames(ctx, appUUID)
+	return eps, errors.Capture(err)
 }
 
 // GetDeviceConstraints returns the device constraints for an application.

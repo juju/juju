@@ -1059,6 +1059,27 @@ func (s *applicationServiceSuite) TestGetApplicationEndpointBindings(c *tc.C) {
 	})
 }
 
+func (s *applicationServiceSuite) TestGetApplicationEndpointNames(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationEndpointNames(gomock.Any(), appID).Return([]string{"foo", "bar"}, nil)
+
+	eps, err := s.service.GetApplicationEndpointNames(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(eps, tc.SameContents, []string{"foo", "bar"})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationEndpointNamesAppNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationEndpointNames(gomock.Any(), appID).Return(nil, applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.GetApplicationEndpointNames(c.Context(), appID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *applicationServiceSuite) TestGetDeviceConstraintsAppNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

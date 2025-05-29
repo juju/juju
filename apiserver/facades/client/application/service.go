@@ -301,6 +301,13 @@ type ApplicationService interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]string, error)
 
+	// GetApplicationEndpointNames returns the names of the endpoints for the given
+	// application.
+	// The following errors may be returned:
+	//   - [applicationerrors.ApplicationNotFound] is returned if the application
+	//     doesn't exist.
+	GetApplicationEndpointNames(context.Context, coreapplication.ID) ([]string, error)
+
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint
 	// instances that specify which sources (spaces or CIDRs) can access the
