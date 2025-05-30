@@ -312,16 +312,11 @@ func (u *UniterAPI) PublicAddress(ctx context.Context, args params.Entities) (pa
 		}
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getLegacyUnit(ctx, tag)
+			address, err := u.applicationService.GetUnitPublicAddress(ctx, coreunit.Name(tag.Id()))
 			if err == nil {
-				var address network.SpaceAddress
-				address, err = unit.PublicAddress()
-				if err == nil {
-					result.Results[i].Result = address.Value
-				} else if network.IsNoAddressError(err) {
-					err = apiservererrors.NewNoAddressSetError(tag, "public")
-				}
+				result.Results[i].Result = address.Value
+			} else if network.IsNoAddressError(err) {
+				err = apiservererrors.NewNoAddressSetError(tag, "public")
 			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -346,16 +341,11 @@ func (u *UniterAPI) PrivateAddress(ctx context.Context, args params.Entities) (p
 		}
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getLegacyUnit(ctx, tag)
+			address, err := u.applicationService.GetUnitPrivateAddress(ctx, coreunit.Name(tag.Id()))
 			if err == nil {
-				var address network.SpaceAddress
-				address, err = unit.PrivateAddress()
-				if err == nil {
-					result.Results[i].Result = address.Value
-				} else if network.IsNoAddressError(err) {
-					err = apiservererrors.NewNoAddressSetError(tag, "private")
-				}
+				result.Results[i].Result = address.Value
+			} else if network.IsNoAddressError(err) {
+				err = apiservererrors.NewNoAddressSetError(tag, "private")
 			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
