@@ -120,6 +120,8 @@ type NetConfigState interface {
 	SetMachineNetConfig(ctx context.Context, nodeUUID string, nics []domainnetwork.NetInterface) error
 }
 
+// NetConfigMigrationState describes methods required
+// for migrating machine network configuration.
 type NetConfigMigrationState interface {
 	// AllMachinesAndNetNodes returns all machine names mapped to their
 	// net mode UUIDs in the model.

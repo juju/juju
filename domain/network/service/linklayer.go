@@ -61,7 +61,7 @@ func (s *Service) SetMachineNetConfig(ctx context.Context, mUUID machine.UUID, n
 
 	nodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, mUUID.String())
 	if err != nil {
-		return errors.Errorf("setting net config for machine %q: %w", mUUID, err)
+		return errors.Errorf("retrieving net node for machine %q: %w", mUUID, err)
 	}
 
 	if err := s.st.SetMachineNetConfig(ctx, nodeUUID, nics); err != nil {

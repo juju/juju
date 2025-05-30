@@ -14,8 +14,9 @@ import (
 )
 
 // GetMachineNetNodeUUID returns the net node UUID for the input machine UUID.
-// If such a machine does not exist, an error is returned matching
-// [github.com/juju/juju/domain/application/errors.MachineNotFound].
+// The following errors may be returned:
+//   - [github.com/juju/juju/domain/application/errors.MachineNotFound]
+//     if such a machine does not exist.
 func (st *State) GetMachineNetNodeUUID(ctx context.Context, machineUUID string) (string, error) {
 	db, err := st.DB()
 	if err != nil {
