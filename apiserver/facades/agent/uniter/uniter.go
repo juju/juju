@@ -310,21 +310,23 @@ func (u *UniterAPI) PublicAddress(ctx context.Context, args params.Entities) (pa
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getLegacyUnit(ctx, tag)
-			if err == nil {
-				var address network.SpaceAddress
-				address, err = unit.PublicAddress()
-				if err == nil {
-					result.Results[i].Result = address.Value
-				} else if network.IsNoAddressError(err) {
-					err = apiservererrors.NewNoAddressSetError(tag, "public")
-				}
-			}
+
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		address, err := u.applicationService.GetUnitPublicAddress(ctx, coreunit.Name(tag.Id()))
+		if network.IsNoAddressError(err) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.NewNoAddressSetError(tag, "public"))
+			continue
+		} else if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", tag.Id()))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Result = address.Value
 	}
 	return result, nil
 }
@@ -344,21 +346,23 @@ func (u *UniterAPI) PrivateAddress(ctx context.Context, args params.Entities) (p
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getLegacyUnit(ctx, tag)
-			if err == nil {
-				var address network.SpaceAddress
-				address, err = unit.PrivateAddress()
-				if err == nil {
-					result.Results[i].Result = address.Value
-				} else if network.IsNoAddressError(err) {
-					err = apiservererrors.NewNoAddressSetError(tag, "private")
-				}
-			}
+
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		address, err := u.applicationService.GetUnitPrivateAddress(ctx, coreunit.Name(tag.Id()))
+		if network.IsNoAddressError(err) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.NewNoAddressSetError(tag, "private"))
+			continue
+		} else if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", tag.Id()))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Result = address.Value
 	}
 	return result, nil
 }
@@ -2121,13 +2125,10 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	unit, err := u.st.Unit(unitTag.Id())
-	if err != nil {
-		return params.NetworkInfoResults{}, internalerrors.Capture(err)
-	}
-
-	addr, err := unit.PublicAddress()
-	if err != nil {
+	addr, err := u.applicationService.GetUnitPublicAddress(ctx, coreunit.Name(unitTag.Id()))
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return params.NetworkInfoResults{}, errors.NotFoundf("unit %q", unitTag.Id())
+	} else if err != nil {
 		return params.NetworkInfoResults{}, internalerrors.Capture(err)
 	}
 

@@ -24,6 +24,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/status"
@@ -660,6 +661,168 @@ func (s *uniterSuite) TestHasSubordinates(c *tc.C) {
 			{Result: true},
 			{Result: false},
 			{Error: apiservererrors.ServerError(boom)},
+		},
+	})
+}
+
+func (s *uniterSuite) TestPublicAddressFailCanAccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.badTag = names.NewUnitTag("foo/42")
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.PublicAddress(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestPublicAddressErrorFromDomain(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+	}}
+	boom := internalerrors.New("boom")
+	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(network.SpaceAddress{}, boom)
+
+	result, err := s.uniter.PublicAddress(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Error: apiservererrors.ServerError(boom)},
+		},
+	})
+}
+
+func (s *uniterSuite) TestPublicAddress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+	}}
+	addr := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "192.168.0.1",
+		},
+	}
+	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(addr, nil)
+
+	result, err := s.uniter.PublicAddress(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: "192.168.0.1"},
+		},
+	})
+}
+
+func (s *uniterSuite) TestPrivateAddressFailCanAccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.badTag = names.NewUnitTag("foo/42")
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.PrivateAddress(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestPrivateAddressErrorFromDomain(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+	}}
+	boom := internalerrors.New("boom")
+	s.applicationService.EXPECT().GetUnitPrivateAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(network.SpaceAddress{}, boom)
+
+	result, err := s.uniter.PrivateAddress(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Error: apiservererrors.ServerError(boom)},
+		},
+	})
+}
+
+func (s *uniterSuite) TestPrivateAddress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+	}}
+	addr := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "192.168.0.1",
+		},
+	}
+	s.applicationService.EXPECT().GetUnitPrivateAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(addr, nil)
+
+	result, err := s.uniter.PrivateAddress(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: addr.Value},
+		},
+	})
+}
+
+func (s *uniterSuite) TestNetworkInfoFailCanAccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.badTag = names.NewUnitTag("foo/42")
+	args := params.NetworkInfoParams{
+		Unit:      "unit-foo-42",
+		Endpoints: []string{"endpoint-0", "endpoint-1"},
+	}
+	_, err := s.uniter.NetworkInfo(c.Context(), args)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+}
+
+func (s *uniterSuite) TestNetworkInfoErrorFromDomain(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := params.NetworkInfoParams{
+		Unit:      "unit-foo-42",
+		Endpoints: []string{"endpoint-0", "endpoint-1"},
+	}
+	boom := internalerrors.New("boom")
+	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("foo/42")).Return(network.SpaceAddress{}, boom)
+
+	_, err := s.uniter.NetworkInfo(c.Context(), args)
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *uniterSuite) TestNetworkInfo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := params.NetworkInfoParams{
+		Unit:      "unit-foo-42",
+		Endpoints: []string{"endpoint-0", "endpoint-1"},
+	}
+	addr := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "192.168.0.1",
+		},
+	}
+	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("foo/42")).Return(addr, nil)
+
+	result, err := s.uniter.NetworkInfo(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NetworkInfoResults{
+		Results: map[string]params.NetworkInfoResult{
+			"endpoint-0": {IngressAddresses: []string{addr.Value}},
+			"endpoint-1": {IngressAddresses: []string{addr.Value}},
 		},
 	})
 }
