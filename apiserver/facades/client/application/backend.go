@@ -14,7 +14,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/state"
@@ -38,7 +37,6 @@ type Backend interface {
 type Application interface {
 	AddUnit(state.AddUnitParams) (Unit, error)
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
-	Endpoints() ([]relation.Endpoint, error)
 	SetCharm(state.SetCharmConfig, objectstore.ObjectStore) error
 	SetConstraints(constraints.Value) error
 	UpdateCharmConfig(charm.Settings) error

@@ -695,6 +695,37 @@ func (s *applicationSuite) TestGetCharmURLOriginNoOptionals(c *tc.C) {
 	})
 }
 
+func (s *applicationSuite) TestCharmRelations(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	rels := []string{"foo", "bar"}
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "doink").Return(appID, nil)
+	s.applicationService.EXPECT().GetApplicationEndpointNames(gomock.Any(), appID).Return(rels, nil)
+
+	res, err := s.api.CharmRelations(c.Context(), params.ApplicationCharmRelations{
+		ApplicationName: "doink",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.CharmRelations, tc.SameContents, rels)
+}
+
+func (s *applicationSuite) TestCharmRelationsAppNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "doink").Return("", applicationerrors.ApplicationNotFound)
+
+	_, err := s.api.CharmRelations(c.Context(), params.ApplicationCharmRelations{
+		ApplicationName: "doink",
+	})
+	c.Assert(err, tc.Satisfies, params.IsCodeNotFound)
+}
+
 func (s *applicationSuite) TestGetApplicationConstraintsAppNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

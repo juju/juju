@@ -1230,18 +1230,21 @@ func (api *APIBase) CharmRelations(ctx context.Context, p params.ApplicationChar
 		return results, errors.Trace(err)
 	}
 
-	app, err := api.backend.Application(p.ApplicationName)
-	if err != nil {
-		return results, errors.Trace(err)
+	appID, err := api.applicationService.GetApplicationIDByName(ctx, p.ApplicationName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return results, apiservererrors.ParamsErrorf(params.CodeNotFound, "application %q not found", p.ApplicationName)
+	} else if err != nil {
+		return results, apiservererrors.ServerError(err)
 	}
-	endpoints, err := app.Endpoints()
-	if err != nil {
-		return results, errors.Trace(err)
+
+	endpoints, err := api.applicationService.GetApplicationEndpointNames(ctx, appID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return results, apiservererrors.ParamsErrorf(params.CodeNotFound, "application %q not found", p.ApplicationName)
+	} else if err != nil {
+		return results, apiservererrors.ServerError(err)
 	}
-	results.CharmRelations = make([]string, len(endpoints))
-	for i, endpoint := range endpoints {
-		results.CharmRelations[i] = endpoint.Relation.Name
-	}
+
+	results.CharmRelations = endpoints
 	return results, nil
 }
 

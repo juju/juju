@@ -456,6 +456,36 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindingsApplicationNotFou
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *applicationEndpointStateSuite) TestGetApplicationEndpointNames(c *tc.C) {
+	// Arrange: create two application endpoints
+	s.addRelation(c, "foo")
+	s.addRelation(c, "bar")
+
+	// Act:
+	eps, err := s.state.GetApplicationEndpointNames(c.Context(), s.appID)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(eps, tc.SameContents, []string{"foo", "bar"})
+}
+
+func (s *applicationEndpointStateSuite) TestGetApplicationEndpointNamesApplicationNoEndpoints(c *tc.C) {
+	// Act:
+	eps, err := s.state.GetApplicationEndpointNames(c.Context(), s.appID)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(eps, tc.HasLen, 0)
+}
+
+func (s *applicationEndpointStateSuite) TestGetApplicationEndpointNamesApplicationNotFound(c *tc.C) {
+	// Act:
+	_, err := s.state.GetApplicationEndpointNames(c.Context(), "bad-uuid")
+
+	// Assert:
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *applicationEndpointStateSuite) addApplicationEndpoint(c *tc.C, spaceUUID, relationUUID string) string {
 	endpointUUID := uuid.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

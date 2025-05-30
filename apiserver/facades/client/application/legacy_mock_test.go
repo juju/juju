@@ -16,7 +16,6 @@ import (
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
 	objectstore "github.com/juju/juju/core/objectstore"
-	relation "github.com/juju/juju/domain/relation"
 	charm "github.com/juju/juju/internal/charm"
 	configschema "github.com/juju/juju/internal/configschema"
 	state "github.com/juju/juju/state"
@@ -337,45 +336,6 @@ func (c *MockApplicationDestroyOperationCall) Do(f func(objectstore.ObjectStore)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationDestroyOperationCall) DoAndReturn(f func(objectstore.ObjectStore) *state.DestroyApplicationOperation) *MockApplicationDestroyOperationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Endpoints mocks base method.
-func (m *MockApplication) Endpoints() ([]relation.Endpoint, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Endpoints")
-	ret0, _ := ret[0].([]relation.Endpoint)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Endpoints indicates an expected call of Endpoints.
-func (mr *MockApplicationMockRecorder) Endpoints() *MockApplicationEndpointsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Endpoints", reflect.TypeOf((*MockApplication)(nil).Endpoints))
-	return &MockApplicationEndpointsCall{Call: call}
-}
-
-// MockApplicationEndpointsCall wrap *gomock.Call
-type MockApplicationEndpointsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationEndpointsCall) Return(arg0 []relation.Endpoint, arg1 error) *MockApplicationEndpointsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationEndpointsCall) Do(f func() ([]relation.Endpoint, error)) *MockApplicationEndpointsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationEndpointsCall) DoAndReturn(f func() ([]relation.Endpoint, error)) *MockApplicationEndpointsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
