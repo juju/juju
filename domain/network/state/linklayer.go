@@ -190,6 +190,8 @@ func (st *State) reconcileNetConfigAddresses(
 }
 
 func (st *State) insertIPAddresses(ctx context.Context, tx *sqlair.TX, addrs []ipAddressDML) error {
+	st.logger.Tracef(ctx, "inserting IP addresses %#v", addrs)
+
 	stmt, err := st.Prepare(
 		"INSERT INTO ip_address (*) VALUES ($ipAddressDML.*)", addrs[0])
 	if err != nil {

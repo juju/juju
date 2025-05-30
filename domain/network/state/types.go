@@ -496,11 +496,11 @@ func encodeAddressScope(kind corenetwork.Scope) (int64, error) {
 	case corenetwork.ScopePublic:
 		return 1, nil
 	case corenetwork.ScopeCloudLocal:
-		return 4, nil
+		return 2, nil
 	case corenetwork.ScopeMachineLocal:
-		return 5, nil
+		return 3, nil
 	case corenetwork.ScopeLinkLocal:
-		return 6, nil
+		return 4, nil
 	default:
 		return -1, errors.Errorf("unsupported address scope: %q", kind)
 	}
