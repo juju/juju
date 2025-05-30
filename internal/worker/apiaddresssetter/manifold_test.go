@@ -115,9 +115,7 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 	s.controllerDomainServices.EXPECT().Model().Return(s.modelService)
 	controllerModelUUID, err := model.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	s.modelService.EXPECT().ControllerModel(gomock.Any()).Return(model.Model{
-		UUID: controllerModelUUID,
-	}, nil)
+	s.modelService.EXPECT().GetControllerModelUUID(gomock.Any()).Return(controllerModelUUID, nil)
 
 	s.domainServices.EXPECT().Application().Return(noService{})
 	s.domainServices.EXPECT().Network().Return(noService{})

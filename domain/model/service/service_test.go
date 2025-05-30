@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -1306,4 +1307,36 @@ func (s *serviceSuite) TestListModelUUIDsForUserNotValid(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	_, err := svc.ListModelUUIDsForUser(c.Context(), "not-a-uuid")
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestGetControllerModelUUID tests that the controller model uuid can be
+// retrieved correctly.
+func (s *serviceSuite) TestGetControllerModelUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedControllerModelUUID := modeltesting.GenModelUUID(c)
+	s.mockState.EXPECT().GetControllerModelUUID(gomock.Any()).Return(
+		expectedControllerModelUUID,
+		nil,
+	)
+
+	svc := NewService(s.mockState, s.mockModelDeleter, loggertesting.WrapCheckLog(c))
+	obtainedControllerModelUUID, err := svc.GetControllerModelUUID(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedControllerModelUUID, tc.DeepEquals, expectedControllerModelUUID)
+}
+
+// TestGetControllerModelUUIDNotFound tests that the controller model uuid
+// cannot be retrieved due to an error returned from state.
+func (s *serviceSuite) TestGetControllerModelUUIDNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.mockState.EXPECT().GetControllerModelUUID(gomock.Any()).Return(
+		coremodel.UUID(""),
+		errors.New("boom"),
+	)
+
+	svc := NewService(s.mockState, s.mockModelDeleter, loggertesting.WrapCheckLog(c))
+	_, err := svc.GetControllerModelUUID(c.Context())
+	c.Assert(err, tc.ErrorMatches, "boom")
 }

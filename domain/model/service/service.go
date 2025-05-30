@@ -439,6 +439,15 @@ func (s *Service) ControllerModel(ctx context.Context) (coremodel.Model, error) 
 	return s.st.GetControllerModel(ctx)
 }
 
+// GetControllerModelUUID returns the model uuid for the controller model.
+// The following errors may be returned:
+// - [modelerrors.NotFound]: If no the controller model exists.
+func (s *Service) GetControllerModelUUID(context.Context) (coremodel.UUID, error) {
+	ctx, span := trace.Start(context.Background(), trace.NameFromFunc())
+	defer span.End()
+	return s.st.GetControllerModelUUID(ctx)
+}
+
 // Model returns the model associated with the provided uuid.
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound]: When the model does not exist.

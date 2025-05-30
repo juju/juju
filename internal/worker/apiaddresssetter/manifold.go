@@ -30,8 +30,10 @@ type ControllerDomainServices interface {
 
 // ModelService is the interface that the worker uses to get model information.
 type ModelService interface {
-	// ControllerModel returns information for the controller model.
-	ControllerModel(context.Context) (model.Model, error)
+	// GetControllerModelUUID returns the model uuid for the controller model.
+	// If no controller model exists then an error satisfying
+	// [modelerrors.NotFound] is returned.
+	GetControllerModelUUID(context.Context) (model.UUID, error)
 }
 
 // DomainServices is an interface that defines the domain services required by
@@ -102,11 +104,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Capture(err)
 			}
 
-			controllerModel, err := controllerDomainServices.Model().ControllerModel(ctx)
+			controllerModelUUID, err := controllerDomainServices.Model().GetControllerModelUUID(ctx)
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
-			controllerModelUUID := controllerModel.UUID
 
 			domainServices, err := config.GetDomainServices(getter, config.DomainServicesName, controllerModelUUID)
 			if err != nil {
@@ -152,24 +153,24 @@ func GetDomainServices(getter dependency.Getter, name string, controllerModelUUI
 		return nil, errors.Capture(err)
 	}
 	return domainServices{
-		ApplicationService: services.Application(),
-		NetworkService:     services.Network(),
+		applicationService: services.Application(),
+		networkService:     services.Network(),
 	}, nil
 }
 
 type domainServices struct {
-	ApplicationService
-	NetworkService
+	applicationService ApplicationService
+	networkService     NetworkService
 }
 
 // Application returns the application service.
 func (s domainServices) Application() ApplicationService {
-	return s.ApplicationService
+	return s.applicationService
 }
 
 // Network returns the network service.
 func (s domainServices) Network() NetworkService {
-	return s.NetworkService
+	return s.networkService
 }
 
 // GetControllerDomainServices retrieves the controller domain services
@@ -177,30 +178,30 @@ func (s domainServices) Network() NetworkService {
 func GetControllerDomainServices(getter dependency.Getter, name string) (ControllerDomainServices, error) {
 	return coredependency.GetDependencyByName(getter, name, func(s services.ControllerDomainServices) ControllerDomainServices {
 		return controllerDomainServices{
-			ControllerConfigService: s.ControllerConfig(),
-			ControllerNodeService:   s.ControllerNode(),
-			ModelService:            s.Model(),
+			controllerConfigService: s.ControllerConfig(),
+			controllerNodeService:   s.ControllerNode(),
+			modelService:            s.Model(),
 		}
 	})
 }
 
 type controllerDomainServices struct {
-	ControllerConfigService
-	ControllerNodeService
-	ModelService
+	controllerConfigService ControllerConfigService
+	controllerNodeService   ControllerNodeService
+	modelService            ModelService
 }
 
 // ControllerConfig returns the controller configuration service.
 func (s controllerDomainServices) ControllerConfig() ControllerConfigService {
-	return s.ControllerConfigService
+	return s.controllerConfigService
 }
 
 // ControllerNode returns the controller node service.
 func (s controllerDomainServices) ControllerNode() ControllerNodeService {
-	return s.ControllerNodeService
+	return s.controllerNodeService
 }
 
-// ModelService returns the model service.
+// Model returns the model service.
 func (s controllerDomainServices) Model() ModelService {
-	return s.ModelService
+	return s.modelService
 }
