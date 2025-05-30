@@ -188,10 +188,19 @@ func (api *API) SubnetsByCIDR(ctx context.Context, arg params.CIDRParams) (param
 
 		subnetResults := make([]params.SubnetV2, len(subnets))
 		for j, subnet := range subnets {
-			subnetResults[j] = commonnetwork.SubnetInfoToParamsSubnetWithID(subnet)
+			subnetResults[j] = subnetInfoToParamsSubnetWithID(subnet)
 		}
 		results[i].Subnets = subnetResults
 	}
 	result.Results = results
 	return result, nil
+}
+
+// subnetInfoToParamsSubnetWithID converts a network backing subnet to the new
+// version of the subnet API parameter.
+func subnetInfoToParamsSubnetWithID(subnet network.SubnetInfo) params.SubnetV2 {
+	return params.SubnetV2{
+		ID:     subnet.ID.String(),
+		Subnet: commonnetwork.SubnetInfoToParamsSubnet(subnet),
+	}
 }

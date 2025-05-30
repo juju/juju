@@ -10,18 +10,10 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/network"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-// SubnetInfoToParamsSubnetWithID converts a network backing subnet to the new
-// version of the subnet API parameter.
-func SubnetInfoToParamsSubnetWithID(subnet network.SubnetInfo) params.SubnetV2 {
-	return params.SubnetV2{
-		ID:     subnet.ID.String(),
-		Subnet: SubnetInfoToParamsSubnet(subnet),
-	}
-}
 
 func SubnetInfoToParamsSubnet(subnet network.SubnetInfo) params.Subnet {
 	return params.Subnet{
@@ -33,6 +25,41 @@ func SubnetInfoToParamsSubnet(subnet network.SubnetInfo) params.Subnet {
 		SpaceTag:          names.NewSpaceTag(subnet.SpaceName).String(),
 		Life:              subnet.Life,
 	}
+}
+
+// MachineNetworkConfigToDomain transforms network config wire params to network
+// interfaces recognised by the network domain.
+func MachineNetworkConfigToDomain(args []params.NetworkConfig) ([]domainnetwork.NetInterface, error) {
+	nics := make([]domainnetwork.NetInterface, len(args))
+
+	for i, arg := range args {
+		nics[i] = domainnetwork.NetInterface{
+			Name:             arg.InterfaceName,
+			MTU:              nilIfEmpty(int64(arg.MTU)),
+			MACAddress:       nilIfEmpty(arg.MACAddress),
+			ProviderID:       nilIfEmpty(network.Id(arg.ProviderId)),
+			Type:             network.LinkLayerDeviceType(arg.InterfaceType),
+			VirtualPortType:  network.VirtualPortType(arg.VirtualPortType),
+			IsAutoStart:      !arg.NoAutoStart,
+			IsEnabled:        !arg.Disabled,
+			ParentDeviceName: arg.ParentInterfaceName,
+			GatewayAddress:   nilIfEmpty(arg.GatewayAddress),
+			IsDefaultGateway: false,
+			VLANTag:          uint64(arg.VLANTag),
+			DNSSearchDomains: arg.DNSSearchDomains,
+			DNSAddresses:     arg.DNSServers,
+		}
+	}
+
+	return nics, nil
+}
+
+func nilIfEmpty[T comparable](in T) *T {
+	var empty T
+	if in == empty {
+		return nil
+	}
+	return &in
 }
 
 // NetworkInterfacesToStateArgs splits the given interface list into a slice of
