@@ -2301,32 +2301,18 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 
-	ch := make(chan []string)
+	ch := make(chan []string, 1)
 	mockStringWatcher := NewMockStringsWatcher(ctrl)
 	mockStringWatcher.EXPECT().Changes().Return(ch).AnyTimes()
 	mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
 	mockStringWatcher.EXPECT().Kill().AnyTimes()
-
-	chRemote := make(chan []string)
-	mockStringWatcherRemote := NewMockStringsWatcher(ctrl)
-	mockStringWatcherRemote.EXPECT().Changes().Return(chRemote).AnyTimes()
-	mockStringWatcherRemote.EXPECT().Wait().Return(nil).AnyTimes()
-	mockStringWatcherRemote.EXPECT().Kill().AnyTimes()
 
 	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
 		return nil, nil
 	}
 	s.state.EXPECT().InitialWatchStatementForConsumedSecretsChange(unittesting.GenNewName(c, "mysql/0")).Return("secret_revision", namespaceQuery)
 	s.state.EXPECT().InitialWatchStatementForConsumedRemoteSecretsChange(unittesting.GenNewName(c, "mysql/0")).Return("secret_reference", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(mockStringWatcher, nil)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(mockStringWatcherRemote, nil)
-
-	s.state.EXPECT().GetConsumedSecretURIsWithChanges(gomock.Any(),
-		unittesting.GenNewName(c, "mysql/0"), "revision-uuid-1",
-	).Return([]string{uri1.String()}, nil)
-	s.state.EXPECT().GetConsumedRemoteSecretURIsWithChanges(gomock.Any(),
-		unittesting.GenNewName(c, "mysql/0"), "revision-uuid-2",
-	).Return([]string{uri2.String()}, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceMapperWatcher(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(mockStringWatcher, nil)
 
 	svc := NewWatchableService(
 		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
@@ -2337,12 +2323,7 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	wc := watchertest.NewStringsWatcherC(c, w)
 
 	select {
-	case ch <- []string{"revision-uuid-1"}:
-	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
-	}
-	select {
-	case chRemote <- []string{"revision-uuid-2"}:
+	case ch <- []string{uri1.String(), uri2.String()}:
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for the initial changes")
 	}
