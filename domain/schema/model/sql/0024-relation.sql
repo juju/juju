@@ -2,8 +2,8 @@
 -- Licensed under the AGPLv3, see LICENCE file for details.
 
 -- The application_endpoint ties an application's relation definition to an
--- endpoint binding via a space. Only endpoint bindings which differ from the
--- application default binding will be listed. Each relation has 2 endpoints,
+-- endpoint binding via a space. A null space_uuid represents the endpoint
+-- is bound to the application's default space. Each relation has 2 endpoints,
 -- unless it is a peer relation. The space and charm relation combine represent
 -- the endpoint binding of this application endpoint.
 CREATE TABLE application_endpoint (
@@ -24,6 +24,9 @@ CREATE TABLE application_endpoint (
 
 CREATE INDEX idx_application_endpoint_app
 ON application_endpoint (application_uuid);
+
+CREATE UNIQUE INDEX idx_application_endpoint_app_relation
+ON application_endpoint (application_uuid, charm_relation_uuid);
 
 -- The application_endpoint ties an application's relation definition to an
 -- endpoint binding via a space. Only endpoint bindings which differ from the
@@ -46,6 +49,9 @@ CREATE TABLE application_extra_endpoint (
 
 CREATE INDEX idx_application_extra_endpoint_app
 ON application_extra_endpoint (application_uuid);
+
+CREATE UNIQUE INDEX idx_application_extra_endpoint_app_relation
+ON application_extra_endpoint (application_uuid, charm_extra_binding_uuid);
 
 -- The relation_endpoint table links a relation to a single
 -- application endpoint. If the relation is of type peer,

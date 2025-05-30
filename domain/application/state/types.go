@@ -804,6 +804,18 @@ type setApplicationExtraEndpoint struct {
 	Space         *string            `db:"space"`
 }
 
+type updateApplicationEndpoint struct {
+	ApplicationID coreapplication.ID `db:"application_uuid"`
+	RelationUUID  string             `db:"charm_relation_uuid"`
+	Space         *string            `db:"space"`
+}
+
+type updateApplicationExtraEndpoint struct {
+	ApplicationID coreapplication.ID `db:"application_uuid"`
+	RelationUUID  string             `db:"charm_extra_binding_uuid"`
+	Space         *string            `db:"space"`
+}
+
 type setConstraint struct {
 	UUID             string  `db:"uuid"`
 	Arch             *string `db:"arch"`

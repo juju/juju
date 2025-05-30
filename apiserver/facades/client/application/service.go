@@ -301,6 +301,12 @@ type ApplicationService interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]string, error)
 
+	// MergeApplicationEndpointBindings merge the provided bindings into the bindings
+	// for the specified application.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotFound] if the application does not exist
+	MergeApplicationEndpointBindings(ctx context.Context, appID coreapplication.ID, bindings map[string]network.SpaceName, force bool) error
+
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint
 	// instances that specify which sources (spaces or CIDRs) can access the

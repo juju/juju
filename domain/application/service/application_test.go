@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/network"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -1057,6 +1058,52 @@ func (s *applicationServiceSuite) TestGetApplicationEndpointBindings(c *tc.C) {
 	c.Check(result, tc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
+}
+
+func (s *applicationServiceSuite) TestMergeApplicationEndpointBindings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	bindings := map[string]network.SpaceName{
+		"foo": "alpha",
+		"bar": "beta",
+	}
+
+	s.state.EXPECT().ValidateEndpointBindingsForApplication(gomock.Any(), appID, bindings).Return(nil)
+	s.state.EXPECT().MergeApplicationEndpointBindings(gomock.Any(), appID, bindings).Return(nil)
+
+	err := s.service.MergeApplicationEndpointBindings(c.Context(), appID, bindings, false)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestMergeApplicationEndpointBindingsForce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	bindings := map[string]network.SpaceName{
+		"foo": "alpha",
+		"bar": "beta",
+	}
+
+	s.state.EXPECT().MergeApplicationEndpointBindings(gomock.Any(), appID, bindings).Return(nil)
+
+	err := s.service.MergeApplicationEndpointBindings(c.Context(), appID, bindings, true)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestMergeApplicationEndpointBindingsInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	bindings := map[string]network.SpaceName{
+		"foo": "alpha",
+		"bar": "beta",
+	}
+
+	s.state.EXPECT().ValidateEndpointBindingsForApplication(gomock.Any(), appID, bindings).Return(errors.Errorf("boom"))
+
+	err := s.service.MergeApplicationEndpointBindings(c.Context(), appID, bindings, false)
+	c.Assert(err, tc.ErrorMatches, ".*boom.*")
 }
 
 func (s *applicationServiceSuite) TestGetDeviceConstraintsAppNotFound(c *tc.C) {
