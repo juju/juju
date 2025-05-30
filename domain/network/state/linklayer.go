@@ -8,14 +8,14 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
 
 // GetMachineNetNodeUUID returns the net node UUID for the input machine UUID.
 // The following errors may be returned:
-//   - [github.com/juju/juju/domain/application/errors.MachineNotFound]
+//   - [github.com/juju/juju/domain/machine/errors.MachineNotFound]
 //     if such a machine does not exist.
 func (st *State) GetMachineNetNodeUUID(ctx context.Context, machineUUID string) (string, error) {
 	db, err := st.DB()
@@ -34,7 +34,7 @@ func (st *State) GetMachineNetNodeUUID(ctx context.Context, machineUUID string) 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, mUUID).Get(&nUUID); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return applicationerrors.MachineNotFound
+				return machineerrors.MachineNotFound
 			}
 			return errors.Errorf("querying machine net node: %w", err)
 		}

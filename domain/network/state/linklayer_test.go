@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	corenetwork "github.com/juju/juju/core/network"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -128,6 +129,13 @@ func (s *linkLayerSuite) TestGetMachineNetNodeUUID(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotUUID, tc.Equals, nodeUUID)
+}
+
+func (s *linkLayerSuite) TestGetMachineNetNodeUUIDNotFoundError(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.GetMachineNetNodeUUID(c.Context(), "machine-uuid")
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TODO (manadart 2025-05-26) this test is temporary.

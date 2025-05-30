@@ -12,6 +12,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	corenetwork "github.com/juju/juju/core/network"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
@@ -97,13 +98,44 @@ func (s *linkLayerSuite) migrationService(c *tc.C) *MigrationService {
 	return NewMigrationService(s.st, loggertesting.WrapCheckLog(c))
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigBadUUID(c *tc.C) {
+func (s *linkLayerSuite) TestSetMachineNetConfigBadUUIDError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := machine.UUID("bad-machine-uuid")
 
 	err := NewService(s.st, loggertesting.WrapCheckLog(c)).SetMachineNetConfig(c.Context(), mUUID, nil)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *linkLayerSuite) TestSetMachineNetConfigNodeNotFoundError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID, err := machine.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), mUUID.String()).Return("", machineerrors.MachineNotFound)
+
+	nics := []network.NetInterface{{Name: "eth0"}}
+
+	err = NewService(s.st, loggertesting.WrapCheckLog(c)).SetMachineNetConfig(c.Context(), mUUID, nics)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *linkLayerSuite) TestSetMachineNetConfigSetCallError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	nUUID := "set-node-uuid"
+	mUUID, err := machine.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	nics := []network.NetInterface{{Name: "eth0"}}
+
+	exp := s.st.EXPECT()
+	exp.GetMachineNetNodeUUID(gomock.Any(), mUUID.String()).Return(nUUID, nil)
+	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics).Return(errors.New("boom"))
+
+	err = NewService(s.st, loggertesting.WrapCheckLog(c)).SetMachineNetConfig(c.Context(), mUUID, nics)
+	c.Assert(err, tc.ErrorMatches, "setting net config for machine .* boom")
 }
 
 func (s *linkLayerSuite) TestSetMachineNetConfigEmpty(c *tc.C) {
@@ -143,7 +175,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 
 	exp := s.st.EXPECT()
 	exp.GetMachineNetNodeUUID(gomock.Any(), mUUID.String()).Return(nUUID, nil)
-	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics)
+	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics).Return(nil)
 
 	err = NewService(s.st, loggertesting.WrapCheckLog(c)).SetMachineNetConfig(ctx, mUUID, nics)
 	c.Assert(err, tc.ErrorIsNil)
