@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	corenetwork "github.com/juju/juju/core/network"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -33,6 +34,7 @@ func (s *linkLayerSuite) TestMachineInterfaceViewFitsType(c *tc.C) {
 	db, err := s.TxnRunnerFactory()()
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Arrange
 	nodeUUID := "net-node-uuid"
 	machineUUID := "machine-uuid"
 	machineName := "0"
@@ -81,7 +83,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Act
 	stmt, err := sqlair.Prepare("SELECT &machineInterfaceRow.* FROM v_machine_interface", machineInterfaceRow{})
+
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
 	var rows []machineInterfaceRow
@@ -101,12 +106,45 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	c.Check(r.SubnetUUID.String, tc.Equals, subUUID)
 }
 
+func (s *linkLayerSuite) TestGetMachineNetNodeUUID(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	db := s.DB()
+
+	// Arrange
+	nodeUUID := "net-node-uuid"
+	machineUUID := "machine-uuid"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	q := "INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, ?)"
+	_, err = db.ExecContext(ctx, q, machineUUID, "666", nodeUUID, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	gotUUID, err := st.GetMachineNetNodeUUID(ctx, machineUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotUUID, tc.Equals, nodeUUID)
+}
+
+func (s *linkLayerSuite) TestGetMachineNetNodeUUIDNotFoundError(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.GetMachineNetNodeUUID(c.Context(), "machine-uuid")
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
 // TODO (manadart 2025-05-26) this test is temporary.
 // Future changes will reconcile existing devices and update them.
 func (s *linkLayerSuite) TestSetMachineNetConfigAlreadySet(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
+	// Arrange
 	nodeUUID := "net-node-uuid"
 	devName := "eth0"
 
@@ -122,7 +160,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`
 	_, err = db.ExecContext(ctx, insertLLD, "dev-uuid", nodeUUID, devName, 1500, "00:11:22:33:44:55", 0, 0)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Act
 	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{Name: "eth1"}})
+
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
 	rows, err := db.QueryContext(ctx, "SELECT name FROM link_layer_device")
@@ -149,6 +190,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
+	// Arrange
 	nodeUUID := "net-node-uuid"
 	devName := "eth0"
 
@@ -157,6 +199,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Act
 	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
 		Name:            devName,
 		Type:            corenetwork.EthernetDevice,
@@ -172,6 +215,8 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 			Scope:         corenetwork.ScopeCloudLocal,
 		}},
 	}})
+
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
 	rows, err := db.QueryContext(ctx, "SELECT name FROM link_layer_device")
@@ -214,6 +259,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
+	// Arrange
 	nodeUUID := "net-node-uuid"
 	devName := "eth0"
 
@@ -222,6 +268,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Act
 	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
 		Name:            devName,
 		Type:            corenetwork.EthernetDevice,
@@ -229,6 +276,8 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 		IsAutoStart:     true,
 		IsEnabled:       true,
 	}})
+
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
 	rows, err := db.QueryContext(ctx, "SELECT name FROM link_layer_device")

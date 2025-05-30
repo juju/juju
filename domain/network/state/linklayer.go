@@ -8,9 +8,40 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
+
+// GetMachineNetNodeUUID returns the net node UUID for the input machine UUID.
+// The following errors may be returned:
+//   - [github.com/juju/juju/domain/machine/errors.MachineNotFound]
+//     if such a machine does not exist.
+func (st *State) GetMachineNetNodeUUID(ctx context.Context, machineUUID string) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	mUUID := entityUUID{UUID: machineUUID}
+	var nUUID netNodeUUID
+
+	stmt, err := st.Prepare("SELECT &netNodeUUID.* FROM machine WHERE uuid = $entityUUID.uuid", mUUID, nUUID)
+	if err != nil {
+		return "", errors.Errorf("preparing machine net node statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, mUUID).Get(&nUUID); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return machineerrors.MachineNotFound
+			}
+			return errors.Errorf("querying machine net node: %w", err)
+		}
+		return nil
+	})
+	return nUUID.UUID, errors.Capture(err)
+}
 
 // SetMachineNetConfig updates the network configuration for the machine with
 // the input net node UUID.
@@ -160,6 +191,8 @@ func (st *State) reconcileNetConfigAddresses(
 }
 
 func (st *State) insertIPAddresses(ctx context.Context, tx *sqlair.TX, addrs []ipAddressDML) error {
+	st.logger.Tracef(ctx, "inserting IP addresses %#v", addrs)
+
 	stmt, err := st.Prepare(
 		"INSERT INTO ip_address (*) VALUES ($ipAddressDML.*)", addrs[0])
 	if err != nil {

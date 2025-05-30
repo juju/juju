@@ -22,7 +22,7 @@ func NewService(st State, logger logger.Logger) *Service {
 // MigrationService provides the API for model migration actions within
 // the network domain.
 type MigrationService struct {
-	st     LinkLayerDeviceState
+	st     NetConfigMigrationState
 	logger logger.Logger
 }
 
@@ -30,7 +30,7 @@ type MigrationService struct {
 // the input state. These methods are specific to migration only and not
 // intended to be used outside of the domain.
 func NewMigrationService(
-	st LinkLayerDeviceState, logger logger.Logger,
+	st NetConfigMigrationState, logger logger.Logger,
 ) *MigrationService {
 	return &MigrationService{
 		st:     st,

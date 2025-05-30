@@ -77,7 +77,7 @@ func (s *typesSuite) TestNetAddrToDMLSuccess(c *tc.C) {
 		TypeID:       0,
 		ConfigTypeID: 1,
 		OriginID:     0,
-		ScopeID:      4,
+		ScopeID:      2,
 		IsSecondary:  false,
 		IsShadow:     false,
 	})
