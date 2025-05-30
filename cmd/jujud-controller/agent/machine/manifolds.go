@@ -50,6 +50,7 @@ import (
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
+	"github.com/juju/juju/internal/worker/apiaddresssetter"
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
@@ -909,6 +910,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetControllerConfigService: jwtparser.GetControllerConfigService,
 			DomainServicesName:         domainServicesName,
 		})),
+
+		apiAddressSetterName: ifController(apiaddresssetter.Manifold(apiaddresssetter.ManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			GetDomainServices:           apiaddresssetter.GetDomainServices,
+			GetControllerDomainServices: apiaddresssetter.GetControllerDomainServices,
+			NewWorker:                   apiaddresssetter.New,
+			Logger:                      internallogger.GetLogger("juju.worker.apiaddresssetter"),
+		})),
 	}
 
 	return manifolds
@@ -1307,6 +1316,7 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
+	apiAddressSetterName          = "api-address-setter"
 	apiAddressUpdaterName         = "api-address-updater"
 	apiServerName                 = "api-server"
 	apiRemoteCallerName           = "api-remote-caller"

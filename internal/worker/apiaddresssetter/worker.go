@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 )
@@ -97,7 +98,6 @@ type Config struct {
 	ControllerNodeService   ControllerNodeService
 	NetworkService          NetworkService
 	APIPort                 int
-	ControllerAPIPort       int
 	Logger                  logger.Logger
 }
 
@@ -117,9 +117,6 @@ func (config Config) Validate() error {
 	}
 	if config.APIPort <= 0 {
 		return errors.New("non-positive APIPort not valid").Add(coreerrors.NotValid)
-	}
-	if config.ControllerAPIPort <= 0 {
-		return errors.New("non-positive ControllerAPIPort not valid").Add(coreerrors.NotValid)
 	}
 	if config.Logger == nil {
 		return errors.New("nil Logger not valid").Add(coreerrors.NotValid)
@@ -324,7 +321,9 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 	}
 
 	mgmtSpace, err := w.config.NetworkService.SpaceByName(ctx, cfg.JujuManagementSpace())
-	if err != nil {
+	if err != nil && !errors.Is(err, networkerrors.SpaceNotFound) {
+		// If the space is not found, we can ignore it, since that case is
+		// handled by the controller node domain in `SetAPIAddresses`.
 		return errors.Capture(err)
 	}
 
