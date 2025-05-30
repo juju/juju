@@ -71,7 +71,7 @@ func (mr *MockApplicationServiceMockRecorder) SetApplicationScale(arg0, arg1, ar
 }
 
 // UpdateCloudService mocks base method.
-func (m *MockApplicationService) UpdateCloudService(arg0 context.Context, arg1, arg2 string, arg3 network.SpaceAddresses) error {
+func (m *MockApplicationService) UpdateCloudService(arg0 context.Context, arg1, arg2 string, arg3 network.ProviderAddresses) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCloudService", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)

@@ -61,7 +61,7 @@ func (s *deployerCAASSuite) TestControllerAddress(c *tc.C) {
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(address, tc.Equals, "10.0.0.1:0")
+	c.Assert(address, tc.Equals, "10.0.0.1")
 }
 
 func (s *deployerCAASSuite) TestControllerAddressMultipleAddresses(c *tc.C) {
@@ -91,7 +91,7 @@ func (s *deployerCAASSuite) TestControllerAddressMultipleAddresses(c *tc.C) {
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(address, tc.Equals, "10.0.0.1:0")
+	c.Assert(address, tc.Equals, "10.0.0.1")
 }
 
 func (s *deployerCAASSuite) TestControllerAddressMultipleAddressesScopeNonLocal(c *tc.C) {
@@ -121,7 +121,7 @@ func (s *deployerCAASSuite) TestControllerAddressMultipleAddressesScopeNonLocal(
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(address, tc.Equals, "10.0.0.2:0")
+	c.Assert(address, tc.Equals, "10.0.0.2")
 }
 
 func (s *deployerCAASSuite) TestControllerAddressScopeNonLocal(c *tc.C) {
@@ -146,7 +146,7 @@ func (s *deployerCAASSuite) TestControllerAddressScopeNonLocal(c *tc.C) {
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(address, tc.Equals, "2.201.120.241:0")
+	c.Assert(address, tc.Equals, "2.201.120.241")
 }
 
 func (s *deployerCAASSuite) TestControllerAddressNoAddresses(c *tc.C) {
@@ -172,45 +172,6 @@ func (s *deployerCAASSuite) TestControllerCharmBase(c *tc.C) {
 	c.Assert(base, tc.DeepEquals, version.DefaultSupportedLTSBase())
 }
 
-func (s *deployerCAASSuite) TestCompleteProcessWithSpaceInAddress(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	cfg := s.newConfig(c)
-
-	unitName := unit.Name("controller/0")
-
-	s.serviceManager.EXPECT().GetService(gomock.Any(), k8sconstants.JujuControllerStackName, true).Return(&caas.Service{
-		Addresses: network.ProviderAddresses{
-			{
-				MachineAddress: network.MachineAddress{
-					Value: "10.0.0.1",
-				},
-				SpaceName:  network.SpaceName("mgmt-space"),
-				ProviderID: network.Id("0"),
-			},
-		},
-	}, nil)
-	// If there's a space in the provider address, then we override it with
-	// the alpha space ID.
-	alphaAddresses := network.SpaceAddresses{
-		{
-			MachineAddress: network.MachineAddress{
-				Value: "10.0.0.1",
-			},
-			SpaceID: network.AlphaSpaceId,
-		},
-	}
-	s.caasApplicationService.EXPECT().UpdateCloudService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), alphaAddresses).Return(nil)
-	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
-		ProviderID: ptr("controller-0"),
-	})
-	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
-
-	deployer := s.newDeployerWithConfig(c, cfg)
-	err := deployer.CompleteCAASProcess(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -218,24 +179,18 @@ func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 
 	unitName := unit.Name("controller/0")
 
-	s.serviceManager.EXPECT().GetService(gomock.Any(), k8sconstants.JujuControllerStackName, true).Return(&caas.Service{
-		Addresses: network.ProviderAddresses{
-			{
-				MachineAddress: network.MachineAddress{
-					Value: "10.0.0.1",
-				},
-				ProviderID: network.Id("0"),
-			},
-		},
-	}, nil)
-	alphaAddresses := network.SpaceAddresses{
+	addrs := network.ProviderAddresses{
 		{
 			MachineAddress: network.MachineAddress{
 				Value: "10.0.0.1",
 			},
+			ProviderID: network.Id("0"),
 		},
 	}
-	s.caasApplicationService.EXPECT().UpdateCloudService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), alphaAddresses).Return(nil)
+	s.serviceManager.EXPECT().GetService(gomock.Any(), k8sconstants.JujuControllerStackName, true).Return(&caas.Service{
+		Addresses: addrs,
+	}, nil)
+	s.caasApplicationService.EXPECT().UpdateCloudService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), addrs).Return(nil)
 	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
 		ProviderID: ptr("controller-0"),
 	})

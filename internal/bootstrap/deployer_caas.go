@@ -80,15 +80,12 @@ func (d *CAASDeployer) ControllerAddress(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	alphaSpaceAddrs := d.getAlphaSpaceAddresses(addrs)
-
-	hp := network.SpaceAddressesWithPort(alphaSpaceAddrs, 0)
-	addr := hp.AllMatchingScope(network.ScopeMatchCloudLocal)
 
 	var controllerAddress string
-	if len(addr) > 0 {
-		controllerAddress = addr[0]
+	if addr, ok := addrs.OneMatchingScope(network.ScopeMatchCloudLocal); ok {
+		controllerAddress = addr.Value
 	}
+
 	d.logger.Debugf(ctx, "CAAS controller address %v", controllerAddress)
 	return controllerAddress, nil
 }
@@ -107,20 +104,6 @@ func (d *CAASDeployer) getK8sServiceAddresses(ctx context.Context) (network.Prov
 	}
 
 	return svc.Addresses, nil
-}
-
-// getAlphaSpaceAddresses returns a SpaceAddresses created from the input
-// providerAddresses and using the alpha space ID as their SpaceID.
-// We set all the spaces of the output SpaceAddresses to be the alpha space ID.
-func (d *CAASDeployer) getAlphaSpaceAddresses(providerAddresses network.ProviderAddresses) network.SpaceAddresses {
-	sas := make(network.SpaceAddresses, len(providerAddresses))
-	for i, pa := range providerAddresses {
-		sas[i] = network.SpaceAddress{MachineAddress: pa.MachineAddress}
-		if pa.SpaceName != "" {
-			sas[i].SpaceID = network.AlphaSpaceId
-		}
-	}
-	return sas
 }
 
 // ControllerCharmBase returns the base used for deploying the controller
@@ -198,9 +181,8 @@ func (d *CAASDeployer) CompleteCAASProcess(ctx context.Context) error {
 	if err != nil {
 		return errors.Capture(err)
 	}
-	alphaSpaceAddrs := d.getAlphaSpaceAddresses(addrs)
 	d.logger.Debugf(ctx, "creating cloud service for k8s controller %q", controllerProviderID(controllerUnit))
-	err = d.applicationService.UpdateCloudService(ctx, bootstrap.ControllerApplicationName, controllerProviderID(controllerUnit), alphaSpaceAddrs)
+	err = d.applicationService.UpdateCloudService(ctx, bootstrap.ControllerApplicationName, controllerProviderID(controllerUnit), addrs)
 	if err != nil {
 		return errors.Capture(err)
 	}

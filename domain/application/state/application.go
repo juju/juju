@@ -919,10 +919,10 @@ WHERE application_uuid = $applicationScale.application_uuid
 	return errors.Capture(err)
 }
 
-// UpsertCloudService updates the cloud service for the specified application,
-// returning an error satisfying [applicationerrors.ApplicationNotFoundError] if
-// the application doesn't exist.
-func (st *State) UpsertCloudService(ctx context.Context, applicationName, providerID string, sAddrs network.SpaceAddresses) error {
+// UpsertCloudService updates the cloud service for the specified application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+func (st *State) UpsertCloudService(ctx context.Context, applicationName, providerID string, sAddrs network.ProviderAddresses) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -1029,7 +1029,7 @@ func (st *State) upsertCloudServiceAddresses(
 	tx *sqlair.TX,
 	serviceInfo cloudService,
 	applicationName string,
-	addresses network.SpaceAddresses,
+	addresses network.ProviderAddresses,
 ) error {
 	var linkLayerDeviceUUID dbUUID
 	queryLinkLayerDeviceFromServiceStmt, err := st.Prepare(`
@@ -1126,7 +1126,7 @@ WHERE device_uuid IN (
 }
 
 func (st *State) insertCloudServiceAddresses(
-	ctx context.Context, tx *sqlair.TX, linkLayerDeviceUUID string, netNodeUUID string, addresses network.SpaceAddresses) error {
+	ctx context.Context, tx *sqlair.TX, linkLayerDeviceUUID string, netNodeUUID string, addresses network.ProviderAddresses) error {
 	if len(addresses) == 0 {
 		return nil
 	}

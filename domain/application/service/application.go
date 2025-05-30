@@ -80,11 +80,10 @@ type ApplicationState interface {
 	// doesn't exist.
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
 
-	// UpsertCloudService updates the cloud service for the specified
-	// application, returning an error satisfying
-	// [applicationerrors.ApplicationNotFoundError] if the application doesn't
-	// exist.
-	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
+	// UpsertCloudService updates the cloud service for the specified application.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 
 	// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit.
 	// The addresses are taken by unioning the net node UUIDs of the cloud service
@@ -805,9 +804,10 @@ func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplicatio
 	), locator, nil
 }
 
-// UpdateCloudService updates the cloud service for the specified application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error {
+// UpsertCloudService updates the cloud service for the specified application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
