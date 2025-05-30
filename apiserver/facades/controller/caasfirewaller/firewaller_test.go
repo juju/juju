@@ -56,9 +56,6 @@ func (s *firewallerSuite) SetUpTest(c *tc.C) {
 
 	appExposedWatcher := watchertest.NewMockNotifyWatcher(s.appExposedChanges)
 	s.st = &mockState{
-		application: mockApplication{
-			watcher: appExposedWatcher,
-		},
 		applicationsWatcher: watchertest.NewMockStringsWatcher(s.applicationsChanges),
 		appExposedWatcher:   appExposedWatcher,
 	}
@@ -108,36 +105,11 @@ func (s *firewallerSuite) TestWatchApplications(c *tc.C) {
 	c.Assert(result.Changes, tc.DeepEquals, applicationNames)
 }
 
-func (s *firewallerSuite) TestWatchApplication(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.appExposedChanges <- struct{}{}
-
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
-
-	results, err := s.facade.Watch(c.Context(), params.Entities{
-		Entities: []params.Entity{
-			{Tag: "application-gitlab"},
-			{Tag: "unit-gitlab-0"},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results.Results, tc.HasLen, 2)
-	c.Assert(results.Results[0].Error, tc.IsNil)
-	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
-		Message: "permission denied",
-		Code:    "unauthorized access",
-	})
-
-	c.Assert(results.Results[0].NotifyWatcherId, tc.Equals, "1")
-}
-
 func (s *firewallerSuite) TestIsExposed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.appService.EXPECT().IsApplicationExposed(gomock.Any(), "gitlab").Return(true, nil)
 
-	s.st.application.exposed = true
 	results, err := s.facade.IsExposed(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -180,24 +152,6 @@ func (s *firewallerSuite) TestLife(c *tc.C) {
 	})
 }
 
-func (s *firewallerSuite) TestApplicationConfig(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	results, err := s.facade.ApplicationsConfig(c.Context(), params.Entities{
-		Entities: []params.Entity{
-			{Tag: "application-gitlab"},
-			{Tag: "unit-gitlab-0"},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results.Results, tc.HasLen, 2)
-	c.Assert(results.Results[0].Error, tc.IsNil)
-	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
-		Message: `"unit-gitlab-0" is not a valid application tag`,
-	})
-	c.Assert(results.Results[0].Config, tc.DeepEquals, map[string]interface{}{"foo": "bar"})
-}
-
 func (s *firewallerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -229,9 +183,7 @@ func (s *firewallerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 type facadeSidecar interface {
 	IsExposed(ctx context.Context, args params.Entities) (params.BoolResults, error)
-	ApplicationsConfig(ctx context.Context, args params.Entities) (params.ApplicationGetConfigResults, error)
 	WatchApplications(ctx context.Context) (params.StringsWatchResult, error)
 	Life(ctx context.Context, args params.Entities) (params.LifeResults, error)
-	Watch(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error)
 	ApplicationCharmInfo(ctx context.Context, args params.Entity) (params.Charm, error)
 }

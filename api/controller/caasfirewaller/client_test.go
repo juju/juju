@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasfirewaller"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/testhelpers"
@@ -25,7 +24,6 @@ type clientCommmon interface {
 	WatchApplications(context.Context) (watcher.StringsWatcher, error)
 	WatchApplication(context.Context, string) (watcher.NotifyWatcher, error)
 	IsExposed(context.Context, string) (bool, error)
-	ApplicationConfig(context.Context, string) (config.ConfigAttributes, error)
 	Life(context.Context, string) (life.Value, error)
 }
 
@@ -191,30 +189,4 @@ func (s *firewallerSuite) TestWatchApplication(c *tc.C) {
 	watcher, err := client.WatchApplication(c.Context(), "gitlab")
 	c.Assert(watcher, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "FAIL")
-}
-
-func (s *firewallerSuite) TestApplicationConfig(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, tc.Equals, s.objType)
-		c.Check(version, tc.Equals, 0)
-		c.Check(id, tc.Equals, "")
-		c.Check(request, tc.Equals, "ApplicationsConfig")
-		c.Assert(arg, tc.DeepEquals, params.Entities{
-			Entities: []params.Entity{{
-				Tag: "application-gitlab",
-			}},
-		})
-		c.Assert(result, tc.FitsTypeOf, &params.ApplicationGetConfigResults{})
-		*(result.(*params.ApplicationGetConfigResults)) = params.ApplicationGetConfigResults{
-			Results: []params.ConfigResult{{
-				Config: map[string]interface{}{"foo": "bar"},
-			}},
-		}
-		return nil
-	})
-
-	client := s.newFunc(apiCaller)
-	cfg, err := client.ApplicationConfig(c.Context(), "gitlab")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg, tc.DeepEquals, config.ConfigAttributes{"foo": "bar"})
 }
