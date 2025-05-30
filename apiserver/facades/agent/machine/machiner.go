@@ -5,6 +5,7 @@ package machine
 
 import (
 	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -132,7 +133,32 @@ func NewMachinerAPIForState(
 func (api *MachinerAPI) SetObservedNetworkConfig(ctx context.Context, args params.SetMachineNetworkConfig) error {
 	// TODO (manadart 2025-05-27): Remove this once bridgepolicy and IP address
 	// handling is wholly handled by Dqlite.
-	return api.NetworkConfigAPI.SetObservedNetworkConfig(ctx, args)
+	// The corresponding types and logic in common/network go be removed at the
+	// same time.
+	err := api.NetworkConfigAPI.SetObservedNetworkConfig(ctx, args)
+	if err != nil {
+		return err
+	}
+
+	mTag, err := names.ParseMachineTag(args.Tag)
+	if err != nil {
+		return apiservererrors.ErrPerm
+	}
+
+	mUUID, err := api.machineService.GetMachineUUID(ctx, machine.Name(mTag.Id()))
+	if err != nil {
+		return apiservererrors.ServerError(err)
+	}
+
+	nics, err := commonnetwork.ParamsNetworkConfigToDomain(args.Config)
+	if err != nil {
+		return apiservererrors.ServerError(err)
+	}
+
+	if err := api.networkService.SetMachineNetConfig(ctx, mUUID, nics); err != nil {
+		return apiservererrors.ServerError(err)
+	}
+	return nil
 }
 
 func (api *MachinerAPI) getMachine(tag string, authChecker common.AuthFunc) (*state.Machine, error) {

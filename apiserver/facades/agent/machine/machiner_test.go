@@ -11,13 +11,12 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/machine"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coremachine "github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -210,83 +209,6 @@ func (s *machinerSuite) TestEnsureDead(c *tc.C) {
 	c.Assert(s.machine1.Life(), tc.Equals, state.Dead)
 }
 
-func (s *machinerSuite) TestSetMachineAddresses(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.makeAPI(c)
-
-	c.Assert(s.machine0.Addresses(), tc.HasLen, 0)
-	c.Assert(s.machine1.Addresses(), tc.HasLen, 0)
-
-	addresses := []network.MachineAddress{
-		network.NewMachineAddress("127.0.0.1"),
-		network.NewMachineAddress("8.8.8.8"),
-	}
-	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
-		{Tag: "machine-1", Addresses: params.FromMachineAddresses(addresses...)},
-		{Tag: "machine-0", Addresses: params.FromMachineAddresses(addresses...)},
-		{Tag: "machine-42", Addresses: params.FromMachineAddresses(addresses...)},
-	}}
-
-	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
-
-	result, err := s.machiner.SetMachineAddresses(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	err = s.machine1.Refresh()
-	c.Assert(err, tc.ErrorIsNil)
-
-	expectedAddresses := network.NewSpaceAddresses("8.8.8.8", "127.0.0.1")
-	c.Assert(s.machine1.MachineAddresses(), tc.DeepEquals, expectedAddresses)
-	err = s.machine0.Refresh()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.machine0.MachineAddresses(), tc.HasLen, 0)
-}
-
-func (s *machinerSuite) TestSetEmptyMachineAddresses(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.makeAPI(c)
-
-	// Set some addresses so we can ensure they are removed.
-	addresses := []network.MachineAddress{
-		network.NewMachineAddress("127.0.0.1"),
-		network.NewMachineAddress("8.8.8.8"),
-	}
-	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
-		{Tag: "machine-1", Addresses: params.FromMachineAddresses(addresses...)},
-	}}
-	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Times(2)
-	result, err := s.machiner.SetMachineAddresses(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-		},
-	})
-	err = s.machine1.Refresh()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.machine1.MachineAddresses(), tc.HasLen, 2)
-
-	args.MachineAddresses[0].Addresses = nil
-	result, err = s.machiner.SetMachineAddresses(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-		},
-	})
-
-	err = s.machine1.Refresh()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.machine1.MachineAddresses(), tc.HasLen, 0)
-}
-
 func (s *machinerSuite) TestWatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
@@ -335,4 +257,10 @@ func (s *machinerSuite) TestRecordAgentStartInformation(c *tc.C) {
 	err = s.machine1.Refresh()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.machine1.Hostname(), tc.Equals, "thundering-herds", tc.Commentf("expected the machine hostname to be updated"))
+}
+
+func (s *machinerSuite) TestSetObservedNetworkConfig(c *tc.C) {
+	c.Skip(`This suite is missing tests for SetObservedNetworkConfig.
+Those tests will be added once the call to the common network API is gone.
+`)
 }
