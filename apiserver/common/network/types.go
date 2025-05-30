@@ -5,7 +5,7 @@ package network
 
 import (
 	"context"
-
+	
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 
@@ -27,9 +27,9 @@ func SubnetInfoToParamsSubnet(subnet network.SubnetInfo) params.Subnet {
 	}
 }
 
-// MachineNetworkConfigToDomain transforms network config wire params to network
+// ParamsNetworkConfigToDomain transforms network config wire params to network
 // interfaces recognised by the network domain.
-func MachineNetworkConfigToDomain(args []params.NetworkConfig) ([]domainnetwork.NetInterface, error) {
+func ParamsNetworkConfigToDomain(args []params.NetworkConfig) ([]domainnetwork.NetInterface, error) {
 	nics := make([]domainnetwork.NetInterface, len(args))
 
 	for i, arg := range args {
@@ -49,6 +49,27 @@ func MachineNetworkConfigToDomain(args []params.NetworkConfig) ([]domainnetwork.
 			DNSSearchDomains: arg.DNSSearchDomains,
 			DNSAddresses:     arg.DNSServers,
 		}
+
+		var addrs []domainnetwork.NetAddr
+		for _, addr := range arg.Addresses {
+			addrs = append(addrs, domainnetwork.NetAddr{
+				InterfaceName:    arg.InterfaceName,
+				ProviderID:       nil,
+				AddressValue:     addr.Value,
+				ProviderSubnetID: nil,
+				AddressType:      network.AddressType(addr.Type),
+				ConfigType:       network.AddressConfigType(addr.ConfigType),
+				Origin:           network.OriginMachine,
+				Scope:            network.Scope(addr.Scope),
+				IsSecondary:      addr.IsSecondary,
+				IsShadow:         false,
+			})
+		}
+
+		nics[i].Addrs = addrs
+
+		// TODO (manadart 2025-05-30): Process shadow addresses for
+		// payloads coming from the provider.
 	}
 
 	return nics, nil
