@@ -51,7 +51,7 @@ func NewWatchableService(
 // WatchConsumedSecretsChanges watches secrets consumed by the specified unit
 // and returns a watcher which notifies of secret URIs that have had a new revision added.
 func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	tableLocal, queryLocal := s.secretState.InitialWatchStatementForConsumedSecretsChange(unitName)
