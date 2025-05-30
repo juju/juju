@@ -45,7 +45,7 @@ func (s *typesSuite) TestParamsNetworkConfigToDomain(c *tc.C) {
 		},
 	}
 
-	result, err := ParamsNetworkConfigToDomain(args)
+	result, err := ParamsNetworkConfigToDomain(args, network.OriginMachine)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.HasLen, 1)
 

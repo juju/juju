@@ -5,7 +5,7 @@ package network
 
 import (
 	"context"
-	
+
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 
@@ -29,7 +29,9 @@ func SubnetInfoToParamsSubnet(subnet network.SubnetInfo) params.Subnet {
 
 // ParamsNetworkConfigToDomain transforms network config wire params to network
 // interfaces recognised by the network domain.
-func ParamsNetworkConfigToDomain(args []params.NetworkConfig) ([]domainnetwork.NetInterface, error) {
+func ParamsNetworkConfigToDomain(
+	args []params.NetworkConfig, origin network.Origin,
+) ([]domainnetwork.NetInterface, error) {
 	nics := make([]domainnetwork.NetInterface, len(args))
 
 	for i, arg := range args {
@@ -59,7 +61,7 @@ func ParamsNetworkConfigToDomain(args []params.NetworkConfig) ([]domainnetwork.N
 				ProviderSubnetID: nil,
 				AddressType:      network.AddressType(addr.Type),
 				ConfigType:       network.AddressConfigType(addr.ConfigType),
-				Origin:           network.OriginMachine,
+				Origin:           origin,
 				Scope:            network.Scope(addr.Scope),
 				IsSecondary:      addr.IsSecondary,
 				IsShadow:         false,
