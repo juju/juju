@@ -55,40 +55,83 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	defer span.End()
 
 	tableLocal, queryLocal := s.secretState.InitialWatchStatementForConsumedSecretsChange(unitName)
-	wLocal, err := s.watcherFactory.NewNamespaceWatcher(
-		// We are only interested in CREATE changes because
-		// the secret_revision.revision is immutable anyway.
-		queryLocal,
-		eventsource.NamespaceFilter(tableLocal, changestream.Changed),
-	)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	processLocalChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
-		return s.secretState.GetConsumedSecretURIsWithChanges(ctx, unitName, revisionUUIDs...)
-	}
-	sWLocal, err := newSecretStringWatcher(wLocal, s.logger, processLocalChanges)
-	if err != nil {
-		return nil, errors.Capture(err)
+	tableRemote, queryRemote := s.secretState.InitialWatchStatementForConsumedRemoteSecretsChange(unitName)
+
+	initialQuery := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
+		localConsumedRevisionIDs, err := queryLocal(ctx, runner)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		localSecretURIs, err := s.secretState.GetConsumedSecretURIsWithChanges(
+			ctx, unitName, localConsumedRevisionIDs...)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		remoteConsumedSecretIDs, err := queryRemote(ctx, runner)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		remoteSecretURIs, err := s.secretState.GetConsumedRemoteSecretURIsWithChanges(
+			ctx, unitName, remoteConsumedSecretIDs...)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		result := append(localSecretURIs, remoteSecretURIs...)
+		if len(result) == 0 {
+			return nil, nil
+		}
+		return result, nil
 	}
 
-	tableRemote, queryRemote := s.secretState.InitialWatchStatementForConsumedRemoteSecretsChange(unitName)
-	wRemote, err := s.watcherFactory.NewNamespaceWatcher(
-		// We are interested in both CREATE and UPDATE changes on secret_reference table.
-		queryRemote,
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		initialQuery,
+		consumedSecretsChangesMapperFunc(s.secretState, unitName, tableLocal,
+			tableRemote),
+		// We are only interested in CREATE changes because the
+		// secret_revision.revision is immutable anyway.
+		eventsource.NamespaceFilter(tableLocal, changestream.Changed),
+		// We are interested in both CREATE and UPDATE changes on
+		// secret_reference table.
 		eventsource.NamespaceFilter(tableRemote, changestream.All),
 	)
-	if err != nil {
-		return nil, errors.Capture(err)
+}
+
+func consumedSecretsChangesMapperFunc(
+	state State,
+	unitName coreunit.Name,
+	tableLocal, tableRemote string,
+) eventsource.Mapper {
+	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		var localRevisionUUIDs, remoteSecretIDs []string
+		for _, change := range changes {
+			switch change.Namespace() {
+			case tableLocal:
+				localRevisionUUIDs = append(localRevisionUUIDs, change.Changed())
+			case tableRemote:
+				remoteSecretIDs = append(remoteSecretIDs, change.Changed())
+			}
+		}
+		var secretURIs []string
+		if len(localRevisionUUIDs) > 0 {
+			localSecretURIs, err := state.GetConsumedSecretURIsWithChanges(ctx, unitName, localRevisionUUIDs...)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			secretURIs = append(secretURIs, localSecretURIs...)
+		}
+		if len(remoteSecretIDs) > 0 {
+			remoteSecretURIs, err := state.GetConsumedRemoteSecretURIsWithChanges(ctx, unitName, remoteSecretIDs...)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			secretURIs = append(secretURIs, remoteSecretURIs...)
+		}
+		var result []changestream.ChangeEvent
+		for _, secretURI := range secretURIs {
+			result = append(result, secretURIChange(secretURI))
+		}
+		return result, nil
 	}
-	processRemoteChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
-		return s.secretState.GetConsumedRemoteSecretURIsWithChanges(ctx, unitName, secretIDs...)
-	}
-	sWRemote, err := newSecretStringWatcher(wRemote, s.logger, processRemoteChanges)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return eventsource.NewMultiStringsWatcher(ctx, sWLocal, sWRemote)
 }
 
 // WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any unit
@@ -547,8 +590,24 @@ func (w *secretWatcher[T]) Kill() {
 	w.catacomb.Kill(nil)
 }
 
-// Wait waits for the watcher's tomb to die,
-// and returns the error with which it was killed.
+// Wait waits for the watcher's tomb to die, and returns the error with which it
+// was killed.
 func (w *secretWatcher[T]) Wait() error {
 	return w.catacomb.Wait()
+}
+
+// secretURIChange is a [changestream.ChangeEvent] for the consumed secrets
+// changes watcher.
+type secretURIChange string
+
+func (_ secretURIChange) Type() changestream.ChangeType {
+	return changestream.Changed
+}
+
+func (_ secretURIChange) Namespace() string {
+	return ""
+}
+
+func (s secretURIChange) Changed() string {
+	return string(s)
 }
