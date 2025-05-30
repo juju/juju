@@ -47,7 +47,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 Juju 3.6 series is LTS
 ```
 
-### 🔸 **Juju 3.6.6** - 14 May 2025
+### 🔸 **Juju 3.6.6** - 29 May 2025
 ⚙️ Features:
 * feat(secrets): handle NotFound errors in secret backend during `RemoveUserSecrets` by @ca-scribner in [#19169](https://github.com/juju/juju/pull/19169)
 * feat: open firewall ports for SSH server  proxy by @kian99 in [#19180](https://github.com/juju/juju/pull/19180)
