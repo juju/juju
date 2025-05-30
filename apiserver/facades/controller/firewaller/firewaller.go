@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // ControllerConfigService is an interface that provides access to the
@@ -234,52 +233,6 @@ func (f *FirewallerAPI) WatchModelFirewallRules(ctx context.Context) (params.Not
 		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.NotifyWatchResult{NotifyWatcherId: watcherId}, nil
-}
-
-// GetAssignedMachine returns the assigned machine tag (if any) for
-// each given unit.
-func (f *FirewallerAPI) GetAssignedMachine(ctx context.Context, args params.Entities) (params.StringResults, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-	canAccess, err := f.accessUnit(ctx)
-	if err != nil {
-		return params.StringResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		unit, err := f.getUnit(canAccess, tag)
-		if err == nil {
-			var machineId string
-			machineId, err = unit.AssignedMachineId()
-			if err == nil {
-				result.Results[i].Result = names.NewMachineTag(machineId).String()
-			}
-		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-func (f *FirewallerAPI) getEntity(canAccess common.AuthFunc, tag names.Tag) (state.Entity, error) {
-	if !canAccess(tag) {
-		return nil, apiservererrors.ErrPerm
-	}
-	return f.st.FindEntity(tag)
-}
-
-func (f *FirewallerAPI) getUnit(canAccess common.AuthFunc, tag names.UnitTag) (*state.Unit, error) {
-	entity, err := f.getEntity(canAccess, tag)
-	if err != nil {
-		return nil, err
-	}
-	// The authorization function guarantees that the tag represents a
-	// unit.
-	return entity.(*state.Unit), nil
 }
 
 func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (firewall.Machine, error) {

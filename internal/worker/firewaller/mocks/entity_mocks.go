@@ -259,45 +259,6 @@ func (c *MockUnitApplicationCall) DoAndReturn(f func() (firewaller.Application, 
 	return c
 }
 
-// AssignedMachine mocks base method.
-func (m *MockUnit) AssignedMachine(arg0 context.Context) (names.MachineTag, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AssignedMachine", arg0)
-	ret0, _ := ret[0].(names.MachineTag)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AssignedMachine indicates an expected call of AssignedMachine.
-func (mr *MockUnitMockRecorder) AssignedMachine(arg0 any) *MockUnitAssignedMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignedMachine", reflect.TypeOf((*MockUnit)(nil).AssignedMachine), arg0)
-	return &MockUnitAssignedMachineCall{Call: call}
-}
-
-// MockUnitAssignedMachineCall wrap *gomock.Call
-type MockUnitAssignedMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockUnitAssignedMachineCall) Return(arg0 names.MachineTag, arg1 error) *MockUnitAssignedMachineCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockUnitAssignedMachineCall) Do(f func(context.Context) (names.MachineTag, error)) *MockUnitAssignedMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitAssignedMachineCall) DoAndReturn(f func(context.Context) (names.MachineTag, error)) *MockUnitAssignedMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Life mocks base method.
 func (m *MockUnit) Life() life.Value {
 	m.ctrl.T.Helper()

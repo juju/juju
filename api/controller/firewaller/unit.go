@@ -6,11 +6,9 @@ package firewaller
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/rpc/params"
 )
 
 // Unit represents a juju unit as seen by a firewaller worker.
@@ -52,26 +50,4 @@ func (u *Unit) Application() (*Application, error) {
 		tag:    applicationTag,
 	}
 	return app, nil
-}
-
-// AssignedMachine returns the tag of this unit's assigned machine (if
-// any), or a CodeNotAssigned error.
-func (u *Unit) AssignedMachine(ctx context.Context) (names.MachineTag, error) {
-	var results params.StringResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-	emptyTag := names.NewMachineTag("")
-	err := u.client.facade.FacadeCall(ctx, "GetAssignedMachine", args, &results)
-	if err != nil {
-		return emptyTag, err
-	}
-	if len(results.Results) != 1 {
-		return emptyTag, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return emptyTag, result.Error
-	}
-	return names.ParseMachineTag(result.Result)
 }
