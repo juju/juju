@@ -13,9 +13,13 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
+	coremachine "github.com/juju/juju/core/machine"
+	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	coreunit "github.com/juju/juju/core/unit"
+	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -586,4 +590,69 @@ func (s *baseSuite) assertApplication(
 		// Prevent the db from sending back bogus values.
 		c.Check(gotChannel, tc.DeepEquals, deployment.Channel{})
 	}
+}
+
+func (s *baseSuite) addUnit(c *tc.C, unitName coreunit.Name, appUUID coreapplication.ID) coreunit.UUID {
+	return s.addUnitWithLife(c, unitName, appUUID, life.Alive)
+}
+
+func (s *baseSuite) addUnitWithLife(c *tc.C, unitName coreunit.Name, appUUID coreapplication.ID, l life.Life) coreunit.UUID {
+	unitUUID := coreunittesting.GenUnitUUID(c)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		netNodeUUID := uuid.MustNewUUID().String()
+		_, err := tx.Exec(`
+INSERT INTO net_node (uuid)
+VALUES (?)
+`, netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(`
+INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
+SELECT ?, ?, ?, ?, uuid, charm_uuid
+FROM application
+WHERE uuid = ?
+`, unitUUID, unitName, l, netNodeUUID, appUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return unitUUID
+}
+
+func (s *baseSuite) addMachineToUnit(c *tc.C, unitUUID coreunit.UUID) (coremachine.Name, coremachine.UUID) {
+	machineUUID := coremachinetesting.GenUUID(c)
+	machineName := coremachine.Name("0")
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+INSERT INTO machine (uuid, name, life_id, net_node_uuid)
+SELECT ?, ?, ?, net_node_uuid
+FROM unit
+WHERE uuid = ?
+`, machineUUID, machineName, 0 /* alive */, unitUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return machineName, machineUUID
+}
+
+func (s *baseSuite) assertUnitPrincipal(c *tc.C, principalName, subordinateName coreunit.Name) {
+	var foundPrincipalName coreunit.Name
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT u1.name
+FROM unit u1
+JOIN unit_principal up ON up.principal_uuid = u1.uuid
+JOIN unit u2 ON u2.uuid = up.unit_uuid
+WHERE u2.name = ?
+`, subordinateName).Scan(&foundPrincipalName)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(foundPrincipalName, tc.Equals, principalName)
 }

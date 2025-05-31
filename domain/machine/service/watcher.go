@@ -7,10 +7,12 @@ import (
 	"context"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
@@ -56,11 +58,17 @@ func NewWatchableService(
 	st State,
 	watcherFactory WatcherFactory,
 	providerGetter providertracker.ProviderGetter[Provider],
+	statusHistory StatusHistory,
+	clock clock.Clock,
+	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
 		ProviderService: ProviderService{
 			Service: Service{
-				st: st,
+				st:            st,
+				statusHistory: statusHistory,
+				clock:         clock,
+				logger:        logger,
 			},
 			providerGetter: providerGetter,
 		},

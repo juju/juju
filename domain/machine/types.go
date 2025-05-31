@@ -46,6 +46,7 @@ type InstanceStatusType int
 
 const (
 	InstanceStatusUnset InstanceStatusType = iota
+	InstanceStatusPending
 	InstanceStatusAllocating
 	InstanceStatusRunning
 	InstanceStatusProvisioningError

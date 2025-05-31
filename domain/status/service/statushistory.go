@@ -77,10 +77,22 @@ func matches(hr statushistory.HistoryRecord, req StatusHistoryRequest, now time.
 		if hr.Kind != status.KindApplication {
 			return false, nil
 		}
+
 	case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
 		if !matchesUnit(hr, req) {
 			return false, nil
 		}
+
+	case status.KindMachine:
+		if hr.Kind != status.KindMachine {
+			return false, nil
+		}
+
+	case status.KindMachineInstance:
+		if hr.Kind != status.KindMachineInstance {
+			return false, nil
+		}
+
 	default:
 		// TODO: support other kinds.
 		return false, errors.Errorf("%q", req.Kind)
