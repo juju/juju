@@ -2461,6 +2461,9 @@
                                 }
                             }
                         },
+                        "StorageID": {
+                            "type": "string"
+                        },
                         "Trust": {
                             "type": "boolean"
                         },
@@ -2507,7 +2510,8 @@
                         "DryRun",
                         "Placement",
                         "Storage",
-                        "Trust"
+                        "Trust",
+                        "StorageID"
                     ]
                 },
                 "DeployFromRepositoryArgs": {

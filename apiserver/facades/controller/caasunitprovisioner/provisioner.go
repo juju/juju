@@ -437,6 +437,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		Tags:                 resourceTags,
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		ImageRepo:            imageRepo,
+		StorageID:            app.StorageID(),
 	}
 	deployInfo := ch.Meta().Deployment
 	if deployInfo != nil {

@@ -348,6 +348,8 @@ type DeployCommand struct {
 
 	controllerAPIRoot api.Connection
 	apiRoot           api.Connection
+
+	StorageID string
 }
 
 const deployDoc = `
@@ -651,6 +653,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
 	f.StringVar(&c.machineMap, "map-machines", "", "Specify the existing machines to use for bundle deployments")
+	f.StringVar(&c.StorageID, "storage-id", "", "Specify the storage id")
 
 	c.flagSet = f
 }
@@ -918,6 +921,7 @@ func (c *DeployCommand) getDeployerFactory(base corebase.Base, defaultCharmSchem
 		Storage:            c.Storage,
 		Trust:              c.Trust,
 		UseExisting:        c.UseExisting,
+		StorageID:          c.StorageID,
 	}
 	return c.NewDeployerFactory(dep), cfg
 }
