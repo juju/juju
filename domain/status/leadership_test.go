@@ -160,8 +160,13 @@ func (s *leadershipSuite) setupService(c *tc.C) *service.LeadershipService {
 		return s.ModelTxnRunner(), nil
 	}
 
+	controllerDB := func() (database.TxnRunner, error) {
+		return s.ControllerTxnRunner(), nil
+	}
+
 	return service.NewLeadershipService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		state.NewControllerState(controllerDB, model.UUID(s.ModelUUID())),
 		domain.NewLeaseService(leaseGetter{
 			Checker: s.leadership,
 		}),

@@ -206,3 +206,16 @@ type applicationNameUnitCount struct {
 type modelInfo struct {
 	Type string `db:"type"`
 }
+
+type dbModelUUID struct {
+	UUID string `db:"uuid"`
+}
+
+// dbModelState is used to represent a single row from the
+// v_model_status_state view. This information is used to feed a model's status.
+type dbModelState struct {
+	Destroying              bool   `db:"destroying"`
+	CredentialInvalid       bool   `db:"cloud_credential_invalid"`
+	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
+	Migrating               bool   `db:"migrating"`
+}

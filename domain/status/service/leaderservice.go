@@ -16,7 +16,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/status"
+	domainstatus "github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -24,7 +24,7 @@ import (
 // LeadershipService provides the API for working with the statuses of applications
 // and units, including the API handlers that require leadership checks.
 type LeadershipService struct {
-	*Service
+	*StatusService
 	leaderEnsurer leadership.Ensurer
 }
 
@@ -32,6 +32,7 @@ type LeadershipService struct {
 // input state.
 func NewLeadershipService(
 	st State,
+	controllerState ControllerState,
 	leaderEnsurer leadership.Ensurer,
 	modelUUID model.UUID,
 	statusHistory StatusHistory,
@@ -40,8 +41,9 @@ func NewLeadershipService(
 	logger logger.Logger,
 ) *LeadershipService {
 	return &LeadershipService{
-		Service: NewService(
+		StatusService: NewStatusService(
 			st,
+			controllerState,
 			modelUUID,
 			statusHistory,
 			statusHistoryReaderFn,
@@ -79,13 +81,13 @@ func (s *LeadershipService) SetApplicationStatusForUnitLeader(
 	// is because we're doing a reverse lookup from the unit to the application.
 	// We can't return the application not found, as we're not looking up the
 	// application directly.
-	appID, appName, err := s.st.GetApplicationIDAndNameByUnitName(ctx, unitName)
+	appID, appName, err := s.modelState.GetApplicationIDAndNameByUnitName(ctx, unitName)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-		return s.st.SetApplicationStatus(ctx, appID, encodedStatus)
+		return s.modelState.SetApplicationStatus(ctx, appID, encodedStatus)
 	})
 	if errors.Is(err, corelease.ErrNotHeld) {
 		return statuserrors.UnitNotLeader
@@ -117,20 +119,20 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 	}
 
 	appName := unitName.Application()
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appID, err := s.modelState.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return corestatus.StatusInfo{}, nil, errors.Errorf("getting application id: %w", err)
 	}
 
-	var applicationStatus status.StatusInfo[status.WorkloadStatusType]
-	var fullUnitStatuses status.FullUnitStatuses
+	var applicationStatus domainstatus.StatusInfo[domainstatus.WorkloadStatusType]
+	var fullUnitStatuses domainstatus.FullUnitStatuses
 	err = s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
 		var err error
-		applicationStatus, err = s.st.GetApplicationStatus(ctx, appID)
+		applicationStatus, err = s.modelState.GetApplicationStatus(ctx, appID)
 		if err != nil {
 			return errors.Errorf("getting application status: %w", err)
 		}
-		fullUnitStatuses, err = s.st.GetAllFullUnitStatusesForApplication(ctx, appID)
+		fullUnitStatuses, err = s.modelState.GetAllFullUnitStatusesForApplication(ctx, appID)
 		if err != nil {
 			return errors.Errorf("getting unit workload and container statuses")
 		}
@@ -151,7 +153,7 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 		unitWorkloadStatuses[unitName] = workloadStatus
 	}
 
-	if applicationStatus.Status == status.WorkloadStatusUnset {
+	if applicationStatus.Status == domainstatus.WorkloadStatusUnset {
 		applicationDisplayStatus, err = applicationDisplayStatusFromUnits(fullUnitStatuses)
 		if err != nil {
 			return corestatus.StatusInfo{}, nil, errors.Capture(err)
@@ -195,7 +197,7 @@ func (s *LeadershipService) SetRelationStatus(
 			return errors.Errorf("encoding relation status: %w", err)
 		}
 
-		return s.st.SetRelationStatus(ctx, relationUUID, relationStatus)
+		return s.modelState.SetRelationStatus(ctx, relationUUID, relationStatus)
 	}); err != nil {
 		return errors.Capture(err)
 	}

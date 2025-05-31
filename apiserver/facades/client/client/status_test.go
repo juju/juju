@@ -17,8 +17,8 @@ import (
 	permission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	domainmodel "github.com/juju/juju/domain/model"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
+	domainstatus "github.com/juju/juju/domain/status"
 	statusservice "github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
@@ -50,13 +50,16 @@ func (s *statusSuite) TestModelStatus(c *tc.C) {
 		CloudRegion:  "region",
 		AgentVersion: semversion.MustParse("4.0.0"),
 	}, nil)
-	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{
+	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(domainstatus.ModelStatus{
 		Status:  status.Available,
 		Message: "all good now",
 		Since:   now,
 	}, nil)
 
-	client := &Client{modelInfoService: s.modelInfoService}
+	client := &Client{
+		modelInfoService: s.modelInfoService,
+		statusService:    s.statusService,
+	}
 	statusInfo, err := client.modelStatus(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(statusInfo, tc.DeepEquals, params.ModelStatusInfo{
@@ -84,9 +87,12 @@ func (s *statusSuite) TestModelStatusModelNotFound(c *tc.C) {
 		CloudRegion:  "region",
 		AgentVersion: semversion.MustParse("4.0.0"),
 	}, nil)
-	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{}, domainmodelerrors.NotFound)
+	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(domainstatus.ModelStatus{}, domainmodelerrors.NotFound)
 
-	client := &Client{modelInfoService: s.modelInfoService}
+	client := &Client{
+		modelInfoService: s.modelInfoService,
+		statusService:    s.statusService,
+	}
 	_, err := client.modelStatus(c.Context())
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
