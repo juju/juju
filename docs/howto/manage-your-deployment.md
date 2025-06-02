@@ -350,7 +350,7 @@ For an offline (to be more precise, proxy-restricted) deployment:
     - [http://cloud-images.ubuntu.com](http://cloud-images.ubuntu.com/) for base Ubuntu cloud machine images, and [http://archive.ubuntu.com](http://archive.ubuntu.com/) and [http://security.ubuntu.com](http://security.ubuntu.com/) for machine image upgrades;
     - a container image registry:
         - [https://hub.docker.com/](https://hub.docker.com/)
-        - [public.ecr.aws/juju](public.ecr.aws/juju)
+        - [https://public.ecr.aws/juju](htttps://public.ecr.aws/juju)
         - [https://ghcr.io/juju](https://ghcr.io/juju)
 
 
@@ -481,7 +481,7 @@ In a typical Juju workflow you allow your client to read your locally stored clo
 
 - (always:) `17070`, to allow access from clients and agents;
 - (in high-availability scenarios): mongo
-- (In high-availability scenarios): `controller-api-port`, which can be turned off (see {ref}`config-controller-api-port`).
+- (In high-availability scenarios): `controller-api-port`, which can be turned off (see {ref}`controller-config-api-port`).
 
 When a controller deploys a charm, all the traffic between the controller and the resulting application unit agent(s) is [TLS](https://en.wikipedia.org/wiki/Transport_Layer_Security)-encrypted (each agent starts out with a CA certificate from the controller and, when they connect to the controller, they get another certificate that is then signed by the preshared CA certificate). In addition to that, every unit agent authenticates itself with the controller using a password.
 
@@ -541,7 +541,7 @@ Juju generates agent logs that can help administrators perform auditing for trou
 
 You can also easily collect metrics about or generally monitor and observe your deployment by deploying and integrating with the Canonical Observability Stack.
 
-> See more: {ref}`collect metrics about a controller` (the same recipe -- integration with the [Canonical Observability Stack](https://charmhub.io/topics/canonical-observability-stack) bundle -- can be used to observe applications other than the controller)
+> See more: {ref}`collect-metrics-about-a-controller` (the same recipe -- integration with the [Canonical Observability Stack](https://charmhub.io/topics/canonical-observability-stack) bundle -- can be used to observe applications other than the controller)
 
 (upgrade-your-deployment)=
 ## Upgrade your deployment
