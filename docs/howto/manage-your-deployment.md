@@ -835,7 +835,7 @@ When you deploy (an) application(s) from a charm or a bundle, choose the charm /
 
 - Choose charms whose `charmcraft.yaml > containers > uid` and `gid` are not 0 (do not require root access). If not possible, make sure to audit those charms.
 
-- *Starting with Juju 3.6:* Choose charms whose `charmcraft.yaml > containers > charm-user` field set to `non-root`. If not possible, make sure to audit those charms.
+- *Starting with Juju 3.6:* Choose charms whose `charmcraft.yaml > charm-user` field set to `non-root`. If not possible, make sure to audit those charms.
 
 - Choose charms that support secrets (see more:  {ref}`secret`).
 
@@ -870,6 +870,7 @@ None of these upgrades are systematically related (e.g., compatibility between J
 
 However, in principle, you should always try to keep all the various pieces up to date, the main caveats being that the Juju components are more tightly coupled to one another than to charms and that, due to the way controller upgrades work, keeping your client, controller, and models aligned is quite different if you're upgrading your Juju patch version vs. minor or major version.
 
+(upgrade-your-juju-components-patch-version)=
 ### Upgrade your Juju components' patch version
 > e.g., 3.4.4 -> 3.4.5
 
@@ -900,6 +901,7 @@ juju refresh <charm>
 > - {ref}`upgrade-an-application`
 
 
+(upgrade-your-juju-components-minor-or-major-version)=
 ### Upgrade your Juju components' minor or major version
 > e.g., 3.5 -> 3.6 or  2.9 -> 3.0
 
