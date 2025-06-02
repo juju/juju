@@ -1274,7 +1274,7 @@ func (u *UniterAPI) Life(ctx context.Context, args params.Entities) (params.Life
 		var lifeValue life.Value
 		switch tag.Kind() {
 		case names.ApplicationTagKind:
-			lifeValue, err = u.applicationService.GetApplicationLife(ctx, tag.Id())
+			lifeValue, err = u.applicationService.GetApplicationLifeByName(ctx, tag.Id())
 			if errors.Is(err, applicationerrors.ApplicationNotFound) {
 				err = errors.NotFoundf("application %s", tag.Id())
 			}

@@ -33,11 +33,10 @@ type appWorkerSuite struct {
 	appName string
 	appUUID coreapplication.ID
 
-	firewallerAPI *mocks.MockCAASFirewallerAPI
-	portService   *mocks.MockPortService
-	lifeGetter    *mocks.MockLifeGetter
-	broker        *mocks.MockCAASBroker
-	brokerApp     *caasmocks.MockApplication
+	portService        *mocks.MockPortService
+	applicationService *mocks.MockApplicationService
+	broker             *mocks.MockCAASBroker
+	brokerApp          *caasmocks.MockApplication
 
 	applicationChanges chan struct{}
 	portsChanges       chan struct{}
@@ -66,12 +65,20 @@ func (s *appWorkerSuite) getController(c *tc.C) *gomock.Controller {
 	s.appsWatcher = watchertest.NewMockNotifyWatcher(s.applicationChanges)
 	s.portsWatcher = watchertest.NewMockNotifyWatcher(s.portsChanges)
 
-	s.firewallerAPI = mocks.NewMockCAASFirewallerAPI(ctrl)
 	s.portService = mocks.NewMockPortService(ctrl)
+	s.applicationService = mocks.NewMockApplicationService(ctrl)
 
-	s.lifeGetter = mocks.NewMockLifeGetter(ctrl)
 	s.broker = mocks.NewMockCAASBroker(ctrl)
 	s.brokerApp = caasmocks.NewMockApplication(ctrl)
+
+	c.Cleanup(func() {
+		s.appsWatcher = nil
+		s.portsWatcher = nil
+		s.portService = nil
+		s.applicationService = nil
+		s.broker = nil
+		s.brokerApp = nil
+	})
 
 	return ctrl
 }
@@ -80,12 +87,10 @@ func (s *appWorkerSuite) getWorker(c *tc.C) worker.Worker {
 	w, err := caasfirewaller.NewApplicationWorker(
 		testing.ControllerTag.Id(),
 		testing.ModelTag.Id(),
-		s.appName,
 		s.appUUID,
-		s.firewallerAPI,
 		s.portService,
+		s.applicationService,
 		s.broker,
-		s.lifeGetter,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -125,7 +130,8 @@ func (s *appWorkerSuite) TestWorker(c *tc.C) {
 	}
 
 	gomock.InOrder(
-		s.firewallerAPI.EXPECT().WatchApplication(gomock.Any(), s.appName).Return(s.appsWatcher, nil),
+		s.applicationService.EXPECT().GetApplicationName(gomock.Any(), s.appUUID).Return(s.appName, nil),
+		s.applicationService.EXPECT().WatchApplicationExposed(gomock.Any(), s.appName).Return(s.appsWatcher, nil),
 		s.portService.EXPECT().WatchOpenedPortsForApplication(gomock.Any(), s.appUUID).Return(s.portsWatcher, nil),
 		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
 
@@ -163,7 +169,7 @@ func (s *appWorkerSuite) TestWorker(c *tc.C) {
 			},
 		}, false).Return(nil),
 
-		s.firewallerAPI.EXPECT().IsExposed(gomock.Any(), s.appName).DoAndReturn(func(_ context.Context, _ string) (bool, error) {
+		s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), s.appName).DoAndReturn(func(_ context.Context, _ string) (bool, error) {
 			close(done)
 			return false, nil
 		}),

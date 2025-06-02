@@ -214,7 +214,7 @@ func (s *unitServiceSuite) TestUpdateCAASUnit(c *tc.C) {
 		}),
 	}
 
-	s.state.EXPECT().GetApplicationLife(gomock.Any(), "foo").Return(appID, life.Alive, nil)
+	s.state.EXPECT().GetApplicationLifeByName(gomock.Any(), "foo").Return(appID, life.Alive, nil)
 
 	var unitArgs application.UpdateCAASUnitParams
 	s.state.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreunit.Name, args application.UpdateCAASUnitParams) error {
@@ -231,7 +231,7 @@ func (s *unitServiceSuite) TestUpdateCAASUnitNotAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
-	s.state.EXPECT().GetApplicationLife(gomock.Any(), "foo").Return(id, life.Dying, nil)
+	s.state.EXPECT().GetApplicationLifeByName(gomock.Any(), "foo").Return(id, life.Dying, nil)
 
 	err := s.service.UpdateCAASUnit(c.Context(), coreunit.Name("foo/666"), UpdateCAASUnitParams{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)

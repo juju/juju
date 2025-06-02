@@ -965,16 +965,29 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourc
 			errors.ErrorStack(err)))
 }
 
-func (s *applicationStateSuite) TestGetApplicationLife(c *tc.C) {
+func (s *applicationStateSuite) TestGetApplicationLifeByName(c *tc.C) {
 	appID := s.createIAASApplication(c, "foo", life.Dying)
-	gotID, appLife, err := s.state.GetApplicationLife(c.Context(), "foo")
+	gotID, appLife, err := s.state.GetApplicationLifeByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotID, tc.Equals, appID)
 	c.Assert(appLife, tc.Equals, life.Dying)
 }
 
+func (s *applicationStateSuite) TestGetApplicationLifeByNameNotFound(c *tc.C) {
+	_, _, err := s.state.GetApplicationLifeByName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestGetApplicationLife(c *tc.C) {
+	appID := s.createIAASApplication(c, "foo", life.Dying)
+	appLife, err := s.state.GetApplicationLife(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(appLife, tc.Equals, life.Dying)
+}
+
 func (s *applicationStateSuite) TestGetApplicationLifeNotFound(c *tc.C) {
-	_, _, err := s.state.GetApplicationLife(c.Context(), "foo")
+	appID := applicationtesting.GenApplicationUUID(c)
+	_, err := s.state.GetApplicationLife(c.Context(), appID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -2883,6 +2896,19 @@ func (s *applicationStateSuite) TestCheckApplicationCharmDifferentCharm(c *tc.C)
 		return s.state.checkApplicationCharm(c.Context(), tx, applicationID{ID: id}, charmID{UUID: "other"})
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationHasDifferentCharm)
+}
+
+func (s *applicationStateSuite) TestGetApplicationName(c *tc.C) {
+	id := s.createIAASApplication(c, "foo", life.Alive)
+
+	name, err := s.state.GetApplicationName(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, "foo")
+}
+
+func (s *applicationStateSuite) TestGetApplicationNameNotFound(c *tc.C) {
+	_, err := s.state.GetApplicationName(c.Context(), applicationtesting.GenApplicationUUID(c))
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestGetApplicationIDByName(c *tc.C) {

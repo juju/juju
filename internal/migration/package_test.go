@@ -60,7 +60,7 @@ func (s *precheckBaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *precheckBaseSuite) expectApplicationLife(appName string, l life.Value) {
-	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), appName).Return(l, nil)
+	s.applicationService.EXPECT().GetApplicationLifeByName(gomock.Any(), appName).Return(l, nil)
 }
 
 func (s *precheckBaseSuite) expectCheckRelation(rels fakeRelations) {

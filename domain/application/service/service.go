@@ -183,6 +183,15 @@ type WatcherFactory interface {
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 
+	// NewNamespaceWatcher returns a new watcher that filters changes from the input
+	// base watcher's db/queue. Change-log events will be emitted only if the filter
+	// accepts them, and dispatching the notifications via the Changes channel. A
+	// filter option is required, though additional filter options can be provided.
+	NewNamespaceWatcher(
+		initialQuery eventsource.NamespaceQuery,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+
 	// NewNamespaceMapperWatcher returns a new watcher that receives changes
 	// from the input base watcher's db/queue. Change-log events will be emitted
 	// only if the filter accepts them, and dispatching the notifications via
@@ -607,7 +616,7 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 
 	unitNamesOnMachineCache := map[coreunit.Name]struct{}{}
 
-	newUnitNamespace, query := s.st.InitialWatchStatementUnitInsertDeleteOnNetNode(desiredNetNodeUUID)
+	unitAddRemoveNamespace, query := s.st.InitialWatchStatementUnitInsertDeleteOnNetNode(desiredNetNodeUUID)
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
 			initialResults, err := query(ctx, txn)
@@ -652,7 +661,17 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 
 			return filteredChanges, nil
 		},
-		eventsource.NamespaceFilter(newUnitNamespace, changestream.All),
+		eventsource.NamespaceFilter(unitAddRemoveNamespace, changestream.All),
+	)
+}
+
+// WatchApplicationAddRemove returns a watcher that emits application uuids when
+// applications are added or removed.
+func (s *WatchableService) WatchApplications(ctx context.Context) (watcher.StringsWatcher, error) {
+	applicationNamespace, query := s.st.InitialWatchStatementApplications()
+	return s.watcherFactory.NewNamespaceWatcher(
+		query,
+		eventsource.NamespaceFilter(applicationNamespace, changestream.All),
 	)
 }
 
@@ -663,7 +682,7 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 // changed.
 //
 // If the application does not exist an error satisfying
-// [applicationerrors.NotFound] will be returned.
+// [applicationerrors.ApplicationNotFound] will be returned.
 func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -707,7 +726,7 @@ func (s *WatchableService) WatchUnitAddresses(ctx context.Context, unitName core
 	)
 }
 
-// WatchUnitForUniterChanged watches for some specific changes to the unit with
+// WatchUnitForLegacyUniter watches for some specific changes to the unit with
 // the given name. The watcher will emit a notification when there is a change to
 // the unit's inherent properties, it's subordinates or it's resolved mode.
 //

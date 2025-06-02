@@ -159,7 +159,7 @@ type ApplicationService interface {
 	DestroyUnit(context.Context, unit.Name) error
 
 	// GetApplicationLife looks up the life of the specified application.
-	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+	GetApplicationLife(context.Context, coreapplication.ID) (life.Value, error)
 
 	// GetUnitLife looks up the life of the specified unit.
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)

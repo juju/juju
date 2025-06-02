@@ -242,19 +242,19 @@ func (mr *MockApplicationServiceMockRecorder) GetApplicationIDByName(arg0, arg1 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByName", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationIDByName), arg0, arg1)
 }
 
-// GetApplicationLife mocks base method.
-func (m *MockApplicationService) GetApplicationLife(arg0 context.Context, arg1 string) (life.Value, error) {
+// GetApplicationLifeByName mocks base method.
+func (m *MockApplicationService) GetApplicationLifeByName(arg0 context.Context, arg1 string) (life.Value, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationLife", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetApplicationLifeByName", arg0, arg1)
 	ret0, _ := ret[0].(life.Value)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetApplicationLife indicates an expected call of GetApplicationLife.
-func (mr *MockApplicationServiceMockRecorder) GetApplicationLife(arg0, arg1 any) *gomock.Call {
+// GetApplicationLifeByName indicates an expected call of GetApplicationLifeByName.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationLifeByName(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLife", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationLife), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLifeByName", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationLifeByName), arg0, arg1)
 }
 
 // GetApplicationScale mocks base method.

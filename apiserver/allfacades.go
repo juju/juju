@@ -66,7 +66,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
 	"github.com/juju/juju/apiserver/facades/controller/agenttools"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
-	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
@@ -178,7 +177,6 @@ func AllFacades() *facade.Registry {
 	caasagent.Register(registry)
 	caasapplication.Register(registry)
 	caasapplicationprovisioner.Register(registry)
-	caasfirewaller.Register(registry)
 	caasmodeloperator.Register(registry)
 	caasmodelconfigmanager.Register(registry)
 	caasoperatorupgrader.Register(registry)

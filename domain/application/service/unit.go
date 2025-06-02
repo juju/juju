@@ -304,7 +304,7 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	}
 
 	appName := unitName.Application()
-	_, appLife, err := s.st.GetApplicationLife(ctx, appName)
+	_, appLife, err := s.st.GetApplicationLifeByName(ctx, appName)
 	if err != nil {
 		return errors.Errorf("getting application %q life: %w", appName, err)
 	}

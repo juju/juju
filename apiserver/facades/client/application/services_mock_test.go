@@ -1308,7 +1308,7 @@ func (c *MockApplicationServiceGetApplicationIDByNameCall) DoAndReturn(f func(co
 }
 
 // GetApplicationLife mocks base method.
-func (m *MockApplicationService) GetApplicationLife(arg0 context.Context, arg1 string) (life.Value, error) {
+func (m *MockApplicationService) GetApplicationLife(arg0 context.Context, arg1 application.ID) (life.Value, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationLife", arg0, arg1)
 	ret0, _ := ret[0].(life.Value)
@@ -1335,13 +1335,13 @@ func (c *MockApplicationServiceGetApplicationLifeCall) Return(arg0 life.Value, a
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetApplicationLifeCall) Do(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetApplicationLifeCall {
+func (c *MockApplicationServiceGetApplicationLifeCall) Do(f func(context.Context, application.ID) (life.Value, error)) *MockApplicationServiceGetApplicationLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetApplicationLifeCall {
+func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(context.Context, application.ID) (life.Value, error)) *MockApplicationServiceGetApplicationLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

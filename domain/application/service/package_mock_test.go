@@ -1044,19 +1044,18 @@ func (c *MockStateGetApplicationIDByUnitNameCall) DoAndReturn(f func(context.Con
 }
 
 // GetApplicationLife mocks base method.
-func (m *MockState) GetApplicationLife(ctx context.Context, appName string) (application.ID, life.Life, error) {
+func (m *MockState) GetApplicationLife(ctx context.Context, appID application.ID) (life.Life, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationLife", ctx, appName)
-	ret0, _ := ret[0].(application.ID)
-	ret1, _ := ret[1].(life.Life)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret := m.ctrl.Call(m, "GetApplicationLife", ctx, appID)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // GetApplicationLife indicates an expected call of GetApplicationLife.
-func (mr *MockStateMockRecorder) GetApplicationLife(ctx, appName any) *MockStateGetApplicationLifeCall {
+func (mr *MockStateMockRecorder) GetApplicationLife(ctx, appID any) *MockStateGetApplicationLifeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLife", reflect.TypeOf((*MockState)(nil).GetApplicationLife), ctx, appName)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLife", reflect.TypeOf((*MockState)(nil).GetApplicationLife), ctx, appID)
 	return &MockStateGetApplicationLifeCall{Call: call}
 }
 
@@ -1066,19 +1065,98 @@ type MockStateGetApplicationLifeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationLifeCall) Return(arg0 application.ID, arg1 life.Life, arg2 error) *MockStateGetApplicationLifeCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
+func (c *MockStateGetApplicationLifeCall) Return(arg0 life.Life, arg1 error) *MockStateGetApplicationLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationLifeCall) Do(f func(context.Context, string) (application.ID, life.Life, error)) *MockStateGetApplicationLifeCall {
+func (c *MockStateGetApplicationLifeCall) Do(f func(context.Context, application.ID) (life.Life, error)) *MockStateGetApplicationLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationLifeCall) DoAndReturn(f func(context.Context, string) (application.ID, life.Life, error)) *MockStateGetApplicationLifeCall {
+func (c *MockStateGetApplicationLifeCall) DoAndReturn(f func(context.Context, application.ID) (life.Life, error)) *MockStateGetApplicationLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationLifeByName mocks base method.
+func (m *MockState) GetApplicationLifeByName(ctx context.Context, appName string) (application.ID, life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationLifeByName", ctx, appName)
+	ret0, _ := ret[0].(application.ID)
+	ret1, _ := ret[1].(life.Life)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetApplicationLifeByName indicates an expected call of GetApplicationLifeByName.
+func (mr *MockStateMockRecorder) GetApplicationLifeByName(ctx, appName any) *MockStateGetApplicationLifeByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLifeByName", reflect.TypeOf((*MockState)(nil).GetApplicationLifeByName), ctx, appName)
+	return &MockStateGetApplicationLifeByNameCall{Call: call}
+}
+
+// MockStateGetApplicationLifeByNameCall wrap *gomock.Call
+type MockStateGetApplicationLifeByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationLifeByNameCall) Return(arg0 application.ID, arg1 life.Life, arg2 error) *MockStateGetApplicationLifeByNameCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationLifeByNameCall) Do(f func(context.Context, string) (application.ID, life.Life, error)) *MockStateGetApplicationLifeByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationLifeByNameCall) DoAndReturn(f func(context.Context, string) (application.ID, life.Life, error)) *MockStateGetApplicationLifeByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationName mocks base method.
+func (m *MockState) GetApplicationName(arg0 context.Context, arg1 application.ID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationName", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationName indicates an expected call of GetApplicationName.
+func (mr *MockStateMockRecorder) GetApplicationName(arg0, arg1 any) *MockStateGetApplicationNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationName", reflect.TypeOf((*MockState)(nil).GetApplicationName), arg0, arg1)
+	return &MockStateGetApplicationNameCall{Call: call}
+}
+
+// MockStateGetApplicationNameCall wrap *gomock.Call
+type MockStateGetApplicationNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationNameCall) Return(arg0 string, arg1 error) *MockStateGetApplicationNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationNameCall) Do(f func(context.Context, application.ID) (string, error)) *MockStateGetApplicationNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationNameCall) DoAndReturn(f func(context.Context, application.ID) (string, error)) *MockStateGetApplicationNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3160,6 +3238,45 @@ func (c *MockStateInitialWatchStatementApplicationConfigHashCall) DoAndReturn(f 
 	return c
 }
 
+// InitialWatchStatementApplications mocks base method.
+func (m *MockState) InitialWatchStatementApplications() (string, eventsource.NamespaceQuery) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementApplications")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(eventsource.NamespaceQuery)
+	return ret0, ret1
+}
+
+// InitialWatchStatementApplications indicates an expected call of InitialWatchStatementApplications.
+func (mr *MockStateMockRecorder) InitialWatchStatementApplications() *MockStateInitialWatchStatementApplicationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementApplications", reflect.TypeOf((*MockState)(nil).InitialWatchStatementApplications))
+	return &MockStateInitialWatchStatementApplicationsCall{Call: call}
+}
+
+// MockStateInitialWatchStatementApplicationsCall wrap *gomock.Call
+type MockStateInitialWatchStatementApplicationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchStatementApplicationsCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockStateInitialWatchStatementApplicationsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchStatementApplicationsCall) Do(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementApplicationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchStatementApplicationsCall) DoAndReturn(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementApplicationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchStatementApplicationsWithPendingCharms mocks base method.
 func (m *MockState) InitialWatchStatementApplicationsWithPendingCharms() (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
@@ -5213,6 +5330,50 @@ func (c *MockWatcherFactoryNewNamespaceMapperWatcherCall) Do(f func(eventsource.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockWatcherFactoryNewNamespaceMapperWatcherCall) DoAndReturn(f func(eventsource.NamespaceQuery, eventsource.Mapper, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.StringsWatcher, error)) *MockWatcherFactoryNewNamespaceMapperWatcherCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NewNamespaceWatcher mocks base method.
+func (m *MockWatcherFactory) NewNamespaceWatcher(initialQuery eventsource.NamespaceQuery, filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption) (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{initialQuery, filterOption}
+	for _, a := range filterOptions {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "NewNamespaceWatcher", varargs...)
+	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewNamespaceWatcher indicates an expected call of NewNamespaceWatcher.
+func (mr *MockWatcherFactoryMockRecorder) NewNamespaceWatcher(initialQuery, filterOption any, filterOptions ...any) *MockWatcherFactoryNewNamespaceWatcherCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{initialQuery, filterOption}, filterOptions...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNamespaceWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewNamespaceWatcher), varargs...)
+	return &MockWatcherFactoryNewNamespaceWatcherCall{Call: call}
+}
+
+// MockWatcherFactoryNewNamespaceWatcherCall wrap *gomock.Call
+type MockWatcherFactoryNewNamespaceWatcherCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockWatcherFactoryNewNamespaceWatcherCall) Return(arg0 watcher.StringsWatcher, arg1 error) *MockWatcherFactoryNewNamespaceWatcherCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockWatcherFactoryNewNamespaceWatcherCall) Do(f func(eventsource.NamespaceQuery, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.StringsWatcher, error)) *MockWatcherFactoryNewNamespaceWatcherCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockWatcherFactoryNewNamespaceWatcherCall) DoAndReturn(f func(eventsource.NamespaceQuery, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.StringsWatcher, error)) *MockWatcherFactoryNewNamespaceWatcherCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

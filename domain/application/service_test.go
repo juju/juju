@@ -91,14 +91,14 @@ func (s *serviceSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGetApplicationLife(c *tc.C) {
+func (s *serviceSuite) TestGetApplicationLifeByName(c *tc.C) {
 	s.createApplication(c, "foo")
 
-	lifeValue, err := s.svc.GetApplicationLife(c.Context(), "foo")
+	lifeValue, err := s.svc.GetApplicationLifeByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(lifeValue, tc.Equals, life.Alive)
 
-	_, err = s.svc.GetApplicationLife(c.Context(), "bar")
+	_, err = s.svc.GetApplicationLifeByName(c.Context(), "bar")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
