@@ -515,7 +515,7 @@ type storageInstanceFilesystemArg struct {
 }
 
 func (s *baseStorageSuite) assertFilesystems(c *tc.C, charmUUID corecharm.ID, expected []storageInstanceFilesystemArg) {
-	now := time.Now()
+	expectedStatusTimeBefore := time.Now()
 
 	var results []storageInstanceFilesystemArg
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -544,7 +544,7 @@ WHERE si.charm_uuid = ?`,
 			if err != nil {
 				return err
 			}
-			if since.IsZero() || since.After(now) {
+			if since.IsZero() || since.After(expectedStatusTimeBefore) {
 				return errors.Errorf("invalid status 'since' value: %s", since)
 			}
 			results = append(results, row)
@@ -571,7 +571,7 @@ type storageInstanceVolumeArg struct {
 }
 
 func (s *baseStorageSuite) assertVolumes(c *tc.C, charmUUID corecharm.ID, expected []storageInstanceVolumeArg) {
-	now := time.Now()
+	expectedStatusTimeBefore := time.Now()
 
 	var results []storageInstanceVolumeArg
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -600,7 +600,7 @@ WHERE si.charm_uuid = ?`,
 			if err != nil {
 				return err
 			}
-			if since.IsZero() || since.After(now) {
+			if since.IsZero() || since.After(expectedStatusTimeBefore) {
 				return errors.Errorf("invalid status 'since' value: %s", since)
 			}
 			results = append(results, row)
