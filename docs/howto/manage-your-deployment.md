@@ -19,7 +19,9 @@ To set up a cloud deployment with Juju, you need a cloud, Juju, and charms.
 5. Add {ref}`models <add-a-model>` (workspaces) to your controller, then start {ref}`deploying, configuring, integrating, scaling, etc., charmed applications <manage-applications>`. Juju takes care of the underlying infrastructure for you, but if you wish you can also customize {ref}`storage <add-storage>`, {ref}`networking <add-a-space>`, etc.
 
 
-> See more:
+> See more: {ref}`administering-juju`, {ref}`building-with-juju`
+
+<!--
 {ref}`Manage the juju CLI <manage-juju>`,
 {ref}`Manage plugins <manage-plugins>`,
 {ref}`Manage clouds <manage-clouds>`,
@@ -45,6 +47,7 @@ To set up a cloud deployment with Juju, you need a cloud, Juju, and charms.
 {ref}`Manage storage pools <manage-storage-pools>`,
 {ref}`Manage spaces <manage-spaces>`,
 {ref}`Manage subnets <manage-subnets>`
+-->
 
 (set-things-up)=
 ### Set up your deployment -- local testing and development
@@ -94,7 +97,7 @@ $ multipass launch --cpus 4 --memory 8G --disk 50G --name my-juju-vm charm-dev
 
 `````
 `````{group-tab} manually
-Launch a VM called `my-juju-vm` using the default blueprint:
+Launch a VM called `my-juju-vm`:
 
 ```text
 $ multipass launch --cpus 4 --memory 8G --disk 50G --name my-juju-vm
@@ -874,32 +877,32 @@ However, in principle, you should always try to keep all the various pieces up t
 ### Upgrade your Juju components' patch version
 > e.g., 3.4.4 -> 3.4.5
 
-1. Upgrade the client's patch version to stable.
-1. Upgrade the controller's patch version to the stable version.
-1. For each model on the controller: Upgrade the model's patch version to the stable version. Optionally, for each application on the model: Upgrade the application's charm.
-
-
-````{dropdown} Example workflow
-
+1. Upgrade the client's patch version to stable. For example:
 
 ```text
 snap refresh juju --channel 3.3/stable
-juju switch <target controller>
-juju upgrade-controller
-juju upgrade-model -m <target model>
-juju refresh <charm>
 ```
 
-````
+> See more: {ref}`upgrade-juju`
+
+2. Upgrade the controller's patch version to the stable version. For example:
+
+```text
+juju switch mycontroller
+juju upgrade-controller
+```
+
+> See more: {ref}`upgrade-a-controllers-patch-version`
 
 
-> See more:
->
-> - {ref}`upgrade-juju`
-> - {ref}`upgrade-a-controller`
-> - {ref}`upgrade-a-model`
-> - {ref}`upgrade-an-application`
+3. For each model on the controller: Upgrade the model's patch version to the stable version. Optionally, for each application on the model: Upgrade the application's charm. For example:
 
+```text
+juju upgrade-model -m mymodel
+juju refresh mycharm
+```
+
+> See more: {ref}`upgrade-a-model`, {ref}`upgrade-an-application`
 
 (upgrade-your-juju-components-minor-or-major-version)=
 ### Upgrade your Juju components' minor or major version
@@ -909,18 +912,18 @@ juju refresh <charm>
 For best results, perform a patch upgrade first.
 ```
 
-1. Upgrade your client to the target minor or major.
-1. It is not possible to upgrade a controller's minor or major version in place. Use the upgraded client to bootstrap a new controller of the target version.
-1. Clone your old controller's users, permissions, configurations, etc., into the new controller (only supported for machine controllers).
-1. Migrate your old controller's models to the new controller and upgrade them to match the version of the new controller. Optionally, for each application on the model: Upgrade the application's charm.
-1. Help your users connect to the new controller.
+1. Upgrade your client to the target minor or major. For example:
 
-````{dropdown} Example workflow
 
 ```text
-# Upgrade the client to the version you want for your controller:
 snap refresh juju --channel=<target controller version>
+```
+> See more: {ref}`upgrade-juju`
 
+
+2. It is not possible to upgrade a controller's minor or major version in place. Use the upgraded client to bootstrap a new controller of the target version, then clone your old controller's users, permissions, configurations, etc., into the new controller (for machine controllers, using our backup and restore tooling). For example:
+
+```text
 # Use the new client to bootstrap a controller:
 juju bootstrap <cloud> newcontroller
 
@@ -951,12 +954,18 @@ juju ssh 0
 ./juju-restore --copy-controller <path to backup>
 # Congratulations, your <old version> controller config has been cloned into your <new version> controller.
 
+```
+
+> See more: {ref}`upgrade-a-controllers-minor-or-major-version`
+
+3. Migrate your old controller's models to the new controller and upgrade them to match the version of the new controller. Optionally, for each application on the model: Upgrade the application's charm. For example:
+
+```text
 # Switch to the old controller:
 juju switch oldcontroller
 
 # Migrate your models to the new controller:
 juju migrate <model> newcontroller
-
 
 # Switch to the new controller:
 juju switch newcontroller
@@ -964,9 +973,15 @@ juju switch newcontroller
 # Upgrade the migrated models to match the new controller's agent version:
 juju upgrade-model --agent-version=<new controller's agent version>
 
+# Upgrade the applications:
+juju refresh mycharm
+```
 
-# Reset the users' passwords to get a new registration string
-# that they can use to connect to the new controller:
+> See more: {ref}`upgrade-a-model`, {ref}`upgrade-an-application`
+
+4. Help your users connect to the new controller by resetting their password and sending them the registration link for the new control that they can use to connect to the new controller. For example:
+
+```text
 juju change-user-password <user> --reset
 # >>> Password for "<user>" has been reset.
 # >>> Ask the user to run:
@@ -976,15 +991,7 @@ juju change-user-password <user> --reset
 
 ```
 
-````
-
-> See more:
->
-> - {ref}`upgrade-juju`
-> - {ref}`upgrade-a-controller`
-> - {ref}`upgrade-a-model`
-> - {ref}`upgrade-an-application`
-
+> See more: {ref}`manage-a-users-login-details`
 
 (troubleshoot-your-deployment)=
 ## Troubleshoot your deployment
