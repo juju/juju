@@ -4,65 +4,12 @@
 package sshserver
 
 import (
-	"context"
-	"net"
-	"sync"
 	"time"
 
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 )
-
-// testingSSHServerListener is required to prevent a race condition that can
-// occur in tests.
-//
-// The SSH server tracks the listeners in use but if the server's close() method
-// executes before we reach a safe point in the Serve() method then the server's
-// map of listeners will be empty. A safe point to indicate the server is ready
-// is right before we start accepting connections. Accept() will return with
-// error if the underlying listener is already closed.
-type testingSSHServerListener struct {
-	net.Listener
-	// closeAllowed indicates when the server has reached
-	// a safe point that it can be killed.
-	closeAllowed chan struct{}
-	once         *sync.Once
-
-	timeout time.Duration
-}
-
-// newTestingSSHServerListener returns a listener.
-func newTestingSSHServerListener(l net.Listener, timeout time.Duration) net.Listener {
-	return testingSSHServerListener{
-		Listener:     l,
-		closeAllowed: make(chan struct{}),
-		once:         &sync.Once{},
-		timeout:      timeout,
-	}
-}
-
-// Accept runs the listeners accept, but firstly closes the closeAllowed channel,
-// signalling that any routines waiting to close the listener may proceed.
-func (l testingSSHServerListener) Accept() (net.Conn, error) {
-	l.once.Do(func() {
-		close(l.closeAllowed)
-	})
-	return l.Listener.Accept()
-}
-
-func (l testingSSHServerListener) Close() error {
-	ctx, cancel := context.WithTimeout(context.Background(), l.timeout)
-	defer cancel()
-
-	select {
-	case <-l.closeAllowed:
-		return l.Listener.Close()
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
 
 type listenerSuite struct {
 	testing.IsolationSuite
@@ -72,43 +19,62 @@ type listenerSuite struct {
 
 var _ = gc.Suite(&listenerSuite{})
 
-func (s *listenerSuite) TestAcceptOnceListener(c *gc.C) {
+func (s *listenerSuite) TestSyncListenerAfterAccept(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.listener.EXPECT().Accept().Return(nil, nil)
-	s.listener.EXPECT().Close()
 
-	acceptOnceListener := newTestingSSHServerListener(s.listener, time.Second)
+	closeAllowed, syncListener := newSyncSSHServerListener(s.listener)
+
+	select {
+	case <-closeAllowed:
+		c.Error("closeAllowed channel should not be closed yet")
+	case <-time.After(testing.ShortWait):
+	}
 
 	done := make(chan struct{})
-
 	go func() {
 		defer close(done)
 
-		// Accept runs and sends down the channel, it is blocked then until
-		// Close continues.
-		acceptOnceListener.Accept()
+		// Accept runs and signals the server can now be closed.
+		_, _ = syncListener.Accept()
 	}()
 
-	err := acceptOnceListener.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
+	<-done
 	select {
-	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-closeAllowed:
+	case <-time.After(testing.ShortWait):
 		c.Fail()
 	}
 }
 
-func (s *listenerSuite) TestAcceptOnceListenerDoesNotStop(c *gc.C) {
+func (s *listenerSuite) TestSyncListenerAfterClose(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// No calls to the mock listener should have been made.
+	s.listener.EXPECT().Close().Return(nil)
 
-	acceptOnceListener := newTestingSSHServerListener(s.listener, time.Millisecond*50)
+	closeAllowed, syncListener := newSyncSSHServerListener(s.listener)
 
-	err := acceptOnceListener.Close()
-	c.Assert(err, jc.ErrorIs, context.DeadlineExceeded)
+	select {
+	case <-closeAllowed:
+		c.Error("closeAllowed channel should not be closed yet")
+	case <-time.After(testing.ShortWait):
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+
+		// Close runs and signals the server can now be closed.
+		_ = syncListener.Close()
+	}()
+
+	<-done
+	select {
+	case <-closeAllowed:
+	case <-time.After(testing.ShortWait):
+		c.Fail()
+	}
 }
 
 func (s *listenerSuite) setupMocks(c *gc.C) *gomock.Controller {
