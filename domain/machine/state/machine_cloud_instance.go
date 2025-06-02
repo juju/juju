@@ -458,7 +458,7 @@ func (st *State) SetInstanceStatus(ctx context.Context, mName machine.Name, newS
 		return errors.Capture(err)
 	}
 
-	statusID, err := encodeCloudInstanceStatus(newStatus.Status)
+	statusID, err := EncodeCloudInstanceStatus(newStatus.Status)
 	if err != nil {
 		return errors.Capture(err)
 	}

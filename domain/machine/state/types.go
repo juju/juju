@@ -188,6 +188,9 @@ func (s machineName) nameSliceTransform() machine.Name {
 	return s.Name
 }
 
+// decodeMachineStatus decodes a string representation of a machine status
+// into a domainmachine.MachineStatusType. It returns an error if the string
+// does not match any known status.
 func decodeMachineStatus(s string) (domainmachine.MachineStatusType, error) {
 	var result domainmachine.MachineStatusType
 	switch s {
@@ -209,7 +212,10 @@ func decodeMachineStatus(s string) (domainmachine.MachineStatusType, error) {
 	return result, nil
 }
 
-func encodeMachineStatus(s domainmachine.MachineStatusType) (int, error) {
+// EncodeMachineStatus encodes a domainmachine.MachineStatusType into its
+// corresponding integer representation. It returns an error if the status
+// is unknown.
+func EncodeMachineStatus(s domainmachine.MachineStatusType) (int, error) {
 	var result int
 	switch s {
 	case domainmachine.MachineStatusError:
@@ -228,6 +234,9 @@ func encodeMachineStatus(s domainmachine.MachineStatusType) (int, error) {
 	return result, nil
 }
 
+// decodeCloudInstanceStatus decodes a string representation of a cloud instance
+// status into a domainmachine.InstanceStatusType. It returns an error if the
+// string does not match any known status.
 func decodeCloudInstanceStatus(s string) (domainmachine.InstanceStatusType, error) {
 	var result domainmachine.InstanceStatusType
 	switch s {
@@ -247,7 +256,10 @@ func decodeCloudInstanceStatus(s string) (domainmachine.InstanceStatusType, erro
 	return result, nil
 }
 
-func encodeCloudInstanceStatus(s domainmachine.InstanceStatusType) (int, error) {
+// EncodeCloudInstanceStatus encodes a domainmachine.InstanceStatusType into
+// its corresponding integer representation. It returns an error if the status
+// is unknown.
+func EncodeCloudInstanceStatus(s domainmachine.InstanceStatusType) (int, error) {
 	var result int
 	switch s {
 	case domainmachine.InstanceStatusUnset:

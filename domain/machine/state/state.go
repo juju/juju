@@ -120,11 +120,11 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 
 	now := st.clock.Now()
 
-	instanceStatusInfo, err := encodeCloudInstanceStatus(domainmachine.InstanceStatusPending)
+	instanceStatusInfo, err := EncodeCloudInstanceStatus(domainmachine.InstanceStatusPending)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	machineStatusInfo, err := encodeMachineStatus(domainmachine.MachineStatusPending)
+	machineStatusInfo, err := EncodeMachineStatus(domainmachine.MachineStatusPending)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -231,7 +231,7 @@ WHERE  machine_uuid = $machineUUID.uuid`
 		return errors.Errorf("querying parent machine %q for machine %q: %w", args.parentName, mName, err)
 	}
 
-	// Protect against a grand-parenting.
+	// Protect against grand-parenting.
 	machineParentUUID := machineUUID{
 		UUID: machineUUIDout.UUID,
 	}
@@ -318,8 +318,7 @@ DELETE FROM net_node WHERE uuid IN
 			return errors.Errorf("deleting block devices for machine %q: %w", mName, err)
 		}
 
-		// Remove the statuses for the machine. No need to return error if no
-		// status is set for the machine while deleting.
+		// Remove the statuses for the machine.
 		if err := tx.Query(ctx, deleteMachineStatusStmt, machineUUIDParam).Run(); err != nil {
 			return errors.Errorf("deleting status for machine %q: %w", mName, err)
 		}
@@ -590,7 +589,7 @@ func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newSt
 		return errors.Capture(err)
 	}
 
-	statusID, err := encodeMachineStatus(newStatus.Status)
+	statusID, err := EncodeMachineStatus(newStatus.Status)
 	if err != nil {
 		return errors.Capture(err)
 	}

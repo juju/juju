@@ -500,7 +500,7 @@ func (s *stateSuite) TestMachineStatusValuesConversion(c *tc.C) {
 	for _, test := range tests {
 		a, err := decodeMachineStatus(test.statusValue)
 		c.Assert(err, tc.ErrorIsNil)
-		b, err := encodeMachineStatus(a)
+		b, err := EncodeMachineStatus(a)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(b, tc.Equals, test.expected)
 	}
@@ -525,7 +525,7 @@ func (s *stateSuite) TestInstanceStatusValuesConversion(c *tc.C) {
 		a, err := decodeCloudInstanceStatus(test.statusValue)
 		c.Assert(err, tc.ErrorIsNil)
 
-		b, err := encodeCloudInstanceStatus(a)
+		b, err := EncodeCloudInstanceStatus(a)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(b, tc.Equals, test.expected)
 	}

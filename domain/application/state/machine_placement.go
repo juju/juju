@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
+	machinestate "github.com/juju/juju/domain/machine/state"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
@@ -237,11 +238,11 @@ VALUES ($createMachine.*);
 
 	now := st.clock.Now()
 
-	machineStatusID, err := encodeMachineStatus(domainmachine.MachineStatusPending)
+	machineStatusID, err := machinestate.EncodeMachineStatus(domainmachine.MachineStatusPending)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
-	machineInstanceStatusID, err := encodeCloudInstanceStatus(domainmachine.InstanceStatusPending)
+	machineInstanceStatusID, err := machinestate.EncodeCloudInstanceStatus(domainmachine.InstanceStatusPending)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -365,10 +366,10 @@ INSERT INTO machine_status (*)
 VALUES ($setMachineStatus.*)
   ON CONFLICT (machine_uuid)
   DO UPDATE SET
-  	status_id = excluded.status_id,
-	message = excluded.message,
-	updated_at = excluded.updated_at,
-	data = excluded.data;
+    status_id = excluded.status_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at,
+    data = excluded.data;
 `
 	statusQueryStmt, err := st.Prepare(statusQuery, setMachineStatus{})
 	if err != nil {
@@ -400,12 +401,12 @@ func (st *State) insertMachineInstanceStatus(
 	statusQuery := `
 INSERT INTO machine_cloud_instance_status (*)
 VALUES ($setMachineStatus.*)
-ON CONFLICT (machine_uuid)
-DO UPDATE SET 
-  status_id = excluded.status_id, 
-message = excluded.message, 
-updated_at = excluded.updated_at,
-data = excluded.data;
+  ON CONFLICT (machine_uuid)
+  DO UPDATE SET 
+    status_id = excluded.status_id, 
+    message = excluded.message, 
+    updated_at = excluded.updated_at,
+    data = excluded.data;
 `
 	statusQueryStmt, err := st.Prepare(statusQuery, setMachineStatus{})
 	if err != nil {
@@ -424,32 +425,4 @@ data = excluded.data;
 		return errors.Errorf("setting machine status for machine %q: %w", mUUID, err)
 	}
 	return nil
-}
-
-func encodeMachineStatus(s domainmachine.MachineStatusType) (int, error) {
-	// This is taken from the machine domain. We only support the pending
-	// when creating a machine, so we don't need to worry about the other
-	// statuses.
-	var result int
-	switch s {
-	case domainmachine.MachineStatusPending:
-		result = 3
-	default:
-		return -1, errors.Errorf("unknown status %q", s)
-	}
-	return result, nil
-}
-
-func encodeCloudInstanceStatus(s domainmachine.InstanceStatusType) (int, error) {
-	// This is taken from the machine domain. We only support the pending
-	// when creating a machine, so we don't need to worry about the other
-	// statuses.
-	var result int
-	switch s {
-	case domainmachine.InstanceStatusPending:
-		result = 1
-	default:
-		return -1, errors.Errorf("unknown status %q", s)
-	}
-	return result, nil
 }
