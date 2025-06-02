@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// State is the means by which  the model agent accesses the model's state.
 type State struct {
 	*domain.StateBase
 }
@@ -922,9 +923,9 @@ func (st *State) GetModelTargetAgentVersion(ctx context.Context) (semversion.Num
 		return semversion.Zero, errors.Capture(err)
 	}
 
-	res := dbAgentVersion{}
+	res := agentVersionTarget{}
 
-	stmt, err := st.Prepare("SELECT &dbAgentVersion.target_version FROM agent_version", res)
+	stmt, err := st.Prepare("SELECT &agentVersionTarget.target_version FROM agent_version", res)
 	if err != nil {
 		return semversion.Zero, errors.Errorf("preparing agent version query: %w", err)
 	}
@@ -942,7 +943,7 @@ func (st *State) GetModelTargetAgentVersion(ctx context.Context) (semversion.Num
 		return semversion.Zero, errors.Capture(err)
 	}
 
-	vers, err := semversion.Parse(res.TargetAgentVersion)
+	vers, err := semversion.Parse(res.TargetVersion)
 	if err != nil {
 		return semversion.Zero, errors.Errorf("parsing agent version: %w", err)
 	}
@@ -1105,15 +1106,74 @@ UPDATE agent_version SET stream_id = $agentVersionStream.stream_id
 }
 
 // SetModelTargetAgentVersion is responsible for setting the current target
-// agent version of the model. This function expects a precondition version
-// to be supplied. The model's target version at the time the operation is
+// agent version of the model. This function expects a precondition version to
+// be supplied. The model's target agent version at the time the operation is
 // applied must match the preCondition version or else an error is returned.
 func (st *State) SetModelTargetAgentVersion(
 	ctx context.Context,
 	preCondition semversion.Number,
 	toVersion semversion.Number,
 ) error {
-	return errors.New("not implemented")
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	checkAgentVersionStmt, err := st.Prepare(`
+SELECT &agentVersionTarget.*
+FROM   agent_version
+`,
+		agentVersionTarget{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	toVersionInput := setAgentVersionTarget{TargetVersion: toVersion.String()}
+	setAgentVersionStmt, err := st.Prepare(`
+UPDATE agent_version
+SET    target_version = $setAgentVersionTarget.target_version
+`,
+		toVersionInput,
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	preConditionVersionStr := preCondition.String()
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		currentAgentVersion := agentVersionTarget{}
+		err := tx.Query(ctx, checkAgentVersionStmt).Get(&currentAgentVersion)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New(
+				"checking current target agent version for model, no agent version has been set previously",
+			)
+		} else if err != nil {
+			return errors.Errorf(
+				"checking current target agent version for model: %w", err,
+			)
+		}
+
+		if currentAgentVersion.TargetVersion != preConditionVersionStr {
+			return errors.Errorf(
+				"unable to set agent version for model. The agent version has changed to %q",
+				currentAgentVersion.TargetVersion,
+			)
+		}
+
+		err = tx.Query(ctx, setAgentVersionStmt, toVersionInput).Run()
+		if err != nil {
+			return errors.Errorf(
+				"setting target agent version for model: %w", err,
+			)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
 
 // SetModelTargetAgentVersionAndStream is responsible for setting the
@@ -1127,7 +1187,70 @@ func (st *State) SetModelTargetAgentVersionAndStream(
 	toVersion semversion.Number,
 	stream modelagent.AgentStream,
 ) error {
-	return errors.New("not implemented")
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	checkAgentVersionStmt, err := st.Prepare(`
+SELECT &agentVersionTarget.*
+FROM   agent_version
+`,
+		agentVersionTarget{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	toVersionStreamInput := setAgentVersionTargetStream{
+		StreamID:      int(stream),
+		TargetVersion: toVersion.String(),
+	}
+	setAgentVersionStreamStmt, err := st.Prepare(`
+UPDATE agent_version
+SET    target_version = $setAgentVersionTargetStream.target_version,
+       stream_id = $setAgentVersionTargetStream.stream_id
+`,
+		toVersionStreamInput,
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	preConditionVersionStr := preCondition.String()
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		currentAgentVersion := agentVersionTarget{}
+		err := tx.Query(ctx, checkAgentVersionStmt).Get(&currentAgentVersion)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New(
+				"checking current target agent version for model, no agent version has been set previously",
+			)
+		} else if err != nil {
+			return errors.Errorf(
+				"checking current target agent version for model: %w", err,
+			)
+		}
+
+		if currentAgentVersion.TargetVersion != preConditionVersionStr {
+			return errors.Errorf(
+				"unable to set agent version and stream for model. The agent version has changed to %q",
+				currentAgentVersion.TargetVersion,
+			)
+		}
+
+		err = tx.Query(ctx, setAgentVersionStreamStmt, toVersionStreamInput).Run()
+		if err != nil {
+			return errors.Errorf(
+				"setting target agent version and stream for model: %w", err,
+			)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
 
 // SetUnitRunningAgentBinaryVersion sets the running agent binary version for

@@ -202,8 +202,17 @@ VALUES ($dbMetadataPath.*)`, pathRecord)
 	}
 }
 
-// Set the agent version for the given model in the DB.
+// setModelTargetAgentVersion is a testing utility for establishing an initial
+// target agent version for the model.
 func (s *modelStateSuite) setModelTargetAgentVersion(c *tc.C, vers string) {
+	s.setModelTargetAgentVersionAndStream(c, vers, modelagent.AgentStreamReleased)
+}
+
+// setModelTargetAgentVersion is a testing utility for establishing an initial
+// target agent version and stream for the model.
+func (s *modelStateSuite) setModelTargetAgentVersionAndStream(
+	c *tc.C, vers string, stream modelagent.AgentStream,
+) {
 	db, err := domain.NewStateBase(s.TxnRunnerFactory()).DB()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -211,7 +220,7 @@ func (s *modelStateSuite) setModelTargetAgentVersion(c *tc.C, vers string) {
 
 	args := sqlair.M{
 		"target_version": vers,
-		"stream_id":      modelagent.AgentStreamReleased,
+		"stream_id":      int(stream),
 	}
 	stmt, err := sqlair.Prepare(q, args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1268,4 +1277,151 @@ func (s *modelStateSuite) TestGetMachineCountNotUsingBasesHasNot(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(machines, tc.Equals, 0)
+}
+
+// TestSetModelTargetAgentVersionNotSet asserts that if no target agent version
+// has been set for the model previously the operation produces an error.
+//
+// This isn't an expected error condition that a caller should ever have to care
+// about. But we do want to see that it fails instead of being opinionated.
+func (s *modelStateSuite) TestSetModelTargetAgentVersionNotSet(c *tc.C) {
+	preCondition, err := semversion.Parse("4.0.0")
+	c.Assert(err, tc.ErrorIsNil)
+	toVersion, err := semversion.Parse("4.1.0")
+	c.Assert(err, tc.ErrorIsNil)
+	st := NewState(s.TxnRunnerFactory())
+
+	err = st.SetModelTargetAgentVersion(c.Context(), preCondition, toVersion)
+	c.Check(err, tc.NotNil)
+}
+
+// TestSetModelTargetAgentVersionPreconditionFail asserts that in an attempt to
+// set the model target agent version and the precondition fails the caller gets
+// back an error and the operation does not succeed.
+func (s *modelStateSuite) TestSetModelTargetAgentVersionPreconditionFail(c *tc.C) {
+	preCondition, err := semversion.Parse("4.1.0")
+	c.Assert(err, tc.ErrorIsNil)
+	toVersion, err := semversion.Parse("4.2.0")
+	c.Assert(err, tc.ErrorIsNil)
+	s.setModelTargetAgentVersion(c, "4.1.1")
+	st := NewState(s.TxnRunnerFactory())
+
+	err = st.SetModelTargetAgentVersion(c.Context(), preCondition, toVersion)
+	c.Check(err, tc.NotNil)
+
+	ver, err := st.GetModelTargetAgentVersion(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(ver.String(), tc.Equals, "4.1.1")
+}
+
+// TestSetModelTargetAgentVersion is a happy path test for
+// [State.SetModelTargetAgentVersion].
+func (s *modelStateSuite) TestSetModelTargetAgentVersion(c *tc.C) {
+	preCondition, err := semversion.Parse("4.1.0")
+	c.Assert(err, tc.ErrorIsNil)
+	toVersion, err := semversion.Parse("4.2.0")
+	c.Assert(err, tc.ErrorIsNil)
+	s.setModelTargetAgentVersion(c, "4.1.0")
+	st := NewState(s.TxnRunnerFactory())
+
+	err = st.SetModelTargetAgentVersion(c.Context(), preCondition, toVersion)
+	c.Check(err, tc.ErrorIsNil)
+
+	ver, err := st.GetModelTargetAgentVersion(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(ver.String(), tc.Equals, "4.2.0")
+}
+
+// TestSetModelTargetAgentVersionStreamNotSet asserts that if no target agent
+// version has been set for the model previously the operation produces an
+// error.
+//
+// This isn't an expected error condition that a caller should ever have to care
+// about. But we do want to see that it fails instead of being opinionated.
+func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStreamNotSet(c *tc.C) {
+	preCondition, err := semversion.Parse("4.0.0")
+	c.Assert(err, tc.ErrorIsNil)
+	toVersion, err := semversion.Parse("4.1.0")
+	c.Assert(err, tc.ErrorIsNil)
+	st := NewState(s.TxnRunnerFactory())
+
+	err = st.SetModelTargetAgentVersionAndStream(
+		c.Context(), preCondition, toVersion, modelagent.AgentStreamTesting,
+	)
+	c.Check(err, tc.NotNil)
+}
+
+// TestSetModelTargetAgentVersionAndStreamPreconditionFail asserts that in an
+// attempt to set the model target agent version/stream and the precondition
+// fails the caller gets back an error and the operation does not succeed.
+func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStreamPreconditionFail(c *tc.C) {
+	preCondition, err := semversion.Parse("4.1.0")
+	c.Assert(err, tc.ErrorIsNil)
+	toVersion, err := semversion.Parse("4.2.0")
+	c.Assert(err, tc.ErrorIsNil)
+	s.setModelTargetAgentVersionAndStream(c, "4.1.1", modelagent.AgentStreamTesting)
+	st := NewState(s.TxnRunnerFactory())
+
+	err = st.SetModelTargetAgentVersionAndStream(
+		c.Context(), preCondition, toVersion, modelagent.AgentStreamDevel,
+	)
+	c.Check(err, tc.NotNil)
+
+	ver, err := st.GetModelTargetAgentVersion(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(ver.String(), tc.Equals, "4.1.1")
+
+	stream, err := st.GetModelAgentStream(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(stream, tc.Equals, modelagent.AgentStreamTesting)
+}
+
+// TestSetModelTargetAgentVersionAndStream is a happy path test for
+// [State.SetModelTargetAgentVersionAndStream].
+func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStream(c *tc.C) {
+	preCondition, err := semversion.Parse("4.1.0")
+	c.Assert(err, tc.ErrorIsNil)
+	toVersion, err := semversion.Parse("4.2.0")
+	c.Assert(err, tc.ErrorIsNil)
+	s.setModelTargetAgentVersionAndStream(c, "4.1.0", modelagent.AgentStreamReleased)
+	st := NewState(s.TxnRunnerFactory())
+
+	err = st.SetModelTargetAgentVersionAndStream(
+		c.Context(), preCondition, toVersion, modelagent.AgentStreamDevel,
+	)
+	c.Check(err, tc.ErrorIsNil)
+
+	ver, err := st.GetModelTargetAgentVersion(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(ver.String(), tc.Equals, "4.2.0")
+
+	stream, err := st.GetModelAgentStream(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(stream, tc.Equals, modelagent.AgentStreamDevel)
+}
+
+// TestSetModelTargetAgentVersionAndStreamNoStreamChange is a happy path test
+// for [State.SetModelTargetAgentVersionAndStream]. This test is setting the
+// agent stream to the same value it currently is. This test expects no errors
+// and for the operation to succeed.
+func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStreamNoStreamChange(c *tc.C) {
+	preCondition, err := semversion.Parse("4.1.0")
+	c.Assert(err, tc.ErrorIsNil)
+	toVersion, err := semversion.Parse("4.2.0")
+	c.Assert(err, tc.ErrorIsNil)
+	s.setModelTargetAgentVersionAndStream(c, "4.1.0", modelagent.AgentStreamReleased)
+	st := NewState(s.TxnRunnerFactory())
+
+	err = st.SetModelTargetAgentVersionAndStream(
+		c.Context(), preCondition, toVersion, modelagent.AgentStreamReleased,
+	)
+	c.Check(err, tc.ErrorIsNil)
+
+	ver, err := st.GetModelTargetAgentVersion(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(ver.String(), tc.Equals, "4.2.0")
+
+	stream, err := st.GetModelAgentStream(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(stream, tc.Equals, modelagent.AgentStreamReleased)
 }

@@ -16,9 +16,10 @@ type agentVersionStream struct {
 	StreamID int `db:"stream_id"`
 }
 
-// dbAgentVersion represents the target agent version from the model table.
-type dbAgentVersion struct {
-	TargetAgentVersion string `db:"target_version"`
+// agentVersionTarget represents the target agent version column from the
+// agent_version table.
+type agentVersionTarget struct {
+	TargetVersion string `db:"target_version"`
 }
 
 // architectureMap provides a way to exchange one architecture value
@@ -53,6 +54,19 @@ type machineCount struct {
 	// Count represents the number of machine that have been counted for a
 	// query.
 	Count int `db:"count"`
+}
+
+// setAgentVersionTarget represents the set of update values required for
+// setting the model's target agent version.
+type setAgentVersionTarget struct {
+	TargetVersion string `db:"target_version"`
+}
+
+// setAgentVersionTargetStream represents the set of update values required for
+// setting the model's target agent version and stream.
+type setAgentVersionTargetStream struct {
+	StreamID      int    `db:"stream_id"`
+	TargetVersion string `db:"target_version"`
 }
 
 // rowCount is a quick type that can be used with aggregation queries to store
