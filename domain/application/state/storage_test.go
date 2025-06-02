@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	stdtesting "testing"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
@@ -508,18 +510,24 @@ type storageInstanceFilesystemArg struct {
 	// Filesystem.
 	FilesystemLifeID life.Life
 	FilesystemID     string
+	// Status
+	Status status.StorageFilesystemStatusType
 }
 
 func (s *baseStorageSuite) assertFilesystems(c *tc.C, charmUUID corecharm.ID, expected []storageInstanceFilesystemArg) {
+	expectedStatusTimeBefore := time.Now()
+
 	var results []storageInstanceFilesystemArg
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var row storageInstanceFilesystemArg
 		rows, err := tx.QueryContext(ctx, `
 SELECT
     sf.life_id AS filesystem_life_id, sf.filesystem_id,
+    sfs.status_id, sfs.updated_at,
     si.storage_id, si.storage_name, si.storage_pool, si.requested_size_mib
 FROM storage_filesystem sf
 JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid = sf.uuid
+JOIN storage_filesystem_status sfs ON sf.uuid = sfs.filesystem_uuid
 JOIN v_storage_instance si ON si.uuid = sif.storage_instance_uuid
 WHERE si.charm_uuid = ?`,
 			charmUUID)
@@ -528,10 +536,16 @@ WHERE si.charm_uuid = ?`,
 		}
 		defer func() { _ = rows.Close() }()
 		for rows.Next() {
-			err = rows.Scan(&row.FilesystemLifeID, &row.FilesystemID, &row.StorageID,
-				&row.StorageName, &row.StoragePoolOrType, &row.SizeMIB)
+			var since time.Time
+			err = rows.Scan(&row.FilesystemLifeID, &row.FilesystemID,
+				&row.Status, &since,
+				&row.StorageID, &row.StorageName, &row.StoragePoolOrType,
+				&row.SizeMIB)
 			if err != nil {
 				return err
+			}
+			if since.IsZero() || since.After(expectedStatusTimeBefore) {
+				return errors.Errorf("invalid status 'since' value: %s", since)
 			}
 			results = append(results, row)
 		}
@@ -552,18 +566,24 @@ type storageInstanceVolumeArg struct {
 	// Volume.
 	VolumeLifeID life.Life
 	VolumeID     string
+	// Status
+	Status status.StorageVolumeStatusType
 }
 
 func (s *baseStorageSuite) assertVolumes(c *tc.C, charmUUID corecharm.ID, expected []storageInstanceVolumeArg) {
+	expectedStatusTimeBefore := time.Now()
+
 	var results []storageInstanceVolumeArg
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var row storageInstanceVolumeArg
 		rows, err := tx.QueryContext(ctx, `
 SELECT
     sv.life_id AS volume_life_id, sv.volume_id,
+    svs.status_id, svs.updated_at,
     si.storage_id, si.storage_name, si.storage_pool, si.requested_size_mib
 FROM storage_volume sv
 JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sv.uuid
+JOIN storage_volume_status svs ON sv.uuid = svs.volume_uuid
 JOIN v_storage_instance si ON si.uuid = siv.storage_instance_uuid
 WHERE si.charm_uuid = ?`,
 			charmUUID)
@@ -572,10 +592,16 @@ WHERE si.charm_uuid = ?`,
 		}
 		defer func() { _ = rows.Close() }()
 		for rows.Next() {
-			err = rows.Scan(&row.VolumeLifeID, &row.VolumeID, &row.StorageID,
+			var since time.Time
+			err = rows.Scan(&row.VolumeLifeID, &row.VolumeID,
+				&row.Status, &since,
+				&row.StorageID,
 				&row.StorageName, &row.StoragePool, &row.SizeMIB)
 			if err != nil {
 				return err
+			}
+			if since.IsZero() || since.After(expectedStatusTimeBefore) {
+				return errors.Errorf("invalid status 'since' value: %s", since)
 			}
 			results = append(results, row)
 		}
@@ -876,6 +902,7 @@ WHERE charm_uuid = ?`, charmUUID)
 		SizeMIB:           20,
 		FilesystemLifeID:  life.Alive,
 		FilesystemID:      "0",
+		Status:            status.StorageFilesystemStatusTypePending,
 	}, {
 		StorageID:         "cache/3",
 		StorageName:       "cache",
@@ -884,6 +911,7 @@ WHERE charm_uuid = ?`, charmUUID)
 		SizeMIB:           30,
 		FilesystemLifeID:  life.Alive,
 		FilesystemID:      "1",
+		Status:            status.StorageFilesystemStatusTypePending,
 	}})
 	storageUUID, ok := storageUUIDByID["logs/2"]
 	c.Assert(ok, tc.IsTrue)
@@ -910,6 +938,7 @@ WHERE charm_uuid = ?`, charmUUID)
 		SizeMIB:      10,
 		VolumeLifeID: life.Alive,
 		VolumeID:     "0",
+		Status:       status.StorageVolumeStatusTypePending,
 	}, {
 		StorageID:    "database/1",
 		StorageName:  "database",
@@ -918,6 +947,7 @@ WHERE charm_uuid = ?`, charmUUID)
 		SizeMIB:      10,
 		VolumeLifeID: life.Alive,
 		VolumeID:     "1",
+		Status:       status.StorageVolumeStatusTypePending,
 	}, {
 		StorageID:    "cache/3",
 		StorageName:  "cache",
@@ -926,6 +956,7 @@ WHERE charm_uuid = ?`, charmUUID)
 		SizeMIB:      30,
 		VolumeLifeID: life.Alive,
 		VolumeID:     "2",
+		Status:       status.StorageVolumeStatusTypePending,
 	}})
 	storageUUID, ok = storageUUIDByID["database/0"]
 	c.Assert(ok, tc.IsTrue)

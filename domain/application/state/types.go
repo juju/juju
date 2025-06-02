@@ -927,6 +927,13 @@ type filesystem struct {
 	SizeMIB      uint64                     `db:"size_mib"`
 }
 
+type filesystemStatus struct {
+	FilesystemUUID string     `db:"filesystem_uuid"`
+	StatusID       int        `db:"status_id"`
+	Message        string     `db:"message"`
+	UpdatedAt      *time.Time `db:"updated_at"`
+}
+
 type storageInstanceFilesystem struct {
 	StorageUUID    corestorage.UUID           `db:"storage_instance_uuid"`
 	FilesystemUUID corestorage.FilesystemUUID `db:"storage_filesystem_uuid"`
@@ -942,6 +949,13 @@ type volume struct {
 	HardwareIDID string                 `db:"hardware_id"`
 	WWN          string                 `db:"wwn"`
 	Persistent   bool                   `db:"persistent"`
+}
+
+type volumeStatus struct {
+	VolumeUUID string     `db:"volume_uuid"`
+	StatusID   int        `db:"status_id"`
+	Message    string     `db:"message"`
+	UpdatedAt  *time.Time `db:"updated_at"`
 }
 
 type storageInstanceVolume struct {

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
+	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
@@ -947,13 +948,13 @@ func (st *State) createFilesystem(
 		return "", errors.Capture(err)
 	}
 
-	uuid, err := corestorage.NewFilesystemUUID()
+	filesystemUUID, err := corestorage.NewFilesystemUUID()
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
 	fs := filesystem{
-		UUID:         uuid,
+		UUID:         filesystemUUID,
 		FilesystemID: fmt.Sprint(filesystemId),
 		LifeID:       life.Alive,
 	}
@@ -965,7 +966,7 @@ INSERT INTO storage_filesystem (uuid, filesystem_id, life_id) VALUES ($filesyste
 	}
 
 	sif := storageInstanceFilesystem{
-		FilesystemUUID: uuid,
+		FilesystemUUID: filesystemUUID,
 		StorageUUID:    storageUUID,
 	}
 	insertStorageFilesystemStmt, err := st.Prepare(`
@@ -977,15 +978,51 @@ INSERT INTO storage_instance_filesystem (*) VALUES ($storageInstanceFilesystem.*
 
 	err = tx.Query(ctx, insertFilesystemStmt, fs).Run()
 	if err != nil {
-		return "", errors.Errorf("creating filesystem %q for node %q: %w", uuid, netNodeUUID, err)
+		return "", errors.Errorf("creating filesystem %q for node %q: %w", filesystemUUID, netNodeUUID, err)
 	}
 
 	err = tx.Query(ctx, insertStorageFilesystemStmt, sif).Run()
 	if err != nil {
-		return "", errors.Errorf("creating storage instance filesystem %q for storage %q: %w", uuid, storageUUID, err)
+		return "", errors.Errorf("creating storage instance filesystem %q for storage %q: %w", filesystemUUID, storageUUID, err)
 	}
 
-	return uuid, nil
+	sts := status.StatusInfo[status.StorageFilesystemStatusType]{
+		Status: status.StorageFilesystemStatusTypePending,
+		Since:  ptr(st.clock.Now()),
+	}
+	if err := st.insertFilesystemStatus(ctx, tx, filesystemUUID, sts); err != nil {
+		return "", errors.Errorf("inserting status for filesystem %q: %w", filesystemUUID, err)
+	}
+
+	return filesystemUUID, nil
+}
+
+func (st *State) insertFilesystemStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	fsUUID corestorage.FilesystemUUID,
+	sts status.StatusInfo[status.StorageFilesystemStatusType],
+) error {
+	statusID, err := status.EncodeStorageFilesystemStatus(sts.Status)
+	if err != nil {
+		return errors.Errorf("encoding status: %w", err)
+	}
+	fsStatus := filesystemStatus{
+		FilesystemUUID: fsUUID.String(),
+		StatusID:       statusID,
+		UpdatedAt:      sts.Since,
+	}
+	insertStmt, err := st.Prepare(`
+INSERT INTO storage_filesystem_status (*) VALUES ($filesystemStatus.*);
+`, fsStatus)
+	if err != nil {
+		return errors.Errorf("preparing insert query: %w", err)
+	}
+
+	if err := tx.Query(ctx, insertStmt, fsStatus).Run(); err != nil {
+		return errors.Errorf("inserting status: %w", err)
+	}
+	return nil
 }
 
 func (st *State) createVolume(
@@ -1032,5 +1069,42 @@ INSERT INTO storage_instance_volume (*) VALUES ($storageInstanceVolume.*)
 	if err != nil {
 		return "", errors.Errorf("creating storage instance volume %q for storage %q: %w", volumeUUID, storageUUID, err)
 	}
+
+	sts := status.StatusInfo[status.StorageVolumeStatusType]{
+		Status: status.StorageVolumeStatusTypePending,
+		Since:  ptr(st.clock.Now()),
+	}
+	if err := st.insertVolumeStatus(ctx, tx, volumeUUID, sts); err != nil {
+		return "", errors.Errorf("inserting status for volume %q: %w", volumeUUID, err)
+	}
+
 	return volumeUUID, nil
+}
+
+func (st *State) insertVolumeStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	volUUID corestorage.VolumeUUID,
+	sts status.StatusInfo[status.StorageVolumeStatusType],
+) error {
+	statusID, err := status.EncodeStorageVolumeStatus(sts.Status)
+	if err != nil {
+		return errors.Errorf("encoding status: %w", err)
+	}
+	volStatus := volumeStatus{
+		VolumeUUID: volUUID.String(),
+		StatusID:   statusID,
+		UpdatedAt:  sts.Since,
+	}
+	insertStmt, err := st.Prepare(`
+INSERT INTO storage_volume_status (*) VALUES ($volumeStatus.*);
+`, volStatus)
+	if err != nil {
+		return errors.Errorf("preparing insert query: %w", err)
+	}
+
+	if err := tx.Query(ctx, insertStmt, volStatus).Run(); err != nil {
+		return errors.Errorf("inserting status: %w", err)
+	}
+	return nil
 }
