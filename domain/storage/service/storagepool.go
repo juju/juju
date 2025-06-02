@@ -20,11 +20,55 @@ import (
 
 // StoragePoolState defines an interface for interacting with the underlying state.
 type StoragePoolState interface {
-	CreateStoragePool(ctx context.Context, pool domainstorage.StoragePoolDetails) error
+	// CreateStoragePool creates a storage pool with the specified configuration.
+	// The following errors can be expected:
+	// - [storageerrors.PoolAlreadyExists] if a pool with the same name already exists.
+	CreateStoragePool(ctx context.Context, pool domainstorage.StoragePool) error
+
+	// DeleteStoragePool deletes a storage pool with the specified name.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 	DeleteStoragePool(ctx context.Context, name string) error
-	ReplaceStoragePool(ctx context.Context, pool domainstorage.StoragePoolDetails) error
-	ListStoragePools(ctx context.Context, filter domainstorage.Names, providers domainstorage.Providers) ([]domainstorage.StoragePoolDetails, error)
-	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
+
+	// ReplaceStoragePool replaces an existing storage pool with the specified configuration.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	ReplaceStoragePool(ctx context.Context, pool domainstorage.StoragePool) error
+
+	// ListStoragePools returns the storage pools including default storage pools.
+	ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error)
+
+	// ListStoragePoolsWithoutDefaults returns the storage pools excluding the default storage pools.
+	ListStoragePoolsWithoutDefaults(ctx context.Context) ([]domainstorage.StoragePool, error)
+
+	// ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
+	// names and or providers, including the default storage pools.
+	// If no names or providers are specified, an empty slice is returned without an error.
+	// If no storage pools match the criteria, an empty slice is returned without an error.
+	ListStoragePoolsByNamesAndProviders(
+		ctx context.Context, names domainstorage.Names, providers domainstorage.Providers,
+	) ([]domainstorage.StoragePool, error)
+
+	// ListStoragePoolsByNames returns the storage pools matching the specified names, including
+	// the default storage pools.
+	// If no names are specified, an empty slice is returned without an error.
+	// If no storage pools match the criteria, an empty slice is returned without an error.
+	ListStoragePoolsByNames(
+		ctx context.Context, names domainstorage.Names,
+	) ([]domainstorage.StoragePool, error)
+
+	// ListStoragePoolsByProviders returns the storage pools matching the specified
+	// providers, including the default storage pools.
+	// If no providers are specified, an empty slice is returned without an error.
+	// If no storage pools match the criteria, an empty slice is returned without an error.
+	ListStoragePoolsByProviders(
+		ctx context.Context, providers domainstorage.Providers,
+	) ([]domainstorage.StoragePool, error)
+
+	// GetStoragePoolByName returns the storage pool with the specified name.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }
 
 // StoragePoolService defines a service for interacting with the underlying state.
@@ -37,8 +81,9 @@ type StoragePoolService struct {
 // PoolAttrs define the attributes of a storage pool.
 type PoolAttrs map[string]any
 
-// CreateStoragePool creates a storage pool, returning an error satisfying [errors.AlreadyExists]
-// if a pool with the same name already exists.
+// CreateStoragePool creates a storage pool with the specified configuration.
+// The following errors can be expected:
+// - [storageerrors.PoolAlreadyExists] if a pool with the same name already exists.
 func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -48,7 +93,7 @@ func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string,
 	}
 
 	attrsToSave := transform.Map(attrs, func(k string, v any) (string, string) { return k, fmt.Sprint(v) })
-	sp := domainstorage.StoragePoolDetails{
+	sp := domainstorage.StoragePool{
 		Name:     name,
 		Provider: string(providerType),
 		Attrs:    attrsToSave,
@@ -93,8 +138,9 @@ func (s *StoragePoolService) validateConfig(ctx context.Context, name string, pr
 	return nil
 }
 
-// DeleteStoragePool deletes a storage pool, returning an error satisfying
-// [errors.NotFound] if it doesn't exist.
+// DeleteStoragePool deletes a storage pool with the specified name.
+// The following errors can be expected:
+// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -132,8 +178,9 @@ func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string)
 	return nil
 }
 
-// ReplaceStoragePool replaces an existing storage pool, returning an error
-// satisfying [storageerrors.PoolNotFoundError] if a pool with the name does not exist.
+// ReplaceStoragePool replaces an existing storage pool with the specified configuration.
+// The following errors can be expected:
+// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -152,7 +199,7 @@ func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string
 	}
 
 	attrsToSave := transform.Map(attrs, func(k string, v any) (string, string) { return k, fmt.Sprint(v) })
-	sp := domainstorage.StoragePoolDetails{
+	sp := domainstorage.StoragePool{
 		Name:     name,
 		Provider: string(providerType),
 		Attrs:    attrsToSave,
@@ -164,16 +211,41 @@ func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string
 	return nil
 }
 
-// AllStoragePools returns the all storage pools.
-func (s *StoragePoolService) AllStoragePools(ctx context.Context) ([]*storage.Config, error) {
+// ListStoragePoolsWithoutDefaults returns all storage pools excluding the default storage pools.
+func (s *StoragePoolService) ListStoragePoolsWithoutDefaults(ctx context.Context) ([]domainstorage.StoragePool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// ListStoragePools returns the storage pools matching the specified filter.
-	return s.ListStoragePools(ctx, domainstorage.NilNames, domainstorage.NilProviders)
+	pools, err := s.st.ListStoragePoolsWithoutDefaults(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return pools, nil
 }
 
-func (s *StoragePoolService) ListStoragePools(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) ([]*storage.Config, error) {
+// AllStoragePools returns the all storage pools including the default storage pools.
+func (s *StoragePoolService) ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	pools, err := s.st.ListStoragePools(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return pools, nil
+}
+
+// ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
+// names and or providers, including the default storage pools.
+// If no names or providers are specified, an empty slice is returned without an error.
+// If no storage pools match the criteria, an empty slice is returned without an error.
+func (s *StoragePoolService) ListStoragePoolsByNamesAndProviders(
+	ctx context.Context,
+	names domainstorage.Names,
+	providers domainstorage.Providers,
+) ([]domainstorage.StoragePool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -181,25 +253,75 @@ func (s *StoragePoolService) ListStoragePools(ctx context.Context, names domains
 		return nil, errors.Capture(err)
 	}
 
-	pools, err := domainstorage.BuiltInStoragePools()
+	pools, err := s.st.ListStoragePoolsByNamesAndProviders(ctx, names, providers)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+	return pools, nil
+}
 
-	sp, err := s.st.ListStoragePools(ctx, names, providers)
+// ListStoragePoolsByNames returns the storage pools matching the specified names, including
+// the default storage pools.
+// If no names are specified, an empty slice is returned without an error.
+// If no storage pools match the criteria, an empty slice is returned without an error.
+func (s *StoragePoolService) ListStoragePoolsByNames(
+	ctx context.Context,
+	names domainstorage.Names,
+) ([]domainstorage.StoragePool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.validateNameCriteria(names); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	pools, err := s.st.ListStoragePoolsByNames(ctx, names)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	pools = append(pools, sp...)
+	return pools, nil
+}
 
-	results := make([]*storage.Config, len(pools))
-	for i, p := range pools {
-		results[i], err = s.storageConfig(ctx, p)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
+// ListStoragePoolsByProviders returns the storage pools matching the specified
+// providers, including the default storage pools.
+// If no providers are specified, an empty slice is returned without an error.
+// If no storage pools match the criteria, an empty slice is returned without an error.
+func (s *StoragePoolService) ListStoragePoolsByProviders(
+	ctx context.Context,
+	providers domainstorage.Providers,
+) ([]domainstorage.StoragePool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.validateProviderCriteria(ctx, providers); err != nil {
+		return nil, errors.Capture(err)
 	}
-	return results, nil
+
+	pools, err := s.st.ListStoragePoolsByProviders(ctx, providers)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return pools, nil
+}
+
+// GetStoragePoolByName returns the storage pool with the specified name.
+// The following errors can be expected:
+// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if !storage.IsValidPoolName(name) {
+		return domainstorage.StoragePool{}, errors.Errorf(
+			"pool name %q not valid", name,
+		).Add(storageerrors.InvalidPoolNameError)
+	}
+
+	pool, err := s.st.GetStoragePoolByName(ctx, name)
+	if err != nil {
+		return domainstorage.StoragePool{}, errors.Capture(err)
+	}
+	return pool, nil
 }
 
 func (s *StoragePoolService) validatePoolListFilterTerms(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) error {
@@ -213,6 +335,11 @@ func (s *StoragePoolService) validatePoolListFilterTerms(ctx context.Context, na
 }
 
 func (s *StoragePoolService) validateNameCriteria(names []string) error {
+	if len(names) == 0 {
+		// No names specified, so no validation needed.
+		return nil
+	}
+
 	for _, n := range names {
 		if !storage.IsValidPoolName(n) {
 			return errors.Errorf("pool name %q not valid", n).Add(storageerrors.InvalidPoolNameError)
@@ -222,6 +349,11 @@ func (s *StoragePoolService) validateNameCriteria(names []string) error {
 }
 
 func (s *StoragePoolService) validateProviderCriteria(ctx context.Context, providers []string) error {
+	if len(providers) == 0 {
+		// No providers specified, so no validation needed.
+		return nil
+	}
+
 	// GetStorageRegistry result for a given model will be cached after the
 	// initial call, so this should be cheap to call.
 	registry, err := s.registryGetter.GetStorageRegistry(ctx)
@@ -236,57 +368,4 @@ func (s *StoragePoolService) validateProviderCriteria(ctx context.Context, provi
 		}
 	}
 	return nil
-}
-
-// GetStoragePoolByName returns the storage pool with the specified name, returning an error
-// satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
-func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if !storage.IsValidPoolName(name) {
-		return nil, errors.Errorf("pool name %q not valid", name).Add(storageerrors.InvalidPoolNameError)
-	}
-
-	builtIn, err := domainstorage.BuiltInStoragePools()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	for _, p := range builtIn {
-		if p.Name == name {
-			return s.storageConfig(ctx, p)
-		}
-	}
-
-	sp, err := s.st.GetStoragePoolByName(ctx, name)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return s.storageConfig(ctx, sp)
-}
-
-func (s *StoragePoolService) storageConfig(ctx context.Context, sp domainstorage.StoragePoolDetails) (*storage.Config, error) {
-	// GetStorageRegistry result for a given model will be cached after the
-	// initial call, so this should be cheap to call.
-	registry, err := s.registryGetter.GetStorageRegistry(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var attr map[string]any
-	if len(sp.Attrs) > 0 {
-		attr = transform.Map(sp.Attrs, func(k, v string) (string, any) { return k, v })
-	}
-	cfg, err := storage.NewConfig(sp.Name, storage.ProviderType(sp.Provider), attr)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	p, err := registry.StorageProvider(cfg.Provider())
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	if err := p.ValidateConfig(cfg); err != nil {
-		return nil, errors.Capture(err)
-	}
-	return cfg, nil
 }

@@ -58,7 +58,7 @@ func (s *StorageService) ImportFilesystem(ctx context.Context, arg ImportStorage
 
 	poolDetails, err := s.st.GetStoragePoolByName(ctx, arg.Pool)
 	if errors.Is(err, storageerrors.PoolNotFoundError) {
-		poolDetails = storage.StoragePoolDetails{
+		poolDetails = storage.StoragePool{
 			Name:     arg.Pool,
 			Provider: arg.Pool,
 			Attrs:    map[string]string{},

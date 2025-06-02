@@ -10,7 +10,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/internal/storage"
+	domainstorage "github.com/juju/juju/domain/storage"
 )
 
 type exportSuite struct {
@@ -46,16 +46,18 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	})
 	c.Assert(dst.StoragePools(), tc.HasLen, 0)
 
-	sc, err := storage.NewConfig("ebs-fast", "ebs", map[string]any{"foo": "bar"})
-	c.Assert(err, tc.ErrorIsNil)
-	builtIn, err := storage.NewConfig("loop", "loop", nil)
-	c.Assert(err, tc.ErrorIsNil)
-	s.service.EXPECT().AllStoragePools(gomock.Any()).
+	s.service.EXPECT().ListStoragePoolsWithoutDefaults(gomock.Any()).
 		Times(1).
-		Return([]*storage.Config{sc, builtIn}, nil)
+		Return([]domainstorage.StoragePool{
+			{
+				Name:     "ebs-fast",
+				Provider: "ebs",
+				Attrs:    map[string]string{"foo": "bar"},
+			},
+		}, nil)
 
 	op := s.newExportOperation()
-	err = op.Execute(c.Context(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIsNil)
 
 	pools := dst.StoragePools()

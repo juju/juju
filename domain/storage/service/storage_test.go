@@ -113,7 +113,7 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 
 	controllerUUID := uuid.MustNewUUID().String()
 	modelUUID := modeltesting.GenModelUUID(c).String()
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "elastic").Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError)
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "elastic").Return(domainstorage.StoragePool{}, storageerrors.PoolNotFoundError)
 	s.state.EXPECT().GetModelDetails().Return(domainstorage.ModelDetails{
 		ModelUUID:      modelUUID,
 		ControllerUUID: controllerUUID,
@@ -155,7 +155,7 @@ func (s *storageSuite) TestImportFilesystemUsingStoragePool(c *tc.C) {
 		MockFilesystemImporter: s.filesystemImporter,
 	}, nil)
 
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast-elastic").Return(domainstorage.StoragePoolDetails{
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast-elastic").Return(domainstorage.StoragePool{
 		Name:     "fast-elastic",
 		Provider: "elastic",
 	}, nil)
@@ -199,7 +199,7 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.provider.EXPECT().FilesystemSource(cfg).Return(s.filesystemSource, nil)
 
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "elastic").Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError)
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "elastic").Return(domainstorage.StoragePool{}, storageerrors.PoolNotFoundError)
 	s.state.EXPECT().GetModelDetails().Return(domainstorage.ModelDetails{
 		ModelUUID:      modeltesting.GenModelUUID(c).String(),
 		ControllerUUID: uuid.MustNewUUID().String(),
@@ -226,7 +226,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *tc.C) {
 
 	controllerUUID := uuid.MustNewUUID().String()
 	modelUUID := modeltesting.GenModelUUID(c).String()
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "ebs").Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError)
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "ebs").Return(domainstorage.StoragePool{}, storageerrors.PoolNotFoundError)
 	s.state.EXPECT().GetModelDetails().Return(domainstorage.ModelDetails{
 		ModelUUID:      modelUUID,
 		ControllerUUID: controllerUUID,
@@ -274,7 +274,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.provider.EXPECT().VolumeSource(cfg).Return(s.volumeSource, nil)
 
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "ebs").Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError)
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "ebs").Return(domainstorage.StoragePool{}, storageerrors.PoolNotFoundError)
 	s.state.EXPECT().GetModelDetails().Return(domainstorage.ModelDetails{
 		ModelUUID:      modeltesting.GenModelUUID(c).String(),
 		ControllerUUID: uuid.MustNewUUID().String(),

@@ -20,8 +20,9 @@ const (
 // Attrs defines storage attributes.
 type Attrs map[string]string
 
-// StoragePoolConfig defines the config of a storage pool.
-type StoragePoolConfig struct {
+// StoragePool represents a storage pool in Juju.
+// It contains the name of the pool, the provider type, and any attributes
+type StoragePool struct {
 	Name     string
 	Provider string
 	Attrs    Attrs
@@ -54,14 +55,14 @@ func (p Providers) Values() []string {
 }
 
 // BuiltInStoragePools returns the built in providers common to all.
-func BuiltInStoragePools() ([]StoragePoolConfig, error) {
+func BuiltInStoragePools() ([]StoragePool, error) {
 	providerTypes, err := provider.CommonStorageProviders().StorageProviderTypes()
 	if err != nil {
 		return nil, errors.Errorf("getting built in storage provider types: %w", err)
 	}
-	result := make([]StoragePoolConfig, len(providerTypes))
+	result := make([]StoragePool, len(providerTypes))
 	for i, pType := range providerTypes {
-		result[i] = StoragePoolConfig{
+		result[i] = StoragePool{
 			Name:     string(pType),
 			Provider: string(pType),
 		}
