@@ -316,7 +316,7 @@ func (st *State) attachUnitStorage(
 				if err != nil {
 					return errors.Errorf("creating filesystem for storage %q for unit %q: %w", storageUUID, unitUUID, err)
 				}
-				sts := &status.StatusInfo[status.StorageFilesystemStatusType]{
+				sts := status.StatusInfo[status.StorageFilesystemStatusType]{
 					Status: status.StorageFilesystemStatusTypePending,
 					Since:  ptr(st.clock.Now()),
 				}
@@ -333,7 +333,7 @@ func (st *State) attachUnitStorage(
 				if err != nil {
 					return errors.Errorf("creating volume for storage %q for unit %q: %w", storageUUID, unitUUID, err)
 				}
-				sts := &status.StatusInfo[status.StorageVolumeStatusType]{
+				sts := status.StatusInfo[status.StorageVolumeStatusType]{
 					Status: status.StorageVolumeStatusTypePending,
 					Since:  ptr(st.clock.Now()),
 				}
@@ -1007,12 +1007,8 @@ func (st *State) insertFilesystemStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	fsUUID corestorage.FilesystemUUID,
-	sts *status.StatusInfo[status.StorageFilesystemStatusType],
+	sts status.StatusInfo[status.StorageFilesystemStatusType],
 ) error {
-	if sts == nil {
-		return nil
-	}
-
 	statusID, err := status.EncodeStorageFilesystemStatus(sts.Status)
 	if err != nil {
 		return errors.Errorf("encoding status: %w", err)
@@ -1086,12 +1082,8 @@ func (st *State) insertVolumeStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	volUUID corestorage.VolumeUUID,
-	sts *status.StatusInfo[status.StorageVolumeStatusType],
+	sts status.StatusInfo[status.StorageVolumeStatusType],
 ) error {
-	if sts == nil {
-		return nil
-	}
-
 	statusID, err := status.EncodeStorageVolumeStatus(sts.Status)
 	if err != nil {
 		return errors.Errorf("encoding status: %w", err)
