@@ -196,7 +196,6 @@ This will prompt you to type, and then re-type, your desired password.
 
 > See more: {ref}`register-a-controller`
 
-(change-a-password)=
 **Change a password.** To change the current user's password, run the `change-user-password` command:
 
 ```text
