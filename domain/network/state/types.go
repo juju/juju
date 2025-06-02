@@ -5,6 +5,7 @@ package state
 
 import (
 	"database/sql"
+	"github.com/juju/collections/transform"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network"
@@ -273,7 +274,7 @@ func flattenAZs(
 	return subnets
 }
 
-// linkLayerDeviceDML is for writing data to the link_layer_device table.
+// linkLayerDeviceDML is for writing data to link_layer_device.
 type linkLayerDeviceDML struct {
 	UUID              string  `db:"uuid"`
 	NetNodeUUID       string  `db:"net_node_uuid"`
@@ -289,6 +290,18 @@ type linkLayerDeviceDML struct {
 	VlanTag           uint64  `db:"vlan_tag"`
 }
 
+// dnsSearchDomainRow represents a row in link_layer_device_dns_domain.
+type dnsSearchDomainRow struct {
+	DeviceUUID   string `db:"device_uuid"`
+	SearchDomain string `db:"search_domain"`
+}
+
+// dnsSearchDomainRow represents a row in link_layer_device_dns_address.
+type dnsAddressRow struct {
+	DeviceUUID string `db:"device_uuid"`
+	Address    string `db:"dns_address"`
+}
+
 // netInterfaceToDML returns persistence types for representing a single
 // [network.NetInterface] instance without its addresses.
 // The incoming map of device name to device UUID should contain entries for
@@ -297,25 +310,25 @@ type linkLayerDeviceDML struct {
 // process prior to calling this method.
 func netInterfaceToDML(
 	dev network.NetInterface, nodeUUID string, nameToUUID map[string]string,
-) (linkLayerDeviceDML, error) {
-	var dml linkLayerDeviceDML
+) (linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, error) {
+	var devDML linkLayerDeviceDML
 
 	devUUID, ok := nameToUUID[dev.Name]
 	if !ok {
-		return dml, errors.Errorf("no UUID associated with device %q", dev.Name)
+		return devDML, nil, nil, errors.Errorf("no UUID associated with device %q", dev.Name)
 	}
 
 	devTypeID, err := encodeDeviceType(dev.Type)
 	if err != nil {
-		return dml, errors.Capture(err)
+		return devDML, nil, nil, errors.Capture(err)
 	}
 
 	portTypeID, err := encodeVirtualPortType(dev.VirtualPortType)
 	if err != nil {
-		return dml, errors.Capture(err)
+		return devDML, nil, nil, errors.Capture(err)
 	}
 
-	dml = linkLayerDeviceDML{
+	devDML = linkLayerDeviceDML{
 		UUID:              devUUID,
 		NetNodeUUID:       nodeUUID,
 		Name:              dev.Name,
@@ -330,13 +343,25 @@ func netInterfaceToDML(
 		VlanTag:           dev.VLANTag,
 	}
 
+	dnsSearchDMLs := transform.Slice(dev.DNSSearchDomains, func(sd string) dnsSearchDomainRow {
+		return dnsSearchDomainRow{
+			DeviceUUID:   devUUID,
+			SearchDomain: sd,
+		}
+	})
+
+	dnsAddressDMLs := transform.Slice(dev.DNSAddresses, func(addr string) dnsAddressRow {
+		return dnsAddressRow{
+			DeviceUUID: devUUID,
+			Address:    addr,
+		}
+	})
+
 	// TODO (manadart 2025-05-02): This needs to return additional types for:
 	// - link_layer_device_parent
 	// - provider_link_layer_device
-	// - link_layer_device_dns_domain
-	// - link_layer_device_dns_address
 
-	return dml, nil
+	return devDML, dnsSearchDMLs, dnsAddressDMLs, errors.Capture(err)
 }
 
 // encodeDeviceType returns an identifier congruent with the database lookup for

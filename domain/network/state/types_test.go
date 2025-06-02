@@ -24,10 +24,11 @@ func TestTypesSuite(t *testing.T) {
 func (s *typesSuite) TestNetInterfaceToDMLSuccess(c *tc.C) {
 	dev := getNetInterface()
 
-	dml, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{"eth0": "some-device-uuid"})
+	nicDML, dnsSearch, dnsAddr, err :=
+		netInterfaceToDML(dev, "some-node-uuid", map[string]string{"eth0": "some-device-uuid"})
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(dml, tc.DeepEquals, linkLayerDeviceDML{
+	c.Check(nicDML, tc.DeepEquals, linkLayerDeviceDML{
 		UUID:              "some-device-uuid",
 		NetNodeUUID:       "some-node-uuid",
 		Name:              "eth0",
@@ -41,13 +42,29 @@ func (s *typesSuite) TestNetInterfaceToDMLSuccess(c *tc.C) {
 		GatewayAddress:    ptr("192.168.0.1"),
 		VlanTag:           0,
 	})
+
+	c.Check(dnsSearch, tc.DeepEquals, []dnsSearchDomainRow{{
+		DeviceUUID:   "some-device-uuid",
+		SearchDomain: "search.maas.net",
+	}})
+
+	c.Check(dnsAddr, tc.DeepEquals, []dnsAddressRow{
+		{
+			DeviceUUID: "some-device-uuid",
+			Address:    "1.1.1.1",
+		},
+		{
+			DeviceUUID: "some-device-uuid",
+			Address:    "8.8.8.8",
+		},
+	})
 }
 
 func (s *typesSuite) TestNetInterfaceToDMLBadDeviceTypeError(c *tc.C) {
 	dev := getNetInterface()
 	dev.Type = "bad-type"
 
-	_, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{
+	_, _, _, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{
 		"eth0": "some-device-uuid",
 	})
 	c.Assert(err, tc.ErrorMatches, "unsupported device type.*")
@@ -57,7 +74,7 @@ func (s *typesSuite) TestNetInterfaceToDMLBadVirtualPortTypeError(c *tc.C) {
 	dev := getNetInterface()
 	dev.VirtualPortType = "bad-type"
 
-	_, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{"eth0": "some-device-uuid"})
+	_, _, _, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{"eth0": "some-device-uuid"})
 	c.Assert(err, tc.ErrorMatches, "unsupported virtual port type.*")
 }
 
@@ -104,14 +121,14 @@ func getNetInterface() network.NetInterface {
 		GatewayAddress:   ptr("192.168.0.1"),
 		IsDefaultGateway: true,
 		VLANTag:          0,
+		DNSSearchDomains: []string{"search.maas.net"},
+		DNSAddresses:     []string{"1.1.1.1", "8.8.8.8"},
 
 		// TODO (manadart 2025-05-05): Handle the translations below as
 		// additional *DML types.
 
 		ParentDeviceName: "",
 		ProviderID:       nil,
-		DNSSearchDomains: nil,
-		DNSAddresses:     nil,
 	}
 }
 
