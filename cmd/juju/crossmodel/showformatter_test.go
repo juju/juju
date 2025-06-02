@@ -70,6 +70,20 @@ func (s *funcSuite) TestBreakLinesManyWordsManyLines(c *tc.C) {
 		})
 }
 
+func (s *funcSuite) TestBreakLinesManyWordsManyLinesOverflow(c *tc.C) {
+	// This causes a panic, because the last word is too long and it doesn't fit
+	// in the last line. So, we need to grow the lines by one to accommodate
+	// the last word.
+	aWord := "aWord aWord aWord aWord aWord aWord aWord aWord aWord aWord aWord aWord aWord aWord aWord aWord aWord aWord aWord aWord aWord panicme"
+	c.Assert(breakLines(aWord), tc.DeepEquals,
+		[]string{
+			"aWord aWord aWord aWord aWord aWord aWord",
+			"aWord aWord aWord aWord aWord aWord aWord",
+			"aWord aWord aWord aWord aWord aWord aWord",
+			"panicme",
+		})
+}
+
 func (s *funcSuite) TestBreakOneWord(c *tc.C) {
 	aWord := "aWord"
 	c.Assert(breakOneWord(aWord), tc.DeepEquals, []string{aWord})
