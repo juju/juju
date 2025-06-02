@@ -33,7 +33,7 @@ In this tutorial your goal is to set up a chat service on a cloud.
 
 First, decide which cloud (i.e., anything that provides storage, compute, and networking) you want to use. Juju supports a long list of clouds; in this tutorial we will use a low-ops, minimal production Kubernetes called 'MicroK8s'. In a terminal, open a shell into your VM and verify that you already have MicroK8s installed (`microk8s version`).
 
-> See more: {ref}`cloud`, {ref}`list-of-supported-clouds`, {ref}`cloud-kubernetes-microk8s`, {ref}`manage-your-deployment-environment`
+> See more: {ref}`cloud`, {ref}`list-of-supported-clouds`, {ref}`cloud-kubernetes-microk8s`
 
 
 Next, decide which charms (i.e., software operators) you want to use. Charmhub provides a large collection. For this tutorial we will use `mattermost-k8s`  for the chat service,  `postgresql-k8s` for its backing database, and `self-signed-certificates` to TLS-encrypt traffic from PostgreSQL.
@@ -206,7 +206,7 @@ Congratulations, your chat service is up and running!
 
 
 
-> See more: {ref}`manage-your-deployment-environment`, {ref}`manage-juju`, {ref}`manage-clouds`, {ref}`manage-credentials`, {ref}`manage-controllers`, {ref}`manage-models`, {ref}`manage-applications`
+> See more: {ref}`set-up-your-deployment-environment`, {ref}`manage-juju`, {ref}`manage-clouds`, {ref}`manage-credentials`, {ref}`manage-controllers`, {ref}`manage-models`, {ref}`manage-applications`
 
 ```{dropdown} Look around
 

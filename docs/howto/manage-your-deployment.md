@@ -21,34 +21,6 @@ To set up a cloud deployment with Juju, you need a cloud, Juju, and charms.
 
 > See more: {ref}`administering-juju`, {ref}`building-with-juju`
 
-<!--
-{ref}`Manage the juju CLI <manage-juju>`,
-{ref}`Manage plugins <manage-plugins>`,
-{ref}`Manage clouds <manage-clouds>`,
-{ref}`Manage credentials <manage-credentials>`,
-{ref}`Manage metadata <manage-metadata>`,
-{ref}`Manage controllers <manage-controllers>`,
-{ref}`Manage the Juju dashboard <manage-the-juju-dashboard>`,
-{ref}`Manage users <manage-users>`,
-{ref}`Manage SSH keys <manage-ssh-keys>`,
-{ref}`Manage models <manage-models>`,
-{ref}`Manage secret backends <manage-secret-backends>`,
-{ref}`Manage logs <manage-logs>`,
-{ref}`Manage charms or bundles <manage-charms>`,
-{ref}`Manage applications <manage-applications>`,
-{ref}`Manage resources <manage-charm-resources>`,
-{ref}`Manage actions <manage-actions>`,
-{ref}`Manage relations <manage-relations>`,
-{ref}`Manage offers <manage-offers>`,
-{ref}`Manage units <manage-units>`,
-{ref}`Manage secrets <manage-secrets>`,
-{ref}`Manage machines <manage-machines>`,
-{ref}`Manage storage <manage-storage>`,
-{ref}`Manage storage pools <manage-storage-pools>`,
-{ref}`Manage spaces <manage-spaces>`,
-{ref}`Manage subnets <manage-subnets>`
--->
-
 (set-things-up)=
 ### Set up your deployment -- local testing and development
 
@@ -280,9 +252,7 @@ $ sudo snap install docker
 ```
 ````
 
-4. (If you are developing a charm or planning to also use a different Juju client, e.g., `terraform-provider-juju`:) Ensure any local files are accessible from your Multipass VM.
-
-On your workstation, create a directory for your files, then mount that directory to your Ubuntu VM. For example, if you're developing a charm:
+4. (If you are developing a charm or planning to also use a different Juju client, e.g., `terraform-provider-juju`:) Ensure any local files are accessible from your Multipass VM by creating a local directory and then mounting it to the Multipass VM. For example, if you're developing a charm:
 
 ```text
 $ mkdir ~/my-charm

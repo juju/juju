@@ -59,7 +59,7 @@ juju refresh postgresql --storage pgdata=10G
 
 > See more: {ref}`command-juju-refresh`
 
-
+(view-the-available-storage)=
 ## View the available storage
 
 TBA
@@ -67,12 +67,14 @@ TBA
 > See more: {ref}`command-juju-storage`
 
 
+(view-storage-details)=
 ## View storage details
 
 TBA
 
 > See more: {ref}`command-juju-show-storage`
 
+(detach-storage)=
 ## Detach storage
 
 If the storage is dynamic, you can detach it from units by running `juju detach-storage` followed by the unit you want to detach. For example, to detach OSD device 'osd-devices/2' from a Ceph unit, do:
@@ -91,6 +93,7 @@ Detaching storage from a unit does not destroy the storage.
 
 > See more: {ref}`command-juju-detach-storage`, {ref}`dynamic-storage`
 
+(attach-storage)=
 ## Attach storage
 
 Detaching storage does not destroy the storage. In addition, when a unit is removed from a model, and the unit has dynamic storage attached, the storage will be detached and left intact. This allows detached storage to be re-attached to an existing unit. This can be done during deployment / when you're adding a unit / at any time, as shown below:
@@ -125,7 +128,27 @@ juju attach-storage ceph-osd/1 osd-devices/7
 
 > See more: {ref}`command-juju-attach-storage`
 
+(reuse-storage)=
+## Reuse storage
 
+If you've destroyed a model but kept the storage, you'll likely want to reuse it. You can do this by running the `juju import-filesystem` command followed by the storage provider, the provider id, and the storage name. For example, given a LXD model (with the storage provider `lxd`), a provider id of `juju:juju-7a544c-filesystem-0`, and a storage name of `pgdata`, this is as below:
+
+```text
+juju add-model default
+juju import-filesystem lxd juju:juju-7a544c-filesystem-0 pgdata
+```
+
+```{important}
+The determination of the provider ID  is dependent upon the cloud type. Above, it is given by the backing LXD pool and the volume name (obtained with `lxc storage volume list <lxd-pool`), all separated by a `:`. A provider ID from another cloud may look entirely different.
+```
+
+<!--
+It is not possible to add new storage to a model without also attaching it to a unit. However, with the `juju import-filesystem` command, you can add storage to a model that has been previously released from a removed model.
+-->
+
+> See more: {ref}`command-juju-import-filesystem`, {ref}`storage-provider-lxd`
+
+(remove-storage)=
 ## Remove storage
 > See also: {ref}`removing-things`
 
@@ -186,22 +209,3 @@ juju destroy-controller lxd-controller --destroy-all-models --release-storage
 
 > See more: {ref}`command-juju-destroy-controller`
 
-
-## Import a filesystem
-
-If you've destroyed a model but kept the storage, you'll likely want to reuse it. You can do this by running the `juju import-filesystem` command followed by the storage provider, the provider id, and the storage name. For example, given a LXD model (with the storage provider `lxd`), a provider id of `juju:juju-7a544c-filesystem-0`, and a storage name of `pgdata`, this is as below:
-
-```text
-juju add-model default
-juju import-filesystem lxd juju:juju-7a544c-filesystem-0 pgdata
-```
-
-```{important}
-The determination of the provider ID  is dependent upon the cloud type. Above, it is given by the backing LXD pool and the volume name (obtained with `lxc storage volume list <lxd-pool`), all separated by a `:`. A provider ID from another cloud may look entirely different.
-```
-
-<!--
-It is not possible to add new storage to a model without also attaching it to a unit. However, with the `juju import-filesystem` command, you can add storage to a model that has been previously released from a removed model.
--->
-
-> See more: {ref}`command-juju-import-filesystem`, {ref}`storage-provider-lxd`
