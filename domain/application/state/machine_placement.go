@@ -14,11 +14,10 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
-	domainmachine "github.com/juju/juju/domain/machine"
-	machinestate "github.com/juju/juju/domain/machine/state"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -238,11 +237,11 @@ VALUES ($createMachine.*);
 
 	now := st.clock.Now()
 
-	machineStatusID, err := machinestate.EncodeMachineStatus(domainmachine.MachineStatusPending)
+	machineStatusID, err := domainstatus.EncodeMachineStatus(domainstatus.MachineStatusPending)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
-	machineInstanceStatusID, err := machinestate.EncodeCloudInstanceStatus(domainmachine.InstanceStatusPending)
+	machineInstanceStatusID, err := domainstatus.EncodeCloudInstanceStatus(domainstatus.InstanceStatusPending)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}

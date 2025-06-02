@@ -10,8 +10,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/life"
-	domainmachine "github.com/juju/juju/domain/machine"
-	"github.com/juju/juju/internal/errors"
 )
 
 // instanceData represents the struct to be inserted into the instance_data
@@ -186,96 +184,6 @@ func (s machineMarkForRemoval) uuidSliceTransform() machine.UUID {
 // machineName into a slice of machine.Name.
 func (s machineName) nameSliceTransform() machine.Name {
 	return s.Name
-}
-
-// decodeMachineStatus decodes a string representation of a machine status
-// into a domainmachine.MachineStatusType. It returns an error if the string
-// does not match any known status.
-func decodeMachineStatus(s string) (domainmachine.MachineStatusType, error) {
-	var result domainmachine.MachineStatusType
-	switch s {
-	case "error":
-		result = domainmachine.MachineStatusError
-	case "started":
-		result = domainmachine.MachineStatusStarted
-	case "pending":
-		result = domainmachine.MachineStatusPending
-	case "stopped":
-		result = domainmachine.MachineStatusStopped
-	case "down":
-		result = domainmachine.MachineStatusDown
-	case "":
-		result = domainmachine.MachineStatusUnknown
-	default:
-		return -1, errors.Errorf("unknown status %q", s)
-	}
-	return result, nil
-}
-
-// EncodeMachineStatus encodes a domainmachine.MachineStatusType into its
-// corresponding integer representation. It returns an error if the status
-// is unknown.
-func EncodeMachineStatus(s domainmachine.MachineStatusType) (int, error) {
-	var result int
-	switch s {
-	case domainmachine.MachineStatusError:
-		result = 0
-	case domainmachine.MachineStatusStarted:
-		result = 1
-	case domainmachine.MachineStatusPending:
-		result = 2
-	case domainmachine.MachineStatusStopped:
-		result = 3
-	case domainmachine.MachineStatusDown:
-		result = 4
-	default:
-		return -1, errors.Errorf("unknown status %q", s)
-	}
-	return result, nil
-}
-
-// decodeCloudInstanceStatus decodes a string representation of a cloud instance
-// status into a domainmachine.InstanceStatusType. It returns an error if the
-// string does not match any known status.
-func decodeCloudInstanceStatus(s string) (domainmachine.InstanceStatusType, error) {
-	var result domainmachine.InstanceStatusType
-	switch s {
-	case "unknown", "":
-		result = domainmachine.InstanceStatusUnset
-	case "pending":
-		result = domainmachine.InstanceStatusPending
-	case "allocating":
-		result = domainmachine.InstanceStatusAllocating
-	case "running":
-		result = domainmachine.InstanceStatusRunning
-	case "provisioning error":
-		result = domainmachine.InstanceStatusProvisioningError
-	default:
-		return 0, errors.Errorf("unknown status %q", s)
-	}
-	return result, nil
-}
-
-// EncodeCloudInstanceStatus encodes a domainmachine.InstanceStatusType into
-// its corresponding integer representation. It returns an error if the status
-// is unknown.
-func EncodeCloudInstanceStatus(s domainmachine.InstanceStatusType) (int, error) {
-	var result int
-	switch s {
-	case domainmachine.InstanceStatusUnset:
-		result = 0
-	case domainmachine.InstanceStatusPending:
-		result = 1
-	case domainmachine.InstanceStatusAllocating:
-		result = 2
-	case domainmachine.InstanceStatusRunning:
-		result = 3
-	case domainmachine.InstanceStatusProvisioningError:
-		result = 4
-	default:
-		return -1, errors.Errorf("unknown status %q", s)
-	}
-	return result, nil
 }
 
 // createMachineArgs represents the struct to be used for the input parameters

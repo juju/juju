@@ -17,7 +17,8 @@ import (
 type StatusID interface {
 	K8sPodStatusType | RelationStatusType |
 		UnitAgentStatusType | WorkloadStatusType |
-		StorageFilesystemStatusType | StorageVolumeStatusType
+		StorageFilesystemStatusType | StorageVolumeStatusType |
+		UnsetStatusType | MachineStatusType | InstanceStatusType
 }
 
 // StatusInfo holds details about the status of an entity.
@@ -308,6 +309,128 @@ func DecodeWorkloadStatus(s int) (WorkloadStatusType, error) {
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
+}
+
+// UnsetStatusType represents the status of an entity that has not been set.
+type UnsetStatusType int
+
+const (
+	UnsetStatus UnsetStatusType = iota
+)
+
+// MachineStatusType represents the status of a machine
+// as recorded in the machine_status_value lookup table.
+type MachineStatusType int
+
+const (
+	MachineStatusStarted MachineStatusType = iota
+	MachineStatusStopped
+	MachineStatusError
+	MachineStatusPending
+	MachineStatusDown
+	MachineStatusUnknown
+)
+
+// DecodeMachineStatus decodes a string representation of a machine status
+// into a MachineStatusType. It returns an error if the string
+// does not match any known status.
+func DecodeMachineStatus(s string) (MachineStatusType, error) {
+	var result MachineStatusType
+	switch s {
+	case "error":
+		result = MachineStatusError
+	case "started":
+		result = MachineStatusStarted
+	case "pending":
+		result = MachineStatusPending
+	case "stopped":
+		result = MachineStatusStopped
+	case "down":
+		result = MachineStatusDown
+	case "":
+		result = MachineStatusUnknown
+	default:
+		return -1, errors.Errorf("unknown status %q", s)
+	}
+	return result, nil
+}
+
+// EncodeMachineStatus encodes a MachineStatusType into its
+// corresponding integer representation. It returns an error if the status
+// is unknown.
+func EncodeMachineStatus(s MachineStatusType) (int, error) {
+	var result int
+	switch s {
+	case MachineStatusError:
+		result = 0
+	case MachineStatusStarted:
+		result = 1
+	case MachineStatusPending:
+		result = 2
+	case MachineStatusStopped:
+		result = 3
+	case MachineStatusDown:
+		result = 4
+	default:
+		return -1, errors.Errorf("unknown status %q", s)
+	}
+	return result, nil
+}
+
+// InstanceStatusType represents the status of an instance
+// as recorded in the instance_status_value lookup table.
+type InstanceStatusType int
+
+const (
+	InstanceStatusUnset InstanceStatusType = iota
+	InstanceStatusPending
+	InstanceStatusAllocating
+	InstanceStatusRunning
+	InstanceStatusProvisioningError
+)
+
+// EncodeCloudInstanceStatus encodes a InstanceStatusType into
+// its corresponding integer representation. It returns an error if the status
+// is unknown.
+func EncodeCloudInstanceStatus(s InstanceStatusType) (int, error) {
+	var result int
+	switch s {
+	case InstanceStatusUnset:
+		result = 0
+	case InstanceStatusPending:
+		result = 1
+	case InstanceStatusAllocating:
+		result = 2
+	case InstanceStatusRunning:
+		result = 3
+	case InstanceStatusProvisioningError:
+		result = 4
+	default:
+		return -1, errors.Errorf("unknown status %q", s)
+	}
+	return result, nil
+}
+
+// DecodeCloudInstanceStatus decodes a string representation of a cloud instance
+// status into a InstanceStatusType. It returns an error if the
+// string does not match any known status.
+func DecodeCloudInstanceStatus(s string) (InstanceStatusType, error) {
+	var result InstanceStatusType
+	switch s {
+	case "unknown", "":
+		result = InstanceStatusUnset
+	case "pending":
+		result = InstanceStatusPending
+	case "allocating":
+		result = InstanceStatusAllocating
+	case "running":
+		result = InstanceStatusRunning
+	case "provisioning error":
+		result = InstanceStatusProvisioningError
+	default:
+		return 0, errors.Errorf("unknown status %q", s)
+	}
+	return result, nil
 }
 
 // UnitWorkloadAgentStatus holds details about the workload and agent status of a unit.

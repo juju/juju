@@ -16,9 +16,8 @@ import (
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
-	domainmachine "github.com/juju/juju/domain/machine"
-	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/sequence"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -52,8 +51,8 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnset(c *tc.C) {
 
 	s.ensureSequenceForMachineNamespace(c, 0)
 
-	s.ensureStatusForMachine(c, machine.Name("0"), domainmachine.MachineStatusPending)
-	s.ensureStatusForMachineInstance(c, machine.Name("0"), domainmachine.InstanceStatusPending)
+	s.ensureStatusForMachine(c, machine.Name("0"), domainstatus.MachineStatusPending)
+	s.ensureStatusForMachineInstance(c, machine.Name("0"), domainstatus.InstanceStatusPending)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
@@ -480,7 +479,7 @@ func (s *unitStateSuite) ensureSequenceForContainerNamespace(c *tc.C, parentName
 	c.Check(seq, tc.Equals, expected)
 }
 
-func (s *unitStateSuite) ensureStatusForMachine(c *tc.C, name machine.Name, expected domainmachine.MachineStatusType) {
+func (s *unitStateSuite) ensureStatusForMachine(c *tc.C, name machine.Name, expected domainstatus.MachineStatusType) {
 	var status int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -492,12 +491,12 @@ WHERE m.name = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	statusValue, err := machinestate.EncodeMachineStatus(expected)
+	statusValue, err := domainstatus.EncodeMachineStatus(expected)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(status, tc.Equals, statusValue)
 }
 
-func (s *unitStateSuite) ensureStatusForMachineInstance(c *tc.C, name machine.Name, expected domainmachine.InstanceStatusType) {
+func (s *unitStateSuite) ensureStatusForMachineInstance(c *tc.C, name machine.Name, expected domainstatus.InstanceStatusType) {
 	var status int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -509,7 +508,7 @@ WHERE m.name = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	statusValue, err := machinestate.EncodeCloudInstanceStatus(expected)
+	statusValue, err := domainstatus.EncodeCloudInstanceStatus(expected)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(status, tc.Equals, statusValue)
 }

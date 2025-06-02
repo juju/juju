@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/life"
-	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs"
@@ -76,21 +75,21 @@ type State interface {
 	// machine.
 	// It returns MachineNotFound if the machine does not exist.
 	// It returns a StatusNotSet if the instance status is not set.
-	GetInstanceStatus(context.Context, machine.Name) (domainmachine.StatusInfo[domainmachine.InstanceStatusType], error)
+	GetInstanceStatus(context.Context, machine.Name) (domainstatus.StatusInfo[domainstatus.InstanceStatusType], error)
 
 	// SetInstanceStatus sets the cloud specific instance status for this
 	// machine.
 	// It returns MachineNotFound if the machine does not exist.
-	SetInstanceStatus(context.Context, machine.Name, domainmachine.StatusInfo[domainmachine.InstanceStatusType]) error
+	SetInstanceStatus(context.Context, machine.Name, domainstatus.StatusInfo[domainstatus.InstanceStatusType]) error
 
 	// GetMachineStatus returns the status of the specified machine.
 	// It returns MachineNotFound if the machine does not exist.
 	// It returns a StatusNotSet if the status is not set.
-	GetMachineStatus(context.Context, machine.Name) (domainmachine.StatusInfo[domainmachine.MachineStatusType], error)
+	GetMachineStatus(context.Context, machine.Name) (domainstatus.StatusInfo[domainstatus.MachineStatusType], error)
 
 	// SetMachineStatus sets the status of the specified machine.
 	// It returns MachineNotFound if the machine does not exist.
-	SetMachineStatus(context.Context, machine.Name, domainmachine.StatusInfo[domainmachine.MachineStatusType]) error
+	SetMachineStatus(context.Context, machine.Name, domainstatus.StatusInfo[domainstatus.MachineStatusType]) error
 
 	// HardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.

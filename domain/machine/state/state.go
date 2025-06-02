@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/domain"
 	blockdevice "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/domain/life"
-	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -120,11 +120,11 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 
 	now := st.clock.Now()
 
-	instanceStatusInfo, err := EncodeCloudInstanceStatus(domainmachine.InstanceStatusPending)
+	instanceStatusInfo, err := status.EncodeCloudInstanceStatus(status.InstanceStatusPending)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	machineStatusInfo, err := EncodeMachineStatus(domainmachine.MachineStatusPending)
+	machineStatusInfo, err := status.EncodeMachineStatus(status.MachineStatusPending)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -387,10 +387,10 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 // It returns MachineNotFound if the machine does not exist.
 // It returns a StatusNotSet if the status is not set.
 // Idempotent.
-func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (domainmachine.StatusInfo[domainmachine.MachineStatusType], error) {
+func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (status.StatusInfo[status.MachineStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
-		return domainmachine.StatusInfo[domainmachine.MachineStatusType]{}, errors.Capture(err)
+		return status.StatusInfo[status.MachineStatusType]{}, errors.Capture(err)
 	}
 
 	nameIdent := machineName{Name: mName}
@@ -399,18 +399,18 @@ func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (doma
 	uuidQuery := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name;`
 	uuidQueryStmt, err := st.Prepare(uuidQuery, nameIdent, uuid)
 	if err != nil {
-		return domainmachine.StatusInfo[domainmachine.MachineStatusType]{}, errors.Capture(err)
+		return status.StatusInfo[status.MachineStatusType]{}, errors.Capture(err)
 	}
 
-	var status machineStatus
+	var mStatus machineStatus
 	statusQuery := `
 SELECT &machineStatus.*
 FROM v_machine_status AS st
 WHERE st.machine_uuid = $machineUUID.uuid;
 `
-	statusCombinedQueryStmt, err := st.Prepare(statusQuery, uuid, status)
+	statusCombinedQueryStmt, err := st.Prepare(statusQuery, uuid, mStatus)
 	if err != nil {
-		return domainmachine.StatusInfo[domainmachine.MachineStatusType]{}, errors.Capture(err)
+		return status.StatusInfo[status.MachineStatusType]{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -423,7 +423,7 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 		}
 
 		// Query for the machine cloud instance status and status data combined
-		err = tx.Query(ctx, statusCombinedQueryStmt, uuid).Get(&status)
+		err = tx.Query(ctx, statusCombinedQueryStmt, uuid).Get(&mStatus)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("machine: %q: %w", mName, machineerrors.StatusNotSet)
 		} else if err != nil {
@@ -434,31 +434,31 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 	})
 
 	if err != nil {
-		return domainmachine.StatusInfo[domainmachine.MachineStatusType]{}, errors.Capture(err)
+		return status.StatusInfo[status.MachineStatusType]{}, errors.Capture(err)
 	}
 
 	// Convert the internal status id from the (machine_status_value table)
 	// into the core status.Status type.
-	machineStatus, err := decodeMachineStatus(status.Status)
+	machineStatus, err := status.DecodeMachineStatus(mStatus.Status)
 	if err != nil {
-		return domainmachine.StatusInfo[domainmachine.MachineStatusType]{}, errors.Errorf("decoding machine status for machine %q: %w", mName, err)
+		return status.StatusInfo[status.MachineStatusType]{}, errors.Errorf("decoding machine status for machine %q: %w", mName, err)
 	}
 
 	var since time.Time
-	if status.Updated.Valid {
-		since = status.Updated.Time
+	if mStatus.Updated.Valid {
+		since = mStatus.Updated.Time
 	} else {
 		since = st.clock.Now()
 	}
 
 	var data []byte
-	if len(status.Data) > 0 {
-		data = status.Data
+	if len(mStatus.Data) > 0 {
+		data = mStatus.Data
 	}
 
-	return domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+	return status.StatusInfo[status.MachineStatusType]{
 		Status:  machineStatus,
-		Message: status.Message,
+		Message: mStatus.Message,
 		Since:   &since,
 		Data:    data,
 	}, nil
@@ -583,13 +583,13 @@ SELECT &machineLife.* FROM machine WHERE uuid = $machineLife.uuid
 
 // SetMachineStatus sets the status of the specified machine.
 // It returns MachineNotFound if the machine does not exist.
-func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newStatus domainmachine.StatusInfo[domainmachine.MachineStatusType]) error {
+func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newStatus status.StatusInfo[status.MachineStatusType]) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	statusID, err := EncodeMachineStatus(newStatus.Status)
+	statusID, err := status.EncodeMachineStatus(newStatus.Status)
 	if err != nil {
 		return errors.Capture(err)
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain/machine"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -24,46 +24,46 @@ func TestStatusSuite(t *testing.T) {
 func (s *statusSuite) TestEncodeMachineStatus(c *tc.C) {
 	testCases := []struct {
 		input  status.StatusInfo
-		output machine.StatusInfo[machine.MachineStatusType]
+		output domainstatus.StatusInfo[domainstatus.MachineStatusType]
 	}{
 		{
 			input: status.StatusInfo{
 				Status: status.Started,
 			},
-			output: machine.StatusInfo[machine.MachineStatusType]{
-				Status: machine.MachineStatusStarted,
+			output: domainstatus.StatusInfo[domainstatus.MachineStatusType]{
+				Status: domainstatus.MachineStatusStarted,
 			},
 		},
 		{
 			input: status.StatusInfo{
 				Status: status.Stopped,
 			},
-			output: machine.StatusInfo[machine.MachineStatusType]{
-				Status: machine.MachineStatusStopped,
+			output: domainstatus.StatusInfo[domainstatus.MachineStatusType]{
+				Status: domainstatus.MachineStatusStopped,
 			},
 		},
 		{
 			input: status.StatusInfo{
 				Status: status.Error,
 			},
-			output: machine.StatusInfo[machine.MachineStatusType]{
-				Status: machine.MachineStatusError,
+			output: domainstatus.StatusInfo[domainstatus.MachineStatusType]{
+				Status: domainstatus.MachineStatusError,
 			},
 		},
 		{
 			input: status.StatusInfo{
 				Status: status.Pending,
 			},
-			output: machine.StatusInfo[machine.MachineStatusType]{
-				Status: machine.MachineStatusPending,
+			output: domainstatus.StatusInfo[domainstatus.MachineStatusType]{
+				Status: domainstatus.MachineStatusPending,
 			},
 		},
 		{
 			input: status.StatusInfo{
 				Status: status.Down,
 			},
-			output: machine.StatusInfo[machine.MachineStatusType]{
-				Status: machine.MachineStatusDown,
+			output: domainstatus.StatusInfo[domainstatus.MachineStatusType]{
+				Status: domainstatus.MachineStatusDown,
 			},
 		},
 		{
@@ -73,8 +73,8 @@ func (s *statusSuite) TestEncodeMachineStatus(c *tc.C) {
 					"foo": "bar",
 				},
 			},
-			output: machine.StatusInfo[machine.MachineStatusType]{
-				Status: machine.MachineStatusDown,
+			output: domainstatus.StatusInfo[domainstatus.MachineStatusType]{
+				Status: domainstatus.MachineStatusDown,
 				Data:   []byte(`{"foo":"bar"}`),
 			},
 		},
@@ -94,38 +94,38 @@ func (s *statusSuite) TestEncodeMachineStatus(c *tc.C) {
 func (s *statusSuite) TestEncodeInstanceStatus(c *tc.C) {
 	testCases := []struct {
 		input  status.StatusInfo
-		output machine.StatusInfo[machine.InstanceStatusType]
+		output domainstatus.StatusInfo[domainstatus.InstanceStatusType]
 	}{
 		{
 			input: status.StatusInfo{
 				Status: status.Unset,
 			},
-			output: machine.StatusInfo[machine.InstanceStatusType]{
-				Status: machine.InstanceStatusUnset,
+			output: domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
+				Status: domainstatus.InstanceStatusUnset,
 			},
 		},
 		{
 			input: status.StatusInfo{
 				Status: status.Running,
 			},
-			output: machine.StatusInfo[machine.InstanceStatusType]{
-				Status: machine.InstanceStatusRunning,
+			output: domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
+				Status: domainstatus.InstanceStatusRunning,
 			},
 		},
 		{
 			input: status.StatusInfo{
 				Status: status.Provisioning,
 			},
-			output: machine.StatusInfo[machine.InstanceStatusType]{
-				Status: machine.InstanceStatusAllocating,
+			output: domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
+				Status: domainstatus.InstanceStatusAllocating,
 			},
 		},
 		{
 			input: status.StatusInfo{
 				Status: status.ProvisioningError,
 			},
-			output: machine.StatusInfo[machine.InstanceStatusType]{
-				Status: machine.InstanceStatusProvisioningError,
+			output: domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
+				Status: domainstatus.InstanceStatusProvisioningError,
 			},
 		},
 		{
@@ -135,8 +135,8 @@ func (s *statusSuite) TestEncodeInstanceStatus(c *tc.C) {
 					"foo": "bar",
 				},
 			},
-			output: machine.StatusInfo[machine.InstanceStatusType]{
-				Status: machine.InstanceStatusRunning,
+			output: domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
+				Status: domainstatus.InstanceStatusRunning,
 				Data:   []byte(`{"foo":"bar"}`),
 			},
 		},

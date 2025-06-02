@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/domain/life"
-	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -79,11 +79,11 @@ func (s *stateSuite) TestCreateMachine(c *tc.C) {
 
 	machineStatusInfo, err := s.state.GetMachineStatus(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(machineStatusInfo.Status, tc.Equals, domainmachine.MachineStatusPending)
+	c.Assert(machineStatusInfo.Status, tc.Equals, status.MachineStatusPending)
 
 	instanceStatusInfo, err := s.state.GetInstanceStatus(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(instanceStatusInfo.Status, tc.Equals, domainmachine.InstanceStatusPending)
+	c.Assert(instanceStatusInfo.Status, tc.Equals, status.InstanceStatusPending)
 }
 
 // TestCreateMachineAlreadyExists asserts that a MachineAlreadyExists error is
@@ -221,8 +221,8 @@ func (s *stateSuite) TestDeleteMachineStatus(c *tc.C) {
 	bdUUID := uuid.MustNewUUID().String()
 	s.insertBlockDevice(c, bd, bdUUID, "666")
 
-	s.state.SetMachineStatus(c.Context(), "666", domainmachine.StatusInfo[domainmachine.MachineStatusType]{
-		Status:  domainmachine.MachineStatusStarted,
+	s.state.SetMachineStatus(c.Context(), "666", status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusStarted,
 		Message: "started",
 		Data:    []byte(`{"key": "data"}`),
 	})
@@ -324,8 +324,8 @@ WHERE machine_uuid='123'`)
 
 	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedStatus, tc.DeepEquals, domainmachine.StatusInfo[domainmachine.MachineStatusType]{
-		Status:  domainmachine.MachineStatusStarted,
+	c.Check(obtainedStatus, tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusStarted,
 		Message: "started",
 		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
 	})
@@ -354,8 +354,8 @@ WHERE machine_uuid='123'`)
 
 	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedStatus, tc.DeepEquals, domainmachine.StatusInfo[domainmachine.MachineStatusType]{
-		Status:  domainmachine.MachineStatusStarted,
+	c.Check(obtainedStatus, tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusStarted,
 		Message: "started",
 		Data:    []byte(`{"key":"data"}`),
 		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
@@ -377,7 +377,7 @@ func (s *stateSuite) TestGetMachineStatusPendingOnCreateMachine(c *tc.C) {
 
 	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedStatus.Status, tc.Equals, domainmachine.MachineStatusPending)
+	c.Check(obtainedStatus.Status, tc.Equals, status.MachineStatusPending)
 }
 
 // TestGetMachineStatusNotSetError asserts that a Pending status is
@@ -402,8 +402,8 @@ func (s *stateSuite) TestSetMachineStatusSuccess(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "", "123")
 	c.Assert(err, tc.ErrorIsNil)
 
-	expectedStatus := domainmachine.StatusInfo[domainmachine.MachineStatusType]{
-		Status:  domainmachine.MachineStatusStarted,
+	expectedStatus := status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusStarted,
 		Message: "started",
 		Since:   ptr(time.Now().UTC()),
 	}
@@ -421,8 +421,8 @@ func (s *stateSuite) TestSetMachineStatusSuccessWithData(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "", "123")
 	c.Assert(err, tc.ErrorIsNil)
 
-	expectedStatus := domainmachine.StatusInfo[domainmachine.MachineStatusType]{
-		Status:  domainmachine.MachineStatusStarted,
+	expectedStatus := status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusStarted,
 		Message: "started",
 		Data:    []byte(`{"key": "data"}`),
 		Since:   ptr(time.Now().UTC()),
@@ -438,114 +438,10 @@ func (s *stateSuite) TestSetMachineStatusSuccessWithData(c *tc.C) {
 // TestSetMachineStatusNotFoundError asserts that a NotFound error is returned
 // when the machine is not found.
 func (s *stateSuite) TestSetMachineStatusNotFoundError(c *tc.C) {
-	err := s.state.SetMachineStatus(c.Context(), "666", domainmachine.StatusInfo[domainmachine.MachineStatusType]{
-		Status: domainmachine.MachineStatusStarted,
+	err := s.state.SetMachineStatus(c.Context(), "666", status.StatusInfo[status.MachineStatusType]{
+		Status: status.MachineStatusStarted,
 	})
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-// TestMachineStatusValues asserts the keys and values in the
-// machine_status_value table, because we convert between core.status values
-// and machine_status_value based on these associations. This test will catch
-// any discrepancies between the two sets of values, and error if/when any of
-// them ever change.
-func (s *stateSuite) TestMachineStatusValues(c *tc.C) {
-	db := s.DB()
-
-	// Check that the status values in the machine_status_value table match
-	// the instance status values in core status.
-	rows, err := db.QueryContext(c.Context(), "SELECT id, status FROM machine_status_value ORDER BY id")
-	c.Assert(err, tc.ErrorIsNil)
-	defer rows.Close()
-	var statusValues []struct {
-		ID   int
-		Name string
-	}
-	for rows.Next() {
-		var statusValue struct {
-			ID   int
-			Name string
-		}
-		err = rows.Scan(&statusValue.ID, &statusValue.Name)
-		c.Assert(err, tc.ErrorIsNil)
-		statusValues = append(statusValues, statusValue)
-	}
-	c.Assert(statusValues, tc.HasLen, 5)
-	c.Check(statusValues[0].ID, tc.Equals, 0)
-	c.Check(statusValues[0].Name, tc.Equals, "error")
-	c.Check(statusValues[1].ID, tc.Equals, 1)
-	c.Check(statusValues[1].Name, tc.Equals, "started")
-	c.Check(statusValues[2].ID, tc.Equals, 2)
-	c.Check(statusValues[2].Name, tc.Equals, "pending")
-	c.Check(statusValues[3].ID, tc.Equals, 3)
-	c.Check(statusValues[3].Name, tc.Equals, "stopped")
-	c.Check(statusValues[4].ID, tc.Equals, 4)
-	c.Check(statusValues[4].Name, tc.Equals, "down")
-}
-
-func (s *stateSuite) TestMachineStatusValuesConversion(c *tc.C) {
-	tests := []struct {
-		statusValue string
-		expected    int
-	}{
-		{statusValue: "error", expected: 0},
-		{statusValue: "started", expected: 1},
-		{statusValue: "pending", expected: 2},
-		{statusValue: "stopped", expected: 3},
-		{statusValue: "down", expected: 4},
-	}
-
-	for _, test := range tests {
-		a, err := decodeMachineStatus(test.statusValue)
-		c.Assert(err, tc.ErrorIsNil)
-		b, err := EncodeMachineStatus(a)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(b, tc.Equals, test.expected)
-	}
-}
-
-func (s *stateSuite) TestMachineStatusValuesAgainstDB(c *tc.C) {
-	m := make(map[string]int)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT status, id FROM machine_status_value")
-		if err != nil {
-			return errors.Capture(err)
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var status string
-			var id int
-			err = rows.Scan(&status, &id)
-			if err != nil {
-				return errors.Capture(err)
-			}
-			m[status] = id
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	tests := []struct {
-		statusValue string
-		expected    int
-	}{
-		{statusValue: "error", expected: 0},
-		{statusValue: "started", expected: 1},
-		{statusValue: "pending", expected: 2},
-		{statusValue: "stopped", expected: 3},
-		{statusValue: "down", expected: 4},
-	}
-
-	for _, test := range tests {
-		a, err := decodeMachineStatus(test.statusValue)
-		c.Assert(err, tc.ErrorIsNil)
-		b, err := EncodeMachineStatus(a)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(b, tc.Equals, test.expected)
-
-		c.Check(m[test.statusValue], tc.Equals, b)
-	}
 }
 
 // TestSetMachineLifeSuccess asserts the happy path of SetMachineLife at the

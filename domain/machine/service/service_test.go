@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
-	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
@@ -321,8 +320,8 @@ func (s *serviceSuite) TestGetMachineStatusSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expectedStatus := status.StatusInfo{Status: status.Started}
-	s.state.EXPECT().GetMachineStatus(gomock.Any(), machine.Name("666")).Return(domainmachine.StatusInfo[domainmachine.MachineStatusType]{
-		Status: domainmachine.MachineStatusStarted,
+	s.state.EXPECT().GetMachineStatus(gomock.Any(), machine.Name("666")).Return(domainstatus.StatusInfo[domainstatus.MachineStatusType]{
+		Status: domainstatus.MachineStatusStarted,
 	}, nil)
 
 	machineStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).GetMachineStatus(c.Context(), "666")
@@ -336,7 +335,7 @@ func (s *serviceSuite) TestGetMachineStatusError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetMachineStatus(gomock.Any(), machine.Name("666")).Return(domainmachine.StatusInfo[domainmachine.MachineStatusType]{}, rErr)
+	s.state.EXPECT().GetMachineStatus(gomock.Any(), machine.Name("666")).Return(domainstatus.StatusInfo[domainstatus.MachineStatusType]{}, rErr)
 
 	machineStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).GetMachineStatus(c.Context(), "666")
 	c.Check(err, tc.ErrorIs, rErr)
@@ -348,8 +347,8 @@ func (s *serviceSuite) TestSetMachineStatusSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newStatus := status.StatusInfo{Status: status.Started}
-	s.state.EXPECT().SetMachineStatus(gomock.Any(), machine.Name("666"), domainmachine.StatusInfo[domainmachine.MachineStatusType]{
-		Status: domainmachine.MachineStatusStarted,
+	s.state.EXPECT().SetMachineStatus(gomock.Any(), machine.Name("666"), domainstatus.StatusInfo[domainstatus.MachineStatusType]{
+		Status: domainstatus.MachineStatusStarted,
 	}).Return(nil)
 	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineNamespace.WithID("666"), newStatus).Return(nil)
 
@@ -364,8 +363,8 @@ func (s *serviceSuite) TestSetMachineStatusError(c *tc.C) {
 
 	newStatus := status.StatusInfo{Status: status.Started}
 	rErr := errors.New("boom")
-	s.state.EXPECT().SetMachineStatus(gomock.Any(), machine.Name("666"), domainmachine.StatusInfo[domainmachine.MachineStatusType]{
-		Status: domainmachine.MachineStatusStarted,
+	s.state.EXPECT().SetMachineStatus(gomock.Any(), machine.Name("666"), domainstatus.StatusInfo[domainstatus.MachineStatusType]{
+		Status: domainstatus.MachineStatusStarted,
 	}).Return(rErr)
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).SetMachineStatus(c.Context(), "666", newStatus)
@@ -384,8 +383,8 @@ func (s *serviceSuite) TestGetInstanceStatusSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expectedStatus := status.StatusInfo{Status: status.Running}
-	s.state.EXPECT().GetInstanceStatus(gomock.Any(), machine.Name("666")).Return(domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
-		Status: domainmachine.InstanceStatusRunning,
+	s.state.EXPECT().GetInstanceStatus(gomock.Any(), machine.Name("666")).Return(domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
+		Status: domainstatus.InstanceStatusRunning,
 	}, nil)
 
 	instanceStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).GetInstanceStatus(c.Context(), "666")
@@ -399,7 +398,7 @@ func (s *serviceSuite) TestGetInstanceStatusError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetInstanceStatus(gomock.Any(), machine.Name("666")).Return(domainmachine.StatusInfo[domainmachine.InstanceStatusType]{}, rErr)
+	s.state.EXPECT().GetInstanceStatus(gomock.Any(), machine.Name("666")).Return(domainstatus.StatusInfo[domainstatus.InstanceStatusType]{}, rErr)
 
 	instanceStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).GetInstanceStatus(c.Context(), "666")
 	c.Check(err, tc.ErrorIs, rErr)
@@ -412,8 +411,8 @@ func (s *serviceSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newStatus := status.StatusInfo{Status: status.Running}
-	s.state.EXPECT().SetInstanceStatus(gomock.Any(), machine.Name("666"), domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
-		Status: domainmachine.InstanceStatusRunning,
+	s.state.EXPECT().SetInstanceStatus(gomock.Any(), machine.Name("666"), domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
+		Status: domainstatus.InstanceStatusRunning,
 	}).Return(nil)
 	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineInstanceNamespace.WithID("666"), newStatus).Return(nil)
 
@@ -428,8 +427,8 @@ func (s *serviceSuite) TestSetInstanceStatusError(c *tc.C) {
 
 	rErr := errors.New("boom")
 	newStatus := status.StatusInfo{Status: status.Running}
-	s.state.EXPECT().SetInstanceStatus(gomock.Any(), machine.Name("666"), domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
-		Status: domainmachine.InstanceStatusRunning,
+	s.state.EXPECT().SetInstanceStatus(gomock.Any(), machine.Name("666"), domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
+		Status: domainstatus.InstanceStatusRunning,
 	}).Return(rErr)
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).SetInstanceStatus(c.Context(), "666", newStatus)
