@@ -104,7 +104,7 @@ func (s *ProviderService) CreateIAASApplication(
 		return "", errors.Errorf("preparing IAAS application args: %w", err)
 	}
 
-	appID, err := s.st.CreateIAASApplication(ctx, appName, appArg, unitArgs)
+	appID, machineNames, err := s.st.CreateIAASApplication(ctx, appName, appArg, unitArgs)
 	if err != nil {
 		return "", errors.Errorf("creating IAAS application %q: %w", appName, err)
 	}
@@ -116,6 +116,7 @@ func (s *ProviderService) CreateIAASApplication(
 			s.logger.Infof(ctx, "failed recording IAAS application status history: %w", err)
 		}
 	}
+	s.recordMachinesStatusHistory(ctx, machineNames)
 
 	return appID, nil
 }
@@ -477,17 +478,18 @@ func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, unit
 		return errors.Errorf("making IAAS unit args: %w", err)
 	}
 
-	unitNames, err := s.st.AddIAASUnits(ctx, appUUID, args...)
+	unitNames, machineNames, err := s.st.AddIAASUnits(ctx, appUUID, args...)
 	if err != nil {
 		return errors.Errorf("adding IAAS units to application %q: %w", appName, err)
 	}
 
 	for i, name := range unitNames {
 		arg := args[i]
-		if err := s.recordStatusHistory(ctx, name, arg.UnitStatusArg); err != nil {
+		if err := s.recordUnitStatusHistory(ctx, name, arg.UnitStatusArg); err != nil {
 			return errors.Errorf("recording status history: %w", err)
 		}
 	}
+	s.recordMachinesStatusHistory(ctx, machineNames)
 
 	return nil
 }
@@ -533,7 +535,7 @@ func (s *ProviderService) AddCAASUnits(ctx context.Context, appName string, unit
 
 	for i, name := range unitNames {
 		arg := args[i]
-		if err := s.recordStatusHistory(ctx, name, arg.UnitStatusArg); err != nil {
+		if err := s.recordUnitStatusHistory(ctx, name, arg.UnitStatusArg); err != nil {
 			return errors.Errorf("recording status history: %w", err)
 		}
 	}

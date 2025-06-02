@@ -23,7 +23,7 @@ import (
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesInvalidPlacement(c *tc.C) {
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementType(666),
 		})
 		return err
@@ -34,10 +34,13 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesInvalidPlacement(c *tc.C) {
 func (s *unitStateSuite) TestPlaceNetNodeMachinesUnset(c *tc.C) {
 	// Ensure the machine got created.
 
-	var netNode string
+	var (
+		netNode      string
+		machineNames []machine.Name
+	)
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
+		netNode, machineNames, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
 		})
 		return err
@@ -53,6 +56,9 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnset(c *tc.C) {
 
 	s.ensureStatusForMachine(c, machine.Name("0"), domainstatus.MachineStatusPending)
 	s.ensureStatusForMachineInstance(c, machine.Name("0"), domainstatus.InstanceStatusPending)
+
+	c.Assert(machineNames, tc.HasLen, 1)
+	c.Check(machineNames[0], tc.Equals, machine.Name("0"))
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
@@ -64,7 +70,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
 	var netNodes []string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		for range total {
-			netNode, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+			netNode, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 				Type: deployment.PlacementTypeUnset,
 			})
 			if err != nil {
@@ -103,7 +109,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *t
 	createMachines := func() {
 		err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 			for range stepTotal {
-				netNode, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+				netNode, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 					Type: deployment.PlacementTypeUnset,
 				})
 				if err != nil {
@@ -177,17 +183,20 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
+		netNode, _, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
 		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	var resultNetNode string
+	var (
+		resultNetNode string
+		machineNames  []machine.Name
+	)
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		resultNetNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
+		resultNetNode, machineNames, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: "0",
 		})
@@ -195,13 +204,14 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
+	c.Assert(machineNames, tc.HasLen, 0)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachineNotFound(c *tc.C) {
 	// Try and place a machine that doesn't exist.
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: "0",
 		})
@@ -213,10 +223,13 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachineNotFound(c *tc.C
 func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 	// Ensure the parent and child machine got created.
 
-	var netNode string
+	var (
+		netNode      string
+		machineNames []machine.Name
+	)
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
+		netNode, machineNames, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeContainer,
 			Container: deployment.ContainerTypeLXD,
 		})
@@ -231,6 +244,12 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 
 	s.ensureSequenceForMachineNamespace(c, 0)
 	s.ensureSequenceForContainerNamespace(c, "0", 0)
+
+	c.Assert(machineNames, tc.HasLen, 2)
+	c.Check(machineNames, tc.DeepEquals, []machine.Name{
+		machine.Name("0"),
+		machine.Name("0/lxd/0"),
+	})
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C) {
@@ -238,17 +257,20 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 
 	// Insert a machine with no placement, then place a container on it.
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
 		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	var netNode string
+	var (
+		netNode      string
+		machineNames []machine.Name
+	)
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
+		netNode, machineNames, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeContainer,
 			Container: deployment.ContainerTypeLXD,
 			Directive: "0",
@@ -264,11 +286,17 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 
 	s.ensureSequenceForMachineNamespace(c, 0)
 	s.ensureSequenceForContainerNamespace(c, "0", 0)
+
+	c.Assert(machineNames, tc.HasLen, 2)
+	c.Check(machineNames, tc.DeepEquals, []machine.Name{
+		machine.Name("0"),
+		machine.Name("0/lxd/0"),
+	})
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirectiveMachineNotFound(c *tc.C) {
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeContainer,
 			Container: deployment.ContainerTypeLXD,
 			Directive: "1",
@@ -287,7 +315,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *tc.C)
 	var netNodes []string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		for range total {
-			netNode, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+			netNode, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 				Type:      deployment.PlacementTypeContainer,
 				Container: deployment.ContainerTypeLXD,
 			})
@@ -331,7 +359,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimesWithGaps(
 	createMachines := func() {
 		err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 			for range stepTotal {
-				netNode, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+				netNode, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 					Type:      deployment.PlacementTypeContainer,
 					Container: deployment.ContainerTypeLXD,
 				})
@@ -427,7 +455,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesProvider(c *tc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
+		netNode, _, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeProvider,
 			Directive: "zone=eu-west-1",
 		})

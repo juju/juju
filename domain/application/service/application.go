@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
+	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resource"
@@ -50,12 +51,14 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
 
-	// CreateIAASApplication creates an application, returning an error
-	// satisfying [applicationerrors.ApplicationAlreadyExists] if the
-	// application already exists. If returns as error satisfying
-	// [applicationerrors.CharmNotFound] if the charm for the application is not
-	// found.
-	CreateIAASApplication(context.Context, string, application.AddIAASApplicationArg, []application.AddUnitArg) (coreapplication.ID, error)
+	// CreateIAASApplication creates an application. Returns the application ID,
+	// along with any machine names created.
+	CreateIAASApplication(
+		context.Context,
+		string,
+		application.AddIAASApplicationArg,
+		[]application.AddUnitArg,
+	) (coreapplication.ID, []coremachine.Name, error)
 
 	// CreateCAASApplication creates an application, returning an error
 	// satisfying [applicationerrors.ApplicationAlreadyExists] if the

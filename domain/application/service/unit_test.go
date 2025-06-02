@@ -18,6 +18,7 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -363,10 +364,10 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnit(c *tc.C) {
 	var foundApp coreapplication.ID
 	var foundUnit coreunit.Name
 	s.state.EXPECT().AddIAASSubordinateUnit(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, arg application.SubordinateUnitArg) (coreunit.Name, error) {
+		func(ctx context.Context, arg application.SubordinateUnitArg) (coreunit.Name, []coremachine.Name, error) {
 			foundApp = arg.SubordinateAppID
 			foundUnit = arg.PrincipalUnitName
-			return "subordinate/0", nil
+			return "subordinate/0", nil, nil
 		},
 	)
 
@@ -386,7 +387,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitUnitAlreadyHasSubordinate(c
 	appID := applicationtesting.GenApplicationUUID(c)
 	unitName := unittesting.GenNewName(c, "principal/0")
 	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(true, nil)
-	s.state.EXPECT().AddIAASSubordinateUnit(gomock.Any(), gomock.Any()).Return("", applicationerrors.UnitAlreadyHasSubordinate)
+	s.state.EXPECT().AddIAASSubordinateUnit(gomock.Any(), gomock.Any()).Return("", nil, applicationerrors.UnitAlreadyHasSubordinate)
 
 	// Act:
 	err := s.service.AddIAASSubordinateUnit(c.Context(), appID, unitName)
@@ -404,7 +405,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitServiceError(c *tc.C) {
 	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(true, nil)
 
 	boom := errors.New("boom")
-	s.state.EXPECT().AddIAASSubordinateUnit(gomock.Any(), gomock.Any()).Return("", boom)
+	s.state.EXPECT().AddIAASSubordinateUnit(gomock.Any(), gomock.Any()).Return("", nil, boom)
 
 	// Act:
 	err := s.service.AddIAASSubordinateUnit(c.Context(), appID, unitName)
