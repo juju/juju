@@ -1192,6 +1192,88 @@ func (s *applicationSuite) TestResolveUnitErrorsUnitNotFound(c *tc.C) {
 	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
+func (s *applicationSuite) TestMergeBindings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	appName := "doink"
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.applicationService.EXPECT().MergeApplicationEndpointBindings(gomock.Any(), appID, map[string]network.SpaceName{
+		"foo": "alpha",
+		"bar": "beta",
+	}, false).Return(nil)
+
+	ret, err := s.api.MergeBindings(c.Context(), params.ApplicationMergeBindingsArgs{
+		Args: []params.ApplicationMergeBindings{{
+			ApplicationTag: names.NewApplicationTag(appName).String(),
+			Bindings: map[string]string{
+				"foo": "alpha",
+				"bar": "beta",
+			},
+			Force: false,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ret.Results, tc.HasLen, 1)
+	c.Assert(ret.Results[0].Error, tc.IsNil)
+}
+
+func (s *applicationSuite) TestMergeBindingsForce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	appName := "doink"
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.applicationService.EXPECT().MergeApplicationEndpointBindings(gomock.Any(), appID, map[string]network.SpaceName{
+		"foo": "alpha",
+		"bar": "beta",
+	}, true).Return(nil)
+
+	ret, err := s.api.MergeBindings(c.Context(), params.ApplicationMergeBindingsArgs{
+		Args: []params.ApplicationMergeBindings{{
+			ApplicationTag: names.NewApplicationTag(appName).String(),
+			Bindings: map[string]string{
+				"foo": "alpha",
+				"bar": "beta",
+			},
+			Force: true,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ret.Results, tc.HasLen, 1)
+	c.Assert(ret.Results[0].Error, tc.IsNil)
+}
+
+func (s *applicationSuite) TestMergeBindingsNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	appName := "doink"
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return("", applicationerrors.ApplicationNotFound)
+
+	ret, err := s.api.MergeBindings(c.Context(), params.ApplicationMergeBindingsArgs{
+		Args: []params.ApplicationMergeBindings{{
+			ApplicationTag: names.NewApplicationTag(appName).String(),
+			Bindings: map[string]string{
+				"foo": "alpha",
+				"bar": "beta",
+			},
+			Force: false,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ret.Results, tc.HasLen, 1)
+	c.Assert(ret.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
 func (s *applicationSuite) TestDestroyRelationByEndpoints(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()

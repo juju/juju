@@ -41,7 +41,6 @@ type Application interface {
 	SetConstraints(constraints.Value) error
 	UpdateCharmConfig(charm.Settings) error
 	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, configschema.Fields, schema.Defaults) error
-	MergeBindings(*state.Bindings, bool) error
 }
 
 // Bindings defines a subset of the functionality provided by the

@@ -791,17 +791,29 @@ type setApplicationConstraint struct {
 	ConstraintUUID  string `db:"constraint_uuid"`
 }
 
-type setApplicationEndpoint struct {
+type setApplicationEndpointBinding struct {
 	UUID          corerelation.EndpointUUID `db:"uuid"`
 	ApplicationID coreapplication.ID        `db:"application_uuid"`
 	RelationUUID  string                    `db:"charm_relation_uuid"`
-	Space         *string                   `db:"space"`
+	Space         sql.Null[string]          `db:"space_uuid"`
 }
 
-type setApplicationExtraEndpoint struct {
+type setApplicationExtraEndpointBinding struct {
 	ApplicationID coreapplication.ID `db:"application_uuid"`
 	RelationUUID  string             `db:"charm_extra_binding_uuid"`
-	Space         *string            `db:"space"`
+	Space         sql.Null[string]   `db:"space_uuid"`
+}
+
+type updateApplicationEndpointBinding struct {
+	ApplicationID coreapplication.ID `db:"application_uuid"`
+	RelationUUID  string             `db:"charm_relation_uuid"`
+	Space         sql.Null[string]   `db:"space_uuid"`
+}
+
+type updateApplicationExtraEndpointBinding struct {
+	ApplicationID coreapplication.ID `db:"application_uuid"`
+	RelationUUID  string             `db:"charm_extra_binding_uuid"`
+	Space         sql.Null[string]   `db:"space_uuid"`
 }
 
 type setConstraint struct {
@@ -859,6 +871,11 @@ type unitConstraintUUID struct {
 
 type constraintUUID struct {
 	ConstraintUUID string `db:"constraint_uuid"`
+}
+
+type space struct {
+	UUID string            `db:"uuid"`
+	Name network.SpaceName `db:"name"`
 }
 
 // These structs are only needed to check existence before adding constraints.

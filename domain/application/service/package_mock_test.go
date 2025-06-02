@@ -3715,6 +3715,44 @@ func (c *MockStateListCharmLocatorsByNamesCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// MergeApplicationEndpointBindings mocks base method.
+func (m *MockState) MergeApplicationEndpointBindings(arg0 context.Context, arg1 application.ID, arg2 map[string]network.SpaceName) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MergeApplicationEndpointBindings", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MergeApplicationEndpointBindings indicates an expected call of MergeApplicationEndpointBindings.
+func (mr *MockStateMockRecorder) MergeApplicationEndpointBindings(arg0, arg1, arg2 any) *MockStateMergeApplicationEndpointBindingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeApplicationEndpointBindings", reflect.TypeOf((*MockState)(nil).MergeApplicationEndpointBindings), arg0, arg1, arg2)
+	return &MockStateMergeApplicationEndpointBindingsCall{Call: call}
+}
+
+// MockStateMergeApplicationEndpointBindingsCall wrap *gomock.Call
+type MockStateMergeApplicationEndpointBindingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateMergeApplicationEndpointBindingsCall) Return(arg0 error) *MockStateMergeApplicationEndpointBindingsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateMergeApplicationEndpointBindingsCall) Do(f func(context.Context, application.ID, map[string]network.SpaceName) error) *MockStateMergeApplicationEndpointBindingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateMergeApplicationEndpointBindingsCall) DoAndReturn(f func(context.Context, application.ID, map[string]network.SpaceName) error) *MockStateMergeApplicationEndpointBindingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MergeExposeSettings mocks base method.
 func (m *MockState) MergeExposeSettings(ctx context.Context, appID application.ID, exposedEndpoints map[string]application0.ExposedEndpoint) error {
 	m.ctrl.T.Helper()
@@ -4899,6 +4937,44 @@ func (c *MockStateUpsertCloudServiceCall) Do(f func(context.Context, string, str
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateUpsertCloudServiceCall) DoAndReturn(f func(context.Context, string, string, network.ProviderAddresses) error) *MockStateUpsertCloudServiceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ValidateEndpointBindingsForApplication mocks base method.
+func (m *MockState) ValidateEndpointBindingsForApplication(arg0 context.Context, arg1 application.ID, arg2 map[string]network.SpaceName) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateEndpointBindingsForApplication", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateEndpointBindingsForApplication indicates an expected call of ValidateEndpointBindingsForApplication.
+func (mr *MockStateMockRecorder) ValidateEndpointBindingsForApplication(arg0, arg1, arg2 any) *MockStateValidateEndpointBindingsForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateEndpointBindingsForApplication", reflect.TypeOf((*MockState)(nil).ValidateEndpointBindingsForApplication), arg0, arg1, arg2)
+	return &MockStateValidateEndpointBindingsForApplicationCall{Call: call}
+}
+
+// MockStateValidateEndpointBindingsForApplicationCall wrap *gomock.Call
+type MockStateValidateEndpointBindingsForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateValidateEndpointBindingsForApplicationCall) Return(arg0 error) *MockStateValidateEndpointBindingsForApplicationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateValidateEndpointBindingsForApplicationCall) Do(f func(context.Context, application.ID, map[string]network.SpaceName) error) *MockStateValidateEndpointBindingsForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateValidateEndpointBindingsForApplicationCall) DoAndReturn(f func(context.Context, application.ID, map[string]network.SpaceName) error) *MockStateValidateEndpointBindingsForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -2011,6 +2011,44 @@ func (c *MockApplicationServiceIsSubordinateApplicationByNameCall) DoAndReturn(f
 	return c
 }
 
+// MergeApplicationEndpointBindings mocks base method.
+func (m *MockApplicationService) MergeApplicationEndpointBindings(arg0 context.Context, arg1 application.ID, arg2 map[string]network.SpaceName, arg3 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MergeApplicationEndpointBindings", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MergeApplicationEndpointBindings indicates an expected call of MergeApplicationEndpointBindings.
+func (mr *MockApplicationServiceMockRecorder) MergeApplicationEndpointBindings(arg0, arg1, arg2, arg3 any) *MockApplicationServiceMergeApplicationEndpointBindingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeApplicationEndpointBindings", reflect.TypeOf((*MockApplicationService)(nil).MergeApplicationEndpointBindings), arg0, arg1, arg2, arg3)
+	return &MockApplicationServiceMergeApplicationEndpointBindingsCall{Call: call}
+}
+
+// MockApplicationServiceMergeApplicationEndpointBindingsCall wrap *gomock.Call
+type MockApplicationServiceMergeApplicationEndpointBindingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceMergeApplicationEndpointBindingsCall) Return(arg0 error) *MockApplicationServiceMergeApplicationEndpointBindingsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceMergeApplicationEndpointBindingsCall) Do(f func(context.Context, application.ID, map[string]network.SpaceName, bool) error) *MockApplicationServiceMergeApplicationEndpointBindingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceMergeApplicationEndpointBindingsCall) DoAndReturn(f func(context.Context, application.ID, map[string]network.SpaceName, bool) error) *MockApplicationServiceMergeApplicationEndpointBindingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MergeExposeSettings mocks base method.
 func (m *MockApplicationService) MergeExposeSettings(arg0 context.Context, arg1 string, arg2 map[string]application0.ExposedEndpoint) error {
 	m.ctrl.T.Helper()

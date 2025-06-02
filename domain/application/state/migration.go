@@ -299,10 +299,12 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		if err := st.updateConfigHash(ctx, tx, applicationID{ID: appUUID}); err != nil {
 			return errors.Errorf("refreshing config hash for application %q: %w", name, err)
 		}
-		if err := st.insertApplicationEndpoints(ctx, tx, insertApplicationEndpointsParams{
-			appID:     appDetails.UUID,
-			charmUUID: appDetails.CharmUUID,
-			bindings:  args.EndpointBindings,
+		if err := st.updateDefaultSpace(ctx, tx, appDetails.UUID, args.EndpointBindings); err != nil {
+			return errors.Errorf("updating default space: %w", err)
+		}
+		if err := st.insertApplicationEndpointBindings(ctx, tx, insertApplicationEndpointsParams{
+			appID:    appDetails.UUID,
+			bindings: args.EndpointBindings,
 		}); err != nil {
 			return errors.Errorf("inserting exposed endpoints for application %q: %w", name, err)
 		}
