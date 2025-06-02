@@ -69,6 +69,24 @@ func (s *storageStatusSuite) TestEncodeDecodeFilesystemStatus(c *tc.C) {
 	}
 }
 
+func (s *storageStatusSuite) TestFilesystemStatusTransitionErrorInvalid(c *tc.C) {
+	sts := StatusInfo[StorageFilesystemStatusType]{
+		Status: StorageFilesystemStatusTypeError,
+	}
+	err := FilesystemStatusTransitionValid(
+		StorageFilesystemStatusTypeAttached, true, sts)
+	c.Assert(err, tc.ErrorMatches, "cannot set status.*")
+}
+
+func (s *storageStatusSuite) TestFilesystemStatusTransitionPendingInvalid(c *tc.C) {
+	sts := StatusInfo[StorageFilesystemStatusType]{
+		Status: StorageFilesystemStatusTypePending,
+	}
+	err := FilesystemStatusTransitionValid(
+		StorageFilesystemStatusTypeAttached, true, sts)
+	c.Assert(err, tc.ErrorMatches, "cannot set status.*")
+}
+
 // TestVolumeStatusDBValues ensures there's no skew between what's in the
 // database table for volume status and the typed consts used in the
 // state packages.
@@ -117,4 +135,22 @@ func (s *storageStatusSuite) TestEncodeDecodeVolumeStatus(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(encoded, tc.Equals, id)
 	}
+}
+
+func (s *storageStatusSuite) TestVolumeStatusTransitionErrorInvalid(c *tc.C) {
+	sts := StatusInfo[StorageVolumeStatusType]{
+		Status: StorageVolumeStatusTypeError,
+	}
+	err := VolumeStatusTransitionValid(
+		StorageVolumeStatusTypeAttached, true, sts)
+	c.Assert(err, tc.ErrorMatches, "cannot set status.*")
+}
+
+func (s *storageStatusSuite) TestVolumeStatusTransitionPendingInvalid(c *tc.C) {
+	sts := StatusInfo[StorageVolumeStatusType]{
+		Status: StorageVolumeStatusTypePending,
+	}
+	err := VolumeStatusTransitionValid(
+		StorageVolumeStatusTypeAttached, true, sts)
+	c.Assert(err, tc.ErrorMatches, "cannot set status.*")
 }
