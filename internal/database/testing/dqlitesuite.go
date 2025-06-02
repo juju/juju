@@ -6,13 +6,11 @@ package testing
 import (
 	"context"
 	"database/sql"
-	"flag"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync/atomic"
 
 	"github.com/canonical/sqlair"
@@ -28,10 +26,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
-
-// includeSQLOutput is used to enable the output of all SQL queries hitting the
-// database.
-var includeSQLOutput = os.Getenv("INCLUDE_SQL_OUTPUT")
 
 // SchemaApplier is an interface that can be used to apply a schema to a
 // database.
@@ -87,26 +81,23 @@ func (s *DqliteSuite) SetUpTest(c *tc.C) {
 		s.dbPath = ""
 	})
 
-	endpoint := ""
+	// Depending on the verbosity of the test suite, we want to
+	// also print all the sql hitting the db.
+	verbose := isVerbose(c)
 
+	var endpoint string
 	if s.UseTCP {
 		port := FindTCPPort(c)
 		endpoint = fmt.Sprintf("%s:%d", "127.0.0.1", port)
-		c.Logf("Opening dqlite db with: %v", endpoint)
+		if verbose {
+			c.Logf("Opening dqlite db with: %v", endpoint)
+		}
 	} else {
 		endpoint = "@" + uuid.MustNewUUID().String()
-		c.Logf("Opening dqlite db on abstract domain socket: %q", endpoint)
-	}
-
-	// Depending on the verbosity of the test suite, we want to
-	// also print all the sql hitting the db.
-	var verbose bool
-	flag.VisitAll(func(f *flag.Flag) {
-		if verbose || !strings.Contains(f.Name, "check.vv") {
-			return
+		if verbose {
+			c.Logf("Opening dqlite db on abstract domain socket: %q", endpoint)
 		}
-		verbose, _ = strconv.ParseBool(f.Value.String())
-	})
+	}
 
 	s.dqlite, err = app.New(s.dbPath,
 		app.WithAddress(endpoint),
@@ -131,7 +122,7 @@ func (s *DqliteSuite) SetUpTest(c *tc.C) {
 	})
 
 	// Enable super verbose mode.
-	s.Verbose = verbose && includeSQLOutput != ""
+	s.Verbose = verbose && includeSQLOutput(c)
 
 	err = s.dqlite.Ready(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -230,6 +221,28 @@ func (s *DqliteSuite) NoopTxnRunner() coredatabase.TxnRunner {
 // in production code.
 func (s *DqliteSuite) DumpTable(c *tc.C, table string, additionalTables ...string) {
 	DumpTable(c, s.DB(), table, additionalTables...)
+}
+
+// isVerbose checks the JUJU_TEST_VERBOSE environment variable to determine
+// whether the test suite should print verbose output.
+func isVerbose(c *tc.C) bool {
+	return isEnvSet(c, "JUJU_TEST_VERBOSE")
+}
+
+// includeSQLOutput checks the JUJU_SQL_OUTPUT environment variable to determine
+// whether the test suite should include SQL output in the logs.
+func includeSQLOutput(c *tc.C) bool {
+	return isEnvSet(c, "JUJU_SQL_OUTPUT")
+}
+
+func isEnvSet(c *tc.C, name string) bool {
+	env, ok := os.LookupEnv(name)
+	if !ok {
+		return false
+	}
+	include, err := strconv.ParseBool(env)
+	c.Assert(err, tc.ErrorIsNil)
+	return include
 }
 
 // FindTCPPort finds an unused TCP port and returns it.
