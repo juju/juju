@@ -17,6 +17,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
+	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/sequence"
 	"github.com/juju/juju/internal/errors"
 )
@@ -490,7 +491,10 @@ WHERE m.name = ?
 `, name).Scan(&status)
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(domainmachine.MachineStatusType(status), tc.Equals, expected)
+
+	statusValue, err := machinestate.EncodeMachineStatus(expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(status, tc.Equals, statusValue)
 }
 
 func (s *unitStateSuite) ensureStatusForMachineInstance(c *tc.C, name machine.Name, expected domainmachine.InstanceStatusType) {
@@ -504,5 +508,8 @@ WHERE m.name = ?
 `, name).Scan(&status)
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(domainmachine.InstanceStatusType(status), tc.Equals, expected)
+
+	statusValue, err := machinestate.EncodeCloudInstanceStatus(expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(status, tc.Equals, statusValue)
 }
