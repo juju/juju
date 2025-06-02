@@ -17,11 +17,13 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
+	status "github.com/juju/juju/core/status"
 	life "github.com/juju/juju/domain/life"
-	machine0 "github.com/juju/juju/domain/machine"
+	status0 "github.com/juju/juju/domain/status"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	instances "github.com/juju/juju/environs/instances"
+	statushistory "github.com/juju/juju/internal/statushistory"
 	storage "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -396,10 +398,10 @@ func (c *MockStateGetAllMachineRemovalsCall) DoAndReturn(f func(context.Context)
 }
 
 // GetInstanceStatus mocks base method.
-func (m *MockState) GetInstanceStatus(arg0 context.Context, arg1 machine.Name) (machine0.StatusInfo[machine0.InstanceStatusType], error) {
+func (m *MockState) GetInstanceStatus(arg0 context.Context, arg1 machine.Name) (status0.StatusInfo[status0.InstanceStatusType], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetInstanceStatus", arg0, arg1)
-	ret0, _ := ret[0].(machine0.StatusInfo[machine0.InstanceStatusType])
+	ret0, _ := ret[0].(status0.StatusInfo[status0.InstanceStatusType])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -417,19 +419,19 @@ type MockStateGetInstanceStatusCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetInstanceStatusCall) Return(arg0 machine0.StatusInfo[machine0.InstanceStatusType], arg1 error) *MockStateGetInstanceStatusCall {
+func (c *MockStateGetInstanceStatusCall) Return(arg0 status0.StatusInfo[status0.InstanceStatusType], arg1 error) *MockStateGetInstanceStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetInstanceStatusCall) Do(f func(context.Context, machine.Name) (machine0.StatusInfo[machine0.InstanceStatusType], error)) *MockStateGetInstanceStatusCall {
+func (c *MockStateGetInstanceStatusCall) Do(f func(context.Context, machine.Name) (status0.StatusInfo[status0.InstanceStatusType], error)) *MockStateGetInstanceStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetInstanceStatusCall) DoAndReturn(f func(context.Context, machine.Name) (machine0.StatusInfo[machine0.InstanceStatusType], error)) *MockStateGetInstanceStatusCall {
+func (c *MockStateGetInstanceStatusCall) DoAndReturn(f func(context.Context, machine.Name) (status0.StatusInfo[status0.InstanceStatusType], error)) *MockStateGetInstanceStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -513,10 +515,10 @@ func (c *MockStateGetMachineParentUUIDCall) DoAndReturn(f func(context.Context, 
 }
 
 // GetMachineStatus mocks base method.
-func (m *MockState) GetMachineStatus(arg0 context.Context, arg1 machine.Name) (machine0.StatusInfo[machine0.MachineStatusType], error) {
+func (m *MockState) GetMachineStatus(arg0 context.Context, arg1 machine.Name) (status0.StatusInfo[status0.MachineStatusType], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachineStatus", arg0, arg1)
-	ret0, _ := ret[0].(machine0.StatusInfo[machine0.MachineStatusType])
+	ret0, _ := ret[0].(status0.StatusInfo[status0.MachineStatusType])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -534,19 +536,19 @@ type MockStateGetMachineStatusCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachineStatusCall) Return(arg0 machine0.StatusInfo[machine0.MachineStatusType], arg1 error) *MockStateGetMachineStatusCall {
+func (c *MockStateGetMachineStatusCall) Return(arg0 status0.StatusInfo[status0.MachineStatusType], arg1 error) *MockStateGetMachineStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachineStatusCall) Do(f func(context.Context, machine.Name) (machine0.StatusInfo[machine0.MachineStatusType], error)) *MockStateGetMachineStatusCall {
+func (c *MockStateGetMachineStatusCall) Do(f func(context.Context, machine.Name) (status0.StatusInfo[status0.MachineStatusType], error)) *MockStateGetMachineStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachineStatusCall) DoAndReturn(f func(context.Context, machine.Name) (machine0.StatusInfo[machine0.MachineStatusType], error)) *MockStateGetMachineStatusCall {
+func (c *MockStateGetMachineStatusCall) DoAndReturn(f func(context.Context, machine.Name) (status0.StatusInfo[status0.MachineStatusType], error)) *MockStateGetMachineStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1132,7 +1134,7 @@ func (c *MockStateSetAppliedLXDProfileNamesCall) DoAndReturn(f func(context.Cont
 }
 
 // SetInstanceStatus mocks base method.
-func (m *MockState) SetInstanceStatus(arg0 context.Context, arg1 machine.Name, arg2 machine0.StatusInfo[machine0.InstanceStatusType]) error {
+func (m *MockState) SetInstanceStatus(arg0 context.Context, arg1 machine.Name, arg2 status0.StatusInfo[status0.InstanceStatusType]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetInstanceStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1158,13 +1160,13 @@ func (c *MockStateSetInstanceStatusCall) Return(arg0 error) *MockStateSetInstanc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetInstanceStatusCall) Do(f func(context.Context, machine.Name, machine0.StatusInfo[machine0.InstanceStatusType]) error) *MockStateSetInstanceStatusCall {
+func (c *MockStateSetInstanceStatusCall) Do(f func(context.Context, machine.Name, status0.StatusInfo[status0.InstanceStatusType]) error) *MockStateSetInstanceStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetInstanceStatusCall) DoAndReturn(f func(context.Context, machine.Name, machine0.StatusInfo[machine0.InstanceStatusType]) error) *MockStateSetInstanceStatusCall {
+func (c *MockStateSetInstanceStatusCall) DoAndReturn(f func(context.Context, machine.Name, status0.StatusInfo[status0.InstanceStatusType]) error) *MockStateSetInstanceStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1284,7 +1286,7 @@ func (c *MockStateSetMachineLifeCall) DoAndReturn(f func(context.Context, machin
 }
 
 // SetMachineStatus mocks base method.
-func (m *MockState) SetMachineStatus(arg0 context.Context, arg1 machine.Name, arg2 machine0.StatusInfo[machine0.MachineStatusType]) error {
+func (m *MockState) SetMachineStatus(arg0 context.Context, arg1 machine.Name, arg2 status0.StatusInfo[status0.MachineStatusType]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetMachineStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1310,13 +1312,13 @@ func (c *MockStateSetMachineStatusCall) Return(arg0 error) *MockStateSetMachineS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetMachineStatusCall) Do(f func(context.Context, machine.Name, machine0.StatusInfo[machine0.MachineStatusType]) error) *MockStateSetMachineStatusCall {
+func (c *MockStateSetMachineStatusCall) Do(f func(context.Context, machine.Name, status0.StatusInfo[status0.MachineStatusType]) error) *MockStateSetMachineStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetMachineStatusCall) DoAndReturn(f func(context.Context, machine.Name, machine0.StatusInfo[machine0.MachineStatusType]) error) *MockStateSetMachineStatusCall {
+func (c *MockStateSetMachineStatusCall) DoAndReturn(f func(context.Context, machine.Name, status0.StatusInfo[status0.MachineStatusType]) error) *MockStateSetMachineStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1433,6 +1435,67 @@ func (c *MockStateShouldRebootOrShutdownCall) Do(f func(context.Context, machine
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateShouldRebootOrShutdownCall) DoAndReturn(f func(context.Context, machine.UUID) (machine.RebootAction, error)) *MockStateShouldRebootOrShutdownCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockStatusHistory is a mock of StatusHistory interface.
+type MockStatusHistory struct {
+	ctrl     *gomock.Controller
+	recorder *MockStatusHistoryMockRecorder
+}
+
+// MockStatusHistoryMockRecorder is the mock recorder for MockStatusHistory.
+type MockStatusHistoryMockRecorder struct {
+	mock *MockStatusHistory
+}
+
+// NewMockStatusHistory creates a new mock instance.
+func NewMockStatusHistory(ctrl *gomock.Controller) *MockStatusHistory {
+	mock := &MockStatusHistory{ctrl: ctrl}
+	mock.recorder = &MockStatusHistoryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStatusHistory) EXPECT() *MockStatusHistoryMockRecorder {
+	return m.recorder
+}
+
+// RecordStatus mocks base method.
+func (m *MockStatusHistory) RecordStatus(arg0 context.Context, arg1 statushistory.Namespace, arg2 status.StatusInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecordStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecordStatus indicates an expected call of RecordStatus.
+func (mr *MockStatusHistoryMockRecorder) RecordStatus(arg0, arg1, arg2 any) *MockStatusHistoryRecordStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordStatus", reflect.TypeOf((*MockStatusHistory)(nil).RecordStatus), arg0, arg1, arg2)
+	return &MockStatusHistoryRecordStatusCall{Call: call}
+}
+
+// MockStatusHistoryRecordStatusCall wrap *gomock.Call
+type MockStatusHistoryRecordStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStatusHistoryRecordStatusCall) Return(arg0 error) *MockStatusHistoryRecordStatusCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStatusHistoryRecordStatusCall) Do(f func(context.Context, statushistory.Namespace, status.StatusInfo) error) *MockStatusHistoryRecordStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStatusHistoryRecordStatusCall) DoAndReturn(f func(context.Context, statushistory.Namespace, status.StatusInfo) error) *MockStatusHistoryRecordStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

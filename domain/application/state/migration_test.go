@@ -604,7 +604,7 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnits(c *tc.C) {
 	s.assertInsertMigratingUnits(c, appID)
 }
 
-func (s *unitStateSubordinateSuite) TestInsertMigratingCAASUnitsSubordinate(c *tc.C) {
+func (s *unitStateSuite) TestInsertMigratingCAASUnitsSubordinate(c *tc.C) {
 	principal := unittesting.GenNewName(c, "bar/0")
 	sub := unittesting.GenNewName(c, "foo/666")
 	s.createIAASApplication(c, "bar", life.Alive, application.InsertUnitArg{
@@ -622,7 +622,7 @@ func (s *unitStateSubordinateSuite) TestInsertMigratingCAASUnitsSubordinate(c *t
 	s.assertUnitPrincipal(c, principal, sub)
 }
 
-func (s *unitStateSubordinateSuite) TestInsertMigratingIAASUnitsSubordinate(c *tc.C) {
+func (s *unitStateSuite) TestInsertMigratingIAASUnitsSubordinate(c *tc.C) {
 	principal := unittesting.GenNewName(c, "bar/0")
 	sub := unittesting.GenNewName(c, "foo/666")
 	s.createIAASApplication(c, "bar", life.Alive, application.InsertUnitArg{

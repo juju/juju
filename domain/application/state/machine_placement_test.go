@@ -17,6 +17,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/sequence"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -49,6 +50,9 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnset(c *tc.C) {
 	c.Check(resultNetNode, tc.Equals, netNode)
 
 	s.ensureSequenceForMachineNamespace(c, 0)
+
+	s.ensureStatusForMachine(c, machine.Name("0"), domainstatus.MachineStatusPending)
+	s.ensureStatusForMachineInstance(c, machine.Name("0"), domainstatus.InstanceStatusPending)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
@@ -113,7 +117,28 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *t
 	}
 	deleteLastMachine := func() {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			_, err := tx.Exec("DELETE FROM machine WHERE net_node_uuid = ?", netNodes[len(netNodes)-1])
+			var child string
+			err := tx.QueryRowContext(ctx, `
+SELECT m.uuid
+FROM machine m 
+WHERE m.net_node_uuid = ?
+`, netNodes[len(netNodes)-1]).Scan(&child)
+			if err != nil {
+				return errors.Capture(err)
+			}
+
+			for _, table := range []string{
+				"machine_status",
+				"machine_cloud_instance_status",
+				"machine_cloud_instance",
+			} {
+				_, err := tx.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %q WHERE machine_uuid = ?`, table), child)
+				if err != nil {
+					return errors.Capture(err)
+				}
+			}
+
+			_, err = tx.Exec("DELETE FROM machine WHERE net_node_uuid = ?", netNodes[len(netNodes)-1])
 			return err
 		})
 		c.Assert(err, tc.ErrorIsNil)
@@ -338,6 +363,21 @@ WHERE m.net_node_uuid = ?
 				return errors.Capture(err)
 			}
 
+			for _, table := range []string{
+				"machine_status",
+				"machine_cloud_instance_status",
+				"machine_cloud_instance",
+			} {
+				_, err = tx.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %q WHERE machine_uuid = ?`, table), child)
+				if err != nil {
+					return errors.Capture(err)
+				}
+				_, err = tx.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %q WHERE machine_uuid = ?`, table), parent)
+				if err != nil {
+					return errors.Capture(err)
+				}
+			}
+
 			_, err = tx.ExecContext(ctx, "DELETE FROM machine WHERE uuid = ?", child)
 			if err != nil {
 				return errors.Capture(err)
@@ -437,4 +477,38 @@ func (s *unitStateSuite) ensureSequenceForContainerNamespace(c *tc.C, parentName
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.Equals, expected)
+}
+
+func (s *unitStateSuite) ensureStatusForMachine(c *tc.C, name machine.Name, expected domainstatus.MachineStatusType) {
+	var status int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT ms.status_id
+FROM machine AS m
+JOIN machine_status AS ms ON m.uuid = ms.machine_uuid
+WHERE m.name = ?
+`, name).Scan(&status)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	statusValue, err := domainstatus.EncodeMachineStatus(expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(status, tc.Equals, statusValue)
+}
+
+func (s *unitStateSuite) ensureStatusForMachineInstance(c *tc.C, name machine.Name, expected domainstatus.InstanceStatusType) {
+	var status int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT ms.status_id
+FROM machine AS m
+JOIN machine_cloud_instance_status AS ms ON m.uuid = ms.machine_uuid
+WHERE m.name = ?
+`, name).Scan(&status)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	statusValue, err := domainstatus.EncodeCloudInstanceStatus(expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(status, tc.Equals, statusValue)
 }

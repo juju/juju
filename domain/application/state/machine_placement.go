@@ -17,6 +17,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -230,6 +231,34 @@ VALUES ($createMachine.*);
 		return "", "", errors.Errorf("creating new machine: %w", err)
 	}
 
+	if err := st.insertMachineInstance(ctx, tx, machineUUID); err != nil {
+		return "", "", errors.Errorf("inserting machine instance: %w", err)
+	}
+
+	now := st.clock.Now()
+
+	machineStatusID, err := domainstatus.EncodeMachineStatus(domainstatus.MachineStatusPending)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	machineInstanceStatusID, err := domainstatus.EncodeCloudInstanceStatus(domainstatus.InstanceStatusPending)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	if err := st.insertMachineStatus(ctx, tx, machineUUID, setStatusInfo{
+		StatusID: machineStatusID,
+		Updated:  ptr(now),
+	}); err != nil {
+		return "", "", errors.Errorf("inserting machine status: %w", err)
+	}
+	if err := st.insertMachineInstanceStatus(ctx, tx, machineUUID, setStatusInfo{
+		StatusID: machineInstanceStatusID,
+		Updated:  ptr(now),
+	}); err != nil {
+		return "", "", errors.Errorf("inserting machine instance status: %w", err)
+	}
+
 	return machineUUID, netNodeUUID, nil
 }
 
@@ -307,4 +336,92 @@ func (st *State) nextContainerSequence(ctx context.Context, tx *sqlair.TX, scope
 	}
 
 	return parentName.NamedChild(scope, strconv.FormatUint(seq, 10))
+}
+
+func (st *State) insertMachineInstance(
+	ctx context.Context,
+	tx *sqlair.TX,
+	mUUID machine.UUID,
+) error {
+	// Prepare query for setting the machine cloud instance.
+	setInstanceData := `
+INSERT INTO machine_cloud_instance (*)
+VALUES ($machineInstanceUUID.*);
+`
+	setInstanceDataStmt, err := st.Prepare(setInstanceData, machineInstanceUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return tx.Query(ctx, setInstanceDataStmt, machineInstanceUUID{
+		MachineUUID: mUUID,
+	}).Run()
+}
+
+func (st *State) insertMachineStatus(ctx context.Context, tx *sqlair.TX, mUUID machine.UUID, status setStatusInfo) error {
+	// Prepare query for setting machine status
+	statusQuery := `
+INSERT INTO machine_status (*)
+VALUES ($setMachineStatus.*)
+  ON CONFLICT (machine_uuid)
+  DO UPDATE SET
+    status_id = excluded.status_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at,
+    data = excluded.data;
+`
+	statusQueryStmt, err := st.Prepare(statusQuery, setMachineStatus{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Query for setting the machine status.
+	err = tx.Query(ctx, statusQueryStmt, setMachineStatus{
+		MachineUUID: mUUID,
+		StatusID:    status.StatusID,
+		Message:     status.Message,
+		Data:        status.Data,
+		Updated:     status.Updated,
+	}).Run()
+	if err != nil {
+		return errors.Errorf("setting machine status for machine %q: %w", mUUID, err)
+	}
+
+	return nil
+}
+
+func (st *State) insertMachineInstanceStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	mUUID machine.UUID,
+	status setStatusInfo,
+) error {
+	// Prepare query for setting the machine cloud instance status
+	statusQuery := `
+INSERT INTO machine_cloud_instance_status (*)
+VALUES ($setMachineStatus.*)
+  ON CONFLICT (machine_uuid)
+  DO UPDATE SET 
+    status_id = excluded.status_id, 
+    message = excluded.message, 
+    updated_at = excluded.updated_at,
+    data = excluded.data;
+`
+	statusQueryStmt, err := st.Prepare(statusQuery, setMachineStatus{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Query for setting the machine cloud instance status
+	err = tx.Query(ctx, statusQueryStmt, setMachineStatus{
+		MachineUUID: mUUID,
+		StatusID:    status.StatusID,
+		Message:     status.Message,
+		Data:        status.Data,
+		Updated:     status.Updated,
+	}).Run()
+	if err != nil {
+		return errors.Errorf("setting machine status for machine %q: %w", mUUID, err)
+	}
+	return nil
 }

@@ -64,6 +64,8 @@ var windowsVariables = []string{
 // used to control Juju tests, that will be retained if found.
 var testingVariables = []string{
 	"JUJU_MONGOD",
+	"JUJU_TEST_VERBOSE",
+	"JUJU_SQL_OUTPUT",
 }
 
 func (s *OsEnvSuite) setEnviron() {

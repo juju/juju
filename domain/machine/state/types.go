@@ -10,24 +10,22 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/life"
-	domainmachine "github.com/juju/juju/domain/machine"
-	"github.com/juju/juju/internal/errors"
 )
 
 // instanceData represents the struct to be inserted into the instance_data
 // table.
 type instanceData struct {
-	MachineUUID          machine.UUID `db:"machine_uuid"`
-	InstanceID           string       `db:"instance_id"`
-	DisplayName          string       `db:"display_name"`
-	Arch                 *string      `db:"arch"`
-	Mem                  *uint64      `db:"mem"`
-	RootDisk             *uint64      `db:"root_disk"`
-	RootDiskSource       *string      `db:"root_disk_source"`
-	CPUCores             *uint64      `db:"cpu_cores"`
-	CPUPower             *uint64      `db:"cpu_power"`
-	AvailabilityZoneUUID *string      `db:"availability_zone_uuid"`
-	VirtType             *string      `db:"virt_type"`
+	MachineUUID          machine.UUID     `db:"machine_uuid"`
+	InstanceID           sql.Null[string] `db:"instance_id"`
+	DisplayName          sql.Null[string] `db:"display_name"`
+	Arch                 *string          `db:"arch"`
+	Mem                  *uint64          `db:"mem"`
+	RootDisk             *uint64          `db:"root_disk"`
+	RootDiskSource       *string          `db:"root_disk_source"`
+	CPUCores             *uint64          `db:"cpu_cores"`
+	CPUPower             *uint64          `db:"cpu_power"`
+	AvailabilityZoneUUID *string          `db:"availability_zone_uuid"`
+	VirtType             *string          `db:"virt_type"`
 }
 
 // instanceDataResult represents the struct used to retrieve rows when joining
@@ -107,14 +105,19 @@ type machineStatus struct {
 	Updated sql.NullTime `db:"updated_at"`
 }
 
-// setMachineStatus represents the struct to be used for the columns of the
-// machine_status table within the sqlair statements in the machine domain.
+type setStatusInfo struct {
+	StatusID int        `db:"status_id"`
+	Message  string     `db:"message"`
+	Data     []byte     `db:"data"`
+	Updated  *time.Time `db:"updated_at"`
+}
+
 type setMachineStatus struct {
-	MachineUUID machine.UUID `db:"machine_uuid"`
 	StatusID    int          `db:"status_id"`
 	Message     string       `db:"message"`
 	Data        []byte       `db:"data"`
 	Updated     *time.Time   `db:"updated_at"`
+	MachineUUID machine.UUID `db:"machine_uuid"`
 }
 
 // availabilityZoneName represents the struct to be used for the name column
@@ -140,6 +143,10 @@ type machineMarkForRemoval struct {
 // within the sqlair statements in the machine domain.
 type machineUUID struct {
 	UUID machine.UUID `db:"uuid"`
+}
+
+type machineInstanceUUID struct {
+	MachineUUID machine.UUID `db:"machine_uuid"`
 }
 
 // machineExistsUUID represents the struct to be used for the uuid column
@@ -177,80 +184,6 @@ func (s machineMarkForRemoval) uuidSliceTransform() machine.UUID {
 // machineName into a slice of machine.Name.
 func (s machineName) nameSliceTransform() machine.Name {
 	return s.Name
-}
-
-func decodeMachineStatus(s string) (domainmachine.MachineStatusType, error) {
-	var result domainmachine.MachineStatusType
-	switch s {
-	case "error":
-		result = domainmachine.MachineStatusError
-	case "started":
-		result = domainmachine.MachineStatusStarted
-	case "pending":
-		result = domainmachine.MachineStatusPending
-	case "stopped":
-		result = domainmachine.MachineStatusStopped
-	case "down":
-		result = domainmachine.MachineStatusDown
-	case "":
-		result = domainmachine.MachineStatusUnknown
-	default:
-		return -1, errors.Errorf("unknown status %q", s)
-	}
-	return result, nil
-}
-
-func encodeMachineStatus(s domainmachine.MachineStatusType) (int, error) {
-	var result int
-	switch s {
-	case domainmachine.MachineStatusError:
-		result = 0
-	case domainmachine.MachineStatusStarted:
-		result = 1
-	case domainmachine.MachineStatusPending:
-		result = 2
-	case domainmachine.MachineStatusStopped:
-		result = 3
-	case domainmachine.MachineStatusDown:
-		result = 4
-	default:
-		return -1, errors.Errorf("unknown status %q", s)
-	}
-	return result, nil
-}
-
-func decodeCloudInstanceStatus(s string) (domainmachine.InstanceStatusType, error) {
-	var result domainmachine.InstanceStatusType
-	switch s {
-	case "unknown", "":
-		result = domainmachine.InstanceStatusUnset
-	case "allocating":
-		result = domainmachine.InstanceStatusAllocating
-	case "running":
-		result = domainmachine.InstanceStatusRunning
-	case "provisioning error":
-		result = domainmachine.InstanceStatusProvisioningError
-	default:
-		return 0, errors.Errorf("unknown status %q", s)
-	}
-	return result, nil
-}
-
-func encodeCloudInstanceStatus(s domainmachine.InstanceStatusType) (int, error) {
-	var result int
-	switch s {
-	case domainmachine.InstanceStatusUnset:
-		result = 0
-	case domainmachine.InstanceStatusAllocating:
-		result = 1
-	case domainmachine.InstanceStatusRunning:
-		result = 2
-	case domainmachine.InstanceStatusProvisioningError:
-		result = 3
-	default:
-		return -1, errors.Errorf("unknown status %q", s)
-	}
-	return result, nil
 }
 
 // createMachineArgs represents the struct to be used for the input parameters
