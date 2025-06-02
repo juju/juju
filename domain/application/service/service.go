@@ -97,6 +97,8 @@ func NewService(
 	}
 }
 
+// recordUnitStatusHistory records the initial status history for the unit
+// being added to the application.
 func (s *Service) recordUnitStatusHistory(
 	ctx context.Context,
 	unitName coreunit.Name,
@@ -131,7 +133,10 @@ func (s *Service) recordUnitStatusHistory(
 	return nil
 }
 
-func (s *Service) recordMachinesStatusHistory(
+// recordInitMachinesStatusHistory records the initial status history for the
+// machines created for the application. The status is set to Pending, and
+// the Since time is set to the current time.
+func (s *Service) recordInitMachinesStatusHistory(
 	ctx context.Context,
 	machineNames []machine.Name,
 ) {

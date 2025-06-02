@@ -170,7 +170,7 @@ func (s *stateSuite) genPasswordHash(c *tc.C) agentpassword.PasswordHash {
 
 func (s *stateSuite) createApplication(c *tc.C) {
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	_, err := applicationSt.CreateIAASApplication(c.Context(), "foo", application.AddIAASApplicationArg{
+	_, _, err := applicationSt.CreateIAASApplication(c.Context(), "foo", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Charm: charm.Charm{
 				Metadata: charm.Metadata{
@@ -202,7 +202,7 @@ func (s *stateSuite) createUnit(c *tc.C) unit.Name {
 	appID, err := applicationSt.GetApplicationIDByName(ctx, "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, err := applicationSt.AddIAASUnits(ctx, appID, application.AddUnitArg{})
+	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]

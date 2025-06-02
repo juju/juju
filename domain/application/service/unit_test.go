@@ -17,7 +17,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
@@ -335,9 +334,9 @@ func (s *unitServiceSuite) TestGetUnitNamesForApplicationDead(c *tc.C) {
 func (s *unitServiceSuite) TestGetUnitNamesOnMachineNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineNetNodeUUIDFromName(gomock.Any(), machine.Name("0")).Return("", applicationerrors.MachineNotFound)
+	s.state.EXPECT().GetMachineNetNodeUUIDFromName(gomock.Any(), coremachine.Name("0")).Return("", applicationerrors.MachineNotFound)
 
-	_, err := s.service.GetUnitNamesOnMachine(c.Context(), machine.Name("0"))
+	_, err := s.service.GetUnitNamesOnMachine(c.Context(), coremachine.Name("0"))
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
 }
 
@@ -345,10 +344,10 @@ func (s *unitServiceSuite) TestGetUnitNamesOnMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	netNodeUUID := "net-node-uuid"
-	s.state.EXPECT().GetMachineNetNodeUUIDFromName(gomock.Any(), machine.Name("0")).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetMachineNetNodeUUIDFromName(gomock.Any(), coremachine.Name("0")).Return(netNodeUUID, nil)
 	s.state.EXPECT().GetUnitNamesForNetNode(gomock.Any(), netNodeUUID).Return([]coreunit.Name{"foo/666", "bar/667"}, nil)
 
-	names, err := s.service.GetUnitNamesOnMachine(c.Context(), machine.Name("0"))
+	names, err := s.service.GetUnitNamesOnMachine(c.Context(), coremachine.Name("0"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(names, tc.DeepEquals, []coreunit.Name{"foo/666", "bar/667"})
 }
@@ -544,7 +543,7 @@ func (s *unitServiceSuite) TestGetUnitMachineName(c *tc.C) {
 
 	name, err := s.service.GetUnitMachineName(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(name, tc.Equals, machine.Name("0"))
+	c.Check(name, tc.Equals, coremachine.Name("0"))
 }
 
 func (s *unitServiceSuite) TestGetUnitMachineNameError(c *tc.C) {
@@ -566,7 +565,7 @@ func (s *unitServiceSuite) TestGetUnitMachineUUID(c *tc.C) {
 
 	uuid, err := s.service.GetUnitMachineUUID(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(uuid, tc.Equals, machine.UUID("fake-uuid"))
+	c.Check(uuid, tc.Equals, coremachine.UUID("fake-uuid"))
 }
 
 func (s *unitServiceSuite) TestGetUnitMachineUUIDError(c *tc.C) {

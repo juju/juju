@@ -288,7 +288,7 @@ func (s *Service) AddIAASSubordinateUnit(
 	if err := s.recordUnitStatusHistory(ctx, unitName, statusArg); err != nil {
 		return errors.Errorf("recording status history: %w", err)
 	}
-	s.recordMachinesStatusHistory(ctx, machineNames)
+	s.recordInitMachinesStatusHistory(ctx, machineNames)
 
 	return nil
 }

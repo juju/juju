@@ -116,7 +116,7 @@ func (s *ProviderService) CreateIAASApplication(
 			s.logger.Infof(ctx, "failed recording IAAS application status history: %w", err)
 		}
 	}
-	s.recordMachinesStatusHistory(ctx, machineNames)
+	s.recordInitMachinesStatusHistory(ctx, machineNames)
 
 	return appID, nil
 }
@@ -489,7 +489,7 @@ func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, unit
 			return errors.Errorf("recording status history: %w", err)
 		}
 	}
-	s.recordMachinesStatusHistory(ctx, machineNames)
+	s.recordInitMachinesStatusHistory(ctx, machineNames)
 
 	return nil
 }
