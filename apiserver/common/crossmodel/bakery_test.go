@@ -63,7 +63,9 @@ func (s *bakerySuite) setMockRoundTripperRoundTrip(c *tc.C, expectedUrl string) 
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			req.Header.Set("Content-Type", "application/json")
-			c.Assert(req.URL.String(), tc.Equals, expectedUrl)
+			if req.URL.String() != "https://example.com/macaroons/discharge/info" {
+				return nil, fmt.Errorf("unexpected URL: %s", req.URL.String())
+			}
 			resp := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -92,24 +94,9 @@ func (s *bakerySuite) getJaaSOfferBakery(c *tc.C) (*crossmodel.JaaSOfferBakery, 
 	c.Assert(err, tc.IsNil)
 	mockBakeryConfig.EXPECT().GetExternalUsersThirdPartyKey(gomock.Any()).Return(key, nil).AnyTimes()
 	mockFirstPartyCaveatChecker.EXPECT().Namespace().Return(nil).AnyTimes()
-
-	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-		func(req *http.Request) (*http.Response, error) {
-			req.Header.Set("Content-Type", "application/json")
-			c.Assert(req.URL.String(), tc.Equals, `https://example.com/macaroons/discharge/info`)
-			resp := &http.Response{
-				Request:    req,
-				StatusCode: http.StatusOK,
-				Body: io.NopCloser(
-					strings.NewReader(
-						`{"PublicKey": "AhIuwQfV71m2G+DhE/YNT1jIbSvp6jWgivTf06+tLBU=", "Version": 3}`,
-					),
-				),
-			}
-			resp.Header = req.Header
-			return resp, nil
-		},
-	)
+	mockExpirableStorage.EXPECT().ExpireAfter(gomock.Any()).Return(mockExpirableStorage).AnyTimes()
+	mockExpirableStorage.EXPECT().RootKey(gomock.Any()).Return(
+		[]byte("root-key"), []byte("storage-id"), nil).AnyTimes()
 
 	b, err := crossmodel.NewJaaSOfferBakery(
 		c.Context(),
@@ -137,13 +124,11 @@ func (s *bakerySuite) TestRefreshDischargeURLJaaS(c *tc.C) {
 	defer ctrl.Finish()
 
 	// Test with no prefixed path segments
-	s.setMockRoundTripperRoundTrip(c, `https://example-1.com/macaroons/discharge/info`)
 	result, err := offerBakery.RefreshDischargeURL(c.Context(), "https://example-1.com/.well-known/jwks.json")
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.Equals, "https://example-1.com/macaroons")
 
 	// Test with prefixed path segments and assert they're maintained (i.e., ingress rule defines /my-prefix/)
-	s.setMockRoundTripperRoundTrip(c, `https://example-2.com/my-prefix/macaroons/discharge/info`)
 	result, err = offerBakery.RefreshDischargeURL(c.Context(), "https://example-2.com/my-prefix/.well-known/jwks.json")
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.Equals, "https://example-2.com/my-prefix/macaroons")
@@ -257,38 +242,45 @@ permission: consume
 	c.Assert(err, tc.IsNil)
 }
 
+// TestCreateDischargeMacaroonJaaS tests that a macaroon with
+// a 3rd part caveat addressed to JAAS can be created, ensuring
+// that JAAS' public key is fetched and cached.
 func (s *bakerySuite) TestCreateDischargeMacaroonJaaS(c *tc.C) {
 	offerBakery, ctrl := s.getJaaSOfferBakery(c)
 	s.mockExpirableStorageBakery = mocks.NewMockExpirableStorageBakery(ctrl)
 	defer ctrl.Finish()
 
-	offerBakery.SetBakery(s.mockExpirableStorageBakery)
+	s.setMockRoundTripperRoundTrip(c, `https://example.com/macaroons/discharge/info`)
 
-	s.mockExpirableStorageBakery.EXPECT().ExpireStorageAfter(gomock.Any()).Return(s.mockExpirableStorageBakery, nil)
-	s.mockExpirableStorageBakery.EXPECT().NewMacaroon(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
-			sort.Slice(caveats, func(i, j int) bool {
-				return caveats[i].Condition < caveats[j].Condition
-			})
-			c.Assert(caveats, tc.HasLen, 5)
-			c.Assert(caveats[0], tc.DeepEquals, checkers.Caveat{
-				Condition: "declared relation-key mediawiki:db mysql:server", Namespace: "std",
-			})
-			c.Assert(caveats[1], tc.DeepEquals, checkers.Caveat{
-				Condition: "declared source-model-uuid " + coretesting.ModelTag.Id(), Namespace: "std",
-			})
-			c.Assert(caveats[2], tc.DeepEquals, checkers.Caveat{
-				Condition: "declared username mary", Namespace: "std",
-			})
-			c.Assert(caveats[3], tc.DeepEquals, checkers.Caveat{
-				Location: "https://example.com/macaroons", Condition: "is-consumer user-mary mysql-uuid",
-			})
-			c.Assert(strings.HasPrefix(caveats[4].Condition, "time-before"), tc.IsTrue)
-			return bakery.NewLegacyMacaroon(jujutesting.MustNewMacaroon("test"))
+	_, err := s.createTestJaaSMacaroon(c, offerBakery)
+	c.Assert(err, tc.IsNil)
+
+	// The second macaroon should use a cached public key
+	_, err = s.createTestJaaSMacaroon(c, offerBakery)
+	c.Assert(err, tc.IsNil)
+}
+
+// TestCreateDischargeMacaroonJaaSUnreachable tests that macaroons
+// cannot be created if the controller was started while JAAS is
+// unreachable and therefore unable to fetch the public key.
+func (s *bakerySuite) TestCreateDischargeMacaroonJaaSUnreachable(c *tc.C) {
+	offerBakery, ctrl := s.getJaaSOfferBakery(c)
+	s.mockExpirableStorageBakery = mocks.NewMockExpirableStorageBakery(ctrl)
+	defer ctrl.Finish()
+
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			return nil, fmt.Errorf("failed to fetch jaas public key")
 		},
 	)
-	_, err := offerBakery.CreateDischargeMacaroon(
-		c.Context(), "https://example.com/macaroons", "mary",
+
+	_, err := s.createTestJaaSMacaroon(c, offerBakery)
+	c.Assert(err, tc.ErrorMatches, ".*failed to fetch jaas public key.*")
+}
+
+func (s *bakerySuite) createTestJaaSMacaroon(_ *tc.C, offerBakery *crossmodel.JaaSOfferBakery) (*bakery.Macaroon, error) {
+	return offerBakery.CreateDischargeMacaroon(
+		context.Background(), "https://example.com/macaroons", "mary",
 		map[string]string{
 			"relation-key":      "mediawiki:db mysql:server",
 			"username":          "mary",
@@ -303,5 +295,4 @@ func (s *bakerySuite) TestCreateDischargeMacaroonJaaS(c *tc.C) {
 		bakery.Op{Action: "consume", Entity: "mysql-uuid"},
 		bakery.LatestVersion,
 	)
-	c.Assert(err, tc.IsNil)
 }

@@ -58,6 +58,7 @@ var (
 	initiateMongoServer = peergrouper.InitiateMongoServer
 	sshGenerateKey      = ssh.GenerateKey
 	minSocketTimeout    = 1 * time.Minute
+	checkJWKSReachable  = agentbootstrap.CheckJWKSReachable
 )
 
 type BootstrapAgentFunc func(agentbootstrap.AgentBootstrapArgs) (*agentbootstrap.AgentBootstrap, error)
@@ -178,6 +179,16 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	// removed with Mongo in time.
 	// Fixes: lp2040947
 	args.ControllerCloud.IsControllerCloud = true
+
+	// The JWKS refresh URL is a public key that we trust for federated
+	// auth. This is conventionally a JIMM controller. Check that JIMM
+	// is reachable to fail fast and validate the URL.
+	jwksRefreshURL := args.ControllerConfig.LoginTokenRefreshURL()
+	if jwksRefreshURL != "" {
+		if err := checkJWKSReachable(jwksRefreshURL); err != nil {
+			return errors.Trace(err)
+		}
+	}
 
 	isCAAS := args.ControllerCloud.Type == cloud.CloudTypeKubernetes
 

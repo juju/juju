@@ -119,7 +119,7 @@ func (o *JaaSOfferBakery) RefreshDischargeURL(ctx context.Context, accessEndpoin
 		return accessEndpoint, nil
 	}
 	o.currrentAccessEndpoint = accessEndpoint
-	return accessEndpoint, errors.Trace(o.refreshBakery(ctx, accessEndpoint))
+	return accessEndpoint, errors.Trace(o.setupBakery(ctx, accessEndpoint))
 }
 
 // cleanDischargeURL expects an address to JIMM's login-token-refresh-url,
@@ -143,29 +143,24 @@ func (o *JaaSOfferBakery) cleanDischargeURL(addr string) (string, error) {
 	return refreshURL.String(), nil
 }
 
-func (o *JaaSOfferBakery) refreshBakery(ctx context.Context, accessEndpoint string) (err error) {
-	thirdPartyInfo, err := httpbakery.ThirdPartyInfoForLocation(
-		ctx, &http.Client{Transport: DefaultTransport}, accessEndpoint,
-	)
-	logger.Tracef(ctx, "got third party info %#v from %q", thirdPartyInfo, accessEndpoint)
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (o *JaaSOfferBakery) setupBakery(ctx context.Context, accessEndpoint string) (err error) {
 	key, err := o.bakeryConfigService.GetExternalUsersThirdPartyKey(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	pkCache := bakery.NewThirdPartyStore()
-	pkCache.AddInfo(accessEndpoint, thirdPartyInfo)
-	locator := httpbakery.NewThirdPartyLocator(nil, pkCache)
+	externalKeyLocator := &externalPublicKeyLocator{
+		ThirdPartyStore: pkCache,
+		accessEndpoint:  accessEndpoint,
+	}
 
 	o.bakery = &bakeryutil.ExpirableStorageBakery{
 		Bakery: bakery.New(
 			bakery.BakeryParams{
 				Checker:       o.checker,
 				RootKeyStore:  o.store,
-				Locator:       locator,
+				Locator:       externalKeyLocator,
 				Key:           key,
 				OpsAuthorizer: CrossModelAuthorizer{},
 				Location:      o.location,
@@ -174,9 +169,33 @@ func (o *JaaSOfferBakery) refreshBakery(ctx context.Context, accessEndpoint stri
 		Location: o.location,
 		Key:      key,
 		Store:    o.store,
-		Locator:  locator,
+		Locator:  externalKeyLocator,
 	}
 	return nil
+}
+
+type externalPublicKeyLocator struct {
+	*bakery.ThirdPartyStore
+	accessEndpoint string
+}
+
+// ThirdPartyInfo implements bakery.PublicKeyLocator.
+// It first checks the local store for the public key, and if not found,
+// it fetches the public key from the access endpoint and caches it.
+func (e *externalPublicKeyLocator) ThirdPartyInfo(ctx context.Context, loc string) (bakery.ThirdPartyInfo, error) {
+	var info bakery.ThirdPartyInfo
+	info, err := e.ThirdPartyStore.ThirdPartyInfo(ctx, e.accessEndpoint)
+	if err == nil {
+		return info, nil
+	}
+	client := &http.Client{Transport: DefaultTransport}
+	info, err = httpbakery.ThirdPartyInfoForLocation(ctx, client, e.accessEndpoint)
+	logger.Tracef(ctx, "got third party info %#v from %q", info, e.accessEndpoint)
+	if err != nil {
+		return info, errors.Trace(err)
+	}
+	e.ThirdPartyStore.AddInfo(e.accessEndpoint, info)
+	return info, nil
 }
 
 var (

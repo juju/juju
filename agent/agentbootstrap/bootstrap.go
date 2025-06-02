@@ -6,11 +6,13 @@ package agentbootstrap
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
@@ -71,6 +73,17 @@ type bootstrapController interface {
 	state.Authenticator
 	Id() string
 	SetMongoPassword(password string) error
+}
+
+// CheckJWKSReachable checks if the given JWKS URL is reachable.
+func CheckJWKSReachable(url string) error {
+	ctx, cancelF := context.WithTimeout(context.TODO(), 30*time.Second)
+	defer cancelF()
+	_, err := jwk.Fetch(ctx, url)
+	if err != nil {
+		return errors.Annotatef(err, "failed to fetch jwks")
+	}
+	return nil
 }
 
 // AgentBootstrap is used to initialize the state for a new controller.
@@ -188,6 +201,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 	if !ok {
 		return nil, errors.Errorf("state serving information not available")
 	}
+
 	// N.B. no users are set up when we're initializing the state,
 	// so don't use any tag or password when opening it.
 	info, ok := agentConfig.MongoInfo()

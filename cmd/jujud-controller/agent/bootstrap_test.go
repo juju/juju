@@ -218,6 +218,26 @@ func (s *BootstrapSuite) initBootstrapCommand(c *tc.C, jobs []model.MachineJob, 
 	return machineConf, cmd, err
 }
 
+func (s *BootstrapSuite) TestCheckJWKSReachable(c *tc.C) {
+	jwksURL := "fake-url"
+
+	called := false
+	s.PatchValue(&checkJWKSReachable, func(s string) error {
+		called = true
+		c.Check(s, tc.Equals, jwksURL)
+		return nil
+	})
+
+	s.bootstrapParams.ControllerConfig[controller.LoginTokenRefreshURL] = jwksURL
+	s.writeBootstrapParamsFile(c)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = cmd.Run(cmdtesting.Context(c))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
+}
+
 func (s *BootstrapSuite) TestInitializeModel(c *tc.C) {
 	machConf, cmd, err := s.initBootstrapCommand(c, nil)
 	cmd.DqliteInitializer = s.dqliteInitializerFunc(c,
