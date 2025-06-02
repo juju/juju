@@ -454,7 +454,7 @@ func (s *stateSuite) TestMachineStatusValues(c *tc.C) {
 
 	// Check that the status values in the machine_status_value table match
 	// the instance status values in core status.
-	rows, err := db.QueryContext(c.Context(), "SELECT id, status FROM machine_status_value")
+	rows, err := db.QueryContext(c.Context(), "SELECT id, status FROM machine_status_value ORDER BY id")
 	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 	var statusValues []struct {
@@ -483,8 +483,6 @@ func (s *stateSuite) TestMachineStatusValues(c *tc.C) {
 	c.Check(statusValues[4].Name, tc.Equals, "down")
 }
 
-// TestMachineStatusValuesConversion asserts the conversions to and from the
-// core status values and the internal status values for machine stay intact.
 func (s *stateSuite) TestMachineStatusValuesConversion(c *tc.C) {
 	tests := []struct {
 		statusValue string
@@ -506,28 +504,47 @@ func (s *stateSuite) TestMachineStatusValuesConversion(c *tc.C) {
 	}
 }
 
-// TestInstanceStatusValuesConversion asserts the conversions to and from the
-// core status values and the internal status values for instances stay intact.
-func (s *stateSuite) TestInstanceStatusValuesConversion(c *tc.C) {
+func (s *stateSuite) TestMachineStatusValuesAgainstDB(c *tc.C) {
+	m := make(map[string]int)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, "SELECT status, id FROM machine_status_value")
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var status string
+			var id int
+			err = rows.Scan(&status, &id)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			m[status] = id
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	tests := []struct {
 		statusValue string
 		expected    int
 	}{
-		{statusValue: "", expected: 0},
-		{statusValue: "unknown", expected: 0},
-		{statusValue: "pending", expected: 1},
-		{statusValue: "allocating", expected: 2},
-		{statusValue: "running", expected: 3},
-		{statusValue: "provisioning error", expected: 4},
+		{statusValue: "error", expected: 0},
+		{statusValue: "started", expected: 1},
+		{statusValue: "pending", expected: 2},
+		{statusValue: "stopped", expected: 3},
+		{statusValue: "down", expected: 4},
 	}
 
 	for _, test := range tests {
-		a, err := decodeCloudInstanceStatus(test.statusValue)
+		a, err := decodeMachineStatus(test.statusValue)
 		c.Assert(err, tc.ErrorIsNil)
-
-		b, err := EncodeCloudInstanceStatus(a)
+		b, err := EncodeMachineStatus(a)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(b, tc.Equals, test.expected)
+
+		c.Check(m[test.statusValue], tc.Equals, b)
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 func (s *stateSuite) TestGetHardwareCharacteristicsWithNoData(c *tc.C) {
@@ -555,6 +556,74 @@ func (s *stateSuite) TestInstanceStatusValues(c *tc.C) {
 	c.Check(statusValues[3].Name, tc.Equals, "running")
 	c.Check(statusValues[4].ID, tc.Equals, 4)
 	c.Check(statusValues[4].Name, tc.Equals, "provisioning error")
+}
+
+func (s *stateSuite) TestInstanceStatusValuesConversion(c *tc.C) {
+	tests := []struct {
+		statusValue string
+		expected    int
+	}{
+		{statusValue: "", expected: 0},
+		{statusValue: "unknown", expected: 0},
+		{statusValue: "pending", expected: 1},
+		{statusValue: "allocating", expected: 2},
+		{statusValue: "running", expected: 3},
+		{statusValue: "provisioning error", expected: 4},
+	}
+
+	for _, test := range tests {
+		a, err := decodeCloudInstanceStatus(test.statusValue)
+		c.Assert(err, tc.ErrorIsNil)
+
+		b, err := EncodeCloudInstanceStatus(a)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(b, tc.Equals, test.expected)
+	}
+}
+
+func (s *stateSuite) TestInstanceStatusValuesAgainstDB(c *tc.C) {
+	m := make(map[string]int)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, "SELECT status, id FROM machine_cloud_instance_status_value")
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var status string
+			var id int
+			err = rows.Scan(&status, &id)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			m[status] = id
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	tests := []struct {
+		statusValue string
+		expected    int
+	}{
+		{statusValue: "unknown", expected: 0},
+		{statusValue: "pending", expected: 1},
+		{statusValue: "allocating", expected: 2},
+		{statusValue: "running", expected: 3},
+		{statusValue: "provisioning error", expected: 4},
+	}
+
+	for _, test := range tests {
+		a, err := decodeCloudInstanceStatus(test.statusValue)
+		c.Assert(err, tc.ErrorIsNil)
+
+		b, err := EncodeCloudInstanceStatus(a)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(b, tc.Equals, test.expected)
+
+		c.Check(m[test.statusValue], tc.Equals, b)
+	}
 }
 
 func (s *stateSuite) ensureInstance(c *tc.C, mName machine.Name) machine.UUID {
