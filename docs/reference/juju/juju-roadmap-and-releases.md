@@ -47,6 +47,27 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 Juju 3.6 series is LTS
 ```
 
+### 🔸 **Juju 3.6.6** - 14 May 2025
+⚙️ Features:
+* feat(secrets): handle NotFound errors in secret backend during `RemoveUserSecrets` by @ca-scribner in [#19169](https://github.com/juju/juju/pull/19169)
+* feat: open firewall ports for SSH server  proxy by @kian99 in [#19180](https://github.com/juju/juju/pull/19180)
+* feat(ssh): public key authentication for ssh server by @SimoneDutto in [#18974](https://github.com/juju/juju/pull/18974)
+* feat: sshtunneler package by @kian99 in [#19285](https://github.com/juju/juju/pull/19285)
+* feat: transaction op logging by @manadart in [#19762](https://github.com/juju/juju/pull/19762)
+
+🛠️ Fixes:
+* fix: always create K8s unit virtual host key by @kian99 in [#19503](https://github.com/juju/juju/pull/19503)
+* fix: model defaults validation by @manadart in [#19462](https://github.com/juju/juju/pull/19462)
+* fix: detailed health errors for probe by @jameinel in [#19670](https://github.com/juju/juju/pull/19670)
+* fix: broken enable-ha on azure due to a panic caused by a nil pointer  by @wallyworld in [#19695](https://github.com/juju/juju/pull/19695)
+* fix: ssh-tunneler worker failure on k8s provider by @kian99 in [#19729](https://github.com/juju/juju/pull/19729)
+* fix: warn on dropped error by @MggMuggins in [#19532](https://github.com/juju/juju/pull/19532)
+
+🥳 New Contributors:
+* @matthew-hagemann made their first contribution in [#19436](https://github.com/juju/juju/pull/19436)
+* @abbiesims made their first contribution in [#19575](https://github.com/juju/juju/pull/19575)
+* @MggMuggins made their first contribution in [#19532](https://github.com/juju/juju/pull/19532)
+
 ### 🔸 **Juju 3.6.5** - 14 April 2025
 ⚙️ Features:
 * feat(ssh-server-worker): add feature flag for ssh jump server by @SimoneDutto in [#19364](https://github.com/juju/juju/pull/19364)
