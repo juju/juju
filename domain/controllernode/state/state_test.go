@@ -6,6 +6,8 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strconv"
 	stdtesting "testing"
 
 	"github.com/juju/collections/set"
@@ -628,6 +630,14 @@ func (s *stateSuite) TestSetAPIAddressControllerNodeExists(c *tc.C) {
 	c.Check(resultAddresses[1], tc.Equals, addrs[1].Address)
 	c.Check(isAgent[1], tc.Equals, addrs[1].IsAgent)
 
+	agentAddresses, err := s.state.GetAllAPIAddressesForAgents(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(agentAddresses, tc.DeepEquals, map[string][]string{
+		"1": {
+			"10.0.0.1:17070",
+		},
+	})
+
 	// Update api address.
 	newAddrs := []controllernode.APIAddress{
 		{Address: "10.0.255.255:17070", IsAgent: true},
@@ -672,6 +682,56 @@ func (s *stateSuite) TestSetAPIAddressControllerNodeExists(c *tc.C) {
 	c.Check(updatedIsAgent[0], tc.Equals, newAddrs[0].IsAgent)
 	c.Check(updatedResultAddresses[1], tc.Equals, newAddrs[1].Address)
 	c.Check(updatedIsAgent[1], tc.Equals, newAddrs[1].IsAgent)
+
+	agentAddresses, err = s.state.GetAllAPIAddressesForAgents(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(agentAddresses, tc.DeepEquals, map[string][]string{
+		"1": {
+			"10.0.255.255:17070",
+		},
+	})
+}
+
+func (s *stateSuite) TestGetAllAPIAddressesForAgent(c *tc.C) {
+	var controllerIDs []string
+	for i := 1; i < 5; i++ {
+		controllerID := strconv.Itoa(i)
+		controllerIDs = append(controllerIDs, controllerID)
+	}
+
+	err := s.state.CurateNodes(c.Context(), controllerIDs, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for i, controllerID := range controllerIDs {
+		addrs := []controllernode.APIAddress{
+			{Address: fmt.Sprintf("10.0.0.%d:17070", i), IsAgent: true},
+			{Address: fmt.Sprintf("192.168.0.%d:17070", i), IsAgent: false},
+		}
+
+		err := s.state.SetAPIAddresses(
+			c.Context(),
+			controllerID,
+			addrs,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	agentAddresses, err := s.state.GetAllAPIAddressesForAgents(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(agentAddresses, tc.DeepEquals, map[string][]string{
+		"1": {
+			"10.0.0.0:17070",
+		},
+		"2": {
+			"10.0.0.1:17070",
+		},
+		"3": {
+			"10.0.0.2:17070",
+		},
+		"4": {
+			"10.0.0.3:17070",
+		},
+	})
 }
 
 func (s *stateSuite) TestSetAPIAddressControllerNodeNotFound(c *tc.C) {

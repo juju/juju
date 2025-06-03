@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
@@ -14,6 +15,9 @@ import (
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
+	watcher "github.com/juju/juju/core/watcher"
+	eventsource "github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/core/watcher/watchertest"
 	controllernode "github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -382,4 +386,160 @@ func (s *serviceSuite) TestGetControllerIDs(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllerIDs, tc.HasLen, 2)
 	c.Check(controllerIDs, tc.DeepEquals, []string{"1", "2"})
+}
+
+func (s *serviceSuite) TestGetControllerIDsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetControllerIDs(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
+
+	_, err := svc.GetControllerIDs(c.Context())
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *serviceSuite) TestAllAPIAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetAPIAddresses(gomock.Any(), "1").Return([]string{
+		"10.0.0.1:17070",
+		"10.0.0.2:17070",
+	}, nil)
+
+	apiAddrs, err := svc.GetAPIAddresses(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiAddrs, tc.DeepEquals, []string{
+		"10.0.0.1:17070",
+		"10.0.0.2:17070",
+	})
+}
+
+func (s *serviceSuite) TestGetAPIAddressesError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetAPIAddresses(gomock.Any(), "1").Return(nil, internalerrors.Errorf("boom"))
+
+	_, err := svc.GetAPIAddresses(c.Context(), "1")
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *serviceSuite) TestGetAPIAddressesForAgents(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetAPIAddressesForAgents(gomock.Any(), "1").Return([]string{
+		"10.0.0.1:17070",
+		"10.0.0.2:17070",
+	}, nil)
+
+	apiAddrs, err := svc.GetAPIAddressesForAgents(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiAddrs, tc.DeepEquals, []string{
+		"10.0.0.1:17070",
+		"10.0.0.2:17070",
+	})
+}
+
+func (s *serviceSuite) TestGetAPIAddressesForAgentsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetAPIAddressesForAgents(gomock.Any(), "1").Return(nil, internalerrors.Errorf("boom"))
+
+	_, err := svc.GetAPIAddressesForAgents(c.Context(), "1")
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *serviceSuite) TestGetAllAPIAddressesForAgents(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+		"1": {
+			"10.0.0.1:17070",
+		},
+		"2": {
+			"10.0.0.2:17070",
+		},
+	}, nil)
+
+	apiAddrs, err := svc.GetAllAPIAddressesForAgents(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiAddrs, tc.DeepEquals, map[string][]string{
+		"1": {
+			"10.0.0.1:17070",
+		},
+		"2": {
+			"10.0.0.2:17070",
+		},
+	})
+}
+
+func (s *serviceSuite) TestGetAllAPIAddressesForAgentsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
+
+	_, err := svc.GetAllAPIAddressesForAgents(c.Context())
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+type watchableServiceSuite struct {
+	testhelpers.IsolationSuite
+
+	state          *MockState
+	watcherFactory *MockWatcherFactory
+}
+
+func TestWatchableServiceSuite(t *testing.T) {
+	tc.Run(t, &watchableServiceSuite{})
+}
+
+func (s *watchableServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.state = NewMockState(ctrl)
+	s.watcherFactory = NewMockWatcherFactory(ctrl)
+
+	return ctrl
+}
+
+func (s *watchableServiceSuite) TestWatchControllerNode(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	var namespace string
+
+	ch := make(chan struct{}, 1)
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any()).DoAndReturn(func(fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+		namespace = fo.Namespace()
+
+		watcher := watchertest.NewMockNotifyWatcher(ch)
+		return watcher, nil
+	})
+
+	s.state.EXPECT().NamespaceForWatchControllerNodes().Return("controller-nodes")
+
+	svc := NewWatchableService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	watcher, err := svc.WatchControllerNodes(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, watcher)
+
+	c.Assert(namespace, tc.Equals, "controller-nodes")
+}
+
+func (s *watchableServiceSuite) TestWatchControllerNodeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any()).DoAndReturn(func(fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+		return nil, internalerrors.Errorf("boom")
+	})
+
+	s.state.EXPECT().NamespaceForWatchControllerNodes().Return("controller-nodes")
+
+	svc := NewWatchableService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	_, err := svc.WatchControllerNodes(c.Context())
+	c.Assert(err, tc.ErrorMatches, "boom")
 }

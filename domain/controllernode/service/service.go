@@ -68,59 +68,15 @@ type State interface {
 	// controller node.
 	GetAPIAddresses(ctx context.Context, ctrlID string) ([]string, error)
 
-	// GetAllAPIAddresses returns a map of controller IDs to their API
-	// addresses. The map is keyed by controller ID, and the values are slices
-	// of strings representing the API addresses for each controller node.
-	GetAllAPIAddresses(ctx context.Context) (map[string][]string, error)
+	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+	// addresses that are available for agents. The map is keyed by controller
+	// ID, and the values are slices of strings representing the API addresses
+	// for each controller node.
+	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
 
 	// GetAPIAddressesForAgents returns the list of API addresses for the
 	// provided controller node that are available for agents.
 	GetAPIAddressesForAgents(ctx context.Context, ctrlID string) ([]string, error)
-}
-
-// WatcherFactory instances return watchers for a given namespace and UUID.
-type WatcherFactory interface {
-	// NewNotifyWatcher returns a new watcher that filters changes from the
-	// input base watcher's db/queue. A single filter option is required, though
-	// additional filter options can be provided.
-	NewNotifyWatcher(
-		filterOption eventsource.FilterOption,
-		filterOptions ...eventsource.FilterOption,
-	) (watcher.NotifyWatcher, error)
-}
-
-// WatchableService provides the API for working with controller nodes and the
-// ability to create watchers.
-type WatchableService struct {
-	*Service
-	watcherFactory WatcherFactory
-}
-
-// NewWatchableService returns a new service reference wrapping the input state.
-func NewWatchableService(
-	st State,
-	watcherFactory WatcherFactory,
-	logger logger.Logger,
-) *WatchableService {
-	return &WatchableService{
-		Service:        NewService(st, logger),
-		watcherFactory: watcherFactory,
-	}
-}
-
-// WatchControllerNodes returns a watcher that observes changes to the
-// controller nodes.
-func (s *WatchableService) WatchControllerNodes(ctx context.Context) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return s.watcherFactory.NewNotifyWatcher(
-		eventsource.PredicateFilter(
-			s.st.NamespaceForWatchControllerNodes(),
-			changestream.All,
-			eventsource.AlwaysPredicate,
-		),
-	)
 }
 
 // Service provides the API for working with controller nodes.
@@ -276,11 +232,12 @@ func (s *Service) GetAPIAddresses(ctx context.Context, nodeID string) ([]string,
 	return s.st.GetAPIAddresses(ctx, nodeID)
 }
 
-// GetAllAPIAddresses returns a map of controller IDs to their API addresses.
-// The map is keyed by controller ID, and the values are slices of strings
-// representing the API addresses for each controller node.
-func (s *Service) GetAllAPIAddresses(ctx context.Context) (map[string][]string, error) {
-	return s.st.GetAllAPIAddresses(ctx)
+// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+// addresses that are available for agents. The map is keyed by controller ID,
+// and the values are slices of strings representing the API addresses for each
+// controller node.
+func (s *Service) GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error) {
+	return s.st.GetAllAPIAddressesForAgents(ctx)
 }
 
 // GetAPIAddressesForAgents returns the list of API addresses for the provided
@@ -290,4 +247,49 @@ func (s *Service) GetAPIAddressesForAgents(ctx context.Context, nodeID string) (
 		return nil, errors.Errorf("node ID %q is %w, cannot be empty", nodeID, coreerrors.NotValid)
 	}
 	return s.st.GetAPIAddressesForAgents(ctx, nodeID)
+}
+
+// WatcherFactory instances return watchers for a given namespace and UUID.
+type WatcherFactory interface {
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
+}
+
+// WatchableService provides the API for working with controller nodes and the
+// ability to create watchers.
+type WatchableService struct {
+	*Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new service reference wrapping the input state.
+func NewWatchableService(
+	st State,
+	watcherFactory WatcherFactory,
+	logger logger.Logger,
+) *WatchableService {
+	return &WatchableService{
+		Service:        NewService(st, logger),
+		watcherFactory: watcherFactory,
+	}
+}
+
+// WatchControllerNodes returns a watcher that observes changes to the
+// controller nodes.
+func (s *WatchableService) WatchControllerNodes(ctx context.Context) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchControllerNodes(),
+			changestream.All,
+			eventsource.AlwaysPredicate,
+		),
+	)
 }
