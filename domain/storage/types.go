@@ -40,6 +40,7 @@ var (
 	NilProviders = Providers(nil)
 )
 
+// Values returns the unique values of the Names.
 func (n Names) Values() []string {
 	if n == nil {
 		return nil
@@ -47,6 +48,7 @@ func (n Names) Values() []string {
 	return set.NewStrings(n...).Values()
 }
 
+// Values returns the unique values of the Providers.
 func (p Providers) Values() []string {
 	if p == nil {
 		return nil

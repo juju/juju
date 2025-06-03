@@ -14,14 +14,15 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-type defaultStoragePoolsSuite struct {
+type typesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestDefaultStoragePoolsSuite(t *testing.T) {
-	tc.Run(t, &defaultStoragePoolsSuite{})
+func TestTypesSuite(t *testing.T) {
+	tc.Run(t, &typesSuite{})
 }
-func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *tc.C) {
+
+func (s *typesSuite) TestDefaultStoragePools(c *tc.C) {
 	p1, err := internalstorage.NewConfig("pool1", "whatever", map[string]interface{}{"1": "2"})
 	c.Assert(err, tc.ErrorIsNil)
 	p2, err := internalstorage.NewConfig("pool2", "whatever", map[string]interface{}{"3": "4"})
@@ -39,4 +40,14 @@ func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *tc.C) {
 	pools, err := storage.DefaultStoragePools(registry)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pools, tc.SameContents, []*internalstorage.Config{p1, p2})
+}
+
+func (s *typesSuite) TestNamesValues(c *tc.C) {
+	n := storage.Names{"a", "b", "c", "a"}
+	c.Assert(n.Values(), tc.DeepEquals, []string{"a", "b", "c"})
+}
+
+func (s *typesSuite) TestProvidersValues(c *tc.C) {
+	p := storage.Providers{"x", "y", "z", "x"}
+	c.Assert(p.Values(), tc.DeepEquals, []string{"x", "y", "z"})
 }

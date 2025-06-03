@@ -326,7 +326,7 @@ func (st State) ListStoragePools(ctx context.Context) ([]domainstorage.StoragePo
 
 // ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
 // names and or providers, including the default storage pools.
-// If no names or providers are specified, an empty slice is returned without an error.
+// If no names and providers are specified, an empty slice is returned without an error.
 // If no storage pools match the criteria, an empty slice is returned without an error.
 func (st State) ListStoragePoolsByNamesAndProviders(
 	ctx context.Context,

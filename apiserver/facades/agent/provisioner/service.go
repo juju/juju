@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/cloudimagemetadata"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/storage"
 )
 
 // AgentProvisionerService provides access to container config.
@@ -83,7 +83,7 @@ type MachineService interface {
 // StoragePoolGetter instances get a storage pool by name.
 type StoragePoolGetter interface {
 	// GetStoragePoolByName returns the storage pool with the specified name.
-	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }
 
 // NetworkService is the interface that is used to interact with the

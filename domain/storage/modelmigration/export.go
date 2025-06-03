@@ -60,15 +60,21 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("listing pools: %w", err)
 	}
 	for _, pool := range pools {
-		args := description.StoragePoolArgs{
-			Name:       pool.Name,
-			Provider:   pool.Provider,
-			Attributes: make(map[string]any, len(pool.Attrs)),
-		}
+		model.AddStoragePool(storagePoolToArgs(pool))
+	}
+	return nil
+}
+
+func storagePoolToArgs(pool domainstorage.StoragePool) description.StoragePoolArgs {
+	args := description.StoragePoolArgs{
+		Name:     pool.Name,
+		Provider: pool.Provider,
+	}
+	if len(pool.Attrs) > 0 {
+		args.Attributes = make(map[string]any, len(pool.Attrs))
 		for k, v := range pool.Attrs {
 			args.Attributes[k] = v
 		}
-		model.AddStoragePool(args)
 	}
-	return nil
+	return args
 }

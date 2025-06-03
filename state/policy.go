@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/constraints"
+	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -83,8 +84,10 @@ func (noopStoragePoolGetter) GetStorageRegistry(ctx context.Context) (storage.Pr
 	return storage.StaticProviderRegistry{}, nil
 }
 
-func (noopStoragePoolGetter) GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error) {
-	return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
+func (noopStoragePoolGetter) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error) {
+	return domainstorage.StoragePool{}, fmt.Errorf(
+		"storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError),
+	)
 }
 
 func (st *State) storageServices() (StoragePoolGetter, error) {

@@ -151,8 +151,13 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		}
 		if err == nil {
 			result.RootDisk = &params.VolumeParams{
-				Provider:   string(sp.Provider()),
-				Attributes: sp.Attrs(),
+				Provider: sp.Provider,
+			}
+			if len(sp.Attrs) > 0 {
+				result.RootDisk.Attributes = make(map[string]any, len(sp.Attrs))
+				for k, v := range sp.Attrs {
+					result.RootDisk.Attributes[k] = v
+				}
 			}
 		}
 	}

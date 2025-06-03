@@ -78,7 +78,7 @@ type ApplicationState interface {
 	// GetStoragePoolByName returns the storage pool with the specified name,
 	// returning an error satisfying [storageerrors.PoolNotFoundError] if it
 	// doesn't exist.
-	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 
 	// UpsertCloudService updates the cloud service for the specified
 	// application, returning an error satisfying

@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/storage"
 )
 
 // ControllerConfigService provides access to the controller configuration.
@@ -59,5 +59,7 @@ type BlockDeviceService interface {
 // StoragePoolGetter instances get a storage pool by name.
 type StoragePoolGetter interface {
 	// GetStoragePoolByName returns the storage pool with the specified name.
-	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }

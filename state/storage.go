@@ -18,6 +18,7 @@ import (
 	"github.com/juju/names/v6"
 	jujutxn "github.com/juju/txn/v3"
 
+	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -125,7 +126,7 @@ func NewStorageConfigBackend(
 // StoragePoolGetter instances get a storage pool by name.
 type StoragePoolGetter interface {
 	GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error)
-	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }
 
 // storageBackend exposes storage-specific state utilities.
@@ -1892,7 +1893,7 @@ func validateStoragePool(
 	return nil
 }
 
-func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderType, storage.Provider, map[string]interface{}, error) {
+func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderType, storage.Provider, map[string]any, error) {
 	storageService, err := sb.storageServices()
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
@@ -1918,12 +1919,19 @@ func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderT
 	} else if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
-	providerType := pool.Provider()
+	providerType := storage.ProviderType(pool.Provider)
 	aProvider, err := registry.StorageProvider(providerType)
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
-	return providerType, aProvider, pool.Attrs(), nil
+	var attrs map[string]any
+	if len(pool.Attrs) > 0 {
+		attrs = make(map[string]any, len(pool.Attrs))
+		for k, v := range pool.Attrs {
+			attrs[k] = v
+		}
+	}
+	return providerType, aProvider, attrs, nil
 }
 
 // ErrNoDefaultStoragePool is returned when a storage pool is required but none

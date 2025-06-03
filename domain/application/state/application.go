@@ -625,10 +625,10 @@ SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
 
 // GetStoragePoolByName returns the storage pool with the specified name, returning an error
 // satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
-func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error) {
+func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error) {
 	db, err := st.DB()
 	if err != nil {
-		return domainstorage.StoragePoolDetails{}, errors.Capture(err)
+		return domainstorage.StoragePool{}, errors.Capture(err)
 	}
 	return storagestate.GetStoragePoolByName(ctx, db, name)
 }

@@ -40,6 +40,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	statuserrors "github.com/juju/juju/domain/status/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -731,7 +732,7 @@ func CharmStorageParams(
 
 // StoragePoolGetter instances get a storage pool by name.
 type StoragePoolGetter interface {
-	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 	GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error)
 }
 
@@ -754,8 +755,14 @@ func poolStorageProvider(ctx context.Context, storagePoolGetter StoragePoolGette
 	} else if err != nil {
 		return "", nil, errors.Trace(err)
 	}
-	providerType := pool.Provider()
-	return providerType, pool.Attrs(), nil
+	var attr map[string]any
+	if len(pool.Attrs) > 0 {
+		attr = make(map[string]any, len(pool.Attrs))
+		for k, v := range pool.Attrs {
+			attr[k] = v
+		}
+	}
+	return storage.ProviderType(pool.Provider), attr, nil
 }
 
 func (a *API) applicationFilesystemParams(

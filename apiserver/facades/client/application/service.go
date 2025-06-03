@@ -30,9 +30,9 @@ import (
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Services represents all the services that the application facade requires.
@@ -361,7 +361,7 @@ type ResourceService interface {
 // StorageService instances get a storage pool by name.
 type StorageService interface {
 	// GetStoragePoolByName returns the storage pool with the specified name.
-	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }
 
 // BlockChecker defines the block-checking functionality required by

@@ -43,7 +43,7 @@ type StoragePoolState interface {
 
 	// ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
 	// names and or providers, including the default storage pools.
-	// If no names or providers are specified, an empty slice is returned without an error.
+	// If no names and providers are specified, an empty slice is returned without an error.
 	// If no storage pools match the criteria, an empty slice is returned without an error.
 	ListStoragePoolsByNamesAndProviders(
 		ctx context.Context, names domainstorage.Names, providers domainstorage.Providers,
@@ -220,7 +220,6 @@ func (s *StoragePoolService) ListStoragePoolsWithoutDefaults(ctx context.Context
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-
 	return pools, nil
 }
 
@@ -233,13 +232,12 @@ func (s *StoragePoolService) ListStoragePools(ctx context.Context) ([]domainstor
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-
 	return pools, nil
 }
 
 // ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
 // names and or providers, including the default storage pools.
-// If no names or providers are specified, an empty slice is returned without an error.
+// If no names and providers are specified, an empty slice is returned without an error.
 // If no storage pools match the criteria, an empty slice is returned without an error.
 func (s *StoragePoolService) ListStoragePoolsByNamesAndProviders(
 	ctx context.Context,
