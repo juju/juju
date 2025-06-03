@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env -S bash -e
 [ -n "${GOPATH:-}" ] && export "PATH=${PATH}:${GOPATH}/bin"
 
 export SKIP_DESTROY="${SKIP_DESTROY:-}"

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 CONTROLLERS="10.132.183.12,10.132.183.101,10.132.183.127"
 UUID="a5fa603d-5385-4ffc-85b5-79f6ba0eafab"
