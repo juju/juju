@@ -51,7 +51,7 @@ type machineBaseValues []string
 // machineCount represents the result of counting the number of machines that
 // match a sql expression.
 type machineCount struct {
-	// Count represents the number of machine that have been counted for a
+	// Count represents the number of machines that have been counted for a
 	// query.
 	Count int `db:"count"`
 }

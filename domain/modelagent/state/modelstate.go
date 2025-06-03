@@ -1145,7 +1145,7 @@ SET    target_version = $setAgentVersionTarget.target_version
 		err := tx.Query(ctx, checkAgentVersionStmt).Get(&currentAgentVersion)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.New(
-				"checking current target agent version for model, no agent version has been set previously",
+				"checking current target agent version for model, no agent version has been previously set",
 			)
 		} else if err != nil {
 			return errors.Errorf(
@@ -1170,7 +1170,8 @@ SET    target_version = $setAgentVersionTarget.target_version
 		err = tx.Query(ctx, setAgentVersionStmt, toVersionInput).Run()
 		if err != nil {
 			return errors.Errorf(
-				"setting target agent version for model: %w", err,
+				"setting target agent version to %q for model: %w",
+				toVersion.String(), err,
 			)
 		}
 		return nil
@@ -1229,7 +1230,7 @@ SET    target_version = $setAgentVersionTargetStream.target_version,
 		err := tx.Query(ctx, checkAgentVersionStmt).Get(&currentAgentVersion)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.New(
-				"checking current target agent version for model, no agent version has been set previously",
+				"checking current target agent version for model, no agent version has been previously set",
 			)
 		} else if err != nil {
 			return errors.Errorf(
