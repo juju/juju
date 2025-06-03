@@ -75,27 +75,27 @@ juju bootstrap aws --auto-upgrade
 ```
 
 (model-config-apt-ftp-proxy)=
-## `apt-ftp-proxy*`
+## `apt-ftp-proxy`
 
-`apt-ftp-proxy*` is the APT FTP proxy for the model.
+`apt-ftp-proxy` is the APT FTP proxy for the model.
 
 **Type:** string
 
 **Default value:** ""
 
 (model-config-apt-http-proxy)=
-## `apt-http-proxy*`
+## `apt-http-proxy`
 
-`apt-http-proxy*` is the APT HTTP proxy for the model.
+`apt-http-proxy` is the APT HTTP proxy for the model.
 
 **Type:** string
 
 **Default value:** ""
 
 (model-config-apt-https-proxy)=
-## `apt-https-proxy*`
+## `apt-https-proxy`
 
-`apt-https-proxy*` is the APT HTTPS proxy for the model.
+`apt-https-proxy` is the APT HTTPS proxy for the model.
 
 **Type:** string
 
@@ -483,9 +483,9 @@ You may also want to just update the package list to ensure a charm has the late
 **Valid values:** `instance`, `global`, `none`. `instance` requests the use of an individual firewall per instance; `global` uses a single firewall for all instances (access for a network port is enabled to one instance if any instance requires that port); `none` requests that no firewalling should be performed inside the model.
 
 (model-config-ftp-proxy)=
-## `ftp-proxy*`
+## `ftp-proxy`
 
-`ftp-proxy*` is the FTP proxy value to configure on instances, in the `FTP_PROXY` environment variable.
+`ftp-proxy` is the FTP proxy value to configure on instances, in the `FTP_PROXY` environment variable.
 
 **Type:** string
 
@@ -494,9 +494,9 @@ You may also want to just update the package list to ensure a charm has the late
 **Valid values:** url
 
 (model-config-http-proxy)=
-## `http-proxy*`
+## `http-proxy`
 
-`http-proxy*`  is the HTTP proxy value to configure on instances, in the `HTTP_PROXY` environment variable.
+`http-proxy`  is the HTTP proxy value to configure on instances, in the `HTTP_PROXY` environment variable.
 
 **Type:** string
 
@@ -505,9 +505,9 @@ You may also want to just update the package list to ensure a charm has the late
 **Valid values:** url
 
 (model-config-https-proxy)=
-## `https-proxy*`
+## `https-proxy`
 
-`https-proxy*`  is the HTTPS proxy value to configure on instances, in the `HTTPS_PROXY` environment variable.
+`https-proxy`  is the HTTPS proxy value to configure on instances, in the `HTTPS_PROXY` environment variable.
 
 **Type:** string
 
@@ -551,19 +551,19 @@ You may also want to just update the package list to ensure a charm has the late
 Juju, by default, uses the slow-changing 'released' images when provisioning machines. However, the `image-stream` option can be set to 'daily' to use more up-to-date images, thus shortening the time it takes to perform APT package upgrades.
 
 (model-config-juju-ftp-proxy)=
-## `juju-ftp-proxy*`
+## `juju-ftp-proxy`
 
-`juju-ftp-proxy*` is the FTP proxy value to pass to charms in the `JUJU_CHARM_FTP_PROXY` environment variable.
+`juju-ftp-proxy` is the FTP proxy value to pass to charms in the `JUJU_CHARM_FTP_PROXY` environment variable.
 
 **Type:** string
 
 **Default value:** ""
 
 (model-config-juju-http-proxy)=
-## `juju-http-proxy*`
+## `juju-http-proxy`
 
 
-`juju-http-proxy*` is the HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environment variable.
+`juju-http-proxy` is the HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environment variable.
 
 **Type:** string
 
@@ -571,18 +571,18 @@ Juju, by default, uses the slow-changing 'released' images when provisioning mac
 
 
 (model-config-juju-https-proxy)=
-## `juju-https-proxy*`
+## `juju-https-proxy`
 
-`juju-https-proxy*` is the HTTPS proxy value to pass to charms in the `JUJU_CHARM_HTTPS_PROXY` environment variable.
+`juju-https-proxy` is the HTTPS proxy value to pass to charms in the `JUJU_CHARM_HTTPS_PROXY` environment variable.
 
 **Type:** string
 
 **Default value:** ""
 
 (model-config-juju-no-proxy)=
-## `juju-no-proxy*`
+## `juju-no-proxy`
 
-`juju-no-proxy*` is the list of domain addresses not to be proxied (comma-separated), may contain CIDRs. Passed to charms in the `JUJU_CHARM_NO_PROXY` environment variable.
+`juju-no-proxy` is the list of domain addresses not to be proxied (comma-separated), may contain CIDRs. Passed to charms in the `JUJU_CHARM_NO_PROXY` environment variable.
 
 **Type:** string
 
@@ -741,9 +741,9 @@ juju model-config -m controller logging-config="juju.apiserver=TRACE"
 **Default value:** 17
 
 (model-config-no-proxy)=
-## `no-proxy*`
+## `no-proxy`
 
-`no-proxy*` is the list of domain addresses not to be proxied (comma-separated).
+`no-proxy` is the list of domain addresses not to be proxied (comma-separated).
 
 **Type:** string
 
@@ -829,19 +829,19 @@ juju model-config provisioner-harvest-mode=none
 **Valid values:** `internal`, `auto`, `<>backend name`
 
 (model-config-snap-http-proxy)=
-## `snap-http-proxy*`
+## `snap-http-proxy`
 
 
-`snap-http-proxy*`  is the HTTP proxy value to for installing snaps.
+`snap-http-proxy`  is the HTTP proxy value to for installing snaps.
 
 **Type:** string
 
 **Default value:** ""
 
 (model-config-snap-https-proxy)=
-## `snap-https-proxy*`
+## `snap-https-proxy`
 
-`snap-https-proxy*` is the snap-centric HTTPS proxy value.
+`snap-https-proxy` is the snap-centric HTTPS proxy value.
 
 **Type:** string
 
@@ -856,9 +856,9 @@ juju model-config provisioner-harvest-mode=none
 **Default value:** ""
 
 (model-config-snap-store-proxy)=
-## `snap-store-proxy*`
+## `snap-store-proxy`
 
-`snap-store-proxy*` is the snap store proxy for installing snaps.
+`snap-store-proxy` is the snap store proxy for installing snaps.
 
 **Type:** string
 
