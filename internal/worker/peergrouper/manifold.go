@@ -27,7 +27,6 @@ type ManifoldConfig struct {
 	ClockName          string
 	StateName          string
 	DomainServicesName string
-	Hub                Hub
 
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(Config) (worker.Worker, error)
@@ -46,9 +45,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
-	}
-	if config.Hub == nil {
-		return errors.NotValidf("nil Hub")
 	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
@@ -127,7 +123,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		MongoSession:            MongoSessionShim{mongoSession},
 		APIHostPortsSetter:      &CachingAPIHostPortsSetter{APIHostPortsSetter: st},
 		Clock:                   clock,
-		Hub:                     config.Hub,
 		MongoPort:               controllerConfig.StatePort(),
 		APIPort:                 controllerConfig.APIPort(),
 		ControllerAPIPort:       controllerConfig.ControllerAPIPort(),

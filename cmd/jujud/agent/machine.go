@@ -18,7 +18,6 @@ import (
 	"github.com/juju/lumberjack/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/exec"
 	"github.com/juju/utils/v4/symlink"
@@ -62,7 +61,6 @@ import (
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/pki"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
-	internalpubsub "github.com/juju/juju/internal/pubsub"
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/storage/looputil"
@@ -520,9 +518,6 @@ func (a *MachineAgent) makeEngineCreator(
 		if err != nil {
 			return nil, err
 		}
-		localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-			Logger: internalpubsub.WrapLogger(internallogger.GetLogger("juju.localhub")),
-		})
 		updateAgentConfLogging := func(loggingConfig string) error {
 			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
 				setter.SetLoggingConfig(loggingConfig)
@@ -558,7 +553,6 @@ func (a *MachineAgent) makeEngineCreator(
 			Clock:                             clock.WallClock,
 			ValidateMigration:                 a.validateMigration,
 			PrometheusRegisterer:              a.prometheusRegistry,
-			LocalHub:                          localHub,
 			UpdateLoggerConfig:                updateAgentConfLogging,
 			NewAgentStatusSetter:              a.statusSetter,
 			MachineLock:                       a.machineLock,
@@ -814,7 +808,7 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 			logger.Infof(context.TODO(), "skipping creating symlink %q as exsting path has a normal file", fullLink)
 			return nil
 		}
-	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+	} else if !errors.Is(err, os.ErrNotExist) {
 		return errors.Annotatef(err, "cannot check if %q is a symlink", fullLink)
 	}
 

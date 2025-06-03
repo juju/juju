@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
@@ -36,7 +35,6 @@ type workerFixture struct {
 	agentConfig             mockAgentConfig
 	authenticator           *mockAuthenticator
 	clock                   *testclock.Clock
-	hub                     pubsub.StructuredHub
 	mux                     *apiserverhttp.Mux
 	prometheusRegisterer    stubPrometheusRegisterer
 	leaseManager            lease.Manager
@@ -84,7 +82,6 @@ func (s *workerFixture) SetUpTest(c *tc.C) {
 		AgentConfig:                       &s.agentConfig,
 		LocalMacaroonAuthenticator:        s.authenticator,
 		Clock:                             s.clock,
-		Hub:                               &s.hub,
 		Mux:                               s.mux,
 		StatePool:                         &state.StatePool{},
 		LeaseManager:                      s.leaseManager,
@@ -142,9 +139,6 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.Clock = nil },
 		"nil Clock not valid",
-	}, {
-		func(cfg *apiserver.Config) { cfg.Hub = nil },
-		"nil Hub not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.Mux = nil },
 		"nil Mux not valid",

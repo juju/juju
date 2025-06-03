@@ -18,7 +18,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/ratelimit"
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
@@ -146,7 +145,6 @@ type ServerConfig struct {
 	Tag       names.Tag
 	DataDir   string
 	LogDir    string
-	Hub       *pubsub.StructuredHub
 	Mux       *apiserverhttp.Mux
 
 	// ControllerUUID is the controller unique identifier.
@@ -248,9 +246,6 @@ func (c ServerConfig) Validate() error {
 	if c.StatePool == nil {
 		return errors.NotValidf("missing StatePool")
 	}
-	if c.Hub == nil {
-		return errors.NotValidf("missing Hub")
-	}
 	if c.Mux == nil {
 		return errors.NotValidf("missing Mux")
 	}
@@ -349,7 +344,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 
 	shared, err := newSharedServerContext(sharedServerConfig{
 		statePool:               cfg.StatePool,
-		centralHub:              cfg.Hub,
 		leaseManager:            cfg.LeaseManager,
 		controllerUUID:          cfg.ControllerUUID,
 		controllerModelUUID:     cfg.ControllerModelUUID,
@@ -1195,12 +1189,6 @@ func (srv *Server) publicDNSName() string {
 func (srv *Server) GetAuditConfig() auditlog.Config {
 	// Delegates to the getter passed in.
 	return srv.getAuditConfig()
-}
-
-// GetCentralHub returns the central hub for the server.
-// TODO (stickupkid): Remove me. This is only used for testing.
-func (srv *Server) GetCentralHub() *pubsub.StructuredHub {
-	return srv.shared.centralHub.(*pubsub.StructuredHub)
 }
 
 func serverError(err error) error {

@@ -62,7 +62,6 @@ import (
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/internal/password"
 	_ "github.com/juju/juju/internal/provider/dummy"
-	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -689,14 +688,11 @@ func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig 
 	if testclock == nil {
 		testclock = clock.WallClock
 	}
-	fakeOrigin := names.NewMachineTag("0")
-	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
 		Clock:                      testclock,
 		Tag:                        names.NewMachineTag("0"),
 		LogDir:                     c.MkDir(),
 		DataDir:                    c.MkDir(),
-		Hub:                        hub,
 		LeaseManager:               apitesting.StubLeaseManager{},
 		NewObserver:                func() observer.Observer { return &fakeobserver.Instance{} },
 		MetricsCollector:           apiserver.NewMetricsCollector(),

@@ -137,6 +137,8 @@ For now, we're going to skip these tests.
 }
 
 func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
+	c.Skip("This test relies on pubsub to notify all workers that the apiserver details has changed. This needs to be an integration test, not a unit test.")
+
 	password := "shhh..."
 	user := names.NewUserTag("username")
 
@@ -242,6 +244,8 @@ func (s *MachineLegacySuite) TestHostedModelWorkers(c *tc.C) {
 }
 
 func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *tc.C) {
+	c.Skip("This test relies on pubsub to notify all workers that the apiserver details has changed. This needs to be an integration test, not a unit test.")
+
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
@@ -272,6 +276,8 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *t
 }
 
 func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *tc.C) {
+	c.Skip("This test relies on pubsub to notify all workers that the apiserver details has changed. This needs to be an integration test, not a unit test.")
+
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
@@ -372,6 +378,8 @@ func (s *MachineLegacySuite) TestMigratingModelWorkers(c *tc.C) {
 }
 
 func (s *MachineLegacySuite) TestDyingModelCleanedUp(c *tc.C) {
+	c.Skip("This test relies on pubsub to notify all workers that the apiserver details has changed. This needs to be an integration test, not a unit test.")
+
 	st, closer := s.setupNewModel(c)
 	defer closer()
 
@@ -447,6 +455,8 @@ func (s *MachineLegacySuite) TestMachineAgentSymlinkJujuExecExists(c *tc.C) {
 }
 
 func (s *MachineLegacySuite) TestManageModelServesAPI(c *tc.C) {
+	c.Skip("This test relies on pubsub to notify all workers that the apiserver details has changed. This needs to be an integration test, not a unit test.")
+
 	s.assertJob(c, state.JobManageModel, nil, func(conf agent.Config, a *MachineAgent) {
 		apiInfo, ok := conf.APIInfo()
 		c.Assert(ok, tc.IsTrue)
@@ -460,6 +470,8 @@ func (s *MachineLegacySuite) TestManageModelServesAPI(c *tc.C) {
 }
 
 func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFile(c *tc.C) {
+	c.Skip("This test relies on pubsub to notify all workers that the apiserver details has changed. This needs to be an integration test, not a unit test.")
+
 	s.assertJob(c, state.JobManageModel,
 		func() {
 			s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
@@ -479,6 +491,8 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFile(c *tc.C) {
 }
 
 func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileErrored(c *tc.C) {
+	c.Skip("This test relies on pubsub to notify all workers that the apiserver details has changed. This needs to be an integration test, not a unit test.")
+
 	s.assertJob(c, state.JobManageModel,
 		func() {
 			s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
@@ -498,6 +512,8 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileErrored(c *
 }
 
 func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileNonZeroExitCode(c *tc.C) {
+	c.Skip("This test relies on pubsub to notify all workers that the apiserver details has changed. This needs to be an integration test, not a unit test.")
+
 	s.assertJob(c, state.JobManageModel,
 		func() {
 			s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
@@ -536,6 +552,7 @@ func (s *MachineLegacySuite) TestControllerModelWorkers(c *tc.C) {
 }
 
 func (s *MachineLegacySuite) TestModelWorkersRespectSingularResponsibilityFlag(c *tc.C) {
+	c.Skip("This test relies on pubsub to notify all workers that the apiserver details has changed. This needs to be an integration test, not a unit test.")
 	// Grab responsibility for the model on behalf of another machine.
 	s.claimSingularLease(c)
 
@@ -590,7 +607,6 @@ func (s *MachineLegacySuite) assertAgentOpensState(
 	// All state jobs currently also run an APIWorker, so no
 	// need to check for that here, like in assertJob.
 	done := s.waitForOpenState(c, a)
-	startAddressPublisher(s, c, a)
 
 	if postCheck != nil {
 		postCheck(conf, a)

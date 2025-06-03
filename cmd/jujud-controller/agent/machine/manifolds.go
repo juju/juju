@@ -13,7 +13,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -61,7 +60,6 @@ import (
 	"github.com/juju/juju/internal/worker/authenticationworker"
 	"github.com/juju/juju/internal/worker/bootstrap"
 	"github.com/juju/juju/internal/worker/caasupgrader"
-	"github.com/juju/juju/internal/worker/centralhub"
 	"github.com/juju/juju/internal/worker/certupdater"
 	"github.com/juju/juju/internal/worker/changestream"
 	"github.com/juju/juju/internal/worker/changestreampruner"
@@ -207,14 +205,6 @@ type ManifoldsConfig struct {
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
 	PrometheusRegisterer prometheus.Registerer
-
-	// CentralHub is the primary hub that exists in the apiserver.
-	CentralHub *pubsub.StructuredHub
-
-	// LocalHub is a simple pubsub that is used for internal agent
-	// messaging only. This is used for interactions between workers
-	// and the introspection worker.
-	LocalHub *pubsub.SimpleHub
 
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
@@ -369,17 +359,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		stateConfigWatcherName: stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
-		}),
-
-		// The centralhub manifold watches the state config to make sure it
-		// only starts for machines that are api servers. Currently the hub is
-		// passed in as config, but when the apiserver and peergrouper are
-		// updated to use the dependency engine, the centralhub manifold
-		// should also take the agentName so the worker can get the machine ID
-		// for the creation of the hub.
-		centralHubName: centralhub.Manifold(centralhub.ManifoldConfig{
-			StateConfigWatcherName: stateConfigWatcherName,
-			Hub:                    config.CentralHub,
 		}),
 
 		// The state manifold creates a *state.State and makes it
@@ -567,7 +546,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
 			AuthorityName:        certificateWatcherName,
-			HubName:              centralHubName,
 			StateName:            stateName,
 			DomainServicesName:   domainServicesName,
 			MuxName:              httpServerArgsName,
@@ -615,7 +593,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
-			Hub:                               config.CentralHub,
 			GetControllerConfigService:        apiserver.GetControllerConfigService,
 			GetModelService:                   apiserver.GetModelService,
 			NewWorker:                         apiserver.NewWorker,
@@ -642,7 +619,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:            clockName,
 			StateName:            stateName,
 			DomainServicesName:   domainServicesName,
-			Hub:                  config.CentralHub,
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            peergrouper.New,
 		})),
@@ -1070,7 +1046,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
-			Hub:           config.LocalHub,
 			Logger:        internallogger.GetLogger("juju.worker.deployer"),
 
 			UnitEngineConfig: config.UnitEngineConfig,
@@ -1294,7 +1269,6 @@ const (
 	stateName              = "state"
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
-	centralHubName         = "central-hub"
 	clockName              = "clock"
 
 	bootstrapName       = "bootstrap"

@@ -21,7 +21,6 @@ import (
 	"github.com/juju/lumberjack/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/exec"
 	"github.com/juju/utils/v4/symlink"
@@ -68,8 +67,6 @@ import (
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/pki"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
-	internalpubsub "github.com/juju/juju/internal/pubsub"
-	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage/looputil"
@@ -420,8 +417,6 @@ type MachineAgent struct {
 	upgradeDBLock    gate.Lock
 	upgradeStepsLock gate.Lock
 
-	centralHub *pubsub.StructuredHub
-
 	isCaasAgent bool
 	cmdRunner   CommandRunner
 }
@@ -521,10 +516,6 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		logger.Errorf(context.Background(), "failed to write profile funcs: %v", err)
 	}
 
-	// When the API server and peergrouper have manifolds, they can
-	// have dependencies on a central hub worker.
-	a.centralHub = centralhub.New(a.Tag())
-
 	// Before doing anything else, we need to make sure the certificate
 	// generated for use by mongo to validate controller connections is correct.
 	// This needs to be done before any possible restart of the mongo service.
@@ -594,9 +585,6 @@ func (a *MachineAgent) makeEngineCreator(
 		if err != nil {
 			return nil, err
 		}
-		localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-			Logger: internalpubsub.WrapLogger(internallogger.GetLogger("juju.localhub")),
-		})
 		updateAgentConfLogging := func(loggingConfig string) error {
 			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
 				setter.SetLoggingConfig(loggingConfig)
@@ -632,8 +620,6 @@ func (a *MachineAgent) makeEngineCreator(
 			Clock:                             clock.WallClock,
 			ValidateMigration:                 a.validateMigration,
 			PrometheusRegisterer:              a.prometheusRegistry,
-			CentralHub:                        a.centralHub,
-			LocalHub:                          localHub,
 			UpdateLoggerConfig:                updateAgentConfLogging,
 			NewAgentStatusSetter:              a.statusSetter,
 			ControllerLeaseDuration:           time.Minute,
