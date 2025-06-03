@@ -509,7 +509,7 @@ func (s *uniterLegacySuite) TestOpenedMachinePortRangesByEndpoint(c *tc.C) {
 	_, err := s.machineService.CreateMachine(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.applicationService.AddIAASUnits(c.Context(), "mysql",
+	_, err = s.applicationService.AddIAASUnits(c.Context(), "mysql",
 		applicationservice.AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -672,7 +672,7 @@ func (s *uniterLegacySuite) TestCommitHookChangesWithPortsSidecarApplication(c *
 	c.Skip("Rewrite this in the commitHookChangesSuite other hook commit concerns are in Dqlite")
 	_, cm, _, unit := s.setupCAASModel(c)
 
-	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b := apiuniter.NewCommitHookParamsBuilder(names.NewUnitTag("foo/0"))
 	b.UpdateNetworkInfo()
 	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
 

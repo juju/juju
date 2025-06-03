@@ -447,100 +447,100 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 // AddIAASUnits adds the specified units to the IAAS application, returning an
 // error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application doesn't exist. If no units are provided, it will return nil.
-func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
+func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, units ...AddUnitArg) ([]coreunit.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if len(units) == 0 {
-		return nil
+		return []coreunit.Name{}, nil
 	}
 
 	if !isValidApplicationName(appName) {
-		return applicationerrors.ApplicationNameNotValid
+		return nil, applicationerrors.ApplicationNameNotValid
 	}
 
 	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return errors.Errorf("getting application %q id: %w", appName, err)
+		return nil, errors.Errorf("getting application %q id: %w", appName, err)
 	}
 
 	appCons, err := s.st.GetApplicationConstraints(ctx, appUUID)
 	if err != nil {
-		return errors.Errorf("getting application %q constraints: %w", appName, err)
+		return nil, errors.Errorf("getting application %q constraints: %w", appName, err)
 	}
 
 	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons)
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	args, err := s.makeIAASUnitArgs(units, constraints.DecodeConstraints(cons))
 	if err != nil {
-		return errors.Errorf("making IAAS unit args: %w", err)
+		return nil, errors.Errorf("making IAAS unit args: %w", err)
 	}
 
 	unitNames, machineNames, err := s.st.AddIAASUnits(ctx, appUUID, args...)
 	if err != nil {
-		return errors.Errorf("adding IAAS units to application %q: %w", appName, err)
+		return nil, errors.Errorf("adding IAAS units to application %q: %w", appName, err)
 	}
 
 	for i, name := range unitNames {
 		arg := args[i]
 		if err := s.recordUnitStatusHistory(ctx, name, arg.UnitStatusArg); err != nil {
-			return errors.Errorf("recording status history: %w", err)
+			return nil, errors.Errorf("recording status history: %w", err)
 		}
 	}
 	s.recordInitMachinesStatusHistory(ctx, machineNames)
 
-	return nil
+	return unitNames, nil
 }
 
 // AddCAASUnits adds the specified units to the CAAS application, returning an
 // error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application doesn't exist. If no units are provided, it will return nil.
-func (s *ProviderService) AddCAASUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
+func (s *ProviderService) AddCAASUnits(ctx context.Context, appName string, units ...AddUnitArg) ([]coreunit.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if len(units) == 0 {
-		return nil
+		return []coreunit.Name{}, nil
 	}
 
 	if !isValidApplicationName(appName) {
-		return applicationerrors.ApplicationNameNotValid
+		return nil, applicationerrors.ApplicationNameNotValid
 	}
 
 	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return errors.Errorf("getting application %q id: %w", appName, err)
+		return nil, errors.Errorf("getting application %q id: %w", appName, err)
 	}
 
 	appCons, err := s.st.GetApplicationConstraints(ctx, appUUID)
 	if err != nil {
-		return errors.Errorf("getting application %q constraints: %w", appName, err)
+		return nil, errors.Errorf("getting application %q constraints: %w", appName, err)
 	}
 
 	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons)
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	args, err := s.makeCAASUnitArgs(units, constraints.DecodeConstraints(cons))
 	if err != nil {
-		return errors.Errorf("making CAAS unit args: %w", err)
+		return nil, errors.Errorf("making CAAS unit args: %w", err)
 	}
 
 	unitNames, err := s.st.AddCAASUnits(ctx, appUUID, args...)
 	if err != nil {
-		return errors.Errorf("adding CAAS units to application %q: %w", appName, err)
+		return nil, errors.Errorf("adding CAAS units to application %q: %w", appName, err)
 	}
 
 	for i, name := range unitNames {
 		arg := args[i]
 		if err := s.recordUnitStatusHistory(ctx, name, arg.UnitStatusArg); err != nil {
-			return errors.Errorf("recording status history: %w", err)
+			return nil, errors.Errorf("recording status history: %w", err)
 		}
 	}
 
-	return nil
+	return unitNames, nil
 }
 
 // CAASUnitTerminating should be called by the CAASUnitTerminationWorker when

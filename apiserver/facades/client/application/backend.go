@@ -4,7 +4,6 @@
 package application
 
 import (
-	"github.com/juju/names/v6"
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -85,7 +84,6 @@ type Machine interface {
 // details on the methods, see the methods on state.Unit with
 // the same names.
 type Unit interface {
-	UnitTag() names.UnitTag
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
 
 	AssignUnit() error
@@ -132,17 +130,6 @@ func (s *storageShim) FilesystemAccess() storagecommon.FilesystemAccess {
 	return s.fa
 }
 
-// NewStateApplication converts a state.Application into an Application.
-func NewStateApplication(
-	st *state.State,
-	app *state.Application,
-) Application {
-	return stateApplicationShim{
-		Application: app,
-		st:          st,
-	}
-}
-
 func (s stateShim) Application(name string) (Application, error) {
 	a, err := s.State.Application(name)
 	if err != nil {
@@ -170,7 +157,7 @@ func (s stateShim) Machine(name string) (Machine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateMachineShim{Machine: m}, nil
+	return m, nil
 }
 
 func (s stateShim) Unit(name string) (Unit, error) {
@@ -198,32 +185,6 @@ func (a stateApplicationShim) AddUnit(args state.AddUnitParams) (Unit, error) {
 		Unit: u,
 		st:   a.st,
 	}, nil
-}
-
-func (a stateApplicationShim) AllUnits() ([]Unit, error) {
-	units, err := a.Application.AllUnits()
-	if err != nil {
-		return nil, err
-	}
-	out := make([]Unit, len(units))
-	for i, u := range units {
-		out[i] = stateUnitShim{
-			Unit: u,
-			st:   a.st,
-		}
-	}
-	return out, nil
-}
-
-func (a stateApplicationShim) SetCharm(
-	config state.SetCharmConfig,
-	objStore objectstore.ObjectStore,
-) error {
-	return a.Application.SetCharm(config, objStore)
-}
-
-type stateMachineShim struct {
-	*state.Machine
 }
 
 type stateUnitShim struct {

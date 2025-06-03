@@ -1027,7 +1027,7 @@ func (sb *storageConfigBackend) AttachStorage(storage names.StorageTag, unit nam
 		if err != nil {
 			return nil, errors.Annotate(err, "getting charm")
 		}
-		ops, err := sb.attachStorageOps(u.st, si, u.UnitTag(), u.Base().OS, ch.Meta(), u)
+		ops, err := sb.attachStorageOps(u.st, si, u.unitTag(), u.Base().OS, ch.Meta(), u)
 		if errors.Is(err, errors.AlreadyExists) {
 			return nil, jujutxn.ErrNoOperations
 		}
@@ -1041,12 +1041,12 @@ func (sb *storageConfigBackend) AttachStorage(storage names.StorageTag, unit nam
 			// Make sure that we *can* assign another storage instance
 			// to the unit.
 			_, currentCountOp, err := validateStorageCountChange(
-				sb.storageBackend, u.UnitTag(), si.StorageName(), 1, ch.Meta(),
+				sb.storageBackend, u.unitTag(), si.StorageName(), 1, ch.Meta(),
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			incRefOp, err := increfEntityStorageOp(sb.mb, u.UnitTag(), si.StorageName(), 1)
+			incRefOp, err := increfEntityStorageOp(sb.mb, u.unitTag(), si.StorageName(), 1)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

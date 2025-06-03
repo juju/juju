@@ -765,11 +765,11 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	if destroyStorage {
 		// Detach and mark storage instances as dying, allowing the
 		// unit to terminate.
-		return st.cleanupUnitStorageInstances(unit.UnitTag(), force, maxWait)
+		return st.cleanupUnitStorageInstances(unit.unitTag(), force, maxWait)
 	} else {
 		// Mark storage attachments as dying, so that they are detached
 		// and removed from state, allowing the unit to terminate.
-		return st.cleanupUnitStorageAttachments(unit.UnitTag(), false, force, maxWait)
+		return st.cleanupUnitStorageAttachments(unit.unitTag(), false, force, maxWait)
 	}
 }
 
@@ -886,17 +886,17 @@ func (st *State) forceRemoveUnitStorageAttachments(unit *Unit) error {
 	if err != nil {
 		return errors.Annotate(err, "couldn't get storage backend")
 	}
-	err = sb.DestroyUnitStorageAttachments(unit.UnitTag())
+	err = sb.DestroyUnitStorageAttachments(unit.unitTag())
 	if err != nil {
 		return errors.Annotatef(err, "destroying storage attachments for %q", unit.Tag().Id())
 	}
-	attachments, err := sb.UnitStorageAttachments(unit.UnitTag())
+	attachments, err := sb.UnitStorageAttachments(unit.unitTag())
 	if err != nil {
 		return errors.Annotatef(err, "getting storage attachments for %q", unit.Tag().Id())
 	}
 	for _, attachment := range attachments {
 		err := sb.RemoveStorageAttachment(
-			attachment.StorageInstance(), unit.UnitTag(), true)
+			attachment.StorageInstance(), unit.unitTag(), true)
 		if err != nil {
 			logger.Warningf(context.TODO(), "couldn't remove storage attachment %q for %q: %v", attachment.StorageInstance(), unit, err)
 		}
@@ -1467,7 +1467,7 @@ func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectSto
 		opErrs = append(opErrs, err)
 	}
 	// Destroy and remove all storage attachments for the unit.
-	if err := st.cleanupUnitStorageAttachments(unit.UnitTag(), true, force, maxWait); err != nil {
+	if err := st.cleanupUnitStorageAttachments(unit.unitTag(), true, force, maxWait); err != nil {
 		err := errors.Annotatef(err, "cannot destroy storage for unit %q", unitName)
 		if !force {
 			return opErrs, err

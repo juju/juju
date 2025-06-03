@@ -1480,9 +1480,11 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 		return []coreunit.Name{"foo/0"}, nil
 	})
 
-	err := s.service.AddCAASUnits(c.Context(), "ubuntu", AddUnitArg{})
+	unitNames, err := s.service.AddCAASUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(received, tc.DeepEquals, u)
+	c.Check(unitNames, tc.HasLen, 1)
+	c.Check(unitNames[0], tc.Equals, coreunit.Name("foo/0"))
 }
 
 func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
@@ -1548,9 +1550,11 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 	a := AddUnitArg{
 		Placement: instance.MustParsePlacement("0/lxd/0"),
 	}
-	err := s.service.AddCAASUnits(c.Context(), "ubuntu", a)
+	unitNames, err := s.service.AddCAASUnits(c.Context(), "ubuntu", a)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(received, tc.DeepEquals, u)
+	c.Check(unitNames, tc.HasLen, 1)
+	c.Check(unitNames[0], tc.Equals, coreunit.Name("foo/0"))
 }
 
 func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
@@ -1609,9 +1613,11 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 		return []coreunit.Name{"foo/0"}, nil
 	})
 
-	err := s.service.AddCAASUnits(c.Context(), "ubuntu", AddUnitArg{})
+	unitNames, err := s.service.AddCAASUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(received, tc.DeepEquals, u)
+	c.Check(unitNames, tc.HasLen, 1)
+	c.Check(unitNames[0], tc.Equals, coreunit.Name("foo/0"))
 }
 
 func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
@@ -1657,9 +1663,11 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 		return []coreunit.Name{"foo/0"}, nil
 	})
 
-	err := s.service.AddCAASUnits(c.Context(), "ubuntu", AddUnitArg{})
+	unitNames, err := s.service.AddCAASUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(received, tc.DeepEquals, u)
+	c.Check(unitNames, tc.HasLen, 1)
+	c.Check(unitNames[0], tc.Equals, coreunit.Name("foo/0"))
 }
 
 func (s *providerServiceSuite) TestAddIAASUnitsInvalidName(c *tc.C) {
@@ -1675,7 +1683,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidName(c *tc.C) {
 		})
 	defer ctrl.Finish()
 
-	err := s.service.AddIAASUnits(c.Context(), "!!!", AddUnitArg{})
+	_, err := s.service.AddIAASUnits(c.Context(), "!!!", AddUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
@@ -1692,8 +1700,9 @@ func (s *providerServiceSuite) TestAddIAASUnitsNoUnits(c *tc.C) {
 		})
 	defer ctrl.Finish()
 
-	err := s.service.AddIAASUnits(c.Context(), "foo")
+	units, err := s.service.AddIAASUnits(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 0)
 }
 
 func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
@@ -1713,7 +1722,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, applicationerrors.ApplicationNotFound)
 
-	err := s.service.AddIAASUnits(c.Context(), "ubuntu", AddUnitArg{})
+	_, err := s.service.AddIAASUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1744,7 +1753,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 	a := AddUnitArg{
 		Placement: placement,
 	}
-	err := s.service.AddIAASUnits(c.Context(), "ubuntu", a)
+	_, err := s.service.AddIAASUnits(c.Context(), "ubuntu", a)
 	c.Assert(err, tc.ErrorMatches, ".*invalid placement.*")
 }
 
