@@ -25,7 +25,7 @@ require (
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f
 	github.com/canonical/go-dqlite v1.21.0
 	github.com/canonical/lxd v0.0.0-20241209155119-76da976c6ee7
-	github.com/canonical/pebble v1.19.1
+	github.com/canonical/pebble v1.19.2
 	github.com/chzyer/readline v1.5.1
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/docker/distribution v2.8.3+incompatible
