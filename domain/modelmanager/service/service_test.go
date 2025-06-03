@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"slices"
+	"testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -36,21 +37,30 @@ type modelChangeEvent struct {
 	ModelUUID coremodel.UUID
 }
 
+// serviceSuite is a test suite for the main interface offered by [Service].
 type serviceSuite struct {
 	mockModelRemover *MockModelRemover
 	mockState        *MockState
 }
 
+// watchableServiceSuite is a test suite for the interface offered by
+// [WatchableService].
 type watchableServiceSuite struct {
 	mockModelRemover   *MockModelRemover
 	mockState          *MockWatchableState
 	mockWatcherFactory *MockWatcherFactory
 }
 
-var (
-	_ = tc.Suite(&serviceSuite{})
-	_ = tc.Suite(&watchableServiceSuite{})
-)
+// TestServiceSuite runs all of the tests in the [serviceSuite].
+func TestServiceSuite(t *testing.T) {
+	tc.Run(t, &serviceSuite{})
+}
+
+// TestWatchableServiceSuite runs all of the tests in the
+// [watchableServiceSuite].
+func TestWatchableServiceSuite(t *testing.T) {
+	tc.Run(t, &watchableServiceSuite{})
+}
 
 // Type lets the caller know the type of the change in this event. Hard coded to
 // Changed as this not a value that the services tests care about. Implements

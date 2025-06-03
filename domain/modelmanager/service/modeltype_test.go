@@ -4,6 +4,8 @@
 package service
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -11,11 +13,16 @@ import (
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 )
 
+// modelTypeSuite is a test suite for asserting the logic around determining a
+// model's type.
 type modelTypeSuite struct {
 	state *MockModelTypeState
 }
 
-var _ = tc.Suite(&modelTypeSuite{})
+// TestModelTypeSuite runs all of the tests in the [modelTypeSuite].
+func TestModelTypeSuite(t *testing.T) {
+	tc.Run(t, &modelTypeSuite{})
+}
 
 func (m *modelTypeSuite) TearDownTest(c *tc.C) {
 	m.state = nil
