@@ -143,45 +143,6 @@ func (c *MockNetworkServiceSpaceCall) DoAndReturn(f func(context.Context, string
 	return c
 }
 
-// SpaceByName mocks base method.
-func (m *MockNetworkService) SpaceByName(arg0 context.Context, arg1 string) (*network.SpaceInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SpaceByName", arg0, arg1)
-	ret0, _ := ret[0].(*network.SpaceInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SpaceByName indicates an expected call of SpaceByName.
-func (mr *MockNetworkServiceMockRecorder) SpaceByName(arg0, arg1 any) *MockNetworkServiceSpaceByNameCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceByName", reflect.TypeOf((*MockNetworkService)(nil).SpaceByName), arg0, arg1)
-	return &MockNetworkServiceSpaceByNameCall{Call: call}
-}
-
-// MockNetworkServiceSpaceByNameCall wrap *gomock.Call
-type MockNetworkServiceSpaceByNameCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockNetworkServiceSpaceByNameCall) Return(arg0 *network.SpaceInfo, arg1 error) *MockNetworkServiceSpaceByNameCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockNetworkServiceSpaceByNameCall) Do(f func(context.Context, string) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkServiceSpaceByNameCall) DoAndReturn(f func(context.Context, string) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockStorageInterface is a mock of StorageInterface interface.
 type MockStorageInterface struct {
 	ctrl     *gomock.Controller

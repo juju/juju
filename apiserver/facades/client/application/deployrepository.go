@@ -130,7 +130,6 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		CharmConfig:       dt.charmSettings,
 		CharmOrigin:       stOrigin,
 		Constraints:       dt.constraints,
-		EndpointBindings:  dt.endpoints,
 		Name:              dt.applicationName,
 		NumUnits:          dt.numUnits,
 		Placement:         dt.placement,
@@ -403,12 +402,7 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	dt.placement = arg.Placement
 	dt.storage = arg.Storage
 	if len(arg.EndpointBindings) > 0 {
-		bindings, err := v.newStateBindings(v.state, arg.EndpointBindings)
-		if err != nil {
-			errs = append(errs, err)
-		} else {
-			dt.endpoints = bindings.Map()
-		}
+		dt.endpoints = arg.EndpointBindings
 	}
 
 	// Resolve resources and validate against the charm metadata.

@@ -134,7 +134,6 @@ func DeployApplication(
 		NumUnits:          args.NumUnits,
 		Placement:         args.Placement,
 		Resources:         args.Resources,
-		EndpointBindings:  args.EndpointBindings,
 	}
 
 	if !args.Charm.Meta().Subordinate {

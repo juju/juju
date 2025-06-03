@@ -569,14 +569,6 @@ func (api *APIBase) deployApplication(
 		attachStorage[i] = tag
 	}
 
-	bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(ctx, args.EndpointBindings)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	bindings, err := state.NewBindings(api.backend, bindingsWithSpaceIDs)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	origin, err := convertCharmOrigin(args.CharmOrigin)
 	if err != nil {
 		return errors.Trace(err)
@@ -595,7 +587,7 @@ func (api *APIBase) deployApplication(
 		Storage:           args.Storage,
 		Devices:           args.Devices,
 		AttachStorage:     attachStorage,
-		EndpointBindings:  bindings.Map(),
+		EndpointBindings:  args.EndpointBindings,
 		Resources:         args.Resources,
 		Force:             args.Force,
 	}, api.logger, api.clock)
@@ -876,10 +868,6 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 	if err != nil {
 		return errors.Trace(err)
 	}
-	bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(ctx, args.EndpointBindings)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	return api.setCharmWithAgentValidation(
 		ctx,
 		setCharmParams{
@@ -890,7 +878,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
 			ResourceIDs:           args.ResourceIDs,
 			StorageDirectives:     args.StorageDirectives,
-			EndpointBindings:      bindingsWithSpaceIDs,
+			EndpointBindings:      args.EndpointBindings,
 			Force: forceParams{
 				ForceBase:  args.ForceBase,
 				ForceUnits: args.ForceUnits,
@@ -1023,7 +1011,6 @@ func (api *APIBase) applicationSetCharm(
 		Force:              force.Force,
 		PendingResourceIDs: params.ResourceIDs,
 		StorageConstraints: stateStorageConstraints,
-		EndpointBindings:   params.EndpointBindings,
 	}
 	if len(charmSettings) > 0 {
 		cfg.ConfigSettings = charmSettings
@@ -1061,6 +1048,8 @@ func (api *APIBase) applicationSetCharm(
 			storageDirectives[name] = sc
 		}
 	}
+
+	// TODO: Update endpoint bindings
 	if err := api.applicationService.SetApplicationCharm(ctx, params.AppName, application.UpdateCharmParams{
 		Charm:               newCharm,
 		Storage:             storageDirectives,
@@ -2349,29 +2338,6 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 	return params.ErrorResults{Results: res}, nil
 }
 
-// convertSpacesToIDInBindings takes the input bindings (which contain space
-// names) and converts them to spaceIDs.
-// TODO(nvinuesa): this method should not be needed once we migrate endpoint
-// bindings to dqlite.
-func (api *APIBase) convertSpacesToIDInBindings(ctx context.Context, bindings map[string]string) (map[string]string, error) {
-	if bindings == nil {
-		return nil, nil
-	}
-	newMap := make(map[string]string)
-	for endpoint, spaceName := range bindings {
-		space, err := api.networkService.SpaceByName(ctx, spaceName)
-		if errors.Is(err, errors.NotFound) {
-			return nil, errors.Annotatef(err, "space with name %q not found for endpoint %q", spaceName, endpoint)
-		}
-		if err != nil {
-			return nil, err
-		}
-		newMap[endpoint] = space.ID
-	}
-
-	return newMap, nil
-}
-
 // AgentTools is a point of use agent tools requester.
 type AgentTools interface {
 	AgentTools() (*tools.Tools, error)
@@ -2617,12 +2583,6 @@ func (api *APIBase) DeployFromRepository(ctx context.Context, args params.Deploy
 
 	results := make([]params.DeployFromRepositoryResult, len(args.Args))
 	for i, entity := range args.Args {
-		bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(ctx, entity.EndpointBindings)
-		if err != nil {
-			results[i].Errors = []*params.Error{apiservererrors.ServerError(err)}
-			continue
-		}
-		entity.EndpointBindings = bindingsWithSpaceIDs
 		info, pending, errs := api.repoDeploy.DeployFromRepository(ctx, entity)
 		if len(errs) > 0 {
 			results[i].Errors = apiservererrors.ServerErrors(errs)
