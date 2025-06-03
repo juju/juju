@@ -46,7 +46,7 @@ func TestRetrieverSuite(t *testing.T) {
 func (s *retrieverSuite) TestRetrieverWithNoAPIRemotes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return(nil)
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return(nil, nil)
 
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
@@ -99,7 +99,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotes(c *tc.C) {
 	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
 		return fn(ctx, s.apiConnection)
 	})
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection})
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection}, nil)
 
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
@@ -194,7 +194,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *tc.C) {
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
 		s.remoteConnection,
 		s.remoteConnection,
-	})
+	}, nil)
 
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
@@ -276,7 +276,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *tc.C) {
 		s.remoteConnection,
 		s.remoteConnection,
 		s.remoteConnection,
-	})
+	}, nil)
 
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
@@ -319,7 +319,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesNotFound(c *tc.C) {
 		s.remoteConnection,
 		s.remoteConnection,
 		s.remoteConnection,
-	})
+	}, nil)
 
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
@@ -377,7 +377,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *tc.C) {
 		s.remoteConnection,
 		s.remoteConnection,
 		s.remoteConnection,
-	})
+	}, nil)
 
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
@@ -405,7 +405,7 @@ func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *tc.C) {
 		}
 		return nil
 	})
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection})
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection}, nil)
 
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)

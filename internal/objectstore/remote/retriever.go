@@ -112,8 +112,10 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (io.ReadClo
 	default:
 	}
 
-	remotes := r.apiRemoteCallers.GetAPIRemotes()
-	if len(remotes) == 0 {
+	remotes, err := r.apiRemoteCallers.GetAPIRemotes()
+	if err != nil {
+		return nil, -1, errors.Errorf("failed to get API remotes: %w", err)
+	} else if len(remotes) == 0 {
 		return nil, -1, NoRemoteConnections
 	}
 
@@ -248,10 +250,8 @@ func (r *BlobRetriever) Wait() error {
 }
 
 func (r *BlobRetriever) loop() error {
-	select {
-	case <-r.catacomb.Dying():
-		return r.catacomb.ErrDying()
-	}
+	<-r.catacomb.Dying()
+	return r.catacomb.ErrDying()
 }
 
 // stopAllRetrievers stops all the retrievers and waits for them to stop. This

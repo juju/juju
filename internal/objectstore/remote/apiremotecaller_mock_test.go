@@ -42,11 +42,12 @@ func (m *MockAPIRemoteCallers) EXPECT() *MockAPIRemoteCallersMockRecorder {
 }
 
 // GetAPIRemotes mocks base method.
-func (m *MockAPIRemoteCallers) GetAPIRemotes() []apiremotecaller.RemoteConnection {
+func (m *MockAPIRemoteCallers) GetAPIRemotes() ([]apiremotecaller.RemoteConnection, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAPIRemotes")
 	ret0, _ := ret[0].([]apiremotecaller.RemoteConnection)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // GetAPIRemotes indicates an expected call of GetAPIRemotes.
@@ -62,19 +63,19 @@ type MockAPIRemoteCallersGetAPIRemotesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAPIRemoteCallersGetAPIRemotesCall) Return(arg0 []apiremotecaller.RemoteConnection) *MockAPIRemoteCallersGetAPIRemotesCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockAPIRemoteCallersGetAPIRemotesCall) Return(arg0 []apiremotecaller.RemoteConnection, arg1 error) *MockAPIRemoteCallersGetAPIRemotesCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPIRemoteCallersGetAPIRemotesCall) Do(f func() []apiremotecaller.RemoteConnection) *MockAPIRemoteCallersGetAPIRemotesCall {
+func (c *MockAPIRemoteCallersGetAPIRemotesCall) Do(f func() ([]apiremotecaller.RemoteConnection, error)) *MockAPIRemoteCallersGetAPIRemotesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPIRemoteCallersGetAPIRemotesCall) DoAndReturn(f func() []apiremotecaller.RemoteConnection) *MockAPIRemoteCallersGetAPIRemotesCall {
+func (c *MockAPIRemoteCallersGetAPIRemotesCall) DoAndReturn(f func() ([]apiremotecaller.RemoteConnection, error)) *MockAPIRemoteCallersGetAPIRemotesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
