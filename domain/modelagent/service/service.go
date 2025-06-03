@@ -700,7 +700,7 @@ func (s *Service) UpgradeModelTargetAgentVersionStream(
 // eventually upgraded to the new version after this call successfully returns.
 //
 // The version supplied must not be a downgrade from the current target agent
-// version of the model. It must also not be greater then the maximum supported
+// version of the model. It must also not be greater than the maximum supported
 // version of the controller.
 //
 // The following errors may be expected:
@@ -708,7 +708,7 @@ func (s *Service) UpgradeModelTargetAgentVersionStream(
 // change the model target agent version to one that is lower than the current
 // version.
 // - [modelagenterrors.AgentVersionNotSupported] when the caller is attempting
-// to upgrade the version to one that is greater then the maximum supported
+// to upgrade the version to one that is greater than the maximum supported
 // version of the controller hosting the model.
 // - [modelagenterrors.MissingAgentBinaries] when agent binaries do not exist
 // for the desired version. The model cannot be upgraded to a version where
@@ -758,7 +758,7 @@ func (s *Service) UpgradeModelTargetAgentVersionTo(
 // version after this call successfully returns.
 //
 // The version supplied must not be a downgrade from the current target agent
-// version of the model. It must also not be greater then the maximum supported
+// version of the model. It must also not be greater than the maximum supported
 // version of the controller.
 //
 // The following errors may be expected:
@@ -767,7 +767,7 @@ func (s *Service) UpgradeModelTargetAgentVersionTo(
 // change the model target agent version to one that is lower than the current
 // version.
 // - [modelagenterrors.AgentVersionNotSupported] when the caller is attempting
-// to upgrade the version to one that is greater then the maximum supported
+// to upgrade the version to one that is greater than the maximum supported
 // version of the controller hosting the model.
 // - [modelagenterrors.MissingAgentBinaries] when agent binaries do not exist
 // for the desired version. The model cannot be upgraded to a version where
@@ -852,7 +852,7 @@ func (s *Service) validateModelCanBeUpgraded(
 	if failedMachineCount > 0 {
 		return modelagenterrors.ModelUpgradeBlocker{
 			Reason: fmt.Sprintf(
-				"model has %d machines not using one of the supported bases: %v",
+				"model has %d machines using unsupported bases: %v",
 				failedMachineCount, corebase.WorkloadBases(),
 			),
 		}
@@ -898,10 +898,10 @@ func (s *Service) validateModelCanBeUpgradedTo(
 	}
 
 	// Check that the caller is not attempting to upgrade to a version that is
-	// greater then that of the controller.
+	// greater than that of the controller.
 	if jujuversion.Current.Compare(desiredTargetVersion.ToPatch()) < 0 {
 		return errors.Errorf(
-			"upgrade model agent version is greated then max supported version %q",
+			"upgrade model agent version is greated than max supported version %q",
 			jujuversion.Current,
 		).Add(modelagenterrors.AgentVersionNotSupported)
 	}

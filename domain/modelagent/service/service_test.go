@@ -990,7 +990,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToDowngrade(
 }
 
 // TestUpgradeModelTargetAgentVersionStreamToOverMax is a test that asserts if a
-// model upgrade is requested to a version that is greater then the max
+// model upgrade is requested to a version that is greater than the max
 // supported version of the controller. The caller gets back an error satisfying
 // [modelagenterrors.AgentVersionNotSupported].
 func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToOverMax(c *tc.C) {
@@ -998,7 +998,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToOverMax(c 
 
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 
-	// This is a version that is greater then the max supported version of the
+	// This is a version that is greater than the max supported version of the
 	// controller.
 	upgradeTo := jujuversion.Current
 	upgradeTo.Minor++
