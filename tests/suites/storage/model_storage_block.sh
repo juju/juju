@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Test that model config default storage type is used when not specified.
 # This test verifies that when storage type is not explicitly specified,

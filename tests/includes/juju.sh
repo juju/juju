@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env -S bash -e
 # juju_version will return only the version and not the architecture/substrate
 # of the juju version. If JUJU_VERSION is defined in CI this value will be used
 # otherwise we interrogate the juju binary on path.
