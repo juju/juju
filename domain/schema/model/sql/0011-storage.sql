@@ -136,6 +136,18 @@ SELECT
 FROM unit_storage_directive AS usd
 LEFT JOIN storage_pool AS sp ON usd.storage_pool_uuid = sp.uuid;
 
+CREATE TABLE storage_scope (
+    id INT PRIMARY KEY,
+    scope TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_storage_scope
+ON storage_scope (scope);
+
+INSERT INTO storage_scope VALUES
+(0, 'model'),
+(1, 'host');
+
 CREATE TABLE storage_instance (
     uuid TEXT NOT NULL PRIMARY KEY,
     charm_uuid TEXT NOT NULL,
@@ -143,6 +155,7 @@ CREATE TABLE storage_instance (
     -- storage_id is created from the storage name and a unique id number.
     storage_id TEXT NOT NULL,
     life_id INT NOT NULL,
+    scope_id INT NOT NULL,
     -- One of storage_pool_uuid or storage_type must be set.
     -- Storage types are provider sourced, so we do not use a lookup with ID.
     -- This constitutes "repeating data" and would tend to indicate
@@ -158,6 +171,9 @@ CREATE TABLE storage_instance (
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
+    CONSTRAINT fk_storage_instance_scope
+    FOREIGN KEY (scope_id)
+    REFERENCES storage_scope (id),
     CONSTRAINT fk_storage_instance_storage_pool
     FOREIGN KEY (storage_pool_uuid)
     REFERENCES storage_pool (uuid),
@@ -176,6 +192,7 @@ SELECT
     si.storage_name,
     si.storage_id,
     si.life_id,
+    si.scope_id,
     si.requested_size_mib,
     COALESCE(sp.name, si.storage_type) AS storage_pool
 FROM storage_instance AS si

@@ -53,13 +53,14 @@ type storageDirectivesValidator struct {
 	modelType         coremodel.ModelType
 }
 
-// ValidateStorageDirectivesAgainstCharm validations storage directives
-// against a given charm and its storage metadata.
+// ValidateStorageDirectivesAgainstCharm validates storage directives
+// against a given charm and its storage metadata. If the storage is valid,
+// the scope of the storage is filled in and returned.
 func (v storageDirectivesValidator) ValidateStorageDirectivesAgainstCharm(
 	ctx context.Context,
 	allDirectives map[string]storage.Directive,
 	meta *charm.Meta,
-) error {
+) (map[string]StorageDirectiveAndScope, error) {
 	// CAAS charms don't support volume/block storage yet.
 	if v.modelType == coremodel.CAAS {
 		for name, charmStorage := range meta.Storage {
@@ -71,28 +72,29 @@ func (v storageDirectivesValidator) ValidateStorageDirectivesAgainstCharm(
 				count = arg.Count
 			}
 			if charmStorage.CountMin > 0 || count > 0 {
-				return errors.Errorf("block storage on a container model %w", coreerrors.NotSupported)
+				return nil, errors.Errorf("block storage on a container model %w", coreerrors.NotSupported)
 			}
 		}
 	}
 
+	result := make(map[string]StorageDirectiveAndScope)
 	for name, directive := range allDirectives {
 		charmStorage, ok := meta.Storage[name]
 		if !ok {
-			return errors.Errorf("charm %q has no store called %q", meta.Name, name)
+			return nil, errors.Errorf("charm %q has no store called %q", meta.Name, name)
 		}
 		if charmStorage.Shared {
 			// TODO(axw) implement shared storage support.
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"charm %q store %q: shared storage support not implemented",
 				meta.Name, name)
 
 		}
 		if err := v.validateCharmStorageCount(charmStorage, directive.Count); err != nil {
-			return errors.Errorf("charm %q store %q: %w", meta.Name, name, err)
+			return nil, errors.Errorf("charm %q store %q: %w", meta.Name, name, err)
 		}
 		if charmStorage.MinimumSize > 0 && directive.Size < charmStorage.MinimumSize {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"charm %q store %q: minimum storage size is %s, %s specified",
 				meta.Name, name,
 				humanize.Bytes(charmStorage.MinimumSize*humanize.MByte),
@@ -100,11 +102,16 @@ func (v storageDirectivesValidator) ValidateStorageDirectivesAgainstCharm(
 
 		}
 		kind := storageKind(charmStorage.Type)
-		if err := v.validateStoragePool(ctx, directive.Pool, kind); err != nil {
-			return err
+		scope, err := v.validateStoragePool(ctx, directive.Pool, kind)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		result[name] = StorageDirectiveAndScope{
+			Directive: directive,
+			Scope:     scope,
 		}
 	}
-	return nil
+	return result, nil
 }
 
 func (v storageDirectivesValidator) validateCharmStorageCount(charmStorage charm.Storage, count uint64) error {
@@ -130,13 +137,13 @@ func (v storageDirectivesValidator) validateCharmStorageCount(charmStorage charm
 func (v storageDirectivesValidator) validateStoragePool(
 	ctx context.Context,
 	poolName string, kind storage.StorageKind,
-) error {
+) (StorageScope, error) {
 	if poolName == "" {
-		return errors.New("pool name is required")
+		return -1, errors.New("pool name is required")
 	}
 	providerType, aProvider, poolConfig, err := v.poolStorageProvider(ctx, poolName)
 	if err != nil {
-		return errors.Capture(err)
+		return -1, errors.Capture(err)
 	}
 
 	// Ensure the storage provider supports the specified kind.
@@ -148,15 +155,22 @@ func (v storageDirectivesValidator) validateStoragePool(
 		kindSupported = aProvider.Supports(storage.StorageKindBlock)
 	}
 	if !kindSupported {
-		return errors.Errorf("%q provider does not support %q storage", providerType, kind)
+		return -1, errors.Errorf("%q provider does not support %q storage", providerType, kind)
 	}
 
 	if v.modelType == coremodel.CAAS {
 		if err := aProvider.ValidateForK8s(poolConfig); err != nil {
-			return errors.Errorf("invalid storage config: %w", err)
+			return -1, errors.Errorf("invalid storage config: %w", err)
 		}
 	}
-	return nil
+	var scope StorageScope
+	switch aProvider.Scope() {
+	case storage.ScopeEnviron:
+		scope = StorageScopeModel
+	case storage.ScopeMachine:
+		scope = StorageScopeHost
+	}
+	return scope, nil
 }
 
 func (v storageDirectivesValidator) poolStorageProvider(

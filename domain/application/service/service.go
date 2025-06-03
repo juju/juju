@@ -837,6 +837,8 @@ func addDefaultStorageDirectives(
 	return domainstorage.StorageDirectivesWithDefaults(storage, modelType, defaults, allDirectives)
 }
 
+// validateStorageDirectives ensures the supplied storage is valid for the specified
+// charm and fills in the scope of the supplied storage.
 func validateStorageDirectives(
 	ctx context.Context,
 	state State,
@@ -844,28 +846,28 @@ func validateStorageDirectives(
 	modelType coremodel.ModelType,
 	allDirectives map[string]storage.Directive,
 	meta *internalcharm.Meta,
-) error {
+) (map[string]domainstorage.StorageDirectiveAndScope, error) {
 	registry, err := storageRegistryGetter.GetStorageRegistry(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, registry, state)
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
-	err = validator.ValidateStorageDirectivesAgainstCharm(ctx, allDirectives, meta)
+	result, err := validator.ValidateStorageDirectivesAgainstCharm(ctx, allDirectives, meta)
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 	// Ensure all stores have directives specified. Defaults should have
 	// been set by this point, if the user didn't specify any.
 	for name, charmStorage := range meta.Storage {
 		if _, ok := allDirectives[name]; !ok && charmStorage.CountMin > 0 {
-			return errors.Errorf("%w for store %q", applicationerrors.MissingStorageDirective, name)
+			return nil, errors.Errorf("%w for store %q", applicationerrors.MissingStorageDirective, name)
 		}
 	}
-	return nil
+	return result, nil
 }
 
 func encodeChannelAndPlatform(origin corecharm.Origin) (*deployment.Channel, deployment.Platform, error) {

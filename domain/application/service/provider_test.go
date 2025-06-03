@@ -694,6 +694,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 				PoolNameOrType: "loop",
 				Size:           10,
 				Count:          1,
+				Scope:          domainstorage.StorageScopeHost,
 			}},
 			StoragePoolKind: map[string]storage.StorageKind{
 				"loop": storage.StorageKindBlock,
@@ -806,6 +807,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 				PoolNameOrType: "fast",
 				Size:           10,
 				Count:          2,
+				Scope:          domainstorage.StorageScopeModel,
 			}},
 			StoragePoolKind: map[string]storage.StorageKind{
 				"fast": storage.StorageKindBlock,
@@ -922,6 +924,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 				PoolNameOrType: "rootfs",
 				Size:           10,
 				Count:          1,
+				Scope:          domainstorage.StorageScopeHost,
 			}},
 			StoragePoolKind: map[string]storage.StorageKind{
 				"rootfs": storage.StorageKindFilesystem,
@@ -1035,6 +1038,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 				PoolNameOrType: "fast",
 				Size:           10,
 				Count:          2,
+				Scope:          domainstorage.StorageScopeModel,
 			}},
 			StoragePoolKind: map[string]storage.StorageKind{
 				"fast": storage.StorageKindBlock,

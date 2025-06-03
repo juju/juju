@@ -897,6 +897,7 @@ type storageInstance struct {
 	CharmUUID        corecharm.ID     `db:"charm_uuid"`
 	StorageName      corestorage.Name `db:"storage_name"`
 	LifeID           life.Life        `db:"life_id"`
+	ScopeID          int              `db:"scope_id"`
 	StoragePoolUUID  *string          `db:"storage_pool_uuid"`
 	StorageType      *string          `db:"storage_type"`
 	RequestedSizeMIB uint64           `db:"requested_size_mib"`

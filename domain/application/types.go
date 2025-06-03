@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
@@ -102,6 +103,7 @@ type ApplicationStorageArg struct {
 	PoolNameOrType string
 	Size           uint64
 	Count          uint64
+	Scope          domainstorage.StorageScope
 }
 
 // CharmOrigin represents the origin of a charm.

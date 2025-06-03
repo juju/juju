@@ -91,6 +91,13 @@ func DefaultStoragePools(registry storage.ProviderRegistry) ([]*storage.Config, 
 	return result, nil
 }
 
+// StorageDirectiveAndScope holds a storage directive and
+// the scope of the underlying storage type.
+type StorageDirectiveAndScope struct {
+	storage.Directive
+	Scope StorageScope
+}
+
 // ModelDetails describes details about a model.
 type ModelDetails struct {
 	ModelUUID      string

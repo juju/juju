@@ -247,6 +247,7 @@ func (st *State) insertUnitStorage(
 				StorageName:      t.params.Name,
 				RequestedSizeMIB: t.params.Size,
 				LifeID:           life.Alive,
+				ScopeID:          int(t.params.Scope),
 				CharmUUID:        appCharm.CharmUUID,
 			}
 			// PoolNameOrType has already been validated to either be
