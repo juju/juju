@@ -6,7 +6,6 @@ package uniter
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/blockdevice"
@@ -84,51 +83,10 @@ func (s *storageShim) FilesystemAccess() storageFilesystemInterface {
 	return s.fa
 }
 
-type backend interface {
-	Unit(string) (Unit, error)
-	ApplyOperation(state.ModelOperation) error
-}
-
-type Unit interface {
-	AssignedMachineId() (string, error)
-	ShouldBeAssigned() bool
-	StorageConstraints() (map[string]state.StorageConstraints, error)
-}
-
-type stateShim struct {
-	*state.State
-}
-
-func (s stateShim) Unit(name string) (Unit, error) {
-	return s.State.Unit(name)
-}
-
-// unitAssignedMachine returns the tag of the machine that the unit
-// is assigned to, or an error if the unit cannot be obtained or is
-// not assigned to a machine.
-func unitAssignedMachine(backend backend, tag names.UnitTag) (names.MachineTag, error) {
-	unit, err := backend.Unit(tag.Id())
-	if err != nil {
-		return names.MachineTag{}, errors.Trace(err)
-	}
-	mid, err := unit.AssignedMachineId()
-	if err != nil {
-		return names.MachineTag{}, errors.Trace(err)
-	}
-	return names.NewMachineTag(mid), nil
-}
-
 // unitStorageConstraints returns storage constraints for this unit,
 // or an error if the unit or its constraints cannot be obtained.
-func unitStorageConstraints(backend backend, u names.UnitTag) (map[string]state.StorageConstraints, error) {
-	unit, err := backend.Unit(u.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cons, err := unit.StorageConstraints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return cons, nil
+func unitStorageConstraints(u names.UnitTag) (map[string]state.StorageConstraints, error) {
+	// TODO(nvinuesa): This method must be filled when wiring up the storage
+	// domain.
+	return nil, nil
 }
