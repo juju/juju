@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 )
 
@@ -30,12 +30,33 @@ type APIRemoteCallers interface {
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
-	AgentName      string
-	CentralHubName string
-	Clock          clock.Clock
-	Logger         logger.Logger
+	AgentName          string
+	DomainServicesName string
+
+	Clock  clock.Clock
+	Logger logger.Logger
 
 	NewWorker func(WorkerConfig) (worker.Worker, error)
+}
+
+// Validate validates the manifold configuration.
+func (config ManifoldConfig) Validate() error {
+	if config.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if config.NewWorker == nil {
+		return errors.NotValidf("nil NewWorker")
+	}
+	return nil
 }
 
 // Manifold returns a dependency manifold that runs an API remote caller worker,
@@ -44,32 +65,37 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.CentralHubName,
+			config.DomainServicesName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
+			if err := config.Validate(); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			var agent coreagent.Agent
 			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
+
 			agentConfig := agent.CurrentConfig()
 			apiInfo, ready := agentConfig.APIInfo()
 			if !ready {
 				return nil, dependency.ErrMissing
 			}
 
-			var hub *pubsub.StructuredHub
-			if err := getter.Get(config.CentralHubName, &hub); err != nil {
-				return nil, err
+			var services services.ControllerDomainServices
+			if err := getter.Get(config.DomainServicesName, &services); err != nil {
+				return nil, errors.Trace(err)
 			}
 
 			cfg := WorkerConfig{
-				Hub:       hub,
-				APIInfo:   apiInfo,
-				APIOpener: api.Open,
-				Origin:    agentConfig.Tag(),
-				NewRemote: NewRemoteServer,
-				Logger:    config.Logger,
-				Clock:     config.Clock,
+				ControllerNodeService: services.ControllerNode(),
+				APIInfo:               apiInfo,
+				APIOpener:             api.Open,
+				Origin:                agentConfig.Tag(),
+				NewRemote:             NewRemoteServer,
+				Logger:                config.Logger,
+				Clock:                 config.Clock,
 			}
 
 			w, err := config.NewWorker(cfg)

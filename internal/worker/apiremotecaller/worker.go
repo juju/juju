@@ -11,12 +11,12 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	internalworker "github.com/juju/juju/internal/worker"
 )
@@ -27,13 +27,20 @@ const (
 	stateChanged = "changed"
 )
 
+// ControllerNodeService is an interface that represents the service
+// that provides information about the controller nodes. This is used to
+// determine which nodes are available for remote API calls.
+type ControllerNodeService interface {
+	WatchControllerNodes(context.Context) (watcher.NotifyWatcher, error)
+}
+
 // WorkerConfig defines the configuration values that the pubsub worker needs
 // to operate.
 type WorkerConfig struct {
-	Origin names.Tag
-	Clock  clock.Clock
-	Hub    *pubsub.StructuredHub
-	Logger logger.Logger
+	Origin                names.Tag
+	Clock                 clock.Clock
+	ControllerNodeService ControllerNodeService
+	Logger                logger.Logger
 
 	APIInfo   *api.Info
 	APIOpener api.OpenFunc
@@ -43,25 +50,25 @@ type WorkerConfig struct {
 // Validate checks that all the values have been set.
 func (c *WorkerConfig) Validate() error {
 	if c.Origin == nil {
-		return errors.NotValidf("missing origin")
+		return errors.NotValidf("missing Origin")
 	}
 	if c.Clock == nil {
-		return errors.NotValidf("missing clock")
+		return errors.NotValidf("missing Clock")
 	}
-	if c.Hub == nil {
-		return errors.NotValidf("missing hub")
+	if c.ControllerNodeService == nil {
+		return errors.NotValidf("missing ControllerNodeService")
 	}
 	if c.Logger == nil {
-		return errors.NotValidf("missing logger")
+		return errors.NotValidf("missing Logger")
 	}
 	if c.APIInfo == nil {
-		return errors.NotValidf("missing api info")
+		return errors.NotValidf("missing APIInfo")
 	}
 	if c.APIOpener == nil {
-		return errors.NotValidf("missing api opener")
+		return errors.NotValidf("missing APIOpener")
 	}
 	if c.NewRemote == nil {
-		return errors.NotValidf("missing new remote")
+		return errors.NotValidf("missing NewRemote")
 	}
 	return nil
 }
@@ -81,8 +88,6 @@ type remoteWorker struct {
 
 	mu         sync.Mutex
 	apiRemotes []RemoteConnection
-
-	unsubServerDetails func()
 }
 
 // NewWorker exposes the remoteWorker as a Worker.
@@ -115,20 +120,6 @@ func newWorker(cfg WorkerConfig, internalState chan string) (*remoteWorker, erro
 		changes:        make(chan serverChanges),
 		internalStates: internalState,
 		apiRemotes:     make([]RemoteConnection, 0),
-	}
-
-	w.unsubServerDetails, err = cfg.Hub.Subscribe(apiserver.DetailsTopic, w.apiServerChanges)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Ask for the current server details now that we're subscribed.
-	detailsRequest := apiserver.DetailsRequest{
-		Requester: "api-remote-worker",
-		LocalOnly: true,
-	}
-	if _, err := cfg.Hub.Publish(apiserver.DetailsRequestTopic, detailsRequest); err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
@@ -171,17 +162,24 @@ func (w *remoteWorker) loop() error {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
 
-	defer w.unsubServerDetails()
-
 	ctx, cancel := w.scopedContext()
 	defer cancel()
+
+	watcher, err := w.cfg.ControllerNodeService.WatchControllerNodes(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := w.catacomb.Add(watcher); err != nil {
+		return errors.Trace(err)
+	}
 
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
-		case change := <-w.changes:
+		case change := <-watcher.Changes():
 			w.cfg.Logger.Debugf(ctx, "remoteWorker API server change: %v", change)
 
 			// Locate the current workers, so we can remove any workers that are
