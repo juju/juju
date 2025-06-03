@@ -5,23 +5,46 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/juju/core/agentbinary"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/modelagent"
+	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
+// AgentBinaryFinder defines a helper for asserting if agent binaries are
+// available for provided agent version.
+type AgentBinaryFinder interface {
+	// HasBinariesForVersion will interrogate agent binaries available in the
+	// system and return true or false if agent binaries exist for the provided
+	// version.
+	HasBinariesForVersion(semversion.Number) (bool, error)
+}
+
+// agentBinaryFinderFunc provides a util func type for satisfying the
+// [AgentBinaryFinder] interface.
+type agentBinaryFinderFunc func(semversion.Number) (bool, error)
+
 type State interface {
+	// GetMachineCountNotUsingBase returns the number of machines that are not
+	// using one of the supplied bases. If no machines exist in the model or if
+	// no machines exist that are using a base not in the set provided, zero is
+	// returned with no error.
+	GetMachineCountNotUsingBase(context.Context, []corebase.Base) (int, error)
+
 	// GetMachinesAgentBinaryMetadata reports the agent binary metadata that each
 	// machine in the model is currently running. This is a bulk call to support
 	// operations such as model export where it is expected that the state of a
@@ -37,8 +60,8 @@ type State interface {
 	GetMachinesAgentBinaryMetadata(context.Context) (map[machine.Name]agentbinary.Metadata, error)
 
 	// GetMachinesNotAtTargetAgentVersion returns the list of machines where
-	// their agent version is not the same as the models target agent version or
-	// who have no agent version reproted at all. If no machines exist  that
+	// their agent version is not the same as the model's target agent version
+	// or who have no agent version reproted at all. If no machines exist that
 	// match this criteria an empty slice is returned.
 	GetMachinesNotAtTargetAgentVersion(context.Context) ([]machine.Name, error)
 
@@ -107,6 +130,10 @@ type State interface {
 	// exist.
 	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
 
+	// IsControllerModel indicates if this model is running the Juju controller
+	// that owns this model. True is returned when this is the case.
+	IsControllerModel(context.Context) (bool, error)
+
 	// NamespaceForWatchAgentVersion returns the namespace identifier
 	// to watch for the agent version.
 	NamespaceForWatchAgentVersion() string
@@ -123,6 +150,28 @@ type State interface {
 	// SetModelAgentStream is responsible for setting the agent stream that is
 	// in use by the current model.
 	SetModelAgentStream(context.Context, modelagent.AgentStream) error
+
+	// SetModelTargetAgentVersion is responsible for setting the current target
+	// agent version of the model. This function expects a precondition version
+	// to be supplied. The model's target version at the time the operation is
+	// applied must match the preCondition version or else an error is returned.
+	SetModelTargetAgentVersion(
+		ctx context.Context,
+		preCondition semversion.Number,
+		toVersion semversion.Number,
+	) error
+
+	// SetModelTargetAgentVersionAndStream is responsible for setting the
+	// current target agent version of the model and the agent stream that is
+	// used. This function expects a precondition version to be supplied. The
+	// model's target version at the time the operation is applied must match
+	// the preCondition version or else an error is returned.
+	SetModelTargetAgentVersionAndStream(
+		ctx context.Context,
+		preCondition semversion.Number,
+		toVersion semversion.Number,
+		stream modelagent.AgentStream,
+	) error
 
 	// SetUnitRunningAgentBinaryVersion sets the running agent version for the unit.
 	// The following error types can be expected:
@@ -144,9 +193,11 @@ type WatcherFactory interface {
 	) (watcher.NotifyWatcher, error)
 }
 
-// Service is used to get the target Juju agent version for the current model.
+// Service is used to interact with the agent binary version of a model and its
+// entities.
 type Service struct {
-	st State
+	agentBinaryFinder AgentBinaryFinder
+	st                State
 }
 
 // WatchableService extends Service to provide further interactions with state
@@ -159,20 +210,38 @@ type WatchableService struct {
 }
 
 // NewService returns a new [Service].
-func NewService(st State) *Service {
+func NewService(
+	agentBinaryFinder AgentBinaryFinder,
+	st State,
+) *Service {
 	return &Service{
-		st: st,
+		agentBinaryFinder: agentBinaryFinder,
+		st:                st,
 	}
 }
 
 // NewWatchableService returns a new [WatchableService].
-func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableService {
+func NewWatchableService(
+	agentBinaryFinder AgentBinaryFinder, st State, watcherFactory WatcherFactory,
+) *WatchableService {
 	return &WatchableService{
 		Service: Service{
-			st: st,
+			agentBinaryFinder: agentBinaryFinder,
+			st:                st,
 		},
 		watcherFactory: watcherFactory,
 	}
+}
+
+// DefaultAgentBinaryFinder provides a default implementation of
+// [AgentBinaryFinder] to construct a [Service] with. This implementation
+// currently does not check if agent binaries exist and always returns true.
+//
+// There will be future work to wire up this support.
+func DefaultAgentBinaryFinder() AgentBinaryFinder {
+	return agentBinaryFinderFunc(func(v semversion.Number) (bool, error) {
+		return true, nil
+	})
 }
 
 // GetMachinesNotAtTargetVersion reports all of the machines in the model that
@@ -376,6 +445,16 @@ func (s *Service) GetModelTargetAgentVersion(ctx context.Context) (semversion.Nu
 	return s.st.GetModelTargetAgentVersion(ctx)
 }
 
+// HasBinariesForVersion checks if there exists agent binaries available for the
+// supplied version. True is returned when agent binaries exist for the version.
+//
+// Implements the [AgentBinaryFinder] interface.
+func (a agentBinaryFinderFunc) HasBinariesForVersion(
+	version semversion.Number,
+) (bool, error) {
+	return a(version)
+}
+
 // SetMachineReportedAgentVersion sets the reported agent version for the
 // supplied machine name. Reported agent version is the version that the agent
 // binary on this machine has reported it is running.
@@ -493,6 +572,356 @@ func (s *Service) SetUnitReportedAgentVersion(
 			unitUUID,
 			reportedVersion.Number.String(),
 			err,
+		)
+	}
+
+	return nil
+}
+
+// UpgradeModelTargetAgentVersion is responsible for upgrading the target agent
+// version of the current model to latest version available. The version that is
+// upgraded to is returned.
+//
+// All agents that run on behalf of entities within the model will be entities
+// within the model will be eventually upgraded to the new version after this
+// call successfully returns.
+//
+// The following errors may be expected:
+// - [modelagenterrors.CannotUpgradeControllerModel] when the current model is
+// the model running the Juju controller.
+// - [modelagenterrors.ModelUpgradeBlocker] when there exists a blocker in the
+// model that prevents the model from being upgraded.
+func (s *Service) UpgradeModelTargetAgentVersion(
+	ctx context.Context,
+) (semversion.Number, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	recommendedVersion := jujuversion.Current
+	err := s.UpgradeModelTargetAgentVersionTo(ctx, recommendedVersion)
+
+	// NOTE (tlm): Because this func uses
+	// [Service.UpgradeModelTargetAgentVersionTo] to compose its
+	// implementation. This func must handle the contract of
+	// UpgradeModelTargetAgentVersion. Specifically the errors returned don't
+	// align with the expecations of the caller. The below switch statement
+	// re-writes the error cases to better explain the very unlikely error that
+	// has occurred. These exists to point a developer at the problem and not to
+	// offer any actionable item for a caller.
+	switch {
+	case errors.Is(err, modelagenterrors.DowngradeNotSupported):
+		return semversion.Zero, errors.Errorf(
+			"upgrading model to recommended version %q is considered a downgrade of the model agent version",
+			recommendedVersion,
+		)
+	case errors.Is(err, modelagenterrors.AgentVersionNotSupported):
+		return semversion.Zero, errors.Errorf(
+			"upgrading model to recommended version %q is not a supported version number",
+			recommendedVersion,
+		)
+	case errors.Is(err, modelagenterrors.MissingAgentBinaries):
+		return semversion.Zero, errors.Errorf(
+			"upgrading model to recommended version %q is missing agent binaries for version",
+			recommendedVersion,
+		)
+	case err != nil:
+		return semversion.Zero, errors.Errorf(
+			"upgrading model to recommended version %q: %w",
+			recommendedVersion, err,
+		)
+	}
+
+	return recommendedVersion, nil
+}
+
+// UpgradeModelTargetAgentVersionStream is responsible for upgrading the target
+// agent version of the current model to the latest version available. While
+// performing the upgrade the agent stream for the model will also be changed.
+// The version that is upgraded to is returned.
+//
+// All agents that run on behalf of entities within the model will be entities
+// within the model will be eventually upgraded to the new version after this
+// call successfully returns.
+//
+// The following errors may be expected:
+// - [coreerrors.NotValid] when the agent stream is not valid.
+// - [modelagenterrors.CannotUpgradeControllerModel] when the current model is
+// the model running the Juju controller.
+// - [modelagenterrors.ModelUpgradeBlocker] when their exists a blocker in the
+// model that prevents the model from being upgraded.
+func (s *Service) UpgradeModelTargetAgentVersionStream(
+	ctx context.Context,
+	agentStream modelagent.AgentStream,
+) (semversion.Number, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	recommendedVersion := jujuversion.Current
+	err := s.UpgradeModelTargetAgentVersionStreamTo(
+		ctx, recommendedVersion, agentStream,
+	)
+
+	// NOTE (tlm): Because this func uses
+	// [Service.UpgradeModelTargetAgentVersionStreamTo] to compose it's
+	// implementation. This func must handle the contract of
+	// UpgradeModelTargetAgentVersion. Specifically the errors returned don't
+	// align with the expecations of the caller. The below switch statement
+	// re-writes the error cases to better explain the very unlikely error that
+	// has occurred. These exists to point a developer at the problem and not to
+	// offer any actionable item for a caller.
+	switch {
+	case errors.Is(err, modelagenterrors.DowngradeNotSupported):
+		return semversion.Zero, errors.Errorf(
+			"upgrading model to recommended version %q is considered a downgrade of the model agent version",
+			recommendedVersion,
+		)
+	case errors.Is(err, modelagenterrors.AgentVersionNotSupported):
+		return semversion.Zero, errors.Errorf(
+			"upgrading model to recommended version %q is not a supported version number",
+			recommendedVersion,
+		)
+	case errors.Is(err, modelagenterrors.MissingAgentBinaries):
+		return semversion.Zero, errors.Errorf(
+			"upgrading model to recommended version %q is missing agent binaries for version",
+			recommendedVersion,
+		)
+	case err != nil:
+		return semversion.Zero, errors.Errorf(
+			"upgrading model to recommended version %q: %w",
+			recommendedVersion, err,
+		)
+	}
+
+	return recommendedVersion, nil
+}
+
+// UpgradeModelTargetAgentVersionTo upgrades a model to a new target agent
+// version. All agents that run on behalf of entities within the model will be
+// eventually upgraded to the new version after this call successfully returns.
+//
+// The version supplied must not be a downgrade from the current target agent
+// version of the model. It must also not be greater than the maximum supported
+// version of the controller.
+//
+// The following errors may be expected:
+// - [modelagenterrors.DowngradeNotSupported] when the caller is attempting to
+// change the model target agent version to one that is lower than the current
+// version.
+// - [modelagenterrors.AgentVersionNotSupported] when the caller is attempting
+// to upgrade the version to one that is greater than the maximum supported
+// version of the controller hosting the model.
+// - [modelagenterrors.MissingAgentBinaries] when agent binaries do not exist
+// for the desired version. The model cannot be upgraded to a version where
+// no agent binaries exist.
+// - [modelagenterrors.CannotUpgradeControllerModel] when the current model is
+// the model running the Juju controller.
+// - [modelagenterrors.ModelUpgradeBlocker] when their exists a blocker in the
+// model that prevents the model from being upgraded.
+func (s *Service) UpgradeModelTargetAgentVersionTo(
+	ctx context.Context,
+	desiredTargetVersion semversion.Number,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	currentTargetVersion, err := s.st.GetModelTargetAgentVersion(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"getting current model target agent version: %w", err,
+		)
+	}
+
+	err = s.validateModelCanBeUpgradedTo(ctx, currentTargetVersion, desiredTargetVersion)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Short circuit any further action if upgrade is to the same version that
+	// the model is currently at. This check must be performed after validation
+	// so correct signal is given to the caller.
+	if currentTargetVersion.Compare(desiredTargetVersion) == 0 {
+		return nil
+	}
+
+	err = s.st.SetModelTargetAgentVersion(
+		ctx, currentTargetVersion, desiredTargetVersion,
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+// UpgradeModelTargetAgentVersionStreamTo upgrades a model to a new target agent
+// version and updates the agent stream that is in use. All agents that run on
+// behalf of entities within the model will be eventually upgraded to the new
+// version after this call successfully returns.
+//
+// The version supplied must not be a downgrade from the current target agent
+// version of the model. It must also not be greater than the maximum supported
+// version of the controller.
+//
+// The following errors may be expected:
+// - [coreerrors.NotValid] when the agent stream is not valid.
+// - [modelagenterrors.DowngradeNotSupported] when the caller is attempting to
+// change the model target agent version to one that is lower than the current
+// version.
+// - [modelagenterrors.AgentVersionNotSupported] when the caller is attempting
+// to upgrade the version to one that is greater than the maximum supported
+// version of the controller hosting the model.
+// - [modelagenterrors.MissingAgentBinaries] when agent binaries do not exist
+// for the desired version. The model cannot be upgraded to a version where
+// no agent binaries exist.
+// - [modelagenterrors.CannotUpgradeControllerModel] when the current model is
+// the model running the Juju controller.
+// - [modelagenterrors.ModelUpgradeBlocker] when their exists a blocker in the
+// model that prevents the model from being upgraded.
+func (s *Service) UpgradeModelTargetAgentVersionStreamTo(
+	ctx context.Context,
+	desiredTargetVersion semversion.Number,
+	agentStream modelagent.AgentStream,
+) error {
+	// NOTE (tlm): We don't try and short circuit version upgrading if the model
+	// is already at the current desired version. This is because this
+	// upgrade also has consider the context of an agent stream change.
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if !agentStream.IsValid() {
+		return errors.New("agent stream is not valid").Add(coreerrors.NotValid)
+	}
+
+	currentTargetVersion, err := s.st.GetModelTargetAgentVersion(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"getting current model target agent version: %w", err,
+		)
+	}
+
+	err = s.validateModelCanBeUpgradedTo(ctx, currentTargetVersion, desiredTargetVersion)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = s.st.SetModelTargetAgentVersionAndStream(
+		ctx, currentTargetVersion, desiredTargetVersion, agentStream,
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+// validateModelCanBeUpgraded checks if the current model is currently in a
+// state that can have its target agent version changed/"upgraded". This check
+// does not concern itself with the proposed upgrade version. It only cares
+// about the state of the model and if it suitable to be upgraded.
+//
+// This check always assumes that the caller is upgrading the version and never
+// downgrading. The validation performed is not guaranteed to still be valid
+// after this func returns.
+//
+// The following errors may be expected:
+// - [modelagenterrors.CannotUpgradeControllerModel] when the current model is
+// the model running the Juju controller.
+// - [modelagenterrors.ModelUpgradeBlocker] when their exists a blocker in the
+// model that prevents the model from being upgraded.
+func (s *Service) validateModelCanBeUpgraded(
+	ctx context.Context,
+) error {
+	isControllerModel, err := s.st.IsControllerModel(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"checking if model is considered the controller's model: %w", err,
+		)
+	}
+	if isControllerModel {
+		return errors.New(
+			"model upgrades cannot be performed on the controller model",
+		).Add(modelagenterrors.CannotUpgradeControllerModel)
+	}
+
+	failedMachineCount, err := s.st.GetMachineCountNotUsingBase(ctx, corebase.WorkloadBases())
+	if err != nil {
+		return errors.Errorf(
+			"getting count of machines in model not running a supported workload base: %w",
+			err,
+		)
+	}
+
+	if failedMachineCount > 0 {
+		return modelagenterrors.ModelUpgradeBlocker{
+			Reason: fmt.Sprintf(
+				"model has %d machines using unsupported bases: %v",
+				failedMachineCount, corebase.WorkloadBases(),
+			),
+		}
+	}
+
+	return nil
+}
+
+// validateModelCanBeUpgradedTo checks to see if the model can be upgraded to a
+// the new desired target version and that it is within the supported realm of
+// versions. Checks are also performed to ensure the model itself is in a state
+// that can be upgraded.
+//
+// The following errors may be expected:
+// - [modelagenterrors.DowngradeNotSupported] when the caller is attempting to
+// downgrade the model agent version.
+// - [modelagenterrors.AgentVersionNotSupported] when the caller is attempting
+// to upgrade to a version that is greater than the max supported version of the
+// controller. Or if the version being upgraded to is not not defined (zero).
+// - [modelagenterrors.MissingAgentBinaries] when the agent binaries do not
+// exist for the desired version.
+// - [modelagenterrors.CannotUpgradeControllerModel] when the current model is
+// the model running the Juju controller.
+// - [modelagenterrors.ModelUpgradeBlocker] when their exists a blocker in the
+// model that prevents the model from being upgraded.
+func (s *Service) validateModelCanBeUpgradedTo(
+	ctx context.Context,
+	currentTargetVersion semversion.Number,
+	desiredTargetVersion semversion.Number,
+) error {
+	if semversion.Zero == desiredTargetVersion {
+		return errors.New(
+			"invalid agent version supplied",
+		).Add(modelagenterrors.AgentVersionNotSupported)
+	}
+
+	// Check that the caller is not attempting to downgrade the target agent
+	// version of the model.
+	if currentTargetVersion.Compare(desiredTargetVersion) >= 0 {
+		return errors.New(
+			"model agent version downgrades are not supported",
+		).Add(modelagenterrors.DowngradeNotSupported)
+	}
+
+	// Check that the caller is not attempting to upgrade to a version that is
+	// greater than that of the controller.
+	if jujuversion.Current.Compare(desiredTargetVersion.ToPatch()) < 0 {
+		return errors.Errorf(
+			"upgrade model agent version is greated than max supported version %q",
+			jujuversion.Current,
+		).Add(modelagenterrors.AgentVersionNotSupported)
+	}
+
+	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersion(desiredTargetVersion)
+	if err != nil {
+		return errors.Errorf(
+			"checking if binaries exist for version %q: %w",
+			desiredTargetVersion, err,
+		)
+	}
+	if !hasBinaries {
+		return errors.Errorf(
+			"no agent binaries exist for version %q", desiredTargetVersion,
+		).Add(modelagenterrors.MissingAgentBinaries)
+	}
+
+	if err := s.validateModelCanBeUpgraded(ctx); err != nil {
+		return errors.Errorf(
+			"validating model can be upgraded: %w", err,
 		)
 	}
 
