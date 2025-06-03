@@ -249,7 +249,7 @@ func (s *Service) CheckModelExists(
 	defer span.End()
 
 	if err := modelUUID.Validate(); err != nil {
-		return false, errors.Errorf("validating model uuid: %w", err)
+		return false, errors.Capture(err)
 	}
 	return s.st.CheckModelExists(ctx, modelUUID)
 }
@@ -625,7 +625,7 @@ func (s *Service) RemoveNonActivatedModel(
 	defer span.End()
 
 	if err := modelUUID.Validate(); err != nil {
-		return errors.Errorf("validating model uuid: %w", err)
+		return errors.Capture(err)
 	}
 
 	options := modelmanager.DefaultRemoveModelOptions()
