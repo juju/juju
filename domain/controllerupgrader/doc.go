@@ -1,15 +1,15 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The controllerupgrader domain provides the interface required for managing
-// the version of the controllers that form the current cluster.
+// Package controllerupgrader domain provides the interface required for
+// managing the version of the controllers that form the current cluster.
 //
-// A seperate domain was created to handle controller upgrades to start
-// seperating some of the cross over that controller upgrades had with model
+// A separate domain was created to handle controller upgrades to start
+// separating some of the cross over that controller upgrades had with model
 // upgrades. While fundamentally different concepts with the same end results,
 // they have always been conflated as a similar idea.
-// 
-// Another driving factor for a seperate domain is that we know currently the
+//
+// Another driving factor for a separate domain is that we know currently the
 // operation of a controller upgrade requires modifying state across both the
 // controller database and the model database. Because of this it is hard to
 // expose this domain's service via a normal controller service factory.
