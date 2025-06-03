@@ -22,7 +22,7 @@ type CreationArgs struct {
 	CloudRegion string
 
 	// Credential is the id attributes for the credential to be associated with
-	// model. Credential must be for the same cloud as that of the model.
+	// the model. Credential must be for the same cloud as that of the model.
 	// Credential can be the zero value of the struct to not have a credential
 	// associated with the model.
 	Credential corecredential.Key

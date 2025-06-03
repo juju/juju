@@ -517,7 +517,7 @@ func getWatchActivatedModelsMapper(st WatchableState) eventsource.Mapper {
 		}
 
 		// We can now go through the set of changes and only keep the changes
-		// for which their exists an activated model. We must maintain the order
+		// for which there exists an activated model. We must maintain the order
 		// we received the changes in.
 		rval := make([]changestream.ChangeEvent, 0, len(filteredUUIDChanges))
 		for _, change := range changes {
@@ -605,7 +605,7 @@ func (s *Service) ListModelUUIDsForUser(
 }
 
 // RemoveNonActivatedModel is responsible for removing a non activated model
-// from the controller and all of it's associated metadata. To remove an
+// from the controller and all of its associated metadata. To remove an
 // activated model the removal service needs to be used.
 //
 // This method exists to cleanup a model that has failed to been created
