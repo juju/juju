@@ -24,7 +24,7 @@ type APIRemoteCallers interface {
 	// the caller will call this method just before making an API call to ensure
 	// that the connection is still valid. The caller must not cache the
 	// connections as they may change over time.
-	GetAPIRemotes() []RemoteConnection
+	GetAPIRemotes() ([]RemoteConnection, error)
 }
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will

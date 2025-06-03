@@ -5,7 +5,6 @@ package apiremotecaller
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/internal/pubsub/apiserver"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
@@ -31,6 +29,13 @@ const (
 // that provides information about the controller nodes. This is used to
 // determine which nodes are available for remote API calls.
 type ControllerNodeService interface {
+	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+	// addresses that are available for agents. The map is keyed by controller
+	// ID, and the values are slices of strings representing the API addresses
+	// for each controller node.
+	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	// WatchControllerNodes returns a watcher that observes changes to the
+	// controller nodes.
 	WatchControllerNodes(context.Context) (watcher.NotifyWatcher, error)
 }
 
@@ -73,21 +78,13 @@ func (c *WorkerConfig) Validate() error {
 	return nil
 }
 
-type serverChanges struct {
-	servers map[string][]string
-}
-
 type remoteWorker struct {
 	internalStates chan string
 	catacomb       catacomb.Catacomb
 
 	cfg WorkerConfig
 
-	runner  *worker.Runner
-	changes chan serverChanges
-
-	mu         sync.Mutex
-	apiRemotes []RemoteConnection
+	runner *worker.Runner
 }
 
 // NewWorker exposes the remoteWorker as a Worker.
@@ -117,9 +114,7 @@ func newWorker(cfg WorkerConfig, internalState chan string) (*remoteWorker, erro
 	w := &remoteWorker{
 		cfg:            cfg,
 		runner:         runner,
-		changes:        make(chan serverChanges),
 		internalStates: internalState,
-		apiRemotes:     make([]RemoteConnection, 0),
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
@@ -141,11 +136,24 @@ func newWorker(cfg WorkerConfig, internalState chan string) (*remoteWorker, erro
 // the caller will call this method just before making an API call to ensure
 // that the connection is still valid. The caller must not cache the connections
 // as they may change over time.
-func (w *remoteWorker) GetAPIRemotes() []RemoteConnection {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+func (w *remoteWorker) GetAPIRemotes() ([]RemoteConnection, error) {
+	workerNames := w.runner.WorkerNames()
 
-	return w.apiRemotes
+	var remotes []RemoteConnection
+	for _, name := range workerNames {
+		worker, err := w.workerFromCache(name)
+		if err != nil {
+			return nil, errors.Trace(err)
+		} else if worker == nil {
+			// If the worker is not found, it means it was removed or not
+			// started yet. This can happen if the worker is still starting
+			// up or has been stopped.
+			continue
+		}
+
+		remotes = append(remotes, worker)
+	}
+	return remotes, nil
 }
 
 // Kill is part of the worker.Worker interface.
@@ -179,15 +187,25 @@ func (w *remoteWorker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
-		case change := <-watcher.Changes():
-			w.cfg.Logger.Debugf(ctx, "remoteWorker API server change: %v", change)
+		case <-watcher.Changes():
+			w.cfg.Logger.Debugf(ctx, "remoteWorker API server change")
+
+			// Get the latest API addresses for all controller nodes.
+			servers, err := w.cfg.ControllerNodeService.GetAllAPIAddressesForAgents(ctx)
+			if err != nil {
+				return errors.Trace(err)
+			}
 
 			// Locate the current workers, so we can remove any workers that are
 			// no longer required.
 			current := w.runner.WorkerNames()
 
-			required := make(map[string]RemoteConnection)
-			for target, addresses := range change.servers {
+			required := make(map[string]struct{})
+			for target, addresses := range servers {
+				if target == w.cfg.Origin.Id() {
+					// We don't need a remote worker for the origin.
+					continue
+				}
 
 				server, err := w.newRemoteServer(ctx, target, addresses)
 				if err != nil {
@@ -200,7 +218,7 @@ func (w *remoteWorker) loop() error {
 				// always up to date with the latest addresses.
 				server.UpdateAddresses(addresses)
 
-				required[target] = server
+				required[target] = struct{}{}
 			}
 
 			// Walk over the current workers and remove any that are no longer
@@ -219,73 +237,8 @@ func (w *remoteWorker) loop() error {
 
 			w.cfg.Logger.Debugf(ctx, "remote workers updated: %v", required)
 
-			var remotes []RemoteConnection
-			for _, server := range required {
-				if server == nil {
-					continue
-				}
-				remotes = append(remotes, server)
-			}
-
-			w.mu.Lock()
-			w.apiRemotes = remotes
-			w.mu.Unlock()
-
 			w.reportInternalState(stateChanged)
 		}
-	}
-}
-
-func (w *remoteWorker) apiServerChanges(topic string, details apiserver.Details, err error) {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
-
-	if err != nil {
-		w.cfg.Logger.Errorf(ctx, "remoteWorker callback error: %v", err)
-		return
-	}
-
-	w.cfg.Logger.Debugf(ctx, "remoteWorker API server changes: %v", details)
-
-	changes := make(map[string][]string)
-
-	for id, apiServer := range details.Servers {
-		// The target is constructed from an id, and the tag type
-		// needs to match that of the origin tag.
-		var target names.Tag
-		switch w.cfg.Origin.Kind() {
-		case names.MachineTagKind:
-			target = names.NewMachineTag(id)
-		case names.ControllerAgentTagKind:
-			target = names.NewControllerAgentTag(id)
-		default:
-			w.cfg.Logger.Errorf(ctx, "unknown remoteWorker origin tag: %s", id)
-			continue
-		}
-
-		// If the target is the origin, we don't need a connection to ourselves.
-		if target == w.cfg.Origin {
-			continue
-		}
-
-		// TODO: always use the internal address?
-		addresses := apiServer.Addresses
-		if apiServer.InternalAddress != "" {
-			addresses = []string{apiServer.InternalAddress}
-		}
-
-		changes[target.Id()] = addresses
-	}
-
-	// We must dispatch every time we get a change, as the API server might
-	// actually be moving from HA to non-HA and we need to update the workers
-	// accordingly. This involves the clearing out of the old workers.
-	select {
-	case <-w.catacomb.Dying():
-		return
-	case w.changes <- serverChanges{
-		servers: changes,
-	}:
 	}
 }
 
