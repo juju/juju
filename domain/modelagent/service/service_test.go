@@ -58,14 +58,12 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.agentBinaryFinder = NewMockAgentBinaryFinder(ctrl)
 	s.state = NewMockState(ctrl)
-	return ctrl
-}
 
-// TearDownTest is called after each test to nil out the mocks. This helps
-// ensure correct setup of mocks for each test.
-func (s *modelUpgradeSuite) TearDownTest(c *tc.C) {
-	s.agentBinaryFinder = nil
-	s.state = nil
+	c.Cleanup(func() {
+		s.agentBinaryFinder = nil
+		s.state = nil
+	})
+	return ctrl
 }
 
 // TearDownTest is called after each test to nil out the mocks. This helps
