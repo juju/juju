@@ -151,7 +151,7 @@ type UnitState interface {
 	AddIAASSubordinateUnit(context.Context, application.SubordinateUnitArg) (coreunit.Name, []coremachine.Name, error)
 
 	// GetMachineNetNodeUUIDFromName returns the net node UUID for the named
-	// coremachine. The following errors may be returned: -
+	// machine. The following errors may be returned: -
 	// [applicationerrors.MachineNotFound] if the machine does not exist
 	GetMachineNetNodeUUIDFromName(context.Context, coremachine.Name) (string, error)
 
@@ -245,7 +245,7 @@ func (s *Service) makeUnitStatusArgs(workloadMessage string) application.UnitSta
 //
 // The following error types can be expected:
 //   - [applicationerrors.MachineNotFound] when the model type is IAAS and the
-//     principal unit does not have a coremachine.
+//     principal unit does not have a machine.
 //   - [applicationerrors.SubordinateUnitAlreadyExists] when the principal unit
 //     already has a subordinate from this application
 func (s *Service) AddIAASSubordinateUnit(
@@ -476,7 +476,7 @@ func (s *Service) GetUnitPrincipal(ctx context.Context, unitName coreunit.Name) 
 	return s.st.GetUnitPrincipal(ctx, unitName)
 }
 
-// GetUnitMachineName gets the name of the unit's coremachine.
+// GetUnitMachineName gets the name of the unit's machine.
 //
 // The following errors may be returned:
 //   - [applicationerrors.UnitMachineNotAssigned] if the unit does not have a
@@ -595,7 +595,7 @@ func (s *Service) GetUnitNamesForApplication(ctx context.Context, appName string
 	return names, nil
 }
 
-// GetUnitNamesOnMachine returns a slice of the unit names on the given coremachine.
+// GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
 // The following errors may be returned:
 // - [applicationerrors.MachineNotFound] if the machine does not exist
 func (s *Service) GetUnitNamesOnMachine(ctx context.Context, machineName coremachine.Name) ([]coreunit.Name, error) {
@@ -645,7 +645,7 @@ func (s *Service) GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.
 // For k8s provider, it will return the first public address of the cloud
 // service if any, the first public address of the cloud container otherwise.
 // For machines provider, it will return the first public address of the
-// coremachine.
+// machine.
 //
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist
@@ -690,7 +690,7 @@ func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName coreunit.
 // For k8s provider, it will return the first private address of the cloud
 // service if any, the first private address of the cloud container otherwise.
 // For machines provider, it will return the first private address of the
-// coremachine.
+// machine.
 //
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist
