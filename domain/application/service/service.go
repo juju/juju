@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
+	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
@@ -96,7 +97,9 @@ func NewService(
 	}
 }
 
-func (s *Service) recordStatusHistory(
+// recordUnitStatusHistory records the initial status history for the unit
+// being added to the application.
+func (s *Service) recordUnitStatusHistory(
 	ctx context.Context,
 	unitName coreunit.Name,
 	statusArg application.UnitStatusArg,
@@ -128,6 +131,28 @@ func (s *Service) recordStatusHistory(
 	}
 
 	return nil
+}
+
+// recordInitMachinesStatusHistory records the initial status history for the
+// machines created for the application. The status is set to Pending, and
+// the Since time is set to the current time.
+func (s *Service) recordInitMachinesStatusHistory(
+	ctx context.Context,
+	machineNames []machine.Name,
+) {
+	// Record the status history for the machines created for the application.
+	machineStatusInfo := corestatus.StatusInfo{
+		Status: corestatus.Pending,
+		Since:  ptr(s.clock.Now()),
+	}
+	for _, machineName := range machineNames {
+		if err := s.statusHistory.RecordStatus(ctx, status.MachineNamespace.WithID(machineName.String()), machineStatusInfo); err != nil {
+			s.logger.Infof(ctx, "failed recording machine %q status history: %w", machineName, err)
+		}
+		if err := s.statusHistory.RecordStatus(ctx, status.MachineInstanceNamespace.WithID(machineName.String()), machineStatusInfo); err != nil {
+			s.logger.Infof(ctx, "failed recording machine instance %q status history: %w", machineName, err)
+		}
+	}
 }
 
 // AgentVersionGetter is responsible for retrieving the target

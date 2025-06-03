@@ -76,7 +76,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	unitArgs := []application.AddUnitArg{{}}
 
 	ctx := c.Context()
-	_, err = appState.CreateIAASApplication(ctx, "app", appArg, unitArgs)
+	_, _, err = appState.CreateIAASApplication(ctx, "app", appArg, unitArgs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {

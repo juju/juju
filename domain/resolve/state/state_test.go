@@ -407,7 +407,7 @@ func (s *stateSuite) createApplication(c *tc.C, name string, units ...applicatio
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, err := appState.AddIAASUnits(ctx, appID, units...)
+	unitNames, _, err := appState.AddIAASUnits(ctx, appID, units...)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var unitUUIDs = make([]coreunit.UUID, len(units))

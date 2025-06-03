@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	coremachine "github.com/juju/juju/core/machine"
 	coremachinetesting "github.com/juju/juju/core/machine/testing"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -286,7 +285,7 @@ func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, uni
 	}
 	ctx := c.Context()
 
-	appID, err := state.CreateIAASApplication(ctx, name, application.AddIAASApplicationArg{
+	appID, _, err := state.CreateIAASApplication(ctx, name, application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Channel:  channel,
@@ -343,17 +342,12 @@ func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, uni
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelType, err := state.GetModelType(ctx)
-	c.Assert(err, tc.ErrorIsNil)
-
 	db, err := state.DB()
 	c.Assert(err, tc.ErrorIsNil)
 	for _, u := range units {
 		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			if modelType == coremodel.IAAS {
-				return state.insertIAASUnit(ctx, tx, appID, u)
-			}
-			return state.insertCAASUnit(ctx, tx, appID, u)
+			_, err := state.insertIAASUnit(ctx, tx, appID, u)
+			return err
 		})
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -444,16 +438,10 @@ func (s *baseSuite) createCAASApplication(c *tc.C, name string, l life.Life, uni
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelType, err := state.GetModelType(ctx)
-	c.Assert(err, tc.ErrorIsNil)
-
 	db, err := state.DB()
 	c.Assert(err, tc.ErrorIsNil)
 	for _, u := range units {
 		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			if modelType == coremodel.IAAS {
-				return state.insertIAASUnit(ctx, tx, appID, u)
-			}
 			return state.insertCAASUnit(ctx, tx, appID, u)
 		})
 		c.Assert(err, tc.ErrorIsNil)

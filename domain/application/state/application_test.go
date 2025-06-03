@@ -101,7 +101,7 @@ func (s *applicationStateSuite) TestCreateIAASApplication(c *tc.C) {
 	}
 	ctx := c.Context()
 
-	id, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
+	id, machineNames, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Charm: charm.Charm{
@@ -123,6 +123,9 @@ func (s *applicationStateSuite) TestCreateIAASApplication(c *tc.C) {
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertIAASApplication(c, "666", platform, channel, false)
+
+	// We didn't create any units, so there are no machine names.
+	c.Assert(machineNames, tc.HasLen, 0)
 
 	// Ensure that config is empty and trust is false.
 	config, settings, err := s.state.GetApplicationConfigAndSettings(c.Context(), id)
@@ -205,7 +208,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *tc
 	}
 	ctx := c.Context()
 
-	id, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
+	id, _, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Charm: charm.Charm{
@@ -262,7 +265,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithPeerRelation(c *tc.C) {
 	}
 	ctx := c.Context()
 
-	_, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
+	_, _, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Charm: charm.Charm{
@@ -302,7 +305,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *tc.C) {
 	ctx := c.Context()
 
 	now := time.Now().UTC()
-	id, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
+	id, _, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Charm: charm.Charm{
@@ -391,7 +394,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnits(c *tc.C) {
 	}}
 	ctx := c.Context()
 
-	_, err := s.state.CreateIAASApplication(ctx, "foo", a, us)
+	_, _, err := s.state.CreateIAASApplication(ctx, "foo", a, us)
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertIAASApplication(c, "foo", platform, channel, false)
 }
@@ -409,7 +412,7 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *tc.C) {
 	}
 	ctx := c.Context()
 
-	_, err := s.state.CreateIAASApplication(ctx, "foo1", application.AddIAASApplicationArg{
+	_, _, err := s.state.CreateIAASApplication(ctx, "foo1", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Channel:  channel,
@@ -425,7 +428,7 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *tc.C) {
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.CreateIAASApplication(ctx, "foo2", application.AddIAASApplicationArg{
+	_, _, err = s.state.CreateIAASApplication(ctx, "foo2", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Channel:  channel,
@@ -453,7 +456,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithoutChannel(c *tc.C) {
 	}
 	ctx := c.Context()
 
-	_, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
+	_, _, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Charm: charm.Charm{
@@ -480,7 +483,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithEmptyChannel(c *tc.C) {
 	channel := &deployment.Channel{}
 	ctx := c.Context()
 
-	_, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
+	_, _, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Charm: charm.Charm{
@@ -505,7 +508,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithCharmStoragePath(c *tc.
 	channel := &deployment.Channel{}
 	ctx := c.Context()
 
-	_, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
+	_, _, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Charm: charm.Charm{
@@ -555,7 +558,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithResolvedResources(c *tc
 	}
 	ctx := c.Context()
 
-	_, err := s.state.CreateIAASApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
+	_, _, err := s.state.CreateIAASApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
 		charmResources, addResourcesArgs), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	// Check expected resources are added
@@ -702,7 +705,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithPendingResources(c *tc.
 
 	args.PendingResources = s.addResourcesBeforeApplication(c, appName, charmID.String(), addResources)
 
-	_, err = s.state.CreateIAASApplication(ctx, appName, args, nil)
+	_, _, err = s.state.CreateIAASApplication(ctx, appName, args, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	// Check expected resources are added
 	assertTxn := func(comment string, do func(ctx context.Context, tx *sql.Tx) error) {
@@ -884,11 +887,11 @@ func (s *applicationStateSuite) TestCreateApplicationWithExistingCharmWithResour
 	}
 	ctx := c.Context()
 
-	_, err := s.state.CreateIAASApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
+	_, _, err := s.state.CreateIAASApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
 		charmResources, addResourcesArgs), nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.CreateIAASApplication(ctx, "667", s.addApplicationArgForResources(c, "666",
+	_, _, err = s.state.CreateIAASApplication(ctx, "667", s.addApplicationArgForResources(c, "666",
 		charmResources, addResourcesArgs), nil)
 	c.Check(err, tc.ErrorIsNil, tc.Commentf("Failed to create second "+
 		"application. Maybe the charm UUID is not properly fetched to pass to "+
@@ -922,7 +925,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesMissingResourc
 	}
 	ctx := c.Context()
 
-	_, err := s.state.CreateIAASApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
+	_, _, err := s.state.CreateIAASApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
 		charmResources, addResourceArgs), nil)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %s",
 		errors.ErrorStack(err)))
@@ -957,7 +960,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourc
 	}
 	ctx := c.Context()
 
-	_, err := s.state.CreateIAASApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
+	_, _, err := s.state.CreateIAASApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
 		charmResources, addResourcesArgs), nil)
 	c.Assert(err, tc.ErrorMatches,
 		`.*inserting resource "my-image": FOREIGN KEY constraint failed.*`,
@@ -1808,7 +1811,7 @@ func (s *applicationStateSuite) TestGetCharmByApplicationID(c *tc.C) {
 	}
 	ctx := c.Context()
 
-	appID, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
+	appID, _, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Charm: charm.Charm{
 				Metadata:      expectedMetadata,
@@ -1907,7 +1910,7 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 	}
 	ctx := c.Context()
 
-	appID, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
+	appID, _, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Charm: charm.Charm{
 				Metadata:      expectedMetadata,
@@ -1957,7 +1960,7 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 	}
 	ctx := c.Context()
 
-	_, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
+	_, _, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Charm: charm.Charm{
 				Metadata:      expectedMetadata,
@@ -2216,7 +2219,7 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoLocalCharm(c *tc.C)
 	}
 	ctx := c.Context()
 
-	appID, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
+	appID, _, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Channel:  channel,

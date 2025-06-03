@@ -200,7 +200,7 @@ func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...appli
 	}
 	ctx := c.Context()
 
-	appID, err := appState.CreateIAASApplication(ctx, name, application.AddIAASApplicationArg{
+	appID, _, err := appState.CreateIAASApplication(ctx, name, application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Channel:  channel,
@@ -236,7 +236,7 @@ func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...appli
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = appState.AddIAASUnits(ctx, appID, units...)
+	_, _, err = appState.AddIAASUnits(ctx, appID, units...)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return appID

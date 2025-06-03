@@ -214,7 +214,7 @@ func (s *modelStateSuite) createTestingUnitForApplication(
 	appID, err := appState.GetApplicationIDByName(c.Context(), appName)
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, err := appState.AddIAASUnits(c.Context(), appID, application.AddUnitArg{})
+	unitNames, _, err := appState.AddIAASUnits(c.Context(), appID, application.AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]
@@ -243,7 +243,7 @@ func (s *modelStateSuite) createTestingApplicationWithName(
 	}
 	ctx := c.Context()
 
-	appID, err := appState.CreateIAASApplication(ctx, appName, application.AddIAASApplicationArg{
+	appID, _, err := appState.CreateIAASApplication(ctx, appName, application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Channel:  channel,

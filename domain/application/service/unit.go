@@ -10,7 +10,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
@@ -32,7 +32,7 @@ type UnitState interface {
 	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
 	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
 	// is returned.
-	AddIAASUnits(context.Context, coreapplication.ID, ...application.AddUnitArg) ([]coreunit.Name, error)
+	AddIAASUnits(context.Context, coreapplication.ID, ...application.AddUnitArg) ([]coreunit.Name, []coremachine.Name, error)
 
 	// AddCAASUnits adds the specified units to the application, returning their
 	// names. If the application is not found, an error satisfying
@@ -92,12 +92,12 @@ type UnitState interface {
 	// GetUnitMachineUUID gets the unit's machine uuid. If the unit does not
 	// have a machine assigned, [applicationerrors.UnitMachineNotAssigned] is
 	// returned.
-	GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name) (machine.UUID, error)
+	GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name) (coremachine.UUID, error)
 
 	// GetUnitMachineName gets the unit's machine uuid. If the unit does not
 	// have a machine assigned, [applicationerrors.UnitMachineNotAssigned] is
 	// returned.
-	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (machine.Name, error)
+	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (coremachine.Name, error)
 
 	// SetUnitLife sets the life of the specified unit.
 	SetUnitLife(context.Context, coreunit.Name, life.Life) error
@@ -148,12 +148,12 @@ type UnitState interface {
 	// AddIAASubordinateUnit adds a new unit to the subordinate application. On
 	// IAAS, the new unit will be colocated on machine with the principal unit.
 	// The principal-subordinate relationship is also recorded.
-	AddIAASSubordinateUnit(context.Context, application.SubordinateUnitArg) (coreunit.Name, error)
+	AddIAASSubordinateUnit(context.Context, application.SubordinateUnitArg) (coreunit.Name, []coremachine.Name, error)
 
 	// GetMachineNetNodeUUIDFromName returns the net node UUID for the named
 	// machine. The following errors may be returned: -
 	// [applicationerrors.MachineNotFound] if the machine does not exist
-	GetMachineNetNodeUUIDFromName(context.Context, machine.Name) (string, error)
+	GetMachineNetNodeUUIDFromName(context.Context, coremachine.Name) (string, error)
 
 	// SetUnitWorkloadVersion sets the workload version for the given unit.
 	SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error
@@ -271,7 +271,7 @@ func (s *Service) AddIAASSubordinateUnit(
 	}
 
 	statusArg := s.makeIAASUnitStatusArgs()
-	unitName, err := s.st.AddIAASSubordinateUnit(
+	unitName, machineNames, err := s.st.AddIAASSubordinateUnit(
 		ctx,
 		application.SubordinateUnitArg{
 			SubordinateAppID:  subordinateAppID,
@@ -285,9 +285,10 @@ func (s *Service) AddIAASSubordinateUnit(
 		return errors.Capture(err)
 	}
 
-	if err := s.recordStatusHistory(ctx, unitName, statusArg); err != nil {
+	if err := s.recordUnitStatusHistory(ctx, unitName, statusArg); err != nil {
 		return errors.Errorf("recording status history: %w", err)
 	}
+	s.recordInitMachinesStatusHistory(ctx, machineNames)
 
 	return nil
 }
@@ -482,7 +483,7 @@ func (s *Service) GetUnitPrincipal(ctx context.Context, unitName coreunit.Name) 
 //     machine assigned.
 //   - [applicationerrors.UnitNotFound] if the unit cannot be found.
 //   - [applicationerrors.UnitIsDead] if the unit is dead.
-func (s *Service) GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (machine.Name, error) {
+func (s *Service) GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (coremachine.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -505,7 +506,7 @@ func (s *Service) GetUnitMachineName(ctx context.Context, unitName coreunit.Name
 //     machine assigned.
 //   - [applicationerrors.UnitNotFound] if the unit cannot be found.
 //   - [applicationerrors.UnitIsDead] if the unit is dead.
-func (s *Service) GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name) (machine.UUID, error) {
+func (s *Service) GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name) (coremachine.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -597,7 +598,7 @@ func (s *Service) GetUnitNamesForApplication(ctx context.Context, appName string
 // GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
 // The following errors may be returned:
 // - [applicationerrors.MachineNotFound] if the machine does not exist
-func (s *Service) GetUnitNamesOnMachine(ctx context.Context, machineName machine.Name) ([]coreunit.Name, error) {
+func (s *Service) GetUnitNamesOnMachine(ctx context.Context, machineName coremachine.Name) ([]coreunit.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

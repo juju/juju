@@ -103,7 +103,7 @@ func (s *watcherSuite) createApplicationWithRelations(c *tc.C, appName string, r
 	}
 
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	appUUID, err := applicationSt.CreateIAASApplication(c.Context(), appName, application.AddIAASApplicationArg{
+	appUUID, _, err := applicationSt.CreateIAASApplication(c.Context(), appName, application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Charm: charm.Charm{
 				Metadata: charm.Metadata{
@@ -145,7 +145,7 @@ func (s *watcherSuite) createUnit(c *tc.C, netNodeUUID, appName string) coreunit
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, err := applicationSt.AddIAASUnits(ctx, appID, application.AddUnitArg{
+	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddUnitArg{
 		Placement: deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: machineName.String(),

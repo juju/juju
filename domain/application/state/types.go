@@ -10,7 +10,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corestorage "github.com/juju/juju/core/storage"
@@ -1168,10 +1168,10 @@ type peerEndpoint struct {
 }
 
 type exportUnit struct {
-	UUID      coreunit.UUID `db:"uuid"`
-	Name      coreunit.Name `db:"name"`
-	Machine   machine.Name  `db:"machine_name"`
-	Principal coreunit.Name `db:"principal_name"`
+	UUID      coreunit.UUID    `db:"uuid"`
+	Name      coreunit.Name    `db:"name"`
+	Machine   coremachine.Name `db:"machine_name"`
+	Principal coreunit.Name    `db:"principal_name"`
 }
 
 type setExposedSpace struct {
@@ -1223,20 +1223,20 @@ type setDeviceConstraintAttribute struct {
 }
 
 type createMachine struct {
-	MachineUUID machine.UUID `db:"uuid"`
-	NetNodeUUID string       `db:"net_node_uuid"`
-	Name        machine.Name `db:"name"`
-	LifeID      life.Life    `db:"life_id"`
+	MachineUUID coremachine.UUID `db:"uuid"`
+	NetNodeUUID string           `db:"net_node_uuid"`
+	Name        coremachine.Name `db:"name"`
+	LifeID      life.Life        `db:"life_id"`
 }
 
 type machineNameWithNetNode struct {
-	Name        machine.Name `db:"name"`
-	NetNodeUUID string       `db:"net_node_uuid"`
+	Name        coremachine.Name `db:"name"`
+	NetNodeUUID string           `db:"net_node_uuid"`
 }
 
 type machineNameWithMachineUUID struct {
-	Name machine.Name `db:"name"`
-	UUID machine.UUID `db:"uuid"`
+	Name coremachine.Name `db:"name"`
+	UUID coremachine.UUID `db:"uuid"`
 }
 
 type netNodeUUID struct {
@@ -1248,14 +1248,14 @@ type unitNetNodeUUID struct {
 }
 
 type machinePlacement struct {
-	MachineUUID machine.UUID `db:"machine_uuid"`
-	ScopeID     int          `db:"scope_id"`
-	Directive   string       `db:"directive"`
+	MachineUUID coremachine.UUID `db:"machine_uuid"`
+	ScopeID     int              `db:"scope_id"`
+	Directive   string           `db:"directive"`
 }
 
 type machineParent struct {
-	ParentUUID  machine.UUID `db:"parent_uuid"`
-	MachineUUID machine.UUID `db:"machine_uuid"`
+	ParentUUID  coremachine.UUID `db:"parent_uuid"`
+	MachineUUID coremachine.UUID `db:"machine_uuid"`
 }
 
 type getApplicationEndpoint struct {
@@ -1279,13 +1279,13 @@ type getPrincipal struct {
 }
 
 type getUnitMachineName struct {
-	UnitName    coreunit.Name `db:"unit_name"`
-	MachineName machine.Name  `db:"name"`
+	UnitName    coreunit.Name    `db:"unit_name"`
+	MachineName coremachine.Name `db:"name"`
 }
 
 type getUnitMachineUUID struct {
-	UnitName    coreunit.Name `db:"unit_name"`
-	MachineUUID machine.UUID  `db:"uuid"`
+	UnitName    coreunit.Name    `db:"unit_name"`
+	MachineUUID coremachine.UUID `db:"uuid"`
 }
 
 type lifeID struct {
@@ -1305,13 +1305,18 @@ type setStatusInfo struct {
 }
 
 type setMachineStatus struct {
-	StatusID    int          `db:"status_id"`
-	Message     string       `db:"message"`
-	Data        []byte       `db:"data"`
-	Updated     *time.Time   `db:"updated_at"`
-	MachineUUID machine.UUID `db:"machine_uuid"`
+	StatusID    int              `db:"status_id"`
+	Message     string           `db:"message"`
+	Data        []byte           `db:"data"`
+	Updated     *time.Time       `db:"updated_at"`
+	MachineUUID coremachine.UUID `db:"machine_uuid"`
 }
 
 type machineInstanceUUID struct {
-	MachineUUID machine.UUID `db:"machine_uuid"`
+	MachineUUID coremachine.UUID `db:"machine_uuid"`
+}
+
+type getUnitMachine struct {
+	UnitName    coreunit.Name    `db:"unit_name"`
+	UnitMachine coremachine.Name `db:"machine_name"`
 }
