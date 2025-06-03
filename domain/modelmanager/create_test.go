@@ -4,6 +4,8 @@
 package modelmanager
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 
 	corecredential "github.com/juju/juju/core/credential"
@@ -15,7 +17,10 @@ import (
 // new models. This suite is used to test the various validity states.
 type createTypesSuite struct{}
 
-var _ = tc.Suite(&createTypesSuite{})
+// TestCreateTypesSuite runs all the tests in the [createTypesSuite].
+func TestCreateTypesSuite(t *testing.T) {
+	tc.Run(t, &createTypesSuite{})
+}
 
 // TestCreationArgsWithoutCredential is testing that a [CreationArgs] struct
 // passes validation when there is no credential set. It is expected that some

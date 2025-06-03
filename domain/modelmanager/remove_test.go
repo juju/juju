@@ -3,13 +3,20 @@
 
 package modelmanager
 
-import "github.com/juju/tc"
+import (
+	"testing"
+
+	"github.com/juju/tc"
+)
 
 // removeSuite exists to test the various aspects of model remove options on
 // [RemoveModelOptions].
 type removeSuite struct{}
 
-var _ = tc.Suite(&removeSuite{})
+// TestRemoveSuite runs all of the tests in the [removeSuite].
+func TestRemoveSuite(t *testing.T) {
+	tc.Run(t, &removeSuite{})
+}
 
 // TestRemoveModelOptionsWithoutDeleteDB is testing that [WithDeleteDB] sets
 // the [RemoveModelOptions.deleteDB] field to true.
