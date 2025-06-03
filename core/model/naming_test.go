@@ -5,6 +5,7 @@ package model_test
 
 import (
 	"regexp"
+	"testing"
 
 	"github.com/juju/tc"
 
