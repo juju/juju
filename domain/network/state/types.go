@@ -5,12 +5,15 @@ package state
 
 import (
 	"database/sql"
+
 	"github.com/juju/collections/transform"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
+
+type uuids []string
 
 type entityUUID struct {
 	// UUID uniquely identifies an entity.
