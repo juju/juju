@@ -195,6 +195,28 @@ type ApplicationService interface {
 	// upgrade to the latest version of the application charm even if they are in
 	// error state.
 	ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error)
+
+	// GetUnitPublicAddress returns the public address for the specified unit.
+	// For k8s provider, it will return the first public address of the cloud
+	// service if any, the first public address of the cloud container otherwise.
+	// For machines provider, it will return the first public address of the
+	// machine.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit does not exist
+	// - [network.NoAddressError] if the unit has no public address associated
+	GetUnitPublicAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error)
+
+	// GetUnitPrivateAddress returns the private address for the specified unit.
+	// For k8s provider, it will return the first private address of the cloud
+	// service if any, the first private address of the cloud container otherwise.
+	// For machines provider, it will return the first private address of the
+	// machine.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit does not exist
+	// - [network.NoAddressError] if the unit has no private address associated
+	GetUnitPrivateAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error)
 }
 
 type ResolveService interface {
