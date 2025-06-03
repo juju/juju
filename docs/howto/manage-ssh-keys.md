@@ -52,10 +52,9 @@ This will add the SSH key to the default user account named 'ubuntu'.
 
 ## View the available SSH keys
 
-To list the currently known SSH keys for the current model, use the `ssh-keys` command.
+To list the SSH keys known in the current model, use the `ssh-keys` command.
 
 ```text
-# List the keys known in the current model
 juju ssh-keys
 ```
 
