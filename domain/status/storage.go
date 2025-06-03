@@ -92,7 +92,7 @@ func FilesystemStatusTransitionValid(
 		validTransition = !isProvisioned
 	case StorageFilesystemStatusTypeError:
 		if new.Message == "" {
-			return errors.Errorf("cannot set status %q without info", new.Status)
+			return errors.Errorf("cannot set status %q without message", new.Status)
 		}
 	default:
 		// Anything else is ok.
@@ -189,7 +189,7 @@ func VolumeStatusTransitionValid(
 		validTransition = !isProvisioned
 	case StorageVolumeStatusTypeError:
 		if new.Message == "" {
-			return errors.Errorf("cannot set status %q without info", new.Status)
+			return errors.Errorf("cannot set status %q without message", new.Status)
 		}
 	default:
 		// Anything else is ok.
