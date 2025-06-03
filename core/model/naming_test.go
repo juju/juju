@@ -5,7 +5,6 @@ package model_test
 
 import (
 	"regexp"
-	"testing"
 
 	"github.com/juju/tc"
 
@@ -13,9 +12,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
-
-// NameSuite is a suite for testing the validity of model names.
-type NameSuite struct{}
 
 type NamingSuite struct {
 	testhelpers.IsolationSuite
@@ -66,43 +62,5 @@ func (*NamingSuite) TestDisambiguateNameWithSuffixLength(c *tc.C) {
 			c.Check(err, tc.ErrorIsNil)
 			c.Check(result, tc.Equals, t.result)
 		}
-	}
-}
-
-// TestInvalidModelNames tests a set of known invalid model names to make sure
-// they don't pass validation.
-func (*NameSuite) TestInvalidModelNames(c *tc.C) {
-	invalidModelNames := []string{
-		"❤️❤️",
-		"-modelname",
-		"MODELNAME",
-		"$$$ModelName",
-		"modelName#",
-		"トム",
-	}
-
-	for _, invalidName := range invalidModelNames {
-		c.Run(invalidName, func(t *testing.T) {
-			tc.Check(t, model.IsValidModelName(invalidName), tc.IsFalse)
-		})
-	}
-}
-
-// TestValidModelNames tests a set of known valid model names to make sure
-// they pass validation.
-func (*NameSuite) TestValidModelNames(c *tc.C) {
-	validModelNames := []string{
-		"1",
-		"m",
-		"m-m",
-		"model-",
-		"model",
-		"009",
-	}
-
-	for _, validName := range validModelNames {
-		c.Run(validName, func(t *testing.T) {
-			tc.Check(t, model.IsValidModelName(validName), tc.IsTrue)
-		})
 	}
 }

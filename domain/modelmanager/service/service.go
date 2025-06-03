@@ -344,7 +344,7 @@ func (s *Service) createModel(
 		)
 	}
 
-	if !coremodel.IsValidModelName(args.Name) {
+	if !modelmanager.IsValidModelName(args.Name) {
 		return nil, errors.Errorf(
 			"model name for new model is not valid",
 		).Add(modelmanagererrors.ModelNameNotValid)
@@ -481,7 +481,7 @@ func (s *Service) GetModelUUIDForNameAndOwner(
 		return "", errors.New("owner name is required").Add(coreerrors.NotValid)
 	}
 
-	if !coremodel.IsValidModelName(modelName) {
+	if !modelmanager.IsValidModelName(modelName) {
 		return "", errors.New("model name is not valid").Add(
 			modelmanagererrors.ModelNameNotValid,
 		)

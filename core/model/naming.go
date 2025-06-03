@@ -5,7 +5,6 @@ package model
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/juju/names/v6"
@@ -31,13 +30,7 @@ const (
 	minResourceNameComponentLength = 5
 )
 
-var (
-	// validModelName is a regular expression to validate model names.
-	validModelName = regexp.MustCompile(`^[a-z0-9]+[a-z0-9-]*$`)
-)
-
 func suffix(modelUUID string, suffixLength uint) (string, error) {
-	names.IsValidModelName("wef")
 	if !names.IsValidModel(modelUUID) {
 		return "", errors.Errorf("model UUID %q %w", modelUUID, coreerrors.NotValid)
 	}
@@ -79,9 +72,4 @@ func DisambiguateResourceNameWithSuffixLength(modelUUID string, name string, max
 		return "", err
 	}
 	return fmt.Sprintf("%s-%s", name, suffix), nil
-}
-
-// IsValidModelName checks if the provided model name is valid.
-func IsValidModelName(modelName string) bool {
-	return validModelName.MatchString(modelName)
 }
