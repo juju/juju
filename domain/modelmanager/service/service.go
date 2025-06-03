@@ -637,7 +637,7 @@ func (s *Service) RemoveNonActivatedModel(
 		return errors.Capture(err)
 	}
 
-	if options.DeleteDB() {
+	if !options.DeleteDB() {
 		s.logger.Infof(
 			ctx,
 			"skipping model %q resource deletion, the model database is still present",

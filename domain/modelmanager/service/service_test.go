@@ -1493,7 +1493,9 @@ func (s *serviceSuite) TestRemoveNonActivatedModelWithDeleteDB(c *tc.C) {
 		nil,
 	)
 	s.mockModelRemover.EXPECT().DeleteDB(modelUUID).Return(nil)
-	err := svc.RemoveNonActivatedModel(c.Context(), modelUUID)
+	err := svc.RemoveNonActivatedModel(
+		c.Context(), modelUUID, modelmanager.WithDeleteDB(),
+	)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -1512,7 +1514,6 @@ func (s *serviceSuite) TestRemoveNonActivatedModelWithNoDeleteDB(c *tc.C) {
 	s.mockState.EXPECT().RemoveNonActivatedModel(gomock.Any(), modelUUID).Return(
 		nil,
 	)
-	s.mockModelRemover.EXPECT().DeleteDB(modelUUID).Return(nil)
 	err := svc.RemoveNonActivatedModel(
 		c.Context(),
 		modelUUID,
