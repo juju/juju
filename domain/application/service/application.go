@@ -40,7 +40,6 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
 )
 
 // ApplicationState describes retrieval and persistence methods for
@@ -609,7 +608,7 @@ func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApp
 }
 
 // makeStorageArgs creates a slice of ApplicationStorageArg from a map of storage directives.
-func makeStorageArgs(storage map[string]storage.Directive) []application.ApplicationStorageArg {
+func makeStorageArgs(storage map[string]domainstorage.StorageDirectiveAndScope) []application.ApplicationStorageArg {
 	var result []application.ApplicationStorageArg
 	for name, stor := range storage {
 		result = append(result, application.ApplicationStorageArg{
@@ -617,6 +616,7 @@ func makeStorageArgs(storage map[string]storage.Directive) []application.Applica
 			PoolNameOrType: stor.Pool,
 			Size:           stor.Size,
 			Count:          stor.Count,
+			Scope:          stor.Scope,
 		})
 	}
 	return result

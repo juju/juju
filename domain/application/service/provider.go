@@ -302,7 +302,8 @@ func makeCreateApplicationArgs(
 	if storageDirectives, err = addDefaultStorageDirectives(ctx, state, modelType, storageDirectives, meta.Storage); err != nil {
 		return application.BaseAddApplicationArg{}, errors.Errorf("adding default storage directives: %w", err)
 	}
-	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, storageDirectives, meta); err != nil {
+	storageDirectivesAndScope, err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, storageDirectives, meta)
+	if err != nil {
 		return application.BaseAddApplicationArg{}, errors.Errorf("invalid storage directives: %w", err)
 	}
 
@@ -360,7 +361,7 @@ func makeCreateApplicationArgs(
 		EndpointBindings:  args.EndpointBindings,
 		Resources:         makeResourcesArgs(args.ResolvedResources),
 		PendingResources:  args.PendingResources,
-		Storage:           makeStorageArgs(storageDirectives),
+		Storage:           makeStorageArgs(storageDirectivesAndScope),
 		Config:            applicationConfig,
 		Settings:          args.ApplicationSettings,
 		Status:            applicationStatus,
