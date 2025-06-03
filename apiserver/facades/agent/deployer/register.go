@@ -42,15 +42,12 @@ func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 
 	domainServices := ctx.DomainServices()
 
-	controllerConfigGetter := domainServices.ControllerConfig()
-	applicationService := domainServices.Application()
-	statusService := domainServices.Status()
-
 	return NewDeployerAPI(
 		domainServices.AgentPassword(),
-		controllerConfigGetter,
-		applicationService,
-		statusService,
+		domainServices.ControllerConfig(),
+		domainServices.Application(),
+		domainServices.Status(),
+		domainServices.Removal(),
 		authorizer,
 		st,
 		ctx.ObjectStore(),

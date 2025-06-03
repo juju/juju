@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -23,6 +24,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -44,17 +46,26 @@ type ControllerConfigGetter interface {
 
 // ApplicationService removes a unit from the dqlite database.
 type ApplicationService interface {
-	GetUnitLife(context.Context, coreunit.Name) (life.Value, error)
-	EnsureUnitDead(context.Context, coreunit.Name, leadership.Revoker) error
-	RemoveUnit(context.Context, coreunit.Name, leadership.Revoker) error
+	// GetUnitLife looks up the life of the specified unit.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.Value, error)
 
 	// WatchUnitAddRemoveOnMachine returns a watcher that observes changes to
 	// the units on a specified machine, emitting the names of the units. That
 	// is, we emit unit names only when a unit is created or deleted on the
 	// specified machine.
+	//
 	// The following errors may be returned:
 	// - [applicationerrors.MachineNotFound] if the machine does not exist
 	WatchUnitAddRemoveOnMachine(context.Context, machine.Name) (watcher.StringsWatcher, error)
+
+	// GetUnitUUID returns the UUID for the named unit.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
 }
 
 type StatusService interface {
@@ -65,6 +76,19 @@ type StatusService interface {
 	// SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	SetUnitWorkloadStatus(context.Context, coreunit.Name, corestatus.StatusInfo) error
+}
+
+// RemovalService defines operations for removing juju entities.
+type RemovalService interface {
+	// RemoveUnit checks if a unit with the input name exists.
+	// If it does, the unit is guaranteed after this call to be:
+	// - No longer alive.
+	// - Removed or scheduled to be removed with the input force qualification.
+	// The input wait duration is the time that we will give for the normal
+	// life-cycle advancement and removal to finish before forcefully removing the
+	// unit. This duration is ignored if the force argument is false.
+	// The UUID for the scheduled removal job is returned.
+	RemoveUnit(ctx context.Context, unitUUID coreunit.UUID, force bool, wait time.Duration) (removal.UUID, error)
 }
 
 // DeployerAPI provides access to the Deployer API facade.
@@ -78,6 +102,7 @@ type DeployerAPI struct {
 
 	controllerConfigGetter ControllerConfigGetter
 	applicationService     ApplicationService
+	removalService         RemovalService
 	leadershipRevoker      leadership.Revoker
 
 	store           objectstore.ObjectStore
@@ -94,6 +119,7 @@ func NewDeployerAPI(
 	controllerConfigGetter ControllerConfigGetter,
 	applicationService ApplicationService,
 	statusService StatusService,
+	removalService RemovalService,
 	authorizer facade.Authorizer,
 	st *state.State,
 	store objectstore.ObjectStore,
@@ -136,6 +162,7 @@ func NewDeployerAPI(
 		unitStatusSetter:       common.NewUnitStatusSetter(statusService, clock, getAuthFunc),
 		controllerConfigGetter: controllerConfigGetter,
 		applicationService:     applicationService,
+		removalService:         removalService,
 		leadershipRevoker:      leadershipRevoker,
 		canRead:                auth,
 		canWrite:               auth,
@@ -291,8 +318,8 @@ func getAllUnits(st *state.State, tag names.Tag) ([]string, error) {
 	return nil, errors.Errorf("cannot obtain units of machine %q: %v", tag, watch.Err())
 }
 
-// Remove removes every given unit from state, calling EnsureDead
-// first, then Remove.
+// Remove removes every given unit from the application domain, this is ensured
+// by the removal domain.
 func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -312,55 +339,17 @@ func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.
 			continue
 		}
 
-		// TODO(units) - remove me.
-		// Dual write to state.
-		// We need to set the unit life to Dead in state **first**
-		// because the life watcher is currently looking at state
-		// not dqlite.
-		unit, err := d.st.Unit(tag.Id())
-		if err != nil {
-			if errors.Is(err, errors.NotFound) {
-				err = apiservererrors.ErrPerm
-			}
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if unit.Life() == state.Alive {
-			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("cannot remove unit %q: still alive", tag.Id()))
-			continue
-		}
-		if err := unit.EnsureDead(); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		unitName, err := coreunit.NewName(tag.Id())
+		unitUUID, err := d.applicationService.GetUnitUUID(ctx, coreunit.Name(tag.Id()))
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		// Given the way dual write works, we need this for now.
-		if err = d.applicationService.EnsureUnitDead(ctx, unitName, d.leadershipRevoker); err != nil {
-			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = errors.NotFoundf("unit %s", unitName)
-			}
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		// This is the call we will keep once mongo is removed.
-		// We will need to remove the alive check.
-		if err = d.applicationService.RemoveUnit(ctx, unitName, d.leadershipRevoker); err != nil {
-			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = errors.NotFoundf("unit %s", unitName)
-			}
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
 
-		// TODO(units) - remove me.
-		if err := unit.Remove(d.store); err != nil {
+		_, err = d.removalService.RemoveUnit(ctx, unitUUID, false, 0)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", tag.Id()))
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
 		}
 	}
 	return result, nil
