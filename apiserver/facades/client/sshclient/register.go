@@ -46,14 +46,12 @@ func newFacadeBase(ctx facade.ModelContext) (*Facade, error) {
 		return nil, errors.Trace(err)
 	}
 	domainServices := ctx.DomainServices()
-	facadeBackend := backend{
-		State:          st,
-		networkService: domainServices.Network(),
-	}
 	return internalFacade(
 		names.NewControllerTag(ctx.ControllerUUID()),
 		names.NewModelTag(ctx.ModelUUID().String()),
-		&facadeBackend,
+		st,
+		domainServices.Application(),
+		domainServices.Network(),
 		domainServices.Config(),
 		domainServices.ModelProvider(),
 		leadershipReader,

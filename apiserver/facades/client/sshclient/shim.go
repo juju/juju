@@ -15,7 +15,7 @@ import (
 
 // Backend defines the State API used by the sshclient facade.
 type Backend interface {
-	GetMachineForEntity(tag string) (SSHMachine, error)
+	Machine(id string) (*state.Machine, error)
 	GetSSHHostKeys(names.MachineTag) (state.SSHHostKeys, error)
 }
 
@@ -29,17 +29,9 @@ type SSHMachine interface {
 	AllDeviceSpaceAddresses(context.Context) (network.SpaceAddresses, error)
 }
 
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	// GetAllSubnets returns all the subnets for the model.
-	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
-}
-
 type sshMachine struct {
 	*state.Machine
 
-	st             *state.State
 	networkService NetworkService
 }
 
@@ -63,44 +55,4 @@ func (m *sshMachine) AllDeviceSpaceAddresses(ctx context.Context) (network.Space
 		}
 	}
 	return spaceAddrs, nil
-}
-
-type backend struct {
-	*state.State
-
-	networkService NetworkService
-}
-
-// GetMachineForEntity takes a machine or unit tag (as a string) and
-// returns the associated SSHMachine.
-func (b *backend) GetMachineForEntity(tagString string) (SSHMachine, error) {
-	tag, err := names.ParseTag(tagString)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	switch tag := tag.(type) {
-	case names.MachineTag:
-		m, err := b.State.Machine(tag.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return &sshMachine{Machine: m, st: b.State, networkService: b.networkService}, nil
-	case names.UnitTag:
-		unit, err := b.State.Unit(tag.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		machineId, err := unit.AssignedMachineId()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		m, err := b.State.Machine(machineId)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return &sshMachine{Machine: m, st: b.State, networkService: b.networkService}, nil
-	default:
-		return nil, errors.Errorf("unsupported entity: %q", tagString)
-	}
 }

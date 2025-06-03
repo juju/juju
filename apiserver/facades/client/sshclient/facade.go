@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/virtualhostname"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -28,6 +30,8 @@ type Facade struct {
 
 	leadershipReader leadership.Reader
 
+	applicationService   ApplicationService
+	networkService       NetworkService
 	modelConfigService   ModelConfigService
 	modelProviderService ModelProviderService
 	modelTag             names.ModelTag
@@ -49,6 +53,8 @@ func internalFacade(
 	controllerTag names.ControllerTag,
 	modelTag names.ModelTag,
 	backend Backend,
+	applicationService ApplicationService,
+	networkService NetworkService,
 	modelConfigService ModelConfigService,
 	modelProviderService ModelProviderService,
 	leadershipReader leadership.Reader, auth facade.Authorizer,
@@ -109,7 +115,7 @@ func (facade *Facade) PublicAddress(ctx context.Context, args params.Entities) (
 	}
 
 	getter := func(m SSHMachine) (network.SpaceAddress, error) { return m.PublicAddress() }
-	return facade.getAddressPerEntity(args, getter)
+	return facade.getAddressPerEntity(ctx, args, getter)
 }
 
 // PrivateAddress reports the preferred private network address for one or
@@ -120,7 +126,7 @@ func (facade *Facade) PrivateAddress(ctx context.Context, args params.Entities) 
 	}
 
 	getter := func(m SSHMachine) (network.SpaceAddress, error) { return m.PrivateAddress() }
-	return facade.getAddressPerEntity(args, getter)
+	return facade.getAddressPerEntity(ctx, args, getter)
 }
 
 // AllAddresses reports all addresses that might have SSH listening for each
@@ -153,17 +159,17 @@ func (facade *Facade) AllAddresses(ctx context.Context, args params.Entities) (p
 		return uniqueAddresses, nil
 	}
 
-	return facade.getAllEntityAddresses(args, getter)
+	return facade.getAllEntityAddresses(ctx, args, getter)
 }
 
-func (facade *Facade) getAllEntityAddresses(args params.Entities, getter func(SSHMachine) ([]network.SpaceAddress, error)) (
+func (facade *Facade) getAllEntityAddresses(ctx context.Context, args params.Entities, getter func(SSHMachine) ([]network.SpaceAddress, error)) (
 	params.SSHAddressesResults, error,
 ) {
 	out := params.SSHAddressesResults{
 		Results: make([]params.SSHAddressesResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		machine, err := facade.backend.GetMachineForEntity(entity.Tag)
+		machine, err := facade.getMachineForEntity(ctx, entity.Tag)
 		if err != nil {
 			out.Results[i].Error = apiservererrors.ServerError(err)
 		} else {
@@ -182,7 +188,7 @@ func (facade *Facade) getAllEntityAddresses(args params.Entities, getter func(SS
 	return out, nil
 }
 
-func (facade *Facade) getAddressPerEntity(args params.Entities, addressGetter func(SSHMachine) (network.SpaceAddress, error)) (
+func (facade *Facade) getAddressPerEntity(ctx context.Context, args params.Entities, addressGetter func(SSHMachine) (network.SpaceAddress, error)) (
 	params.SSHAddressResults, error,
 ) {
 	out := params.SSHAddressResults{
@@ -197,7 +203,7 @@ func (facade *Facade) getAddressPerEntity(args params.Entities, addressGetter fu
 		return []network.SpaceAddress{address}, nil
 	}
 
-	fullResults, err := facade.getAllEntityAddresses(args, getter)
+	fullResults, err := facade.getAllEntityAddresses(ctx, args, getter)
 	if err != nil {
 		return params.SSHAddressResults{}, errors.Trace(err)
 	}
@@ -224,7 +230,7 @@ func (facade *Facade) PublicKeys(ctx context.Context, args params.Entities) (par
 		Results: make([]params.SSHPublicKeysResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		machine, err := facade.backend.GetMachineForEntity(entity.Tag)
+		machine, err := facade.getMachineForEntity(ctx, entity.Tag)
 		if err != nil {
 			out.Results[i].Error = apiservererrors.ServerError(err)
 		} else {
@@ -272,6 +278,36 @@ func (facade *Facade) ModelCredentialForSSH(ctx context.Context) (params.CloudSp
 	}
 	result.Result = common.CloudSpecToParams(spec)
 	return result, nil
+}
+
+func (facade *Facade) getMachineForEntity(ctx context.Context, tagString string) (SSHMachine, error) {
+	tag, err := names.ParseTag(tagString)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	switch tag := tag.(type) {
+	case names.MachineTag:
+		m, err := facade.backend.Machine(tag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &sshMachine{Machine: m, networkService: facade.networkService}, nil
+	case names.UnitTag:
+		machineName, err := facade.applicationService.GetUnitMachineName(ctx, unit.Name(tag.Id()))
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return nil, errors.NotFoundf("unit %q", tag.Id())
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		m, err := facade.backend.Machine(machineName.String())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &sshMachine{Machine: m, networkService: facade.networkService}, nil
+	default:
+		return nil, errors.Errorf("unsupported entity: %q", tagString)
+	}
 }
 
 // getVirtualHostnameForEntity returns the virtual hostname for the given entity. It parses the tag string to
