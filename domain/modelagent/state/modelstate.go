@@ -1160,6 +1160,13 @@ SET    target_version = $setAgentVersionTarget.target_version
 			)
 		}
 
+		// If the current version is the same as the toVersion we don't need to
+		// perform the set operation. This avoids creating any churn in the
+		// change log.
+		if currentAgentVersion.TargetVersion == toVersionInput.TargetVersion {
+			return nil
+		}
+
 		err = tx.Query(ctx, setAgentVersionStmt, toVersionInput).Run()
 		if err != nil {
 			return errors.Errorf(
