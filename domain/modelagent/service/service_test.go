@@ -753,7 +753,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionMachineBaseValidat
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(gomock.Any()).Return(true, nil)
-	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(1, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(1, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.state)
 	_, err := svc.UpgradeModelTargetAgentVersion(c.Context())
@@ -769,7 +769,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersion(c *tc.C) {
 
 	currentTargetVersion := s.getVersionMinorLess()
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
-	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(0, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(0, nil)
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
 	s.state.EXPECT().SetModelTargetAgentVersion(
@@ -830,7 +830,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamMachineBaseV
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(gomock.Any()).Return(true, nil)
-	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(1, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(1, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.state)
 	_, err := svc.UpgradeModelTargetAgentVersionStream(
@@ -848,7 +848,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStream(c *tc.C) {
 
 	currentTargetVersion := s.getVersionMinorLess()
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
-	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(0, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(0, nil)
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
 	s.state.EXPECT().SetModelTargetAgentVersionAndStream(
@@ -943,7 +943,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToMachineBaseValid
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
 	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
-	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(1, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(1, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.state)
 	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), jujuversion.Current)
@@ -960,7 +960,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionTo(c *tc.C) {
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
 	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
-	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(0, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(0, nil)
 	s.state.EXPECT().SetModelTargetAgentVersion(
 		gomock.Any(),
 		currentTargetVersion,
@@ -1073,7 +1073,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToMachineBas
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
 	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
-	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(1, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(1, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.state)
 	err := svc.UpgradeModelTargetAgentVersionStreamTo(
@@ -1092,7 +1092,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamTo(c *tc.C) 
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(jujuversion.Current).Return(true, nil)
 	s.state.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
-	s.state.EXPECT().GetMachineCountNotUsingBases(gomock.Any(), gomock.Any()).Return(0, nil)
+	s.state.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(0, nil)
 	s.state.EXPECT().SetModelTargetAgentVersionAndStream(
 		gomock.Any(),
 		currentTargetVersion,

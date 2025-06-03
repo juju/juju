@@ -39,11 +39,11 @@ type AgentBinaryFinder interface {
 type agentBinaryFinderFunc func(semversion.Number) (bool, error)
 
 type State interface {
-	// GetMachineCountNotUsingBases returns the number of machines that are not
+	// GetMachineCountNotUsingBase returns the number of machines that are not
 	// using one of the supplied bases. If no machines exist in the model or if
 	// no machines exist that are using a base not in the set provided, zero is
 	// returned with no error.
-	GetMachineCountNotUsingBases(context.Context, []corebase.Base) (int, error)
+	GetMachineCountNotUsingBase(context.Context, []corebase.Base) (int, error)
 
 	// GetMachinesAgentBinaryMetadata reports the agent binary metadata that each
 	// machine in the model is currently running. This is a bulk call to support
@@ -841,7 +841,7 @@ func (s *Service) validateModelCanBeUpgraded(
 		).Add(modelagenterrors.CannotUpgradeControllerModel)
 	}
 
-	failedMachineCount, err := s.st.GetMachineCountNotUsingBases(ctx, corebase.WorkloadBases())
+	failedMachineCount, err := s.st.GetMachineCountNotUsingBase(ctx, corebase.WorkloadBases())
 	if err != nil {
 		return errors.Errorf(
 			"getting count of machines in model not running a supported workload base: %w",

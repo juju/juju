@@ -107,41 +107,41 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// GetMachineCountNotUsingBases mocks base method.
-func (m *MockState) GetMachineCountNotUsingBases(arg0 context.Context, arg1 []base.Base) (int, error) {
+// GetMachineCountNotUsingBase mocks base method.
+func (m *MockState) GetMachineCountNotUsingBase(arg0 context.Context, arg1 []base.Base) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMachineCountNotUsingBases", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetMachineCountNotUsingBase", arg0, arg1)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetMachineCountNotUsingBases indicates an expected call of GetMachineCountNotUsingBases.
-func (mr *MockStateMockRecorder) GetMachineCountNotUsingBases(arg0, arg1 any) *MockStateGetMachineCountNotUsingBasesCall {
+// GetMachineCountNotUsingBase indicates an expected call of GetMachineCountNotUsingBase.
+func (mr *MockStateMockRecorder) GetMachineCountNotUsingBase(arg0, arg1 any) *MockStateGetMachineCountNotUsingBaseCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineCountNotUsingBases", reflect.TypeOf((*MockState)(nil).GetMachineCountNotUsingBases), arg0, arg1)
-	return &MockStateGetMachineCountNotUsingBasesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineCountNotUsingBase", reflect.TypeOf((*MockState)(nil).GetMachineCountNotUsingBase), arg0, arg1)
+	return &MockStateGetMachineCountNotUsingBaseCall{Call: call}
 }
 
-// MockStateGetMachineCountNotUsingBasesCall wrap *gomock.Call
-type MockStateGetMachineCountNotUsingBasesCall struct {
+// MockStateGetMachineCountNotUsingBaseCall wrap *gomock.Call
+type MockStateGetMachineCountNotUsingBaseCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachineCountNotUsingBasesCall) Return(arg0 int, arg1 error) *MockStateGetMachineCountNotUsingBasesCall {
+func (c *MockStateGetMachineCountNotUsingBaseCall) Return(arg0 int, arg1 error) *MockStateGetMachineCountNotUsingBaseCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachineCountNotUsingBasesCall) Do(f func(context.Context, []base.Base) (int, error)) *MockStateGetMachineCountNotUsingBasesCall {
+func (c *MockStateGetMachineCountNotUsingBaseCall) Do(f func(context.Context, []base.Base) (int, error)) *MockStateGetMachineCountNotUsingBaseCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachineCountNotUsingBasesCall) DoAndReturn(f func(context.Context, []base.Base) (int, error)) *MockStateGetMachineCountNotUsingBasesCall {
+func (c *MockStateGetMachineCountNotUsingBaseCall) DoAndReturn(f func(context.Context, []base.Base) (int, error)) *MockStateGetMachineCountNotUsingBaseCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

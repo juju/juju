@@ -165,11 +165,11 @@ func (st *State) checkUnitNotDead(
 	}
 }
 
-// GetMachineCountNotUsingBases returns the number of machines that are not
+// GetMachineCountNotUsingBase returns the number of machines that are not
 // using one of the supplied bases. If no machines exist in the model or if
 // no machines exist that are using a base not in the set provided, zero is
 // returned with no error.
-func (st *State) GetMachineCountNotUsingBases(
+func (st *State) GetMachineCountNotUsingBase(
 	ctx context.Context,
 	bases []corebase.Base,
 ) (int, error) {
