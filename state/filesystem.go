@@ -269,7 +269,7 @@ func (f *filesystem) SetStatus(fsStatus status.StatusInfo) error {
 	case status.Attaching, status.Attached, status.Detaching, status.Detached, status.Destroying:
 	case status.Error:
 		if fsStatus.Message == "" {
-			return errors.Errorf("cannot set status %q without info", fsStatus.Status)
+			return errors.Errorf("cannot set status %q without message", fsStatus.Status)
 		}
 	case status.Pending:
 		// If a filesystem is not yet provisioned, we allow its status

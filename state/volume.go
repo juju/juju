@@ -310,7 +310,7 @@ func (v *volume) SetStatus(volumeStatus status.StatusInfo) error {
 	case status.Attaching, status.Attached, status.Detaching, status.Detached, status.Destroying:
 	case status.Error:
 		if volumeStatus.Message == "" {
-			return errors.Errorf("cannot set status %q without info", volumeStatus.Status)
+			return errors.Errorf("cannot set status %q without message", volumeStatus.Status)
 		}
 	case status.Pending:
 		// If a volume is not yet provisioned, we allow its status
