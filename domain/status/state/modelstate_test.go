@@ -41,7 +41,7 @@ import (
 type stateSuite struct {
 	schematesting.ModelSuite
 
-	state *State
+	state *ModelState
 }
 
 func TestStateSuite(t *testing.T) {
@@ -51,7 +51,7 @@ func TestStateSuite(t *testing.T) {
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	s.state = NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
 func (s *stateSuite) TestGetModelStatusInfo(c *tc.C) {
@@ -74,7 +74,7 @@ func (s *stateSuite) TestGetModelStatusInfo(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetModelStatusInfoNotFound(c *tc.C) {
-	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	state := NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	_, err := state.GetModelStatusInfo(c.Context())
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
