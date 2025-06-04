@@ -60,3 +60,9 @@ type applicationUnitName struct {
 	// UnitName is the name of the unit.
 	UnitName string `db:"unit_name"`
 }
+
+// applicationUUID holds a application UUID in string form.
+type applicationUUID struct {
+	// UUID uniquely identifies a application.
+	UUID string `db:"application_uuid"`
+}
