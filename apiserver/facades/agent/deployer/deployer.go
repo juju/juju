@@ -57,6 +57,19 @@ type ApplicationService interface {
 	WatchUnitAddRemoveOnMachine(context.Context, machine.Name) (watcher.StringsWatcher, error)
 }
 
+// ControllerNodeService defines the methods on the controller node service
+// that are needed by APIAddresser used by the deployer API.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+	// addresses that are available for agents. The map is keyed by controller
+	// ID, and the values are slices of strings representing the API addresses
+	// for each controller node.
+	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	// WatchControllerAPIAddresses returns a watcher that observes changes to the
+	// controller ip addresses.
+	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
+}
+
 type StatusService interface {
 	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
@@ -82,7 +95,6 @@ type DeployerAPI struct {
 
 	store           objectstore.ObjectStore
 	st              *state.State
-	resources       facade.Resources
 	authorizer      facade.Authorizer
 	getCanWatch     common.GetAuthFunc
 	watcherRegistry facade.WatcherRegistry
@@ -93,14 +105,13 @@ func NewDeployerAPI(
 	agentPasswordService AgentPasswordService,
 	controllerConfigGetter ControllerConfigGetter,
 	applicationService ApplicationService,
+	controllerNodeService ControllerNodeService,
 	statusService StatusService,
 	authorizer facade.Authorizer,
 	st *state.State,
 	store objectstore.ObjectStore,
-	resources facade.Resources,
 	leadershipRevoker leadership.Revoker,
 	watcherRegistry facade.WatcherRegistry,
-	systemState *state.State,
 	clock clock.Clock,
 ) (*DeployerAPI, error) {
 	getAuthFunc := func(context.Context) (common.AuthFunc, error) {
@@ -132,7 +143,7 @@ func NewDeployerAPI(
 
 	return &DeployerAPI{
 		PasswordChanger:        common.NewPasswordChanger(agentPasswordService, st, getAuthFunc),
-		APIAddresser:           common.NewAPIAddresser(systemState, resources),
+		APIAddresser:           common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		unitStatusSetter:       common.NewUnitStatusSetter(statusService, clock, getAuthFunc),
 		controllerConfigGetter: controllerConfigGetter,
 		applicationService:     applicationService,
@@ -141,7 +152,6 @@ func NewDeployerAPI(
 		canWrite:               auth,
 		store:                  store,
 		st:                     st,
-		resources:              resources,
 		authorizer:             authorizer,
 		getCanWatch:            getCanWatch,
 		watcherRegistry:        watcherRegistry,
@@ -220,26 +230,6 @@ func (d *DeployerAPI) SetStatus(ctx context.Context, args params.SetStatus) (par
 // It should be blanked when this facade version is next incremented.
 func (d *DeployerAPI) ModelUUID() params.StringResult {
 	return params.StringResult{Result: d.st.ModelUUID()}
-}
-
-// APIHostPorts returns the API server addresses.
-func (d *DeployerAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := d.controllerConfigGetter.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return d.APIAddresser.APIHostPorts(ctx, controllerConfig)
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-func (d *DeployerAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := d.controllerConfigGetter.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return d.APIAddresser.APIAddresses(ctx, controllerConfig)
 }
 
 // Life returns the life of the specified units.
