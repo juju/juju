@@ -5,6 +5,7 @@ package network
 
 import (
 	"context"
+	"net"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
@@ -54,10 +55,18 @@ func ParamsNetworkConfigToDomain(
 
 		var addrs []domainnetwork.NetAddr
 		for _, addr := range arg.Addresses {
+			ip := addr.Value
+
+			_, ipNet, _ := net.ParseCIDR(addr.CIDR)
+			if ipNet != nil {
+				ipNet.IP = net.ParseIP(addr.Value)
+				ip = ipNet.String()
+			}
+
 			addrs = append(addrs, domainnetwork.NetAddr{
 				InterfaceName:    arg.InterfaceName,
 				ProviderID:       nil,
-				AddressValue:     addr.Value,
+				AddressValue:     ip,
 				ProviderSubnetID: nil,
 				AddressType:      network.AddressType(addr.Type),
 				ConfigType:       network.AddressConfigType(addr.ConfigType),

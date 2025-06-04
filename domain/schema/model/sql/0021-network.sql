@@ -186,8 +186,7 @@ CREATE TABLE ip_address (
     -- the link layer device this address belongs to.
     net_node_uuid TEXT NOT NULL,
     device_uuid TEXT NOT NULL,
-    -- The value of the configured IP address.
-    -- e.g. 192.168.1.2 or 2001:db8:0000:0000:0000:0000:0000:00001.
+    -- The IP address *including the subnet mask*.
     address_value TEXT NOT NULL,
     -- NOTE (manadart 2025-03--25): The fact that this is nullable is a wart
     -- from our Kubernetes provider. There is nothing to say we couldn't do
@@ -195,13 +194,9 @@ CREATE TABLE ip_address (
     -- NodeSpec.PodCIDRs for each. We could then match the incoming pod IPs to
     -- those and assign this field.
     subnet_uuid TEXT,
-    -- one of ipv4, ipv6 etc.
     type_id INT NOT NULL,
-    -- one of dhcp, static, manual, loopback etc.
     config_type_id INT NOT NULL,
-    -- one of host, provider
     origin_id INT NOT NULL,
-    -- one of public, local-cloud, local-machine, link-local etc.
     scope_id INT NOT NULL,
     -- indicates that this address is not the primary
     -- address associated with the NIC.

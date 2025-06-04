@@ -36,10 +36,11 @@ func (s *typesSuite) TestParamsNetworkConfigToDomain(c *tc.C) {
 			DNSServers:          []string{"8.8.8.8"},
 			Addresses: []params.Address{
 				{
-					Value:      "192.168.1.100/24",
+					Value:      "192.168.1.100",
 					Type:       "ipv4",
 					ConfigType: "dhcp",
 					Scope:      "local-cloud",
+					CIDR:       "192.168.1.0/24",
 				},
 			},
 		},
