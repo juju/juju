@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
@@ -41,6 +42,8 @@ type WatcherFactory interface {
 // Service provides the API for working with entity removal.
 type Service struct {
 	st State
+
+	leadershipRevoker leadership.Revoker
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -102,14 +105,16 @@ type WatchableService struct {
 func NewWatchableService(
 	st State,
 	watcherFactory WatcherFactory,
+	leadershipRevoker leadership.Revoker,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
-			st:     st,
-			clock:  clock,
-			logger: logger,
+			st:                st,
+			leadershipRevoker: leadershipRevoker,
+			clock:             clock,
+			logger:            logger,
 		},
 		watcherFactory: watcherFactory,
 	}

@@ -310,6 +310,46 @@ func (c *MockStateGetAllJobsCall) DoAndReturn(f func(context.Context) ([]removal
 	return c
 }
 
+// GetApplicationNameAndUnitNameByUnitUUID mocks base method.
+func (m *MockState) GetApplicationNameAndUnitNameByUnitUUID(arg0 context.Context, arg1 string) (string, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationNameAndUnitNameByUnitUUID", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetApplicationNameAndUnitNameByUnitUUID indicates an expected call of GetApplicationNameAndUnitNameByUnitUUID.
+func (mr *MockStateMockRecorder) GetApplicationNameAndUnitNameByUnitUUID(arg0, arg1 any) *MockStateGetApplicationNameAndUnitNameByUnitUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationNameAndUnitNameByUnitUUID", reflect.TypeOf((*MockState)(nil).GetApplicationNameAndUnitNameByUnitUUID), arg0, arg1)
+	return &MockStateGetApplicationNameAndUnitNameByUnitUUIDCall{Call: call}
+}
+
+// MockStateGetApplicationNameAndUnitNameByUnitUUIDCall wrap *gomock.Call
+type MockStateGetApplicationNameAndUnitNameByUnitUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationNameAndUnitNameByUnitUUIDCall) Return(arg0, arg1 string, arg2 error) *MockStateGetApplicationNameAndUnitNameByUnitUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationNameAndUnitNameByUnitUUIDCall) Do(f func(context.Context, string) (string, string, error)) *MockStateGetApplicationNameAndUnitNameByUnitUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationNameAndUnitNameByUnitUUIDCall) DoAndReturn(f func(context.Context, string) (string, string, error)) *MockStateGetApplicationNameAndUnitNameByUnitUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRelationLife mocks base method.
 func (m *MockState) GetRelationLife(arg0 context.Context, arg1 string) (life.Life, error) {
 	m.ctrl.T.Helper()
