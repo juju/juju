@@ -361,6 +361,30 @@ func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 	s.expectK8sPodCount(c, unitUUID, 0)
 }
 
+func (s *unitSuite) TestGetApplicationNameAndUnitNameByUnitUUID(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	appName, unitName, err := st.GetApplicationNameAndUnitNameByUnitUUID(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(appName, tc.Equals, "some-app")
+	c.Check(unitName, tc.Equals, "some-app/0")
+}
+
+func (s *unitSuite) TestGetApplicationNameAndUnitNameByUnitUUIDNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, _, err := st.GetApplicationNameAndUnitNameByUnitUUID(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *unitSuite) expectK8sPodCount(c *tc.C, unitUUID unit.UUID, expected int) {
 	var count int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
