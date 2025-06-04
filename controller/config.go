@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/pki"
@@ -1010,8 +1011,8 @@ func (c Config) PublicDNSAddress() string {
 
 // JujuHASpace is the network space within which the MongoDB replica-set
 // should communicate.
-func (c Config) JujuHASpace() string {
-	return c.asString(JujuHASpace)
+func (c Config) JujuHASpace() network.SpaceName {
+	return network.SpaceName(c.asString(JujuHASpace))
 }
 
 // SystemSSHKeys returns the trusted ssh keys that agents of this controller
@@ -1022,8 +1023,8 @@ func (c Config) SystemSSHKeys() string {
 
 // JujuManagementSpace is the network space that agents should use to
 // communicate with controllers.
-func (c Config) JujuManagementSpace() string {
-	return c.asString(JujuManagementSpace)
+func (c Config) JujuManagementSpace() network.SpaceName {
+	return network.SpaceName(c.asString(JujuManagementSpace))
 }
 
 // CAASOperatorImagePath sets the URL of the docker image
@@ -1477,7 +1478,7 @@ func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
 		}
 	}
 
-	for _, c := range []string{c.JujuManagementSpace(), c.JujuHASpace()} {
+	for _, c := range []string{c.JujuManagementSpace().String(), c.JujuHASpace().String()} {
 		// NOTE (hml) 2019-10-30
 		// This can cause issues in deployment and/or enabling HA if
 		// c == AlphaSpaceName as the provisioner expects any space

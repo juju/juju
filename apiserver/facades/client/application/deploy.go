@@ -57,7 +57,7 @@ type DeployApplicationParams struct {
 	Storage          map[string]storage.Directive
 	Devices          map[string]devices.Constraints
 	AttachStorage    []names.StorageTag
-	EndpointBindings map[string]string
+	EndpointBindings map[string]network.SpaceName
 	// Resources is a map of resource name to IDs of pending resources.
 	Resources map[string]string
 
@@ -185,7 +185,7 @@ func DeployApplication(
 				Storage:          args.Storage,
 				DownloadInfo:     downloadInfo,
 				PendingResources: pendingResources,
-				EndpointBindings: transformBindings(args.EndpointBindings),
+				EndpointBindings: args.EndpointBindings,
 				Devices:          args.Devices,
 				ApplicationStatus: &status.StatusInfo{
 					Status: status.Unset,

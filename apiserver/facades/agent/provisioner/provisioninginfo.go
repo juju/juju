@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -331,7 +332,7 @@ func (api *ProvisionerAPI) machineSpaces(
 	cons constraints.Value,
 	allSpaceInfos network.SpaceInfos,
 	endpointBindings map[string]*state.Bindings,
-) ([]string, error) {
+) ([]network.SpaceName, error) {
 
 	includeSpaces := set.NewStrings(cons.IncludeSpaces()...)
 	excludeSpaces := set.NewStrings(cons.ExcludeSpaces()...)
@@ -351,14 +352,14 @@ func (api *ProvisionerAPI) machineSpaces(
 		}
 	}
 
-	return includeSpaces.SortedValues(), nil
+	return transform.Slice(includeSpaces.SortedValues(), func(s string) network.SpaceName { return network.SpaceName(s) }), nil
 }
 
 func (api *ProvisionerAPI) machineSpaceTopology(
 	ctx context.Context,
 	machineID string,
 	cons constraints.Value,
-	spaceNames []string,
+	spaceNames []network.SpaceName,
 	cloudType string,
 ) (params.ProvisioningNetworkTopology, error) {
 	var topology params.ProvisioningNetworkTopology
@@ -367,7 +368,7 @@ func (api *ProvisionerAPI) machineSpaceTopology(
 	// name and that's the alpha space unless it was explicitly set as a
 	// constraint, we don't bother setting a topology that constrains
 	// provisioning.
-	consHasOnlyAlpha := len(cons.IncludeSpaces()) == 1 && cons.IncludeSpaces()[0] == network.AlphaSpaceName
+	consHasOnlyAlpha := len(cons.IncludeSpaces()) == 1 && cons.IncludeSpaces()[0] == network.AlphaSpaceName.String()
 	if len(spaceNames) < 1 ||
 		((len(spaceNames) == 1 && spaceNames[0] == network.AlphaSpaceName) && !consHasOnlyAlpha) {
 		return topology, nil
@@ -398,7 +399,7 @@ func (api *ProvisionerAPI) machineSpaceTopology(
 			topology.SubnetAZs[sID] = zones
 			subnetIDs = append(subnetIDs, sID)
 		}
-		topology.SpaceSubnets[spaceName] = subnetIDs
+		topology.SpaceSubnets[spaceName.String()] = subnetIDs
 	}
 
 	return topology, nil
@@ -407,7 +408,7 @@ func (api *ProvisionerAPI) machineSpaceTopology(
 func (api *ProvisionerAPI) subnetsAndZonesForSpace(
 	ctx context.Context,
 	machineID string,
-	spaceName string,
+	spaceName network.SpaceName,
 	cloudType string,
 ) (map[string][]string, error) {
 	space, err := api.networkService.SpaceByName(ctx, spaceName)
@@ -548,11 +549,11 @@ func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(spaceInfos network.
 		}
 
 		for endpoint, spaceID := range bindings.Map() {
-			space := spaceInfos.GetByID(spaceID)
+			space := spaceInfos.GetByID(network.SpaceUUID(spaceID))
 			if space != nil {
 				bound := string(space.ProviderId)
 				if bound == "" {
-					bound = string(space.Name)
+					bound = space.Name.String()
 				}
 				combinedBindings[endpoint] = bound
 			} else {

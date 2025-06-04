@@ -77,7 +77,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 
 	actualSpaces := dst.Spaces()
 	c.Assert(len(actualSpaces), tc.Equals, 1)
-	c.Assert(actualSpaces[0].Name(), tc.Equals, string(spaces[0].Name))
+	c.Assert(actualSpaces[0].Name(), tc.Equals, spaces[0].Name.String())
 	c.Assert(actualSpaces[0].ProviderID(), tc.Equals, string(spaces[0].ProviderId))
 
 	actualSubnets := dst.Subnets()
@@ -85,8 +85,8 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	c.Assert(actualSubnets[0].CIDR(), tc.Equals, subnets[0].CIDR)
 	c.Assert(actualSubnets[0].VLANTag(), tc.Equals, subnets[0].VLANTag)
 	c.Assert(actualSubnets[0].AvailabilityZones(), tc.SameContents, subnets[0].AvailabilityZones)
-	c.Assert(actualSubnets[0].SpaceID(), tc.Equals, subnets[0].SpaceID)
-	c.Assert(actualSubnets[0].SpaceName(), tc.Equals, subnets[0].SpaceName)
+	c.Assert(actualSubnets[0].SpaceID(), tc.Equals, subnets[0].SpaceID.String())
+	c.Assert(actualSubnets[0].SpaceName(), tc.Equals, subnets[0].SpaceName.String())
 	c.Assert(actualSubnets[0].ProviderId(), tc.Equals, string(subnets[0].ProviderId))
 	c.Assert(actualSubnets[0].ProviderSpaceId(), tc.Equals, string(subnets[0].ProviderSpaceId))
 	c.Assert(actualSubnets[0].ProviderNetworkId(), tc.Equals, string(subnets[0].ProviderNetworkId))

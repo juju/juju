@@ -396,7 +396,7 @@ func (f *FirewallerAPI) SpaceInfos(ctx context.Context, args params.SpaceInfosPa
 			selectList   = set.NewStrings(args.FilterBySpaceIDs...)
 		)
 		for _, si := range allSpaces {
-			if selectList.Contains(si.ID) {
+			if selectList.Contains(si.ID.String()) {
 				filteredList = append(filteredList, si)
 			}
 		}

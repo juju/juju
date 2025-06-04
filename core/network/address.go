@@ -547,7 +547,7 @@ func (pas ProviderAddresses) ToSpaceAddresses(spaceInfos SpaceInfos) (SpaceAddre
 
 		// If the provider explicitly sets the space, i.e. MAAS, prefer the name.
 		if pa.SpaceName != "" {
-			info := spaceInfos.GetByName(string(pa.SpaceName))
+			info := spaceInfos.GetByName(pa.SpaceName)
 			if info == nil {
 				return nil, errors.Errorf("space with name %q %w", pa.SpaceName, coreerrors.NotFound)
 			}
@@ -585,7 +585,7 @@ func (pas ProviderAddresses) OneMatchingScope(getMatcher ScopeMatchFunc) (Provid
 type SpaceAddress struct {
 	MachineAddress
 	Origin  Origin
-	SpaceID string
+	SpaceID SpaceUUID
 }
 
 // GoString implements fmt.GoStringer.
@@ -605,7 +605,7 @@ func (a SpaceAddress) String() string {
 
 	if a.SpaceID != "" {
 		buf.WriteString("@space:")
-		buf.WriteString(a.SpaceID)
+		buf.WriteString(a.SpaceID.String())
 	}
 
 	return buf.String()

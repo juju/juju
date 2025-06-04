@@ -1369,7 +1369,7 @@ func (st *State) addMachineWithPlacement(
 		// a constraint.  This also preserves behavior from when the
 		// AlphaSpaceName was "". This condition will be removed with
 		// the institution of universal mutable spaces.
-		if name != network.AlphaSpaceName {
+		if name != network.AlphaSpaceName.String() {
 			spaces.Add(name)
 		}
 	}

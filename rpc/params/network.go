@@ -481,7 +481,7 @@ func FromProviderAddress(addr network.ProviderAddress) Address {
 		CIDR:            addr.CIDR,
 		Type:            string(addr.Type),
 		Scope:           string(addr.Scope),
-		SpaceName:       string(addr.SpaceName),
+		SpaceName:       addr.SpaceName.String(),
 		ProviderSpaceID: string(addr.ProviderSpaceID),
 		ConfigType:      string(addr.ConfigType),
 		IsSecondary:     addr.IsSecondary,
@@ -1231,7 +1231,7 @@ func FromNetworkSpaceInfos(allInfos network.SpaceInfos) SpaceInfos {
 		for j, subnetInfo := range si.Subnets {
 
 			mappedSubnets[j] = SubnetV3{
-				SpaceID: subnetInfo.SpaceID,
+				SpaceID: subnetInfo.SpaceID.String(),
 
 				SubnetV2: SubnetV2{
 					ID: string(subnetInfo.ID),
@@ -1251,7 +1251,7 @@ func FromNetworkSpaceInfos(allInfos network.SpaceInfos) SpaceInfos {
 		}
 
 		res.Infos[i] = SpaceInfo{
-			ID:         si.ID,
+			ID:         si.ID.String(),
 			Name:       string(si.Name),
 			ProviderID: string(si.ProviderId),
 			Subnets:    mappedSubnets,
@@ -1277,13 +1277,13 @@ func ToNetworkSpaceInfos(allInfos SpaceInfos) network.SpaceInfos {
 				ProviderNetworkId: network.Id(subnetInfo.ProviderNetworkId),
 				VLANTag:           subnetInfo.VLANTag,
 				AvailabilityZones: subnetInfo.Zones,
-				SpaceID:           subnetInfo.SpaceID,
-				SpaceName:         si.Name,
+				SpaceID:           network.SpaceUUID(subnetInfo.SpaceID),
+				SpaceName:         network.SpaceName(si.Name),
 			}
 		}
 
 		res[i] = network.SpaceInfo{
-			ID:         si.ID,
+			ID:         network.SpaceUUID(si.ID),
 			Name:       network.SpaceName(si.Name),
 			ProviderId: network.Id(si.ProviderID),
 			Subnets:    mappedSubnets,

@@ -16,6 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
@@ -562,8 +563,8 @@ func (s *ConfigSuite) TestPublicDNSAddressConfigValue(c *tc.C) {
 }
 
 func (s *ConfigSuite) TestNetworkSpaceConfigValues(c *tc.C) {
-	haSpace := "space1"
-	managementSpace := "space2"
+	haSpace := network.SpaceName("space1")
+	managementSpace := network.SpaceName("space2")
 
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
@@ -585,8 +586,8 @@ func (s *ConfigSuite) TestNetworkSpaceConfigDefaults(c *tc.C) {
 		map[string]interface{}{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.JujuHASpace(), tc.Equals, "")
-	c.Assert(cfg.JujuManagementSpace(), tc.Equals, "")
+	c.Check(cfg.JujuHASpace(), tc.Equals, network.SpaceName(""))
+	c.Check(cfg.JujuManagementSpace(), tc.Equals, network.SpaceName(""))
 }
 
 func (s *ConfigSuite) TestAuditLogDefaults(c *tc.C) {

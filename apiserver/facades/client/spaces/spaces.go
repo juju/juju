@@ -36,25 +36,21 @@ type ControllerConfigService interface {
 // network spaces/subnets.
 type NetworkService interface {
 	// AddSpace creates and returns a new space.
-	AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error)
-	// Space returns a space from state that matches the input ID. If the space
-	// is not found, an error is returned satisfying
-	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
+	AddSpace(ctx context.Context, space network.SpaceInfo) (network.SpaceUUID, error)
 	// SpaceByName returns a space from state that matches the input name. If
 	// the space is not found, an error is returned satisfying
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	SpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error)
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 	// UpdateSpace updates the space name identified by the passed uuid. If
 	// the space is not found, an error is returned satisfying
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	UpdateSpace(ctx context.Context, uuid string, name string) error
+	UpdateSpace(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName) error
 	// RemoveSpace deletes a space identified by its uuid. If the space is not
 	// found, an error is returned satisfying
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	RemoveSpace(ctx context.Context, uuid string) error
+	RemoveSpace(ctx context.Context, uuid network.SpaceUUID) error
 	// ReloadSpaces loads spaces and subnets from the provider into state.
 	ReloadSpaces(ctx context.Context) error
 	// GetAllSubnets returns all the subnets for the model.
@@ -66,7 +62,7 @@ type NetworkService interface {
 	Subnet(ctx context.Context, uuid string) (*network.SubnetInfo, error)
 	// UpdateSubnet updates the spaceUUID of the subnet identified by the input
 	// UUID.
-	UpdateSubnet(ctx context.Context, uuid, spaceUUID string) error
+	UpdateSubnet(ctx context.Context, uuid string, spaceUUID network.SpaceUUID) error
 	// SupportsSpaces returns whether the current environment supports spaces.
 	SupportsSpaces(ctx context.Context) (bool, error)
 	// SupportsSpaceDiscovery returns whether the current environment supports
@@ -230,8 +226,8 @@ func (api *API) ListSpaces(ctx context.Context) (results params.ListSpacesResult
 	results.Results = make([]params.Space, len(spaces))
 	for i, space := range spaces {
 		result := params.Space{}
-		result.Id = space.ID
-		result.Name = string(space.Name)
+		result.Id = space.ID.String()
+		result.Name = space.Name.String()
 
 		if err != nil {
 			err = errors.Annotatef(err, "fetching spaces")
@@ -275,20 +271,22 @@ func (api *API) ShowSpace(ctx context.Context, entities params.Entities) (params
 
 	results := make([]params.ShowSpaceResult, len(entities.Entities))
 	for i, entity := range entities.Entities {
-		spaceName, err := names.ParseSpaceTag(entity.Tag)
+		spaceTag, err := names.ParseSpaceTag(entity.Tag)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
+		spaceName := network.SpaceName(spaceTag.Id())
+
 		var result params.ShowSpaceResult
-		space, err := api.networkService.SpaceByName(ctx, spaceName.Id())
+		space, err := api.networkService.SpaceByName(ctx, spaceName)
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching space %q", spaceName)
 			results[i].Error = apiservererrors.ServerError(newErr)
 			continue
 		}
-		result.Space.Name = string(space.Name)
-		result.Space.Id = space.ID
+		result.Space.Name = space.Name.String()
+		result.Space.Id = space.ID.String()
 		subnets := space.Subnets
 
 		result.Space.Subnets = make([]params.Subnet, len(subnets))
@@ -348,7 +346,7 @@ func (api *API) checkSupportsSpaces(ctx context.Context) error {
 	return nil
 }
 
-func (api *API) getMachineCountBySpaceID(spaceID string, allSubnets network.SubnetInfos) (int, error) {
+func (api *API) getMachineCountBySpaceID(spaceID network.SpaceUUID, allSubnets network.SubnetInfos) (int, error) {
 	var count int
 	machines, err := api.backing.AllMachines()
 	if err != nil {
@@ -359,14 +357,14 @@ func (api *API) getMachineCountBySpaceID(spaceID string, allSubnets network.Subn
 		if err != nil {
 			return 0, errors.Trace(err)
 		}
-		if spacesSet.Contains(spaceID) {
+		if spacesSet.Contains(spaceID.String()) {
 			count++
 		}
 	}
 	return count, nil
 }
 
-func (api *API) applicationsBoundToSpace(spaceID string, allSpaces network.SpaceInfos) ([]string, error) {
+func (api *API) applicationsBoundToSpace(spaceID network.SpaceUUID, allSpaces network.SpaceInfos) ([]string, error) {
 	allBindings, err := api.backing.AllEndpointBindings()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -375,7 +373,7 @@ func (api *API) applicationsBoundToSpace(spaceID string, allSpaces network.Space
 	applications := set.NewStrings()
 	for app, bindings := range allBindings {
 		for _, boundSpace := range bindings.Map() {
-			if boundSpace == spaceID {
+			if boundSpace == spaceID.String() {
 				applications.Add(app)
 				break
 			}

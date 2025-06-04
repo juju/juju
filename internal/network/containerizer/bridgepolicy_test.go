@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/internal/network"
 )
 
@@ -47,16 +49,16 @@ func (s *bridgePolicySuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.spaces = make(corenetwork.SpaceInfos, 4)
 	s.spaces[0] = corenetwork.SpaceInfo{ID: corenetwork.AlphaSpaceId, Name: corenetwork.AlphaSpaceName}
-	for i, space := range []string{"foo", "bar", "fizz"} {
-		id := "deeadbeef" + strconv.Itoa(i)
+	for _, space := range []string{"foo", "bar", "fizz"} {
+		id := networktesting.GenSpaceUUID(c)
 		s.spaces = append(s.spaces, corenetwork.SpaceInfo{ID: id, Name: corenetwork.SpaceName(space)})
 	}
 	return ctrl
 }
 
-func (s *bridgePolicySuite) setupTwoSpaces() []string {
-	id1 := strconv.Itoa(len(s.spaces))
-	id2 := strconv.Itoa(len(s.spaces) + 1)
+func (s *bridgePolicySuite) setupTwoSpaces(c *tc.C) []corenetwork.SpaceUUID {
+	id1 := networktesting.GenSpaceUUID(c)
+	id2 := networktesting.GenSpaceUUID(c)
 	s.spaces = append(s.spaces, corenetwork.SpaceInfo{
 		ID:      id1,
 		Name:    "somespace",
@@ -67,7 +69,7 @@ func (s *bridgePolicySuite) setupTwoSpaces() []string {
 		Name:    "dmz",
 		Subnets: nil,
 	})
-	return []string{id1, id2}
+	return []corenetwork.SpaceUUID{id1, id2}
 }
 
 const (
@@ -75,8 +77,8 @@ const (
 	dmzIndex       = 1
 )
 
-func (s *bridgePolicySuite) setupMachineInTwoSpaces(c *tc.C, ctrl *gomock.Controller) []string {
-	ids := s.setupTwoSpaces()
+func (s *bridgePolicySuite) setupMachineInTwoSpaces(c *tc.C, ctrl *gomock.Controller) []corenetwork.SpaceUUID {
+	ids := s.setupTwoSpaces(c)
 	s.expectNICAndBridgeWithIP(c, ctrl, "ens33", "br-ens33", ids[somespaceIndex], "10.0.0.0/24")
 	s.expectNICAndBridgeWithIP(c, ctrl, "ens0p10", "br-ens0p10", ids[dmzIndex], "10.0.1.0/24")
 	return ids
@@ -181,7 +183,7 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesCorrectlyPaired
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	id := strconv.Itoa(len(s.spaces))
+	id := networktesting.GenSpaceUUID(c)
 	s.spaces = append(s.spaces, corenetwork.SpaceInfo{
 		ID:      id,
 		Name:    "somespace",
@@ -263,12 +265,12 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesHostOneSpace(c 
 
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse(""), nil)
 
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// We set the machine to be in 'dmz'; it is in a single space.
 	// Adding a container to a machine that is in a single space puts
 	// that container into the same space.
 	s.expectNICAndBridgeWithIP(c, ctrl, "eth0", "br-eth0", ids[dmzIndex], "10.0.0.0/24")
-	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(ids[dmzIndex]), nil)
+	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(ids[dmzIndex].String()), nil)
 
 	s.expectMachineAddressesDevices()
 
@@ -302,7 +304,8 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesDefaultSpace(c 
 	// access to the 'default' space, we go ahead and use that for the
 	// container.
 	ids := s.setupMachineInTwoSpaces(c, ctrl)
-	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(ids...), nil)
+	strIDs := transform.Slice(ids, func(s corenetwork.SpaceUUID) string { return s.String() })
+	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(strIDs...), nil)
 
 	s.expectMachineAddressesDevices()
 
@@ -321,18 +324,18 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesNoValidSpace(c 
 
 	// The host machine will be in 2 spaces, but neither one is 'somespace',
 	// thus we are unable to find a valid space to put the container in.
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// Is put into the 'dmz' space
 	s.expectNICAndBridgeWithIP(c, ctrl, "eth0", "br-eth0", ids[dmzIndex], "10.0.0.0/24")
 	// Second bridge is in the 'db' space
-	id := strconv.Itoa(len(s.spaces))
+	id := networktesting.GenSpaceUUID(c)
 	s.spaces = append(s.spaces, corenetwork.SpaceInfo{
 		ID:      id,
 		Name:    "db",
 		Subnets: nil,
 	})
 	s.expectNICAndBridgeWithIP(c, ctrl, "ens4", "br-ens4", id, "10.0.1.0/24")
-	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(ids[dmzIndex], id), nil)
+	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(ids[dmzIndex].String(), id.String()), nil)
 
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
@@ -347,7 +350,7 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesMismatchConstra
 
 	// Machine is in 'somespace' but container wants to be in 'dmz'
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=dmz"), nil)
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// Is put into the 'somespace' space
 	s.expectNICAndBridgeWithIP(c, ctrl, "eth0", "br-eth0", ids[somespaceIndex], "10.0.0.0/24")
 
@@ -367,7 +370,7 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesMissingBridge(c
 
 	// Machine is in 'somespace' and 'dmz' but doesn't have a bridge for 'dmz'
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=dmz"), nil)
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	s.expectNICAndBridgeWithIP(c, ctrl, "eth0", "br-eth0", ids[somespaceIndex], "10.0.0.0/24")
 	s.expectNICWithIP(c, ctrl, "ens5", ids[dmzIndex], "10.0.1.0/24")
 
@@ -389,18 +392,18 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesNoDefaultNoCons
 
 	// The host machine will be in 2 spaces, but neither one is 'somespace',
 	// thus we are unable to find a valid space to put the container in.
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// In 'dmz'
 	s.expectNICAndBridgeWithIP(c, ctrl, "eth0", "br-eth0", ids[dmzIndex], "10.0.0.0/24")
 	// Second bridge is in the 'db' space
-	id := strconv.Itoa(len(s.spaces))
+	id := networktesting.GenSpaceUUID(c)
 	s.spaces = append(s.spaces, corenetwork.SpaceInfo{
 		ID:      id,
 		Name:    "db",
 		Subnets: nil,
 	})
 	s.expectNICAndBridgeWithIP(c, ctrl, "ens4", "br-ens4", id, "10.0.1.0/24")
-	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(ids[dmzIndex], id), nil)
+	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(ids[dmzIndex].String(), id.String()), nil)
 
 	s.expectMachineAddressesDevices()
 
@@ -418,7 +421,7 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesTwoDevicesOneBr
 	// The host machine has 2 devices in one space, but only one is bridged.
 	// We'll only use the one that is bridged, and not complain about the other.
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=somespace"), nil)
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// In 'somespace'
 	s.expectNICWithIP(c, ctrl, "eth0", ids[somespaceIndex], "10.0.0.0/24")
 	s.expectNICAndBridgeWithIP(c, ctrl, "eth1", "br-eth1", ids[somespaceIndex], "10.0.0.0/24")
@@ -449,7 +452,7 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesTwoBridgedSameS
 	// The host machine has 2 devices and both are bridged into the desired space
 	// We'll use both
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=somespace"), nil)
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// In 'somespace'
 	s.expectNICAndBridgeWithIP(c, ctrl, "ens33", "br-ens33", ids[somespaceIndex], "10.0.0.0/24")
 	s.expectNICAndBridgeWithIP(c, ctrl, "ens44", "br-ens44", ids[somespaceIndex], "10.0.0.0/24")
@@ -482,7 +485,7 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesTwoBridgesNotIn
 	// are in a known space. The container also has no requested space.
 	// In that case, we will use all of the unknown bridges for container
 	// devices.
-	s.setupTwoSpaces()
+	s.setupTwoSpaces(c)
 	s.expectNICAndBridgeWithIP(c, ctrl, "ens3", "br-ens3", corenetwork.AlphaSpaceId, "10.0.0.0/24")
 	s.expectNICAndBridgeWithIP(c, ctrl, "ens4", "br-ens4", corenetwork.AlphaSpaceId, "10.0.0.0/24")
 	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(), nil)
@@ -513,7 +516,7 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesNoLocal(c *tc.C
 	// The host machine has 1 network device and only local bridges, but none of them
 	// are in a known space. The container also has no requested space.
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse(""), nil)
-	s.setupTwoSpaces()
+	s.setupTwoSpaces(c)
 	s.expectNICWithIP(c, ctrl, "ens3", corenetwork.AlphaSpaceId, "10.0.0.0/24")
 	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(), nil)
 	s.expectAllDefaultDevices(c, ctrl)
@@ -535,7 +538,7 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesUseLocal(c *tc.
 	// The host machine has 1 network device and only local bridges, but none of them
 	// are in a known space. The container also has no requested space.
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse(""), nil)
-	s.setupTwoSpaces()
+	s.setupTwoSpaces(c)
 	s.expectNICWithIP(c, ctrl, "ens3", corenetwork.AlphaSpaceId, "10.0.0.0/24")
 	s.expectAllDefaultDevices(c, ctrl)
 
@@ -557,7 +560,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoneMissing(c *tc.
 
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=somespace"), nil)
 
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	s.expectNICAndBridgeWithIP(c, ctrl, "eth0", "br-eth0", ids[somespaceIndex], "10.0.0.0/24")
 
 	s.expectMachineAddressesDevices()
@@ -576,7 +579,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerDefaultUnbridged(c
 
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=somespace"), nil)
 
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	s.expectNICWithIP(c, ctrl, "eth0", ids[somespaceIndex], "10.0.0.0/24")
 
 	s.expectMachineAddressesDevices()
@@ -598,8 +601,8 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoHostDevices(c *t
 
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=dmz,third"), nil)
 
-	s.setupTwoSpaces()
-	id := strconv.Itoa(len(s.spaces))
+	s.setupTwoSpaces(c)
+	id := networktesting.GenSpaceUUID(c)
 	s.spaces = append(s.spaces, corenetwork.SpaceInfo{
 		ID:      id,
 		Name:    "third",
@@ -624,7 +627,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoSpacesOneMissin
 
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=somespace,dmz"), nil)
 
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// dmz
 	s.expectBridgeDeviceWithIP(c, ctrl, "eth1", ids[dmzIndex], "10.0.0.0/24")
 	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(), nil)
@@ -650,7 +653,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoSpaces(c *tc.C) 
 	// interfaces, but is not part of any known space. In this circumstance,
 	// we should try to bridge all of the unknown space devices, not just one
 	// of them. This is are fallback mode when we don't understand the spaces of a machine.
-	s.setupTwoSpaces()
+	s.setupTwoSpaces(c)
 	s.expectNICWithIP(c, ctrl, "ens3", corenetwork.AlphaSpaceId, "10.0.0.0/24")
 	s.expectNICWithIP(c, ctrl, "ens4", corenetwork.AlphaSpaceId, "10.0.0.0/24")
 	s.expectAllDefaultDevices(c, ctrl)
@@ -684,7 +687,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkin
 	// interface, but is not part of a known space. We have containerNetworkingMethod set to "local",
 	// which means we should fall back to using 'lxdbr0' instead of
 	// bridging the host device.
-	s.setupTwoSpaces()
+	s.setupTwoSpaces(c)
 	s.expectNICWithIP(c, ctrl, "ens3", corenetwork.AlphaSpaceId, "10.0.0.0/24")
 	s.expectAllDefaultDevices(c, ctrl)
 
@@ -709,7 +712,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkin
 	// interface, but is not part of a known space. We have containerNetworkingMethod set to "local",
 	// which means we should fall back to using 'lxdbr0' instead of
 	// bridging the host device.
-	s.setupTwoSpaces()
+	s.setupTwoSpaces(c)
 	s.expectNICWithIP(c, ctrl, "eth0", corenetwork.AlphaSpaceId, "10.0.0.0/24")
 	s.expectAllDefaultDevices(c, ctrl)
 
@@ -738,7 +741,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkin
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse(""), nil)
 
 	// We should only use 'lxdbr0' instead of bridging the host device.
-	s.setupTwoSpaces()
+	s.setupTwoSpaces(c)
 	s.expectNICWithIP(c, ctrl, "ens3", corenetwork.AlphaSpaceId, "10.0.0.0/24")
 	s.expectBridgeDevice(ctrl, "lxdbr0")
 
@@ -763,7 +766,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerUnknownWithConstra
 	// the container requests a specific space, we won't use the unknown
 	// ones.
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=somespace"), nil)
-	s.setupTwoSpaces()
+	s.setupTwoSpaces(c)
 	s.expectNICWithIP(c, ctrl, "ens3", corenetwork.AlphaSpaceId, "10.0.0.0/24")
 	s.expectNICWithIP(c, ctrl, "ens4", corenetwork.AlphaSpaceId, "10.0.0.0/24")
 	s.expectAllDefaultDevices(c, ctrl)
@@ -789,12 +792,12 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerUnknownAndDefault(
 	// The host machine has 2 devices, one is in a known 'somespace' space, the other is in an unknown space.
 	// We will ignore the unknown space and just return the one in 'somespace',
 	// cause that is the only declared space on the machine.
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// Default
 	s.expectNICWithIP(c, ctrl, "ens3", ids[somespaceIndex], "10.0.0.0/24")
 	s.expectNICWithIP(c, ctrl, "ens4", corenetwork.AlphaSpaceId, "10.0.1.0/24")
 	s.expectAllDefaultDevices(c, ctrl)
-	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(ids[somespaceIndex]), nil)
+	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(ids[somespaceIndex].String()), nil)
 
 	s.expectMachineAddressesDevices()
 
@@ -817,7 +820,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerOneOfTwoBridged(c 
 	// With two host devices that could be bridged, we will only ask for the
 	// first one to be bridged.
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=somespace"), nil)
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	s.expectNICWithIP(c, ctrl, "ens3", ids[somespaceIndex], "10.0.0.0/24")
 	s.expectNICWithIP(c, ctrl, "ens4", ids[somespaceIndex], "10.0.0.0/24")
 	s.expectNICWithIP(c, ctrl, "ens5", ids[somespaceIndex], "10.0.0.0/24")
@@ -851,7 +854,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoHostDevicesOneB
 	// With two host devices that could be bridged, we will only ask for the
 	// first one to be bridged.
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=somespace"), nil)
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	s.expectNICWithIP(c, ctrl, "ens3", ids[somespaceIndex], "10.0.0.0/24")
 	s.expectNICAndBridgeWithIP(c, ctrl, "ens4", "br-ens4", ids[somespaceIndex], "10.0.0.0/24")
 
@@ -874,12 +877,13 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoConstraintsDefau
 	// TODO(jam): 2016-12-28 Eventually we probably want to have a
 	// model-config level default-space, but for now, 'somespace' should not be
 	// special.
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// Default
 	s.expectNICWithIP(c, ctrl, "eth0", ids[somespaceIndex], "10.0.0.0/24")
 	// DMZ
 	s.expectNICWithIP(c, ctrl, "eth1", ids[dmzIndex], "10.0.1.0/24")
-	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(ids...), nil)
+	strIDs := transform.Slice(ids, func(s corenetwork.SpaceUUID) string { return s.String() })
+	s.machine.EXPECT().AllSpaces(gomock.Any()).Return(set.NewStrings(strIDs...), nil)
 
 	s.expectMachineAddressesDevices()
 
@@ -897,7 +901,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoSpacesOneBridge
 
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=somespace,dmz"), nil)
 
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// somespace
 	s.expectNICWithIP(c, ctrl, "eth0", ids[somespaceIndex], "10.0.0.0/24")
 	// DMZ
@@ -923,13 +927,13 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerMultipleSpacesNone
 
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=somespace,dmz,abba"), nil)
 
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// somespace
 	s.expectNICWithIP(c, ctrl, "eth0", ids[somespaceIndex], "10.0.0.0/24")
 	// DMZ
 	s.expectNICWithIP(c, ctrl, "eth1", ids[dmzIndex], "10.0.1.0/24")
 
-	id := strconv.Itoa(len(s.spaces))
+	id := networktesting.GenSpaceUUID(c)
 	s.spaces = append(s.spaces, corenetwork.SpaceInfo{
 		ID:      id,
 		Name:    "abba",
@@ -963,7 +967,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerBondedNICs(c *tc.C
 
 	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=somespace"), nil)
 
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// somespace
 	// We call it 'zbond' so it sorts late instead of first
 	s.expectDeviceWithIP(c, ctrl, "zbond0", ids[somespaceIndex], corenetwork.BondDevice, "10.0.0.0/24")
@@ -988,7 +992,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLAN(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// We create an eth0 that has an address, and then an eth0.100 which is
 	// VLAN tagged on top of that ethernet device.
 	// "eth0" is in "somespace", "eth0.100" is in "dmz"
@@ -1019,7 +1023,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLANOnBond(c *tc.C
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	ids := s.setupTwoSpaces()
+	ids := s.setupTwoSpaces(c)
 	// We have eth0 and eth1 that don't have IP addresses, that are in a
 	// bond, which then has a VLAN on top of that bond. The VLAN should still
 	// be a valid target for bridging

@@ -34,8 +34,8 @@ func NewState(factory coreDB.TxnRunnerFactory, logger logger.Logger) *State {
 // AddSpace creates and returns a new space.
 func (st *State) AddSpace(
 	ctx context.Context,
-	uuid string,
-	name string,
+	uuid network.SpaceUUID,
+	name network.SpaceName,
 	providerID network.Id,
 	subnetIDs []string,
 ) error {
@@ -94,7 +94,7 @@ VALUES ($providerSpace.*)`, providerSp)
 // returned matching [networkerrors.SpaceNotFound].
 func (st *State) GetSpace(
 	ctx context.Context,
-	uuid string,
+	uuid network.SpaceUUID,
 ) (*network.SpaceInfo, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -131,7 +131,7 @@ WHERE  uuid = $space.uuid;`, spaceSubnetRow{}, sp)
 // error is returned matching [networkerrors.SpaceNotFound].
 func (st *State) GetSpaceByName(
 	ctx context.Context,
-	name string,
+	name network.SpaceName,
 ) (*network.SpaceInfo, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -207,8 +207,8 @@ FROM   v_space_subnet
 // not found, an error is returned matching [networkerrors.SpaceNotFound].
 func (st *State) UpdateSpace(
 	ctx context.Context,
-	uuid string,
-	name string,
+	uuid network.SpaceUUID,
+	name network.SpaceName,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -248,7 +248,7 @@ WHERE  uuid = $space.uuid;`, sp)
 // not found, an error is returned matching [networkerrors.SpaceNotFound].
 func (st *State) DeleteSpace(
 	ctx context.Context,
-	uuid string,
+	uuid network.SpaceUUID,
 ) error {
 	db, err := st.DB()
 	if err != nil {

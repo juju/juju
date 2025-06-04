@@ -96,10 +96,6 @@ type CredentialService interface {
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
-	// Space returns a space from state that matches the input ID.
-	// An error is returned if the space does not exist or if there was a problem
-	// accessing its information.
-	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
@@ -295,7 +291,7 @@ type ApplicationService interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]string, error)
+	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]network.SpaceUUID, error)
 
 	// GetApplicationEndpointNames returns the names of the endpoints for the given
 	// application.

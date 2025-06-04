@@ -71,7 +71,7 @@ type applicationDetails struct {
 	Name      string             `db:"name"`
 	CharmUUID corecharm.ID       `db:"charm_uuid"`
 	LifeID    life.Life          `db:"life_id"`
-	SpaceUUID string             `db:"space_uuid"`
+	SpaceUUID network.SpaceUUID  `db:"space_uuid"`
 }
 
 type applicationScale struct {
@@ -206,13 +206,13 @@ type ipAddress struct {
 }
 
 type spaceAddress struct {
-	Value        string         `db:"address_value"`
-	ConfigTypeID int            `db:"config_type_id"`
-	TypeID       int            `db:"type_id"`
-	OriginID     int            `db:"origin_id"`
-	ScopeID      int            `db:"scope_id"`
-	DeviceID     string         `db:"device_uuid"`
-	SpaceUUID    sql.NullString `db:"space_uuid"`
+	Value        string                      `db:"address_value"`
+	ConfigTypeID int                         `db:"config_type_id"`
+	TypeID       int                         `db:"type_id"`
+	OriginID     int                         `db:"origin_id"`
+	ScopeID      int                         `db:"scope_id"`
+	DeviceID     string                      `db:"device_uuid"`
+	SpaceUUID    sql.Null[network.SpaceUUID] `db:"space_uuid"`
 }
 
 // These structs represent the persistent charm schema in the database.
@@ -884,7 +884,7 @@ type spaceName struct {
 }
 
 type spaceUUID struct {
-	UUID string `db:"uuid"`
+	UUID network.SpaceUUID `db:"uuid"`
 }
 
 type storageInstance struct {
@@ -1155,7 +1155,7 @@ type exportApplication struct {
 	CharmRevision        int                `db:"revision"`
 	CharmArchitectureID  sql.NullInt64      `db:"architecture_id"`
 	K8sServiceProviderID sql.NullString     `db:"k8s_provider_id"`
-	EndpointBindings     map[string]string
+	EndpointBindings     map[string]network.SpaceUUID
 }
 
 // peerEndpoint represents a structure for defining a peer application endpoint
@@ -1259,8 +1259,8 @@ type machineParent struct {
 }
 
 type getApplicationEndpoint struct {
-	SpaceUUID    sql.Null[string] `db:"space_uuid"`
-	EndpointName string           `db:"name"`
+	SpaceUUID    sql.Null[network.SpaceUUID] `db:"space_uuid"`
+	EndpointName string                      `db:"name"`
 }
 
 type unitWorkloadVersion struct {

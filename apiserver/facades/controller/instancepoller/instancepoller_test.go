@@ -879,7 +879,7 @@ func (s *InstancePollerSuite) expectDefaultSpaces() {
 		}, nil)
 }
 
-func makeSpaceAddress(ip string, scope network.Scope, spaceID string) network.SpaceAddress {
+func makeSpaceAddress(ip string, scope network.Scope, spaceID network.SpaceUUID) network.SpaceAddress {
 	addr := network.NewSpaceAddress(ip, network.WithScope(scope))
 	addr.SpaceID = spaceID
 	return addr

@@ -55,12 +55,12 @@ type SubnetInfo struct {
 	// Default value should be AlphaSpaceId. It can be empty if
 	// the subnet is returned from an networkingEnviron. SpaceID is
 	// preferred over SpaceName in state and non networkingEnviron use.
-	SpaceID string
+	SpaceID SpaceUUID
 
 	// SpaceName is the name of the space the subnet is associated with.
 	// An empty string indicates it is part of the AlphaSpaceName OR
 	// if the SpaceID is set. Should primarily be used in an networkingEnviron.
-	SpaceName string
+	SpaceName SpaceName
 
 	// Life represents the current life-cycle status of the subnets.
 	Life life.Value
@@ -103,7 +103,7 @@ type SubnetInfos []SubnetInfo
 func (s SubnetInfos) SpaceIDs() set.Strings {
 	spaceIDs := set.NewStrings()
 	for _, sub := range s {
-		spaceIDs.Add(sub.SpaceID)
+		spaceIDs.Add(sub.SpaceID.String())
 	}
 	return spaceIDs
 }

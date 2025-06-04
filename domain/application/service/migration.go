@@ -43,7 +43,7 @@ type MigrationState interface {
 	// It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
 	//
 	// space name doesn't exist.
-	GetSpaceUUIDByName(ctx context.Context, name string) (network.Id, error)
+	GetSpaceUUIDByName(ctx context.Context, name string) (network.SpaceUUID, error)
 
 	// InsertMigratingApplication inserts a migrating application. Returns as
 	// error satisfying [applicationerrors.ApplicationAlreadyExists] if the
@@ -483,7 +483,7 @@ func (s *MigrationService) GetExposedEndpoints(ctx context.Context, appName stri
 //
 // It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
 // space name doesn't exist.
-func (s *MigrationService) GetSpaceUUIDByName(ctx context.Context, name string) (network.Id, error) {
+func (s *MigrationService) GetSpaceUUIDByName(ctx context.Context, name string) (network.SpaceUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

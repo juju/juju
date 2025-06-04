@@ -928,7 +928,7 @@ func (s *AddressSuite) TestProviderAddressesToSpaceAddressesBySubnet(c *tc.C) {
 	res, err := addrs.ToSpaceAddresses(allSpaces)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.HasLen, 1)
-	c.Check(res[0].SpaceID, tc.Equals, "6")
+	c.Check(res[0].SpaceID, tc.Equals, network.SpaceUUID("6"))
 }
 
 func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *tc.C) {

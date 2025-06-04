@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/service"
@@ -1023,7 +1024,7 @@ func (s *importSuite) TestImportEndpointBindings36(c *tc.C) {
 	// Assert: Check that the endpoints are mapped to the correct space names
 	c.Assert(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
 	c.Assert(importArgs.EndpointBindings, tc.HasLen, 3)
-	c.Check(importArgs.EndpointBindings["endpoint0"], tc.DeepEquals, network.SpaceName(network.AlphaSpaceName))
+	c.Check(importArgs.EndpointBindings["endpoint0"], tc.DeepEquals, network.AlphaSpaceName)
 	c.Check(importArgs.EndpointBindings["endpoint1"], tc.DeepEquals, network.SpaceName("beta"))
 	c.Check(importArgs.EndpointBindings[""], tc.DeepEquals, network.SpaceName("gamma"))
 }
@@ -1045,7 +1046,7 @@ func (s *importSuite) TestImportEndpointBindings40(c *tc.C) {
 		CharmURL: "ch:prometheus-1",
 		Exposed:  true,
 		EndpointBindings: map[string]string{
-			"endpoint0": network.AlphaSpaceId,
+			"endpoint0": network.AlphaSpaceId.String(),
 			"endpoint1": space1UUID,
 			"endpoint2": "",
 			"endpoint3": space2UUID,
@@ -1110,7 +1111,7 @@ func (s *importSuite) TestImportEndpointBindings40(c *tc.C) {
 	// Assert: Check that the endpoints are mapped to the correct space names
 	c.Assert(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
 	c.Assert(importArgs.EndpointBindings, tc.HasLen, 3)
-	c.Check(importArgs.EndpointBindings["endpoint0"], tc.DeepEquals, network.SpaceName(network.AlphaSpaceName))
+	c.Check(importArgs.EndpointBindings["endpoint0"], tc.DeepEquals, network.AlphaSpaceName)
 	c.Check(importArgs.EndpointBindings["endpoint1"], tc.DeepEquals, network.SpaceName("beta"))
 	c.Check(importArgs.EndpointBindings[""], tc.DeepEquals, network.SpaceName("gamma"))
 }
@@ -1247,7 +1248,8 @@ func (s *importSuite) TestImportExposedEndpointsFrom36(c *tc.C) {
 		Name: "beta",
 	})
 
-	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(network.Id("beta-space-uuid"), nil)
+	spUUID := networktesting.GenSpaceUUID(c)
+	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(spUUID, nil)
 
 	s.importService.EXPECT().ImportIAASApplication(
 		gomock.Any(),
@@ -1256,9 +1258,9 @@ func (s *importSuite) TestImportExposedEndpointsFrom36(c *tc.C) {
 	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
 		c.Assert(args.Charm.Meta().Name, tc.Equals, "prometheus")
 		c.Check(args.ExposedEndpoints, tc.HasLen, 2)
-		c.Check(args.ExposedEndpoints[""].ExposeToSpaceIDs, tc.DeepEquals, set.NewStrings(network.AlphaSpaceId))
+		c.Check(args.ExposedEndpoints[""].ExposeToSpaceIDs, tc.DeepEquals, set.NewStrings(network.AlphaSpaceId.String()))
 		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToCIDRs, tc.DeepEquals, set.NewStrings("10.0.0.0/24", "10.0.1.0/24"))
-		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToSpaceIDs, tc.DeepEquals, set.NewStrings("beta-space-uuid"))
+		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToSpaceIDs, tc.DeepEquals, set.NewStrings(spUUID.String()))
 		return nil
 	})
 
@@ -1278,14 +1280,14 @@ func (s *importSuite) TestImportExposedEndpointsFrom40(c *tc.C) {
 		Type: coremodel.IAAS.String(),
 	})
 
-	spaceUUID := uuid.MustNewUUID()
+	spaceUUID := networktesting.GenSpaceUUID(c)
 	appArgs := description.ApplicationArgs{
 		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
 		Exposed:  true,
 		ExposedEndpoints: map[string]description.ExposedEndpointArgs{
 			"": {
-				ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+				ExposeToSpaceIDs: []string{network.AlphaSpaceId.String()},
 			},
 			"endpoint0": {
 				ExposeToCIDRs:    []string{"10.0.0.0/24", "10.0.1.0/24"},
@@ -1319,7 +1321,7 @@ func (s *importSuite) TestImportExposedEndpointsFrom40(c *tc.C) {
 		Name: "beta",
 	})
 
-	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(network.Id(spaceUUID.String()), nil)
+	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(spaceUUID, nil)
 
 	s.importService.EXPECT().ImportIAASApplication(
 		gomock.Any(),
@@ -1328,7 +1330,7 @@ func (s *importSuite) TestImportExposedEndpointsFrom40(c *tc.C) {
 	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
 		c.Assert(args.Charm.Meta().Name, tc.Equals, "prometheus")
 		c.Check(args.ExposedEndpoints, tc.HasLen, 2)
-		c.Check(args.ExposedEndpoints[""].ExposeToSpaceIDs, tc.DeepEquals, set.NewStrings(network.AlphaSpaceId))
+		c.Check(args.ExposedEndpoints[""].ExposeToSpaceIDs, tc.DeepEquals, set.NewStrings(network.AlphaSpaceId.String()))
 		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToCIDRs, tc.DeepEquals, set.NewStrings("10.0.0.0/24", "10.0.1.0/24"))
 		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToSpaceIDs, tc.DeepEquals, set.NewStrings(spaceUUID.String()))
 		return nil
@@ -1431,7 +1433,7 @@ func (s *importSuite) TestSpaceNameNotFoundInDB(c *tc.C) {
 		Name: "beta",
 	})
 
-	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(network.Id(""), errors.Errorf("boom"))
+	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return("", errors.Errorf("boom"))
 
 	_, err := importOp.importExposedEndpoints(c.Context(), app, model.Spaces())
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("getting space UUID by name %q: boom", spaceUUID.String()))
@@ -1446,9 +1448,9 @@ func (s *importSuite) TestMultipleSpaceLookupExposedEndpoints(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 
-	spaceUUID0 := uuid.MustNewUUID()
-	spaceUUID1 := uuid.MustNewUUID()
-	spaceUUID2 := uuid.MustNewUUID()
+	spaceUUID0 := networktesting.GenSpaceUUID(c)
+	spaceUUID1 := networktesting.GenSpaceUUID(c)
+	spaceUUID2 := networktesting.GenSpaceUUID(c)
 	appArgs := description.ApplicationArgs{
 		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
@@ -1474,9 +1476,9 @@ func (s *importSuite) TestMultipleSpaceLookupExposedEndpoints(c *tc.C) {
 		Name: "delta",
 	})
 
-	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(network.Id(spaceUUID0.String()), nil)
-	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "gamma").Return(network.Id(spaceUUID1.String()), nil)
-	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "delta").Return(network.Id(spaceUUID2.String()), nil)
+	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(spaceUUID0, nil)
+	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "gamma").Return(spaceUUID1, nil)
+	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "delta").Return(spaceUUID2, nil)
 
 	_, err := importOp.importExposedEndpoints(c.Context(), app, model.Spaces())
 	c.Assert(err, tc.ErrorIsNil)

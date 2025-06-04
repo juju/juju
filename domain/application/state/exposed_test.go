@@ -237,7 +237,7 @@ func (s *exposedStateSuite) TestGetSpaceUUIDByName(c *tc.C) {
 
 	uuid, err := s.state.GetSpaceUUIDByName(c.Context(), "space0")
 	c.Assert(err, tc.IsNil)
-	c.Check(uuid, tc.Equals, network.Id("space0-uuid"))
+	c.Check(uuid, tc.Equals, network.SpaceUUID("space0-uuid"))
 }
 
 func (s *exposedStateSuite) TestUnsetExposeSettings(c *tc.C) {

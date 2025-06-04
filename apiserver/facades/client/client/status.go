@@ -536,7 +536,7 @@ func fetchNetworkInterfaces(st Backend, subnetInfos network.SubnetInfos, spaceIn
 			spaceName := network.AlphaSpaceName
 			spaceInfo := spaceInfos.GetByID(subnet.SpaceID)
 			if spaceInfo != nil {
-				spaceName = string(spaceInfo.Name)
+				spaceName = spaceInfo.Name
 			}
 			if spaceName != "" {
 				devices, ok := spacesPerMachine[machineID]
@@ -550,7 +550,7 @@ func fetchNetworkInterfaces(st Backend, subnetInfos network.SubnetInfos, spaceIn
 					spacesSet = make(set.Strings)
 					devices[deviceName] = spacesSet
 				}
-				spacesSet.Add(spaceName)
+				spacesSet.Add(spaceName.String())
 			}
 		}
 		deviceSet, ok := devicesWithAddresses[machineID]
@@ -614,7 +614,7 @@ func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusServi
 			return applicationStatusInfo{}, err
 		}
 		if len(bindingMap) == 1 {
-			if v, ok := bindingMap[""]; ok && v == network.AlphaSpaceName {
+			if v, ok := bindingMap[""]; ok && v == network.AlphaSpaceName.String() {
 				continue
 			}
 		}
@@ -1117,12 +1117,12 @@ func (c *statusContext) mapExposedEndpointsFromDomain(
 		if len(exposeDetails.ExposeToSpaceIDs) != 0 {
 			spaceNames := make([]string, len(exposeDetails.ExposeToSpaceIDs))
 			for i, spaceID := range exposeDetails.ExposeToSpaceIDs.Values() {
-				sp := c.spaceInfos.GetByID(spaceID)
+				sp := c.spaceInfos.GetByID(network.SpaceUUID(spaceID))
 				if sp == nil {
 					return nil, internalerrors.Errorf("space with ID %q: %w", spaceID, errors.NotFound)
 				}
 
-				spaceNames[i] = string(sp.Name)
+				spaceNames[i] = sp.Name.String()
 			}
 			mappedParam.ExposeToSpaces = spaceNames
 		}

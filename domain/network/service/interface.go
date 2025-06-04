@@ -56,25 +56,25 @@ type State interface {
 // SpaceState describes persistence layer methods for the space (sub-) domain.
 type SpaceState interface {
 	// AddSpace creates a space.
-	AddSpace(ctx context.Context, uuid string, name string, providerID network.Id, subnetIDs []string) error
+	AddSpace(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error
 	// GetSpace returns the space by UUID. If the space is not found, an error
 	// is returned matching
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	GetSpace(ctx context.Context, uuid string) (*network.SpaceInfo, error)
+	GetSpace(ctx context.Context, uuid network.SpaceUUID) (*network.SpaceInfo, error)
 	// GetSpaceByName returns the space by name. If the space is not found, an
 	// error is returned matching
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	GetSpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	GetSpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error)
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 	// UpdateSpace updates the space identified by the passed uuid. If the
 	// space is not found, an error is returned matching
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	UpdateSpace(ctx context.Context, uuid string, name string) error
+	UpdateSpace(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName) error
 	// DeleteSpace deletes the space identified by the passed uuid. If the
 	// space is not found, an error is returned matching
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	DeleteSpace(ctx context.Context, uuid string) error
+	DeleteSpace(ctx context.Context, uuid network.SpaceUUID) error
 	// IsSpaceUsedInConstraints checks if the provided space name is used in any
 	// constraints.
 	// This method doesn't check if the provided space name exists, it returns
@@ -95,7 +95,7 @@ type SubnetState interface {
 	// for moving subnets.
 	GetSubnetsByCIDR(ctx context.Context, cidrs ...string) (network.SubnetInfos, error)
 	// UpdateSubnet updates the subnet identified by the passed uuid.
-	UpdateSubnet(ctx context.Context, uuid string, spaceID string) error
+	UpdateSubnet(ctx context.Context, uuid string, spaceID network.SpaceUUID) error
 	// DeleteSubnet deletes the subnet identified by the passed uuid.
 	DeleteSubnet(ctx context.Context, uuid string) error
 	// UpsertSubnets updates or adds each one of the provided subnets in one

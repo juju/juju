@@ -341,7 +341,7 @@ func validatePlacementForSpaces(ctx context.Context, st *state.State, networkSer
 		}
 
 		for _, name := range *spaceNames {
-			spaceInfo := spaceInfos.GetByName(name)
+			spaceInfo := spaceInfos.GetByName(network.SpaceName(name))
 			if spaceInfo == nil {
 				return errors.NotFoundf("space with name %q", name)
 			}

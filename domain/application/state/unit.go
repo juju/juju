@@ -377,7 +377,7 @@ func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.
 
 		var (
 			spaceAddresses   []spaceAddress
-			endpointBindings map[string]string
+			endpointBindings map[string]network.SpaceUUID
 		)
 		err := runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			var err error

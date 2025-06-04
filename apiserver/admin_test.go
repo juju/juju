@@ -77,7 +77,7 @@ func (s *baseLoginSuite) SetUpTest(c *tc.C) {
 		Name: "mgmt01",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	s.mgmtSpace, err = networkService.Space(c.Context(), mgmtSpaceID.String())
+	s.mgmtSpace, err = networkService.Space(c.Context(), mgmtSpaceID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	cfg := map[string]any{
@@ -267,7 +267,7 @@ func (s *loginSuite) setupManagementSpace(c *tc.C) *network.SpaceInfo {
 		Name: "mgmt01",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	mgmtSpace, err := networkService.Space(c.Context(), mgmtSpaceID.String())
+	mgmtSpace, err := networkService.Space(c.Context(), mgmtSpaceID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	cfg := map[string]any{

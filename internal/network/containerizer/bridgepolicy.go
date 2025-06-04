@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"hash/crc32"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -28,7 +28,7 @@ var skippedDeviceNames = set.NewStrings(
 
 // namedNICsBySpace is a type alias for a map of link-layer devices
 // keyed by name, keyed in turn by the space they are in.
-type namedNICsBySpace = map[string]map[string]LinkLayerDevice
+type namedNICsBySpace = map[corenetwork.SpaceUUID]map[string]LinkLayerDevice
 
 // BridgePolicy defines functionality that helps us create and define bridges
 // for guests inside a host machine, along with the creation of network
@@ -171,7 +171,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 func (p *BridgePolicy) findSpacesAndDevicesForContainer(
 	ctx context.Context,
 	host Machine, guest Container,
-) (corenetwork.SpaceInfos, map[string][]LinkLayerDevice, error) {
+) (corenetwork.SpaceInfos, map[corenetwork.SpaceUUID][]LinkLayerDevice, error) {
 	containerSpaces, err := p.determineContainerSpaces(ctx, host, guest)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -215,7 +215,7 @@ func (p *BridgePolicy) findSpacesAndDevicesForContainer(
 // Note that devices like 'lxdbr0' that are bridges that might not be
 // externally accessible may be returned if the default space is
 // listed as one of the desired spaces.
-func (p *BridgePolicy) linkLayerDevicesForSpaces(host Machine, spaces corenetwork.SpaceInfos) (map[string][]LinkLayerDevice, error) {
+func (p *BridgePolicy) linkLayerDevicesForSpaces(host Machine, spaces corenetwork.SpaceInfos) (map[corenetwork.SpaceUUID][]LinkLayerDevice, error) {
 	deviceByName, err := linkLayerDevicesByName(host)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -261,7 +261,7 @@ func (p *BridgePolicy) linkLayerDevicesForSpaces(host Machine, spaces corenetwor
 		spaceToDevices = includeDevice(spaceToDevices, spaceID, device)
 	}
 
-	result := make(map[string][]LinkLayerDevice, len(spaceToDevices))
+	result := make(map[corenetwork.SpaceUUID][]LinkLayerDevice, len(spaceToDevices))
 	for spaceID, deviceMap := range spaceToDevices {
 		if !spaces.ContainsID(spaceID) {
 			continue
@@ -283,7 +283,7 @@ func linkLayerDevicesByName(host Machine) (map[string]LinkLayerDevice, error) {
 	return deviceByName, nil
 }
 
-func includeDevice(spaceToDevices namedNICsBySpace, spaceID string, device LinkLayerDevice) namedNICsBySpace {
+func includeDevice(spaceToDevices namedNICsBySpace, spaceID corenetwork.SpaceUUID, device LinkLayerDevice) namedNICsBySpace {
 	spaceInfo, ok := spaceToDevices[spaceID]
 	if !ok {
 		spaceInfo = make(map[string]LinkLayerDevice)
@@ -327,7 +327,7 @@ func (p *BridgePolicy) determineContainerSpaces(
 	// Constraints have been left in space name form,
 	// as they are human-readable and can be changed.
 	for _, spaceName := range cons.IncludeSpaces() {
-		if space := p.allSpaces.GetByName(spaceName); space != nil {
+		if space := p.allSpaces.GetByName(corenetwork.SpaceName(spaceName)); space != nil {
 			spaces = append(spaces, *space)
 		}
 	}
@@ -355,7 +355,7 @@ func (p *BridgePolicy) spaceNamesForPrinting(ids set.Strings) string {
 	}
 	names := set.NewStrings()
 	for _, id := range ids.Values() {
-		if info := p.allSpaces.GetByID(id); info != nil {
+		if info := p.allSpaces.GetByID(corenetwork.SpaceUUID(id)); info != nil {
 			names.Add(fmt.Sprintf("%q", info.Name))
 		} else {
 			// fallback, in case we do not have a name for the given
@@ -389,7 +389,7 @@ func (p *BridgePolicy) inferContainerSpaces(ctx context.Context, host Machine, c
 		containerId, host.Id(), namesHostSpaces)
 
 	if len(hostSpaces) == 1 {
-		hostInfo := p.allSpaces.GetByID(hostSpaces.Values()[0])
+		hostInfo := p.allSpaces.GetByID(corenetwork.SpaceUUID(hostSpaces.Values()[0]))
 		return corenetwork.SpaceInfos{*hostInfo}, nil
 	}
 	if len(hostSpaces) == 0 {
@@ -541,14 +541,14 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 	return interfaces, nil
 }
 
-func formatDeviceMap(spacesToDevices map[string][]LinkLayerDevice) string {
-	spaceIDs := make([]string, len(spacesToDevices))
+func formatDeviceMap(spacesToDevices map[corenetwork.SpaceUUID][]LinkLayerDevice) string {
+	spaceIDs := make([]corenetwork.SpaceUUID, len(spacesToDevices))
 	i := 0
 	for spaceID := range spacesToDevices {
 		spaceIDs[i] = spaceID
 		i++
 	}
-	sort.Strings(spaceIDs)
+	slices.Sort(spaceIDs)
 	var out []string
 	for _, id := range spaceIDs {
 		start := fmt.Sprintf("%q:[", id)
