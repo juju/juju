@@ -28,6 +28,19 @@ type ControllerConfigService interface {
 	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 }
 
+// ControllerNodeService defines the methods on the controller node service
+// that are needed by APIAddresser used by the caasmodeloperator API.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+	// addresses that are available for agents. The map is keyed by controller
+	// ID, and the values are slices of strings representing the API addresses
+	// for each controller node.
+	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	// WatchControllerAPIAddresses returns a watcher that observes changes to the
+	// controller ip addresses.
+	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
+}
+
 // ModelConfigService provides access to the model's configuration.
 type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.
