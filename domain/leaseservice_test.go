@@ -5,6 +5,7 @@ package domain
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -12,6 +13,9 @@ import (
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/leadership"
+	lease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -20,7 +24,7 @@ type leaseServiceSuite struct {
 	testhelpers.IsolationSuite
 
 	modelLeaseManager *MockModelLeaseManagerGetter
-	leaseChecker      *MockChecker
+	leaseManager      *MockLeaseManager
 	token             *MockToken
 }
 
@@ -36,7 +40,7 @@ func (s *leaseServiceSuite) TestWithLeader(c *tc.C) {
 	done := make(chan struct{})
 
 	// Force the lease wait to be triggered.
-	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(
+	s.leaseManager.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(
 		func(ctx context.Context, leaseName string, start chan<- struct{}) error {
 			close(start)
 
@@ -51,7 +55,7 @@ func (s *leaseServiceSuite) TestWithLeader(c *tc.C) {
 	)
 
 	// Check we correctly hold the lease.
-	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
+	s.leaseManager.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
 	service := NewLeaseService(s.modelLeaseManager)
@@ -71,7 +75,7 @@ func (s *leaseServiceSuite) TestWithLeader(c *tc.C) {
 func (s *leaseServiceSuite) TestWithLeaderWaitReturnsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(
+	s.leaseManager.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(
 		func(ctx context.Context, leaseName string, start chan<- struct{}) error {
 			return errors.Errorf("not holding lease")
 		},
@@ -96,7 +100,7 @@ func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *tc.C) {
 
 	// Cause the start to be triggered right away, but ensure that the
 	// lease has changed.
-	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(
+	s.leaseManager.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(
 		func(ctx context.Context, leaseName string, start chan<- struct{}) error {
 			close(start)
 
@@ -113,7 +117,7 @@ func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *tc.C) {
 	)
 
 	// Check we correctly hold the lease.
-	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
+	s.leaseManager.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
 	service := NewLeaseService(s.modelLeaseManager)
@@ -156,7 +160,7 @@ func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *tc.C) {
 
 	// Cause the start to be triggered right away, but ensure that the
 	// lease has changed.
-	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(
+	s.leaseManager.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(
 		func(ctx context.Context, leaseName string, start chan<- struct{}) error {
 			close(start)
 
@@ -170,7 +174,7 @@ func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *tc.C) {
 	)
 
 	// Fail the lease check.
-	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
+	s.leaseManager.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(errors.Errorf("not holding lease"))
 
 	service := NewLeaseService(s.modelLeaseManager)
@@ -186,14 +190,44 @@ func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *tc.C) {
 	c.Check(called, tc.IsFalse)
 }
 
+func (s *leaseServiceSuite) TestRevokeLeadership(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.leaseManager.EXPECT().Revoke("leaseName", "holderName").Return(nil)
+
+	service := NewLeaseService(s.modelLeaseManager)
+	err := service.RevokeLeadership("leaseName", unit.Name("holderName"))
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *leaseServiceSuite) TestRevokeLeadershipLeaseNotHeld(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.leaseManager.EXPECT().Revoke("leaseName", "holderName").Return(lease.ErrNotHeld)
+
+	service := NewLeaseService(s.modelLeaseManager)
+	err := service.RevokeLeadership("leaseName", unit.Name("holderName"))
+	c.Assert(err, tc.ErrorIs, leadership.ErrClaimNotHeld)
+}
+
+func (s *leaseServiceSuite) TestRevokeLeadershipLeaseError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.leaseManager.EXPECT().Revoke("leaseName", "holderName").Return(fmt.Errorf("down we go"))
+
+	service := NewLeaseService(s.modelLeaseManager)
+	err := service.RevokeLeadership("leaseName", unit.Name("holderName"))
+	c.Assert(err, tc.ErrorMatches, ".*down we go")
+}
+
 func (s *leaseServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelLeaseManager = NewMockModelLeaseManagerGetter(ctrl)
-	s.leaseChecker = NewMockChecker(ctrl)
+	s.leaseManager = NewMockLeaseManager(ctrl)
 	s.token = NewMockToken(ctrl)
 
-	s.modelLeaseManager.EXPECT().GetLeaseManager().Return(s.leaseChecker, nil).AnyTimes()
+	s.modelLeaseManager.EXPECT().GetLeaseManager().Return(s.leaseManager, nil).AnyTimes()
 
 	return ctrl
 }
