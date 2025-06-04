@@ -22,6 +22,7 @@ import (
 type State interface {
 	RelationState
 	UnitState
+	ApplicationState
 	MachineState
 
 	// GetAllJobs returns all removal jobs.
@@ -74,6 +75,9 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 
 	case removal.UnitJob:
 		err = s.processUnitRemovalJob(ctx, job)
+
+	case removal.ApplicationJob:
+		err = s.processApplicationRemovalJob(ctx, job)
 
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
