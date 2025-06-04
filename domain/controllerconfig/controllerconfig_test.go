@@ -36,7 +36,6 @@ func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *tc.C) {
 		controller.AuditLogCaptureArgs:    false,
 		controller.AuditLogMaxBackups:     10,
 		controller.PublicDNSAddress:       "controller.test.com:1234",
-		controller.APIPortOpenDelay:       "100ms",
 		controller.MigrationMinionWaitMax: "101ms",
 		controller.PruneTxnSleepTime:      "102ms",
 		controller.QueryTracingThreshold:  "103ms",
@@ -69,7 +68,6 @@ func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *tc.C) {
 	c.Assert(cfgOut.AuditLogCaptureArgs(), tc.IsFalse)
 	c.Assert(cfgOut.AuditLogMaxBackups(), tc.Equals, 10)
 	c.Assert(cfgOut.PublicDNSAddress(), tc.Equals, "controller.test.com:1234")
-	c.Assert(cfgOut.APIPortOpenDelay(), tc.Equals, 100*time.Millisecond)
 	c.Assert(cfgOut.MigrationMinionWaitMax(), tc.Equals, 101*time.Millisecond)
 	c.Assert(cfgOut.PruneTxnSleepTime(), tc.Equals, 102*time.Millisecond)
 	c.Assert(cfgOut.QueryTracingThreshold(), tc.Equals, 103*time.Millisecond)

@@ -68,14 +68,13 @@ func (st *Client) StateServingInfo(ctx context.Context) (controller.StateServing
 		return controller.StateServingInfo{}, errors.Trace(err)
 	}
 	return controller.StateServingInfo{
-		APIPort:           results.APIPort,
-		ControllerAPIPort: results.ControllerAPIPort,
-		StatePort:         results.StatePort,
-		Cert:              results.Cert,
-		PrivateKey:        results.PrivateKey,
-		CAPrivateKey:      results.CAPrivateKey,
-		SharedSecret:      results.SharedSecret,
-		SystemIdentity:    results.SystemIdentity,
+		APIPort:        results.APIPort,
+		StatePort:      results.StatePort,
+		Cert:           results.Cert,
+		PrivateKey:     results.PrivateKey,
+		CAPrivateKey:   results.CAPrivateKey,
+		SharedSecret:   results.SharedSecret,
+		SystemIdentity: results.SystemIdentity,
 	}, nil
 }
 

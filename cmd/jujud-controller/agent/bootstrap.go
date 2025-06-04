@@ -295,11 +295,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
 
-		// Force the controller API port to be set upon startup.
-		if args.ControllerConfig.ControllerAPIPort() != 0 {
-			agentConfig.SetControllerAPIPort(args.ControllerConfig.ControllerAPIPort())
-		}
-
 		agentConfig.SetJujuDBSnapChannel(args.ControllerConfig.JujuDBSnapChannel())
 		agentConfig.SetQueryTracingEnabled(args.ControllerConfig.QueryTracingEnabled())
 		agentConfig.SetQueryTracingThreshold(args.ControllerConfig.QueryTracingThreshold())

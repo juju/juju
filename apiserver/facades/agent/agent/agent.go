@@ -224,21 +224,15 @@ func (api *AgentAPI) StateServingInfo(ctx context.Context) (result params.StateS
 	if err != nil {
 		return params.StateServingInfo{}, errors.Trace(err)
 	}
-	// ControllerAPIPort comes from the controller config.
-	config, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return params.StateServingInfo{}, errors.Trace(err)
-	}
 
 	result = params.StateServingInfo{
-		APIPort:           info.APIPort,
-		ControllerAPIPort: config.ControllerAPIPort(),
-		StatePort:         info.StatePort,
-		Cert:              info.Cert,
-		PrivateKey:        info.PrivateKey,
-		CAPrivateKey:      info.CAPrivateKey,
-		SharedSecret:      info.SharedSecret,
-		SystemIdentity:    info.SystemIdentity,
+		APIPort:        info.APIPort,
+		StatePort:      info.StatePort,
+		Cert:           info.Cert,
+		PrivateKey:     info.PrivateKey,
+		CAPrivateKey:   info.CAPrivateKey,
+		SharedSecret:   info.SharedSecret,
+		SystemIdentity: info.SystemIdentity,
 	}
 
 	return result, nil

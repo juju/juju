@@ -35,13 +35,6 @@ const (
 	// APIPort is the port used for api connections.
 	APIPort = "api-port"
 
-	// ControllerAPIPort is an optional port that may be set for controllers
-	// that have a very heavy load. If this port is set, this port is used by
-	// the controllers to talk to each other - used for the local API connection
-	// as well as the pubsub forwarders. If this value is set, the api-port
-	// isn't opened until the controllers have started properly.
-	ControllerAPIPort = "controller-api-port"
-
 	// ControllerName is the canonical name for the controller.
 	ControllerName = "controller-name"
 
@@ -63,12 +56,6 @@ const (
 	// AgentRateLimitRate is the interval at which a new token is added to
 	// the token bucket, in milliseconds (ms).
 	AgentRateLimitRate = "agent-ratelimit-rate"
-
-	// APIPortOpenDelay is a duration that the controller will wait
-	// between when the controller has been deemed to be ready to open
-	// the api-port and when the api-port is actually opened. This value
-	// is only used when a controller-api-port value is set.
-	APIPortOpenDelay = "api-port-open-delay"
 
 	// AuditingEnabled determines whether the controller will record
 	// auditing information.
@@ -482,11 +469,9 @@ var (
 		AgentRateLimitMax,
 		AgentRateLimitRate,
 		APIPort,
-		APIPortOpenDelay,
 		AutocertDNSNameKey,
 		AutocertURLKey,
 		CACertKey,
-		ControllerAPIPort,
 		ControllerName,
 		ControllerUUIDKey,
 		LoginTokenRefreshURL,
@@ -560,7 +545,6 @@ var (
 		AgentLogfileMaxSize,
 		AgentRateLimitMax,
 		AgentRateLimitRate,
-		APIPortOpenDelay,
 		ApplicationResourceDownloadLimit,
 		AuditingEnabled,
 		AuditLogCaptureArgs,
@@ -738,26 +722,6 @@ func (c Config) StatePort() int {
 // APIPort returns the API server port for the environment.
 func (c Config) APIPort() int {
 	return c.mustInt(APIPort)
-}
-
-// APIPortOpenDelay returns the duration to wait before opening
-// the APIPort once the controller has started up. Only used when
-// the ControllerAPIPort is non-zero.
-func (c Config) APIPortOpenDelay() time.Duration {
-	return c.durationOrDefault(APIPortOpenDelay, DefaultAPIPortOpenDelay)
-}
-
-// ControllerAPIPort returns the optional API port to be used for
-// the controllers to talk to each other. A zero value means that
-// it is not set.
-func (c Config) ControllerAPIPort() int {
-	if value, ok := c[ControllerAPIPort].(float64); ok {
-		return int(value)
-	}
-	// If the value isn't an int, this conversion will fail and value
-	// will be 0, which is what we want here.
-	value, _ := c[ControllerAPIPort].(int)
-	return value
 }
 
 // ApplicationResourceDownloadLimit limits the number of concurrent resource download
@@ -1317,30 +1281,9 @@ func Validate(c Config) error {
 		}
 	}
 
-	if v, ok := c[ControllerAPIPort].(int); ok {
-		// TODO: change the validation so 0 is invalid and --reset is used.
-		// However that doesn't exist yet.
-		if v < 0 {
-			return errors.NotValidf("non-positive integer for controller-api-port")
-		}
-		if v == c.APIPort() {
-			return errors.NotValidf("controller-api-port matching api-port")
-		}
-		if v == c.StatePort() {
-			return errors.NotValidf("controller-api-port matching state-port")
-		}
-	}
-
 	if v, ok := c[ControllerName].(string); ok {
 		if !names.IsValidControllerName(v) {
 			return errors.Errorf("%s value must be a valid controller name (lowercase or digit with non-leading hyphen), got %q", ControllerName, v)
-		}
-	}
-
-	if v, ok := c[APIPortOpenDelay].(string); ok {
-		_, err := time.ParseDuration(v)
-		if err != nil {
-			return errors.Errorf("%s value %q must be a valid duration", APIPortOpenDelay, v)
 		}
 	}
 
@@ -1428,9 +1371,6 @@ func Validate(c Config) error {
 		}
 		if v == c.StatePort() {
 			return errors.NotValidf("ssh-server-port matching state-port")
-		}
-		if v == c.ControllerAPIPort() {
-			return errors.NotValidf("ssh-server-port matching controller-api-port")
 		}
 	}
 

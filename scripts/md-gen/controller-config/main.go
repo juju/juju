@@ -282,7 +282,6 @@ func fillFromConfigType(data map[string]*keyInfo) {
 	skipMethods := set.NewStrings(
 		"CAASImageRepo",
 		"CAASOperatorImagePath",
-		"ControllerAPIPort",
 		"Features",
 		"IdentityPublicKey",
 		"Validate", // not a config key

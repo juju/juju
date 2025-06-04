@@ -146,7 +146,6 @@ type Config struct {
 	Clock                   clock.Clock
 	MongoPort               int
 	APIPort                 int
-	ControllerAPIPort       int
 
 	// ControllerId is the id of the controller running this worker.
 	// It is used in checking if this working is running on the
@@ -189,7 +188,6 @@ func (config Config) Validate() error {
 	if config.APIPort <= 0 {
 		return errors.NotValidf("non-positive APIPort")
 	}
-	// TODO Juju 3.0: make ControllerAPIPort required.
 	return nil
 }
 

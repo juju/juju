@@ -125,7 +125,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		Clock:                   clock,
 		MongoPort:               controllerConfig.StatePort(),
 		APIPort:                 controllerConfig.APIPort(),
-		ControllerAPIPort:       controllerConfig.ControllerAPIPort(),
 		SupportsHA:              supportsHA,
 		PrometheusRegisterer:    config.PrometheusRegisterer,
 		// On machine models, the controller id is the same as the machine/agent id.

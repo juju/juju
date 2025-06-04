@@ -46,7 +46,6 @@ func (s *stateSuite) TestControllerConfigRead(c *tc.C) {
 		controller.AuditLogCaptureArgs: "0",
 		controller.AuditLogMaxBackups:  "10",
 		controller.PublicDNSAddress:    "controller.test.com:1234",
-		controller.APIPortOpenDelay:    "100ms",
 	}
 
 	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
@@ -80,7 +79,6 @@ func (s *stateSuite) TestControllerConfigUpdateTwice(c *tc.C) {
 		controller.AuditLogCaptureArgs: "0",
 		controller.AuditLogMaxBackups:  "10",
 		controller.PublicDNSAddress:    "controller.test.com:1234",
-		controller.APIPortOpenDelay:    "100ms",
 	}
 
 	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
@@ -104,7 +102,6 @@ func (s *stateSuite) TestControllerConfigUpdate(c *tc.C) {
 		controller.AuditLogCaptureArgs: "0",
 		controller.AuditLogMaxBackups:  "10",
 		controller.PublicDNSAddress:    "controller.test.com:1234",
-		controller.APIPortOpenDelay:    "100ms",
 	}
 
 	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
@@ -130,7 +127,6 @@ func (s *stateSuite) TestControllerConfigUpdateTwiceWithDifferentControllerUUID(
 		controller.AuditLogCaptureArgs: "0",
 		controller.AuditLogMaxBackups:  "10",
 		controller.PublicDNSAddress:    "controller.test.com:1234",
-		controller.APIPortOpenDelay:    "100ms",
 	}
 
 	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
@@ -149,7 +145,6 @@ func (s *stateSuite) TestUpdateControllerConfigNewData(c *tc.C) {
 
 	err := st.UpdateControllerConfig(c.Context(), map[string]string{
 		controller.PublicDNSAddress: "controller.test.com:1234",
-		controller.APIPortOpenDelay: "100ms",
 	}, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -176,7 +171,6 @@ func (s *stateSuite) TestUpdateControllerUpsertAndReplace(c *tc.C) {
 
 	ctrlConfig := map[string]string{
 		controller.PublicDNSAddress: "controller.test.com:1234",
-		controller.APIPortOpenDelay: "100ms",
 	}
 
 	// Initial values.
@@ -185,7 +179,6 @@ func (s *stateSuite) TestUpdateControllerUpsertAndReplace(c *tc.C) {
 
 	// Now with different DNS address and API port open delay.
 	ctrlConfig[controller.PublicDNSAddress] = "updated-controller.test.com:1234"
-	ctrlConfig[controller.APIPortOpenDelay] = "200ms"
 
 	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
@@ -200,10 +193,6 @@ func (s *stateSuite) TestUpdateControllerUpsertAndReplace(c *tc.C) {
 	err = row.Scan(&dnsAddress)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(dnsAddress, tc.Equals, "updated-controller.test.com:1234")
-
-	// Check the API port open delay.
-	row = db.QueryRow("SELECT value FROM controller_config WHERE key = ?", controller.APIPortOpenDelay)
-	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var apiPortOpenDelay string
 	err = row.Scan(&apiPortOpenDelay)
@@ -221,7 +210,6 @@ func (s *stateSuite) TestControllerConfigRemove(c *tc.C) {
 		controller.AuditLogCaptureArgs: "0",
 		controller.AuditLogMaxBackups:  "10",
 		controller.PublicDNSAddress:    "controller.test.com:1234",
-		controller.APIPortOpenDelay:    "100ms",
 	}
 
 	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
@@ -231,11 +219,9 @@ func (s *stateSuite) TestControllerConfigRemove(c *tc.C) {
 
 	// Delete the values that are not in the map.
 
-	delete(ctrlConfig, controller.APIPortOpenDelay)
 	delete(ctrlConfig, controller.AuditLogCaptureArgs)
 
 	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, []string{
-		controller.APIPortOpenDelay,
 		controller.AuditLogCaptureArgs,
 	}, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
@@ -261,7 +247,6 @@ func (s *stateSuite) TestControllerConfigRemoveWithAdditionalValues(c *tc.C) {
 		controller.AuditLogCaptureArgs: "0",
 		controller.AuditLogMaxBackups:  "10",
 		controller.PublicDNSAddress:    "controller.test.com:1234",
-		controller.APIPortOpenDelay:    "100ms",
 	}
 
 	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
@@ -273,7 +258,6 @@ func (s *stateSuite) TestControllerConfigRemoveWithAdditionalValues(c *tc.C) {
 	// in the map. They should still be removed.
 
 	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, []string{
-		controller.APIPortOpenDelay,
 		controller.AuditLogCaptureArgs,
 	}, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
@@ -294,7 +278,6 @@ func (s *stateSuite) TestUpdateControllerWithValidation(c *tc.C) {
 
 	ctrlConfig := map[string]string{
 		controller.PublicDNSAddress: "controller.test.com:1234",
-		controller.APIPortOpenDelay: "100ms",
 	}
 
 	// Initial values.
