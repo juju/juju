@@ -49,9 +49,11 @@ func NewAPI(
 	st CAASModelOperatorState,
 	agentPasswordService AgentPasswordService,
 	controllerConfigService ControllerConfigService,
+	controllerNodeService ControllerNodeService,
 	modelConfigService ModelConfigService,
 	logger corelogger.Logger,
 	modelUUID model.UUID,
+	watcherRegistry facade.WatcherRegistry,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -59,7 +61,7 @@ func NewAPI(
 
 	return &API{
 		auth:                    authorizer,
-		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
+		APIAddresser:            common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		PasswordChanger:         common.NewPasswordChanger(agentPasswordService, st, common.AuthFuncForTagKind(names.ModelTagKind)),
 		ctrlState:               ctrlSt,
 		controllerConfigService: controllerConfigService,
@@ -84,6 +86,10 @@ func (a *API) WatchModelOperatorProvisioningInfo(ctx context.Context) (params.No
 		return result, errors.Trace(err)
 	}
 
+	// TODO: 2025-Jun-04 hml
+	// Move to use a.APIAddresser.WatchControllerNodes, and remove
+	// CAASControllerState, once the other watchers are transitioned
+	// to use domains and the multiwatcher is no longer used.
 	controllerAPIHostPortsWatcher := a.ctrlState.WatchAPIHostPortsForAgents()
 
 	modelConfigWatcher, err := a.modelConfigService.Watch()
@@ -168,24 +174,4 @@ func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOp
 // It should be blanked when this facade version is next incremented.
 func (a *API) ModelUUID(ctx context.Context) params.StringResult {
 	return params.StringResult{Result: a.modelUUID.String()}
-}
-
-// APIHostPorts returns the API server addresses.
-func (u *API) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := u.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return u.APIAddresser.APIHostPorts(ctx, controllerConfig)
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-func (u *API) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := u.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return u.APIAddresser.APIAddresses(ctx, controllerConfig)
 }
