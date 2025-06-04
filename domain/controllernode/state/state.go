@@ -564,6 +564,10 @@ func calculateAddressDeltas(existing, new []controllerAPIAddress) (toAdd []contr
 func decodeAllAPIAddresses(addrs []controllerAPIAddress) map[string][]string {
 	result := make(map[string][]string)
 	for _, addr := range addrs {
+		if addr.Address == "" {
+			continue
+		}
+
 		controllerID := addr.ControllerID
 		if _, ok := result[controllerID]; !ok {
 			result[controllerID] = []string{}

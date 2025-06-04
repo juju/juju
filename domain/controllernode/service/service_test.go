@@ -40,6 +40,10 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.state = NewMockState(ctrl)
 
+	c.Cleanup(func() {
+		s.state = nil
+	})
+
 	return ctrl
 }
 
@@ -503,6 +507,11 @@ func (s *watchableServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.state = NewMockState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
+
+	c.Cleanup(func() {
+		s.state = nil
+		s.watcherFactory = nil
+	})
 
 	return ctrl
 }

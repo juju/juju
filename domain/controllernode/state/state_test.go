@@ -734,6 +734,54 @@ func (s *stateSuite) TestGetAllAPIAddressesForAgent(c *tc.C) {
 	})
 }
 
+func (s *stateSuite) TestGetAllAPIAddressesForAgentEmptyAddress(c *tc.C) {
+	// If we set an empty address then it should not be included in the
+	// GetAllAPIAddressesForAgents result.
+
+	var controllerIDs []string
+	for i := 1; i < 5; i++ {
+		controllerID := strconv.Itoa(i)
+		controllerIDs = append(controllerIDs, controllerID)
+	}
+
+	err := s.state.CurateNodes(c.Context(), controllerIDs, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for i, controllerID := range controllerIDs {
+		var addrs []controllernode.APIAddress
+		if i+1 == 2 {
+			addrs = []controllernode.APIAddress{
+				{Address: "", IsAgent: true},
+			}
+		} else {
+			addrs = []controllernode.APIAddress{
+				{Address: fmt.Sprintf("10.0.0.%d:17070", i), IsAgent: true},
+			}
+		}
+
+		err := s.state.SetAPIAddresses(
+			c.Context(),
+			controllerID,
+			addrs,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	agentAddresses, err := s.state.GetAllAPIAddressesForAgents(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(agentAddresses, tc.DeepEquals, map[string][]string{
+		"1": {
+			"10.0.0.0:17070",
+		},
+		"3": {
+			"10.0.0.2:17070",
+		},
+		"4": {
+			"10.0.0.3:17070",
+		},
+	})
+}
+
 func (s *stateSuite) TestSetAPIAddressControllerNodeNotFound(c *tc.C) {
 	err := s.state.SetAPIAddresses(
 		c.Context(),
