@@ -214,47 +214,19 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 			Origin:        corenetwork.OriginMachine,
 			Scope:         corenetwork.ScopeCloudLocal,
 		}},
+		DNSSearchDomains: []string{"search.maas.net"},
+		DNSAddresses:     []string{"8.8.8.8"},
 	}})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
-	rows, err := db.QueryContext(ctx, "SELECT name FROM link_layer_device")
-	c.Assert(err, tc.ErrorIsNil)
-	defer func() { _ = rows.Close() }()
-
-	var (
-		name     string
-		devCount int
-	)
-
-	for rows.Next() {
-		err = rows.Scan(&name)
-		c.Assert(err, tc.ErrorIsNil)
-		devCount++
-	}
-
-	c.Assert(devCount, tc.Equals, 1)
-	c.Check(name, tc.Equals, "eth0")
-
-	rows, err = db.QueryContext(ctx, "SELECT address_value FROM ip_address")
-	c.Assert(err, tc.ErrorIsNil)
-	defer func() { _ = rows.Close() }()
-
-	var (
-		ip        string
-		addrCount int
-	)
-
-	for rows.Next() {
-		err = rows.Scan(&ip)
-		c.Assert(err, tc.ErrorIsNil)
-		addrCount++
-	}
-
-	c.Assert(addrCount, tc.Equals, 1)
-	c.Check(ip, tc.Equals, "192.168.0.50/24")
+	checkScalarResult(c, db, "SELECT name FROM link_layer_device", "eth0")
+	checkScalarResult(c, db, "SELECT address_value FROM ip_address", "192.168.0.50/24")
+	checkScalarResult(c, db, "SELECT search_domain FROM link_layer_device_dns_domain", "search.maas.net")
+	checkScalarResult(c, db, "SELECT dns_address FROM link_layer_device_dns_address", "8.8.8.8")
 }
+
 func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
@@ -280,23 +252,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
-	rows, err := db.QueryContext(ctx, "SELECT name FROM link_layer_device")
-	c.Assert(err, tc.ErrorIsNil)
-	defer func() { _ = rows.Close() }()
-
-	var (
-		name     string
-		devCount int
-	)
-
-	for rows.Next() {
-		err = rows.Scan(&name)
-		c.Assert(err, tc.ErrorIsNil)
-		devCount++
-	}
-
-	c.Assert(devCount, tc.Equals, 1)
-	c.Check(name, tc.Equals, "eth0")
+	checkScalarResult(c, db, "SELECT name FROM link_layer_device", "eth0")
 
 	row := db.QueryRowContext(ctx, "SELECT count(*) FROM ip_address")
 	c.Assert(row.Err(), tc.ErrorIsNil)
@@ -305,4 +261,24 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	err = row.Scan(&addrCount)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addrCount, tc.Equals, 0)
+}
+
+func checkScalarResult(c *tc.C, db *sql.DB, query string, expected string) {
+	rows, err := db.QueryContext(c.Context(), query)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+
+	var (
+		actual   string
+		rowCount int
+	)
+
+	for rows.Next() {
+		err = rows.Scan(&actual)
+		c.Assert(err, tc.ErrorIsNil)
+		rowCount++
+	}
+
+	c.Assert(rowCount, tc.Equals, 1)
+	c.Check(actual, tc.Equals, expected)
 }

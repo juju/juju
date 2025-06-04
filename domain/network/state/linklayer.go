@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
@@ -81,13 +82,26 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 		}
 
 		// Otherwise, insert the data.
-		nicsToInsert, nicNameToUUID, err := st.reconcileNetConfigDevices(nodeUUID, nics)
+		newNics, dnsSearchDoms, dnsAddrs, nicNameToUUID, err := st.reconcileNetConfigDevices(nodeUUID, nics)
 		if err != nil {
 			return errors.Errorf("reconciling incoming network devices: %w", err)
 		}
 
-		if err = st.insertLinkLayerDevices(ctx, tx, nicsToInsert); err != nil {
+		// retainedDeviceUUIDs represent the set of link-layer device UUIDs
+		// that we know will be in the data once we complete this operation.
+		// I.e. those inserted and updated.
+		retainedDeviceUUIDs := transform.MapToSlice(nicNameToUUID, func(k, v string) []string { return []string{v} })
+
+		if err = st.insertLinkLayerDevices(ctx, tx, newNics); err != nil {
 			return errors.Errorf("inserting link layer devices: %w", err)
+		}
+
+		if err = st.updateDNSSearchDomains(ctx, tx, dnsSearchDoms, retainedDeviceUUIDs); err != nil {
+			return errors.Errorf("updating DNS search domains: %w", err)
+		}
+
+		if err = st.updateDNSAddresses(ctx, tx, dnsAddrs, retainedDeviceUUIDs); err != nil {
+			return errors.Errorf("updating DNS addresses: %w", err)
 		}
 
 		addrsToInsert, err := st.reconcileNetConfigAddresses(nodeUUID, nics, nicNameToUUID)
@@ -111,9 +125,9 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 
 func (st *State) reconcileNetConfigDevices(
 	nodeUUID string, nics []network.NetInterface,
-) ([]linkLayerDeviceDML, map[string]string, error) {
-	// TODO (manadart 2025-04-30): This will have to return more types for DNS
-	// nameservers/addresses, provider ID entries etc.
+) ([]linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, map[string]string, error) {
+	// TODO (manadart 2025-04-30): This will have to return more types for
+	// provider ID entries etc.
 
 	// The idea here will be to set the UUIDs that we know from querying
 	// existing devices, then generate new ones for devices we don't have yet.
@@ -123,20 +137,29 @@ func (st *State) reconcileNetConfigDevices(
 	for _, n := range nics {
 		nicUUID, err := network.NewInterfaceUUID()
 		if err != nil {
-			return nil, nil, errors.Capture(err)
+			return nil, nil, nil, nil, errors.Capture(err)
 		}
 		nameToUUID[n.Name] = nicUUID.String()
 	}
 
 	nicsDML := make([]linkLayerDeviceDML, len(nics))
+	var (
+		dnsSearchDMLs []dnsSearchDomainRow
+		dnsAddrDMLs   []dnsAddressRow
+	)
+
 	for i, n := range nics {
-		var err error
-		if nicsDML[i], err = netInterfaceToDML(n, nodeUUID, nameToUUID); err != nil {
-			return nil, nil, errors.Capture(err)
+		nicDML, dnsSearchDML, dnsAddrDML, err := netInterfaceToDML(n, nodeUUID, nameToUUID)
+		if err != nil {
+			return nil, nil, nil, nil, errors.Capture(err)
 		}
+
+		nicsDML[i] = nicDML
+		dnsSearchDMLs = append(dnsSearchDMLs, dnsSearchDML...)
+		dnsAddrDMLs = append(dnsAddrDMLs, dnsAddrDML...)
 	}
 
-	return nicsDML, nameToUUID, nil
+	return nicsDML, dnsSearchDMLs, dnsAddrDMLs, nameToUUID, nil
 }
 
 func (st *State) insertLinkLayerDevices(ctx context.Context, tx *sqlair.TX, devs []linkLayerDeviceDML) error {
@@ -149,6 +172,68 @@ func (st *State) insertLinkLayerDevices(ctx context.Context, tx *sqlair.TX, devs
 	err = tx.Query(ctx, stmt, devs).Run()
 	if err != nil {
 		return errors.Errorf("running device insert statement: %w", err)
+	}
+
+	return nil
+}
+
+// updateDNSSearchDomains replaces all the data in link_layer_device_dns_domain
+// for devices represented in the incoming data.
+// We are unworried by the wholesale replacement because:
+// - Machine network config updates are infrequent.
+// - We are not watching this data. We mostly care about changing addresses.
+func (st *State) updateDNSSearchDomains(
+	ctx context.Context, tx *sqlair.TX, rows []dnsSearchDomainRow, devs uuids,
+) error {
+	stmt, err := st.Prepare("DELETE FROM link_layer_device_dns_domain WHERE device_uuid IN ($uuids[:])", devs)
+	if err != nil {
+		return errors.Errorf("preparing DNS search domain delete statement: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, devs).Run(); err != nil {
+		return errors.Errorf("running DNS search domain delete statement: %w", err)
+	}
+
+	if len(rows) == 0 {
+		return nil
+	}
+
+	stmt, err = st.Prepare("INSERT INTO link_layer_device_dns_domain(*) VALUES ($dnsSearchDomainRow.*)", rows[0])
+	if err != nil {
+		return errors.Errorf("preparing DNS search domain insert statement: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, rows).Run(); err != nil {
+		return errors.Errorf("running DNS search domain insert statement: %w", err)
+	}
+
+	return nil
+}
+
+// updateDNSAddresses replaces all the data in the link_layer_device_dns_address
+// for devices represented in the incoming data.
+// See [updateDNSSearchDomains] for why delete-all+insert is OK.
+func (st *State) updateDNSAddresses(ctx context.Context, tx *sqlair.TX, rows []dnsAddressRow, devs uuids) error {
+	stmt, err := st.Prepare("DELETE FROM link_layer_device_dns_address WHERE device_uuid IN ($uuids[:])", devs)
+	if err != nil {
+		return errors.Errorf("preparing DNS address delete statement: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, devs).Run(); err != nil {
+		return errors.Errorf("running DNS address delete statement: %w", err)
+	}
+
+	if len(rows) == 0 {
+		return nil
+	}
+
+	stmt, err = st.Prepare("INSERT INTO link_layer_device_dns_address(*) VALUES ($dnsAddressRow.*)", rows[0])
+	if err != nil {
+		return errors.Errorf("preparing DNS address insert statement: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, rows).Run(); err != nil {
+		return errors.Errorf("running DNS address insert statement: %w", err)
 	}
 
 	return nil
