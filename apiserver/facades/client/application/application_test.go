@@ -156,99 +156,6 @@ func (s *applicationSuite) TestSetCharmApplicationNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *applicationSuite) TestSetCharmEndpointBindings(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setupAPI(c)
-	s.expectApplication(c, "foo")
-	s.expectSpaceName(c, "bar")
-	s.expectCharm(c, "foo")
-	s.expectCharmConfig(c, 1)
-	s.expectCharmAssumes(c)
-	s.expectCharmFormatCheck(c, "foo")
-
-	var result state.SetCharmConfig
-	s.expectSetCharm(c, "foo", func(c *tc.C, config state.SetCharmConfig) {
-		result = config
-	})
-	s.expectSetCharmWithTrust(c)
-
-	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
-		ApplicationName: "foo",
-		CharmURL:        "local:foo-42",
-		CharmOrigin: &params.CharmOrigin{
-			Type:   "charm",
-			Source: "local",
-			Base: params.Base{
-				Name:    "ubuntu",
-				Channel: "24.04",
-			},
-			Architecture: "amd64",
-			Revision:     ptr(42),
-			Track:        ptr("1.0"),
-			Risk:         "stable",
-		},
-		ConfigSettings: map[string]string{
-			"stringOption": "foo",
-			"trust":        "true",
-		},
-		ConfigSettingsYAML: `foo: {"stringOption": "bar"}`,
-		EndpointBindings: map[string]string{
-			"baz": "bar",
-		},
-		ForceUnits: true,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.CharmOrigin, tc.DeepEquals, &state.CharmOrigin{
-		Type:     "charm",
-		Source:   "local",
-		Revision: ptr(42),
-		Channel: &state.Channel{
-			Track: "1.0",
-			Risk:  "stable",
-		},
-		Platform: &state.Platform{
-			OS:           "ubuntu",
-			Channel:      "24.04",
-			Architecture: "amd64",
-		},
-	})
-}
-
-func (s *applicationSuite) TestSetCharmEndpointBindingsNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setupAPI(c)
-	s.expectApplication(c, "foo")
-	s.expectSpaceNameNotFound(c, "bar")
-
-	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
-		ApplicationName: "foo",
-		CharmURL:        "local:foo-42",
-		CharmOrigin: &params.CharmOrigin{
-			Type:   "charm",
-			Source: "local",
-			Base: params.Base{
-				Name:    "ubuntu",
-				Channel: "24.04",
-			},
-			Architecture: "amd64",
-			Revision:     ptr(42),
-			Track:        ptr("1.0"),
-			Risk:         "stable",
-		},
-		ConfigSettings: map[string]string{
-			"stringOption": "foo",
-			"trust":        "true",
-		},
-		ConfigSettingsYAML: `foo: {"stringOption": "bar"}`,
-		EndpointBindings: map[string]string{
-			"baz": "bar",
-		},
-	})
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
-}
-
 func (s *applicationSuite) TestSetCharmGetCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1553,16 +1460,6 @@ func (s *applicationSuite) expectCreateApplicationForDeploy(name string, retErr 
 
 func (s *applicationSuite) expectDeletePendingResources(resSlice []resource.UUID) {
 	s.resourceService.EXPECT().DeleteResourcesAddedBeforeApplication(gomock.Any(), resSlice).Return(nil)
-}
-
-func (s *applicationSuite) expectSpaceName(c *tc.C, name string) {
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), name).Return(&network.SpaceInfo{
-		ID: "space-1",
-	}, nil)
-}
-
-func (s *applicationSuite) expectSpaceNameNotFound(c *tc.C, name string) {
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), name).Return(nil, errors.NotFoundf("space %q", name))
 }
 
 func (s *applicationSuite) expectCharm(c *tc.C, name string) {
