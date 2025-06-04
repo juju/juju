@@ -37,7 +37,6 @@ var (
 		"charm-revision-updater", // tertiary dependency: will be inactive because migration workers will be inactive
 		"compute-provisioner",
 		"firewaller",
-		"instance-mutater",
 		"instance-poller",
 		"logging-config-updater",  // tertiary dependency: will be inactive because migration workers will be inactive
 		"machine-undertaker",      // tertiary dependency: will be inactive because migration workers will be inactive
@@ -60,7 +59,6 @@ var (
 		"charm-revision-updater",
 		"compute-provisioner",
 		"firewaller",
-		"instance-mutater",
 		"instance-poller",
 		"logging-config-updater",
 		"machine-undertaker",
@@ -97,7 +95,6 @@ var (
 		"broker-tracker",
 		"charmhub-http-client",
 		"clock",
-		"instance-mutater",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",

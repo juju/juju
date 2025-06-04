@@ -93,7 +93,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"http-client",
 			"http-server-args",
 			"http-server",
-			"instance-mutater",
 			"is-bootstrap-flag",
 			"is-bootstrap-gate",
 			"is-controller-flag",
@@ -992,19 +991,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"provider-services",
 		"query-logger",
 		"state-config-watcher",
-	},
-
-	"instance-mutater": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"broker-tracker",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
 	},
 
 	"is-bootstrap-flag": {

@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/internal/worker/credentialvalidator"
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/fortress"
-	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancepoller"
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/machineundertaker"
@@ -443,14 +442,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     machineundertaker.NewWorker,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.machineundertaker"),
 		})),
-		instanceMutaterName: ifNotMigrating(instancemutater.ModelManifold(instancemutater.ModelManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			EnvironName:   providerTrackerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.instancemutater.environ"),
-			NewClient:     instancemutater.NewClient,
-			NewWorker:     instancemutater.NewEnvironWorker,
-		})),
 	}
 
 	result := commonManifolds(config)
@@ -623,7 +614,6 @@ const (
 	domainServicesName           = "domain-services"
 	firewallerName               = "firewaller"
 	httpClientName               = "http-client"
-	instanceMutaterName          = "instance-mutater"
 	instancePollerName           = "instance-poller"
 	leaseManagerName             = "lease-manager"
 	loggingConfigUpdaterName     = "logging-config-updater"
