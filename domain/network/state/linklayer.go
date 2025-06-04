@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	"golang.org/x/exp/maps"
+	"github.com/juju/collections/transform"
 
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
@@ -90,7 +90,7 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 		// retainedDeviceUUIDs represent the set of link-layer device UUIDs
 		// that we know will be in the data once we complete this operation.
 		// I.e. those inserted and updated.
-		retainedDeviceUUIDs := maps.Values(nicNameToUUID)
+		retainedDeviceUUIDs := transform.MapToSlice(nicNameToUUID, func(k, v string) []string { return []string{v} })
 
 		if err = st.insertLinkLayerDevices(ctx, tx, newNics); err != nil {
 			return errors.Errorf("inserting link layer devices: %w", err)
@@ -126,8 +126,8 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 func (st *State) reconcileNetConfigDevices(
 	nodeUUID string, nics []network.NetInterface,
 ) ([]linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, map[string]string, error) {
-	// TODO (manadart 2025-04-30): This will have to return more types for DNS
-	// nameservers/addresses, provider ID entries etc.
+	// TODO (manadart 2025-04-30): This will have to return more types for
+	// provider ID entries etc.
 
 	// The idea here will be to set the UUIDs that we know from querying
 	// existing devices, then generate new ones for devices we don't have yet.
