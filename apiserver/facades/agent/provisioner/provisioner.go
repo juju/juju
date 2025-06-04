@@ -169,33 +169,36 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), systemState)
 
-	modelConfigWatcher := commonmodel.NewModelConfigWatcher(domainServices.Config(), ctx.WatcherRegistry())
+	watcherRegistry := ctx.WatcherRegistry()
+	modelConfigWatcher := commonmodel.NewModelConfigWatcher(domainServices.Config(), watcherRegistry)
 
 	resources := ctx.Resources()
+	machineService := ctx.DomainServices().Machine()
+	controllerConfigService := domainServices.ControllerConfig()
 	api := &ProvisionerAPI{
 		StatusSetter:         common.NewStatusSetter(st, getAuthFunc, ctx.Clock()),
 		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc, ctx.DomainServices().Machine()),
+		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc, machineService),
 		PasswordChanger:      common.NewPasswordChanger(domainServices.AgentPassword(), st, getAuthFunc),
 		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
-		APIAddresser:         common.NewAPIAddresser(systemState, resources),
+		APIAddresser:         common.NewAPIAddresser(domainServices.ControllerNode(), watcherRegistry),
 		ModelConfigWatcher:   modelConfigWatcher,
 		ModelMachinesWatcher: commonmodel.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
-			domainServices.ControllerConfig(),
+			controllerConfigService,
 			domainServices.ExternalController(),
 		),
 		NetworkConfigAPI:          netConfigAPI,
 		networkService:            ctx.DomainServices().Network(),
 		st:                        st,
-		controllerConfigService:   domainServices.ControllerConfig(),
+		controllerConfigService:   controllerConfigService,
 		agentProvisionerService:   domainServices.AgentProvisioner(),
 		cloudImageMetadataService: domainServices.CloudImageMetadata(),
 		keyUpdaterService:         domainServices.KeyUpdater(),
 		modelConfigService:        domainServices.Config(),
 		modelInfoService:          modelInfoService,
-		machineService:            domainServices.Machine(),
+		machineService:            machineService,
 		applicationService:        domainServices.Application(),
 		resources:                 resources,
 		authorizer:                authorizer,
@@ -1480,26 +1483,6 @@ func (api *ProvisionerAPI) ModelUUID(ctx context.Context) params.StringResult {
 		return params.StringResult{Error: apiservererrors.ServerError(err)}
 	}
 	return params.StringResult{Result: string(modelInfo.UUID)}
-}
-
-// APIHostPorts returns the API server addresses.
-func (api *ProvisionerAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return api.APIAddresser.APIHostPorts(ctx, controllerConfig)
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-func (api *ProvisionerAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return api.APIAddresser.APIAddresses(ctx, controllerConfig)
 }
 
 // Remove removes every given machine from state.

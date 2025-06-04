@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -229,6 +230,65 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.application = NewMockApplication(ctrl)
 	s.unit = NewMockUnit(ctrl)
+
+	return ctrl
+}
+
+func TestWithControllerSuite(t *testing.T) {
+	tc.Run(t, &withControllerSuite{})
+}
+
+type withControllerSuite struct {
+	apiAddressAccessor      *MockAPIAddressAccessor
+	controllerConfigService *MockControllerConfigService
+}
+
+func (s *withControllerSuite) TestAPIAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+		"1": {
+			"0.1.2.3:1234",
+		},
+	}, nil)
+	provisioner := &ProvisionerAPI{APIAddresser: common.NewAPIAddresser(s.apiAddressAccessor, nil)}
+
+	// Act
+	result, err := provisioner.APIAddresses(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsResult{
+		Result: []string{"0.1.2.3:1234"},
+	})
+}
+
+func (s *withControllerSuite) TestCACert(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
+	provisioner := &ProvisionerAPI{controllerConfigService: s.controllerConfigService}
+
+	// Act
+	result, err := provisioner.CACert(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.BytesResult{
+		Result: []byte(coretesting.CACert),
+	})
+}
+
+func (s *withControllerSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.apiAddressAccessor = NewMockAPIAddressAccessor(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+
+	c.Cleanup(func() {
+		s.apiAddressAccessor = nil
+		s.controllerConfigService = nil
+	})
 
 	return ctrl
 }

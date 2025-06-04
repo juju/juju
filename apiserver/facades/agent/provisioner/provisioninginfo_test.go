@@ -211,7 +211,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 	c.Assert(res, tc.DeepEquals, expected)
 }
 
-func (s *withControllerSuite) TestStub(c *tc.C) {
+func (s *withoutControllerSuite) TestStubSuite(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - ProvisioningInfo for endpoint bindings to multiple spaces.
   In particular the EndpointBindings and ProvisioningNetworkTopology should be

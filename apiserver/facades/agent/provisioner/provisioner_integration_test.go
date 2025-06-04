@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/life"
@@ -1519,41 +1518,4 @@ func (s *withoutControllerSuite) TestSupportsNoContainers(c *tc.C) {
 	containers, ok := m0.SupportedContainers()
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(containers, tc.DeepEquals, []instance.ContainerType{})
-}
-func TestWithControllerSuite(t *stdtesting.T) {
-	tc.Run(t, &withControllerSuite{})
-}
-
-type withControllerSuite struct {
-	provisionerSuite
-}
-
-func (s *withControllerSuite) SetUpTest(c *tc.C) {
-	s.provisionerSuite.setUpTest(c, true)
-}
-
-func (s *withControllerSuite) TestAPIAddresses(c *tc.C) {
-	hostPorts := []network.SpaceHostPorts{
-		network.NewSpaceHostPorts(1234, "0.1.2.3"),
-	}
-	st := s.ControllerModel(c).State()
-
-	controllerCfg := coretesting.FakeControllerConfig()
-
-	err := st.SetAPIHostPorts(controllerCfg, hostPorts, hostPorts)
-	c.Assert(err, tc.ErrorIsNil)
-
-	result, err := s.provisioner.APIAddresses(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.StringsResult{
-		Result: []string{"0.1.2.3:1234"},
-	})
-}
-
-func (s *withControllerSuite) TestCACert(c *tc.C) {
-	result, err := s.provisioner.CACert(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.BytesResult{
-		Result: []byte(coretesting.CACert),
-	})
 }
