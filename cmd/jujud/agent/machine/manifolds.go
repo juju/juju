@@ -49,7 +49,6 @@ import (
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/hostkeyreporter"
 	"github.com/juju/juju/internal/worker/identityfilewriter"
-	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/machineactions"
@@ -508,14 +507,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineLock:   config.MachineLock,
 			NewBrokerFunc: config.NewBrokerFunc,
 			NewTracker:    lxdbroker.NewWorkerTracker,
-		})),
-		instanceMutaterName: ifNotMigrating(instancemutater.MachineManifold(instancemutater.MachineManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			BrokerName:    brokerTrackerName,
-			Logger:        internallogger.GetLogger("juju.worker.instancemutater.container"),
-			NewClient:     instancemutater.NewClient,
-			NewWorker:     instancemutater.NewContainerWorker,
 		})),
 		// The machineSetupName manifold runs small tasks required
 		// to setup a machine, but requires the machine agent's API
