@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -17,6 +16,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -34,14 +36,18 @@ func TestManifoldSuite(t *testing.T) {
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = ManifoldConfig{
-		AgentName:      "agent",
-		CentralHubName: "central-hub",
-		Clock:          clock.WallClock,
+		AgentName:          "agent",
+		DomainServicesName: "domain-services",
+		Clock:              clock.WallClock,
+		Logger:             loggertesting.WrapCheckLog(c),
+		NewWorker: func(wc WorkerConfig) (worker.Worker, error) {
+			return &fakeWorker{}, nil
+		},
 	}
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"agent", "central-hub"})
+	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"agent", "domain-services"})
 }
 
 func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
@@ -56,8 +62,8 @@ func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
 
 func (s *ManifoldSuite) TestCentralHubMissing(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
-		"agent":       &fakeAgent{},
-		"central-hub": dependency.ErrMissing,
+		"agent":           &fakeAgent{},
+		"domain-services": dependency.ErrMissing,
 	})
 
 	worker, err := s.manifold().Start(c.Context(), getter)
@@ -67,8 +73,8 @@ func (s *ManifoldSuite) TestCentralHubMissing(c *tc.C) {
 
 func (s *ManifoldSuite) TestAgentAPIInfoNotReady(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
-		"agent":       &fakeAgent{missingAPIinfo: true},
-		"central-hub": pubsub.NewStructuredHub(nil),
+		"agent":           &fakeAgent{missingAPIinfo: true},
+		"domain-services": domainServices{},
 	})
 
 	worker, err := s.manifold().Start(c.Context(), getter)
@@ -78,7 +84,7 @@ func (s *ManifoldSuite) TestAgentAPIInfoNotReady(c *tc.C) {
 
 func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 	clock := s.config.Clock
-	hub := pubsub.NewStructuredHub(nil)
+
 	var config WorkerConfig
 	s.config.NewWorker = func(c WorkerConfig) (worker.Worker, error) {
 		config = c
@@ -86,8 +92,8 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 	}
 
 	getter := dt.StubGetter(map[string]interface{}{
-		"agent":       &fakeAgent{tag: names.NewMachineTag("42")},
-		"central-hub": hub,
+		"agent":           &fakeAgent{tag: names.NewMachineTag("42")},
+		"domain-services": domainServices{},
 	})
 
 	worker, err := s.manifold().Start(c.Context(), getter)
@@ -96,13 +102,21 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 
 	c.Check(config.Origin, tc.Equals, names.NewMachineTag("42"))
 	c.Check(config.Clock, tc.Equals, clock)
-	c.Check(config.Hub, tc.Equals, hub)
+	c.Check(config.ControllerNodeService, tc.DeepEquals, &controllernodeservice.WatchableService{})
 	c.Check(config.APIInfo.CACert, tc.Equals, "fake as")
 	c.Check(config.NewRemote, tc.NotNil)
 }
 
 func (s *ManifoldSuite) manifold() dependency.Manifold {
 	return Manifold(s.config)
+}
+
+type domainServices struct {
+	services.DomainServices
+}
+
+func (d domainServices) ControllerNode() *controllernodeservice.WatchableService {
+	return &controllernodeservice.WatchableService{}
 }
 
 type fakeWorker struct {

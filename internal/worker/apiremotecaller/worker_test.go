@@ -4,14 +4,13 @@
 package apiremotecaller
 
 import (
-	"context"
-	"net/url"
+	context "context"
+	url "net/url"
 	"sync"
 	"testing"
-	"time"
+	time "time"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
@@ -20,16 +19,14 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	internalpubsub "github.com/juju/juju/internal/pubsub"
-	"github.com/juju/juju/internal/pubsub/apiserver"
-	"github.com/juju/juju/internal/testhelpers"
 )
 
 type WorkerSuite struct {
 	baseSuite
 
-	hub *pubsub.StructuredHub
+	controllerNodeService *MockControllerNodeService
 
 	mutex    sync.Mutex
 	called   map[string]int
@@ -60,7 +57,7 @@ func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
-	cfg.Hub = nil
+	cfg.ControllerNodeService = nil
 	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
@@ -79,6 +76,9 @@ func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 func (s *WorkerSuite) TestWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	watcher := watchertest.NewMockNotifyWatcher(make(<-chan struct{}))
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
@@ -92,15 +92,28 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServers(c *tc.C) {
 
 	s.expectClock()
 
+	ch := make(chan struct{})
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{}, nil)
+
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	s.ensureStartup(c)
 
-	s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{})
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to finish")
+	}
 
 	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{})
-	c.Check(w.GetAPIRemotes(), tc.DeepEquals, []RemoteConnection{})
+
+	apiRemotes, err := w.GetAPIRemotes()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiRemotes, tc.DeepEquals, []RemoteConnection{})
 
 	workertest.CleanKill(c, w)
 }
@@ -110,25 +123,34 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWhilstMatchingOrigin(c *tc.C) {
 
 	s.expectClock()
 
+	ch := make(chan struct{})
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+		"0": {
+			"10.0.0.0:17070",
+		},
+	}, nil)
+
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	s.ensureStartup(c)
 
-	s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {
-				ID:              "0",
-				Addresses:       []string{"172.217.22.14"},
-				InternalAddress: "192.168.0.1",
-			},
-		},
-	})
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to finish")
+	}
 
 	// Machine-0 is the origin, so we should not have any workers.
 
 	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{})
-	c.Check(w.GetAPIRemotes(), tc.HasLen, 0)
+
+	apiRemotes, err := w.GetAPIRemotes()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiRemotes, tc.DeepEquals, []RemoteConnection{})
 
 	workertest.CleanKill(c, w)
 }
@@ -139,7 +161,20 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 	s.expectClock()
 
 	done := make(chan struct{})
-	addr := &url.URL{Scheme: "wss", Host: "192.168.0.17"}
+	addr := &url.URL{Scheme: "wss", Host: "10.0.0.1:17070"}
+
+	ch := make(chan struct{})
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+		"0": {
+			"10.0.0.0:17070",
+		},
+		"1": {
+			"10.0.0.1:17070",
+		},
+	}, nil)
 
 	s.remote.EXPECT().UpdateAddresses([]string{addr.Host}).DoAndReturn(func(s []string) {
 		close(done)
@@ -150,8 +185,6 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 			select {
 			case ch <- s.connection:
 			case <-ctx.Done():
-			case <-time.After(testhelpers.LongWait):
-				c.Fatalf("timed out waiting for connection")
 			}
 		}()
 
@@ -169,24 +202,15 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {
-				ID:              "0",
-				Addresses:       []string{"172.217.22.14"},
-				InternalAddress: "192.168.0.1",
-			},
-			"1": {
-				ID:              "1",
-				Addresses:       []string{"172.217.22.21"},
-				InternalAddress: addr.Host,
-			},
-		},
-	})
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to finish")
+	}
 
 	select {
 	case <-done:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
@@ -194,11 +218,12 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 
 	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"1"})
 
-	remotes := w.GetAPIRemotes()
+	remotes, err := w.GetAPIRemotes()
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(remotes, tc.HasLen, 1)
 
 	var conn api.Connection
-	err := remotes[0].Connection(c.Context(), func(ctx context.Context, c api.Connection) error {
+	err = remotes[0].Connection(c.Context(), func(ctx context.Context, c api.Connection) error {
 		conn = c
 		return nil
 	})
@@ -209,44 +234,80 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestWorkerAPIServerChangesNonInternalAddress(c *tc.C) {
+func (s *WorkerSuite) TestWorkerAPIServerChangesUpdatesAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
 
-	done := make(chan struct{})
-	s.remote.EXPECT().UpdateAddresses([]string{"172.217.22.21"}).DoAndReturn(func(s []string) {
-		close(done)
-	})
+	ch := make(chan struct{})
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+
+	done1 := make(chan struct{})
+	done2 := make(chan struct{})
+
+	gomock.InOrder(
+		s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+			"0": {
+				"192.168.0.1",
+			},
+			"1": {
+				"192.168.0.17",
+			},
+		}, nil),
+		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
+			close(done1)
+		}),
+		s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+			"0": {
+				"192.168.0.1",
+			},
+			"1": {
+				"192.168.0.18",
+			},
+		}, nil),
+		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.18"}).DoAndReturn(func(s []string) {
+			close(done2)
+		}),
+	)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	s.ensureStartup(c)
 
-	s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {
-				ID:              "0",
-				Addresses:       []string{"172.217.22.14"},
-				InternalAddress: "192.168.0.1",
-			},
-			"1": {
-				ID:        "1",
-				Addresses: []string{"172.217.22.21"},
-			},
-		},
-	})
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to finish")
+	}
 
 	select {
-	case <-done:
-	case <-time.After(testhelpers.LongWait):
+	case <-done1:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to finish")
+	}
+
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"1"})
+
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to finish")
+	}
+
+	select {
+	case <-done2:
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
 	s.ensureChanged(c)
 
 	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"1"})
+	c.Check(s.called, tc.DeepEquals, map[string]int{
+		"1": 1,
+	})
 
 	workertest.CleanKill(c, w)
 }
@@ -256,13 +317,33 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 
 	s.expectClock()
 
+	ch := make(chan struct{})
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
 
 	gomock.InOrder(
+		s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+			"0": {
+				"192.168.0.1",
+			},
+			"1": {
+				"192.168.0.17",
+			},
+		}, nil),
 		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
 			close(done1)
 		}),
+		s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+			"0": {
+				"192.168.0.1",
+			},
+			"2": {
+				"192.168.0.18",
+			},
+		}, nil),
 		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.18"}).DoAndReturn(func(s []string) {
 			close(done2)
 		}),
@@ -276,47 +357,29 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {
-				ID:              "0",
-				Addresses:       []string{"172.217.22.14"},
-				InternalAddress: "192.168.0.1",
-			},
-			"1": {
-				ID:              "1",
-				Addresses:       []string{"172.217.22.21"},
-				InternalAddress: "192.168.0.17",
-			},
-		},
-	})
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to finish")
+	}
 
 	select {
 	case <-done1:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
 	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"1"})
 
-	s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {
-				ID:              "0",
-				Addresses:       []string{"172.217.22.14"},
-				InternalAddress: "192.168.0.1",
-			},
-			"2": {
-				ID:              "2",
-				Addresses:       []string{"172.217.22.22"},
-				InternalAddress: "192.168.0.18",
-			},
-		},
-	})
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to finish")
+	}
 
 	select {
 	case <-done2:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
@@ -329,7 +392,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 		// up before we can check the worker names. It would be better if
 		// runner exposed a way to emit changes to the internal state.
 		time.Sleep(100 * time.Millisecond)
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
@@ -349,14 +412,34 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 
 	s.expectClock()
 
+	ch := make(chan struct{})
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
 
 	gomock.InOrder(
+		s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+			"0": {
+				"192.168.0.1",
+			},
+			"1": {
+				"192.168.0.17",
+			},
+		}, nil),
 		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
 			close(done1)
 		}),
-		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.18"}).DoAndReturn(func(s []string) {
+		s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+			"0": {
+				"192.168.0.1",
+			},
+			"1": {
+				"192.168.0.17",
+			},
+		}, nil),
+		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
 			close(done2)
 		}),
 	)
@@ -366,47 +449,29 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {
-				ID:              "0",
-				Addresses:       []string{"172.217.22.14"},
-				InternalAddress: "192.168.0.1",
-			},
-			"1": {
-				ID:              "1",
-				Addresses:       []string{"172.217.22.21"},
-				InternalAddress: "192.168.0.17",
-			},
-		},
-	})
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to finish")
+	}
 
 	select {
 	case <-done1:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
 	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"1"})
 
-	s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {
-				ID:              "0",
-				Addresses:       []string{"172.217.22.14"},
-				InternalAddress: "192.168.0.1",
-			},
-			"1": {
-				ID:              "1",
-				Addresses:       []string{"172.217.22.22"},
-				InternalAddress: "192.168.0.18",
-			},
-		},
-	})
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to finish")
+	}
 
 	select {
 	case <-done2:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
@@ -419,10 +484,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
-	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
-		Clock:  s.clock,
-		Logger: internalpubsub.WrapLogger(loggertesting.WrapCheckLog(c)),
-	})
+	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -442,9 +504,10 @@ func (s *WorkerSuite) newWorker(c *tc.C) *remoteWorker {
 
 func (s *WorkerSuite) newConfig(c *tc.C) WorkerConfig {
 	return WorkerConfig{
-		Origin:    names.NewMachineTag("0"),
-		APIInfo:   &api.Info{},
-		APIOpener: api.Open,
+		Origin:                names.NewMachineTag("0"),
+		APIInfo:               &api.Info{},
+		APIOpener:             api.Open,
+		ControllerNodeService: s.controllerNodeService,
 		NewRemote: func(rsc RemoteServerConfig) RemoteServer {
 			target := rsc.ControllerID
 
@@ -460,7 +523,6 @@ func (s *WorkerSuite) newConfig(c *tc.C) WorkerConfig {
 
 			return newWrappedWorker(s.remote, once)
 		},
-		Hub:    s.hub,
 		Clock:  s.clock,
 		Logger: loggertesting.WrapCheckLog(c),
 	}

@@ -106,6 +106,6 @@ type noopAPIRemoteCallers struct{}
 
 // GetAPIRemotes returns no API remotes, this will be default if it's not
 // set.
-func (noopAPIRemoteCallers) GetAPIRemotes() []apiremotecaller.RemoteConnection {
-	return nil
+func (noopAPIRemoteCallers) GetAPIRemotes() ([]apiremotecaller.RemoteConnection, error) {
+	return nil, nil
 }

@@ -51,70 +51,32 @@ type State interface {
 	NamespaceForWatchControllerNodes() string
 
 	// SetAPIAddresses sets the addresses for the provided controller node. It
-	// replaces any existing addresses and stores them in the api_controller_address
-	// table, with the format "host:port" as a string, as well as the is_agent flag
-	// indicating whether the address is available for agents.
+	// replaces any existing addresses and stores them in the
+	// api_controller_address table, with the format "host:port" as a string, as
+	// well as the is_agent flag indicating whether the address is available for
+	// agents.
 	//
-	// The following errors can be expected:
-	// - [controllernodeerrors.NotFound] if the controller node does not exist.
+	// The following errors can be expected: - [controllernodeerrors.NotFound]
+	// if the controller node does not exist.
 	SetAPIAddresses(ctx context.Context, ctrlID string, addrs []controllernode.APIAddress) error
 
-	// GetControllerIDs returns the list of controller IDs from the controller node
-	// records.
+	// GetControllerIDs returns the list of controller IDs from the controller
+	// node records.
 	GetControllerIDs(ctx context.Context) ([]string, error)
 
-	// GetAPIAddresses returns the list of API addresses for the provided controller
-	// node.
+	// GetAPIAddresses returns the list of API addresses for the provided
+	// controller node.
 	GetAPIAddresses(ctx context.Context, ctrlID string) ([]string, error)
 
-	// GetAPIAddressesForAgents returns the list of API addresses for the provided
-	// controller node that are available for agents.
+	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+	// addresses that are available for agents. The map is keyed by controller
+	// ID, and the values are slices of strings representing the API addresses
+	// for each controller node.
+	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+
+	// GetAPIAddressesForAgents returns the list of API addresses for the
+	// provided controller node that are available for agents.
 	GetAPIAddressesForAgents(ctx context.Context, ctrlID string) ([]string, error)
-}
-
-// WatcherFactory instances return watchers for a given namespace and UUID.
-type WatcherFactory interface {
-	// NewNotifyWatcher returns a new watcher that filters changes from the input
-	// base watcher's db/queue. A single filter option is required, though
-	// additional filter options can be provided.
-	NewNotifyWatcher(
-		filterOption eventsource.FilterOption,
-		filterOptions ...eventsource.FilterOption,
-	) (watcher.NotifyWatcher, error)
-}
-
-// WatchableService provides the API for working with controller nodes and the
-// ability to create watchers.
-type WatchableService struct {
-	*Service
-	watcherFactory WatcherFactory
-}
-
-// NewWatchableService returns a new service reference wrapping the input state.
-func NewWatchableService(
-	st State,
-	watcherFactory WatcherFactory,
-	logger logger.Logger,
-) *WatchableService {
-	return &WatchableService{
-		Service:        NewService(st, logger),
-		watcherFactory: watcherFactory,
-	}
-}
-
-// WatchControllerNodes returns a watcher that observes changes to the
-// controller nodes.
-func (s *WatchableService) WatchControllerNodes(ctx context.Context) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return s.watcherFactory.NewNotifyWatcher(
-		eventsource.PredicateFilter(
-			s.st.NamespaceForWatchControllerNodes(),
-			changestream.All,
-			eventsource.AlwaysPredicate,
-		),
-	)
 }
 
 // Service provides the API for working with controller nodes.
@@ -125,7 +87,10 @@ type Service struct {
 
 // NewService returns a new service reference wrapping the input state.
 func NewService(st State, logger logger.Logger) *Service {
-	return &Service{st, logger}
+	return &Service{
+		st:     st,
+		logger: logger,
+	}
 }
 
 // CurateNodes modifies the known control plane by adding and removing
@@ -171,8 +136,9 @@ func (s *Service) IsKnownDatabaseNamespace(ctx context.Context, namespace string
 	return ns == namespace, nil
 }
 
-// SetControllerNodeReportedAgentVersion sets the agent version for the
-// supplied controllerID. Version represents the version of the controller node's agent binary.
+// SetControllerNodeReportedAgentVersion sets the agent version for the supplied
+// controllerID. Version represents the version of the controller node's agent
+// binary.
 //
 // The following errors are possible:
 // - [coreerrors.NotValid] if the version is not valid.
@@ -266,6 +232,14 @@ func (s *Service) GetAPIAddresses(ctx context.Context, nodeID string) ([]string,
 	return s.st.GetAPIAddresses(ctx, nodeID)
 }
 
+// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+// addresses that are available for agents. The map is keyed by controller ID,
+// and the values are slices of strings representing the API addresses for each
+// controller node.
+func (s *Service) GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error) {
+	return s.st.GetAllAPIAddressesForAgents(ctx)
+}
+
 // GetAPIAddressesForAgents returns the list of API addresses for the provided
 // controller node that are available for agents.
 func (s *Service) GetAPIAddressesForAgents(ctx context.Context, nodeID string) ([]string, error) {
@@ -273,4 +247,49 @@ func (s *Service) GetAPIAddressesForAgents(ctx context.Context, nodeID string) (
 		return nil, errors.Errorf("node ID %q is %w, cannot be empty", nodeID, coreerrors.NotValid)
 	}
 	return s.st.GetAPIAddressesForAgents(ctx, nodeID)
+}
+
+// WatcherFactory instances return watchers for a given namespace and UUID.
+type WatcherFactory interface {
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
+}
+
+// WatchableService provides the API for working with controller nodes and the
+// ability to create watchers.
+type WatchableService struct {
+	*Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new service reference wrapping the input state.
+func NewWatchableService(
+	st State,
+	watcherFactory WatcherFactory,
+	logger logger.Logger,
+) *WatchableService {
+	return &WatchableService{
+		Service:        NewService(st, logger),
+		watcherFactory: watcherFactory,
+	}
+}
+
+// WatchControllerNodes returns a watcher that observes changes to the
+// controller nodes.
+func (s *WatchableService) WatchControllerNodes(ctx context.Context) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchControllerNodes(),
+			changestream.All,
+			eventsource.AlwaysPredicate,
+		),
+	)
 }

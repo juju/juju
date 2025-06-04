@@ -899,11 +899,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		apiRemoteCallerName: ifController(apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
-			AgentName:      agentName,
-			CentralHubName: centralHubName,
-			Clock:          config.Clock,
-			Logger:         internallogger.GetLogger("juju.worker.apiremotecaller"),
-			NewWorker:      apiremotecaller.NewWorker,
+			AgentName:          agentName,
+			DomainServicesName: domainServicesName,
+			Clock:              config.Clock,
+			Logger:             internallogger.GetLogger("juju.worker.apiremotecaller"),
+			NewWorker:          apiremotecaller.NewWorker,
 		})),
 
 		jwtParserName: ifController(jwtparser.Manifold(jwtparser.ManifoldConfig{

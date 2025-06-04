@@ -182,10 +182,8 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 		// Force the first connection to be enqueued, so that second connection
 		// will be stalled.
 		go func() {
-			select {
-			case <-time.After(time.Millisecond * 100):
-				close(seq)
-			}
+			<-time.After(time.Millisecond * 100)
+			close(seq)
 		}()
 
 		wg.Done()
@@ -200,22 +198,13 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 	}()
 	go func() {
 		// Wait for the first connection to be enqueued.
-		select {
-		case <-seq:
-		case <-time.After(testhelpers.LongWait):
-			c.Fatalf("timed out waiting for first connection to be cancelled")
-		}
-
+		<-seq
 		wg.Done()
 
 		err := w.Connection(c.Context(), func(ctx context.Context, c api.Connection) error {
 			return nil
 		})
-		select {
-		case res <- err:
-		case <-time.After(testhelpers.LongWait):
-			c.Fatalf("timed out sending result")
-		}
+		res <- err
 	}()
 
 	// Ensure both goroutines have started, before we start the test.
