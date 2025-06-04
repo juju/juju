@@ -25,7 +25,7 @@ require (
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f
 	github.com/canonical/go-dqlite/v2 v2.0.0
 	github.com/canonical/lxd v0.0.0-20241209155119-76da976c6ee7
-	github.com/canonical/pebble v1.19.0
+	github.com/canonical/pebble v1.19.1
 	github.com/canonical/sqlair v0.0.0-20250120155751-a83645b9a121
 	github.com/chzyer/readline v1.5.1
 	github.com/coreos/go-systemd/v22 v22.5.0
