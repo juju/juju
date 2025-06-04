@@ -238,7 +238,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 
 // DomainServicesGetter provides an implementation of the DomainServicesGetter
 // interface to use in tests. This includes the dummy storage registry.
-func (s *DomainServicesSuite) DomainServicesGetter(c *tc.C, objectStore objectstore.ObjectStore, leaseManager lease.Checker) DomainServicesGetterFunc {
+func (s *DomainServicesSuite) DomainServicesGetter(c *tc.C, objectStore objectstore.ObjectStore, leaseManager lease.LeaseManager) DomainServicesGetterFunc {
 	return s.DomainServicesGetterWithStorageRegistry(c, objectStore, leaseManager, storage.ChainedProviderRegistry{
 		// Using the dummy storage provider for testing purposes isn't
 		// ideal. We should potentially use a mock storage provider
@@ -256,7 +256,7 @@ type domainServices struct {
 // DomainServicesGetterWithStorageRegistry provides an implementation of the
 // DomainServicesGetterWithStorageRegistry interface to use in tests with the
 // additional storage provider.
-func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, objectStore objectstore.ObjectStore, leaseManager lease.Checker, storageRegistry storage.ProviderRegistry) DomainServicesGetterFunc {
+func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, objectStore objectstore.ObjectStore, leaseManager lease.LeaseManager, storageRegistry storage.ProviderRegistry) DomainServicesGetterFunc {
 	return func(modelUUID model.UUID) services.DomainServices {
 		clock := clock.WallClock
 		logger := loggertesting.WrapCheckLog(c)
@@ -285,7 +285,7 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, o
 				return storageRegistry, nil
 			}),
 			sshimporter.NewImporter(&http.Client{}),
-			modelApplicationLeaseManagerGetter(func() lease.Checker {
+			modelApplicationLeaseManagerGetter(func() lease.LeaseManager {
 				return leaseManager
 			}),
 			c.MkDir(),
@@ -317,8 +317,8 @@ func (s *DomainServicesSuite) NoopObjectStore(c *tc.C) objectstore.ObjectStore {
 	return TestingObjectStore{}
 }
 
-// NoopLeaseManager returns a no-op implementation of lease.Checker.
-func (s *DomainServicesSuite) NoopLeaseManager(c *tc.C) lease.Checker {
+// NoopLeaseManager returns a no-op implementation of lease.LeaseManager.
+func (s *DomainServicesSuite) NoopLeaseManager(c *tc.C) lease.LeaseManager {
 	return TestingLeaseManager{}
 }
 
@@ -371,9 +371,9 @@ func (s modelStorageRegistryGetter) GetStorageRegistry(ctx context.Context) (sto
 	return s(ctx)
 }
 
-type modelApplicationLeaseManagerGetter func() lease.Checker
+type modelApplicationLeaseManagerGetter func() lease.LeaseManager
 
-func (s modelApplicationLeaseManagerGetter) GetLeaseManager() (lease.Checker, error) {
+func (s modelApplicationLeaseManagerGetter) GetLeaseManager() (lease.LeaseManager, error) {
 	return s(), nil
 }
 
@@ -433,6 +433,11 @@ func (TestingLeaseManager) WaitUntilExpired(ctx context.Context, leaseName strin
 // whether the supplied lease is currently held by the supplied holder.
 func (TestingLeaseManager) Token(leaseName, holderName string) lease.Token {
 	return TestingLeaseManagerToken{}
+}
+
+// Revoke releases the named lease for the named holder.
+func (TestingLeaseManager) Revoke(leaseName, holderName string) error {
+	return nil
 }
 
 // TestingLeaseManagerToken is a testing implementation of the Token interface.
