@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/rpc/params"
@@ -51,7 +52,7 @@ type ApplicationService interface {
 		ctx context.Context,
 		name string,
 		units ...applicationservice.AddUnitArg,
-	) error
+	) ([]unit.Name, error)
 }
 
 // ControllerConfigService instances read the controller config.
@@ -215,7 +216,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 				Placement: placement,
 			}
 		}
-		if err := api.applicationService.AddIAASUnits(
+		if _, err := api.applicationService.AddIAASUnits(
 			ctx,
 			application.ControllerApplicationName,
 			addUnitArgs...,

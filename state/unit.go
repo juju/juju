@@ -1206,17 +1206,12 @@ func (u *Unit) assertCharmOps(ch CharmRefFull) []txn.Op {
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
 func (u *Unit) Tag() names.Tag {
-	return u.UnitTag()
+	return u.unitTag()
 }
 
-// Kind returns a human readable name identifying the unit workload kind.
-func (u *Unit) Kind() string {
-	return u.Tag().Kind() + "-workload"
-}
-
-// UnitTag returns a names.UnitTag representing this Unit, unless the
+// unitTag returns a names.UnitTag representing this Unit, unless the
 // unit Name is invalid, in which case it will panic
-func (u *Unit) UnitTag() names.UnitTag {
+func (u *Unit) unitTag() names.UnitTag {
 	return names.NewUnitTag(u.Name())
 }
 
@@ -1772,7 +1767,7 @@ func unitStorageParams(u *Unit) (*storageParams, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageAttachments, err := sb.UnitStorageAttachments(u.UnitTag())
+	storageAttachments, err := sb.UnitStorageAttachments(u.unitTag())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
 	}
@@ -1792,7 +1787,7 @@ func unitStorageParams(u *Unit) (*storageParams, error) {
 		}
 		storageInstances = append(storageInstances, storage)
 	}
-	return storageParamsForUnit(sb, storageInstances, u.UnitTag(), u.Base(), ch.Meta())
+	return storageParamsForUnit(sb, storageInstances, u.unitTag(), u.Base(), ch.Meta())
 }
 
 func storageParamsForUnit(

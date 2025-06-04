@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
@@ -247,8 +248,8 @@ func (api *APIBase) addUnits(
 	attachStorage []names.StorageTag,
 	assignUnits bool,
 	charmMeta *charm.Meta,
-) ([]Unit, error) {
-	units := make([]Unit, n)
+) ([]coreunit.Name, error) {
+	units := make([]coreunit.Name, 0, n)
 
 	allSpaces, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
@@ -279,10 +280,11 @@ func (api *APIBase) addUnits(
 			Placement: unitPlacement,
 		}
 
-		if err := createUnit(ctx, appName, unitArg); err != nil {
+		unitNames, err := createUnit(ctx, appName, unitArg)
+		if err != nil {
 			return nil, internalerrors.Errorf("adding unit to application %q: %w", appName, err)
 		}
-		units[i] = unit
+		units = append(units, unitNames...)
 		if !assignUnits {
 			continue
 		}

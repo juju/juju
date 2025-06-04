@@ -132,9 +132,9 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	setup := func(c *tc.C) {
 
 		ctx := c.Context()
-		err := svc.AddIAASUnits(ctx, "foo", service.AddUnitArg{}, service.AddUnitArg{})
+		_, err := svc.AddIAASUnits(ctx, "foo", service.AddUnitArg{}, service.AddUnitArg{})
 		c.Assert(err, tc.ErrorIsNil)
-		err = svc.AddIAASUnits(ctx, "bar", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
+		_, err = svc.AddIAASUnits(ctx, "bar", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

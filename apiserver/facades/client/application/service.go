@@ -127,10 +127,10 @@ type ApplicationService interface {
 	CreateCAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg) (coreapplication.ID, error)
 
 	// AddIAASUnits adds IAAS units to the application.
-	AddIAASUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) error
+	AddIAASUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) ([]unit.Name, error)
 
 	// AddCAASUnits adds CAAS units to the application.
-	AddCAASUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) error
+	AddCAASUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) ([]unit.Name, error)
 
 	// SetApplicationCharm sets a new charm for the application, validating that
 	// aspects such as storage are still viable with the new charm.

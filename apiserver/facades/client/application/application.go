@@ -1347,17 +1347,15 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
-	unitNames := make([]string, len(units))
-	for i, unit := range units {
-		unitNames[i] = unit.UnitTag().Id()
-	}
-	return params.AddApplicationUnitsResults{Units: unitNames}, nil
+	return params.AddApplicationUnitsResults{
+		Units: transform.Slice(units, func(unit coreunit.Name) string { return unit.String() }),
+	}, nil
 }
 
 // addApplicationUnits adds a given number of units to an application.
 func (api *APIBase) addApplicationUnits(
 	ctx context.Context, args params.AddApplicationUnits, charmMeta *charm.Meta,
-) ([]Unit, error) {
+) ([]coreunit.Name, error) {
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
