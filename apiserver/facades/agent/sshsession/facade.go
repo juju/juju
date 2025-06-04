@@ -6,6 +6,8 @@ package sshsession
 import (
 	"strconv"
 
+	"golang.org/x/crypto/ssh"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
@@ -19,6 +21,7 @@ type Backend interface {
 	GetSSHConnRequest(docID string) (state.SSHConnRequest, error)
 	WatchSSHConnRequest(machineId string) state.StringsWatcher
 	ControllerConfig() (controller.Config, error)
+	SSHServerHostKey() (string, error)
 }
 
 // Facade allows model config manager clients to watch controller config changes and fetch controller config.
@@ -67,4 +70,17 @@ func (f *Facade) ControllerSSHPort() params.StringResult {
 		return params.StringResult{Error: apiservererrors.ServerError(err)}
 	}
 	return params.StringResult{Result: strconv.Itoa(ctrlConfig.SSHServerPort())}
+}
+
+// ControllerPublicKey returns the SSH public key of the controller.
+func (f *Facade) ControllerPublicKey() params.ControllerSSHPublicKeyResult {
+	hostKey, err := f.backend.SSHServerHostKey()
+	if err != nil {
+		return params.ControllerSSHPublicKeyResult{Error: apiservererrors.ServerError(err)}
+	}
+	signer, err := ssh.ParsePrivateKey([]byte(hostKey))
+	if err != nil {
+		return params.ControllerSSHPublicKeyResult{Error: apiservererrors.ServerError(err)}
+	}
+	return params.ControllerSSHPublicKeyResult{PublicKey: signer.PublicKey().Marshal()}
 }

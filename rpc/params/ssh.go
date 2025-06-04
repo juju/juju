@@ -143,6 +143,13 @@ type SSHHostKeyResult struct {
 	HostKey []byte `json:"host-key"`
 }
 
+// ControllerSSHPublicKeyResult holds the controller's
+// public SSH key.
+type ControllerSSHPublicKeyResult struct {
+	Error     *Error `json:"error,omitempty"`
+	PublicKey []byte `json:"public-key"`
+}
+
 // VerifyPublicKeyArgs is used to verify the Public Key presented is
 // inside of the model's config.
 type ListAuthorizedKeysArgs struct {

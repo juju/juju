@@ -36,6 +36,9 @@ type FacadeClient interface {
 
 	// ControllerSSHPort returns the SSH port of the controller.
 	ControllerSSHPort() (string, error)
+
+	// ControllerPublicKey returns the public key of the controller.
+	ControllerPublicKey() (ssh.PublicKey, error)
 }
 
 // WorkerConfig encapsulates the configuration options for
@@ -121,6 +124,11 @@ func (w *sshSessionWorker) loop() error {
 		return errors.Trace(err)
 	}
 
+	controllerPublicKey, err := w.facadeClient.ControllerPublicKey()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -129,7 +137,7 @@ func (w *sshSessionWorker) loop() error {
 			for _, connId := range changes {
 				go func() {
 					requestContext := w.catacomb.Context(context.Background())
-					err := w.handleConnection(requestContext, connId, controllerSSHPort)
+					err := w.handleConnection(requestContext, connId, controllerSSHPort, controllerPublicKey)
 					if err != nil {
 						w.logger.Errorf("Failed to handle connection %q: %v", connId, err)
 					}
@@ -160,7 +168,7 @@ func (w *sshSessionWorker) Wait() error {
 //     back from the controller's SSH server.
 //  5. Pipes the connection to the local sshd.
 //  6. On connection close, removes the ephemeral public key.
-func (w *sshSessionWorker) handleConnection(ctx context.Context, connID, ctrlPort string) error {
+func (w *sshSessionWorker) handleConnection(ctx context.Context, connID, ctrlPort string, publicKey ssh.PublicKey) error {
 	w.logger.Errorf("Handling connection %q", connID)
 	reqParams, err := w.facadeClient.GetSSHConnRequest(connID)
 	if err != nil {
@@ -184,7 +192,7 @@ func (w *sshSessionWorker) handleConnection(ctx context.Context, connID, ctrlPor
 		}
 	}()
 
-	if err := w.pipeConnectionToSSHD(ctx, ctrlAddress, ctrlPort, reqParams.Password); err != nil {
+	if err := w.pipeConnectionToSSHD(ctx, ctrlAddress, ctrlPort, reqParams.Password, publicKey); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -193,8 +201,8 @@ func (w *sshSessionWorker) handleConnection(ctx context.Context, connID, ctrlPor
 
 // pipeConnectionToSSHD initiates the connection back to the controller and pipes
 // it over to the local SSHD. This call blocks until the connection has finished.
-func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress, ctrlPort, password string) error {
-	controllerConn, err := w.connectionGetter.GetControllerConnection(password, ctrlAddress, ctrlPort)
+func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress, ctrlPort, password string, publicKey ssh.PublicKey) error {
+	controllerConn, err := w.connectionGetter.GetControllerConnection(password, ctrlAddress, ctrlPort, publicKey)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -245,7 +253,7 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress
 
 // ConnectionGetter provides the methods to connect to a controller and the local SSHD.
 type ConnectionGetter interface {
-	GetControllerConnection(password, ctrlAddress, ctrlPort string) (net.Conn, error)
+	GetControllerConnection(password, ctrlAddress, ctrlPort string, publicKey ssh.PublicKey) (net.Conn, error)
 	GetSSHDConnection() (net.Conn, error)
 }
 
@@ -269,12 +277,11 @@ func newConnectionGetter(l Logger) *connectionGetter {
 }
 
 // GetControllerConnection initiates an SSH connection to the target ctrlAddress.
-func (w *connectionGetter) GetControllerConnection(password, ctrlAddress, port string) (net.Conn, error) {
-	// TODO(ale8k): Watch will return host key in subsequent PR.
+func (w *connectionGetter) GetControllerConnection(password, ctrlAddress, port string, publicKey ssh.PublicKey) (net.Conn, error) {
 	sshConfig := &ssh.ClientConfig{
 		User:            sshtunneler.ReverseTunnelUser,
 		Auth:            []ssh.AuthMethod{ssh.Password(password)},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO(ale8k): Fill in host key here
+		HostKeyCallback: ssh.FixedHostKey(publicKey),
 		Timeout:         30 * time.Second,
 	}
 

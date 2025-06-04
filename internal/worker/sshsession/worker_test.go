@@ -157,6 +157,7 @@ func (s *workerSuite) TestSSHSessionWorkerCanBeKilled(c *gc.C) {
 	s.watcher.EXPECT().Changes().Return(stringChan)
 	s.facadeClient.EXPECT().WatchSSHConnRequest("0").Return(s.watcher, nil)
 	s.facadeClient.EXPECT().ControllerSSHPort().Return("17022", nil)
+	s.facadeClient.EXPECT().ControllerPublicKey().Return(nil, nil)
 
 	// Check that the watcher's Wait() method is called once.
 	s.watcher.EXPECT().Wait()
@@ -191,6 +192,9 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnectionPipesData(c *gc.C) {
 	ephemeralPublicKey, err := gossh.NewPublicKey(testKey.Public())
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Reuse the ephemeral public key as the controller public key.
+	controllerPublicKey := ephemeralPublicKey
+
 	innerChan := make(chan []string)
 	go func() {
 		innerChan <- []string{connID}
@@ -210,6 +214,7 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnectionPipesData(c *gc.C) {
 		nil,
 	)
 	s.facadeClient.EXPECT().ControllerSSHPort().Return("17022", nil)
+	s.facadeClient.EXPECT().ControllerPublicKey().Return(controllerPublicKey, nil)
 
 	s.ephemeralkeyUpdater.EXPECT().AddEphemeralKey(ephemeralPublicKey, connID)
 	// The ephemeral key is removed after the connection is completed, so asserting
@@ -221,7 +226,7 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnectionPipesData(c *gc.C) {
 	workerControllerConn, controllerConn := net.Pipe()
 
 	s.connectionGetter.EXPECT().GetSSHDConnection().Return(workerConnSSHD, nil)
-	s.connectionGetter.EXPECT().GetControllerConnection(gomock.Any(), gomock.Any(), "17022").
+	s.connectionGetter.EXPECT().GetControllerConnection(gomock.Any(), gomock.Any(), "17022", controllerPublicKey).
 		Return(workerControllerConn, nil)
 
 	w, err := NewWorker(WorkerConfig{
@@ -265,6 +270,9 @@ func (s *workerSuite) TestContextCancelledIsPropagated(c *gc.C) {
 	ephemeralPublicKey, err := gossh.NewPublicKey(testKey.Public())
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Reuse the ephemeral public key as the controller public key.
+	controllerPublicKey := ephemeralPublicKey
+
 	s.watcher.EXPECT().Wait().AnyTimes()
 	s.watcher.EXPECT().Kill().AnyTimes()
 	s.watcher.EXPECT().Changes().Return(stringChan).AnyTimes()
@@ -278,6 +286,7 @@ func (s *workerSuite) TestContextCancelledIsPropagated(c *gc.C) {
 		nil,
 	)
 	s.facadeClient.EXPECT().ControllerSSHPort().Return("17022", nil)
+	s.facadeClient.EXPECT().ControllerPublicKey().Return(controllerPublicKey, nil)
 
 	s.ephemeralkeyUpdater.EXPECT().AddEphemeralKey(ephemeralPublicKey, connID)
 	s.ephemeralkeyUpdater.EXPECT().RemoveEphemeralKey(ephemeralPublicKey)
@@ -285,7 +294,7 @@ func (s *workerSuite) TestContextCancelledIsPropagated(c *gc.C) {
 	workerControllerConn, controllerConn := net.Pipe()
 
 	s.connectionGetter.EXPECT().GetSSHDConnection().Return(workerConnSSHD, nil)
-	s.connectionGetter.EXPECT().GetControllerConnection(gomock.Any(), gomock.Any(), "17022").
+	s.connectionGetter.EXPECT().GetControllerConnection(gomock.Any(), gomock.Any(), "17022", controllerPublicKey).
 		Return(workerControllerConn, nil)
 
 	w, err := NewWorker(WorkerConfig{
@@ -304,7 +313,7 @@ func (s *workerSuite) TestContextCancelledIsPropagated(c *gc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	doneChan := make(chan struct{})
 	go func() {
-		_ = sessionWorker.handleConnection(ctx, connID, "17022")
+		_ = sessionWorker.handleConnection(ctx, connID, "17022", controllerPublicKey)
 		close(doneChan)
 	}()
 
@@ -334,6 +343,9 @@ func (s *workerSuite) TestSSHSessionWorkerMultipleConnections(c *gc.C) {
 	ephemeralPublicKey, err := gossh.NewPublicKey(testKey.Public())
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Reuse the ephemeral public key as the controller public key.
+	controllerPublicKey := ephemeralPublicKey
+
 	watcherChan := make(chan []string)
 	stringChan := watcher.StringsChannel(watcherChan)
 
@@ -350,6 +362,7 @@ func (s *workerSuite) TestSSHSessionWorkerMultipleConnections(c *gc.C) {
 		nil,
 	).Times(2)
 	s.facadeClient.EXPECT().ControllerSSHPort().Return("17022", nil)
+	s.facadeClient.EXPECT().ControllerPublicKey().Return(controllerPublicKey, nil)
 
 	s.ephemeralkeyUpdater.EXPECT().AddEphemeralKey(ephemeralPublicKey, connID).Times(2)
 	// The ephemeral key is removed after the connection is completed, so asserting
@@ -372,8 +385,8 @@ func (s *workerSuite) TestSSHSessionWorkerMultipleConnections(c *gc.C) {
 			return conn, nil
 		},
 	).Times(2)
-	s.connectionGetter.EXPECT().GetControllerConnection(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_, _, _ string) (net.Conn, error) {
+	s.connectionGetter.EXPECT().GetControllerConnection(gomock.Any(), gomock.Any(), gomock.Any(), controllerPublicKey).DoAndReturn(
+		func(_, _, _ string, _ gossh.PublicKey) (net.Conn, error) {
 			conn := <-workerControllerConns
 			return conn, nil
 		},
@@ -472,6 +485,17 @@ func (s *connectionGetterSuite) TestGetControllerConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
 
+	testKey, err := test.InsecureKeyProfile()
+	if err != nil {
+		c.Errorf("error generating test key: %v", err)
+		return
+	}
+	controllerKey, err := gossh.NewSignerFromKey(testKey)
+	if err != nil {
+		c.Errorf("error generating signer from key: %v", err)
+		return
+	}
+
 	// Create an SSH server that emulates the controller.
 	go func() {
 		srv := &ssh.Server{
@@ -486,17 +510,7 @@ func (s *connectionGetterSuite) TestGetControllerConnection(c *gc.C) {
 				},
 			},
 		}
-		testKey, err := test.InsecureKeyProfile()
-		if err != nil {
-			c.Errorf("error generating test key: %v", err)
-			return
-		}
-		signer, err := gossh.NewSignerFromKey(testKey)
-		if err != nil {
-			c.Errorf("error generating signer from key: %v", err)
-			return
-		}
-		srv.AddHostKey(signer)
+		srv.AddHostKey(controllerKey)
 
 		conn, e := listener.Accept()
 		if e != nil {
@@ -510,7 +524,7 @@ func (s *connectionGetterSuite) TestGetControllerConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cg := newConnectionGetter(loggo.GetLogger("test"))
 
-	conn, err := cg.GetControllerConnection("password", "localhost", port)
+	conn, err := cg.GetControllerConnection("password", "localhost", port, controllerKey.PublicKey())
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 }

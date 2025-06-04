@@ -9559,6 +9559,14 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "ControllerPublicKey": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/ControllerSSHPublicKeyResult"
+                        }
+                    }
+                },
                 "ControllerSSHPort": {
                     "type": "object",
                     "properties": {
@@ -9591,6 +9599,24 @@
                 }
             },
             "definitions": {
+                "ControllerSSHPublicKeyResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "public-key": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "public-key"
+                    ]
+                },
                 "Error": {
                     "type": "object",
                     "properties": {

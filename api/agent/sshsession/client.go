@@ -5,6 +5,7 @@ package sshsession
 
 import (
 	"github.com/juju/errors"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -78,4 +79,15 @@ func (c *Client) ControllerSSHPort() (string, error) {
 	}
 
 	return result.Result, nil
+}
+
+// ControllerSSHPort returns the public key of the controller.
+func (c *Client) ControllerPublicKey() (ssh.PublicKey, error) {
+	var result params.ControllerSSHPublicKeyResult
+
+	if err := c.facade.FacadeCall("ControllerPublicKey", nil, &result); err != nil {
+		return nil, err
+	}
+
+	return ssh.ParsePublicKey(result.PublicKey)
 }

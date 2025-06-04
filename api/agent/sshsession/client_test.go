@@ -6,11 +6,13 @@ package sshsession_test
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/sshsession"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/rpc/params"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type sshsessionSuite struct {
@@ -100,4 +102,45 @@ func (s *sshsessionSuite) TestControllerSSHPort(c *gc.C) {
 	result, err := client.ControllerSSHPort()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, "17022")
+}
+
+func (s *sshsessionSuite) TestControllerPublicKey(c *gc.C) {
+	testKey := jujutesting.SSHServerHostKey
+	signer, err := ssh.ParsePrivateKey([]byte(testKey))
+	c.Assert(err, gc.IsNil)
+
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SSHSession")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ControllerPublicKey")
+		c.Assert(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.ControllerSSHPublicKeyResult{})
+		*(result.(*params.ControllerSSHPublicKeyResult)) = params.ControllerSSHPublicKeyResult{
+			PublicKey: signer.PublicKey().Marshal(),
+		}
+
+		return nil
+	})
+
+	client := sshsession.NewClient(apiCaller)
+	result, err := client.ControllerPublicKey()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, signer.PublicKey())
+}
+
+func (s *sshsessionSuite) TestControllerPublicKeyInvalidKey(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(request, gc.Equals, "ControllerPublicKey")
+		c.Assert(result, gc.FitsTypeOf, &params.ControllerSSHPublicKeyResult{})
+		*(result.(*params.ControllerSSHPublicKeyResult)) = params.ControllerSSHPublicKeyResult{
+			PublicKey: []byte{0, 1, 2, 3}, // Invalid key
+		}
+
+		return nil
+	})
+
+	client := sshsession.NewClient(apiCaller)
+	_, err := client.ControllerPublicKey()
+	c.Assert(err, gc.NotNil)
 }
