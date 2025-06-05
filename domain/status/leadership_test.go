@@ -35,8 +35,7 @@ import (
 )
 
 type leadershipSuite struct {
-	modelSuite      changestreamtesting.ModelSuite
-	controllerSuite changestreamtesting.ControllerSuite
+	changestreamtesting.ModelSuite
 
 	leadership *MockChecker
 }
@@ -46,11 +45,10 @@ func TestLeadershipSuite(t *stdtesting.T) {
 }
 
 func (s *leadershipSuite) SetUpTest(c *tc.C) {
-	s.controllerSuite.SetUpTest(c)
-	s.modelSuite.SetUpTest(c)
+	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := uuid.MustNewUUID()
-	err := s.modelSuite.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.ModelSuite.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
@@ -159,12 +157,11 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *tc.C
 func (s *leadershipSuite) setupService(c *tc.C) *service.LeadershipService {
 
 	return service.NewLeadershipService(
-		state.NewModelState(s.modelSuite.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c)),
-		state.NewControllerState(s.controllerSuite.TxnRunnerFactory(), model.UUID(s.modelSuite.ModelUUID())),
+		state.NewModelState(s.ModelSuite.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewLeaseService(leaseGetter{
 			Checker: s.leadership,
 		}),
-		model.UUID(s.modelSuite.ModelUUID()),
+		model.UUID(s.ModelSuite.ModelUUID()),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		func() (service.StatusHistoryReader, error) {
 			return nil, errors.Errorf("status history reader not available")
@@ -185,7 +182,7 @@ func (s *leadershipSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...application.AddUnitArg) coreapplication.ID {
-	appState := applicationstate.NewState(s.modelSuite.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	appState := applicationstate.NewState(s.ModelSuite.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
 		Channel:      "22.04/stable",

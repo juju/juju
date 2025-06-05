@@ -701,6 +701,45 @@ func (c *MockModelStateGetModelTypeCall) DoAndReturn(f func(context.Context) (mo
 	return c
 }
 
+// HasValidCredential mocks base method.
+func (m *MockModelState) HasValidCredential(arg0 context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasValidCredential", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasValidCredential indicates an expected call of HasValidCredential.
+func (mr *MockModelStateMockRecorder) HasValidCredential(arg0 any) *MockModelStateHasValidCredentialCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasValidCredential", reflect.TypeOf((*MockModelState)(nil).HasValidCredential), arg0)
+	return &MockModelStateHasValidCredentialCall{Call: call}
+}
+
+// MockModelStateHasValidCredentialCall wrap *gomock.Call
+type MockModelStateHasValidCredentialCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateHasValidCredentialCall) Return(arg0 bool, arg1 error) *MockModelStateHasValidCredentialCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateHasValidCredentialCall) Do(f func(context.Context) (bool, error)) *MockModelStateHasValidCredentialCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateHasValidCredentialCall) DoAndReturn(f func(context.Context) (bool, error)) *MockModelStateHasValidCredentialCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // IsControllerModel mocks base method.
 func (m *MockModelState) IsControllerModel(arg0 context.Context) (bool, error) {
 	m.ctrl.T.Helper()

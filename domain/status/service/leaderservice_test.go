@@ -389,7 +389,6 @@ func (s *leaderServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.service = NewLeadershipService(
 		s.modelState,
-		s.controllerState,
 		s.leadership,
 		model.UUID("test-model"),
 		s.statusHistory,

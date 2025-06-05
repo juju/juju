@@ -88,6 +88,11 @@ type ModelState interface {
 	// The following errors may be returned:
 	// - [modelerrors.NotFound] when the model does not exist.
 	IsControllerModel(context.Context) (bool, error)
+
+	// HasValidCredential returns true if the model has a valid credential.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model no longer exists.
+	HasValidCredential(ctx context.Context) (bool, error)
 }
 
 // ControllerState is the controller state required by this service. This is the
@@ -804,9 +809,16 @@ func EnvironVersionProviderGetter() EnvironVersionProviderFunc {
 
 // IsControllerModel returns true if the model is the controller model.
 // The following errors may be returned:
-// - [modelerrors.NotFound] when the model does not exist.
+// - [modelerrors.NotFound] when the model no longer exists.
 func (s *ModelService) IsControllerModel(ctx context.Context) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return s.modelSt.IsControllerModel(ctx)
+}
+
+// HasValidCredential returns true if the model has a valid credential.
+// The following errors may be returned:
+// - [modelerrors.NotFound] when the model no longer exists.
+func (s *ModelService) HasValidCredential(ctx context.Context) (bool, error) {
+	return s.modelSt.HasValidCredential(ctx)
 }
