@@ -74,7 +74,7 @@ func charmStorageParams(
 	return result, nil
 }
 
-func poolStorageProvider(ctx context.Context, storagePoolGetter StorageService, registry storage.ProviderRegistry, poolName string) (storage.ProviderType, map[string]interface{}, error) {
+func poolStorageProvider(ctx context.Context, storagePoolGetter StorageService, registry storage.ProviderRegistry, poolName string) (storage.ProviderType, map[string]any, error) {
 	pool, err := storagePoolGetter.GetStoragePoolByName(ctx, poolName)
 	if errors.Is(err, storageerrors.PoolNotFoundError) {
 		// If there's no pool called poolName, maybe a provider type
@@ -93,6 +93,12 @@ func poolStorageProvider(ctx context.Context, storagePoolGetter StorageService, 
 	} else if err != nil {
 		return "", nil, errors.Trace(err)
 	}
-	providerType := pool.Provider()
-	return providerType, pool.Attrs(), nil
+	var attrs map[string]any
+	if len(pool.Attrs) > 0 {
+		attrs = make(map[string]any, len(pool.Attrs))
+		for k, v := range pool.Attrs {
+			attrs[k] = v
+		}
+	}
+	return storage.ProviderType(pool.Provider), attrs, nil
 }

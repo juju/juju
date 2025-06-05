@@ -33,9 +33,9 @@ import (
 	relation0 "github.com/juju/juju/domain/relation"
 	removal "github.com/juju/juju/domain/removal"
 	resolve "github.com/juju/juju/domain/resolve"
+	storage "github.com/juju/juju/domain/storage"
 	config "github.com/juju/juju/environs/config"
 	charm1 "github.com/juju/juju/internal/charm"
-	storage "github.com/juju/juju/internal/storage"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v6"
@@ -2486,10 +2486,10 @@ func (m *MockStorageService) EXPECT() *MockStorageServiceMockRecorder {
 }
 
 // GetStoragePoolByName mocks base method.
-func (m *MockStorageService) GetStoragePoolByName(arg0 context.Context, arg1 string) (*storage.Config, error) {
+func (m *MockStorageService) GetStoragePoolByName(arg0 context.Context, arg1 string) (storage.StoragePool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStoragePoolByName", arg0, arg1)
-	ret0, _ := ret[0].(*storage.Config)
+	ret0, _ := ret[0].(storage.StoragePool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2507,19 +2507,19 @@ type MockStorageServiceGetStoragePoolByNameCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStorageServiceGetStoragePoolByNameCall) Return(arg0 *storage.Config, arg1 error) *MockStorageServiceGetStoragePoolByNameCall {
+func (c *MockStorageServiceGetStoragePoolByNameCall) Return(arg0 storage.StoragePool, arg1 error) *MockStorageServiceGetStoragePoolByNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceGetStoragePoolByNameCall) Do(f func(context.Context, string) (*storage.Config, error)) *MockStorageServiceGetStoragePoolByNameCall {
+func (c *MockStorageServiceGetStoragePoolByNameCall) Do(f func(context.Context, string) (storage.StoragePool, error)) *MockStorageServiceGetStoragePoolByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceGetStoragePoolByNameCall) DoAndReturn(f func(context.Context, string) (*storage.Config, error)) *MockStorageServiceGetStoragePoolByNameCall {
+func (c *MockStorageServiceGetStoragePoolByNameCall) DoAndReturn(f func(context.Context, string) (storage.StoragePool, error)) *MockStorageServiceGetStoragePoolByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

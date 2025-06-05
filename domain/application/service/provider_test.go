@@ -728,7 +728,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
 
-	pool := domainstorage.StoragePoolDetails{Name: "loop", Provider: "loop"}
+	pool := domainstorage.StoragePool{Name: "loop", Provider: "loop"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").Return(pool, nil).MaxTimes(2)
 
 	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
@@ -840,7 +840,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
 
-	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped-block"}
+	pool := domainstorage.StoragePool{Name: "fast", Provider: "modelscoped-block"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil).MaxTimes(2)
 
 	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
@@ -956,7 +956,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
 
-	pool := domainstorage.StoragePoolDetails{Name: "rootfs", Provider: "rootfs"}
+	pool := domainstorage.StoragePool{Name: "rootfs", Provider: "rootfs"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "rootfs").Return(pool, nil).MaxTimes(2)
 
 	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
@@ -1069,7 +1069,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
 
-	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped"}
+	pool := domainstorage.StoragePool{Name: "fast", Provider: "modelscoped"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil).MaxTimes(2)
 
 	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
@@ -1150,7 +1150,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageValidates(c *
 	// first element. In that case, we need to handle it with a mock if it is
 	// called. We only ever expect it to be called a maximum of once.
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").
-		Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError).MaxTimes(1)
+		Return(domainstorage.StoragePool{}, storageerrors.PoolNotFoundError).MaxTimes(1)
 
 	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),

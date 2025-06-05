@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"github.com/juju/collections/set"
+
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -18,9 +20,10 @@ const (
 // Attrs defines storage attributes.
 type Attrs map[string]string
 
-// StoragePoolDetails defines the details of a storage pool to save.
-// This type is also used when returning query results from state.
-type StoragePoolDetails struct {
+// StoragePool represents a storage pool in Juju.
+// It contains the name of the pool, the provider type, and any attributes
+type StoragePool struct {
+	UUID     string
 	Name     string
 	Provider string
 	Attrs    Attrs
@@ -38,15 +41,31 @@ var (
 	NilProviders = Providers(nil)
 )
 
+// Values returns the unique values of the Names.
+func (n Names) Values() []string {
+	if n == nil {
+		return nil
+	}
+	return set.NewStrings(n...).Values()
+}
+
+// Values returns the unique values of the Providers.
+func (p Providers) Values() []string {
+	if p == nil {
+		return nil
+	}
+	return set.NewStrings(p...).Values()
+}
+
 // BuiltInStoragePools returns the built in providers common to all.
-func BuiltInStoragePools() ([]StoragePoolDetails, error) {
+func BuiltInStoragePools() ([]StoragePool, error) {
 	providerTypes, err := provider.CommonStorageProviders().StorageProviderTypes()
 	if err != nil {
 		return nil, errors.Errorf("getting built in storage provider types: %w", err)
 	}
-	result := make([]StoragePoolDetails, len(providerTypes))
+	result := make([]StoragePool, len(providerTypes))
 	for i, pType := range providerTypes {
-		result[i] = StoragePoolDetails{
+		result[i] = StoragePool{
 			Name:     string(pType),
 			Provider: string(pType),
 		}

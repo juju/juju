@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/blockcommand"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/internal/testhelpers"
@@ -483,9 +484,10 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
-	p, err := storage.NewConfig("radiance", "radiance", nil)
-	c.Assert(err, tc.ErrorIsNil)
-	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(p, nil)
+	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(domainstorage.StoragePool{
+		Name:     "radiance",
+		Provider: "radiance",
+	}, nil)
 
 	filesystemSource := filesystemImporter{FilesystemSource: &dummy.FilesystemSource{}}
 	dummyStorageProvider := &dummy.StorageProvider{
@@ -535,9 +537,10 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
-	p, err := storage.NewConfig("radiance", "radiance", nil)
-	c.Assert(err, tc.ErrorIsNil)
-	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(p, nil)
+	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(domainstorage.StoragePool{
+		Name:     "radiance",
+		Provider: "radiance",
+	}, nil)
 
 	volumeSource := volumeImporter{VolumeSource: &dummy.VolumeSource{}}
 	dummyStorageProvider := &dummy.StorageProvider{
@@ -594,9 +597,10 @@ func (s *storageSuite) TestImportFilesystemError(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
-	p, err := storage.NewConfig("radiance", "radiance", nil)
-	c.Assert(err, tc.ErrorIsNil)
-	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(p, nil)
+	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(domainstorage.StoragePool{
+		Name:     "radiance",
+		Provider: "radiance",
+	}, nil)
 
 	filesystemSource := filesystemImporter{FilesystemSource: &dummy.FilesystemSource{}}
 	dummyStorageProvider := &dummy.StorageProvider{
@@ -628,9 +632,10 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
-	p, err := storage.NewConfig("radiance", "radiance", nil)
-	c.Assert(err, tc.ErrorIsNil)
-	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(p, nil)
+	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(domainstorage.StoragePool{
+		Name:     "radiance",
+		Provider: "radiance",
+	}, nil)
 
 	filesystemSource := &dummy.FilesystemSource{}
 	dummyStorageProvider := &dummy.StorageProvider{
@@ -664,9 +669,10 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
-	p, err := storage.NewConfig("radiance", "radiance", nil)
-	c.Assert(err, tc.ErrorIsNil)
-	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(p, nil)
+	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(domainstorage.StoragePool{
+		Name:     "radiance",
+		Provider: "radiance",
+	}, nil)
 
 	volumeSource := &dummy.VolumeSource{}
 	dummyStorageProvider := &dummy.StorageProvider{

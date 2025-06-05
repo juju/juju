@@ -14,8 +14,9 @@ import (
 	reflect "reflect"
 
 	modelmigration "github.com/juju/juju/core/modelmigration"
+	storage "github.com/juju/juju/domain/storage"
 	service "github.com/juju/juju/domain/storage/service"
-	storage "github.com/juju/juju/internal/storage"
+	storage0 "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -102,7 +103,7 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 }
 
 // CreateStoragePool mocks base method.
-func (m *MockImportService) CreateStoragePool(arg0 context.Context, arg1 string, arg2 storage.ProviderType, arg3 service.PoolAttrs) error {
+func (m *MockImportService) CreateStoragePool(arg0 context.Context, arg1 string, arg2 storage0.ProviderType, arg3 service.PoolAttrs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateStoragePool", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -128,13 +129,13 @@ func (c *MockImportServiceCreateStoragePoolCall) Return(arg0 error) *MockImportS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceCreateStoragePoolCall) Do(f func(context.Context, string, storage.ProviderType, service.PoolAttrs) error) *MockImportServiceCreateStoragePoolCall {
+func (c *MockImportServiceCreateStoragePoolCall) Do(f func(context.Context, string, storage0.ProviderType, service.PoolAttrs) error) *MockImportServiceCreateStoragePoolCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceCreateStoragePoolCall) DoAndReturn(f func(context.Context, string, storage.ProviderType, service.PoolAttrs) error) *MockImportServiceCreateStoragePoolCall {
+func (c *MockImportServiceCreateStoragePoolCall) DoAndReturn(f func(context.Context, string, storage0.ProviderType, service.PoolAttrs) error) *MockImportServiceCreateStoragePoolCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -162,41 +163,41 @@ func (m *MockExportService) EXPECT() *MockExportServiceMockRecorder {
 	return m.recorder
 }
 
-// AllStoragePools mocks base method.
-func (m *MockExportService) AllStoragePools(arg0 context.Context) ([]*storage.Config, error) {
+// ListStoragePoolsWithoutBuiltins mocks base method.
+func (m *MockExportService) ListStoragePoolsWithoutBuiltins(arg0 context.Context) ([]storage.StoragePool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllStoragePools", arg0)
-	ret0, _ := ret[0].([]*storage.Config)
+	ret := m.ctrl.Call(m, "ListStoragePoolsWithoutBuiltins", arg0)
+	ret0, _ := ret[0].([]storage.StoragePool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AllStoragePools indicates an expected call of AllStoragePools.
-func (mr *MockExportServiceMockRecorder) AllStoragePools(arg0 any) *MockExportServiceAllStoragePoolsCall {
+// ListStoragePoolsWithoutBuiltins indicates an expected call of ListStoragePoolsWithoutBuiltins.
+func (mr *MockExportServiceMockRecorder) ListStoragePoolsWithoutBuiltins(arg0 any) *MockExportServiceListStoragePoolsWithoutBuiltinsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllStoragePools", reflect.TypeOf((*MockExportService)(nil).AllStoragePools), arg0)
-	return &MockExportServiceAllStoragePoolsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStoragePoolsWithoutBuiltins", reflect.TypeOf((*MockExportService)(nil).ListStoragePoolsWithoutBuiltins), arg0)
+	return &MockExportServiceListStoragePoolsWithoutBuiltinsCall{Call: call}
 }
 
-// MockExportServiceAllStoragePoolsCall wrap *gomock.Call
-type MockExportServiceAllStoragePoolsCall struct {
+// MockExportServiceListStoragePoolsWithoutBuiltinsCall wrap *gomock.Call
+type MockExportServiceListStoragePoolsWithoutBuiltinsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockExportServiceAllStoragePoolsCall) Return(arg0 []*storage.Config, arg1 error) *MockExportServiceAllStoragePoolsCall {
+func (c *MockExportServiceListStoragePoolsWithoutBuiltinsCall) Return(arg0 []storage.StoragePool, arg1 error) *MockExportServiceListStoragePoolsWithoutBuiltinsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockExportServiceAllStoragePoolsCall) Do(f func(context.Context) ([]*storage.Config, error)) *MockExportServiceAllStoragePoolsCall {
+func (c *MockExportServiceListStoragePoolsWithoutBuiltinsCall) Do(f func(context.Context) ([]storage.StoragePool, error)) *MockExportServiceListStoragePoolsWithoutBuiltinsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceAllStoragePoolsCall) DoAndReturn(f func(context.Context) ([]*storage.Config, error)) *MockExportServiceAllStoragePoolsCall {
+func (c *MockExportServiceListStoragePoolsWithoutBuiltinsCall) DoAndReturn(f func(context.Context) ([]storage.StoragePool, error)) *MockExportServiceListStoragePoolsWithoutBuiltinsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

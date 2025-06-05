@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
+	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/docker"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -136,15 +137,21 @@ type mockStoragePoolGetter struct {
 	testhelpers.Stub
 }
 
-func (m *mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string) (*storage.Config, error) {
+func (m *mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string) (domainstorage.StoragePool, error) {
 	m.MethodCall(m, "GetStoragePoolByName", name)
 	if err := m.NextErr(); err != nil {
-		return nil, err
+		return domainstorage.StoragePool{}, err
 	}
 	if name == "notpool" {
-		return nil, storageerrors.PoolNotFoundError
+		return domainstorage.StoragePool{}, storageerrors.PoolNotFoundError
 	}
-	return storage.NewConfig(name, k8sconstants.StorageProviderType, map[string]interface{}{"foo": "bar"})
+	return domainstorage.StoragePool{
+		Name:     name,
+		Provider: string(k8sconstants.StorageProviderType),
+		Attrs: map[string]string{
+			"foo": "bar",
+		},
+	}, nil
 }
 
 func (m *mockStoragePoolGetter) GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error) {

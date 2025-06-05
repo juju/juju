@@ -11,8 +11,10 @@ import (
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/life"
+	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -20,7 +22,10 @@ import (
 
 // StoragePoolGetter instances get a storage pool by name.
 type StoragePoolGetter interface {
-	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+	// GetStoragePoolByName returns the storage pool with the specified name.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }
 
 // VolumeParams returns the parameters for creating or destroying
@@ -85,8 +90,19 @@ func StoragePoolConfig(ctx context.Context, name string, storagePoolGetter Stora
 	} else if err != nil {
 		return "", nil, errors.Annotatef(err, "getting pool %q", name)
 	}
-	provider := pool.Provider()
-	return provider, pool, nil
+	var attr map[string]any
+	if len(pool.Attrs) > 0 {
+		attr = make(map[string]any, len(pool.Attrs))
+		for k, v := range pool.Attrs {
+			attr[k] = v
+		}
+	}
+	providerType := storage.ProviderType(pool.Provider)
+	cfg, err := storage.NewConfig(pool.Name, providerType, attr)
+	if err != nil {
+		return "", nil, internalerrors.Capture(err)
+	}
+	return providerType, cfg, nil
 }
 
 // VolumesToState converts a slice of params.Volume to a mapping

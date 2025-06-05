@@ -19,7 +19,7 @@ import (
 
 // StoragePoolGetter provides access to a storage pool getter for validation purposes.
 type StoragePoolGetter interface {
-	GetStoragePoolByName(ctx context.Context, name string) (StoragePoolDetails, error)
+	GetStoragePoolByName(ctx context.Context, name string) (StoragePool, error)
 }
 
 // Charm provides access to charm metadata.
