@@ -89,13 +89,6 @@ The following keys are available:
     agent-ratelimit-rate:
       type: string
       description: The time taken to add a new token to the ratelimit bucket
-    api-port-open-delay:
-      type: string
-      description: |-
-        The duration that the controller will wait
-        between when the controller has been deemed to be ready to open
-        the api-port and when the api-port is actually opened
-        (only used when a controller-api-port value is set).
     application-resource-download-limit:
       type: int
       description: The maximum number of concurrent resources downloads per application

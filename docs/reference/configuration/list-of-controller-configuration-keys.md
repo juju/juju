@@ -88,21 +88,6 @@ they don't have any access rights to the controller itself.
 **Can be changed after bootstrap:** no
 
 
-(controller-config-api-port-open-delay)=
-## `api-port-open-delay`
-
-`api-port-open-delay` is a duration that the controller will wait
-between when the controller has been deemed to be ready to open
-the api-port and when the api-port is actually opened. This value
-is only used when a controller-api-port value is set.
-
-**Type:** TimeDurationString
-
-**Default value:** 2s
-
-**Can be changed after bootstrap:** yes
-
-
 (controller-config-application-resource-download-limit)=
 ## `application-resource-download-limit`
 
@@ -238,20 +223,6 @@ used for the application operator.
 Deprecated: use `caas-image-repo`.
 
 **Type:** string
-
-**Can be changed after bootstrap:** no
-
-
-(controller-config-controller-api-port)=
-## `controller-api-port`
-
-`controller-api-port` is an optional port that may be set for controllers
-that have a very heavy load. If this port is set, this port is used by
-the controllers to talk to each other - used for the local API connection
-as well as the pubsub forwarders. If this value is set, the api-port
-isn't opened until the controllers have started properly.
-
-**Type:** integer
 
 **Can be changed after bootstrap:** no
 
