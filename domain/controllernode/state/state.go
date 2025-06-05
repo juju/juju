@@ -278,6 +278,12 @@ func (st *State) NamespaceForWatchControllerNodes() string {
 	return "controller_node"
 }
 
+// NamespaceForWatchControllerAPIAddresses returns the namespace for watching
+// controller api addresses.
+func (st *State) NamespaceForWatchControllerAPIAddresses() string {
+	return "controller_api_address"
+}
+
 // SetAPIAddresses sets the addresses for the provided controller node. It
 // replaces any existing addresses and stores them in the api_controller_address
 // table, with the format "host:port" as a string, as well as the is_agent flag
