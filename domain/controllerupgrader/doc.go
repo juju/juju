@@ -2,12 +2,12 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package controllerupgrader domain provides the interface required for
-// managing the version of the controllers that form the current cluster.
+// managing the version of the controllers that from the current cluster.
 //
 // A separate domain was created to handle controller upgrades to start
 // separating some of the cross over that controller upgrades had with model
 // upgrades. While fundamentally different concepts with the same end results,
-// they have always been conflated as a similar idea.
+// they have always been conflated.
 //
 // Another driving factor for a separate domain is that we know currently the
 // operation of a controller upgrade requires modifying state across both the
@@ -22,7 +22,7 @@
 // Under the hood, controller upgrades still result in the controller's model
 // target agent version being updated. What this does is kick every agent and
 // controller in the model to start upgrading their agent binary. As an idea
-// this approach has the floor that you are potentially restarting the
+// this approach has the flaw that you are potentially restarting the
 // controllers of a cluster while agents of the model are also trying to
 // download and upgrade their agent binaries. These agent binaries may need to
 // be stable during a controller upgrade to support the upgrade of the
