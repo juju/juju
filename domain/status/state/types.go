@@ -224,8 +224,8 @@ type filesystemStatusInfo struct {
 }
 
 type storageProvisioningStatusInfo struct {
-	StatusID            int    `db:"status_id"`
-	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	StatusID            sql.NullInt16 `db:"status_id"`
+	StorageInstanceUUID string        `db:"storage_instance_uuid"`
 }
 
 type volumeUUID struct {

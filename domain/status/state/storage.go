@@ -14,6 +14,10 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+const (
+	statusNotFound = errors.ConstError("status not found")
+)
+
 // SetFilesystemStatus saves the given filesystem status, overwriting any
 // current status data. The following errors can be expected:
 // - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
@@ -30,14 +34,15 @@ func (st *State) SetFilesystemStatus(
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Get current status.
 		currentStatus, isProvisioned, err := st.getFilesystemProvisioningStatus(ctx, tx, filesystemUUID)
-		if err != nil {
+		if err != nil && !errors.Is(err, statusNotFound) {
 			return errors.Errorf("getting current filesystem status: %w", err)
 		}
-
-		// Check we can transition from current status to the new status.
-		err = status.FilesystemStatusTransitionValid(currentStatus, isProvisioned, sts)
-		if err != nil {
-			return errors.Capture(err)
+		if err == nil {
+			// Check we can transition from current status to the new status.
+			err = status.FilesystemStatusTransitionValid(currentStatus, isProvisioned, sts)
+			if err != nil {
+				return errors.Capture(err)
+			}
 		}
 
 		return st.updateFilesystemStatus(ctx, tx, filesystemUUID, sts)
@@ -65,7 +70,7 @@ func (st *State) getFilesystemProvisioningStatus(
 	stmt, err := st.Prepare(`
 SELECT    &storageProvisioningStatusInfo.*
 FROM      storage_filesystem sf
-JOIN      storage_filesystem_status sfs ON sf.uuid = sfs.filesystem_uuid
+LEFT JOIN storage_filesystem_status sfs ON sf.uuid = sfs.filesystem_uuid
 LEFT JOIN storage_instance_filesystem sif ON sf.uuid = sif.storage_filesystem_uuid
 WHERE     sf.uuid = $filesystemUUID.uuid
 `, id, sts)
@@ -79,7 +84,10 @@ WHERE     sf.uuid = $filesystemUUID.uuid
 	} else if err != nil {
 		return -1, false, errors.Capture(err)
 	}
-	statusType, err := status.DecodeStorageFilesystemStatus(sts.StatusID)
+	if !sts.StatusID.Valid {
+		return -1, false, statusNotFound
+	}
+	statusType, err := status.DecodeStorageFilesystemStatus(int(sts.StatusID.Int16))
 	if err != nil {
 		return -1, false, errors.Capture(err)
 	}
@@ -184,14 +192,15 @@ func (st *State) SetVolumeStatus(
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Get current status.
 		currentStatus, isProvisioned, err := st.getVolumeProvisioningStatus(ctx, tx, volumeUUID)
-		if err != nil {
+		if err != nil && !errors.Is(err, statusNotFound) {
 			return errors.Errorf("getting current volume status: %w", err)
 		}
-
-		// Check we can transition from current status to the new status.
-		err = status.VolumeStatusTransitionValid(currentStatus, isProvisioned, sts)
-		if err != nil {
-			return errors.Capture(err)
+		if err == nil {
+			// Check we can transition from current status to the new status.
+			err = status.VolumeStatusTransitionValid(currentStatus, isProvisioned, sts)
+			if err != nil {
+				return errors.Capture(err)
+			}
 		}
 
 		return st.updateVolumeStatus(ctx, tx, volumeUUID, sts)
@@ -218,10 +227,10 @@ func (st *State) getVolumeProvisioningStatus(
 
 	stmt, err := st.Prepare(`
 SELECT    &storageProvisioningStatusInfo.*
-FROM      storage_volume sf
-JOIN      storage_volume_status sfs ON sf.uuid = sfs.volume_uuid
-LEFT JOIN storage_instance_volume sif ON sf.uuid = sif.storage_volume_uuid
-WHERE     sf.uuid = $volumeUUID.uuid
+FROM      storage_volume sv
+LEFT JOIN storage_volume_status svs ON sv.uuid = svs.volume_uuid
+LEFT JOIN storage_instance_volume siv ON sv.uuid = siv.storage_volume_uuid
+WHERE     sv.uuid = $volumeUUID.uuid
 `, id, sts)
 	if err != nil {
 		return -1, false, errors.Capture(err)
@@ -233,7 +242,10 @@ WHERE     sf.uuid = $volumeUUID.uuid
 	} else if err != nil {
 		return -1, false, errors.Capture(err)
 	}
-	statusType, err := status.DecodeStorageVolumeStatus(sts.StatusID)
+	if !sts.StatusID.Valid {
+		return -1, false, statusNotFound
+	}
+	statusType, err := status.DecodeStorageVolumeStatus(int(sts.StatusID.Int16))
 	if err != nil {
 		return -1, false, errors.Capture(err)
 	}
