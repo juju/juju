@@ -60,7 +60,7 @@ func (s *storageSuite) TestAttachStorage(c *tc.C) {
 	s.mockState.EXPECT().GetStorageUUIDByID(gomock.Any(), corestorage.ID("pgdata/0")).Return(storageUUID, nil)
 	s.mockState.EXPECT().AttachStorage(gomock.Any(), storageUUID, unitUUID)
 
-	err := s.service.AttachStorage(c.Context(), "pgdata/0", "postgresql/666")
+	err := s.service.AttachStorageToUnit(c.Context(), "pgdata/0", "postgresql/666")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -73,16 +73,16 @@ func (s *storageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
 	s.mockState.EXPECT().GetStorageUUIDByID(gomock.Any(), corestorage.ID("pgdata/0")).Return(storageUUID, nil)
 	s.mockState.EXPECT().AttachStorage(gomock.Any(), storageUUID, unitUUID).Return(errors.StorageAlreadyAttached)
 
-	err := s.service.AttachStorage(c.Context(), "pgdata/0", "postgresql/666")
+	err := s.service.AttachStorageToUnit(c.Context(), "pgdata/0", "postgresql/666")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestAttachStorageValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.AttachStorage(c.Context(), "pgdata/0", "666")
+	err := s.service.AttachStorageToUnit(c.Context(), "pgdata/0", "666")
 	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
-	err = s.service.AttachStorage(c.Context(), "0", "postgresql/666")
+	err = s.service.AttachStorageToUnit(c.Context(), "0", "postgresql/666")
 	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageID)
 }
 
@@ -137,13 +137,13 @@ func (s *storageSuite) TestDetachStorage(c *tc.C) {
 	s.mockState.EXPECT().GetStorageUUIDByID(gomock.Any(), corestorage.ID("pgdata/0")).Return(storageUUID, nil)
 	s.mockState.EXPECT().DetachStorage(gomock.Any(), storageUUID)
 
-	err := s.service.DetachStorage(c.Context(), "pgdata/0")
+	err := s.service.DetachStorageFromUnit(c.Context(), "pgdata/0")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestDetachStorageValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.DetachStorage(c.Context(), "0")
+	err := s.service.DetachStorageFromUnit(c.Context(), "0")
 	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageID)
 }
