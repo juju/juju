@@ -224,7 +224,7 @@ func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.Watch
 func (s *baseSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UUID {
 	var unitUUIDs []unit.UUID
 	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM unit WHERE application_uuid = ?`, appID)
+		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM unit WHERE application_uuid = ? ORDER BY uuid`, appID)
 		if err != nil {
 			return err
 		}
@@ -241,6 +241,27 @@ func (s *baseSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UU
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return unitUUIDs
+}
+
+func (s *baseSuite) getAllMachineUUIDs(c *tc.C) []machine.UUID {
+	var machineUUIDs []machine.UUID
+	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM machine ORDER BY uuid`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var machineUUID machine.UUID
+			if err := rows.Scan(&machineUUID); err != nil {
+				return err
+			}
+			machineUUIDs = append(machineUUIDs, machineUUID)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUIDs
 }
 
 func (s *baseSuite) getUnitMachineUUID(c *tc.C, unitUUID unit.UUID) machine.UUID {

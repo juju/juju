@@ -52,10 +52,10 @@ WHERE  uuid = $entityUUID.uuid`, applicationUUID)
 // identified by the input UUID, that is still alive.
 // Returns the UUIDs of any alive units that were associated with the
 // application and have been set to dying as part of this operation.
-func (st *State) EnsureApplicationNotAlive(ctx context.Context, aUUID string) (unitUUIDs []string, err error) {
+func (st *State) EnsureApplicationNotAlive(ctx context.Context, aUUID string) (unitUUIDs, machineUUIDs []string, err error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 
 	applicationUUID := entityUUID{UUID: aUUID}
@@ -65,7 +65,7 @@ SET    life_id = 1
 WHERE  uuid = $entityUUID.uuid
 AND    life_id = 0`, applicationUUID)
 	if err != nil {
-		return nil, errors.Errorf("preparing application life update: %w", err)
+		return nil, nil, errors.Errorf("preparing application life update: %w", err)
 	}
 
 	// Also ensure that any units that are associated with the application
@@ -78,7 +78,7 @@ FROM   unit
 WHERE  application_uuid = $entityUUID.uuid
 AND    life_id = 0`, applicationUUID)
 	if err != nil {
-		return nil, errors.Errorf("preparing unit life query: %w", err)
+		return nil, nil, errors.Errorf("preparing unit life query: %w", err)
 	}
 
 	updateUnitStmt, err := st.Prepare(`
@@ -87,10 +87,11 @@ SET    life_id = 1
 WHERE  application_uuid = $entityUUID.uuid
 AND    life_id = 0`, applicationUUID)
 	if err != nil {
-		return nil, errors.Errorf("preparing unit life update: %w", err)
+		return nil, nil, errors.Errorf("preparing unit life update: %w", err)
 	}
 
 	var unitUUIDsRec []entityUUID
+	var machineUUIDsRec []string
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, updateApplicationStmt, applicationUUID).Run(); err != nil {
 			return errors.Errorf("advancing application life: %w", err)
@@ -104,18 +105,37 @@ AND    life_id = 0`, applicationUUID)
 			return errors.Errorf("selecting associated application unit lives: %w", err)
 		}
 
+		// We guarantee to have at least one unit UUID here.
+
 		if err := tx.Query(ctx, updateUnitStmt, applicationUUID).Run(); err != nil {
 			return errors.Errorf("advancing associated application unit lives: %w", err)
 		}
 
+		// If any units are also the last ones on their machines, we also
+		// set the machines to dying. This will ensure that any of those
+		// machines will be stopped from being used.
+
+		for _, unit := range unitUUIDsRec {
+			machineUUID, err := st.markLastUnitOnMachineAsDying(ctx, tx, unit.UUID)
+			if err != nil {
+				return errors.Errorf("marking last unit on machine as dying: %w", err)
+			} else if machineUUID == "" {
+				// The unit was not the last one on the machine, so we can
+				// skip to the next unit.
+				continue
+			}
+
+			machineUUIDsRec = append(machineUUIDsRec, machineUUID)
+		}
+
 		return nil
 	})); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	return transform.Slice(unitUUIDsRec, func(e entityUUID) string {
 		return e.UUID
-	}), nil
+	}), machineUUIDsRec, nil
 }
 
 // ApplicationScheduleRemoval schedules a removal job for the application with
