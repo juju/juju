@@ -19,15 +19,15 @@ import (
 // methods specific to application removal.
 type ApplicationState interface {
 	// ApplicationExists returns true if a application exists with the input
-	// name.
+	// application UUID.
 	ApplicationExists(ctx context.Context, appUUID string) (bool, error)
 
 	// EnsureApplicationNotAlive ensures that there is no application identified
-	// by the input name, that is still alive.
+	// by the input application UUID, that is still alive.
 	EnsureApplicationNotAlive(ctx context.Context, appUUID string) (err error)
 
 	// ApplicationScheduleRemoval schedules a removal job for the application
-	// with the input name, qualified with the input force boolean.
+	// with the input application UUID, qualified with the input force boolean.
 	ApplicationScheduleRemoval(ctx context.Context, removalUUID, appUUID string, force bool, when time.Time) error
 
 	// GetApplicationLife returns the life of the application with the input
@@ -38,7 +38,8 @@ type ApplicationState interface {
 	DeleteApplication(ctx context.Context, appUUID string) error
 }
 
-// RemoveApplication checks if a application with the input name exists.
+// RemoveApplication checks if a application with the input application UUID
+// exists.
 // If it does, the application is guaranteed after this call to be:
 // - No longer alive.
 // - Removed or scheduled to be removed with the input force qualification.

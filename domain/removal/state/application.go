@@ -56,7 +56,7 @@ func (st *State) EnsureApplicationNotAlive(ctx context.Context, aUUID string) er
 	}
 
 	applicationUUID := entityUUID{UUID: aUUID}
-	updateUnitStmt, err := st.Prepare(`
+	updateApplicationStmt, err := st.Prepare(`
 UPDATE application
 SET    life_id = 1
 WHERE  uuid = $entityUUID.uuid
@@ -66,7 +66,7 @@ AND    life_id = 0`, applicationUUID)
 	}
 
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, updateUnitStmt, applicationUUID).Run(); err != nil {
+		if err := tx.Query(ctx, updateApplicationStmt, applicationUUID).Run(); err != nil {
 			return errors.Errorf("advancing application life: %w", err)
 		}
 
@@ -167,7 +167,7 @@ WHERE  uuid = $entityAssociationCount.uuid;`, applicationUUIDCount)
 DELETE FROM application
 WHERE  uuid = $entityAssociationCount.uuid;`, applicationUUIDCount)
 	if err != nil {
-		return errors.Errorf("preparing unit delete: %w", err)
+		return errors.Errorf("preparing application delete: %w", err)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -286,14 +286,14 @@ WHERE device_constraint_uuid IN (
 func (st *State) deleteApplicationAnnotations(ctx context.Context, tx *sqlair.TX, aUUID string) error {
 	appID := applicationUUID{UUID: aUUID}
 
-	deleteUnitAnnotationStmt, err := st.Prepare(`
+	deleteApplicationAnnotationStmt, err := st.Prepare(`
 DELETE FROM annotation_application
 WHERE  uuid = $applicationUUID.application_uuid`, appID)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, deleteUnitAnnotationStmt, appID).Run(); err != nil {
+	if err := tx.Query(ctx, deleteApplicationAnnotationStmt, appID).Run(); err != nil {
 		return errors.Errorf("removing application annotations: %w", err)
 	}
 	return nil
