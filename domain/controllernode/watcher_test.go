@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/controllernode/service"
@@ -58,6 +59,67 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 	// Ensure that we get the removed controllers event.
 	harness.AddTest(func(c *tc.C) {
 		svc.CurateNodes(ctx, nil, []string{"controller1", "controller2"})
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Nothing happens so no change.
+	harness.AddTest(func(c *tc.C) {
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "controller_api_address")
+
+	ctx := c.Context()
+	svc := s.setupService(c, factory)
+	watcher, err := svc.WatchControllerAPIAddresses(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	addrs := network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.9.9.32",
+				},
+			},
+			NetPort: 42,
+		},
+	}
+	// Ensure that we get the controller api address created event.
+	harness.AddTest(func(c *tc.C) {
+		svc.SetAPIAddresses(ctx, "0", addrs, nil)
+		s.DumpTable(c, "controller_api_address", "controller_node")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Ensure that we get the controller api address added event.
+	harness.AddTest(func(c *tc.C) {
+		svc.CurateNodes(ctx, []string{"1"}, nil)
+		svc.SetAPIAddresses(ctx, "1", addrs, nil)
+		s.DumpTable(c, "controller_api_address", "controller_node")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Ensure that we get the controller api address updated event.
+	harness.AddTest(func(c *tc.C) {
+		addrs[0].Value = "10.43.25.2"
+		svc.SetAPIAddresses(ctx, "0", addrs, nil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Ensure that we get the removed controller api address event.
+	harness.AddTest(func(c *tc.C) {
+		svc.SetAPIAddresses(ctx, "0", nil, nil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
