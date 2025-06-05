@@ -4,12 +4,16 @@
 package state
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/life"
@@ -47,8 +51,11 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
+	unitUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
+
+	// We don't have any units, so we expect an empty slice.
+	c.Check(unitUUIDs, tc.HasLen, 0)
 
 	// Unit had life "alive" and should now be "dying".
 	row := s.DB().QueryRow("SELECT life_id FROM application where uuid = ?", appUUID.String())
@@ -58,6 +65,113 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccess(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 1)
 }
 
+func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveUnits(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddUnitArg{},
+		applicationservice.AddUnitArg{},
+	)
+
+	allUnitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	unitUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We don't have any units, so we expect an empty slice.
+	c.Check(unitUUIDs, tc.DeepEquals, transform.Slice(allUnitUUIDs, func(u unit.UUID) string {
+		return u.String()
+	}))
+
+	// Unit had life "alive" and should now be "dying".
+	row := s.DB().QueryRow("SELECT life_id FROM application where uuid = ?", appUUID.String())
+	var lifeID int
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+
+	// Ensure that there are no units left with life "alive".
+	row = s.DB().QueryRow("SELECT COUNT(*) FROM unit WHERE application_uuid = ? AND life_id = 0", appUUID.String())
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	// Ensure that all units are now "dying".
+	placeholders := strings.Repeat("?,", len(allUnitUUIDs)-1) + "?"
+	uuids := append([]string{appUUID.String()}, unitUUIDs...)
+	row = s.DB().QueryRow(fmt.Sprintf(`
+SELECT COUNT(*) FROM unit WHERE application_uuid = ? AND life_id = 1 AND uuid IN (%s)
+`, placeholders), transform.Slice(uuids, func(s string) any {
+		return s
+	})...)
+	var dyingCount int
+	err = row.Scan(&dyingCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(dyingCount, tc.Equals, len(allUnitUUIDs))
+}
+
+func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAndDyingUnits(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddUnitArg{},
+		applicationservice.AddUnitArg{},
+		applicationservice.AddUnitArg{},
+	)
+
+	allUnitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+
+	// Update one of the units to be "dying". This will simulate a scenario
+	// that someone did `juju remove-unit` on one of the units and then
+	// `juju remove-application` was called.
+	_, err := s.DB().Exec(`
+UPDATE unit SET life_id = 1 WHERE application_uuid = ? AND uuid = ?
+`, appUUID.String(), allUnitUUIDs[0].String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	aliveUnitUUIDs := allUnitUUIDs[1:]
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	unitUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We don't have any units, so we expect an empty slice.
+	c.Check(unitUUIDs, tc.DeepEquals, transform.Slice(aliveUnitUUIDs, func(u unit.UUID) string {
+		return u.String()
+	}))
+
+	// Unit had life "alive" and should now be "dying".
+	row := s.DB().QueryRow("SELECT life_id FROM application where uuid = ?", appUUID.String())
+	var lifeID int
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+
+	// Ensure that there are no units left with life "alive".
+	row = s.DB().QueryRow("SELECT COUNT(*) FROM unit WHERE application_uuid = ? AND life_id = 0", appUUID.String())
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	// Ensure that all units are now "dying".
+	placeholders := strings.Repeat("?,", len(aliveUnitUUIDs)-1) + "?"
+	uuids := append([]string{appUUID.String()}, unitUUIDs...)
+	row = s.DB().QueryRow(fmt.Sprintf(`
+SELECT COUNT(*) FROM unit WHERE application_uuid = ? AND life_id = 1 AND uuid IN (%s)
+`, placeholders), transform.Slice(uuids, func(s string) any {
+		return s
+	})...)
+	var dyingCount int
+	err = row.Scan(&dyingCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(dyingCount, tc.Equals, len(aliveUnitUUIDs))
+}
+
 func (s *applicationSuite) TestEnsureApplicationNotAliveDyingSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
@@ -65,8 +179,11 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveDyingSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
+	unitUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
+
+	// We don't have any units, so we expect an empty slice.
+	c.Check(unitUUIDs, tc.HasLen, 0)
 
 	// Unit was already "dying" and should be unchanged.
 	row := s.DB().QueryRow("SELECT life_id FROM application where uuid = ?", appUUID.String())
@@ -80,7 +197,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNotExistsSuccess(c *tc.C
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	err := st.EnsureApplicationNotAlive(c.Context(), "some-application-uuid")
+	_, err := st.EnsureApplicationNotAlive(c.Context(), "some-application-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 }
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/collections/transform"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
@@ -49,10 +50,12 @@ WHERE  uuid = $entityUUID.uuid`, applicationUUID)
 
 // EnsureApplicationNotAlive ensures that there is no application
 // identified by the input UUID, that is still alive.
-func (st *State) EnsureApplicationNotAlive(ctx context.Context, aUUID string) error {
+// Returns the UUIDs of any alive units that were associated with the
+// application and have been set to dying as part of this operation.
+func (st *State) EnsureApplicationNotAlive(ctx context.Context, aUUID string) (unitUUIDs []string, err error) {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	applicationUUID := entityUUID{UUID: aUUID}
@@ -62,20 +65,57 @@ SET    life_id = 1
 WHERE  uuid = $entityUUID.uuid
 AND    life_id = 0`, applicationUUID)
 	if err != nil {
-		return errors.Errorf("preparing application life update: %w", err)
+		return nil, errors.Errorf("preparing application life update: %w", err)
 	}
 
+	// Also ensure that any units that are associated with the application
+	// are also set to dying. This has to be done in a single transaction
+	// because we want to ensure that the application is not alive, and
+	// that no units are alive at the same time. Preventing any races.
+	selectUnitUUIDsStmt, err := st.Prepare(`
+SELECT uuid AS &entityUUID.uuid
+FROM   unit
+WHERE  application_uuid = $entityUUID.uuid
+AND    life_id = 0`, applicationUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing unit life query: %w", err)
+	}
+
+	updateUnitStmt, err := st.Prepare(`
+UPDATE unit
+SET    life_id = 1
+WHERE  application_uuid = $entityUUID.uuid
+AND    life_id = 0`, applicationUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing unit life update: %w", err)
+	}
+
+	var unitUUIDsRec []entityUUID
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, updateApplicationStmt, applicationUUID).Run(); err != nil {
 			return errors.Errorf("advancing application life: %w", err)
 		}
 
+		if err := tx.Query(ctx, selectUnitUUIDsStmt, applicationUUID).GetAll(&unitUUIDsRec); errors.Is(err, sqlair.ErrNoRows) {
+			// If there are no units associated with the application,
+			// we can just return nil, as there is nothing to update.
+			return nil
+		} else if err != nil {
+			return errors.Errorf("selecting associated application unit lives: %w", err)
+		}
+
+		if err := tx.Query(ctx, updateUnitStmt, applicationUUID).Run(); err != nil {
+			return errors.Errorf("advancing associated application unit lives: %w", err)
+		}
+
 		return nil
 	})); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return transform.Slice(unitUUIDsRec, func(e entityUUID) string {
+		return e.UUID
+	}), nil
 }
 
 // ApplicationScheduleRemoval schedules a removal job for the application with

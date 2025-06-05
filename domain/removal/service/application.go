@@ -8,6 +8,7 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
@@ -24,7 +25,9 @@ type ApplicationState interface {
 
 	// EnsureApplicationNotAlive ensures that there is no application identified
 	// by the input application UUID, that is still alive.
-	EnsureApplicationNotAlive(ctx context.Context, appUUID string) (err error)
+	// If the application has units, they are also guaranteed to be no longer
+	// alive. The affected unit UUIDs are returned.
+	EnsureApplicationNotAlive(ctx context.Context, appUUID string) (unitUUIDs []string, err error)
 
 	// ApplicationScheduleRemoval schedules a removal job for the application
 	// with the input application UUID, qualified with the input force boolean.
@@ -39,10 +42,12 @@ type ApplicationState interface {
 }
 
 // RemoveApplication checks if a application with the input application UUID
-// exists.
-// If it does, the application is guaranteed after this call to be:
-// - No longer alive.
-// - Removed or scheduled to be removed with the input force qualification.
+// exists. If it does, the application is guaranteed after this call to be:
+//   - No longer alive.
+//   - Removed or scheduled to be removed with the input force qualification.
+//   - If the application has units, the units are also guaranteed to be no
+//     longer alive and scheduled for removal.
+//
 // The input wait duration is the time that we will give for the normal
 // life-cycle advancement and removal to finish before forcefully removing the
 // application. This duration is ignored if the force argument is false.
@@ -61,7 +66,8 @@ func (s *Service) RemoveApplication(
 	}
 
 	// Ensure the application is not alive.
-	if err := s.st.EnsureApplicationNotAlive(ctx, appUUID.String()); err != nil {
+	unitUUIDs, err := s.st.EnsureApplicationNotAlive(ctx, appUUID.String())
+	if err != nil {
 		return "", errors.Errorf("application %q: %w", appUUID, err)
 	}
 
@@ -85,6 +91,32 @@ func (s *Service) RemoveApplication(
 	appJobUUID, err := s.applicationScheduleRemoval(ctx, appUUID, force, wait)
 	if err != nil {
 		return "", errors.Capture(err)
+	}
+
+	if len(unitUUIDs) == 0 {
+		// If there are no units, we can remove the charm immediately as there
+		// we be no FK constraints associated with the application or unit.
+		if err := s.RemoveCharmForApplication(ctx, appUUID); err != nil {
+			s.logger.Errorf(ctx, "failed to remove charm for application %q: %v", appUUID, err)
+		}
+		return appJobUUID, nil
+	}
+
+	s.logger.Infof(ctx, "application has units %v, scheduling removal", unitUUIDs)
+
+	// If there are any alive units, we need to schedule their removal as well.
+	for _, unitUUID := range unitUUIDs {
+		if _, err := s.RemoveUnit(ctx, unit.UUID(unitUUID), force, wait); errors.Is(err, applicationerrors.UnitNotFound) {
+			// There could be a chance that the unit has already been removed
+			// by another process. We can safely ignore this error and
+			// continue with the next unit.
+			continue
+		} else if err != nil {
+			// If the unit fails to be scheduled for removal, we log out the
+			// error. The application and the units are already transitioned to
+			// dying and there is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "failed to schedule removal of unit %q: %v", unitUUID, err)
+		}
 	}
 
 	return appJobUUID, nil

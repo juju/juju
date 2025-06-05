@@ -49,6 +49,8 @@ WHERE  uuid = $entityUUID.uuid`, unitUUID)
 
 // EnsureUnitNotAlive ensures that there is no unit
 // identified by the input UUID, that is still alive.
+// If the unit is the last one on the machine, it will also
+// ensure that the machine is not alive anymore.
 func (st *State) EnsureUnitNotAlive(ctx context.Context, uUUID string) (machineUUID string, err error) {
 	db, err := st.DB()
 	if err != nil {
