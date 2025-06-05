@@ -16,7 +16,7 @@ To add a user to a controller, run the `add-user` command followed by the userna
 juju add-user alex
 ```
 
-This will create a user with username 'alex' and a controller `login` access level. 
+This will create a user with username 'alex' and a controller `login` access level.
 
 > See more: {ref}`user-access-levels`
 
@@ -184,7 +184,7 @@ juju revoke-cloud joe add-model fluffy
 -  To set a password as a controller creator user ('admin'), run the `change-user-password` command, optionally followed by your username, 'admin'.
 
 ```text
-juju change-user-password 
+juju change-user-password
 ```
 
 This will prompt you to type, and then re-type, your desired password.
@@ -199,7 +199,7 @@ This will prompt you to type, and then re-type, your desired password.
 **Change a password.** To change the current user's password, run the `change-user-password` command:
 
 ```text
-juju change-user-password 
+juju change-user-password
 ```
 
 This will prompt you to type, and then re-type, your desired password.
@@ -210,14 +210,14 @@ The command also allows an optional username argument, and flags, allowing an ad
 
 ## Manage a user's login status
 
-**Log in.** 
+**Log in.**
 
 ```{important}
 **If you're the controller creator:** <br> You've already been logged in as the `admin` user. To verify, run `juju whoami` or `juju show-user admin`; to set a password, run `juju change-user-password`; to log out, run `juju logout`.
 ```
 
 ```{important}
-**If you've just registered an external controller with your client (via `juju register`):** <br> You're already logged in. Run `juju whoami` or `juju show-user <username>` to view your user details. 
+**If you've just registered an external controller with your client (via `juju register`):** <br> You're already logged in. Run `juju whoami` or `juju show-user <username>` to view your user details.
 
 ```
 
@@ -236,7 +236,7 @@ The command also has flags that allow you to specify a controller, etc.
 **Log out.**
 
 ```{important}
-**If you're the controller creator, and you haven't set a password yet:** <br> You will be prompted to set a password. Make sure to set it before logging out. 
+**If you're the controller creator, and you haven't set a password yet:** <br> You will be prompted to set a password. Make sure to set it before logging out.
 ```
 
 To log a user out of the current controller, run the `logout` command:

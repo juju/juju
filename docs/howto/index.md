@@ -7,7 +7,7 @@
 :maxdepth: 2
 :hidden:
 
-Manage your deployment <manage-your-deployment/index>
+Manage your deployment <manage-your-deployment>
 Manage juju <manage-juju>
 Manage plugins <manage-plugins>
 Manage clouds <manage-clouds>
@@ -38,7 +38,7 @@ Fan container networking <fan-container-networking>
 
 ```
 
-
+(your-juju-deployment-the-birds-eye-view)=
 ## Your Juju deployment: the bird's eye view
 
 <!--*Get a high-level view of how to do things in Juju, from {ref}`setting up your deployment environment and setting up a basic deployment <manage-your-deployment-environment>` through {ref}`hardening <harden-your-deployment>` and {ref}`upgrading <upgrade-your-deployment>`  your deployment all the way to {ref}`troubleshooting procedures <troubleshoot-your-deployment>` and {ref}`steps to take your deployment offline <take-your-deployment-offline>`.*-->
@@ -47,6 +47,7 @@ Get a quick sense of how to do things in Juju, from preparing your deployment en
 
 - {ref}`Manage your deployment <manage-your-deployment>`
 
+(administering-juju)=
 ## Administering Juju
 
 Everything from how to install or upgrade the `juju` CLI and any desired plugins; connect clouds; bootstrap a Juju controller; stand up the Juju dashboard; plan and set up users, SSH keys, models, and secret backends; and get comfortable extracting and analyzing logs.
@@ -65,6 +66,7 @@ Everything from how to install or upgrade the `juju` CLI and any desired plugins
 - {ref}`Manage logs <manage-logs>`
 
 
+(building-with-juju)=
 ## Building with Juju
 
 Deploy, configure, and maintain your infrastructure and applications with Juju.
