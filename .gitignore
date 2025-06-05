@@ -32,3 +32,4 @@ tests/tmp.*
 *.bundle
 *.log
 dqlite-deps.tar.bz2
+.envrc
