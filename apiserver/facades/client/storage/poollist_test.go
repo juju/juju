@@ -37,6 +37,62 @@ func (s *poolSuite) TestEnsureStoragePoolFilter(c *tc.C) {
 	c.Assert(apiserverstorage.EnsureStoragePoolFilter(s.apiCaas, filter).Providers, tc.DeepEquals, []string{"kubernetes"})
 }
 
+func (s *poolSuite) TestListByNames(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.storageService.EXPECT().ListStoragePoolsByNames(gomock.Any(),
+		domainstorage.Names{
+			fmt.Sprintf("%v%v", tstName, 0),
+		},
+	).Return([]domainstorage.StoragePool{
+		{
+			Name:     fmt.Sprintf("%v%v", tstName, 0),
+			Provider: string(provider.LoopProviderType),
+		},
+	}, nil)
+
+	results, err := s.api.ListPools(c.Context(), params.StoragePoolFilters{
+		Filters: []params.StoragePoolFilter{{
+			Names: []string{fmt.Sprintf("%v%v", tstName, 0)},
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	one := results.Results[0]
+	c.Assert(one.Error, tc.IsNil)
+	c.Assert(one.Result, tc.HasLen, 1)
+	c.Assert(one.Result[0].Name, tc.Equals, fmt.Sprintf("%v%v", tstName, 0))
+	c.Assert(one.Result[0].Provider, tc.Equals, string(provider.LoopProviderType))
+}
+
+func (s *poolSuite) TestListByProviders(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.storageService.EXPECT().ListStoragePoolsByProviders(gomock.Any(),
+		domainstorage.Providers{
+			string(provider.LoopProviderType),
+		},
+	).Return([]domainstorage.StoragePool{
+		{
+			Name:     fmt.Sprintf("%v%v", tstName, 0),
+			Provider: string(provider.LoopProviderType),
+		},
+	}, nil)
+
+	results, err := s.api.ListPools(c.Context(), params.StoragePoolFilters{
+		Filters: []params.StoragePoolFilter{{
+			Providers: []string{string(provider.LoopProviderType)},
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	one := results.Results[0]
+	c.Assert(one.Error, tc.IsNil)
+	c.Assert(one.Result, tc.HasLen, 1)
+	c.Assert(one.Result[0].Name, tc.Equals, fmt.Sprintf("%v%v", tstName, 0))
+	c.Assert(one.Result[0].Provider, tc.Equals, string(provider.LoopProviderType))
+}
+
 func (s *poolSuite) TestList(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -46,13 +102,12 @@ func (s *poolSuite) TestList(c *tc.C) {
 		}, domainstorage.Providers{
 			string(provider.LoopProviderType),
 		},
-	).
-		Return([]domainstorage.StoragePool{
-			{
-				Name:     fmt.Sprintf("%v%v", tstName, 0),
-				Provider: string(provider.LoopProviderType),
-			},
-		}, nil)
+	).Return([]domainstorage.StoragePool{
+		{
+			Name:     fmt.Sprintf("%v%v", tstName, 0),
+			Provider: string(provider.LoopProviderType),
+		},
+	}, nil)
 
 	results, err := s.api.ListPools(c.Context(), params.StoragePoolFilters{
 		Filters: []params.StoragePoolFilter{{

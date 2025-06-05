@@ -44,10 +44,10 @@ func (s *typesSuite) TestDefaultStoragePools(c *tc.C) {
 
 func (s *typesSuite) TestNamesValues(c *tc.C) {
 	n := storage.Names{"a", "b", "c", "a"}
-	c.Assert(n.Values(), tc.DeepEquals, []string{"a", "b", "c"})
+	c.Assert(n.Values(), tc.SameContents, []string{"a", "b", "c"})
 }
 
 func (s *typesSuite) TestProvidersValues(c *tc.C) {
 	p := storage.Providers{"x", "y", "z", "x"}
-	c.Assert(p.Values(), tc.DeepEquals, []string{"x", "y", "z"})
+	c.Assert(p.Values(), tc.SameContents, []string{"x", "y", "z"})
 }

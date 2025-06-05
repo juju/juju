@@ -51,15 +51,31 @@ type StorageService interface {
 		ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs,
 	) error
 
-	// ListStoragePools returns the storage pools including default storage pools.
+	// ListStoragePools returns all the storage pools.
 	ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error)
 
-	// ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
-	// names and or providers, including the default storage pools.
+	// ListStoragePoolsByNamesAndProviders returns the storage pools matching the cartesian
+	// product of name and provider.
 	// If no names and providers are specified, an empty slice is returned without an error.
 	// If no storage pools match the criteria, an empty slice is returned without an error.
 	ListStoragePoolsByNamesAndProviders(
 		ctx context.Context, names domainstorage.Names, providers domainstorage.Providers,
+	) ([]domainstorage.StoragePool, error)
+
+	// ListStoragePoolsByNames returns the storage pools matching the specified names, including
+	// the default storage pools.
+	// If no names are specified, an empty slice is returned without an error.
+	// If no storage pools match the criteria, an empty slice is returned without an error.
+	ListStoragePoolsByNames(
+		ctx context.Context, names domainstorage.Names,
+	) ([]domainstorage.StoragePool, error)
+
+	// ListStoragePoolsByProviders returns the storage pools matching the specified
+	// providers, including the default storage pools.
+	// If no providers are specified, an empty slice is returned without an error.
+	// If no storage pools match the criteria, an empty slice is returned without an error.
+	ListStoragePoolsByProviders(
+		ctx context.Context, providers domainstorage.Providers,
 	) ([]domainstorage.StoragePool, error)
 
 	// GetStoragePoolByName returns the storage pool with the specified name.
@@ -249,8 +265,12 @@ func (a *StorageAPI) listPools(ctx context.Context, filter params.StoragePoolFil
 	)
 	if len(filter.Names) == 0 && len(filter.Providers) == 0 {
 		pools, err = a.storageService.ListStoragePools(ctx)
-	} else {
+	} else if len(filter.Names) != 0 && len(filter.Providers) != 0 {
 		pools, err = a.storageService.ListStoragePoolsByNamesAndProviders(ctx, filter.Names, filter.Providers)
+	} else if len(filter.Names) != 0 {
+		pools, err = a.storageService.ListStoragePoolsByNames(ctx, filter.Names)
+	} else {
+		pools, err = a.storageService.ListStoragePoolsByProviders(ctx, filter.Providers)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)

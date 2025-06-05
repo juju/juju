@@ -93,7 +93,7 @@ func poolStorageProvider(ctx context.Context, storagePoolGetter StorageService, 
 	} else if err != nil {
 		return "", nil, errors.Trace(err)
 	}
-	var attrs map[string]interface{}
+	var attrs map[string]any
 	if len(pool.Attrs) > 0 {
 		attrs = make(map[string]any, len(pool.Attrs))
 		for k, v := range pool.Attrs {
