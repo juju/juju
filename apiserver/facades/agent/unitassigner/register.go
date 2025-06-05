@@ -19,16 +19,8 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacade returns a new unitAssigner api instance.
 func newFacade(ctx facade.ModelContext) (*API, error) {
-	st := ctx.State()
-
-	domainServices := ctx.DomainServices()
 
 	return &API{
-		st:             stateShim{State: st},
-		machineService: domainServices.Machine(),
-		networkService: domainServices.Network(),
-		statusService:  domainServices.Status(),
-		clock:          ctx.Clock(),
-		res:            ctx.Resources(),
+		watcherRegistry: ctx.WatcherRegistry(),
 	}, nil
 }
