@@ -159,6 +159,7 @@ func (ticket guestTicket) complete(finished func()) {
 	select {
 	case <-ticket.ctx.Done():
 		ticket.result <- ErrAborted
-	case ticket.result <- ticket.visit():
+	default:
+		ticket.result <- ticket.visit()
 	}
 }

@@ -28,14 +28,31 @@ func Occupy(ctx context.Context, fortress Guest, start StartFunc) (worker.Worker
 	// creation; and a worker-running func that sends on exactly one
 	// of them, and returns only when (1) a value has been sent and (2)
 	// no worker is running. Note especially that it always returns nil.
-	started := make(chan worker.Worker, 1)
-	failed := make(chan error, 1)
+	started := make(chan worker.Worker)
+	failed := make(chan error)
 	task := func() error {
 		worker, err := start()
 		if err != nil {
-			failed <- err
+			select {
+			case failed <- err:
+			case <-ctx.Done():
+			}
 		} else {
-			started <- worker
+			select {
+			case started <- worker:
+			case <-ctx.Done():
+				// If a worker is a little slow to start, it may occupy
+				// indefinitely if the context passed here is cancelled.
+				// This is because the worker blocks the visit to the
+				// fortress, but also will never be killed because Occupy
+				// has already returned due to the cancellation of the
+				// context.
+				// Because the worker won't be returned from Occupy, as
+				// it has already returned, we must Kill it to prevent
+				// the worker from being orphaned and to prevent it from
+				// occuping the fortress any longer.
+				worker.Kill()
+			}
 			_ = worker.Wait() // ignore error: worker is SEP now.
 		}
 		return nil

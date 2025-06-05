@@ -117,3 +117,47 @@ func (*OccupySuite) TestStartSuccess(c *tc.C) {
 		c.Fatalf("visit never completed")
 	}
 }
+
+func (*OccupySuite) TestSlowStartCancelContext(c *tc.C) {
+	fix := newFixture(c)
+	defer fix.TearDown(c)
+	c.Check(fix.Guard(c).Unlock(c.Context()), tc.ErrorIsNil)
+
+	// Start a worker...
+	expect := workertest.NewErrorWorker(nil)
+	defer workertest.CleanKill(c, expect)
+
+	ctx, cancel := context.WithCancel(c.Context())
+	ready := make(chan struct{})
+	run := func() (worker.Worker, error) {
+		cancel()
+		<-ready
+		return expect, nil
+	}
+
+	worker, err := fortress.Occupy(ctx, fix.Guest(c), run)
+	c.Assert(err, tc.ErrorIs, fortress.ErrAborted)
+	c.Check(worker, tc.IsNil)
+
+	// ...and check we can't lockdown again...
+	locked := make(chan error, 1)
+	go func() {
+		locked <- fix.Guard(c).Lockdown(c.Context())
+	}()
+	select {
+	case err := <-locked:
+		c.Fatalf("unexpected Lockdown result: %v", err)
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	// ...until the worker is killed because it did not
+	// start before the Occupy context cancelled.
+	close(ready)
+
+	select {
+	case err := <-locked:
+		c.Check(err, tc.ErrorIsNil)
+	case <-c.Context().Done():
+		c.Fatalf("visit never completed")
+	}
+}
