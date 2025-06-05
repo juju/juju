@@ -6,9 +6,9 @@ package eventsource
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/collections/transform"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"

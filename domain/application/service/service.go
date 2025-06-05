@@ -785,22 +785,6 @@ func (s *WatchableService) WatchUnitForLegacyUniter(ctx context.Context, unitNam
 	)
 }
 
-type maskedChangeIDEvent struct {
-	changestream.ChangeEvent
-	id string
-}
-
-func newMaskedChangeIDEvent(change changestream.ChangeEvent, id string) changestream.ChangeEvent {
-	return maskedChangeIDEvent{
-		ChangeEvent: change,
-		id:          id,
-	}
-}
-
-func (m maskedChangeIDEvent) Changed() string {
-	return m.id
-}
-
 // isValidApplicationName returns whether name is a valid application name.
 func isValidApplicationName(name string) bool {
 	return validApplication.MatchString(name)
