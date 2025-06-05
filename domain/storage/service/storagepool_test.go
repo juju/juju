@@ -169,7 +169,7 @@ func (s *storagePoolServiceSuite) TestReplaceStoragePoolValidates(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.* missing attribute foo`)
 }
 
-func (s *storagePoolServiceSuite) TestListStoragePoolsWithoutDefaults(c *tc.C) {
+func (s *storagePoolServiceSuite) TestListStoragePoolsWithoutBuiltins(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sp := domainstorage.StoragePool{
@@ -179,9 +179,9 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsWithoutDefaults(c *tc.C) {
 			"foo": "foo val",
 		},
 	}
-	s.state.EXPECT().ListStoragePoolsWithoutDefaults(gomock.Any()).Return([]domainstorage.StoragePool{sp}, nil)
+	s.state.EXPECT().ListStoragePoolsWithoutBuiltins(gomock.Any()).Return([]domainstorage.StoragePool{sp}, nil)
 
-	got, err := s.service(c).ListStoragePoolsWithoutDefaults(c.Context())
+	got, err := s.service(c).ListStoragePoolsWithoutBuiltins(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.SameContents, []domainstorage.StoragePool{sp})
 }
@@ -220,6 +220,15 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProviders(c *tc.
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.SameContents, []domainstorage.StoragePool{sp})
+}
+
+func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersEmptyArgs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	got, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{}, domainstorage.Providers{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.HasLen, 0)
 }
 
 func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersInvalidNames(c *tc.C) {

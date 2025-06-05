@@ -390,41 +390,41 @@ func (c *MockStateListStoragePoolsByProvidersCall) DoAndReturn(f func(context.Co
 	return c
 }
 
-// ListStoragePoolsWithoutDefaults mocks base method.
-func (m *MockState) ListStoragePoolsWithoutDefaults(arg0 context.Context) ([]storage0.StoragePool, error) {
+// ListStoragePoolsWithoutBuiltins mocks base method.
+func (m *MockState) ListStoragePoolsWithoutBuiltins(arg0 context.Context) ([]storage0.StoragePool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListStoragePoolsWithoutDefaults", arg0)
+	ret := m.ctrl.Call(m, "ListStoragePoolsWithoutBuiltins", arg0)
 	ret0, _ := ret[0].([]storage0.StoragePool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListStoragePoolsWithoutDefaults indicates an expected call of ListStoragePoolsWithoutDefaults.
-func (mr *MockStateMockRecorder) ListStoragePoolsWithoutDefaults(arg0 any) *MockStateListStoragePoolsWithoutDefaultsCall {
+// ListStoragePoolsWithoutBuiltins indicates an expected call of ListStoragePoolsWithoutBuiltins.
+func (mr *MockStateMockRecorder) ListStoragePoolsWithoutBuiltins(arg0 any) *MockStateListStoragePoolsWithoutBuiltinsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStoragePoolsWithoutDefaults", reflect.TypeOf((*MockState)(nil).ListStoragePoolsWithoutDefaults), arg0)
-	return &MockStateListStoragePoolsWithoutDefaultsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStoragePoolsWithoutBuiltins", reflect.TypeOf((*MockState)(nil).ListStoragePoolsWithoutBuiltins), arg0)
+	return &MockStateListStoragePoolsWithoutBuiltinsCall{Call: call}
 }
 
-// MockStateListStoragePoolsWithoutDefaultsCall wrap *gomock.Call
-type MockStateListStoragePoolsWithoutDefaultsCall struct {
+// MockStateListStoragePoolsWithoutBuiltinsCall wrap *gomock.Call
+type MockStateListStoragePoolsWithoutBuiltinsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateListStoragePoolsWithoutDefaultsCall) Return(arg0 []storage0.StoragePool, arg1 error) *MockStateListStoragePoolsWithoutDefaultsCall {
+func (c *MockStateListStoragePoolsWithoutBuiltinsCall) Return(arg0 []storage0.StoragePool, arg1 error) *MockStateListStoragePoolsWithoutBuiltinsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateListStoragePoolsWithoutDefaultsCall) Do(f func(context.Context) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsWithoutDefaultsCall {
+func (c *MockStateListStoragePoolsWithoutBuiltinsCall) Do(f func(context.Context) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsWithoutBuiltinsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateListStoragePoolsWithoutDefaultsCall) DoAndReturn(f func(context.Context) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsWithoutDefaultsCall {
+func (c *MockStateListStoragePoolsWithoutBuiltinsCall) DoAndReturn(f func(context.Context) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsWithoutBuiltinsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

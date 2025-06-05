@@ -312,8 +312,8 @@ FROM   storage_pool sp
 	}, nil
 }
 
-// ListStoragePoolsWithoutDefaults returns the storage pools excluding the default storage pools.
-func (st State) ListStoragePoolsWithoutDefaults(ctx context.Context) ([]domainstorage.StoragePool, error) {
+// ListStoragePoolsWithoutBuiltins returns the storage pools excluding the built-in storage pools.
+func (st State) ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainstorage.StoragePool, error) {
 	// TODO: implement this to satisfy the domainstorageservice.StoragePoolState interface.
 	return nil, nil
 }

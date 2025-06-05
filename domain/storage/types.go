@@ -23,6 +23,7 @@ type Attrs map[string]string
 // StoragePool represents a storage pool in Juju.
 // It contains the name of the pool, the provider type, and any attributes
 type StoragePool struct {
+	UUID     string
 	Name     string
 	Provider string
 	Attrs    Attrs

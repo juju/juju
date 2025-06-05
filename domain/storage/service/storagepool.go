@@ -38,8 +38,8 @@ type StoragePoolState interface {
 	// ListStoragePools returns the storage pools including default storage pools.
 	ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error)
 
-	// ListStoragePoolsWithoutDefaults returns the storage pools excluding the default storage pools.
-	ListStoragePoolsWithoutDefaults(ctx context.Context) ([]domainstorage.StoragePool, error)
+	// ListStoragePoolsWithoutBuiltins returns the storage pools excluding the built-in storage pools.
+	ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainstorage.StoragePool, error)
 
 	// ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
 	// names and or providers, including the default storage pools.
@@ -211,19 +211,18 @@ func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string
 	return nil
 }
 
-// ListStoragePoolsWithoutDefaults returns all storage pools excluding the default storage pools.
-func (s *StoragePoolService) ListStoragePoolsWithoutDefaults(ctx context.Context) ([]domainstorage.StoragePool, error) {
+// ListStoragePoolsWithoutBuiltins returns all storage pools excluding the built-in storage pools.
+func (s *StoragePoolService) ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainstorage.StoragePool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-
-	pools, err := s.st.ListStoragePoolsWithoutDefaults(ctx)
+	pools, err := s.st.ListStoragePoolsWithoutBuiltins(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 	return pools, nil
 }
 
-// AllStoragePools returns the all storage pools including the default storage pools.
+// ListStoragePools returns the all storage pools including the default storage pools.
 func (s *StoragePoolService) ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -246,6 +245,10 @@ func (s *StoragePoolService) ListStoragePoolsByNamesAndProviders(
 ) ([]domainstorage.StoragePool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if len(names) == 0 && len(providers) == 0 {
+		return nil, nil
+	}
 
 	if err := s.validatePoolListFilterTerms(ctx, names, providers); err != nil {
 		return nil, errors.Capture(err)

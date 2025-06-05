@@ -209,7 +209,7 @@ func (s *storagePoolStateSuite) TestDeleteStoragePoolNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
 }
 
-func (s *storagePoolStateSuite) TestListStoragePoolsWithoutDefaults(c *tc.C) {
+func (s *storagePoolStateSuite) TestListStoragePoolsWithoutBuiltins(c *tc.C) {
 	c.Skip(c, "TODO: enable this test when storage pools are fully implemented in the state package")
 
 	st := newStoragePoolState(s.TxnRunnerFactory())
@@ -235,17 +235,9 @@ func (s *storagePoolStateSuite) TestListStoragePoolsWithoutDefaults(c *tc.C) {
 	err = st.CreateStoragePool(ctx, sp2)
 	c.Assert(err, tc.ErrorIsNil)
 
-	out, err := st.ListStoragePoolsWithoutDefaults(c.Context())
+	out, err := st.ListStoragePoolsWithoutBuiltins(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{sp, sp2})
-}
-
-func (s *storagePoolStateSuite) TestStoragePoolsEmpty(c *tc.C) {
-	st := newStoragePoolState(s.TxnRunnerFactory())
-
-	creds, err := st.ListStoragePoolsWithoutDefaults(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(creds, tc.HasLen, 0)
 }
 
 func (s *storagePoolStateSuite) TestGetStoragePoolByName(c *tc.C) {
