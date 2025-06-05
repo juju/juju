@@ -27,11 +27,11 @@ To create a `juju` controller in a cloud, use the `bootstrap` command:
 
 
 ```text
-juju bootstrap 
+juju bootstrap
 ```
-This will start an interactive session where you will be asked for the name of the cloud and the name you want to give the controller. 
+This will start an interactive session where you will be asked for the name of the cloud and the name you want to give the controller.
 
-Alternatively, you can specify these things directly by adding the name of the cloud and of the controller right after the `bootstrap` command. For example, below we bootstrap a controller with the name `aws-controller` into our aws cloud: 
+Alternatively, you can specify these things directly by adding the name of the cloud and of the controller right after the `bootstrap` command. For example, below we bootstrap a controller with the name `aws-controller` into our aws cloud:
 
 
 ```text
@@ -44,15 +44,15 @@ When you use the bootstrap command in this way (non-interactively), you can also
 
 ```{dropdown} Tips for production
 
-**- Machines:** Make sure to bootstrap with no less than 50 GB disk, 2 CPUs, and 4 GB RAM (e.g., 
+**- Machines:** Make sure to bootstrap with no less than 50 GB disk, 2 CPUs, and 4 GB RAM (e.g.,
  `juju bootstrap aws/us-east-1 mymachinecontroller --bootstrap-constraints "root-disk=50G cores=2  mem=4G"`). Bootstrapping a controller like this allows you to manage a few hundred units. However, if your needs go beyond this, consider making the controller highly available.
 
 > See more: {ref}`manage-constraints-for-a-controller`, {ref}`make-a-controller-highly-available`
 
-**- Kubernetes:** Juju does not currently support high-availability and backup and restore for Kubernetes controllers. Consider bootstrapping your controller on a machine cloud and then adding your Kubernetes cloud(s) to it, in a multi-cloud controller setup (`juju add-k8s myk8scloud --controller mymachinecontroller`).  
+**- Kubernetes:** Juju does not currently support high-availability and backup and restore for Kubernetes controllers. Consider bootstrapping your controller on a machine cloud and then adding your Kubernetes cloud(s) to it, in a multi-cloud controller setup (`juju add-k8s myk8scloud --controller mymachinecontroller`).
 
 > See more: {ref}`add-a-cloud`
-  
+
 ```
 
 ````{dropdown} Tips for troubleshooting
@@ -104,7 +104,7 @@ Sample output for a case where there is just a single controller boostrapped int
 Use --refresh option with this command to see the latest information.
 
 Controller             Model       User   Access     Cloud/Region         Models  Nodes    HA  Version
-localhost-controller*  controller  admin  superuser  localhost/localhost       1      1  none  3.0.0  
+localhost-controller*  controller  admin  superuser  localhost/localhost       1      1  none  3.0.0
 ```
 
 By specifying various options you can also choose a specific output format, an output file, etc.
@@ -186,7 +186,7 @@ To manage constraints for the controller, manage them for the `controller` model
 <!--Feels unnecessary and clutters.
 ```{important}
 
-**Why this distinction?** <br>This distinction helps you address the fact that, while the `controller` model always contains the `controller` application, you may also deploy to it other applications (e.g.,  the `juju-dashboard` application), and their hardware needs may be different. 
+**Why this distinction?** <br>This distinction helps you address the fact that, while the `controller` model always contains the `controller` application, you may also deploy to it other applications (e.g.,  the `juju-dashboard` application), and their hardware needs may be different.
 
 ```
 -->
@@ -194,7 +194,7 @@ To manage constraints for the controller, manage them for the `controller` model
 ```{important}
 
 **If you want to set both types of constraints at the same time, and they are different:** <br>
-You can. While the model-level constraints will apply to the entire `controller` model, the application-level constraints will make sure to override them for the `controller` application. 
+You can. While the model-level constraints will apply to the entire `controller` model, the application-level constraints will make sure to override them for the `controller` application.
 
 ```
 
@@ -288,7 +288,7 @@ The command also has a flag that allows you to overwrite existing information, f
 
 > See more: {ref}`command-juju-register`, {ref}`add-a-user`
 
-**Register a public controller.** 
+**Register a public controller.**
 
 ```{important}
 
@@ -306,7 +306,7 @@ To register a public controller, use the  `register` command followed by the DNS
 juju register public-controller.example.com
 ```
 
-This will open a login window in your browser. 
+This will open a login window in your browser.
 
 By specifying various flags you can also use this to reregister a controller or to type in your login information in your terminal rather than the browser.
 
@@ -355,7 +355,7 @@ The number of controllers must be an odd number in order for a master to be "vot
 
 
 
-If a controller is misbehaving, or if you've decided that you don't need as many controllers for HA after all, you can remove them. To remove a controller, remove its  machine from the controller model via the `remove-machine` command. 
+If a controller is misbehaving, or if you've decided that you don't need as many controllers for HA after all, you can remove them. To remove a controller, remove its  machine from the controller model via the `remove-machine` command.
 
 
 ```{important}
@@ -415,7 +415,7 @@ $  juju integrate controller admin/cos-lite.prometheus
 
 $  juju status --relations
 
-# Query Prometheus: 
+# Query Prometheus:
 # (where the bit before `9090` is the Prometheus unit's IP address
 # and juju_apisever_request_duration_seconds` is an example metric)
 $  curl 10.1.170.185:9090/api/v1/query?query=juju_apiserver_request_duration_seconds
@@ -425,7 +425,7 @@ $  curl 10.1.170.185:9090/api/v1/query?query=juju_apiserver_request_duration_sec
 ````
 
 
-> See more: 
+> See more:
 > - [Charmhub | `juju-controller` > `metrics-endpoint | prometheus-scrape`](https://charmhub.io/juju-controller/integrations#metrics-endpoint)
 > - [Charmhub | `juju-controller` > Endpoint `metrics-endpoint`: List of metrics](https://charmhub.io/juju-controller/docs/endpoint-metrics-endpoint-metrics)
 >  - [Charmhub | `prometheus-k8s` > `metrics-endpoint`](https://charmhub.io/prometheus-k8s/integrations#metrics-endpoint)
@@ -476,11 +476,11 @@ The procedure documented below is currently supported only for machine (non-Kube
 (create-a-controller-backup)=
 ### Create a controller backup
 
-To create a backup of a controller configuration / metadata, use the `create-backup` followed by the `-m` flag and the name of the target controller model. For example, assuming a controller called `localhost-controller`, and the standard controller model name (`controller`), we will do: 
+To create a backup of a controller configuration / metadata, use the `create-backup` followed by the `-m` flag and the name of the target controller model. For example, assuming a controller called `localhost-controller`, and the standard controller model name (`controller`), we will do:
 
 ```text
 juju create-backup -m localhost-controller:controller
-``` 
+```
 
 ```{important}
 Alternatively, you can switch to the controller model and use this command without any arguments or use the `-m` flag followed by just `controller`. However, due to the delicate nature of data backups, the verbose but explicit method demonstrated above is highly recommended.
@@ -491,23 +491,23 @@ Alternatively, you can switch to the controller model and use this command witho
 Sample output:
 
 ```text
-backup format version: 1 
-juju version:          3.0.0 
-base:                  ubuntu@22.04 
+backup format version: 1
+juju version:          3.0.0
+base:                  ubuntu@22.04
 
 controller UUID:       ca60f7e9-647b-4460-8232-fe75749e17c7
-model UUID:            a04d7604-3073-45b7-871f-030ac0360fb4 
-machine ID:            0 
-created on host:       juju-360fb4-0 
+model UUID:            a04d7604-3073-45b7-871f-030ac0360fb4
+machine ID:            0
+created on host:       juju-360fb4-0
 
-checksum:              BrOGsXIK375529xlXJHX7m23Amk= 
-checksum format:       SHA-1, base64 encoded 
-size (B):              114919198 
-stored:                0001-01-01 00:00:00 +0000 UTC 
-started:               2022-11-09 09:06:46.800165238 +0000 UTC 
-finished:              2022-11-09 09:07:05.133077079 +0000 UTC 
+checksum:              BrOGsXIK375529xlXJHX7m23Amk=
+checksum format:       SHA-1, base64 encoded
+size (B):              114919198
+stored:                0001-01-01 00:00:00 +0000 UTC
+started:               2022-11-09 09:06:46.800165238 +0000 UTC
+finished:              2022-11-09 09:07:05.133077079 +0000 UTC
 
-notes:                  
+notes:
 
 Downloaded to juju-backup-20221109-090646.tar.gz
 ```
@@ -515,7 +515,7 @@ Downloaded to juju-backup-20221109-090646.tar.gz
 
 The backup is downloaded to a default location on your computer (e.g., `/home/user`). A backup of a fresh (empty) environment, regardless of cloud type, is approximately 75 MiB in size.
 
-The `create-backup` command also allows you to specify a custom filename for the backup file (`--filename <custom-filename`). Note: You can technically also choose to save the backup on the controller (`--no-download`), but starting with `juju v.3.0` this flag is deprecated. 
+The `create-backup` command also allows you to specify a custom filename for the backup file (`--filename <custom-filename`). Note: You can technically also choose to save the backup on the controller (`--no-download`), but starting with `juju v.3.0` this flag is deprecated.
 
 > See more: {ref}`command-juju-create-backup`
 
@@ -532,23 +532,23 @@ Starting with `juju v.3.0`, this flag is deprecated.
 $ juju create-backup -m controller --no-download
 WARNING --no-download flag is DEPRECATED.
 
-backup format version: 1 
-juju version:          3.0.0 
-base:                  ubuntu@22.04 
+backup format version: 1
+juju version:          3.0.0
+base:                  ubuntu@22.04
 
 controller UUID:       ca60f7e9-647b-4460-8232-fe75749e17c7
-model UUID:            a04d7604-3073-45b7-871f-030ac0360fb4 
-machine ID:            0 
-created on host:       juju-360fb4-0 
+model UUID:            a04d7604-3073-45b7-871f-030ac0360fb4
+machine ID:            0
+created on host:       juju-360fb4-0
 
-checksum:              tjqEvlspc88mYQmjV9u/m4i+prg= 
-checksum format:       SHA-1, base64 encoded 
-size (B):              114919131 
-stored:                0001-01-01 00:00:00 +0000 UTC 
-started:               2022-11-09 09:08:51.314128218 +0000 UTC 
-finished:              2022-11-09 09:09:10.296320799 +0000 UTC 
+checksum:              tjqEvlspc88mYQmjV9u/m4i+prg=
+checksum format:       SHA-1, base64 encoded
+size (B):              114919131
+stored:                0001-01-01 00:00:00 +0000 UTC
+started:               2022-11-09 09:08:51.314128218 +0000 UTC
+finished:              2022-11-09 09:09:10.296320799 +0000 UTC
 
-notes:                  
+notes:
 
 Remote backup stored on the controller as /tmp/juju-backup-20221109-090851.tar.gz
 ```
@@ -606,11 +606,11 @@ chmod +x juju-restore
 # Switch to the controller model:
 juju switch controller
 
-# Copy juju-restore to the primary controller machine:  
+# Copy juju-restore to the primary controller machine:
 juju scp juju-restore 0:
 ```
 
-Second, assuming that during the `create-backup` step you chose to save a local copy (the default option), use `scp` to copy the file to the same controller machine, as shown below. 
+Second, assuming that during the `create-backup` step you chose to save a local copy (the default option), use `scp` to copy the file to the same controller machine, as shown below.
 ```text
 juju scp <path-to-backup> 0:
 ```
@@ -639,7 +639,7 @@ The `juju-restore` tool also provides several options, among which:
 * `--username`, `--password`, and related options: override the defaults for connecting to MongoDB
 * `--allow-downgrade`: restore from a backup created with an earlier `juju` version
 * `--manual-agent-control`: (in the case of restoring backups to high availability controllers) stop and restart `juju` agents and Mongo daemons on the secondary controller machines manually
-* `--copy-controller`: clone the configuration of an old controller into a new controller (download the latest `juju-restore` to see this option). 
+* `--copy-controller`: clone the configuration of an old controller into a new controller (download the latest `juju-restore` to see this option).
 
 For the full list of options, type: `./juju-restore --help`
 
@@ -649,15 +649,16 @@ For the full list of options, type: `./juju-restore --help`
 (upgrade-a-controller)=
 ## Upgrade a controller
 
-The procedure depends on whether you're upgrading your controller's patch version (e.g. 2.9.25 → 2.9.48) or rather its minor or major version (e.g., 3.1 -> 3.4 or  2.9 → 3.0). 
-	
-### Upgrade your controller's patch version
+The procedure depends on whether you're upgrading your controller's patch version (e.g. 2.9.25 → 2.9.48) or rather its minor or major version (e.g., 3.1 -> 3.4 or  2.9 → 3.0).
+
+(upgrade-a-controllers-patch-version)=
+### Upgrade a controller's patch version
 
 To upgrade your controller's patch version, on the target controller, use the `juju upgrade-controller` command with the `--agent-version` flag followed by the desired patch version (of the same major and minor):
 
 ```text
 juju upgrade-controller --agent-version <current major. current minor. target patch>
-``` 
+```
 
 For example, assuming a controller version `3.0.0`, to upgrade to `3.0.2`:
 
@@ -665,42 +666,86 @@ For example, assuming a controller version `3.0.0`, to upgrade to `3.0.2`:
 juju upgrade-controller --agent-version 3.0.2
 ```
 
+(upgrade-a-controllers-minor-or-major-version)=
+### Upgrade a controller's minor or major version
 
-### Upgrade your controller's minor or major version
 
+It is not possible to upgrade a controller's minor or major version. Instead, you should:
 
-It is not possible to upgrade a controller's minor or major version.
+1. Use a client upgraded to the desired version to bootstrap a new controller of that version. For example:
 
- Instead, you should:
-1. Use a client upgraded to the desired version to bootstrap a new controller of that version.
+```text
+snap refresh juju --channel=<target controller version>
+juju bootstrap <cloud> newcontroller
+```
 
 > See more: {ref}`upgrade-juju`, {ref}`bootstrap-a-controller`
 
-2. Recreate your old controller's configuration (settings, users, clouds, and models) in the new controller (on machine clouds, through our dedicated tools for backup and restore).
+2. Recreate your old controller's configuration (settings, users, clouds, and models) in the new controller (on machine clouds, through our dedicated tools for backup and restore). For example:
 
-> See more: {ref}`back-up-a-controller` (see esp. {ref}`create-a-controller-backup` and {ref}`restore-a-controller-from-a-backup`) 
+```text
+# Create a backup of the old controller's controller model
+# and make note of the path to the backup file:
+juju create-backup -m oldcontroller:controller
+# Sample output:
+# >>> ...
+# >>>  Downloaded to juju-backup-20221109-090646.tar.gz
+
+# Download the stand-alone juju-restore tool:
+wget https://github.com/juju/juju-restore/releases/latest/download/juju-restore
+chmod +x juju-restore
+
+# Switch to the new controller's controller model:
+juju switch newcontroller:controller
+
+# Copy the juju-restore tool to the primary controller machine:
+juju scp juju-restore 0:
+
+# Copy the backup file to the primary controller machine:
+juju scp <path to backup> 0:
+
+# SSH into the primary controller machine:
+juju ssh 0
+
+# Start the restore with the '--copy-controller' flag:
+./juju-restore --copy-controller <path to backup>
+# Congratulations, your <old version> controller config has been cloned into your <new version> controller.
+```
+
+> See more: {ref}`back-up-a-controller` (see esp. {ref}`create-a-controller-backup` and {ref}`restore-a-controller-from-a-backup`)
 
 3. Migrate your models from the old controller to the new, then upgrade them to match the new controller's version.
 
+
+```text
+# Switch to the old controller:
+juju switch oldcontroller
+
+# Migrate your models to the new controller:
+juju migrate <model> newcontroller
+
+# Switch to the new controller:
+juju switch newcontroller
+
+# Upgrade the migrated models to match the new controller's agent version:
+juju upgrade-model --agent-version=<new controller's agent version>
+```
+
 > See more: {ref}`migrate-a-model`, {ref}`upgrade-a-model`
 
-4. Help your users connect to the new controller by changing their password and then sending them the new controller registration string.
+
+```text
+juju change-user-password <user> --reset
+# >>> Password for "<user>" has been reset.
+# >>> Ask the user to run:
+# >>>     juju register
+# >>> MEcTA2JvYjAWExQxMC4xMzYuMTM2LjIxNToxNzA3MAQgJCOhZjyTflOmFjl-mTx__qkvr3bAN4HAm7nxWssNDwETBnRlc3QyOQAA
+# When they use this registration string, they will be prompted to create a login for the new controller.
+
+```
 
 > See more: {ref}`manage-a-users-login-details`
 
-<!--
-> See more: 
-> - {ref}`upgrade-juju`
-> - {ref}`bootstrap-a-controller`, {ref}`back-up-a-controller` (see esp. {ref}`create-a-controller-backup` and {ref}`restore-a-controller-from-a-backup`)
-> - {ref}`migrate-a-model`, {ref}`upgrade-a-model`
-> - {ref}`manage-a-users-login-details`
--->
-
-```{tip}
-
-See {ref}`upgrade-your-juju-components-minor-or-major-version` for a full example workflow!
-
-```
 
 ## Remove a controller
 
