@@ -38,7 +38,7 @@ import (
 type leadershipSuite struct {
 	changestreamtesting.ModelSuite
 
-	leadership *MockChecker
+	leaseManager *MockLeaseManager
 }
 
 func TestLeadershipSuite(t *stdtesting.T) {
@@ -63,7 +63,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
-	s.leadership.EXPECT().WaitUntilExpired(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, ch chan<- struct{}) error {
+	s.leaseManager.EXPECT().WaitUntilExpired(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, ch chan<- struct{}) error {
 		close(ch)
 		// Block until the call is done.
 		select {
@@ -73,7 +73,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 		}
 		return nil
 	})
-	s.leadership.EXPECT().Token("foo", "foo/0").Return(leaseToken{})
+	s.leaseManager.EXPECT().Token("foo", "foo/0").Return(leaseToken{})
 
 	svc := s.setupService(c)
 
@@ -96,7 +96,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *t
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
-	s.leadership.EXPECT().WaitUntilExpired(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, ch chan<- struct{}) error {
+	s.leaseManager.EXPECT().WaitUntilExpired(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, ch chan<- struct{}) error {
 		close(ch)
 		// Block until the call is done.
 		select {
@@ -106,7 +106,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *t
 		}
 		return nil
 	})
-	s.leadership.EXPECT().Token("foo", "foo/0").Return(leaseToken{
+	s.leaseManager.EXPECT().Token("foo", "foo/0").Return(leaseToken{
 		error: lease.ErrNotHeld,
 	})
 
@@ -129,11 +129,11 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *tc.C
 	// This triggers the started flow, but won't wait till the call, so it
 	// will cancel the context, forcing the call to be cancelled.
 
-	s.leadership.EXPECT().WaitUntilExpired(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, c chan<- struct{}) error {
+	s.leaseManager.EXPECT().WaitUntilExpired(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, c chan<- struct{}) error {
 		close(c)
 		return nil
 	}).AnyTimes()
-	s.leadership.EXPECT().Token("foo", "foo/0").DoAndReturn(func(s1, s2 string) lease.Token {
+	s.leaseManager.EXPECT().Token("foo", "foo/0").DoAndReturn(func(s1, s2 string) lease.Token {
 		return leaseToken{}
 	}).AnyTimes()
 
@@ -163,7 +163,7 @@ func (s *leadershipSuite) setupService(c *tc.C) *service.LeadershipService {
 	return service.NewLeadershipService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewLeaseService(leaseGetter{
-			Checker: s.leadership,
+			LeaseManager: s.leaseManager,
 		}),
 		model.UUID(s.ModelUUID()),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
@@ -179,8 +179,8 @@ func (s *leadershipSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	// In an ideal world, this would be a real lease manager, but for now, we
-	// just need to check the leadership token.
-	s.leadership = NewMockChecker(ctrl)
+	// just need to check the leaseManager token.
+	s.leaseManager = NewMockLeaseManager(ctrl)
 
 	return ctrl
 }
@@ -257,10 +257,10 @@ func (s *leadershipSuite) minimalManifest(c *tc.C) charm.Manifest {
 }
 
 type leaseGetter struct {
-	lease.Checker
+	lease.LeaseManager
 }
 
-func (l leaseGetter) GetLeaseManager() (lease.Checker, error) {
+func (l leaseGetter) GetLeaseManager() (lease.LeaseManager, error) {
 	return l, nil
 }
 

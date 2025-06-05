@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -19,25 +20,25 @@ func (e errToken) Check() error { return e.err }
 
 // LeaseService creates a base service that offers lease capabilities.
 type LeaseService struct {
-	leaseChecker lease.ModelLeaseManagerGetter
+	leaseManager lease.ModelLeaseManagerGetter
 }
 
 // NewLeaseService creates a new LeaseService.
-func NewLeaseService(leaseChecker lease.ModelLeaseManagerGetter) *LeaseService {
+func NewLeaseService(leaseManager lease.ModelLeaseManagerGetter) *LeaseService {
 	return &LeaseService{
-		leaseChecker: leaseChecker,
+		leaseManager: leaseManager,
 	}
 }
 
 // LeadershipCheck returns a token that can be used to check if the input unit
 // is the leader of the input application.
 func (s *LeaseService) LeadershipCheck(appName, unitName string) leadership.Token {
-	leaseChecker, err := s.leaseChecker.GetLeaseManager()
+	leaseManager, err := s.leaseManager.GetLeaseManager()
 	if err != nil {
 		return errToken{err: err}
 	}
 
-	return leaseChecker.Token(appName, unitName)
+	return leaseManager.Token(appName, unitName)
 }
 
 // WithLeader executes the closure function if the input unit is leader of the
@@ -57,7 +58,7 @@ func (s *LeaseService) WithLeader(
 		return errors.Errorf("leader pre-checking").Add(ctx.Err())
 	}
 
-	leaseChecker, err := s.leaseChecker.GetLeaseManager()
+	leaseManager, err := s.leaseManager.GetLeaseManager()
 	if err != nil {
 		return errors.Errorf("getting lease manager: %w", err)
 	}
@@ -88,7 +89,7 @@ func (s *LeaseService) WithLeader(
 	go func() {
 		// This guards against the case that the lease has changed state
 		// before we run the function.
-		err := leaseChecker.WaitUntilExpired(waitCtx, appName, start)
+		err := leaseManager.WaitUntilExpired(waitCtx, appName, start)
 
 		// Ensure that the lease context is cancelled when the wait has
 		// completed. We do this as quick as possible to ensure that the
@@ -128,7 +129,7 @@ func (s *LeaseService) WithLeader(
 	// Ensure that the lease is held by the holder before proceeding.
 	// We're guaranteed that the lease is held by the holder, otherwise the
 	// context will have been cancelled.
-	if err := leaseChecker.Token(appName, unitName).Check(); err != nil {
+	if err := leaseManager.Token(appName, unitName).Check(); err != nil {
 		return errors.Errorf("checking lease token: %w", err)
 	}
 
@@ -137,6 +138,22 @@ func (s *LeaseService) WithLeader(
 	// held.
 	if err := fn(leaseCtx); err != nil {
 		return errors.Errorf("executing leadership func: %w", err)
+	}
+	return nil
+}
+
+// RevokeLeadership revokes the leadership for the input application and unit.
+// If the unit is not the leader, it returns an error.
+func (s *LeaseService) RevokeLeadership(appName string, unitName unit.Name) error {
+	leaseManager, err := s.leaseManager.GetLeaseManager()
+	if err != nil {
+		return errors.Errorf("getting lease manager: %w", err)
+	}
+
+	if err := leaseManager.Revoke(appName, unitName.String()); errors.Is(err, lease.ErrNotHeld) {
+		return errors.Errorf("revoking leadership: %w", err).Add(leadership.ErrClaimNotHeld)
+	} else if err != nil {
+		return errors.Errorf("revoking leadership: %w", err)
 	}
 	return nil
 }

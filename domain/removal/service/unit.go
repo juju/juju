@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -37,6 +38,11 @@ type UnitState interface {
 
 	// DeleteUnit removes a unit from the database completely.
 	DeleteUnit(ctx context.Context, unitUUID string) error
+
+	// GetApplicationNameAndUnitNameByUnitUUID retrieves the application name
+	// and unit name for a unit identified by the input UUID. If the unit does
+	// not exist, it returns an error.
+	GetApplicationNameAndUnitNameByUnitUUID(ctx context.Context, unitUUID string) (string, string, error)
 }
 
 // RemoveUnit checks if a unit with the input name exists.
@@ -55,9 +61,9 @@ func (s *Service) RemoveUnit(
 ) (removal.UUID, error) {
 	exists, err := s.st.UnitExists(ctx, unitUUID.String())
 	if err != nil {
-		return "", errors.Errorf("checking if unit %q exists: %w", unitUUID, err)
+		return "", errors.Errorf("checking if unit exists: %w", err)
 	} else if !exists {
-		return "", errors.Errorf("unit %q does not exist", unitUUID).Add(applicationerrors.UnitNotFound)
+		return "", errors.Errorf("unit does not exist").Add(applicationerrors.UnitNotFound)
 	}
 
 	// Ensure the unit is not alive. If it is the last one on the machine,
@@ -81,7 +87,7 @@ func (s *Service) RemoveUnit(
 		}
 	} else {
 		if wait > 0 {
-			s.logger.Infof(ctx, "ignoring wait duration for non-forced removal of unit %q", unitUUID.String())
+			s.logger.Infof(ctx, "ignoring wait duration for non-forced removal")
 			wait = 0
 		}
 
@@ -96,7 +102,7 @@ func (s *Service) RemoveUnit(
 		return unitJobUUID, nil
 	}
 
-	s.logger.Infof(ctx, "unit %q was the last one on machine %q, scheduling removal", unitUUID, machineUUID)
+	s.logger.Infof(ctx, "unit was the last one on machine %q, scheduling removal", machineUUID)
 
 	// If the unit was the last one on the machine, we need to schedule
 	// a removal job for the machine.
@@ -121,10 +127,10 @@ func (s *Service) unitScheduleRemoval(
 	if err := s.st.UnitScheduleRemoval(
 		ctx, jobUUID.String(), unitUUID.String(), force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
-		return "", errors.Errorf("unit %q: %w", unitUUID, err)
+		return "", errors.Errorf("unit: %w", err)
 	}
 
-	s.logger.Infof(ctx, "scheduled removal job %q for unit %q", jobUUID, unitUUID)
+	s.logger.Infof(ctx, "scheduled removal job %q", jobUUID)
 	return jobUUID, nil
 }
 
@@ -150,12 +156,25 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Errorf("unit %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
+	// If the unit is the leader of an application, we need to revoke
+	// leadership before we can delete it.
+	applicationName, unitName, err := s.st.GetApplicationNameAndUnitNameByUnitUUID(ctx, job.EntityUUID)
+	if err != nil {
+		return errors.Errorf("getting application name and unit name: %w", err)
+	}
+
+	if err := s.leadershipRevoker.RevokeLeadership(applicationName, unit.Name(unitName)); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
+		return errors.Errorf("revoking leadership: %w", err)
+	}
+
+	// Once we've removed leadership, we can delete the unit.
 	if err := s.st.DeleteUnit(ctx, job.EntityUUID); errors.Is(err, applicationerrors.UnitNotFound) {
 		// The unit has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil
 	} else if err != nil {
-		return errors.Errorf("deleting unit %q: %w", job.EntityUUID, err)
+		return errors.Errorf("deleting unit: %w", err)
 	}
+
 	return nil
 }

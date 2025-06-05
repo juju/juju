@@ -190,6 +190,41 @@ WHERE  uuid = $entityUUID.uuid;`, unitLife, unitUUID)
 	return unitLife.Life, errors.Capture(err)
 }
 
+// GetApplicationNameAndUnitNameByUnitUUID retrieves the application name and
+// unit name for a unit identified by the input UUID. If the unit does not
+// exist, it returns an error.
+func (st *State) GetApplicationNameAndUnitNameByUnitUUID(ctx context.Context, uUUID string) (string, string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	unitUUID := entityUUID{UUID: uUUID}
+	stmt, err := st.Prepare(`
+SELECT    a.name AS &applicationUnitName.application_name,
+		  u.name AS &applicationUnitName.unit_name
+FROM      unit AS u
+LEFT JOIN application AS a ON a.uuid = u.application_uuid
+WHERE     u.uuid = $entityUUID.uuid;`, applicationUnitName{}, unitUUID)
+	if err != nil {
+		return "", "", errors.Errorf("preparing unit application name and unit name query: %w", err)
+	}
+
+	var appUnitName applicationUnitName
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, unitUUID).Get(&appUnitName)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.UnitNotFound
+		} else if err != nil {
+			return errors.Errorf("running unit application name and unit name query: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return "", "", errors.Capture(err)
+	}
+	return appUnitName.ApplicationName, appUnitName.UnitName, nil
+}
+
 // DeleteUnit removes a unit from the database completely.
 func (st *State) DeleteUnit(ctx context.Context, unitUUID string) error {
 	db, err := st.DB()
