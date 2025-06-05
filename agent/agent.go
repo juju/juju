@@ -1020,11 +1020,10 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 	// For controllers, we return only localhost - we should not connect
 	// to other controllers if we can talk locally.
 	if isController {
-		port := servingInfo.APIPort
 		// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4
 		// loopback, and when/if this changes localhost should resolve
 		// to IPv6 loopback in any case (lp:1644009). Review.
-		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
+		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(servingInfo.APIPort))
 
 		// TODO (manadart 2023-03-27): This is a temporary change from using
 		// *only* the localhost address, to fix an issue where we can get the

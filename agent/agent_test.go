@@ -492,7 +492,7 @@ func (*suite) TestAPIInfoServesLocalhostWhenServingInfoPresent(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
 	c.Assert(ok, tc.IsTrue)
-	c.Check(apiinfo.Addrs, tc.SameContents, []string{"localhost:52", "foo.example:1235"})
+	c.Check(apiinfo.Addrs, tc.SameContents, []string{"localhost:47", "foo.example:1235"})
 }
 
 func (*suite) TestMongoInfo(c *tc.C) {
@@ -556,7 +556,7 @@ func (*suite) TestSetPassword(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectAPIInfo := &api.Info{
-		Addrs:    attrParams.APIAddresses,
+		Addrs:    append([]string{"localhost:47"}, attrParams.APIAddresses...),
 		CACert:   attrParams.CACert,
 		Tag:      attrParams.Tag,
 		Password: "",
@@ -566,6 +566,7 @@ func (*suite) TestSetPassword(c *tc.C) {
 	apiInfo, ok := conf.APIInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(apiInfo, tc.DeepEquals, expectAPIInfo)
+
 	addr := fmt.Sprintf("localhost:%d", servingInfo.StatePort)
 	expectStateInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
@@ -587,6 +588,7 @@ func (*suite) TestSetPassword(c *tc.C) {
 	apiInfo, ok = conf.APIInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(apiInfo, tc.DeepEquals, expectAPIInfo)
+
 	info, ok = conf.MongoInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(info, tc.DeepEquals, expectStateInfo)

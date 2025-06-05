@@ -58,9 +58,6 @@ const (
 	// Use a longer wait in tests that are dependent on leases - sometimes
 	// the raft workers can take a bit longer to spin up.
 	longerWait = 2 * coretesting.LongWait
-
-	// This is the address that the raft workers will use for the server.
-	serverAddress = "localhost:17070"
 )
 
 type MachineSuite struct {

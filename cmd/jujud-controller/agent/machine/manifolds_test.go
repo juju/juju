@@ -76,7 +76,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"audit-config-updater",
 			"bootstrap",
 			"broker-tracker",
-			"central-hub",
 			"certificate-updater",
 			"certificate-watcher",
 			"change-stream-pruner",
@@ -167,7 +166,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"api-server",
 			"audit-config-updater",
 			"bootstrap",
-			"central-hub",
 			"certificate-watcher",
 			"change-stream-pruner",
 			"change-stream",
@@ -258,7 +256,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"api-server",
 		"audit-config-updater",
 		"bootstrap",
-		"central-hub",
 		"certificate-updater",
 		"certificate-watcher",
 		"change-stream-pruner",
@@ -751,8 +748,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"central-hub": {"agent", "state-config-watcher"},
-
 	"certificate-updater": {
 		"agent",
 		"certificate-watcher",
@@ -925,7 +920,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-server",
 		"audit-config-updater",
-		"central-hub",
 		"certificate-watcher",
 		"change-stream",
 		"clock",
@@ -1829,8 +1823,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-database-gate",
 	},
 
-	"central-hub": {"agent", "state-config-watcher"},
-
 	"certificate-watcher": {
 		"agent",
 		"is-controller-flag",
@@ -1940,7 +1932,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-server",
 		"audit-config-updater",
-		"central-hub",
 		"certificate-watcher",
 		"change-stream",
 		"clock",
