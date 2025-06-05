@@ -1094,7 +1094,9 @@ func (s *serviceSuite) TestWatchActivatedModelsMapper(c *tc.C) {
 	// Use service mapper to retrieve change events containing only model UUIDs of activated models.
 	retrievedChangeEvents, err := mapper(ctx, inputChangeEvents)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(retrievedChangeEvents, tc.DeepEquals, expectedChangeEvents)
+	c.Check(retrievedChangeEvents, tc.DeepEquals, transform.Slice(expectedChangeEvents, func(event changestream.ChangeEvent) string {
+		return event.Changed()
+	}))
 }
 
 // TestGetModelByNameAndOwnerSuccess verifies that GetModelByNameAndOwner successfully
