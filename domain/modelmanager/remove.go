@@ -4,7 +4,7 @@
 package modelmanager
 
 // RemoveModelOptions is a struct that is used to modify the behavior of
-// removing a non activated model.
+// removing a non-activated model.
 type RemoveModelOptions struct {
 	deleteDB bool
 }

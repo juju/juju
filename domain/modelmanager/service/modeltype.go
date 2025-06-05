@@ -14,7 +14,7 @@ import (
 )
 
 // ModelTypeState describes the state interface required of the controller to
-// ask questins related to a model's type.
+// ask questions related to a model's type.
 type ModelTypeState interface {
 	// GetCloudType is responsible for reporting the cloud type for the cloud
 	// identified by name.
