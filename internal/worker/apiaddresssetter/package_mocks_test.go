@@ -386,7 +386,7 @@ func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 }
 
 // SpaceByName mocks base method.
-func (m *MockNetworkService) SpaceByName(arg0 context.Context, arg1 string) (*network.SpaceInfo, error) {
+func (m *MockNetworkService) SpaceByName(arg0 context.Context, arg1 network.SpaceName) (*network.SpaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SpaceByName", arg0, arg1)
 	ret0, _ := ret[0].(*network.SpaceInfo)
@@ -413,13 +413,13 @@ func (c *MockNetworkServiceSpaceByNameCall) Return(arg0 *network.SpaceInfo, arg1
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkServiceSpaceByNameCall) Do(f func(context.Context, string) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
+func (c *MockNetworkServiceSpaceByNameCall) Do(f func(context.Context, network.SpaceName) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkServiceSpaceByNameCall) DoAndReturn(f func(context.Context, string) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
+func (c *MockNetworkServiceSpaceByNameCall) DoAndReturn(f func(context.Context, network.SpaceName) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

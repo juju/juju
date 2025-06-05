@@ -73,7 +73,7 @@ type NetworkService interface {
 	// SpaceByName returns a space from state that matches the input name. If the
 	// space is not found, an error is returned matching
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	SpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error)
 }
 
 // apiAddressSetterWorker is a worker which sets the API addresses for the

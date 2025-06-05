@@ -1035,47 +1035,8 @@ func (c *MockNetworkServiceReloadSpacesCall) DoAndReturn(f func(context.Context)
 	return c
 }
 
-// Space mocks base method.
-func (m *MockNetworkService) Space(arg0 context.Context, arg1 string) (*network.SpaceInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Space", arg0, arg1)
-	ret0, _ := ret[0].(*network.SpaceInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Space indicates an expected call of Space.
-func (mr *MockNetworkServiceMockRecorder) Space(arg0, arg1 any) *MockNetworkServiceSpaceCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Space", reflect.TypeOf((*MockNetworkService)(nil).Space), arg0, arg1)
-	return &MockNetworkServiceSpaceCall{Call: call}
-}
-
-// MockNetworkServiceSpaceCall wrap *gomock.Call
-type MockNetworkServiceSpaceCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockNetworkServiceSpaceCall) Return(arg0 *network.SpaceInfo, arg1 error) *MockNetworkServiceSpaceCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockNetworkServiceSpaceCall) Do(f func(context.Context, string) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkServiceSpaceCall) DoAndReturn(f func(context.Context, string) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SpaceByName mocks base method.
-func (m *MockNetworkService) SpaceByName(arg0 context.Context, arg1 string) (*network.SpaceInfo, error) {
+func (m *MockNetworkService) SpaceByName(arg0 context.Context, arg1 network.SpaceName) (*network.SpaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SpaceByName", arg0, arg1)
 	ret0, _ := ret[0].(*network.SpaceInfo)
@@ -1102,13 +1063,13 @@ func (c *MockNetworkServiceSpaceByNameCall) Return(arg0 *network.SpaceInfo, arg1
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkServiceSpaceByNameCall) Do(f func(context.Context, string) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
+func (c *MockNetworkServiceSpaceByNameCall) Do(f func(context.Context, network.SpaceName) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkServiceSpaceByNameCall) DoAndReturn(f func(context.Context, string) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
+func (c *MockNetworkServiceSpaceByNameCall) DoAndReturn(f func(context.Context, network.SpaceName) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

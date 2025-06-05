@@ -100,7 +100,7 @@ func (b *Bindings) Merge(mergeWith map[string]string, meta *charm.Meta) (bool, e
 		// TODO (manadart 2024-01-29): The alpha space ID here is scaffolding and
 		// should be replaced with the configured model default space upon
 		// migrating this logic to Dqlite.
-		defaultBinding = network.AlphaSpaceId
+		defaultBinding = network.AlphaSpaceId.String()
 	}
 	if newDefaultBinding, newOk := mergeMap[defaultEndpointName]; newOk {
 		// new default binding supersedes the old default binding
@@ -357,10 +357,10 @@ func DefaultEndpointBindingsForCharm(_ any, charmMeta *charm.Meta) (map[string]s
 	allRelations := charmMeta.CombinedRelations()
 	bindings := make(map[string]string, len(allRelations)+len(charmMeta.ExtraBindings))
 	for name := range allRelations {
-		bindings[name] = network.AlphaSpaceId
+		bindings[name] = network.AlphaSpaceId.String()
 	}
 	for name := range charmMeta.ExtraBindings {
-		bindings[name] = network.AlphaSpaceId
+		bindings[name] = network.AlphaSpaceId.String()
 	}
 	return bindings, nil
 }
@@ -400,7 +400,7 @@ func (b *Bindings) MapWithSpaceNames(lookup network.SpaceInfos) (map[string]stri
 	// Assume that b.bindings is always in space id format due to
 	// Bindings constructor.
 	for k, v := range b.bindingsMap {
-		spaceInfo := lookup.GetByID(v)
+		spaceInfo := lookup.GetByID(network.SpaceUUID(v))
 		if spaceInfo == nil {
 			return nil, errors.NotFoundf("space with ID %q", v)
 		}

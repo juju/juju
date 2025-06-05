@@ -244,7 +244,7 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *tc.C) network.SpaceInfos
 	// Add 1 subnet into space1, and 2 into space2.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
 	_, err = networkService.AddSubnet(c.Context(), network.SubnetInfo{
-		SpaceID:           string(sp1ID),
+		SpaceID:           sp1ID,
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        "subnet-0",
 		ProviderNetworkId: "subnet-0",
@@ -253,7 +253,7 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *tc.C) network.SpaceInfos
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = networkService.AddSubnet(c.Context(), network.SubnetInfo{
-		SpaceID:           string(sp2ID),
+		SpaceID:           sp2ID,
 		CIDR:              "10.0.1.0/24",
 		ProviderId:        "subnet-1",
 		ProviderNetworkId: "subnet-1",
@@ -262,7 +262,7 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *tc.C) network.SpaceInfos
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = networkService.AddSubnet(c.Context(), network.SubnetInfo{
-		SpaceID:           string(sp2ID),
+		SpaceID:           sp2ID,
 		CIDR:              "10.0.2.0/24",
 		ProviderId:        "subnet-2",
 		ProviderNetworkId: "subnet-2",
@@ -273,7 +273,7 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *tc.C) network.SpaceInfos
 
 	return network.SpaceInfos{
 		{
-			ID:         sp1ID.String(),
+			ID:         sp1ID,
 			Name:       "space1",
 			ProviderId: "first space id",
 			Subnets: network.SubnetInfos{
@@ -286,7 +286,7 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *tc.C) network.SpaceInfos
 			},
 		},
 		{
-			ID:         sp2ID.String(),
+			ID:         sp2ID,
 			Name:       "space2",
 			ProviderId: "",
 			Subnets: network.SubnetInfos{

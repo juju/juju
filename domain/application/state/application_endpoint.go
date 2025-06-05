@@ -27,13 +27,13 @@ import (
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationEndpointBindings(ctx context.Context, appUUID coreapplication.ID) (map[string]string, error) {
+func (st *State) GetApplicationEndpointBindings(ctx context.Context, appUUID coreapplication.ID) (map[string]network.SpaceUUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var result map[string]string
+	var result map[string]network.SpaceUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		result, err = st.getEndpointBindings(ctx, tx, appUUID)
@@ -532,7 +532,7 @@ WHERE uuid =  $setDefaultSpace.uuid`, app)
 // getEndpointBindings gets a map of endpoint names to space UUIDs. This
 // includes the application endpoints, and the application extra endpoints. An
 // endpoint name of "" is used to record the default application space.
-func (st *State) getEndpointBindings(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) (map[string]string, error) {
+func (st *State) getEndpointBindings(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) (map[string]network.SpaceUUID, error) {
 	// Query application endpoints.
 	id := applicationID{ID: appUUID}
 	endpointStmt, err := st.Prepare(`
@@ -589,7 +589,7 @@ WHERE  uuid = $applicationID.uuid
 		return nil, errors.Errorf("getting application endpoints: %w", err)
 	}
 
-	endpoints := make(map[string]string, len(dbEndpoints)+len(dbExtraEndpoints)+1)
+	endpoints := make(map[string]network.SpaceUUID, len(dbEndpoints)+len(dbExtraEndpoints)+1)
 	for _, e := range dbEndpoints {
 		if e.SpaceUUID.Valid {
 			endpoints[e.EndpointName] = e.SpaceUUID.V

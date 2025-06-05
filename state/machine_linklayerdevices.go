@@ -775,7 +775,7 @@ func (m *Machine) AllSpaces(allSubnets network.SubnetInfos) (set.Strings, error)
 
 		for _, sub := range allSubnets {
 			if sub.CIDR == doc.SubnetCIDR {
-				spaces.Add(sub.SpaceID)
+				spaces.Add(sub.SpaceID.String())
 				break
 			}
 		}

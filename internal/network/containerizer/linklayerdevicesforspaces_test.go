@@ -258,7 +258,7 @@ func (s *linkLayerDevForSpacesSuite) setupForNaturalSort(ctrl *gomock.Controller
 	// back in NaturallySorted order
 	subnet := NewMockSubnet(ctrl)
 	sExp := subnet.EXPECT()
-	sExp.SpaceID().Return(network.AlphaSpaceId).AnyTimes()
+	sExp.SpaceID().Return(network.AlphaSpaceId.String()).AnyTimes()
 
 	testDevs := []testDev{
 		{"eth1", "br-eth1"},
@@ -323,7 +323,7 @@ func (s *baseSuite) expectMachineAddressesDevices() {
 	mExp.AllDeviceAddresses().Return(s.addresses, nil).AnyTimes()
 }
 
-func (s *baseSuite) expectNICAndBridgeWithIP(c *tc.C, ctrl *gomock.Controller, dev, parent, spaceID string, cidr string) {
+func (s *baseSuite) expectNICAndBridgeWithIP(c *tc.C, ctrl *gomock.Controller, dev, parent string, spaceID network.SpaceUUID, cidr string) {
 	s.expectDevice(ctrl, dev, parent, network.EthernetDevice, network.NonVirtualPort)
 	s.expectBridgeDevice(ctrl, parent)
 
@@ -341,11 +341,11 @@ func (s *baseSuite) expectNICAndBridgeWithIP(c *tc.C, ctrl *gomock.Controller, d
 	s.addresses = append(s.addresses, address)
 }
 
-func (s *baseSuite) expectNICWithIP(c *tc.C, ctrl *gomock.Controller, dev, spaceID, cidr string) *MockLinkLayerDevice {
+func (s *baseSuite) expectNICWithIP(c *tc.C, ctrl *gomock.Controller, dev string, spaceID network.SpaceUUID, cidr string) *MockLinkLayerDevice {
 	return s.expectNICWithIPAndPortType(c, ctrl, dev, spaceID, network.NonVirtualPort, cidr)
 }
 
-func (s *baseSuite) expectNICWithIPAndPortType(c *tc.C, ctrl *gomock.Controller, devName, spaceID string, portType network.VirtualPortType, cidr string) *MockLinkLayerDevice {
+func (s *baseSuite) expectNICWithIPAndPortType(c *tc.C, ctrl *gomock.Controller, devName string, spaceID network.SpaceUUID, portType network.VirtualPortType, cidr string) *MockLinkLayerDevice {
 	dev := s.expectDevice(ctrl, devName, "", network.EthernetDevice, portType)
 
 	address := NewMockAddress(ctrl)
@@ -377,15 +377,15 @@ func (s *baseSuite) expectBridgeDevice(ctrl *gomock.Controller, dev string) {
 	s.expectDevice(ctrl, dev, "", network.BridgeDevice, network.NonVirtualPort)
 }
 
-func (s *baseSuite) expectBridgeDeviceWithIP(c *tc.C, ctrl *gomock.Controller, dev, spaceID, cidr string) {
+func (s *baseSuite) expectBridgeDeviceWithIP(c *tc.C, ctrl *gomock.Controller, dev string, spaceID network.SpaceUUID, cidr string) {
 	s.expectDeviceWithIP(c, ctrl, dev, spaceID, network.BridgeDevice, cidr)
 }
 
-func (s *baseSuite) expectDeviceWithIP(c *tc.C, ctrl *gomock.Controller, dev, spaceID string, devType network.LinkLayerDeviceType, cidr string) *MockLinkLayerDevice {
+func (s *baseSuite) expectDeviceWithIP(c *tc.C, ctrl *gomock.Controller, dev string, spaceID network.SpaceUUID, devType network.LinkLayerDeviceType, cidr string) *MockLinkLayerDevice {
 	return s.expectDeviceWithParentWithIP(c, ctrl, dev, "", spaceID, devType, cidr)
 }
 
-func (s *baseSuite) expectDeviceWithParentWithIP(c *tc.C, ctrl *gomock.Controller, dev, parent, spaceID string, devType network.LinkLayerDeviceType, cidr string) *MockLinkLayerDevice {
+func (s *baseSuite) expectDeviceWithParentWithIP(c *tc.C, ctrl *gomock.Controller, dev, parent string, spaceID network.SpaceUUID, devType network.LinkLayerDeviceType, cidr string) *MockLinkLayerDevice {
 	d := s.expectDevice(ctrl, dev, parent, devType, network.NonVirtualPort)
 
 	address := NewMockAddress(ctrl)

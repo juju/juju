@@ -157,7 +157,7 @@ func (s *BaseRefreshSuite) setup(c *tc.C, b corebase.Base, currentCharmURL, late
 	s.charmAPIClient = mockCharmRefreshClient{
 		charmURL: currentCharmURL,
 		bindings: map[string]string{
-			"": network.AlphaSpaceName,
+			"": network.AlphaSpaceName.String(),
 		},
 		charmOrigin: commoncharm.Origin{
 			ID:           "testing",
@@ -171,7 +171,7 @@ func (s *BaseRefreshSuite) setup(c *tc.C, b corebase.Base, currentCharmURL, late
 	s.resourceLister = mockResourceLister{}
 	s.spacesClient = mockSpacesClient{
 		spaceList: []params.Space{
-			{Id: network.AlphaSpaceId, Name: network.AlphaSpaceName}, // default
+			{Id: network.AlphaSpaceId.String(), Name: network.AlphaSpaceName.String()}, // default
 			{Id: "1", Name: "sp1"},
 		},
 	}

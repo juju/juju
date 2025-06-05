@@ -81,7 +81,6 @@ type UniterAPI struct {
 	machineService          MachineService
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
-	networkService          NetworkService
 	portService             PortService
 	relationService         RelationService
 	secretService           SecretService

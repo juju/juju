@@ -432,15 +432,16 @@ func (s *workerSuite) expectBootstrapFlagSet() {
 }
 
 func (s *workerSuite) expectSetAPIHostPorts() {
+	spaceName := network.SpaceName("mgmt-space")
 	mgmtSpace := &network.SpaceInfo{
-		Name: network.SpaceName("mgmt-space"),
+		Name: spaceName,
 		Subnets: []network.SubnetInfo{
 			{
 				CIDR: "10.0.0.0/24",
 			},
 		},
 	}
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), "mgmt-space").Return(mgmtSpace, nil)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(mgmtSpace, nil)
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), "0", gomock.Any(), mgmtSpace)
 
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())

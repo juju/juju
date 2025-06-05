@@ -22,7 +22,7 @@ func SubnetInfoToParamsSubnet(subnet network.SubnetInfo) params.Subnet {
 		ProviderId:        subnet.ProviderId.String(),
 		ProviderNetworkId: subnet.ProviderNetworkId.String(),
 		Zones:             subnet.AvailabilityZones,
-		SpaceTag:          names.NewSpaceTag(subnet.SpaceName).String(),
+		SpaceTag:          names.NewSpaceTag(subnet.SpaceName.String()).String(),
 		Life:              subnet.Life,
 	}
 }

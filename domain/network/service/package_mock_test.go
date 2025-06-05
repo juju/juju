@@ -47,7 +47,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AddSpace mocks base method.
-func (m *MockState) AddSpace(arg0 context.Context, arg1, arg2 string, arg3 network.Id, arg4 []string) error {
+func (m *MockState) AddSpace(arg0 context.Context, arg1 network.SpaceUUID, arg2 network.SpaceName, arg3 network.Id, arg4 []string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
@@ -73,13 +73,13 @@ func (c *MockStateAddSpaceCall) Return(arg0 error) *MockStateAddSpaceCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddSpaceCall) Do(f func(context.Context, string, string, network.Id, []string) error) *MockStateAddSpaceCall {
+func (c *MockStateAddSpaceCall) Do(f func(context.Context, network.SpaceUUID, network.SpaceName, network.Id, []string) error) *MockStateAddSpaceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddSpaceCall) DoAndReturn(f func(context.Context, string, string, network.Id, []string) error) *MockStateAddSpaceCall {
+func (c *MockStateAddSpaceCall) DoAndReturn(f func(context.Context, network.SpaceUUID, network.SpaceName, network.Id, []string) error) *MockStateAddSpaceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -239,7 +239,7 @@ func (c *MockStateDeleteImportedLinkLayerDevicesCall) DoAndReturn(f func(context
 }
 
 // DeleteSpace mocks base method.
-func (m *MockState) DeleteSpace(arg0 context.Context, arg1 string) error {
+func (m *MockState) DeleteSpace(arg0 context.Context, arg1 network.SpaceUUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteSpace", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -265,13 +265,13 @@ func (c *MockStateDeleteSpaceCall) Return(arg0 error) *MockStateDeleteSpaceCall 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateDeleteSpaceCall) Do(f func(context.Context, string) error) *MockStateDeleteSpaceCall {
+func (c *MockStateDeleteSpaceCall) Do(f func(context.Context, network.SpaceUUID) error) *MockStateDeleteSpaceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDeleteSpaceCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteSpaceCall {
+func (c *MockStateDeleteSpaceCall) DoAndReturn(f func(context.Context, network.SpaceUUID) error) *MockStateDeleteSpaceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -432,7 +432,7 @@ func (c *MockStateGetMachineNetNodeUUIDCall) DoAndReturn(f func(context.Context,
 }
 
 // GetSpace mocks base method.
-func (m *MockState) GetSpace(arg0 context.Context, arg1 string) (*network.SpaceInfo, error) {
+func (m *MockState) GetSpace(arg0 context.Context, arg1 network.SpaceUUID) (*network.SpaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSpace", arg0, arg1)
 	ret0, _ := ret[0].(*network.SpaceInfo)
@@ -459,19 +459,19 @@ func (c *MockStateGetSpaceCall) Return(arg0 *network.SpaceInfo, arg1 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetSpaceCall) Do(f func(context.Context, string) (*network.SpaceInfo, error)) *MockStateGetSpaceCall {
+func (c *MockStateGetSpaceCall) Do(f func(context.Context, network.SpaceUUID) (*network.SpaceInfo, error)) *MockStateGetSpaceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetSpaceCall) DoAndReturn(f func(context.Context, string) (*network.SpaceInfo, error)) *MockStateGetSpaceCall {
+func (c *MockStateGetSpaceCall) DoAndReturn(f func(context.Context, network.SpaceUUID) (*network.SpaceInfo, error)) *MockStateGetSpaceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetSpaceByName mocks base method.
-func (m *MockState) GetSpaceByName(arg0 context.Context, arg1 string) (*network.SpaceInfo, error) {
+func (m *MockState) GetSpaceByName(arg0 context.Context, arg1 network.SpaceName) (*network.SpaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSpaceByName", arg0, arg1)
 	ret0, _ := ret[0].(*network.SpaceInfo)
@@ -498,13 +498,13 @@ func (c *MockStateGetSpaceByNameCall) Return(arg0 *network.SpaceInfo, arg1 error
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetSpaceByNameCall) Do(f func(context.Context, string) (*network.SpaceInfo, error)) *MockStateGetSpaceByNameCall {
+func (c *MockStateGetSpaceByNameCall) Do(f func(context.Context, network.SpaceName) (*network.SpaceInfo, error)) *MockStateGetSpaceByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetSpaceByNameCall) DoAndReturn(f func(context.Context, string) (*network.SpaceInfo, error)) *MockStateGetSpaceByNameCall {
+func (c *MockStateGetSpaceByNameCall) DoAndReturn(f func(context.Context, network.SpaceName) (*network.SpaceInfo, error)) *MockStateGetSpaceByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -746,7 +746,7 @@ func (c *MockStateSetMachineNetConfigCall) DoAndReturn(f func(context.Context, s
 }
 
 // UpdateSpace mocks base method.
-func (m *MockState) UpdateSpace(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockState) UpdateSpace(arg0 context.Context, arg1 network.SpaceUUID, arg2 network.SpaceName) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateSpace", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -772,19 +772,19 @@ func (c *MockStateUpdateSpaceCall) Return(arg0 error) *MockStateUpdateSpaceCall 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateSpaceCall) Do(f func(context.Context, string, string) error) *MockStateUpdateSpaceCall {
+func (c *MockStateUpdateSpaceCall) Do(f func(context.Context, network.SpaceUUID, network.SpaceName) error) *MockStateUpdateSpaceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateSpaceCall) DoAndReturn(f func(context.Context, string, string) error) *MockStateUpdateSpaceCall {
+func (c *MockStateUpdateSpaceCall) DoAndReturn(f func(context.Context, network.SpaceUUID, network.SpaceName) error) *MockStateUpdateSpaceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // UpdateSubnet mocks base method.
-func (m *MockState) UpdateSubnet(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockState) UpdateSubnet(arg0 context.Context, arg1 string, arg2 network.SpaceUUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateSubnet", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -810,13 +810,13 @@ func (c *MockStateUpdateSubnetCall) Return(arg0 error) *MockStateUpdateSubnetCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateSubnetCall) Do(f func(context.Context, string, string) error) *MockStateUpdateSubnetCall {
+func (c *MockStateUpdateSubnetCall) Do(f func(context.Context, string, network.SpaceUUID) error) *MockStateUpdateSubnetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateSubnetCall) DoAndReturn(f func(context.Context, string, string) error) *MockStateUpdateSubnetCall {
+func (c *MockStateUpdateSubnetCall) DoAndReturn(f func(context.Context, string, network.SpaceUUID) error) *MockStateUpdateSubnetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -186,7 +186,7 @@ func (*subnetSuite) TestSubnetInfosSpaceIDs(c *tc.C) {
 		{ID: "3", SpaceID: "666"},
 	}
 
-	c.Check(s.SpaceIDs().SortedValues(), tc.DeepEquals, []string{network.AlphaSpaceId, "666"})
+	c.Check(s.SpaceIDs().SortedValues(), tc.DeepEquals, []string{network.AlphaSpaceId.String(), "666"})
 }
 
 func (*subnetSuite) TestSubnetInfosGetByCIDR(c *tc.C) {

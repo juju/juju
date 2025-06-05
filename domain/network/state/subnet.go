@@ -418,7 +418,7 @@ WHERE  uuid = $subnet.uuid;`, subnet)
 func (st *State) UpdateSubnet(
 	ctx context.Context,
 	uuid string,
-	spaceID string,
+	spaceID network.SpaceUUID,
 ) error {
 	db, err := st.DB()
 	if err != nil {

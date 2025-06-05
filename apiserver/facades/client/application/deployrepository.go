@@ -24,6 +24,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
@@ -168,7 +169,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 				DownloadSize:       dt.downloadInfo.DownloadSize,
 			},
 			ResolvedResources: dt.resolvedResources,
-			EndpointBindings:  transformBindings(dt.endpoints),
+			EndpointBindings:  dt.endpoints,
 			Devices:           arg.Devices,
 			ApplicationStatus: &status.StatusInfo{
 				Status: status.Unset,
@@ -258,7 +259,7 @@ type deployTemplate struct {
 	charmSettings     charm.Settings
 	charmURL          *charm.URL
 	constraints       constraints.Value
-	endpoints         map[string]string
+	endpoints         map[string]network.SpaceName
 	dryRun            bool
 	force             bool
 	numUnits          int
@@ -294,9 +295,6 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 		state:              cfg.state,
 		newCharmHubRepository: func(cfg repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
 			return repository.NewCharmHubRepository(cfg)
-		},
-		newStateBindings: func(st any, givenMap map[string]string) (Bindings, error) {
-			return state.NewBindings(st, givenMap)
 		},
 		logger: cfg.logger,
 	}
@@ -338,9 +336,6 @@ type deployFromRepositoryValidator struct {
 	// For testing using mocks.
 	newCharmHubRepository func(repository.CharmHubRepositoryConfig) (corecharm.Repository, error)
 	charmhubHTTPClient    facade.HTTPClient
-
-	// For testing using mocks.
-	newStateBindings func(st any, givenMap map[string]string) (Bindings, error)
 
 	logger corelogger.Logger
 }
@@ -402,7 +397,7 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	dt.placement = arg.Placement
 	dt.storage = arg.Storage
 	if len(arg.EndpointBindings) > 0 {
-		dt.endpoints = arg.EndpointBindings
+		dt.endpoints = transformBindings(arg.EndpointBindings)
 	}
 
 	// Resolve resources and validate against the charm metadata.

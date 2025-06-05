@@ -1093,13 +1093,13 @@ func (s *applicationServiceSuite) TestGetApplicationEndpointBindings(c *tc.C) {
 
 	appID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationEndpointBindings(gomock.Any(), appID).Return(map[string]string{
+	s.state.EXPECT().GetApplicationEndpointBindings(gomock.Any(), appID).Return(map[string]network.SpaceUUID{
 		"foo": "bar",
 	}, nil)
 
 	result, err := s.service.GetApplicationEndpointBindings(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.DeepEquals, map[string]string{
+	c.Check(result, tc.DeepEquals, map[string]network.SpaceUUID{
 		"foo": "bar",
 	})
 }

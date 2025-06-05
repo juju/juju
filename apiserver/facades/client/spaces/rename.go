@@ -30,17 +30,21 @@ func (api *API) RenameSpace(ctx context.Context, args params.RenameSpacesParams)
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
-		if fromTag.Id() == network.AlphaSpaceName {
+		fromSpaceName := network.NewSpaceName(fromTag.Id())
+		if fromSpaceName == network.AlphaSpaceName {
 			newErr := errors.Errorf("the %q space cannot be renamed", network.AlphaSpaceName)
 			result.Results[i].Error = apiservererrors.ServerError(newErr)
 			continue
 		}
+
 		toTag, err := names.ParseSpaceTag(spaceRename.ToSpaceTag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
-		toSpace, err := api.networkService.SpaceByName(ctx, toTag.Id())
+		toSpaceName := network.NewSpaceName(toTag.Id())
+
+		toSpace, err := api.networkService.SpaceByName(ctx, toSpaceName)
 		if err != nil && !errors.Is(err, networkerrors.SpaceNotFound) {
 			newErr := errors.Annotatef(err, "retrieving space %q", toTag.Id())
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
@@ -52,14 +56,14 @@ func (api *API) RenameSpace(ctx context.Context, args params.RenameSpacesParams)
 			continue
 		}
 
-		fromSpace, err := api.networkService.SpaceByName(ctx, fromTag.Id())
+		fromSpace, err := api.networkService.SpaceByName(ctx, fromSpaceName)
 		if err != nil {
-			newErr := errors.Annotatef(err, "retrieving space %q", fromTag.Id())
+			newErr := errors.Annotatef(err, "retrieving space %q", fromSpaceName)
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
 			continue
 		}
-		if err := api.networkService.UpdateSpace(ctx, fromSpace.ID, toTag.Id()); err != nil {
-			newErr := errors.Annotatef(err, "updating space %q", fromTag.Id())
+		if err := api.networkService.UpdateSpace(ctx, fromSpace.ID, toSpaceName); err != nil {
+			newErr := errors.Annotatef(err, "updating space %q", fromSpaceName)
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
 			continue
 		}

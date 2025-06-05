@@ -14,16 +14,68 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
+
+// SpaceUUID represents a space unique identifier.
+type SpaceUUID string
+
+// NewID is a convenience function for generating a new space uuid.
+func NewSpaceUUID() (SpaceUUID, error) {
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		return SpaceUUID(""), err
+	}
+	return SpaceUUID(uuid.String()), nil
+}
+
+// ParseSpaceUUID returns a new SpaceUUID from the given string. If the string is not a valid
+// uuid an error satisfying [errors.NotValid] will be returned.
+func ParseSpaceUUID(value string) (SpaceUUID, error) {
+	if !uuid.IsValidUUIDString(value) {
+		return "", errors.Errorf("SpaceUUID %q %w", value, coreerrors.NotValid)
+	}
+	return SpaceUUID(value), nil
+}
+
+// String implements the stringer interface for SpaceUUID.
+func (u SpaceUUID) String() string {
+	return string(u)
+}
+
+// Validate ensures the consistency of the SpaceUUID. If the uuid is invalid an error
+// satisfying [errors.NotValid] will be returned.
+func (u SpaceUUID) Validate() error {
+	if u == "" {
+		return errors.Errorf("id cannot be empty").Add(coreerrors.NotValid)
+	}
+	if !uuid.IsValidUUIDString(string(u)) {
+		return errors.Errorf("id %q %w", u, coreerrors.NotValid)
+	}
+	return nil
+}
+
+// SpaceName represents a space name, used as a human-readable unique identifier.
+type SpaceName string
+
+// NewSpaceName returns a new Name.
+func NewSpaceName(name string) SpaceName {
+	return SpaceName(name)
+}
+
+// String returns the SpaceName as a string.
+func (n SpaceName) String() string {
+	return string(n)
+}
 
 const (
 	// AlphaSpaceId is the ID of the alpha network space.
 	// Application endpoints are bound to this space by default
 	// if no explicit binding is specified.
-	AlphaSpaceId = "656b4a82-e28c-53d6-a014-f0dd53417eb6"
+	AlphaSpaceId SpaceUUID = "656b4a82-e28c-53d6-a014-f0dd53417eb6"
 
 	// AlphaSpaceName is the name of the alpha network space.
-	AlphaSpaceName = "alpha"
+	AlphaSpaceName SpaceName = "alpha"
 )
 
 // SpaceLookup describes the ability to get a complete
@@ -37,14 +89,10 @@ type SubnetLookup interface {
 	AllSubnetInfos() (SubnetInfos, error)
 }
 
-// SpaceName is the name of a network space.
-type SpaceName string
-
 // SpaceInfo defines a network space.
 type SpaceInfo struct {
 	// ID is the unique identifier for the space.
-	// TODO (manadart 2020-04-10): This should be a typed ID.
-	ID string
+	ID SpaceUUID
 
 	// Name is the name of the space.
 	// It is used by operators for identifying a space and should be unique.
@@ -85,7 +133,7 @@ func (s SpaceInfos) AllSubnetInfos() (SubnetInfos, error) {
 
 // MoveSubnets returns a new topology representing
 // the movement of subnets to a new network space.
-func (s SpaceInfos) MoveSubnets(subnetIDs IDSet, spaceName string) (SpaceInfos, error) {
+func (s SpaceInfos) MoveSubnets(subnetIDs IDSet, spaceName SpaceName) (SpaceInfos, error) {
 	newSpace := s.GetByName(spaceName)
 	if newSpace == nil {
 		return nil, errors.Errorf("space with name %q %w", spaceName, coreerrors.NotFound)
@@ -106,7 +154,7 @@ func (s SpaceInfos) MoveSubnets(subnetIDs IDSet, spaceName string) (SpaceInfos, 
 				// Indicate that we found the subnet,
 				// but don't do anything if it is already in the space.
 				found.Add(sub.ID)
-				if string(space.Name) != spaceName {
+				if space.Name != spaceName {
 					sub.SpaceID = newSpace.ID
 					sub.SpaceName = spaceName
 					sub.ProviderSpaceId = newSpace.ProviderId
@@ -127,7 +175,7 @@ func (s SpaceInfos) MoveSubnets(subnetIDs IDSet, spaceName string) (SpaceInfos, 
 	// We have to find the space again in this collection,
 	// because newSpace was returned from a copy.
 	for i, space := range newSpaces {
-		if string(space.Name) == spaceName {
+		if space.Name == spaceName {
 			newSpaces[i].Subnets = append(space.Subnets, movers...)
 			break
 		}
@@ -159,8 +207,8 @@ func (s SpaceInfos) Names() []string {
 }
 
 // IDs returns a string slice with each of the space ids in the collection.
-func (s SpaceInfos) IDs() []string {
-	ids := make([]string, len(s))
+func (s SpaceInfos) IDs() []SpaceUUID {
+	ids := make([]SpaceUUID, len(s))
 	for i, v := range s {
 		ids[i] = v.ID
 	}
@@ -169,7 +217,7 @@ func (s SpaceInfos) IDs() []string {
 
 // GetByID returns a reference to the space with the input ID
 // if it exists in the collection. Otherwise nil is returned.
-func (s SpaceInfos) GetByID(id string) *SpaceInfo {
+func (s SpaceInfos) GetByID(id SpaceUUID) *SpaceInfo {
 	for _, space := range s {
 		if space.ID == id {
 			return &space
@@ -180,9 +228,9 @@ func (s SpaceInfos) GetByID(id string) *SpaceInfo {
 
 // GetByName returns a reference to the space with the input name
 // if it exists in the collection. Otherwise nil is returned.
-func (s SpaceInfos) GetByName(name string) *SpaceInfo {
+func (s SpaceInfos) GetByName(name SpaceName) *SpaceInfo {
 	for _, space := range s {
-		if string(space.Name) == name {
+		if space.Name == name {
 			return &space
 		}
 	}
@@ -191,13 +239,13 @@ func (s SpaceInfos) GetByName(name string) *SpaceInfo {
 
 // ContainsID returns true if the collection contains a
 // space with the given ID.
-func (s SpaceInfos) ContainsID(id string) bool {
+func (s SpaceInfos) ContainsID(id SpaceUUID) bool {
 	return s.GetByID(id) != nil
 }
 
 // ContainsName returns true if the collection contains a
 // space with the given name.
-func (s SpaceInfos) ContainsName(name string) bool {
+func (s SpaceInfos) ContainsName(name SpaceName) bool {
 	return s.GetByName(name) != nil
 }
 
@@ -266,8 +314,8 @@ func (s SpaceInfos) InferSpaceFromCIDRAndSubnetID(cidr, providerSubnetID string)
 
 // SubnetCIDRsBySpaceID returns the set of known subnet CIDRs grouped by the
 // space ID they belong to.
-func (s SpaceInfos) SubnetCIDRsBySpaceID() map[string][]string {
-	res := make(map[string][]string)
+func (s SpaceInfos) SubnetCIDRsBySpaceID() map[SpaceUUID][]string {
+	res := make(map[SpaceUUID][]string)
 	for _, space := range s {
 		for _, sub := range space.Subnets {
 			res[space.ID] = append(res[space.ID], sub.CIDR)

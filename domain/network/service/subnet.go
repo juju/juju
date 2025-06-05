@@ -61,7 +61,7 @@ func (s *Service) SubnetsByCIDR(ctx context.Context, cidrs ...string) ([]network
 
 // UpdateSubnet updates the spaceUUID of the subnet identified by the input
 // UUID.
-func (s *Service) UpdateSubnet(ctx context.Context, uuid, spaceUUID string) error {
+func (s *Service) UpdateSubnet(ctx context.Context, uuid string, spaceUUID network.SpaceUUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return errors.Capture(s.st.UpdateSubnet(ctx, uuid, spaceUUID))

@@ -492,7 +492,7 @@ WHERE uuid IN ($spaces[:]);
 //
 // It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
 // space name doesn't exist.
-func (st *State) GetSpaceUUIDByName(ctx context.Context, name string) (network.Id, error) {
+func (st *State) GetSpaceUUIDByName(ctx context.Context, name string) (network.SpaceUUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -521,5 +521,5 @@ WHERE name = $spaceName.name;`
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	return network.Id(spaceUUID.UUID), nil
+	return spaceUUID.UUID, nil
 }

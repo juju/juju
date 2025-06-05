@@ -653,7 +653,7 @@ func (suite *maasEnvironSuite) TestAcquireNodeInterfaces(c *tc.C) {
 			"name-2":   "1",
 			"name-3":   "2",
 			"name-4":   "42",
-			"to-alpha": network.AlphaSpaceName, // alpha space is not present on maas and is skipped
+			"to-alpha": network.Id(network.AlphaSpaceName), // alpha space is not present on maas and is skipped
 		},
 		expectedPositives: []gomaasapi.InterfaceSpec{
 			{Label: "1", Space: "1"},

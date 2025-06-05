@@ -939,7 +939,7 @@ func (fw *Firewaller) appendSubnetCIDRsFromExposedSpaces(ctx context.Context, un
 	// the CIDRs for the spaces specified in the expose details to
 	// construct the full source CIDR list for the generated rules.
 	for _, spaceID := range exposeDetails.ExposeToSpaceIDs.Values() {
-		sp := fw.spaceInfos.GetByID(spaceID)
+		sp := fw.spaceInfos.GetByID(network.SpaceUUID(spaceID))
 		if sp == nil {
 			fw.logger.Warningf(ctx, "exposed endpoint references unknown space ID %q", spaceID)
 			continue

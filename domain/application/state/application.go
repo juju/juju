@@ -1373,7 +1373,7 @@ func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.I
 
 	var (
 		spaceAddresses   []spaceAddress
-		endpointBindings map[string]string
+		endpointBindings map[string]network.SpaceUUID
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
@@ -1431,7 +1431,7 @@ WHERE     nn.uuid = $netNodeUUID.uuid;
 // closure to the watcher, but this would have required to create new service
 // layer structs that match exactly the ones in state, which is not a desirable
 // pattern.
-func (st *State) hashAddressesAndEndpoints(addresses []spaceAddress, endpointBindings map[string]string) (string, error) {
+func (st *State) hashAddressesAndEndpoints(addresses []spaceAddress, endpointBindings map[string]network.SpaceUUID) (string, error) {
 	if len(addresses) == 0 && len(endpointBindings) == 0 {
 		return "", nil
 	}
@@ -1479,7 +1479,7 @@ func (st *State) hashAddress(writer io.Writer, address spaceAddress) error {
 	}
 	spaceUUID := network.AlphaSpaceId
 	if address.SpaceUUID.Valid {
-		spaceUUID = address.SpaceUUID.String
+		spaceUUID = address.SpaceUUID.V
 	}
 	if _, err := writer.Write([]byte(spaceUUID)); err != nil {
 		return errors.Errorf("hashing space uuid %q: %w", spaceUUID, err)
@@ -3139,7 +3139,7 @@ func encodeIpAddresses(addresses []spaceAddress) network.SpaceAddresses {
 func encodeIpAddress(address spaceAddress) network.SpaceAddress {
 	spaceUUID := network.AlphaSpaceId
 	if address.SpaceUUID.Valid {
-		spaceUUID = address.SpaceUUID.String
+		spaceUUID = address.SpaceUUID.V
 	}
 	return network.SpaceAddress{
 		SpaceID: spaceUUID,

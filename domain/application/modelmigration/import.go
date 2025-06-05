@@ -82,7 +82,7 @@ type ImportService interface {
 	//
 	// It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
 	// space name doesn't exist.
-	GetSpaceUUIDByName(ctx context.Context, name string) (network.Id, error)
+	GetSpaceUUIDByName(ctx context.Context, name string) (network.SpaceUUID, error)
 }
 
 // Name returns the name of this operation.
@@ -451,7 +451,7 @@ func (i *importOperation) makeAddress(addr description.Address) (*network.SpaceA
 			Type:  network.AddressType(addr.Type()),
 			Scope: network.Scope(addr.Scope()),
 		},
-		SpaceID: addr.SpaceID(),
+		SpaceID: network.SpaceUUID(addr.SpaceID()),
 	}
 
 	// Addresses are placed in the default space if no space ID is set.
@@ -683,17 +683,17 @@ func (i *importOperation) importCharmActions(data description.CharmActions) (*in
 func (i *importOperation) importEndpointBindings(app description.Application, spaces []description.Space) (map[string]network.SpaceName, error) {
 	endpointBindings := make(map[string]network.SpaceName)
 	// Get the application's default space
-	applicationDefaultSpaceID := network.AlphaSpaceName
-	for endpoint, spaceID := range app.EndpointBindings() {
+	applicationDefaultSpaceName := network.AlphaSpaceName
+	for endpoint, spaceName := range app.EndpointBindings() {
 		if endpoint == "" {
-			applicationDefaultSpaceID = spaceID
+			applicationDefaultSpaceName = network.SpaceName(spaceName)
 			break
 		}
 	}
 
 	// Find the spaces names associated with each endpoint.
 	for endpoint, spaceID := range app.EndpointBindings() {
-		if spaceID == "" || (spaceID == applicationDefaultSpaceID && endpoint != "") {
+		if spaceID == "" || (spaceID == applicationDefaultSpaceName.String() && endpoint != "") {
 			// In migrations from 4.0+, an empty space ID signifies that the
 			// endpoint is set to the applications default space. Any endpoints
 			// not included explicitly in create application will be set to the
@@ -703,7 +703,7 @@ func (i *importOperation) importEndpointBindings(app description.Application, sp
 			// don't add insert it. In 3.6 endpoints had their spaceID
 			// explicitly set to the default space.
 			continue
-		} else if spaceID == network.AlphaSpaceId || spaceID == "0" {
+		} else if spaceID == network.AlphaSpaceId.String() || spaceID == "0" {
 			// If the space ID is that of the alpha space, then bind the
 			// endpoint to the alpha space name.
 			endpointBindings[endpoint] = network.AlphaSpaceName
@@ -748,8 +748,8 @@ func (i *importOperation) importExposedEndpoints(ctx context.Context, app descri
 			// the legacy ID ("0"). In that case we just map it to the new alpha
 			// space UUID.
 			//
-			if spaceID == network.AlphaSpaceId || spaceID == "0" {
-				exposedToSpaceUUIDs = append(exposedToSpaceUUIDs, network.AlphaSpaceId)
+			if spaceID == network.AlphaSpaceId.String() || spaceID == "0" {
+				exposedToSpaceUUIDs = append(exposedToSpaceUUIDs, network.AlphaSpaceId.String())
 				continue
 			}
 

@@ -34,7 +34,7 @@ type subnet struct {
 	// VLANtag is the subnet's vlan tag.
 	VLANtag int `db:"vlan_tag"`
 	// SpaceUUID is the space UUID.
-	SpaceUUID string `db:"space_uuid"`
+	SpaceUUID corenetwork.SpaceUUID `db:"space_uuid"`
 }
 
 // providerSubnet represents a single row from the provider_subnet table.
@@ -65,9 +65,9 @@ type providerNetworkSubnet struct {
 // space represents a single row from the space table.
 type space struct {
 	// Name is the space name.
-	Name string `db:"name"`
+	Name corenetwork.SpaceName `db:"name"`
 	// UUID is the unique ID of the space.
-	UUID string `db:"uuid"`
+	UUID corenetwork.SpaceUUID `db:"uuid"`
 }
 
 type spaceName struct {
@@ -81,7 +81,7 @@ type countResult struct {
 // providerSpace represents a single row from the provider_space table.
 type providerSpace struct {
 	// SpaceUUID is the unique ID of the space.
-	SpaceUUID string `db:"space_uuid"`
+	SpaceUUID corenetwork.SpaceUUID `db:"space_uuid"`
 	// ProviderID is a provider-specific space ID.
 	ProviderID corenetwork.Id `db:"provider_id"`
 }
@@ -125,10 +125,10 @@ type SubnetRow struct {
 	ProviderSpaceUUID sql.NullString `db:"subnet_provider_space_uuid"`
 
 	// SpaceUUID is the space uuid.
-	SpaceUUID sql.NullString `db:"subnet_space_uuid"`
+	SpaceUUID sql.Null[corenetwork.SpaceUUID] `db:"subnet_space_uuid"`
 
 	// SpaceName is the name of the space the subnet is associated with.
-	SpaceName sql.NullString `db:"subnet_space_name"`
+	SpaceName sql.Null[corenetwork.SpaceName] `db:"subnet_space_name"`
 
 	// AZ is the availability zones on the subnet.
 	AZ string `db:"subnet_az"`
@@ -141,7 +141,7 @@ type spaceSubnetRow struct {
 	SubnetRow
 
 	// UUID is the space UUID.
-	SpaceUUID string `db:"uuid"`
+	SpaceUUID corenetwork.SpaceUUID `db:"uuid"`
 
 	// Name is the space name.
 	SpaceName string `db:"name"`
@@ -156,7 +156,7 @@ type SpaceSubnetRows []spaceSubnetRow
 // subnetRows is a slice of Subnet rows.
 type subnetRows []SubnetRow
 
-// ToSpaceInfos converts Spaces to a slice of network.SpaceInfo structs.
+// ToSpaceInfos converts Spaces to a slice of corenetwork.SpaceInfo structs.
 // This method makes sure only unique subnets are mapped and flattens them into
 // each space.
 // No sorting is applied.
@@ -164,9 +164,9 @@ func (sp SpaceSubnetRows) ToSpaceInfos() corenetwork.SpaceInfos {
 	var res corenetwork.SpaceInfos
 
 	// Prepare structs for unique subnets for each space.
-	uniqueAZs := make(map[string]map[string]map[string]string)
-	uniqueSubnets := make(map[string]map[string]corenetwork.SubnetInfo)
-	uniqueSpaces := make(map[string]corenetwork.SpaceInfo)
+	uniqueAZs := make(map[corenetwork.SpaceUUID]map[string]map[string]string)
+	uniqueSubnets := make(map[corenetwork.SpaceUUID]map[string]corenetwork.SubnetInfo)
+	uniqueSpaces := make(map[corenetwork.SpaceUUID]corenetwork.SpaceInfo)
 
 	for _, spaceSubnet := range sp {
 		spInfo := corenetwork.SpaceInfo{
@@ -224,10 +224,10 @@ func (s SubnetRow) ToSubnetInfo() *corenetwork.SubnetInfo {
 		sInfo.ProviderSpaceId = corenetwork.Id(s.ProviderSpaceUUID.String)
 	}
 	if s.SpaceUUID.Valid {
-		sInfo.SpaceID = s.SpaceUUID.String
+		sInfo.SpaceID = s.SpaceUUID.V
 	}
 	if s.SpaceName.Valid {
-		sInfo.SpaceName = s.SpaceName.String
+		sInfo.SpaceName = s.SpaceName.V
 	}
 
 	return &sInfo

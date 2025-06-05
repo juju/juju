@@ -351,7 +351,7 @@ func (s *FirewallerSuite) TestAllSpaceInfos(c *tc.C) {
 
 	// Test call output
 	req := params.SpaceInfosParams{
-		FilterBySpaceIDs: []string{network.AlphaSpaceId, "42"},
+		FilterBySpaceIDs: []string{network.AlphaSpaceId.String(), "42"},
 	}
 	res, err := s.api.SpaceInfos(c.Context(), req)
 	c.Assert(err, tc.ErrorIsNil)

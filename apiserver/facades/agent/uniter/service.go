@@ -37,7 +37,6 @@ type Services struct {
 	MachineService          MachineService
 	ModelConfigService      ModelConfigService
 	ModelInfoService        ModelInfoService
-	NetworkService          NetworkService
 	PortService             PortService
 	RelationService         RelationService
 	SecretService           SecretService
@@ -301,17 +300,6 @@ type PortService interface {
 	// GetUnitOpenedPorts returns the opened ports for a given unit uuid, grouped
 	// by endpoint.
 	GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID) (network.GroupedPortRanges, error)
-}
-
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	// SpaceByName returns a space from state that matches the input name.
-	// An error is returned that satisfied errors.NotFound if the space was not found
-	// or an error static any problems fetching the given space.
-	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
-	// GetAllSubnets returns all the subnets for the model.
-	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

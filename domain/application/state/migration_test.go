@@ -17,6 +17,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type migrationStateSuite struct {
@@ -58,7 +58,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExport(c *tc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]string{
+			EndpointBindings: map[string]network.SpaceUUID{
 				"":          network.AlphaSpaceId,
 				"endpoint":  network.AlphaSpaceId,
 				"extra":     network.AlphaSpaceId,
@@ -91,7 +91,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *tc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]string{
+			EndpointBindings: map[string]network.SpaceUUID{
 				"":          network.AlphaSpaceId,
 				"endpoint":  network.AlphaSpaceId,
 				"extra":     network.AlphaSpaceId,
@@ -134,7 +134,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *tc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]string{
+			EndpointBindings: map[string]network.SpaceUUID{
 				"":          network.AlphaSpaceId,
 				"endpoint":  network.AlphaSpaceId,
 				"extra":     network.AlphaSpaceId,
@@ -153,7 +153,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *tc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]string{
+			EndpointBindings: map[string]network.SpaceUUID{
 				"":          network.AlphaSpaceId,
 				"endpoint":  network.AlphaSpaceId,
 				"extra":     network.AlphaSpaceId,
@@ -382,7 +382,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportEndpointBindings(c *tc
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]string{
+			EndpointBindings: map[string]network.SpaceUUID{
 				"":          network.AlphaSpaceId,
 				"endpoint":  spaceUUID1,
 				"misc":      spaceUUID2,
@@ -524,8 +524,8 @@ AND    v.endpoint_name = ?
 
 // addSpace ensures a space with the given name exists in the database,
 // creating it if necessary, and returns its name.
-func (s *migrationStateSuite) addSpace(c *tc.C, name string) string {
-	spaceUUID := uuid.MustNewUUID().String()
+func (s *migrationStateSuite) addSpace(c *tc.C, name string) network.SpaceUUID {
+	spaceUUID := networktesting.GenSpaceUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO space (uuid, name)
@@ -536,7 +536,7 @@ VALUES (?, ?)`, spaceUUID, name)
 	return spaceUUID
 }
 
-func (s *migrationStateSuite) updateApplicationEndpoint(c *tc.C, endpoint, space_uuid string) {
+func (s *migrationStateSuite) updateApplicationEndpoint(c *tc.C, endpoint, spaceUUID network.SpaceUUID) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var charmRelationUUID string
 		err := tx.QueryRowContext(ctx, `
@@ -552,7 +552,7 @@ WHERE  name = ?
 UPDATE application_endpoint
 SET    space_uuid = ?
 WHERE  charm_relation_uuid = ?
-`, space_uuid, charmRelationUUID)
+`, spaceUUID, charmRelationUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

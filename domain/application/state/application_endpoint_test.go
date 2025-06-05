@@ -17,6 +17,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -94,7 +95,7 @@ func (s *applicationEndpointStateSuite) TestUpdateDefaultSpace(c *tc.C) {
 	// Assert: Shouldn't have any relation endpoint, but default should be updated
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.getApplicationDefaultSpace(c), tc.Equals, "beta")
+	c.Check(s.getApplicationDefaultSpace(c), tc.Equals, network.SpaceName("beta"))
 	c.Check(s.fetchApplicationEndpoints(c), tc.DeepEquals, []applicationEndpoint{})
 }
 
@@ -616,7 +617,7 @@ func (s *applicationEndpointStateSuite) TestMergeApplicationEndpointBindingsUpda
 
 	// Assert: the application's default space is updated
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.getApplicationDefaultSpace(c), tc.Equals, "beta")
+	c.Assert(s.getApplicationDefaultSpace(c), tc.Equals, network.SpaceName("beta"))
 }
 
 func (s *applicationEndpointStateSuite) TestMergeApplicationEndpointBindingsApplicationNotFound(c *tc.C) {
@@ -657,7 +658,7 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindings(c *tc.C) {
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(bindings, tc.DeepEquals, map[string]string{
+	c.Assert(bindings, tc.DeepEquals, map[string]network.SpaceUUID{
 		relationName1: spaceUUID1,
 		relationName2: spaceUUID2,
 		extraName1:    spaceUUID3,
@@ -684,7 +685,7 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindingsReturnsUnset(c *t
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(bindings, tc.DeepEquals, map[string]string{
+	c.Assert(bindings, tc.DeepEquals, map[string]network.SpaceUUID{
 		"":            network.AlphaSpaceId,
 		relationName1: network.AlphaSpaceId,
 		extraName1:    network.AlphaSpaceId,
@@ -746,7 +747,7 @@ func (s *applicationEndpointStateSuite) TestGetApplicationEndpointNamesApplicati
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationEndpointStateSuite) addApplicationEndpoint(c *tc.C, spaceUUID, relationUUID string) string {
+func (s *applicationEndpointStateSuite) addApplicationEndpoint(c *tc.C, spaceUUID network.SpaceUUID, relationUUID string) string {
 	endpointUUID := uuid.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -758,7 +759,7 @@ VALUES (?,?,?,?)`, endpointUUID, s.appID, spaceUUID, relationUUID)
 	return endpointUUID
 }
 
-func (s *applicationEndpointStateSuite) addApplicationExtraEndpoint(c *tc.C, spaceUUID, extraEndpointUUID string) {
+func (s *applicationEndpointStateSuite) addApplicationExtraEndpoint(c *tc.C, spaceUUID network.SpaceUUID, extraEndpointUUID string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO application_extra_endpoint (application_uuid, space_uuid, charm_extra_binding_uuid)
@@ -878,8 +879,8 @@ func (s *applicationEndpointStateSuite) addSpaceReturningName(c *tc.C, name stri
 
 // addSpace ensures a space with the given name exists in the database,
 // creating it if necessary, and returns its name.
-func (s *applicationEndpointStateSuite) addSpace(c *tc.C, name string) string {
-	spaceUUID := uuid.MustNewUUID().String()
+func (s *applicationEndpointStateSuite) addSpace(c *tc.C, name string) network.SpaceUUID {
+	spaceUUID := networktesting.GenSpaceUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO space (uuid, name)
@@ -890,7 +891,7 @@ VALUES (?, ?)`, spaceUUID, name)
 	return spaceUUID
 }
 
-func (s *applicationEndpointStateSuite) setApplicationDefaultSpace(c *tc.C, spaceUUID string) {
+func (s *applicationEndpointStateSuite) setApplicationDefaultSpace(c *tc.C, spaceUUID network.SpaceUUID) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 UPDATE application
@@ -930,8 +931,8 @@ VALUES (?,?,?)`, bindingUUID, s.charmUUID, name)
 	return bindingUUID
 }
 
-func (s *applicationEndpointStateSuite) getApplicationDefaultSpace(c *tc.C) string {
-	var spaceName string
+func (s *applicationEndpointStateSuite) getApplicationDefaultSpace(c *tc.C) network.SpaceName {
+	var spaceName network.SpaceName
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT s.name

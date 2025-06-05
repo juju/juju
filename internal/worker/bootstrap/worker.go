@@ -459,7 +459,7 @@ func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig
 // want to cut off communication to the controller based on erroneous config.
 func (w *bootstrapWorker) filterHostPortsForManagementSpace(
 	ctx context.Context,
-	mgmtSpace string,
+	mgmtSpace network.SpaceName,
 	apiHostPorts []network.SpaceHostPorts,
 	allSpaces network.SpaceInfos,
 ) []network.SpaceHostPorts {

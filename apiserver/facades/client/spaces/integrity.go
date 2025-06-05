@@ -55,7 +55,7 @@ type affectedNetworks struct {
 	// subnets identifies the subnets that are being moved.
 	subnets network.IDSet
 	// newSpace is the name of the space that the subnets are being moved to.
-	newSpace string
+	newSpace network.SpaceName
 	// spaces is a the target space topology.
 	spaces network.SpaceInfos
 	// changingNetworks is all unit subnet connectivity grouped by application
@@ -79,7 +79,7 @@ type affectedNetworks struct {
 // The input space topology is manipulated to represent the topology that
 // would result from the move.
 func newAffectedNetworks(
-	applicationService ApplicationService, movingSubnets network.IDSet, spaceName string, currentTopology network.SpaceInfos, force bool, logger corelogger.Logger,
+	applicationService ApplicationService, movingSubnets network.IDSet, spaceName network.SpaceName, currentTopology network.SpaceInfos, force bool, logger corelogger.Logger,
 ) (*affectedNetworks, error) {
 	// Get the topology as would result from moving all of these subnets.
 	newTopology, err := currentTopology.MoveSubnets(movingSubnets, spaceName)
@@ -241,7 +241,7 @@ func (n *affectedNetworks) ensureConstraintIntegrity(ctx context.Context, cons m
 // ensureNegativeConstraintIntegrity checks that the input application does not
 // have a negative space constraint for the proposed destination space.
 func (n *affectedNetworks) ensureNegativeConstraintIntegrity(ctx context.Context, appName string, spaceConstraints set.Strings) error {
-	if spaceConstraints.Contains("^" + n.newSpace) {
+	if spaceConstraints.Contains(fmt.Sprintf("^%v", n.newSpace)) {
 		msg := fmt.Sprintf("moving subnet(s) to space %q violates space constraints "+
 			"for application %q: %s", n.newSpace, appName, strings.Join(spaceConstraints.SortedValues(), ", "))
 
@@ -265,7 +265,7 @@ func (n *affectedNetworks) ensurePositiveConstraintIntegrity(ctx context.Context
 			continue
 		}
 
-		conSpace := n.spaces.GetByName(spaceName)
+		conSpace := n.spaces.GetByName(network.SpaceName(spaceName))
 		if conSpace == nil {
 			return errors.NotFoundf("space with name %q", spaceName)
 		}
@@ -317,7 +317,7 @@ func (n *affectedNetworks) ensureApplicationBindingsIntegrity(ctx context.Contex
 
 	for endpoint, boundSpaceID := range appBindings.Map() {
 		for _, unitNet := range unitNets {
-			boundSpace := n.spaces.GetByID(boundSpaceID)
+			boundSpace := n.spaces.GetByID(network.SpaceUUID(boundSpaceID))
 			if boundSpace == nil {
 				return errors.NotFoundf("space with ID %q", boundSpaceID)
 			}

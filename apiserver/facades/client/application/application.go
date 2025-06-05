@@ -587,7 +587,7 @@ func (api *APIBase) deployApplication(
 		Storage:           args.Storage,
 		Devices:           args.Devices,
 		AttachStorage:     attachStorage,
-		EndpointBindings:  args.EndpointBindings,
+		EndpointBindings:  transformBindings(args.EndpointBindings),
 		Resources:         args.Resources,
 		Force:             args.Force,
 	}, api.logger, api.clock)
@@ -1280,12 +1280,12 @@ func (api *APIBase) mapExposedEndpointParams(ctx context.Context, params map[str
 		if len(exposeDetails.ExposeToSpaces) != 0 {
 			spaceIDs := make([]string, len(exposeDetails.ExposeToSpaces))
 			for i, spaceName := range exposeDetails.ExposeToSpaces {
-				sp := spaceInfos.GetByName(spaceName)
+				sp := spaceInfos.GetByName(network.SpaceName(spaceName))
 				if sp == nil {
 					return nil, errors.NotFoundf("space %q", spaceName)
 				}
 
-				spaceIDs[i] = sp.ID
+				spaceIDs[i] = sp.ID.String()
 			}
 			mappedParam.ExposeToSpaceIDs = set.NewStrings(spaceIDs...)
 		}
@@ -2277,7 +2277,7 @@ func (api *APIBase) mapExposedEndpointsFromDomain(ctx context.Context, exposedEn
 
 			spaceNames := make([]string, len(exposeDetails.ExposeToSpaceIDs))
 			for i, spaceID := range exposeDetails.ExposeToSpaceIDs.Values() {
-				sp := spaceInfos.GetByID(spaceID)
+				sp := spaceInfos.GetByID(network.SpaceUUID(spaceID))
 				if sp == nil {
 					return nil, errors.NotFoundf("space with ID %q", spaceID)
 				}
