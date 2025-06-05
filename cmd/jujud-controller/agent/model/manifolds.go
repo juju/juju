@@ -15,8 +15,6 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	caasfirewallerapi "github.com/juju/juju/api/controller/caasfirewaller"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
@@ -482,16 +480,12 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
-				APICallerName:      apiCallerName,
 				BrokerName:         providerTrackerName,
 				DomainServicesName: domainServicesName,
 				ControllerUUID:     agentConfig.Controller().Id(),
 				ModelUUID:          agentConfig.Model().Id(),
-				NewClient: func(caller base.APICaller) caasfirewaller.Client {
-					return caasfirewallerapi.NewClient(caller)
-				},
-				NewWorker: caasfirewaller.NewWorker,
-				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
+				NewWorker:          caasfirewaller.NewWorker,
+				Logger:             config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
 			},
 		)),
 

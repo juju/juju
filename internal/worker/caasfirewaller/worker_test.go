@@ -22,7 +22,9 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
@@ -34,10 +36,8 @@ type workerSuite struct {
 
 	config caasfirewaller.Config
 
-	firewallerAPI      *mocks.MockCAASFirewallerAPI
 	applicationService *mocks.MockApplicationService
 	portService        *mocks.MockPortService
-	lifeGetter         *mocks.MockLifeGetter
 	broker             *mocks.MockCAASBroker
 
 	applicationChanges chan []string
@@ -61,16 +61,8 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	}, `missing ModelUUID not valid`)
 
 	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
-		config.FirewallerAPI = nil
-	}, `missing FirewallerAPI not valid`)
-
-	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
 		config.Broker = nil
 	}, `missing Broker not valid`)
-
-	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
-		config.LifeGetter = nil
-	}, `missing LifeGetter not valid`)
 
 	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
 		config.Logger = nil
@@ -87,19 +79,22 @@ func (s *workerSuite) TestStartStop(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	app1UUID := testingapplication.GenApplicationUUID(c)
+	app2UUID := testingapplication.GenApplicationUUID(c)
+
 	sent := make(chan struct{})
 	go func() {
 		defer close(sent)
 
 		// trigger to start app workers.
 		select {
-		case s.applicationChanges <- []string{"app1", "app2"}:
+		case s.applicationChanges <- []string{app1UUID.String(), app2UUID.String()}:
 		case <-time.After(testing.LongWait):
 			c.Fatalf("timed out sending application changes")
 		}
 		// trigger to stop app workers.
 		select {
-		case s.applicationChanges <- []string{"app1", "app2"}:
+		case s.applicationChanges <- []string{app1UUID.String(), app2UUID.String()}:
 		case <-time.After(testing.LongWait):
 			c.Fatalf("timed out sending application changes")
 		}
@@ -111,17 +106,15 @@ func (s *workerSuite) TestStartStop(c *tc.C) {
 	workerCreator := func(
 		controllerUUID string,
 		modelUUID string,
-		appName string,
 		appUUID coreapplication.ID,
-		firewallerAPI caasfirewaller.CAASFirewallerAPI,
 		portService caasfirewaller.PortService,
+		applicationService caasfirewaller.ApplicationService,
 		broker caasfirewaller.CAASBroker,
-		lifeGetter caasfirewaller.LifeGetter,
 		logger logger.Logger,
 	) (worker.Worker, error) {
-		if appName == "app1" {
+		if appUUID == app1UUID {
 			return app1Worker, nil
-		} else if appName == "app2" {
+		} else if appUUID == app2UUID {
 			return app2Worker, nil
 		}
 		return nil, errors.New("never happen")
@@ -129,34 +122,29 @@ func (s *workerSuite) TestStartStop(c *tc.C) {
 
 	done := make(chan struct{})
 
-	app1UUID := testingapplication.GenApplicationUUID(c)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "app1").Return(app1UUID, nil).MinTimes(1)
-
-	app2UUID := testingapplication.GenApplicationUUID(c)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "app2").Return(app2UUID, nil).MinTimes(1)
-
 	charmInfo := &charms.CharmInfo{
-		Meta:     &charm.Meta{},
-		Manifest: &charm.Manifest{Bases: []charm.Base{{}}}, // bases make it a v2 charm
+		Meta:     &internalcharm.Meta{},
+		Manifest: &internalcharm.Manifest{Bases: []internalcharm.Base{{}}}, // bases make it a v2 charm
 	}
-	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app1").Return(charmInfo, nil)
-	s.lifeGetter.EXPECT().Life(gomock.Any(), "app1").Return(life.Alive, nil)
+
+	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app1UUID).Return(charmInfo.Charm(), charm.CharmLocator{}, nil)
+	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), app1UUID).Return(life.Alive, nil)
 	// Added app1's worker to catacomb.
 	app1Worker.EXPECT().Wait().Return(nil)
 
-	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app2").Return(charmInfo, nil)
-	s.lifeGetter.EXPECT().Life(gomock.Any(), "app2").Return(life.Alive, nil)
+	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app2UUID).Return(charmInfo.Charm(), charm.CharmLocator{}, nil)
+	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), app2UUID).Return(life.Alive, nil)
 	// Added app2's worker to catacomb.
 	app2Worker.EXPECT().Wait().Return(nil)
 
-	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app1").Return(charmInfo, nil)
-	s.lifeGetter.EXPECT().Life(gomock.Any(), "app1").Return(life.Value(""), errors.NotFoundf("%q", "app1"))
+	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app1UUID).Return(charmInfo.Charm(), charm.CharmLocator{}, nil)
+	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), app1UUID).Return(life.Value(""), applicationerrors.ApplicationNotFound)
 	// Stopped app1's worker because it's removed.
 	app1Worker.EXPECT().Kill()
 	app1Worker.EXPECT().Wait().Return(nil)
 
-	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app2").Return(charmInfo, nil)
-	s.lifeGetter.EXPECT().Life(gomock.Any(), "app2").Return(life.Dead, nil)
+	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app2UUID).Return(charmInfo.Charm(), charm.CharmLocator{}, nil)
+	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), app2UUID).Return(life.Dead, nil)
 	// Stopped app2's worker because it's dead.
 	app2Worker.EXPECT().Kill()
 	app2Worker.EXPECT().Wait().DoAndReturn(func() error {
@@ -189,25 +177,30 @@ func (s *workerSuite) TestV1CharmSkipsProcessing(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	app1UUID := testingapplication.GenApplicationUUID(c)
+
 	sent := make(chan struct{})
 	go func() {
 		defer close(sent)
 
 		select {
-		case s.applicationChanges <- []string{"app1"}:
+		case s.applicationChanges <- []string{app1UUID.String()}:
 		case <-time.After(testing.LongWait):
 			c.Fatalf("timed out sending application changes")
 		}
 	}()
 
 	var done = make(chan struct{})
-	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app1").DoAndReturn(func(ctx context.Context, s string) (*charms.CharmInfo, error) {
-		close(done)
-		return &charms.CharmInfo{ // v1 charm
-			Meta:     &charm.Meta{},
-			Manifest: &charm.Manifest{},
-		}, nil
-	})
+	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app1UUID).DoAndReturn(
+		func(ctx context.Context, id coreapplication.ID) (internalcharm.Charm, charm.CharmLocator, error) {
+			close(done)
+			charmInfo := &charms.CharmInfo{ // v1 charm
+				Meta:     &internalcharm.Meta{},
+				Manifest: &internalcharm.Manifest{},
+			}
+			return charmInfo.Charm(), charm.CharmLocator{}, nil
+		},
+	)
 
 	w, err := caasfirewaller.NewWorkerForTest(s.config, nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -233,22 +226,26 @@ func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	app1UUID := testingapplication.GenApplicationUUID(c)
+
 	sent := make(chan struct{})
 	go func() {
 		defer close(sent)
 
 		select {
-		case s.applicationChanges <- []string{"app1"}:
+		case s.applicationChanges <- []string{app1UUID.String()}:
 		case <-time.After(testing.LongWait):
 			c.Fatalf("timed out sending application changes")
 		}
 	}()
 
 	var done = make(chan struct{})
-	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app1").DoAndReturn(func(ctx context.Context, s string) (*charms.CharmInfo, error) {
-		close(done)
-		return nil, errors.NotFoundf("app1")
-	})
+	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app1UUID).DoAndReturn(
+		func(ctx context.Context, id coreapplication.ID) (internalcharm.Charm, charm.CharmLocator, error) {
+			close(done)
+			return nil, charm.CharmLocator{}, errors.NotFoundf("app1")
+		},
+	)
 
 	w, err := caasfirewaller.NewWorkerForTest(s.config, nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -275,26 +272,21 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.applicationChanges = make(chan []string)
 
-	s.firewallerAPI = mocks.NewMockCAASFirewallerAPI(ctrl)
-
-	s.firewallerAPI.EXPECT().WatchApplications(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
-		return watchertest.NewMockStringsWatcher(s.applicationChanges), nil
-	}).AnyTimes()
-
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.portService = mocks.NewMockPortService(ctrl)
 
-	s.lifeGetter = mocks.NewMockLifeGetter(ctrl)
+	s.applicationService.EXPECT().WatchApplications(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
+		return watchertest.NewMockStringsWatcher(s.applicationChanges), nil
+	}).AnyTimes()
+
 	s.broker = mocks.NewMockCAASBroker(ctrl)
 
 	s.config = caasfirewaller.Config{
 		ControllerUUID:     testing.ControllerTag.Id(),
 		ModelUUID:          testing.ModelTag.Id(),
-		FirewallerAPI:      s.firewallerAPI,
 		ApplicationService: s.applicationService,
 		PortService:        s.portService,
 		Broker:             s.broker,
-		LifeGetter:         s.lifeGetter,
 		Logger:             loggertesting.WrapCheckLog(c),
 	}
 	return ctrl

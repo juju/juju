@@ -87,6 +87,50 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationID(c *tc.C) {
 	})
 }
 
+func (s *applicationServiceSuite) TestGetApplicationName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationName(gomock.Any(), id).Return("foo", nil)
+
+	name, err := s.service.GetApplicationName(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, "foo")
+}
+
+func (s *applicationServiceSuite) TestGetApplicationNameNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationName(gomock.Any(), id).Return("", applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.GetApplicationName(c.Context(), id)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationIDByName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, nil)
+
+	obtainedID, err := s.service.GetApplicationIDByName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedID, tc.Equals, id)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.GetApplicationIDByName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *applicationServiceSuite) TestGetCharmLocatorByApplicationName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

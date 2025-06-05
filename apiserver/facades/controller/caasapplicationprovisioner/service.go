@@ -54,7 +54,7 @@ type ApplicationService interface {
 	SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, scaling bool) error
 	GetApplicationScalingState(ctx context.Context, name string) (service.ScalingState, error)
 	GetApplicationScale(ctx context.Context, name string) (int, error)
-	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+	GetApplicationLifeByName(ctx context.Context, name string) (life.Value, error)
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)
 	// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
 	// It returns an error if the charm can not be found by the name. This can also

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 )
 
 type applicationWorker struct {
@@ -25,8 +26,8 @@ type applicationWorker struct {
 	appName        string
 	appUUID        application.ID
 
-	firewallerAPI CAASFirewallerAPI
-	portService   PortService
+	portService        PortService
+	applicationService ApplicationService
 
 	broker         CAASBroker
 	portMutator    PortMutator
@@ -34,8 +35,6 @@ type applicationWorker struct {
 
 	appWatcher   watcher.NotifyWatcher
 	portsWatcher watcher.NotifyWatcher
-
-	lifeGetter LifeGetter
 
 	initial           bool
 	previouslyExposed bool
@@ -48,25 +47,21 @@ type applicationWorker struct {
 func newApplicationWorker(
 	controllerUUID string,
 	modelUUID string,
-	appName string,
 	appUUID application.ID,
-	firewallerAPI CAASFirewallerAPI,
 	portService PortService,
+	applicationSewrvice ApplicationService,
 	broker CAASBroker,
-	lifeGetter LifeGetter,
 	logger logger.Logger,
 ) (worker.Worker, error) {
 	w := &applicationWorker{
-		controllerUUID: controllerUUID,
-		modelUUID:      modelUUID,
-		appName:        appName,
-		appUUID:        appUUID,
-		firewallerAPI:  firewallerAPI,
-		portService:    portService,
-		broker:         broker,
-		lifeGetter:     lifeGetter,
-		initial:        true,
-		logger:         logger,
+		controllerUUID:     controllerUUID,
+		modelUUID:          modelUUID,
+		appUUID:            appUUID,
+		portService:        portService,
+		applicationService: applicationSewrvice,
+		broker:             broker,
+		initial:            true,
+		logger:             logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "caas-firewaller-application",
@@ -89,7 +84,11 @@ func (w *applicationWorker) Wait() error {
 }
 
 func (w *applicationWorker) setUp(ctx context.Context) (err error) {
-	w.appWatcher, err = w.firewallerAPI.WatchApplication(ctx, w.appName)
+	w.appName, err = w.applicationService.GetApplicationName(ctx, w.appUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.appWatcher, err = w.applicationService.WatchApplicationExposed(ctx, w.appName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -204,9 +203,9 @@ func (w *applicationWorker) onApplicationChanged(ctx context.Context) (err error
 	defer func() {
 		// Not found could be because the app got removed or there's
 		// no container service created yet as the app is still being set up.
-		if errors.Is(err, errors.NotFound) {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			// Perhaps the app got removed while we were processing.
-			if _, err2 := w.lifeGetter.Life(ctx, w.appName); err2 != nil {
+			if _, err2 := w.applicationService.GetApplicationLife(ctx, w.appUUID); err2 != nil {
 				err = err2
 				return
 			}
@@ -216,7 +215,7 @@ func (w *applicationWorker) onApplicationChanged(ctx context.Context) (err error
 		}
 	}()
 
-	exposed, err := w.firewallerAPI.IsExposed(ctx, w.appName)
+	exposed, err := w.applicationService.IsApplicationExposed(ctx, w.appName)
 	if err != nil {
 		return errors.Trace(err)
 	}

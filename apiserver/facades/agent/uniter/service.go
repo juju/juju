@@ -78,8 +78,8 @@ type ModelProviderService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	// GetApplicationLife looks up the life of the specified application.
-	GetApplicationLife(ctx context.Context, unitName string) (life.Value, error)
+	// GetApplicationLifeByName looks up the life of the specified application.
+	GetApplicationLifeByName(ctx context.Context, name string) (life.Value, error)
 
 	// GetUnitLife looks up the life of the specified unit.
 	GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.Value, error)

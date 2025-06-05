@@ -46,6 +46,11 @@ import (
 // ApplicationState describes retrieval and persistence methods for
 // applications.
 type ApplicationState interface {
+	// GetApplicationName returns the name of the specified application.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotFound] if the application does not exist
+	GetApplicationName(context.Context, coreapplication.ID) (string, error)
+
 	// GetApplicationIDByName returns the application ID for the named application.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
@@ -125,7 +130,13 @@ type ApplicationState interface {
 	// returning an error satisfying
 	// [applicationerrors.ApplicationNotFoundError] if the application is not
 	// found.
-	GetApplicationLife(ctx context.Context, appName string) (coreapplication.ID, life.Life, error)
+	GetApplicationLife(ctx context.Context, appID coreapplication.ID) (life.Life, error)
+
+	// GetApplicationLifeByName looks up the life of the specified application,
+	// returning an error satisfying
+	// [applicationerrors.ApplicationNotFoundError] if the application is not
+	// found.
+	GetApplicationLifeByName(ctx context.Context, appName string) (coreapplication.ID, life.Life, error)
 
 	// SetApplicationLife sets the life of the specified application.
 	SetApplicationLife(context.Context, coreapplication.ID, life.Life) error
@@ -283,6 +294,10 @@ type ApplicationState interface {
 	// query for unit insert and delete events on a specific net node, as well as
 	// the watcher namespace to watch.
 	InitialWatchStatementUnitInsertDeleteOnNetNode(netNodeUUID string) (string, eventsource.NamespaceQuery)
+
+	// InitialWatchStatementApplications returns the initial namespace
+	// query for applications events, as well as the watcher namespace to watch.
+	InitialWatchStatementApplications() (string, eventsource.NamespaceQuery)
 
 	// GetAddressesHash returns the sha256 hash of the application unit and cloud
 	// service (if any) addresses along with the associated endpoint bindings.
@@ -692,6 +707,24 @@ func (s *Service) SetApplicationCharm(ctx context.Context, appName string, param
 	return nil
 }
 
+// GetApplicationName returns the name of the specified application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
+func (s *Service) GetApplicationName(ctx context.Context, appID coreapplication.ID) (string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appID.Validate(); err != nil {
+		return "", errors.Errorf("application ID: %w", err)
+	}
+
+	name, err := s.st.GetApplicationName(ctx, appID)
+	if err != nil {
+		return "", errors.Errorf("getting application name: %w", err)
+	}
+	return name, nil
+}
+
 // GetApplicationIDByName returns an application ID by application name. It
 // returns an error if the application can not be found by the name.
 //
@@ -838,14 +871,28 @@ type Broker interface {
 	Application(string, caas.DeploymentType) caas.Application
 }
 
-// GetApplicationLife looks up the life of the specified application, returning
+// GetApplicationLifelooks up the life of the specified application, returning
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
-func (s *Service) GetApplicationLife(ctx context.Context, appName string) (corelife.Value, error) {
+func (s *Service) GetApplicationLife(ctx context.Context, appID coreapplication.ID) (corelife.Value, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	_, appLife, err := s.st.GetApplicationLife(ctx, appName)
+	appLife, err := s.st.GetApplicationLife(ctx, appID)
+	if err != nil {
+		return "", errors.Errorf("getting life for %q: %w", appID, err)
+	}
+	return appLife.Value()
+}
+
+// GetApplicationLifeByName looks up the life of the specified application, returning
+// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+// application is not found.
+func (s *Service) GetApplicationLifeByName(ctx context.Context, appName string) (corelife.Value, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	_, appLife, err := s.st.GetApplicationLifeByName(ctx, appName)
 	if err != nil {
 		return "", errors.Errorf("getting life for %q: %w", appName, err)
 	}

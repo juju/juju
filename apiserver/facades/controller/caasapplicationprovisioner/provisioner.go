@@ -203,7 +203,7 @@ func (a *APIGroup) Life(ctx context.Context, args params.Entities) (params.LifeR
 		var lifeValue life.Value
 		switch tag.Kind() {
 		case names.ApplicationTagKind:
-			lifeValue, err = a.applicationService.GetApplicationLife(ctx, tag.Id())
+			lifeValue, err = a.applicationService.GetApplicationLifeByName(ctx, tag.Id())
 			if errors.Is(err, applicationerrors.ApplicationNotFound) {
 				err = errors.NotFoundf("application %s", tag.Id())
 			}

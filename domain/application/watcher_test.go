@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -897,8 +896,8 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineInitialEvents(c *tc.C) {
 
 	select {
 	case initial := <-watcher.Changes():
-		c.Assert(initial, tc.DeepEquals, []string{"foo/0", "foo/2"})
-	case <-time.After(testing.LongWait):
+		c.Assert(initial, tc.SameContents, []string{"foo/0", "foo/2"})
+	case <-ctx.Done():
 		c.Fatalf("timed out waiting for initial change")
 	}
 }
@@ -969,7 +968,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert_delete")
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
@@ -1045,11 +1044,71 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineBadName(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert_delete")
 	svc := s.setupService(c, factory)
 
 	_, err := svc.WatchUnitAddRemoveOnMachine(c.Context(), "bad-name")
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
+}
+
+func (s *watcherSuite) TestWatchApplicationsInitialEvent(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
+	svc := s.setupService(c, factory)
+
+	app1 := s.createCAASApplication(c, svc, "foo")
+	app2 := s.createCAASApplication(c, svc, "bar")
+
+	ctx := c.Context()
+	watcher, err := svc.WatchApplications(ctx)
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case initial := <-watcher.Changes():
+		c.Assert(initial, tc.SameContents, []string{app1.String(), app2.String()})
+	case <-ctx.Done():
+		c.Fatalf("timed out waiting for initial change")
+	}
+}
+
+func (s *watcherSuite) TestWatchApplications(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
+	svc := s.setupService(c, factory)
+
+	ctx := c.Context()
+	watcher, err := svc.WatchApplications(ctx)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	var appID coreapplication.ID
+	harness.AddTest(func(c *tc.C) {
+		appID = s.createCAASApplication(c, svc, "foo")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{appID.String()}))
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+	UPDATE application SET name = ?
+	WHERE uuid=?`, "bar", appID)
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{appID.String()}))
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			return svc.DeleteApplication(ctx, "bar")
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{appID.String()}))
+	})
+
+	harness.Run(c, []string{})
 }
 
 func (s *watcherSuite) TestWatchApplicationExposed(c *tc.C) {

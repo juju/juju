@@ -44,9 +44,9 @@ type ModelService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	// GetApplicationLife returns the life value of the application with the
+	// GetApplicationLifeByName returns the life value of the application with the
 	// given name.
-	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+	GetApplicationLifeByName(ctx context.Context, name string) (life.Value, error)
 }
 
 // RelationService provides access to the relation service.

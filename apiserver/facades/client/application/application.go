@@ -2131,7 +2131,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
-		appLife, err := api.applicationService.GetApplicationLife(ctx, tag.Name)
+		appID, err := api.applicationService.GetApplicationIDByName(ctx, tag.Name)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
 			continue
@@ -2140,7 +2140,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
-		appID, err := api.applicationService.GetApplicationIDByName(ctx, tag.Name)
+		appLife, err := api.applicationService.GetApplicationLife(ctx, appID)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
 			continue

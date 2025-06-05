@@ -316,7 +316,7 @@ func (c *precheckContext) checkApplications(ctx context.Context) (map[string][]P
 
 	appUnits := make(map[string][]PrecheckUnit, len(apps))
 	for _, app := range apps {
-		appLife, err := c.applicationService.GetApplicationLife(ctx, app.Name())
+		appLife, err := c.applicationService.GetApplicationLifeByName(ctx, app.Name())
 		if err != nil {
 			if errors.Is(err, applicationerrors.ApplicationNotFound) {
 				err = errors.NotFoundf("application %s", app.Name())

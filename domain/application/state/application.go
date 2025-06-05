@@ -730,7 +730,39 @@ WHERE application_uuid = $applicationScale.application_uuid
 // GetApplicationLife looks up the life of the specified application, returning
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
-func (st *State) GetApplicationLife(ctx context.Context, appName string) (coreapplication.ID, life.Life, error) {
+func (st *State) GetApplicationLife(ctx context.Context, appUUID coreapplication.ID) (life.Life, error) {
+	ident := applicationID{ID: appUUID}
+	db, err := st.DB()
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &lifeID.* FROM application
+WHERE uuid = $applicationID.uuid
+`, lifeID{}, ident)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	var life lifeID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).Get(&life)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("application %s not found", appUUID).Add(applicationerrors.ApplicationNotFound)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+	return life.LifeID, nil
+}
+
+// GetApplicationLifeByName looks up the life of the specified application, returning
+// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+// application is not found.
+func (st *State) GetApplicationLifeByName(ctx context.Context, appName string) (coreapplication.ID, life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", -1, errors.Capture(err)
@@ -1236,6 +1268,28 @@ WHERE a.name = $applicationName.name
 		return hashes, nil
 	}
 	return "application_config_hash", queryFunc
+}
+
+// InitialWatchStatementApplications returns the initial namespace
+// query for applications events, as well as the watcher namespace to watch.
+func (st *State) InitialWatchStatementApplications() (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		stmt, err := st.Prepare(`
+SELECT &applicationID.* FROM application
+`, applicationID{})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		var result []applicationID
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			return tx.Query(ctx, stmt).GetAll(&result)
+		})
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return nil, errors.Errorf("querying for initial watch statement: %w", err)
+		}
+		return transform.Slice(result, func(a applicationID) string { return a.ID.String() }), nil
+	}
+	return "application", queryFunc
 }
 
 // GetNetNodeUUIDByUnitName returns the net node UUID for the named unit or the
@@ -2303,9 +2357,30 @@ WHERE uuid = $applicationID.uuid;
 	return ident.UUID, charmConfig, nil
 }
 
+// GetApplicationName returns the name of the specified application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
+func (st *State) GetApplicationName(ctx context.Context, appID coreapplication.ID) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var name string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		name, err = st.getApplicationName(ctx, tx, appID)
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return name, nil
+}
+
 // GetApplicationIDByName returns the application ID for the named application.
-// If no application is found, an error satisfying
-// [applicationerrors.ApplicationNotFound] is returned.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
 func (st *State) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error) {
 	db, err := st.DB()
 	if err != nil {
