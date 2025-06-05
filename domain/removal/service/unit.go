@@ -20,17 +20,17 @@ import (
 // UnitState describes retrieval and persistence
 // methods specific to unit removal.
 type UnitState interface {
-	// UnitExists returns true if a unit exists with the input name.
+	// UnitExists returns true if a unit exists with the input unit UUID.
 	UnitExists(ctx context.Context, unitUUID string) (bool, error)
 
 	// EnsureUnitNotAlive ensures that there is no unit
-	// identified by the input name, that is still alive.
+	// identified by the input unit UUID, that is still alive.
 	// If the unit is the last one on the machine, the machine is also set
 	// to dying. The affected machine UUID is returned.
 	EnsureUnitNotAlive(ctx context.Context, unitUUID string) (machineUUID string, err error)
 
 	// UnitScheduleRemoval schedules a removal job for the unit with the
-	// input name, qualified with the input force boolean.
+	// input unit UUID, qualified with the input force boolean.
 	UnitScheduleRemoval(ctx context.Context, removalUUID, unitUUID string, force bool, when time.Time) error
 
 	// GetUnitLife returns the life of the unit with the input UUID.

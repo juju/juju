@@ -13,6 +13,8 @@ const (
 	RelationJob JobType = iota
 	// UnitJob indicates a job to remove a unit.
 	UnitJob
+	// ApplicationJob indicates a job to remove an application.
+	ApplicationJob
 )
 
 // Job is a removal job for a single entity.

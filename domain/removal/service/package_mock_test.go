@@ -42,6 +42,121 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ApplicationExists mocks base method.
+func (m *MockState) ApplicationExists(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplicationExists", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplicationExists indicates an expected call of ApplicationExists.
+func (mr *MockStateMockRecorder) ApplicationExists(arg0, arg1 any) *MockStateApplicationExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationExists", reflect.TypeOf((*MockState)(nil).ApplicationExists), arg0, arg1)
+	return &MockStateApplicationExistsCall{Call: call}
+}
+
+// MockStateApplicationExistsCall wrap *gomock.Call
+type MockStateApplicationExistsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateApplicationExistsCall) Return(arg0 bool, arg1 error) *MockStateApplicationExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateApplicationExistsCall) Do(f func(context.Context, string) (bool, error)) *MockStateApplicationExistsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateApplicationExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateApplicationExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ApplicationScheduleRemoval mocks base method.
+func (m *MockState) ApplicationScheduleRemoval(arg0 context.Context, arg1, arg2 string, arg3 bool, arg4 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplicationScheduleRemoval", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ApplicationScheduleRemoval indicates an expected call of ApplicationScheduleRemoval.
+func (mr *MockStateMockRecorder) ApplicationScheduleRemoval(arg0, arg1, arg2, arg3, arg4 any) *MockStateApplicationScheduleRemovalCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationScheduleRemoval", reflect.TypeOf((*MockState)(nil).ApplicationScheduleRemoval), arg0, arg1, arg2, arg3, arg4)
+	return &MockStateApplicationScheduleRemovalCall{Call: call}
+}
+
+// MockStateApplicationScheduleRemovalCall wrap *gomock.Call
+type MockStateApplicationScheduleRemovalCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateApplicationScheduleRemovalCall) Return(arg0 error) *MockStateApplicationScheduleRemovalCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateApplicationScheduleRemovalCall) Do(f func(context.Context, string, string, bool, time.Time) error) *MockStateApplicationScheduleRemovalCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateApplicationScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockStateApplicationScheduleRemovalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DeleteApplication mocks base method.
+func (m *MockState) DeleteApplication(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteApplication", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteApplication indicates an expected call of DeleteApplication.
+func (mr *MockStateMockRecorder) DeleteApplication(arg0, arg1 any) *MockStateDeleteApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteApplication", reflect.TypeOf((*MockState)(nil).DeleteApplication), arg0, arg1)
+	return &MockStateDeleteApplicationCall{Call: call}
+}
+
+// MockStateDeleteApplicationCall wrap *gomock.Call
+type MockStateDeleteApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteApplicationCall) Return(arg0 error) *MockStateDeleteApplicationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteApplicationCall) Do(f func(context.Context, string) error) *MockStateDeleteApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteApplicationCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteJob mocks base method.
 func (m *MockState) DeleteJob(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -194,6 +309,44 @@ func (c *MockStateDeleteUnitCall) DoAndReturn(f func(context.Context, string) er
 	return c
 }
 
+// EnsureApplicationNotAlive mocks base method.
+func (m *MockState) EnsureApplicationNotAlive(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureApplicationNotAlive", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureApplicationNotAlive indicates an expected call of EnsureApplicationNotAlive.
+func (mr *MockStateMockRecorder) EnsureApplicationNotAlive(arg0, arg1 any) *MockStateEnsureApplicationNotAliveCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureApplicationNotAlive", reflect.TypeOf((*MockState)(nil).EnsureApplicationNotAlive), arg0, arg1)
+	return &MockStateEnsureApplicationNotAliveCall{Call: call}
+}
+
+// MockStateEnsureApplicationNotAliveCall wrap *gomock.Call
+type MockStateEnsureApplicationNotAliveCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateEnsureApplicationNotAliveCall) Return(arg0 error) *MockStateEnsureApplicationNotAliveCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateEnsureApplicationNotAliveCall) Do(f func(context.Context, string) error) *MockStateEnsureApplicationNotAliveCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateEnsureApplicationNotAliveCall) DoAndReturn(f func(context.Context, string) error) *MockStateEnsureApplicationNotAliveCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // EnsureRelationNotAlive mocks base method.
 func (m *MockState) EnsureRelationNotAlive(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -306,6 +459,45 @@ func (c *MockStateGetAllJobsCall) Do(f func(context.Context) ([]removal.Job, err
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetAllJobsCall) DoAndReturn(f func(context.Context) ([]removal.Job, error)) *MockStateGetAllJobsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationLife mocks base method.
+func (m *MockState) GetApplicationLife(arg0 context.Context, arg1 string) (life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationLife indicates an expected call of GetApplicationLife.
+func (mr *MockStateMockRecorder) GetApplicationLife(arg0, arg1 any) *MockStateGetApplicationLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLife", reflect.TypeOf((*MockState)(nil).GetApplicationLife), arg0, arg1)
+	return &MockStateGetApplicationLifeCall{Call: call}
+}
+
+// MockStateGetApplicationLifeCall wrap *gomock.Call
+type MockStateGetApplicationLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationLifeCall) Return(arg0 life.Life, arg1 error) *MockStateGetApplicationLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationLifeCall) Do(f func(context.Context, string) (life.Life, error)) *MockStateGetApplicationLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockStateGetApplicationLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

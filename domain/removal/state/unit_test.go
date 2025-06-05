@@ -9,56 +9,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/caas"
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/life"
-	domaintesting "github.com/juju/juju/domain/testing"
-	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
-	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
-	internaltesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type unitSuite struct {
-	changestreamtesting.ModelSuite
+	baseSuite
 }
 
 func TestUnitSuite(t *testing.T) {
 	tc.Run(t, &unitSuite{})
-}
-
-func (s *unitSuite) SetUpTest(c *tc.C) {
-	s.ModelSuite.SetUpTest(c)
-
-	modelUUID := uuid.MustNewUUID()
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
-		`, modelUUID.String(), internaltesting.ControllerTag.Id())
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *unitSuite) TestUnitExists(c *tc.C) {
@@ -396,199 +363,4 @@ func (s *unitSuite) expectK8sPodCount(c *tc.C, unitUUID unit.UUID, expected int)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, expected)
-}
-
-func (s *unitSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *applicationservice.WatchableService {
-	modelDB := func() (database.TxnRunner, error) {
-		return s.ModelTxnRunner(), nil
-	}
-
-	notSupportedProviderGetter := func(ctx context.Context) (applicationservice.Provider, error) {
-		return nil, coreerrors.NotSupported
-	}
-	notSupportedFeatureProviderGetter := func(ctx context.Context) (applicationservice.SupportedFeatureProvider, error) {
-		return nil, coreerrors.NotSupported
-	}
-	notSupportedCAASApplicationproviderGetter := func(ctx context.Context) (applicationservice.CAASApplicationProvider, error) {
-		return caasApplicationProvider{}, nil
-	}
-
-	return applicationservice.NewWatchableService(
-		applicationstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
-		domaintesting.NoopLeaderEnsurer(),
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return provider.CommonStorageProviders()
-		}),
-		"",
-		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
-		nil, notSupportedProviderGetter,
-		notSupportedFeatureProviderGetter, notSupportedCAASApplicationproviderGetter, nil,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
-		clock.WallClock,
-		loggertesting.WrapCheckLog(c),
-	)
-}
-
-func (s *unitSuite) createIAASApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
-	ch := &stubCharm{name: "test-charm"}
-	appID, err := svc.CreateIAASApplication(c.Context(), name, ch, corecharm.Origin{
-		Source: corecharm.CharmHub,
-		Platform: corecharm.Platform{
-			Channel:      "24.04",
-			OS:           "ubuntu",
-			Architecture: "amd64",
-		},
-	}, applicationservice.AddApplicationArgs{
-		ReferenceName: name,
-		DownloadInfo: &charm.DownloadInfo{
-			Provenance:  charm.ProvenanceDownload,
-			DownloadURL: "http://example.com",
-		},
-	}, units...)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return appID
-}
-
-func (s *unitSuite) createCAASApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
-	ch := &stubCharm{name: "test-charm"}
-	appID, err := svc.CreateCAASApplication(c.Context(), name, ch, corecharm.Origin{
-		Source: corecharm.CharmHub,
-		Platform: corecharm.Platform{
-			Channel:      "24.04",
-			OS:           "ubuntu",
-			Architecture: "amd64",
-		},
-	}, applicationservice.AddApplicationArgs{
-		ReferenceName: name,
-		DownloadInfo: &charm.DownloadInfo{
-			Provenance:  charm.ProvenanceDownload,
-			DownloadURL: "http://example.com",
-		},
-	}, units...)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, _, err = svc.RegisterCAASUnit(c.Context(), application.RegisterCAASUnitParams{
-		ApplicationName: name,
-		ProviderID:      name + "-0",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	return appID
-}
-
-func (s *unitSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UUID {
-	var unitUUIDs []unit.UUID
-	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM unit WHERE application_uuid = ?`, appID)
-		if err != nil {
-			return err
-		}
-
-		defer rows.Close()
-		for rows.Next() {
-			var unitUUID unit.UUID
-			if err := rows.Scan(&unitUUID); err != nil {
-				return err
-			}
-			unitUUIDs = append(unitUUIDs, unitUUID)
-		}
-		return rows.Err()
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return unitUUIDs
-}
-
-func (s *unitSuite) getUnitMachineUUID(c *tc.C, unitUUID unit.UUID) machine.UUID {
-	var machineUUIDs []machine.UUID
-	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-SELECT m.uuid
-FROM   machine AS m
-JOIN   net_node AS nn ON nn.uuid = m.net_node_uuid
-JOIN   unit AS u ON u.net_node_uuid = nn.uuid
-WHERE u.uuid = ?
-`, unitUUID)
-		if err != nil {
-			return err
-		}
-
-		defer rows.Close()
-		for rows.Next() {
-			var machineUUID machine.UUID
-			if err := rows.Scan(&machineUUID); err != nil {
-				return err
-			}
-			machineUUIDs = append(machineUUIDs, machineUUID)
-		}
-		return rows.Err()
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(len(machineUUIDs), tc.Equals, 1)
-	return machineUUIDs[0]
-}
-
-type stubCharm struct {
-	name string
-}
-
-func (s *stubCharm) Meta() *internalcharm.Meta {
-	name := s.name
-	if name == "" {
-		name = "test"
-	}
-	return &internalcharm.Meta{
-		Name: name,
-	}
-}
-
-func (s *stubCharm) Manifest() *internalcharm.Manifest {
-	return &internalcharm.Manifest{
-		Bases: []internalcharm.Base{{
-			Name: "ubuntu",
-			Channel: internalcharm.Channel{
-				Risk: internalcharm.Stable,
-			},
-			Architectures: []string{"amd64"},
-		}},
-	}
-}
-
-func (s *stubCharm) Config() *internalcharm.Config {
-	return &internalcharm.Config{
-		Options: map[string]internalcharm.Option{
-			"foo": {
-				Type:    "string",
-				Default: "bar",
-			},
-		},
-	}
-}
-
-func (s *stubCharm) Actions() *internalcharm.Actions {
-	return nil
-}
-
-func (s *stubCharm) Revision() int {
-	return 0
-}
-
-func (s *stubCharm) Version() string {
-	return ""
-}
-
-type caasApplicationProvider struct{}
-
-func (caasApplicationProvider) Application(string, caas.DeploymentType) caas.Application {
-	return &caasApplication{}
-}
-
-type caasApplication struct {
-	caas.Application
-}
-
-func (caasApplication) Units() ([]caas.Unit, error) {
-	return []caas.Unit{{
-		Id: "some-app-0",
-	}}, nil
 }
