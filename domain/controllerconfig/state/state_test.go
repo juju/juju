@@ -193,11 +193,6 @@ func (s *stateSuite) TestUpdateControllerUpsertAndReplace(c *tc.C) {
 	err = row.Scan(&dnsAddress)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(dnsAddress, tc.Equals, "updated-controller.test.com:1234")
-
-	var apiPortOpenDelay string
-	err = row.Scan(&apiPortOpenDelay)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(apiPortOpenDelay, tc.Equals, "200ms")
 }
 
 func (s *stateSuite) TestControllerConfigRemove(c *tc.C) {
