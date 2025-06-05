@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -1225,6 +1226,7 @@ type applicationWatcherServiceSuite struct {
 func TestApplicationWatcherServiceSuite(t *testing.T) {
 	tc.Run(t, &applicationWatcherServiceSuite{})
 }
+
 func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapper(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1246,7 +1248,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 
 	result, err := s.service.watchApplicationsWithPendingCharmsMapper(c.Context(), changes)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.DeepEquals, changes)
+	c.Check(result, tc.DeepEquals, []string{appID.String()})
 }
 
 func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapperInvalidID(c *tc.C) {
@@ -1301,7 +1303,9 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 
 	result, err := s.service.watchApplicationsWithPendingCharmsMapper(c.Context(), changes)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.DeepEquals, changes)
+	c.Check(result, tc.DeepEquals, transform.Slice(changes, func(change changestream.ChangeEvent) string {
+		return change.Changed()
+	}))
 }
 
 func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapperDropped(c *tc.C) {
@@ -1330,13 +1334,13 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	// the pending sequence.
 
 	var dropped []coreapplication.ID
-	var expected []changestream.ChangeEvent
+	var expected []string
 	for i, appID := range appIDs {
 		if rand.IntN(2) == 0 {
 			continue
 		}
 		dropped = append(dropped, appID)
-		expected = append(expected, changes[i])
+		expected = append(expected, changes[i].Changed())
 	}
 
 	s.state.EXPECT().GetApplicationsWithPendingCharmsFromUUIDs(gomock.Any(), appIDs).Return(dropped, nil)
@@ -1372,13 +1376,13 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	// the pending sequence.
 
 	var dropped []coreapplication.ID
-	var expected []changestream.ChangeEvent
+	var expected []string
 	for i, appID := range appIDs {
 		if rand.IntN(2) == 0 {
 			continue
 		}
 		dropped = append(dropped, appID)
-		expected = append(expected, changes[i])
+		expected = append(expected, changes[i].Changed())
 	}
 
 	// Shuffle them to replicate out of order return.

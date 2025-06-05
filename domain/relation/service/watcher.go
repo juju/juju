@@ -172,7 +172,7 @@ func (w *lifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
 	// relationsIgnored is the set of relations which are not relevant to
 	// this unit. No need to evaluate them again.
 	relationsIgnored := set.NewStrings()
-	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 		ctx, span := trace.Start(ctx, trace.NameFromFunc())
 		defer span.End()
 
@@ -180,9 +180,8 @@ func (w *lifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
 		if len(changes) == 0 {
 			return nil, nil
 		}
-		var err error
-		var changeEvents []changestream.ChangeEvent
-		changeEvents, err = w.filterChangeEvents(
+
+		changeEvents, err := w.filterChangeEvents(
 			ctx,
 			changes,
 			relationsIgnored,
@@ -202,30 +201,30 @@ func (w *lifeSuspendedStatusWatcher) filterChangeEvents(
 	ctx context.Context,
 	changes []changestream.ChangeEvent,
 	relationsIgnored set.Strings,
-) ([]changestream.ChangeEvent, error) {
-	var changeEvents []changestream.ChangeEvent
+) ([]string, error) {
+	var changeEvents []string
 
 	// 2 tables can trigger and report the same relation.
 	// Data is gathered from both tables at once, ensure
 	// to only check the data and report a change once for
 	// each relation.
-	changedRelations := make(map[corerelation.UUID]changestream.ChangeEvent)
+	changedRelations := make(map[corerelation.UUID]struct{})
 	for _, change := range changes {
 		changed := change.Changed()
 		if relationsIgnored.Contains(changed) {
 			continue
 		}
 		relUUID := corerelation.UUID(changed)
-		changedRelations[relUUID] = change
+		changedRelations[relUUID] = struct{}{}
 	}
-	for relUUID, change := range changedRelations {
+	for relUUID := range changedRelations {
 		key, err := w.processChange(ctx, relUUID, relationsIgnored)
 		if errors.Is(err, continueError) {
 			continue
 		} else if err != nil {
 			return nil, errors.Capture(err)
 		}
-		changeEvents = append(changeEvents, newMaskedChangeIDEvent(change, key.String()))
+		changeEvents = append(changeEvents, key.String())
 	}
 
 	return changeEvents, nil
@@ -440,20 +439,4 @@ func (s *WatchableService) WatchRelatedUnits(
 		mapper,
 		filters[0],
 		filters[1:]...)
-}
-
-type maskedChangeIDEvent struct {
-	changestream.ChangeEvent
-	id string
-}
-
-func newMaskedChangeIDEvent(change changestream.ChangeEvent, id string) changestream.ChangeEvent {
-	return maskedChangeIDEvent{
-		ChangeEvent: change,
-		id:          id,
-	}
-}
-
-func (m maskedChangeIDEvent) Changed() string {
-	return m.id
 }

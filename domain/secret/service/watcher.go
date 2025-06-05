@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -242,10 +243,13 @@ func obsoleteWatcherMapperFunc(
 		return
 	}
 
-	return func(ctx context.Context, changes []changestream.ChangeEvent) (result []changestream.ChangeEvent, err error) {
+	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 		if len(changes) == 0 {
-			return changes, nil
+			return nil, nil
 		}
+
+		var result []changestream.ChangeEvent
+		var err error
 
 		secretEventValues, revisionEventValues := splitEvents(changes)
 
@@ -295,7 +299,9 @@ func obsoleteWatcherMapperFunc(
 				)
 			}
 		}
-		return result, nil
+		return transform.Slice(result, func(c changestream.ChangeEvent) string {
+			return c.Changed()
+		}), nil
 	}
 }
 
@@ -400,7 +406,7 @@ func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) 
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 		if len(changes) == 0 {
 			return nil, nil
 		}
@@ -413,7 +419,9 @@ func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) 
 		}
 		// We merge the changes to one event to avoid multiple events.
 		// Because the prune worker will prune all obsolete revisions once.
-		return changes[:1], nil
+		return transform.Slice(changes[:1], func(c changestream.ChangeEvent) string {
+			return c.Changed()
+		}), nil
 	}
 
 	wObsolete, err := s.watcherFactory.NewNotifyMapperWatcher(

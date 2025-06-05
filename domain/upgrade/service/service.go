@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
@@ -186,7 +188,7 @@ func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID
 		return nil, errors.Capture(err)
 	}
 
-	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) (_ []changestream.ChangeEvent, err error) {
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) (_ []string, err error) {
 		ctx, span := trace.Start(ctx, trace.NameFromFunc())
 		defer span.End()
 
@@ -195,10 +197,12 @@ func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID
 			return nil, errors.Capture(err)
 		}
 		// Only dispatch if all controllers are ready.
-		if ready {
-			return changes, nil
+		if !ready {
+			return nil, nil
 		}
-		return nil, nil
+		return transform.Slice(changes, func(c changestream.ChangeEvent) string {
+			return c.Changed()
+		}), nil
 	}
 	return s.watcherFactory.NewNotifyMapperWatcher(
 		mapper,
@@ -217,7 +221,7 @@ func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID
 		return nil, errors.Capture(err)
 	}
 
-	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) (_ []changestream.ChangeEvent, err error) {
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) (_ []string, err error) {
 		ctx, span := trace.Start(ctx, trace.NameFromFunc())
 		defer span.End()
 
@@ -225,10 +229,12 @@ func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		if info.State == state {
-			return changes, nil
+		if info.State != state {
+			return nil, nil
 		}
-		return nil, nil
+		return transform.Slice(changes, func(c changestream.ChangeEvent) string {
+			return c.Changed()
+		}), nil
 	}
 	return s.watcherFactory.NewNotifyMapperWatcher(
 		mapper,

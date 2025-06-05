@@ -52,14 +52,13 @@ func (st *State) InitialWatchRelatedUnits(unitName coreunit.Name, relationUUID c
 				errors.Capture(err)
 		},
 		// Mapper.
-		func(ctx context.Context, events []changestream.ChangeEvent) ([]changestream.
-			ChangeEvent, error) {
+		func(ctx context.Context, events []changestream.ChangeEvent) ([]string, error) {
 			db, err := st.DB()
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
 
-			var out []changestream.ChangeEvent
+			var out []string
 			err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 				var relatedUnits set.Strings
 				var unitByRelationUnit map[string]string
@@ -128,7 +127,7 @@ func (st *State) InitialWatchRelatedUnits(unitName coreunit.Name, relationUUID c
 						st.logger.Warningf(ctx, "watching related unit: unexpected namespace %q", event.Namespace())
 						continue
 					}
-					out = append(out, event)
+					out = append(out, event.Changed())
 				}
 				return nil
 			})

@@ -677,7 +677,9 @@ func (s *Service) GetModelLife(ctx context.Context, uuid coremodel.UUID) (life.V
 	return result.Value()
 }
 
-// GetModelByNameAndOwner returns the model associated with the given model name and owner name.
+// GetModelByNameAndOwner returns the model associated with the given model name
+// and owner name.
+//
 // The following errors may be returned:
 // - [modelerrors.NotFound] if no model exists
 // - [accesserrors.UserNameNotValid] if ownerName is zero
@@ -691,11 +693,11 @@ func (s *Service) GetModelByNameAndOwner(ctx context.Context, name string, owner
 	return s.st.GetModelByName(ctx, ownerName, name)
 }
 
-// getWatchActivatedModelsMapper returns a mapper function that filters change events to
-// include only those associated with activated models.
-// The subset of changes returned is maintained in the same order as they are received.
+// getWatchActivatedModelsMapper returns a mapper function that filters change
+// events to include only those associated with activated models. The subset of
+// changes returned is maintained in the same order as they are received.
 func getWatchActivatedModelsMapper(st State) eventsource.Mapper {
-	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 		modelUUIDs := make([]coremodel.UUID, len(changes))
 		for i, change := range changes {
 			modelUUIDs[i] = coremodel.UUID(change.Changed())
@@ -704,7 +706,8 @@ func getWatchActivatedModelsMapper(st State) eventsource.Mapper {
 		// Retrieve all activate status of all models with associated uuids
 		activatedModelUUIDs, err := st.GetActivatedModelUUIDs(ctx, modelUUIDs)
 
-		// There will be no errors returned if there are no activated models found.
+		// There will be no errors returned if there are no activated models
+		// found.
 		if err != nil {
 			return nil, err
 		}
@@ -718,17 +721,19 @@ func getWatchActivatedModelsMapper(st State) eventsource.Mapper {
 			activatedModelUUIDToChangeEventMap[activatedModelUUID] = struct{}{}
 		}
 
-		activatedModelChangeEvents := make([]changestream.ChangeEvent, 0, len(changes))
+		changed := make([]string, 0, len(changes))
 
 		// Add all events associated with activated model UUIDs
 		for _, change := range changes {
 			uuid := coremodel.UUID(change.Changed())
-			if _, exists := activatedModelUUIDToChangeEventMap[uuid]; exists {
-				activatedModelChangeEvents = append(activatedModelChangeEvents, change)
+			if _, exists := activatedModelUUIDToChangeEventMap[uuid]; !exists {
+				continue
 			}
+
+			changed = append(changed, uuid.String())
 		}
 
-		return activatedModelChangeEvents, nil
+		return changed, nil
 	}
 }
 
@@ -792,16 +797,16 @@ func watchModelCloudCredential(
 	lastSeenCredentialUUID.Store(&credentialUUID)
 
 	// The mapper is used to filter out any model events where the credential UUID has not changed.
-	mapper := func(ctx context.Context, events []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	mapper := func(ctx context.Context, events []changestream.ChangeEvent) ([]string, error) {
 		// Get the current model credential UUID.
 		_, currentModelCredentialUUID, err := st.GetModelCloudAndCredential(ctx, modelUUID)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
 
-		var out []changestream.ChangeEvent
+		var out []string
 		for _, e := range events {
-			wantEvent := false
+			var wantEvent bool
 			switch e.Namespace() {
 			case "cloud", "cloud_ca_cert":
 				wantEvent = true
@@ -813,8 +818,9 @@ func watchModelCloudCredential(
 			case "cloud_credential", "cloud_credential_attribute":
 				wantEvent = currentModelCredentialUUID.String() == e.Changed()
 			}
+
 			if wantEvent {
-				out = append(out, e)
+				out = append(out, e.Changed())
 			}
 		}
 		return out, nil

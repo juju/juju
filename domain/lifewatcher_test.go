@@ -25,23 +25,6 @@ func TestLifeWatcherSuite(t *stdtesting.T) {
 	tc.Run(t, &lifeWatcherSuite{})
 }
 
-type changeEvent struct {
-	ctype   changestream.ChangeType
-	changed string
-}
-
-func (c changeEvent) Type() changestream.ChangeType {
-	return c.ctype
-}
-
-func (c changeEvent) Namespace() string {
-	return "test"
-}
-
-func (c changeEvent) Changed() string {
-	return c.changed
-}
-
 func (s *lifeWatcherSuite) lifeGetter(ctx context.Context, ids []string) (map[string]life.Life, error) {
 	result := make(map[string]life.Life)
 	for _, id := range ids {
@@ -62,9 +45,7 @@ func (s *lifeWatcherSuite) TestInitial(c *tc.C) {
 	}
 	out, err := f(c.Context(), in)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.DeepEquals, []changestream.ChangeEvent{
-		changeEvent{changed: "0", ctype: changestreamtesting.Create},
-	})
+	c.Check(out, tc.DeepEquals, []string{"0"})
 }
 
 func (s *lifeWatcherSuite) TestChangeNoUpdate(c *tc.C) {
@@ -107,9 +88,7 @@ func (s *lifeWatcherSuite) TestChangeDying(c *tc.C) {
 	}
 	out, err := f(c.Context(), in)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.DeepEquals, []changestream.ChangeEvent{
-		changeEvent{changed: "0", ctype: changestreamtesting.Update},
-	})
+	c.Check(out, tc.DeepEquals, []string{"0"})
 }
 
 func (s *lifeWatcherSuite) TestChangeDead(c *tc.C) {
@@ -132,9 +111,7 @@ func (s *lifeWatcherSuite) TestChangeDead(c *tc.C) {
 	}
 	out, err := f(c.Context(), in)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.DeepEquals, []changestream.ChangeEvent{
-		changeEvent{changed: "0", ctype: changestreamtesting.Update},
-	})
+	c.Check(out, tc.DeepEquals, []string{"0"})
 }
 
 func (s *lifeWatcherSuite) TestChangNotDeadRemoved(c *tc.C) {
@@ -154,9 +131,7 @@ func (s *lifeWatcherSuite) TestChangNotDeadRemoved(c *tc.C) {
 	}
 	out, err := f(c.Context(), in)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.DeepEquals, []changestream.ChangeEvent{
-		changeEvent{changed: "0", ctype: changestreamtesting.Delete},
-	})
+	c.Check(out, tc.DeepEquals, []string{"0"})
 }
 
 func (s *lifeWatcherSuite) TestChangeDeadRemoved(c *tc.C) {
@@ -179,9 +154,7 @@ func (s *lifeWatcherSuite) TestChangeDeadRemoved(c *tc.C) {
 	}
 	out, err := f(c.Context(), in)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.DeepEquals, []changestream.ChangeEvent{
-		changeEvent{changed: "0", ctype: changestreamtesting.Delete},
-	})
+	c.Check(out, tc.DeepEquals, []string{"0"})
 }
 
 func (s *lifeWatcherSuite) TestChangeDifferentIdUpdated(c *tc.C) {
@@ -222,4 +195,21 @@ func (s *lifeWatcherSuite) TestChangeDifferentIdRemoved(c *tc.C) {
 	out, err := f(c.Context(), in)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out, tc.HasLen, 0)
+}
+
+type changeEvent struct {
+	ctype   changestream.ChangeType
+	changed string
+}
+
+func (c changeEvent) Type() changestream.ChangeType {
+	return c.ctype
+}
+
+func (c changeEvent) Namespace() string {
+	return "test"
+}
+
+func (c changeEvent) Changed() string {
+	return c.changed
 }
