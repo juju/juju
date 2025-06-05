@@ -97,6 +97,20 @@ VALUES (?, ?)`, filesystemUUID, 0)
 	return filesystemUUID
 }
 
+func (s *storageSuite) createFilesystemNoStatus(c *tc.C) corestorage.FilesystemUUID {
+	filesystemUUID := storagetesting.GenFilesystemUUID(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_filesystem(uuid, life_id, filesystem_id)
+VALUES (?, ?, ?)`, filesystemUUID, life.Alive, s.filesystemCount)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	s.filesystemCount = s.filesystemCount + 1
+	return filesystemUUID
+}
+
 func insertCharmState(c *tc.C, tx *sql.Tx, uuid corecharm.ID) error {
 	return insertCharmStateWithRevision(c, tx, uuid, 42)
 }
@@ -245,6 +259,22 @@ VALUES (?, ?)`, volumeUUID, 0)
 	return volumeUUID
 }
 
+func (s *storageSuite) createVolumeNoStatus(c *tc.C) corestorage.VolumeUUID {
+	ctx := c.Context()
+
+	volumeUUID := storagetesting.GenVolumeUUID(c)
+
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_volume(uuid, life_id, volume_id)
+VALUES (?, ?, ?)`, volumeUUID, life.Alive, s.volumeCount)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	s.volumeCount = s.volumeCount + 1
+	return volumeUUID
+}
+
 func (s *storageSuite) createVolumeInstance(c *tc.C, volumeUUID corestorage.VolumeUUID) {
 	charmUUID := s.insertCharmWithStorage(c, blockStorage)
 	storageUUID := s.createStorageInstance(c, "pgblock", charmUUID)
@@ -282,6 +312,21 @@ WHERE volume_uuid = ?`, volumeUUID).Scan(
 
 func (s *storageSuite) TestSetFilesystemStatus(c *tc.C) {
 	filesystemUUID := s.createFilesystem(c)
+
+	now := time.Now().UTC()
+	expected := status.StatusInfo[status.StorageFilesystemStatusType]{
+		Status:  status.StorageFilesystemStatusTypeAttached,
+		Message: "message",
+		Since:   ptr(now),
+	}
+
+	err := s.state.SetFilesystemStatus(c.Context(), filesystemUUID, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	s.assertFilesystemStatus(c, filesystemUUID, expected)
+}
+
+func (s *storageSuite) TestSetFilesystemStatusInitialMissing(c *tc.C) {
+	filesystemUUID := s.createFilesystemNoStatus(c)
 
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.StorageFilesystemStatusType]{
@@ -380,6 +425,21 @@ func (s *storageSuite) TestImportFilesystemStatus(c *tc.C) {
 
 func (s *storageSuite) TestSetVolumeStatus(c *tc.C) {
 	volumeUUID := s.createVolume(c)
+
+	now := time.Now().UTC()
+	expected := status.StatusInfo[status.StorageVolumeStatusType]{
+		Status:  status.StorageVolumeStatusTypeAttached,
+		Message: "message",
+		Since:   ptr(now),
+	}
+
+	err := s.state.SetVolumeStatus(c.Context(), volumeUUID, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	s.assertVolumeStatus(c, volumeUUID, expected)
+}
+
+func (s *storageSuite) TestSetVolumeStatusInitialMissing(c *tc.C) {
+	volumeUUID := s.createVolumeNoStatus(c)
 
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.StorageVolumeStatusType]{
