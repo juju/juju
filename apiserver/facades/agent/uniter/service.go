@@ -89,9 +89,11 @@ type ApplicationService interface {
 	// GetUnitPrincipal returns the unit's principal unit if it exists
 	GetUnitPrincipal(ctx context.Context, unitName coreunit.Name) (coreunit.Name, bool, error)
 
-	// GetUnitMachineName gets the name of the unit's machine. If the unit's
-	// machine cannot be found [applicationerrors.UnitMachineNotAssigned] is
-	// returned.
+	// GetUnitMachineName gets the name of the unit's machine.
+	//
+	// The following errors may be returned:
+	//   - [applicationerrors.UnitMachineNotAssigned] if the unit does not have a
+	//     machine assigned.
 	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (coremachine.Name, error)
 
 	// GetUnitMachineUUID gets the uuid of the unit's machine. If the unit's

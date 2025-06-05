@@ -2716,7 +2716,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 			return apiservererrors.ErrPerm
 		}
 
-		curCons, err := unitStorageConstraints(u.StorageAPI.backend, unitTag)
+		curCons, err := unitStorageConstraints(unitTag)
 		if err != nil {
 			return errors.Trace(err)
 		}

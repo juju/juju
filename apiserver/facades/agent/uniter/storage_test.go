@@ -15,8 +15,11 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coremachine "github.com/juju/juju/core/machine"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -50,7 +53,7 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *tc.C) {
 	}
 	blockDeviceService := &mockBlockDeviceService{}
 
-	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, blockDeviceService, nil, resources, getCanAccess)
 	c.Assert(err, tc.ErrorIsNil)
 	watches, err := storage.WatchUnitStorageAttachments(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: unitTag.String()}},
@@ -123,8 +126,15 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *tc.C) {
 			return blockDevicesWatcher
 		},
 	}
+	applicationService := &mockApplicationService{
+		getUnitMachineName: func(ctx context.Context, unitName coreunit.Name) (coremachine.Name, error) {
+			calls = append(calls, "GetUnitMachineName")
+			c.Assert(unitName.String(), tc.DeepEquals, unitTag.Id())
+			return coremachine.Name(machineTag.Id()), nil
+		},
+	}
 
-	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, blockDeviceService, applicationService, resources, getCanAccess)
 	c.Assert(err, tc.ErrorIsNil)
 	watches, err := storage.WatchStorageAttachments(c.Context(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
@@ -139,6 +149,7 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *tc.C) {
 		}},
 	})
 	c.Assert(calls, tc.DeepEquals, []string{
+		"GetUnitMachineName",
 		"StorageInstance",
 		"StorageInstanceVolume",
 		"WatchVolumeAttachment",
@@ -207,8 +218,18 @@ func (s *storageSuite) assertWatchStorageAttachmentFilesystem(c *tc.C, assignedM
 		},
 	}
 	blockDeviceService := &mockBlockDeviceService{}
+	applicationService := &mockApplicationService{
+		getUnitMachineName: func(ctx context.Context, unitName coreunit.Name) (coremachine.Name, error) {
+			calls = append(calls, "GetUnitMachineName")
+			c.Assert(unitName.String(), tc.DeepEquals, unitTag.Id())
+			if assignedMachine != "" {
+				return coremachine.Name(assignedMachine), nil
+			}
+			return "", applicationerrors.UnitMachineNotAssigned
+		},
+	}
 
-	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, blockDeviceService, applicationService, resources, getCanAccess)
 	c.Assert(err, tc.ErrorIsNil)
 	watches, err := storage.WatchStorageAttachments(c.Context(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
@@ -223,6 +244,7 @@ func (s *storageSuite) assertWatchStorageAttachmentFilesystem(c *tc.C, assignedM
 		}},
 	})
 	c.Assert(calls, tc.DeepEquals, []string{
+		"GetUnitMachineName",
 		"StorageInstance",
 		"StorageInstanceFilesystem",
 		"WatchFilesystemAttachment",
@@ -248,7 +270,7 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *tc.C) {
 	}
 	blockDeviceService := &mockBlockDeviceService{}
 
-	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, blockDeviceService, nil, resources, getCanAccess)
 	c.Assert(err, tc.ErrorIsNil)
 	destroyErrors, err := storage.DestroyUnitStorageAttachments(c.Context(), params.Entities{
 		Entities: []params.Entity{{
@@ -289,7 +311,7 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *tc.C) {
 	})
 	blockDeviceService := &mockBlockDeviceService{}
 
-	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, blockDeviceService, nil, resources, getCanAccess)
 	c.Assert(err, tc.ErrorIsNil)
 	removeErrors, err := storage.RemoveStorageAttachments(c.Context(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
@@ -321,24 +343,13 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *tc.C) {
 	})
 }
 
-type mockUnit struct {
-	assignedMachine    string
-	storageConstraints map[string]state.StorageConstraints
+type mockApplicationService struct {
+	uniter.ApplicationService
+	getUnitMachineName func(context.Context, coreunit.Name) (coremachine.Name, error)
 }
 
-func (u *mockUnit) ShouldBeAssigned() bool {
-	return u.assignedMachine != ""
-}
-
-func (u *mockUnit) AssignedMachineId() (string, error) {
-	if u.assignedMachine == "" {
-		return "", errors.NotAssignedf("unit not assigned")
-	}
-	return u.assignedMachine, nil
-}
-
-func (u *mockUnit) StorageConstraints() (map[string]state.StorageConstraints, error) {
-	return u.storageConstraints, nil
+func (m *mockApplicationService) GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (coremachine.Name, error) {
+	return m.getUnitMachineName(ctx, unitName)
 }
 
 type mockBlockDeviceService struct {
@@ -351,10 +362,8 @@ func (m *mockBlockDeviceService) WatchBlockDevices(_ context.Context, machineId 
 }
 
 type mockStorageState struct {
-	unitStorageConstraints map[string]state.StorageConstraints
-	assignedMachine        string
+	assignedMachine string
 
-	uniter.Backend
 	uniter.StorageStateInterface
 	uniter.StorageVolumeInterface
 	uniter.StorageFilesystemInterface
@@ -376,12 +385,6 @@ func (m *mockStorageState) VolumeAccess() uniter.StorageVolumeInterface {
 
 func (m *mockStorageState) FilesystemAccess() uniter.StorageFilesystemInterface {
 	return m
-}
-
-func (m *mockStorageState) Unit(name string) (uniter.Unit, error) {
-	return &mockUnit{
-		assignedMachine:    m.assignedMachine,
-		storageConstraints: m.unitStorageConstraints}, nil
 }
 
 func (m *mockStorageState) DestroyUnitStorageAttachments(u names.UnitTag) error {

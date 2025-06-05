@@ -107,7 +107,12 @@ func newUniterAPIWithServices(
 		return nil, errors.Trace(err)
 	}
 	storageAPI, err := newStorageAPI(
-		stateShim{st}, storageAccessor, context.DomainServices().BlockDevice(), resources, accessUnit)
+		storageAccessor,
+		context.DomainServices().BlockDevice(),
+		context.DomainServices().Application(),
+		resources,
+		accessUnit,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
