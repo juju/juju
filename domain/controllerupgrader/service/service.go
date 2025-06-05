@@ -499,7 +499,7 @@ func (s *Service) validateControllerCanBeUpgradedTo(
 	}
 
 	// Check that a downgrade is not being attempted.
-	if currentVersion.Compare(desiredVersion) >= 0 {
+	if currentVersion.Compare(desiredVersion) > 0 {
 		return errors.New(
 			"controller version downgrades are not supported",
 		).Add(controllerupgradererrors.DowngradeNotSupported)

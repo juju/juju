@@ -253,6 +253,50 @@ func (s *serviceSuite) TestUpgradeControllerToVersionDowngrade(c *tc.C) {
 	c.Check(err, tc.ErrorIs, controllerupgradererrors.DowngradeNotSupported)
 }
 
+// TestUpgradeControllerToVersionNoChange tests the case where a controller
+// upgrade is requested for the same version the controller is already running.
+// In this case we expect that no short circuiting is done by the service and
+// no errors are returned.
+//
+// The reason for not allowing a short circuit is updating a controller should
+// provide the caller an opportunity to make state eventually consistent. i.e
+// doing the operation again should fix any inconsistencies in state.
+//
+// This is also a regression test as the original implementation of the logic
+// would error as if a downgrade had been requested.
+func (s *serviceSuite) TestUpgradeControllerToVersionNoChange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	upgradeVersion, err := semversion.Parse("4.0.8")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.8")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(
+		gomock.Any(), upgradeVersion,
+	).Return(true, nil)
+	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
+		map[string]semversion.Number{
+			"1": currentControllerVersion,
+		}, nil,
+	)
+	s.modelSt.EXPECT().SetModelTargetAgentVersion(
+		gomock.Any(), currentControllerVersion, upgradeVersion,
+	).Return(nil)
+	s.ctrlSt.EXPECT().SetControllerVersion(gomock.Any(), upgradeVersion).
+		Return(nil)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion)
+	c.Check(err, tc.ErrorIsNil)
+}
+
 // TestUpgradeControllerToVersionGreaterThanPatch tests the case where a
 // controller upgrade is requested to a version that is greater than just a
 // patch bump. In this case, the upgrade must fail with the caller getting back
@@ -509,6 +553,55 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamDowngrade(c *tc.C)
 		c.Context(), downGradeVersion, modelagent.AgentStreamProposed,
 	)
 	c.Check(err, tc.ErrorIs, controllerupgradererrors.DowngradeNotSupported)
+}
+
+// TestUpgradeControllerToVersionAndStreamNoChange tests the case where a
+// controller upgrade is requested for the same version the controller is
+// already running. In this case we expect that no short circuiting is done by
+// the service and no errors are returned.
+//
+// The reason for not allowing a short circuit is updating a controller should
+// provide the caller an opportunity to make state eventually consistent. i.e
+// doing the operation again should fix any inconsistencies in state.
+//
+// This is also a regression test as the original implementation of the logic
+// would error as if a downgrade had been requested.
+func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNoChange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	upgradeVersion, err := semversion.Parse("4.0.8")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.8")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersionAndStream(
+		gomock.Any(), upgradeVersion, modelagent.AgentStreamDevel,
+	).Return(true, nil)
+	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
+		map[string]semversion.Number{
+			"1": currentControllerVersion,
+		}, nil,
+	)
+	s.modelSt.EXPECT().SetModelTargetAgentVersionAndStream(
+		gomock.Any(),
+		currentControllerVersion,
+		upgradeVersion,
+		modelagent.AgentStreamDevel,
+	).Return(nil)
+	s.ctrlSt.EXPECT().SetControllerVersion(gomock.Any(), upgradeVersion).
+		Return(nil)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	err = svc.UpgradeControllerToVersionAndStream(
+		c.Context(), upgradeVersion, modelagent.AgentStreamDevel,
+	)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestUpgradeControllerToVersionAndStreamGreaterThanPatch tests the case where
