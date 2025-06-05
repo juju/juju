@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -129,11 +128,6 @@ type manifoldsConfig struct {
 
 	// ContainerNames this unit is running with.
 	ContainerNames []string
-
-	// LocalHub is a simple pubsub that is used for internal agent
-	// messaging only. This is used for interactions between workers
-	// and the introspection worker.
-	LocalHub *pubsub.SimpleHub
 
 	// ColocatedWithController is true when the unit agent is running on
 	// the same machine/pod as a Juju controller, where they share the same

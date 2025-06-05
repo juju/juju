@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent"
@@ -33,7 +32,6 @@ import (
 type Config struct {
 	AgentConfig                       agent.Config
 	Clock                             clock.Clock
-	Hub                               *pubsub.StructuredHub
 	Mux                               *apiserverhttp.Mux
 	LocalMacaroonAuthenticator        macaroon.LocalMacaroonAuthenticator
 	JWTParser                         *jwtparser.Parser
@@ -73,9 +71,6 @@ func (config Config) Validate() error {
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
-	}
-	if config.Hub == nil {
-		return errors.NotValidf("nil Hub")
 	}
 	if config.StatePool == nil {
 		return errors.NotValidf("nil StatePool")
@@ -171,7 +166,6 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		Tag:                           config.AgentConfig.Tag(),
 		DataDir:                       config.AgentConfig.DataDir(),
 		LogDir:                        config.AgentConfig.LogDir(),
-		Hub:                           config.Hub,
 		Mux:                           config.Mux,
 		ControllerUUID:                controllerConfig.ControllerUUID(),
 		ControllerModelUUID:           controllerModel.UUID,

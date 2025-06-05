@@ -163,33 +163,6 @@ var newConfigTests = []struct {
 	},
 	expectError: `invalid audit log exclude methods: should be a list of "Facade.Method" names \(or "ReadOnlyMethods"\), got "Sharon Jones" at position 3`,
 }, {
-	about: "negative controller-api-port",
-	config: controller.Config{
-		controller.ControllerAPIPort: -5,
-	},
-	expectError: `non-positive integer for controller-api-port not valid`,
-}, {
-	about: "controller-api-port matching api-port",
-	config: controller.Config{
-		controller.APIPort:           12345,
-		controller.ControllerAPIPort: 12345,
-	},
-	expectError: `controller-api-port matching api-port not valid`,
-}, {
-	about: "controller-api-port matching state-port",
-	config: controller.Config{
-		controller.APIPort:           12345,
-		controller.StatePort:         54321,
-		controller.ControllerAPIPort: 54321,
-	},
-	expectError: `controller-api-port matching state-port not valid`,
-}, {
-	about: "api-port-open-delay not a duration",
-	config: controller.Config{
-		controller.APIPortOpenDelay: "15",
-	},
-	expectError: `api-port-open-delay: conversion to duration: time: missing unit in duration "15"`,
-}, {
 	about: "txn-prune-sleep-time not a duration",
 	config: controller.Config{
 		controller.PruneTxnSleepTime: "15",
@@ -455,13 +428,6 @@ var newConfigTests = []struct {
 		controller.SSHServerPort: 17075,
 	},
 	expectError: `ssh-server-port matching state-port not valid`,
-}, {
-	about: "SSH port equals controller api port",
-	config: controller.Config{
-		controller.ControllerAPIPort: 17078,
-		controller.SSHServerPort:     17078,
-	},
-	expectError: `ssh-server-port matching controller-api-port not valid`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *tc.C) {
@@ -474,12 +440,6 @@ func (s *ConfigSuite) TestNewConfig(c *tc.C) {
 			c.Check(err, tc.ErrorIsNil)
 		}
 	}
-}
-
-func (s *ConfigSuite) TestAPIPortDefaults(c *tc.C) {
-	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.APIPortOpenDelay(), tc.Equals, 2*time.Second)
 }
 
 func (s *ConfigSuite) TestResourceDownloadLimits(c *tc.C) {

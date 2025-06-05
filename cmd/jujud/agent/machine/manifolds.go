@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -136,11 +135,6 @@ type ManifoldsConfig struct {
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
 	PrometheusRegisterer prometheus.Registerer
-
-	// LocalHub is a simple pubsub that is used for internal agent
-	// messaging only. This is used for interactions between workers
-	// and the introspection worker.
-	LocalHub *pubsub.SimpleHub
 
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
@@ -483,7 +477,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
-			Hub:           config.LocalHub,
 			Logger:        internallogger.GetLogger("juju.worker.deployer"),
 
 			UnitEngineConfig: config.UnitEngineConfig,

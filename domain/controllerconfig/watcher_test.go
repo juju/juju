@@ -45,7 +45,6 @@ func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 			controller.AuditingEnabled:        true,
 			controller.AuditLogCaptureArgs:    false,
 			controller.AuditLogMaxBackups:     10,
-			controller.APIPortOpenDelay:       "100ms",
 			controller.MigrationMinionWaitMax: "101ms",
 		}
 
@@ -58,7 +57,6 @@ func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 				controller.AuditingEnabled,
 				controller.AuditLogCaptureArgs,
 				controller.AuditLogMaxBackups,
-				controller.APIPortOpenDelay,
 				controller.MigrationMinionWaitMax,
 			),
 		)

@@ -8,14 +8,10 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
-	"time"
 
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/internal/pubsub/apiserver"
-	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -55,45 +51,4 @@ func (w *nullWorker) Kill() {
 func (w *nullWorker) Wait() error {
 	<-w.dead
 	return nil
-}
-
-type cleanupSuite interface {
-	AddCleanup(func(*tc.C))
-}
-
-func startAddressPublisher(suite cleanupSuite, c *tc.C, agent *MachineAgent) {
-	// Start publishing a test API address on the central hub so that
-	// dependent workers can start. The other way of unblocking them
-	// would be to get the peergrouper healthy, but that has proved
-	// difficult - trouble getting the replicaset correctly
-	// configured.
-	stop := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-stop:
-				return
-			case <-time.After(500 * time.Millisecond):
-				hub := agent.centralHub
-				if hub == nil {
-					continue
-				}
-				sent, err := hub.Publish(apiserver.DetailsTopic, apiserver.Details{
-					Servers: map[string]apiserver.APIServer{
-						"0": {ID: "0", InternalAddress: serverAddress},
-					},
-				})
-				if err != nil {
-					c.Logf("error publishing address: %s", err)
-				}
-
-				// Ensure that it has been sent, before moving on.
-				select {
-				case <-pubsub.Wait(sent):
-				case <-time.After(testhelpers.ShortWait):
-				}
-			}
-		}
-	}()
-	suite.AddCleanup(func(c *tc.C) { close(stop) })
 }

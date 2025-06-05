@@ -6,10 +6,7 @@ package peergrouper
 import (
 	"context"
 	"fmt"
-	"net"
-	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -29,7 +26,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/state"
 )
 
@@ -136,13 +132,6 @@ type pgWorker struct {
 	// are currently watching (all the controller nodes).
 	controllerTrackers map[string]*controllerTracker
 
-	// detailsRequests is used to feed details requests from the hub into the main loop.
-	detailsRequests chan string
-
-	// serverDetails holds the last server information broadcast via pub/sub.
-	// It is used to detect changes since the last publish.
-	serverDetails apiserver.Details
-
 	metrics *Collector
 
 	idleFunc func()
@@ -157,7 +146,6 @@ type Config struct {
 	Clock                   clock.Clock
 	MongoPort               int
 	APIPort                 int
-	ControllerAPIPort       int
 
 	// ControllerId is the id of the controller running this worker.
 	// It is used in checking if this working is running on the
@@ -166,11 +154,6 @@ type Config struct {
 
 	// Kubernetes controllers do not support HA yet.
 	SupportsHA bool
-
-	// Hub is the central hub of the apiserver,
-	// and is used to publish the details of the
-	// API servers.
-	Hub Hub
 
 	PrometheusRegisterer prometheus.Registerer
 
@@ -196,9 +179,6 @@ func (config Config) Validate() error {
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
-	if config.Hub == nil {
-		return errors.NotValidf("nil Hub")
-	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
@@ -208,7 +188,6 @@ func (config Config) Validate() error {
 	if config.APIPort <= 0 {
 		return errors.NotValidf("non-positive APIPort")
 	}
-	// TODO Juju 3.0: make ControllerAPIPort required.
 	return nil
 }
 
@@ -223,7 +202,6 @@ func New(config Config) (worker.Worker, error) {
 		config:             config,
 		controllerChanges:  make(chan struct{}),
 		controllerTrackers: make(map[string]*controllerTracker),
-		detailsRequests:    make(chan string),
 		idleFunc:           IdleFunc,
 		metrics:            NewMetricsCollector(),
 	}
@@ -273,12 +251,6 @@ func (w *pgWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	unsubscribe, err := w.config.Hub.Subscribe(apiserver.DetailsRequestTopic, w.apiserverDetailsRequested)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer unsubscribe()
-
 	var updateChan <-chan time.Time
 	retryInterval := initialRetryInterval
 
@@ -326,12 +298,6 @@ func (w *pgWorker) loop() error {
 				logger.Tracef(context.TODO(), "no controller information, ignoring config change")
 				continue
 			}
-		case requester := <-w.detailsRequests:
-			// A client requested the details be resent (probably
-			// because they just subscribed).
-			logger.Tracef(context.TODO(), "<-w.detailsRequests (from %q)", requester)
-			_, _ = w.config.Hub.Publish(apiserver.DetailsTopic, w.serverDetails)
-			continue
 		case <-updateChan:
 			// Scheduled update.
 			logger.Tracef(context.TODO(), "<-updateChan")
@@ -358,8 +324,7 @@ func (w *pgWorker) loop() error {
 			failed = true
 		}
 
-		members, err := w.updateReplicaSet()
-		if err != nil {
+		if _, err = w.updateReplicaSet(); err != nil {
 			if errors.Is(err, replicaSetError) {
 				logger.Errorf(context.TODO(), "cannot set replicaset: %v", err)
 			} else if !errors.Is(err, stepDownPrimaryError) {
@@ -371,7 +336,6 @@ func (w *pgWorker) loop() error {
 			// we need to re-read the state after a short timeout and re-evaluate the replicaset.
 			failed = true
 		}
-		w.publishAPIServerDetails(servers, members)
 
 		if failed {
 			logger.Tracef(context.TODO(), "failed, will wake up after: %v", retryInterval)
@@ -530,18 +494,6 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 	return changed, nil
 }
 
-func (w *pgWorker) apiserverDetailsRequested(topic string, request apiserver.DetailsRequest, err error) {
-	if err != nil {
-		// This shouldn't happen (barring programmer error ;) - treat it as fatal.
-		w.catacomb.Kill(errors.Annotate(err, "apiserver details request callback failed"))
-		return
-	}
-	select {
-	case w.detailsRequests <- request.Requester:
-	case <-w.catacomb.Dying():
-	}
-}
-
 func inStrings(t string, ss []string) bool {
 	for _, s := range ss {
 		if s == t {
@@ -562,51 +514,6 @@ func (w *pgWorker) apiServerHostPorts() map[string]network.SpaceHostPorts {
 		servers[m.Id()] = hostPorts
 	}
 	return servers
-}
-
-// publishAPIServerDetails publishes the details corresponding to the latest
-// known controller/replica-set topology if it has changed from the last known
-// state.
-func (w *pgWorker) publishAPIServerDetails(
-	servers map[string]network.SpaceHostPorts,
-	members map[string]*replicaset.Member,
-) {
-	details := apiserver.Details{
-		Servers:   make(map[string]apiserver.APIServer),
-		LocalOnly: true,
-	}
-	internalPort := w.config.ControllerAPIPort
-	if internalPort == 0 {
-		internalPort = w.config.APIPort
-	}
-	for id, hostPorts := range servers {
-		var internalAddress string
-		if members[id] != nil {
-			mongoAddress, _, err := net.SplitHostPort(members[id].Address)
-			if err != nil {
-				logger.Errorf(context.TODO(), "splitting host/port for address %q: %v", members[id].Address, err)
-			} else {
-				internalAddress = net.JoinHostPort(mongoAddress, strconv.Itoa(internalPort))
-			}
-		} else {
-			logger.Tracef(context.TODO(), "replica-set member %q not found", id)
-		}
-
-		server := apiserver.APIServer{
-			ID:              id,
-			InternalAddress: internalAddress,
-		}
-		for _, hp := range hostPorts.HostPorts().FilterUnusable() {
-			server.Addresses = append(server.Addresses, network.DialAddress(hp))
-		}
-		sort.Strings(server.Addresses)
-		details.Servers[server.ID] = server
-	}
-
-	if !reflect.DeepEqual(w.serverDetails, details) {
-		_, _ = w.config.Hub.Publish(apiserver.DetailsTopic, details)
-		w.serverDetails = details
-	}
 }
 
 // replicaSetError means an error occurred as a result

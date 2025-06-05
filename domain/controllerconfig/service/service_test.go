@@ -34,7 +34,7 @@ func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *tc.C) {
 	cfg, coerced := makeDefaultConfig("file")
 
 	k1 := controller.AuditingEnabled
-	k2 := controller.APIPortOpenDelay
+	k2 := controller.PublicDNSAddress
 
 	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, []string{k1, k2}, gomock.Any()).Return(nil)
 
@@ -193,7 +193,6 @@ func makeDefaultConfig(objectType string) (controller.Config, map[string]string)
 			controller.AuditLogCaptureArgs:       false,
 			controller.AuditLogMaxBackups:        10,
 			controller.PublicDNSAddress:          "controller.test.com:1234",
-			controller.APIPortOpenDelay:          "100ms",
 			controller.ObjectStoreType:           objectType,
 			controller.ObjectStoreS3Endpoint:     "https://s3bucket.com",
 			controller.ObjectStoreS3StaticKey:    "static-key",
@@ -203,7 +202,6 @@ func makeDefaultConfig(objectType string) (controller.Config, map[string]string)
 			controller.AuditLogCaptureArgs:       "false",
 			controller.AuditLogMaxBackups:        "10",
 			controller.PublicDNSAddress:          "controller.test.com:1234",
-			controller.APIPortOpenDelay:          "100ms",
 			controller.ObjectStoreType:           objectType,
 			controller.ObjectStoreS3Endpoint:     "https://s3bucket.com",
 			controller.ObjectStoreS3StaticKey:    "static-key",
@@ -217,14 +215,12 @@ func makeMinimalConfig(objectType string) (controller.Config, map[string]string)
 			controller.AuditLogCaptureArgs: false,
 			controller.AuditLogMaxBackups:  10,
 			controller.PublicDNSAddress:    "controller.test.com:1234",
-			controller.APIPortOpenDelay:    "100ms",
 			controller.ObjectStoreType:     objectType,
 		}, map[string]string{
 			controller.AuditingEnabled:     "true",
 			controller.AuditLogCaptureArgs: "false",
 			controller.AuditLogMaxBackups:  "10",
 			controller.PublicDNSAddress:    "controller.test.com:1234",
-			controller.APIPortOpenDelay:    "100ms",
 			controller.ObjectStoreType:     objectType,
 		}
 }

@@ -166,7 +166,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"api-server",
 		"audit-config-updater",
 		"bootstrap",
-		"central-hub",
 		"certificate-updater",
 		"certificate-watcher",
 		"change-stream-pruner",

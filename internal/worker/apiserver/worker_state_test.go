@@ -129,7 +129,6 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 		Tag:                        s.agentConfig.Tag(),
 		DataDir:                    s.agentConfig.DataDir(),
 		LogDir:                     s.agentConfig.LogDir(),
-		Hub:                        &s.hub,
 		PublicDNSName:              "",
 		AllowModelAccess:           false,
 		LogSinkConfig:              &logSinkConfig,

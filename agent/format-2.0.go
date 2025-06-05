@@ -60,7 +60,6 @@ type format_2_0Serialization struct {
 	ControllerKey         string        `yaml:"controllerkey,omitempty"`
 	CAPrivateKey          string        `yaml:"caprivatekey,omitempty"`
 	APIPort               int           `yaml:"apiport,omitempty"`
-	ControllerAPIPort     int           `yaml:"controllerapiport,omitempty"`
 	StatePort             int           `yaml:"stateport,omitempty"`
 	SharedSecret          string        `yaml:"sharedsecret,omitempty"`
 	SystemIdentity        string        `yaml:"systemidentity,omitempty"`
@@ -147,14 +146,13 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 	}
 	if len(format.ControllerKey) != 0 {
 		config.servingInfo = &controller.StateServingInfo{
-			Cert:              format.ControllerCert,
-			PrivateKey:        format.ControllerKey,
-			CAPrivateKey:      format.CAPrivateKey,
-			APIPort:           format.APIPort,
-			ControllerAPIPort: format.ControllerAPIPort,
-			StatePort:         format.StatePort,
-			SharedSecret:      format.SharedSecret,
-			SystemIdentity:    format.SystemIdentity,
+			Cert:           format.ControllerCert,
+			PrivateKey:     format.ControllerKey,
+			CAPrivateKey:   format.CAPrivateKey,
+			APIPort:        format.APIPort,
+			StatePort:      format.StatePort,
+			SharedSecret:   format.SharedSecret,
+			SystemIdentity: format.SystemIdentity,
 		}
 		// If private key is not present, infer it from the ports in the state addresses.
 		if config.servingInfo.StatePort == 0 {
@@ -234,7 +232,6 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		format.ControllerKey = config.servingInfo.PrivateKey
 		format.CAPrivateKey = config.servingInfo.CAPrivateKey
 		format.APIPort = config.servingInfo.APIPort
-		format.ControllerAPIPort = config.servingInfo.ControllerAPIPort
 		format.StatePort = config.servingInfo.StatePort
 		format.SharedSecret = config.servingInfo.SharedSecret
 		format.SystemIdentity = config.servingInfo.SystemIdentity
