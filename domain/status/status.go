@@ -87,36 +87,14 @@ func DecodeK8sPodStatus(s int) (K8sPodStatusType, error) {
 	}
 }
 
-// ModelStatus represents the health status of a Juju model.
-type ModelStatusType string
-
-const (
-	ModelStatusSuspended  ModelStatusType = "suspended"
-	ModelStatusAvailable  ModelStatusType = "available"
-	ModelStatusDestroying ModelStatusType = "destroying"
-	ModelStatusBusy       ModelStatusType = "busy"
-)
-
-// ModelStatus represents the current status of a model.
-type ModelStatus struct {
-	// Status is the current status of the model.
-	Status ModelStatusType
-	// Message is a human-readable message that describes the current status of the model.
-	Message string
-	// Reason is a human-readable message that describes the reason for the current status of the model.
-	Reason string
-	// Since is the time when the model entered the current status.
-	Since time.Time
-}
-
 // ModelStatusContext describes the context used to determine the status of a model.
 type ModelStatusContext struct {
-	// Destroying indicates if the model is in the process of being destroyed.
-	Destroying bool
-	// Migrating indicates if the model is in the process of being migrated.
-	Migrating bool
-	// InvalidCloudCredential indicates if the model's cloud credential is invalid.
-	InvalidCloudCredential bool
+	// IsDestroying indicates if the model is in the process of being destroyed.
+	IsDestroying bool
+	// IsMigrating indicates if the model is in the process of being migrated.
+	IsMigrating bool
+	// HasInvalidCloudCredential indicates if the model's cloud credential is invalid.
+	HasInvalidCloudCredential bool
 	// InvalidCloudCredentialReason explains why the model's cloud credential is invalid.
 	InvalidCloudCredentialReason string
 }

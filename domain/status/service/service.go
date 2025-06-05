@@ -167,7 +167,7 @@ type ModelState interface {
 // ControllerState is the controller state required by the service.
 type ControllerState interface {
 	// GetModelStatusContext returns the status context for the given model.
-	// It returns [modelerrors.NotFound] if the model does not exist for the given UUID.
+	// It returns [github.com/juju/juju/domain/model/errors.NotFound] if the model no longer exists.
 	GetModelStatusContext(context.Context) (status.ModelStatusContext, error)
 }
 
@@ -748,8 +748,7 @@ func (s *Service) decodeUnitStatusDetails(unit status.Unit) (Unit, error) {
 // GetModelStatusInfo returns information about the current model for the
 // purpose of reporting its status.
 // The following error types can be expected to be returned:
-// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does
-// not exist.
+// / - [github.com/juju/juju/domain/model/errors.NotFound]: When the model no longer exists.
 func (s *Service) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -757,50 +756,52 @@ func (s *Service) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInf
 	return s.modelState.GetModelStatusInfo(ctx)
 }
 
-// GetStatus returns the current status of the model.
+// GetModelStatus returns the current status of the model.
 //
 // The following error types can be expected to be returned:
-// - [modelerrors.NotFound]: When the model does not exist.
-func (s *Service) GetStatus(ctx context.Context) (status.ModelStatus, error) {
+// / - [github.com/juju/juju/domain/model/errors.NotFound]: When the model no longer exists.
+func (s *Service) GetModelStatus(ctx context.Context) (corestatus.StatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	modelState, err := s.controllerState.GetModelStatusContext(ctx)
 	if err != nil {
-		return status.ModelStatus{}, errors.Capture(err)
+		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
-	return s.statusFromModelState(modelState), nil
+	return s.statusFromModelContext(modelState), nil
 }
 
-// statusFromModelState is responsible for converting the a [model.ModelState]
-// into a model status representation.
-func (s *Service) statusFromModelState(
+// statusFromModelContext is responsible for converting a
+// [status.ModelStatusContext] into a [status.ModelStatus].
+// It computes the model's status based on various environmental indicators at a given point in time.
+// Model status is not a fixed or stored value but is dynamically derived from these indicators.
+func (s *Service) statusFromModelContext(
 	modelStatusCtx status.ModelStatusContext,
-) status.ModelStatus {
+) corestatus.StatusInfo {
 	now := s.clock.Now()
-	if modelStatusCtx.InvalidCloudCredential {
-		return status.ModelStatus{
-			Status:  status.ModelStatusSuspended,
+	if modelStatusCtx.HasInvalidCloudCredential {
+		return corestatus.StatusInfo{
+			Status:  corestatus.Suspended,
 			Message: "suspended since cloud credential is not valid",
-			Reason:  modelStatusCtx.InvalidCloudCredentialReason,
-			Since:   now,
+			Data:    map[string]interface{}{"reason": modelStatusCtx.InvalidCloudCredentialReason},
+			Since:   &now,
 		}
 	}
-	if modelStatusCtx.Destroying {
-		return status.ModelStatus{
-			Status: status.ModelStatusDestroying,
-			Since:  now,
+	if modelStatusCtx.IsDestroying {
+		return corestatus.StatusInfo{
+			Status: corestatus.Destroying,
+			Since:  &now,
 		}
 	}
-	if modelStatusCtx.Migrating {
-		return status.ModelStatus{
-			Status:  status.ModelStatusBusy,
+	if modelStatusCtx.IsMigrating {
+		return corestatus.StatusInfo{
+			Status:  corestatus.Busy,
 			Message: "the model is being migrated",
-			Since:   now,
+			Since:   &now,
 		}
 	}
 
-	return status.ModelStatus{
-		Status: status.ModelStatusAvailable,
-		Since:  now,
+	return corestatus.StatusInfo{
+		Status: corestatus.Available,
+		Since:  &now,
 	}
 }

@@ -1469,83 +1469,84 @@ func (s *serviceSuite) TestGetStatusSuspended(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelStatusContext := status.ModelStatusContext{
-		Destroying:                   false,
-		Migrating:                    false,
-		InvalidCloudCredential:       true,
+		IsDestroying:                 false,
+		IsMigrating:                  false,
+		HasInvalidCloudCredential:    true,
 		InvalidCloudCredentialReason: "invalid cloud credential reason",
 	}
 
 	s.controllerState.EXPECT().GetModelStatusContext(gomock.Any()).Return(modelStatusContext, nil)
 
-	modelStatus, err := s.service.GetStatus(c.Context())
+	modelStatus, err := s.service.GetModelStatus(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(modelStatus.Status, tc.Equals, status.ModelStatusSuspended)
+	c.Assert(modelStatus.Status, tc.Equals, corestatus.Suspended)
 	c.Assert(modelStatus.Message, tc.Equals, "suspended since cloud credential is not valid")
-	c.Assert(modelStatus.Reason, tc.Equals, modelStatusContext.InvalidCloudCredentialReason)
+	c.Assert(modelStatus.Data, tc.DeepEquals, map[string]interface{}{"reason": modelStatusContext.InvalidCloudCredentialReason})
+
 }
 
 func (s *serviceSuite) TestGetStatusDestroying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelStatusContext := status.ModelStatusContext{
-		Destroying:                   true,
-		Migrating:                    false,
-		InvalidCloudCredential:       false,
+		IsDestroying:                 true,
+		IsMigrating:                  false,
+		HasInvalidCloudCredential:    false,
 		InvalidCloudCredentialReason: "",
 	}
 
 	s.controllerState.EXPECT().GetModelStatusContext(gomock.Any()).Return(modelStatusContext, nil)
 
-	modelStatus, err := s.service.GetStatus(c.Context())
+	modelStatus, err := s.service.GetModelStatus(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(modelStatus.Status, tc.Equals, status.ModelStatusDestroying)
+	c.Assert(modelStatus.Status, tc.Equals, corestatus.Destroying)
 	c.Assert(modelStatus.Message, tc.Equals, "")
-	c.Assert(modelStatus.Reason, tc.Equals, "")
+	c.Assert(modelStatus.Data, tc.IsNil)
 }
 
 func (s *serviceSuite) TestGetStatusMigrating(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelStatusContext := status.ModelStatusContext{
-		Destroying:                   false,
-		Migrating:                    true,
-		InvalidCloudCredential:       false,
+		IsDestroying:                 false,
+		IsMigrating:                  true,
+		HasInvalidCloudCredential:    false,
 		InvalidCloudCredentialReason: "",
 	}
 
 	s.controllerState.EXPECT().GetModelStatusContext(gomock.Any()).Return(modelStatusContext, nil)
 
-	modelStatus, err := s.service.GetStatus(c.Context())
+	modelStatus, err := s.service.GetModelStatus(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(modelStatus.Status, tc.Equals, status.ModelStatusBusy)
+	c.Assert(modelStatus.Status, tc.Equals, corestatus.Busy)
 	c.Assert(modelStatus.Message, tc.Equals, "the model is being migrated")
-	c.Assert(modelStatus.Reason, tc.Equals, "")
+	c.Assert(modelStatus.Data, tc.IsNil)
 }
 
 func (s *serviceSuite) TestGetStatusAvailable(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelStatusContext := status.ModelStatusContext{
-		Destroying:                   false,
-		Migrating:                    false,
-		InvalidCloudCredential:       false,
+		IsDestroying:                 false,
+		IsMigrating:                  false,
+		HasInvalidCloudCredential:    false,
 		InvalidCloudCredentialReason: "",
 	}
 
 	s.controllerState.EXPECT().GetModelStatusContext(gomock.Any()).Return(modelStatusContext, nil)
 
-	modelStatus, err := s.service.GetStatus(c.Context())
+	modelStatus, err := s.service.GetModelStatus(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(modelStatus.Status, tc.Equals, status.ModelStatusAvailable)
+	c.Assert(modelStatus.Status, tc.Equals, corestatus.Available)
 	c.Assert(modelStatus.Message, tc.Equals, "")
-	c.Assert(modelStatus.Reason, tc.Equals, "")
+	c.Assert(modelStatus.Data, tc.IsNil)
 }
 func (s *serviceSuite) TestGetStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerState.EXPECT().GetModelStatusContext(gomock.Any()).Return(status.ModelStatusContext{}, modelerrors.NotFound)
 
-	_, err := s.service.GetStatus(c.Context())
+	_, err := s.service.GetModelStatus(c.Context())
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 

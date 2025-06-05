@@ -232,7 +232,7 @@ func (s *ModelService) GetModelSummary(
 		return coremodel.ModelSummary{}, errors.Capture(err)
 	}
 
-	status := s.statusFromModelState(ctx, mSummary.State)
+	status := s.statusFromModelState(mSummary.State)
 	return coremodel.ModelSummary{
 		Name:           miSummary.Name,
 		UUID:           miSummary.UUID,
@@ -292,7 +292,7 @@ func (s *ModelService) GetUserModelSummary(
 		return coremodel.UserModelSummary{}, errors.Capture(err)
 	}
 
-	status := s.statusFromModelState(ctx, userSummary.State)
+	status := s.statusFromModelState(userSummary.State)
 	return coremodel.UserModelSummary{
 		ModelSummary: coremodel.ModelSummary{
 			Name:           miSummary.Name,
@@ -476,13 +476,12 @@ func (s *ModelService) GetStatus(ctx context.Context) (model.StatusInfo, error) 
 	if err != nil {
 		return model.StatusInfo{}, errors.Capture(err)
 	}
-	return s.statusFromModelState(ctx, modelState), nil
+	return s.statusFromModelState(modelState), nil
 }
 
 // statusFromModelState is responsible for converting the a [model.ModelState]
 // into a model status representation.
 func (s *ModelService) statusFromModelState(
-	ctx context.Context,
 	statusState model.ModelState,
 ) model.StatusInfo {
 	now := s.clock.Now()
