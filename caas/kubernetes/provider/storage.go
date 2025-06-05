@@ -207,6 +207,50 @@ func (v *volumeSource) DetachVolumes(ctx jujucontext.ProviderCallContext, attach
 	return make([]error, len(attachParams)), nil
 }
 
+// ImportVolue is specified on the jujustorage.VolumeImporter interface.
+func (v *volumeSource) ImportVolume(
+	ctx jujucontext.ProviderCallContext,
+	volumeId string,
+	resourceTags map[string]string,
+) (jujustorage.VolumeInfo, error) {
+	pVolumes := v.client.client().CoreV1().PersistentVolumes()
+	vol, err := pVolumes.Get(ctx, volumeId, v1.GetOptions{})
+
+	if k8serrors.IsNotFound(err) {
+		return jujustorage.VolumeInfo{}, errors.NotFoundf("persistent volume %q", volumeId)
+	} else if err != nil {
+		return jujustorage.VolumeInfo{}, err
+	}
+
+	if err := v.validateImportVolume(vol); err != nil {
+		return jujustorage.VolumeInfo{}, errors.Trace(err)
+	}
+	return jujustorage.VolumeInfo{
+		Size:       uint64(vol.Size()),
+		VolumeId:   vol.Name,
+		Persistent: true,
+	}, nil
+}
+
+// validateImportVolume verifies whether the given PersistentVolume is eligible for import.
+func (v *volumeSource) validateImportVolume(vol *core.PersistentVolume) error {
+	// The PersistentVolume's reclaim policy must be set to Retain.
+	if vol.Spec.PersistentVolumeReclaimPolicy != core.PersistentVolumeReclaimRetain {
+		return errors.NewNotSupported(
+			nil,
+			fmt.Sprintf(
+				"importing volume %q with reclaim policy %q not supported (must be %q)",
+				vol.Name, vol.Spec.PersistentVolumeReclaimPolicy, core.PersistentVolumeReclaimRetain,
+			),
+		)
+	}
+	// The PersistentVolume must not be bound to any PersistentVolumeClaim.
+	if vol.Spec.ClaimRef != nil {
+		return errors.NotSupportedf("importing volume %q already bound to a claim", vol.Name)
+	}
+	return nil
+}
+
 func foreachVolume(volumeIds []string, f func(string) error) []error {
 	results := make([]error, len(volumeIds))
 	var wg sync.WaitGroup

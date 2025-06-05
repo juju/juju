@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -197,4 +198,96 @@ func (s *storageSuite) TestValidateStorageProvider(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, t.err)
 		}
 	}
+}
+
+func (s *storageSuite) TestImportVolume(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	volId := "fakeVolId"
+
+	s.mockPersistentVolumes.EXPECT().
+		Get(gomock.Any(), volId, v1.GetOptions{}).
+		Return(
+			&core.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{Name: volId},
+				Spec:       core.PersistentVolumeSpec{PersistentVolumeReclaimPolicy: core.PersistentVolumeReclaimRetain},
+			}, nil)
+	prov := s.k8sProvider(c, ctrl)
+	vs, err := prov.VolumeSource(&storage.Config{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = vs.(storage.VolumeImporter).
+		ImportVolume(&context.CloudCallContext{}, volId, make(map[string]string))
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestImportVolumeNotFound(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	volId := "fakeVolId"
+
+	s.mockPersistentVolumes.EXPECT().
+		Get(gomock.Any(), volId, v1.GetOptions{}).
+		Return(
+			&core.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{Name: volId},
+				Spec:       core.PersistentVolumeSpec{PersistentVolumeReclaimPolicy: core.PersistentVolumeReclaimRetain},
+			}, s.k8sNotFoundError())
+	prov := s.k8sProvider(c, ctrl)
+	vs, err := prov.VolumeSource(&storage.Config{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = vs.(storage.VolumeImporter).
+		ImportVolume(&context.CloudCallContext{}, volId, make(map[string]string))
+	c.Check(err, gc.ErrorMatches, "persistent volume \"fakeVolId\" not found")
+}
+
+func (s *storageSuite) TestImportVolumeInvalidReclaimPolicy(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	volId := "fakeVolId"
+
+	s.mockPersistentVolumes.EXPECT().
+		Get(gomock.Any(), volId, v1.GetOptions{}).
+		Return(
+			&core.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{Name: volId},
+				Spec:       core.PersistentVolumeSpec{PersistentVolumeReclaimPolicy: core.PersistentVolumeReclaimDelete},
+			}, nil)
+	prov := s.k8sProvider(c, ctrl)
+	vs, err := prov.VolumeSource(&storage.Config{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = vs.(storage.VolumeImporter).
+		ImportVolume(&context.CloudCallContext{}, volId, make(map[string]string))
+
+	c.Check(err, gc.ErrorMatches, "importing volume \"fakeVolId\" with reclaim policy \"Delete\" not supported \\(must be \"Retain\"\\)")
+}
+
+func (s *storageSuite) TestImportVolumeAlreadyBound(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	volId := "fakeVolId"
+
+	s.mockPersistentVolumes.EXPECT().
+		Get(gomock.Any(), volId, v1.GetOptions{}).
+		Return(
+			&core.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{Name: volId},
+				Spec: core.PersistentVolumeSpec{
+					PersistentVolumeReclaimPolicy: core.PersistentVolumeReclaimRetain,
+					ClaimRef:                      &core.ObjectReference{},
+				},
+			}, nil)
+	prov := s.k8sProvider(c, ctrl)
+	vs, err := prov.VolumeSource(&storage.Config{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = vs.(storage.VolumeImporter).
+		ImportVolume(&context.CloudCallContext{}, volId, make(map[string]string))
+	c.Check(err, gc.ErrorMatches, "importing volume \"fakeVolId\" already bound to a claim not supported")
 }
