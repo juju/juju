@@ -67,6 +67,29 @@ AND    life_id = 0`, unitUUID)
 		return "", errors.Errorf("preparing unit life update: %w", err)
 	}
 
+	var mUUID string
+	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, updateUnitStmt, unitUUID).Run(); err != nil {
+			return errors.Errorf("advancing unit life: %w", err)
+		}
+
+		mUUID, err = st.markLastUnitOnMachineAsDying(ctx, tx, uUUID)
+		if err != nil {
+			return errors.Errorf("marking last unit on machine as dying: %w", err)
+		}
+
+		return nil
+	})); err != nil {
+		return "", err
+	}
+
+	return mUUID, nil
+}
+
+func (st *State) markLastUnitOnMachineAsDying(
+	ctx context.Context, tx *sqlair.TX, uUUID string,
+) (machineUUID string, err error) {
+	unitUUID := entityUUID{UUID: uUUID}
 	lastUnitStmt, err := st.Prepare(`
 With machines AS (
 	SELECT    m.uuid AS machine_uuid,
@@ -95,34 +118,21 @@ AND    life_id = 0`, entityAssociationCount{})
 		return "", errors.Errorf("preparing machine life update: %w", err)
 	}
 
-	var mUUID string
-	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, updateUnitStmt, unitUUID).Run(); err != nil {
-			return errors.Errorf("advancing unit life: %w", err)
-		}
-
-		var unitCount entityAssociationCount
-		if err := tx.Query(ctx, lastUnitStmt, unitUUID).Get(&unitCount); errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		} else if err != nil {
-			return errors.Errorf("getting unit count: %w", err)
-		} else if unitCount.Count != 1 {
-			// The unit is not the last one on the machine.
-			return nil
-		}
-
-		if err := tx.Query(ctx, updateMachineStmt, unitCount).Run(); err != nil {
-			return errors.Errorf("advancing machine life: %w", err)
-		}
-
-		mUUID = unitCount.UUID
-
-		return nil
-	})); err != nil {
-		return "", err
+	var unitCount entityAssociationCount
+	if err := tx.Query(ctx, lastUnitStmt, unitUUID).Get(&unitCount); errors.Is(err, sqlair.ErrNoRows) {
+		return "", nil
+	} else if err != nil {
+		return "", errors.Errorf("getting unit count: %w", err)
+	} else if unitCount.Count != 1 {
+		// The unit is not the last one on the machine.
+		return "", nil
 	}
 
-	return mUUID, nil
+	if err := tx.Query(ctx, updateMachineStmt, unitCount).Run(); err != nil {
+		return "", errors.Errorf("advancing machine life: %w", err)
+	}
+
+	return unitCount.UUID, nil
 }
 
 // UnitScheduleRemoval schedules a removal job for the unit with the

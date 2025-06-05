@@ -12,7 +12,10 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -51,11 +54,13 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	unitUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
+	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	// We don't have any units, so we expect an empty slice.
+	// We don't have any units, so we expect an empty slice for both unit and
+	// machine UUIDs.
 	c.Check(unitUUIDs, tc.HasLen, 0)
+	c.Check(machineUUIDs, tc.HasLen, 0)
 
 	// Unit had life "alive" and should now be "dying".
 	row := s.DB().QueryRow("SELECT life_id FROM application where uuid = ?", appUUID.String())
@@ -74,43 +79,23 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveUn
 	)
 
 	allUnitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(allUnitUUIDs, tc.HasLen, 2)
+
+	allMachineUUIDs := s.getAllMachineUUIDs(c)
+	c.Assert(allMachineUUIDs, tc.HasLen, 2)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	unitUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
+	// Perform the ensure operation.
+	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	// We don't have any units, so we expect an empty slice.
-	c.Check(unitUUIDs, tc.DeepEquals, transform.Slice(allUnitUUIDs, func(u unit.UUID) string {
-		return u.String()
-	}))
+	s.checkUnitContents(c, unitUUIDs, allUnitUUIDs)
+	s.checkMachineContents(c, machineUUIDs, allMachineUUIDs)
 
-	// Unit had life "alive" and should now be "dying".
-	row := s.DB().QueryRow("SELECT life_id FROM application where uuid = ?", appUUID.String())
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
-
-	// Ensure that there are no units left with life "alive".
-	row = s.DB().QueryRow("SELECT COUNT(*) FROM unit WHERE application_uuid = ? AND life_id = 0", appUUID.String())
-	var count int
-	err = row.Scan(&count)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 0)
-
-	// Ensure that all units are now "dying".
-	placeholders := strings.Repeat("?,", len(allUnitUUIDs)-1) + "?"
-	uuids := append([]string{appUUID.String()}, unitUUIDs...)
-	row = s.DB().QueryRow(fmt.Sprintf(`
-SELECT COUNT(*) FROM unit WHERE application_uuid = ? AND life_id = 1 AND uuid IN (%s)
-`, placeholders), transform.Slice(uuids, func(s string) any {
-		return s
-	})...)
-	var dyingCount int
-	err = row.Scan(&dyingCount)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(dyingCount, tc.Equals, len(allUnitUUIDs))
+	s.checkApplicationState(c, appUUID)
+	s.checkUnitState(c, allUnitUUIDs)
+	s.checkMachineState(c, allMachineUUIDs)
 }
 
 func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAndDyingUnits(c *tc.C) {
@@ -123,53 +108,63 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAn
 	)
 
 	allUnitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(allUnitUUIDs, tc.HasLen, 3)
 
-	// Update one of the units to be "dying". This will simulate a scenario
-	// that someone did `juju remove-unit` on one of the units and then
-	// `juju remove-application` was called.
-	_, err := s.DB().Exec(`
-UPDATE unit SET life_id = 1 WHERE application_uuid = ? AND uuid = ?
-`, appUUID.String(), allUnitUUIDs[0].String())
+	allMachineUUIDs := s.getAllMachineUUIDs(c)
+	c.Assert(allMachineUUIDs, tc.HasLen, 3)
+
+	// Update one of the units and it's associated machine to be "dying". This
+	// will simulate a scenario that someone did `juju remove-unit` on one of
+	// the units and then `juju remove-application` was called.
+	_, err := s.DB().Exec(`UPDATE unit SET life_id = 1 WHERE uuid = ?`, allUnitUUIDs[0].String())
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().Exec(`UPDATE machine SET life_id = 1 WHERE uuid = ?`, allMachineUUIDs[0].String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	aliveUnitUUIDs := allUnitUUIDs[1:]
+	aliveMachineUUIDs := allMachineUUIDs[1:]
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	unitUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
+	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	// We don't have any units, so we expect an empty slice.
-	c.Check(unitUUIDs, tc.DeepEquals, transform.Slice(aliveUnitUUIDs, func(u unit.UUID) string {
-		return u.String()
-	}))
+	s.checkUnitContents(c, unitUUIDs, aliveUnitUUIDs)
+	s.checkMachineContents(c, machineUUIDs, aliveMachineUUIDs)
 
-	// Unit had life "alive" and should now be "dying".
-	row := s.DB().QueryRow("SELECT life_id FROM application where uuid = ?", appUUID.String())
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	s.checkApplicationState(c, appUUID)
+	s.checkUnitState(c, aliveUnitUUIDs)
+	s.checkMachineState(c, aliveMachineUUIDs)
+}
 
-	// Ensure that there are no units left with life "alive".
-	row = s.DB().QueryRow("SELECT COUNT(*) FROM unit WHERE application_uuid = ? AND life_id = 0", appUUID.String())
-	var count int
-	err = row.Scan(&count)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 0)
+func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAndDyingUnitsWithLastMachine(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddUnitArg{},
+		applicationservice.AddUnitArg{
+			Placement: instance.MustParsePlacement("0"),
+		},
+		applicationservice.AddUnitArg{},
+	)
 
-	// Ensure that all units are now "dying".
-	placeholders := strings.Repeat("?,", len(aliveUnitUUIDs)-1) + "?"
-	uuids := append([]string{appUUID.String()}, unitUUIDs...)
-	row = s.DB().QueryRow(fmt.Sprintf(`
-SELECT COUNT(*) FROM unit WHERE application_uuid = ? AND life_id = 1 AND uuid IN (%s)
-`, placeholders), transform.Slice(uuids, func(s string) any {
-		return s
-	})...)
-	var dyingCount int
-	err = row.Scan(&dyingCount)
+	allUnitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(allUnitUUIDs, tc.HasLen, 3)
+
+	allMachineUUIDs := s.getAllMachineUUIDs(c)
+	c.Assert(allMachineUUIDs, tc.HasLen, 2)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(dyingCount, tc.Equals, len(aliveUnitUUIDs))
+
+	s.checkUnitContents(c, unitUUIDs, allUnitUUIDs)
+	s.checkMachineContents(c, machineUUIDs, allMachineUUIDs)
+
+	s.checkApplicationState(c, appUUID)
+	s.checkUnitState(c, allUnitUUIDs)
+	s.checkMachineState(c, allMachineUUIDs)
 }
 
 func (s *applicationSuite) TestEnsureApplicationNotAliveDyingSuccess(c *tc.C) {
@@ -179,11 +174,13 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveDyingSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	unitUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
+	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	// We don't have any units, so we expect an empty slice.
+	// We don't have any units, so we expect an empty slice for both unit and
+	// machine UUIDs.
 	c.Check(unitUUIDs, tc.HasLen, 0)
+	c.Check(machineUUIDs, tc.HasLen, 0)
 
 	// Unit was already "dying" and should be unchanged.
 	row := s.DB().QueryRow("SELECT life_id FROM application where uuid = ?", appUUID.String())
@@ -197,7 +194,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNotExistsSuccess(c *tc.C
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	_, err := st.EnsureApplicationNotAlive(c.Context(), "some-application-uuid")
+	_, _, err := st.EnsureApplicationNotAlive(c.Context(), "some-application-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -320,4 +317,70 @@ func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
 	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
+}
+
+func (s *applicationSuite) checkUnitContents(c *tc.C, actual []string, expected []unit.UUID) {
+	c.Check(actual, tc.SameContents, transform.Slice(expected, func(u unit.UUID) string {
+		return u.String()
+	}))
+}
+
+func (s *applicationSuite) checkMachineContents(c *tc.C, actual []string, expected []machine.UUID) {
+	c.Check(actual, tc.SameContents, transform.Slice(expected, func(u machine.UUID) string {
+		return u.String()
+	}))
+}
+
+func (s *applicationSuite) checkApplicationState(c *tc.C, appUUID coreapplication.ID) {
+	row := s.DB().QueryRow("SELECT life_id FROM application where uuid = ?", appUUID.String())
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+}
+
+func (s *applicationSuite) checkUnitState(c *tc.C, unitUUIDs []unit.UUID) {
+	// Ensure that there are no units left with life "alive".
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM unit WHERE  life_id = 0")
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	// Ensure that all units are now "dying".
+	placeholders := strings.Repeat("?,", len(unitUUIDs)-1) + "?"
+	uuids := transform.Slice(unitUUIDs, func(u unit.UUID) any {
+		return u.String()
+	})
+
+	row = s.DB().QueryRow(fmt.Sprintf(`
+SELECT COUNT(*) FROM unit WHERE life_id = 1 AND uuid IN (%s)
+`, placeholders), uuids...)
+	var dyingCount int
+	err = row.Scan(&dyingCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(dyingCount, tc.Equals, len(unitUUIDs))
+}
+
+func (s *applicationSuite) checkMachineState(c *tc.C, machineUUIDs []machine.UUID) {
+	// Ensure that there are no machines left with life "alive".
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM machine WHERE life_id = 0")
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	// Ensure that all machines are now "dying".
+	placeholders := strings.Repeat("?,", len(machineUUIDs)-1) + "?"
+	uuids := transform.Slice(machineUUIDs, func(u machine.UUID) any {
+		return u.String()
+	})
+
+	row = s.DB().QueryRow(fmt.Sprintf(`
+SELECT COUNT(*) FROM machine WHERE life_id = 1 AND uuid IN (%s)
+`, placeholders), uuids...)
+	var dyingCount int
+	err = row.Scan(&dyingCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(dyingCount, tc.Equals, len(machineUUIDs))
 }
