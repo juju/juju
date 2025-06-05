@@ -27,7 +27,7 @@ type LifeGetter func(ctx context.Context, ids []string) (map[string]life.Life, e
 func LifeStringsWatcherMapperFunc(logger logger.Logger, lifeGetter LifeGetter) eventsource.Mapper {
 	knownLife := make(map[string]life.Life)
 
-	return func(ctx context.Context, changes []changestream.ChangeEvent) (_ []changestream.ChangeEvent, err error) {
+	return func(ctx context.Context, changes []changestream.ChangeEvent) (_ []string, err error) {
 		defer func() {
 			if err != nil {
 				logger.Errorf(ctx, "running life watcher mapper func: %v", err)
@@ -93,9 +93,16 @@ func LifeStringsWatcherMapperFunc(logger logger.Logger, lifeGetter LifeGetter) e
 				delete(events, id)
 			}
 		}
-		var result []changestream.ChangeEvent
-		for _, e := range events {
-			result = append(result, e)
+
+		// Preserve the order of the changes as they were received, but
+		// filter out any that are not in the knownLife map.
+		var result []string
+		for _, change := range changes {
+			if _, ok := events[change.Changed()]; !ok {
+				continue
+			}
+
+			result = append(result, change.Changed())
 		}
 		return result, nil
 	}

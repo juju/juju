@@ -317,7 +317,7 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 	currentScale := scaleState.Scale
 
 	mask := changestream.Changed
-	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 		ctx, span := trace.Start(ctx, trace.NameFromFunc())
 		defer span.End()
 
@@ -329,7 +329,9 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 		// Only dispatch if the scale has changed.
 		if newScale != currentScale {
 			currentScale = newScale
-			return changes, nil
+			return transform.Slice(changes, func(c changestream.ChangeEvent) string {
+				return c.Changed()
+			}), nil
 		}
 		return nil, nil
 	}
@@ -352,7 +354,7 @@ func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Contex
 	table, query := s.st.InitialWatchStatementApplicationsWithPendingCharms()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		query,
-		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 			return s.watchApplicationsWithPendingCharmsMapper(ctx, changes)
 		},
 		eventsource.NamespaceFilter(table, changestream.Changed),
@@ -361,7 +363,7 @@ func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Contex
 
 // watchApplicationsWithPendingCharmsMapper removes any applications that do not
 // have pending charms.
-func (s *WatchableService) watchApplicationsWithPendingCharmsMapper(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+func (s *WatchableService) watchApplicationsWithPendingCharmsMapper(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 	// Preserve the ordering of the changes, as this is a strings watcher
 	// and we want to return the changes in the order they were received.
 
@@ -413,12 +415,9 @@ func (s *WatchableService) watchApplicationsWithPendingCharmsMapper(ctx context.
 	})
 
 	// Grab the changes in the order they were received.
-	var results []changestream.ChangeEvent
-	for _, result := range indexed {
-		results = append(results, result.change)
-	}
-
-	return results, nil
+	return transform.Slice(indexed, func(c indexedChanged) string {
+		return c.change.Changed()
+	}), nil
 }
 
 type indexedChanged struct {
@@ -513,7 +512,7 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 
 			return initialResults, nil
 		},
-		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 			ctx, span := trace.Start(ctx, trace.NameFromFunc())
 			defer span.End()
 
@@ -538,11 +537,7 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 			// There can be only one.
 			// Select the last change event, which will be naturally ordered
 			// by the grouping of the query (CREATE, UPDATE, DELETE).
-			change := changes[len(changes)-1]
-
-			return []changestream.ChangeEvent{
-				newMaskedChangeIDEvent(change, sha256),
-			}, nil
+			return []string{sha256}, nil
 		},
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
@@ -592,7 +587,7 @@ func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName 
 
 			return initialResults, nil
 		},
-		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 			ctx, span := trace.Start(ctx, trace.NameFromFunc())
 			defer span.End()
 
@@ -617,11 +612,7 @@ func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName 
 			// There can be only one.
 			// Select the last change event, which will be naturally ordered
 			// by the grouping of the query (CREATE, UPDATE, DELETE).
-			change := changes[len(changes)-1]
-
-			return []changestream.ChangeEvent{
-				newMaskedChangeIDEvent(change, currentHash),
-			}, nil
+			return []string{currentHash}, nil
 		},
 		eventsource.NamespaceFilter(ipAddressTable, changestream.All),
 		eventsource.NamespaceFilter(appEndpointTable, changestream.All),
@@ -653,13 +644,13 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 			}
 			return initialResults, nil
 		},
-		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 			// If there are no changes, return no changes.
 			if len(changes) == 0 {
 				return nil, nil
 			}
 
-			filteredChanges := make([]changestream.ChangeEvent, 0, len(changes))
+			filteredChanges := make([]string, 0, len(changes))
 			for _, change := range changes {
 				unitName, err := coreunit.NewName(change.Changed())
 				if err != nil {
@@ -671,7 +662,7 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 					// be a delete event.
 
 					if _, ok := unitNamesOnMachineCache[unitName]; ok {
-						filteredChanges = append(filteredChanges, change)
+						filteredChanges = append(filteredChanges, change.Changed())
 						delete(unitNamesOnMachineCache, unitName)
 					}
 					continue
@@ -679,7 +670,7 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 					return nil, errors.Capture(err)
 				}
 				if netNodeUUID == desiredNetNodeUUID {
-					filteredChanges = append(filteredChanges, change)
+					filteredChanges = append(filteredChanges, change.Changed())
 					unitNamesOnMachineCache[unitName] = struct{}{}
 				}
 			}
