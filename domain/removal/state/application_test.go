@@ -78,10 +78,8 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveUn
 		applicationservice.AddUnitArg{},
 	)
 
-	allUnitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	allUnitUUIDs, allMachineUUIDs := s.getAllUnitAndMachineUUIDs(c)
 	c.Assert(allUnitUUIDs, tc.HasLen, 2)
-
-	allMachineUUIDs := s.getAllMachineUUIDs(c)
 	c.Assert(allMachineUUIDs, tc.HasLen, 2)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -107,10 +105,8 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAn
 		applicationservice.AddUnitArg{},
 	)
 
-	allUnitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	allUnitUUIDs, allMachineUUIDs := s.getAllUnitAndMachineUUIDs(c)
 	c.Assert(allUnitUUIDs, tc.HasLen, 3)
-
-	allMachineUUIDs := s.getAllMachineUUIDs(c)
 	c.Assert(allMachineUUIDs, tc.HasLen, 3)
 
 	// Update one of the units and it's associated machine to be "dying". This
@@ -148,11 +144,13 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAn
 		applicationservice.AddUnitArg{},
 	)
 
-	allUnitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	allUnitUUIDs, allMachineUUIDs := s.getAllUnitAndMachineUUIDs(c)
 	c.Assert(allUnitUUIDs, tc.HasLen, 3)
+	c.Assert(allMachineUUIDs, tc.HasLen, 3)
 
-	allMachineUUIDs := s.getAllMachineUUIDs(c)
-	c.Assert(allMachineUUIDs, tc.HasLen, 2)
+	// There should be a unit with the same placement as the machine.
+	uniqueMachineUUIDs := removeDuplicates(allMachineUUIDs)
+	c.Assert(uniqueMachineUUIDs, tc.HasLen, 2)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -160,11 +158,11 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAn
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkUnitContents(c, unitUUIDs, allUnitUUIDs)
-	s.checkMachineContents(c, machineUUIDs, allMachineUUIDs)
+	s.checkMachineContents(c, machineUUIDs, uniqueMachineUUIDs)
 
 	s.checkApplicationState(c, appUUID)
 	s.checkUnitState(c, allUnitUUIDs)
-	s.checkMachineState(c, allMachineUUIDs)
+	s.checkMachineState(c, uniqueMachineUUIDs)
 }
 
 func (s *applicationSuite) TestEnsureApplicationNotAliveDyingSuccess(c *tc.C) {
@@ -326,8 +324,8 @@ func (s *applicationSuite) checkUnitContents(c *tc.C, actual []string, expected 
 }
 
 func (s *applicationSuite) checkMachineContents(c *tc.C, actual []string, expected []machine.UUID) {
-	c.Check(actual, tc.SameContents, transform.Slice(expected, func(u machine.UUID) string {
-		return u.String()
+	c.Check(actual, tc.SameContents, transform.Slice(expected, func(m machine.UUID) string {
+		return m.String()
 	}))
 }
 
@@ -383,4 +381,16 @@ SELECT COUNT(*) FROM machine WHERE life_id = 1 AND uuid IN (%s)
 	err = row.Scan(&dyingCount)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(dyingCount, tc.Equals, len(machineUUIDs))
+}
+
+func removeDuplicates[T comparable](uuids []T) []T {
+	unique := make(map[T]struct{}, len(uuids))
+	for _, uuid := range uuids {
+		unique[uuid] = struct{}{}
+	}
+	result := make([]T, 0, len(unique))
+	for uuid := range unique {
+		result = append(result, uuid)
+	}
+	return result
 }

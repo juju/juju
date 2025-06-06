@@ -250,6 +250,7 @@ func (s *baseSuite) getAllMachineUUIDs(c *tc.C) []machine.UUID {
 		if err != nil {
 			return err
 		}
+
 		defer rows.Close()
 		for rows.Next() {
 			var machineUUID machine.UUID
@@ -262,6 +263,49 @@ func (s *baseSuite) getAllMachineUUIDs(c *tc.C) []machine.UUID {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return machineUUIDs
+}
+
+func (s *baseSuite) getAllUnitAndMachineUUIDs(c *tc.C) ([]unit.UUID, []machine.UUID) {
+	result := make(map[unit.UUID]machine.UUID)
+	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT u.uuid, m.uuid 
+FROM unit AS u
+JOIN net_node AS nn ON nn.uuid = u.net_node_uuid
+JOIN machine AS m ON m.net_node_uuid = nn.uuid
+`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var (
+				unitUUID    unit.UUID
+				machineUUID machine.UUID
+			)
+			if err := rows.Scan(&unitUUID, &machineUUID); err != nil {
+				return err
+			}
+			result[unitUUID] = machineUUID
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var allUnitUUIDs []unit.UUID
+	var allMachineUUIDs []machine.UUID
+	for unitUUID, machineUUID := range result {
+		allUnitUUIDs = append(allUnitUUIDs, unitUUID)
+
+		// If the machine UUID is empty, it means that the unit is not
+		// associated with any machine.
+		if machineUUID == "" {
+			continue
+		}
+		allMachineUUIDs = append(allMachineUUIDs, machineUUID)
+	}
+
+	return allUnitUUIDs, allMachineUUIDs
 }
 
 func (s *baseSuite) getUnitMachineUUID(c *tc.C, unitUUID unit.UUID) machine.UUID {
