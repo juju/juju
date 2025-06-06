@@ -9,6 +9,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coremachine "github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	domainlife "github.com/juju/juju/domain/life"
@@ -203,6 +204,19 @@ type applicationNameUnitCount struct {
 	UnitCount int    `db:"unit_count"`
 }
 
+type modelUUID struct {
+	UUID coremodel.UUID `db:"uuid"`
+}
+
 type modelInfo struct {
 	Type string `db:"type"`
+}
+
+// modelStatusContext represents a single row from the v_model_state view.
+// These information are used to determine a model's status.
+type modelStatusContext struct {
+	Destroying              bool   `db:"destroying"`
+	CredentialInvalid       bool   `db:"cloud_credential_invalid"`
+	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
+	Migrating               bool   `db:"migrating"`
 }

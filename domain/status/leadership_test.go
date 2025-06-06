@@ -14,7 +14,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
@@ -49,7 +48,7 @@ func (s *leadershipSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := uuid.MustNewUUID()
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.ModelSuite.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
@@ -156,16 +155,13 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *tc.C
 }
 
 func (s *leadershipSuite) setupService(c *tc.C) *service.LeadershipService {
-	modelDB := func() (database.TxnRunner, error) {
-		return s.ModelTxnRunner(), nil
-	}
 
 	return service.NewLeadershipService(
-		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		state.NewModelState(s.ModelSuite.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewLeaseService(leaseGetter{
 			LeaseManager: s.leaseManager,
 		}),
-		model.UUID(s.ModelUUID()),
+		model.UUID(s.ModelSuite.ModelUUID()),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		func() (service.StatusHistoryReader, error) {
 			return nil, errors.Errorf("status history reader not available")
@@ -186,7 +182,7 @@ func (s *leadershipSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...application.AddUnitArg) coreapplication.ID {
-	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	appState := applicationstate.NewState(s.ModelSuite.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
 		Channel:      "22.04/stable",
