@@ -50,9 +50,9 @@ type ControllerState interface {
 	// reports when it starts up.
 	GetControllerNodeVersions(ctx context.Context) (map[string]semversion.Number, error)
 
-	// GetControllerVersion returns the current juju version in use by the
-	// controller(s) of the cluster.
-	GetControllerVersion(ctx context.Context) (semversion.Number, error)
+	// GetControllerTargetVersion returns the target controller version in use by the
+	// cluster.
+	GetControllerTargetVersion(ctx context.Context) (semversion.Number, error)
 
 	// SetControllerVersion is responsible for setting the current controller
 	// version in use by the cluster. Controllers in the cluster will
@@ -491,7 +491,7 @@ func (s *Service) validateControllerCanBeUpgradedTo(
 	ctx context.Context,
 	desiredVersion semversion.Number,
 ) error {
-	currentVersion, err := s.ctrlSt.GetControllerVersion(ctx)
+	currentVersion, err := s.ctrlSt.GetControllerTargetVersion(ctx)
 	if err != nil {
 		return errors.Errorf(
 			"getting current controller version: %w", err,

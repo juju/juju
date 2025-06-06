@@ -259,41 +259,41 @@ func (c *MockControllerStateGetControllerNodeVersionsCall) DoAndReturn(f func(co
 	return c
 }
 
-// GetControllerVersion mocks base method.
-func (m *MockControllerState) GetControllerVersion(arg0 context.Context) (semversion.Number, error) {
+// GetControllerTargetVersion mocks base method.
+func (m *MockControllerState) GetControllerTargetVersion(arg0 context.Context) (semversion.Number, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetControllerVersion", arg0)
+	ret := m.ctrl.Call(m, "GetControllerTargetVersion", arg0)
 	ret0, _ := ret[0].(semversion.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetControllerVersion indicates an expected call of GetControllerVersion.
-func (mr *MockControllerStateMockRecorder) GetControllerVersion(arg0 any) *MockControllerStateGetControllerVersionCall {
+// GetControllerTargetVersion indicates an expected call of GetControllerTargetVersion.
+func (mr *MockControllerStateMockRecorder) GetControllerTargetVersion(arg0 any) *MockControllerStateGetControllerTargetVersionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerVersion", reflect.TypeOf((*MockControllerState)(nil).GetControllerVersion), arg0)
-	return &MockControllerStateGetControllerVersionCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerTargetVersion", reflect.TypeOf((*MockControllerState)(nil).GetControllerTargetVersion), arg0)
+	return &MockControllerStateGetControllerTargetVersionCall{Call: call}
 }
 
-// MockControllerStateGetControllerVersionCall wrap *gomock.Call
-type MockControllerStateGetControllerVersionCall struct {
+// MockControllerStateGetControllerTargetVersionCall wrap *gomock.Call
+type MockControllerStateGetControllerTargetVersionCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerStateGetControllerVersionCall) Return(arg0 semversion.Number, arg1 error) *MockControllerStateGetControllerVersionCall {
+func (c *MockControllerStateGetControllerTargetVersionCall) Return(arg0 semversion.Number, arg1 error) *MockControllerStateGetControllerTargetVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerStateGetControllerVersionCall) Do(f func(context.Context) (semversion.Number, error)) *MockControllerStateGetControllerVersionCall {
+func (c *MockControllerStateGetControllerTargetVersionCall) Do(f func(context.Context) (semversion.Number, error)) *MockControllerStateGetControllerTargetVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerStateGetControllerVersionCall) DoAndReturn(f func(context.Context) (semversion.Number, error)) *MockControllerStateGetControllerVersionCall {
+func (c *MockControllerStateGetControllerTargetVersionCall) DoAndReturn(f func(context.Context) (semversion.Number, error)) *MockControllerStateGetControllerTargetVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
