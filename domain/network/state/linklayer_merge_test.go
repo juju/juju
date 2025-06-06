@@ -369,9 +369,6 @@ func (s *mergeLinkLayerSuite) TestApplyLinkLayerChanges(c *tc.C) {
 			"new-eth0-ip-1": eth01,
 			"new-eth1-ip-1": eth11,
 		},
-		toRemove: []string{
-			"old-eth0-ip-1", "old-eth1-ip-1", "eth2-ip-1",
-		},
 		toRelinquish: []string{eth12},
 	}
 
@@ -427,7 +424,7 @@ func (s *mergeLinkLayerSuite) TestApplyLinkLayerChanges(c *tc.C) {
 			{
 				UUID:       eth12,
 				Address:    "100.168.2.1/24",
-				ProviderID: "eth1-ip-2",
+				ProviderID: "",
 				Origin:     "machine",
 			},
 			{
@@ -476,7 +473,6 @@ func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesNotToBeUpdated(c *tc
 
 	// Assert: Verify that no changes are made
 	c.Check(changes.toAdd, tc.HasLen, 0)
-	c.Check(changes.toRemove, tc.HasLen, 0)
 	c.Check(changes.toRelinquish, tc.HasLen, 0)
 }
 
@@ -523,8 +519,6 @@ func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesToBeRelinquished(c *
 
 	// Assert: Verify that the second address is relinquished
 	c.Check(changes.toAdd, tc.HasLen, 0)
-	c.Check(changes.toRemove, tc.SameContents,
-		[]string{"no-matching-provider-id"})
 	c.Check(changes.toRelinquish, tc.SameContents,
 		[]string{"no-matching-uuid"})
 }
@@ -568,7 +562,6 @@ func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesProviderIDUpdated(c 
 	// Assert: Verify that the address provider ID is updated
 	c.Check(changes.toAdd, tc.DeepEquals,
 		map[string]string{"new-provider-ip-1": "address1-uuid"})
-	c.Check(changes.toRemove, tc.SameContents, []string{"provider-ip-1"})
 	c.Check(changes.toRelinquish, tc.HasLen, 0)
 }
 
