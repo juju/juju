@@ -8,9 +8,11 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
@@ -27,7 +29,9 @@ type ApplicationState interface {
 	// by the input application UUID, that is still alive.
 	// If the application has units, they are also guaranteed to be no longer
 	// alive. The affected unit UUIDs are returned.
-	EnsureApplicationNotAlive(ctx context.Context, appUUID string) (unitUUIDs []string, err error)
+	// If the units are also the last ones on their machines, the machines
+	// are also set to dying. The affected machine UUIDs are returned.
+	EnsureApplicationNotAlive(ctx context.Context, appUUID string) (unitUUIDs, machineUUIDs []string, err error)
 
 	// ApplicationScheduleRemoval schedules a removal job for the application
 	// with the input application UUID, qualified with the input force boolean.
@@ -66,7 +70,7 @@ func (s *Service) RemoveApplication(
 	}
 
 	// Ensure the application is not alive.
-	unitUUIDs, err := s.st.EnsureApplicationNotAlive(ctx, appUUID.String())
+	unitUUIDs, machineUUIDs, err := s.st.EnsureApplicationNotAlive(ctx, appUUID.String())
 	if err != nil {
 		return "", errors.Errorf("application %q: %w", appUUID, err)
 	}
@@ -93,32 +97,15 @@ func (s *Service) RemoveApplication(
 		return "", errors.Capture(err)
 	}
 
-	if len(unitUUIDs) == 0 {
-		// If there are no units, we can remove the charm immediately as there
-		// we be no FK constraints associated with the application or unit.
-		if err := s.RemoveCharmForApplication(ctx, appUUID); err != nil {
-			s.logger.Errorf(ctx, "failed to remove charm for application %q: %v", appUUID, err)
-		}
-		return appJobUUID, nil
+	// Ensure that the application units and machines are removed as well.
+	s.removeApplicationUnitsByUnitUUID(ctx, unitUUIDs, force, wait)
+	s.removeApplicationMachinesByMachineUUID(ctx, machineUUIDs, force, wait)
+
+	// Remove charm from the application. It will check to ensure that no
+	// other applications are using the charm.
+	if err := s.RemoveCharmForApplication(ctx, appUUID); err != nil {
+		s.logger.Errorf(ctx, "failed to remove charm for application %q: %v", appUUID, err)
 	}
-
-	s.logger.Infof(ctx, "application has units %v, scheduling removal", unitUUIDs)
-
-	// If there are any alive units, we need to schedule their removal as well.
-	for _, unitUUID := range unitUUIDs {
-		if _, err := s.RemoveUnit(ctx, unit.UUID(unitUUID), force, wait); errors.Is(err, applicationerrors.UnitNotFound) {
-			// There could be a chance that the unit has already been removed
-			// by another process. We can safely ignore this error and
-			// continue with the next unit.
-			continue
-		} else if err != nil {
-			// If the unit fails to be scheduled for removal, we log out the
-			// error. The application and the units are already transitioned to
-			// dying and there is no way to transition them back to alive.
-			s.logger.Errorf(ctx, "failed to schedule removal of unit %q: %v", unitUUID, err)
-		}
-	}
-
 	return appJobUUID, nil
 }
 
@@ -138,6 +125,56 @@ func (s *Service) applicationScheduleRemoval(
 
 	s.logger.Infof(ctx, "scheduled removal job %q for application %q", jobUUID, appUUID)
 	return jobUUID, nil
+}
+
+func (s *Service) removeApplicationUnitsByUnitUUID(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+	if len(uuids) == 0 {
+		return
+	}
+
+	// If there are any units that transitioned from alive to dying or dead, we
+	// need to schedule their removal as well.
+
+	s.logger.Infof(ctx, "application has units %v, scheduling removal", uuids)
+
+	for _, unitUUID := range uuids {
+		if _, err := s.RemoveUnit(ctx, unit.UUID(unitUUID), force, wait); errors.Is(err, applicationerrors.UnitNotFound) {
+			// There could be a chance that the unit has already been removed
+			// by another process. We can safely ignore this error and
+			// continue with the next unit.
+			continue
+		} else if err != nil {
+			// If the unit fails to be scheduled for removal, we log out the
+			// error. The application and the units are already transitioned to
+			// dying and there is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "failed to schedule removal of unit %q: %v", unitUUID, err)
+		}
+	}
+}
+
+func (s *Service) removeApplicationMachinesByMachineUUID(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+	if len(uuids) == 0 {
+		return
+	}
+
+	// If there are any any machines that transitioned from alive to dying or
+	// dead, we need to schedule their removal as well.
+
+	s.logger.Infof(ctx, "application has machines %v, scheduling removal", uuids)
+
+	for _, machineUUID := range uuids {
+		if _, err := s.RemoveMachine(ctx, machine.UUID(machineUUID), force, wait); errors.Is(err, machineerrors.MachineNotFound) {
+			// There could be a chance that the machine has already been removed
+			// by another process. We can safely ignore this error and
+			// continue with the next machine.
+			continue
+		} else if err != nil {
+			// If the machine fails to be scheduled for removal, we log out the
+			// error. The application and the units are already transitioned to
+			// dying and there is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "failed to schedule removal of machine %q: %v", machineUUID, err)
+		}
+	}
 }
 
 // processApplicationRemovalJob deletes a application if it is dying.

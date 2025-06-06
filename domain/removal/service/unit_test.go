@@ -41,6 +41,11 @@ func (s *unitSuite) TestRemoveUnitNoForceSuccess(c *tc.C) {
 	exp.EnsureUnitNotAlive(gomock.Any(), uUUID.String()).Return("some-machine-id", nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil)
 
+	// We don't want to create all the machine expectations here, so we'll
+	// assume that the machine no longer exists, to prevent this test from
+	// depending on the machine removal logic.
+	exp.MachineExists(gomock.Any(), "some-machine-id").Return(false, nil)
+
 	jobUUID, err := s.newService(c).RemoveUnit(c.Context(), uUUID, false, 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)

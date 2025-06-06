@@ -73,7 +73,7 @@ AND    life_id = 0`, unitUUID)
 			return errors.Errorf("advancing unit life: %w", err)
 		}
 
-		mUUID, err = st.markLastUnitOnMachineAsDying(ctx, tx, uUUID)
+		mUUID, err = st.markMachineAsDyingIfAllUnitsAreNotAlive(ctx, tx, uUUID)
 		if err != nil {
 			return errors.Errorf("marking last unit on machine as dying: %w", err)
 		}
@@ -86,25 +86,40 @@ AND    life_id = 0`, unitUUID)
 	return mUUID, nil
 }
 
-func (st *State) markLastUnitOnMachineAsDying(
+// markMachineAsDyingIfAllUnitsAreNotAlive checks if all the units on the
+// machine are not alive. If this is the case, it marks the machine as dying.
+func (st *State) markMachineAsDyingIfAllUnitsAreNotAlive(
 	ctx context.Context, tx *sqlair.TX, uUUID string,
 ) (machineUUID string, err error) {
 	unitUUID := entityUUID{UUID: uUUID}
+
 	lastUnitStmt, err := st.Prepare(`
-With machines AS (
+WITH units_alive AS (
+	SELECT uuid, net_node_uuid
+	FROM   unit
+	WHERE  life_id = 0
+), units_not_alive AS (
+	SELECT uuid, net_node_uuid
+	FROM   unit
+	WHERE  life_id != 0
+), machines AS (
 	SELECT    m.uuid AS machine_uuid,
-	          u.uuid AS unit_uuid,
-			  COUNT(u.uuid) AS unit_count
+		      m.net_node_uuid,
+			  COUNT(ua.uuid) AS unit_alive_count,
+			  COUNT(una.uuid) AS unit_not_alive_count
 	FROM      machine AS m
 	JOIN      net_node AS nn ON nn.uuid = m.net_node_uuid
-	LEFT JOIN unit AS u ON u.net_node_uuid = nn.uuid
+	LEFT JOIN units_alive AS ua ON ua.net_node_uuid = nn.uuid
+	LEFT JOIN units_not_alive AS una ON una.net_node_uuid = nn.uuid
 	GROUP BY  m.uuid
 )
-SELECT unit_count AS &entityAssociationCount.count,
-	   machine_uuid AS &entityAssociationCount.uuid
+SELECT unit_alive_count AS &entityAssociationAliveCount.alive_count,
+	   unit_not_alive_count AS &entityAssociationAliveCount.not_alive_count,
+	   machine_uuid AS &entityAssociationAliveCount.uuid
 FROM   machines
-WHERE  unit_uuid = $entityUUID.uuid;
-	`, unitUUID, entityAssociationCount{})
+LEFT JOIN unit AS u ON u.net_node_uuid = machines.net_node_uuid
+WHERE  u.uuid = $entityUUID.uuid;
+	`, unitUUID, entityAssociationAliveCount{})
 	if err != nil {
 		return "", errors.Errorf("preparing unit count query: %w", err)
 	}
@@ -112,24 +127,41 @@ WHERE  unit_uuid = $entityUUID.uuid;
 	updateMachineStmt, err := st.Prepare(`
 UPDATE machine
 SET    life_id = 1
-WHERE  uuid = $entityAssociationCount.uuid
-AND    life_id = 0`, entityAssociationCount{})
+WHERE  uuid = $entityUUID.uuid
+AND    life_id = 0`, entityUUID{})
 	if err != nil {
 		return "", errors.Errorf("preparing machine life update: %w", err)
 	}
 
-	var unitCount entityAssociationCount
+	var unitCount entityAssociationAliveCount
+	defer func() {
+		fmt.Println("unitCount:", uUUID, unitCount)
+	}()
 	if err := tx.Query(ctx, lastUnitStmt, unitUUID).Get(&unitCount); errors.Is(err, sqlair.ErrNoRows) {
 		return "", nil
 	} else if err != nil {
 		return "", errors.Errorf("getting unit count: %w", err)
-	} else if unitCount.Count != 1 {
-		// The unit is not the last one on the machine.
+	} else if unitCount.AliveCount > 0 {
+		// Nothing to do.
+		return "", nil
+	} else if unitCount.NotAliveCount == 0 {
+		// No units on the machine are marked as dead or dying. If this is the
+		// case then we can assume that the machine is still alive.
 		return "", nil
 	}
 
-	if err := tx.Query(ctx, updateMachineStmt, unitCount).Run(); err != nil {
+	// We can use the outcome of the update to determine if the machine
+	// was already dying or dead, or if it was successfully advanced to dying.
+	var outcome sqlair.Outcome
+	if err := tx.Query(ctx, updateMachineStmt, entityUUID{UUID: unitCount.UUID}).Get(&outcome); err != nil {
 		return "", errors.Errorf("advancing machine life: %w", err)
+	}
+
+	if affected, err := outcome.Result().RowsAffected(); err != nil {
+		return "", errors.Errorf("getting affected rows: %w", err)
+	} else if affected == 0 {
+		// The machine was already dying or dead.
+		return "", nil
 	}
 
 	return unitCount.UUID, nil

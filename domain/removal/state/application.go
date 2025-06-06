@@ -116,7 +116,7 @@ AND    life_id = 0`, applicationUUID)
 		// machines will be stopped from being used.
 
 		for _, unit := range unitUUIDsRec {
-			machineUUID, err := st.markLastUnitOnMachineAsDying(ctx, tx, unit.UUID)
+			machineUUID, err := st.markMachineAsDyingIfAllUnitsAreNotAlive(ctx, tx, unit.UUID)
 			if err != nil {
 				return errors.Errorf("marking last unit on machine as dying: %w", err)
 			} else if machineUUID == "" {

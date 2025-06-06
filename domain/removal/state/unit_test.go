@@ -80,6 +80,10 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 1)
 }
 
+// Test to ensure that we don't prevent a unit from being set to "dying"
+// if the machine is already in the "dying" state. This shouldn't happen,
+// but we want to ensure that the state machine is resilient to this
+// situation.
 func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitMachineAlreadyDying(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
@@ -101,17 +105,12 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitMachineAlreadyDyi
 	machineUUID, err := st.EnsureUnitNotAlive(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(machineUUID, tc.Equals, unitMachineUUID.String())
+	// The machine was already "dying", so we don't expect a machine UUID.
+	c.Check(machineUUID, tc.Equals, "")
 
 	// Unit had life "alive" and should now be "dying".
 	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", unitUUID.String())
 	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
-
-	// The last machine had life "alive" and should now be "dying".
-	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", machineUUID)
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 1)
