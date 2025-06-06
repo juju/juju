@@ -22,7 +22,6 @@ type Backend interface {
 	AllMachines() ([]*state.Machine, error)
 	AllIPAddresses() ([]*state.Address, error)
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
-	AllEndpointBindings() (map[string]*state.Bindings, error)
 	AllStatus() (*state.AllStatus, error)
 	ControllerNodes() ([]state.ControllerNode, error)
 	ControllerTimestamp() (*time.Time, error)

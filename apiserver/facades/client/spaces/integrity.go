@@ -300,7 +300,7 @@ func (n *affectedNetworks) ensurePositiveConstraintIntegrity(ctx context.Context
 //  1. Bound spaces remain unchanged by subnet relocation.
 //  2. We successfully change affected bindings to a new space that
 //     preserves consistency across all units of an application.
-func (n *affectedNetworks) ensureBindingsIntegrity(ctx context.Context, allBindings map[string]Bindings) error {
+func (n *affectedNetworks) ensureBindingsIntegrity(ctx context.Context, allBindings map[string]map[string]network.SpaceName) error {
 	for appName, bindings := range allBindings {
 		if err := n.ensureApplicationBindingsIntegrity(ctx, appName, bindings); err != nil {
 			return errors.Trace(err)
@@ -309,17 +309,17 @@ func (n *affectedNetworks) ensureBindingsIntegrity(ctx context.Context, allBindi
 	return nil
 }
 
-func (n *affectedNetworks) ensureApplicationBindingsIntegrity(ctx context.Context, appName string, appBindings Bindings) error {
+func (n *affectedNetworks) ensureApplicationBindingsIntegrity(ctx context.Context, appName string, appBindings map[string]network.SpaceName) error {
 	unitNets, ok := n.changingNetworks[appName]
 	if !ok {
 		return nil
 	}
 
-	for endpoint, boundSpaceID := range appBindings.Map() {
+	for endpoint, boundSpaceName := range appBindings {
 		for _, unitNet := range unitNets {
-			boundSpace := n.spaces.GetByID(network.SpaceUUID(boundSpaceID))
+			boundSpace := n.spaces.GetByName(boundSpaceName)
 			if boundSpace == nil {
-				return errors.NotFoundf("space with ID %q", boundSpaceID)
+				return errors.NotFoundf("space with name %q", boundSpaceName)
 			}
 
 			// TODO (manadart 2020-05-05): There is some optimisation that
@@ -342,7 +342,7 @@ func (n *affectedNetworks) ensureApplicationBindingsIntegrity(ctx context.Contex
 					"units not connected to the space: %s",
 				n.newSpace,
 				endpoint,
-				boundSpace.Name,
+				boundSpaceName,
 				appName,
 				strings.Join(unitNet.unitNames.SortedValues(), ", "),
 			)

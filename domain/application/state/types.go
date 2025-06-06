@@ -792,28 +792,28 @@ type setApplicationConstraint struct {
 }
 
 type setApplicationEndpointBinding struct {
-	UUID          corerelation.EndpointUUID `db:"uuid"`
-	ApplicationID coreapplication.ID        `db:"application_uuid"`
-	RelationUUID  string                    `db:"charm_relation_uuid"`
-	Space         sql.Null[string]          `db:"space_uuid"`
+	UUID          corerelation.EndpointUUID   `db:"uuid"`
+	ApplicationID coreapplication.ID          `db:"application_uuid"`
+	RelationUUID  string                      `db:"charm_relation_uuid"`
+	Space         sql.Null[network.SpaceUUID] `db:"space_uuid"`
 }
 
 type setApplicationExtraEndpointBinding struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
-	RelationUUID  string             `db:"charm_extra_binding_uuid"`
-	Space         sql.Null[string]   `db:"space_uuid"`
+	ApplicationID coreapplication.ID          `db:"application_uuid"`
+	RelationUUID  string                      `db:"charm_extra_binding_uuid"`
+	Space         sql.Null[network.SpaceUUID] `db:"space_uuid"`
 }
 
 type updateApplicationEndpointBinding struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
-	RelationUUID  string             `db:"charm_relation_uuid"`
-	Space         sql.Null[string]   `db:"space_uuid"`
+	ApplicationID coreapplication.ID          `db:"application_uuid"`
+	RelationUUID  string                      `db:"charm_relation_uuid"`
+	Space         sql.Null[network.SpaceUUID] `db:"space_uuid"`
 }
 
 type updateApplicationExtraEndpointBinding struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
-	RelationUUID  string             `db:"charm_extra_binding_uuid"`
-	Space         sql.Null[string]   `db:"space_uuid"`
+	ApplicationID coreapplication.ID          `db:"application_uuid"`
+	RelationUUID  string                      `db:"charm_extra_binding_uuid"`
+	Space         sql.Null[network.SpaceUUID] `db:"space_uuid"`
 }
 
 type setConstraint struct {
@@ -861,6 +861,11 @@ type setDefaultSpace struct {
 	Space network.SpaceName  `db:"space"`
 }
 
+type applicationSpaceUUID struct {
+	ApplicationName string            `db:"name"`
+	SpaceUUID       network.SpaceUUID `db:"space_uuid"`
+}
+
 type applicationUUID struct {
 	ApplicationUUID string `db:"application_uuid"`
 }
@@ -874,11 +879,10 @@ type constraintUUID struct {
 }
 
 type space struct {
-	UUID string            `db:"uuid"`
+	UUID network.SpaceUUID `db:"uuid"`
 	Name network.SpaceName `db:"name"`
 }
 
-// These structs are only needed to check existence before adding constraints.
 type spaceName struct {
 	Name string `db:"name"`
 }
@@ -1258,7 +1262,13 @@ type machineParent struct {
 	MachineUUID coremachine.UUID `db:"machine_uuid"`
 }
 
-type getApplicationEndpoint struct {
+type applicationEndpointBinding struct {
+	ApplicationName string                      `db:"application_name"`
+	EndpointName    string                      `db:"endpoint_name"`
+	SpaceUUID       sql.Null[network.SpaceUUID] `db:"space_uuid"`
+}
+
+type endpointBinding struct {
 	SpaceUUID    sql.Null[network.SpaceUUID] `db:"space_uuid"`
 	EndpointName string                      `db:"name"`
 }

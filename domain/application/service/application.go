@@ -368,6 +368,11 @@ type ApplicationState interface {
 	// third is the namespace for the unit's resolved mode.
 	NamespaceForWatchUnitForLegacyUniter() (string, string, string)
 
+	// GetAllEndpointBindings returns the all endpoint bindings for the model, where
+	// endpoints are indexed by the application UUID for the application which they
+	// belong to.
+	GetAllEndpointBindings(context.Context) (map[string]map[string]network.SpaceName, error)
+
 	// GetApplicationEndpointBindings returns the mapping for each endpoint name and
 	// the space ID it is bound to (or empty if unspecified). When no bindings are
 	// stored for the application, defaults are returned.
@@ -375,6 +380,10 @@ type ApplicationState interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]network.SpaceUUID, error)
+
+	// GetApplicationsBoundToSpace returns the names of the applications bound to
+	// the given space.
+	GetApplicationsBoundToSpace(context.Context, network.SpaceUUID) ([]string, error)
 
 	// GetApplicationEndpointNames returns the names of the endpoints for the given
 	// application.
@@ -1467,6 +1476,17 @@ func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreappli
 	return constraints.EncodeConstraints(cons), errors.Capture(err)
 }
 
+// GetAllEndpointBindings returns the all endpoint bindings for the model, where
+// endpoints are indexed by the application UUID for the application which they
+// belong to.
+func (s *Service) GetAllEndpointBindings(ctx context.Context) (map[string]map[string]network.SpaceName, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	allBindings, err := s.st.GetAllEndpointBindings(ctx)
+	return allBindings, errors.Capture(err)
+}
+
 // GetApplicationEndpointBindings returns the mapping for each endpoint name and
 // the space ID it is bound to (or empty if unspecified). When no bindings are
 // stored for the application, defaults are returned.
@@ -1483,6 +1503,20 @@ func (s *Service) GetApplicationEndpointBindings(ctx context.Context, appID core
 
 	bindings, err := s.st.GetApplicationEndpointBindings(ctx, appID)
 	return bindings, errors.Capture(err)
+}
+
+// GetApplicationsBoundToSpace returns the names of the applications bound to
+// the given space.
+func (s *Service) GetApplicationsBoundToSpace(ctx context.Context, uuid network.SpaceUUID) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := uuid.Validate(); err != nil {
+		return nil, errors.Errorf("validating space UUID: %w", err)
+	}
+
+	apps, err := s.st.GetApplicationsBoundToSpace(ctx, uuid)
+	return apps, errors.Capture(err)
 }
 
 // GetApplicationEndpointNames returns the names of the endpoints for the given
