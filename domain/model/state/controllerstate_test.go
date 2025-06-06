@@ -2047,8 +2047,8 @@ func (s *stateSuite) TestCheckModelDoesNotExist(c *tc.C) {
 
 func (s *stateSuite) TestCheckModelExistsNotActivated(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
-	modelSt := NewState(s.TxnRunnerFactory())
-	err := modelSt.Create(
+	st := NewState(s.TxnRunnerFactory())
+	err := st.Create(
 		c.Context(),
 		modelUUID,
 		coremodel.IAAS,
@@ -2067,7 +2067,41 @@ func (s *stateSuite) TestCheckModelExistsNotActivated(c *tc.C) {
 	)
 	c.Check(err, tc.ErrorIsNil)
 
-	exists, err := modelSt.CheckModelExists(c.Context(), modelUUID)
+	exists, err := st.CheckModelExists(c.Context(), modelUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(exists, tc.IsFalse)
+}
+
+func (s *stateSuite) TestHasValidCredentialModelNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.HasValidCredential(c.Context(), "non-existent-model-uuid")
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *stateSuite) TestHasValidCredentialTrue(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	modelUUID := s.createTestModel(c, st, "testing-valid-credential-model", s.userUUID)
+
+	hasValidCredential, err := st.HasValidCredential(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasValidCredential, tc.IsTrue)
+}
+
+func (s *stateSuite) TestHasValidCredentialFalse(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	modelUUID := s.createTestModel(c, st, "testing-invalid-credential-model", s.userUUID)
+
+	credentialSt := credentialstate.NewState(s.TxnRunnerFactory())
+	err := credentialSt.InvalidateModelCloudCredential(
+		c.Context(),
+		modelUUID,
+		"test-invalid",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	hasValidCredential, err := st.HasValidCredential(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasValidCredential, tc.IsFalse)
+
 }
