@@ -113,7 +113,7 @@ func (u UUID) String() string {
 }
 
 // Validate ensures the consistency of the UUID. If the uuid is invalid an error
-// satisfying [errors.NotValid] will be returned.
+// satisfying [coreerrors.NotValid] will be returned.
 func (u UUID) Validate() error {
 	if u == "" {
 		return errors.Errorf("uuid cannot be empty").Add(coreerrors.NotValid)
