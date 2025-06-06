@@ -64,10 +64,9 @@ type mergeAddressesChanges struct {
 	// toAdd maps provider IDs to ip_address UUID to be added
 	// in provider_link_layer_device.
 	toAdd map[string]string
-	// ToRemove are the provider IDs to remove from provider_ip_address
-	toRemove []string
 	// toRelinquish are a list of ip_address to
-	// relinquish to machine, i.e., set their origin to machine.
+	// relinquish to machine, i.e., set their origin to machine
+	// and remove from provider_ip_address
 	toRelinquish []string
 }
 
@@ -206,7 +205,11 @@ func (st *State) applyMergeLinkLayerChanges(
 			"removing provider IDs from link layer devices: %w", err,
 		)
 	}
-	err = st.removeProviderIDFromAddress(ctx, tx, addressChanges.toRemove)
+	addressesToRemove := append(addressChanges.toRelinquish, transform.MapToSlice(addressChanges.toAdd,
+		func(_, addressUUID string) []string {
+			return []string{addressUUID}
+		})...)
+	err = st.removeProviderIDFromAddress(ctx, tx, addressesToRemove)
 	if err != nil {
 		return errors.Errorf("removing provider IDs from addresses: %w", err)
 	}
@@ -258,18 +261,18 @@ WHERE provider_id IN ($uuids[:])`, uuids{})
 }
 
 // removeProviderIDFromAddress removes provider-addresses mappings for given
-// provider IDs.
+// address UUIDs.
 func (st *State) removeProviderIDFromAddress(
-	ctx context.Context, tx *sqlair.TX, providerUUIDs []string,
+	ctx context.Context, tx *sqlair.TX, addressUUIDs []string,
 ) error {
 	type uuids []string
 	stmt, err := st.Prepare(`
 DELETE FROM provider_ip_address
-WHERE provider_id IN ($uuids[:])`, uuids{})
+WHERE address_uuid IN ($uuids[:])`, uuids{})
 	if err != nil {
 		return errors.Capture(err)
 	}
-	return tx.Query(ctx, stmt, uuids(providerUUIDs)).Run()
+	return tx.Query(ctx, stmt, uuids(addressUUIDs)).Run()
 }
 
 // computeMergeAddressChanges prepares the changes to be applied to the addresses.
@@ -288,7 +291,6 @@ func (st *State) computeMergeAddressChanges(
 
 	result := mergeAddressesChanges{
 		toAdd:        make(map[string]string),
-		toRemove:     nil,
 		toRelinquish: nil,
 	}
 	for _, device := range existingDevices {
@@ -299,9 +301,6 @@ func (st *State) computeMergeAddressChanges(
 			if ok && matchIncoming.ProviderID == existing.ProviderID {
 				continue
 			}
-			result.toRemove = append(
-				result.toRemove, existing.ProviderID,
-			)
 			if !ok {
 				result.toRelinquish = append(result.toRelinquish, existing.UUID)
 				continue
