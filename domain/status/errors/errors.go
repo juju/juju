@@ -37,4 +37,12 @@ const (
 	// UnitNotLeader describes an error that occurs when performing an operation
 	// that requires the leader unit with a unit which is not the leader
 	UnitNotLeader = errors.ConstError("unit is not the leader")
+
+	// FilesystemStatusTransitionNotValid describes an error that occurs when the
+	// current filesystem status cannot transition to the new filesystem status.
+	FilesystemStatusTransitionNotValid = errors.ConstError("filesystem status transition not valid")
+
+	// VolumeStatusTransitionNotValid describes an error that occurs when the
+	// current volume status cannot transition to the new volume status.
+	VolumeStatusTransitionNotValid = errors.ConstError("volume status transition not valid")
 )
