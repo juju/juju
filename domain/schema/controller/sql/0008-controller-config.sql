@@ -30,5 +30,5 @@ CREATE TABLE controller_version (
     controller_uuid TEXT NOT NULL PRIMARY KEY,
     target_version TEXT NOT NULL,
     FOREIGN KEY (controller_uuid)
-    REFERENCES controller(uuid)
+    REFERENCES controller (uuid)
 );
