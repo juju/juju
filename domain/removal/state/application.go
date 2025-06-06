@@ -13,6 +13,7 @@ import (
 	"github.com/juju/collections/transform"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -215,12 +216,21 @@ func (st *State) DeleteApplication(ctx context.Context, aUUID string) error {
 
 	applicationUUIDCount := entityAssociationCount{UUID: aUUID}
 
-	stmt, err := st.Prepare(`
+	applicationStmt, err := st.Prepare(`
 SELECT COUNT(*) AS &entityAssociationCount.count
 FROM   application
 WHERE  uuid = $entityAssociationCount.uuid;`, applicationUUIDCount)
 	if err != nil {
 		return errors.Errorf("preparing application life query: %w", err)
+	}
+
+	unitsStmt, err := st.Prepare(`
+SELECT count(*) AS &entityAssociationCount.count
+FROM unit
+WHERE application_uuid = $entityAssociationCount.uuid
+`, applicationUUIDCount)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	deleteApplicationStmt, err := st.Prepare(`
@@ -231,11 +241,24 @@ WHERE  uuid = $entityAssociationCount.uuid;`, applicationUUIDCount)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, applicationUUIDCount).Get(&applicationUUIDCount)
+		err = tx.Query(ctx, applicationStmt, applicationUUIDCount).Get(&applicationUUIDCount)
 		if errors.Is(err, sqlair.ErrNoRows) || applicationUUIDCount.Count == 0 {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
 			return errors.Errorf("running application life query: %w", err)
+		}
+
+		// Check that there are no units.
+		var result entityAssociationCount
+		err = tx.Query(ctx, unitsStmt, applicationUUIDCount).Get(&result)
+		if err != nil {
+			return errors.Errorf("querying application units: %w", err)
+		} else if numUnits := result.Count; numUnits > 0 {
+			// It is required that all units have been completely removed
+			// before the application can be removed.
+			return errors.Errorf("cannot delete application as it still has %d unit(s)", numUnits).
+				Add(applicationerrors.ApplicationHasUnits).
+				Add(removalerrors.RemovalJobIncomplete)
 		}
 
 		if err := st.deleteApplicationAnnotations(ctx, tx, aUUID); err != nil {

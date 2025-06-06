@@ -20,6 +20,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/life"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -361,6 +362,36 @@ func (s *applicationSuite) TestDeleteIAASApplication(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.DeleteApplication(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The application should be gone.
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+}
+
+func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddUnitArg{},
+	)
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// This should fail because the application has units.
+	err := st.DeleteApplication(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	// Delete any units associated with the application.
+	err = st.DeleteUnit(c.Context(), unitUUIDs[0].String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Now we can delete the application.
+	err = st.DeleteApplication(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The application should be gone.

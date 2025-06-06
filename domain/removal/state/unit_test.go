@@ -17,6 +17,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/life"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -295,6 +296,43 @@ func (s *unitSuite) TestDeleteIAASUnit(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.DeleteUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The unit should be gone.
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+}
+
+func (s *unitSuite) TestDeleteIAASUnitWithSubordinates(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID1 := s.createIAASApplication(c, svc, "foo", applicationservice.AddUnitArg{})
+	appUUID2 := s.createIAASSubordinateApplication(c, svc, "baz", applicationservice.AddUnitArg{})
+
+	// Force the second application to be a subordinate of the first.
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	subUnitUUIDs := s.getAllUnitUUIDs(c, appUUID2)
+	c.Assert(len(subUnitUUIDs), tc.Equals, 1)
+	subUnitUUID := subUnitUUIDs[0]
+
+	_, err := s.DB().Exec(`INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)`,
+		subUnitUUID.String(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	_, err = s.DB().Exec(`DELETE FROM unit_principal`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteUnit(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The unit should be gone.

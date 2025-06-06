@@ -12,6 +12,7 @@ import (
 
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -286,6 +287,16 @@ WHERE     u.uuid = $entityUUID.uuid;`, entityUUID{})
 		return errors.Errorf("preparing unit net node query: %w", err)
 	}
 
+	unitUUIDCount := entityAssociationCount{UUID: unitUUID}
+	subordinateStmt, err := st.Prepare(`
+SELECT count(*) AS &entityAssociationCount.count
+FROM unit_principal
+WHERE principal_uuid = $entityAssociationCount.uuid
+`, unitUUIDCount)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	unitUUIDRec := entityUUID{UUID: unitUUID}
 	deleteUnitStmt, err := st.Prepare(`
 DELETE FROM unit
@@ -300,6 +311,18 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 			return applicationerrors.UnitNotFound
 		} else if err != nil {
 			return errors.Errorf("getting net node UUID for unit %q: %w", unitUUID, err)
+		}
+
+		// Ensure that the unit has no associated subordinates.
+		var numSubordinates entityAssociationCount
+		err = tx.Query(ctx, subordinateStmt, unitUUIDCount).Get(&numSubordinates)
+		if err != nil {
+			return errors.Errorf("getting number of subordinates for unit %q: %w", unitUUID, err)
+		} else if numSubordinates.Count > 0 {
+			// It is required that all units have been completely removed
+			// before the application can be removed.
+			return errors.Errorf("cannot delete unit as it still associated subordinates").
+				Add(removalerrors.RemovalJobIncomplete)
 		}
 
 		if err := st.deleteUnitAnnotations(ctx, tx, unitUUID); err != nil {
