@@ -65,14 +65,15 @@ type ControllerState interface {
 // controller upgrader so that the target agent version of the model can be
 // upgraded in lock step with the controller version.
 type ModelState interface {
-	// GetModelTargetAgentVersion returns the target agent version for this
-	// model.
+	// GetModelTargetAgentVersion returns the target agent version currently set
+	// for the controller's model.
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 
 	// SetModelTargetAgentVersion is responsible for setting the current target
-	// agent version of the model. This function expects a precondition version
-	// to be supplied. The model's target version at the time the operation is
-	// applied must match the preCondition version or else an error is returned.
+	// agent version of the controller model. This function expects a
+	// precondition version to be supplied. The model's target version at the
+	// time the operation is applied must match the preCondition version or else
+	// an error is returned.
 	SetModelTargetAgentVersion(
 		ctx context.Context,
 		preCondition semversion.Number,
@@ -80,10 +81,10 @@ type ModelState interface {
 	) error
 
 	// SetModelTargetAgentVersionAndStream is responsible for setting the
-	// current target agent version of the model and the agent stream that is
-	// used. This function expects a precondition version to be supplied. The
-	// model's target version at the time the operation is applied must match
-	// the preCondition version or else an error is returned.
+	// current target agent version of the controller model and the agent stream
+	// that is used. This function expects a precondition version to be supplied.
+	// The model's target version at the time the operation is applied must
+	// match the preCondition version or else an error is returned.
 	SetModelTargetAgentVersionAndStream(
 		ctx context.Context,
 		preCondition semversion.Number,
