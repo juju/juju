@@ -75,7 +75,7 @@ func (s *serviceSuite) TestUpgradeController(c *tc.C) {
 	s.modelSt.EXPECT().SetModelTargetAgentVersion(
 		gomock.Any(), currentControllerVersion, highestVersion,
 	).Return(nil)
-	s.ctrlSt.EXPECT().SetControllerVersion(gomock.Any(), highestVersion).Return(nil)
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), highestVersion).Return(nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
 	upgradedVer, err := svc.UpgradeController(c.Context())
@@ -207,7 +207,7 @@ func (s *serviceSuite) TestUpgradeControllerWithStream(c *tc.C) {
 		highestVersion,
 		modelagent.AgentStreamProposed,
 	).Return(nil)
-	s.ctrlSt.EXPECT().SetControllerVersion(gomock.Any(), highestVersion).Return(nil)
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), highestVersion).Return(nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
 	upgradedVer, err := svc.UpgradeControllerWithStream(
@@ -289,7 +289,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionNoChange(c *tc.C) {
 	s.modelSt.EXPECT().SetModelTargetAgentVersion(
 		gomock.Any(), currentControllerVersion, upgradeVersion,
 	).Return(nil)
-	s.ctrlSt.EXPECT().SetControllerVersion(gomock.Any(), upgradeVersion).
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), upgradeVersion).
 		Return(nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
@@ -437,7 +437,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionPartialFail(c *tc.C) {
 	s.modelSt.EXPECT().SetModelTargetAgentVersion(
 		gomock.Any(), currentControllerVersion, upgradeVersion,
 	).Return(nil)
-	s.ctrlSt.EXPECT().SetControllerVersion(gomock.Any(), upgradeVersion).Return(
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), upgradeVersion).Return(
 		errors.New("boom"),
 	)
 
@@ -467,7 +467,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionPartialFail(c *tc.C) {
 	s.modelSt.EXPECT().SetModelTargetAgentVersion(
 		gomock.Any(), upgradeVersion, upgradeVersion,
 	).Return(nil)
-	s.ctrlSt.EXPECT().SetControllerVersion(gomock.Any(), upgradeVersion).Return(
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), upgradeVersion).Return(
 		nil,
 	)
 
@@ -505,7 +505,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersion(c *tc.C) {
 	s.modelSt.EXPECT().SetModelTargetAgentVersion(
 		gomock.Any(), currentControllerVersion, upgradeVersion,
 	).Return(nil)
-	s.ctrlSt.EXPECT().SetControllerVersion(gomock.Any(), upgradeVersion).Return(
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), upgradeVersion).Return(
 		nil,
 	)
 
@@ -594,7 +594,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNoChange(c *tc.C) 
 		upgradeVersion,
 		modelagent.AgentStreamDevel,
 	).Return(nil)
-	s.ctrlSt.EXPECT().SetControllerVersion(gomock.Any(), upgradeVersion).
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), upgradeVersion).
 		Return(nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
@@ -770,7 +770,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 		upgradeVersion,
 		modelagent.AgentStreamDevel,
 	).Return(nil)
-	s.ctrlSt.EXPECT().SetControllerVersion(gomock.Any(), upgradeVersion).Return(
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), upgradeVersion).Return(
 		errors.New("boom"),
 	)
 
@@ -805,7 +805,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 		upgradeVersion,
 		modelagent.AgentStreamDevel,
 	).Return(nil)
-	s.ctrlSt.EXPECT().SetControllerVersion(gomock.Any(), upgradeVersion).Return(
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), upgradeVersion).Return(
 		nil,
 	)
 
@@ -848,7 +848,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStream(c *tc.C) {
 		upgradeVersion,
 		modelagent.AgentStreamTesting,
 	).Return(nil)
-	s.ctrlSt.EXPECT().SetControllerVersion(gomock.Any(), upgradeVersion).Return(
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), upgradeVersion).Return(
 		nil,
 	)
 
