@@ -59,7 +59,7 @@ func (s *serviceSuite) TestUpgradeController(c *tc.C) {
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(
 		gomock.Any(), highestVersion,
 	).Return(true, nil)
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
@@ -100,7 +100,7 @@ func (s *serviceSuite) TestUpgradeControllerNodeBlocker(c *tc.C) {
 
 	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailable(gomock.Any()).
 		Return(highestVersion, nil)
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
@@ -152,7 +152,7 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamNodeBlocker(c *tc.C) {
 	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailableForStream(
 		gomock.Any(), modelagent.AgentStreamDevel,
 	).Return(highestVersion, nil)
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
@@ -190,7 +190,7 @@ func (s *serviceSuite) TestUpgradeControllerWithStream(c *tc.C) {
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionAndStream(
 		gomock.Any(), highestVersion, modelagent.AgentStreamProposed,
 	).Return(true, nil)
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
@@ -241,7 +241,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionDowngrade(c *tc.C) {
 	currentControllerVersion, err := semversion.Parse("4.0.8")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -272,7 +272,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionNoChange(c *tc.C) {
 	currentControllerVersion, err := semversion.Parse("4.0.8")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -311,7 +311,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionGreaterThanPatch(c *tc.C) {
 	currentControllerVersion, err := semversion.Parse("4.0.8")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -336,7 +336,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionMissingBinaries(c *tc.C) {
 	currentControllerVersion, err := semversion.Parse("4.0.8")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
@@ -371,7 +371,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionNodeBlocker(c *tc.C) {
 	oldNodeVersion, err := semversion.Parse("4.0.0")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -419,7 +419,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionPartialFail(c *tc.C) {
 
 	// Step 1. Setup the failure case where the model write succeeds but the
 	// controller write fails.
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	// This part is important. We want to show that all controller nodes are
@@ -447,7 +447,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionPartialFail(c *tc.C) {
 
 	// Step 2. Change mocks to now report the half saved state and check that a
 	// controller upgrade can still be performed.
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	// This part is important and shows that given a non deterministic amount of
@@ -489,7 +489,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersion(c *tc.C) {
 		gomock.Any(), upgradeVersion,
 	).Return(true, nil).AnyTimes()
 
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
@@ -541,7 +541,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamDowngrade(c *tc.C)
 	currentControllerVersion, err := semversion.Parse("4.0.8")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -574,7 +574,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNoChange(c *tc.C) 
 	currentControllerVersion, err := semversion.Parse("4.0.8")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -618,7 +618,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamGreaterThanPatch(c
 	currentControllerVersion, err := semversion.Parse("4.0.8")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -645,7 +645,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamMissingBinaries(c 
 	currentControllerVersion, err := semversion.Parse("4.0.8")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
@@ -699,7 +699,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNodeBlocker(c *tc.
 	oldNodeVersion, err := semversion.Parse("4.0.0")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -749,7 +749,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 
 	// Step 1. Setup the failure case where the model write succeeds but the
 	// controller write fails.
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	// This part is important. We want to show that all controller nodes are
@@ -782,7 +782,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 
 	// Step 2. Change mocks to now report the half saved state and check that a
 	// controller upgrade can still be performed.
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	// This part is important and shows that given a non deterministic amount of
@@ -829,7 +829,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStream(c *tc.C) {
 		gomock.Any(), upgradeVersion, modelagent.AgentStreamTesting,
 	).Return(true, nil).AnyTimes()
 
-	s.ctrlSt.EXPECT().GetControllerVersion(gomock.Any()).Return(
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
