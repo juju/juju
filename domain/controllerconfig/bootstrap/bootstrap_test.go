@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/controller"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
+	jujuversion "github.com/juju/juju/core/version"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/testing"
 )
@@ -45,6 +46,11 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 
 	c.Check(dbModelUUID, tc.Equals, modelUUID.String())
 	c.Check(dbUUID, tc.Equals, testing.ControllerTag.Id())
+
+	var controllerVersion string
+	row = s.DB().QueryRow("SELECT target_version FROM controller_version")
+	c.Check(row.Scan(&controllerVersion), tc.ErrorIsNil)
+	c.Check(controllerVersion, tc.Equals, jujuversion.Current.String())
 }
 
 func (s *bootstrapSuite) TestValidModelUUID(c *tc.C) {
