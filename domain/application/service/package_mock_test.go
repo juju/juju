@@ -615,6 +615,45 @@ func (c *MockStateGetAddressesHashCall) DoAndReturn(f func(context.Context, appl
 	return c
 }
 
+// GetAllEndpointBindings mocks base method.
+func (m *MockState) GetAllEndpointBindings(arg0 context.Context) (map[string]map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllEndpointBindings", arg0)
+	ret0, _ := ret[0].(map[string]map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllEndpointBindings indicates an expected call of GetAllEndpointBindings.
+func (mr *MockStateMockRecorder) GetAllEndpointBindings(arg0 any) *MockStateGetAllEndpointBindingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllEndpointBindings", reflect.TypeOf((*MockState)(nil).GetAllEndpointBindings), arg0)
+	return &MockStateGetAllEndpointBindingsCall{Call: call}
+}
+
+// MockStateGetAllEndpointBindingsCall wrap *gomock.Call
+type MockStateGetAllEndpointBindingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllEndpointBindingsCall) Return(arg0 map[string]map[string]string, arg1 error) *MockStateGetAllEndpointBindingsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllEndpointBindingsCall) Do(f func(context.Context) (map[string]map[string]string, error)) *MockStateGetAllEndpointBindingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllEndpointBindingsCall) DoAndReturn(f func(context.Context) (map[string]map[string]string, error)) *MockStateGetAllEndpointBindingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllUnitNames mocks base method.
 func (m *MockState) GetAllUnitNames(arg0 context.Context) ([]unit.Name, error) {
 	m.ctrl.T.Helper()
@@ -1321,6 +1360,45 @@ func (c *MockStateGetApplicationUnitsForExportCall) Do(f func(context.Context, a
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetApplicationUnitsForExportCall) DoAndReturn(f func(context.Context, application.ID) ([]application0.ExportUnit, error)) *MockStateGetApplicationUnitsForExportCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationsBoundToSpace mocks base method.
+func (m *MockState) GetApplicationsBoundToSpace(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationsBoundToSpace", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationsBoundToSpace indicates an expected call of GetApplicationsBoundToSpace.
+func (mr *MockStateMockRecorder) GetApplicationsBoundToSpace(arg0, arg1 any) *MockStateGetApplicationsBoundToSpaceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationsBoundToSpace", reflect.TypeOf((*MockState)(nil).GetApplicationsBoundToSpace), arg0, arg1)
+	return &MockStateGetApplicationsBoundToSpaceCall{Call: call}
+}
+
+// MockStateGetApplicationsBoundToSpaceCall wrap *gomock.Call
+type MockStateGetApplicationsBoundToSpaceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationsBoundToSpaceCall) Return(arg0 []string, arg1 error) *MockStateGetApplicationsBoundToSpaceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationsBoundToSpaceCall) Do(f func(context.Context, string) ([]string, error)) *MockStateGetApplicationsBoundToSpaceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationsBoundToSpaceCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateGetApplicationsBoundToSpaceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

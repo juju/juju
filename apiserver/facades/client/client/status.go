@@ -157,7 +157,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		return noStatus, internalerrors.Errorf("could not load model status values: %w", err)
 	}
 	if context.allAppsUnitsCharmBindings, err =
-		fetchAllApplicationsAndUnits(ctx, c.statusService, c.applicationService, c.stateAccessor, context.spaceInfos); err != nil {
+		fetchAllApplicationsAndUnits(ctx, c.statusService, c.applicationService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch applications and units: %w", err)
 	}
 	if context.consumerRemoteApplications, err =
@@ -334,7 +334,7 @@ type applicationStatusInfo struct {
 	applicationCharmURL map[string]string
 
 	// endpointBindings: application name -> endpoint -> space
-	endpointBindings map[string]map[string]string
+	endpointBindings map[string]map[string]network.SpaceName
 
 	// latestCharms: charm locator (without revision) -> charm locator
 	latestCharms map[applicationcharm.CharmLocator]applicationcharm.CharmLocator
@@ -589,7 +589,7 @@ func fetchNetworkInterfaces(st Backend, subnetInfos network.SubnetInfos, spaceIn
 
 // fetchAllApplicationsAndUnits returns a map from application name to application,
 // a map from application name to unit name to unit, and a map from base charm URL to latest URL.
-func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusService, applicationService ApplicationService, st Backend, spaceInfos network.SpaceInfos) (applicationStatusInfo, error) {
+func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusService, applicationService ApplicationService) (applicationStatusInfo, error) {
 	var (
 		apps         = make(map[string]statusservice.Application)
 		appCharmURL  = make(map[string]string)
@@ -601,24 +601,19 @@ func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusServi
 		return applicationStatusInfo{}, err
 	}
 
-	endpointBindings, err := st.AllEndpointBindings()
+	allBindingsByApp, err := applicationService.GetAllEndpointBindings(ctx)
 	if err != nil {
 		return applicationStatusInfo{}, err
 	}
-	allBindingsByApp := make(map[string]map[string]string)
-	for app, bindings := range endpointBindings {
-		// If the only binding is the default, and it's set to the
-		// default space, no need to print.
-		bindingMap, err := bindings.MapWithSpaceNames(spaceInfos)
-		if err != nil {
-			return applicationStatusInfo{}, err
-		}
-		if len(bindingMap) == 1 {
-			if v, ok := bindingMap[""]; ok && v == network.AlphaSpaceName.String() {
-				continue
+
+	// If the only binding is the default, and it's set to the
+	// default space, no need to print.
+	for app, bindings := range allBindingsByApp {
+		if len(bindings) == 1 {
+			if v, ok := bindings[""]; ok && v == network.AlphaSpaceName {
+				delete(allBindingsByApp, app)
 			}
 		}
-		allBindingsByApp[app] = bindingMap
 	}
 
 	lxdProfiles := make(map[string]*charm.LXDProfile)
@@ -1080,7 +1075,10 @@ func (c *statusContext) processApplication(ctx context.Context, name string, app
 		processedStatus.WorkloadVersion = *application.WorkloadVersion
 	}
 
-	processedStatus.EndpointBindings = c.allAppsUnitsCharmBindings.endpointBindings[name]
+	processedStatus.EndpointBindings = transform.Map(
+		c.allAppsUnitsCharmBindings.endpointBindings[name],
+		func(k string, v network.SpaceName) (string, string) { return k, v.String() },
+	)
 
 	// IAAS applications have all the information they need in the application
 	// status. CAAS applications have some additional information.

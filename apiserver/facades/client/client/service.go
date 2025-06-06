@@ -43,6 +43,11 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error)
+
+	// GetAllEndpointBindings returns the all endpoint bindings for the model, where
+	// endpoints are indexed by the application name for the application which they
+	// belong to.
+	GetAllEndpointBindings(ctx context.Context) (map[string]map[string]network.SpaceName, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status

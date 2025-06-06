@@ -69,6 +69,11 @@ func (api *API) checkSpaceIsRemovable(
 		results.Results[index].Error = apiservererrors.ServerError(newErr)
 		return false
 	}
+
+	if force {
+		return true
+	}
+
 	space, err := api.networkService.SpaceByName(ctx, spaceName)
 	if err != nil {
 		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
@@ -90,10 +95,6 @@ func (api *API) checkSpaceIsRemovable(
 		return false
 	}
 
-	if force {
-		return true
-	}
-
 	if len(settingMatches) != 0 {
 		results.Results[index].ControllerSettings = settingMatches
 		removable = false
@@ -112,11 +113,7 @@ func (api *API) checkSpaceIsRemovable(
 // applicationTagsForSpace returns the tags for all applications with an
 // endpoint bound to a space with the input name.
 func (api *API) applicationTagsForSpace(ctx context.Context, spaceID network.SpaceUUID) ([]names.Tag, error) {
-	allSpaces, err := api.networkService.GetAllSpaces(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	applications, err := api.applicationsBoundToSpace(spaceID, allSpaces)
+	applications, err := api.applicationService.GetApplicationsBoundToSpace(ctx, spaceID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

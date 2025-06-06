@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -560,38 +559,6 @@ func (st *State) AllUnits() ([]*Unit, error) {
 		units = append(units, newUnit(st, m.Type(), &docs[i]))
 	}
 	return units, nil
-}
-
-// AllEndpointBindings returns all endpoint->space bindings
-// keyed by application name.
-func (st *State) AllEndpointBindings() (map[string]*Bindings, error) {
-	endpointBindings, closer := st.db().GetCollection(endpointBindingsC)
-	defer closer()
-
-	var docs []endpointBindingsDoc
-	err := endpointBindings.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get endpoint bindings")
-	}
-
-	appEndpointBindings := make(map[string]*Bindings, 0)
-	for _, doc := range docs {
-		var applicationName string
-		applicationKey := st.localID(doc.DocID)
-		if strings.HasPrefix(applicationKey, "a#") {
-			applicationName = applicationKey[2:]
-		} else {
-			return nil, errors.NotValidf("application key %v", applicationKey)
-		}
-
-		bindings, err := NewBindings(st, doc.Bindings)
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot make bindings")
-		}
-		appEndpointBindings[applicationName] = bindings
-	}
-
-	return appEndpointBindings, nil
 }
 
 // IsControllerModel returns a boolean indicating whether
