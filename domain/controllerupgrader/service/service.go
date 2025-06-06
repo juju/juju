@@ -60,11 +60,11 @@ type ControllerState interface {
 	SetControllerTargetVersion(context.Context, semversion.Number) error
 }
 
-// ModelState defines the interface for interacting with the underlying model
-// that hosts the current controller(s). Model state is required for the
-// controller upgrader so that the target agent version of the model can be
-// upgraded in lock step with the controller version.
-type ModelState interface {
+// ControllerModelState defines the interface for interacting with the
+// underlying model that hosts the current controller(s). Model state is
+// required for the controller upgrader so that the target agent version of the
+// model can be upgraded in lock step with the controller version.
+type ControllerModelState interface {
 	// GetModelTargetAgentVersion returns the target agent version currently set
 	// for the controller's model.
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
@@ -98,7 +98,7 @@ type ModelState interface {
 type Service struct {
 	agentBinaryFinder AgentBinaryFinder
 	ctrlSt            ControllerState
-	modelSt           ModelState
+	modelSt           ControllerModelState
 }
 
 // NewService returns a new Service for interacting and upgrading the
@@ -106,7 +106,7 @@ type Service struct {
 func NewService(
 	agentBinaryFinder AgentBinaryFinder,
 	ctrlSt ControllerState,
-	modelSt ModelState,
+	modelSt ControllerModelState,
 ) *Service {
 	return &Service{
 		agentBinaryFinder: agentBinaryFinder,
