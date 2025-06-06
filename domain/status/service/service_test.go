@@ -1572,6 +1572,12 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		loggertesting.WrapCheckLog(c),
 	)
 
+	c.Cleanup(func() {
+		s.state = nil
+		s.statusHistory = nil
+		s.service = nil
+	})
+
 	return ctrl
 }
 
