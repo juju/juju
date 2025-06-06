@@ -54,10 +54,10 @@ type ControllerState interface {
 	// cluster.
 	GetControllerTargetVersion(ctx context.Context) (semversion.Number, error)
 
-	// SetControllerVersion is responsible for setting the current controller
-	// version in use by the cluster. Controllers in the cluster will
+	// SetControllerTargetVersion is responsible for setting the current
+	// controller version in use by the cluster. Controllers in the cluster will
 	// eventually upgrade to this version once changed.
-	SetControllerVersion(context.Context, semversion.Number) error
+	SetControllerTargetVersion(context.Context, semversion.Number) error
 }
 
 // ModelState defines the interface for interacting with the underlying model
@@ -321,7 +321,7 @@ func (s *Service) UpgradeControllerToVersion(
 		)
 	}
 
-	err = s.ctrlSt.SetControllerVersion(ctx, desiredVersion)
+	err = s.ctrlSt.SetControllerTargetVersion(ctx, desiredVersion)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -417,7 +417,7 @@ func (s *Service) UpgradeControllerToVersionAndStream(
 		)
 	}
 
-	err = s.ctrlSt.SetControllerVersion(ctx, desiredVersion)
+	err = s.ctrlSt.SetControllerTargetVersion(ctx, desiredVersion)
 	if err != nil {
 		return errors.Capture(err)
 	}
