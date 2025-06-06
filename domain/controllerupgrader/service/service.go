@@ -50,29 +50,30 @@ type ControllerState interface {
 	// reports when it starts up.
 	GetControllerNodeVersions(ctx context.Context) (map[string]semversion.Number, error)
 
-	// GetControllerVersion returns the current juju version in use by the
-	// controller(s) of the cluster.
-	GetControllerVersion(ctx context.Context) (semversion.Number, error)
+	// GetControllerTargetVersion returns the target controller version in use by the
+	// cluster.
+	GetControllerTargetVersion(ctx context.Context) (semversion.Number, error)
 
-	// SetControllerVersion is responsible for setting the current controller
-	// version in use by the cluster. Controllers in the cluster will
+	// SetControllerTargetVersion is responsible for setting the current
+	// controller version in use by the cluster. Controllers in the cluster will
 	// eventually upgrade to this version once changed.
-	SetControllerVersion(context.Context, semversion.Number) error
+	SetControllerTargetVersion(context.Context, semversion.Number) error
 }
 
-// ModelState defines the interface for interacting with the underlying model
-// that hosts the current controller(s). Model state is required for the
-// controller upgrader so that the target agent version of the model can be
-// upgraded in lock step with the controller version.
-type ModelState interface {
-	// GetModelTargetAgentVersion returns the target agent version for this
-	// model.
+// ControllerModelState defines the interface for interacting with the
+// underlying model that hosts the current controller(s). Model state is
+// required for the controller upgrader so that the target agent version of the
+// model can be upgraded in lock step with the controller version.
+type ControllerModelState interface {
+	// GetModelTargetAgentVersion returns the target agent version currently set
+	// for the controller's model.
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 
 	// SetModelTargetAgentVersion is responsible for setting the current target
-	// agent version of the model. This function expects a precondition version
-	// to be supplied. The model's target version at the time the operation is
-	// applied must match the preCondition version or else an error is returned.
+	// agent version of the controller model. This function expects a
+	// precondition version to be supplied. The model's target version at the
+	// time the operation is applied must match the preCondition version or else
+	// an error is returned.
 	SetModelTargetAgentVersion(
 		ctx context.Context,
 		preCondition semversion.Number,
@@ -80,10 +81,10 @@ type ModelState interface {
 	) error
 
 	// SetModelTargetAgentVersionAndStream is responsible for setting the
-	// current target agent version of the model and the agent stream that is
-	// used. This function expects a precondition version to be supplied. The
-	// model's target version at the time the operation is applied must match
-	// the preCondition version or else an error is returned.
+	// current target agent version of the controller model and the agent stream
+	// that is used. This function expects a precondition version to be supplied.
+	// The model's target version at the time the operation is applied must
+	// match the preCondition version or else an error is returned.
 	SetModelTargetAgentVersionAndStream(
 		ctx context.Context,
 		preCondition semversion.Number,
@@ -97,7 +98,7 @@ type ModelState interface {
 type Service struct {
 	agentBinaryFinder AgentBinaryFinder
 	ctrlSt            ControllerState
-	modelSt           ModelState
+	modelSt           ControllerModelState
 }
 
 // NewService returns a new Service for interacting and upgrading the
@@ -105,7 +106,7 @@ type Service struct {
 func NewService(
 	agentBinaryFinder AgentBinaryFinder,
 	ctrlSt ControllerState,
-	modelSt ModelState,
+	modelSt ControllerModelState,
 ) *Service {
 	return &Service{
 		agentBinaryFinder: agentBinaryFinder,
@@ -321,7 +322,7 @@ func (s *Service) UpgradeControllerToVersion(
 		)
 	}
 
-	err = s.ctrlSt.SetControllerVersion(ctx, desiredVersion)
+	err = s.ctrlSt.SetControllerTargetVersion(ctx, desiredVersion)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -417,7 +418,7 @@ func (s *Service) UpgradeControllerToVersionAndStream(
 		)
 	}
 
-	err = s.ctrlSt.SetControllerVersion(ctx, desiredVersion)
+	err = s.ctrlSt.SetControllerTargetVersion(ctx, desiredVersion)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -491,7 +492,7 @@ func (s *Service) validateControllerCanBeUpgradedTo(
 	ctx context.Context,
 	desiredVersion semversion.Number,
 ) error {
-	currentVersion, err := s.ctrlSt.GetControllerVersion(ctx)
+	currentVersion, err := s.ctrlSt.GetControllerTargetVersion(ctx)
 	if err != nil {
 		return errors.Errorf(
 			"getting current controller version: %w", err,
