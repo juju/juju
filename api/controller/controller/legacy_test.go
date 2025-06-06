@@ -86,7 +86,7 @@ func (s *legacySuite) TestDestroyController(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 	err := sysManager.DestroyController(controller.DestroyControllerParams{})
-	c.Assert(err, gc.ErrorMatches, `failed to destroy model: hosting 1 other model \(controller has hosted models\)`)
+	c.Assert(err, gc.ErrorMatches, `initiating destroy model operation: failed to destroy model: hosting 1 other model \(controller has hosted models\)`)
 }
 
 func (s *legacySuite) TestListBlockedModels(c *gc.C) {
