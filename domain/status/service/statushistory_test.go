@@ -533,8 +533,8 @@ func (s *statusHistorySuite) expectResults(records []statushistory.HistoryRecord
 	)
 }
 
-func (s *statusHistorySuite) newService() *Service {
-	return &Service{
+func (s *statusHistorySuite) newService() *ModelService {
+	return &ModelService{
 		statusHistoryReaderFn: func() (StatusHistoryReader, error) {
 			return s.historyReader, nil
 		},
