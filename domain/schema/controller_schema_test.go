@@ -73,6 +73,7 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		// Controller config
 		"controller",
 		"controller_config",
+		"controller_version",
 
 		// Controller nodes
 		"controller_node",
