@@ -91,9 +91,9 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveUn
 	s.checkUnitContents(c, unitUUIDs, allUnitUUIDs)
 	s.checkMachineContents(c, machineUUIDs, allMachineUUIDs)
 
-	s.checkApplicationState(c, appUUID)
-	s.checkUnitState(c, allUnitUUIDs)
-	s.checkMachineState(c, allMachineUUIDs)
+	s.checkApplicationDyingState(c, appUUID)
+	s.checkUnitDyingState(c, allUnitUUIDs)
+	s.checkMachineDyingState(c, allMachineUUIDs)
 }
 
 func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAndDyingUnits(c *tc.C) {
@@ -128,9 +128,9 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAn
 	s.checkUnitContents(c, unitUUIDs, aliveUnitUUIDs)
 	s.checkMachineContents(c, machineUUIDs, aliveMachineUUIDs)
 
-	s.checkApplicationState(c, appUUID)
-	s.checkUnitState(c, aliveUnitUUIDs)
-	s.checkMachineState(c, aliveMachineUUIDs)
+	s.checkApplicationDyingState(c, appUUID)
+	s.checkUnitDyingState(c, aliveUnitUUIDs)
+	s.checkMachineDyingState(c, aliveMachineUUIDs)
 }
 
 func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAndDyingUnitsWithLastMachine(c *tc.C) {
@@ -160,9 +160,77 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAn
 	s.checkUnitContents(c, unitUUIDs, allUnitUUIDs)
 	s.checkMachineContents(c, machineUUIDs, uniqueMachineUUIDs)
 
-	s.checkApplicationState(c, appUUID)
-	s.checkUnitState(c, allUnitUUIDs)
-	s.checkMachineState(c, uniqueMachineUUIDs)
+	s.checkApplicationDyingState(c, appUUID)
+	s.checkUnitDyingState(c, allUnitUUIDs)
+	s.checkMachineDyingState(c, uniqueMachineUUIDs)
+}
+
+// Ensure that if another application is using the machine, it will not be
+// set to dying.
+func (s *applicationSuite) TestEnsureApplicationOnMultipleMachines(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID1 := s.createIAASApplication(c, svc, "foo",
+		applicationservice.AddUnitArg{},
+	)
+	appUUID2 := s.createIAASApplication(c, svc, "bar",
+		applicationservice.AddUnitArg{
+			Placement: instance.MustParsePlacement("0"),
+		},
+	)
+
+	allUnitUUIDs, allMachineUUIDs := s.getAllUnitAndMachineUUIDs(c)
+	c.Assert(allUnitUUIDs, tc.HasLen, 2)
+	c.Assert(allMachineUUIDs, tc.HasLen, 2)
+
+	// There should be a unit with the same placement as the machine.
+	uniqueMachineUUIDs := removeDuplicates(allMachineUUIDs)
+	c.Assert(uniqueMachineUUIDs, tc.HasLen, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID1.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	app1UnitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
+	app2UnitUUIDs := s.getAllUnitUUIDs(c, appUUID2)
+
+	s.checkUnitContents(c, unitUUIDs, app1UnitUUIDs)
+	s.checkMachineContents(c, machineUUIDs, []machine.UUID{})
+
+	s.checkApplicationDyingState(c, appUUID1)
+
+	var (
+		count int
+		uuid  string
+	)
+
+	// There should be one unit that is alive (from app2), and one that is dying
+	// (from app1).
+	row := s.DB().QueryRow("SELECT COUNT(*), uuid FROM unit WHERE life_id = 0")
+	err = row.Scan(&count, &uuid)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+	c.Check(uuid, tc.Equals, app2UnitUUIDs[0].String())
+
+	row = s.DB().QueryRow("SELECT COUNT(*), uuid FROM unit WHERE life_id != 0")
+	err = row.Scan(&count, &uuid)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+	c.Check(uuid, tc.Equals, app1UnitUUIDs[0].String())
+
+	// The machine is being used by another application, so it should be
+	// still alive.
+	row = s.DB().QueryRow("SELECT COUNT(*) FROM machine WHERE life_id = 0")
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+
+	// Ensure that there are no other machines that are not alive.
+	row = s.DB().QueryRow("SELECT COUNT(*) FROM machine WHERE life_id != 0")
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
 }
 
 func (s *applicationSuite) TestEnsureApplicationNotAliveDyingSuccess(c *tc.C) {
@@ -329,7 +397,7 @@ func (s *applicationSuite) checkMachineContents(c *tc.C, actual []string, expect
 	}))
 }
 
-func (s *applicationSuite) checkApplicationState(c *tc.C, appUUID coreapplication.ID) {
+func (s *applicationSuite) checkApplicationDyingState(c *tc.C, appUUID coreapplication.ID) {
 	row := s.DB().QueryRow("SELECT life_id FROM application where uuid = ?", appUUID.String())
 	var lifeID int
 	err := row.Scan(&lifeID)
@@ -337,7 +405,7 @@ func (s *applicationSuite) checkApplicationState(c *tc.C, appUUID coreapplicatio
 	c.Check(lifeID, tc.Equals, 1)
 }
 
-func (s *applicationSuite) checkUnitState(c *tc.C, unitUUIDs []unit.UUID) {
+func (s *applicationSuite) checkUnitDyingState(c *tc.C, unitUUIDs []unit.UUID) {
 	// Ensure that there are no units left with life "alive".
 	row := s.DB().QueryRow("SELECT COUNT(*) FROM unit WHERE  life_id = 0")
 	var count int
@@ -360,7 +428,7 @@ SELECT COUNT(*) FROM unit WHERE life_id = 1 AND uuid IN (%s)
 	c.Check(dyingCount, tc.Equals, len(unitUUIDs))
 }
 
-func (s *applicationSuite) checkMachineState(c *tc.C, machineUUIDs []machine.UUID) {
+func (s *applicationSuite) checkMachineDyingState(c *tc.C, machineUUIDs []machine.UUID) {
 	// Ensure that there are no machines left with life "alive".
 	row := s.DB().QueryRow("SELECT COUNT(*) FROM machine WHERE life_id = 0")
 	var count int
