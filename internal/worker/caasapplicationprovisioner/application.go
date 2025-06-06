@@ -131,7 +131,7 @@ func (a *appWorker) loop() error {
 		return nil
 	}
 
-	if !a.statusOnly {
+	if appLife == life.Alive && !a.statusOnly {
 		// Ensure the charm is upgraded to a v2 charm (or wait for that).
 		shouldExit, err := a.ops.VerifyCharmUpgraded(a.name, a.facade, &a.catacomb, a.logger)
 		if err != nil {

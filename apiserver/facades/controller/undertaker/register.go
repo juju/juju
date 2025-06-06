@@ -30,11 +30,7 @@ func newUndertakerFacade(ctx facade.Context) (*UndertakerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	secretsBackendsGetter := func() (*provider.ModelBackendConfigInfo, error) {
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
+		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(m))
 	}
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		ctx.Resources(),

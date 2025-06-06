@@ -1055,12 +1055,19 @@ func (s *ModelSuite) assertDestroyModelReleaseStorageUnreleasable(c *gc.C, force
 
 	destroyStorage := false
 	err := s.Model.Destroy(state.DestroyModelParams{DestroyStorage: &destroyStorage, Force: force})
-	expectedErr := fmt.Sprintf(`failed to destroy model: cannot release volume 0: ` +
-		`storage provider "modelscoped-unreleasable" does not support releasing storage`)
-	c.Assert(err, gc.ErrorMatches, expectedErr)
-	c.Assert(s.Model.Refresh(), jc.ErrorIsNil)
-	c.Assert(s.Model.Life(), gc.Equals, state.Alive)
-	assertDoesNotNeedCleanup(c, s.State)
+	if force != nil && *force {
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(s.Model.Refresh(), jc.ErrorIsNil)
+		c.Assert(s.Model.Life(), gc.Equals, state.Dying)
+		assertNeedsCleanup(c, s.State)
+	} else {
+		expectedErr := fmt.Sprintf(`failed to destroy model: ` +
+			`storage provider "modelscoped-unreleasable" does not support releasing storage`)
+		c.Assert(err, gc.ErrorMatches, expectedErr)
+		c.Assert(s.Model.Refresh(), jc.ErrorIsNil)
+		c.Assert(s.Model.Life(), gc.Equals, state.Alive)
+		assertDoesNotNeedCleanup(c, s.State)
+	}
 }
 
 func (s *ModelSuite) TestDestroyModelReleaseStorageUnreleasable(c *gc.C) {

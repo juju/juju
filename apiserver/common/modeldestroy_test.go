@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/testing"
 )
 
@@ -110,31 +109,6 @@ func (s *destroyModelSuite) TestDestroyModelBlocked(c *gc.C) {
 
 	s.modelManager.CheckCallNames(c, "GetBlockForType")
 	s.modelManager.models[0].CheckNoCalls(c)
-}
-
-func (s *destroyModelSuite) TestDestroyModelIgnoresErrorsWithForce(c *gc.C) {
-	s.modelManager.models[0].SetErrors(
-		errors.New("nope"),
-	)
-
-	true_ := true
-	err := common.DestroyModel(s.modelManager, nil, &true_, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.modelManager.CheckCallNames(c, "GetBlockForType", "GetBlockForType", "GetBlockForType", "Model")
-	s.modelManager.models[0].CheckCallNames(c, "Destroy")
-}
-
-func (s *destroyModelSuite) TestDestroyModelNotIgnoreErrorsrWithForce(c *gc.C) {
-	s.modelManager.models[0].SetErrors(
-		stateerrors.PersistentStorageError,
-	)
-	true_ := true
-	err := common.DestroyModel(s.modelManager, nil, &true_, nil, nil)
-	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
-
-	s.modelManager.CheckCallNames(c, "GetBlockForType", "GetBlockForType", "GetBlockForType", "Model")
-	s.modelManager.models[0].CheckCallNames(c, "Destroy")
 }
 
 func (s *destroyModelSuite) TestDestroyControllerNonControllerModel(c *gc.C) {
