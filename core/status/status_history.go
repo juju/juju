@@ -91,6 +91,10 @@ const (
 	KindContainerInstance HistoryKind = "container"
 	// KindContainer represents an entry for a container agent.
 	KindContainer HistoryKind = "juju-container"
+	// KindFilesystem represents an entry for a filesystem.
+	KindFilesystem HistoryKind = "filesystem"
+	// KindVolume represents an entry for a volume.
+	KindVolume HistoryKind = "volume"
 )
 
 // String returns a string representation of the HistoryKind.
@@ -104,7 +108,8 @@ func (k HistoryKind) Valid() bool {
 	case KindModel, KindUnit, KindUnitAgent, KindWorkload,
 		KindApplication, KindSAAS,
 		KindMachineInstance, KindMachine,
-		KindContainerInstance, KindContainer:
+		KindContainerInstance, KindContainer,
+		KindFilesystem, KindVolume:
 		return true
 	}
 	return false
@@ -123,5 +128,7 @@ func AllHistoryKind() map[HistoryKind]string {
 		KindMachine:           "status of the agent that is managing a machine",
 		KindContainerInstance: "statuses from the agent that is managing containers",
 		KindContainer:         "statuses from the containers only and not their host machines",
+		KindFilesystem:        "statuses from the specified filesystem",
+		KindVolume:            "statuses from the specified volume",
 	}
 }

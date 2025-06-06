@@ -26,6 +26,8 @@ import (
 // State describes retrieval and persistence methods for the statuses of
 // applications and units.
 type State interface {
+	StorageState
+
 	// GetAllRelationStatuses returns all the relation statuses of the given model.
 	GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error)
 

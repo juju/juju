@@ -1526,7 +1526,7 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 	case status.Started, status.Stopped:
 	case status.Error:
 		if statusInfo.Message == "" {
-			return errors.Errorf("cannot set status %q without info", statusInfo.Status)
+			return errors.Errorf("cannot set status %q without message", statusInfo.Status)
 		}
 	case status.Pending:
 		// If a machine is not yet provisioned, we allow its status
