@@ -358,6 +358,24 @@ WHERE u.uuid = ?
 	return machineUUIDs[0]
 }
 
+func (s *baseSuite) checkNoCharmsExist(c *tc.C) {
+	// Ensure that there are no charms in the database.
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM charm")
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *baseSuite) checkCharmsCount(c *tc.C, expectedCount int) {
+	// Ensure that there are no charms in the database.
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM charm")
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, expectedCount)
+}
+
 type stubCharm struct {
 	name        string
 	subordinate bool

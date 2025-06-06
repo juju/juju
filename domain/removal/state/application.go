@@ -249,11 +249,11 @@ WHERE  uuid = $entityAssociationCount.uuid;`, applicationUUIDCount)
 		}
 
 		// Check that there are no units.
-		var result entityAssociationCount
-		err = tx.Query(ctx, unitsStmt, applicationUUIDCount).Get(&result)
+		var numUnits entityAssociationCount
+		err = tx.Query(ctx, unitsStmt, applicationUUIDCount).Get(&numUnits)
 		if err != nil {
 			return errors.Errorf("querying application units: %w", err)
-		} else if numUnits := result.Count; numUnits > 0 {
+		} else if numUnits := numUnits.Count; numUnits > 0 {
 			// It is required that all units have been completely removed
 			// before the application can be removed.
 			return errors.Errorf("cannot delete application as it still has %d unit(s)", numUnits).
@@ -277,8 +277,20 @@ WHERE  uuid = $entityAssociationCount.uuid;`, applicationUUIDCount)
 			return errors.Errorf("deleting simple application references: %w", err)
 		}
 
+		// Get the charm UUID before we delete the application.
+		charmUUID, err := st.getCharmUUIDForApplication(ctx, tx, aUUID)
+		if err != nil {
+			return errors.Errorf("getting charm UUID for application: %w", err)
+		}
+
+		// Delete the application itself.
 		if err := tx.Query(ctx, deleteApplicationStmt, applicationUUIDCount).Run(); err != nil {
 			return errors.Errorf("deleting application: %w", err)
+		}
+
+		// See if it's possible to delete the charm any more.
+		if err := st.deleteCharmIfUnusedByUUID(ctx, tx, charmUUID); err != nil {
+			return errors.Errorf("deleting charm if unused: %w", err)
 		}
 
 		return nil
@@ -286,7 +298,7 @@ WHERE  uuid = $entityAssociationCount.uuid;`, applicationUUIDCount)
 }
 
 func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqlair.TX, aUUID string) error {
-	app := applicationUUID{UUID: aUUID}
+	app := entityUUID{UUID: aUUID}
 
 	for _, table := range []string{
 		"application_channel",
@@ -304,7 +316,7 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		"application_workload_version",
 		"device_constraint",
 	} {
-		deleteApplicationReference := fmt.Sprintf(`DELETE FROM %s WHERE application_uuid = $applicationUUID.application_uuid`, table)
+		deleteApplicationReference := fmt.Sprintf(`DELETE FROM %s WHERE application_uuid = $entityUUID.uuid`, table)
 		deleteApplicationReferenceStmt, err := st.Prepare(deleteApplicationReference, app)
 		if err != nil {
 			return errors.Capture(err)
@@ -318,13 +330,13 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 }
 
 func (st *State) deleteCloudServices(ctx context.Context, tx *sqlair.TX, aUUID string) error {
-	app := applicationUUID{UUID: aUUID}
+	app := entityUUID{UUID: aUUID}
 
 	deleteNodeStmt, err := st.Prepare(`
 DELETE FROM net_node WHERE uuid IN (
     SELECT net_node_uuid
     FROM k8s_service
-    WHERE application_uuid = $applicationUUID.application_uuid
+    WHERE application_uuid = $entityUUID.uuid
 )`, app)
 	if err != nil {
 		return errors.Capture(err)
@@ -332,7 +344,7 @@ DELETE FROM net_node WHERE uuid IN (
 
 	deleteCloudServiceStmt, err := st.Prepare(`
 DELETE FROM k8s_service
-WHERE application_uuid = $applicationUUID.application_uuid
+WHERE application_uuid = $entityUUID.uuid
 `, app)
 	if err != nil {
 		return errors.Capture(err)
@@ -348,13 +360,13 @@ WHERE application_uuid = $applicationUUID.application_uuid
 }
 
 func (st *State) deleteDeviceConstraintAttributes(ctx context.Context, tx *sqlair.TX, aUUID string) error {
-	appID := applicationUUID{UUID: aUUID}
+	appID := entityUUID{UUID: aUUID}
 	deleteDeviceConstraintAttributesStmt, err := st.Prepare(`
 DELETE FROM device_constraint_attribute
 WHERE device_constraint_uuid IN (
     SELECT device_constraint_uuid
     FROM device_constraint
-    WHERE application_uuid = $applicationUUID.application_uuid
+    WHERE application_uuid = $entityUUID.uuid
 )`, appID)
 	if err != nil {
 		return errors.Capture(err)
@@ -367,11 +379,11 @@ WHERE device_constraint_uuid IN (
 }
 
 func (st *State) deleteApplicationAnnotations(ctx context.Context, tx *sqlair.TX, aUUID string) error {
-	appID := applicationUUID{UUID: aUUID}
+	appID := entityUUID{UUID: aUUID}
 
 	deleteApplicationAnnotationStmt, err := st.Prepare(`
 DELETE FROM annotation_application
-WHERE  uuid = $applicationUUID.application_uuid`, appID)
+WHERE  uuid = $entityUUID.uuid`, appID)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -379,5 +391,131 @@ WHERE  uuid = $applicationUUID.application_uuid`, appID)
 	if err := tx.Query(ctx, deleteApplicationAnnotationStmt, appID).Run(); err != nil {
 		return errors.Errorf("removing application annotations: %w", err)
 	}
+	return nil
+}
+
+func (st *State) getCharmUUIDForApplication(ctx context.Context, tx *sqlair.TX, aUUID string) (string, error) {
+	appID := entityUUID{UUID: aUUID}
+
+	stmt, err := st.Prepare(`
+SELECT charm_uuid AS &entityUUID.uuid
+FROM   application
+WHERE  uuid = $entityUUID.uuid`, appID)
+	if err != nil {
+		return "", errors.Errorf("preparing charm UUID query: %w", err)
+	}
+
+	var result entityUUID
+	if err := tx.Query(ctx, stmt, appID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+		// No charm associated with the application, so we can skip this.
+		return "", nil
+	} else if err != nil {
+		return "", errors.Errorf("running charm UUID query: %w", err)
+	}
+	return result.UUID, nil
+}
+
+func (st *State) deleteCharmIfUnusedByUUID(ctx context.Context, tx *sqlair.TX, charmUUID string) error {
+	// If the charm UUID is empty, we can skip the deletion.
+	if charmUUID == "" {
+		return nil
+	}
+
+	uuidCount := entityAssociationCount{UUID: charmUUID}
+
+	// Check if the charm is still used by any application.
+	// Split the query into two parts, so we can output a better log message.
+	appStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &entityAssociationCount.count
+FROM   application
+WHERE  charm_uuid = $entityAssociationCount.uuid`, uuidCount)
+	if err != nil {
+		return errors.Errorf("preparing application charm usage query: %w", err)
+	}
+
+	unitStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &entityAssociationCount.count
+FROM   unit
+WHERE  charm_uuid = $entityAssociationCount.uuid`, uuidCount)
+	if err != nil {
+		return errors.Errorf("preparing unit charm usage query: %w", err)
+	}
+
+	if err := tx.Query(ctx, appStmt, uuidCount).Get(&uuidCount); err != nil {
+		return errors.Errorf("running application charm usage query: %w", err)
+	} else if uuidCount.Count > 0 {
+		st.logger.Infof(ctx, "charm %q is still used by %d application(s), not deleting", charmUUID, uuidCount.Count)
+		return nil
+	}
+
+	if err := tx.Query(ctx, unitStmt, uuidCount).Get(&uuidCount); err != nil {
+		return errors.Errorf("running unit charm usage query: %w", err)
+	} else if uuidCount.Count > 0 {
+		st.logger.Infof(ctx, "charm %q is still used by %d unit(s), not deleting", charmUUID, uuidCount.Count)
+		return nil
+	}
+
+	return st.deleteCharm(ctx, tx, charmUUID)
+}
+
+func (st *State) deleteCharm(ctx context.Context, tx *sqlair.TX, cUUID string) error {
+	charmUUID := entityUUID{UUID: cUUID}
+
+	for _, table := range []string{
+		"charm_config",
+		"charm_manifest_base",
+		"charm_action",
+		"charm_container_mount",
+		"charm_container",
+		"charm_term",
+		"charm_resource",
+		"charm_device",
+		"charm_storage_property",
+		"charm_storage",
+		"charm_tag",
+		"charm_category",
+		"charm_extra_binding",
+		"charm_relation",
+		"charm_hash",
+		"charm_metadata",
+		"charm_download_info",
+	} {
+		deleteApplicationReference := fmt.Sprintf(`DELETE FROM %s WHERE charm_uuid = $entityUUID.uuid`, table)
+		deleteApplicationReferenceStmt, err := st.Prepare(deleteApplicationReference, charmUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, deleteApplicationReferenceStmt, charmUUID).Run(); err != nil {
+			return errors.Errorf("deleting reference to application in %s: %w", table, err)
+		}
+	}
+
+	// Delete the associated object store entry.
+	objectStoreStmt, err := st.Prepare(`
+DELETE FROM object_store_metadata
+WHERE uuid IN (
+	SELECT object_store_uuid 
+	FROM charm 
+	WHERE uuid = $entityUUID.uuid
+)`, charmUUID)
+	if err != nil {
+		return errors.Errorf("preparing charm object store delete: %w", err)
+	}
+	if err := tx.Query(ctx, objectStoreStmt, charmUUID).Run(); err != nil {
+		return errors.Errorf("deleting charm object store entry: %w", err)
+	}
+
+	// Delete the charm itself.
+	deleteCharmStmt, err := st.Prepare(`
+DELETE FROM charm
+WHERE uuid = $entityUUID.uuid`, charmUUID)
+	if err != nil {
+		return errors.Errorf("preparing charm delete: %w", err)
+	}
+	if err := tx.Query(ctx, deleteCharmStmt, charmUUID).Run(); err != nil {
+		return errors.Errorf("deleting charm %q: %w", cUUID, err)
+	}
+
 	return nil
 }

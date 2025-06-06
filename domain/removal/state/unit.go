@@ -135,9 +135,6 @@ AND    life_id = 0`, entityUUID{})
 	}
 
 	var unitCount entityAssociationAliveCount
-	defer func() {
-		fmt.Println("unitCount:", uUUID, unitCount)
-	}()
 	if err := tx.Query(ctx, lastUnitStmt, unitUUID).Get(&unitCount); errors.Is(err, sqlair.ErrNoRows) {
 		return "", nil
 	} else if err != nil {
@@ -337,8 +334,19 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 			return errors.Errorf("deleting unit references for unit %q: %w", unitUUID, err)
 		}
 
+		// Get the charm UUID before we delete the unit.
+		charmUUID, err := st.getCharmUUIDForUnit(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Errorf("getting charm UUID for application: %w", err)
+		}
+
 		if err := tx.Query(ctx, deleteUnitStmt, unitUUIDRec).Run(); err != nil {
 			return errors.Errorf("deleting unit for unit %q: %w", unitUUID, err)
+		}
+
+		// See if it's possible to delete the charm any more.
+		if err := st.deleteCharmIfUnusedByUUID(ctx, tx, charmUUID); err != nil {
+			return errors.Errorf("deleting charm if unused: %w", err)
 		}
 
 		return nil
@@ -475,4 +483,25 @@ func (st *State) deleteForeignKeyUnitReferences(ctx context.Context, tx *sqlair.
 		}
 	}
 	return nil
+}
+
+func (st *State) getCharmUUIDForUnit(ctx context.Context, tx *sqlair.TX, uUUID string) (string, error) {
+	appID := entityUUID{UUID: uUUID}
+
+	stmt, err := st.Prepare(`
+SELECT charm_uuid AS &entityUUID.uuid
+FROM   unit
+WHERE  uuid = $entityUUID.uuid`, appID)
+	if err != nil {
+		return "", errors.Errorf("preparing charm UUID query: %w", err)
+	}
+
+	var result entityUUID
+	if err := tx.Query(ctx, stmt, appID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+		// No charm associated with the unit, so we can skip this.
+		return "", nil
+	} else if err != nil {
+		return "", errors.Errorf("running charm UUID query: %w", err)
+	}
+	return result.UUID, nil
 }

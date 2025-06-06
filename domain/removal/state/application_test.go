@@ -398,6 +398,39 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {
 	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
+
+	s.checkNoCharmsExist(c)
+}
+
+func (s *applicationSuite) TestDeleteIAASApplicationMultipleRemovesCharm(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID1 := s.createIAASApplication(c, svc, "foo",
+		applicationservice.AddUnitArg{},
+	)
+	appUUID2 := s.createIAASApplication(c, svc, "bar")
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Delete any units associated with the application.
+	err := st.DeleteUnit(c.Context(), unitUUIDs[0].String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Now we can delete the application.
+	err = st.DeleteApplication(c.Context(), appUUID1.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkCharmsCount(c, 1)
+
+	// Now we can delete the application and the charm should be removed as
+	// well.
+	err = st.DeleteApplication(c.Context(), appUUID2.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkNoCharmsExist(c)
 }
 
 func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
@@ -414,6 +447,8 @@ func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
 	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
+
+	s.checkNoCharmsExist(c)
 }
 
 func (s *applicationSuite) checkUnitContents(c *tc.C, actual []string, expected []unit.UUID) {
