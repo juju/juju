@@ -117,6 +117,27 @@ func (st *State) ImportFilesystemStatus(
 	})
 }
 
+// GetFilesystemUUIDByID returns the filesystem UUID for the given
+// filesystem unique id. If no filesystem is found, an error satisfying
+// [storageerrors.FilesystemNotFound] is returned.
+func (st *State) GetFilesystemUUIDByID(ctx context.Context, id string) (storage.FilesystemUUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var filesystemUUID storage.FilesystemUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		filesystemUUID, err = st.getFilesystemUUIDByID(ctx, tx, id)
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return filesystemUUID, nil
+}
+
 func (st *State) getFilesystemUUIDByID(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -273,6 +294,27 @@ func (st *State) ImportVolumeStatus(
 		}
 		return st.updateVolumeStatus(ctx, tx, volumeUUID, sts)
 	})
+}
+
+// GetVolumeUUIDByID returns the volume UUID for the given
+// volume unique id. If no volume is found, an error satisfying
+// [storageerrors.VolumeNotFound] is returned.
+func (st *State) GetVolumeUUIDByID(ctx context.Context, id string) (storage.VolumeUUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var volumeUUID storage.VolumeUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		volumeUUID, err = st.getVolumeUUIDByID(ctx, tx, id)
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return volumeUUID, nil
 }
 
 func (st *State) getVolumeUUIDByID(
