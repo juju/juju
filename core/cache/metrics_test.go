@@ -40,13 +40,13 @@ func (s *ControllerSuite) TestCollect(c *gc.C) {
 juju_cache_applications{life="alive"} 1
 # HELP juju_cache_machines Number of machines managed by the controller.
 # TYPE juju_cache_machines gauge
-juju_cache_machines{agent_status="active",instance_status="active",life="alive"} 1
+juju_cache_machines{agent_status="active",arch="unknown",base="ubuntu@18.04",instance_status="active",life="alive"} 1
 # HELP juju_cache_models Number of models in the controller.
 # TYPE juju_cache_models gauge
 juju_cache_models{life="alive",status="active"} 1
 # HELP juju_cache_units Number of units managed by the controller.
 # TYPE juju_cache_units gauge
-juju_cache_units{agent_status="active",life="alive",workload_status="active"} 1
+juju_cache_units{agent_status="active",base="ubuntu@18.04",life="alive",workload_status="active"} 1
 		`[1:]))
 
 	err := testutil.CollectAndCompare(
