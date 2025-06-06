@@ -1060,11 +1060,3 @@ func (s *ModelState) IsControllerModel(ctx context.Context) (bool, error) {
 
 	return m.IsControllerModel, nil
 }
-
-// HasValidCredential returns true if the model has a valid credential.
-// The following errors may be returned:
-// - [modelerrors.NotFound] when the model no longer exists.
-func (s *ModelState) HasValidCredential(ctx context.Context) (bool, error) {
-	// TODO: Implement this function to check if the model has a valid credential.
-	return false, nil
-}

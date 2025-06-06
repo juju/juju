@@ -88,11 +88,6 @@ type ModelState interface {
 	// The following errors may be returned:
 	// - [modelerrors.NotFound] when the model does not exist.
 	IsControllerModel(context.Context) (bool, error)
-
-	// HasValidCredential returns true if the model has a valid credential.
-	// The following errors may be returned:
-	// - [modelerrors.NotFound] when the model no longer exists.
-	HasValidCredential(ctx context.Context) (bool, error)
 }
 
 // ControllerState is the controller state required by this service. This is the
@@ -131,6 +126,11 @@ type ControllerState interface {
 	// - [github.com/juju/juju/domain/access/errors.AccessNotFound] when the
 	// user does not have access to the model.
 	GetUserModelSummary(context.Context, coreuser.UUID, coremodel.UUID) (model.UserModelSummary, error)
+
+	// HasValidCredential returns true if the model has a valid credential.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model no longer exists.
+	HasValidCredential(context.Context, coremodel.UUID) (bool, error)
 }
 
 // AgentBinaryFinder represents a helper for establishing if agent binaries for
@@ -820,5 +820,5 @@ func (s *ModelService) IsControllerModel(ctx context.Context) (bool, error) {
 // The following errors may be returned:
 // - [modelerrors.NotFound] when the model no longer exists.
 func (s *ModelService) HasValidCredential(ctx context.Context) (bool, error) {
-	return s.modelSt.HasValidCredential(ctx)
+	return s.controllerSt.HasValidCredential(ctx, s.modelUUID)
 }

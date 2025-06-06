@@ -829,7 +829,7 @@ func (s *modelServiceSuite) TestHasValidCredential(c *tc.C) {
 	defer ctrl.Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.mockModelState.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
+	s.mockControllerState.EXPECT().HasValidCredential(gomock.Any(), modelUUID).Return(true, nil)
 
 	svc := NewModelService(
 		modelUUID,
@@ -843,7 +843,7 @@ func (s *modelServiceSuite) TestHasValidCredential(c *tc.C) {
 	c.Check(hasValidCredential, tc.IsTrue)
 
 	modelUUID = modeltesting.GenModelUUID(c)
-	s.mockModelState.EXPECT().HasValidCredential(gomock.Any()).Return(false, nil)
+	s.mockControllerState.EXPECT().HasValidCredential(gomock.Any(), modelUUID).Return(false, nil)
 
 	svc = NewModelService(
 		modelUUID,
@@ -862,7 +862,7 @@ func (s *modelServiceSuite) TestHasValidCredentialNotFound(c *tc.C) {
 	defer ctrl.Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.mockModelState.EXPECT().HasValidCredential(gomock.Any()).Return(false, modelerrors.NotFound)
+	s.mockControllerState.EXPECT().HasValidCredential(gomock.Any(), modelUUID).Return(false, modelerrors.NotFound)
 
 	svc := NewModelService(
 		modelUUID,
