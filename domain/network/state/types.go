@@ -199,7 +199,8 @@ func (sp SpaceSubnetRows) ToSpaceInfos() corenetwork.SpaceInfos {
 
 	// Iterate through every space and flatten its subnets.
 	for spaceUUID, space := range uniqueSpaces {
-		space.Subnets = flattenAZs(uniqueSubnets[spaceUUID], uniqueAZs[spaceUUID])
+		space.Subnets = flattenAZs(uniqueSubnets[spaceUUID],
+			uniqueAZs[spaceUUID])
 		res = append(res, space)
 	}
 
@@ -367,6 +368,33 @@ func netInterfaceToDML(
 	return devDML, dnsSearchDMLs, dnsAddressDMLs, errors.Capture(err)
 }
 
+// decodeDeviceType returns a network interface type for an identifier congruent
+// with the database lookup.
+// The caller should have retrieved the identifier from the database directly
+// but we guard against bad input anyway.
+func decodeDeviceType(kindID int64) (corenetwork.LinkLayerDeviceType, error) {
+	switch kindID {
+	case 0:
+		return corenetwork.UnknownDevice, nil
+	case 1:
+		return corenetwork.LoopbackDevice, nil
+	case 2:
+		return corenetwork.EthernetDevice, nil
+	case 3:
+		return corenetwork.VLAN8021QDevice, nil
+	case 4:
+		return corenetwork.BondDevice, nil
+	case 5:
+		return corenetwork.BridgeDevice, nil
+	case 6:
+		return corenetwork.VXLANDevice, nil
+	default:
+		return corenetwork.UnknownDevice,
+			errors.Errorf("unsupported device type id: %q",
+				kindID)
+	}
+}
+
 // encodeDeviceType returns an identifier congruent with the database lookup for
 // a network interface type. The caller of this method should already have
 // called IsValidLinkLayerDeviceType for the input in the service layer,
@@ -436,7 +464,8 @@ func netAddrToDML(
 
 	addrUUID, ok := ipToUUID[addr.AddressValue]
 	if !ok {
-		return dml, errors.Errorf("no UUID associated with IP %q on device %q", addr.AddressValue, addr.InterfaceName)
+		return dml, errors.Errorf("no UUID associated with IP %q on device %q",
+			addr.AddressValue, addr.InterfaceName)
 	}
 
 	addrTypeID, err := encodeAddressType(addr.AddressType)
@@ -483,13 +512,16 @@ func encodeAddressType(kind corenetwork.AddressType) (int64, error) {
 	case corenetwork.IPv6Address:
 		return 1, nil
 	case corenetwork.HostName:
-		return -1, errors.Errorf("address type %q can not be used for an IP address", kind)
+		return -1, errors.Errorf("address type %q can not be used for an IP address",
+			kind)
 	default:
 		return -1, errors.Errorf("unsupported address type: %q", kind)
 	}
 }
 
-func encodeAddressConfigType(kind corenetwork.AddressConfigType) (int64, error) {
+func encodeAddressConfigType(kind corenetwork.AddressConfigType) (
+	int64, error,
+) {
 	switch kind {
 	case corenetwork.ConfigUnknown:
 		return 0, nil
