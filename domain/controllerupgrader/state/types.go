@@ -10,9 +10,34 @@ type controllerNodeAgentVersion struct {
 	Version      string `db:"version"`
 }
 
+// agentVersionTarget represents the target agent version column from the
+// agent_version table.
+type agentVersionTarget struct {
+	TargetVersion string `db:"target_version"`
+}
+
 // controllerTargetVersion represents the current target version set for the
 // controller.
 type controllerTargetVersion struct {
+	TargetVersion string `db:"target_version"`
+}
+
+// isControllerModel represents the is_controller_model column value from  the
+// model table in the controller's model database.
+type isControllerModel struct {
+	Is bool `db:"is_controller_model"`
+}
+
+// setAgentVersionTarget represents the set of update values required for
+// setting the model's target agent version.
+type setAgentVersionTarget struct {
+	TargetVersion string `db:"target_version"`
+}
+
+// setAgentVersionTargetStream represents the set of update values required for
+// setting the model's target agent version and stream.
+type setAgentVersionTargetStream struct {
+	StreamID      int    `db:"stream_id"`
 	TargetVersion string `db:"target_version"`
 }
 
