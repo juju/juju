@@ -42,6 +42,17 @@ type entityAssociationCount struct {
 	Count int `db:"count"`
 }
 
+// entityAssociationCount holds a Count in int form and the UUID in string form
+// for the associated entity.
+type entityAssociationAliveCount struct {
+	// UUID uniquely identifies a associated domain entity.
+	UUID string `db:"uuid"`
+	// AliveCount counts the number of entities alive.
+	AliveCount int `db:"alive_count"`
+	// NotAliveCount counts the number of entities not alive.
+	NotAliveCount int `db:"not_alive_count"`
+}
+
 // entityLife holds an entity's life in integer
 type entityLife struct {
 	Life life.Life `db:"life_id"`
@@ -59,10 +70,4 @@ type applicationUnitName struct {
 	ApplicationName string `db:"application_name"`
 	// UnitName is the name of the unit.
 	UnitName string `db:"unit_name"`
-}
-
-// applicationUUID holds a application UUID in string form.
-type applicationUUID struct {
-	// UUID uniquely identifies a application.
-	UUID string `db:"application_uuid"`
 }

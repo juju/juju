@@ -8,8 +8,11 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
@@ -24,7 +27,11 @@ type ApplicationState interface {
 
 	// EnsureApplicationNotAlive ensures that there is no application identified
 	// by the input application UUID, that is still alive.
-	EnsureApplicationNotAlive(ctx context.Context, appUUID string) (err error)
+	// If the application has units, they are also guaranteed to be no longer
+	// alive. The affected unit UUIDs are returned.
+	// If the units are also the last ones on their machines, the machines
+	// are also set to dying. The affected machine UUIDs are returned.
+	EnsureApplicationNotAlive(ctx context.Context, appUUID string) (unitUUIDs, machineUUIDs []string, err error)
 
 	// ApplicationScheduleRemoval schedules a removal job for the application
 	// with the input application UUID, qualified with the input force boolean.
@@ -39,10 +46,12 @@ type ApplicationState interface {
 }
 
 // RemoveApplication checks if a application with the input application UUID
-// exists.
-// If it does, the application is guaranteed after this call to be:
-// - No longer alive.
-// - Removed or scheduled to be removed with the input force qualification.
+// exists. If it does, the application is guaranteed after this call to be:
+//   - No longer alive.
+//   - Removed or scheduled to be removed with the input force qualification.
+//   - If the application has units, the units are also guaranteed to be no
+//     longer alive and scheduled for removal.
+//
 // The input wait duration is the time that we will give for the normal
 // life-cycle advancement and removal to finish before forcefully removing the
 // application. This duration is ignored if the force argument is false.
@@ -61,7 +70,8 @@ func (s *Service) RemoveApplication(
 	}
 
 	// Ensure the application is not alive.
-	if err := s.st.EnsureApplicationNotAlive(ctx, appUUID.String()); err != nil {
+	unitUUIDs, machineUUIDs, err := s.st.EnsureApplicationNotAlive(ctx, appUUID.String())
+	if err != nil {
 		return "", errors.Errorf("application %q: %w", appUUID, err)
 	}
 
@@ -87,6 +97,10 @@ func (s *Service) RemoveApplication(
 		return "", errors.Capture(err)
 	}
 
+	// Ensure that the application units and machines are removed as well.
+	s.removeApplicationUnitsByUnitUUID(ctx, unitUUIDs, force, wait)
+	s.removeApplicationMachinesByMachineUUID(ctx, machineUUIDs, force, wait)
+
 	return appJobUUID, nil
 }
 
@@ -106,6 +120,56 @@ func (s *Service) applicationScheduleRemoval(
 
 	s.logger.Infof(ctx, "scheduled removal job %q for application %q", jobUUID, appUUID)
 	return jobUUID, nil
+}
+
+func (s *Service) removeApplicationUnitsByUnitUUID(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+	if len(uuids) == 0 {
+		return
+	}
+
+	// If there are any units that transitioned from alive to dying or dead, we
+	// need to schedule their removal as well.
+
+	s.logger.Infof(ctx, "application has units %v, scheduling removal", uuids)
+
+	for _, unitUUID := range uuids {
+		if _, err := s.RemoveUnit(ctx, unit.UUID(unitUUID), force, wait); errors.Is(err, applicationerrors.UnitNotFound) {
+			// There could be a chance that the unit has already been removed
+			// by another process. We can safely ignore this error and
+			// continue with the next unit.
+			continue
+		} else if err != nil {
+			// If the unit fails to be scheduled for removal, we log out the
+			// error. The application and the units are already transitioned to
+			// dying and there is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "failed to schedule removal of unit %q: %v", unitUUID, err)
+		}
+	}
+}
+
+func (s *Service) removeApplicationMachinesByMachineUUID(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+	if len(uuids) == 0 {
+		return
+	}
+
+	// If there are any any machines that transitioned from alive to dying or
+	// dead, we need to schedule their removal as well.
+
+	s.logger.Infof(ctx, "application has machines %v, scheduling removal", uuids)
+
+	for _, machineUUID := range uuids {
+		if _, err := s.RemoveMachine(ctx, machine.UUID(machineUUID), force, wait); errors.Is(err, machineerrors.MachineNotFound) {
+			// There could be a chance that the machine has already been removed
+			// by another process. We can safely ignore this error and
+			// continue with the next machine.
+			continue
+		} else if err != nil {
+			// If the machine fails to be scheduled for removal, we log out the
+			// error. The application and the units are already transitioned to
+			// dying and there is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "failed to schedule removal of machine %q: %v", machineUUID, err)
+		}
+	}
 }
 
 // processApplicationRemovalJob deletes a application if it is dying.

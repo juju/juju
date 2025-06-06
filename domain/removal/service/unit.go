@@ -47,8 +47,11 @@ type UnitState interface {
 
 // RemoveUnit checks if a unit with the input name exists.
 // If it does, the unit is guaranteed after this call to be:
-// - No longer alive.
-// - Removed or scheduled to be removed with the input force qualification.
+//   - No longer alive.
+//   - Removed or scheduled to be removed with the input force qualification.
+//   - If the unit is the last one on the machine, the machine will also
+//     guaranteed to be no longer alive and scheduled for removal.
+//
 // The input wait duration is the time that we will give for the normal
 // life-cycle advancement and removal to finish before forcefully removing the
 // unit. This duration is ignored if the force argument is false.
@@ -108,8 +111,8 @@ func (s *Service) RemoveUnit(
 	// a removal job for the machine.
 	if _, err := s.RemoveMachine(ctx, machine.UUID(machineUUID), force, wait); err != nil {
 		// If the machine fails to be scheduled, then log out an error. The
-		// units have been transitioned to dying and there is no way to
-		// transition them back to alive.
+		// machine and the unit has been transitioned to dying and there is no
+		// way to transition them back to alive.
 		s.logger.Errorf(ctx, "failed to schedule removal of machine %q: %v", machineUUID, err)
 	}
 
