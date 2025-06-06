@@ -45,14 +45,14 @@ type mergeAddress struct {
 // mergeLinkLayerDevicesChanges contains the changes to be applied to the
 // link layer devices.
 type mergeLinkLayerDevicesChanges struct {
-	// toAdd maps provider IDs to LinkLayerDeviceUUIDs to be added
-	// in provider_link_layer_device.
-	toAdd map[string]string
-	// ToRemove are the provider IDs to remove from provider_link_layer_device
-	toRemove []string
-	// toRelinquish is a list of AddressUUIDs linked to relinquished link layer
+	// toAddOrUpdate maps provider IDs to LinkLayerDeviceUUIDs to be added or
+	// updated in provider_link_layer_device.
+	toAddOrUpdate map[string]string
+	// deviceToRelinquish are the device UUIDs to remove from provider_link_layer_device
+	deviceToRelinquish []string
+	// addressToRelinquish is a list of AddressUUIDs linked to relinquished link layer
 	// devices.
-	toRelinquish []string
+	addressToRelinquish []string
 	// newDevices are the incoming devices that did not match any we already
 	// have in state.
 	newDevices []mergeLinkLayerDevice
@@ -61,9 +61,9 @@ type mergeLinkLayerDevicesChanges struct {
 // mergeAddressesChanges contains the changes to be applied to the
 // addresses.
 type mergeAddressesChanges struct {
-	// toAdd maps provider IDs to ip_address UUID to be added
+	// toAddOrUpdate maps provider IDs to ip_address UUID to be added or updated
 	// in provider_link_layer_device.
-	toAdd map[string]string
+	toAddOrUpdate map[string]string
 	// toRelinquish are a list of ip_address to
 	// relinquish to machine, i.e., set their origin to machine
 	// and remove from provider_ip_address
@@ -195,32 +195,32 @@ func (st *State) applyMergeLinkLayerChanges(
 	lldChanges mergeLinkLayerDevicesChanges,
 	addressChanges mergeAddressesChanges,
 ) error {
+	getValue := func(_, value string) []string {
+		return []string{value}
+	}
 	addressChanges.toRelinquish = append(
-		addressChanges.toRelinquish, lldChanges.toRelinquish...,
+		addressChanges.toRelinquish, lldChanges.addressToRelinquish...,
 	)
-
-	err := st.removeProviderIDFromDevice(ctx, tx, lldChanges.toRemove)
+	deviceToRemove := append(lldChanges.deviceToRelinquish, transform.MapToSlice(lldChanges.toAddOrUpdate, getValue)...)
+	err := st.removeDeviceProviderIDs(ctx, tx, deviceToRemove)
 	if err != nil {
 		return errors.Errorf(
 			"removing provider IDs from link layer devices: %w", err,
 		)
 	}
-	addressesToRemove := append(addressChanges.toRelinquish, transform.MapToSlice(addressChanges.toAdd,
-		func(_, addressUUID string) []string {
-			return []string{addressUUID}
-		})...)
-	err = st.removeProviderIDFromAddress(ctx, tx, addressesToRemove)
+	addressesToRemove := append(addressChanges.toRelinquish, transform.MapToSlice(addressChanges.toAddOrUpdate, getValue)...)
+	err = st.removeAddressProviderIDs(ctx, tx, addressesToRemove)
 	if err != nil {
 		return errors.Errorf("removing provider IDs from addresses: %w", err)
 	}
-	err = st.addProviderLinkLayerDevice(ctx, tx, lldChanges.toAdd)
+	err = st.addProviderLinkLayerDevice(ctx, tx, lldChanges.toAddOrUpdate)
 	if err != nil {
 		return errors.Errorf(
 			"adding provider IDs to link layer devices: %w",
 			err,
 		)
 	}
-	err = st.addProviderAddress(ctx, tx, addressChanges.toAdd)
+	err = st.addProviderAddress(ctx, tx, addressChanges.toAddOrUpdate)
 	if err != nil {
 		return errors.Errorf("adding provider IDs to addresses: %w", err)
 	}
@@ -245,24 +245,24 @@ func (st *State) applyMergeLinkLayerChanges(
 	return nil
 }
 
-// removeProviderIDFromDevice removes provider-link layer devices mappings
-// for  given provider IDs.
-func (st *State) removeProviderIDFromDevice(
-	ctx context.Context, tx *sqlair.TX, providerUUIDs []string,
+// removeDeviceProviderIDs removes provider-link layer devices mappings
+// for  given device UUIDs.
+func (st *State) removeDeviceProviderIDs(
+	ctx context.Context, tx *sqlair.TX, deviceUUIDs []string,
 ) error {
 	type uuids []string
 	stmt, err := st.Prepare(`
 DELETE FROM provider_link_layer_device
-WHERE provider_id IN ($uuids[:])`, uuids{})
+WHERE device_uuid IN ($uuids[:])`, uuids{})
 	if err != nil {
 		return errors.Capture(err)
 	}
-	return tx.Query(ctx, stmt, uuids(providerUUIDs)).Run()
+	return tx.Query(ctx, stmt, uuids(deviceUUIDs)).Run()
 }
 
-// removeProviderIDFromAddress removes provider-addresses mappings for given
+// removeAddressProviderIDs removes provider-addresses mappings for given
 // address UUIDs.
-func (st *State) removeProviderIDFromAddress(
+func (st *State) removeAddressProviderIDs(
 	ctx context.Context, tx *sqlair.TX, addressUUIDs []string,
 ) error {
 	type uuids []string
@@ -290,22 +290,24 @@ func (st *State) computeMergeAddressChanges(
 	}
 
 	result := mergeAddressesChanges{
-		toAdd:        make(map[string]string),
-		toRelinquish: nil,
+		toAddOrUpdate: make(map[string]string),
+		toRelinquish:  nil,
 	}
 	for _, device := range existingDevices {
 		deviceName, addresses := device.Name, device.Addresses
 		incomings, _ := incomingAddresses[deviceName]
 		for _, existing := range addresses {
 			matchIncoming, ok := findMatchingAddresses(existing, incomings)
-			if ok && matchIncoming.ProviderID == existing.ProviderID {
-				continue
-			}
+			// The address is no more known by the provider
 			if !ok {
 				result.toRelinquish = append(result.toRelinquish, existing.UUID)
 				continue
 			}
-			result.toAdd[matchIncoming.ProviderID] = existing.UUID
+			// Don't update which doesn't change
+			if matchIncoming.ProviderID == existing.ProviderID {
+				continue
+			}
+			result.toAddOrUpdate[matchIncoming.ProviderID] = existing.UUID
 		}
 	}
 	return result
@@ -331,9 +333,9 @@ func (st *State) computeMergeLinkLayerDeviceChanges(
 		)...,
 	)
 	lldChanges := mergeLinkLayerDevicesChanges{
-		toAdd:        make(map[string]string),
-		toRemove:     make([]string, 0),
-		toRelinquish: make([]string, 0),
+		toAddOrUpdate:       make(map[string]string),
+		deviceToRelinquish:  make([]string, 0),
+		addressToRelinquish: make([]string, 0),
 	}
 	for _, device := range existingDevices {
 		notProcessed.Remove(device.Name)
@@ -343,30 +345,30 @@ func (st *State) computeMergeLinkLayerDeviceChanges(
 		if !ok && namelessHWAddrs.Contains(device.MACAddress) {
 			continue
 		}
+		// If this device is no more seen by the provider
+		if !ok {
+			lldChanges.deviceToRelinquish = append(lldChanges.deviceToRelinquish, device.UUID)
+			lldChanges.addressToRelinquish = append(lldChanges.addressToRelinquish,
+				transform.Slice(device.Addresses, func(a mergeAddress) string { return a.UUID })...)
+			continue
+		}
+
+		// if the provider id didn't change
+		if device.ProviderID == incomingDevice.ProviderID {
+			// Don't change which doesn't change.
+			continue
+		}
 
 		// Log a warning if we are changing a provider ID that is already set.
-		if ok && device.ProviderID != "" &&
+		if device.ProviderID != "" &&
 			device.ProviderID != incomingDevice.ProviderID {
 			st.logger.Warningf(
 				ctx,
 				"changing provider ID for device %q from %q to %q",
 				device.Name, device.ProviderID, incomingDevice.ProviderID,
 			)
-		} else if ok && device.ProviderID == incomingDevice.ProviderID {
-			// Don't change which doesn't change.
-			continue
 		}
-
-		// In any cases, we will remove all existing providers ids for this
-		// machine. However, if there is a replacement provider id we will
-		// add it and if none we will relinquish the addresses.
-		lldChanges.toRemove = append(lldChanges.toRemove, device.ProviderID)
-		if !ok {
-			lldChanges.toRelinquish = append(lldChanges.toRelinquish,
-				transform.Slice(device.Addresses, func(a mergeAddress) string { return a.UUID })...)
-			continue
-		}
-		lldChanges.toAdd[incomingDevice.ProviderID] = device.UUID
+		lldChanges.toAddOrUpdate[incomingDevice.ProviderID] = device.UUID
 	}
 	// Collect
 	lldChanges.newDevices = transform.Slice(
