@@ -191,7 +191,8 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 		CloudRegion: "dummy-region",
 		Credential:  s.CredentialKey,
 		Name:        model.ControllerModelName,
-		Owner:       s.AdminUserUUID,
+		Qualifier:   "prod",
+		AdminUsers:  []coreuser.UUID{s.AdminUserUUID},
 	}
 
 	fn := modelbootstrap.CreateGlobalModelRecord(s.ControllerModelUUID, controllerArgs)
@@ -216,7 +217,8 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 		Cloud:      s.CloudName,
 		Credential: s.CredentialKey,
 		Name:       "test",
-		Owner:      s.AdminUserUUID,
+		Qualifier:  "prod",
+		AdminUsers: []coreuser.UUID{s.AdminUserUUID},
 	}
 
 	fn = modelbootstrap.CreateGlobalModelRecord(s.DefaultModelUUID, modelArgs)

@@ -244,7 +244,8 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 
 	controllerModelArgs := modeldomain.GlobalModelCreationArgs{
 		Name:        stateParams.ControllerModelConfig.Name(),
-		Owner:       adminUserUUID,
+		AdminUsers:  []user.UUID{adminUserUUID},
+		Qualifier:   coremodel.QualifierFromUserTag(b.adminUser),
 		Cloud:       stateParams.ControllerCloud.Name,
 		CloudRegion: stateParams.ControllerCloudRegion,
 		Credential:  credential.KeyFromTag(cloudCredTag),

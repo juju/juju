@@ -37,7 +37,7 @@ WHEN
 	NEW.model_type_id != OLD.model_type_id OR
 	NEW.life_id != OLD.life_id OR
 	NEW.name != OLD.name OR
-	NEW.owner_uuid != OLD.owner_uuid 
+	NEW.qualifier != OLD.qualifier 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));

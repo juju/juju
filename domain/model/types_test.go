@@ -13,6 +13,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/internal/testhelpers"
@@ -34,7 +35,7 @@ func ptr[T any](i T) *T {
 // TestModelCreationArgsValidation is aserting all the validation cases that the
 // [GlobalModelCreationArgs.Validate] function checks for.
 func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
-	userUUID := usertesting.GenUserUUID(c)
+	adminUsers := []coreuser.UUID{usertesting.GenUserUUID(c)}
 
 	tests := []struct {
 		Args    GlobalModelCreationArgs
@@ -47,17 +48,30 @@ func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "",
-				Owner:       userUUID,
+				Qualifier:   "prod",
+				AdminUsers:  adminUsers,
 			},
 			ErrTest: coreerrors.NotValid,
 		},
 		{
-			Name: "Test invalid owner",
+			Name: "Test invalid qualifier",
 			Args: GlobalModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
-				Owner:       "",
+				Qualifier:   "",
+				AdminUsers:  adminUsers,
+			},
+			ErrTest: coreerrors.NotValid,
+		},
+		{
+			Name: "Test invalid creator",
+			Args: GlobalModelCreationArgs{
+				Cloud:       "my-cloud",
+				CloudRegion: "my-region",
+				Name:        "my-awesome-model",
+				Qualifier:   "prod",
+				AdminUsers:  []coreuser.UUID{""},
 			},
 			ErrTest: coreerrors.NotValid,
 		},
@@ -67,7 +81,8 @@ func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
 				Cloud:       "",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
-				Owner:       userUUID,
+				Qualifier:   "prod",
+				AdminUsers:  adminUsers,
 			},
 			ErrTest: coreerrors.NotValid,
 		},
@@ -77,7 +92,8 @@ func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "",
 				Name:        "my-awesome-model",
-				Owner:       userUUID,
+				Qualifier:   "prod",
+				AdminUsers:  adminUsers,
 			},
 			ErrTest: nil,
 		},
@@ -89,8 +105,9 @@ func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
 				Credential: credential.Key{
 					Owner: usertesting.GenNewName(c, "wallyworld"),
 				},
-				Name:  "my-awesome-model",
-				Owner: userUUID,
+				Name:       "my-awesome-model",
+				Qualifier:  "prod",
+				AdminUsers: adminUsers,
 			},
 			ErrTest: coreerrors.NotValid,
 		},
@@ -100,7 +117,8 @@ func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
-				Owner:       userUUID,
+				Qualifier:   "prod",
+				AdminUsers:  adminUsers,
 			},
 			ErrTest: nil,
 		},
@@ -114,8 +132,9 @@ func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
 					Owner: usertesting.GenNewName(c, "wallyworld"),
 					Name:  "mycred",
 				},
-				Name:  "my-awesome-model",
-				Owner: userUUID,
+				Name:       "my-awesome-model",
+				Qualifier:  "prod",
+				AdminUsers: adminUsers,
 			},
 			ErrTest: nil,
 		},
@@ -136,7 +155,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
 // TestModelImportArgsValidation is aserting all the validation cases that the
 // [ModelImportArgs.Validate] function checks for.
 func (*typesSuite) TestModelImportArgsValidation(c *tc.C) {
-	userUUID := usertesting.GenUserUUID(c)
+	adminUsers := []coreuser.UUID{usertesting.GenUserUUID(c)}
 
 	tests := []struct {
 		Args    ModelImportArgs
@@ -154,8 +173,9 @@ func (*typesSuite) TestModelImportArgsValidation(c *tc.C) {
 						Owner: usertesting.GenNewName(c, "wallyworld"),
 						Name:  "mycred",
 					},
-					Name:  "my-awesome-model",
-					Owner: userUUID,
+					Name:       "my-awesome-model",
+					Qualifier:  "prod",
+					AdminUsers: adminUsers,
 				},
 				UUID: modeltesting.GenModelUUID(c),
 			},
@@ -171,8 +191,9 @@ func (*typesSuite) TestModelImportArgsValidation(c *tc.C) {
 						Owner: usertesting.GenNewName(c, "wallyworld"),
 						Name:  "mycred",
 					},
-					Name:  "my-awesome-model",
-					Owner: userUUID,
+					Name:       "my-awesome-model",
+					Qualifier:  "prod",
+					AdminUsers: adminUsers,
 				},
 				UUID: "not valid",
 			},
