@@ -189,6 +189,27 @@ func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.Watch
 	return appID
 }
 
+func (s *baseSuite) createIAASSubordinateApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
+	ch := &stubCharm{name: "test-charm", subordinate: true}
+	appID, err := svc.CreateIAASApplication(c.Context(), name, ch, corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Platform: corecharm.Platform{
+			Channel:      "24.04",
+			OS:           "ubuntu",
+			Architecture: "amd64",
+		},
+	}, applicationservice.AddApplicationArgs{
+		ReferenceName: name,
+		DownloadInfo: &charm.DownloadInfo{
+			Provenance:  charm.ProvenanceDownload,
+			DownloadURL: "http://example.com",
+		},
+	}, units...)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return appID
+}
+
 func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
 	ch := &stubCharm{name: "test-charm"}
 	appID, err := svc.CreateCAASApplication(c.Context(), name, ch, corecharm.Origin{
@@ -338,7 +359,8 @@ WHERE u.uuid = ?
 }
 
 type stubCharm struct {
-	name string
+	name        string
+	subordinate bool
 }
 
 func (s *stubCharm) Meta() *internalcharm.Meta {
@@ -347,7 +369,8 @@ func (s *stubCharm) Meta() *internalcharm.Meta {
 		name = "test"
 	}
 	return &internalcharm.Meta{
-		Name: name,
+		Name:        name,
+		Subordinate: s.subordinate,
 	}
 }
 

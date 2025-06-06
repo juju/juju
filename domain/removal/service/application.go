@@ -101,11 +101,6 @@ func (s *Service) RemoveApplication(
 	s.removeApplicationUnitsByUnitUUID(ctx, unitUUIDs, force, wait)
 	s.removeApplicationMachinesByMachineUUID(ctx, machineUUIDs, force, wait)
 
-	// Remove charm from the application. It will check to ensure that no
-	// other applications are using the charm.
-	if err := s.RemoveCharmForApplication(ctx, appUUID); err != nil {
-		s.logger.Errorf(ctx, "failed to remove charm for application %q: %v", appUUID, err)
-	}
 	return appJobUUID, nil
 }
 
