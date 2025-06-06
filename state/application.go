@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
@@ -164,58 +163,7 @@ func (a *Application) Life() Life {
 	return a.doc.Life
 }
 
-// AgentTools returns the tools that the operator is currently running.
-// It an error that satisfies errors.IsNotFound if the tools have not
-// yet been set.
-func (a *Application) AgentTools() (*tools.Tools, error) {
-	if a.doc.Tools == nil {
-		return nil, errors.NotFoundf("operator image metadata for application %q", a)
-	}
-	result := *a.doc.Tools
-	return &result, nil
-}
-
-// SetAgentVersion sets the Tools value in applicationDoc.
-func (a *Application) SetAgentVersion(v semversion.Binary) (err error) {
-	defer errors.DeferredAnnotatef(&err, "setting agent version for application %q", a)
-	if err = checkVersionValidity(v); err != nil {
-		return errors.Trace(err)
-	}
-	versionedTool := &tools.Tools{Version: v}
-	ops := []txn.Op{{
-		C:      applicationsC,
-		Id:     a.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"tools", versionedTool}}}},
-	}}
-	if err := a.st.db().RunTransaction(ops); err != nil {
-		return onAbort(err, stateerrors.ErrDead)
-	}
-	a.doc.Tools = versionedTool
-	return nil
-}
-
 var errRefresh = stderrors.New("state seems inconsistent, refresh and try again")
-
-// Destroy ensures that the application and all its relations will be removed at
-// some point; if the application has no units, and no relation involving the
-// application has any units in scope, they are all removed immediately.
-func (a *Application) Destroy(store objectstore.ObjectStore) (err error) {
-	op := a.DestroyOperation(store)
-	defer func() {
-		logger.Tracef(context.TODO(), "Application(%s).Destroy() => %v", a.doc.Name, err)
-		if err == nil {
-			// After running the destroy ops, app life is either Dying,
-			// or it may be set to Dead. If removed, life will also be marked as Dead.
-			a.doc.Life = op.PostDestroyAppLife
-		}
-	}()
-	err = a.st.ApplyOperation(op)
-	if len(op.Errors) != 0 {
-		logger.Warningf(context.TODO(), "operational errors destroying application %v: %v", a.Name(), op.Errors)
-	}
-	return err
-}
 
 // DestroyOperation returns a model operation that will destroy the application.
 func (a *Application) DestroyOperation(store objectstore.ObjectStore) *DestroyApplicationOperation {

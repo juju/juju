@@ -190,17 +190,6 @@ func collFactory(db Database, collName string) func() (mongo.Collection, func())
 	}
 }
 
-// WatchModels returns a StringsWatcher that notifies of changes to
-// any models. If a model is removed this *won't* signal that the
-// model has gone away - it's based on a collectionWatcher which omits
-// these events.
-func (st *State) WatchModels() StringsWatcher {
-	return newCollectionWatcher(st, colWCfg{
-		col:    modelsC,
-		global: true,
-	})
-}
-
 // WatchModelLives returns a StringsWatcher that notifies of changes
 // to any model life values. The watcher will not send any more events
 // for a model after it has been observed to be Dead.
@@ -880,19 +869,6 @@ type unitsWatcher struct {
 
 var _ Watcher = (*unitsWatcher)(nil)
 
-// WatchSubordinateUnits returns a StringsWatcher tracking the unit's subordinate units.
-func (u *Unit) WatchSubordinateUnits() StringsWatcher {
-	u = &Unit{st: u.st, doc: u.doc}
-	coll := unitsC
-	getUnits := func() ([]string, error) {
-		if err := u.Refresh(); err != nil {
-			return nil, err
-		}
-		return u.doc.Subordinates, nil
-	}
-	return newUnitsWatcher(u.st, u.Tag(), getUnits, coll, u.doc.DocID)
-}
-
 // WatchPrincipalUnits returns a StringsWatcher tracking the machine's principal
 // units.
 func (m *Machine) WatchPrincipalUnits() StringsWatcher {
@@ -1245,18 +1221,6 @@ func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (S
 	}
 	watchDocId := app.doc.DocID
 	return watchInstanceCharmProfileCompatibilityData(m.st, watchDocId), nil
-}
-
-// WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
-// of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
-// upgrade completed field that is specific to itself.
-func (u *Unit) WatchLXDProfileUpgradeNotifications() (StringsWatcher, error) {
-	app, err := u.Application()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	watchDocId := app.doc.DocID
-	return watchInstanceCharmProfileCompatibilityData(u.st, watchDocId), nil
 }
 
 func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId string) StringsWatcher {

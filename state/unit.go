@@ -1097,57 +1097,6 @@ func (u *Unit) CharmURL() *string {
 	return u.doc.CharmURL
 }
 
-// SetCharmURL marks the unit as currently using the supplied charm URL.
-// No checks are performed on the supplied URL, and it is assumed to be
-// properly stored in dqlite.
-func (u *Unit) SetCharmURL(curl string) error {
-	if curl == "" {
-		return errors.Errorf("cannot set empty charm url")
-	}
-
-	db, dbCloser := u.st.newDB()
-	defer dbCloser()
-	units, uCloser := db.GetCollection(unitsC)
-	defer uCloser()
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			// NOTE: We're explicitly allowing SetCharmURL to succeed
-			// when the unit is Dying, because application/charm upgrades
-			// should still be allowed to apply to dying units, so
-			// that bugs in departed/broken hooks can be addressed at
-			// runtime.
-			if notDead, err := isNotDeadWithSession(units, u.doc.DocID); err != nil {
-				return nil, errors.Trace(err)
-			} else if !notDead {
-				return nil, stateerrors.ErrDead
-			}
-		}
-		sel := bson.D{{"_id", u.doc.DocID}, {"charmurl", curl}}
-		if count, err := units.Find(sel).Count(); err != nil {
-			return nil, errors.Trace(err)
-		} else if count == 1 {
-			// Already set
-			return nil, jujutxn.ErrNoOperations
-		}
-
-		// Set the new charm URL.
-		differentCharm := bson.D{{"charmurl", bson.D{{"$ne", curl}}}}
-
-		return []txn.Op{{
-			C:      unitsC,
-			Id:     u.doc.DocID,
-			Assert: append(notDeadDoc, differentCharm...),
-			Update: bson.D{{"$set", bson.D{{"charmurl", curl}}}},
-		}}, nil
-	}
-	err := u.st.db().Run(buildTxn)
-	if err == nil {
-		u.doc.CharmURL = &curl
-	}
-	return err
-}
-
 // charm returns the charm for the unit, or the application if the unit's charm
 // has not been set yet.
 func (u *Unit) charm() (CharmRefFull, error) {
@@ -1959,33 +1908,6 @@ var hasNoContainersTerm = bson.DocElem{
 		{{"children", bson.D{{"$size", 0}}}},
 		{{"children", bson.D{{"$exists", false}}}},
 	}}
-
-// UnassignFromMachine removes the assignment between this unit and the
-// machine it's assigned to.
-func (u *Unit) UnassignFromMachine() (err error) {
-	// TODO check local machine id and add an assert that the
-	// machine id is as expected.
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"machineid", ""}}}},
-	}}
-	if u.doc.MachineId != "" {
-		ops = append(ops, txn.Op{
-			C:      machinesC,
-			Id:     u.st.docID(u.doc.MachineId),
-			Assert: txn.DocExists,
-			Update: bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}},
-		})
-	}
-	err = u.st.db().RunTransaction(ops)
-	if err != nil {
-		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, errors.NotFoundf("machine")))
-	}
-	u.doc.MachineId = ""
-	return nil
-}
 
 // ActionSpecsByName is a map of action names to their respective ActionSpec.
 type ActionSpecsByName map[string]charm.ActionSpec

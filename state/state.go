@@ -416,14 +416,6 @@ func (st *State) EnsureModelRemoved() error {
 	return nil
 }
 
-// newDB returns a database connection using a new session, along with
-// a closer function for the session. This is useful where you need to work
-// with various collections in a single session, so don't want to call
-// getCollection multiple times.
-func (st *State) newDB() (Database, func()) {
-	return st.database.Copy()
-}
-
 // db returns the Database instance used by the State. It is part of
 // the modelBackend interface.
 func (st *State) db() Database {
@@ -1491,20 +1483,6 @@ func (st *State) Unit(name string) (*Unit, error) {
 		return nil, errors.Trace(err)
 	}
 	return newUnit(st, model.Type(), &doc), nil
-}
-
-// UnitsFor returns the units placed in the given machine id.
-func (st *State) UnitsFor(machineId string) ([]*Unit, error) {
-	if !names.IsValidMachine(machineId) {
-		return nil, errors.Errorf("%q is not a valid machine id", machineId)
-	}
-	m := &Machine{
-		st: st,
-		doc: machineDoc{
-			Id: machineId,
-		},
-	}
-	return m.Units()
 }
 
 // AssignUnit places the unit on a machine. Depending on the policy, and the
