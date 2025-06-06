@@ -1472,7 +1472,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.service = NewService(
 		s.state,
-		model.UUID("test-model"),
+		"test-model",
 		s.statusHistory,
 		func() (StatusHistoryReader, error) {
 			return nil, errors.Errorf("status history reader not available")
@@ -1480,6 +1480,12 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
+
+	c.Cleanup(func() {
+		s.state = nil
+		s.statusHistory = nil
+		s.service = nil
+	})
 
 	return ctrl
 }
