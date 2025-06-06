@@ -11,12 +11,14 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	jujuversion "github.com/juju/juju/core/version"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
 // InsertInitialControllerConfig inserts the initial controller configuration
-// into the database.
+// into the database. As part of this bootstrap operation the controllers uuid,
+// model uuid and controller version are set.
 func InsertInitialControllerConfig(cfg jujucontroller.Config, controllerModelUUID coremodel.UUID) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		values, err := jujucontroller.EncodeToString(cfg)
@@ -56,6 +58,15 @@ func InsertInitialControllerConfig(cfg jujucontroller.Config, controllerModelUUI
 			return errors.Capture(err)
 		}
 
+		setControllerVersionInput := dbControllerVersion{
+			ControllerUUID: controllerData.UUID,
+			TargetVersion:  jujuversion.Current.String(),
+		}
+		setControllerVersionStmt, err := sqlair.Prepare(
+			"INSERT INTO controller_version (*) VALUES ($dbControllerVersion.*)",
+			setControllerVersionInput,
+		)
+
 		updateKeyValues := make([]dbKeyValue, 0)
 		for k, v := range values {
 			if k == jujucontroller.ControllerUUIDKey {
@@ -70,6 +81,11 @@ func InsertInitialControllerConfig(cfg jujucontroller.Config, controllerModelUUI
 		return errors.Capture(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			// Insert the controller data.
 			if err := tx.Query(ctx, controllerStmt, controllerData).Run(); err != nil {
+				return errors.Capture(err)
+			}
+
+			err := tx.Query(ctx, setControllerVersionStmt, setControllerVersionInput).Run()
+			if err != nil {
 				return errors.Capture(err)
 			}
 
@@ -98,4 +114,11 @@ type dbController struct {
 	UUID string `db:"uuid"`
 	// ModelUUID is the uuid of the model this controller is in.
 	ModelUUID string `db:"model_uuid"`
+}
+
+// dbControllerVersion is used to set the initial target version for the
+// controller.
+type dbControllerVersion struct {
+	ControllerUUID string `db:"controller_uuid"`
+	TargetVersion  string `db:"target_version"`
 }
