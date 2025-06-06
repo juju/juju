@@ -13,7 +13,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/machine"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coremachine "github.com/juju/juju/core/machine"
@@ -50,14 +49,13 @@ func (s *machinerSuite) makeAPI(c *tc.C) {
 	machiner, err := machine.NewMachinerAPIForState(
 		c.Context(),
 		st,
-		st,
 		clock.WallClock,
 		s.ControllerDomainServices(c).ControllerConfig(),
+		s.ControllerDomainServices(c).ControllerNode(),
 		s.ControllerDomainServices(c).ModelInfo(),
 		s.networkService,
 		s.machineService,
 		s.watcherRegistry,
-		common.NewResources(),
 		s.authorizer,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -73,14 +71,13 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *tc.C) {
 	aMachiner, err := machine.NewMachinerAPIForState(
 		c.Context(),
 		st,
-		st,
 		clock.WallClock,
 		s.ControllerDomainServices(c).ControllerConfig(),
+		nil,
 		nil,
 		s.networkService,
 		s.machineService,
 		s.watcherRegistry,
-		common.NewResources(),
 		anAuthorizer,
 	)
 	c.Assert(err, tc.NotNil)

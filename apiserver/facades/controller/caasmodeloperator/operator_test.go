@@ -37,6 +37,7 @@ type ModelOperatorSuite struct {
 	resources               *common.Resources
 	state                   *mockState
 	controllerConfigService *MockControllerConfigService
+	controllerNodeService   *MockControllerNodeService
 	modelConfigService      *MockModelConfigService
 	passwordService         *MockAgentPasswordService
 }
@@ -47,9 +48,13 @@ func TestModelOperatorSuite(t *testing.T) {
 
 func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	defer m.setupMocks(c).Finish()
-
+	// Arrange
 	m.expectControllerConfig()
 
+	res := map[string][]string{
+		"one": {"apiaddresses:1"},
+	}
+	m.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(res, nil)
 	m.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(false, map[string]any{
 		config.NameKey:         "controller",
 		config.UUIDKey:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -57,7 +62,10 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 		config.AgentVersionKey: "4.0.0",
 	}))
 
+	// Act
 	info, err := m.api.ModelOperatorProvisioningInfo(c.Context())
+
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConf, err := m.state.ControllerConfig()
@@ -166,6 +174,7 @@ func (m *ModelOperatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	m.passwordService = NewMockAgentPasswordService(ctrl)
 	m.controllerConfigService = NewMockControllerConfigService(ctrl)
+	m.controllerNodeService = NewMockControllerNodeService(ctrl)
 	m.modelConfigService = NewMockModelConfigService(ctrl)
 
 	m.resources = common.NewResources()
@@ -185,11 +194,23 @@ func (m *ModelOperatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	api, err := NewAPI(m.authorizer, m.resources, m.state, m.state,
 		m.passwordService,
-		m.controllerConfigService, m.modelConfigService,
-		loggertesting.WrapCheckLog(c), model.UUID(internaltesting.ModelTag.Id()))
+		m.controllerConfigService, m.controllerNodeService, m.modelConfigService,
+		loggertesting.WrapCheckLog(c), model.UUID(internaltesting.ModelTag.Id()),
+		nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	m.api = api
+
+	c.Cleanup(func() {
+		m.api = nil
+		m.authorizer = nil
+		m.controllerConfigService = nil
+		m.controllerNodeService = nil
+		m.modelConfigService = nil
+		m.passwordService = nil
+		m.resources = nil
+		m.state = nil
+	})
 
 	return ctrl
 }

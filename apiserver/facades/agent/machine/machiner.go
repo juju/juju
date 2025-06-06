@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -26,6 +27,19 @@ import (
 // that are needed by the machiner API.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ControllerNodeService defines the methods on the controller node service
+// that are needed by APIAddresser used by the machiner API.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+	// addresses that are available for agents. The map is keyed by controller
+	// ID, and the values are slices of strings representing the API addresses
+	// for each controller node.
+	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	// WatchControllerAPIAddresses returns a watcher that observes changes to the
+	// controller ip addresses.
+	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // NetworkService describes the service for working with networking concerns.
@@ -88,14 +102,14 @@ type MachinerAPIv5 struct {
 // NewMachinerAPIForState creates a new instance of the Machiner API.
 func NewMachinerAPIForState(
 	ctx context.Context,
-	ctrlSt, st *state.State,
+	st *state.State,
 	clock clock.Clock,
 	controllerConfigService ControllerConfigService,
+	controllerNodeService ControllerNodeService,
 	modelInfoService ModelInfoService,
 	networkService NetworkService,
 	machineService MachineService,
 	watcherRegistry facade.WatcherRegistry,
-	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
@@ -116,7 +130,7 @@ func NewMachinerAPIForState(
 		StatusSetter:            common.NewStatusSetter(st, getCanAccess, clock),
 		DeadEnsurer:             common.NewDeadEnsurer(st, getCanAccess, machineService),
 		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, watcherRegistry, getCanAccess),
-		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
+		APIAddresser:            common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		NetworkConfigAPI:        netConfigAPI,
 		networkService:          networkService,
 		machineService:          machineService,
@@ -326,24 +340,4 @@ func (api *MachinerAPI) RecordAgentStartInformation(ctx context.Context, args pa
 		}
 	}
 	return results, nil
-}
-
-// APIHostPorts returns the API server addresses.
-func (api *MachinerAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return api.APIAddresser.APIHostPorts(ctx, controllerConfig)
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-func (api *MachinerAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return api.APIAddresser.APIAddresses(ctx, controllerConfig)
 }
