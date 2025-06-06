@@ -137,7 +137,7 @@ WHERE  filesystem_id = $filesystemUUIDID.filesystem_id
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, arg).Get(&arg)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return storageerrors.FilesystemNotFound
+			return errors.Errorf("filesystem %q not found", id).Add(storageerrors.FilesystemNotFound)
 		} else if err != nil {
 			return errors.Errorf("getting filesystem UUID for %q: %w", id, err)
 		}
@@ -303,7 +303,7 @@ WHERE  volume_id = $volumeUUIDID.volume_id
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, arg).Get(&arg)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return storageerrors.VolumeNotFound
+			return errors.Errorf("volume %q not found", id).Add(storageerrors.VolumeNotFound)
 		} else if err != nil {
 			return errors.Errorf("getting volume UUID for %q: %w", id, err)
 		}

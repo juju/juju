@@ -4,6 +4,7 @@
 package service
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -89,10 +90,12 @@ func (s *storageStatusSuite) TestEncodeFilesystemStatus(c *tc.C) {
 	}
 
 	for i, test := range testCases {
-		c.Logf("test %d: %v", i, test.input)
-		output, err := encodeFilesystemStatus(test.input)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(output, tc.DeepEquals, test.output)
+		c.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
+			t.Logf("test %d: %v", i, test.input)
+			output, err := encodeFilesystemStatus(test.input)
+			tc.Assert(t, err, tc.ErrorIsNil)
+			tc.Check(t, output, tc.DeepEquals, test.output)
+		})
 	}
 }
 
