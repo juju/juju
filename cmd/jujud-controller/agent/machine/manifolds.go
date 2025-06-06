@@ -81,7 +81,6 @@ import (
 	"github.com/juju/juju/internal/worker/httpserver"
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/internal/worker/identityfilewriter"
-	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/jwtparser"
 	leasemanager "github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
@@ -1078,14 +1077,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewBrokerFunc: config.NewBrokerFunc,
 			NewTracker:    lxdbroker.NewWorkerTracker,
 		})),
-		instanceMutaterName: ifNotMigrating(instancemutater.MachineManifold(instancemutater.MachineManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			BrokerName:    brokerTrackerName,
-			Logger:        internallogger.GetLogger("juju.worker.instancemutater.container"),
-			NewClient:     instancemutater.NewClient,
-			NewWorker:     instancemutater.NewContainerWorker,
-		})),
 		// The machineSetupName manifold runs small tasks required
 		// to setup a machine, but requires the machine agent's API
 		// connection. Once its work is complete, it stops.
@@ -1314,7 +1305,6 @@ const (
 	httpServerArgsName            = "http-server-args"
 	httpServerName                = "http-server"
 	identityFileWriterName        = "ssh-identity-writer"
-	instanceMutaterName           = "instance-mutater"
 	isControllerFlagName          = "is-controller-flag"
 	isNotControllerFlagName       = "is-not-controller-flag"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
