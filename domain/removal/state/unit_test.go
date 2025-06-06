@@ -302,6 +302,9 @@ func (s *unitSuite) TestDeleteIAASUnit(c *tc.C) {
 	exists, err := st.UnitExists(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
+
+	// The charm isn't removed because the application still references it.
+	s.checkCharmsCount(c, 1)
 }
 
 func (s *unitSuite) TestDeleteIAASUnitWithSubordinates(c *tc.C) {
@@ -339,6 +342,9 @@ func (s *unitSuite) TestDeleteIAASUnitWithSubordinates(c *tc.C) {
 	exists, err := st.UnitExists(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
+
+	// The charm isn't removed because the application still references it.
+	s.checkCharmsCount(c, 2)
 }
 
 func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
@@ -363,6 +369,9 @@ func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 
 	s.expectK8sPodCount(c, unitUUID, 0)
+
+	// The charm isn't removed because the application still references it.
+	s.checkCharmsCount(c, 1)
 }
 
 func (s *unitSuite) TestGetApplicationNameAndUnitNameByUnitUUID(c *tc.C) {
