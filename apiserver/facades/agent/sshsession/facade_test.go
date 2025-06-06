@@ -4,8 +4,11 @@
 package sshsession_test
 
 import (
+	"errors"
+
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/sshsession"
@@ -13,6 +16,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&sshreqconnSuite{})
@@ -102,4 +106,52 @@ func (s *sshreqconnSuite) TestControllerSSHPort(c *gc.C) {
 	result := f.ControllerSSHPort()
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result, gc.Equals, "17022")
+}
+
+func (s *sshreqconnSuite) TestControllerPublicKey(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.ctxMock.EXPECT().Resources().Return(s.resourceMock)
+
+	f := sshsession.NewFacade(s.ctxMock, s.backendMock)
+
+	// Generate a test private key for use in the test.
+	testKey := jujutesting.SSHServerHostKey
+	signer, err := ssh.ParsePrivateKey([]byte(testKey))
+	c.Assert(err, gc.IsNil)
+
+	s.backendMock.EXPECT().SSHServerHostKey().Return(testKey, nil)
+
+	result := f.ControllerPublicKey()
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.PublicKey, gc.DeepEquals, signer.PublicKey().Marshal())
+}
+
+func (s *sshreqconnSuite) TestControllerPublicKeyStateError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.ctxMock.EXPECT().Resources().Return(s.resourceMock)
+
+	f := sshsession.NewFacade(s.ctxMock, s.backendMock)
+
+	s.backendMock.EXPECT().SSHServerHostKey().Return("", errors.New("state error"))
+
+	result := f.ControllerPublicKey()
+	c.Assert(result.PublicKey, gc.IsNil)
+	c.Assert(result.Error, gc.ErrorMatches, `state error`)
+}
+
+func (s *sshreqconnSuite) TestControllerPublicKeyParsePrivateKeyError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.ctxMock.EXPECT().Resources().Return(s.resourceMock)
+
+	f := sshsession.NewFacade(s.ctxMock, s.backendMock)
+
+	// Return an invalid private key string.
+	s.backendMock.EXPECT().SSHServerHostKey().Return("not-a-valid-key", nil)
+
+	result := f.ControllerPublicKey()
+	c.Assert(result.PublicKey, gc.IsNil)
+	c.Assert(result.Error, gc.NotNil)
 }

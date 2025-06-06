@@ -70,6 +70,21 @@ func (mr *MockBackendMockRecorder) GetSSHConnRequest(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSSHConnRequest", reflect.TypeOf((*MockBackend)(nil).GetSSHConnRequest), arg0)
 }
 
+// SSHServerHostKey mocks base method.
+func (m *MockBackend) SSHServerHostKey() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SSHServerHostKey")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SSHServerHostKey indicates an expected call of SSHServerHostKey.
+func (mr *MockBackendMockRecorder) SSHServerHostKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SSHServerHostKey", reflect.TypeOf((*MockBackend)(nil).SSHServerHostKey))
+}
+
 // WatchSSHConnRequest mocks base method.
 func (m *MockBackend) WatchSSHConnRequest(arg0 string) state.StringsWatcher {
 	m.ctrl.T.Helper()

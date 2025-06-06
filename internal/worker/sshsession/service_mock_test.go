@@ -16,6 +16,7 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	params "github.com/juju/juju/rpc/params"
 	gomock "go.uber.org/mock/gomock"
+	ssh "golang.org/x/crypto/ssh"
 )
 
 // MockFacadeClient is a mock of FacadeClient interface.
@@ -39,6 +40,45 @@ func NewMockFacadeClient(ctrl *gomock.Controller) *MockFacadeClient {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockFacadeClient) EXPECT() *MockFacadeClientMockRecorder {
 	return m.recorder
+}
+
+// ControllerPublicKey mocks base method.
+func (m *MockFacadeClient) ControllerPublicKey() (ssh.PublicKey, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerPublicKey")
+	ret0, _ := ret[0].(ssh.PublicKey)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerPublicKey indicates an expected call of ControllerPublicKey.
+func (mr *MockFacadeClientMockRecorder) ControllerPublicKey() *MockFacadeClientControllerPublicKeyCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerPublicKey", reflect.TypeOf((*MockFacadeClient)(nil).ControllerPublicKey))
+	return &MockFacadeClientControllerPublicKeyCall{Call: call}
+}
+
+// MockFacadeClientControllerPublicKeyCall wrap *gomock.Call
+type MockFacadeClientControllerPublicKeyCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockFacadeClientControllerPublicKeyCall) Return(arg0 ssh.PublicKey, arg1 error) *MockFacadeClientControllerPublicKeyCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockFacadeClientControllerPublicKeyCall) Do(f func() (ssh.PublicKey, error)) *MockFacadeClientControllerPublicKeyCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockFacadeClientControllerPublicKeyCall) DoAndReturn(f func() (ssh.PublicKey, error)) *MockFacadeClientControllerPublicKeyCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // ControllerSSHPort mocks base method.
@@ -182,18 +222,18 @@ func (m *MockConnectionGetter) EXPECT() *MockConnectionGetterMockRecorder {
 }
 
 // GetControllerConnection mocks base method.
-func (m *MockConnectionGetter) GetControllerConnection(arg0, arg1, arg2 string) (net.Conn, error) {
+func (m *MockConnectionGetter) GetControllerConnection(arg0, arg1, arg2 string, arg3 ssh.PublicKey) (net.Conn, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetControllerConnection", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetControllerConnection", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(net.Conn)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetControllerConnection indicates an expected call of GetControllerConnection.
-func (mr *MockConnectionGetterMockRecorder) GetControllerConnection(arg0, arg1, arg2 any) *MockConnectionGetterGetControllerConnectionCall {
+func (mr *MockConnectionGetterMockRecorder) GetControllerConnection(arg0, arg1, arg2, arg3 any) *MockConnectionGetterGetControllerConnectionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerConnection", reflect.TypeOf((*MockConnectionGetter)(nil).GetControllerConnection), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerConnection", reflect.TypeOf((*MockConnectionGetter)(nil).GetControllerConnection), arg0, arg1, arg2, arg3)
 	return &MockConnectionGetterGetControllerConnectionCall{Call: call}
 }
 
@@ -209,13 +249,13 @@ func (c *MockConnectionGetterGetControllerConnectionCall) Return(arg0 net.Conn, 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConnectionGetterGetControllerConnectionCall) Do(f func(string, string, string) (net.Conn, error)) *MockConnectionGetterGetControllerConnectionCall {
+func (c *MockConnectionGetterGetControllerConnectionCall) Do(f func(string, string, string, ssh.PublicKey) (net.Conn, error)) *MockConnectionGetterGetControllerConnectionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConnectionGetterGetControllerConnectionCall) DoAndReturn(f func(string, string, string) (net.Conn, error)) *MockConnectionGetterGetControllerConnectionCall {
+func (c *MockConnectionGetterGetControllerConnectionCall) DoAndReturn(f func(string, string, string, ssh.PublicKey) (net.Conn, error)) *MockConnectionGetterGetControllerConnectionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
