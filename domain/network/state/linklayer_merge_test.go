@@ -284,8 +284,7 @@ func (s *mergeLinkLayerSuite) TestApplyLinkLayerChangesNoAddressToRelinquish(c *
 	s.addProviderLinkLayerDevice(c, "provider-id-1", deviceUUID)
 
 	lldChanges := mergeLinkLayerDevicesChanges{
-		toRemove:     []string{"provider-id-1"},
-		toRelinquish: []string{deviceUUID},
+		deviceToRelinquish: []string{deviceUUID},
 	}
 	addressChanges := mergeAddressesChanges{}
 
@@ -349,13 +348,11 @@ func (s *mergeLinkLayerSuite) TestApplyLinkLayerChanges(c *tc.C) {
 	s.addProviderIPAddress(c, eth21, "eth2-ip-1")
 
 	lldChanges := mergeLinkLayerDevicesChanges{
-		toAdd: map[string]string{
+		toAddOrUpdate: map[string]string{
 			"new-provider-eth0": eth0UUID,
 		},
-		toRemove: []string{
-			"old-provider-eth0", "relinquished-provider-eth2",
-		},
-		toRelinquish: []string{eth21},
+		deviceToRelinquish:  []string{eth2UUID},
+		addressToRelinquish: []string{eth21},
 		newDevices: []mergeLinkLayerDevice{
 			{
 				UUID:       "new-device",
@@ -365,7 +362,7 @@ func (s *mergeLinkLayerSuite) TestApplyLinkLayerChanges(c *tc.C) {
 		},
 	}
 	addressChanges := mergeAddressesChanges{
-		toAdd: map[string]string{
+		toAddOrUpdate: map[string]string{
 			"new-eth0-ip-1": eth01,
 			"new-eth1-ip-1": eth11,
 		},
@@ -472,7 +469,7 @@ func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesNotToBeUpdated(c *tc
 	changes := st.computeMergeAddressChanges(incomingDevices, existingDevices)
 
 	// Assert: Verify that no changes are made
-	c.Check(changes.toAdd, tc.HasLen, 0)
+	c.Check(changes.toAddOrUpdate, tc.HasLen, 0)
 	c.Check(changes.toRelinquish, tc.HasLen, 0)
 }
 
@@ -518,7 +515,7 @@ func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesToBeRelinquished(c *
 	changes := st.computeMergeAddressChanges(incomingDevices, existingDevices)
 
 	// Assert: Verify that the second address is relinquished
-	c.Check(changes.toAdd, tc.HasLen, 0)
+	c.Check(changes.toAddOrUpdate, tc.HasLen, 0)
 	c.Check(changes.toRelinquish, tc.SameContents,
 		[]string{"no-matching-uuid"})
 }
@@ -560,7 +557,7 @@ func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesProviderIDUpdated(c 
 	changes := st.computeMergeAddressChanges(incomingDevices, existingDevices)
 
 	// Assert: Verify that the address provider ID is updated
-	c.Check(changes.toAdd, tc.DeepEquals,
+	c.Check(changes.toAddOrUpdate, tc.DeepEquals,
 		map[string]string{"new-provider-ip-1": "address1-uuid"})
 	c.Check(changes.toRelinquish, tc.HasLen, 0)
 }
@@ -597,10 +594,10 @@ func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithMatchingNameDifferen
 		incomingDevices, namelessHWAddrs)
 
 	// Assert: Verify that the provider ID is updated
-	c.Check(changes.toAdd, tc.DeepEquals,
+	c.Check(changes.toAddOrUpdate, tc.DeepEquals,
 		map[string]string{"new-provider-id-1": "device1-uuid"})
-	c.Check(changes.toRemove, tc.SameContents, []string{"provider-id-1"})
-	c.Check(changes.toRelinquish, tc.HasLen, 0)
+	c.Check(changes.deviceToRelinquish, tc.HasLen, 0)
+	c.Check(changes.addressToRelinquish, tc.HasLen, 0)
 	c.Check(changes.newDevices, tc.HasLen, 0)
 }
 
@@ -636,9 +633,9 @@ func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithMatchingNameSameProv
 		incomingDevices, namelessHWAddrs)
 
 	// Assert: Verify that no changes are made
-	c.Check(changes.toAdd, tc.HasLen, 0)
-	c.Check(changes.toRemove, tc.HasLen, 0)
-	c.Check(changes.toRelinquish, tc.HasLen, 0)
+	c.Check(changes.toAddOrUpdate, tc.HasLen, 0)
+	c.Check(changes.deviceToRelinquish, tc.HasLen, 0)
+	c.Check(changes.addressToRelinquish, tc.HasLen, 0)
 	c.Check(changes.newDevices, tc.HasLen, 0)
 }
 
@@ -676,9 +673,9 @@ func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithNoMatchingNameMatchi
 		incomingDevices, namelessHWAddrs)
 
 	// Assert: Verify that the device is not relinquished
-	c.Check(changes.toAdd, tc.HasLen, 0)
-	c.Check(changes.toRemove, tc.HasLen, 0)
-	c.Check(changes.toRelinquish, tc.HasLen, 0)
+	c.Check(changes.toAddOrUpdate, tc.HasLen, 0)
+	c.Check(changes.deviceToRelinquish, tc.HasLen, 0)
+	c.Check(changes.addressToRelinquish, tc.HasLen, 0)
 	c.Check(changes.newDevices, tc.HasLen, 1)
 	c.Check(changes.newDevices[0].Name, tc.Equals, "eth1")
 }
@@ -723,9 +720,9 @@ func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesWithNoMatchingNameNoMatc
 		incomingDevices, namelessHWAddrs)
 
 	// Assert: Verify that the device is relinquished
-	c.Check(changes.toAdd, tc.DeepEquals, map[string]string{})
-	c.Check(changes.toRemove, tc.SameContents, []string{"provider-id-1"})
-	c.Check(changes.toRelinquish, tc.SameContents, []string{"address1-uuid"})
+	c.Check(changes.toAddOrUpdate, tc.DeepEquals, map[string]string{})
+	c.Check(changes.deviceToRelinquish, tc.SameContents, []string{"device1-uuid"})
+	c.Check(changes.addressToRelinquish, tc.SameContents, []string{"address1-uuid"})
 	c.Check(changes.newDevices, tc.HasLen, 1)
 	c.Check(changes.newDevices[0].Name, tc.Equals, "eth1")
 }
@@ -767,9 +764,9 @@ func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesIncomingWithNoMatchingEx
 		incomingDevices, namelessHWAddrs)
 
 	// Assert: Verify that the new device is added to newDevices
-	c.Check(changes.toAdd, tc.HasLen, 0)
-	c.Check(changes.toRemove, tc.HasLen, 0)
-	c.Check(changes.toRelinquish, tc.HasLen, 0)
+	c.Check(changes.toAddOrUpdate, tc.HasLen, 0)
+	c.Check(changes.deviceToRelinquish, tc.HasLen, 0)
+	c.Check(changes.addressToRelinquish, tc.HasLen, 0)
 	c.Check(changes.newDevices, tc.HasLen, 1)
 	c.Check(changes.newDevices[0].Name, tc.Equals, "eth1")
 }
