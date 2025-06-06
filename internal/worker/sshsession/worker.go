@@ -121,11 +121,13 @@ func (w *sshSessionWorker) loop() error {
 
 	controllerSSHPort, err := w.facadeClient.ControllerSSHPort()
 	if err != nil {
+		w.logger.Errorf("failed to fetch controller SSH port: %v", err)
 		return errors.Trace(err)
 	}
 
 	controllerPublicKey, err := w.facadeClient.ControllerPublicKey()
 	if err != nil {
+		w.logger.Errorf("failed to fetch controller public key: %v", err)
 		return errors.Trace(err)
 	}
 
