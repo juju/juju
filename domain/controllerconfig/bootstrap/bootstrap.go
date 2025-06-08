@@ -66,6 +66,9 @@ func InsertInitialControllerConfig(cfg jujucontroller.Config, controllerModelUUI
 			"INSERT INTO controller_version (*) VALUES ($dbControllerVersion.*)",
 			setControllerVersionInput,
 		)
+		if err != nil {
+			return errors.Capture(err)
+		}
 
 		updateKeyValues := make([]dbKeyValue, 0)
 		for k, v := range values {
