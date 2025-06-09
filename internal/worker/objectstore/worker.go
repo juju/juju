@@ -294,7 +294,6 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 			internalobjectstore.WithMetadataService(metadataService),
 			internalobjectstore.WithClaimer(claimer),
 			internalobjectstore.WithLogger(w.cfg.Logger),
-			internalobjectstore.WithAllowDraining(w.cfg.AllowDraining),
 		)
 		if err != nil {
 			return nil, errors.Trace(err)

@@ -70,14 +70,6 @@ func WithClock(clock clock.Clock) Option {
 	}
 }
 
-// WithAllowDraining is the option to set the allow draining to use.
-// This is for s3 base object stores.
-func WithAllowDraining(allowDraining bool) Option {
-	return func(o *options) {
-		o.allowDraining = allowDraining
-	}
-}
-
 // WithRootBucket is the option to set the root bucket to use.
 // This is for s3 base object stores.
 func WithRootBucket(rootBucket string) Option {
@@ -121,9 +113,8 @@ type options struct {
 	clock           clock.Clock
 
 	// S3 base options
-	allowDraining bool
-	rootBucket    string
-	s3Client      objectstore.Client
+	rootBucket string
+	s3Client   objectstore.Client
 
 	// File base options
 	apiRemoteCallers   apiremotecaller.APIRemoteCallers
@@ -189,9 +180,6 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 			Claimer:         opts.claimer,
 			Logger:          opts.logger,
 			Clock:           opts.clock,
-			AllowDraining:   opts.allowDraining,
-
-			HashFileSystemAccessor: newHashFileSystemAccessor(namespace, opts.rootDir, opts.logger),
 		})
 	default:
 		return nil, errors.Errorf("backend type %q: %w", backendType, jujuerrors.NotValid)

@@ -203,13 +203,9 @@ func (s *baseObjectStoreSuite) TestLockingForTombKill(c *tc.C) {
 	wait := make(chan struct{})
 
 	go func() {
-		select {
-		case <-block:
-			w.Kill()
-			close(wait)
-		case <-time.After(testhelpers.LongWait):
-			c.Fatal("timed out waiting for block")
-		}
+		<-block
+		w.Kill()
+		close(wait)
 	}()
 
 	err := w.withLock(c.Context(), "hash", func(ctx context.Context) error {
