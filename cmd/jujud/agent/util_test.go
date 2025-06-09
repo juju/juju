@@ -5,11 +5,9 @@ package agent
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -33,8 +31,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/provider/dummy"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
@@ -289,60 +285,6 @@ func (m *mockLoopDeviceManager) DetachLoopDevices(rootfs, prefix string) error {
 	m.detachLoopDevicesArgRootfs = rootfs
 	m.detachLoopDevicesArgPrefix = prefix
 	return nil
-}
-
-func newSignal() *signal {
-	return &signal{ch: make(chan struct{})}
-}
-
-type signal struct {
-	mu sync.Mutex
-	ch chan struct{}
-}
-
-func (s *signal) triggered() <-chan struct{} {
-	return s.ch
-}
-
-func (s *signal) assertTriggered(c *tc.C, thing string) {
-	select {
-	case <-s.triggered():
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for %s", thing)
-	}
-}
-
-func (s *signal) trigger() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	select {
-	case <-s.ch:
-		// Already closed.
-	default:
-		close(s.ch)
-	}
-}
-
-type runner interface {
-	Run(*cmd.Context) error
-	Stop() error
-}
-
-// runWithTimeout runs an agent and waits
-// for it to complete within a reasonable time.
-func runWithTimeout(c *tc.C, r runner) error {
-	done := make(chan error)
-	go func() {
-		done <- r.Run(cmdtesting.Context(c))
-	}()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(coretesting.LongWait):
-	}
-	err := r.Stop()
-	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
 }
 
 type FakeConfig struct {
