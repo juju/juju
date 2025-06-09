@@ -96,31 +96,31 @@ func (st *State) markMachineAsDyingIfAllUnitsAreNotAlive(
 
 	lastUnitStmt, err := st.Prepare(`
 WITH units_alive AS (
-	SELECT uuid, net_node_uuid
-	FROM   unit
-	WHERE  life_id = 0
+    SELECT uuid, net_node_uuid
+    FROM   unit
+    WHERE  life_id = 0
 ), units_not_alive AS (
-	SELECT uuid, net_node_uuid
-	FROM   unit
-	WHERE  life_id != 0
+    SELECT uuid, net_node_uuid
+    FROM   unit
+    WHERE  life_id != 0
 ), machines AS (
-	SELECT    m.uuid AS machine_uuid,
-		      m.net_node_uuid,
-			  COUNT(ua.uuid) AS unit_alive_count,
-			  COUNT(una.uuid) AS unit_not_alive_count
-	FROM      machine AS m
-	JOIN      net_node AS nn ON nn.uuid = m.net_node_uuid
-	LEFT JOIN units_alive AS ua ON ua.net_node_uuid = nn.uuid
-	LEFT JOIN units_not_alive AS una ON una.net_node_uuid = nn.uuid
-	GROUP BY  m.uuid
+    SELECT    m.uuid AS machine_uuid,
+              m.net_node_uuid,
+              COUNT(ua.uuid) AS unit_alive_count,
+              COUNT(una.uuid) AS unit_not_alive_count
+    FROM      machine AS m
+    JOIN      net_node AS nn ON nn.uuid = m.net_node_uuid
+    LEFT JOIN units_alive AS ua ON ua.net_node_uuid = nn.uuid
+    LEFT JOIN units_not_alive AS una ON una.net_node_uuid = nn.uuid
+    GROUP BY  m.uuid
 )
 SELECT unit_alive_count AS &entityAssociationAliveCount.alive_count,
-	   unit_not_alive_count AS &entityAssociationAliveCount.not_alive_count,
-	   machine_uuid AS &entityAssociationAliveCount.uuid
+       unit_not_alive_count AS &entityAssociationAliveCount.not_alive_count,
+       machine_uuid AS &entityAssociationAliveCount.uuid
 FROM   machines
 LEFT JOIN unit AS u ON u.net_node_uuid = machines.net_node_uuid
 WHERE  u.uuid = $entityUUID.uuid;
-	`, unitUUID, entityAssociationAliveCount{})
+    `, unitUUID, entityAssociationAliveCount{})
 	if err != nil {
 		return "", errors.Errorf("preparing unit count query: %w", err)
 	}
@@ -244,7 +244,7 @@ func (st *State) GetApplicationNameAndUnitNameByUnitUUID(ctx context.Context, uU
 	unitUUID := entityUUID{UUID: uUUID}
 	stmt, err := st.Prepare(`
 SELECT    a.name AS &applicationUnitName.application_name,
-		  u.name AS &applicationUnitName.unit_name
+          u.name AS &applicationUnitName.unit_name
 FROM      unit AS u
 LEFT JOIN application AS a ON a.uuid = u.application_uuid
 WHERE     u.uuid = $entityUUID.uuid;`, applicationUnitName{}, unitUUID)

@@ -495,9 +495,9 @@ func (st *State) deleteCharm(ctx context.Context, tx *sqlair.TX, cUUID string) e
 	objectStoreStmt, err := st.Prepare(`
 DELETE FROM object_store_metadata
 WHERE uuid IN (
-	SELECT object_store_uuid 
-	FROM charm 
-	WHERE uuid = $entityUUID.uuid
+    SELECT object_store_uuid 
+    FROM charm 
+    WHERE uuid = $entityUUID.uuid
 )`, charmUUID)
 	if err != nil {
 		return errors.Errorf("preparing charm object store delete: %w", err)
