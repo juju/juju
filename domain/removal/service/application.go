@@ -80,7 +80,7 @@ func (s *Service) RemoveApplication(
 			// If we have been supplied with the force flag *and* a wait time,
 			// schedule a normal removal job immediately. This will cause the
 			// earliest removal of the application if the normal destruction
-			// workflows complete within the the wait duration.
+			// workflows complete within the wait duration.
 			if _, err := s.applicationScheduleRemoval(ctx, appUUID, false, 0); err != nil {
 				return "", errors.Capture(err)
 			}
@@ -142,7 +142,7 @@ func (s *Service) removeApplicationUnitsByUnitUUID(ctx context.Context, uuids []
 			// If the unit fails to be scheduled for removal, we log out the
 			// error. The application and the units are already transitioned to
 			// dying and there is no way to transition them back to alive.
-			s.logger.Errorf(ctx, "failed to schedule removal of unit %q: %v", unitUUID, err)
+			s.logger.Errorf(ctx, "scheduling removal of unit %q: %v", unitUUID, err)
 		}
 	}
 }
@@ -152,7 +152,7 @@ func (s *Service) removeApplicationMachinesByMachineUUID(ctx context.Context, uu
 		return
 	}
 
-	// If there are any any machines that transitioned from alive to dying or
+	// If there are any machines that transitioned from alive to dying or
 	// dead, we need to schedule their removal as well.
 
 	s.logger.Infof(ctx, "application has machines %v, scheduling removal", uuids)
@@ -167,12 +167,12 @@ func (s *Service) removeApplicationMachinesByMachineUUID(ctx context.Context, uu
 			// If the machine fails to be scheduled for removal, we log out the
 			// error. The application and the units are already transitioned to
 			// dying and there is no way to transition them back to alive.
-			s.logger.Errorf(ctx, "failed to schedule removal of machine %q: %v", machineUUID, err)
+			s.logger.Errorf(ctx, "scheduling removal of machine %q: %v", machineUUID, err)
 		}
 	}
 }
 
-// processApplicationRemovalJob deletes a application if it is dying.
+// processApplicationRemovalJob deletes an application if it is dying.
 // Note that we do not need transactionality here:
 //   - Life can only advance - it cannot become alive if dying or dead.
 func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.Job) error {

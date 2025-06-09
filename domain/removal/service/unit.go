@@ -111,9 +111,9 @@ func (s *Service) RemoveUnit(
 	// a removal job for the machine.
 	if _, err := s.RemoveMachine(ctx, machine.UUID(machineUUID), force, wait); err != nil {
 		// If the machine fails to be scheduled, then log out an error. The
-		// machine and the unit has been transitioned to dying and there is no
+		// machine and the unit have been transitioned to dying and there is no
 		// way to transition them back to alive.
-		s.logger.Errorf(ctx, "failed to schedule removal of machine %q: %v", machineUUID, err)
+		s.logger.Errorf(ctx, "scheduling removal of machine %q: %v", machineUUID, err)
 	}
 
 	return unitJobUUID, nil
