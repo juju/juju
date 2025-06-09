@@ -73,7 +73,7 @@ var (
 				Tag:      names.NewUserTag("admin"),
 				Password: "secret",
 			},
-			migration.ControllerDialOpts(),
+			migration.ControllerDialOpts(nil),
 		},
 	}
 	importCall = jujutesting.StubCall{
@@ -900,7 +900,7 @@ func (s *Suite) assertAPIConnectWithMacaroon(c *gc.C, authUser names.UserTag) {
 						Tag:       apiUser,
 						Macaroons: macs, // <---
 					},
-					migration.ControllerDialOpts(),
+					migration.ControllerDialOpts(nil),
 				},
 			},
 			abortCall,
@@ -916,6 +916,44 @@ func (s *Suite) TestAPIConnectWithMacaroonLocalUser(c *gc.C) {
 
 func (s *Suite) TestAPIConnectWithMacaroonExternalUser(c *gc.C) {
 	s.assertAPIConnectWithMacaroon(c, names.NewUserTag("fred@external"))
+}
+
+func (s *Suite) TestAPIConnectionWithToken(c *gc.C) {
+	// Use ABORT because it involves an API connection to the target
+	// and is convenient.
+	status := s.makeStatus(coremigration.ABORT)
+	authUser := names.NewUserTag("fred@external")
+	status.TargetInfo.AuthTag = authUser
+
+	// Set up token based auth to the target.
+	status.TargetInfo.Password = ""
+	status.TargetInfo.Macaroons = nil
+	status.TargetInfo.Token = "token"
+
+	s.facade.queueStatus(status)
+
+	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	expectedLoginProvider := api.NewSessionTokenLoginProvider("token", nil, nil)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{
+				FuncName: "apiOpen",
+				Args: []interface{}{
+					&api.Info{
+						Addrs:  []string{"1.2.3.4:5"},
+						CACert: "cert",
+						Tag:    nil,
+					},
+					migration.ControllerDialOpts(expectedLoginProvider),
+				},
+			},
+			abortCall,
+			apiCloseCall,
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORTDONE}},
+		},
+	))
 }
 
 func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *gc.C) {

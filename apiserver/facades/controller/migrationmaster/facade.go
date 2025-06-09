@@ -114,6 +114,7 @@ func (api *API) MigrationStatus() (params.MasterMigrationStatus, error) {
 				AuthTag:       target.AuthTag.String(),
 				Password:      target.Password,
 				Macaroons:     string(macsJSON),
+				Token:         target.Token,
 			},
 		},
 		MigrationId:      mig.Id(),

@@ -111,6 +111,7 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 			AuthTag:       authTag,
 			Password:      target.Password,
 			Macaroons:     macs,
+			Token:         target.Token,
 		},
 	}, nil
 }
