@@ -107,15 +107,18 @@ WITH units_alive AS (
     SELECT    m.uuid AS machine_uuid,
               m.net_node_uuid,
               COUNT(ua.uuid) AS unit_alive_count,
-              COUNT(una.uuid) AS unit_not_alive_count
+              COUNT(una.uuid) AS unit_not_alive_count,
+			  COUNT(mp.parent_uuid) AS associated_count
     FROM      machine AS m
     JOIN      net_node AS nn ON nn.uuid = m.net_node_uuid
     LEFT JOIN units_alive AS ua ON ua.net_node_uuid = nn.uuid
     LEFT JOIN units_not_alive AS una ON una.net_node_uuid = nn.uuid
+	LEFT JOIN machine_parent AS mp ON mp.parent_uuid = m.uuid
     GROUP BY  m.uuid
 )
 SELECT unit_alive_count AS &entityAssociationAliveCount.alive_count,
        unit_not_alive_count AS &entityAssociationAliveCount.not_alive_count,
+	   associated_count AS &entityAssociationAliveCount.associated_count,
        machine_uuid AS &entityAssociationAliveCount.uuid
 FROM   machines
 LEFT JOIN unit AS u ON u.net_node_uuid = machines.net_node_uuid
@@ -145,6 +148,10 @@ AND    life_id = 0`, entityUUID{})
 	} else if unitCount.NotAliveCount == 0 {
 		// No units on the machine are marked as dead or dying. If this is the
 		// case then we can assume that the machine is still alive.
+		return "", nil
+	} else if unitCount.AssociatedCount > 0 {
+		// There are child machines associated with this machine.
+		// We cannot mark the machine as dying if it has child machines.
 		return "", nil
 	}
 

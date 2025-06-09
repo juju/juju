@@ -51,6 +51,9 @@ type entityAssociationAliveCount struct {
 	AliveCount int `db:"alive_count"`
 	// NotAliveCount counts the number of entities not alive.
 	NotAliveCount int `db:"not_alive_count"`
+	// AssociatedCount counts the number of entities associated with the
+	// entity identified by the UUID.
+	AssociatedCount int `db:"associated_count"`
 }
 
 // entityLife holds an entity's life in integer

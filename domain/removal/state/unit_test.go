@@ -81,6 +81,53 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 1)
 }
 
+func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitParentMachine(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	app1UUID := s.createIAASApplication(c, svc, "foo",
+		applicationservice.AddUnitArg{},
+	)
+	app2UUID := s.createIAASApplication(c, svc, "bar",
+		applicationservice.AddUnitArg{},
+	)
+
+	app1UnitUUIDs := s.getAllUnitUUIDs(c, app1UUID)
+	c.Assert(len(app1UnitUUIDs), tc.Equals, 1)
+	app1UnitUUID := app1UnitUUIDs[0]
+
+	app2UnitUUIDs := s.getAllUnitUUIDs(c, app2UUID)
+	c.Assert(len(app2UnitUUIDs), tc.Equals, 1)
+	app2UnitUUID := app2UnitUUIDs[0]
+
+	app1UnitMachineUUID := s.getUnitMachineUUID(c, app1UnitUUID)
+	app2UnitMachineUUID := s.getUnitMachineUUID(c, app2UnitUUID)
+
+	_, err := s.DB().Exec(`
+INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (?, ?)
+	`, app2UnitMachineUUID.String(), app1UnitMachineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	machineUUID, err := st.EnsureUnitNotAlive(c.Context(), app1UnitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machineUUID, tc.Equals, "")
+
+	// Unit had life "alive" and should now be "dying".
+	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", app1UnitUUID.String())
+	var lifeID int
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+
+	// The last machine had life "alive" and should be still alive, because
+	// it is a parent machine.
+	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", app1UnitMachineUUID)
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 0)
+}
+
 // Test to ensure that we don't prevent a unit from being set to "dying"
 // if the machine is already in the "dying" state. This shouldn't happen,
 // but we want to ensure that the state machine is resilient to this
