@@ -98,8 +98,21 @@ func (s *Service) RemoveApplication(
 	}
 
 	// Ensure that the application units and machines are removed as well.
-	s.removeApplicationUnitsByUnitUUID(ctx, unitUUIDs, force, wait)
-	s.removeApplicationMachinesByMachineUUID(ctx, machineUUIDs, force, wait)
+	if len(unitUUIDs) > 0 {
+		// If there are any units that transitioned from alive to dying or dead, we
+		// need to schedule their removal as well.
+		s.logger.Infof(ctx, "application has units %v, scheduling removal", unitUUIDs)
+
+		s.removeUnits(ctx, unitUUIDs, force, wait)
+	}
+
+	if len(machineUUIDs) > 0 {
+		// If there are any machines that transitioned from alive to dying or
+		// dead, we need to schedule their removal as well.
+		s.logger.Infof(ctx, "application has machines %v, scheduling removal", machineUUIDs)
+
+		s.removeMachines(ctx, machineUUIDs, force, wait)
+	}
 
 	return appJobUUID, nil
 }
@@ -122,16 +135,7 @@ func (s *Service) applicationScheduleRemoval(
 	return jobUUID, nil
 }
 
-func (s *Service) removeApplicationUnitsByUnitUUID(ctx context.Context, uuids []string, force bool, wait time.Duration) {
-	if len(uuids) == 0 {
-		return
-	}
-
-	// If there are any units that transitioned from alive to dying or dead, we
-	// need to schedule their removal as well.
-
-	s.logger.Infof(ctx, "application has units %v, scheduling removal", uuids)
-
+func (s *Service) removeUnits(ctx context.Context, uuids []string, force bool, wait time.Duration) {
 	for _, unitUUID := range uuids {
 		if _, err := s.RemoveUnit(ctx, unit.UUID(unitUUID), force, wait); errors.Is(err, applicationerrors.UnitNotFound) {
 			// There could be a chance that the unit has already been removed
@@ -147,16 +151,7 @@ func (s *Service) removeApplicationUnitsByUnitUUID(ctx context.Context, uuids []
 	}
 }
 
-func (s *Service) removeApplicationMachinesByMachineUUID(ctx context.Context, uuids []string, force bool, wait time.Duration) {
-	if len(uuids) == 0 {
-		return
-	}
-
-	// If there are any machines that transitioned from alive to dying or
-	// dead, we need to schedule their removal as well.
-
-	s.logger.Infof(ctx, "application has machines %v, scheduling removal", uuids)
-
+func (s *Service) removeMachines(ctx context.Context, uuids []string, force bool, wait time.Duration) {
 	for _, machineUUID := range uuids {
 		if _, err := s.RemoveMachine(ctx, machine.UUID(machineUUID), force, wait); errors.Is(err, machineerrors.MachineNotFound) {
 			// There could be a chance that the machine has already been removed
