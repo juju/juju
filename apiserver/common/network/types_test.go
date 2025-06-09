@@ -36,7 +36,20 @@ func (s *typesSuite) TestParamsNetworkConfigToDomain(c *tc.C) {
 			DNSServers:          []string{"8.8.8.8"},
 			Addresses: []params.Address{
 				{
-					Value:      "192.168.1.100/24",
+					Value:      "192.168.1.100",
+					Type:       "ipv4",
+					ConfigType: "dhcp",
+					Scope:      "local-cloud",
+					CIDR:       "192.168.1.0/24",
+				},
+				{
+					Value:      "81dd:26e8:137b:5b71:3975:4374:8817:8804",
+					Type:       "ipv4",
+					ConfigType: "dhcp",
+					Scope:      "local-cloud",
+				},
+				{
+					Value:      "192.168.50.200/24",
 					Type:       "ipv4",
 					ConfigType: "dhcp",
 					Scope:      "local-cloud",
@@ -45,7 +58,7 @@ func (s *typesSuite) TestParamsNetworkConfigToDomain(c *tc.C) {
 		},
 	}
 
-	result, err := ParamsNetworkConfigToDomain(args, network.OriginMachine)
+	result, err := ParamsNetworkConfigToDomain(c.Context(), args, network.OriginMachine)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.HasLen, 1)
 
@@ -64,7 +77,7 @@ func (s *typesSuite) TestParamsNetworkConfigToDomain(c *tc.C) {
 	c.Check(nic.DNSSearchDomains, tc.DeepEquals, []string{"example.com"})
 	c.Check(nic.DNSAddresses, tc.DeepEquals, []string{"8.8.8.8"})
 
-	c.Assert(nic.Addrs, tc.HasLen, 1)
+	c.Assert(nic.Addrs, tc.HasLen, 3)
 	addr := nic.Addrs[0]
 	c.Check(addr.InterfaceName, tc.Equals, "eth1")
 	c.Check(addr.ProviderID, tc.IsNil)
@@ -76,4 +89,10 @@ func (s *typesSuite) TestParamsNetworkConfigToDomain(c *tc.C) {
 	c.Check(addr.Scope, tc.Equals, network.ScopeCloudLocal)
 	c.Check(addr.IsSecondary, tc.Equals, false)
 	c.Check(addr.IsShadow, tc.Equals, false)
+
+	// No CIDR, so the suffix is the single IP subnet mask.
+	c.Check(nic.Addrs[1].AddressValue, tc.Equals, "81dd:26e8:137b:5b71:3975:4374:8817:8804/128")
+
+	// Already has a CIDR suffix.
+	c.Check(nic.Addrs[2].AddressValue, tc.Equals, "192.168.50.200/24")
 }

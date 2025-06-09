@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = internallogger.GetLogger("juju.apiserver.common.networkingcommon")
+var logger = internallogger.GetLogger("juju.apiserver.common.network")
 
 // ModelInfoService is the interface that is used to ask questions about the
 // current model.

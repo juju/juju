@@ -150,7 +150,7 @@ func (api *MachinerAPI) SetObservedNetworkConfig(ctx context.Context, args param
 		return apiservererrors.ServerError(err)
 	}
 
-	nics, err := commonnetwork.ParamsNetworkConfigToDomain(args.Config, network.OriginMachine)
+	nics, err := commonnetwork.ParamsNetworkConfigToDomain(ctx, args.Config, network.OriginMachine)
 	if err != nil {
 		return apiservererrors.ServerError(err)
 	}
