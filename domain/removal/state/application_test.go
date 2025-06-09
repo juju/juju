@@ -48,14 +48,14 @@ func (s *applicationSuite) TestApplicationExists(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 }
 
-func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccess(c *tc.C) {
+func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app")
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
+	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We don't have any units, so we expect an empty slice for both unit and
@@ -71,7 +71,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccess(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 1)
 }
 
-func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveUnits(c *tc.C) {
+func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWithAliveUnits(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
@@ -86,7 +86,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveUn
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Perform the ensure operation.
-	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
+	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkUnitContents(c, unitUUIDs, allUnitUUIDs)
@@ -97,7 +97,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveUn
 	s.checkMachineDyingState(c, allMachineUUIDs)
 }
 
-func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAndDyingUnits(c *tc.C) {
+func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWithAliveAndDyingUnits(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
@@ -123,7 +123,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAn
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
+	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkUnitContents(c, unitUUIDs, aliveUnitUUIDs)
@@ -134,7 +134,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAn
 	s.checkMachineDyingState(c, aliveMachineUUIDs)
 }
 
-func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAndDyingUnitsWithLastMachine(c *tc.C) {
+func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWithAliveAndDyingUnitsWithLastMachine(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
@@ -155,7 +155,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveNormalSuccessWithAliveAn
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
+	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkUnitContents(c, unitUUIDs, allUnitUUIDs)
@@ -190,7 +190,7 @@ func (s *applicationSuite) TestEnsureApplicationOnMultipleMachines(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID1.String())
+	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID1.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	app1UnitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
@@ -234,14 +234,14 @@ func (s *applicationSuite) TestEnsureApplicationOnMultipleMachines(c *tc.C) {
 	c.Check(count, tc.Equals, 0)
 }
 
-func (s *applicationSuite) TestEnsureApplicationNotAliveDyingSuccess(c *tc.C) {
+func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeDyingSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app")
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAlive(c.Context(), appUUID.String())
+	unitUUIDs, machineUUIDs, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We don't have any units, so we expect an empty slice for both unit and
@@ -257,11 +257,11 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveDyingSuccess(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 1)
 }
 
-func (s *applicationSuite) TestEnsureApplicationNotAliveNotExistsSuccess(c *tc.C) {
+func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	_, _, err := st.EnsureApplicationNotAlive(c.Context(), "some-application-uuid")
+	_, _, err := st.EnsureApplicationNotAliveCascade(c.Context(), "some-application-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 }
 

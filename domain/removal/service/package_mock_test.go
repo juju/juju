@@ -309,42 +309,42 @@ func (c *MockStateDeleteUnitCall) DoAndReturn(f func(context.Context, string) er
 	return c
 }
 
-// EnsureApplicationNotAlive mocks base method.
-func (m *MockState) EnsureApplicationNotAlive(arg0 context.Context, arg1 string) ([]string, []string, error) {
+// EnsureApplicationNotAliveCascade mocks base method.
+func (m *MockState) EnsureApplicationNotAliveCascade(arg0 context.Context, arg1 string) ([]string, []string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureApplicationNotAlive", arg0, arg1)
+	ret := m.ctrl.Call(m, "EnsureApplicationNotAliveCascade", arg0, arg1)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].([]string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// EnsureApplicationNotAlive indicates an expected call of EnsureApplicationNotAlive.
-func (mr *MockStateMockRecorder) EnsureApplicationNotAlive(arg0, arg1 any) *MockStateEnsureApplicationNotAliveCall {
+// EnsureApplicationNotAliveCascade indicates an expected call of EnsureApplicationNotAliveCascade.
+func (mr *MockStateMockRecorder) EnsureApplicationNotAliveCascade(arg0, arg1 any) *MockStateEnsureApplicationNotAliveCascadeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureApplicationNotAlive", reflect.TypeOf((*MockState)(nil).EnsureApplicationNotAlive), arg0, arg1)
-	return &MockStateEnsureApplicationNotAliveCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureApplicationNotAliveCascade", reflect.TypeOf((*MockState)(nil).EnsureApplicationNotAliveCascade), arg0, arg1)
+	return &MockStateEnsureApplicationNotAliveCascadeCall{Call: call}
 }
 
-// MockStateEnsureApplicationNotAliveCall wrap *gomock.Call
-type MockStateEnsureApplicationNotAliveCall struct {
+// MockStateEnsureApplicationNotAliveCascadeCall wrap *gomock.Call
+type MockStateEnsureApplicationNotAliveCascadeCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateEnsureApplicationNotAliveCall) Return(arg0, arg1 []string, arg2 error) *MockStateEnsureApplicationNotAliveCall {
+func (c *MockStateEnsureApplicationNotAliveCascadeCall) Return(arg0, arg1 []string, arg2 error) *MockStateEnsureApplicationNotAliveCascadeCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateEnsureApplicationNotAliveCall) Do(f func(context.Context, string) ([]string, []string, error)) *MockStateEnsureApplicationNotAliveCall {
+func (c *MockStateEnsureApplicationNotAliveCascadeCall) Do(f func(context.Context, string) ([]string, []string, error)) *MockStateEnsureApplicationNotAliveCascadeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateEnsureApplicationNotAliveCall) DoAndReturn(f func(context.Context, string) ([]string, []string, error)) *MockStateEnsureApplicationNotAliveCall {
+func (c *MockStateEnsureApplicationNotAliveCascadeCall) DoAndReturn(f func(context.Context, string) ([]string, []string, error)) *MockStateEnsureApplicationNotAliveCascadeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -387,41 +387,41 @@ func (c *MockStateEnsureRelationNotAliveCall) DoAndReturn(f func(context.Context
 	return c
 }
 
-// EnsureUnitNotAlive mocks base method.
-func (m *MockState) EnsureUnitNotAlive(arg0 context.Context, arg1 string) (string, error) {
+// EnsureUnitNotAliveCascade mocks base method.
+func (m *MockState) EnsureUnitNotAliveCascade(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureUnitNotAlive", arg0, arg1)
+	ret := m.ctrl.Call(m, "EnsureUnitNotAliveCascade", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// EnsureUnitNotAlive indicates an expected call of EnsureUnitNotAlive.
-func (mr *MockStateMockRecorder) EnsureUnitNotAlive(arg0, arg1 any) *MockStateEnsureUnitNotAliveCall {
+// EnsureUnitNotAliveCascade indicates an expected call of EnsureUnitNotAliveCascade.
+func (mr *MockStateMockRecorder) EnsureUnitNotAliveCascade(arg0, arg1 any) *MockStateEnsureUnitNotAliveCascadeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUnitNotAlive", reflect.TypeOf((*MockState)(nil).EnsureUnitNotAlive), arg0, arg1)
-	return &MockStateEnsureUnitNotAliveCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUnitNotAliveCascade", reflect.TypeOf((*MockState)(nil).EnsureUnitNotAliveCascade), arg0, arg1)
+	return &MockStateEnsureUnitNotAliveCascadeCall{Call: call}
 }
 
-// MockStateEnsureUnitNotAliveCall wrap *gomock.Call
-type MockStateEnsureUnitNotAliveCall struct {
+// MockStateEnsureUnitNotAliveCascadeCall wrap *gomock.Call
+type MockStateEnsureUnitNotAliveCascadeCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateEnsureUnitNotAliveCall) Return(arg0 string, arg1 error) *MockStateEnsureUnitNotAliveCall {
+func (c *MockStateEnsureUnitNotAliveCascadeCall) Return(arg0 string, arg1 error) *MockStateEnsureUnitNotAliveCascadeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateEnsureUnitNotAliveCall) Do(f func(context.Context, string) (string, error)) *MockStateEnsureUnitNotAliveCall {
+func (c *MockStateEnsureUnitNotAliveCascadeCall) Do(f func(context.Context, string) (string, error)) *MockStateEnsureUnitNotAliveCascadeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateEnsureUnitNotAliveCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateEnsureUnitNotAliveCall {
+func (c *MockStateEnsureUnitNotAliveCascadeCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateEnsureUnitNotAliveCascadeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

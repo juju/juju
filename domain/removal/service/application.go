@@ -25,13 +25,13 @@ type ApplicationState interface {
 	// application UUID.
 	ApplicationExists(ctx context.Context, appUUID string) (bool, error)
 
-	// EnsureApplicationNotAlive ensures that there is no application identified
-	// by the input application UUID, that is still alive.
-	// If the application has units, they are also guaranteed to be no longer
-	// alive. The affected unit UUIDs are returned.
-	// If the units are also the last ones on their machines, the machines
-	// are also set to dying. The affected machine UUIDs are returned.
-	EnsureApplicationNotAlive(ctx context.Context, appUUID string) (unitUUIDs, machineUUIDs []string, err error)
+	// EnsureApplicationNotAliveCascade ensures that there is no application
+	// identified by the input application UUID, that is still alive. If the
+	// application has units, they are also guaranteed to be no longer alive,
+	// cascading. The affected unit UUIDs are returned. If the units are also
+	// the last ones on their machines, it will cascade and the machines are
+	// also set to dying. The affected machine UUIDs are returned.
+	EnsureApplicationNotAliveCascade(ctx context.Context, appUUID string) (unitUUIDs, machineUUIDs []string, err error)
 
 	// ApplicationScheduleRemoval schedules a removal job for the application
 	// with the input application UUID, qualified with the input force boolean.
@@ -70,7 +70,7 @@ func (s *Service) RemoveApplication(
 	}
 
 	// Ensure the application is not alive.
-	unitUUIDs, machineUUIDs, err := s.st.EnsureApplicationNotAlive(ctx, appUUID.String())
+	unitUUIDs, machineUUIDs, err := s.st.EnsureApplicationNotAliveCascade(ctx, appUUID.String())
 	if err != nil {
 		return "", errors.Errorf("application %q: %w", appUUID, err)
 	}

@@ -49,11 +49,13 @@ WHERE  uuid = $entityUUID.uuid`, applicationUUID)
 	return applicationExists, errors.Capture(err)
 }
 
-// EnsureApplicationNotAlive ensures that there is no application
-// identified by the input UUID, that is still alive.
-// Returns the UUIDs of any alive units that were associated with the
-// application and have been set to dying as part of this operation.
-func (st *State) EnsureApplicationNotAlive(ctx context.Context, aUUID string) (unitUUIDs, machineUUIDs []string, err error) {
+// EnsureApplicationNotAliveCascade ensures that there is no application
+// identified by the input application UUID, that is still alive. If the
+// application has units, they are also guaranteed to be no longer alive,
+// cascading. The affected unit UUIDs are returned. If the units are also
+// the last ones on their machines, it will cascade and the machines are
+// also set to dying. The affected machine UUIDs are returned.
+func (st *State) EnsureApplicationNotAliveCascade(ctx context.Context, aUUID string) (unitUUIDs, machineUUIDs []string, err error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, nil, errors.Capture(err)

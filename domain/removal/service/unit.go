@@ -23,11 +23,11 @@ type UnitState interface {
 	// UnitExists returns true if a unit exists with the input unit UUID.
 	UnitExists(ctx context.Context, unitUUID string) (bool, error)
 
-	// EnsureUnitNotAlive ensures that there is no unit
-	// identified by the input unit UUID, that is still alive.
-	// If the unit is the last one on the machine, the machine is also set
-	// to dying. The affected machine UUID is returned.
-	EnsureUnitNotAlive(ctx context.Context, unitUUID string) (machineUUID string, err error)
+	// EnsureUnitNotAliveCascade ensures that there is no unit identified by the
+	// input unit UUID, that is still alive. If the unit is the last one on the
+	// machine, it will cascade and the machine is also set to dying. The
+	// affected machine UUID is returned.
+	EnsureUnitNotAliveCascade(ctx context.Context, unitUUID string) (machineUUID string, err error)
 
 	// UnitScheduleRemoval schedules a removal job for the unit with the
 	// input unit UUID, qualified with the input force boolean.
@@ -73,7 +73,7 @@ func (s *Service) RemoveUnit(
 	// then we will return the machine UUID, which will be used to schedule
 	// the removal of the machine.
 	// If the machine UUID is returned, then the machine was also set to dying.
-	machineUUID, err := s.st.EnsureUnitNotAlive(ctx, unitUUID.String())
+	machineUUID, err := s.st.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
 	if err != nil {
 		return "", errors.Errorf("unit %q: %w", unitUUID, err)
 	}

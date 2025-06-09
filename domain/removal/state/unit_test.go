@@ -49,7 +49,7 @@ func (s *unitSuite) TestUnitExists(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 }
 
-func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnit(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
@@ -62,7 +62,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAlive(c.Context(), unitUUID.String())
+	machineUUID, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(machineUUID, tc.Equals, unitMachineUUID.String())
@@ -81,7 +81,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 1)
 }
 
-func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitParentMachine(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnitParentMachine(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	app1UUID := s.createIAASApplication(c, svc, "foo",
@@ -109,7 +109,7 @@ INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (?, ?)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAlive(c.Context(), app1UnitUUID.String())
+	machineUUID, err := st.EnsureUnitNotAliveCascade(c.Context(), app1UnitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machineUUID, tc.Equals, "")
 
@@ -132,7 +132,7 @@ INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (?, ?)
 // if the machine is already in the "dying" state. This shouldn't happen,
 // but we want to ensure that the state machine is resilient to this
 // situation.
-func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitMachineAlreadyDying(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnitMachineAlreadyDying(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
@@ -150,7 +150,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitMachineAlreadyDyi
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAlive(c.Context(), unitUUID.String())
+	machineUUID, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The machine was already "dying", so we don't expect a machine UUID.
@@ -164,7 +164,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitMachineAlreadyDyi
 	c.Check(lifeID, tc.Equals, 1)
 }
 
-func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
@@ -183,7 +183,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAlive(c.Context(), unitUUID.String())
+	machineUUID, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// This isn't the last unit on the machine, so we don't expect a machine
@@ -204,7 +204,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 0)
 }
 
-func (s *unitSuite) TestEnsureUnitNotAliveDyingSuccess(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeDyingSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
@@ -215,7 +215,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveDyingSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.EnsureUnitNotAlive(c.Context(), unitUUID.String())
+	_, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Unit was already "dying" and should be unchanged.
@@ -226,11 +226,11 @@ func (s *unitSuite) TestEnsureUnitNotAliveDyingSuccess(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 1)
 }
 
-func (s *unitSuite) TestEnsureUnitNotAliveNotExistsSuccess(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	_, err := st.EnsureUnitNotAlive(c.Context(), "some-unit-uuid")
+	_, err := st.EnsureUnitNotAliveCascade(c.Context(), "some-unit-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 }
 

@@ -36,7 +36,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccess(c *tc.C) {
 
 	exp := s.state.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
-	exp.EnsureApplicationNotAlive(gomock.Any(), appUUID.String()).Return(nil, nil, nil)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String()).Return(nil, nil, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, 0)
@@ -54,7 +54,7 @@ func (s *applicationSuite) TestRemoveApplicationForceNoWaitSuccess(c *tc.C) {
 
 	exp := s.state.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
-	exp.EnsureApplicationNotAlive(gomock.Any(), appUUID.String()).Return(nil, nil, nil)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String()).Return(nil, nil, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), true, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, true, 0)
@@ -72,7 +72,7 @@ func (s *applicationSuite) TestRemoveApplicationForceWaitSuccess(c *tc.C) {
 
 	exp := s.state.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
-	exp.EnsureApplicationNotAlive(gomock.Any(), appUUID.String()).Return(nil, nil, nil)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String()).Return(nil, nil, nil)
 
 	// The first normal removal scheduled immediately.
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
@@ -106,7 +106,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithUnits(c *tc.C)
 
 	exp := s.state.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
-	exp.EnsureApplicationNotAlive(gomock.Any(), appUUID.String()).Return([]string{"unit-1", "unit-2"}, nil, nil)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String()).Return([]string{"unit-1", "unit-2"}, nil, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
 
 	// We don't want to create all the unit expectations here, so we'll assume
@@ -130,7 +130,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithMachines(c *tc
 
 	exp := s.state.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
-	exp.EnsureApplicationNotAlive(gomock.Any(), appUUID.String()).Return(nil, []string{"machine-1", "machine-2"}, nil)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String()).Return(nil, []string{"machine-1", "machine-2"}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
 
 	// We don't want to create all the machine expectations here, so we'll
