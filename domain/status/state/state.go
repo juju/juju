@@ -379,7 +379,7 @@ func (st *State) SetRelationStatus(
 //   - [statuserrors.RelationNotFound] if the relation doesn't exist.
 func (st *State) ImportRelationStatus(
 	ctx context.Context,
-	relationID int,
+	relationUUID corerelation.UUID,
 	sts status.StatusInfo[status.RelationStatusType],
 ) error {
 	db, err := st.DB()
@@ -388,20 +388,22 @@ func (st *State) ImportRelationStatus(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		relationUUID, err := st.getRelationUUIDByID(ctx, tx, relationID)
-		if err != nil {
-			return errors.Errorf("getting relation UUID: %w", err)
-		}
-
 		return st.updateRelationStatus(ctx, tx, relationUUID, sts)
 	})
 }
 
-func (st *State) getRelationUUIDByID(
+// GetRelationUUIDByID returns the UUID for the given relation ID.
+// It can return the following errors:
+//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+func (st *State) GetRelationUUIDByID(
 	ctx context.Context,
-	tx *sqlair.TX,
 	id int,
 ) (corerelation.UUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
 	type relationID struct {
 		ID   int               `db:"relation_id"`
 		UUID corerelation.UUID `db:"uuid"`
@@ -419,13 +421,18 @@ WHERE  relation_id = $relationID.relation_id
 		return "", errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, stmt, arg).Get(&arg)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", statuserrors.RelationNotFound
-	} else if err != nil {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, arg).Get(&arg)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return statuserrors.RelationNotFound
+		} else if err != nil {
+			return errors.Errorf("getting relation UUID for %q: %w", id, err)
+		}
+		return nil
+	})
+	if err != nil {
 		return "", errors.Capture(err)
 	}
-
 	return arg.UUID, nil
 }
 
@@ -447,10 +454,11 @@ func (st *State) updateRelationStatus(
 		Since:        sts.Since,
 	}
 	stmt, err := st.Prepare(`
-UPDATE relation_status
-SET relation_status_type_id = $relationStatus.relation_status_type_id,
-    suspended_reason = $relationStatus.suspended_reason,
-    updated_at = $relationStatus.updated_at
+INSERT INTO relation_status (*) VALUES ($relationStatus.*)
+ON CONFLICT(relation_uuid) DO UPDATE SET
+    relation_status_type_id = excluded.relation_status_type_id,
+    suspended_reason = excluded.suspended_reason,
+    updated_at = excluded.updated_at
 WHERE relation_uuid = $relationStatus.relation_uuid
 `, statusInfo)
 	if err != nil {
@@ -458,10 +466,10 @@ WHERE relation_uuid = $relationStatus.relation_uuid
 	}
 
 	err = tx.Query(ctx, stmt, statusInfo).Run()
-	if err != nil {
-		return errors.Capture(err)
+	if internaldatabase.IsErrConstraintForeignKey(err) {
+		return statuserrors.RelationNotFound
 	}
-	return nil
+	return errors.Capture(err)
 }
 
 // GetUnitUUIDByName returns the UUID for the named unit, returning an error

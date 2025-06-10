@@ -360,6 +360,21 @@ func (s *stateSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, statuserrors.RelationNotFound)
 }
 
+func (s *stateSuite) TestGetRelationUUIDByID(c *tc.C) {
+	relationID := 7
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, relationID)
+
+	gotUUID, err := s.state.GetRelationUUIDByID(c.Context(), relationID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(gotUUID, tc.Equals, relationUUID)
+}
+
+func (s *stateSuite) TestGetRelationUUIDByIDNotFound(c *tc.C) {
+	_, err := s.state.GetRelationUUIDByID(c.Context(), 666)
+	c.Assert(err, tc.ErrorIs, statuserrors.RelationNotFound)
+}
+
 func (s *stateSuite) TestImportRelationStatus(c *tc.C) {
 	// Arrange: Create relation and statuses.
 	relationID := 7
@@ -374,7 +389,7 @@ func (s *stateSuite) TestImportRelationStatus(c *tc.C) {
 	}
 
 	// Act:
-	err := s.state.ImportRelationStatus(c.Context(), relationID, sts)
+	err := s.state.ImportRelationStatus(c.Context(), relationUUID, sts)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert:
@@ -389,7 +404,7 @@ func (s *stateSuite) TestImportRelationStatusRelationNotFound(c *tc.C) {
 	}
 
 	// Act:
-	err := s.state.ImportRelationStatus(c.Context(), 0, sts)
+	err := s.state.ImportRelationStatus(c.Context(), corerelationtesting.GenRelationUUID(c), sts)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, statuserrors.RelationNotFound)

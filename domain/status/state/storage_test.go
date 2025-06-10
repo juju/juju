@@ -401,6 +401,21 @@ func (s *storageSuite) TestSetFilesystemStatusInvalidTransition(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, statuserrors.FilesystemStatusTransitionNotValid)
 }
 
+func (s *storageSuite) TestGetFilesystemUUIDByID(c *tc.C) {
+	filesystemUUID := s.createFilesystem(c)
+
+	id := strconv.Itoa(s.filesystemCount - 1)
+	gotUUID, err := s.state.GetFilesystemUUIDByID(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(gotUUID, tc.Equals, filesystemUUID)
+}
+
+func (s *storageSuite) TestGetFilesystemUUIDByIDNotFound(c *tc.C) {
+	_, err := s.state.GetFilesystemUUIDByID(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, storageerrors.FilesystemNotFound)
+}
+
 func (s *storageSuite) TestImportFilesystemStatus(c *tc.C) {
 	filesystemUUID := s.createFilesystem(c)
 
@@ -411,8 +426,7 @@ func (s *storageSuite) TestImportFilesystemStatus(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	id := strconv.Itoa(s.filesystemCount - 1)
-	err := s.state.ImportFilesystemStatus(c.Context(), id, expected)
+	err := s.state.ImportFilesystemStatus(c.Context(), filesystemUUID, expected)
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertFilesystemStatus(c, filesystemUUID, expected)
 }
@@ -514,6 +528,21 @@ func (s *storageSuite) TestSetVolumeStatusInvalidTransition(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, statuserrors.VolumeStatusTransitionNotValid)
 }
 
+func (s *storageSuite) TestGetVolumeUUIDByID(c *tc.C) {
+	volumeUUID := s.createVolume(c)
+
+	id := strconv.Itoa(s.volumeCount - 1)
+	gotUUID, err := s.state.GetVolumeUUIDByID(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(gotUUID, tc.Equals, volumeUUID)
+}
+
+func (s *storageSuite) TestGetVolumeUUIDByIDNotFound(c *tc.C) {
+	_, err := s.state.GetVolumeUUIDByID(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, storageerrors.VolumeNotFound)
+}
+
 func (s *storageSuite) TestImportVolumeStatus(c *tc.C) {
 	volumeUUID := s.createVolume(c)
 
@@ -524,8 +553,7 @@ func (s *storageSuite) TestImportVolumeStatus(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	id := strconv.Itoa(s.volumeCount - 1)
-	err := s.state.ImportVolumeStatus(c.Context(), id, expected)
+	err := s.state.ImportVolumeStatus(c.Context(), volumeUUID, expected)
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertVolumeStatus(c, volumeUUID, expected)
 }

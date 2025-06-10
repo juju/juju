@@ -100,7 +100,7 @@ WHERE     sf.uuid = $filesystemUUID.uuid
 // - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
 func (st *State) ImportFilesystemStatus(
 	ctx context.Context,
-	filesystemID string,
+	filesystemUUID storage.FilesystemUUID,
 	sts status.StatusInfo[status.StorageFilesystemStatusType],
 ) error {
 	db, err := st.DB()
@@ -109,19 +109,21 @@ func (st *State) ImportFilesystemStatus(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		filesystemUUID, err := st.getFilesystemUUIDByID(ctx, tx, filesystemID)
-		if err != nil {
-			return errors.Errorf("getting filesystem UUID: %w", err)
-		}
 		return st.updateFilesystemStatus(ctx, tx, filesystemUUID, sts)
 	})
 }
 
-func (st *State) getFilesystemUUIDByID(
+// GetFilesystemUUIDByID returns the UUID for the given filesystem ID.
+// It can return the following errors:
+//   - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
+func (st *State) GetFilesystemUUIDByID(
 	ctx context.Context,
-	tx *sqlair.TX,
 	id string,
 ) (storage.FilesystemUUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
 	arg := filesystemUUIDID{ID: id}
 	stmt, err := st.Prepare(`
 SELECT &filesystemUUIDID.uuid
@@ -132,10 +134,16 @@ WHERE  filesystem_id = $filesystemUUIDID.filesystem_id
 		return "", errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, stmt, arg).Get(&arg)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", storageerrors.FilesystemNotFound
-	} else if err != nil {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, arg).Get(&arg)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageerrors.FilesystemNotFound
+		} else if err != nil {
+			return errors.Errorf("getting filesystem UUID for %q: %w", id, err)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
 		return "", errors.Capture(err)
 	}
 	return storage.FilesystemUUID(arg.UUID), nil
@@ -258,7 +266,7 @@ WHERE     sv.uuid = $volumeUUID.uuid
 // - [storageerrors.VolumeNotFound] if the volume doesn't exist.
 func (st *State) ImportVolumeStatus(
 	ctx context.Context,
-	volumeID string,
+	volumeUUID storage.VolumeUUID,
 	sts status.StatusInfo[status.StorageVolumeStatusType],
 ) error {
 	db, err := st.DB()
@@ -267,19 +275,21 @@ func (st *State) ImportVolumeStatus(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		volumeUUID, err := st.getVolumeUUIDByID(ctx, tx, volumeID)
-		if err != nil {
-			return errors.Errorf("getting volume UUID: %w", err)
-		}
 		return st.updateVolumeStatus(ctx, tx, volumeUUID, sts)
 	})
 }
 
-func (st *State) getVolumeUUIDByID(
+// GetVolumeUUIDByID returns the UUID for the given volume ID.
+// It can return the following errors:
+//   - [storageerrors.VolumeNotFound] if the volume doesn't exist.
+func (st *State) GetVolumeUUIDByID(
 	ctx context.Context,
-	tx *sqlair.TX,
 	id string,
 ) (storage.VolumeUUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
 	arg := volumeUUIDID{ID: id}
 	stmt, err := st.Prepare(`
 SELECT &volumeUUIDID.uuid
@@ -290,10 +300,16 @@ WHERE  volume_id = $volumeUUIDID.volume_id
 		return "", errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, stmt, arg).Get(&arg)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", storageerrors.VolumeNotFound
-	} else if err != nil {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, arg).Get(&arg)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageerrors.VolumeNotFound
+		} else if err != nil {
+			return errors.Errorf("getting volume UUID for %q: %w", id, err)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
 		return "", errors.Capture(err)
 	}
 	return storage.VolumeUUID(arg.UUID), nil

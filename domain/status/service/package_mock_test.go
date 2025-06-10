@@ -472,6 +472,45 @@ func (c *MockStateGetModelStatusInfoCall) DoAndReturn(f func(context.Context) (s
 	return c
 }
 
+// GetRelationUUIDByID mocks base method.
+func (m *MockState) GetRelationUUIDByID(ctx context.Context, id int) (relation.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationUUIDByID", ctx, id)
+	ret0, _ := ret[0].(relation.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationUUIDByID indicates an expected call of GetRelationUUIDByID.
+func (mr *MockStateMockRecorder) GetRelationUUIDByID(ctx, id any) *MockStateGetRelationUUIDByIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUUIDByID", reflect.TypeOf((*MockState)(nil).GetRelationUUIDByID), ctx, id)
+	return &MockStateGetRelationUUIDByIDCall{Call: call}
+}
+
+// MockStateGetRelationUUIDByIDCall wrap *gomock.Call
+type MockStateGetRelationUUIDByIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRelationUUIDByIDCall) Return(arg0 relation.UUID, arg1 error) *MockStateGetRelationUUIDByIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRelationUUIDByIDCall) Do(f func(context.Context, int) (relation.UUID, error)) *MockStateGetRelationUUIDByIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRelationUUIDByIDCall) DoAndReturn(f func(context.Context, int) (relation.UUID, error)) *MockStateGetRelationUUIDByIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitAgentStatus mocks base method.
 func (m *MockState) GetUnitAgentStatus(arg0 context.Context, arg1 unit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error) {
 	m.ctrl.T.Helper()
@@ -668,17 +707,17 @@ func (c *MockStateGetUnitWorkloadStatusesForApplicationCall) DoAndReturn(f func(
 }
 
 // ImportRelationStatus mocks base method.
-func (m *MockState) ImportRelationStatus(ctx context.Context, relationID int, sts status.StatusInfo[status.RelationStatusType]) error {
+func (m *MockState) ImportRelationStatus(ctx context.Context, relationUUID relation.UUID, sts status.StatusInfo[status.RelationStatusType]) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportRelationStatus", ctx, relationID, sts)
+	ret := m.ctrl.Call(m, "ImportRelationStatus", ctx, relationUUID, sts)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ImportRelationStatus indicates an expected call of ImportRelationStatus.
-func (mr *MockStateMockRecorder) ImportRelationStatus(ctx, relationID, sts any) *MockStateImportRelationStatusCall {
+func (mr *MockStateMockRecorder) ImportRelationStatus(ctx, relationUUID, sts any) *MockStateImportRelationStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportRelationStatus", reflect.TypeOf((*MockState)(nil).ImportRelationStatus), ctx, relationID, sts)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportRelationStatus", reflect.TypeOf((*MockState)(nil).ImportRelationStatus), ctx, relationUUID, sts)
 	return &MockStateImportRelationStatusCall{Call: call}
 }
 
@@ -694,13 +733,13 @@ func (c *MockStateImportRelationStatusCall) Return(arg0 error) *MockStateImportR
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateImportRelationStatusCall) Do(f func(context.Context, int, status.StatusInfo[status.RelationStatusType]) error) *MockStateImportRelationStatusCall {
+func (c *MockStateImportRelationStatusCall) Do(f func(context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType]) error) *MockStateImportRelationStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateImportRelationStatusCall) DoAndReturn(f func(context.Context, int, status.StatusInfo[status.RelationStatusType]) error) *MockStateImportRelationStatusCall {
+func (c *MockStateImportRelationStatusCall) DoAndReturn(f func(context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType]) error) *MockStateImportRelationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
