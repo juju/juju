@@ -75,7 +75,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"deployer",
 			"disk-manager",
 			"host-key-reporter",
-			"instance-mutater",
 			"log-sender",
 			"logging-config-updater",
 			"lxd-container-provisioner",
@@ -464,19 +463,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"trace": {
 		"agent",
-	},
-
-	"instance-mutater": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"broker-tracker",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
 	},
 
 	"log-sender": {

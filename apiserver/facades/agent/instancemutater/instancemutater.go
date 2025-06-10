@@ -6,25 +6,20 @@ package instancemutater
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // InstanceMutaterV2 defines the methods on the instance mutater API facade, version 2.
@@ -80,54 +75,14 @@ type ModelInfoService interface {
 }
 
 type InstanceMutaterAPI struct {
-	*common.LifeGetter
-
-	machineService     MachineService
-	applicationService ApplicationService
-	modelInfoService   ModelInfoService
-	st                 InstanceMutaterState
-	watcher            InstanceMutatorWatcher
-	resources          facade.Resources
-	authorizer         facade.Authorizer
-	getAuthFunc        common.GetAuthFunc
-	logger             logger.Logger
-}
-
-// InstanceMutatorWatcher instances return a lxd profile watcher for a machine.
-type InstanceMutatorWatcher interface {
-	WatchLXDProfileVerificationForMachine(context.Context, Machine, logger.Logger) (state.NotifyWatcher, error)
-}
-
-type instanceMutatorWatcher struct {
-	st                 InstanceMutaterState
-	machineService     MachineService
-	applicationService ApplicationService
+	watcherRegistry facade.WatcherRegistry
 }
 
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
 // charm profiles on juju lxd machines and containers.
-func NewInstanceMutaterAPI(
-	st InstanceMutaterState,
-	machineService MachineService,
-	applicationService ApplicationService,
-	modelInfoService ModelInfoService,
-	watcher InstanceMutatorWatcher,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-	logger logger.Logger,
-) *InstanceMutaterAPI {
-	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
+func NewInstanceMutaterAPI(watcherRegistry facade.WatcherRegistry) *InstanceMutaterAPI {
 	return &InstanceMutaterAPI{
-		LifeGetter:         common.NewLifeGetter(st, getAuthFunc),
-		st:                 st,
-		watcher:            watcher,
-		resources:          resources,
-		authorizer:         authorizer,
-		getAuthFunc:        getAuthFunc,
-		machineService:     machineService,
-		applicationService: applicationService,
-		modelInfoService:   modelInfoService,
-		logger:             logger,
+		watcherRegistry: watcherRegistry,
 	}
 }
 
@@ -135,59 +90,12 @@ func NewInstanceMutaterAPI(
 // the machine is not provisioned, no profile change info will be returned,
 // nor will an error.
 func (api *InstanceMutaterAPI) CharmProfilingInfo(ctx context.Context, arg params.Entity) (params.CharmProfilingInfoResult, error) {
-	result := params.CharmProfilingInfoResult{
-		ProfileChanges: make([]params.ProfileInfoResult, 0),
-	}
-	canAccess, err := api.getAuthFunc(ctx)
-	if err != nil {
-		return params.CharmProfilingInfoResult{}, errors.Trace(err)
-	}
-	tag, err := names.ParseMachineTag(arg.Tag)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-		return result, nil
-	}
-	m, err := api.getMachine(canAccess, tag)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	lxdProfileInfo, err := api.machineLXDProfileInfo(ctx, m)
-	if errors.Is(err, machineerrors.NotProvisioned) {
-		result.Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %q", tag.Id()))
-	} else if err != nil {
-		result.Error = apiservererrors.ServerError(errors.Annotatef(err, "%s", tag))
-	}
-
-	// use the results from the machineLXDProfileInfo and apply them to the
-	// result
-	result.InstanceId = lxdProfileInfo.InstanceId
-	result.ModelName = lxdProfileInfo.ModelName
-	result.CurrentProfiles = lxdProfileInfo.MachineProfiles
-	result.ProfileChanges = lxdProfileInfo.ProfileUnits
-
-	return result, nil
+	return params.CharmProfilingInfoResult{}, nil
 }
 
 // ContainerType returns the container type of a machine.
 func (api *InstanceMutaterAPI) ContainerType(ctx context.Context, arg params.Entity) (params.ContainerTypeResult, error) {
-	result := params.ContainerTypeResult{}
-	canAccess, err := api.getAuthFunc(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	tag, err := names.ParseMachineTag(arg.Tag)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-		return result, nil
-	}
-	m, err := api.getMachine(canAccess, tag)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	result.Type = m.ContainerType()
-	return result, nil
+	return params.ContainerTypeResult{}, nil
 }
 
 // SetModificationStatus updates the instance whilst changes are occurring. This
@@ -198,101 +106,66 @@ func (api *InstanceMutaterAPI) ContainerType(ctx context.Context, arg params.Ent
 // serves the purpose of highlighting that to the operator.
 // Only machine tags are accepted.
 func (api *InstanceMutaterAPI) SetModificationStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	result := params.ErrorResults{
+	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	canAccess, err := api.getAuthFunc(ctx)
-	if err != nil {
-		api.logger.Errorf(ctx, "failed to get an authorisation function: %v", err)
-		return result, errors.Trace(err)
-	}
-	for i, arg := range args.Entities {
-		err = api.setOneModificationStatus(ctx, canAccess, arg)
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
+	}, nil
 }
 
 // SetCharmProfiles records the given slice of charm profile names.
 func (api *InstanceMutaterAPI) SetCharmProfiles(ctx context.Context, args params.SetProfileArgs) (params.ErrorResults, error) {
-	results := make([]params.ErrorResult, len(args.Args))
-	canAccess, err := api.getAuthFunc(ctx)
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	for i, a := range args.Args {
-		err := api.setOneMachineCharmProfiles(ctx, a.Entity.Tag, a.Profiles, canAccess)
-		if errors.Is(err, machineerrors.NotProvisioned) {
-			results[i].Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %q", a.Entity.Tag))
-		} else if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return params.ErrorResults{Results: results}, nil
+	return params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}, nil
 }
 
 // WatchMachines starts a watcher to track machines.
 // WatchMachines does not consume the initial event of the watch response, as
 // that returns the initial set of machines that are currently available.
 func (api *InstanceMutaterAPI) WatchMachines(ctx context.Context) (params.StringsWatchResult, error) {
-	result := params.StringsWatchResult{}
-	if !api.authorizer.AuthController() {
-		return result, apiservererrors.ErrPerm
-	}
+	// Create a simple watcher that sends the empty string as initial event.
+	w := newEmptyStringWatcher()
 
-	watch := api.st.WatchMachines()
-	if changes, ok := <-watch.Changes(); ok {
-		result.StringsWatcherId = api.resources.Register(watch)
-		result.Changes = changes
-	} else {
-		return result, errors.Errorf("cannot obtain initial model machines")
+	watcherID, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, api.watcherRegistry, w)
+	if err != nil {
+		return params.StringsWatchResult{}, errors.Capture(err)
 	}
-	return result, nil
+	return params.StringsWatchResult{
+		StringsWatcherId: watcherID,
+		Changes:          changes,
+	}, nil
 }
 
 // WatchModelMachines starts a watcher to track machines, but not containers.
 // WatchModelMachines does not consume the initial event of the watch response, as
 // that returns the initial set of machines that are currently available.
 func (api *InstanceMutaterAPI) WatchModelMachines(ctx context.Context) (params.StringsWatchResult, error) {
-	result := params.StringsWatchResult{}
-	if !api.authorizer.AuthController() {
-		return result, apiservererrors.ErrPerm
-	}
+	// Create a simple watcher that sends the empty string as initial event.
+	w := newEmptyStringWatcher()
 
-	watch := api.st.WatchModelMachines()
-	if changes, ok := <-watch.Changes(); ok {
-		result.StringsWatcherId = api.resources.Register(watch)
-		result.Changes = changes
-	} else {
-		return result, errors.Errorf("cannot obtain initial model machines")
+	watcherID, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, api.watcherRegistry, w)
+	if err != nil {
+		return params.StringsWatchResult{}, errors.Capture(err)
 	}
-	return result, nil
+	return params.StringsWatchResult{
+		StringsWatcherId: watcherID,
+		Changes:          changes,
+	}, nil
 }
 
 // WatchContainers starts a watcher to track Containers on a given
 // machine.
 func (api *InstanceMutaterAPI) WatchContainers(ctx context.Context, arg params.Entity) (params.StringsWatchResult, error) {
-	result := params.StringsWatchResult{}
-	canAccess, err := api.getAuthFunc(ctx)
+	// Create a simple watcher that sends the empty string as initial event.
+	w := newEmptyStringWatcher()
+
+	watcherID, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, api.watcherRegistry, w)
 	if err != nil {
-		return result, errors.Trace(err)
+		return params.StringsWatchResult{}, errors.Capture(err)
 	}
-	tag, err := names.ParseMachineTag(arg.Tag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	machine, err := api.getMachine(canAccess, tag)
-	if err != nil {
-		return result, err
-	}
-	watch := machine.WatchContainers(instance.LXD)
-	if changes, ok := <-watch.Changes(); ok {
-		result.StringsWatcherId = api.resources.Register(watch)
-		result.Changes = changes
-	} else {
-		return result, errors.Errorf("cannot obtain initial machine containers")
-	}
-	return result, nil
+	return params.StringsWatchResult{
+		StringsWatcherId: watcherID,
+		Changes:          changes,
+	}, nil
 }
 
 // WatchLXDProfileVerificationNeeded starts a watcher to track Applications with
@@ -301,215 +174,142 @@ func (api *InstanceMutaterAPI) WatchLXDProfileVerificationNeeded(ctx context.Con
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	canAccess, err := api.getAuthFunc(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
+	for i := range args.Entities {
+		// Create a simple notify watcher that only sends one initial event.
+		w := newEmptyNotifyWatcher()
+
+		watcherID, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, api.watcherRegistry, w)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
+			return params.NotifyWatchResults{}, errors.Capture(err)
 		}
-		entityResult, err := api.watchOneEntityApplication(ctx, canAccess, tag)
-		result.Results[i] = entityResult
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		result.Results[i] = params.NotifyWatchResult{
+			NotifyWatcherId: watcherID,
+		}
+	}
+
+	return result, nil
+}
+
+// OneLife returns the life of the specified entity.
+func (api *InstanceMutaterAPI) OneLife(tag names.Tag) (life.Value, error) {
+	return life.Alive, nil
+}
+
+// Life returns the life status of every supplied entity, where available.
+func (api *InstanceMutaterAPI) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
+	result := params.LifeResults{
+		Results: make([]params.LifeResult, len(args.Entities)),
+	}
+	for i := range args.Entities {
+		result.Results[i].Life = life.Alive
 	}
 	return result, nil
 }
 
-func (api *InstanceMutaterAPI) watchOneEntityApplication(ctx context.Context, canAccess common.AuthFunc, tag names.MachineTag) (params.NotifyWatchResult, error) {
-	result := params.NotifyWatchResult{}
-	machine, err := api.getMachine(canAccess, tag)
-	if err != nil {
-		return result, err
+// newEmptyStringWatcher returns starts and returns a new empty string watcher,
+// with an empty string as initial event.
+func newEmptyStringWatcher() *emptyStringWatcher {
+	changes := make(chan []string)
+
+	w := &emptyStringWatcher{
+		changes: changes,
 	}
-	isManual, err := machine.IsManual()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if isManual {
-		return result, errors.NotSupportedf("watching lxd profiles on manual machines")
-	}
-	watch, err := api.watcher.WatchLXDProfileVerificationForMachine(ctx, machine, api.logger)
-	if err != nil {
-		return result, err
-	}
-	// Consume the initial event before sending the result.
-	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = api.resources.Register(watch)
-	} else {
-		return result, errors.Errorf("cannot obtain initial machine watch application LXD profiles")
-	}
-	return result, nil
+	w.tomb.Go(func() error {
+		changes <- []string{""}
+		defer close(changes)
+		return w.loop()
+	})
+
+	return w
 }
 
-// WatchLXDProfileVerificationForMachine notifies if any of the following happen
-// relative to the specified machine:
-//  1. A new unit whose charm has an LXD profile is added.
-//  2. A unit being removed has a profile and other units
-//     exist on the machine.
-//  3. The LXD profile of an application with a unit on the
-//     machine is added, removed, or exists. This also includes scenarios
-//     where the charm is being downloaded asynchronously and its metadata
-//     gets updated once the download is complete.
-//  4. The machine's instanceId is changed, indicating it
-//     has been provisioned.
-func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(ctx context.Context, machine Machine, logger logger.Logger) (state.NotifyWatcher, error) {
-	return newMachineLXDProfileWatcher(
-		ctx,
-		MachineLXDProfileWatcherConfig{
-			machine:            machine,
-			backend:            w.st,
-			machineService:     w.machineService,
-			applicationService: w.applicationService,
-			logger:             logger,
-		},
-	)
+// emptyStringWatcher implements watcher.StringsWatcher.
+type emptyStringWatcher struct {
+	changes chan []string
+	tomb    tomb.Tomb
 }
 
-func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
-	if !canAccess(tag) {
-		return nil, apiservererrors.ErrPerm
-	}
-	return api.st.Machine(tag.Id())
+// Changes returns the event channel for the empty string watcher.
+func (w *emptyStringWatcher) Changes() <-chan []string {
+	return w.changes
 }
 
-// lxdProfileInfo holds the profile information for the machineLXDProfileInfo
-// to provide context to the result of the call.
-type lxdProfileInfo struct {
-	InstanceId      instance.Id
-	ModelName       string
-	MachineProfiles []string
-	ProfileUnits    []params.ProfileInfoResult
+// Kill asks the watcher to stop without waiting for it do so.
+func (w *emptyStringWatcher) Kill() {
+	w.tomb.Kill(nil)
 }
 
-func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Machine) (lxdProfileInfo, error) {
-	var empty lxdProfileInfo
-
-	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(m.Id()))
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	instId, err := api.machineService.InstanceID(ctx, machineUUID)
-	if err != nil {
-		return empty, errors.Trace(errors.Annotate(err, "attempting to get instanceId"))
-	}
-
-	units, err := m.Units()
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	machineProfiles, err := api.machineService.AppliedLXDProfileNames(ctx, machineUUID)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-
-	var changeResults []params.ProfileInfoResult
-	for _, unit := range units {
-		if unit.Life() == state.Dead {
-			api.logger.Debugf(ctx, "unit %q is dead, do not load profile", unit.Name())
-			continue
-		}
-		appName := unit.ApplicationName()
-		app, err := api.st.Application(appName)
-		if err != nil {
-			changeResults = append(changeResults, params.ProfileInfoResult{
-				Error: apiservererrors.ServerError(err)})
-			continue
-		}
-		charmURLStr := app.CharmURL()
-		// Defensive check, shouldn't be nil.
-		if charmURLStr == nil {
-			continue
-		}
-
-		locator, err := apiservercharms.CharmLocatorFromURL(*charmURLStr)
-		if err != nil {
-			return empty, errors.Trace(err)
-		}
-
-		lxdProfile, _, err := api.applicationService.GetCharmLXDProfile(ctx, locator)
-		if errors.Is(err, applicationerrors.CharmNotFound) {
-			return empty, errors.NotFoundf("charm %q", *charmURLStr)
-		} else if err != nil {
-			changeResults = append(changeResults, params.ProfileInfoResult{
-				Error: apiservererrors.ServerError(err)})
-			continue
-		}
-
-		var normalised *params.CharmLXDProfile
-		if profile := lxdProfile; !profile.Empty() {
-			normalised = &params.CharmLXDProfile{
-				Config:      profile.Config,
-				Description: profile.Description,
-				Devices:     profile.Devices,
-			}
-		}
-		changeResults = append(changeResults, params.ProfileInfoResult{
-			ApplicationName: appName,
-			Revision:        locator.Revision,
-			Profile:         normalised,
-		})
-	}
-	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	return lxdProfileInfo{
-		InstanceId:      instId,
-		ModelName:       modelInfo.Name,
-		MachineProfiles: machineProfiles,
-		ProfileUnits:    changeResults,
-	}, nil
+// Wait waits for the watcher to die and returns any
+// error encountered when it was running.
+func (w *emptyStringWatcher) Wait() error {
+	return w.tomb.Wait()
 }
 
-func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(ctx context.Context, machineTag string, profiles []string, canAccess common.AuthFunc) error {
-	mTag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canAccess(mTag) {
-		return apiservererrors.ErrPerm
-	}
-
-	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(mTag.Id()))
-	if err != nil {
-		api.logger.Errorf(ctx, "getting machine uuid: %w", err)
-		return errors.Trace(err)
-	}
-	return errors.Trace(api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, profiles))
+// Err returns any error encountered while the watcher
+// has been running.
+func (w *emptyStringWatcher) Err() error {
+	return w.tomb.Err()
 }
 
-func (api *InstanceMutaterAPI) setOneModificationStatus(ctx context.Context, canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
-	api.logger.Tracef(ctx, "SetInstanceStatus called with: %#v", arg)
-	mTag, err := names.ParseMachineTag(arg.Tag)
-	if err != nil {
-		return apiservererrors.ErrPerm
+func (w *emptyStringWatcher) loop() error {
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		}
 	}
-	machine, err := api.getMachine(canAccess, mTag)
-	if err != nil {
-		api.logger.Debugf(ctx, "SetModificationStatus unable to get machine %q", mTag)
-		return err
-	}
+}
 
-	// We can use the controller timestamp to get now.
-	since, err := api.st.ControllerTimestamp()
-	if err != nil {
-		return err
+// newEmptyNotifyWatcher returns starts and returns a new empty notify watcher,
+// with only the initial event.
+func newEmptyNotifyWatcher() *emptyNotifyWatcher {
+	changes := make(chan struct{})
+
+	w := &emptyNotifyWatcher{
+		changes: changes,
 	}
-	s := status.StatusInfo{
-		Status:  status.Status(arg.Status),
-		Message: arg.Info,
-		Data:    arg.Data,
-		Since:   since,
+	w.tomb.Go(func() error {
+		changes <- struct{}{}
+		defer close(changes)
+		return w.loop()
+	})
+
+	return w
+}
+
+// emptyNotifyWatcher implements watcher.NotifyWatcher.
+type emptyNotifyWatcher struct {
+	changes chan struct{}
+	tomb    tomb.Tomb
+}
+
+// Changes returns the event channel for the empty notify watcher.
+func (w *emptyNotifyWatcher) Changes() <-chan struct{} {
+	return w.changes
+}
+
+// Kill asks the watcher to stop without waiting for it do so.
+func (w *emptyNotifyWatcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// Wait waits for the watcher to die and returns any
+// error encountered when it was running.
+func (w *emptyNotifyWatcher) Wait() error {
+	return w.tomb.Wait()
+}
+
+// Err returns any error encountered while the watcher
+// has been running.
+func (w *emptyNotifyWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *emptyNotifyWatcher) loop() error {
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		}
 	}
-	if err = machine.SetModificationStatus(s); err != nil {
-		api.logger.Debugf(ctx, "failed to SetModificationStatus for %q: %v", mTag, err)
-		return err
-	}
-	return nil
 }
