@@ -35,7 +35,8 @@ func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrade
 	auth := ctx.Auth()
 
 	if !auth.AuthMachineAgent() &&
-		!auth.AuthUnitAgent() {
+		!auth.AuthUnitAgent() &&
+		!auth.AuthModelAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 
