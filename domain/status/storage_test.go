@@ -76,7 +76,7 @@ func (s *storageStatusSuite) TestFilesystemStatusTransitionErrorInvalid(c *tc.C)
 	}
 	err := FilesystemStatusTransitionValid(
 		StorageFilesystemStatusTypeAttached, true, sts)
-	c.Assert(err, tc.ErrorIs, statuserrors.FilesystemStatusTransitionNotValid)
+	c.Assert(err, tc.ErrorMatches, `cannot set status .* without message`)
 }
 
 func (s *storageStatusSuite) TestFilesystemStatusTransitionPendingInvalid(c *tc.C) {
@@ -144,7 +144,7 @@ func (s *storageStatusSuite) TestVolumeStatusTransitionErrorInvalid(c *tc.C) {
 	}
 	err := VolumeStatusTransitionValid(
 		StorageVolumeStatusTypeAttached, true, sts)
-	c.Assert(err, tc.ErrorIs, statuserrors.VolumeStatusTransitionNotValid)
+	c.Assert(err, tc.ErrorMatches, `cannot set status .* without message`)
 }
 
 func (s *storageStatusSuite) TestVolumeStatusTransitionPendingInvalid(c *tc.C) {
