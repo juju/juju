@@ -54,6 +54,7 @@ type RelationState interface {
 // If it does, the relation is guaranteed after this call to be:
 // - No longer alive.
 // - Removed or scheduled to be removed with the input force qualification.
+//
 // The input wait duration is the time that we will give for the normal
 // life-cycle advancement and removal to finish before forcefully removing the
 // relation. This duration is ignored if the force argument is false.
@@ -83,7 +84,7 @@ func (s *Service) RemoveRelation(
 			// If we have been supplied with the force flag *and* a wait time,
 			// schedule a normal removal job immediately. This will cause the
 			// earliest removal of the relation if the normal destruction
-			// workflows complete within the the wait duration.
+			// workflows complete within the wait duration.
 			if _, err := s.relationScheduleRemoval(ctx, relUUID, false, 0); err != nil {
 				return jUUID, errors.Capture(err)
 			}

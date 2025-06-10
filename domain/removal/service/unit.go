@@ -23,11 +23,11 @@ type UnitState interface {
 	// UnitExists returns true if a unit exists with the input unit UUID.
 	UnitExists(ctx context.Context, unitUUID string) (bool, error)
 
-	// EnsureUnitNotAlive ensures that there is no unit
-	// identified by the input unit UUID, that is still alive.
-	// If the unit is the last one on the machine, the machine is also set
-	// to dying. The affected machine UUID is returned.
-	EnsureUnitNotAlive(ctx context.Context, unitUUID string) (machineUUID string, err error)
+	// EnsureUnitNotAliveCascade ensures that there is no unit identified by the
+	// input unit UUID, that is still alive. If the unit is the last one on the
+	// machine, it will cascade and the machine is also set to dying. The
+	// affected machine UUID is returned.
+	EnsureUnitNotAliveCascade(ctx context.Context, unitUUID string) (machineUUID string, err error)
 
 	// UnitScheduleRemoval schedules a removal job for the unit with the
 	// input unit UUID, qualified with the input force boolean.
@@ -47,8 +47,11 @@ type UnitState interface {
 
 // RemoveUnit checks if a unit with the input name exists.
 // If it does, the unit is guaranteed after this call to be:
-// - No longer alive.
-// - Removed or scheduled to be removed with the input force qualification.
+//   - No longer alive.
+//   - Removed or scheduled to be removed with the input force qualification.
+//   - If the unit is the last one on the machine, the machine will also
+//     guaranteed to be no longer alive and scheduled for removal.
+//
 // The input wait duration is the time that we will give for the normal
 // life-cycle advancement and removal to finish before forcefully removing the
 // unit. This duration is ignored if the force argument is false.
@@ -70,7 +73,7 @@ func (s *Service) RemoveUnit(
 	// then we will return the machine UUID, which will be used to schedule
 	// the removal of the machine.
 	// If the machine UUID is returned, then the machine was also set to dying.
-	machineUUID, err := s.st.EnsureUnitNotAlive(ctx, unitUUID.String())
+	machineUUID, err := s.st.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
 	if err != nil {
 		return "", errors.Errorf("unit %q: %w", unitUUID, err)
 	}
@@ -108,9 +111,9 @@ func (s *Service) RemoveUnit(
 	// a removal job for the machine.
 	if _, err := s.RemoveMachine(ctx, machine.UUID(machineUUID), force, wait); err != nil {
 		// If the machine fails to be scheduled, then log out an error. The
-		// units have been transitioned to dying and there is no way to
-		// transition them back to alive.
-		s.logger.Errorf(ctx, "failed to schedule removal of machine %q: %v", machineUUID, err)
+		// machine and the unit have been transitioned to dying and there is no
+		// way to transition them back to alive.
+		s.logger.Errorf(ctx, "scheduling removal of machine %q: %v", machineUUID, err)
 	}
 
 	return unitJobUUID, nil

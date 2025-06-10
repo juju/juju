@@ -8,8 +8,11 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
@@ -22,9 +25,13 @@ type ApplicationState interface {
 	// application UUID.
 	ApplicationExists(ctx context.Context, appUUID string) (bool, error)
 
-	// EnsureApplicationNotAlive ensures that there is no application identified
-	// by the input application UUID, that is still alive.
-	EnsureApplicationNotAlive(ctx context.Context, appUUID string) (err error)
+	// EnsureApplicationNotAliveCascade ensures that there is no application
+	// identified by the input application UUID, that is still alive. If the
+	// application has units, they are also guaranteed to be no longer alive,
+	// cascading. The affected unit UUIDs are returned. If the units are also
+	// the last ones on their machines, it will cascade and the machines are
+	// also set to dying. The affected machine UUIDs are returned.
+	EnsureApplicationNotAliveCascade(ctx context.Context, appUUID string) (unitUUIDs, machineUUIDs []string, err error)
 
 	// ApplicationScheduleRemoval schedules a removal job for the application
 	// with the input application UUID, qualified with the input force boolean.
@@ -39,10 +46,12 @@ type ApplicationState interface {
 }
 
 // RemoveApplication checks if a application with the input application UUID
-// exists.
-// If it does, the application is guaranteed after this call to be:
-// - No longer alive.
-// - Removed or scheduled to be removed with the input force qualification.
+// exists. If it does, the application is guaranteed after this call to be:
+//   - No longer alive.
+//   - Removed or scheduled to be removed with the input force qualification.
+//   - If the application has units, the units are also guaranteed to be no
+//     longer alive and scheduled for removal.
+//
 // The input wait duration is the time that we will give for the normal
 // life-cycle advancement and removal to finish before forcefully removing the
 // application. This duration is ignored if the force argument is false.
@@ -61,7 +70,8 @@ func (s *Service) RemoveApplication(
 	}
 
 	// Ensure the application is not alive.
-	if err := s.st.EnsureApplicationNotAlive(ctx, appUUID.String()); err != nil {
+	unitUUIDs, machineUUIDs, err := s.st.EnsureApplicationNotAliveCascade(ctx, appUUID.String())
+	if err != nil {
 		return "", errors.Errorf("application %q: %w", appUUID, err)
 	}
 
@@ -70,7 +80,7 @@ func (s *Service) RemoveApplication(
 			// If we have been supplied with the force flag *and* a wait time,
 			// schedule a normal removal job immediately. This will cause the
 			// earliest removal of the application if the normal destruction
-			// workflows complete within the the wait duration.
+			// workflows complete within the wait duration.
 			if _, err := s.applicationScheduleRemoval(ctx, appUUID, false, 0); err != nil {
 				return "", errors.Capture(err)
 			}
@@ -85,6 +95,23 @@ func (s *Service) RemoveApplication(
 	appJobUUID, err := s.applicationScheduleRemoval(ctx, appUUID, force, wait)
 	if err != nil {
 		return "", errors.Capture(err)
+	}
+
+	// Ensure that the application units and machines are removed as well.
+	if len(unitUUIDs) > 0 {
+		// If there are any units that transitioned from alive to dying or dead, we
+		// need to schedule their removal as well.
+		s.logger.Infof(ctx, "application has units %v, scheduling removal", unitUUIDs)
+
+		s.removeUnits(ctx, unitUUIDs, force, wait)
+	}
+
+	if len(machineUUIDs) > 0 {
+		// If there are any machines that transitioned from alive to dying or
+		// dead, we need to schedule their removal as well.
+		s.logger.Infof(ctx, "application has machines %v, scheduling removal", machineUUIDs)
+
+		s.removeMachines(ctx, machineUUIDs, force, wait)
 	}
 
 	return appJobUUID, nil
@@ -108,7 +135,39 @@ func (s *Service) applicationScheduleRemoval(
 	return jobUUID, nil
 }
 
-// processApplicationRemovalJob deletes a application if it is dying.
+func (s *Service) removeUnits(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+	for _, unitUUID := range uuids {
+		if _, err := s.RemoveUnit(ctx, unit.UUID(unitUUID), force, wait); errors.Is(err, applicationerrors.UnitNotFound) {
+			// There could be a chance that the unit has already been removed
+			// by another process. We can safely ignore this error and
+			// continue with the next unit.
+			continue
+		} else if err != nil {
+			// If the unit fails to be scheduled for removal, we log out the
+			// error. The application and the units are already transitioned to
+			// dying and there is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "scheduling removal of unit %q: %v", unitUUID, err)
+		}
+	}
+}
+
+func (s *Service) removeMachines(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+	for _, machineUUID := range uuids {
+		if _, err := s.RemoveMachine(ctx, machine.UUID(machineUUID), force, wait); errors.Is(err, machineerrors.MachineNotFound) {
+			// There could be a chance that the machine has already been removed
+			// by another process. We can safely ignore this error and
+			// continue with the next machine.
+			continue
+		} else if err != nil {
+			// If the machine fails to be scheduled for removal, we log out the
+			// error. The application and the units are already transitioned to
+			// dying and there is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "scheduling removal of machine %q: %v", machineUUID, err)
+		}
+	}
+}
+
+// processApplicationRemovalJob deletes an application if it is dying.
 // Note that we do not need transactionality here:
 //   - Life can only advance - it cannot become alive if dying or dead.
 func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.Job) error {

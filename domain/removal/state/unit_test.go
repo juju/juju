@@ -17,6 +17,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/life"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -48,7 +49,7 @@ func (s *unitSuite) TestUnitExists(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 }
 
-func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnit(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
@@ -61,7 +62,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAlive(c.Context(), unitUUID.String())
+	machineUUID, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(machineUUID, tc.Equals, unitMachineUUID.String())
@@ -80,7 +81,58 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 1)
 }
 
-func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitMachineAlreadyDying(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnitParentMachine(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	app1UUID := s.createIAASApplication(c, svc, "foo",
+		applicationservice.AddUnitArg{},
+	)
+	app2UUID := s.createIAASApplication(c, svc, "bar",
+		applicationservice.AddUnitArg{},
+	)
+
+	app1UnitUUIDs := s.getAllUnitUUIDs(c, app1UUID)
+	c.Assert(len(app1UnitUUIDs), tc.Equals, 1)
+	app1UnitUUID := app1UnitUUIDs[0]
+
+	app2UnitUUIDs := s.getAllUnitUUIDs(c, app2UUID)
+	c.Assert(len(app2UnitUUIDs), tc.Equals, 1)
+	app2UnitUUID := app2UnitUUIDs[0]
+
+	app1UnitMachineUUID := s.getUnitMachineUUID(c, app1UnitUUID)
+	app2UnitMachineUUID := s.getUnitMachineUUID(c, app2UnitUUID)
+
+	_, err := s.DB().Exec(`
+INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (?, ?)
+	`, app2UnitMachineUUID.String(), app1UnitMachineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	machineUUID, err := st.EnsureUnitNotAliveCascade(c.Context(), app1UnitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machineUUID, tc.Equals, "")
+
+	// Unit had life "alive" and should now be "dying".
+	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", app1UnitUUID.String())
+	var lifeID int
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+
+	// The last machine had life "alive" and should be still alive, because
+	// it is a parent machine.
+	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", app1UnitMachineUUID)
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 0)
+}
+
+// Test to ensure that we don't prevent a unit from being set to "dying"
+// if the machine is already in the "dying" state. This shouldn't happen,
+// but we want to ensure that the state machine is resilient to this
+// situation.
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnitMachineAlreadyDying(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
@@ -98,10 +150,11 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitMachineAlreadyDyi
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAlive(c.Context(), unitUUID.String())
+	machineUUID, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(machineUUID, tc.Equals, unitMachineUUID.String())
+	// The machine was already "dying", so we don't expect a machine UUID.
+	c.Check(machineUUID, tc.Equals, "")
 
 	// Unit had life "alive" and should now be "dying".
 	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", unitUUID.String())
@@ -109,15 +162,9 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitMachineAlreadyDyi
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 1)
-
-	// The last machine had life "alive" and should now be "dying".
-	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", machineUUID)
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
 }
 
-func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
@@ -136,7 +183,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAlive(c.Context(), unitUUID.String())
+	machineUUID, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// This isn't the last unit on the machine, so we don't expect a machine
@@ -157,7 +204,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 0)
 }
 
-func (s *unitSuite) TestEnsureUnitNotAliveDyingSuccess(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeDyingSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
@@ -168,7 +215,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveDyingSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.EnsureUnitNotAlive(c.Context(), unitUUID.String())
+	_, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Unit was already "dying" and should be unchanged.
@@ -179,11 +226,11 @@ func (s *unitSuite) TestEnsureUnitNotAliveDyingSuccess(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 1)
 }
 
-func (s *unitSuite) TestEnsureUnitNotAliveNotExistsSuccess(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	_, err := st.EnsureUnitNotAlive(c.Context(), "some-unit-uuid")
+	_, err := st.EnsureUnitNotAliveCascade(c.Context(), "some-unit-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -302,6 +349,49 @@ func (s *unitSuite) TestDeleteIAASUnit(c *tc.C) {
 	exists, err := st.UnitExists(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
+
+	// The charm isn't removed because the application still references it.
+	s.checkCharmsCount(c, 1)
+}
+
+func (s *unitSuite) TestDeleteIAASUnitWithSubordinates(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID1 := s.createIAASApplication(c, svc, "foo", applicationservice.AddUnitArg{})
+	appUUID2 := s.createIAASSubordinateApplication(c, svc, "baz", applicationservice.AddUnitArg{})
+
+	// Force the second application to be a subordinate of the first.
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	subUnitUUIDs := s.getAllUnitUUIDs(c, appUUID2)
+	c.Assert(len(subUnitUUIDs), tc.Equals, 1)
+	subUnitUUID := subUnitUUIDs[0]
+
+	_, err := s.DB().Exec(`INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)`,
+		subUnitUUID.String(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	_, err = s.DB().Exec(`DELETE FROM unit_principal`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The unit should be gone.
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// The charm isn't removed because the application still references it.
+	s.checkCharmsCount(c, 2)
 }
 
 func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
@@ -326,6 +416,9 @@ func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 
 	s.expectK8sPodCount(c, unitUUID, 0)
+
+	// The charm isn't removed because the application still references it.
+	s.checkCharmsCount(c, 1)
 }
 
 func (s *unitSuite) TestGetApplicationNameAndUnitNameByUnitUUID(c *tc.C) {

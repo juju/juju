@@ -8,11 +8,17 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // MachineState describes retrieval and persistence
 // methods specific to machine removal.
-type MachineState interface{}
+type MachineState interface {
+	// MachineExists returns true if a machine exists with the input machine
+	// UUID.
+	MachineExists(ctx context.Context, machineUUID string) (bool, error)
+}
 
 // RemoveMachine checks if a machine with the input name exists.
 // If it does, the machine is guaranteed after this call to be:
@@ -28,6 +34,13 @@ func (s *Service) RemoveMachine(
 	force bool,
 	wait time.Duration,
 ) (machine.UUID, error) {
-	// TODO (stickupkid): Implement when doing the machines epic.
+	exists, err := s.st.MachineExists(ctx, machineUUID.String())
+	if err != nil {
+		return "", errors.Errorf("checking if machine exists: %w", err)
+	} else if !exists {
+		return "", errors.Errorf("machine does not exist").Add(machineerrors.MachineNotFound)
+	}
+
+	// TODO (stickupkid): Finish the implementation with the machine epic.
 	return "", nil
 }

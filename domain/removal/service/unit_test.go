@@ -38,8 +38,13 @@ func (s *unitSuite) TestRemoveUnitNoForceSuccess(c *tc.C) {
 
 	exp := s.state.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
-	exp.EnsureUnitNotAlive(gomock.Any(), uUUID.String()).Return("some-machine-id", nil)
+	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String()).Return("some-machine-id", nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil)
+
+	// We don't want to create all the machine expectations here, so we'll
+	// assume that the machine no longer exists, to prevent this test from
+	// depending on the machine removal logic.
+	exp.MachineExists(gomock.Any(), "some-machine-id").Return(false, nil)
 
 	jobUUID, err := s.newService(c).RemoveUnit(c.Context(), uUUID, false, 0)
 	c.Assert(err, tc.ErrorIsNil)
@@ -56,7 +61,7 @@ func (s *unitSuite) TestRemoveUnitForceNoWaitSuccess(c *tc.C) {
 
 	exp := s.state.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
-	exp.EnsureUnitNotAlive(gomock.Any(), uUUID.String()).Return("", nil)
+	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String()).Return("", nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), true, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveUnit(c.Context(), uUUID, true, 0)
@@ -74,7 +79,7 @@ func (s *unitSuite) TestRemoveUnitForceWaitSuccess(c *tc.C) {
 
 	exp := s.state.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
-	exp.EnsureUnitNotAlive(gomock.Any(), uUUID.String()).Return("", nil)
+	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String()).Return("", nil)
 
 	// The first normal removal scheduled immediately.
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil)

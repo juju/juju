@@ -189,6 +189,27 @@ func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.Watch
 	return appID
 }
 
+func (s *baseSuite) createIAASSubordinateApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
+	ch := &stubCharm{name: "test-charm", subordinate: true}
+	appID, err := svc.CreateIAASApplication(c.Context(), name, ch, corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Platform: corecharm.Platform{
+			Channel:      "24.04",
+			OS:           "ubuntu",
+			Architecture: "amd64",
+		},
+	}, applicationservice.AddApplicationArgs{
+		ReferenceName: name,
+		DownloadInfo: &charm.DownloadInfo{
+			Provenance:  charm.ProvenanceDownload,
+			DownloadURL: "http://example.com",
+		},
+	}, units...)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return appID
+}
+
 func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
 	ch := &stubCharm{name: "test-charm"}
 	appID, err := svc.CreateCAASApplication(c.Context(), name, ch, corecharm.Origin{
@@ -224,7 +245,7 @@ func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.Watch
 func (s *baseSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UUID {
 	var unitUUIDs []unit.UUID
 	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM unit WHERE application_uuid = ?`, appID)
+		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM unit WHERE application_uuid = ? ORDER BY uuid`, appID)
 		if err != nil {
 			return err
 		}
@@ -241,6 +262,71 @@ func (s *baseSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UU
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return unitUUIDs
+}
+
+func (s *baseSuite) getAllMachineUUIDs(c *tc.C) []machine.UUID {
+	var machineUUIDs []machine.UUID
+	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM machine ORDER BY uuid`)
+		if err != nil {
+			return err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			var machineUUID machine.UUID
+			if err := rows.Scan(&machineUUID); err != nil {
+				return err
+			}
+			machineUUIDs = append(machineUUIDs, machineUUID)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUIDs
+}
+
+func (s *baseSuite) getAllUnitAndMachineUUIDs(c *tc.C) ([]unit.UUID, []machine.UUID) {
+	result := make(map[unit.UUID]machine.UUID)
+	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT u.uuid, m.uuid 
+FROM unit AS u
+JOIN net_node AS nn ON nn.uuid = u.net_node_uuid
+JOIN machine AS m ON m.net_node_uuid = nn.uuid
+`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var (
+				unitUUID    unit.UUID
+				machineUUID machine.UUID
+			)
+			if err := rows.Scan(&unitUUID, &machineUUID); err != nil {
+				return err
+			}
+			result[unitUUID] = machineUUID
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var allUnitUUIDs []unit.UUID
+	var allMachineUUIDs []machine.UUID
+	for unitUUID, machineUUID := range result {
+		allUnitUUIDs = append(allUnitUUIDs, unitUUID)
+
+		// If the machine UUID is empty, it means that the unit is not
+		// associated with any machine.
+		if machineUUID == "" {
+			continue
+		}
+		allMachineUUIDs = append(allMachineUUIDs, machineUUID)
+	}
+
+	return allUnitUUIDs, allMachineUUIDs
 }
 
 func (s *baseSuite) getUnitMachineUUID(c *tc.C, unitUUID unit.UUID) machine.UUID {
@@ -272,8 +358,27 @@ WHERE u.uuid = ?
 	return machineUUIDs[0]
 }
 
+func (s *baseSuite) checkNoCharmsExist(c *tc.C) {
+	// Ensure that there are no charms in the database.
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM charm")
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *baseSuite) checkCharmsCount(c *tc.C, expectedCount int) {
+	// Ensure that there are no charms in the database.
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM charm")
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, expectedCount)
+}
+
 type stubCharm struct {
-	name string
+	name        string
+	subordinate bool
 }
 
 func (s *stubCharm) Meta() *internalcharm.Meta {
@@ -282,7 +387,8 @@ func (s *stubCharm) Meta() *internalcharm.Meta {
 		name = "test"
 	}
 	return &internalcharm.Meta{
-		Name: name,
+		Name:        name,
+		Subordinate: s.subordinate,
 	}
 }
 
