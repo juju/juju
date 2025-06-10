@@ -158,9 +158,13 @@ func QualifierFromUserTag(u names.UserTag) Qualifier {
 	return Qualifier(validQualifier)
 }
 
-// UserTagFromQualifier creates a valid user tag
-// from the supplied qualifier.
-func UserTagFromQualifier(q Qualifier) (names.UserTag, error) {
+// ApproximateUserTagFromQualifier creates a valid user tag
+// from the supplied qualifier. A qualifier does not contain
+// all the same characters that a user tag can have.
+// This method is used for composing results for legacy callers
+// that still expect a user tag in the result. Such user tags may
+// still be parsed by the caller but are only used for display.
+func ApproximateUserTagFromQualifier(q Qualifier) (names.UserTag, error) {
 	if err := q.Validate(); err != nil {
 		return names.UserTag{}, err
 	}

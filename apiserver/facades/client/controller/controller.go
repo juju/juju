@@ -252,7 +252,7 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 		return result, errors.Trace(err)
 	}
 	for _, model := range models {
-		ownerTag, err := coremodel.UserTagFromQualifier(model.Qualifier)
+		ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
 		if err != nil {
 			c.logger.Errorf(ctx, "parsing model qualifier %q into user tag, skipping model %q: %v", model.Qualifier, model.UUID, err)
 			continue
@@ -318,7 +318,7 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 		for _, block := range blocks {
 			blockTypes.Add(encodeBlockType(block.Type))
 		}
-		ownerTag, err := coremodel.UserTagFromQualifier(model.Qualifier)
+		ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
 		if err != nil {
 			c.logger.Errorf(ctx, "parsing model qualifier %q into user tag, skipping model %q: %v", model.Qualifier, model.UUID, err)
 			continue
@@ -372,7 +372,7 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		if model.UUID == controllerModel.UUID {
 			continue
 		}
-		ownerTag, err := coremodel.UserTagFromQualifier(model.Qualifier)
+		ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
 		if err != nil {
 			c.logger.Errorf(ctx, "parsing model qualifier %q into user tag, skipping model %q: %v", model.Qualifier, model.UUID, err)
 			continue
@@ -943,7 +943,7 @@ func makeModelInfo(ctx context.Context, st *state.State,
 		return empty, userList{}, errors.Trace(err)
 	}
 
-	ownerTag, err := coremodel.UserTagFromQualifier(model.Qualifier)
+	ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
 	if err != nil {
 		return empty, userList{}, errors.Trace(err)
 	}

@@ -686,7 +686,7 @@ func makeModelSummary(ctx context.Context, mi coremodel.ModelSummary) (*params.M
 	}
 	cloudTag := names.NewCloudTag(mi.CloudName)
 
-	ownerTag, err := coremodel.UserTagFromQualifier(mi.Qualifier)
+	ownerTag, err := coremodel.ApproximateUserTagFromQualifier(mi.Qualifier)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -787,7 +787,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 		} else {
 			lastConnection = &lc
 		}
-		ownerTag, err := coremodel.UserTagFromQualifier(mi.Qualifier)
+		ownerTag, err := coremodel.ApproximateUserTagFromQualifier(mi.Qualifier)
 		if err != nil {
 			return result, errors.Trace(err)
 		}
@@ -1004,7 +1004,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.
 	// read access otherwise we would've returned on the initial check at the
 	// beginning of this method.
 
-	ownerTag, err := coremodel.UserTagFromQualifier(model.Qualifier)
+	ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
 	if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
 	}

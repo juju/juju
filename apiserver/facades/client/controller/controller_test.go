@@ -1286,7 +1286,7 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 	for i, userModel := range response.UserModels {
 		c.Assert(userModel.Type, tc.DeepEquals, model.IAAS.String())
 		c.Assert(models[i].Name, tc.DeepEquals, userModel.Name)
-		tag, err := model.UserTagFromQualifier(models[i].Qualifier)
+		tag, err := model.ApproximateUserTagFromQualifier(models[i].Qualifier)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(tag.String(), tc.DeepEquals, userModel.OwnerTag)
 		c.Assert(models[i].ModelType.String(), tc.DeepEquals, userModel.Type)

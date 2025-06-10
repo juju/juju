@@ -265,7 +265,7 @@ func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string)
 
 func (m *modelWorkerManager) newWorkerFuncFromConfig(ctx context.Context, cfg NewModelConfig) (func(context.Context) (worker.Worker, error), error) {
 	modelUUID := model.UUID(cfg.ModelUUID)
-	modelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s/%s", cfg.ModelQualifier, cfg.ModelName), modelUUID)
+	absoluteModelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s/%s", cfg.ModelQualifier, cfg.ModelName), modelUUID)
 
 	// Get the provider domain services for the model.
 	cfg.ProviderServicesGetter = m.config.ProviderServicesGetter
@@ -291,7 +291,7 @@ func (m *modelWorkerManager) newWorkerFuncFromConfig(ctx context.Context, cfg Ne
 	}
 
 	return func(ctx context.Context) (worker.Worker, error) {
-		m.config.Logger.Debugf(ctx, "starting workers for model %s", modelName)
+		m.config.Logger.Debugf(ctx, "starting workers for model %s", absoluteModelName)
 
 		// Get the controller config for the model worker so that we correctly
 		// handle the case where the controller config changes between model
@@ -304,7 +304,7 @@ func (m *modelWorkerManager) newWorkerFuncFromConfig(ctx context.Context, cfg Ne
 
 		worker, err := m.config.NewModelWorker(cfg)
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot manage model %s", modelName)
+			return nil, errors.Annotatef(err, "cannot manage model %s", absoluteModelName)
 		}
 		return worker, nil
 	}, nil

@@ -370,6 +370,8 @@ func (api *OffersAPIv5) getApplicationOffers(ctx context.Context, user names.Use
 		fullURLs []string
 		// urlArgs is the unmodified URLs without any username -> qualifier mapping.
 		// This is used to report any errors to the caller.
+		// Legacy callers can supply an offer URL with a username in the URL
+		// and we want to report back that same URL if there's an error.
 		urlArgs []string
 	)
 	for i, urlStr := range urls.OfferURLs {
@@ -438,7 +440,7 @@ func (api *OffersAPIv5) FindApplicationOffers(ctx context.Context, filters param
 		for _, m := range models {
 			modelFilter := filters.Filters[0]
 			modelFilter.ModelName = m.Name
-			tag, err := model.UserTagFromQualifier(m.Qualifier)
+			tag, err := model.ApproximateUserTagFromQualifier(m.Qualifier)
 			if err != nil {
 				return result, errors.Trace(err)
 			}

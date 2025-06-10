@@ -394,7 +394,7 @@ func (api *BaseAPI) getApplicationOffersDetails(
 			return nil, errors.Trace(err)
 		}
 		m := models[modelUUID]
-		ownerTag, err := model.UserTagFromQualifier(m.Qualifier)
+		ownerTag, err := model.ApproximateUserTagFromQualifier(m.Qualifier)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
