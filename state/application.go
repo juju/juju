@@ -345,13 +345,11 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 
 func (a *Application) removeUnitAssignmentsOps() (ops []txn.Op, err error) {
 	pattern := fmt.Sprintf("^%s:%s/[0-9]+$", a.st.ModelUUID(), a.Name())
-	unitAssignments, err := a.st.unitAssignments(bson.D{
-		{
-			Name: "_id", Value: bson.D{
-				{Name: "$regex", Value: pattern},
-			},
+	unitAssignments, err := a.st.unitAssignments(bson.D{{
+		Name: "_id", Value: bson.D{
+			{Name: "$regex", Value: pattern},
 		},
-	})
+	}})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1553,35 +1551,6 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 		units = append(units, newUnit(st, m.Type(), &docs[i]))
 	}
 	return units, nil
-}
-
-// CharmConfig returns the raw user configuration for the application's charm.
-func (a *Application) CharmConfig() (charm.Settings, error) {
-	if a.doc.CharmURL == nil {
-		return nil, fmt.Errorf("application charm not set")
-	}
-
-	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.Name())
-	return s, errors.Annotatef(err, "charm config for application %q", a.doc.Name)
-}
-
-func charmSettingsWithDefaults(st *State, cURL *string, appName string) (charm.Settings, error) {
-	key := applicationCharmConfigKey(appName, cURL)
-	cfg, err := readSettings(st.db(), settingsC, key)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	ch, err := st.Charm(*cURL)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	result := ch.Config().DefaultSettings()
-	for name, value := range cfg.Map() {
-		result[name] = value
-	}
-	return result, nil
 }
 
 // UpdateCharmConfig changes a application's charm config settings. Values set

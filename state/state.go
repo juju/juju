@@ -130,28 +130,6 @@ func (st *State) ControllerModelUUID() string {
 	return st.controllerModelTag.Id()
 }
 
-// ControllerModelTag returns the tag form the return value of
-// ControllerModelUUID.
-func (st *State) ControllerModelTag() names.ModelTag {
-	return st.controllerModelTag
-}
-
-// ControllerOwner returns the owner of the controller model.
-func (st *State) ControllerOwner() (names.UserTag, error) {
-	models, closer := st.db().GetCollection(modelsC)
-	defer closer()
-	var doc map[string]string
-	err := models.FindId(st.ControllerModelUUID()).Select(bson.M{"owner": 1}).One(&doc)
-	if err != nil {
-		return names.UserTag{}, errors.Annotate(err, "loading controller model")
-	}
-	owner := doc["owner"]
-	if owner == "" {
-		return names.UserTag{}, errors.New("model owner missing")
-	}
-	return names.NewUserTag(owner), nil
-}
-
 // setDyingModelToDead sets current dying model to dead.
 func (st *State) setDyingModelToDead() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {

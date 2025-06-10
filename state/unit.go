@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -112,22 +111,6 @@ func (u *Unit) Application() (*Application, error) {
 	return u.st.Application(u.doc.Application)
 }
 
-// ConfigSettings returns the complete set of application charm config settings
-// available to the unit. Unset values will be replaced with the default
-// value for the associated option, and may thus be nil when no default is
-// specified.
-func (u *Unit) ConfigSettings() (charm.Settings, error) {
-	if u.doc.CharmURL == nil {
-		return nil, fmt.Errorf("unit's charm URL must be set before retrieving config")
-	}
-
-	s, err := charmSettingsWithDefaults(u.st, u.doc.CharmURL, u.doc.Application)
-	if err != nil {
-		return nil, errors.Annotatef(err, "charm config for unit %q", u.Name())
-	}
-	return s, nil
-}
-
 // ApplicationName returns the application name.
 func (u *Unit) ApplicationName() string {
 	return u.doc.Application
@@ -183,27 +166,6 @@ func (u *Unit) AgentTools() (*tools.Tools, error) {
 	}
 	result := *u.doc.Tools
 	return &result, nil
-}
-
-// SetAgentVersion sets the version of juju that the agent is
-// currently running.
-func (u *Unit) SetAgentVersion(v semversion.Binary) (err error) {
-	defer errors.DeferredAnnotatef(&err, "setting agent version for unit %q", u)
-	if err = checkVersionValidity(v); err != nil {
-		return err
-	}
-	versionedTool := &tools.Tools{Version: v}
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"tools", versionedTool}}}},
-	}}
-	if err := u.st.db().RunTransaction(ops); err != nil {
-		return onAbort(err, stateerrors.ErrDead)
-	}
-	u.doc.Tools = versionedTool
-	return nil
 }
 
 // UpdateOperation returns a model operation that will update a unit.
@@ -910,12 +872,6 @@ func (u *Unit) SubordinateNames() []string {
 	subNames := make([]string, len(u.doc.Subordinates))
 	copy(subNames, u.doc.Subordinates)
 	return subNames
-}
-
-// PrincipalName returns the name of the unit's principal.
-// If the unit is not a subordinate, false is returned.
-func (u *Unit) PrincipalName() (string, bool) {
-	return u.doc.Principal, u.doc.Principal != ""
 }
 
 // machine returns the unit's machine.
