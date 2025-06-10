@@ -80,45 +80,6 @@ func (c *MockCAASUnitProvisionerFacadeApplicationScaleCall) DoAndReturn(f func(c
 	return c
 }
 
-// ApplicationTrust mocks base method.
-func (m *MockCAASUnitProvisionerFacade) ApplicationTrust(arg0 context.Context, arg1 string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationTrust", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ApplicationTrust indicates an expected call of ApplicationTrust.
-func (mr *MockCAASUnitProvisionerFacadeMockRecorder) ApplicationTrust(arg0, arg1 any) *MockCAASUnitProvisionerFacadeApplicationTrustCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationTrust", reflect.TypeOf((*MockCAASUnitProvisionerFacade)(nil).ApplicationTrust), arg0, arg1)
-	return &MockCAASUnitProvisionerFacadeApplicationTrustCall{Call: call}
-}
-
-// MockCAASUnitProvisionerFacadeApplicationTrustCall wrap *gomock.Call
-type MockCAASUnitProvisionerFacadeApplicationTrustCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCAASUnitProvisionerFacadeApplicationTrustCall) Return(arg0 bool, arg1 error) *MockCAASUnitProvisionerFacadeApplicationTrustCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCAASUnitProvisionerFacadeApplicationTrustCall) Do(f func(context.Context, string) (bool, error)) *MockCAASUnitProvisionerFacadeApplicationTrustCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASUnitProvisionerFacadeApplicationTrustCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockCAASUnitProvisionerFacadeApplicationTrustCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // UpdateApplicationService mocks base method.
 func (m *MockCAASUnitProvisionerFacade) UpdateApplicationService(arg0 context.Context, arg1 params.UpdateApplicationServiceArg) error {
 	m.ctrl.T.Helper()
@@ -192,45 +153,6 @@ func (c *MockCAASUnitProvisionerFacadeWatchApplicationScaleCall) Do(f func(conte
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCAASUnitProvisionerFacadeWatchApplicationScaleCall) DoAndReturn(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockCAASUnitProvisionerFacadeWatchApplicationScaleCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchApplicationTrustHash mocks base method.
-func (m *MockCAASUnitProvisionerFacade) WatchApplicationTrustHash(arg0 context.Context, arg1 string) (watcher.Watcher[[]string], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchApplicationTrustHash", arg0, arg1)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchApplicationTrustHash indicates an expected call of WatchApplicationTrustHash.
-func (mr *MockCAASUnitProvisionerFacadeMockRecorder) WatchApplicationTrustHash(arg0, arg1 any) *MockCAASUnitProvisionerFacadeWatchApplicationTrustHashCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationTrustHash", reflect.TypeOf((*MockCAASUnitProvisionerFacade)(nil).WatchApplicationTrustHash), arg0, arg1)
-	return &MockCAASUnitProvisionerFacadeWatchApplicationTrustHashCall{Call: call}
-}
-
-// MockCAASUnitProvisionerFacadeWatchApplicationTrustHashCall wrap *gomock.Call
-type MockCAASUnitProvisionerFacadeWatchApplicationTrustHashCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCAASUnitProvisionerFacadeWatchApplicationTrustHashCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockCAASUnitProvisionerFacadeWatchApplicationTrustHashCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCAASUnitProvisionerFacadeWatchApplicationTrustHashCall) Do(f func(context.Context, string) (watcher.Watcher[[]string], error)) *MockCAASUnitProvisionerFacadeWatchApplicationTrustHashCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASUnitProvisionerFacadeWatchApplicationTrustHashCall) DoAndReturn(f func(context.Context, string) (watcher.Watcher[[]string], error)) *MockCAASUnitProvisionerFacadeWatchApplicationTrustHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

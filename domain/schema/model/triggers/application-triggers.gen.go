@@ -198,6 +198,42 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForApplicationSetting generates the triggers for the
+// application_setting table.
+func ChangeLogTriggersForApplicationSetting(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ApplicationSetting
+INSERT INTO change_log_namespace VALUES (%[2]d, 'application_setting', 'ApplicationSetting changes based on %[1]s');
+
+-- insert trigger for ApplicationSetting
+CREATE TRIGGER trg_log_application_setting_insert
+AFTER INSERT ON application_setting FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+END;
+
+-- update trigger for ApplicationSetting
+CREATE TRIGGER trg_log_application_setting_update
+AFTER UPDATE ON application_setting FOR EACH ROW
+WHEN 
+	NEW.application_uuid != OLD.application_uuid OR
+	(NEW.trust != OLD.trust OR (NEW.trust IS NOT NULL AND OLD.trust IS NULL) OR (NEW.trust IS NULL AND OLD.trust IS NOT NULL)) 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;
+-- delete trigger for ApplicationSetting
+CREATE TRIGGER trg_log_application_setting_delete
+AFTER DELETE ON application_setting FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;`, columnName, namespaceID))
+	}
+}
+
 // ChangeLogTriggersForCharm generates the triggers for the
 // charm table.
 func ChangeLogTriggersForCharm(columnName string, namespaceID int) func() schema.Patch {

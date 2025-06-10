@@ -499,11 +499,12 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		caasApplicationProvisionerName: ifNotMigrating(caasapplicationprovisioner.Manifold(
 			caasapplicationprovisioner.ManifoldConfig{
-				APICallerName: apiCallerName,
-				BrokerName:    providerTrackerName,
-				ClockName:     clockName,
-				NewWorker:     caasapplicationprovisioner.NewProvisionerWorker,
-				Logger:        config.LoggingContext.GetLogger("juju.worker.caasapplicationprovisioner"),
+				APICallerName:      apiCallerName,
+				DomainServicesName: domainServicesName,
+				BrokerName:         providerTrackerName,
+				ClockName:          clockName,
+				NewWorker:          caasapplicationprovisioner.NewProvisionerWorker,
+				Logger:             config.LoggingContext.GetLogger("juju.worker.caasapplicationprovisioner"),
 			},
 		)),
 		caasStorageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{

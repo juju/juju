@@ -109,15 +109,15 @@ func (s *OpsSuite) TestEnsureTrust(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
 	app := caasmocks.NewMockApplication(ctrl)
 
 	gomock.InOrder(
-		unitFacade.EXPECT().ApplicationTrust(gomock.Any(), "test").Return(true, nil),
+		applicationService.EXPECT().GetApplicationTrustSetting(gomock.Any(), "test").Return(true, nil),
 		app.EXPECT().Trust(true).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.EnsureTrust(c.Context(), "test", app, unitFacade, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureTrust(c.Context(), "test", app, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

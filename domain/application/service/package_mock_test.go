@@ -4142,6 +4142,44 @@ func (c *MockStateNamespaceForWatchApplicationScaleCall) DoAndReturn(f func() st
 	return c
 }
 
+// NamespaceForWatchApplicationSetting mocks base method.
+func (m *MockState) NamespaceForWatchApplicationSetting() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchApplicationSetting")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchApplicationSetting indicates an expected call of NamespaceForWatchApplicationSetting.
+func (mr *MockStateMockRecorder) NamespaceForWatchApplicationSetting() *MockStateNamespaceForWatchApplicationSettingCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchApplicationSetting", reflect.TypeOf((*MockState)(nil).NamespaceForWatchApplicationSetting))
+	return &MockStateNamespaceForWatchApplicationSettingCall{Call: call}
+}
+
+// MockStateNamespaceForWatchApplicationSettingCall wrap *gomock.Call
+type MockStateNamespaceForWatchApplicationSettingCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchApplicationSettingCall) Return(arg0 string) *MockStateNamespaceForWatchApplicationSettingCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchApplicationSettingCall) Do(f func() string) *MockStateNamespaceForWatchApplicationSettingCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchApplicationSettingCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchApplicationSettingCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NamespaceForWatchCharm mocks base method.
 func (m *MockState) NamespaceForWatchCharm() string {
 	m.ctrl.T.Helper()

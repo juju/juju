@@ -391,6 +391,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_application_config_hash_insert",
 		"trg_log_application_config_hash_update",
 
+		"trg_log_application_setting_delete",
+		"trg_log_application_setting_insert",
+		"trg_log_application_setting_update",
+
 		"trg_log_application_endpoint_delete",
 		"trg_log_application_endpoint_insert",
 		"trg_log_application_endpoint_update",

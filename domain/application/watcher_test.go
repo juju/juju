@@ -689,6 +689,60 @@ func (s *watcherSuite) TestWatchApplicationConfigHashBadName(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *watcherSuite) TestWatchApplicationSettings(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_setting")
+	svc := s.setupService(c, factory)
+
+	appName := "foo"
+	appUUID := s.createIAASApplication(c, svc, appName)
+
+	ctx := c.Context()
+	watcher, err := svc.WatchApplicationSettings(ctx, appName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Assert that a change to the settings triggers the watcher.
+	harness.AddTest(func(c *tc.C) {
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
+			"trust": "true",
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert no change is emitted is we change a config value.
+	harness.AddTest(func(c *tc.C) {
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
+			"foo": "bar",
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Assert no change is emitted if we update a setting to the same value.
+	harness.AddTest(func(c *tc.C) {
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
+			"trust": "true",
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchApplicationSettingsBadName(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_setting")
+	svc := s.setupService(c, factory)
+
+	_, err := svc.WatchApplicationSettings(c.Context(), "bad-name")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_addresses_hash")
 	svc := s.setupService(c, factory)

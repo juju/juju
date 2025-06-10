@@ -15,7 +15,9 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 )
@@ -36,9 +38,10 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 func (s *ManifoldSuite) validConfig(c *tc.C) caasapplicationprovisioner.ManifoldConfig {
 	return caasapplicationprovisioner.ManifoldConfig{
-		APICallerName: "api-caller",
-		BrokerName:    "broker",
-		ClockName:     "clock",
+		APICallerName:      "api-caller",
+		DomainServicesName: "domain-services",
+		BrokerName:         "broker",
+		ClockName:          "clock",
 		NewWorker: func(config caasapplicationprovisioner.Config) (worker.Worker, error) {
 			return nil, nil
 		},
@@ -53,6 +56,11 @@ func (s *ManifoldSuite) TestValid(c *tc.C) {
 func (s *ManifoldSuite) TestMissingAPICallerName(c *tc.C) {
 	s.config.APICallerName = ""
 	s.checkNotValid(c, "empty APICallerName not valid")
+}
+
+func (s *ManifoldSuite) TestMissingDomainServicesName(c *tc.C) {
+	s.config.DomainServicesName = ""
+	s.checkNotValid(c, "empty DomainServicesName not valid")
 }
 
 func (s *ManifoldSuite) TestMissingBrokerName(c *tc.C) {
@@ -93,15 +101,17 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		mc.AddExpr(`_.NewAppWorker`, tc.NotNil)
 		mc.AddExpr(`_.UnitFacade`, tc.NotNil)
 		c.Check(config, mc, caasapplicationprovisioner.Config{
-			ModelTag: names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+			ModelTag:           names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+			ApplicationService: (*applicationservice.WatchableService)(nil),
 		})
 		return nil, nil
 	}
 	manifold := caasapplicationprovisioner.Manifold(s.config)
 	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
-		"api-caller": struct{ base.APICaller }{&mockAPICaller{}},
-		"broker":     struct{ caas.Broker }{},
-		"clock":      struct{ clock.Clock }{},
+		"api-caller":      struct{ base.APICaller }{&mockAPICaller{}},
+		"domain-services": struct{ services.ModelDomainServices }{&mockDomainServices{}},
+		"broker":          struct{ caas.Broker }{},
+		"clock":           struct{ clock.Clock }{},
 	}))
 	c.Assert(w, tc.IsNil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -118,4 +128,12 @@ func (*mockAPICaller) BestFacadeVersion(facade string) int {
 
 func (*mockAPICaller) ModelTag() (names.ModelTag, bool) {
 	return names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"), true
+}
+
+type mockDomainServices struct {
+	services.ModelDomainServices
+}
+
+func (*mockDomainServices) Application() *applicationservice.WatchableService {
+	return nil
 }

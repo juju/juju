@@ -303,6 +303,8 @@ func (s *WatchableService) WatchApplicationUnitLife(ctx context.Context, appName
 }
 
 // WatchApplicationScale returns a watcher that observes changes to an application's scale.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -540,6 +542,28 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 			return []string{sha256}, nil
 		},
 		eventsource.NamespaceFilter(table, changestream.All),
+	)
+}
+
+// WatchApplicationSettings watches for changes to the specified application's
+// settings.
+// This functions returns the following errors:
+// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+func (s *WatchableService) WatchApplicationSettings(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	uuid, err := s.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return nil, errors.Errorf("getting ID of application %s: %w", appName, err)
+	}
+
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchApplicationSetting(),
+			changestream.All,
+			eventsource.EqualsPredicate(uuid.String()),
+		),
 	)
 }
 

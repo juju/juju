@@ -34,11 +34,10 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// TODO: Replace these facades with direct calls to domain services.
 type CAASUnitProvisionerFacade interface {
 	ApplicationScale(context.Context, string) (int, error)
 	WatchApplicationScale(context.Context, string) (watcher.NotifyWatcher, error)
-	ApplicationTrust(context.Context, string) (bool, error)
-	WatchApplicationTrustHash(context.Context, string) (watcher.StringsWatcher, error)
 	UpdateApplicationService(ctx context.Context, arg params.UpdateApplicationServiceArg) error
 }
 
@@ -65,6 +64,20 @@ type CAASProvisionerFacade interface {
 	ProvisionerConfig(context.Context) (params.CAASApplicationProvisionerConfig, error)
 }
 
+// ApplicationService is used to interact with the application service.
+type ApplicationService interface {
+	// GetApplicationTrustSetting returns the application trust setting.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+	GetApplicationTrustSetting(ctx context.Context, appName string) (bool, error)
+
+	// WatchApplicationSettings watches for changes to the specified application's
+	// settings.
+	// This functions returns the following errors:
+	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+	WatchApplicationSettings(ctx context.Context, name string) (watcher.NotifyWatcher, error)
+}
+
 // CAASBroker exposes CAAS broker functionality to a worker.
 type CAASBroker interface {
 	Application(string, caas.DeploymentType) caas.Application
@@ -82,25 +95,27 @@ type Runner interface {
 
 // Config defines the operation of a Worker.
 type Config struct {
-	Facade       CAASProvisionerFacade
-	Broker       CAASBroker
-	ModelTag     names.ModelTag
-	Clock        clock.Clock
-	Logger       logger.Logger
-	NewAppWorker NewAppWorkerFunc
-	UnitFacade   CAASUnitProvisionerFacade
+	Facade             CAASProvisionerFacade
+	ApplicationService ApplicationService
+	Broker             CAASBroker
+	ModelTag           names.ModelTag
+	Clock              clock.Clock
+	Logger             logger.Logger
+	NewAppWorker       NewAppWorkerFunc
+	UnitFacade         CAASUnitProvisionerFacade
 }
 
 type provisioner struct {
-	catacomb     catacomb.Catacomb
-	runner       Runner
-	facade       CAASProvisionerFacade
-	broker       CAASBroker
-	clock        clock.Clock
-	logger       logger.Logger
-	newAppWorker NewAppWorkerFunc
-	modelTag     names.ModelTag
-	unitFacade   CAASUnitProvisionerFacade
+	catacomb           catacomb.Catacomb
+	runner             Runner
+	facade             CAASProvisionerFacade
+	applicationService ApplicationService
+	broker             CAASBroker
+	clock              clock.Clock
+	logger             logger.Logger
+	newAppWorker       NewAppWorkerFunc
+	modelTag           names.ModelTag
+	unitFacade         CAASUnitProvisionerFacade
 }
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
@@ -122,14 +137,15 @@ func newProvisionerWorker(
 	config Config, runner Runner,
 ) (worker.Worker, error) {
 	p := &provisioner{
-		facade:       config.Facade,
-		broker:       config.Broker,
-		modelTag:     config.ModelTag,
-		clock:        config.Clock,
-		logger:       config.Logger,
-		newAppWorker: config.NewAppWorker,
-		runner:       runner,
-		unitFacade:   config.UnitFacade,
+		facade:             config.Facade,
+		applicationService: config.ApplicationService,
+		broker:             config.Broker,
+		modelTag:           config.ModelTag,
+		clock:              config.Clock,
+		logger:             config.Logger,
+		newAppWorker:       config.NewAppWorker,
+		runner:             runner,
+		unitFacade:         config.UnitFacade,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "caas-application-provisioner",
@@ -210,14 +226,15 @@ func (p *provisioner) loop() error {
 				}
 
 				config := AppWorkerConfig{
-					Name:       appName,
-					Facade:     p.facade,
-					Broker:     p.broker,
-					ModelTag:   p.modelTag,
-					Clock:      p.clock,
-					Logger:     p.logger.Child(appName),
-					UnitFacade: p.unitFacade,
-					StatusOnly: unmanagedApps.Contains(appName),
+					Name:               appName,
+					Facade:             p.facade,
+					ApplicationService: p.applicationService,
+					Broker:             p.broker,
+					ModelTag:           p.modelTag,
+					Clock:              p.clock,
+					Logger:             p.logger.Child(appName),
+					UnitFacade:         p.unitFacade,
+					StatusOnly:         unmanagedApps.Contains(appName),
 				}
 				startFunc := p.newAppWorker(config)
 				p.logger.Debugf(ctx, "starting app worker %q", appName)
