@@ -217,9 +217,6 @@ WHERE  storage_pool.uuid = (select uuid FROM storage_pool WHERE name = $M.name)
 		if rowsAffected == 0 {
 			return errors.Errorf("storage pool %q not found", name).Add(storageerrors.PoolNotFoundError)
 		}
-		if err != nil {
-			return errors.Errorf("deleting storage pool: %w", err)
-		}
 		return nil
 	})
 	return errors.Capture(err)
@@ -271,74 +268,118 @@ func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.Stora
 	return errors.Capture(err)
 }
 
-type loadStoragePoolsFunc func(ctx context.Context, tx *sqlair.TX) ([]domainstorage.StoragePool, error)
-
-func storagePoolsLoader(wantNames domainstorage.Names, wantProviders domainstorage.Providers) (loadStoragePoolsFunc, error) {
-	query := `
-SELECT (sp.uuid, sp.name, sp.type) AS (&StoragePool.*),
-       (sp_attr.key, sp_attr.value) AS (&poolAttribute.*)
-FROM   storage_pool sp
-       LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
-`
-
-	types := []any{
-		StoragePool{},
-		poolAttribute{},
-	}
-
-	var queryArgs []any
-	condition, args := buildStoragePoolsFilter(wantNames, wantProviders)
-	if len(args) > 0 {
-		query = query + "WHERE " + condition
-		types = append(types, args...)
-		queryArgs = append([]any{}, args...)
-	}
-
-	queryStmt, err := sqlair.Prepare(query, types...)
+// ListStoragePoolsWithoutBuiltins returns the storage pools excluding the built-in storage pools.
+func (st State) ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainstorage.StoragePool, error) {
+	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	return func(ctx context.Context, tx *sqlair.TX) ([]domainstorage.StoragePool, error) {
-		var (
-			dbRows    StoragePools
-			keyValues []poolAttribute
-		)
-		err = tx.Query(ctx, queryStmt, queryArgs...).GetAll(&dbRows, &keyValues)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return nil, errors.Errorf("loading storage pool: %w", err)
-		}
-		return dbRows.toStoragePools(keyValues)
-	}, nil
-}
+	stmt, err := sqlair.Prepare(`
+SELECT (sp.uuid, sp.name, sp.type) AS (&StoragePool.*),
+       (sp_attr.key, sp_attr.value) AS (&poolAttribute.*)
+FROM   storage_pool sp
+       LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid`,
+		StoragePool{}, poolAttribute{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 
-// ListStoragePoolsWithoutBuiltins returns the storage pools excluding the built-in storage pools.
-func (st State) ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainstorage.StoragePool, error) {
-	// TODO: implement this to satisfy the domainstorageservice.StoragePoolState interface.
-	return nil, nil
+	var (
+		dbRows    StoragePools
+		keyValues []poolAttribute
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt).GetAll(&dbRows, &keyValues)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("listing storage pools: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return dbRows.toStoragePools(keyValues)
 }
 
 // ListStoragePools returns the storage pools including default storage pools.
 func (st State) ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error) {
-	// TODO: implement this to satisfy the domainstorageservice.StoragePoolState interface.
-	return nil, nil
+	pools, err := st.ListStoragePoolsWithoutBuiltins(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	builtInPools, err := domainstorage.BuiltInStoragePools()
+	if err != nil {
+		return nil, errors.Errorf("getting built-in storage pools: %w", err)
+	}
+	return append(pools, builtInPools...), nil
 }
 
 // ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
 // names and or providers, including the default storage pools.
-// If no names and providers are specified, an empty slice is returned without an error.
 // If no storage pools match the criteria, an empty slice is returned without an error.
 func (st State) ListStoragePoolsByNamesAndProviders(
 	ctx context.Context,
 	names domainstorage.Names,
 	providers domainstorage.Providers,
 ) ([]domainstorage.StoragePool, error) {
-	if len(names) == 0 && len(providers) == 0 {
-		return []domainstorage.StoragePool{}, nil
+	spNames := storagePoolNames(names.Values())
+	spTypes := storageProviderTypes(providers.Values())
+
+	if len(spNames) == 0 || len(spTypes) == 0 {
+		return nil, errors.Errorf(
+			"at least one name and one provider must be specified, got names: %v, providers: %v",
+			names, providers,
+		)
 	}
 
-	// TODO: implement this to satisfy the domainstorageservice.StoragePoolState interface.
-	return nil, nil
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	stmt, err := sqlair.Prepare(`
+SELECT (sp.uuid, sp.name, sp.type) AS (&StoragePool.*),
+       (sp_attr.key, sp_attr.value) AS (&poolAttribute.*)
+FROM   storage_pool sp
+       LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
+-- order matters because the index is on (type, name)
+WHERE  sp.type IN ($storageProviderTypes[:])
+       AND sp.name IN ($storagePoolNames[:])`,
+		spNames, spTypes, StoragePool{}, poolAttribute{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var (
+		dbRows    StoragePools
+		keyValues []poolAttribute
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, spNames, spTypes).GetAll(&dbRows, &keyValues)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("listing storage pools: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	pools, err := dbRows.toStoragePools(keyValues)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	builtIns, err := domainstorage.BuiltInStoragePools()
+	if err != nil {
+		return nil, errors.Errorf("getting built-in storage pools: %w", err)
+	}
+	for _, builtIn := range builtIns {
+		// Only append built-in pools that match the specified names and providers.
+		if names.Contains(builtIn.Name) && providers.Contains(builtIn.Provider) {
+			pools = append(pools, builtIn)
+		}
+	}
+	return pools, nil
 }
 
 // ListStoragePoolsByNames returns the storage pools matching the specified names, including
@@ -349,11 +390,55 @@ func (st State) ListStoragePoolsByNames(
 	ctx context.Context,
 	names domainstorage.Names,
 ) ([]domainstorage.StoragePool, error) {
-	if len(names) == 0 {
+	spNames := storagePoolNames(names.Values())
+
+	if len(spNames) == 0 {
 		return []domainstorage.StoragePool{}, nil
 	}
-	// TODO: implement this to satisfy the domainstorageservice.StoragePoolState interface.
-	return nil, nil
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := sqlair.Prepare(`
+SELECT (sp.uuid, sp.name, sp.type) AS (&StoragePool.*),
+       (sp_attr.key, sp_attr.value) AS (&poolAttribute.*)
+FROM   storage_pool sp
+       LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
+WHERE  sp.name IN ($storagePoolNames[:])`, spNames, StoragePool{}, poolAttribute{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var (
+		dbRows    StoragePools
+		keyValues []poolAttribute
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, spNames).GetAll(&dbRows, &keyValues)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("listing storage pools: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	pools, err := dbRows.toStoragePools(keyValues)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	builtIns, err := domainstorage.BuiltInStoragePools()
+	if err != nil {
+		return nil, errors.Errorf("getting built-in storage pools: %w", err)
+	}
+	for _, builtIn := range builtIns {
+		// Only append built-in pools that match the specified names.
+		if names.Contains(builtIn.Name) {
+			pools = append(pools, builtIn)
+		}
+	}
+	return pools, nil
 }
 
 // ListStoragePoolsByProviders returns the storage pools matching the specified
@@ -364,30 +449,55 @@ func (st State) ListStoragePoolsByProviders(
 	ctx context.Context,
 	providers domainstorage.Providers,
 ) ([]domainstorage.StoragePool, error) {
-	if len(providers) == 0 {
+	spTypes := storageProviderTypes(providers)
+
+	if len(spTypes) == 0 {
 		return []domainstorage.StoragePool{}, nil
 	}
-	// TODO: implement this to satisfy the domainstorageservice.StoragePoolState interface.
-	return nil, nil
-}
-
-func buildStoragePoolsFilter(wantNames domainstorage.Names, wantProviders domainstorage.Providers) (string, []any) {
-	if len(wantNames) == 0 && len(wantProviders) == 0 {
-		return "", nil
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
 	}
 
-	if len(wantNames) > 0 && len(wantProviders) > 0 {
-		condition := "sp.name IN ($StoragePoolNames[:]) AND sp.type IN ($StorageProviderTypes[:])"
-		return condition, []any{StoragePoolNames(wantNames), StorageProviderTypes(wantProviders)}
+	stmt, err := sqlair.Prepare(`
+SELECT (sp.uuid, sp.name, sp.type) AS (&StoragePool.*),
+       (sp_attr.key, sp_attr.value) AS (&poolAttribute.*)
+FROM   storage_pool sp
+       LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
+WHERE  sp.type IN ($storageProviderTypes[:])`, spTypes, StoragePool{}, poolAttribute{})
+	if err != nil {
+		return nil, errors.Capture(err)
 	}
 
-	if len(wantNames) > 0 {
-		condition := "sp.name IN ($StoragePoolNames[:])"
-		return condition, []any{StoragePoolNames(wantNames)}
+	var (
+		dbRows    StoragePools
+		keyValues []poolAttribute
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, spTypes).GetAll(&dbRows, &keyValues)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("listing storage pools: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
 	}
-
-	condition := "sp.type IN ($StorageProviderTypes[:])"
-	return condition, []any{StorageProviderTypes(wantProviders)}
+	pools, err := dbRows.toStoragePools(keyValues)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	builtIns, err := domainstorage.BuiltInStoragePools()
+	if err != nil {
+		return nil, errors.Errorf("getting built-in storage pools: %w", err)
+	}
+	for _, builtIn := range builtIns {
+		// Only append built-in pools that match the specified providers.
+		if providers.Contains(builtIn.Provider) {
+			pools = append(pools, builtIn)
+		}
+	}
+	return pools, nil
 }
 
 // GetStoragePoolByName returns the storage pool with the specified name.
@@ -406,22 +516,48 @@ func (st State) GetStoragePoolByName(ctx context.Context, name string) (domainst
 // - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 // Exported for use by other domains that need to load storage pools.
 func GetStoragePoolByName(ctx context.Context, db domain.TxnRunner, name string) (domainstorage.StoragePool, error) {
-	storagePoolsLoader, err := storagePoolsLoader(domainstorage.Names{name}, nil)
+	builtIns, err := domainstorage.BuiltInStoragePools()
+	if err != nil {
+		return domainstorage.StoragePool{}, errors.Errorf("getting built-in storage pools: %w", err)
+	}
+	for _, pool := range builtIns {
+		if pool.Name == name {
+			return pool, nil
+		}
+	}
+
+	inputArg := StoragePool{Name: name}
+	stmt, err := sqlair.Prepare(`
+SELECT (sp.uuid, sp.name, sp.type) AS (&StoragePool.*),
+       (sp_attr.key, sp_attr.value) AS (&poolAttribute.*)
+FROM   storage_pool sp
+       LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
+WHERE  sp.name = $StoragePool.name`, inputArg, poolAttribute{})
 	if err != nil {
 		return domainstorage.StoragePool{}, errors.Capture(err)
 	}
 
-	var storagePools []domainstorage.StoragePool
+	var (
+		dbRows    StoragePools
+		keyValues []poolAttribute
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		storagePools, err = storagePoolsLoader(ctx, tx)
-		return errors.Capture(err)
+		err = tx.Query(ctx, stmt, inputArg).GetAll(&dbRows, &keyValues)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting storage pools: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
 		return domainstorage.StoragePool{}, errors.Capture(err)
 	}
+	storagePools, err := dbRows.toStoragePools(keyValues)
+	if err != nil {
+		return domainstorage.StoragePool{}, errors.Capture(err)
+	}
+
 	if len(storagePools) == 0 {
-		return domainstorage.StoragePool{}, errors.Errorf("storage pool %q %w", name, storageerrors.PoolNotFoundError)
+		return domainstorage.StoragePool{}, errors.Errorf("storage pool %q", name).Add(storageerrors.PoolNotFoundError)
 	}
 	if len(storagePools) > 1 {
 		return domainstorage.StoragePool{}, errors.Errorf("expected 1 storage pool, got %d", len(storagePools))
