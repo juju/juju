@@ -153,6 +153,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_lxd_profile",
 		"machine_parent",
 		"machine_placement_scope",
+		"machine_platform",
 		"machine_placement",
 		"machine_platform",
 		"machine_removals",
