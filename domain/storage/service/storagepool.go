@@ -43,7 +43,6 @@ type StoragePoolState interface {
 
 	// ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
 	// names and or providers, including the default storage pools.
-	// If no names and providers are specified, an empty slice is returned without an error.
 	// If no storage pools match the criteria, an empty slice is returned without an error.
 	ListStoragePoolsByNamesAndProviders(
 		ctx context.Context, names domainstorage.Names, providers domainstorage.Providers,
@@ -236,7 +235,6 @@ func (s *StoragePoolService) ListStoragePools(ctx context.Context) ([]domainstor
 
 // ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
 // names and or providers, including the default storage pools.
-// If no names and providers are specified, an empty slice is returned without an error.
 // If no storage pools match the criteria, an empty slice is returned without an error.
 func (s *StoragePoolService) ListStoragePoolsByNamesAndProviders(
 	ctx context.Context,
@@ -246,8 +244,11 @@ func (s *StoragePoolService) ListStoragePoolsByNamesAndProviders(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if len(names) == 0 && len(providers) == 0 {
-		return nil, nil
+	if len(names) == 0 || len(providers) == 0 {
+		return nil, errors.Errorf(
+			"at least one name and one provider must be specified, got names: %v, providers: %v",
+			names, providers,
+		)
 	}
 
 	if err := s.validatePoolListFilterTerms(ctx, names, providers); err != nil {

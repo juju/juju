@@ -225,16 +225,14 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProviders(c *tc.
 func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersEmptyArgs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	got, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{}, domainstorage.Providers{})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.HasLen, 0)
+	_, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{}, domainstorage.Providers{})
+	c.Assert(err, tc.ErrorMatches, "at least one name and one provider must be specified, got names: .*")
 }
 
 func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersInvalidNames(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{"666invalid"}, nil)
+	_, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{"666invalid"}, domainstorage.Providers{"ebs"})
 	c.Assert(err, tc.ErrorIs, storageerrors.InvalidPoolNameError)
 	c.Assert(err, tc.ErrorMatches, `pool name "666invalid" not valid`)
 }
@@ -242,7 +240,7 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersInvalid
 func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersInvalidProviders(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), nil, domainstorage.Providers{"invalid"})
+	_, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{"loop"}, domainstorage.Providers{"invalid"})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 	c.Assert(err, tc.ErrorMatches, `storage provider "invalid" not found`)
 }
