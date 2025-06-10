@@ -518,47 +518,43 @@ func (s *unitStateSuite) TestSetUnitLifeNotFound(c *tc.C) {
 
 func (s *unitStateSuite) TestDeleteUnit(c *tc.C) {
 	// TODO(units) - add references to agents etc when those are fully cooked
-	u1 := application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/666",
-			CloudContainer: &application.CloudContainer{
-				ProviderID: "provider-id",
-				Ports:      ptr([]string{"666", "668"}),
-				Address: ptr(application.ContainerAddress{
-					Device: application.ContainerDevice{
-						Name:              "placeholder",
-						DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
-						VirtualPortTypeID: domainnetwork.NonVirtualPortType,
-					},
-					Value:       "10.6.6.6",
-					AddressType: ipaddress.AddressTypeIPv4,
-					ConfigType:  ipaddress.ConfigTypeDHCP,
-					Scope:       ipaddress.ScopeMachineLocal,
-					Origin:      ipaddress.OriginHost,
-				}),
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+		CloudContainer: &application.CloudContainer{
+			ProviderID: "provider-id",
+			Ports:      ptr([]string{"666", "668"}),
+			Address: ptr(application.ContainerAddress{
+				Device: application.ContainerDevice{
+					Name:              "placeholder",
+					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
+					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
+				},
+				Value:       "10.6.6.6",
+				AddressType: ipaddress.AddressTypeIPv4,
+				ConfigType:  ipaddress.ConfigTypeDHCP,
+				Scope:       ipaddress.ScopeMachineLocal,
+				Origin:      ipaddress.OriginHost,
+			}),
+		},
+		UnitStatusArg: application.UnitStatusArg{
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusExecuting,
+				Message: "test",
+				Data:    []byte(`{"foo": "bar"}`),
+				Since:   ptr(time.Now()),
 			},
-			UnitStatusArg: application.UnitStatusArg{
-				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-					Status:  status.UnitAgentStatusExecuting,
-					Message: "test",
-					Data:    []byte(`{"foo": "bar"}`),
-					Since:   ptr(time.Now()),
-				},
-				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-					Status:  status.WorkloadStatusActive,
-					Message: "test",
-					Data:    []byte(`{"foo": "bar"}`),
-					Since:   ptr(time.Now()),
-				},
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "test",
+				Data:    []byte(`{"foo": "bar"}`),
+				Since:   ptr(time.Now()),
 			},
 		},
 	}
-	u2 := application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/667",
-		},
+	u2 := application.InsertUnitArg{
+		UnitName: "foo/667",
 	}
-	s.createIAASApplication(c, "foo", life.Alive, u1, u2)
+	s.createCAASApplication(c, "foo", life.Alive, u1, u2)
 	var (
 		unitUUID    coreunit.UUID
 		netNodeUUID string
@@ -906,6 +902,7 @@ func (s *unitStateSuite) TestInitialWatchStatementUnitLife(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *tc.C) {
+	s.createSubnetForCAASModel(c)
 	u1 := application.InsertIAASUnitArg{
 		InsertUnitArg: application.InsertUnitArg{
 			UnitName: "foo/666",
