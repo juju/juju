@@ -358,7 +358,7 @@ VALUES (?, ?)`, *ownerUUID, storageUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.storageInstCount = s.storageInstCount + 1
+	s.storageInstCount++
 	return storageUUID
 }
 
@@ -459,7 +459,7 @@ VALUES (?, ?)`, storageUUID, filesystemUUID)
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	s.filesystemCount = s.filesystemCount + 1
+	s.filesystemCount++
 }
 
 type volumeAttachmentArg struct {

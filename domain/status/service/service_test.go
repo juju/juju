@@ -91,6 +91,8 @@ func (s *serviceSuite) TestImportRelationStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationID := 1
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return(relationUUID, nil)
 	sts := corestatus.StatusInfo{
 		Status:  corestatus.Broken,
 		Message: "message",
@@ -102,7 +104,7 @@ func (s *serviceSuite) TestImportRelationStatus(c *tc.C) {
 		Message: sts.Message,
 		Since:   sts.Since,
 	}
-	s.state.EXPECT().ImportRelationStatus(gomock.Any(), relationID, expectedStatus).Return(nil)
+	s.state.EXPECT().ImportRelationStatus(gomock.Any(), relationUUID, expectedStatus).Return(nil)
 
 	// Act
 	err := s.service.ImportRelationStatus(c.Context(), relationID, sts)
@@ -116,6 +118,8 @@ func (s *serviceSuite) TestImportRelationServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationID := 1
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return(relationUUID, nil)
 	boom := errors.New("boom")
 	sts := corestatus.StatusInfo{
 		Status: corestatus.Broken,
@@ -123,7 +127,7 @@ func (s *serviceSuite) TestImportRelationServiceError(c *tc.C) {
 	expectedStatus := status.StatusInfo[status.RelationStatusType]{
 		Status: status.RelationStatusTypeBroken,
 	}
-	s.state.EXPECT().ImportRelationStatus(gomock.Any(), relationID, expectedStatus).Return(boom)
+	s.state.EXPECT().ImportRelationStatus(gomock.Any(), relationUUID, expectedStatus).Return(boom)
 
 	// Act
 	err := s.service.ImportRelationStatus(c.Context(), relationID, sts)

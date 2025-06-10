@@ -66,12 +66,20 @@ type State interface {
 		sts status.StatusInfo[status.RelationStatusType],
 	) error
 
+	// GetRelationUUIDByID returns the UUID for the given relation ID.
+	// It can return the following errors:
+	//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+	GetRelationUUIDByID(
+		ctx context.Context,
+		id int,
+	) (corerelation.UUID, error)
+
 	// ImportRelationStatus sets the given relation status. It can return the
 	// following errors:
 	//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
 	ImportRelationStatus(
 		ctx context.Context,
-		relationID int,
+		relationUUID corerelation.UUID,
 		sts status.StatusInfo[status.RelationStatusType],
 	) error
 
@@ -539,7 +547,12 @@ func (s *Service) ImportRelationStatus(
 		return errors.Errorf("encoding relation status: %w", err)
 	}
 
-	return s.st.ImportRelationStatus(ctx, relationID, relationStatus)
+	relationUUID, err := s.st.GetRelationUUIDByID(ctx, relationID)
+	if err != nil {
+		return errors.Errorf("getting UUID for relation %d: %w", relationID, err)
+	}
+
+	return s.st.ImportRelationStatus(ctx, relationUUID, relationStatus)
 }
 
 // ExportUnitStatuses returns the workload and agent statuses of all the units in

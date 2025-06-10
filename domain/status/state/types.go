@@ -206,3 +206,40 @@ type applicationNameUnitCount struct {
 type modelInfo struct {
 	Type string `db:"type"`
 }
+
+type filesystemUUID struct {
+	FilesystemUUID string `db:"uuid"`
+}
+
+type filesystemUUIDID struct {
+	ID   string `db:"filesystem_id"`
+	UUID string `db:"uuid"`
+}
+
+type filesystemStatusInfo struct {
+	FilesystemUUID string     `db:"filesystem_uuid"`
+	StatusID       int        `db:"status_id"`
+	Message        string     `db:"message"`
+	UpdatedAt      *time.Time `db:"updated_at"`
+}
+
+type storageProvisioningStatusInfo struct {
+	StatusID            sql.NullInt16  `db:"status_id"`
+	StorageInstanceUUID sql.NullString `db:"storage_instance_uuid"`
+}
+
+type volumeUUID struct {
+	VolumeUUID string `db:"uuid"`
+}
+
+type volumeUUIDID struct {
+	ID   string `db:"volume_id"`
+	UUID string `db:"uuid"`
+}
+
+type volumeStatusInfo struct {
+	VolumeUUID string     `db:"volume_uuid"`
+	StatusID   int        `db:"status_id"`
+	Message    string     `db:"message"`
+	UpdatedAt  *time.Time `db:"updated_at"`
+}

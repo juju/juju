@@ -171,7 +171,7 @@ func RelationStatusTransitionValid(current, new StatusInfo[RelationStatusType]) 
 			validTransition = current.Status != RelationStatusTypeBroken
 		case RelationStatusTypeError:
 			if new.Message == "" {
-				return errors.Errorf("cannot set status %q without info", new.Status)
+				return errors.Errorf("cannot set status %q without message", new.Status)
 			}
 		default:
 			return errors.Errorf("cannot set invalid status %q", new.Status)
