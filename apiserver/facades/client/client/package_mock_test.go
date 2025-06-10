@@ -42,45 +42,6 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
-// AllEndpointBindings mocks base method.
-func (m *MockBackend) AllEndpointBindings() (map[string]*state.Bindings, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllEndpointBindings")
-	ret0, _ := ret[0].(map[string]*state.Bindings)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllEndpointBindings indicates an expected call of AllEndpointBindings.
-func (mr *MockBackendMockRecorder) AllEndpointBindings() *MockBackendAllEndpointBindingsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllEndpointBindings", reflect.TypeOf((*MockBackend)(nil).AllEndpointBindings))
-	return &MockBackendAllEndpointBindingsCall{Call: call}
-}
-
-// MockBackendAllEndpointBindingsCall wrap *gomock.Call
-type MockBackendAllEndpointBindingsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAllEndpointBindingsCall) Return(arg0 map[string]*state.Bindings, arg1 error) *MockBackendAllEndpointBindingsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAllEndpointBindingsCall) Do(f func() (map[string]*state.Bindings, error)) *MockBackendAllEndpointBindingsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAllEndpointBindingsCall) DoAndReturn(f func() (map[string]*state.Bindings, error)) *MockBackendAllEndpointBindingsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // AllIPAddresses mocks base method.
 func (m *MockBackend) AllIPAddresses() ([]*state.Address, error) {
 	m.ctrl.T.Helper()

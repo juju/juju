@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -95,6 +94,15 @@ type ApplicationService interface {
 	// The following errors may be returned:
 	// - [applicationerrors.MachineNotFound] if the machine does not exist
 	GetUnitNamesOnMachine(context.Context, machine.Name) ([]unit.Name, error)
+
+	// GetAllEndpointBindings returns the all endpoint bindings for the model, where
+	// endpoints are indexed by the application name for the application which they
+	// belong to.
+	GetAllEndpointBindings(ctx context.Context) (map[string]map[string]network.SpaceName, error)
+
+	// GetApplicationsBoundToSpace returns the names of the applications bound to
+	// the given space.
+	GetApplicationsBoundToSpace(ctx context.Context, uuid network.SpaceUUID) ([]string, error)
 }
 
 // API provides the spaces API facade for version 6.
@@ -258,11 +266,6 @@ func (api *API) ShowSpace(ctx context.Context, entities params.Entities) (params
 		return params.ShowSpaceResults{}, apiservererrors.ServerError(errors.Trace(err))
 	}
 
-	// Retrieve the list of all spaces, needed for the bindings.
-	allSpaces, err := api.networkService.GetAllSpaces(ctx)
-	if err != nil {
-		return params.ShowSpaceResults{}, apiservererrors.ServerError(errors.Trace(err))
-	}
 	// Retrieve the list of all subnets, needed for the machine spaces.
 	allSubnets, err := api.networkService.GetAllSubnets(ctx)
 	if err != nil {
@@ -294,10 +297,7 @@ func (api *API) ShowSpace(ctx context.Context, entities params.Entities) (params
 			result.Space.Subnets[i] = commonnetwork.SubnetInfoToParamsSubnet(subnet)
 		}
 
-		// TODO(nvinuesa): This logic should be implemented in the
-		// network service once we finish migrating applications to
-		// dqlite.
-		applications, err := api.applicationsBoundToSpace(space.ID, allSpaces)
+		applications, err := api.applicationService.GetApplicationsBoundToSpace(ctx, space.ID)
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching applications")
 			results[i].Error = apiservererrors.ServerError(newErr)
@@ -362,24 +362,6 @@ func (api *API) getMachineCountBySpaceID(spaceID network.SpaceUUID, allSubnets n
 		}
 	}
 	return count, nil
-}
-
-func (api *API) applicationsBoundToSpace(spaceID network.SpaceUUID, allSpaces network.SpaceInfos) ([]string, error) {
-	allBindings, err := api.backing.AllEndpointBindings()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	applications := set.NewStrings()
-	for app, bindings := range allBindings {
-		for _, boundSpace := range bindings.Map() {
-			if boundSpace == spaceID.String() {
-				applications.Add(app)
-				break
-			}
-		}
-	}
-	return applications.SortedValues(), nil
 }
 
 // ensureSpacesAreMutable checks that the current user

@@ -83,7 +83,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *tc.C) {
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return(nil, nil)
-	bExp.AllEndpointBindings().Return(nil, nil)
+
+	s.ApplicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(map[string]map[string]network.SpaceName{}, nil)
 
 	// Using different subnet - triggers no constraint violation.
 	m := expectMachine(ctrl, "0", "20.20.20.0/24")
@@ -158,7 +159,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *tc.C) 
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons1, cons2}, nil)
-	bExp.AllEndpointBindings().Return(nil, nil)
+
+	s.ApplicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(map[string]map[string]network.SpaceName{}, nil)
 
 	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, tc.ErrorIsNil)
@@ -272,7 +274,8 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons}, nil)
-	bExp.AllEndpointBindings().Return(nil, nil)
+
+	s.ApplicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(map[string]map[string]network.SpaceName{}, nil)
 
 	// Supplying force=true succeeds despite the violation.
 	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, true))
@@ -394,10 +397,6 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 	}
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any()).Return(allSpaces, nil)
 
-	// MySQL has a binding to the old space.
-	bindings := spaces.NewMockBindings(ctrl)
-	bindings.EXPECT().Map().Return(map[string]string{"db": "1"})
-
 	// mysql/0 is connected to both the moving subnet and the stationary one.
 	// It will satisfy the binding even after the subnet relocation.
 	m1 := expectMachine(ctrl, "1", cidr, "20.20.20.0/24")
@@ -412,7 +411,13 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return(nil, nil)
-	bExp.AllEndpointBindings().Return(map[string]spaces.Bindings{"mysql": bindings}, nil)
+
+	// MySQL has a binding to the old space.
+	s.ApplicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(map[string]map[string]network.SpaceName{
+		"mysql": {
+			"db": network.SpaceName("from"),
+		},
+	}, nil)
 
 	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, tc.ErrorIsNil)

@@ -25,6 +25,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -1078,6 +1079,31 @@ func (s *applicationServiceSuite) TestDecodeRisk(c *tc.C) {
 	}
 }
 
+func (s *applicationServiceSuite) TestGetAllEndpointBindings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(map[string]map[string]string{
+		"foo": {"bar": "baz"},
+		"bar": {"baz": "qux"},
+	}, nil)
+
+	result, err := s.service.GetAllEndpointBindings(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, map[string]map[string]network.SpaceName{
+		"foo": {"bar": "baz"},
+		"bar": {"baz": "qux"},
+	})
+}
+
+func (s *applicationServiceSuite) TestGetAllEndpointBindingsErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(nil, errors.Errorf("boom"))
+
+	_, err := s.service.GetAllEndpointBindings(c.Context())
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 func (s *applicationServiceSuite) TestGetApplicationEndpointBindingsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1103,6 +1129,27 @@ func (s *applicationServiceSuite) TestGetApplicationEndpointBindings(c *tc.C) {
 	c.Check(result, tc.DeepEquals, map[string]network.SpaceUUID{
 		"foo": "bar",
 	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationsBoundToSpace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	s.state.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), spaceUUID.String()).Return([]string{"foo", "bar"}, nil)
+
+	apps, err := s.service.GetApplicationsBoundToSpace(c.Context(), spaceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(apps, tc.SameContents, []string{"foo", "bar"})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationsBoundToSpaceErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	s.state.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), spaceUUID.String()).Return(nil, errors.Errorf("boom"))
+
+	_, err := s.service.GetApplicationsBoundToSpace(c.Context(), spaceUUID)
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *applicationServiceSuite) TestGetApplicationEndpointNames(c *tc.C) {

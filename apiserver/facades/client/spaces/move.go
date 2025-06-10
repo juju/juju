@@ -114,7 +114,7 @@ func (api *API) ensureSubnetsCanBeMoved(ctx context.Context, subnets network.Sub
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(api.ensureEndpointBindingsIntegrity(ctx, affected, allSpaces))
+	return errors.Trace(api.ensureEndpointBindingsIntegrity(ctx, affected))
 }
 
 // getAffectedNetworks interrogates machines connected to moving subnets.
@@ -177,8 +177,8 @@ func (api *API) ensureSpaceConstraintIntegrity(ctx context.Context, affected *af
 	return errors.Trace(affected.ensureConstraintIntegrity(ctx, spaceConsByApp))
 }
 
-func (api *API) ensureEndpointBindingsIntegrity(ctx context.Context, affected *affectedNetworks, allSpaces network.SpaceInfos) error {
-	allBindings, err := api.backing.AllEndpointBindings()
+func (api *API) ensureEndpointBindingsIntegrity(ctx context.Context, affected *affectedNetworks) error {
+	allBindings, err := api.applicationService.GetAllEndpointBindings(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

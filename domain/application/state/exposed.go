@@ -521,5 +521,5 @@ WHERE name = $spaceName.name;`
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	return spaceUUID.UUID, nil
+	return network.SpaceUUID(spaceUUID.UUID), nil
 }

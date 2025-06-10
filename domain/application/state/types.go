@@ -861,6 +861,11 @@ type setDefaultSpace struct {
 	Space network.SpaceName  `db:"space"`
 }
 
+type applicationSpaceUUID struct {
+	ApplicationName string `db:"name"`
+	SpaceUUID       string `db:"space_uuid"`
+}
+
 type applicationUUID struct {
 	ApplicationUUID string `db:"application_uuid"`
 }
@@ -874,17 +879,16 @@ type constraintUUID struct {
 }
 
 type space struct {
-	UUID string            `db:"uuid"`
-	Name network.SpaceName `db:"name"`
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
 }
 
-// These structs are only needed to check existence before adding constraints.
 type spaceName struct {
 	Name string `db:"name"`
 }
 
 type spaceUUID struct {
-	UUID network.SpaceUUID `db:"uuid"`
+	UUID string `db:"uuid"`
 }
 
 type storageInstance struct {
@@ -1258,7 +1262,13 @@ type machineParent struct {
 	MachineUUID coremachine.UUID `db:"machine_uuid"`
 }
 
-type getApplicationEndpoint struct {
+type applicationEndpointBinding struct {
+	ApplicationName string           `db:"application_name"`
+	EndpointName    string           `db:"endpoint_name"`
+	SpaceUUID       sql.Null[string] `db:"space_uuid"`
+}
+
+type endpointBinding struct {
 	SpaceUUID    sql.Null[network.SpaceUUID] `db:"space_uuid"`
 	EndpointName string                      `db:"name"`
 }
