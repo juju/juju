@@ -42,7 +42,7 @@ type ApplicationOps interface {
 		facade CAASProvisionerFacade, logger logger.Logger) (isOk bool, err error)
 
 	EnsureTrust(ctx context.Context, appName string, app caas.Application,
-		unitFacade CAASUnitProvisionerFacade, logger logger.Logger) error
+		applicationService ApplicationService, logger logger.Logger) error
 
 	UpdateState(ctx context.Context, appName string, app caas.Application, lastReportedStatus map[string]status.StatusInfo,
 		broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger logger.Logger) (map[string]status.StatusInfo, error)
@@ -97,10 +97,10 @@ func (applicationOps) CheckCharmFormat(
 func (applicationOps) EnsureTrust(
 	ctx context.Context,
 	appName string, app caas.Application,
-	unitFacade CAASUnitProvisionerFacade,
+	applicationService ApplicationService,
 	logger logger.Logger,
 ) error {
-	return ensureTrust(ctx, appName, app, unitFacade, logger)
+	return ensureTrust(ctx, appName, app, applicationService, logger)
 }
 
 func (applicationOps) UpdateState(
@@ -345,10 +345,10 @@ func checkCharmFormat(
 func ensureTrust(
 	ctx context.Context,
 	appName string, app caas.Application,
-	unitFacade CAASUnitProvisionerFacade,
+	applicationService ApplicationService,
 	logger logger.Logger,
 ) error {
-	desiredTrust, err := unitFacade.ApplicationTrust(ctx, appName)
+	desiredTrust, err := applicationService.GetApplicationTrustSetting(ctx, appName)
 	if err != nil {
 		return errors.Annotatef(err, "fetching application %q desired trust", appName)
 	}

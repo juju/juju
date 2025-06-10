@@ -61,21 +61,23 @@ func (s *ApplicationWorkerSuite) startAppWorker(
 	c *tc.C,
 	clk clock.Clock,
 	facade caasapplicationprovisioner.CAASProvisionerFacade,
+	applicationService caasapplicationprovisioner.ApplicationService,
 	broker caasapplicationprovisioner.CAASBroker,
 	unitFacade caasapplicationprovisioner.CAASUnitProvisionerFacade,
 	ops caasapplicationprovisioner.ApplicationOps,
 	statusOnly bool,
 ) worker.Worker {
 	config := caasapplicationprovisioner.AppWorkerConfig{
-		Name:       "test",
-		Facade:     facade,
-		Broker:     broker,
-		ModelTag:   s.modelTag,
-		Clock:      clk,
-		Logger:     s.logger,
-		UnitFacade: unitFacade,
-		Ops:        ops,
-		StatusOnly: statusOnly,
+		Name:               "test",
+		Facade:             facade,
+		ApplicationService: applicationService,
+		Broker:             broker,
+		ModelTag:           s.modelTag,
+		Clock:              clk,
+		Logger:             s.logger,
+		UnitFacade:         unitFacade,
+		Ops:                ops,
+		StatusOnly:         statusOnly,
 	}
 	startFunc := caasapplicationprovisioner.NewAppWorker(config)
 	c.Assert(startFunc, tc.NotNil)
@@ -92,6 +94,7 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *tc.C) {
 	broker := mocks.NewMockCAASBroker(ctrl)
 	brokerApp := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
 	ops := mocks.NewMockApplicationOps(ctrl)
 	done := make(chan struct{})
 
@@ -102,7 +105,7 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *tc.C) {
 			return "", errors.NotFoundf("test charm")
 		}),
 	)
-	appWorker := s.startAppWorker(c, nil, facade, broker, nil, ops, false)
+	appWorker := s.startAppWorker(c, nil, facade, applicationService, broker, nil, ops, false)
 
 	s.waitDone(c, done)
 	workertest.CleanKill(c, appWorker)
@@ -116,6 +119,7 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
 	ops := mocks.NewMockApplicationOps(ctrl)
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
 
@@ -133,7 +137,7 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 				return nil
 			}),
 	)
-	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops, false)
+	appWorker := s.startAppWorker(c, clk, facade, applicationService, broker, unitFacade, ops, false)
 
 	s.waitDone(c, done)
 	workertest.CleanKill(c, appWorker)
@@ -147,13 +151,14 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
 	ops := mocks.NewMockApplicationOps(ctrl)
 	done := make(chan struct{})
 
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
 
 	scaleChan := make(chan struct{}, 1)
-	trustChan := make(chan []string, 1)
+	settingsChan := make(chan struct{}, 1)
 	provisioningInfoChan := make(chan struct{}, 1)
 	appUnitsChan := make(chan []string, 1)
 	appChan := make(chan struct{}, 1)
@@ -170,7 +175,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		facade.EXPECT().SetPassword(gomock.Any(), "test", gomock.Any()).Return(nil),
 
 		unitFacade.EXPECT().WatchApplicationScale(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
-		unitFacade.EXPECT().WatchApplicationTrustHash(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(trustChan), nil),
+		applicationService.EXPECT().WatchApplicationSettings(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
 		facade.EXPECT().WatchUnits(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
 
 		// handleChange
@@ -188,13 +193,13 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		ops.EXPECT().EnsureScale(gomock.Any(), "test", app, life.Alive, facade, unitFacade, s.logger).Return(errors.NotFound),
 		ops.EXPECT().EnsureScale(gomock.Any(), "test", app, life.Alive, facade, unitFacade, s.logger).Return(errors.ConstError("try again")),
 		ops.EXPECT().EnsureScale(gomock.Any(), "test", app, life.Alive, facade, unitFacade, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, v life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) error {
-			trustChan <- nil
+			settingsChan <- struct{}{}
 			return nil
 		}),
 
-		// trustChan fired
-		ops.EXPECT().EnsureTrust(gomock.Any(), "test", app, unitFacade, s.logger).Return(errors.NotFound),
-		ops.EXPECT().EnsureTrust(gomock.Any(), "test", app, unitFacade, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) error {
+		// settingsChan fired
+		ops.EXPECT().EnsureTrust(gomock.Any(), "test", app, applicationService, s.logger).Return(errors.NotFound),
+		ops.EXPECT().EnsureTrust(gomock.Any(), "test", app, applicationService, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, _ caasapplicationprovisioner.ApplicationService, _ logger.Logger) error {
 			appUnitsChan <- nil
 			return nil
 		}),
@@ -237,7 +242,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops, false)
+	appWorker := s.startAppWorker(c, clk, facade, applicationService, broker, unitFacade, ops, false)
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }
@@ -250,13 +255,14 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
 	ops := mocks.NewMockApplicationOps(ctrl)
 	done := make(chan struct{})
 
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
 
 	scaleChan := make(chan struct{}, 1)
-	trustChan := make(chan []string, 1)
+	settingsChan := make(chan struct{}, 1)
 	provisioningInfoChan := make(chan struct{}, 1)
 	appUnitsChan := make(chan []string, 1)
 	appChan := make(chan struct{}, 1)
@@ -271,7 +277,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 		ops.EXPECT().CheckCharmFormat(gomock.Any(), "test", gomock.Any(), gomock.Any()).Return(true, nil),
 
 		unitFacade.EXPECT().WatchApplicationScale(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
-		unitFacade.EXPECT().WatchApplicationTrustHash(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(trustChan), nil),
+		applicationService.EXPECT().WatchApplicationSettings(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
 		facade.EXPECT().WatchUnits(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
 
 		// handleChange
@@ -312,7 +318,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops, true)
+	appWorker := s.startAppWorker(c, clk, facade, applicationService, broker, unitFacade, ops, true)
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }
@@ -325,13 +331,14 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
 	ops := mocks.NewMockApplicationOps(ctrl)
 	done := make(chan struct{})
 
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
 
 	scaleChan := make(chan struct{}, 1)
-	trustChan := make(chan []string, 1)
+	settingsChan := make(chan struct{}, 1)
 	provisioningInfoChan := make(chan struct{}, 1)
 	appUnitsChan := make(chan []string, 1)
 	appChan := make(chan struct{}, 1)
@@ -348,7 +355,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		facade.EXPECT().SetPassword(gomock.Any(), "test", gomock.Any()).Return(nil),
 
 		unitFacade.EXPECT().WatchApplicationScale(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
-		unitFacade.EXPECT().WatchApplicationTrustHash(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(trustChan), nil),
+		applicationService.EXPECT().WatchApplicationSettings(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
 		facade.EXPECT().WatchUnits(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
 
 		// handleChange
@@ -371,13 +378,13 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		ops.EXPECT().EnsureScale(gomock.Any(), "test", app, life.Alive, facade, unitFacade, s.logger).Return(errors.NotFound),
 		ops.EXPECT().EnsureScale(gomock.Any(), "test", app, life.Alive, facade, unitFacade, s.logger).Return(errors.ConstError("try again")),
 		ops.EXPECT().EnsureScale(gomock.Any(), "test", app, life.Alive, facade, unitFacade, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, v life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) error {
-			trustChan <- nil
+			settingsChan <- struct{}{}
 			return nil
 		}),
 
-		// trustChan fired
-		ops.EXPECT().EnsureTrust(gomock.Any(), "test", app, unitFacade, s.logger).Return(errors.NotFound),
-		ops.EXPECT().EnsureTrust(gomock.Any(), "test", app, unitFacade, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) error {
+		// settingsChan fired
+		ops.EXPECT().EnsureTrust(gomock.Any(), "test", app, applicationService, s.logger).Return(errors.NotFound),
+		ops.EXPECT().EnsureTrust(gomock.Any(), "test", app, applicationService, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, _ caasapplicationprovisioner.ApplicationService, _ logger.Logger) error {
 			appUnitsChan <- nil
 			return nil
 		}),
@@ -420,7 +427,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops, false)
+	appWorker := s.startAppWorker(c, clk, facade, applicationService, broker, unitFacade, ops, false)
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }

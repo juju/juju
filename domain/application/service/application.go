@@ -340,9 +340,14 @@ type ApplicationState interface {
 	// NamespaceForWatchApplication returns the namespace identifier
 	// for application watchers.
 	NamespaceForWatchApplication() string
-	// NamespaceForWatchApplicationConfig returns a namespace string identifier
+
+	// NamespaceForWatchApplicationConfig returns the namespace string identifier
 	// for application configuration changes.
 	NamespaceForWatchApplicationConfig() string
+
+	// NamesapceForWatchApplicationSetting returns the namespace string identifier
+	// for application setting changes.
+	NamespaceForWatchApplicationSetting() string
 
 	// NamespaceForWatchApplicationScale returns the namespace identifier
 	// for application scale change watchers.
@@ -936,9 +941,9 @@ func (s *Service) IsSubordinateApplicationByName(ctx context.Context, appName st
 	return s.IsSubordinateApplication(ctx, appID)
 }
 
-// SetApplicationScale sets the application's desired scale value, returning an error
-// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
-// This is used on CAAS models.
+// SetApplicationScale sets the application's desired scale value,
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale int) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -964,9 +969,9 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 	return nil
 }
 
-// GetApplicationScale returns the desired scale of an application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-// This is used on CAAS models.
+// GetApplicationScale returns the desired scale of an application,
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 func (s *Service) GetApplicationScale(ctx context.Context, appName string) (int, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -1274,14 +1279,15 @@ func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID co
 }
 
 // GetApplicationTrustSetting returns the application trust setting.
-// If no application is found, an error satisfying
-// [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetApplicationTrustSetting(ctx context.Context, appID coreapplication.ID) (bool, error) {
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+func (s *Service) GetApplicationTrustSetting(ctx context.Context, appName string) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := appID.Validate(); err != nil {
-		return false, errors.Errorf("application ID: %w", err)
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return false, errors.Capture(err)
 	}
 
 	return s.st.GetApplicationTrustSetting(ctx, appID)

@@ -29,13 +29,14 @@ type appNotifyWorker interface {
 }
 
 type appWorker struct {
-	catacomb   catacomb.Catacomb
-	facade     CAASProvisionerFacade
-	broker     CAASBroker
-	clock      clock.Clock
-	logger     logger.Logger
-	unitFacade CAASUnitProvisionerFacade
-	ops        ApplicationOps
+	catacomb           catacomb.Catacomb
+	facade             CAASProvisionerFacade
+	applicationService ApplicationService
+	broker             CAASBroker
+	clock              clock.Clock
+	logger             logger.Logger
+	unitFacade         CAASUnitProvisionerFacade
+	ops                ApplicationOps
 
 	name        string
 	modelTag    names.ModelTag
@@ -47,15 +48,16 @@ type appWorker struct {
 }
 
 type AppWorkerConfig struct {
-	Name       string
-	Facade     CAASProvisionerFacade
-	Broker     CAASBroker
-	ModelTag   names.ModelTag
-	Clock      clock.Clock
-	Logger     logger.Logger
-	UnitFacade CAASUnitProvisionerFacade
-	Ops        ApplicationOps
-	StatusOnly bool
+	Name               string
+	Facade             CAASProvisionerFacade
+	ApplicationService ApplicationService
+	Broker             CAASBroker
+	ModelTag           names.ModelTag
+	Clock              clock.Clock
+	Logger             logger.Logger
+	UnitFacade         CAASUnitProvisionerFacade
+	Ops                ApplicationOps
+	StatusOnly         bool
 }
 
 const tryAgain errors.ConstError = "try again"
@@ -71,16 +73,17 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 		changes := make(chan struct{}, 1)
 		changes <- struct{}{}
 		a := &appWorker{
-			name:       config.Name,
-			facade:     config.Facade,
-			broker:     config.Broker,
-			modelTag:   config.ModelTag,
-			clock:      config.Clock,
-			logger:     config.Logger,
-			changes:    changes,
-			unitFacade: config.UnitFacade,
-			ops:        ops,
-			statusOnly: config.StatusOnly,
+			name:               config.Name,
+			facade:             config.Facade,
+			applicationService: config.ApplicationService,
+			broker:             config.Broker,
+			modelTag:           config.ModelTag,
+			clock:              config.Clock,
+			logger:             config.Logger,
+			changes:            changes,
+			unitFacade:         config.UnitFacade,
+			ops:                ops,
+			statusOnly:         config.StatusOnly,
 		}
 		err := catacomb.Invoke(catacomb.Plan{
 			Name: "caas-application-provisioner",
@@ -168,11 +171,11 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "failed to watch for application %q scale changes", a.name)
 	}
 
-	appTrustWatcher, err := a.unitFacade.WatchApplicationTrustHash(ctx, a.name)
+	appSettingsWatcher, err := a.applicationService.WatchApplicationSettings(ctx, a.name)
 	if err != nil {
 		return errors.Annotatef(err, "creating application %q trust watcher", a.name)
 	}
-	if err := a.catacomb.Add(appTrustWatcher); err != nil {
+	if err := a.catacomb.Add(appSettingsWatcher); err != nil {
 		return errors.Annotatef(err, "failed to watch for application %q trust changes", a.name)
 	}
 
@@ -340,7 +343,7 @@ func (a *appWorker) loop() error {
 			} else {
 				scaleChan = nil
 			}
-		case _, ok := <-appTrustWatcher.Changes():
+		case _, ok := <-appSettingsWatcher.Changes():
 			if !ok {
 				return fmt.Errorf("application %q trust watcher closed channel", a.name)
 			}
@@ -359,7 +362,7 @@ func (a *appWorker) loop() error {
 				shouldRefresh = false
 				break
 			}
-			err := a.ops.EnsureTrust(ctx, a.name, app, a.unitFacade, a.logger)
+			err := a.ops.EnsureTrust(ctx, a.name, app, a.applicationService, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				if trustTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring trust", maxRetries)

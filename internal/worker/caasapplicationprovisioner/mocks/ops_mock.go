@@ -237,7 +237,7 @@ func (c *MockApplicationOpsEnsureScaleCall) DoAndReturn(f func(context.Context, 
 }
 
 // EnsureTrust mocks base method.
-func (m *MockApplicationOps) EnsureTrust(arg0 context.Context, arg1 string, arg2 caas.Application, arg3 caasapplicationprovisioner.CAASUnitProvisionerFacade, arg4 logger.Logger) error {
+func (m *MockApplicationOps) EnsureTrust(arg0 context.Context, arg1 string, arg2 caas.Application, arg3 caasapplicationprovisioner.ApplicationService, arg4 logger.Logger) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureTrust", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
@@ -263,13 +263,13 @@ func (c *MockApplicationOpsEnsureTrustCall) Return(arg0 error) *MockApplicationO
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsEnsureTrustCall) Do(f func(context.Context, string, caas.Application, caasapplicationprovisioner.CAASUnitProvisionerFacade, logger.Logger) error) *MockApplicationOpsEnsureTrustCall {
+func (c *MockApplicationOpsEnsureTrustCall) Do(f func(context.Context, string, caas.Application, caasapplicationprovisioner.ApplicationService, logger.Logger) error) *MockApplicationOpsEnsureTrustCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsEnsureTrustCall) DoAndReturn(f func(context.Context, string, caas.Application, caasapplicationprovisioner.CAASUnitProvisionerFacade, logger.Logger) error) *MockApplicationOpsEnsureTrustCall {
+func (c *MockApplicationOpsEnsureTrustCall) DoAndReturn(f func(context.Context, string, caas.Application, caasapplicationprovisioner.ApplicationService, logger.Logger) error) *MockApplicationOpsEnsureTrustCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

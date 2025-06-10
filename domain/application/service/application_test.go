@@ -581,18 +581,21 @@ func (s *applicationServiceSuite) TestGetApplicationTrustSetting(c *tc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationTrustSetting(gomock.Any(), appUUID).Return(true, nil)
 
-	results, err := s.service.GetApplicationTrustSetting(c.Context(), appUUID)
+	results, err := s.service.GetApplicationTrustSetting(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.IsTrue)
 }
 
-func (s *applicationServiceSuite) TestGetApplicationTrustSettingInvalidApplicationID(c *tc.C) {
+func (s *applicationServiceSuite) TestGetApplicationTrustSettingNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetApplicationTrustSetting(c.Context(), "!!!")
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.GetApplicationTrustSetting(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationCharmOrigin(c *tc.C) {
