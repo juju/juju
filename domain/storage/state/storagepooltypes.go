@@ -28,9 +28,9 @@ type poolAttribute struct {
 	Value string `db:"value"`
 }
 
-type StoragePoolNames []string
+type storagePoolNames []string
 
-type StorageProviderTypes []string
+type storageProviderTypes []string
 
 type StoragePools []StoragePool
 
