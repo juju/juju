@@ -1621,6 +1621,19 @@ func (st *State) SetApplicationCharm(ctx context.Context, id coreapplication.ID,
 		}
 
 		//TODO(storage) - update charm and storage directive for app
+
+		err = st.updateDefaultSpace(ctx, tx, id, params.EndpointBindings)
+		if err != nil {
+			return errors.Errorf("updating default space: %w", err)
+		}
+		err = st.updateApplicationEndpointBindings(ctx, tx, updateApplicationEndpointsParams{
+			appID:    id,
+			bindings: params.EndpointBindings,
+		})
+		if err != nil {
+			return errors.Capture(err)
+		}
+
 		return nil
 	}); err != nil {
 		return errors.Capture(err)
