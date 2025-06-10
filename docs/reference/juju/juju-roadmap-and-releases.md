@@ -28,6 +28,7 @@ ADD WHEN FIXED.
 <!--TEMPLATE (>= 3.6.7)
 ### 🔸 **Juju 3.6.X**  
 🗓️ <DATE>  <--leave this as TBC until released into stable!
+
 ⚙️ Features:
 * feat(secrets): handle NotFound errors in secret backend during `RemoveUserSecrets` by @ca-scribner in [#19169](https://github.com/juju/juju/pull/19169)
 * feat: open firewall ports for SSH server  proxy by @kian99 in [#19180](https://github.com/juju/juju/pull/19180)
@@ -66,7 +67,7 @@ Juju 3.6 series is LTS
 ```
 
 ### 🔸 **Juju 3.6.7**
-🗓️ 30 May 2025
+🗓️ 09 June 2025
 
 🛠️ Fixes:
 * fix: use pebble v1.19.1 by @jameinel in https://github.com/juju/juju/pull/19791
