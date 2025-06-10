@@ -410,7 +410,7 @@ func (st *State) getExistingLinkLayerDevices(
 		Name       string `db:"name"`
 		MACAddress string `db:"mac_address"`
 		ProviderID string `db:"provider_id"`
-		TypeID     int64  `db:"device_type_id"`
+		Type       string `db:"device_type"`
 	}
 	type address struct {
 		UUID       string `db:"uuid"`
@@ -422,8 +422,14 @@ func (st *State) getExistingLinkLayerDevices(
 		UUID string `db:"uuid"`
 	}
 	getDevicesStmt, err := st.Prepare(`
-SELECT &device.*
+SELECT 
+	lld.uuid AS &device.uuid,
+	lld.name AS &device.name,
+	lld.mac_address AS &device.mac_address,
+	plld.provider_id AS &device.provider_id,
+    lldt.name AS &device.device_type
 FROM link_layer_device AS lld
+JOIN link_layer_device_type AS lldt ON lld.device_type_id = lldt.id
 LEFT JOIN provider_link_layer_device AS plld ON lld.uuid = plld.device_uuid
 WHERE lld.net_node_uuid = $netNode.uuid
 `, device{}, netNode{})
@@ -464,18 +470,17 @@ WHERE ip.net_node_uuid = $netNode.uuid`, address{}, netNode{})
 
 	var result []mergeLinkLayerDevice
 	for _, device := range devices {
-		addresses, _ := addressByDeviceUUID[device.UUID]
-		deviceType, err := decodeDeviceType(device.TypeID)
-		if err != nil {
+		if !corenetwork.IsValidLinkLayerDeviceType(device.Type) {
 			return nil, errors.Errorf(
-				"decoding device type %d: %w", device.TypeID, err)
+				"unexpected device type %q", device.Type)
 		}
+		addresses, _ := addressByDeviceUUID[device.UUID]
 		result = append(result, mergeLinkLayerDevice{
 			UUID:       device.UUID,
 			Name:       device.Name,
 			MACAddress: device.MACAddress,
 			ProviderID: device.ProviderID,
-			Type:       deviceType,
+			Type:       corenetwork.LinkLayerDeviceType(device.Type),
 			Addresses: transform.Slice(addresses,
 				func(a address) mergeAddress {
 					return mergeAddress{

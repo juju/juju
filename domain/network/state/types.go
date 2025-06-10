@@ -367,33 +367,6 @@ func netInterfaceToDML(
 	return devDML, dnsSearchDMLs, dnsAddressDMLs, errors.Capture(err)
 }
 
-// decodeDeviceType returns a network interface type for an identifier congruent
-// with the database lookup.
-// The caller should have retrieved the identifier from the database directly
-// but we guard against bad input anyway.
-func decodeDeviceType(kindID int64) (corenetwork.LinkLayerDeviceType, error) {
-	switch kindID {
-	case 0:
-		return corenetwork.UnknownDevice, nil
-	case 1:
-		return corenetwork.LoopbackDevice, nil
-	case 2:
-		return corenetwork.EthernetDevice, nil
-	case 3:
-		return corenetwork.VLAN8021QDevice, nil
-	case 4:
-		return corenetwork.BondDevice, nil
-	case 5:
-		return corenetwork.BridgeDevice, nil
-	case 6:
-		return corenetwork.VXLANDevice, nil
-	default:
-		return corenetwork.UnknownDevice,
-			errors.Errorf("unsupported device type id: %q",
-				kindID)
-	}
-}
-
 // encodeDeviceType returns an identifier congruent with the database lookup for
 // a network interface type. The caller of this method should already have
 // called IsValidLinkLayerDeviceType for the input in the service layer,
