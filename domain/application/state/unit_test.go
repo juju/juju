@@ -1385,12 +1385,12 @@ func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(c 
 			return err
 		}
 		insertIPAddress0 := `INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "lld0-uuid", "10.0.0.1", "pod-net-node-uuid", 0, 3, 0, 1, "subnet-uuid")
+		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "lld0-uuid", "10.0.0.1/8", "pod-net-node-uuid", 0, 3, 0, 1, "subnet-uuid")
 		if err != nil {
 			return err
 		}
 		insertIPAddress1 := `INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertIPAddress1, "ip-address1-uuid", "lld1-uuid", "10.0.0.2", "svc-net-node-uuid", 0, 1, 1, 1, "subnet-uuid")
+		_, err = tx.ExecContext(ctx, insertIPAddress1, "ip-address1-uuid", "lld1-uuid", "10.0.0.2/8", "svc-net-node-uuid", 0, 1, 1, 1, "subnet-uuid")
 		if err != nil {
 			return err
 		}
@@ -1406,6 +1406,7 @@ func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(c 
 			Origin:  network.OriginMachine,
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.1",
+				CIDR:       "10.0.0.0/24",
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeMachineLocal,
 				ConfigType: network.ConfigDHCP,
@@ -1416,6 +1417,7 @@ func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(c 
 			Origin:  network.OriginProvider,
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.2",
+				CIDR:       "10.0.0.0/24",
 				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
 				ConfigType: network.ConfigDHCP,
@@ -1458,7 +1460,7 @@ func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesWithoutK8sService(c *t
 			return err
 		}
 		insertIPAddress0 := `INSERT INTO ip_address (uuid, net_node_uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "machine-net-node-uuid", "lld0-uuid", "10.0.0.1", 0, 3, 1, 1, "subnet-uuid")
+		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "machine-net-node-uuid", "lld0-uuid", "10.0.0.1/8", 0, 3, 1, 1, "subnet-uuid")
 		if err != nil {
 			return err
 		}
@@ -1474,6 +1476,7 @@ func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesWithoutK8sService(c *t
 			Origin:  network.OriginProvider,
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.1",
+				CIDR:       "10.0.0.0/24",
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeMachineLocal,
 				ConfigType: network.ConfigDHCP,
@@ -1533,7 +1536,7 @@ func (s *unitStateSuite) TestGetUnitAddresses(c *tc.C) {
 			return err
 		}
 		insertIPAddress0 := `INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "lld0-uuid", "10.0.0.1", "machine-net-node-uuid", 0, 3, 1, 1, "subnet-uuid")
+		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "lld0-uuid", "10.0.3.1/8", "machine-net-node-uuid", 0, 3, 1, 1, "subnet-uuid")
 		if err != nil {
 			return err
 		}
@@ -1548,7 +1551,63 @@ func (s *unitStateSuite) TestGetUnitAddresses(c *tc.C) {
 			SpaceID: "space0-uuid",
 			Origin:  network.OriginProvider,
 			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
+				Value:      "10.0.3.1",
+				CIDR:       "10.0.0.0/24",
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeMachineLocal,
+				ConfigType: network.ConfigDHCP,
+			},
+		},
+	})
+}
+
+// TestGetUnitAddressesCIDRFallback test that the MachineAddress CIDR is
+// derived from the ip_address address_value if no subnet is associated
+// with the ip_address. A side effect is that without a subnet, the
+// alpha space is returned.
+func (s *unitStateSuite) TestGetUnitAddressesCIDRFallback(c *tc.C) {
+	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
+		_, err := tx.ExecContext(ctx, insertNetNode0, "machine-net-node-uuid")
+		if err != nil {
+			return err
+		}
+		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE name = ?`
+		_, err = tx.ExecContext(ctx, updateUnit, "machine-net-node-uuid", "foo/0")
+		if err != nil {
+			return err
+		}
+		insertLLD0 := `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD0, "lld0-uuid", "machine-net-node-uuid", "lld0-name", 1500, "00:11:22:33:44:55", 0, 0)
+		if err != nil {
+			return err
+		}
+		insertIPAddress0 := `INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "lld0-uuid", "10.0.3.1/8", "machine-net-node-uuid", 0, 3, 1, 1)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	addr, err := s.state.GetUnitAddresses(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	spaceUUID := s.getSpaceUUID(c, "alpha")
+	c.Check(addr, tc.DeepEquals, network.SpaceAddresses{
+		{
+			SpaceID: spaceUUID,
+			Origin:  network.OriginProvider,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.3.1",
+				CIDR:       "10.0.0.0/8",
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeMachineLocal,
 				ConfigType: network.ConfigDHCP,
@@ -1703,6 +1762,21 @@ func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *tc.C) {
 	netNodeUUID, err := s.state.GetUnitNetNodesByName(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNodeUUID, tc.SameContents, []string{"machine-net-node-uuid"})
+}
+
+func (s *unitStateSuite) getSpaceUUID(c *tc.C, name string) network.SpaceUUID {
+	var spaceUUID network.SpaceUUID
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+
+		err := tx.QueryRow(`
+SELECT uuid
+FROM space
+WHERE space.name = ?
+`, name).Scan(&spaceUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return spaceUUID
 }
 
 type applicationSpace struct {
