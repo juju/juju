@@ -336,6 +336,7 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mach
 		"machine_requires_reboot",
 		"machine_lxd_profile",
 		"machine_agent_presence",
+		"machine_controller",
 	}
 
 	for _, table := range tables {
@@ -667,7 +668,12 @@ func (st *State) IsMachineController(ctx context.Context, mName machine.Name) (b
 
 	machineNameParam := machineName{Name: mName}
 	result := machineIsController{}
-	query := `SELECT &machineIsController.is_controller FROM machine WHERE name = $machineName.name`
+	query := `
+SELECT mc.is_controller AS &machineIsController.is_controller 
+FROM machine
+LEFT JOIN machine_controller AS mc ON mc.machine_uuid = machine.uuid
+WHERE name = $machineName.name
+`
 	queryStmt, err := st.Prepare(query, machineNameParam, result)
 	if err != nil {
 		return false, errors.Capture(err)

@@ -76,6 +76,9 @@ type BaseAddApplicationArg struct {
 // added *just* for IAAS applications.
 type AddIAASApplicationArg struct {
 	BaseAddApplicationArg
+	// IsController indicates whether the application is a controller
+	// application.
+	IsController bool
 }
 
 // AddCAASApplicationArg contains parameters for saving a CAAS application to
@@ -224,7 +227,8 @@ type InsertUnitArg struct {
 // InsertIAASUnitArg contains parameters for inserting an IAAS unit.
 type InsertIAASUnitArg struct {
 	InsertUnitArg
-	Platform deployment.Platform
+	Platform     deployment.Platform
+	IsController bool
 }
 
 // RegisterCAASUnitParams contains parameters for introducing

@@ -179,6 +179,9 @@ func ModelDDL() *schema.Schema {
 		triggersForUnmodifiableTable("charm_storage", "charm_storage table is unmodifiable, only insertions and deletions are allowed"),
 		triggersForUnmodifiableTable("charm_term", "charm_term table is unmodifiable, only insertions and deletions are allowed"),
 
+		// Machine controller is unmodifiable.
+		triggersForUnmodifiableTable("machine_controller", "machine_controller table is unmodifiable, only insertions and deletions are allowed"),
+
 		// Secret permissions do not allow subject or scope to be updated.
 		triggerGuardForTable("secret_permission",
 			"OLD.subject_type_id <> NEW.subject_type_id OR OLD.scope_uuid <> NEW.scope_uuid OR OLD.scope_type_id <> NEW.scope_type_id",

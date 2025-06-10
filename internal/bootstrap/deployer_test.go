@@ -278,6 +278,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 				Status: status.Unset,
 				Since:  ptr(now),
 			},
+			IsController: true,
 		},
 		applicationservice.AddUnitArg{},
 	)

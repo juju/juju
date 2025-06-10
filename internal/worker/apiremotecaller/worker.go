@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
@@ -192,7 +193,14 @@ func (w *remoteWorker) loop() error {
 
 			// Get the latest API addresses for all controller nodes.
 			servers, err := w.cfg.ControllerNodeService.GetAllAPIAddressesForAgents(ctx)
-			if err != nil {
+			if errors.Is(err, controllernodeerrors.EmptyAPIAddresses) {
+				// There should be at least one controller address available
+				// (itself), so if we get an empty addresses error then we can't
+				// proceed. Yet we shouldn't stop the worker coming up, so we
+				// log the error and continue to wait for the next change.
+				w.cfg.Logger.Errorf(ctx, "no API addresses available for remote workers: %v", err)
+				continue
+			} else if err != nil {
 				return errors.Trace(err)
 			}
 

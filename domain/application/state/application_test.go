@@ -964,7 +964,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourc
 	_, _, err := s.state.CreateIAASApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
 		charmResources, addResourcesArgs), nil)
 	c.Assert(err, tc.ErrorMatches,
-		`.*inserting resource "my-image": FOREIGN KEY constraint failed.*`,
+		`.*inserting resource "my-image": resource not found in charm metadata.*`,
 		tc.Commentf("(Assert) unexpected error: %s",
 			errors.ErrorStack(err)))
 }

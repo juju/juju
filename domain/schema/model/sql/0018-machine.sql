@@ -9,7 +9,6 @@ CREATE TABLE machine (
     force_destroyed BOOLEAN DEFAULT FALSE,
     agent_started_at DATETIME,
     hostname TEXT,
-    is_controller BOOLEAN,
     keep_instance BOOLEAN,
     CONSTRAINT fk_machine_net_node
     FOREIGN KEY (net_node_uuid)
@@ -39,6 +38,17 @@ CREATE TABLE machine_platform (
     CONSTRAINT fk_machine_platform_architecture
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id)
+);
+
+-- This table is only used to track whether a machine is a controller or not.
+-- It should be sparse and only contain a single row for the controller
+-- machines.
+CREATE TABLE machine_controller (
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
+    is_controller BOOLEAN,
+    CONSTRAINT fk_machine_controller_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid)
 );
 
 -- machine_placement_scope is a table which represents the valid scopes

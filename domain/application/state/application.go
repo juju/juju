@@ -364,7 +364,8 @@ func (st *State) insertIAASApplicationUnits(
 					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
 				},
 			},
-			Platform: args.Platform,
+			Platform:     args.Platform,
+			IsController: args.IsController,
 		}
 	}
 

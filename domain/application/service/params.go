@@ -82,6 +82,11 @@ type AddApplicationArgs struct {
 
 	// Placement is the placement of the application units.
 	Placement *instance.Placement
+
+	// IsController indicates whether the application is a controller
+	// application. This should only be set to true if the application
+	// is the controller application for the controller model.
+	IsController bool
 }
 
 // AddressParams contains parameters for a unit/cloud container address.

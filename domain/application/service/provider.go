@@ -175,15 +175,19 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("merging CAAS application and model constraints: %w", err)
 	}
 
-	unitArgs, err := s.makeIAASUnitArgs(units, constraints.DecodeConstraints(cons))
+	iaasUnitArgs, err := s.makeIAASUnitArgs(units, constraints.DecodeConstraints(cons))
 	if err != nil {
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("making IAAS unit args: %w", err)
 	}
+
+	unitArgs := transform.Slice(iaasUnitArgs, func(arg application.AddIAASUnitArg) application.AddUnitArg {
+		return arg.AddUnitArg
+	})
+
 	return appName, application.AddIAASApplicationArg{
-			BaseAddApplicationArg: arg,
-		}, transform.Slice(unitArgs, func(arg application.AddIAASUnitArg) application.AddUnitArg {
-			return arg.AddUnitArg
-		}), nil
+		BaseAddApplicationArg: arg,
+		IsController:          args.IsController,
+	}, unitArgs, nil
 }
 
 func (s *ProviderService) makeCAASApplicationArg(
