@@ -108,7 +108,7 @@ WITH units_alive AS (
               m.net_node_uuid,
               COUNT(ua.uuid) AS unit_alive_count,
               COUNT(una.uuid) AS unit_not_alive_count,
-			  COUNT(mp.parent_uuid) AS associated_count
+			  COUNT(mp.parent_uuid) AS machine_parent_count
     FROM      machine AS m
     JOIN      net_node AS nn ON nn.uuid = m.net_node_uuid
     LEFT JOIN units_alive AS ua ON ua.net_node_uuid = nn.uuid
@@ -116,14 +116,14 @@ WITH units_alive AS (
 	LEFT JOIN machine_parent AS mp ON mp.parent_uuid = m.uuid
     GROUP BY  m.uuid
 )
-SELECT unit_alive_count AS &entityAssociationAliveCount.alive_count,
-       unit_not_alive_count AS &entityAssociationAliveCount.not_alive_count,
-	   associated_count AS &entityAssociationAliveCount.associated_count,
-       machine_uuid AS &entityAssociationAliveCount.uuid
+SELECT unit_alive_count AS &unitMachineLifeSummary.alive_count,
+       unit_not_alive_count AS &unitMachineLifeSummary.not_alive_count,
+	   machine_parent_count AS &unitMachineLifeSummary.machine_parent_count,
+       machine_uuid AS &unitMachineLifeSummary.uuid
 FROM   machines
 LEFT JOIN unit AS u ON u.net_node_uuid = machines.net_node_uuid
 WHERE  u.uuid = $entityUUID.uuid;
-    `, unitUUID, entityAssociationAliveCount{})
+    `, unitUUID, unitMachineLifeSummary{})
 	if err != nil {
 		return "", errors.Errorf("preparing unit count query: %w", err)
 	}
@@ -137,19 +137,19 @@ AND    life_id = 0`, entityUUID{})
 		return "", errors.Errorf("preparing machine life update: %w", err)
 	}
 
-	var unitCount entityAssociationAliveCount
-	if err := tx.Query(ctx, lastUnitStmt, unitUUID).Get(&unitCount); errors.Is(err, sqlair.ErrNoRows) {
+	var result unitMachineLifeSummary
+	if err := tx.Query(ctx, lastUnitStmt, unitUUID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
 		return "", nil
 	} else if err != nil {
 		return "", errors.Errorf("getting unit count: %w", err)
-	} else if unitCount.AliveCount > 0 {
+	} else if result.AliveCount > 0 {
 		// Nothing to do.
 		return "", nil
-	} else if unitCount.NotAliveCount == 0 {
+	} else if result.NotAliveCount == 0 {
 		// No units on the machine are marked as dead or dying. If this is the
 		// case then we can assume that the machine is still alive.
 		return "", nil
-	} else if unitCount.AssociatedCount > 0 {
+	} else if result.MachineParentCount > 0 {
 		// There are child machines associated with this machine.
 		// We cannot mark the machine as dying if it has child machines.
 		return "", nil
@@ -158,7 +158,7 @@ AND    life_id = 0`, entityUUID{})
 	// We can use the outcome of the update to determine if the machine
 	// was already dying or dead, or if it was successfully advanced to dying.
 	var outcome sqlair.Outcome
-	if err := tx.Query(ctx, updateMachineStmt, entityUUID{UUID: unitCount.UUID}).Get(&outcome); err != nil {
+	if err := tx.Query(ctx, updateMachineStmt, entityUUID{UUID: result.UUID}).Get(&outcome); err != nil {
 		return "", errors.Errorf("advancing machine life: %w", err)
 	}
 
@@ -169,7 +169,7 @@ AND    life_id = 0`, entityUUID{})
 		return "", nil
 	}
 
-	return unitCount.UUID, nil
+	return result.UUID, nil
 }
 
 // UnitScheduleRemoval schedules a removal job for the unit with the

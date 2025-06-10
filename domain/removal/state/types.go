@@ -42,18 +42,19 @@ type entityAssociationCount struct {
 	Count int `db:"count"`
 }
 
-// entityAssociationCount holds a Count in int form and the UUID in string form
-// for the associated entity.
-type entityAssociationAliveCount struct {
+// unitMachineLifeSummary holds the counts of alive, not alive, and machine parent
+// entities associated with a unit identified by the UUID. It is used to
+// summarize the state of a unit in terms of its associated entities.
+type unitMachineLifeSummary struct {
 	// UUID uniquely identifies a associated domain entity.
 	UUID string `db:"uuid"`
 	// AliveCount counts the number of entities alive.
 	AliveCount int `db:"alive_count"`
 	// NotAliveCount counts the number of entities not alive.
 	NotAliveCount int `db:"not_alive_count"`
-	// AssociatedCount counts the number of entities associated with the
+	// MachineParentCount counts the number of entities associated with the
 	// entity identified by the UUID.
-	AssociatedCount int `db:"associated_count"`
+	MachineParentCount int `db:"machine_parent_count"`
 }
 
 // entityLife holds an entity's life in integer
