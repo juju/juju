@@ -95,7 +95,6 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 	}
 	sb := &storageBackend{
 		mb:              st,
-		settings:        NewStateSettings(st),
 		modelType:       m.Type(),
 		application:     st.Application,
 		allApplications: st.AllApplications,
@@ -138,7 +137,6 @@ type storageBackend struct {
 	machine         func(string) (*Machine, error)
 
 	modelType ModelType
-	settings  *StateSettings
 
 	storagePoolGetter StoragePoolGetter
 	spRegistryErr     error

@@ -64,11 +64,6 @@ func (s *AllStatus) getStatus(key, badge string) (status.StatusInfo, error) {
 	return doc.asStatusInfo(), nil
 }
 
-// MachineAgent returns the status of the machine agent.
-func (s *AllStatus) MachineAgent(machineID string) (status.StatusInfo, error) {
-	return s.getStatus(machineGlobalKey(machineID), "machine")
-}
-
 // MachineInstance returns the status of the machine instance.
 func (s *AllStatus) MachineInstance(machineID string) (status.StatusInfo, error) {
 	return s.getStatus(machineGlobalInstanceKey(machineID), "instance")
