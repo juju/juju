@@ -1287,7 +1287,8 @@ func (m *Model) destroyOps(
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			storageOps, err := checkModelEntityRefsAllReleasableStorage(sb, modelEntityRefs)
+			force := args.Force != nil && *args.Force
+			storageOps, err := checkModelEntityRefsAllReleasableStorage(sb, modelEntityRefs, force)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1553,7 +1554,7 @@ func checkModelEntityRefsNoPersistentStorage(
 // persistent storage in the model is releasable. If it is, then
 // txn.Ops are returned to assert the same; if it is not, then an
 // error is returned.
-func checkModelEntityRefsAllReleasableStorage(sb *storageBackend, doc *modelEntityRefsDoc) ([]txn.Op, error) {
+func checkModelEntityRefsAllReleasableStorage(sb *storageBackend, doc *modelEntityRefsDoc, force bool) ([]txn.Op, error) {
 	for _, volumeId := range doc.Volumes {
 		volumeTag := names.NewVolumeTag(volumeId)
 		volume, err := getVolumeByTag(sb.mb, volumeTag)
@@ -1564,9 +1565,17 @@ func checkModelEntityRefsAllReleasableStorage(sb *storageBackend, doc *modelEnti
 			continue
 		}
 		if err := checkStoragePoolReleasable(sb, volume.pool()); err != nil {
-			return nil, errors.Annotatef(err,
-				"cannot release %s", names.ReadableString(volumeTag),
-			)
+			logger.Warningf("error checking releasable volumes for model %s: %v", doc.UUID, err)
+			if !force {
+				// If the storage cannot be released, return the error without
+				// additional annotation.
+				if errors.Is(err, stateerrors.StorageNotReleasableError) {
+					return nil, errors.Trace(err)
+				}
+				return nil, errors.Annotatef(err,
+					"checking %s is releasable", names.ReadableString(volumeTag),
+				)
+			}
 		}
 	}
 	for _, filesystemId := range doc.Filesystems {
@@ -1579,9 +1588,17 @@ func checkModelEntityRefsAllReleasableStorage(sb *storageBackend, doc *modelEnti
 			continue
 		}
 		if err := checkStoragePoolReleasable(sb, filesystem.pool()); err != nil {
-			return nil, errors.Annotatef(err,
-				"cannot release %s", names.ReadableString(filesystemTag),
-			)
+			logger.Warningf("error checking releasable filesystems for model %s: %v", doc.UUID, err)
+			if !force {
+				// If the storage cannot be released, return the error without
+				// additional annotation.
+				if errors.Is(err, stateerrors.StorageNotReleasableError) {
+					return nil, errors.Trace(err)
+				}
+				return nil, errors.Annotatef(err,
+					"checking %s is releasable", names.ReadableString(filesystemTag),
+				)
+			}
 		}
 	}
 	return noNewStorageModelEntityRefs(doc), nil

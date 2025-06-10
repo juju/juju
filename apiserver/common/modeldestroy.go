@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 var sendMetrics = func(st metricsender.ModelBackend) error {
@@ -131,13 +130,7 @@ func destroyModel(st ModelManagerBackend, args state.DestroyModelParams) error {
 		}
 	}
 	if err := model.Destroy(args); err != nil {
-		if notForcing {
-			return errors.Trace(err)
-		}
-		logger.Warningf("failed destroying model %v: %v", model.UUID(), err)
-		if err := filterNonCriticalErrorForForce(err); err != nil {
-			return errors.Trace(err)
-		}
+		return errors.Annotate(err, "initiating destroy model operation")
 	}
 
 	err = sendMetrics(st)
@@ -150,12 +143,5 @@ func destroyModel(st ModelManagerBackend, args state.DestroyModelParams) error {
 	// straggler instances, and other provider-specific resources. Once all
 	// resources are torn down, the Undertaker worker handles the removal of
 	// the model.
-	return nil
-}
-
-func filterNonCriticalErrorForForce(err error) error {
-	if errors.Is(err, stateerrors.PersistentStorageError) {
-		return err
-	}
 	return nil
 }

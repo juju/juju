@@ -96,13 +96,11 @@ func (u *UndertakerAPI) ProcessDyingModel() error {
 
 // RemoveModel removes any records of this model from Juju.
 func (u *UndertakerAPI) RemoveModel() error {
-	if err := u.removeModelSecrets(); err != nil {
-		return errors.Annotate(err, "removing model secrets")
-	}
 	return u.st.RemoveDyingModel()
 }
 
-func (u *UndertakerAPI) removeModelSecrets() error {
+// RemoveModelSecrets removes any secrets associated with the model.
+func (u *UndertakerAPI) RemoveModelSecrets() error {
 	secretBackendCfg, err := u.secretBackendConfigGetter()
 	if errors.Is(err, errors.NotFound) {
 		// If backends or settings are missing, then no secrets to remove.

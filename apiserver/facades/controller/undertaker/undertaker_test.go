@@ -162,21 +162,21 @@ func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(otherSt.removed, jc.IsTrue)
+}
+
+func (s *undertakerSuite) TestRemoveModelSecrets(c *gc.C) {
+	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", nil)
+
+	err := hostedAPI.RemoveModelSecrets()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.secrets.cleanedUUID, gc.Equals, otherSt.model.uuid)
 }
 
-func (s *undertakerSuite) TestDeadRemoveModelSecretsConfigNotFound(c *gc.C) {
-	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", errors.NotFound)
+func (s *undertakerSuite) TestRemoveModelSecretsConfigNotFound(c *gc.C) {
+	_, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", errors.NotFound)
 
-	// Set model to dead
-	otherSt.model.life = state.Dying
-	err := hostedAPI.ProcessDyingModel()
-	c.Assert(err, gc.IsNil)
-
-	err = hostedAPI.RemoveModel()
+	err := hostedAPI.RemoveModelSecrets()
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(otherSt.removed, jc.IsTrue)
 	c.Assert(s.secrets.cleanedUUID, gc.Equals, "")
 }
 
