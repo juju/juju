@@ -52,6 +52,7 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *tc.C) {
 		s.ControllerDomainServices(c).Config(),
 		s.DefaultModelDomainServices(c).Machine(),
 		common.NewResources(),
+		s.DefaultModelDomainServices(c).Application(),
 		authorizer,
 		nil, nil,
 		loggertesting.WrapCheckLog(c),
