@@ -28,22 +28,30 @@ ADD WHEN FIXED.
 <!--TEMPLATE (>= 3.6.7)
 ### 🔸 **Juju 3.6.X**  
 🗓️ <DATE>  <--leave this as TBC until released into stable!
+⚙️ Features:
+* feat(secrets): handle NotFound errors in secret backend during `RemoveUserSecrets` by @ca-scribner in [#19169](https://github.com/juju/juju/pull/19169)
+* feat: open firewall ports for SSH server  proxy by @kian99 in [#19180](https://github.com/juju/juju/pull/19180)
 
 🛠️ Fixes:
+* fix: data race in state pool by @SimonRichardson in https://github.com/juju/juju/pull/19816
+* fix: associate DNS config with interfaces as appropriate by @manadart in https://github.com/juju/juju/pull/19890
 
-- Juju 3.2 doesn't accept token login[(LP203943)](https://bugs.launchpad.net/bugs/2030943)
-
-See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.X).
+🥳 New Contributors:
+* @nsklikas made their first contribution in https://github.com/juju/juju/pull/19821
 -->
 
 <!--LEGACY TEMPLATE (< 3.6.7)
 ### 🔸 **Juju 2.9.X**  - <DATE>  <--leave this as TBC until released into stable!
+⚙️ Features:
+* feat(secrets): handle NotFound errors in secret backend during `RemoveUserSecrets` by @ca-scribner in [#19169](https://github.com/juju/juju/pull/19169)
+* feat: open firewall ports for SSH server  proxy by @kian99 in [#19180](https://github.com/juju/juju/pull/19180)
 
 🛠️ Fixes:
+* fix: data race in state pool by @SimonRichardson in https://github.com/juju/juju/pull/19816
+* fix: associate DNS config with interfaces as appropriate by @manadart in https://github.com/juju/juju/pull/19890
 
-- Juju 3.2 doesn't accept token login[(LP203943)](https://bugs.launchpad.net/bugs/2030943)
-
-See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.X).
+🥳 New Contributors:
+* @nsklikas made their first contribution in https://github.com/juju/juju/pull/19821
 -->
 
 
