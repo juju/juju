@@ -1201,8 +1201,10 @@ func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationIDByUnitName(c *tc.C) {
-	u1 := application.InsertUnitArg{
-		UnitName: "foo/666",
+	u1 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/666",
+		},
 	}
 	expectedAppUUID := s.createIAASApplication(c, "foo", life.Alive, u1)
 
@@ -1217,8 +1219,10 @@ func (s *applicationStateSuite) TestGetApplicationIDByUnitNameUnitUnitNotFound(c
 }
 
 func (s *applicationStateSuite) TestGetApplicationIDAndNameByUnitName(c *tc.C) {
-	u1 := application.InsertUnitArg{
-		UnitName: "foo/666",
+	u1 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/666",
+		},
 	}
 	expectedAppUUID := s.createIAASApplication(c, "foo", life.Alive, u1)
 
@@ -1609,10 +1613,12 @@ func (s *applicationStateSuite) TestDeleteDeadApplication(c *tc.C) {
 
 func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *tc.C) {
 	ctx := c.Context()
-	u := application.InsertUnitArg{
-		UnitName: "foo/666",
+	u1 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/666",
+		},
 	}
-	s.createIAASApplication(c, "foo", life.Alive, u)
+	s.createIAASApplication(c, "foo", life.Alive, u1)
 
 	err := s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
@@ -1631,14 +1637,20 @@ func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationUnitLife(c *tc.C) {
-	u1 := application.InsertUnitArg{
-		UnitName: "foo/666",
+	u1 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/666",
+		},
 	}
-	u2 := application.InsertUnitArg{
-		UnitName: "foo/667",
+	u2 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/667",
+		},
 	}
-	u3 := application.InsertUnitArg{
-		UnitName: "bar/667",
+	u3 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "bar/667",
+		},
 	}
 	s.createIAASApplication(c, "foo", life.Alive, u1, u2)
 	s.createIAASApplication(c, "bar", life.Alive, u3)
@@ -2256,8 +2268,10 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoLocalCharm(c *tc.C)
 func (s *applicationStateSuite) TestGetApplicationsForRevisionUpdater(c *tc.C) {
 	// Create a few applications.
 	s.createIAASApplication(c, "foo", life.Alive)
-	s.createIAASApplication(c, "bar", life.Alive, application.InsertUnitArg{
-		UnitName: "bar/0",
+	s.createIAASApplication(c, "bar", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "bar/0",
+		},
 	})
 
 	// Get the applications for the revision updater.
@@ -3576,8 +3590,10 @@ func (s *applicationStateSuite) TestGetDeviceConstraintsFromCreatedApp(c *tc.C) 
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashEmpty(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
+	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+		},
 	})
 
 	hash, err := s.state.GetAddressesHash(c.Context(), appID, "net-node-uuid")
@@ -3588,8 +3604,10 @@ func (s *applicationStateSuite) TestGetAddressesHashEmpty(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetAddressesHash(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
+	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+		},
 	})
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -3633,8 +3651,10 @@ func (s *applicationStateSuite) TestGetAddressesHash(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
+	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+		},
 	})
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -3694,8 +3714,10 @@ func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *tc.C
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
+	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+		},
 	})
 
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
@@ -3723,8 +3745,10 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBindings(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
+	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+		},
 	})
 
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
@@ -3815,8 +3839,10 @@ func (s *applicationStateSuite) TestHashAddresses(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetNetNodeFromK8sService(c *tc.C) {
-	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
+	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+		},
 	})
 
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
@@ -3854,8 +3880,10 @@ func (s *applicationStateSuite) TestGetNetNodeFromK8sService(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetNetNodeFromUnit(c *tc.C) {
-	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
+	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+		},
 	})
 	expectedNetNodeUUID := "net-node-uuid"
 

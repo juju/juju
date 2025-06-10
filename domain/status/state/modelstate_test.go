@@ -1300,35 +1300,39 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C
 func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 	now := time.Now()
 
-	u1 := application.AddUnitArg{
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-				Status:  status.UnitAgentStatusIdle,
-				Message: "it's idle",
-				Data:    []byte(`{"foo": "bar"}`),
-				Since:   ptr(now),
-			},
-			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusActive,
-				Message: "it's active",
-				Data:    []byte(`{"bar": "foo"}`),
-				Since:   ptr(now),
+	u1 := application.AddIAASUnitArg{
+		AddUnitArg: application.AddUnitArg{
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status:  status.UnitAgentStatusIdle,
+					Message: "it's idle",
+					Data:    []byte(`{"foo": "bar"}`),
+					Since:   ptr(now),
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusActive,
+					Message: "it's active",
+					Data:    []byte(`{"bar": "foo"}`),
+					Since:   ptr(now),
+				},
 			},
 		},
 	}
-	u2 := application.AddUnitArg{
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-				Status:  status.UnitAgentStatusError,
-				Message: "error",
-				Data:    []byte(`{"error": "error"}`),
-				Since:   ptr(now),
-			},
-			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusError,
-				Message: "also in error",
-				Data:    []byte(`{"error": "oh noes"}`),
-				Since:   ptr(now),
+	u2 := application.AddIAASUnitArg{
+		AddUnitArg: application.AddUnitArg{
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status:  status.UnitAgentStatusError,
+					Message: "error",
+					Data:    []byte(`{"error": "error"}`),
+					Since:   ptr(now),
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusError,
+					Message: "also in error",
+					Data:    []byte(`{"error": "oh noes"}`),
+					Since:   ptr(now),
+				},
 			},
 		},
 	}
@@ -1420,21 +1424,23 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) {
 	now := time.Now()
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
-	u3 := application.AddUnitArg{
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-				Status:  status.UnitAgentStatusError,
-				Message: "error",
-				Data:    []byte(`{"error": "error"}`),
-				Since:   ptr(now),
-			},
-			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusError,
-				Message: "also in error",
-				Data:    []byte(`{"error": "oh noes"}`),
-				Since:   ptr(now),
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
+	u3 := application.AddIAASUnitArg{
+		AddUnitArg: application.AddUnitArg{
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status:  status.UnitAgentStatusError,
+					Message: "error",
+					Data:    []byte(`{"error": "error"}`),
+					Since:   ptr(now),
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusError,
+					Message: "also in error",
+					Data:    []byte(`{"error": "oh noes"}`),
+					Since:   ptr(now),
+				},
 			},
 		},
 	}

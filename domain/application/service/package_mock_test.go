@@ -147,7 +147,7 @@ func (c *MockStateAddIAASSubordinateUnitCall) DoAndReturn(f func(context.Context
 }
 
 // AddIAASUnits mocks base method.
-func (m *MockState) AddIAASUnits(arg0 context.Context, arg1 application.ID, arg2 ...application0.AddUnitArg) ([]unit.Name, []machine.Name, error) {
+func (m *MockState) AddIAASUnits(arg0 context.Context, arg1 application.ID, arg2 ...application0.AddIAASUnitArg) ([]unit.Name, []machine.Name, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1}
 	for _, a := range arg2 {
@@ -180,13 +180,13 @@ func (c *MockStateAddIAASUnitsCall) Return(arg0 []unit.Name, arg1 []machine.Name
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddIAASUnitsCall) Do(f func(context.Context, application.ID, ...application0.AddUnitArg) ([]unit.Name, []machine.Name, error)) *MockStateAddIAASUnitsCall {
+func (c *MockStateAddIAASUnitsCall) Do(f func(context.Context, application.ID, ...application0.AddIAASUnitArg) ([]unit.Name, []machine.Name, error)) *MockStateAddIAASUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddIAASUnitsCall) DoAndReturn(f func(context.Context, application.ID, ...application0.AddUnitArg) ([]unit.Name, []machine.Name, error)) *MockStateAddIAASUnitsCall {
+func (c *MockStateAddIAASUnitsCall) DoAndReturn(f func(context.Context, application.ID, ...application0.AddIAASUnitArg) ([]unit.Name, []machine.Name, error)) *MockStateAddIAASUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

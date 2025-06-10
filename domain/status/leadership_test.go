@@ -77,7 +77,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 
 	svc := s.setupService(c)
 
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	s.createApplication(c, "foo", u1)
 
 	err := svc.SetApplicationStatusForUnitLeader(c.Context(), "foo/0", status.StatusInfo{
@@ -112,7 +112,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *t
 
 	svc := s.setupService(c)
 
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	s.createApplication(c, "foo", u1)
 
 	err := svc.SetApplicationStatusForUnitLeader(c.Context(), "foo/0", status.StatusInfo{
@@ -139,7 +139,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *tc.C
 
 	svc := s.setupService(c)
 
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	s.createApplication(c, "foo", u1)
 
 	// WithLeader is racy on the context cancellation on heavily loaded systems.

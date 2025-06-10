@@ -187,9 +187,16 @@ func (st *State) GetMachineCountNotUsingBase(
 	machineCount := machineCount{}
 
 	stmt, err := st.Prepare(`
-SELECT count(*) AS &machineCount.count
-FROM   machine
-WHERE  base NOT IN ($machineBaseValues[:])
+WITH machine_bases AS (
+    SELECT     CONCAT(os.name, '@', mp.channel) AS base
+    FROM       machine AS m
+    LEFT JOIN  machine_platform AS mp ON mp.machine_uuid = m.uuid
+    LEFT JOIN  os ON mp.os_id = os.id
+    WHERE      os.name IS NOT NULL AND os.name != ''
+)
+SELECT COUNT(*) AS &machineCount.count
+FROM machine_bases AS mb
+WHERE mb.base NOT IN ($machineBaseValues[:])
 `,
 		machineBaseValues, machineCount)
 	if err != nil {

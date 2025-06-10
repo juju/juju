@@ -128,6 +128,7 @@ func (b *IAASDeployer) AddIAASControllerApplication(ctx context.Context, info De
 				Status: status.Unset,
 				Since:  ptr(b.clock.Now()),
 			},
+			Constraints: b.constraints,
 		},
 		applicationservice.AddUnitArg{},
 	); err != nil {

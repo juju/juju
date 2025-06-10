@@ -270,7 +270,7 @@ func (s *baseSuite) addCAASApplicationArgForStorage(c *tc.C,
 	return args
 }
 
-func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
+func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, units ...application.InsertIAASUnitArg) coreapplication.ID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{

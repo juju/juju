@@ -202,6 +202,12 @@ type AddUnitArg struct {
 	Placement   deployment.Placement
 }
 
+// AddIAASUnitArg contains parameters for adding a IAAS unit to state.
+type AddIAASUnitArg struct {
+	AddUnitArg
+	Platform deployment.Platform
+}
+
 // InsertUnitArg is used to insert a fully populated unit.
 // Used by import and when registering a CAAS unit.
 type InsertUnitArg struct {
@@ -213,6 +219,12 @@ type InsertUnitArg struct {
 	Storage         []ApplicationStorageArg
 	StoragePoolKind map[string]storage.StorageKind
 	UnitStatusArg
+}
+
+// InsertIAASUnitArg contains parameters for inserting an IAAS unit.
+type InsertIAASUnitArg struct {
+	InsertUnitArg
+	Platform deployment.Platform
 }
 
 // RegisterCAASUnitParams contains parameters for introducing
