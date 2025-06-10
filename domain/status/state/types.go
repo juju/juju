@@ -211,7 +211,7 @@ type filesystemUUID struct {
 	FilesystemUUID string `db:"uuid"`
 }
 
-type filesystemID struct {
+type filesystemUUIDID struct {
 	ID   string `db:"filesystem_id"`
 	UUID string `db:"uuid"`
 }
@@ -224,15 +224,15 @@ type filesystemStatusInfo struct {
 }
 
 type storageProvisioningStatusInfo struct {
-	StatusID            sql.NullInt16 `db:"status_id"`
-	StorageInstanceUUID string        `db:"storage_instance_uuid"`
+	StatusID            sql.NullInt16  `db:"status_id"`
+	StorageInstanceUUID sql.NullString `db:"storage_instance_uuid"`
 }
 
 type volumeUUID struct {
 	VolumeUUID string `db:"uuid"`
 }
 
-type volumeID struct {
+type volumeUUIDID struct {
 	ID   string `db:"volume_id"`
 	UUID string `db:"uuid"`
 }

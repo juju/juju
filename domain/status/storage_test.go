@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	statuserrors "github.com/juju/juju/domain/status/errors"
 )
 
 type storageStatusSuite struct {
@@ -75,7 +76,7 @@ func (s *storageStatusSuite) TestFilesystemStatusTransitionErrorInvalid(c *tc.C)
 	}
 	err := FilesystemStatusTransitionValid(
 		StorageFilesystemStatusTypeAttached, true, sts)
-	c.Assert(err, tc.ErrorMatches, "cannot set status.*")
+	c.Assert(err, tc.ErrorIs, statuserrors.FilesystemStatusTransitionNotValid)
 }
 
 func (s *storageStatusSuite) TestFilesystemStatusTransitionPendingInvalid(c *tc.C) {
@@ -84,7 +85,7 @@ func (s *storageStatusSuite) TestFilesystemStatusTransitionPendingInvalid(c *tc.
 	}
 	err := FilesystemStatusTransitionValid(
 		StorageFilesystemStatusTypeAttached, true, sts)
-	c.Assert(err, tc.ErrorMatches, "cannot set status.*")
+	c.Assert(err, tc.ErrorIs, statuserrors.FilesystemStatusTransitionNotValid)
 }
 
 // TestVolumeStatusDBValues ensures there's no skew between what's in the
@@ -143,7 +144,7 @@ func (s *storageStatusSuite) TestVolumeStatusTransitionErrorInvalid(c *tc.C) {
 	}
 	err := VolumeStatusTransitionValid(
 		StorageVolumeStatusTypeAttached, true, sts)
-	c.Assert(err, tc.ErrorMatches, "cannot set status.*")
+	c.Assert(err, tc.ErrorIs, statuserrors.VolumeStatusTransitionNotValid)
 }
 
 func (s *storageStatusSuite) TestVolumeStatusTransitionPendingInvalid(c *tc.C) {
@@ -152,5 +153,5 @@ func (s *storageStatusSuite) TestVolumeStatusTransitionPendingInvalid(c *tc.C) {
 	}
 	err := VolumeStatusTransitionValid(
 		StorageVolumeStatusTypeAttached, true, sts)
-	c.Assert(err, tc.ErrorMatches, "cannot set status.*")
+	c.Assert(err, tc.ErrorIs, statuserrors.VolumeStatusTransitionNotValid)
 }

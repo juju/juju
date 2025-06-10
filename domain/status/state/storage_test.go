@@ -93,7 +93,7 @@ VALUES (?, ?)`, filesystemUUID, 0)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	s.filesystemCount = s.filesystemCount + 1
+	s.filesystemCount++
 	return filesystemUUID
 }
 
@@ -107,7 +107,7 @@ VALUES (?, ?, ?)`, filesystemUUID, life.Alive, s.filesystemCount)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	s.filesystemCount = s.filesystemCount + 1
+	s.filesystemCount++
 	return filesystemUUID
 }
 
@@ -198,7 +198,7 @@ INSERT INTO storage_instance (
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.storageInstCount = s.storageInstCount + 1
+	s.storageInstCount++
 	return storageUUID
 }
 
@@ -231,10 +231,7 @@ WHERE filesystem_uuid = ?`, filesystemUUID).Scan(
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(got.Status, tc.DeepEquals, expected.Status)
-	c.Check(got.Message, tc.DeepEquals, expected.Message)
-	c.Check(got.Since, tc.NotNil)
-	c.Assert(*got.Since, tc.Before, time.Now().UTC())
+	c.Check(got, tc.DeepEquals, expected)
 }
 
 func (s *storageSuite) createVolume(c *tc.C) corestorage.VolumeUUID {
@@ -255,7 +252,7 @@ VALUES (?, ?)`, volumeUUID, 0)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	s.volumeCount = s.volumeCount + 1
+	s.volumeCount++
 	return volumeUUID
 }
 
@@ -271,7 +268,7 @@ VALUES (?, ?, ?)`, volumeUUID, life.Alive, s.volumeCount)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	s.volumeCount = s.volumeCount + 1
+	s.volumeCount++
 	return volumeUUID
 }
 
@@ -304,10 +301,7 @@ WHERE volume_uuid = ?`, volumeUUID).Scan(
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(got.Status, tc.DeepEquals, expected.Status)
-	c.Check(got.Message, tc.DeepEquals, expected.Message)
-	c.Check(got.Since, tc.NotNil)
-	c.Assert(*got.Since, tc.Before, time.Now().UTC())
+	c.Check(got, tc.DeepEquals, expected)
 }
 
 func (s *storageSuite) TestSetFilesystemStatus(c *tc.C) {

@@ -91,7 +91,7 @@ WHERE     sf.uuid = $filesystemUUID.uuid
 	if err != nil {
 		return -1, false, errors.Capture(err)
 	}
-	isProvisioned := sts.StorageInstanceUUID != ""
+	isProvisioned := sts.StorageInstanceUUID.Valid
 	return statusType, isProvisioned, nil
 }
 
@@ -122,11 +122,11 @@ func (st *State) getFilesystemUUIDByID(
 	tx *sqlair.TX,
 	id string,
 ) (storage.FilesystemUUID, error) {
-	arg := filesystemID{ID: id}
+	arg := filesystemUUIDID{ID: id}
 	stmt, err := st.Prepare(`
-SELECT &filesystemID.uuid
+SELECT &filesystemUUIDID.uuid
 FROM   storage_filesystem
-WHERE  filesystem_id = $filesystemID.filesystem_id
+WHERE  filesystem_id = $filesystemUUIDID.filesystem_id
 `, arg)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -249,7 +249,7 @@ WHERE     sv.uuid = $volumeUUID.uuid
 	if err != nil {
 		return -1, false, errors.Capture(err)
 	}
-	isProvisioned := sts.StorageInstanceUUID != ""
+	isProvisioned := sts.StorageInstanceUUID.Valid
 	return statusType, isProvisioned, nil
 }
 
@@ -280,11 +280,11 @@ func (st *State) getVolumeUUIDByID(
 	tx *sqlair.TX,
 	id string,
 ) (storage.VolumeUUID, error) {
-	arg := volumeID{ID: id}
+	arg := volumeUUIDID{ID: id}
 	stmt, err := st.Prepare(`
-SELECT &volumeID.uuid
+SELECT &volumeUUIDID.uuid
 FROM   storage_volume
-WHERE  volume_id = $volumeID.volume_id
+WHERE  volume_id = $volumeUUIDID.volume_id
 `, arg)
 	if err != nil {
 		return "", errors.Capture(err)
