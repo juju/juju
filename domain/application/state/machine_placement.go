@@ -380,9 +380,14 @@ VALUES ($machinePlatformUUID.*);
 		channel = sql.Null[string]{V: platform.Channel, Valid: true}
 	}
 
+	osType, err := encodeOSType(platform.OSType)
+	if err != nil {
+		return errors.Errorf("encoding OS type %q: %w", platform.OSType, err)
+	}
+
 	return tx.Query(ctx, stmt, machinePlatformUUID{
 		MachineUUID:    mUUID,
-		OSID:           int(platform.OSType),
+		OSID:           osType,
 		Channel:        channel,
 		ArchitectureID: arch,
 	}).Run()

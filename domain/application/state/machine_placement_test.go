@@ -606,7 +606,7 @@ func (s *unitStateSuite) ensurePlatformForMachine(c *tc.C, name machine.Name, ex
 		return tx.QueryRow(`
 SELECT mp.os_id, COALESCE(mp.channel,''), mp.architecture_id
 FROM machine AS m
-LEFt JOIN machine_platform AS mp ON m.uuid = mp.machine_uuid
+LEFT JOIN machine_platform AS mp ON m.uuid = mp.machine_uuid
 WHERE m.name = ?
 `, name).Scan(&platform.OSType, &platform.Channel, &platform.Architecture)
 	})

@@ -1329,7 +1329,7 @@ type machineInstanceUUID struct {
 
 type machinePlatformUUID struct {
 	MachineUUID    coremachine.UUID `db:"machine_uuid"`
-	OSID           int              `db:"os_id"`
+	OSID           sql.Null[int64]  `db:"os_id"`
 	Channel        sql.Null[string] `db:"channel"`
 	ArchitectureID int              `db:"architecture_id"`
 }
