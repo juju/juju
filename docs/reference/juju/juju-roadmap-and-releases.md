@@ -25,15 +25,33 @@ $ go run version/helper/main.go
 ADD WHEN FIXED.
 -->
 
-
-<!--TEMPLATE
-### 🔸 **Juju 2.9.X**  - <DATE>  <--leave this as TBC until released into stable!
+<!--TEMPLATE (>= 3.6.7)
+### 🔸 **Juju 3.6.X**  
+🗓️ <DATE>  <--leave this as TBC until released into stable!
+⚙️ Features:
+* feat(secrets): handle NotFound errors in secret backend during `RemoveUserSecrets` by @ca-scribner in [#19169](https://github.com/juju/juju/pull/19169)
+* feat: open firewall ports for SSH server  proxy by @kian99 in [#19180](https://github.com/juju/juju/pull/19180)
 
 🛠️ Fixes:
+* fix: data race in state pool by @SimonRichardson in https://github.com/juju/juju/pull/19816
+* fix: associate DNS config with interfaces as appropriate by @manadart in https://github.com/juju/juju/pull/19890
 
-- Juju 3.2 doesn't accept token login[(LP203943)](https://bugs.launchpad.net/bugs/2030943)
+🥳 New Contributors:
+* @nsklikas made their first contribution in https://github.com/juju/juju/pull/19821
+-->
 
-See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.X).
+<!--LEGACY TEMPLATE (< 3.6.7)
+### 🔸 **Juju 2.9.X**  - <DATE>  <--leave this as TBC until released into stable!
+⚙️ Features:
+* feat(secrets): handle NotFound errors in secret backend during `RemoveUserSecrets` by @ca-scribner in [#19169](https://github.com/juju/juju/pull/19169)
+* feat: open firewall ports for SSH server  proxy by @kian99 in [#19180](https://github.com/juju/juju/pull/19180)
+
+🛠️ Fixes:
+* fix: data race in state pool by @SimonRichardson in https://github.com/juju/juju/pull/19816
+* fix: associate DNS config with interfaces as appropriate by @manadart in https://github.com/juju/juju/pull/19890
+
+🥳 New Contributors:
+* @nsklikas made their first contribution in https://github.com/juju/juju/pull/19821
 -->
 
 
@@ -46,6 +64,19 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 ```{note}
 Juju 3.6 series is LTS
 ```
+
+### 🔸 **Juju 3.6.7**
+🗓️ 30 May 2025
+
+🛠️ Fixes:
+* fix: use pebble v1.19.1 by @jameinel in https://github.com/juju/juju/pull/19791
+* fix: data race in state pool by @SimonRichardson in https://github.com/juju/juju/pull/19816
+* fix: charm-user path in docs by @nsklikas in https://github.com/juju/juju/pull/19821
+* fix: slice access without guard causes panic by @SimonRichardson in https://github.com/juju/juju/pull/19820
+* fix: associate DNS config with interfaces as appropriate by @manadart in https://github.com/juju/juju/pull/19890
+
+🥳 New Contributors:
+* @nsklikas made their first contribution in https://github.com/juju/juju/pull/19821
 
 ### 🔸 **Juju 3.6.6** - 29 May 2025
 ⚙️ Features:
