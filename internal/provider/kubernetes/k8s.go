@@ -107,6 +107,8 @@ type kubernetesClient struct {
 
 	// randomPrefix generates an annotation for stateful sets.
 	randomPrefix utils.RandomPrefixFunc
+
+	environNetworking
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
@@ -199,7 +201,8 @@ func newK8sBroker(
 		randomPrefix:      randomPrefix,
 		annotations: k8sannotations.New(nil).
 			Add(utils.AnnotationModelUUIDKey(labelVersion), modelUUID),
-		labelVersion: labelVersion,
+		labelVersion:      labelVersion,
+		environNetworking: environNetworking{},
 	}
 	if len(controllerUUID) > 0 {
 		client.annotations.Add(utils.AnnotationControllerUUIDKey(labelVersion), controllerUUID)

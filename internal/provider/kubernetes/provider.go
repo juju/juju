@@ -111,8 +111,8 @@ func (p kubernetesEnvironProvider) Open(ctx context.Context, args environs.OpenP
 
 	return newK8sBroker(ctx,
 		args.ControllerUUID, k8sRestConfig, args.Config, namespace,
-		k8s.NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
-		utils.RandomPrefix, jujuclock.WallClock)
+		k8s.NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher,
+		k8swatcher.NewKubernetesStringsWatcher, utils.RandomPrefix, jujuclock.WallClock)
 }
 
 // NamespaceForModel returns the namespace which is associated with the specified model.
