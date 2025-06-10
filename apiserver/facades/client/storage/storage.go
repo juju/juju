@@ -56,7 +56,6 @@ type StorageService interface {
 
 	// ListStoragePoolsByNamesAndProviders returns the storage pools matching the cartesian
 	// product of name and provider.
-	// If no names and providers are specified, an empty slice is returned without an error.
 	// If no storage pools match the criteria, an empty slice is returned without an error.
 	ListStoragePoolsByNamesAndProviders(
 		ctx context.Context, names domainstorage.Names, providers domainstorage.Providers,

@@ -71,7 +71,7 @@ func (s *poolRemoveSuite) TestRemoveInUse(c *tc.C) {
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
 
-	pools, err := s.storageService.ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.NilNames, domainstorage.NilProviders)
+	pools, err := s.storageService.ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{}, domainstorage.Providers{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pools, tc.HasLen, 1)
 }
@@ -94,7 +94,7 @@ func (s *poolRemoveSuite) TestRemoveSomeInUse(c *tc.C) {
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolNameInUse))
 	c.Assert(results.Results[1].Error, tc.IsNil)
 
-	pools, err := s.storageService.ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.NilNames, domainstorage.NilProviders)
+	pools, err := s.storageService.ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{}, domainstorage.Providers{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pools, tc.HasLen, 1)
 }
