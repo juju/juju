@@ -21,28 +21,28 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-type linkLayerSuite struct {
+type netConfigSuite struct {
 	testhelpers.IsolationSuite
 
 	st *MockState
 }
 
-func (s *linkLayerSuite) setupMocks(c *tc.C) *gomock.Controller {
+func (s *netConfigSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.st = NewMockState(ctrl)
 	c.Cleanup(func() { s.st = nil })
 	return ctrl
 }
 
-func (s *linkLayerSuite) service(c *tc.C) *Service {
+func (s *netConfigSuite) service(c *tc.C) *Service {
 	return NewService(s.st, loggertesting.WrapCheckLog(c))
 }
 
-func TestLinkLayerSuite(t *testing.T) {
-	tc.Run(t, &linkLayerSuite{})
+func TestNetConfigSuite(t *testing.T) {
+	tc.Run(t, &netConfigSuite{})
 }
 
-func (s *linkLayerSuite) TestImportLinkLayerDevices(c *tc.C) {
+func (s *netConfigSuite) TestImportLinkLayerDevices(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	netNodeUUID := uuid.MustNewUUID().String()
@@ -64,7 +64,7 @@ func (s *linkLayerSuite) TestImportLinkLayerDevices(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *linkLayerSuite) TestImportLinkLayerDevicesMachines(c *tc.C) {
+func (s *netConfigSuite) TestImportLinkLayerDevicesMachines(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nil, errors.New("boom"))
@@ -81,7 +81,7 @@ func (s *linkLayerSuite) TestImportLinkLayerDevicesMachines(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *linkLayerSuite) TestImportLinkLayerDevicesNoContent(c *tc.C) {
+func (s *netConfigSuite) TestImportLinkLayerDevicesNoContent(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -92,7 +92,7 @@ func (s *linkLayerSuite) TestImportLinkLayerDevicesNoContent(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *linkLayerSuite) TestDeleteImportedLinkLayerDevices(c *tc.C) {
+func (s *netConfigSuite) TestDeleteImportedLinkLayerDevices(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	s.st.EXPECT().DeleteImportedLinkLayerDevices(gomock.Any()).Return(errors.New("boom"))
@@ -105,11 +105,11 @@ func (s *linkLayerSuite) TestDeleteImportedLinkLayerDevices(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *linkLayerSuite) migrationService(c *tc.C) *MigrationService {
+func (s *netConfigSuite) migrationService(c *tc.C) *MigrationService {
 	return NewMigrationService(s.st, loggertesting.WrapCheckLog(c))
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigBadUUIDError(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigBadUUIDError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := machine.UUID("bad-machine-uuid")
@@ -118,7 +118,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigBadUUIDError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigNodeNotFoundError(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigNodeNotFoundError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID, err := machine.NewUUID()
@@ -132,7 +132,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNodeNotFoundError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigSetCallError(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigSetCallError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	nUUID := "set-node-uuid"
@@ -149,7 +149,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigSetCallError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "setting net config for machine .* boom")
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigEmpty(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID, err := machine.NewUUID()
@@ -159,7 +159,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigEmpty(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ctx := c.Context()
@@ -192,7 +192,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *linkLayerSuite) TestMergeLinkLayerDevicesInvalidMachineUUID(c *tc.C) {
+func (s *netConfigSuite) TestMergeLinkLayerDevicesInvalidMachineUUID(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	invalidUUID := machine.UUID("invalid-uuid")
@@ -204,7 +204,7 @@ func (s *linkLayerSuite) TestMergeLinkLayerDevicesInvalidMachineUUID(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `invalid machine UUID: id "invalid-uuid" not valid`)
 }
 
-func (s *linkLayerSuite) TestMergeLinkLayerDevicesError(c *tc.C) {
+func (s *netConfigSuite) TestMergeLinkLayerDevicesError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -222,7 +222,7 @@ func (s *linkLayerSuite) TestMergeLinkLayerDevicesError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, stateErr)
 }
 
-func (s *linkLayerSuite) TestMergeLinkLayerDevices(c *tc.C) {
+func (s *netConfigSuite) TestMergeLinkLayerDevices(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	machineUUID := machine.UUID(uuid.MustNewUUID().String())
