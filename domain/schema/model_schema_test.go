@@ -148,12 +148,13 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_cloud_instance_status",
 		"machine_cloud_instance",
 		"machine_constraint",
+		"machine_controller",
 		"machine_filesystem",
 		"machine_lxd_profile",
 		"machine_parent",
 		"machine_placement_scope",
-		"machine_platform",
 		"machine_placement",
+		"machine_platform",
 		"machine_removals",
 		"machine_requires_reboot",
 		"machine_status_value",
@@ -553,6 +554,7 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 	additional := set.NewStrings(
 		"trg_model_immutable_delete",
 		"trg_model_immutable_update",
+		"trg_machine_controller_immutable_update",
 
 		"trg_secret_permission_guard_update",
 		"trg_sequence_guard_update",
