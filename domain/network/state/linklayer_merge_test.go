@@ -14,14 +14,12 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network"
-	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type mergeLinkLayerSuite struct {
-	schematesting.ModelSuite
+	linkLayerBaseSuite
 }
 
 func TestMergeLinkLayerSuite(t *testing.T) {
@@ -769,73 +767,6 @@ func (s *mergeLinkLayerSuite) TestComputeMergeLLDChangesIncomingWithNoMatchingEx
 	c.Check(changes.addressToRelinquish, tc.HasLen, 0)
 	c.Check(changes.newDevices, tc.HasLen, 1)
 	c.Check(changes.newDevices[0].Name, tc.Equals, "eth1")
-}
-
-// helpers
-
-// addNetNode adds a net_node to the database and returns its UUID.
-func (s *mergeLinkLayerSuite) addNetNode(c *tc.C) string {
-	nodeUUID := uuid.MustNewUUID().String()
-	s.query(c, `
-			INSERT INTO net_node (uuid)
-			VALUES (?)`, nodeUUID)
-	return nodeUUID
-}
-
-// addLinkLayerDevice adds a link layer device to the database and returns its UUID.
-func (s *mergeLinkLayerSuite) addLinkLayerDevice(
-	c *tc.C, netNodeUUID, name, macAddress string,
-	deviceType corenetwork.LinkLayerDeviceType,
-) string {
-	deviceUUID := "device-" + name + "-uuid"
-
-	deviceTypeID, err := encodeDeviceType(deviceType)
-	c.Assert(err, tc.ErrorIsNil)
-
-	mtu := int64(1500)
-
-	s.query(c, `
-		INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id, is_auto_start, is_enabled, is_default_gateway, gateway_address, vlan_tag)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, deviceUUID, netNodeUUID, name, mtu, macAddress, deviceTypeID, 0, true,
-		true, false, nil, 0)
-
-	return deviceUUID
-}
-
-// addProviderLinkLayerDevice adds a provider link layer device to the database.
-func (s *mergeLinkLayerSuite) addProviderLinkLayerDevice(
-	c *tc.C, providerID, deviceUUID string,
-) {
-	s.query(c, `
-		INSERT INTO provider_link_layer_device (provider_id, device_uuid)
-		VALUES (?, ?)
-	`, providerID, deviceUUID)
-}
-
-// addIPAddress adds an IP address to the database and returns its UUID.
-func (s *mergeLinkLayerSuite) addIPAddress(
-	c *tc.C, deviceUUID, netNodeUUID, addressValue string,
-) string {
-	addressUUID := "address-" + addressValue + "-uuid"
-
-	s.query(c, `
-		INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id, is_secondary, is_shadow)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, addressUUID, deviceUUID, addressValue, netNodeUUID, nil, 0, 4, 1, 0,
-		false, false)
-
-	return addressUUID
-}
-
-// addProviderIPAddress adds a provider IP address to the database.
-func (s *mergeLinkLayerSuite) addProviderIPAddress(
-	c *tc.C, addressUUID, providerID string,
-) {
-	s.query(c, `
-		INSERT INTO provider_ip_address (provider_id, address_uuid)
-		VALUES (?, ?)
-	`, providerID, addressUUID)
 }
 
 // createNetInterface creates a network.NetInterface for testing.
