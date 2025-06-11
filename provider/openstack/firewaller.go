@@ -660,10 +660,9 @@ func (c *neutronFirewaller) InstanceIngressRules(ctx context.ProviderCallContext
 	return rules, err
 }
 
-// Matching a security group by name only works if each name is unique.  Neutron
-// security groups are not required to have unique names.  Juju constructs unique
-// names, but there are frequently multiple matches to 'default'
-func (c *neutronFirewaller) matchingGroup(ctx context.ProviderCallContext, name string) (neutron.SecurityGroupV2, error) {
+// getSecurityGroupByName talks to Openstack to get a security group by name.
+// Here, argument name can be a group name for a model, machine or global.
+func (c *neutronFirewaller) getSecurityGroupByName(ctx context.ProviderCallContext, name string) (neutron.SecurityGroupV2, error) {
 	neutronClient := c.environ.neutron()
 
 	// If the security group has just been created, it might not be available
