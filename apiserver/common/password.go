@@ -99,7 +99,9 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 		} else if err != nil {
 			return internalerrors.Errorf("setting password for %q: %w", tag, err)
 		}
-		return nil
+
+		// TODO (stickupkid): This should be removed once we delete mongo.
+		return pc.legacySetPassword(tag, password)
 
 	// TODO: Handle the following password setting:
 	//  - model
@@ -110,6 +112,12 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 }
 
 func (pc *PasswordChanger) legacySetPassword(tag names.Tag, password string) error {
+	// This is being removed, this is to ensure we just set up the mongo
+	// password. If the state is nil, just ignore the request.
+	if pc.st == nil {
+		return nil
+	}
+
 	type isManager interface {
 		IsManager() bool
 	}

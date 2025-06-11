@@ -70,7 +70,6 @@ type DqliteInitializerFunc func(
 type ProviderFunc func(string) (environs.EnvironProvider, error)
 
 type bootstrapController interface {
-	state.Authenticator
 	Id() string
 	SetMongoPassword(password string) error
 }
@@ -421,9 +420,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 
 	newPassword, err := password.RandomPassword()
 	if err != nil {
-		return nil, err
-	}
-	if err := controllerNode.SetPassword(newPassword); err != nil {
 		return nil, err
 	}
 	if err := controllerNode.SetMongoPassword(newPassword); err != nil {

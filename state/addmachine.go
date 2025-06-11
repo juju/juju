@@ -75,11 +75,6 @@ type MachineTemplate struct {
 	// filesystems to the machine.
 	FilesystemAttachments map[names.FilesystemTag]FilesystemAttachmentParams
 
-	// Nonce holds a unique value that can be used to check
-	// if a new instance was really started for this machine.
-	// See Machine.SetProvisioned. This must be set if InstanceId is set.
-	Nonce string
-
 	// Dirty signifies whether the new machine will be treated
 	// as unclean for unit-assignment purposes.
 	Dirty bool
@@ -234,13 +229,6 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowController boo
 	// First check for obvious errors.
 	if p.Base.String() == "" {
 		return tmpl, errors.New("no base specified")
-	}
-	if p.InstanceId != "" {
-		if p.Nonce == "" {
-			return tmpl, errors.New("cannot add a machine with an instance id and no nonce")
-		}
-	} else if p.Nonce != "" {
-		return tmpl, errors.New("cannot specify a nonce without an instance id")
 	}
 
 	// We ignore all constraints if there's a placement directive.

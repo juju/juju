@@ -167,12 +167,13 @@ type MachineManagerAPI struct {
 	store                   objectstore.ObjectStore
 	controllerStore         objectstore.ObjectStore
 
-	keyUpdaterService  KeyUpdaterService
-	machineService     MachineService
-	applicationService ApplicationService
-	networkService     NetworkService
-	modelConfigService ModelConfigService
-	agentBinaryService AgentBinaryService
+	keyUpdaterService    KeyUpdaterService
+	machineService       MachineService
+	applicationService   ApplicationService
+	networkService       NetworkService
+	modelConfigService   ModelConfigService
+	agentBinaryService   AgentBinaryService
+	agentPasswordService AgentPasswordService
 
 	logger corelogger.Logger
 }
@@ -197,8 +198,9 @@ func NewMachineManagerAPI(
 	modelConfigService ModelConfigService,
 	blockCommandService BlockCommandService,
 	agentBinaryService AgentBinaryService,
+	agentPasswordService AgentPasswordService,
 ) *MachineManagerAPI {
-	api := &MachineManagerAPI{
+	return &MachineManagerAPI{
 		modelUUID:               modelUUID,
 		controllerConfigService: controllerConfigService,
 		st:                      backend,
@@ -218,8 +220,8 @@ func NewMachineManagerAPI(
 		keyUpdaterService:       keyUpdaterService,
 		modelConfigService:      modelConfigService,
 		agentBinaryService:      agentBinaryService,
+		agentPasswordService:    agentPasswordService,
 	}
-	return api
 }
 
 // AddMachines adds new machines with the supplied parameters.
@@ -405,6 +407,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 		ModelConfigService:      mm.modelConfigService,
 		MachineService:          mm.machineService,
 		AgentBinaryService:      mm.agentBinaryService,
+		AgentPasswordService:    mm.agentPasswordService,
 	}
 
 	icfg, err := InstanceConfig(

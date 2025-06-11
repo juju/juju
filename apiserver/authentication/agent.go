@@ -26,7 +26,7 @@ type AgentPasswordService interface {
 
 	// MatchesMachinePasswordHashWithNonce checks if the password with a nonce
 	// is valid or not.
-	MatchesMachinePasswordHashWithNonce(context.Context, machine.Name, string) (bool, error)
+	MatchesMachinePasswordHashWithNonce(context.Context, machine.Name, string, string) (bool, error)
 }
 
 // AgentAuthenticatorGetter is a factory for creating authenticators, which
@@ -125,7 +125,7 @@ func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.
 	machineName := machine.Name(tag.Id())
 
 	// Check if the password is correct.
-	// - If the password is empty, then we consider that a bad request
+	// - If the password or nonce is empty, then we consider that a bad request
 	//   (incorrect payload).
 	// - If the password is invalid, then we consider that unauthorized.
 	// - If the machine is not found, then we consider that unauthorized. Prevent
@@ -135,7 +135,7 @@ func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.
 	// - Any other error, is considered an internal server error.
 
 	valid, err := a.agentPasswordService.MatchesMachinePasswordHashWithNonce(ctx, machineName, credentials, nonce)
-	if errors.Is(err, agentpassworderrors.EmptyPassword) {
+	if errors.Is(err, agentpassworderrors.EmptyPassword) || errors.Is(err, agentpassworderrors.EmptyNonce) {
 		return nil, errors.Trace(apiservererrors.ErrBadRequest)
 	} else if errors.Is(err, agentpassworderrors.InvalidPassword) || errors.Is(err, applicationerrors.MachineNotFound) {
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)

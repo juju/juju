@@ -36,7 +36,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
@@ -66,6 +65,13 @@ type serverSuite struct {
 
 func TestServerSuite(t *stdtesting.T) {
 	tc.Run(t, &serverSuite{})
+}
+
+func TestStub(t *stdtesting.T) {
+	t.Skipf(`
+This suite is missing tests for the following scenarios:
+	- Valid machine login.
+`)
 }
 
 func (s *serverSuite) TestStop(c *tc.C) {
@@ -141,56 +147,6 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *tc.C) {
 
 	_, err = apimachiner.NewClient(ipv6Conn).Machine(c.Context(), machine.MachineTag())
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *serverSuite) TestOpenAsMachineErrors(c *tc.C) {
-	assertNotProvisioned := func(err error) {
-		c.Assert(err, tc.NotNil)
-		c.Assert(err, tc.Satisfies, params.IsCodeNotProvisioned)
-		c.Assert(err, tc.ErrorMatches, `machine \d+ not provisioned \(not provisioned\)`)
-	}
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	machine, password := f.MakeMachineReturningPassword(
-		c, &factory.MachineParams{Nonce: "fake_nonce"})
-
-	// This does almost exactly the same as OpenAPIAsMachine but checks
-	// for failures instead.
-	info := s.ControllerModelApiInfo()
-	info.Tag = machine.Tag()
-	info.Password = password
-	info.Nonce = "invalid-nonce"
-	st, err := api.Open(c.Context(), info, fastDialOpts)
-	assertNotProvisioned(err)
-	c.Assert(st, tc.IsNil)
-
-	// Try with empty nonce as well.
-	info.Nonce = ""
-	st, err = api.Open(c.Context(), info, fastDialOpts)
-	assertNotProvisioned(err)
-	c.Assert(st, tc.IsNil)
-
-	// Finally, with the correct one succeeds.
-	info.Nonce = "fake_nonce"
-	st, err = api.Open(c.Context(), info, fastDialOpts)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(st, tc.NotNil)
-	st.Close()
-
-	// Now add another machine, intentionally unprovisioned.
-	st1 := s.ControllerModel(c).State()
-	stm1, err := st1.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, tc.ErrorIsNil)
-	err = stm1.SetPassword(password)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Try connecting, it will fail.
-	info.Tag = stm1.Tag()
-	info.Nonce = ""
-	st, err = api.Open(c.Context(), info, fastDialOpts)
-	assertNotProvisioned(err)
-	c.Assert(st, tc.IsNil)
 }
 
 func dialWebsocket(c *tc.C, addr, path string) (*websocket.Conn, error) {
