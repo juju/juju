@@ -192,19 +192,19 @@ func (s *netConfigSuite) TestSetMachineNetConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *netConfigSuite) TestMergeLinkLayerDevicesInvalidMachineUUID(c *tc.C) {
+func (s *netConfigSuite) TestSetProviderNetConfigInvalidMachineUUID(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	invalidUUID := machine.UUID("invalid-uuid")
 
 	// Act
-	err := s.service(c).MergeLinkLayerDevice(c.Context(), invalidUUID, nil)
+	err := s.service(c).SetProviderNetConfig(c.Context(), invalidUUID, nil)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `invalid machine UUID: id "invalid-uuid" not valid`)
 }
 
-func (s *netConfigSuite) TestMergeLinkLayerDevicesError(c *tc.C) {
+func (s *netConfigSuite) TestSetProviderNetConfigError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -216,13 +216,13 @@ func (s *netConfigSuite) TestMergeLinkLayerDevicesError(c *tc.C) {
 		incoming).Return(stateErr)
 
 	// Act
-	err := s.service(c).MergeLinkLayerDevice(c.Context(), machineUUID, incoming)
+	err := s.service(c).SetProviderNetConfig(c.Context(), machineUUID, incoming)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, stateErr)
 }
 
-func (s *netConfigSuite) TestMergeLinkLayerDevices(c *tc.C) {
+func (s *netConfigSuite) TestSetProviderNetConfig(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	machineUUID := machine.UUID(uuid.MustNewUUID().String())
@@ -233,7 +233,7 @@ func (s *netConfigSuite) TestMergeLinkLayerDevices(c *tc.C) {
 	s.st.EXPECT().MergeLinkLayerDevice(gomock.Any(), machineUUID.String(), incoming).Return(nil)
 
 	// Act
-	err := s.service(c).MergeLinkLayerDevice(c.Context(), machineUUID, incoming)
+	err := s.service(c).SetProviderNetConfig(c.Context(), machineUUID, incoming)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)

@@ -46,9 +46,9 @@ func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []in
 	return s.st.ImportLinkLayerDevices(ctx, useData)
 }
 
-// MergeLinkLayerDevice merges the existing link layer devices with the
+// SetProviderNetConfig merges the existing link layer devices with the
 // incoming ones.
-func (s *Service) MergeLinkLayerDevice(
+func (s *Service) SetProviderNetConfig(
 	ctx context.Context,
 	machineUUID machine.UUID,
 	incoming []network.NetInterface,
