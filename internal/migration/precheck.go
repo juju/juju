@@ -175,7 +175,8 @@ func TargetPrecheck(
 		if model.UUID() == modelInfo.UUID && mode != state.MigrationModeImporting {
 			return errors.Errorf("model with same UUID already exists (%s)", modelInfo.UUID)
 		}
-		if model.Name() == modelInfo.Name && model.Owner() == modelInfo.Owner {
+		// TODO - model owner comes from mongo and will be replace by a Qualifier.
+		if model.Name() == modelInfo.Name && model.Owner().Id() == modelInfo.Qualifier.String() {
 			return errors.Errorf("model named %q already exists", model.Name())
 		}
 	}

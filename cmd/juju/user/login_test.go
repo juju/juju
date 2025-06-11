@@ -124,10 +124,10 @@ func (s *LoginCommandSuite) TestLoginAlreadyLoggedInSameUser(c *tc.C) {
 func (s *LoginCommandSuite) TestLoginWithOneAvailableModel(c *tc.C) {
 	s.PatchValue(user.ListModels, func(_ context.Context, c api.Connection, userName string) ([]apibase.UserModel, error) {
 		return []apibase.UserModel{{
-			Name:  "foo",
-			UUID:  "some-uuid",
-			Owner: "bob",
-			Type:  "iaas",
+			Name:      "foo",
+			UUID:      "some-uuid",
+			Qualifier: "prod",
+			Type:      "iaas",
 		}}, nil
 	})
 	err := s.store.RemoveAccount("testing")
@@ -137,22 +137,22 @@ func (s *LoginCommandSuite) TestLoginWithOneAvailableModel(c *tc.C) {
 	c.Check(stdout, tc.Equals, "")
 	c.Check(stderr, tc.Matches, `Welcome, user@external. You are now logged into "testing".
 
-Current model set to "bob/foo".
+Current model set to "prod/foo".
 `)
 }
 
 func (s *LoginCommandSuite) TestLoginWithSeveralAvailableModels(c *tc.C) {
 	s.PatchValue(user.ListModels, func(_ context.Context, c api.Connection, userName string) ([]apibase.UserModel, error) {
 		return []apibase.UserModel{{
-			Name:  "foo",
-			UUID:  "some-uuid",
-			Owner: "bob",
-			Type:  "iaas",
+			Name:      "foo",
+			UUID:      "some-uuid",
+			Qualifier: "prod",
+			Type:      "iaas",
 		}, {
-			Name:  "bar",
-			UUID:  "some-uuid",
-			Owner: "alice",
-			Type:  "iaas",
+			Name:      "bar",
+			UUID:      "some-uuid",
+			Qualifier: "staging",
+			Type:      "iaas",
 		}}, nil
 	})
 	err := s.store.RemoveAccount("testing")
@@ -164,8 +164,8 @@ func (s *LoginCommandSuite) TestLoginWithSeveralAvailableModels(c *tc.C) {
 
 There are 2 models available. Use "juju switch" to select
 one of them:
-  - juju switch alice/bar
-  - juju switch bob/foo
+  - juju switch prod/foo
+  - juju switch staging/bar
 `)
 }
 
@@ -293,8 +293,8 @@ Trust remote controller? (y/N):
 Welcome, new-user. You are now logged into "foo".
 
 There are no models available. You can add models with
-"juju add-model", or you can ask an administrator or owner
-of a model to grant access to that model with "juju grant".
+"juju add-model", or you can ask an administrator of a
+model to grant access to that model with "juju grant".
 `,
 		},
 		{
@@ -348,8 +348,8 @@ CA fingerprint: [` + fingerprint + `]
 Welcome, new-user. You are now logged into "foo".
 
 There are no models available. You can add models with
-"juju add-model", or you can ask an administrator or owner
-of a model to grant access to that model with "juju grant".
+"juju add-model", or you can ask an administrator of a
+model to grant access to that model with "juju grant".
 `,
 			expCode: 0,
 		},

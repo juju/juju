@@ -29,7 +29,7 @@ type ModelConfigResults struct {
 // aggressively.
 type HostedModelConfig struct {
 	Name      string                 `json:"name"`
-	OwnerTag  string                 `json:"owner"`
+	Qualifier string                 `json:"qualifier"`
 	Config    map[string]interface{} `json:"config,omitempty"`
 	CloudSpec *CloudSpec             `json:"cloud-spec,omitempty"`
 	Error     *Error                 `json:"error,omitempty"`
@@ -144,8 +144,8 @@ type ModelInfo struct {
 	// CloudCredentialValidity contains if model credential is valid, if known.
 	CloudCredentialValidity *bool `json:"cloud-credential-validity,omitempty"`
 
-	// OwnerTag is the tag of the user that owns the model.
-	OwnerTag string `json:"owner-tag"`
+	// Qualifier disambiguates the model name.
+	Qualifier string `json:"qualifier"`
 
 	// Life is the current lifecycle state of the model.
 	Life life.Value `json:"life"`
@@ -194,6 +194,7 @@ type SupportedFeature struct {
 // ModelSummary holds summary about a Juju model.
 type ModelSummary struct {
 	Name               string `json:"name"`
+	Qualifier          string `json:"qualifier"`
 	UUID               string `json:"uuid"`
 	Type               string `json:"type"`
 	ControllerUUID     string `json:"controller-uuid"`
@@ -202,9 +203,6 @@ type ModelSummary struct {
 	CloudTag           string `json:"cloud-tag"`
 	CloudRegion        string `json:"cloud-region,omitempty"`
 	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
-
-	// OwnerTag is the tag of the user that owns the model.
-	OwnerTag string `json:"owner-tag"`
 
 	// Life is the current lifecycle state of the model.
 	Life life.Value `json:"life"`

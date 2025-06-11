@@ -14,9 +14,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v6"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -229,8 +231,8 @@ func (c *replCommand) getPrompt() (prompt string, err error) {
 	if userName != "" {
 		controllerName = userName + "@" + controllerName
 		if jujuclient.IsQualifiedModelName(modelName) {
-			baseModelName, userTag, _ := jujuclient.SplitModelName(modelName)
-			if userName == userTag.Name() {
+			baseModelName, qualifier, _ := jujuclient.SplitModelName(modelName)
+			if model.QualifierFromUserTag(names.NewUserTag(userName)).String() == qualifier {
 				modelName = baseModelName
 			}
 		}

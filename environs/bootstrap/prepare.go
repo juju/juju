@@ -155,8 +155,8 @@ func decorateAndWriteInfo(
 	details prepareDetails,
 	controllerName, modelName string,
 ) error {
-	qualifiedModelName := jujuclient.JoinOwnerModelName(
-		names.NewUserTag(details.AccountDetails.User),
+	qualifiedModelName := jujuclient.QualifyModelName(
+		model.QualifierFromUserTag(names.NewUserTag(details.AccountDetails.User)).String(),
 		modelName,
 	)
 	if err := store.AddController(controllerName, details.ControllerDetails); err != nil {
