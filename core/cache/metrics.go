@@ -22,6 +22,8 @@ const (
 	agentStatusLabel      = "agent_status"
 	instanceStatusLabel   = "instance_status"
 	workloadStatusLabel   = "workload_status"
+	baseLabel             = "base"
+	archLabel             = "arch"
 )
 
 var (
@@ -29,6 +31,8 @@ var (
 		agentStatusLabel,
 		lifeLabel,
 		instanceStatusLabel,
+		baseLabel,
+		archLabel,
 	}
 
 	applicationLabelNames = []string{
@@ -39,6 +43,7 @@ var (
 		agentStatusLabel,
 		lifeLabel,
 		workloadStatusLabel,
+		baseLabel,
 	}
 
 	modelLabelNames = []string{
@@ -174,7 +179,7 @@ type Collector struct {
 	units        *prometheus.GaugeVec
 	users        *prometheus.GaugeVec
 
-	// Since the collector resets the GuageVecs and iterates the model cache,
+	// Since the collector resets the GaugeVecs and iterates the model cache,
 	// we need to ensure that we don't have overlapping collect calls.
 	mu sync.Mutex
 }
@@ -305,10 +310,16 @@ func (c *Collector) updateModelMetrics(modelUUID string) {
 	defer model.mu.Unlock()
 
 	for _, machine := range model.machines {
+		arch := "unknown"
+		if machine.details.HardwareCharacteristics != nil && machine.details.HardwareCharacteristics.Arch != nil {
+			arch = *machine.details.HardwareCharacteristics.Arch
+		}
 		c.machines.With(prometheus.Labels{
 			agentStatusLabel:    string(machine.details.AgentStatus.Status),
 			lifeLabel:           string(machine.details.Life),
 			instanceStatusLabel: string(machine.details.InstanceStatus.Status),
+			baseLabel:           machine.details.Base,
+			archLabel:           arch,
 		}).Inc()
 	}
 	for _, app := range model.applications {
@@ -321,6 +332,7 @@ func (c *Collector) updateModelMetrics(modelUUID string) {
 			agentStatusLabel:    string(unit.details.AgentStatus.Status),
 			lifeLabel:           string(unit.details.Life),
 			workloadStatusLabel: string(unit.details.WorkloadStatus.Status),
+			baseLabel:           unit.details.Base,
 		}).Inc()
 	}
 
