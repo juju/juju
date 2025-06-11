@@ -826,15 +826,18 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
 	}
 
-	// This check ensures that we don't break the existing deploy logic
-	// until the server-side bundle expansion work lands.
-	cfg, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	returnPendingCharms := cfg.Features().Contains(feature.AsynchronousCharmDownloads)
-	if cdoc.PendingUpload && !returnPendingCharms {
-		return nil, errors.NotFoundf("charm %q", charmID)
+	if cdoc.PendingUpload {
+		// This charm is listed as "pending", check to see if the server side feature is enabled
+		// This check ensures that we don't break the existing deploy logic
+		// until the server-side bundle expansion work lands.
+		cfg, err := st.ControllerConfig()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		returnPendingCharms := cfg.Features().Contains(feature.AsynchronousCharmDownloads)
+		if !returnPendingCharms {
+			return nil, errors.NotFoundf("charm %q", charmID)
+		}
 	}
 	return newCharm(st, &cdoc), nil
 }
