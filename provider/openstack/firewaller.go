@@ -37,6 +37,7 @@ var shortRetryStrategy = retry.CallArgs{
 	Clock:       clock.WallClock,
 	MaxDuration: 5 * time.Second,
 	Delay:       200 * time.Millisecond,
+	BackoffFunc: retry.DoubleDelay,
 }
 
 // FirewallerFactory for obtaining firewaller object.
