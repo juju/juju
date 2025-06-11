@@ -1233,6 +1233,7 @@ type createMachine struct {
 	NetNodeUUID string           `db:"net_node_uuid"`
 	Name        coremachine.Name `db:"name"`
 	LifeID      life.Life        `db:"life_id"`
+	Nonce       sql.Null[string] `db:"nonce"`
 }
 
 type machineNameWithNetNode struct {

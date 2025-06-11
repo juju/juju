@@ -33,9 +33,9 @@ type State interface {
 	// SetMachinePasswordHash sets the password hash for the given machine.
 	SetMachinePasswordHash(context.Context, machine.UUID, agentpassword.PasswordHash) error
 
-	// MatchesMachinePasswordHash checks if the password is valid or not against
-	// the password hash stored in the database.
-	MatchesMachinePasswordHash(context.Context, machine.UUID, agentpassword.PasswordHash) (bool, error)
+	// MatchesMachinePasswordHashWithNonce checks if the password is valid or
+	// not against the password hash with the nonce stored in the database.
+	MatchesMachinePasswordHashWithNonce(context.Context, machine.UUID, agentpassword.PasswordHash, string) (bool, error)
 }
 
 // Service provides the means for interacting with the passwords in a model.
@@ -117,9 +117,9 @@ func (s *Service) SetMachinePassword(ctx context.Context, machineName machine.Na
 	return s.st.SetMachinePasswordHash(ctx, machineUUID, hashPassword(password))
 }
 
-// MatchesMachinePasswordHash checks if the password is valid or not against the
-// password hash stored in the database.
-func (s *Service) MatchesMachinePasswordHash(ctx context.Context, machineName machine.Name, password string) (bool, error) {
+// MatchesMachinePasswordHashWithNonce checks if the password with a nonce is
+// valid or not against the password hash stored in the database.
+func (s *Service) MatchesMachinePasswordHashWithNonce(ctx context.Context, machineName machine.Name, password, nonce string) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -134,12 +134,16 @@ func (s *Service) MatchesMachinePasswordHash(ctx context.Context, machineName ma
 		return false, errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
+	if nonce == "" {
+		return false, passworderrors.EmptyNonce
+	}
+
 	unitUUID, err := s.st.GetMachineUUID(ctx, machineName)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	return s.st.MatchesMachinePasswordHash(ctx, unitUUID, hashPassword(password))
+	return s.st.MatchesMachinePasswordHashWithNonce(ctx, unitUUID, hashPassword(password), nonce)
 }
 
 func hashPassword(p string) agentpassword.PasswordHash {

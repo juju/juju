@@ -596,7 +596,7 @@ func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *tc.C) {
 		_, _, err := s.state.insertMachineAndNetNode(c.Context(), tx, machine.Name("0"), deployment.Platform{
 			OSType:       deployment.Ubuntu,
 			Architecture: architecture.ARM64,
-		})
+		}, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
