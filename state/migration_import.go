@@ -333,7 +333,6 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		DocID:                    i.st.docID(id),
 		Id:                       id,
 		ModelUUID:                i.st.ModelUUID(),
-		Nonce:                    m.Nonce(),
 		Base:                     macBase.Normalise(),
 		ContainerType:            m.ContainerType(),
 		Principals:               nil, // Set during unit import.

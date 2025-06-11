@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	authentication "github.com/juju/juju/apiserver/authentication"
+	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
@@ -102,6 +103,45 @@ func NewMockAgentPasswordService(ctrl *gomock.Controller) *MockAgentPasswordServ
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAgentPasswordService) EXPECT() *MockAgentPasswordServiceMockRecorder {
 	return m.recorder
+}
+
+// MatchesMachinePasswordHashWithNonce mocks base method.
+func (m *MockAgentPasswordService) MatchesMachinePasswordHashWithNonce(arg0 context.Context, arg1 machine.Name, arg2, arg3 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MatchesMachinePasswordHashWithNonce", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MatchesMachinePasswordHashWithNonce indicates an expected call of MatchesMachinePasswordHashWithNonce.
+func (mr *MockAgentPasswordServiceMockRecorder) MatchesMachinePasswordHashWithNonce(arg0, arg1, arg2, arg3 any) *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MatchesMachinePasswordHashWithNonce", reflect.TypeOf((*MockAgentPasswordService)(nil).MatchesMachinePasswordHashWithNonce), arg0, arg1, arg2, arg3)
+	return &MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall{Call: call}
+}
+
+// MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall wrap *gomock.Call
+type MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall) Return(arg0 bool, arg1 error) *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall) Do(f func(context.Context, machine.Name, string, string) (bool, error)) *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall) DoAndReturn(f func(context.Context, machine.Name, string, string) (bool, error)) *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // MatchesUnitPasswordHash mocks base method.

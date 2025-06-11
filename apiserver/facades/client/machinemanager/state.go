@@ -46,7 +46,6 @@ type Pool interface {
 type Machine interface {
 	Id() string
 	Tag() names.Tag
-	SetPassword(string) error
 	Destroy(objectstore.ObjectStore) error
 	ForceDestroy(time.Duration) error
 	Base() state.Base

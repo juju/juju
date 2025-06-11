@@ -97,7 +97,6 @@ type machineDoc struct {
 	Id             string `bson:"machineid"`
 	ModelUUID      string `bson:"model-uuid"`
 	Base           Base   `bson:"base"`
-	Nonce          string
 	ContainerType  string
 	Principals     []string
 	Life           Life
@@ -1018,52 +1017,6 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	return units, nil
 }
 
-// SetProvisioned stores the machine's provider-specific details in the
-// database. These details are used to infer that the machine has
-// been provisioned.
-//
-// When provisioning an instance, a nonce should be created and passed
-// when starting it, before adding the machine to the state. This means
-// that if the provisioner crashes (or its connection to the state is
-// lost) after starting the instance, we can be sure that only a single
-// instance will be able to act for that machine.
-//
-// Once set, the instance id cannot be changed. A non-empty instance id
-// will be detected as a provisioned machine.
-func (m *Machine) SetProvisioned(
-	id instance.Id,
-	displayName string,
-	nonce string,
-	characteristics *instance.HardwareCharacteristics,
-) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set instance data for machine %q", m)
-
-	if id == "" || nonce == "" {
-		return fmt.Errorf("instance id and nonce cannot be empty")
-	}
-
-	ops := []txn.Op{
-		{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: append(notDeadDoc, bson.DocElem{Name: "nonce", Value: ""}),
-			Update: bson.D{{"$set", bson.D{{"nonce", nonce}}}},
-		},
-	}
-
-	if err = m.st.db().RunTransaction(ops); err == nil {
-		m.doc.Nonce = nonce
-		return nil
-	} else if err != txn.ErrAborted {
-		return err
-	} else if aliveOrDying, err := isNotDead(m.st, machinesC, m.doc.DocID); err != nil {
-		return err
-	} else if !aliveOrDying {
-		return errDeadOrGone
-	}
-	return fmt.Errorf("already set")
-}
-
 // SetInstanceInfo is used to provision a machine and in one step sets its
 // instance ID, nonce, hardware characteristics, add link-layer devices and set
 // their addresses as needed.  After, set charm profiles if needed.
@@ -1112,7 +1065,7 @@ func (m *Machine) SetInstanceInfo(
 		}
 	}
 
-	return errors.Trace(m.SetProvisioned(id, displayName, nonce, characteristics))
+	return nil
 }
 
 // Addresses returns any hostnames and ips associated with a machine,
@@ -1435,11 +1388,6 @@ func (m *Machine) setAddressesOps(
 	ops = append(ops, setPrivateAddressOps...)
 	ops = append(ops, setPublicAddressOps...)
 	return ops, machineStateAddresses, providerStateAddresses, newPrivate, newPublic, nil
-}
-
-// CheckProvisioned returns true if the machine was provisioned with the given nonce.
-func (m *Machine) CheckProvisioned(nonce string) bool {
-	return nonce == m.doc.Nonce && nonce != ""
 }
 
 // String returns a unique description of this machine.

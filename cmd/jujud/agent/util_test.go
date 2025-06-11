@@ -172,8 +172,11 @@ func (s *commonMachineSuite) configureMachine(c *tc.C, machineId string, vers se
 	// Set up the new machine.
 	err = m.SetAgentVersion(vers)
 	c.Assert(err, tc.ErrorIsNil)
-	err = m.SetPassword(initialMachinePassword)
+
+	passwordService := s.ControllerDomainServices(c).AgentPassword()
+	err = passwordService.SetMachinePassword(c.Context(), machine.Name(m.Id()), initialMachinePassword)
 	c.Assert(err, tc.ErrorIsNil)
+
 	tag := m.Tag()
 	if m.IsManager() {
 		err = m.SetMongoPassword(initialMachinePassword)

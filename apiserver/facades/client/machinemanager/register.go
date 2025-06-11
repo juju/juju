@@ -88,5 +88,6 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		domainServices.Config(),
 		domainServices.BlockCommand(),
 		domainServices.AgentBinary(),
+		domainServices.AgentPassword(),
 	), nil
 }

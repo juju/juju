@@ -193,55 +193,6 @@ func (factory *Factory) paramsFillDefaults(c *tc.C, params *MachineParams) *Mach
 	return params
 }
 
-// MakeMachineNested will make a machine nested in the machine with ID given.
-// Deprecated: Testing factory is being removed and should not be used in new
-// tests.
-func (factory *Factory) MakeMachineNested(c *tc.C, parentId string, params *MachineParams) *state.Machine {
-	params = factory.paramsFillDefaults(c, params)
-	machineTemplate := state.MachineTemplate{
-		Base:        params.Base,
-		Jobs:        params.Jobs,
-		Volumes:     params.Volumes,
-		Filesystems: params.Filesystems,
-		Constraints: params.Constraints,
-	}
-
-	m, err := factory.st.AddMachineInsideMachine(
-		machineTemplate,
-		parentId,
-		instance.LXD,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	err = m.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
-	c.Assert(err, tc.ErrorIsNil)
-	current := testing.CurrentVersion()
-	err = m.SetAgentVersion(current)
-	c.Assert(err, tc.ErrorIsNil)
-	return m
-}
-
-// MakeMachine will add a machine with values defined in params. For some
-// values in params, if they are missing, some meaningful empty values will be
-// set.
-// If params is not specified, defaults are used.
-// Deprecated: Testing factory is being removed and should not be used in new
-// tests.
-func (factory *Factory) MakeMachine(c *tc.C, params *MachineParams) *state.Machine {
-	machine, _ := factory.MakeMachineReturningPassword(c, params)
-	return machine
-}
-
-// MakeMachineReturningPassword will add a machine with values defined in
-// params. For some values in params, if they are missing, some meaningful
-// empty values will be set. If params is not specified, defaults are used.
-// The machine and its password are returned.
-// Deprecated: Testing factory is being removed and should not be used in new
-// tests.
-func (factory *Factory) MakeMachineReturningPassword(c *tc.C, params *MachineParams) (*state.Machine, string) {
-	params = factory.paramsFillDefaults(c, params)
-	return factory.makeMachineReturningPassword(c, params, true)
-}
-
 // MakeUnprovisionedMachineReturningPassword will add a machine with values
 // defined in params. For some values in params, if they are missing, some
 // meaningful empty values will be set. If params is not specified, defaults
@@ -259,10 +210,10 @@ func (factory *Factory) MakeUnprovisionedMachineReturningPassword(c *tc.C, param
 	params.Nonce = ""
 	params.InstanceId = ""
 	params.Characteristics = nil
-	return factory.makeMachineReturningPassword(c, params, false)
+	return factory.makeMachineReturningPassword(c, params)
 }
 
-func (factory *Factory) makeMachineReturningPassword(c *tc.C, params *MachineParams, setProvisioned bool) (*state.Machine, string) {
+func (factory *Factory) makeMachineReturningPassword(c *tc.C, params *MachineParams) (*state.Machine, string) {
 	machineTemplate := state.MachineTemplate{
 		Base:        params.Base,
 		Jobs:        params.Jobs,
@@ -275,12 +226,6 @@ func (factory *Factory) makeMachineReturningPassword(c *tc.C, params *MachinePar
 		machineTemplate.HardwareCharacteristics = *params.Characteristics
 	}
 	machine, err := factory.st.AddOneMachine(machineTemplate)
-	c.Assert(err, tc.ErrorIsNil)
-	if setProvisioned {
-		err = machine.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
-		c.Assert(err, tc.ErrorIsNil)
-	}
-	err = machine.SetPassword(params.Password)
 	c.Assert(err, tc.ErrorIsNil)
 	if len(params.Addresses) > 0 {
 		err = machine.SetProviderAddresses(factory.controllerConfig, params.Addresses...)
