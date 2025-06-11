@@ -223,6 +223,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	var noStatus params.FullStatus
 	var context statusContext
 	context.cachedModel = c.api.modelCache
+	context.appCharmCache = map[string]string{}
 
 	m, err := c.api.stateAccessor.Model()
 	if err != nil {
@@ -625,6 +626,9 @@ type statusContext struct {
 	spaceInfos network.SpaceInfos
 
 	primaryHAMachine *names.MachineTag
+
+	// Cache the map from an application to its charm information
+	appCharmCache map[string]string
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -1527,6 +1531,29 @@ func (context *statusContext) processUnits(units map[string]*state.Unit, applica
 	return unitsMap
 }
 
+func (context *statusContext) getAppCharm(unit *state.Unit) string {
+	appName := unit.ApplicationName()
+	charmStr, ok := context.appCharmCache[appName]
+	if ok {
+		return charmStr
+	}
+	app, err := unit.Application()
+	if err != nil {
+		logger.Debugf("error fetching subordinate application for %q: %q", appName, err.Error())
+		context.appCharmCache[appName] = ""
+		return ""
+	}
+	appCharm, _, err := app.Charm()
+	if err != nil {
+		logger.Debugf("error fetching subordinate application charm for %q: %q", appName, err.Error())
+		context.appCharmCache[appName] = ""
+		return ""
+	}
+	charmStr = appCharm.String()
+	context.appCharmCache[appName] = charmStr
+	return charmStr
+}
+
 func (context *statusContext) unitMachineID(unit *state.Unit) string {
 	// This should never happen, but guarding against segfaults if for
 	// some reason the unit isn't in the context.
@@ -1602,19 +1629,7 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 			subUnit := context.unitByName(name)
 			// subUnit may be nil if subordinate was filtered out.
 			if subUnit != nil {
-				subUnitAppCharm := ""
-				subUnitApp, err := subUnit.Application()
-				if err == nil {
-					if subUnitAppCh, _, err := subUnitApp.Charm(); err == nil {
-						subUnitAppCharm = subUnitAppCh.String()
-					} else {
-						logger.Debugf("error fetching subordinate application charm for %q: %q", subUnit.ApplicationName(), err.Error())
-					}
-				} else {
-					// We can still run processUnit with an empty string for
-					// the ApplicationCharm.
-					logger.Debugf("error fetching subordinate application for %q: %q", subUnit.ApplicationName(), err.Error())
-				}
+				subUnitAppCharm := context.getAppCharm(subUnit)
 				result.Subordinates[name] = context.processUnit(subUnit, subUnitAppCharm, true)
 			}
 		}
