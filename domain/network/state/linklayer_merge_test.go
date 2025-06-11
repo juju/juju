@@ -15,14 +15,12 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network"
-	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type mergeLinkLayerSuite struct {
-	schematesting.ModelSuite
+	linkLayerBaseSuite
 }
 
 func TestMergeLinkLayerSuite(t *testing.T) {

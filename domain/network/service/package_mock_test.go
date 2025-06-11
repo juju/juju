@@ -315,6 +315,45 @@ func (c *MockStateDeleteSubnetCall) DoAndReturn(f func(context.Context, string) 
 	return c
 }
 
+// GetAllLinkLayerDevicesByNetNodeUUIDs mocks base method.
+func (m *MockState) GetAllLinkLayerDevicesByNetNodeUUIDs(arg0 context.Context) (map[string][]network0.NetInterface, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllLinkLayerDevicesByNetNodeUUIDs", arg0)
+	ret0, _ := ret[0].(map[string][]network0.NetInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllLinkLayerDevicesByNetNodeUUIDs indicates an expected call of GetAllLinkLayerDevicesByNetNodeUUIDs.
+func (mr *MockStateMockRecorder) GetAllLinkLayerDevicesByNetNodeUUIDs(arg0 any) *MockStateGetAllLinkLayerDevicesByNetNodeUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllLinkLayerDevicesByNetNodeUUIDs", reflect.TypeOf((*MockState)(nil).GetAllLinkLayerDevicesByNetNodeUUIDs), arg0)
+	return &MockStateGetAllLinkLayerDevicesByNetNodeUUIDsCall{Call: call}
+}
+
+// MockStateGetAllLinkLayerDevicesByNetNodeUUIDsCall wrap *gomock.Call
+type MockStateGetAllLinkLayerDevicesByNetNodeUUIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllLinkLayerDevicesByNetNodeUUIDsCall) Return(arg0 map[string][]network0.NetInterface, arg1 error) *MockStateGetAllLinkLayerDevicesByNetNodeUUIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllLinkLayerDevicesByNetNodeUUIDsCall) Do(f func(context.Context) (map[string][]network0.NetInterface, error)) *MockStateGetAllLinkLayerDevicesByNetNodeUUIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllLinkLayerDevicesByNetNodeUUIDsCall) DoAndReturn(f func(context.Context) (map[string][]network0.NetInterface, error)) *MockStateGetAllLinkLayerDevicesByNetNodeUUIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllSpaces mocks base method.
 func (m *MockState) GetAllSpaces(arg0 context.Context) (network.SpaceInfos, error) {
 	m.ctrl.T.Helper()

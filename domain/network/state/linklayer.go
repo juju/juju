@@ -126,6 +126,201 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 	return errors.Capture(err)
 }
 
+// GetAllLinkLayerDevicesByNetNodeUUIDs retrieves all link-layer devices grouped
+// by their associated NetNodeUUIDs.
+// The function fetches link-layer devices, DNS domains, DNS addresses,
+// and IP addresses, then maps them accordingly.
+// Returns a map of NetNodeUUID to a slice of NetInterface and an error if
+// any operation fails during execution.
+func (st *State) GetAllLinkLayerDevicesByNetNodeUUIDs(ctx context.Context) (map[string][]network.NetInterface, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var llds []getLinkLayerDevice
+	var dnsDomains []dnsSearchDomainRow
+	var dnsAddresses []dnsAddressRow
+	var ipAddresses []getIpAddress
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		llds, err = st.getAllLinkLayerDevices(ctx, tx)
+		if err != nil {
+			return errors.Errorf("fetching all link layer devices: %w", err)
+		}
+		dnsDomains, err = st.getAllDNSDomains(ctx, tx)
+		if err != nil {
+			return errors.Errorf("fetching all DNS search domains: %w", err)
+		}
+		dnsAddresses, err = st.getAllDNSAddresses(ctx, tx)
+		if err != nil {
+			return errors.Errorf("fetching all DNS addresses: %w", err)
+		}
+		ipAddresses, err = st.getAllAddresses(ctx, tx)
+		if err != nil {
+			return errors.Errorf("fetching all IP addresses: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("fetching all link layer devices: %w", err)
+	}
+
+	dnsDomainByDeviceUUID, _ := accumulateToMap(dnsDomains, func(in dnsSearchDomainRow) (string, string, error) {
+		return in.DeviceUUID, in.SearchDomain, nil
+	})
+	dnsAddressesByDeviceUUID, _ := accumulateToMap(dnsAddresses, func(in dnsAddressRow) (string, string, error) {
+		return in.DeviceUUID, in.Address, nil
+	})
+	ipAddressByDeviceUUID, _ := accumulateToMap(ipAddresses, func(f getIpAddress) (string, getIpAddress, error) {
+		return f.DeviceUUID, f, nil
+	})
+
+	return accumulateToMap(llds, func(in getLinkLayerDevice) (string, network.NetInterface, error) {
+		result, err := dmlToNetInterface(in,
+			dnsDomainByDeviceUUID[in.UUID],
+			dnsAddressesByDeviceUUID[in.UUID],
+			ipAddressByDeviceUUID[in.UUID])
+		return in.NetNodeUUID, result, err
+	})
+}
+
+// accumulateToMap transforms a slice of elements into a map of keys to slices
+// of values using the provided transform function.
+// If the transformation function results in an error, end the loop and return
+// the error
+func accumulateToMap[F any, K comparable, V any](from []F, transform func(F) (K, V, error)) (map[K][]V, error) {
+	to := make(map[K][]V)
+	for _, oneFrom := range from {
+		k, v, err := transform(oneFrom)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		to[k] = append(to[k], v)
+	}
+	return to, nil
+}
+
+// getAllLinkLayerDevices fetches all link-layer devices from the database
+// within the context of a transaction.
+// It executes a SQL query to retrieve device fields, including UUID, name,
+// provider details, and other attributes.
+// The method returns a slice of getLinkLayerDevice and an error if the
+// query preparation or execution fails.
+func (st *State) getAllLinkLayerDevices(ctx context.Context, tx *sqlair.TX) ([]getLinkLayerDevice, error) {
+	stmt, err := st.Prepare(`
+SELECT 
+	lld.uuid AS &getLinkLayerDevice.uuid,
+	lld.net_node_uuid AS &getLinkLayerDevice.net_node_uuid,
+	lld.name AS &getLinkLayerDevice.name,
+	lldpn.name AS &getLinkLayerDevice.parent_name,
+	plld.provider_id AS &getLinkLayerDevice.provider_id,
+	lld.mtu AS &getLinkLayerDevice.mtu,
+	lld.mac_address AS &getLinkLayerDevice.mac_address,
+	lldt.name AS &getLinkLayerDevice.device_type,
+	vpt.name AS &getLinkLayerDevice.virtual_port_type,
+	lld.is_auto_start AS &getLinkLayerDevice.is_auto_start,
+	lld.is_enabled AS &getLinkLayerDevice.is_enabled,
+	lld.is_default_gateway AS &getLinkLayerDevice.is_default_gateway,
+	lld.gateway_address AS &getLinkLayerDevice.gateway_address,
+	lld.vlan_tag AS &getLinkLayerDevice.vlan_tag
+FROM link_layer_device AS lld
+JOIN link_layer_device_type AS lldt ON lld.device_type_id = lldt.id
+JOIN virtual_port_type AS vpt ON lld.virtual_port_type_id = vpt.id
+LEFT JOIN provider_link_layer_device AS plld ON lld.uuid = plld.device_uuid
+LEFT JOIN link_layer_device_parent AS lldp ON lld.uuid = lldp.device_uuid
+LEFT JOIN link_layer_device AS lldpn ON lldp.parent_uuid = lldpn.uuid
+`, getLinkLayerDevice{})
+	if err != nil {
+		return nil, errors.Errorf("preparing link layer device select statement: %w", err)
+	}
+
+	var llds []getLinkLayerDevice
+	err = tx.Query(ctx, stmt).GetAll(&llds)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("querying link layer devices: %w", err)
+	}
+	return llds, nil
+}
+
+// getAllDNSDomains retrieves all DNS search domain rows from the
+// link_layer_device_dns_domain table within a transaction.
+func (st *State) getAllDNSDomains(ctx context.Context, tx *sqlair.TX) ([]dnsSearchDomainRow, error) {
+	stmt, err := st.Prepare(`
+SELECT &dnsSearchDomainRow.* 
+FROM link_layer_device_dns_domain
+`, dnsSearchDomainRow{})
+	if err != nil {
+		return nil, errors.Errorf("preparing DNS search domain select statement: %w", err)
+	}
+
+	var domains []dnsSearchDomainRow
+	err = tx.Query(ctx, stmt).GetAll(&domains)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("querying DNS search domains: %w", err)
+	}
+	return domains, nil
+}
+
+// getAllDNSAddresses retrieves all DNS address entries from the
+// link_layer_device_dns_address table in the database.
+func (st *State) getAllDNSAddresses(ctx context.Context, tx *sqlair.TX) ([]dnsAddressRow, error) {
+	stmt, err := st.Prepare(`
+SELECT &dnsAddressRow.* 
+FROM link_layer_device_dns_address
+`, dnsAddressRow{})
+	if err != nil {
+		return nil, errors.Errorf("preparing DNS address select statement: %w", err)
+	}
+
+	var addresses []dnsAddressRow
+	err = tx.Query(ctx, stmt).GetAll(&addresses)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("querying DNS addresses: %w", err)
+	}
+	return addresses, nil
+}
+
+// getAllAddresses retrieves all IP addresses from the database using the
+// provided context and transaction.
+// Returns a slice of getIpAddress or an error if the operation fails.
+func (st *State) getAllAddresses(ctx context.Context, tx *sqlair.TX) ([]getIpAddress, error) {
+	stmt, err := st.Prepare(`
+SELECT 
+ ia.uuid AS &getIpAddress.uuid,
+ ia.net_node_uuid AS &getIpAddress.net_node_uuid,
+ pia.provider_id AS &getIpAddress.provider_id,
+ ps.provider_id AS &getIpAddress.provider_subnet_id,
+ ia.device_uuid AS &getIpAddress.device_uuid,
+ ia.address_value AS &getIpAddress.address_value,
+ ia.subnet_uuid AS &getIpAddress.subnet_uuid,
+ iat.name AS &getIpAddress.type,
+ iact.name AS &getIpAddress.config_type,
+ iao.name AS &getIpAddress.origin,
+ ias.name AS &getIpAddress.scope,
+ ia.is_secondary AS &getIpAddress.is_secondary,
+ ia.is_shadow AS &getIpAddress.is_shadow
+FROM ip_address AS ia
+JOIN ip_address_type AS iat ON ia.type_id = iat.id
+JOIN ip_address_config_type AS iact ON ia.config_type_id = iact.id
+JOIN ip_address_origin AS iao ON ia.origin_id = iao.id
+JOIN ip_address_scope AS ias ON ia.scope_id = ias.id
+LEFT JOIN provider_ip_address AS pia ON ia.uuid = pia.address_uuid
+LEFT JOIN provider_subnet as ps ON ia.subnet_uuid = ps.subnet_uuid
+`, getIpAddress{})
+	if err != nil {
+		return nil, errors.Errorf("preparing IP address select statement: %w", err)
+	}
+
+	var addresses []getIpAddress
+	err = tx.Query(ctx, stmt).GetAll(&addresses)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("querying IP addresses: %w", err)
+	}
+	return addresses, nil
+}
+
 func (st *State) reconcileNetConfigDevices(
 	ctx context.Context, tx *sqlair.TX, nodeUUID string, nics []network.NetInterface,
 ) ([]linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, []linkLayerDeviceParent, map[string]string, error) {
