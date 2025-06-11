@@ -1639,8 +1639,10 @@ func (s *unitStateSuite) TestGetUnitAddresses(c *tc.C) {
 // with the ip_address. A side effect is that without a subnet, the
 // alpha space is returned.
 func (s *unitStateSuite) TestGetUnitAddressesCIDRFallback(c *tc.C) {
-	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
+	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+		},
 	})
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
