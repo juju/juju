@@ -1201,7 +1201,7 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNodeNoUnits(c *tc.C) {
 		var err error
 		netNode, _, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
-		}, deployment.Platform{})
+		}, deployment.Platform{}, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

@@ -205,7 +205,7 @@ func (s *serviceSuite) TestSetMachinePasswordInvalidPassword(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "password is only 3 chars long, and is not a valid Agent password.*")
 }
 
-func (s *serviceSuite) TestMatchesMachinePasswordHash(c *tc.C) {
+func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonce(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineUUID := machinetesting.GenUUID(c)
@@ -215,15 +215,15 @@ func (s *serviceSuite) TestMatchesMachinePasswordHash(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.state.EXPECT().MatchesMachinePasswordHash(gomock.Any(), machineUUID, hashPassword(password)).Return(true, nil)
+	s.state.EXPECT().MatchesMachinePasswordHashWithNonce(gomock.Any(), machineUUID, hashPassword(password), "foo").Return(true, nil)
 
 	service := NewService(s.state)
-	valid, err := service.MatchesMachinePasswordHash(c.Context(), machineName, password)
+	valid, err := service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, password, "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(valid, tc.IsTrue)
 }
 
-func (s *serviceSuite) TestMatchesMachinePasswordHashMachineNotFound(c *tc.C) {
+func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonceMachineNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineUUID := machinetesting.GenUUID(c)
@@ -235,11 +235,11 @@ func (s *serviceSuite) TestMatchesMachinePasswordHashMachineNotFound(c *tc.C) {
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, applicationerrors.MachineNotFound)
 
 	service := NewService(s.state)
-	_, err = service.MatchesMachinePasswordHash(c.Context(), machineName, password)
+	_, err = service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, password, "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
 }
 
-func (s *serviceSuite) TestMatchesMachinePasswordHashInvalidName(c *tc.C) {
+func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonceInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineName := machine.Name("!!!")
@@ -247,28 +247,40 @@ func (s *serviceSuite) TestMatchesMachinePasswordHashInvalidName(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	service := NewService(s.state)
-	_, err = service.MatchesMachinePasswordHash(c.Context(), machineName, password)
+	_, err = service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, password, "")
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *serviceSuite) TestMatchesMachinePasswordHashEmptyPassword(c *tc.C) {
+func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonceEmptyPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineName := machine.Name("0")
 
 	service := NewService(s.state)
-	_, err := service.MatchesMachinePasswordHash(c.Context(), machineName, "")
+	_, err := service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, "", "")
 	c.Assert(err, tc.ErrorIs, agentpassworderrors.EmptyPassword)
 }
 
-func (s *serviceSuite) TestMatchesMachinePasswordHashInvalidPassword(c *tc.C) {
+func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonceInvalidPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineName := machine.Name("0")
 
 	service := NewService(s.state)
-	_, err := service.MatchesMachinePasswordHash(c.Context(), machineName, "abc")
+	_, err := service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, "abc", "foo")
 	c.Assert(err, tc.ErrorIs, agentpassworderrors.InvalidPassword)
+}
+
+func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonceEmptyNonce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("0")
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	service := NewService(s.state)
+	_, err = service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, password, "")
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.EmptyNonce)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

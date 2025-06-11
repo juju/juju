@@ -12,4 +12,7 @@ const (
 
 	// EmptyPassword describes an error that occurs when the password is empty.
 	EmptyPassword = errors.ConstError("empty password")
+
+	// EmptyNonce describes an error that occurs when the nonce is empty.
+	EmptyNonce = errors.ConstError("empty nonce")
 )

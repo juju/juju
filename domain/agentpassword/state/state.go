@@ -215,23 +215,30 @@ WHERE  uuid = $entityPasswordHash.uuid;
 	return errors.Capture(err)
 }
 
-// MatchesMachinePasswordHash checks if the password is valid or not against the
-// password hash stored in the database.
-func (s *State) MatchesMachinePasswordHash(ctx context.Context, machineUUID machine.UUID, passwordHash agentpassword.PasswordHash) (bool, error) {
+// MatchesMachinePasswordHashWithNonce checks if the password with a nonce is
+// valid or not against the password hash stored in the database.
+func (s *State) MatchesMachinePasswordHashWithNonce(
+	ctx context.Context,
+	machineUUID machine.UUID,
+	passwordHash agentpassword.PasswordHash,
+	nonce string,
+) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, err
 	}
 
-	args := validatePasswordHash{
+	args := validatePasswordHashWithNonce{
 		UUID:         machineUUID.String(),
 		PasswordHash: passwordHash,
+		Nonce:        nonce,
 	}
 
 	query := `
-SELECT COUNT(*) AS &validatePasswordHash.count FROM machine
-WHERE  uuid = $validatePasswordHash.uuid
-AND    password_hash = $validatePasswordHash.password_hash;
+SELECT COUNT(*) AS &validatePasswordHashWithNonce.count FROM machine
+WHERE  uuid = $validatePasswordHashWithNonce.uuid
+AND    password_hash = $validatePasswordHashWithNonce.password_hash
+AND    nonce = $validatePasswordHashWithNonce.nonce;
 `
 	stmt, err := s.Prepare(query, args)
 	if err != nil {

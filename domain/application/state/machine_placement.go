@@ -56,9 +56,10 @@ func (st *State) placeMachine(
 	tx *sqlair.TX,
 	directive deployment.Placement,
 	platform deployment.Platform,
+	nonce *string,
 ) (string, []coremachine.Name, error) {
-	st.logger.Debugf(ctx, "placing machine with directive %q, platform %q, isController %t",
-		directive.Directive, platform, isController)
+	st.logger.Debugf(ctx, "placing machine with directive %q, platform %q",
+		directive.Directive, platform)
 
 	switch directive.Type {
 	case deployment.PlacementTypeUnset:
@@ -69,7 +70,7 @@ func (st *State) placeMachine(
 			return "", nil, errors.Capture(err)
 		}
 
-		_, netNode, err := st.insertMachineAndNetNode(ctx, tx, machineName, platform)
+		_, netNode, err := st.insertMachineAndNetNode(ctx, tx, machineName, platform, nonce)
 		return netNode, []coremachine.Name{
 			machineName,
 		}, errors.Capture(err)
@@ -87,7 +88,7 @@ func (st *State) placeMachine(
 		// to look up the existing machine and place it there. Then we need to
 		// create a child machine for the container and link it to the parent
 		// machine.
-		machineUUID, machineName, err := st.acquireParentMachineForContainer(ctx, tx, directive.Directive, platform)
+		machineUUID, machineName, err := st.acquireParentMachineForContainer(ctx, tx, directive.Directive, platform, nonce)
 		if err != nil {
 			return "", nil, errors.Capture(err)
 		}
@@ -95,7 +96,7 @@ func (st *State) placeMachine(
 		// Use the container type to determine the scope of the container.
 		// For example, lxd.
 		scope := directive.Container.String()
-		childNetNode, childMachineName, err := st.insertChildMachineForContainerPlacement(ctx, tx, machineUUID, machineName, scope, platform)
+		childNetNode, childMachineName, err := st.insertChildMachineForContainerPlacement(ctx, tx, machineUUID, machineName, scope, platform, nonce)
 		if err != nil {
 			return "", nil, errors.Errorf("inserting child machine for container placement: %w", err)
 		}
@@ -113,7 +114,7 @@ func (st *State) placeMachine(
 			return "", nil, errors.Capture(err)
 		}
 
-		machine, netNode, err := st.insertMachineAndNetNode(ctx, tx, machineName, platform)
+		machine, netNode, err := st.insertMachineAndNetNode(ctx, tx, machineName, platform, nonce)
 		if err != nil {
 			return "", nil, errors.Capture(err)
 		}
@@ -134,6 +135,7 @@ func (st *State) acquireParentMachineForContainer(
 	tx *sqlair.TX,
 	directive string,
 	platform deployment.Platform,
+	nonce *string,
 ) (coremachine.UUID, coremachine.Name, error) {
 	// If the directive is not empty, we need to look up the existing machine
 	// by name (example: 0) and then return the associated machine
@@ -155,7 +157,7 @@ func (st *State) acquireParentMachineForContainer(
 		return "", "", errors.Capture(err)
 	}
 
-	machineUUID, _, err := st.insertMachineAndNetNode(ctx, tx, machineName, platform)
+	machineUUID, _, err := st.insertMachineAndNetNode(ctx, tx, machineName, platform, nonce)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -230,6 +232,7 @@ func (st *State) insertMachineAndNetNode(
 	tx *sqlair.TX,
 	machineName coremachine.Name,
 	platform deployment.Platform,
+	nonce *string,
 ) (coremachine.UUID, string, error) {
 	netNodeUUID, err := st.insertNetNode(ctx, tx)
 	if err != nil {
@@ -241,15 +244,21 @@ func (st *State) insertMachineAndNetNode(
 		return "", "", errors.Capture(err)
 	}
 
+	var nullableNonce sql.Null[string]
+	if nonce != nil && *nonce != "" {
+		nullableNonce = sql.Null[string]{V: *nonce, Valid: true}
+	}
+
 	m := createMachine{
 		MachineUUID: machineUUID,
 		NetNodeUUID: netNodeUUID,
 		Name:        machineName,
 		LifeID:      life.Alive,
+		Nonce:       nullableNonce,
 	}
 
 	createMachineQuery := `
-INSERT INTO machine (uuid, net_node_uuid, name, life_id)
+INSERT INTO machine (uuid, net_node_uuid, name, life_id, nonce)
 VALUES ($createMachine.*);
 `
 	createMachineStmt, err := st.Prepare(createMachineQuery, m)
@@ -322,13 +331,14 @@ func (st *State) insertChildMachineForContainerPlacement(
 	parentName coremachine.Name,
 	scope string,
 	platform deployment.Platform,
+	nonce *string,
 ) (string, coremachine.Name, error) {
 	machineName, err := st.nextContainerSequence(ctx, tx, scope, parentName)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
 
-	machineUUID, netNodeUUID, err := st.insertMachineAndNetNode(ctx, tx, machineName, platform)
+	machineUUID, netNodeUUID, err := st.insertMachineAndNetNode(ctx, tx, machineName, platform, nonce)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}

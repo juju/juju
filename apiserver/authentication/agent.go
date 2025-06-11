@@ -11,8 +11,10 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/state"
 )
 
@@ -21,6 +23,10 @@ import (
 type AgentPasswordService interface {
 	// MatchesUnitPasswordHash checks if the password is valid or not.
 	MatchesUnitPasswordHash(context.Context, unit.Name, string) (bool, error)
+
+	// MatchesMachinePasswordHashWithNonce checks if the password with a nonce
+	// is valid or not.
+	MatchesMachinePasswordHashWithNonce(context.Context, machine.Name, string) (bool, error)
 }
 
 // AgentAuthenticatorGetter is a factory for creating authenticators, which
@@ -79,6 +85,10 @@ func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthPar
 
 	case names.UnitTagKind:
 		return a.authenticateUnit(ctx, authParams.AuthTag.(names.UnitTag), authParams.Credentials)
+
+	case names.MachineTagKind:
+		return a.authenticateMachine(ctx, authParams.AuthTag.(names.MachineTag), authParams.Credentials, authParams.Nonce)
+
 	default:
 		return a.fallbackAuth(ctx, authParams)
 	}
@@ -100,7 +110,34 @@ func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.Uni
 	valid, err := a.agentPasswordService.MatchesUnitPasswordHash(ctx, unitName, credentials)
 	if errors.Is(err, agentpassworderrors.EmptyPassword) {
 		return nil, errors.Trace(apiservererrors.ErrBadRequest)
-	} else if errors.Is(err, agentpassworderrors.InvalidPassword) || errors.Is(err, agentpassworderrors.UnitNotFound) {
+	} else if errors.Is(err, agentpassworderrors.InvalidPassword) || errors.Is(err, applicationerrors.UnitNotFound) {
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else if !valid {
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	}
+
+	return TagToEntity(tag), nil
+}
+
+func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.MachineTag, credentials, nonce string) (state.Entity, error) {
+	machineName := machine.Name(tag.Id())
+
+	// Check if the password is correct.
+	// - If the password is empty, then we consider that a bad request
+	//   (incorrect payload).
+	// - If the password is invalid, then we consider that unauthorized.
+	// - If the machine is not found, then we consider that unauthorized. Prevent
+	//   the knowing about which machine the password didn't match (rainbow attack).
+	// - If the password isn't valid for the machine, then we consider that
+	//   unauthorized.
+	// - Any other error, is considered an internal server error.
+
+	valid, err := a.agentPasswordService.MatchesMachinePasswordHashWithNonce(ctx, machineName, credentials, nonce)
+	if errors.Is(err, agentpassworderrors.EmptyPassword) {
+		return nil, errors.Trace(apiservererrors.ErrBadRequest)
+	} else if errors.Is(err, agentpassworderrors.InvalidPassword) || errors.Is(err, applicationerrors.MachineNotFound) {
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -126,21 +163,6 @@ func (a *agentAuthenticator) fallbackAuth(ctx context.Context, authParams AuthPa
 	}
 	if !authenticator.PasswordValid(authParams.Credentials) {
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
-	}
-
-	// If this is a machine agent connecting, we need to check the
-	// nonce matches, otherwise the wrong agent might be trying to
-	// connect.
-	//
-	// NOTE(axw) with the current implementation of Login, it is
-	// important that we check the password before checking the
-	// nonce, or an unprovisioned machine in a hosted model will
-	// prevent a controller machine from logging into the hosted
-	// model.
-	if machine, ok := authenticator.(*state.Machine); ok {
-		if !machine.CheckProvisioned(authParams.Nonce) {
-			return nil, errors.NotProvisionedf("machine %v", machine.Id())
-		}
 	}
 
 	return entity, nil

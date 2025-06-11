@@ -364,21 +364,6 @@ func (m *Machine) SetMongoPassword(password string) error {
 	return mongo.SetAdminMongoPassword(m.st.session, m.Tag().String(), password)
 }
 
-// SetPassword sets the password for the machine's agent.
-func (m *Machine) SetPassword(password string) error {
-	if len(password) < internalpassword.MinAgentPasswordLength {
-		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
-	}
-	passwordHash := internalpassword.AgentPasswordHash(password)
-	op := m.UpdateOperation()
-	op.PasswordHash = &passwordHash
-	if err := m.st.ApplyOperation(op); err != nil {
-		return errors.Trace(err)
-	}
-	m.doc.PasswordHash = passwordHash
-	return nil
-}
-
 func (m *Machine) setPasswordHashOps(passwordHash string) ([]txn.Op, error) {
 	if m.doc.Life == Dead {
 		return nil, stateerrors.ErrDead

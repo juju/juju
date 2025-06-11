@@ -166,7 +166,7 @@ func (s *stateSuite) TestSetMachinePassword(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
-	machineName := s.createMachine(c)
+	machineName, _ := s.createMachine(c)
 
 	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -206,7 +206,7 @@ func (s *stateSuite) TestMatchesMachinePasswordHash(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
-	machineName := s.createMachine(c)
+	machineName, nonce := s.createMachine(c)
 
 	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -216,7 +216,7 @@ func (s *stateSuite) TestMatchesMachinePasswordHash(c *tc.C) {
 	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 
-	valid, err := st.MatchesMachinePasswordHash(c.Context(), machineUUID, passwordHash)
+	valid, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, nonce)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(valid, tc.IsTrue)
 }
@@ -226,7 +226,7 @@ func (s *stateSuite) TestMatchesMachinePasswordHashMachineNotFound(c *tc.C) {
 
 	passwordHash := s.genPasswordHash(c)
 
-	_, err := st.MatchesMachinePasswordHash(c.Context(), machine.UUID("foo"), passwordHash)
+	_, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machine.UUID("foo"), passwordHash, "")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -234,7 +234,7 @@ func (s *stateSuite) TestMatchesMachinePasswordHashInvalidPassword(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
-	machineName := s.createMachine(c)
+	machineName, nonce := s.createMachine(c)
 
 	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -244,7 +244,7 @@ func (s *stateSuite) TestMatchesMachinePasswordHashInvalidPassword(c *tc.C) {
 	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 
-	valid, err := st.MatchesMachinePasswordHash(c.Context(), machineUUID, passwordHash+"1")
+	valid, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash+"1", nonce)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(valid, tc.IsFalse)
 }
@@ -253,7 +253,7 @@ func (s *stateSuite) TestGetAllMachinePasswordHashes(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
-	machineName := s.createMachine(c)
+	machineName, _ := s.createMachine(c)
 
 	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -330,7 +330,9 @@ func (s *stateSuite) createUnit(c *tc.C) unit.Name {
 	appID, err := applicationSt.GetApplicationIDByName(ctx, "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddIAASUnitArg{})
+	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddIAASUnitArg{
+		Nonce: ptr("foo"),
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]
@@ -338,7 +340,7 @@ func (s *stateSuite) createUnit(c *tc.C) unit.Name {
 	return unitName
 }
 
-func (s *stateSuite) createMachine(c *tc.C) machine.Name {
+func (s *stateSuite) createMachine(c *tc.C) (machine.Name, string) {
 	unitName := s.createUnit(c)
 
 	var machineName machine.Name
@@ -357,5 +359,9 @@ WHERE u.name = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	return machineName
+	return machineName, "foo"
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

@@ -12,7 +12,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
-	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
@@ -28,7 +29,7 @@ type AgentPasswordService interface {
 	SetUnitPassword(context.Context, coreunit.Name, string) error
 
 	// SetMachinePassword sets the password hash for the given machine.
-
+	SetMachinePassword(context.Context, coremachine.Name, string) error
 }
 
 // PasswordChanger implements a common SetPasswords method for use by
@@ -83,7 +84,7 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 	case names.UnitTagKind:
 		unitTag := tag.(names.UnitTag)
 		unitName := coreunit.Name(unitTag.Id())
-		if err := pc.agentPasswordService.SetUnitPassword(ctx, unitName, password); errors.Is(err, agentpassworderrors.UnitNotFound) {
+		if err := pc.agentPasswordService.SetUnitPassword(ctx, unitName, password); errors.Is(err, applicationerrors.UnitNotFound) {
 			return errors.NotFoundf("unit %q", tag.Id())
 		} else if err != nil {
 			return internalerrors.Errorf("setting password for %q: %w", tag, err)
@@ -93,7 +94,7 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 	case names.MachineTagKind:
 		machineTag := tag.(names.MachineTag)
 		machineName := coremachine.Name(machineTag.Id())
-		if err := pc.agentPasswordService.SetMachinePassword(ctx, machineName, password); errors.Is(err, agentpassworderrors.MachineNotFound) {
+		if err := pc.agentPasswordService.SetMachinePassword(ctx, machineName, password); errors.Is(err, machineerrors.MachineNotFound) {
 			return errors.NotFoundf("machine %q", tag.Id())
 		} else if err != nil {
 			return internalerrors.Errorf("setting password for %q: %w", tag, err)
