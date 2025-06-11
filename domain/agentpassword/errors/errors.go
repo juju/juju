@@ -6,10 +6,6 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
-	// UnitNotFound describes an error that occurs when the unit being operated
-	// on does not exist.
-	UnitNotFound = errors.ConstError("unit not found")
-
 	// InvalidPassword describes an error that occurs when the password is not
 	// valid.
 	InvalidPassword = errors.ConstError("invalid password")

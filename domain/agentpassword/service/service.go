@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
@@ -16,9 +17,7 @@ import (
 
 // State gets and sets the state of the service.
 type State interface {
-	// GetUnitUUID returns the UUID of the unit with the given name, returning
-	// an error satisfying [passworderrors.UnitNotFound] if the unit does not
-	// exist.
+	// GetUnitUUID returns the UUID of the unit with the given name.
 	GetUnitUUID(context.Context, unit.Name) (unit.UUID, error)
 
 	// SetUnitPasswordHash sets the password hash for the given unit.
@@ -27,6 +26,16 @@ type State interface {
 	// MatchesUnitPasswordHash checks if the password is valid or not against
 	// the password hash stored in the database.
 	MatchesUnitPasswordHash(context.Context, unit.UUID, agentpassword.PasswordHash) (bool, error)
+
+	// GetMachineUUID returns the UUID of the machine with the given name.
+	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
+
+	// SetMachinePasswordHash sets the password hash for the given machine.
+	SetMachinePasswordHash(context.Context, machine.UUID, agentpassword.PasswordHash) error
+
+	// MatchesMachinePasswordHash checks if the password is valid or not against
+	// the password hash stored in the database.
+	MatchesMachinePasswordHash(context.Context, machine.UUID, agentpassword.PasswordHash) (bool, error)
 }
 
 // Service provides the means for interacting with the passwords in a model.
@@ -85,6 +94,52 @@ func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Nam
 	}
 
 	return s.st.MatchesUnitPasswordHash(ctx, unitUUID, hashPassword(password))
+}
+
+// SetMachinePassword sets the password for the given machine. If the machine does not
+// exist, an error satisfying [passworderrors.UnitNotFound] is returned.
+func (s *Service) SetMachinePassword(ctx context.Context, machineName machine.Name, password string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	if len(password) < internalpassword.MinAgentPasswordLength {
+		return errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+	}
+
+	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return s.st.SetMachinePasswordHash(ctx, machineUUID, hashPassword(password))
+}
+
+// MatchesMachinePasswordHash checks if the password is valid or not against the
+// password hash stored in the database.
+func (s *Service) MatchesMachinePasswordHash(ctx context.Context, machineName machine.Name, password string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return false, errors.Capture(err)
+	}
+
+	// An empty password is never valid.
+	if password == "" {
+		return false, passworderrors.EmptyPassword
+	} else if len(password) < internalpassword.MinAgentPasswordLength {
+		return false, errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+	}
+
+	unitUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return s.st.MatchesMachinePasswordHash(ctx, unitUUID, hashPassword(password))
 }
 
 func hashPassword(p string) agentpassword.PasswordHash {

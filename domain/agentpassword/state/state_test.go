@@ -11,17 +11,18 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
-	agentpassworderrors "github.com/juju/juju/domain/application/errors"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationstate "github.com/juju/juju/domain/application/state"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalpassword "github.com/juju/juju/internal/password"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -60,7 +61,7 @@ func (s *stateSuite) TestSetUnitPasswordUnitDoesNotExist(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetUnitUUID(c.Context(), unit.Name("foo/0"))
-	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
@@ -69,7 +70,7 @@ func (s *stateSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 	passwordHash := s.genPasswordHash(c)
 
 	err := st.SetUnitPasswordHash(c.Context(), unit.UUID("foo"), passwordHash)
-	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestMatchesUnitPasswordHash(c *tc.C) {
@@ -161,6 +162,135 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesNoUnits(c *tc.C) {
 	c.Assert(hashes, tc.DeepEquals, agentpassword.UnitPasswordHashes{})
 }
 
+func (s *stateSuite) TestSetMachinePassword(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.createApplication(c)
+	machineName := s.createMachine(c)
+
+	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	passwordHash := s.genPasswordHash(c)
+
+	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Check that the password hash was set correctly.
+	var hash string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT password_hash FROM machine WHERE uuid = ?", machineUUID).Scan(&hash)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hash, tc.Equals, string(passwordHash))
+}
+
+func (s *stateSuite) TestSetMachinePasswordMachineDoesNotExist(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetMachineUUID(c.Context(), machine.Name("0"))
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestSetMachinePasswordMachineNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	passwordHash := s.genPasswordHash(c)
+
+	err := st.SetMachinePasswordHash(c.Context(), machine.UUID("foo"), passwordHash)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestMatchesMachinePasswordHash(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.createApplication(c)
+	machineName := s.createMachine(c)
+
+	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	passwordHash := s.genPasswordHash(c)
+
+	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, err := st.MatchesMachinePasswordHash(c.Context(), machineUUID, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(valid, tc.IsTrue)
+}
+
+func (s *stateSuite) TestMatchesMachinePasswordHashMachineNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	passwordHash := s.genPasswordHash(c)
+
+	_, err := st.MatchesMachinePasswordHash(c.Context(), machine.UUID("foo"), passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestMatchesMachinePasswordHashInvalidPassword(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.createApplication(c)
+	machineName := s.createMachine(c)
+
+	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	passwordHash := s.genPasswordHash(c)
+
+	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, err := st.MatchesMachinePasswordHash(c.Context(), machineUUID, passwordHash+"1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(valid, tc.IsFalse)
+}
+
+func (s *stateSuite) TestGetAllMachinePasswordHashes(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.createApplication(c)
+	machineName := s.createMachine(c)
+
+	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	passwordHash := s.genPasswordHash(c)
+
+	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	hashes, err := st.GetAllMachinePasswordHashes(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hashes, tc.DeepEquals, agentpassword.MachinePasswordHashes{
+		machineName: passwordHash,
+	})
+}
+
+func (s *stateSuite) TestGetAllMachinePasswordHashesPasswordNotSet(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.createApplication(c)
+	s.createMachine(c)
+
+	hashes, err := st.GetAllMachinePasswordHashes(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hashes, tc.DeepEquals, agentpassword.MachinePasswordHashes{
+		"0": "",
+	})
+}
+
+func (s *stateSuite) TestGetAllMachinePasswordHashesNoMachines(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	hashes, err := st.GetAllMachinePasswordHashes(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hashes, tc.DeepEquals, agentpassword.MachinePasswordHashes{})
+}
+
 func (s *stateSuite) genPasswordHash(c *tc.C) agentpassword.PasswordHash {
 	rand, err := internalpassword.RandomPassword()
 	c.Assert(err, tc.ErrorIsNil)
@@ -194,8 +324,6 @@ func (s *stateSuite) createApplication(c *tc.C) {
 }
 
 func (s *stateSuite) createUnit(c *tc.C) unit.Name {
-	netNodeUUID := uuid.MustNewUUID().String()
-
 	ctx := c.Context()
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -207,19 +335,27 @@ func (s *stateSuite) createUnit(c *tc.C) unit.Name {
 	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]
 
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err = tx.ExecContext(ctx, "INSERT INTO net_node VALUES (?) ON CONFLICT DO NOTHING", netNodeUUID)
+	return unitName
+}
+
+func (s *stateSuite) createMachine(c *tc.C) machine.Name {
+	unitName := s.createUnit(c)
+
+	var machineName machine.Name
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, `
+SELECT m.name
+FROM machine m
+JOIN net_node nn ON m.net_node_uuid = nn.uuid
+JOIN unit u ON u.net_node_uuid = nn.uuid
+WHERE u.name = ?		
+`, unitName).Scan(&machineName)
 		if err != nil {
 			return err
 		}
-
-		_, err = tx.ExecContext(ctx, "UPDATE unit SET net_node_uuid = ? WHERE name = ?", netNodeUUID, unitName)
-		if err != nil {
-			return err
-		}
-
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	return unitName
+
+	return machineName
 }

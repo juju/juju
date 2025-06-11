@@ -9,22 +9,26 @@ import (
 )
 
 // unitName represents a unit's name.
-type unitName struct {
-	UUID unit.UUID `db:"uuid"`
-	Name string    `db:"name"`
+type entityName struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
 }
 
-// unitPasswordHash represents a unit's password.
-type unitPasswordHash struct {
-	UUID         unit.UUID                  `db:"uuid"`
-	PasswordHash agentpassword.PasswordHash `db:"password_hash"`
-}
-
-// validateUnitPasswordHash represents a unit's password.
-type validateUnitPasswordHash struct {
-	UUID         unit.UUID                  `db:"uuid"`
+// validatePasswordHash represents a unit's password.
+type validatePasswordHash struct {
+	UUID         string                     `db:"uuid"`
 	PasswordHash agentpassword.PasswordHash `db:"password_hash"`
 	Count        int                        `db:"count"`
+}
+
+type entityPasswordHash struct {
+	UUID         string                     `db:"uuid"`
+	PasswordHash agentpassword.PasswordHash `db:"password_hash"`
+}
+
+type entityNamePasswordHashes struct {
+	Name         string                     `db:"name"`
+	PasswordHash agentpassword.PasswordHash `db:"password_hash"`
 }
 
 type unitPasswordHashes struct {
