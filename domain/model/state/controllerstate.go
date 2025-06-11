@@ -2111,3 +2111,11 @@ WHERE uuid = $dbModelLife.uuid;
 
 	return life.Life, nil
 }
+
+// HasValidCredential returns true if the model has a valid credential.
+// The following errors may be returned:
+// - [modelerrors.NotFound] when the model no longer exists.
+func (st *State) HasValidCredential(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
+	// TODO: Implement this function to check if the model has a valid credential.
+	return false, nil
+}

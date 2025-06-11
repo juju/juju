@@ -26,7 +26,9 @@ import (
 )
 
 type leaderServiceSuite struct {
-	state         *MockState
+	modelState      *MockModelState
+	controllerState *MockControllerState
+
 	leadership    *MockEnsurer
 	statusHistory *statusHistoryRecorder
 
@@ -60,7 +62,7 @@ func (s *leaderServiceSuite) TestSetRelationStatus(c *tc.C) {
 			return fn(ctx)
 		},
 	)
-	s.state.EXPECT().SetRelationStatus(gomock.Any(), relationUUID, expectedStatus).Return(nil)
+	s.modelState.EXPECT().SetRelationStatus(gomock.Any(), relationUUID, expectedStatus).Return(nil)
 
 	// Act
 	err := s.service.SetRelationStatus(c.Context(), unitName, relationUUID, sts)
@@ -88,7 +90,7 @@ func (s *leaderServiceSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 			return fn(ctx)
 		},
 	)
-	s.state.EXPECT().SetRelationStatus(gomock.Any(), relationUUID, expectedStatus).Return(statuserrors.RelationNotFound)
+	s.modelState.EXPECT().SetRelationStatus(gomock.Any(), relationUUID, expectedStatus).Return(statuserrors.RelationNotFound)
 
 	// Act
 	err := s.service.SetRelationStatus(c.Context(), unitName, relationUUID, sts)
@@ -110,8 +112,8 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 			return fn(ctx)
 		})
 
-	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
-	s.state.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, status.StatusInfo[status.WorkloadStatusType]{
+	s.modelState.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
+	s.modelState.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
@@ -140,7 +142,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *t
 			return lease.ErrNotHeld
 		})
 
-	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
+	s.modelState.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
 
 	err := s.service.SetApplicationStatusForUnitLeader(c.Context(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
@@ -174,7 +176,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
 	unitName := coreunit.Name("foo/666")
 
-	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).
+	s.modelState.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).
 		Return(applicationUUID, "foo", statuserrors.UnitNotFound)
 
 	err := s.service.SetApplicationStatusForUnitLeader(c.Context(), unitName, corestatus.StatusInfo{
@@ -192,7 +194,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderN
 	unitName := coreunit.Name("foo/0")
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 
 	s.leadership.EXPECT().WithLeader(gomock.Any(), "foo", unitName.String(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
@@ -215,7 +217,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderN
 
 	unitName := coreunit.Name("foo/0")
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", statuserrors.ApplicationNotFound)
+	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", statuserrors.ApplicationNotFound)
 	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIs, statuserrors.ApplicationNotFound)
 }
@@ -232,9 +234,9 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 			return fn(ctx)
 		})
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 
-	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
+	s.modelState.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
 		status.StatusInfo[status.WorkloadStatusType]{
 			Status:  status.WorkloadStatusActive,
 			Message: "doink",
@@ -242,7 +244,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 			Since:   &now,
 		}, nil)
 
-	s.state.EXPECT().GetAllFullUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
+	s.modelState.EXPECT().GetAllFullUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
 		status.FullUnitStatuses{
 			"foo/0": {
 				WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
@@ -306,14 +308,14 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 			return fn(ctx)
 		})
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 
-	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
+	s.modelState.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
 		status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusUnset,
 		}, nil)
 
-	s.state.EXPECT().GetAllFullUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
+	s.modelState.EXPECT().GetAllFullUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
 		status.FullUnitStatuses{
 			"foo/0": {
 				WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
@@ -380,12 +382,14 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 func (s *leaderServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.state = NewMockState(ctrl)
+	s.modelState = NewMockModelState(ctrl)
+	s.controllerState = NewMockControllerState(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
 	s.statusHistory = &statusHistoryRecorder{}
 
 	s.service = NewLeadershipService(
-		s.state,
+		s.modelState,
+		s.controllerState,
 		s.leadership,
 		model.UUID("test-model"),
 		s.statusHistory,
