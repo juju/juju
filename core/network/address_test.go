@@ -226,7 +226,7 @@ func (s *AddressSuite) TestNewAddresses(c *tc.C) {
 		network.IPv6Address,
 		network.ScopeMachineLocal,
 	}, {
-		[]string{"192.168.1.1", "192.168.178.255", "10.5.1.1", "172.16.1.1"},
+		[]string{"192.168.1.1", "192.168.178.255", "192.168.178.255/8", "10.5.1.1", "172.16.1.1"},
 		network.IPv4Address,
 		network.ScopeCloudLocal,
 	}, {
@@ -234,11 +234,11 @@ func (s *AddressSuite) TestNewAddresses(c *tc.C) {
 		network.IPv6Address,
 		network.ScopeCloudLocal,
 	}, {
-		[]string{"8.8.8.8", "8.8.4.4"},
+		[]string{"8.8.8.8", "8.8.4.4", "8.8.8.8/32"},
 		network.IPv4Address,
 		network.ScopePublic,
 	}, {
-		[]string{"2001:db8::1", "64:ff9b::1", "2002::1"},
+		[]string{"2001:db8::1", "64:ff9b::1", "64:ff9b::1/24", "2002::1"},
 		network.IPv6Address,
 		network.ScopePublic,
 	}, {
@@ -976,6 +976,10 @@ func (s *AddressSuite) TestAddressValueForCIDR(c *tc.C) {
 	val, err := network.NewMachineAddress("172.31.37.53", network.WithCIDR("172.31.37.0/20")).ValueWithMask()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(val, tc.Equals, "172.31.37.53/20")
+
+	val2, err := network.NewMachineAddress("172.31.37.53/20", network.WithCIDR("172.31.37.0/20")).ValueWithMask()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(val2, tc.Equals, "172.31.37.53/20")
 }
 
 func (s *AddressSuite) TestCIDRAddressType(c *tc.C) {
@@ -1413,4 +1417,16 @@ func (s *AddressSuite) TestIsLocalAddress(c *tc.C) {
 
 		c.Check(isLocal, tc.Equals, tt.expected)
 	}
+}
+
+func (s *AddressSuite) TestSimpleNewMachineAddress(c *tc.C) {
+	addr := network.NewMachineAddress("10.3.5.4/8")
+	c.Check(addr.Value, tc.Equals, "10.3.5.4/8")
+	c.Check(addr.IP().String(), tc.Equals, "10.3.5.4")
+	c.Check(addr.AddressType(), tc.Equals, network.IPv4Address)
+
+	addr = network.NewMachineAddress("2001:db8::1/8")
+	c.Check(addr.Value, tc.Equals, "2001:db8::1/8")
+	c.Check(addr.IP().String(), tc.Equals, "2001:db8::1")
+	c.Check(addr.AddressType(), tc.Equals, network.IPv6Address)
 }
