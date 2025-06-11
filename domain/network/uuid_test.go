@@ -26,6 +26,25 @@ type subTest struct {
 	err  *string
 }
 
+func (s *uuidSuite) TestSubnetUUIDValidate(c *tc.C) {
+	for i, test := range getSubTests() {
+		c.Logf("test %d: %q", i, test.uuid)
+
+		c.Run(fmt.Sprintf("Test%d", i), func(t *testing.T) {
+			c := &tc.TBC{TB: t}
+
+			err := SubnetUUID(test.uuid).Validate()
+
+			if test.err == nil {
+				c.Check(err, tc.IsNil)
+				return
+			}
+
+			c.Check(err, tc.ErrorMatches, *test.err)
+		})
+	}
+}
+
 func (s *uuidSuite) TestInterfaceUUIDValidate(c *tc.C) {
 	for i, test := range getSubTests() {
 		c.Logf("test %d: %q", i, test.uuid)

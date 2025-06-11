@@ -30,6 +30,25 @@ func (u uuid) validate() error {
 	return nil
 }
 
+// SubnetUUID uniquely identifies a subnet.
+type SubnetUUID uuid
+
+// NewSubnetUUID creates a new, valid subnet identifier.
+func NewSubnetUUID() (SubnetUUID, error) {
+	u, err := newUUID()
+	return SubnetUUID(u), err
+}
+
+// Validate returns an error if the receiver is not a valid UUID.
+func (u SubnetUUID) Validate() error {
+	return uuid(u).validate()
+}
+
+// String returns the identifier in string form.
+func (u SubnetUUID) String() string {
+	return string(u)
+}
+
 // NetNodeUUID uniquely identifies a net node.
 type NetNodeUUID uuid
 
