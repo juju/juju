@@ -936,6 +936,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesMissingResourc
 // It fails if there is resources args that doesn't refer to actual resources
 // in charm.
 func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourceArgs(c *tc.C) {
+	s.createSubnetForCAASModel(c)
 	charmResources := map[string]charm.Resource{
 		"some-file": {
 			Name:        "foo-file",
@@ -995,7 +996,7 @@ func (s *applicationStateSuite) TestGetApplicationLifeNotFound(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceNew(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive)
+	appID := s.createCAASApplication(c, "foo", life.Alive)
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
 	var providerID string
@@ -1011,7 +1012,8 @@ func (s *applicationStateSuite) TestUpsertCloudServiceNew(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceExisting(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive)
+	appID := s.createCAASApplication(c, "foo", life.Alive)
+	s.createSubnetForCAASModel(c)
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
@@ -1029,8 +1031,8 @@ func (s *applicationStateSuite) TestUpsertCloudServiceExisting(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceAnother(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive)
-	s.createIAASApplication(c, "bar", life.Alive)
+	appID := s.createCAASApplication(c, "foo", life.Alive)
+	s.createCAASApplication(c, "bar", life.Alive)
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.UpsertCloudService(c.Context(), "foo", "another-provider-id", network.ProviderAddresses{})
@@ -1057,8 +1059,8 @@ func (s *applicationStateSuite) TestUpsertCloudServiceAnother(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingEmptyAddresses(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive)
-	s.createIAASApplication(c, "bar", life.Alive)
+	appID := s.createCAASApplication(c, "foo", life.Alive)
+	s.createCAASApplication(c, "bar", life.Alive)
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.MachineAddress{
@@ -1118,8 +1120,8 @@ WHERE application_uuid = ?
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingWithAddresses(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive)
-	s.createIAASApplication(c, "bar", life.Alive)
+	appID := s.createCAASApplication(c, "foo", life.Alive)
+	s.createCAASApplication(c, "bar", life.Alive)
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.MachineAddress{
@@ -3714,11 +3716,10 @@ func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *tc.C
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
+	appID := s.createCAASApplication(c, "foo", life.Alive,
+		application.InsertUnitArg{
 			UnitName: "foo/0",
-		},
-	})
+		})
 
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
@@ -3745,12 +3746,9 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBindings(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/0",
-		},
+	appID := s.createCAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
 	})
-
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.MachineAddress{
@@ -3839,10 +3837,8 @@ func (s *applicationStateSuite) TestHashAddresses(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetNetNodeFromK8sService(c *tc.C) {
-	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/0",
-		},
+	_ = s.createCAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
 	})
 
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{

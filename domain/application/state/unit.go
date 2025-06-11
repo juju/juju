@@ -2421,9 +2421,15 @@ INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
 	}
 	deviceUUID := cloudContainerDeviceInfo.UUID
 
+	subnetUUID, err := st.k8sSubnetUUID(ctx, tx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	// Now process the address details.
 	ipAddr := ipAddress{
 		Value:        address.Value,
+		SubnetUUID:   subnetUUID,
 		NetNodeUUID:  netNodeUUID,
 		ConfigTypeID: int(address.ConfigType),
 		TypeID:       int(address.AddressType),

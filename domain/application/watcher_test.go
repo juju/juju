@@ -857,7 +857,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appID := s.createIAASApplication(c, svc, appName, service.AddUnitArg{})
+	appID := s.createCAASApplication(c, svc, appName, service.AddUnitArg{})
 
 	ctx := c.Context()
 
@@ -1569,6 +1569,7 @@ func (s *watcherSuite) createIAASApplicationWithCharmAndStoragePath(c *tc.C, svc
 
 func (s *watcherSuite) createCAASApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddUnitArg) coreapplication.ID {
 	ctx := c.Context()
+	s.createSubnetForCAASModel(c)
 	appID, err := svc.CreateCAASApplication(ctx, name, &stubCharm{}, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
@@ -1586,6 +1587,24 @@ func (s *watcherSuite) createCAASApplication(c *tc.C, svc *service.WatchableServ
 	}, units...)
 	c.Assert(err, tc.ErrorIsNil)
 	return appID
+}
+
+func (s *watcherSuite) createSubnetForCAASModel(c *tc.C) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Only insert the subnet it if doesn't exist.
+		var rowCount int
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM subnet`).Scan(&rowCount); err != nil {
+			return err
+		}
+		if rowCount != 0 {
+			return nil
+		}
+
+		subnetUUID := uuid.MustNewUUID().String()
+		_, err := tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr) VALUES (?, ?)", subnetUUID, "0.0.0.0/0")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type stubCharm struct {

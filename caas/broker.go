@@ -166,6 +166,10 @@ type Broker interface {
 	// ResourceAdopter defines methods for adopting resources.
 	environs.ResourceAdopter
 
+	// Networking is an interface providing networking-related operations
+	// for an CAAS Environ.
+	environs.Networking
+
 	// StorageValidator provides methods to validate storage.
 	StorageValidator
 

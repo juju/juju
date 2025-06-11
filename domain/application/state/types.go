@@ -198,6 +198,7 @@ type ipAddress struct {
 	AddressUUID  string `db:"uuid"`
 	Value        string `db:"address_value"`
 	NetNodeUUID  string `db:"net_node_uuid"`
+	SubnetUUID   string `db:"subnet_uuid"`
 	ConfigTypeID int    `db:"config_type_id"`
 	TypeID       int    `db:"type_id"`
 	OriginID     int    `db:"origin_id"`

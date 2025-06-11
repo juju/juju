@@ -242,10 +242,6 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	if err := w.seedControllerCharm(ctx, dataDir, bootstrapParams); err != nil {
-		return errors.Trace(err)
-	}
-
 	// Retrieve controller addresses needed to set the API host ports.
 	bootstrapAddresses, err := w.cfg.BootstrapAddressFinder(ctx, bootstrapParams.BootstrapMachineInstanceId)
 	if err != nil {
@@ -263,6 +259,13 @@ func (w *bootstrapWorker) loop() error {
 			return errors.Trace(err)
 		}
 		w.logger.Debugf(ctx, "reload spaces not supported due to a non-networking environement")
+	}
+
+	// Deploy the controller charm after calling reload spaces or
+	// no subnets will be available for the ip address table with
+	// kubernetes.
+	if err := w.seedControllerCharm(ctx, dataDir, bootstrapParams); err != nil {
+		return errors.Trace(err)
 	}
 
 	if err := w.seedInitialAuthorizedKeys(ctx, bootstrapParams.ControllerModelAuthorizedKeys); err != nil {

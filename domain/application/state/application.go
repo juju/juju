@@ -1168,10 +1168,37 @@ WHERE device_uuid IN (
 	return nil
 }
 
+func (st *State) k8sSubnetUUID(ctx context.Context, tx *sqlair.TX) (string, error) {
+	subnetStmt, err := st.Prepare(`
+SELECT uuid AS &dbUUID.uuid
+FROM subnet
+`, dbUUID{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var subnetUUIDs []dbUUID
+	if err = tx.Query(ctx, subnetStmt).GetAll(&subnetUUIDs); err != nil {
+		return "", errors.Errorf("getting subnet uuid: %w", err)
+	}
+	// Note: Today there is only one k8s subnet, which is a placeholder.
+	// Finding the subnet for the ip address will be more complex
+	// in the future.
+	if len(subnetUUIDs) != 1 {
+		return "", errors.Errorf("expected 1 subnet uuid, got %d", len(subnetUUIDs))
+	}
+	return subnetUUIDs[0].UUID, nil
+}
+
 func (st *State) insertCloudServiceAddresses(
 	ctx context.Context, tx *sqlair.TX, linkLayerDeviceUUID string, netNodeUUID string, addresses network.ProviderAddresses) error {
 	if len(addresses) == 0 {
 		return nil
+	}
+
+	subnetUUID, err := st.k8sSubnetUUID(ctx, tx)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	ipAddresses := make([]ipAddress, len(addresses))
@@ -1185,6 +1212,7 @@ func (st *State) insertCloudServiceAddresses(
 			AddressUUID:  addrUUID.String(),
 			Value:        address.Value,
 			NetNodeUUID:  netNodeUUID,
+			SubnetUUID:   subnetUUID,
 			ConfigTypeID: int(ipaddress.MarshallConfigType(address.ConfigType)),
 			TypeID:       int(ipaddress.MarshallAddressType(address.AddressType())),
 			OriginID:     int(ipaddress.MarshallOrigin(network.OriginProvider)),
