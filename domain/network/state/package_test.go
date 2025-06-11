@@ -7,11 +7,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain/ipaddress"
+	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -60,10 +66,69 @@ func (s *linkLayerBaseSuite) addNetNode(c *tc.C) string {
 	return netNodeUUID
 }
 
-func (s *linkLayerBaseSuite) addMachine(c *tc.C, name string, netNodeUUID string) {
+func (s *linkLayerBaseSuite) addLinkLayerDevice(c *tc.C, netNodeUUID string) string {
+	lldUUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		lldUUUID, netNodeUUID, lldUUUID, 1500, "00:11:22:33:44:55", 0, 0)
+	return lldUUUID
+}
+
+func (s *linkLayerBaseSuite) addMachine(c *tc.C, name, netNodeUUID string) {
 	machineUUID := machinetesting.GenUUID(c).String()
 	s.query(c, "INSERT INTO machine (uuid, net_node_uuid, name, life_id) VALUES (?, ?, ? ,?)",
 		machineUUID, netNodeUUID, name, 0)
+}
+
+func (s *linkLayerBaseSuite) addSpace(c *tc.C) string {
+	spaceUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO space (uuid, name) VALUES (?, ?)`,
+		spaceUUID, spaceUUID)
+	return spaceUUID
+}
+
+func (s *linkLayerBaseSuite) addsubnet(c *tc.C, spaceUUID string) (string, string) {
+	subnetUUID := uuid.MustNewUUID().String()
+	cidr := "10.0.0.0/24"
+	s.query(c, `INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)`,
+		subnetUUID, cidr, spaceUUID)
+	return subnetUUID, cidr
+}
+
+func (s *linkLayerBaseSuite) addIPAddress(c *tc.C, nodeUUID, deviceUUID, subnetUUID string, scope corenetwork.Scope, origin corenetwork.Origin) string {
+	ipAddrUUID := uuid.MustNewUUID().String()
+	scopeID := int(ipaddress.MarshallScope(scope))
+	originID := int(ipaddress.MarshallOrigin(origin))
+	addr := "10.0.0.1"
+	s.query(c, `INSERT INTO ip_address (uuid, net_node_uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		ipAddrUUID, nodeUUID, deviceUUID, addr+"/24", 0, scopeID, originID, 1, subnetUUID)
+	return addr
+}
+
+func (s *linkLayerBaseSuite) addCharm(c *tc.C) string {
+	charmUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO charm (uuid, reference_name, create_time) VALUES (?, ?, ?)`,
+		charmUUID, charmUUID, time.Now())
+	return charmUUID
+}
+
+func (s *linkLayerBaseSuite) addApplication(c *tc.C, charmUUID, spaceUUID string) string {
+	appUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
+		appUUID, appUUID, life.Alive, charmUUID, spaceUUID)
+	return appUUID
+}
+
+func (s *linkLayerBaseSuite) addUnit(c *tc.C, appUUID, charmUUID, nodeUUID string) unit.UUID {
+	unitUUID := testing.GenUnitUUID(c)
+	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
+		unitUUID, unitUUID, life.Alive, appUUID, charmUUID, nodeUUID)
+	return unitUUID
+}
+
+func (s *linkLayerBaseSuite) addk8sService(c *tc.C, nodeUUID, appUUID string) {
+	svcUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO k8s_service (uuid, net_node_uuid, application_uuid, provider_id) VALUES (?, ?, ?, ?)`,
+		svcUUID, nodeUUID, appUUID, "provider-id")
 }
 
 // checkRowCount checks that the given table has the expected number of rows.

@@ -12,14 +12,14 @@ import (
 	"github.com/juju/tc"
 
 	corenetwork "github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
-	schematesting "github.com/juju/juju/domain/schema/testing"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type linkLayerSuite struct {
-	schematesting.ModelSuite
+	linkLayerBaseSuite
 }
 
 func (s *linkLayerSuite) SetupTest(c *tc.C) {
@@ -107,7 +107,6 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 }
 
 func (s *linkLayerSuite) TestGetMachineNetNodeUUID(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	// Arrange
@@ -124,7 +123,7 @@ func (s *linkLayerSuite) TestGetMachineNetNodeUUID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	gotUUID, err := st.GetMachineNetNodeUUID(ctx, machineUUID)
+	gotUUID, err := s.state.GetMachineNetNodeUUID(ctx, machineUUID)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -132,16 +131,13 @@ func (s *linkLayerSuite) TestGetMachineNetNodeUUID(c *tc.C) {
 }
 
 func (s *linkLayerSuite) TestGetMachineNetNodeUUIDNotFoundError(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	_, err := st.GetMachineNetNodeUUID(c.Context(), "machine-uuid")
+	_, err := s.state.GetMachineNetNodeUUID(c.Context(), "machine-uuid")
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TODO (manadart 2025-05-26) this test is temporary.
 // Future changes will reconcile existing devices and update them.
 func (s *linkLayerSuite) TestSetMachineNetConfigAlreadySet(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	// Arrange
@@ -161,7 +157,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{Name: "eth1"}})
+	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{Name: "eth1"}})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -187,7 +183,6 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`
 }
 
 func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	// Arrange
@@ -205,7 +200,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
+	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
 		Name:            devName,
 		Type:            corenetwork.EthernetDevice,
 		VirtualPortType: corenetwork.NonVirtualPort,
@@ -234,7 +229,6 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 }
 
 func (s *linkLayerSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	// Arrange
@@ -255,7 +249,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
 	}
 
 	// Act
-	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
+	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
 		Name:            devName,
 		Type:            corenetwork.EthernetDevice,
 		VirtualPortType: corenetwork.NonVirtualPort,
@@ -294,7 +288,6 @@ func (s *linkLayerSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
 }
 
 func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	// Arrange
@@ -307,7 +300,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
+	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
 		Name:            devName,
 		Type:            corenetwork.EthernetDevice,
 		VirtualPortType: corenetwork.NonVirtualPort,
@@ -330,7 +323,6 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 }
 
 func (s *linkLayerSuite) TestSetMachineNetConfigWithParentDevices(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	// Arrange
@@ -344,7 +336,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigWithParentDevices(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{
+	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{
 		{
 			Name:             devName,
 			Type:             corenetwork.EthernetDevice,
@@ -373,6 +365,177 @@ FROM   link_layer_device AS dp
 WHERE  dc.name = 'eth0'`
 
 	checkScalarResult(c, db, parentSQL, brName)
+}
+
+func (s *linkLayerSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(c *tc.C) {
+	// Arrange
+	podNodeUUID := s.addNetNode(c)
+	podDeviceUUID := s.addLinkLayerDevice(c, podNodeUUID)
+
+	svcNodeUUID := s.addNetNode(c)
+	svcDeviceUUID := s.addLinkLayerDevice(c, svcNodeUUID)
+
+	spaceUUID := s.addSpace(c)
+	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
+
+	podAddr := s.addIPAddress(c, podNodeUUID, podDeviceUUID, subnetUUID, corenetwork.ScopeMachineLocal, corenetwork.OriginMachine)
+	svcAddr := s.addIPAddress(c, svcNodeUUID, svcDeviceUUID, subnetUUID, corenetwork.ScopePublic, corenetwork.OriginProvider)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
+	s.addk8sService(c, svcNodeUUID, appUUID)
+
+	// Act
+	addr, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addr, tc.DeepEquals, corenetwork.SpaceAddresses{
+		{
+			SpaceID: corenetwork.SpaceUUID(spaceUUID),
+			Origin:  corenetwork.OriginMachine,
+			MachineAddress: corenetwork.MachineAddress{
+				Value:      podAddr,
+				CIDR:       cidr,
+				Type:       corenetwork.IPv4Address,
+				Scope:      corenetwork.ScopeMachineLocal,
+				ConfigType: corenetwork.ConfigDHCP,
+			},
+		},
+		{
+			SpaceID: corenetwork.SpaceUUID(spaceUUID),
+			Origin:  corenetwork.OriginProvider,
+			MachineAddress: corenetwork.MachineAddress{
+				Value:      svcAddr,
+				CIDR:       cidr,
+				Type:       corenetwork.IPv4Address,
+				Scope:      corenetwork.ScopePublic,
+				ConfigType: corenetwork.ConfigDHCP,
+			},
+		},
+	})
+}
+
+func (s *linkLayerSuite) TestGetUnitAndK8sServiceAddressesWithoutK8sService(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	deviceUUID := s.addLinkLayerDevice(c, nodeUUID)
+	spaceUUID := s.addSpace(c)
+	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
+	expectedAddr := s.addIPAddress(c, nodeUUID, deviceUUID, subnetUUID, corenetwork.ScopeMachineLocal, corenetwork.OriginProvider)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Act
+	addr, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addr, tc.DeepEquals, corenetwork.SpaceAddresses{
+		{
+			SpaceID: corenetwork.SpaceUUID(spaceUUID),
+			Origin:  corenetwork.OriginProvider,
+			MachineAddress: corenetwork.MachineAddress{
+				Value:      expectedAddr,
+				CIDR:       cidr,
+				Type:       corenetwork.IPv4Address,
+				Scope:      corenetwork.ScopeMachineLocal,
+				ConfigType: corenetwork.ConfigDHCP,
+			},
+		},
+	})
+}
+
+func (s *linkLayerSuite) TestGetUnitAndK8sServiceAddressesNoAddresses(c *tc.C) {
+	// Arrange
+	podNodeUUID := s.addNetNode(c)
+	svcNodeUUID := s.addNetNode(c)
+	spaceUUID := s.addSpace(c)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
+	s.addk8sService(c, svcNodeUUID, appUUID)
+
+	// Act
+	addr, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
+
+	//Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addr, tc.DeepEquals, corenetwork.SpaceAddresses{})
+}
+
+func (s *linkLayerSuite) TestGetUnitAndK8sServiceAddressesNotFound(c *tc.C) {
+	// Arrange
+	svcNodeUUID := s.addNetNode(c)
+	spaceUUID := s.addSpace(c)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	s.addk8sService(c, svcNodeUUID, appUUID)
+
+	// Act
+	_, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), "foo")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *linkLayerSuite) TestGetUnitAddresses(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	deviceUUID := s.addLinkLayerDevice(c, nodeUUID)
+	spaceUUID := s.addSpace(c)
+	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
+	expectedAddr := s.addIPAddress(c, nodeUUID, deviceUUID, subnetUUID, corenetwork.ScopeMachineLocal, corenetwork.OriginProvider)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Act
+	addr, err := s.state.GetUnitAddresses(c.Context(), unitUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addr, tc.DeepEquals, corenetwork.SpaceAddresses{
+		{
+			SpaceID: corenetwork.SpaceUUID(spaceUUID),
+			Origin:  corenetwork.OriginProvider,
+			MachineAddress: corenetwork.MachineAddress{
+				Value:      expectedAddr,
+				CIDR:       cidr,
+				Type:       corenetwork.IPv4Address,
+				Scope:      corenetwork.ScopeMachineLocal,
+				ConfigType: corenetwork.ConfigDHCP,
+			},
+		},
+	})
+}
+
+func (s *linkLayerSuite) TestGetUnitAddressesNoAddresses(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	spaceUUID := s.addSpace(c)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Act
+	addr, err := s.state.GetUnitAddresses(c.Context(), unitUUID)
+
+	// Arrange
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addr, tc.DeepEquals, corenetwork.SpaceAddresses{})
+}
+
+func (s *linkLayerSuite) TestGetUnitAddressesNotFound(c *tc.C) {
+	_, err := s.state.GetUnitAddresses(c.Context(), coreunit.UUID("foo"))
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func checkScalarResult(c *tc.C, db *sql.DB, query string, expected string) {
