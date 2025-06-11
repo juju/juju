@@ -823,14 +823,13 @@ func isValidReferenceName(name string) bool {
 
 // addDefaultStorageDirectives fills in default values, replacing any empty/missing values
 // in the specified directives.
-func addDefaultStorageDirectives(
+func (s *Service) addDefaultStorageDirectives(
 	ctx context.Context,
-	state State,
 	modelType coremodel.ModelType,
 	allDirectives map[string]storage.Directive,
 	storage map[string]internalcharm.Storage,
 ) (map[string]storage.Directive, error) {
-	defaults, err := state.StorageDefaults(ctx)
+	defaults, err := s.st.StorageDefaults(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting storage defaults: %w", err)
 	}
@@ -839,20 +838,18 @@ func addDefaultStorageDirectives(
 
 // validateStorageDirectives ensures the supplied storage is valid for the specified
 // charm and fills in the scope of the supplied storage.
-func validateStorageDirectives(
+func (s *Service) validateStorageDirectives(
 	ctx context.Context,
-	state State,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	modelType coremodel.ModelType,
 	allDirectives map[string]storage.Directive,
 	meta *internalcharm.Meta,
 ) (map[string]domainstorage.StorageDirectiveAndScope, error) {
-	registry, err := storageRegistryGetter.GetStorageRegistry(ctx)
+	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, registry, state)
+	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, registry, s.st)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
