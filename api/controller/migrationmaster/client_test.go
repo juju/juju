@@ -95,6 +95,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 					AuthTag:       names.NewUserTag("admin").String(),
 					Password:      "secret",
 					Macaroons:     string(macsJSON),
+					Token:         "token",
 				},
 			},
 			MigrationId:      "id",
@@ -122,6 +123,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("admin"),
 			Password:      "secret",
+			Token:         "token",
 		},
 	})
 }

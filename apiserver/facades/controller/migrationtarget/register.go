@@ -34,6 +34,11 @@ func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(regis
 		registry.MustRegister("MigrationTarget", 4, func(ctx facade.Context) (facade.Facade, error) {
 			return newFacade(ctx, requiredMigrationFacadeVersions)
 		}, reflect.TypeOf((*API)(nil)))
+		// Bumped to version 5 for the addition of the token field in
+		// the MigrationTargetInfo struct.
+		registry.MustRegister("MigrationTarget", 5, func(ctx facade.Context) (facade.Facade, error) {
+			return newFacade(ctx, requiredMigrationFacadeVersions)
+		}, reflect.TypeOf((*API)(nil)))
 	}
 }
 
