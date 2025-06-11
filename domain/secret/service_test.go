@@ -147,7 +147,7 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	u := applicationservice.AddUnitArg{}
+	u := applicationservice.AddIAASUnitArg{}
 	_, err := appService.CreateIAASApplication(ctx, "mariadb", &stubCharm{}, corecharm.Origin{
 		Source: corecharm.Local,
 		Platform: corecharm.Platform{

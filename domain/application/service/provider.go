@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
-	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
@@ -95,7 +94,7 @@ func (s *ProviderService) CreateIAASApplication(
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
-	units ...AddUnitArg,
+	units ...AddIAASUnitArg,
 ) (coreapplication.ID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -163,8 +162,8 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
-	units ...AddUnitArg,
-) (string, application.AddIAASApplicationArg, []application.AddUnitArg, error) {
+	units ...AddIAASUnitArg,
+) (string, application.AddIAASApplicationArg, []application.AddIAASUnitArg, error) {
 	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
 	if err != nil {
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("preparing IAAS application args: %w", err)
@@ -175,14 +174,10 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("merging CAAS application and model constraints: %w", err)
 	}
 
-	iaasUnitArgs, err := s.makeIAASUnitArgs(units, constraints.DecodeConstraints(cons))
+	unitArgs, err := s.makeIAASUnitArgs(units, constraints.DecodeConstraints(cons))
 	if err != nil {
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("making IAAS unit args: %w", err)
 	}
-
-	unitArgs := transform.Slice(iaasUnitArgs, func(arg application.AddIAASUnitArg) application.AddUnitArg {
-		return arg.AddUnitArg
-	})
 
 	return appName, application.AddIAASApplicationArg{
 			BaseAddApplicationArg: arg,
@@ -456,7 +451,7 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 // AddIAASUnits adds the specified units to the IAAS application, returning an
 // error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application doesn't exist. If no units are provided, it will return nil.
-func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, units ...AddUnitArg) ([]coreunit.Name, error) {
+func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, units ...AddIAASUnitArg) ([]coreunit.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if len(units) == 0 {

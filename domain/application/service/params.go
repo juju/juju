@@ -105,6 +105,12 @@ type AddUnitArg struct {
 	// Storage params go here.
 }
 
+// AddIAASUnitArg contains parameters for adding a IAAS unit to the model.
+type AddIAASUnitArg struct {
+	AddUnitArg
+	Nonce *string
+}
+
 // ImportUnitArg contains parameters for inserting a fully
 // populated unit into the model, eg during migration.
 type ImportUnitArg struct {

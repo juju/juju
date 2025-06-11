@@ -1010,7 +1010,7 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 				DownloadSize:       1000,
 			},
 		},
-		applicationservice.AddUnitArg{},
+		applicationservice.AddIAASUnitArg{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 }

@@ -346,7 +346,7 @@ func (c *MockStateCreateCAASApplicationCall) DoAndReturn(f func(context.Context,
 }
 
 // CreateIAASApplication mocks base method.
-func (m *MockState) CreateIAASApplication(arg0 context.Context, arg1 string, arg2 application0.AddIAASApplicationArg, arg3 []application0.AddUnitArg) (application.ID, []machine.Name, error) {
+func (m *MockState) CreateIAASApplication(arg0 context.Context, arg1 string, arg2 application0.AddIAASApplicationArg, arg3 []application0.AddIAASUnitArg) (application.ID, []machine.Name, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateIAASApplication", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(application.ID)
@@ -374,13 +374,13 @@ func (c *MockStateCreateIAASApplicationCall) Return(arg0 application.ID, arg1 []
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateIAASApplicationCall) Do(f func(context.Context, string, application0.AddIAASApplicationArg, []application0.AddUnitArg) (application.ID, []machine.Name, error)) *MockStateCreateIAASApplicationCall {
+func (c *MockStateCreateIAASApplicationCall) Do(f func(context.Context, string, application0.AddIAASApplicationArg, []application0.AddIAASUnitArg) (application.ID, []machine.Name, error)) *MockStateCreateIAASApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateIAASApplicationCall) DoAndReturn(f func(context.Context, string, application0.AddIAASApplicationArg, []application0.AddUnitArg) (application.ID, []machine.Name, error)) *MockStateCreateIAASApplicationCall {
+func (c *MockStateCreateIAASApplicationCall) DoAndReturn(f func(context.Context, string, application0.AddIAASApplicationArg, []application0.AddIAASUnitArg) (application.ID, []machine.Name, error)) *MockStateCreateIAASApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

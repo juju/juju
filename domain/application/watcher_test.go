@@ -131,9 +131,9 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	setup := func(c *tc.C) {
 
 		ctx := c.Context()
-		_, err := svc.AddIAASUnits(ctx, "foo", service.AddUnitArg{}, service.AddUnitArg{})
+		_, err := svc.AddIAASUnits(ctx, "foo", service.AddIAASUnitArg{}, service.AddIAASUnitArg{})
 		c.Assert(err, tc.ErrorIsNil)
-		_, err = svc.AddIAASUnits(ctx, "bar", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
+		_, err = svc.AddIAASUnits(ctx, "bar", service.AddIAASUnitArg{}, service.AddIAASUnitArg{}, service.AddIAASUnitArg{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -317,8 +317,8 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *tc.C) {
 
 	var unitID1, unitID2 string
 	setup := func(c *tc.C) {
-		s.createIAASApplication(c, svc, "foo", service.AddUnitArg{}, service.AddUnitArg{})
-		s.createIAASApplication(c, svc, "bar", service.AddUnitArg{})
+		s.createIAASApplication(c, svc, "foo", service.AddIAASUnitArg{}, service.AddIAASUnitArg{})
+		s.createIAASApplication(c, svc, "bar", service.AddIAASUnitArg{})
 
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/0").Scan(&unitID1); err != nil {
@@ -462,7 +462,7 @@ WHERE uuid=?`, id0.String())
 	// Add another application with an available charm.
 	// Available charms are not pending charms!
 	harness.AddTest(func(c *tc.C) {
-		id2 = s.createIAASApplicationWithCharmAndStoragePath(c, svc, "jaz", &stubCharm{}, "deadbeef", service.AddUnitArg{})
+		id2 = s.createIAASApplicationWithCharmAndStoragePath(c, svc, "jaz", &stubCharm{}, "deadbeef", service.AddIAASUnitArg{})
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -748,7 +748,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	_ = s.createIAASApplication(c, svc, appName, service.AddUnitArg{})
+	_ = s.createIAASApplication(c, svc, appName, service.AddIAASUnitArg{})
 
 	ctx := c.Context()
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
@@ -770,7 +770,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appID := s.createIAASApplication(c, svc, appName, service.AddUnitArg{})
+	appID := s.createIAASApplication(c, svc, appName, service.AddIAASUnitArg{})
 	// Create an ip address for the unit.
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
@@ -857,7 +857,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appID := s.createCAASApplication(c, svc, appName, service.AddUnitArg{})
+	appID := s.createIAASApplication(c, svc, appName, service.AddIAASUnitArg{})
 
 	ctx := c.Context()
 
@@ -933,10 +933,12 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineInitialEvents(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	s.createIAASApplication(c, svc, "foo",
-		service.AddUnitArg{},
-		service.AddUnitArg{},
-		service.AddUnitArg{
-			Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+		service.AddIAASUnitArg{},
+		service.AddIAASUnitArg{},
+		service.AddIAASUnitArg{
+			AddUnitArg: service.AddUnitArg{
+				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+			},
 		},
 	)
 
@@ -979,14 +981,20 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 
 	harness.AddTest(func(c *tc.C) {
 		s.createIAASApplication(c, svc, "foo",
-			service.AddUnitArg{
-				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+			service.AddIAASUnitArg{
+				AddUnitArg: service.AddUnitArg{
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+				},
 			},
-			service.AddUnitArg{
-				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "1"},
+			service.AddIAASUnitArg{
+				AddUnitArg: service.AddUnitArg{
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "1"},
+				},
 			},
-			service.AddUnitArg{
-				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+			service.AddIAASUnitArg{
+				AddUnitArg: service.AddUnitArg{
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+				},
 			},
 		)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -1044,11 +1052,15 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 
 	harness.AddTest(func(c *tc.C) {
 		s.createIAASApplication(c, svc, "foo",
-			service.AddUnitArg{
-				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+			service.AddIAASUnitArg{
+				AddUnitArg: service.AddUnitArg{
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+				},
 			},
-			service.AddUnitArg{
-				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "1"},
+			service.AddIAASUnitArg{
+				AddUnitArg: service.AddUnitArg{
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "1"},
+				},
 			},
 		)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -1264,7 +1276,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	s.createIAASApplication(c, svc, appName, service.AddUnitArg{}, service.AddUnitArg{})
+	s.createIAASApplication(c, svc, appName, service.AddIAASUnitArg{}, service.AddIAASUnitArg{})
 
 	ctx := c.Context()
 
@@ -1405,7 +1417,7 @@ func (s *watcherSuite) TestWatchUnitAddresses(c *tc.C) {
 
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	s.createIAASApplication(c, svc, "foo", service.AddUnitArg{})
+	s.createIAASApplication(c, svc, "foo", service.AddIAASUnitArg{})
 
 	// Insert a net node first.
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1538,11 +1550,11 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 	)
 }
 
-func (s *watcherSuite) createIAASApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *watcherSuite) createIAASApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddIAASUnitArg) coreapplication.ID {
 	return s.createIAASApplicationWithCharmAndStoragePath(c, svc, name, &stubCharm{}, "", units...)
 }
 
-func (s *watcherSuite) createIAASApplicationWithCharmAndStoragePath(c *tc.C, svc *service.WatchableService, name string, ch internalcharm.Charm, storagePath string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *watcherSuite) createIAASApplicationWithCharmAndStoragePath(c *tc.C, svc *service.WatchableService, name string, ch internalcharm.Charm, storagePath string, units ...service.AddIAASUnitArg) coreapplication.ID {
 	ctx := c.Context()
 	appID, err := svc.CreateIAASApplication(ctx, name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
