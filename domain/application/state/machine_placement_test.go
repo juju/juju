@@ -53,12 +53,12 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnset(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
 
-	s.ensureSequenceForMachineNamespace(c, 0)
+	s.checkSequenceForMachineNamespace(c, 0)
 
-	s.ensureStatusForMachine(c, machine.Name("0"), domainstatus.MachineStatusPending)
-	s.ensureStatusForMachineInstance(c, machine.Name("0"), domainstatus.InstanceStatusPending)
+	s.checkStatusForMachine(c, machine.Name("0"), domainstatus.MachineStatusPending)
+	s.checkStatusForMachineInstance(c, machine.Name("0"), domainstatus.InstanceStatusPending)
 
-	s.ensurePlatformForMachine(c, machine.Name("0"), deployment.Platform{})
+	s.checkPlatformForMachine(c, machine.Name("0"), deployment.Platform{})
 
 	c.Assert(machineNames, tc.HasLen, 1)
 	c.Check(machineNames[0], tc.Equals, machine.Name("0"))
@@ -80,7 +80,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithPlatform(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ensurePlatformForMachine(c, machine.Name("0"), platform)
+	s.checkPlatformForMachine(c, machine.Name("0"), platform)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithController(c *tc.C) {
@@ -92,7 +92,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithController(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ensureControllerMachine(c, machine.Name("0"), true)
+	s.checkControllerMachine(c, machine.Name("0"), true)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingArchitecture(c *tc.C) {
@@ -110,7 +110,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingArchite
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ensurePlatformForMachine(c, machine.Name("0"), platform)
+	s.checkPlatformForMachine(c, machine.Name("0"), platform)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingBase(c *tc.C) {
@@ -127,7 +127,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingBase(c 
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ensurePlatformForMachine(c, machine.Name("0"), platform)
+	s.checkPlatformForMachine(c, machine.Name("0"), platform)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
@@ -160,7 +160,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
 	}
 	c.Check(resultNetNodes, tc.DeepEquals, netNodes)
 
-	s.ensureSequenceForMachineNamespace(c, total-1)
+	s.checkSequenceForMachineNamespace(c, total-1)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *tc.C) {
@@ -225,13 +225,13 @@ WHERE m.net_node_uuid = ?
 	// Ensure the sequence hasn't been changed during the delete.
 
 	createMachines()
-	s.ensureSequenceForMachineNamespace(c, stepTotal-1)
+	s.checkSequenceForMachineNamespace(c, stepTotal-1)
 
 	deleteLastMachine()
-	s.ensureSequenceForMachineNamespace(c, stepTotal-1)
+	s.checkSequenceForMachineNamespace(c, stepTotal-1)
 
 	createMachines()
-	s.ensureSequenceForMachineNamespace(c, (stepTotal*2)-1)
+	s.checkSequenceForMachineNamespace(c, (stepTotal*2)-1)
 
 	var resultNetNodes []string
 	for i := range stepTotal * 2 {
@@ -312,8 +312,8 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
 
-	s.ensureSequenceForMachineNamespace(c, 0)
-	s.ensureSequenceForContainerNamespace(c, "0", 0)
+	s.checkSequenceForMachineNamespace(c, 0)
+	s.checkSequenceForContainerNamespace(c, "0", 0)
 
 	c.Assert(machineNames, tc.HasLen, 2)
 	c.Check(machineNames, tc.DeepEquals, []machine.Name{
@@ -354,8 +354,8 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
 
-	s.ensureSequenceForMachineNamespace(c, 0)
-	s.ensureSequenceForContainerNamespace(c, "0", 0)
+	s.checkSequenceForMachineNamespace(c, 0)
+	s.checkSequenceForContainerNamespace(c, "0", 0)
 
 	c.Assert(machineNames, tc.HasLen, 2)
 	c.Check(machineNames, tc.DeepEquals, []machine.Name{
@@ -408,9 +408,9 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *tc.C)
 	}
 	c.Check(resultNetNodes, tc.DeepEquals, netNodes)
 
-	s.ensureSequenceForMachineNamespace(c, total-1)
+	s.checkSequenceForMachineNamespace(c, total-1)
 	for i := range total {
-		s.ensureSequenceForContainerNamespace(c, machine.Name(strconv.Itoa(i)), 0)
+		s.checkSequenceForContainerNamespace(c, machine.Name(strconv.Itoa(i)), 0)
 	}
 }
 
@@ -496,13 +496,13 @@ WHERE m.net_node_uuid = ?
 	// Ensure the sequence hasn't been changed during the delete.
 
 	createMachines()
-	s.ensureSequenceForMachineNamespace(c, stepTotal-1)
+	s.checkSequenceForMachineNamespace(c, stepTotal-1)
 
 	deleteLastMachine()
-	s.ensureSequenceForMachineNamespace(c, stepTotal-1)
+	s.checkSequenceForMachineNamespace(c, stepTotal-1)
 
 	createMachines()
-	s.ensureSequenceForMachineNamespace(c, (stepTotal*2)-1)
+	s.checkSequenceForMachineNamespace(c, (stepTotal*2)-1)
 
 	var resultNetNodes []string
 	for i := range stepTotal * 2 {
@@ -539,7 +539,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesProvider(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
 
-	s.ensureSequenceForMachineNamespace(c, 0)
+	s.checkSequenceForMachineNamespace(c, 0)
 
 	var directive string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -558,7 +558,7 @@ WHERE m.net_node_uuid = ?
 	c.Check(directive, tc.Equals, "zone=eu-west-1")
 }
 
-func (s *unitStateSuite) ensureSequenceForMachineNamespace(c *tc.C, expected int) {
+func (s *unitStateSuite) checkSequenceForMachineNamespace(c *tc.C, expected int) {
 	var seq int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		namespace := domainapplication.MachineSequenceNamespace
@@ -568,7 +568,7 @@ func (s *unitStateSuite) ensureSequenceForMachineNamespace(c *tc.C, expected int
 	c.Check(seq, tc.Equals, expected)
 }
 
-func (s *unitStateSuite) ensureSequenceForContainerNamespace(c *tc.C, parentName machine.Name, expected int) {
+func (s *unitStateSuite) checkSequenceForContainerNamespace(c *tc.C, parentName machine.Name, expected int) {
 	var seq int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		namespace := sequence.MakePrefixNamespace(domainapplication.ContainerSequenceNamespace, parentName.String()).String()
@@ -578,7 +578,7 @@ func (s *unitStateSuite) ensureSequenceForContainerNamespace(c *tc.C, parentName
 	c.Check(seq, tc.Equals, expected)
 }
 
-func (s *unitStateSuite) ensureStatusForMachine(c *tc.C, name machine.Name, expected domainstatus.MachineStatusType) {
+func (s *unitStateSuite) checkStatusForMachine(c *tc.C, name machine.Name, expected domainstatus.MachineStatusType) {
 	var status int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -595,7 +595,7 @@ WHERE m.name = ?
 	c.Check(status, tc.Equals, statusValue)
 }
 
-func (s *unitStateSuite) ensureStatusForMachineInstance(c *tc.C, name machine.Name, expected domainstatus.InstanceStatusType) {
+func (s *unitStateSuite) checkStatusForMachineInstance(c *tc.C, name machine.Name, expected domainstatus.InstanceStatusType) {
 	var status int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -612,7 +612,7 @@ WHERE m.name = ?
 	c.Check(status, tc.Equals, statusValue)
 }
 
-func (s *unitStateSuite) ensurePlatformForMachine(c *tc.C, name machine.Name, expected deployment.Platform) {
+func (s *unitStateSuite) checkPlatformForMachine(c *tc.C, name machine.Name, expected deployment.Platform) {
 	var platform deployment.Platform
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -626,11 +626,11 @@ WHERE m.name = ?
 	c.Check(platform, tc.DeepEquals, expected)
 }
 
-func (s *unitStateSuite) ensureControllerMachine(c *tc.C, name machine.Name, isController bool) {
-	var controller bool
+func (s *unitStateSuite) checkControllerMachine(c *tc.C, name machine.Name, isController bool) {
+	var controller int64
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
-SELECT mc.is_controller
+SELECT COUNT(*) AS num
 FROM machine AS m
 JOIN machine_controller AS mc ON m.uuid = mc.machine_uuid
 WHERE m.name = ?
@@ -641,5 +641,5 @@ WHERE m.name = ?
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(controller, tc.Equals, isController)
+	c.Check(controller > 0, tc.Equals, isController)
 }

@@ -513,8 +513,8 @@ func (s *stateSuite) TestIsControllerSuccess(c *tc.C) {
 	db := s.DB()
 
 	updateIsController := `
-INSERT INTO machine_controller (machine_uuid, is_controller)
-VALUES ((SELECT uuid FROM machine WHERE name = ?), TRUE);
+INSERT INTO machine_controller (machine_uuid)
+VALUES ((SELECT uuid FROM machine WHERE name = ?));
 `
 	_, err = db.ExecContext(c.Context(), updateIsController, "666")
 	c.Assert(err, tc.ErrorIsNil)

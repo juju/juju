@@ -424,7 +424,7 @@ func (st *State) insertMachineController(ctx context.Context, tx *sqlair.TX, mUU
 	// Prepare query for setting the machine controller.
 	query := `
 INSERT INTO machine_controller (machine_uuid, is_controller)
-vALUES ($machineUUID.machine_uuid, TRUE)
+VALUES ($machineUUID.machine_uuid, TRUE)
 `
 
 	stmt, err := st.Prepare(query, machineUUID{})

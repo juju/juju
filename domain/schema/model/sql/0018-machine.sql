@@ -45,7 +45,6 @@ CREATE TABLE machine_platform (
 -- machines.
 CREATE TABLE machine_controller (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
-    is_controller BOOLEAN,
     CONSTRAINT fk_machine_controller_machine
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid)
