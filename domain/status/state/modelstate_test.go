@@ -129,7 +129,7 @@ func (s *modelStateSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetApplicationIDAndNameByUnitName(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	expectedAppUUID, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 
 	appUUID, appName, err := s.state.GetApplicationIDAndNameByUnitName(c.Context(), coreunit.Name("foo/0"))
@@ -434,7 +434,7 @@ WHERE  relation_uuid = ?
 }
 
 func (s *modelStateSuite) TestSetK8sPodStatus(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -454,7 +454,7 @@ func (s *modelStateSuite) TestSetK8sPodStatus(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetUnitAgentStatus(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -486,7 +486,7 @@ func (s *modelStateSuite) TestSetUnitAgentStatusNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitAgentStatusUnset(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -495,7 +495,7 @@ func (s *modelStateSuite) TestGetUnitAgentStatusUnset(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitAgentStatusDead(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -504,7 +504,7 @@ func (s *modelStateSuite) TestGetUnitAgentStatusDead(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitAgentStatus(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -526,7 +526,7 @@ func (s *modelStateSuite) TestGetUnitAgentStatus(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitAgentStatusPresent(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -565,7 +565,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusUnitNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitWorkloadStatusDead(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -574,7 +574,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusDead(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitWorkloadStatusUnsetStatus(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -583,7 +583,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusUnsetStatus(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetWorkloadStatus(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -621,7 +621,7 @@ func (s *modelStateSuite) TestSetWorkloadStatus(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetUnitWorkloadStatusToError(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -642,7 +642,7 @@ func (s *modelStateSuite) TestSetUnitWorkloadStatusToError(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetWorkloadStatusPresent(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -695,7 +695,7 @@ func (s *modelStateSuite) TestSetUnitWorkloadStatusNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitK8sPodStatusUnset(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -712,7 +712,7 @@ func (s *modelStateSuite) TestGetUnitK8sPodStatusUnitNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitK8sPodStatusDead(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -721,7 +721,7 @@ func (s *modelStateSuite) TestGetUnitK8sPodStatusDead(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitK8sPodStatus(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -747,7 +747,7 @@ func (s *modelStateSuite) TestGetUnitK8sPodStatus(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplication(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -771,8 +771,8 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplication(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
 	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
 	unitUUID1 := unitUUIDs[0]
 	unitUUID2 := unitUUIDs[1]
@@ -811,8 +811,8 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits
 }
 
 func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnitsPresent(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
 	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
 	unitUUID1 := unitUUIDs[0]
 	unitUUID2 := unitUUIDs[1]
@@ -866,7 +866,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationNoUnits(c *tc
 }
 
 func (s *modelStateSuite) TestGetAllUnitStatusesForApplication(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
@@ -917,8 +917,8 @@ func (s *modelStateSuite) TestGetAllUnitStatusesForApplication(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitK8sPodStatusForApplicationMultipleUnits(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
 	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
 	unitUUID1 := unitUUIDs[0]
 	unitUUID2 := unitUUIDs[1]
@@ -994,8 +994,8 @@ func (s *modelStateSuite) TestGetAllUnitStatusesForApplicationNoUnits(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetAllUnitStatusesForApplicationUnitsWithoutStatuses(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
 	appId, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
 
 	_, err := s.state.GetAllFullUnitStatusesForApplication(c.Context(), appId)
@@ -1009,7 +1009,7 @@ func (s *modelStateSuite) TestGetAllFullUnitStatusesEmptyModel(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetAllFullUnitStatusesNotFound(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 
 	_, err := s.state.GetAllUnitWorkloadAgentStatuses(c.Context())
@@ -1017,9 +1017,9 @@ func (s *modelStateSuite) TestGetAllFullUnitStatusesNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetAllFullUnitStatuses(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
-	u3 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
+	u3 := application.AddIAASUnitArg{}
 	_, fooUnitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
 	u1UUID := fooUnitUUIDs[0]
 	u2UUID := fooUnitUUIDs[1]
@@ -1130,7 +1130,7 @@ func (s *modelStateSuite) TestGetAllApplicationStatusesEmptyModel(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetAllApplicationStatusesUnsetStatuses(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	s.createApplication(c, "foo", life.Alive, false, nil, u1)
 	s.createApplication(c, "bar", life.Alive, false, nil)
 
@@ -1140,7 +1140,7 @@ func (s *modelStateSuite) TestGetAllApplicationStatusesUnsetStatuses(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetAllApplicationStatuses(c *tc.C) {
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	app1ID, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	app2ID, _ := s.createApplication(c, "bar", life.Alive, false, s.appStatus(time.Now()))
 	s.createApplication(c, "goo", life.Alive, false, s.appStatus(time.Now()))
@@ -1173,8 +1173,8 @@ func (s *modelStateSuite) TestGetAllApplicationStatuses(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetUnitPresence(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
 	s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
 
 	err := s.state.SetUnitPresence(c.Context(), "foo/0")
@@ -1204,8 +1204,8 @@ func (s *modelStateSuite) TestDeleteUnitPresenceNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestDeleteUnitPresence(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
 	s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
 
 	err := s.state.SetUnitPresence(c.Context(), "foo/0")
@@ -1244,8 +1244,8 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoApplications(c *tc.
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
 	appUUID, _ := s.createApplication(c, "foo", life.Alive, false, nil, u1, u2)
 
 	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
@@ -1566,8 +1566,8 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
 	now := time.Now()
 
 	appStatus := s.appStatus(now)
@@ -1626,8 +1626,8 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
 	now := time.Now()
 
 	appStatus := s.appStatus(now)
@@ -1701,8 +1701,8 @@ func (s *modelStateSuite) setWorkloadVersion(c *tc.C, appUUID coreapplication.ID
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
 	now := time.Now()
 
 	appStatus := s.appStatus(now)
@@ -1767,8 +1767,8 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *tc.C
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
 	now := time.Now()
 
 	appStatus := s.appStatus(now)
@@ -1838,8 +1838,8 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitModelStatuses(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
 	now := time.Now()
 
 	appStatus := s.appStatus(now)
@@ -1854,9 +1854,9 @@ func (s *modelStateSuite) TestGetApplicationAndUnitModelStatuses(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitModelStatusesMultiple(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
-	u3 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
+	u3 := application.AddIAASUnitArg{}
 	now := time.Now()
 
 	appStatus := s.appStatus(now)
@@ -1964,7 +1964,7 @@ func (s *modelStateSuite) addRelationToApplication(c *tc.C, appUUID coreapplicat
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelStateSuite) createApplication(c *tc.C, name string, l life.Life, subordinate bool, appStatus *status.StatusInfo[status.WorkloadStatusType], units ...application.AddUnitArg) (coreapplication.ID, []coreunit.UUID) {
+func (s *modelStateSuite) createApplication(c *tc.C, name string, l life.Life, subordinate bool, appStatus *status.StatusInfo[status.WorkloadStatusType], units ...application.AddIAASUnitArg) (coreapplication.ID, []coreunit.UUID) {
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{

@@ -184,7 +184,7 @@ func (s *leadershipSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...application.AddUnitArg) coreapplication.ID {
+func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...application.AddIAASUnitArg) coreapplication.ID {
 	appState := applicationstate.NewState(s.ModelSuite.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
