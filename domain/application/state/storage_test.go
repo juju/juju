@@ -293,8 +293,8 @@ func (s *baseStorageSuite) TestGetStorageUUIDByID(c *tc.C) {
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, storage_type, requested_size_mib)
-VALUES (?, ?, ?, ?, ?, ?, ?)`, uuid, charmUUID, "pgdata", "pgdata/0", 0, "rootfs", 666)
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, scope_id, storage_type, requested_size_mib)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, uuid, charmUUID, "pgdata", "pgdata/0", 0, 1, "rootfs", 666)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -348,8 +348,9 @@ ON CONFLICT DO NOTHING`, poolUUID, "pool", "rootfs")
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
-SELECT ?, ?, ?, ?, ?, ?, uuid FROM storage_pool WHERE name = ?`, storageUUID, charmUUID, storageName, fmt.Sprintf("%s/%d", storageName, s.storageInstCount), life.Alive, 100, "pool")
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, scope_id, requested_size_mib, storage_pool_uuid)
+SELECT ?, ?, ?, ?, ?, ?, ?, uuid FROM storage_pool WHERE name = ?`, storageUUID, charmUUID, storageName,
+			fmt.Sprintf("%s/%d", storageName, s.storageInstCount), life.Alive, domainstorage.StorageScopeHost, 100, "pool")
 		if err != nil || ownerUUID == nil {
 			return err
 		}
@@ -508,6 +509,7 @@ type storageInstanceFilesystemArg struct {
 	LifeID            life.Life
 	StoragePoolOrType string
 	SizeMIB           uint64
+	ScopeID           domainstorage.StorageScope
 	// Filesystem.
 	FilesystemLifeID life.Life
 	FilesystemID     string
@@ -525,7 +527,8 @@ func (s *baseStorageSuite) assertFilesystems(c *tc.C, charmUUID corecharm.ID, ex
 SELECT
     sf.life_id AS filesystem_life_id, sf.filesystem_id,
     sfs.status_id, sfs.updated_at,
-    si.storage_id, si.storage_name, si.storage_pool, si.requested_size_mib
+    si.storage_id, si.storage_name, si.storage_pool, si.requested_size_mib,
+    si.scope_id
 FROM storage_filesystem sf
 JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid = sf.uuid
 JOIN storage_filesystem_status sfs ON sf.uuid = sfs.filesystem_uuid
@@ -541,7 +544,7 @@ WHERE si.charm_uuid = ?`,
 			err = rows.Scan(&row.FilesystemLifeID, &row.FilesystemID,
 				&row.Status, &since,
 				&row.StorageID, &row.StorageName, &row.StoragePoolOrType,
-				&row.SizeMIB)
+				&row.SizeMIB, &row.ScopeID)
 			if err != nil {
 				return err
 			}
@@ -562,6 +565,7 @@ type storageInstanceVolumeArg struct {
 	StorageID   corestorage.ID
 	StorageName corestorage.Name
 	LifeID      life.Life
+	ScopeID     domainstorage.StorageScope
 	StoragePool string
 	SizeMIB     uint64
 	// Volume.
@@ -581,7 +585,8 @@ func (s *baseStorageSuite) assertVolumes(c *tc.C, charmUUID corecharm.ID, expect
 SELECT
     sv.life_id AS volume_life_id, sv.volume_id,
     svs.status_id, svs.updated_at,
-    si.storage_id, si.storage_name, si.storage_pool, si.requested_size_mib
+    si.storage_id, si.storage_name, si.storage_pool, si.requested_size_mib,
+    si.scope_id
 FROM storage_volume sv
 JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sv.uuid
 JOIN storage_volume_status svs ON sv.uuid = svs.volume_uuid
@@ -597,7 +602,7 @@ WHERE si.charm_uuid = ?`,
 			err = rows.Scan(&row.VolumeLifeID, &row.VolumeID,
 				&row.Status, &since,
 				&row.StorageID,
-				&row.StorageName, &row.StoragePool, &row.SizeMIB)
+				&row.StorageName, &row.StoragePool, &row.SizeMIB, &row.ScopeID)
 			if err != nil {
 				return err
 			}
@@ -798,16 +803,19 @@ func (s *caasStorageSuite) TestCreateCAASApplicationWithUnitsAndStorage(c *tc.C)
 			PoolNameOrType: "ebs",
 			Size:           10,
 			Count:          2,
+			Scope:          domainstorage.StorageScopeModel,
 		}, {
 			Name:           "logs",
 			PoolNameOrType: "rootfs",
 			Size:           20,
 			Count:          1,
+			Scope:          domainstorage.StorageScopeHost,
 		}, {
 			Name:           "cache",
 			PoolNameOrType: "loop",
 			Size:           30,
 			Count:          1,
+			Scope:          domainstorage.StorageScopeHost,
 		},
 	}
 	ctx := c.Context()
@@ -840,6 +848,7 @@ WHERE name=?`, "foo/0").Scan(&unitUUID)
 		StorageID:        "database/0",
 		StorageName:      "database",
 		LifeID:           life.Alive,
+		ScopeID:          int(domainstorage.StorageScopeModel),
 		StorageType:      ptr("ebs"),
 		RequestedSizeMIB: 10,
 	}, {
@@ -847,6 +856,7 @@ WHERE name=?`, "foo/0").Scan(&unitUUID)
 		StorageID:        "database/1",
 		StorageName:      "database",
 		LifeID:           life.Alive,
+		ScopeID:          int(domainstorage.StorageScopeModel),
 		StorageType:      ptr("ebs"),
 		RequestedSizeMIB: 10,
 	}, {
@@ -854,6 +864,7 @@ WHERE name=?`, "foo/0").Scan(&unitUUID)
 		StorageID:        "logs/2",
 		StorageName:      "logs",
 		LifeID:           life.Alive,
+		ScopeID:          int(domainstorage.StorageScopeHost),
 		StorageType:      ptr("rootfs"),
 		RequestedSizeMIB: 20,
 	}, {
@@ -861,6 +872,7 @@ WHERE name=?`, "foo/0").Scan(&unitUUID)
 		StorageID:        "cache/3",
 		StorageName:      "cache",
 		LifeID:           life.Alive,
+		ScopeID:          int(domainstorage.StorageScopeHost),
 		StorageType:      ptr("loop"),
 		RequestedSizeMIB: 30,
 	}}
@@ -872,7 +884,7 @@ WHERE name=?`, "foo/0").Scan(&unitUUID)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
-SELECT uuid, storage_name, storage_pool_uuid, storage_type, requested_size_mib, storage_id, life_id
+SELECT uuid, storage_name, storage_pool_uuid, storage_type, requested_size_mib, storage_id, life_id, scope_id
 FROM storage_instance
 WHERE charm_uuid = ?`, charmUUID)
 		if err != nil {
@@ -882,7 +894,7 @@ WHERE charm_uuid = ?`, charmUUID)
 		for rows.Next() {
 			var inst storageInstance
 			if err := rows.Scan(&inst.StorageUUID, &inst.StorageName, &inst.StoragePoolUUID, &inst.StorageType,
-				&inst.RequestedSizeMIB, &inst.StorageID, &inst.LifeID); err != nil {
+				&inst.RequestedSizeMIB, &inst.StorageID, &inst.LifeID, &inst.ScopeID); err != nil {
 				return errors.Capture(err)
 			}
 			inst.CharmUUID = charmUUID
@@ -899,6 +911,7 @@ WHERE charm_uuid = ?`, charmUUID)
 		StorageID:         "logs/2",
 		StorageName:       "logs",
 		LifeID:            life.Alive,
+		ScopeID:           domainstorage.StorageScopeHost,
 		StoragePoolOrType: "rootfs",
 		SizeMIB:           20,
 		FilesystemLifeID:  life.Alive,
@@ -908,6 +921,7 @@ WHERE charm_uuid = ?`, charmUUID)
 		StorageID:         "cache/3",
 		StorageName:       "cache",
 		LifeID:            life.Alive,
+		ScopeID:           domainstorage.StorageScopeHost,
 		StoragePoolOrType: "loop",
 		SizeMIB:           30,
 		FilesystemLifeID:  life.Alive,
@@ -935,6 +949,7 @@ WHERE charm_uuid = ?`, charmUUID)
 		StorageID:    "database/0",
 		StorageName:  "database",
 		LifeID:       life.Alive,
+		ScopeID:      domainstorage.StorageScopeModel,
 		StoragePool:  "ebs",
 		SizeMIB:      10,
 		VolumeLifeID: life.Alive,
@@ -944,6 +959,7 @@ WHERE charm_uuid = ?`, charmUUID)
 		StorageID:    "database/1",
 		StorageName:  "database",
 		LifeID:       life.Alive,
+		ScopeID:      domainstorage.StorageScopeModel,
 		StoragePool:  "ebs",
 		SizeMIB:      10,
 		VolumeLifeID: life.Alive,
@@ -953,6 +969,7 @@ WHERE charm_uuid = ?`, charmUUID)
 		StorageID:    "cache/3",
 		StorageName:  "cache",
 		LifeID:       life.Alive,
+		ScopeID:      domainstorage.StorageScopeHost,
 		StoragePool:  "loop",
 		SizeMIB:      30,
 		VolumeLifeID: life.Alive,
