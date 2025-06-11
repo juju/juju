@@ -40,7 +40,7 @@ func (s *ListControllersSuite) TestListControllers(c *tc.C) {
 	store := s.createTestClientStore(c)
 	delete(store.Accounts, "aws-test")
 	originallyInStore := &jujuclient.ControllerModels{
-		CurrentModel: "admin/my-model",
+		CurrentModel: "prod/my-model",
 		Models: map[string]jujuclient.ModelDetails{
 			"model0":   {ModelUUID: "abc", ModelType: model.IAAS},
 			"my-model": {ModelUUID: "def", ModelType: model.IAAS},
@@ -51,11 +51,11 @@ func (s *ListControllersSuite) TestListControllers(c *tc.C) {
 	s.expectedOutput = `
 Use --refresh option with this command to see the latest information.
 
-Controller           Model             User   Access     Cloud/Region        Models  Nodes  HA  Version
-aws-test             admin/controller  -      -          aws/us-east-1            1      5   -  2.0.1      
-k8s-controller       my-k8s-model      admin  superuser  microk8s/localhost       2      3   -  6.6.6      
-mallards*            my-model          admin  superuser  mallards/mallards1       2      -   -  (unknown)  
-mark-test-prodstack  -                 admin  (unknown)  prodstack                -      -   -  (unknown)  
+Controller           Model              User   Access     Cloud/Region        Models  Nodes  HA  Version
+aws-test             prod/controller    -      -          aws/us-east-1            1      5   -  2.0.1
+k8s-controller       prod/my-k8s-model  admin  superuser  microk8s/localhost       2      3   -  6.6.6
+mallards*            prod/my-model      admin  superuser  mallards/mallards1       2      -   -  (unknown)
+mark-test-prodstack  -                  admin  (unknown)  prodstack                -      -   -  (unknown)
 `[1:]
 
 	s.assertListControllers(c)
@@ -66,7 +66,7 @@ mark-test-prodstack  -                 admin  (unknown)  prodstack              
 func (s *ListControllersSuite) TestListControllersRefresh(c *tc.C) {
 	store := s.createTestClientStore(c)
 	originallyInStore := &jujuclient.ControllerModels{
-		CurrentModel: "admin/my-model",
+		CurrentModel: "prod/my-model",
 		Models: map[string]jujuclient.ModelDetails{
 			"model0":   {ModelUUID: "abc", ModelType: model.IAAS},
 			"my-model": {ModelUUID: "def", ModelType: model.IAAS},
@@ -78,19 +78,19 @@ func (s *ListControllersSuite) TestListControllersRefresh(c *tc.C) {
 		return fakeController
 	}
 	s.expectedOutput = `
-Controller           Model         User   Access     Cloud/Region        Models  Nodes  HA  Version
-aws-test             controller    admin  (unknown)  aws/us-east-1            1      2   -  2.0.1      
-k8s-controller       my-k8s-model  admin  superuser  microk8s/localhost       2      4   -  6.6.6      
-mallards*            my-model      admin  superuser  mallards/mallards1       2      4   -  (unknown)  
-mark-test-prodstack  -             admin  (unknown)  prodstack                -      -   -  (unknown)  
+Controller           Model              User   Access     Cloud/Region        Models  Nodes  HA  Version
+aws-test             prod/controller    admin  (unknown)  aws/us-east-1            1      2   -  2.0.1
+k8s-controller       prod/my-k8s-model  admin  superuser  microk8s/localhost       2      4   -  6.6.6
+mallards*            prod/my-model      admin  superuser  mallards/mallards1       2      4   -  (unknown)
+mark-test-prodstack  -                  admin  (unknown)  prodstack                -      -   -  (unknown)
 `[1:]
 	s.assertListControllers(c, "--refresh")
 	// Check store was updated.
 	c.Assert(store.Models["mallards"], tc.DeepEquals, &jujuclient.ControllerModels{
-		CurrentModel: "admin/my-model",
+		CurrentModel: "prod/my-model",
 		Models: map[string]jujuclient.ModelDetails{
-			"admin/controller": {ModelUUID: "abc", ModelType: model.IAAS},
-			"admin/my-model":   {ModelUUID: "def", ModelType: model.IAAS},
+			"prod/controller": {ModelUUID: "abc", ModelType: model.IAAS},
+			"prod/my-model":   {ModelUUID: "def", ModelType: model.IAAS},
 		},
 	})
 }
@@ -134,11 +134,11 @@ func (s *ListControllersSuite) TestListControllersKnownHAStatus(c *tc.C) {
 	s.createTestClientStore(c)
 	s.setupAPIForControllerMachines()
 	s.expectedOutput = `
-Controller           Model         User   Access     Cloud/Region        Models  Nodes    HA  Version
-aws-test             controller    admin  (unknown)  aws/us-east-1            1      2   2/3  2.0.1      
-k8s-controller       my-k8s-model  admin  superuser  microk8s/localhost       2      4     -  6.6.6      
-mallards*            my-model      admin  superuser  mallards/mallards1       2      4  none  (unknown)  
-mark-test-prodstack  -             admin  (unknown)  prodstack                -      -     -  (unknown)  
+Controller           Model              User   Access     Cloud/Region        Models  Nodes    HA  Version
+aws-test             prod/controller    admin  (unknown)  aws/us-east-1            1      2   2/3  2.0.1
+k8s-controller       prod/my-k8s-model  admin  superuser  microk8s/localhost       2      4     -  6.6.6
+mallards*            prod/my-model      admin  superuser  mallards/mallards1       2      4  none  (unknown)
+mark-test-prodstack  -                  admin  (unknown)  prodstack                -      -     -  (unknown)
 `[1:]
 	s.assertListControllers(c, "--refresh")
 }
@@ -147,7 +147,7 @@ func (s *ListControllersSuite) TestListControllersYaml(c *tc.C) {
 	s.expectedOutput = `
 controllers:
   aws-test:
-    current-model: controller
+    current-model: prod/controller
     user: admin
     recent-server: this-is-aws-test-of-many-api-endpoints
     controller-uuid: this-is-the-aws-test-uuid
@@ -162,7 +162,7 @@ controllers:
       active: 2
       total: 3
   k8s-controller:
-    current-model: my-k8s-model
+    current-model: prod/my-k8s-model
     user: admin
     access: superuser
     recent-server: this-is-one-of-many-k8s-api-endpoints
@@ -178,7 +178,7 @@ controllers:
       active: 1
       total: 1
   mallards:
-    current-model: my-model
+    current-model: prod/my-model
     user: admin
     access: superuser
     recent-server: this-is-another-of-many-api-endpoints
@@ -251,7 +251,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *tc.C) {
 		Controllers: map[string]controller.ControllerItem{
 			"aws-test": {
 				ControllerUUID: "this-is-the-aws-test-uuid",
-				ModelName:      "controller",
+				ModelName:      "prod/controller",
 				User:           "admin",
 				Server:         "this-is-aws-test-of-many-api-endpoints",
 				APIEndpoints:   []string{"this-is-aws-test-of-many-api-endpoints"},
@@ -264,7 +264,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *tc.C) {
 			},
 			"mallards": {
 				ControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
-				ModelName:      "my-model",
+				ModelName:      "prod/my-model",
 				User:           "admin",
 				Access:         "superuser",
 				Server:         "this-is-another-of-many-api-endpoints",
@@ -276,7 +276,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *tc.C) {
 			},
 			"k8s-controller": {
 				ControllerUUID: "this-is-a-k8s-uuid",
-				ModelName:      "my-k8s-model",
+				ModelName:      "prod/my-k8s-model",
 				User:           "admin",
 				Access:         "superuser",
 				Server:         "this-is-one-of-many-k8s-api-endpoints",

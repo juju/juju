@@ -64,7 +64,7 @@ type bundleDeploySpec struct {
 
 	deployAPI            DeployerAPI
 	bundleResolver       Resolver
-	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
+	getConsumeDetailsAPI func(*crossmodel.OfferURL) (ConsumeDetails, error)
 	deployResources      DeployResourcesFunc
 	charmReader          CharmReader
 
@@ -143,7 +143,7 @@ type bundleHandler struct {
 	// deployAPI is used to interact with the environment.
 	deployAPI            DeployerAPI
 	bundleResolver       Resolver
-	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
+	getConsumeDetailsAPI func(*crossmodel.OfferURL) (ConsumeDetails, error)
 	deployResources      DeployResourcesFunc
 	charmReader          CharmReader
 
@@ -1410,15 +1410,15 @@ func (h *bundleHandler) consumeOffer(ctx context.Context, change *bundlechanges.
 	}
 
 	p := change.Params
-	url, err := charm.ParseOfferURL(p.URL)
+	url, err := crossmodel.ParseOfferURL(p.URL)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if url.HasEndpoint() {
 		return errors.Errorf("saas offer %q shouldn't include endpoint", p.URL)
 	}
-	if url.User == "" {
-		url.User = h.accountUser
+	if url.ModelQualifier == "" {
+		url.ModelQualifier = h.accountUser
 	}
 	if url.Source == "" {
 		url.Source = h.controllerName
@@ -1442,7 +1442,7 @@ func (h *bundleHandler) consumeOffer(ctx context.Context, change *bundlechanges.
 	}
 	// Parse the offer details URL and add the source controller so
 	// things like status can show the original source of the offer.
-	offerURL, err := charm.ParseOfferURL(consumeDetails.Offer.OfferURL)
+	offerURL, err := crossmodel.ParseOfferURL(consumeDetails.Offer.OfferURL)
 	if err != nil {
 		return errors.Trace(err)
 	}

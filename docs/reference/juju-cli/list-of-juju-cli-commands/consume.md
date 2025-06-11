@@ -17,8 +17,8 @@ Add a remote offer to the model.
 ## Examples
 
     juju consume othermodel.mysql
-    juju consume owner/othermodel.mysql
-    juju consume anothercontroller:owner/othermodel.mysql
+    juju consume prod/othermodel.mysql
+    juju consume anothercontroller:prod/othermodel.mysql
 
 
 ## Details
@@ -26,8 +26,8 @@ Adds a remote offer to the model. Relations can be created later using "juju rel
 
 The path to the remote offer is formatted as follows:
 
-    [<controller name>:][<model owner>/]<model name>.<application name>
+    [<controller name>:][<model qualifier>/]<model name>.<application name>
         
 If the controller name is omitted, Juju will use the currently active
-controller. Similarly, if the model owner is omitted, Juju will use the user
+controller. Similarly, if the model qualifier is omitted, Juju will use the user
 that is currently logged in to the controller providing the offer.

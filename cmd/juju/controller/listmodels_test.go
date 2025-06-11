@@ -86,12 +86,9 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(ctx context.Context, user str
 		if err != nil {
 			cred = names.NewCloudCredentialTag("foo/bob/one")
 		}
-		owner, err := names.ParseUserTag(info.Result.OwnerTag)
-		if err != nil {
-			owner = names.NewUserTag("admin")
-		}
 		results[i] = base.UserModelSummary{
 			Name:            info.Result.Name,
+			Qualifier:       model.Qualifier(info.Result.Qualifier),
 			Type:            model.ModelType(info.Result.Type),
 			UUID:            info.Result.UUID,
 			ControllerUUID:  info.Result.ControllerUUID,
@@ -100,7 +97,6 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(ctx context.Context, user str
 			Cloud:           cloud.Id(),
 			CloudRegion:     info.Result.CloudRegion,
 			CloudCredential: cred.Id(),
-			Owner:           owner.Id(),
 			Life:            info.Result.Life,
 			Status: base.Status{
 				Status: info.Result.Status.Status,
@@ -182,20 +178,20 @@ func (s *ModelsSuite) SetUpTest(c *tc.C) {
 
 	models := []base.UserModel{
 		{
-			Name:  "test-model1",
-			Owner: "admin",
-			UUID:  "test-model1-UUID",
-			Type:  model.IAAS,
+			Name:      "test-model1",
+			Qualifier: "prod",
+			UUID:      "test-model1-UUID",
+			Type:      model.IAAS,
 		}, {
-			Name:  "test-model2",
-			Owner: "carlotta",
-			UUID:  "test-model2-UUID",
-			Type:  model.CAAS,
+			Name:      "test-model2",
+			Qualifier: "staging",
+			UUID:      "test-model2-UUID",
+			Type:      model.CAAS,
 		}, {
-			Name:  "test-model3",
-			Owner: "daiwik@external",
-			UUID:  "test-model3-UUID",
-			Type:  model.IAAS,
+			Name:      "test-model3",
+			Qualifier: "testing",
+			UUID:      "test-model3-UUID",
+			Type:      model.IAAS,
 		},
 	}
 
@@ -203,7 +199,7 @@ func (s *ModelsSuite) SetUpTest(c *tc.C) {
 	s.store.CurrentControllerName = "fake"
 	s.store.Controllers["fake"] = jujuclient.ControllerDetails{}
 	s.store.Models["fake"] = &jujuclient.ControllerModels{
-		CurrentModel: "admin/test-model1",
+		CurrentModel: "prod/test-model1",
 	}
 	s.store.Accounts["fake"] = jujuclient.AccountDetails{
 		User:     "admin",
@@ -236,16 +232,16 @@ func (s *ModelsSuite) SetUpTest(c *tc.C) {
 	s.api.infos[2].Result.Status.Status = status.Destroying
 }
 
-func (s *ModelsSuite) TestModelsOwner(c *tc.C) {
+func (s *ModelsSuite) TestModelsMatchingUser(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Cloud/Region  Type   Status      Access  Last connection\n"+
-		"test-model1*                 dummy         local  active      read    2015-03-20\n"+
-		"carlotta/test-model2         dummy         local  active      write   2015-03-01\n"+
-		"daiwik@external/test-model3  dummy         local  destroying  -       never connected\n")
+		"Model                Cloud/Region  Type   Status      Access  Last connection\n"+
+		"prod/test-model1*    dummy         local  active      read    2015-03-20\n"+
+		"staging/test-model2  dummy         local  active      write   2015-03-01\n"+
+		"testing/test-model3  dummy         local  destroying  -       never connected\n")
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "")
 	s.checkAPICalls(c, "ListModelSummaries", "Close")
 }
@@ -267,7 +263,7 @@ func (s *ModelsSuite) TestModelsWithCredentials(c *tc.C) {
 	s.checkAPICalls(c, "ListModelSummaries", "Close")
 }
 
-func (s *ModelsSuite) TestModelsNonOwner(c *tc.C) {
+func (s *ModelsSuite) TestModelsNonMatchingUser(c *tc.C) {
 	// Ensure fake api caters to user 'bob'
 	for _, apiInfo := range s.api.infos {
 		if apiInfo.Error == nil {
@@ -284,10 +280,10 @@ func (s *ModelsSuite) TestModelsNonOwner(c *tc.C) {
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Cloud/Region  Type   Status      Access  Last connection\n"+
-		"admin/test-model1*           dummy         local  active      read    2015-03-20\n"+
-		"carlotta/test-model2         dummy         local  active      write   2015-03-01\n"+
-		"daiwik@external/test-model3  dummy         local  destroying  -       never connected\n")
+		"Model                Cloud/Region  Type   Status      Access  Last connection\n"+
+		"prod/test-model1*    dummy         local  active      read    2015-03-20\n"+
+		"staging/test-model2  dummy         local  active      write   2015-03-01\n"+
+		"testing/test-model3  dummy         local  destroying  -       never connected\n")
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "")
 	s.checkAPICalls(c, "ListModelSummaries", "Close")
 }
@@ -299,10 +295,10 @@ func (s *ModelsSuite) TestModelsNoneCurrent(c *tc.C) {
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Cloud/Region  Type   Status      Access  Last connection\n"+
-		"test-model1                  dummy         local  active      read    2015-03-20\n"+
-		"carlotta/test-model2         dummy         local  active      write   2015-03-01\n"+
-		"daiwik@external/test-model3  dummy         local  destroying  -       never connected\n")
+		"Model                Cloud/Region  Type   Status      Access  Last connection\n"+
+		"prod/test-model1     dummy         local  active      read    2015-03-20\n"+
+		"staging/test-model2  dummy         local  active      write   2015-03-01\n"+
+		"testing/test-model3  dummy         local  destroying  -       never connected\n")
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "")
 	s.checkAPICalls(c, "ListModelSummaries", "Close")
 }
@@ -318,10 +314,10 @@ func (s *ModelsSuite) TestModelsUUID(c *tc.C) {
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        UUID              Cloud/Region  Type   Status      Machines  Cores  Access  Last connection\n"+
-		"test-model1*                 test-model1-UUID  dummy         local  active             2      1  read    2015-03-20\n"+
-		"carlotta/test-model2         test-model2-UUID  dummy         local  active             0      -  write   2015-03-01\n"+
-		"daiwik@external/test-model3  test-model3-UUID  dummy         local  destroying         0      -  -       never connected\n")
+		"Model                UUID              Cloud/Region  Type   Status      Machines  Cores  Access  Last connection\n"+
+		"prod/test-model1*    test-model1-UUID  dummy         local  active             2      1  read    2015-03-20\n"+
+		"staging/test-model2  test-model2-UUID  dummy         local  active             0      -  write   2015-03-01\n"+
+		"testing/test-model3  test-model3-UUID  dummy         local  destroying         0      -  -       never connected\n")
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "")
 	s.checkAPICalls(c, "ListModelSummaries", "Close")
 }
@@ -337,10 +333,10 @@ func (s *ModelsSuite) TestModelsMachineInfo(c *tc.C) {
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Cloud/Region  Type   Status      Machines  Cores  Access  Last connection\n"+
-		"test-model1*                 dummy         local  active             2      1  read    2015-03-20\n"+
-		"carlotta/test-model2         dummy         local  active             0      -  write   2015-03-01\n"+
-		"daiwik@external/test-model3  dummy         local  destroying         0      -  -       never connected\n")
+		"Model                Cloud/Region  Type   Status      Machines  Cores  Access  Last connection\n"+
+		"prod/test-model1*    dummy         local  active             2      1  read    2015-03-20\n"+
+		"staging/test-model2  dummy         local  active             0      -  write   2015-03-01\n"+
+		"testing/test-model3  dummy         local  destroying         0      -  -       never connected\n")
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "")
 	s.checkAPICalls(c, "ListModelSummaries", "Close")
 }
@@ -396,11 +392,11 @@ func (s *ModelsSuite) TestWithIncompleteModels(c *tc.C) {
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, `
 Controller: fake
 
-Model              Cloud/Region           Type   Status  Machines  Access  Last connection
-owner/basic-model  altostratus/mid-level  local  -              0  -       never connected
-owner/basic-model  altostratus/mid-level  local  busy           0  -       never connected
-owner/basic-model  altostratus/mid-level  local  -              0  admin   never connected
-owner/basic-model  altostratus/mid-level  local  -              2  -       never connected
+Model             Cloud/Region           Type   Status  Machines  Access  Last connection
+prod/basic-model  altostratus/mid-level  local  -              0  -       never connected
+prod/basic-model  altostratus/mid-level  local  busy           0  -       never connected
+prod/basic-model  altostratus/mid-level  local  -              0  admin   never connected
+prod/basic-model  altostratus/mid-level  local  -              2  -       never connected
 `[1:])
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "")
 	s.checkAPICalls(c, "ListModelSummaries", "Close")
@@ -465,12 +461,12 @@ func createBasicModelInfo() *params.ModelInfo {
 	agentVersion, _ := semversion.Parse("2.55.5")
 	return &params.ModelInfo{
 		Name:           "basic-model",
+		Qualifier:      "prod",
 		UUID:           testing.ModelTag.Id(),
 		Type:           "iaas",
 		ProviderType:   "local",
 		ControllerUUID: testing.ControllerTag.Id(),
 		IsController:   false,
-		OwnerTag:       names.NewUserTag("owner").String(),
 		Life:           life.Dead,
 		CloudTag:       names.NewCloudTag("altostratus").String(),
 		CloudRegion:    "mid-level",
@@ -485,9 +481,9 @@ func convert(models []base.UserModel) []params.ModelInfoResult {
 		infoResult := params.ModelInfoResult{}
 		infoResult.Result = &params.ModelInfo{
 			Name:         model.Name,
+			Qualifier:    model.Qualifier.String(),
 			UUID:         model.UUID,
 			Type:         model.Type.String(),
-			OwnerTag:     names.NewUserTag(model.Owner).String(),
 			CloudTag:     "cloud-dummy",
 			ProviderType: "local",
 			AgentVersion: &agentVersion,
@@ -506,10 +502,10 @@ func (s *ModelsSuite) TestModelWithUnits(c *tc.C) {
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Cloud/Region  Type   Status      Units  Access  Last connection\n"+
-		"test-model1*                 dummy         local  active      -        read  2015-03-20\n"+
-		"carlotta/test-model2         dummy         local  active      3       write  2015-03-01\n"+
-		"daiwik@external/test-model3  dummy         local  destroying  -           -  never connected\n")
+		"Model                Cloud/Region  Type   Status      Units  Access  Last connection\n"+
+		"prod/test-model1*    dummy         local  active      -        read  2015-03-20\n"+
+		"staging/test-model2  dummy         local  active      3       write  2015-03-01\n"+
+		"testing/test-model3  dummy         local  destroying  -           -  never connected\n")
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "")
 	s.checkAPICalls(c, "ListModelSummaries", "Close")
 }
@@ -517,7 +513,7 @@ func (s *ModelsSuite) TestModelWithUnits(c *tc.C) {
 func (s *ModelsSuite) TestModelsJson(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format", "json")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), tc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"admin","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"read","last-connection":"2015-03-20","agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","model-type":"caas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"carlotta","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"write","last-connection":"2015-03-01","agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"daiwik@external","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"destroying"},"access":"","last-connection":"never connected","agent-version":"2.55.5"}],"current-model":"test-model1"}
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, `{"models":[{"name":"prod/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"read","last-connection":"2015-03-20","agent-version":"2.55.5"},{"name":"staging/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","model-type":"caas","controller-uuid":"","controller-name":"fake","is-controller":false,"cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"write","last-connection":"2015-03-01","agent-version":"2.55.5"},{"name":"testing/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"destroying"},"access":"","last-connection":"never connected","agent-version":"2.55.5"}],"current-model":"prod/test-model1"}
 `)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "")
 	s.checkAPICalls(c, "ListModelSummaries", "Close")
@@ -528,14 +524,13 @@ func (s *ModelsSuite) TestModelsYaml(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, `
 models:
-- name: admin/test-model1
+- name: prod/test-model1
   short-name: test-model1
   model-uuid: test-model1-UUID
   model-type: iaas
   controller-uuid: ""
   controller-name: fake
   is-controller: false
-  owner: admin
   cloud: dummy
   credential:
     name: one
@@ -548,14 +543,13 @@ models:
   access: read
   last-connection: "2015-03-20"
   agent-version: 2.55.5
-- name: carlotta/test-model2
+- name: staging/test-model2
   short-name: test-model2
   model-uuid: test-model2-UUID
   model-type: caas
   controller-uuid: ""
   controller-name: fake
   is-controller: false
-  owner: carlotta
   cloud: dummy
   credential:
     name: one
@@ -568,14 +562,13 @@ models:
   access: write
   last-connection: "2015-03-01"
   agent-version: 2.55.5
-- name: daiwik@external/test-model3
+- name: testing/test-model3
   short-name: test-model3
   model-uuid: test-model3-UUID
   model-type: iaas
   controller-uuid: ""
   controller-name: fake
   is-controller: false
-  owner: daiwik@external
   cloud: dummy
   credential:
     name: one
@@ -588,7 +581,7 @@ models:
   access: ""
   last-connection: never connected
   agent-version: 2.55.5
-current-model: test-model1
+current-model: prod/test-model1
 `[1:])
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "")
 	s.checkAPICalls(c, "ListModelSummaries", "Close")
@@ -605,13 +598,13 @@ func (s *ModelsSuite) TestModelsWithOneModelInError(c *tc.C) {
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                 Cloud/Region  Type   Status  Access  Last connection\n"+
-		"test-model1*          dummy         local  active  read    2015-03-20\n"+
-		"carlotta/test-model2  dummy         local  active  write   2015-03-01\n")
+		"Model                Cloud/Region  Type   Status  Access  Last connection\n"+
+		"prod/test-model1*    dummy         local  active  read    2015-03-20\n"+
+		"staging/test-model2  dummy         local  active  write   2015-03-01\n")
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "some model error\n")
 	c.Assert(s.store.Models["fake"].Models, tc.DeepEquals, map[string]jujuclient.ModelDetails{
-		"admin/test-model1":    {ModelUUID: "test-model1-UUID", ModelType: model.IAAS},
-		"carlotta/test-model2": {ModelUUID: "test-model2-UUID", ModelType: model.CAAS},
+		"prod/test-model1":    {ModelUUID: "test-model1-UUID", ModelType: model.IAAS},
+		"staging/test-model2": {ModelUUID: "test-model2-UUID", ModelType: model.CAAS},
 	})
 	s.checkAPICalls(c, "ListModelSummaries", "Close")
 }

@@ -61,19 +61,11 @@ func (c *Client) AllModels(ctx context.Context) ([]base.UserModel, error) {
 	}
 	result := make([]base.UserModel, len(models.UserModels))
 	for i, usermodel := range models.UserModels {
-		owner, err := names.ParseUserTag(usermodel.OwnerTag)
-		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", usermodel.OwnerTag, i)
-		}
-		modelType := model.ModelType(usermodel.Type)
-		if modelType == "" {
-			modelType = model.IAAS
-		}
 		result[i] = base.UserModel{
 			Name:           usermodel.Name,
 			UUID:           usermodel.UUID,
-			Type:           modelType,
-			Owner:          owner.Id(),
+			Type:           model.ModelType(usermodel.Type),
+			Qualifier:      model.Qualifier(usermodel.Qualifier),
 			LastConnection: usermodel.LastConnection,
 		}
 	}
@@ -90,7 +82,7 @@ func (c *Client) CloudSpec(ctx context.Context, modelTag names.ModelTag) (enviro
 // model such that direct access to the provider can be used.
 type HostedConfig struct {
 	Name      string
-	Owner     names.UserTag
+	Qualifier string
 	Config    map[string]interface{}
 	CloudSpec environscloudspec.CloudSpec
 	Error     error
@@ -110,12 +102,7 @@ func (c *Client) HostedModelConfigs(ctx context.Context) ([]HostedConfig, error)
 	hostedConfigs := make([]HostedConfig, len(result.Models))
 	for i, modelConfig := range result.Models {
 		hostedConfigs[i].Name = modelConfig.Name
-		tag, err := names.ParseUserTag(modelConfig.OwnerTag)
-		if err != nil {
-			hostedConfigs[i].Error = errors.Trace(err)
-			continue
-		}
-		hostedConfigs[i].Owner = tag
+		hostedConfigs[i].Qualifier = modelConfig.Qualifier
 		if modelConfig.Error != nil {
 			hostedConfigs[i].Error = errors.Trace(modelConfig.Error)
 			continue
@@ -176,7 +163,16 @@ func (c *Client) DestroyController(ctx context.Context, args DestroyControllerPa
 func (c *Client) ListBlockedModels(ctx context.Context) ([]params.ModelBlockInfo, error) {
 	result := params.ModelBlockInfoList{}
 	err := c.facade.FacadeCall(ctx, "ListBlockedModels", nil, &result)
-	return result.Models, err
+	info := make([]params.ModelBlockInfo, len(result.Models))
+	for i, m := range result.Models {
+		info[i] = params.ModelBlockInfo{
+			UUID:      m.UUID,
+			Name:      m.Name,
+			Qualifier: m.Qualifier,
+			Blocks:    m.Blocks,
+		}
+	}
+	return info, err
 }
 
 // RemoveBlocks removes all the blocks in the controller.

@@ -677,20 +677,18 @@ func (s *Service) GetModelLife(ctx context.Context, uuid coremodel.UUID) (life.V
 	return result.Value()
 }
 
-// GetModelByNameAndOwner returns the model associated with the given model name
-// and owner name.
-//
+// GetModelByNameAndQualifier returns the model associated with the given model name and qualifier.
 // The following errors may be returned:
-// - [modelerrors.NotFound] if no model exists
-// - [accesserrors.UserNameNotValid] if ownerName is zero
-func (s *Service) GetModelByNameAndOwner(ctx context.Context, name string, ownerName coreuser.Name) (coremodel.Model, error) {
+// - [modelerrors.NotFound] if no model exists.
+// - [github.com/juju/juju/core/errors.NotValid] if qualifier is not valid.
+func (s *Service) GetModelByNameAndQualifier(ctx context.Context, name string, qualifier coremodel.Qualifier) (coremodel.Model, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if ownerName.IsZero() {
-		return coremodel.Model{}, errors.Errorf("invalid owner name: %w", accesserrors.UserNameNotValid)
+	if err := qualifier.Validate(); err != nil {
+		return coremodel.Model{}, errors.Capture(err)
 	}
-	return s.st.GetModelByName(ctx, ownerName.String(), name)
+	return s.st.GetModelByName(ctx, qualifier.String(), name)
 }
 
 // getWatchActivatedModelsMapper returns a mapper function that filters change

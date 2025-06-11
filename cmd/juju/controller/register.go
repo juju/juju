@@ -50,8 +50,8 @@ import (
 
 var noModelsMessage = `
 There are no models available. You can add models with
-"juju add-model", or you can ask an administrator or owner
-of a model to grant access to that model with "juju grant".
+"juju add-model", or you can ask an administrator of a
+model to grant access to that model with "juju grant".
 `
 
 // NewRegisterCommand returns a command to allow the user to register a controller.
@@ -508,8 +508,7 @@ func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, store jujuclien
 		// There is exactly one model shared,
 		// so set it as the current model.
 		model := models[0]
-		owner := names.NewUserTag(model.Owner)
-		modelName := jujuclient.JoinOwnerModelName(owner, model.Name)
+		modelName := jujuclient.QualifyModelName(model.Qualifier.String(), model.Name)
 		err := store.SetCurrentModel(controllerName, modelName)
 		if err != nil {
 			return errors.Trace(err)
@@ -522,18 +521,17 @@ There are %d models available. Use "juju switch" to select
 one of them:
 `, len(models))
 	user := names.NewUserTag(userName)
-	ownerModelNames := make(set.Strings)
+	userModelNames := make(set.Strings)
 	otherModelNames := make(set.Strings)
 	for _, model := range models {
-		if model.Owner == userName {
-			ownerModelNames.Add(model.Name)
+		if model.Qualifier.String() == userName {
+			userModelNames.Add(model.Name)
 			continue
 		}
-		owner := names.NewUserTag(model.Owner)
-		modelName := common.OwnerQualifiedModelName(model.Name, owner, user)
+		modelName := common.OwnerQualifiedModelName(model.Name, model.Qualifier.String(), user)
 		otherModelNames.Add(modelName)
 	}
-	for _, modelName := range ownerModelNames.SortedValues() {
+	for _, modelName := range userModelNames.SortedValues() {
 		fmt.Fprintf(ctx.Stderr, "  - juju switch %s\n", modelName)
 	}
 	for _, modelName := range otherModelNames.SortedValues() {

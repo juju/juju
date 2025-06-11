@@ -187,8 +187,8 @@ func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Errorf("upgrade not possible missing"+
 			" permissions, current level %q, need: %q", accDetails.LastKnownAccess, permission.SuperuserAccess)
 	}
-	controllerModel := jujuclient.JoinOwnerModelName(
-		names.NewUserTag(environs.AdminUser), bootstrap.ControllerModelName)
+	controllerModel := jujuclient.QualifyModelName(
+		environs.AdminUser, bootstrap.ControllerModelName)
 	c.controllerModelDetails, err = store.ModelByName(controllerName, controllerModel)
 	if err != nil {
 		return errors.Annotatef(err, "cannot get controller model")

@@ -155,7 +155,6 @@ func createBootstrapInfo(c *tc.C, name string) map[string]interface{} {
 
 func (s *baseDestroySuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	owner := names.NewUserTag("owner")
 	s.api = &fakeDestroyAPI{
 		cloud:     testing.FakeCloudSpec(),
 		envStatus: map[string]base.ModelStatus{},
@@ -220,16 +219,16 @@ func (s *baseDestroySuite) SetUpTest(c *tc.C) {
 
 		uuid := model.modelUUID
 		s.api.allModels = append(s.api.allModels, base.UserModel{
-			Name:  model.name,
-			UUID:  uuid,
-			Owner: owner.Id(),
+			Name:      model.name,
+			Qualifier: "prod",
+			UUID:      uuid,
 		})
 		s.api.envStatus[model.modelUUID] = base.ModelStatus{
 			UUID:               uuid,
 			Life:               life.Dead,
 			HostedMachineCount: 0,
 			ApplicationCount:   0,
-			Owner:              owner.Id(),
+			Qualifier:          "prod",
 		}
 	}
 }
@@ -436,8 +435,8 @@ run this command again with the --destroy-all-models
 option.
 
 Models:
-	owner/test2:test2 (alive)
-	owner/test3:admin (alive)
+	prod/test2:test2 (alive)
+	prod/test3:admin (alive)
 `)
 }
 
@@ -559,17 +558,17 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *tc.C) {
 	)
 	s.api.blocks = []params.ModelBlockInfo{
 		{
-			Name:     "test1",
-			UUID:     test1UUID,
-			OwnerTag: "user-cheryl",
+			Name:      "test1",
+			UUID:      test1UUID,
+			Qualifier: "prod",
 			Blocks: []string{
 				"BlockDestroy",
 			},
 		},
 		{
-			Name:     "test2",
-			UUID:     test2UUID,
-			OwnerTag: "user-bob",
+			Name:      "test2",
+			UUID:      test2UUID,
+			Qualifier: "staging",
 			Blocks: []string{
 				"BlockDestroy",
 				"BlockChange",
@@ -579,8 +578,8 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *tc.C) {
 	ctx, _ := s.runDestroyCommand(c, "test1", "--no-prompt", "--destroy-all-models")
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "Unable to get the controller summary from the API: there are models with disabled commands preventing controller destruction.\n"+
 		"Destroying controller\n"+
-		"Name   Model UUID                            Owner   Disabled commands\n"+
-		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl  destroy-model\n"+
-		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob     all, destroy-model\n")
+		"Name           Model UUID                            Disabled commands\n"+
+		"prod/test1     1871299e-1370-4f3e-83ab-1849ed7b1076  destroy-model\n"+
+		"staging/test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  all, destroy-model\n")
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }

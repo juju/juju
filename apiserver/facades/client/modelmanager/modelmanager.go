@@ -55,6 +55,11 @@ type ModelStatusAPI interface {
 	ModelStatus(ctx context.Context, req params.Entities) (params.ModelStatusResults, error)
 }
 
+// ModelManagerAPIV10 implements the model manager V10.
+type ModelManagerAPIV10 struct {
+	*ModelManagerAPI
+}
+
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
@@ -168,11 +173,6 @@ func reloadSpaces(ctx context.Context, modelNetworkService NetworkService) error
 func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCreateArgs) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
 
-	ownerTag, err := names.ParseUserTag(args.OwnerTag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
 	// We need to get the controller's default cloud and credential. To help
 	// Juju users when creating their first models we allow them to omit this
 	// information from the model creation args. If they have done exactly this
@@ -207,15 +207,21 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		if !canAddModel {
 			return result, apiservererrors.ErrPerm
 		}
+	}
 
-		// a special case of ErrPerm will happen if the user has add-model permission but is trying to
-		// create a model for another person, which is not yet supported.
-		if ownerTag != m.apiUser {
-			return result, internalerrors.Errorf(
-				"%q permission does not permit creation of models for different owners",
-				permission.AddModelAccess,
-			).Add(apiservererrors.ErrPerm)
-		}
+	qualifier := coremodel.Qualifier(args.Qualifier)
+	if err := qualifier.Validate(); err != nil {
+		return result, internalerrors.New(
+			"cannot create model with invalid qualifier",
+		).Add(coreerrors.NotValid)
+	}
+
+	// For now, the only allowed qualifier must correspond to
+	// the logged in user to retain expected behaviour.
+	if qualifier != coremodel.QualifierFromUserTag(m.apiUser) {
+		return result, internalerrors.Errorf(
+			"cannot create model with qualifier %q", qualifier,
+		).Add(coreerrors.NotValid)
 	}
 
 	// TODO (stickupkid): We need to create a saga (pattern) coordinator here,
@@ -225,7 +231,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	creationArgs := model.GlobalModelCreationArgs{
 		CloudRegion: args.CloudRegion,
 		Name:        args.Name,
-		Qualifier:   coremodel.QualifierFromUserTag(ownerTag),
+		Qualifier:   qualifier,
 		Cloud:       cloudTag.Id(),
 	}
 	if args.CloudCredentialTag != "" {
@@ -236,20 +242,20 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		creationArgs.Credential = credential.KeyFromTag(cloudCredentialTag)
 	}
 
-	userUUID, err := m.accessService.GetUserUUIDByName(ctx, user.NameFromTag(ownerTag))
+	userUUID, err := m.accessService.GetUserUUIDByName(ctx, user.NameFromTag(m.apiUser))
 	switch {
 	case errors.Is(err, accesserrors.UserNotFound):
 		return result, internalerrors.Errorf(
-			"owner %q for model does not exist", ownerTag.Name(),
+			"creator %q for model does not exist", m.apiUser.Name(),
 		).Add(coreerrors.NotFound)
 	case errors.Is(err, accesserrors.UserNameNotValid):
 		return result, internalerrors.New(
-			"cannot create model with invalid owner",
+			"cannot create model with invalid administrator",
 		).Add(coreerrors.NotValid)
 	case err != nil:
 		return result, internalerrors.Errorf(
-			"retrieving user %q for new model %q owner: %w",
-			ownerTag.Name(), args.Name, err,
+			"retrieving user %q for new model %q creator: %w",
+			m.apiUser.Name(), args.Name, err,
 		)
 	}
 	creationArgs.AdminUsers = []user.UUID{userUUID}
@@ -259,7 +265,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	switch {
 	case errors.Is(err, modelerrors.AlreadyExists):
 		return result, internalerrors.Errorf(
-			"model already exists for name %q and owner %q", args.Name, ownerTag.Name(),
+			"model %s/%s already exists", args.Qualifier, args.Name,
 		).Add(coreerrors.AlreadyExists)
 	case errors.Is(err, modelerrors.CredentialNotValid):
 		return result, internalerrors.Errorf(
@@ -267,8 +273,8 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		).Add(coreerrors.NotFound)
 	case err != nil:
 		return result, internalerrors.Errorf(
-			"creating new model %q for owner %q: %w",
-			args.Name, ownerTag.Name(), err,
+			"creating new model %s/%s: %w",
+			args.Qualifier, args.Name, err,
 		)
 	}
 
@@ -296,8 +302,8 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	case errors.Is(err, modelerrors.AlreadyExists):
 		return result, apiservererrors.ParamsErrorf(
 			params.CodeAlreadyExists,
-			"model %q for owner %q already exists in model database",
-			creationArgs.Name, ownerTag.Name(),
+			"model %s/%s already exists in model database",
+			args.Qualifier, creationArgs.Name,
 		)
 	case errors.Is(err, modelerrors.AgentVersionNotSupported):
 		return result, apiservererrors.ParamsErrorf(
@@ -345,7 +351,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		CloudName:       cloudTag.Id(),
 		CloudRegion:     modelInfo.CloudRegion,
 		CloudCredential: credentialTag,
-		Owner:           ownerTag,
+		Owner:           m.apiUser,
 	})
 	if err != nil {
 		return result, errors.Annotatef(err, "creating new model for %q", creationArgs.Name)
@@ -686,16 +692,11 @@ func makeModelSummary(ctx context.Context, mi coremodel.ModelSummary) (*params.M
 	}
 	cloudTag := names.NewCloudTag(mi.CloudName)
 
-	ownerTag, err := coremodel.ApproximateUserTagFromQualifier(mi.Qualifier)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	summary := &params.ModelSummary{
 		Name:           mi.Name,
 		UUID:           mi.UUID.String(),
 		Type:           mi.ModelType.String(),
-		OwnerTag:       ownerTag.String(),
+		Qualifier:      mi.Qualifier.String(),
 		ControllerUUID: mi.ControllerUUID,
 		IsController:   mi.IsController,
 		Life:           mi.Life,
@@ -787,17 +788,13 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 		} else {
 			lastConnection = &lc
 		}
-		ownerTag, err := coremodel.ApproximateUserTagFromQualifier(mi.Qualifier)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
 
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
-				Name:     mi.Name,
-				UUID:     mi.UUID.String(),
-				Type:     string(mi.ModelType),
-				OwnerTag: ownerTag.String(),
+				Name:      mi.Name,
+				UUID:      mi.UUID.String(),
+				Type:      mi.ModelType.String(),
+				Qualifier: mi.Qualifier.String(),
 			},
 			LastConnection: lastConnection,
 		})
@@ -1004,17 +1001,13 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.
 	// read access otherwise we would've returned on the initial check at the
 	// beginning of this method.
 
-	ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
-	if err != nil {
-		return params.ModelInfo{}, errors.Trace(err)
-	}
 	info := params.ModelInfo{
 		Name:           model.Name,
 		Type:           model.ModelType.String(),
 		UUID:           modelUUID.String(),
 		ControllerUUID: m.controllerUUID.String(),
 		IsController:   modelInfo.IsControllerModel,
-		OwnerTag:       ownerTag.String(),
+		Qualifier:      model.Qualifier.String(),
 		Life:           model.Life,
 		CloudTag:       names.NewCloudTag(model.Cloud).String(),
 		CloudRegion:    model.CloudRegion,

@@ -100,7 +100,7 @@ controllers:
       controller:
         uuid: ghi
         type: iaas
-    current-model: admin/controller
+    current-model: prod/controller
   mallards:
     models:
       model0:
@@ -109,7 +109,7 @@ controllers:
       my-model:
         uuid: def
         type: iaas
-    current-model: admin/my-model
+    current-model: prod/my-model
   k8s-controller:
     models:
       controller:
@@ -118,7 +118,7 @@ controllers:
       my-k8s-model:
         uuid: def
         type: caas
-    current-model: admin/my-k8s-model
+    current-model: prod/my-k8s-model
 `
 
 const testAccountsYaml = `

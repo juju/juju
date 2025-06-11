@@ -38,8 +38,8 @@ func (s *modelmanagerSuite) TestCreateModelBadUser(c *tc.C) {
 	defer ctrl.Finish()
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.CreateModel(c.Context(), "mymodel", "not a user", "", "", names.CloudCredentialTag{}, nil)
-	c.Assert(err, tc.ErrorMatches, `invalid owner name "not a user"`)
+	_, err := client.CreateModel(c.Context(), "mymodel", "not a qualifier", "", "", names.CloudCredentialTag{}, nil)
+	c.Assert(err, tc.ErrorMatches, `invalid qualifier "not a qualifier"`)
 }
 
 func (s *modelmanagerSuite) TestCreateModelBadCloud(c *tc.C) {
@@ -57,7 +57,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 
 	args := params.ModelCreateArgs{
 		Name:        "new-model",
-		OwnerTag:    "user-bob",
+		Qualifier:   "prod",
 		Config:      map[string]interface{}{"abc": 123},
 		CloudTag:    "cloud-nimbus",
 		CloudRegion: "catbus",
@@ -72,7 +72,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 	ress.ProviderType = "C-123"
 	ress.CloudTag = "cloud-nimbus"
 	ress.CloudRegion = "catbus"
-	ress.OwnerTag = "user-fnord"
+	ress.Qualifier = "prod"
 	ress.Life = "alive"
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
@@ -82,7 +82,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 	newModel, err := client.CreateModel(
 		c.Context(),
 		"new-model",
-		"bob",
+		"prod",
 		"nimbus",
 		"catbus",
 		names.CloudCredentialTag{},
@@ -98,7 +98,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 		ProviderType:   "C-123",
 		Cloud:          "nimbus",
 		CloudRegion:    "catbus",
-		Owner:          "fnord",
+		Qualifier:      "prod",
 		Life:           "alive",
 		Status: base.Status{
 			Data: make(map[string]interface{}),
@@ -128,18 +128,18 @@ func (s *modelmanagerSuite) TestListModels(c *tc.C) {
 	ress := params.UserModelList{
 		UserModels: []params.UserModel{{
 			Model: params.Model{
-				Name:     "yo",
-				UUID:     "wei",
-				Type:     "caas",
-				OwnerTag: "user-user@remote",
+				Name:      "yo",
+				UUID:      "wei",
+				Type:      "caas",
+				Qualifier: "prod",
 			},
 			LastConnection: &lastConnection,
 		}, {
 			Model: params.Model{
-				Name:     "sup",
-				UUID:     "hazzagarn",
-				Type:     "iaas",
-				OwnerTag: "user-phyllis@thrace",
+				Name:      "sup",
+				UUID:      "hazzagarn",
+				Type:      "iaas",
+				Qualifier: "staging",
 			},
 		}},
 	}
@@ -154,13 +154,13 @@ func (s *modelmanagerSuite) TestListModels(c *tc.C) {
 		Name:           "yo",
 		UUID:           "wei",
 		Type:           model.CAAS,
-		Owner:          "user@remote",
+		Qualifier:      "prod",
 		LastConnection: &lastConnection,
 	}, {
-		Name:  "sup",
-		UUID:  "hazzagarn",
-		Type:  model.IAAS,
-		Owner: "phyllis@thrace",
+		Name:      "sup",
+		UUID:      "hazzagarn",
+		Type:      model.IAAS,
+		Qualifier: "staging",
 	}})
 }
 
@@ -308,7 +308,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *tc.C) {
 		Results: []params.ModelStatus{
 			{
 				ModelTag:           coretesting.ModelTag.String(),
-				OwnerTag:           "user-glenda",
+				Qualifier:          "prod",
 				ApplicationCount:   3,
 				HostedMachineCount: 2,
 				Life:               "alive",
@@ -335,7 +335,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *tc.C) {
 		TotalMachineCount:  1,
 		HostedMachineCount: 2,
 		ApplicationCount:   3,
-		Owner:              "glenda",
+		Qualifier:          "prod",
 		Life:               life.Alive,
 		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},
 	})
@@ -393,7 +393,7 @@ func createModelSummary() *params.ModelSummary {
 		CloudTag:           "cloud-aws",
 		CloudRegion:        "us-east-1",
 		CloudCredentialTag: "cloudcred-foo_bob_one",
-		OwnerTag:           "user-admin",
+		Qualifier:          "prod",
 		Life:               life.Alive,
 		Status:             params.EntityStatus{Status: status.Status("active")},
 		UserAccess:         params.ModelAdminAccess,
@@ -437,7 +437,7 @@ func (s *modelmanagerSuite) TestListModelSummaries(c *tc.C) {
 		Cloud:           "aws",
 		CloudRegion:     "us-east-1",
 		CloudCredential: "foo/bob/one",
-		Owner:           "admin",
+		Qualifier:       "prod",
 		Life:            "alive",
 		Status: base.Status{
 			Status: status.Active,
@@ -453,9 +453,6 @@ func (s *modelmanagerSuite) TestListModelSummariesParsingErrors(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	badOwnerInfo := createModelSummary()
-	badOwnerInfo.OwnerTag = "owner-user"
-
 	badCloudInfo := createModelSummary()
 	badCloudInfo.CloudTag = "not-cloud"
 
@@ -470,7 +467,6 @@ func (s *modelmanagerSuite) TestListModelSummariesParsingErrors(c *tc.C) {
 	res := new(params.ModelSummaryResults)
 	ress := params.ModelSummaryResults{
 		Results: []params.ModelSummaryResult{
-			{Result: badOwnerInfo},
 			{Result: badCloudInfo},
 			{Result: badCredentialsInfo},
 		},
@@ -481,10 +477,9 @@ func (s *modelmanagerSuite) TestListModelSummariesParsingErrors(c *tc.C) {
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 	results, err := client.ListModelSummaries(c.Context(), "commander", true)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.HasLen, 3)
-	c.Assert(results[0].Error, tc.ErrorMatches, `while parsing model owner tag: "owner-user" is not a valid tag`)
-	c.Assert(results[1].Error, tc.ErrorMatches, `while parsing model cloud tag: "not-cloud" is not a valid tag`)
-	c.Assert(results[2].Error, tc.ErrorMatches, `while parsing model cloud credential tag: "not-credential" is not a valid tag`)
+	c.Assert(results, tc.HasLen, 2)
+	c.Assert(results[0].Error, tc.ErrorMatches, `while parsing model cloud tag: "not-cloud" is not a valid tag`)
+	c.Assert(results[1].Error, tc.ErrorMatches, `while parsing model cloud credential tag: "not-credential" is not a valid tag`)
 }
 
 func (s *modelmanagerSuite) TestListModelSummariesInvalidUserIn(c *tc.C) {

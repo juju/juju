@@ -29,6 +29,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	coreresource "github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
@@ -63,7 +64,7 @@ var (
 	modelUUID           = "model-uuid"
 	modelTag            = names.NewModelTag(modelUUID)
 	modelName           = "model-name"
-	ownerTag            = names.NewUserTag("owner")
+	modelQualifier      = model.Qualifier("prod")
 	modelVersion        = semversion.MustParse("1.2.4")
 
 	// Define stub calls that commonly appear in tests here to allow reuse.
@@ -138,7 +139,7 @@ var (
 		{FuncName: "MigrationTarget.Prechecks", Args: []interface{}{params.MigrationModelInfo{
 			UUID:         modelUUID,
 			Name:         modelName,
-			OwnerTag:     ownerTag.String(),
+			Qualifier:    modelQualifier.String(),
 			AgentVersion: modelVersion,
 			ModelDescription: func() []byte {
 				modelDescription := description.NewModel(description.ModelArgs{})
@@ -180,7 +181,7 @@ func (s *Suite) SetUpTest(c *tc.C) {
 		controllerVersion: params.ControllerVersionResults{
 			Version: "2.9.99",
 		},
-		facadeVersion: 2,
+		facadeVersion: 5,
 	}
 	s.connectionErr = nil
 
@@ -1347,7 +1348,7 @@ func (f *stubMasterFacade) ModelInfo(ctx context.Context) (coremigration.ModelIn
 	return coremigration.ModelInfo{
 		UUID:             modelUUID,
 		Name:             modelName,
-		Owner:            ownerTag,
+		Qualifier:        modelQualifier,
 		AgentVersion:     modelVersion,
 		ModelDescription: description.NewModel(description.ModelArgs{}),
 	}, nil

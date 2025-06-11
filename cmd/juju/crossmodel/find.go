@@ -13,6 +13,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
 )
 
@@ -25,9 +26,9 @@ This command is aimed for a user who wants to discover what endpoints are availa
 const findCommandExamples = `
     juju find-offers
     juju find-offers mycontroller:
-    juju find-offers fred/prod
+    juju find-offers staging/mymodel
     juju find-offers --interface mysql
-    juju find-offers --url fred/prod.db2
+    juju find-offers --url staging/mymodel.db2
     juju find-offers --offer db2
    
 `
@@ -37,7 +38,7 @@ type findCommand struct {
 
 	url            string
 	source         string
-	modelOwnerName string
+	modelQualifier model.Qualifier
 	modelName      string
 	offerName      string
 	interfaceName  string
@@ -118,9 +119,9 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	filter := crossmodel.ApplicationOfferFilter{
-		OwnerName: c.modelOwnerName,
-		ModelName: c.modelName,
-		OfferName: c.offerName,
+		ModelQualifier: c.modelQualifier,
+		ModelName:      c.modelName,
+		OfferName:      c.offerName,
 	}
 	if c.interfaceName != "" {
 		filter.Endpoints = []crossmodel.EndpointFilterTerm{{
@@ -161,15 +162,15 @@ func (c *findCommand) validateOrSetURL() error {
 	} else {
 		c.source = controllerName
 	}
-	user := urlParts.User
-	if user == "" {
+	qualifier := model.Qualifier(urlParts.ModelQualifier)
+	if qualifier == "" {
 		accountDetails, err := c.CurrentAccountDetails()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		user = accountDetails.User
+		qualifier = model.QualifierFromUserTag(names.NewUserTag(accountDetails.User))
 	}
-	c.modelOwnerName = user
+	c.modelQualifier = qualifier
 	c.modelName = urlParts.ModelName
 	c.offerName = urlParts.ApplicationName
 	return nil

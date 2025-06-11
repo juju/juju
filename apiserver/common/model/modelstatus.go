@@ -175,14 +175,10 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	}
 	modelFilesystems := ModelFilesystemInfo(filesystems)
 
-	badOwnerTag := names.NewUserTag("foobar")
-	// TODO: add life and ownertag values when they are supported in model DB
+	// TODO: add life and qualifier values when they are supported in model DB
 	result := params.ModelStatus{
-		ModelTag: tag,
-		// TODO (tlm): OwnerTag is currently set to a bad value on purpose.
-		// There is work under way to refactor the idea of a model owner within
-		// Juju. Until this work lands we are setting a bad value.
-		OwnerTag:           badOwnerTag.String(),
+		ModelTag:           tag,
+		Qualifier:          "foobar",
 		Life:               "",
 		Type:               modelInfo.Type.String(),
 		HostedMachineCount: len(modelMachines),

@@ -11,16 +11,23 @@ import (
 
 // OffersAPIv5 implements the cross model interface and is the concrete
 // implementation of the api end point.
-type OffersAPIv5 struct{}
+type OffersAPIv5 struct {
+	*OffersAPI
+}
+
+// OffersAPI implements the cross model interface and is the concrete
+// implementation of the api end point.
+type OffersAPI struct {
+}
 
 // createAPI returns a new application offers OffersAPI facade.
-func createOffersAPI() (*OffersAPIv5, error) {
-	api := &OffersAPIv5{}
+func createOffersAPI() (*OffersAPI, error) {
+	api := &OffersAPI{}
 	return api, nil
 }
 
 // Offer makes application endpoints available for consumption at a specified URL.
-func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffers) (params.ErrorResults, error) {
+func (api *OffersAPI) Offer(ctx context.Context, all params.AddApplicationOffers) (params.ErrorResults, error) {
 	// Although this API is offering adding offers in bulk, we only want to
 	// support adding one offer at a time. This is because we're jumping into
 	// other models using the state pool, in the context of a model facade.
@@ -38,38 +45,38 @@ func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffe
 
 // ListApplicationOffers gets deployed details about application offers that match given filter.
 // The results contain details about the deployed applications such as connection count.
-func (api *OffersAPIv5) ListApplicationOffers(ctx context.Context, filters params.OfferFilters) (params.QueryApplicationOffersResultsV5, error) {
+func (api *OffersAPI) ListApplicationOffers(ctx context.Context, filters params.OfferFilters) (params.QueryApplicationOffersResultsV5, error) {
 	return params.QueryApplicationOffersResultsV5{}, nil
 }
 
 // ModifyOfferAccess changes the application offer access granted to users.
-func (api *OffersAPIv5) ModifyOfferAccess(ctx context.Context, args params.ModifyOfferAccessRequest) (result params.ErrorResults, _ error) {
+func (api *OffersAPI) ModifyOfferAccess(ctx context.Context, args params.ModifyOfferAccessRequest) (result params.ErrorResults, _ error) {
 	return params.ErrorResults{}, nil
 }
 
 // ApplicationOffers gets details about remote applications that match given URLs.
-func (api *OffersAPIv5) ApplicationOffers(ctx context.Context, urls params.OfferURLs) (params.ApplicationOffersResults, error) {
+func (api *OffersAPI) ApplicationOffers(ctx context.Context, urls params.OfferURLs) (params.ApplicationOffersResults, error) {
 	return params.ApplicationOffersResults{}, nil
 }
 
 // FindApplicationOffers gets details about remote applications that match given filter.
-func (api *OffersAPIv5) FindApplicationOffers(ctx context.Context, filters params.OfferFilters) (params.QueryApplicationOffersResultsV5, error) {
+func (api *OffersAPI) FindApplicationOffers(ctx context.Context, filters params.OfferFilters) (params.QueryApplicationOffersResultsV5, error) {
 	return params.QueryApplicationOffersResultsV5{}, nil
 }
 
 // GetConsumeDetails returns the details necessary to pass to another model
 // to allow the specified args user to consume the offers represented by the args URLs.
-func (api *OffersAPIv5) GetConsumeDetails(ctx context.Context, args params.ConsumeOfferDetailsArg) (params.ConsumeOfferDetailsResults, error) {
+func (api *OffersAPI) GetConsumeDetails(ctx context.Context, args params.ConsumeOfferDetailsArg) (params.ConsumeOfferDetailsResults, error) {
 	return params.ConsumeOfferDetailsResults{}, nil
 }
 
 // RemoteApplicationInfo returns information about the requested remote application.
 // This call currently has no client side API, only there for the Dashboard at this stage.
-func (api *OffersAPIv5) RemoteApplicationInfo(ctx context.Context, args params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
+func (api *OffersAPI) RemoteApplicationInfo(ctx context.Context, args params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
 	return params.RemoteApplicationInfoResults{}, nil
 }
 
 // DestroyOffers removes the offers specified by the given URLs, forcing if necessary.
-func (api *OffersAPIv5) DestroyOffers(ctx context.Context, args params.DestroyApplicationOffers) (params.ErrorResults, error) {
+func (api *OffersAPI) DestroyOffers(ctx context.Context, args params.DestroyApplicationOffers) (params.ErrorResults, error) {
 	return params.ErrorResults{}, nil
 }
