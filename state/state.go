@@ -668,37 +668,6 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	}
 }
 
-// tagToCollectionAndId, given an entity tag, returns the collection name and id
-// of the entity document.
-func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error) {
-	if tag == nil {
-		return "", nil, errors.Errorf("tag is nil")
-	}
-	coll := ""
-	id := tag.Id()
-	switch tag := tag.(type) {
-	case names.MachineTag:
-		coll = machinesC
-		id = st.docID(id)
-	case names.ApplicationTag:
-		coll = applicationsC
-		id = st.docID(id)
-	case names.UnitTag:
-		coll = unitsC
-		id = st.docID(id)
-	case names.UserTag:
-		return "", nil, errors.NotImplementedf("users have been moved to domain")
-	case names.ModelTag:
-		coll = modelsC
-	case names.ActionTag:
-		coll = actionsC
-		id = tag.Id()
-	default:
-		return "", nil, errors.Errorf("%q is not a valid collection tag", tag)
-	}
-	return coll, id, nil
-}
-
 var (
 	errLocalApplicationExists = errors.Errorf("application already exists")
 )
