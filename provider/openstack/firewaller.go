@@ -699,7 +699,7 @@ func (c *neutronFirewaller) matchingGroup(ctx context.ProviderCallContext, name 
 }
 
 func (c *neutronFirewaller) openPortsInGroup(ctx context.ProviderCallContext, name string, rules firewall.IngressRules) error {
-	group, err := c.matchingGroup(ctx, name)
+	group, err := c.getSecurityGroupByName(ctx, name)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -743,7 +743,7 @@ func (c *neutronFirewaller) closePortsInGroup(ctx context.ProviderCallContext, n
 	if len(rules) == 0 {
 		return nil
 	}
-	group, err := c.matchingGroup(ctx, name)
+	group, err := c.getSecurityGroupByName(ctx, name)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -773,7 +773,7 @@ func (c *neutronFirewaller) closePortsInGroup(ctx context.ProviderCallContext, n
 }
 
 func (c *neutronFirewaller) ingressRulesInGroup(ctx context.ProviderCallContext, name string) (rules firewall.IngressRules, err error) {
-	group, err := c.matchingGroup(ctx, name)
+	group, err := c.getSecurityGroupByName(ctx, name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
