@@ -10,8 +10,15 @@ CREATE TABLE storage_pool (
     type TEXT NOT NULL
 );
 
+-- It is important that the name is unique and speed up access by name.
 CREATE UNIQUE INDEX idx_storage_pool_name
 ON storage_pool (name);
+
+-- This index is used to speed up access by type, type and name.
+-- Warning: if the "type" is not the first column in the composite query condition,
+-- then the index will not be used.
+CREATE INDEX idx_storage_pool_type_name
+ON storage_pool (type, name);
 
 CREATE TABLE storage_pool_attribute (
     storage_pool_uuid TEXT NOT NULL,
