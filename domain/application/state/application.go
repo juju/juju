@@ -1191,26 +1191,47 @@ WHERE device_uuid IN (
 	return nil
 }
 
-func (st *State) k8sSubnetUUID(ctx context.Context, tx *sqlair.TX) (string, error) {
+// addressTypeForUnspecifiedCIDR returns the address type based on the provided
+// unspecified CIDR. These unspecified CIDRs are in the placeholder subnets
+// for kubernetes until they can be filled in with actual data. When that happens,
+// this approach will need to be revisited.
+func addressTypeForUnspecifiedCIDR(cidr string) network.AddressType {
+	switch cidr {
+	case "0.0.0.0/0":
+		return network.IPv4Address
+	case "::/0":
+		return network.IPv6Address
+	default:
+		return ""
+	}
+}
+
+func (st *State) k8sSubnetUUIDsByAddressType(ctx context.Context, tx *sqlair.TX) (map[network.AddressType]string, error) {
+	result := make(map[network.AddressType]string)
 	subnetStmt, err := st.Prepare(`
-SELECT uuid AS &dbUUID.uuid
-FROM subnet
-`, dbUUID{})
+ SELECT &subnet.*
+ FROM subnet
+ `, subnet{})
 	if err != nil {
-		return "", errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	var subnetUUIDs []dbUUID
-	if err = tx.Query(ctx, subnetStmt).GetAll(&subnetUUIDs); err != nil {
-		return "", errors.Errorf("getting subnet uuid: %w", err)
+	var subnets []subnet
+	if err = tx.Query(ctx, subnetStmt).GetAll(&subnets); err != nil {
+		return nil, errors.Errorf("getting subnet uuid: %w", err)
 	}
-	// Note: Today there is only one k8s subnet, which is a placeholder.
+	// Note: Today there are only two k8s subnets, which are a placeholders.
 	// Finding the subnet for the ip address will be more complex
 	// in the future.
-	if len(subnetUUIDs) != 1 {
-		return "", errors.Errorf("expected 1 subnet uuid, got %d", len(subnetUUIDs))
+	if len(subnets) != 2 {
+		return nil, errors.Errorf("expected 2 subnet uuid, got %d", len(subnets))
 	}
-	return subnetUUIDs[0].UUID, nil
+
+	for _, subnet := range subnets {
+		addrType := addressTypeForUnspecifiedCIDR(subnet.CIDR)
+		result[addrType] = subnet.UUID
+	}
+	return result, nil
 }
 
 func (st *State) insertCloudServiceAddresses(
@@ -1219,7 +1240,7 @@ func (st *State) insertCloudServiceAddresses(
 		return nil
 	}
 
-	subnetUUID, err := st.k8sSubnetUUID(ctx, tx)
+	subnetUUIDs, err := st.k8sSubnetUUIDsByAddressType(ctx, tx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1230,6 +1251,13 @@ func (st *State) insertCloudServiceAddresses(
 		addrUUID, err := uuid.NewUUID()
 		if err != nil {
 			return errors.Capture(err)
+		}
+		subnetUUID, ok := subnetUUIDs[address.AddressType()]
+		if !ok {
+			// Note: This is a programming error. Today the K8S subnets are
+			// placeholders which should always be created when a model is
+			// added.
+			return errors.Errorf("subnet for address type %q not found", address.AddressType())
 		}
 		ipAddresses[i] = ipAddress{
 			AddressUUID:  addrUUID.String(),
@@ -1252,8 +1280,10 @@ VALUES ($ipAddress.*);
 		return errors.Capture(err)
 	}
 
-	if err = tx.Query(ctx, insertAddressStmt, ipAddresses).Run(); err != nil {
-		return errors.Capture(err)
+	for _, ipAddress := range ipAddresses {
+		if err = tx.Query(ctx, insertAddressStmt, ipAddress).Run(); err != nil {
+			return errors.Capture(err)
+		}
 	}
 	return nil
 }

@@ -31,6 +31,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	portstate "github.com/juju/juju/domain/port/state"
 	"github.com/juju/juju/domain/status"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -52,12 +53,11 @@ func (s *unitStateSuite) SetUpTest(c *tc.C) {
 
 func (s *unitStateSuite) assertContainerAddressValues(
 	c *tc.C,
-	unitName, providerID, addressValue string,
+	unitName, providerID, addressValue, cidr string,
 	addressType ipaddress.AddressType,
 	addressOrigin ipaddress.Origin,
 	addressScope ipaddress.Scope,
 	configType ipaddress.ConfigType,
-
 ) {
 	var (
 		gotProviderID string
@@ -66,15 +66,17 @@ func (s *unitStateSuite) assertContainerAddressValues(
 		gotOrigin     int
 		gotScope      int
 		gotConfigType int
+		gotCIDR       string
 	)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, `
 
-SELECT cc.provider_id, a.address_value, a.type_id, a.origin_id,a.scope_id,a.config_type_id
-FROM k8s_pod cc
-JOIN unit u ON cc.unit_uuid = u.uuid
-JOIN link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
-JOIN ip_address a ON a.device_uuid = lld.uuid
+SELECT cc.provider_id, a.address_value, a.type_id, a.origin_id,a.scope_id,a.config_type_id,s.cidr
+FROM k8s_pod AS cc
+JOIN unit AS u ON cc.unit_uuid = u.uuid
+JOIN link_layer_device AS lld ON lld.net_node_uuid = u.net_node_uuid
+JOIN ip_address AS a ON a.device_uuid = lld.uuid
+JOIN subnet AS s ON a.subnet_uuid = s.uuid
 WHERE u.name=?`,
 
 			unitName).Scan(
@@ -84,16 +86,18 @@ WHERE u.name=?`,
 			&gotOrigin,
 			&gotScope,
 			&gotConfigType,
+			&gotCIDR,
 		)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(gotProviderID, tc.Equals, providerID)
-	c.Assert(gotValue, tc.Equals, addressValue)
-	c.Assert(gotType, tc.Equals, int(addressType))
-	c.Assert(gotOrigin, tc.Equals, int(addressOrigin))
-	c.Assert(gotScope, tc.Equals, int(addressScope))
-	c.Assert(gotConfigType, tc.Equals, int(configType))
+	c.Check(gotProviderID, tc.Equals, providerID)
+	c.Check(gotValue, tc.Equals, addressValue)
+	c.Check(gotType, tc.Equals, int(addressType))
+	c.Check(gotOrigin, tc.Equals, int(addressOrigin))
+	c.Check(gotScope, tc.Equals, int(addressScope))
+	c.Check(gotConfigType, tc.Equals, int(configType))
+	c.Check(gotCIDR, tc.Equals, cidr)
 }
 
 func (s *unitStateSuite) assertContainerPortValues(c *tc.C, unitName string, ports []string) {
@@ -141,7 +145,7 @@ func (s *unitStateSuite) TestUpdateCAASUnitCloudContainer(c *tc.C) {
 					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 				},
-				Value:       "10.6.6.6",
+				Value:       "10.6.6.6/8",
 				AddressType: ipaddress.AddressTypeIPv4,
 				ConfigType:  ipaddress.ConfigTypeDHCP,
 				Scope:       ipaddress.ScopeMachineLocal,
@@ -157,7 +161,7 @@ func (s *unitStateSuite) TestUpdateCAASUnitCloudContainer(c *tc.C) {
 	cc := application.UpdateCAASUnitParams{
 		ProviderID: ptr("another-id"),
 		Ports:      ptr([]string{"666", "667"}),
-		Address:    ptr("2001:db8::1"),
+		Address:    ptr("2001:db8::1/24"),
 	}
 	err = s.state.UpdateCAASUnit(c.Context(), "foo/666", cc)
 	c.Assert(err, tc.ErrorIsNil)
@@ -181,7 +185,7 @@ WHERE u.name=?`,
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(providerId, tc.Equals, "another-id")
 
-	s.assertContainerAddressValues(c, "foo/666", "another-id", "2001:db8::1",
+	s.assertContainerAddressValues(c, "foo/666", "another-id", "2001:db8::1/24", "::/0",
 		ipaddress.AddressTypeIPv6, ipaddress.OriginProvider, ipaddress.ScopeMachineLocal, ipaddress.ConfigTypeDHCP)
 	s.assertContainerPortValues(c, "foo/666", []string{"666", "667"})
 }
@@ -198,7 +202,7 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *tc.C) {
 					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 				},
-				Value:       "10.6.6.6",
+				Value:       "10.6.6.6/8",
 				AddressType: ipaddress.AddressTypeIPv4,
 				ConfigType:  ipaddress.ConfigTypeDHCP,
 				Scope:       ipaddress.ScopeMachineLocal,
@@ -252,7 +256,7 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 		UnitName:     "foo/666",
 		PasswordHash: "passwordhash",
 		ProviderID:   "some-id",
-		Address:      ptr("10.6.6.6"),
+		Address:      ptr("10.6.6.6/8"),
 		Ports:        ptr([]string{"666"}),
 		OrderedScale: true,
 		OrderedId:    0,
@@ -261,7 +265,7 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(err, tc.ErrorIsNil)
-	s.assertCAASUnit(c, "foo/666", "passwordhash", "10.6.6.6", []string{"666"})
+	s.assertCAASUnit(c, "foo/666", "passwordhash", "10.6.6.6/8", []string{"666"})
 }
 
 func (s *unitStateSuite) assertCAASUnit(c *tc.C, name, passwordHash, addressValue string, ports []string) {
@@ -277,7 +281,7 @@ func (s *unitStateSuite) assertCAASUnit(c *tc.C, name, passwordHash, addressValu
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT password_hash FROM unit WHERE name = ?", name).Scan(&gotPasswordHash)
 		if err != nil {
-			return err
+			return errors.Errorf("failed to get password hash: %v", err)
 		}
 		err = tx.QueryRowContext(ctx, `
 SELECT address_value, type_id, scope_id, origin_id FROM ip_address ipa
@@ -286,7 +290,7 @@ JOIN unit u ON u.net_node_uuid = lld.net_node_uuid WHERE u.name = ?
 `, name).
 			Scan(&gotAddress, &gotAddressType, &gotAddressScope, &gotAddressOrigin)
 		if err != nil {
-			return err
+			return errors.Errorf("failed to get address value: %v", err)
 		}
 		rows, err := tx.QueryContext(ctx, `
 SELECT port FROM k8s_pod_port ccp
@@ -294,9 +298,9 @@ JOIN k8s_pod cc ON cc.unit_uuid = ccp.unit_uuid
 JOIN unit u ON u.uuid = cc.unit_uuid WHERE u.name = ?
 `, name)
 		if err != nil {
-			return err
+			return errors.Errorf("failed to get port: %v", err)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var port string
 			err = rows.Scan(&port)
@@ -327,7 +331,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitAlreadyExists(c *tc.C) {
 		UnitName:     unitName,
 		PasswordHash: "passwordhash",
 		ProviderID:   "some-id",
-		Address:      ptr("10.6.6.6"),
+		Address:      ptr("10.6.6.6/8"),
 		Ports:        ptr([]string{"666"}),
 		OrderedScale: true,
 		OrderedId:    0,
@@ -376,7 +380,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitReplaceDead(c *tc.C) {
 		UnitName:     coreunit.Name("foo/0"),
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-0",
-		Address:      ptr("10.6.6.6"),
+		Address:      ptr("10.6.6.6/8"),
 		Ports:        ptr([]string{"666"}),
 		OrderedScale: true,
 		OrderedId:    0,
@@ -393,7 +397,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitApplicationNotALive(c *tc.C) {
 		UnitName:     "foo/0",
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-0",
-		Address:      ptr("10.6.6.6"),
+		Address:      ptr("10.6.6.6/8"),
 		Ports:        ptr([]string{"666"}),
 		OrderedScale: true,
 		OrderedId:    0,
@@ -421,7 +425,7 @@ WHERE application_uuid = ?`, 1, 3, appUUID)
 		UnitName:     "foo/2",
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-2",
-		Address:      ptr("10.6.6.6"),
+		Address:      ptr("10.6.6.6/0"),
 		Ports:        ptr([]string{"666"}),
 		OrderedScale: true,
 		OrderedId:    2,
@@ -449,7 +453,7 @@ WHERE application_uuid = ?`, true, 3, 1, appUUID)
 		UnitName:     "foo/2",
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-2",
-		Address:      ptr("10.6.6.6"),
+		Address:      ptr("10.6.6.6/8"),
 		Ports:        ptr([]string{"666"}),
 		OrderedScale: true,
 		OrderedId:    2,
@@ -529,7 +533,7 @@ func (s *unitStateSuite) TestDeleteUnit(c *tc.C) {
 					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 				},
-				Value:       "10.6.6.6",
+				Value:       "10.6.6.6/24",
 				AddressType: ipaddress.AddressTypeIPv4,
 				ConfigType:  ipaddress.ConfigTypeDHCP,
 				Scope:       ipaddress.ScopeMachineLocal,
@@ -913,7 +917,7 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *tc.C) {
 	cc := application.UpdateCAASUnitParams{
 		ProviderID: ptr("another-id"),
 		Ports:      ptr([]string{"666", "667"}),
-		Address:    ptr("2001:db8::1"),
+		Address:    ptr("2001:db8::1/8"),
 	}
 	err := s.state.UpdateCAASUnit(c.Context(), "foo/666", cc)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1720,7 +1724,7 @@ func (s *unitStateSuite) TestGetUnitK8sPodInfo(c *tc.C) {
 					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 				},
-				Value:       "10.6.6.6",
+				Value:       "10.6.6.6/24",
 				AddressType: ipaddress.AddressTypeIPv4,
 				ConfigType:  ipaddress.ConfigTypeDHCP,
 				Scope:       ipaddress.ScopeMachineLocal,
@@ -1735,7 +1739,7 @@ func (s *unitStateSuite) TestGetUnitK8sPodInfo(c *tc.C) {
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.ProviderID, tc.Equals, network.Id("some-id"))
-	c.Check(info.Address, tc.Equals, "10.6.6.6")
+	c.Check(info.Address, tc.Equals, "10.6.6.6/24")
 	c.Check(info.Ports, tc.DeepEquals, []string{"666", "668"})
 }
 

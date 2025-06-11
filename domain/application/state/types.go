@@ -217,6 +217,11 @@ type spaceAddress struct {
 	SubnetCIDR   sql.NullString              `db:"cidr"`
 }
 
+type subnet struct {
+	UUID string `db:"uuid"`
+	CIDR string `db:"cidr"`
+}
+
 // These structs represent the persistent charm schema in the database.
 
 // charmID represents a single charm row from the charm table, that only
