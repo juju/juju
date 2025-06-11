@@ -2816,26 +2816,6 @@ func (u *UniterAPI) CanApplyLXDProfile(ctx context.Context, args params.Entities
 	return u.lxdProfileAPI.CanApplyLXDProfile(ctx, args)
 }
 
-// APIHostPorts returns the API server addresses.
-func (u *UniterAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := u.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return u.APIAddresser.APIHostPorts(ctx, controllerConfig)
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-func (u *UniterAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := u.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return u.APIAddresser.APIAddresses(ctx, controllerConfig)
-}
-
 // WatchApplication starts an NotifyWatcher for an application.
 // WatchApplication is not implemented in the UniterAPIv20 facade.
 //

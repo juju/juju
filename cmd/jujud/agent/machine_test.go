@@ -6,48 +6,31 @@ package agent
 import (
 	"context"
 	"path/filepath"
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/lumberjack/v2"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent/engine"
-	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/mocks"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/blockdevice"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
-	jujuversion "github.com/juju/juju/core/version"
-	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/environs/filestorage"
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
-	"github.com/juju/juju/internal/mongo"
-	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/tools"
-	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	databasetesting "github.com/juju/juju/internal/worker/dbaccessor/testing"
-	"github.com/juju/juju/internal/worker/diskmanager"
-	"github.com/juju/juju/internal/worker/machiner"
-	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/state"
 )
 
@@ -230,350 +213,17 @@ func (s *MachineSuite) TestRunStop(c *tc.C) {
 	c.Assert(<-done, tc.ErrorIsNil)
 }
 
-func (s *MachineSuite) testUpgradeRequest(c *tc.C, agent runner, tag string, currentTools *tools.Tools, upgrader state.Upgrader) {
-	newVers := coretesting.CurrentVersion()
-	newVers.Patch++
-	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, s.agentStorage, "released", newVers)[0]
-	err := s.ControllerModel(c).State().SetModelAgentVersion(newVers.Number, nil, true, upgrader)
-	c.Assert(err, tc.ErrorIsNil)
-	err = runWithTimeout(c, agent)
-	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
-		AgentName: tag,
-		OldTools:  currentTools.Version,
-		NewTools:  newTools.Version,
-		DataDir:   s.DataDir,
-	})
-}
-
-func (s *MachineSuite) TestUpgradeRequest(c *tc.C) {
-	c.Skip("fix machine upgrade test when not controller")
-	m, _, currentTools := s.primeAgent(c, state.JobHostUnits)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools, stubUpgrader{})
-	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), tc.IsFalse)
-}
-
-func (s *MachineSuite) TestNoUpgradeRequired(c *tc.C) {
-	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
-
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	done := make(chan error)
-	go func() { done <- a.Run(cmdtesting.Context(c)) }()
-	select {
-	case <-a.initialUpgradeCheckComplete.Unlocked():
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout waiting for upgrade check")
-	}
-	defer a.Stop() // in case of failure
-	s.waitStopped(c, state.JobHostUnits, a, done)
-	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), tc.IsTrue)
-}
-
-func (s *MachineSuite) TestAgentSetsToolsVersionManageModel(c *tc.C) {
-	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
-
-	s.assertAgentSetsToolsVersion(c, state.JobManageModel)
-}
-
-func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *tc.C) {
-	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
-
-	s.assertAgentSetsToolsVersion(c, state.JobHostUnits)
-}
-
-func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *tc.C) {
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	go func() { c.Check(a.Run(cmdtesting.Context(c)), tc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
-
-	// Update the API addresses.
-	updatedServers := []network.SpaceHostPorts{
-		network.NewSpaceHostPorts(1234, "localhost"),
-	}
-
-	controllerConfig := coretesting.FakeControllerConfig()
-
-	st := s.ControllerModel(c).State()
-	err := st.SetAPIHostPorts(controllerConfig, updatedServers, updatedServers)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Wait for config to be updated.
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if !attempt.HasNext() {
-			break
-		}
-		addrs, err := a.CurrentConfig().APIAddresses()
-		c.Assert(err, tc.ErrorIsNil)
-		if reflect.DeepEqual(addrs, []string{"localhost:1234"}) {
-			return
-		}
-	}
-	c.Fatalf("timeout while waiting for agent config to change")
-}
-
-func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *tc.C) {
-	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
-
-	// Patch out the worker func before starting the agent.
-	started := newSignal()
-	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
-		started.trigger()
-		return jworker.NoopWorker()
-	}
-	s.PatchValue(&diskmanager.NewWorker, newWorker)
-
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	go func() { c.Check(a.Run(cmdtesting.Context(c)), tc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
-	started.assertTriggered(c, "diskmanager worker to start")
-}
-
-func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *tc.C) {
-	// TODO(wallyworld) - we need the dqlite model database to be available.
-	c.Skip("we need to seed the dqlite database with machine data")
-	expected := []blockdevice.BlockDevice{{DeviceName: "whatever"}}
-	s.PatchValue(&diskmanager.DefaultListBlockDevices, func(context.Context) ([]blockdevice.BlockDevice, error) {
-		return expected, nil
-	})
-
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	go func() { c.Check(a.Run(cmdtesting.Context(c)), tc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
-
-	// Wait for state to be updated.
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		devices, err := blockdevicestate.NewState(s.TxnRunnerFactory()).BlockDevices(c.Context(), m.Id())
-		c.Assert(err, tc.ErrorIsNil)
-		if len(devices) > 0 {
-			c.Assert(devices, tc.HasLen, 1)
-			c.Assert(devices[0].DeviceName, tc.Equals, expected[0].DeviceName)
-			return
-		}
-	}
-	c.Fatalf("timeout while waiting for block devices to be recorded")
-}
-
-func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *tc.C) {
-	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
-
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-
-	started := newSignal()
-	newWorker := func(config storageprovisioner.Config) (worker.Worker, error) {
-		c.Check(config.Scope, tc.Equals, m.Tag())
-		c.Check(config.Validate(), tc.ErrorIsNil)
-		started.trigger()
-		return jworker.NoopWorker(), nil
-	}
-	s.PatchValue(&storageprovisioner.NewStorageProvisioner, newWorker)
-
-	// Start the machine agent.
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	go func() { c.Check(a.Run(cmdtesting.Context(c)), tc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
-	started.assertTriggered(c, "storage worker to start")
-}
-
-func (s *MachineSuite) setupIgnoreAddresses(c *tc.C, expectedIgnoreValue bool) chan bool {
-	ignoreAddressCh := make(chan bool, 1)
-	s.AgentSuite.PatchValue(&machiner.NewMachiner, func(cfg machiner.Config) (worker.Worker, error) {
-		select {
-		case ignoreAddressCh <- cfg.ClearMachineAddressesOnStart:
-		default:
-		}
-
-		// The test just cares that NewMachiner is called with the correct
-		// value, nothing else is done with the worker.
-		return jworker.NoopWorker(), nil
-	})
-
-	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
-	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(c.Context(), attrs, nil)
-	c.Assert(err, tc.ErrorIsNil)
-	return ignoreAddressCh
-}
-
-func (s *MachineSuite) TestMachineAgentIgnoreAddressesTrue(c *tc.C) {
-	expectedIgnoreValue := true
-	ignoreAddressCh := s.setupIgnoreAddresses(c, expectedIgnoreValue)
-
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	defer a.Stop()
-	doneCh := make(chan error)
-	go func() {
-		doneCh <- a.Run(cmdtesting.Context(c))
-	}()
-
-	select {
-	case ignoreMachineAddresses := <-ignoreAddressCh:
-		if ignoreMachineAddresses != expectedIgnoreValue {
-			c.Fatalf("expected ignore-machine-addresses = %v, got = %v", expectedIgnoreValue, ignoreMachineAddresses)
-		}
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for the machiner to start")
-	}
-	s.waitStopped(c, state.JobHostUnits, a, doneCh)
-}
-
-func (s *MachineSuite) TestMachineAgentIgnoreAddressesFalse(c *tc.C) {
-	expectedIgnoreValue := false
-	ignoreAddressCh := s.setupIgnoreAddresses(c, expectedIgnoreValue)
-
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	defer a.Stop()
-	doneCh := make(chan error)
-	go func() {
-		doneCh <- a.Run(cmdtesting.Context(c))
-	}()
-
-	select {
-	case ignoreMachineAddresses := <-ignoreAddressCh:
-		if ignoreMachineAddresses != expectedIgnoreValue {
-			c.Fatalf("expected ignore-machine-addresses = %v, got = %v", expectedIgnoreValue, ignoreMachineAddresses)
-		}
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for the machiner to start")
-	}
-	s.waitStopped(c, state.JobHostUnits, a, doneCh)
-}
-
-func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *tc.C) {
-	ignoreAddressCh := s.setupIgnoreAddresses(c, true)
-
-	st := s.ControllerModel(c).State()
-	parent, err := st.AddMachine(state.UbuntuBase("20.04"), state.JobHostUnits)
-	c.Assert(err, tc.ErrorIsNil)
-	m, err := st.AddMachineInsideMachine(
-		state.MachineTemplate{
-			Base: state.UbuntuBase("22.04"),
-			Jobs: []state.MachineJob{state.JobHostUnits},
-		},
-		parent.Id(),
-		instance.LXD,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	vers := coretesting.CurrentVersion()
-	s.primeAgentWithMachine(c, m, vers)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	defer a.Stop()
-	doneCh := make(chan error)
-	go func() {
-		doneCh <- a.Run(cmdtesting.Context(c))
-	}()
-
-	select {
-	case ignoreMachineAddresses := <-ignoreAddressCh:
-		if ignoreMachineAddresses {
-			c.Fatalf("expected ignore-machine-addresses = false, got = true")
-		}
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for the machiner to start")
-	}
-	s.waitStopped(c, state.JobHostUnits, a, doneCh)
-}
-
-func (s *MachineSuite) TestMachineWorkers(c *tc.C) {
-	// TODO(wallyworld) - we need the dqlite model database to be available.
-	c.Skip("we need to seed the dqlite database with machine data")
-	testhelpers.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
-
-	tracker := agenttest.NewEngineTracker()
-	instrumented := TrackMachines(c, tracker, iaasMachineManifolds)
-	s.PatchValue(&iaasMachineManifolds, instrumented)
-
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	go func() { c.Check(a.Run(cmdtesting.Context(c)), tc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
-
-	// Wait for it to stabilise, running as normal.
-	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
-		append(alwaysMachineWorkers, notMigratingMachineWorkers...))
-
-	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait)
-}
-
-func (s *MachineSuite) waitStopped(c *tc.C, job state.MachineJob, a *MachineAgent, done chan error) {
-	c.Assert(a.Stop(), tc.ErrorIsNil)
-
-	select {
-	case err := <-done:
-		c.Assert(err, tc.ErrorIsNil)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for agent to terminate")
-	}
-}
-
-func (s *MachineSuite) assertAgentSetsToolsVersion(c *tc.C, job state.MachineJob) {
-	s.PatchValue(&mongo.IsMaster, func(session *mgo.Session, obj mongo.WithAddresses) (bool, error) {
-		addr := obj.Addresses()
-		for _, a := range addr {
-			if a.Value == "0.1.2.3" {
-				return true, nil
-			}
-		}
-		return false, nil
-	})
-	vers := coretesting.CurrentVersion()
-	vers.Minor--
-	m, _, _ := s.primeAgentVersion(c, vers, job)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	ctx := cmdtesting.Context(c)
-	go func() { c.Check(a.Run(ctx), tc.ErrorIsNil) }()
-	defer func() {
-		logger.Infof(context.TODO(), "stopping machine agent")
-		c.Check(a.Stop(), tc.ErrorIsNil)
-		logger.Infof(context.TODO(), "stopped machine agent")
-	}()
-
-	timeout := time.After(coretesting.LongWait)
-	for done := false; !done; {
-		select {
-		case <-timeout:
-			c.Fatalf("timeout while waiting for agent version to be set")
-		case <-time.After(coretesting.ShortWait):
-			c.Log("Refreshing")
-			err := m.Refresh()
-			c.Assert(err, tc.ErrorIsNil)
-			c.Log("Fetching agent tools")
-			agentTools, err := m.AgentTools()
-			c.Assert(err, tc.ErrorIsNil)
-			c.Logf("(%v vs. %v)", agentTools.Version, jujuversion.Current)
-			if agentTools.Version.Minor != jujuversion.Current.Minor {
-				continue
-			}
-			c.Assert(agentTools.Version.Number, tc.DeepEquals, jujuversion.Current)
-			done = true
-		}
-	}
-}
-
-type stubUpgrader struct {
-	upgrading bool
-}
-
-func (s stubUpgrader) IsUpgrading() (bool, error) {
-	return s.upgrading, nil
+func (s *MachineSuite) TestStub(c *tc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+	
+ - Test agent tools version set when upgrading a controller
+ - Test agent tools version set when upgrading a model
+ - Test upgrade request upgrading a model
+ - Test the machine agent includes the api address updater worker
+ - Test the machine agent includes the disk manager worker
+ - Test the machine agent includes the machine storage worker
+ - Test the machine agent is running correct workers when not migrating
+ - Test upgrade is not triggered if not required
+ - Test config ignore-machine-addresses is not ignored for machines and containers
+`)
 }

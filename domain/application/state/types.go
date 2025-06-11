@@ -213,6 +213,7 @@ type spaceAddress struct {
 	ScopeID      int                         `db:"scope_id"`
 	DeviceID     string                      `db:"device_uuid"`
 	SpaceUUID    sql.Null[network.SpaceUUID] `db:"space_uuid"`
+	SubnetCIDR   sql.NullString              `db:"cidr"`
 }
 
 // These structs represent the persistent charm schema in the database.

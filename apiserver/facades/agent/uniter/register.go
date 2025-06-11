@@ -57,6 +57,7 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 			ResolveService:          domainServices.Resolve(),
 			StatusService:           domainServices.Status(),
 			ControllerConfigService: domainServices.ControllerConfig(),
+			ControllerNodeService:   domainServices.ControllerNode(),
 			MachineService:          domainServices.Machine(),
 			ModelConfigService:      domainServices.Config(),
 			ModelInfoService:        domainServices.ModelInfo(),
@@ -119,7 +120,7 @@ func newUniterAPIWithServices(
 
 	modelConfigWatcher := commonmodel.NewModelConfigWatcher(
 		services.ModelConfigService,
-		context.WatcherRegistry(),
+		watcherRegistry,
 	)
 	logger := context.Logger().Child("uniter")
 
@@ -135,7 +136,7 @@ func newUniterAPIWithServices(
 	extLXDProfile := NewExternalLXDProfileAPI(
 		st,
 		services.MachineService,
-		context.WatcherRegistry(),
+		watcherRegistry,
 		authorizer,
 		accessUnit,
 		logger,
@@ -150,13 +151,8 @@ func newUniterAPIWithServices(
 		aClock,
 	)
 
-	systemState, err := context.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return &UniterAPI{
-		APIAddresser:       common.NewAPIAddresser(systemState, resources),
+		APIAddresser:       common.NewAPIAddresser(services.ControllerNodeService, watcherRegistry),
 		ModelConfigWatcher: modelConfigWatcher,
 		RebootRequester:    common.NewRebootRequester(services.MachineService, accessMachine),
 		UnitStateAPI:       unitState,

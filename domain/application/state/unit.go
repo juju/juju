@@ -1958,7 +1958,7 @@ WHERE     n.uuid = $unitUUID.uuid
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return encodeIpAddresses(address), nil
+	return encodeIpAddresses(address)
 }
 
 // GetUnitAddresses returns the addresses of the specified unit.
@@ -1998,7 +1998,7 @@ WHERE     u.uuid = $unitUUID.uuid
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return encodeIpAddresses(address), nil
+	return encodeIpAddresses(address)
 }
 
 // GetUnitK8sPodInfo returns information about the k8s pod for the given unit.

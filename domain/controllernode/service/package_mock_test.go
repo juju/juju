@@ -276,6 +276,44 @@ func (c *MockStateIsControllerNodeCall) DoAndReturn(f func(context.Context, stri
 	return c
 }
 
+// NamespaceForWatchControllerAPIAddresses mocks base method.
+func (m *MockState) NamespaceForWatchControllerAPIAddresses() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchControllerAPIAddresses")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchControllerAPIAddresses indicates an expected call of NamespaceForWatchControllerAPIAddresses.
+func (mr *MockStateMockRecorder) NamespaceForWatchControllerAPIAddresses() *MockStateNamespaceForWatchControllerAPIAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchControllerAPIAddresses", reflect.TypeOf((*MockState)(nil).NamespaceForWatchControllerAPIAddresses))
+	return &MockStateNamespaceForWatchControllerAPIAddressesCall{Call: call}
+}
+
+// MockStateNamespaceForWatchControllerAPIAddressesCall wrap *gomock.Call
+type MockStateNamespaceForWatchControllerAPIAddressesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchControllerAPIAddressesCall) Return(arg0 string) *MockStateNamespaceForWatchControllerAPIAddressesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchControllerAPIAddressesCall) Do(f func() string) *MockStateNamespaceForWatchControllerAPIAddressesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchControllerAPIAddressesCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchControllerAPIAddressesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NamespaceForWatchControllerNodes mocks base method.
 func (m *MockState) NamespaceForWatchControllerNodes() string {
 	m.ctrl.T.Helper()

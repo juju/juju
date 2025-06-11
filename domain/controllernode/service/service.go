@@ -50,6 +50,10 @@ type State interface {
 	// controller nodes.
 	NamespaceForWatchControllerNodes() string
 
+	// NamespaceForWatchControllerAPIAddresses returns the namespace for watching
+	// controller api addresses.
+	NamespaceForWatchControllerAPIAddresses() string
+
 	// SetAPIAddresses sets the addresses for the provided controller node. It
 	// replaces any existing addresses and stores them in the
 	// api_controller_address table, with the format "host:port" as a string, as
@@ -291,5 +295,16 @@ func (s *WatchableService) WatchControllerNodes(ctx context.Context) (watcher.No
 			changestream.All,
 			eventsource.AlwaysPredicate,
 		),
+	)
+}
+
+// WatchControllerAPIAddresses returns a watcher that observes changes to the
+// controller api addresses.
+func (s *WatchableService) WatchControllerAPIAddresses(ctx context.Context) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerAPIAddresses(), changestream.All),
 	)
 }

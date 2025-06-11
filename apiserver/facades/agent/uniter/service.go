@@ -34,6 +34,7 @@ type Services struct {
 	ResolveService          ResolveService
 	StatusService           StatusService
 	ControllerConfigService ControllerConfigService
+	ControllerNodeService   ControllerNodeService
 	MachineService          MachineService
 	ModelConfigService      ModelConfigService
 	ModelInfoService        ModelInfoService
@@ -47,6 +48,19 @@ type Services struct {
 // ControllerConfigService provides the controller configuration for the model.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ControllerNodeService defines the methods on the controller node service
+// that are needed by APIAddresser used by the uniter API.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+	// addresses that are available for agents. The map is keyed by controller
+	// ID, and the values are slices of strings representing the API addresses
+	// for each controller node.
+	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	// WatchControllerAPIAddresses returns a watcher that observes changes to the
+	// controller ip addresses.
+	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // ModelConfigService is used by the provisioner facade to get model config.

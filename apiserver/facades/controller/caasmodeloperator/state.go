@@ -6,7 +6,6 @@ package caasmodeloperator
 import (
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
 )
 
@@ -19,5 +18,5 @@ type CAASModelOperatorState interface {
 // CAASModelOperatorState provides the subset of controller state required by the
 // model operator provisioner.
 type CAASControllerState interface {
-	common.APIAddressAccessor
+	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
