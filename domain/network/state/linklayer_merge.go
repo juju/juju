@@ -88,44 +88,26 @@ func (st *State) MergeLinkLayerDevice(
 
 	return db.Txn(
 		ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			existingDevices, err := st.getExistingLinkLayerDevices(
-				ctx, tx, netNodeUUID,
-			)
+			existingDevices, err := st.getExistingLinkLayerDevices(ctx, tx, netNodeUUID)
 			if err != nil {
-				return errors.Errorf(
-					"getting existing link layer devices for node %q: %w",
-					netNodeUUID, err,
-				)
+				return errors.Errorf("getting existing link layer devices for node %q: %w", netNodeUUID, err)
 			}
 
 			if len(existingDevices) == 0 {
 				// Noop
-				st.logger.Debugf(ctx, "no existing devices, "+
-					"ignoring %d incoming device for net node %q",
+				st.logger.Debugf(ctx, "no existing devices, ignoring %d incoming device for net node %q",
 					len(incoming), netNodeUUID)
 				return nil
 			}
 
-			normalized, namelessHWAddrs,
-				err := st.normalizeLinkLayerDevices(ctx,
-				incoming,
-				existingDevices,
-			)
+			normalized, namelessHWAddrs, err := st.normalizeLinkLayerDevices(ctx, incoming, existingDevices)
 			if err != nil {
 				return errors.Capture(err)
 			}
 
-			lldChanges := st.computeMergeLinkLayerDeviceChanges(
-				ctx, existingDevices, normalized, namelessHWAddrs,
-			)
-			addressChanges := st.computeMergeAddressChanges(
-				normalized, existingDevices,
-			)
-
-			return st.applyMergeLinkLayerChanges(
-				ctx, tx, lldChanges,
-				addressChanges,
-			)
+			lldChanges := st.computeMergeLinkLayerDeviceChanges(ctx, existingDevices, normalized, namelessHWAddrs)
+			addressChanges := st.computeMergeAddressChanges(normalized, existingDevices)
+			return st.applyMergeLinkLayerChanges(ctx, tx, lldChanges, addressChanges)
 		},
 	)
 }
@@ -143,8 +125,7 @@ func (st *State) addProviderLinkLayerDevice(
 		ProviderID string `db:"provider_id"`
 		DeviceUUID string `db:"device_uuid"`
 	}
-	stmt, err := st.Prepare(
-		`
+	stmt, err := st.Prepare(`
 INSERT INTO provider_link_layer_device
 VALUES ($insert.provider_id, $insert.device_uuid)
 `, insert{})
@@ -238,22 +219,21 @@ func (st *State) applyMergeLinkLayerChanges(
 	getValue := func(_, value string) []string {
 		return []string{value}
 	}
-	addressChanges.toRelinquish = append(
-		addressChanges.toRelinquish, lldChanges.addressToRelinquish...,
-	)
+	addressChanges.toRelinquish = append(addressChanges.toRelinquish, lldChanges.addressToRelinquish...)
+
 	deviceToRemove := append(lldChanges.deviceToRelinquish, transform.MapToSlice(lldChanges.toAddOrUpdate, getValue)...)
 	err := st.removeDeviceProviderIDs(ctx, tx, deviceToRemove)
 	if err != nil {
-		return errors.Errorf(
-			"removing provider IDs from link layer devices: %w", err,
-		)
+		return errors.Errorf("removing provider IDs from link layer devices: %w", err)
 	}
+
 	addressesToRemove := append(addressChanges.toRelinquish,
 		transform.MapToSlice(addressChanges.providerIDsToAddOrUpdate, getValue)...)
 	err = st.removeAddressProviderIDs(ctx, tx, addressesToRemove)
 	if err != nil {
 		return errors.Errorf("removing provider IDs from addresses: %w", err)
 	}
+
 	// We don't remove subnets provider ID for relinquished addresses, since
 	// they still may have a provider ID (we don't know)
 	subnetsToRemove := transform.MapToSlice(addressChanges.providerSubnetIDsToAddOrUpdate, getValue)
@@ -264,19 +244,19 @@ func (st *State) applyMergeLinkLayerChanges(
 
 	err = st.addProviderLinkLayerDevice(ctx, tx, lldChanges.toAddOrUpdate)
 	if err != nil {
-		return errors.Errorf(
-			"adding provider IDs to link layer devices: %w",
-			err,
-		)
+		return errors.Errorf("adding provider IDs to link layer devices: %w", err)
 	}
+
 	err = st.addProviderAddress(ctx, tx, addressChanges.providerIDsToAddOrUpdate)
 	if err != nil {
 		return errors.Errorf("adding provider IDs to addresses: %w", err)
 	}
+
 	err = st.addProviderSubnet(ctx, tx, addressChanges.providerSubnetIDsToAddOrUpdate)
 	if err != nil {
 		return errors.Errorf("adding provider IDs to subnets: %w", err)
 	}
+
 	err = st.relinquishAddresses(ctx, tx, addressChanges.toRelinquish)
 	if err != nil {
 		return errors.Errorf("relinquishing addresses: %w", err)
@@ -288,13 +268,9 @@ func (st *State) applyMergeLinkLayerChanges(
 	//   them.
 	//   Log for now and consider adding such devices in the future.
 	for _, dev := range lldChanges.newDevices {
-		st.logger.Debugf(
-			ctx,
-			"ignoring unrecognised device %q (%s) with addresses %v",
-			dev.Name, dev.MACAddress, dev.Addresses,
-		)
+		st.logger.Debugf(ctx, "ignoring unrecognised device %q (%s) with addresses %v",
+			dev.Name, dev.MACAddress, dev.Addresses)
 	}
-
 	return nil
 }
 
@@ -357,9 +333,7 @@ func (st *State) computeMergeAddressChanges(
 ) mergeAddressesChanges {
 	incomingAddresses := make(map[string][]mergeAddress)
 	for _, device := range normalized {
-		incomingAddresses[device.Name] = append(
-			incomingAddresses[device.Name], device.Addresses...,
-		)
+		incomingAddresses[device.Name] = append(incomingAddresses[device.Name], device.Addresses...)
 	}
 
 	result := mergeAddressesChanges{
@@ -401,13 +375,7 @@ func (st *State) computeMergeLinkLayerDeviceChanges(
 	namelessHWAddrs set.Strings,
 ) mergeLinkLayerDevicesChanges {
 	incomingByNames := st.matchByName(ctx, incomingDevices)
-	notProcessed := set.NewStrings(
-		slices.Collect(
-			maps.Keys(
-				incomingByNames,
-			),
-		)...,
-	)
+	notProcessed := set.NewStrings(slices.Collect(maps.Keys(incomingByNames))...)
 	lldChanges := mergeLinkLayerDevicesChanges{
 		toAddOrUpdate:       make(map[string]string),
 		deviceToRelinquish:  make([]string, 0),
@@ -438,17 +406,13 @@ func (st *State) computeMergeLinkLayerDeviceChanges(
 		// Log a warning if we are changing a provider ID that is already set.
 		if device.ProviderID != "" &&
 			device.ProviderID != incomingDevice.ProviderID {
-			st.logger.Warningf(
-				ctx,
-				"changing provider ID for device %q from %q to %q",
-				device.Name, device.ProviderID, incomingDevice.ProviderID,
-			)
+			st.logger.Warningf(ctx, "changing provider ID for device %q from %q to %q",
+				device.Name, device.ProviderID, incomingDevice.ProviderID)
 		}
 		lldChanges.toAddOrUpdate[incomingDevice.ProviderID] = device.UUID
 	}
 	// Collect
-	lldChanges.newDevices = transform.Slice(
-		notProcessed.Values(),
+	lldChanges.newDevices = transform.Slice(notProcessed.Values(),
 		func(name string) mergeLinkLayerDevice {
 			return incomingByNames[name]
 		},
@@ -529,33 +493,24 @@ WHERE ip.net_node_uuid = $netNode.uuid`, address{}, netNode{})
 	}
 
 	var devices []device
-	if err := tx.Query(ctx, getDevicesStmt,
-		netNode{UUID: netNodeUUID}).GetAll(
-		&devices); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Errorf(
-			"getting all link layer devices from net node %q: %w",
-			netNodeUUID, err)
+	if err := tx.Query(ctx, getDevicesStmt, netNode{UUID: netNodeUUID}).GetAll(&devices); err != nil &&
+		!errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("getting all link layer devices from net node %q: %w", netNodeUUID, err)
 	}
 	var addresses []address
-	if err := tx.Query(ctx, getAddressesStmt,
-		netNode{UUID: netNodeUUID}).GetAll(
-		&addresses); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Errorf(
-			"getting all addresses from net node %q: %w",
-			netNodeUUID, err)
+	if err := tx.Query(ctx, getAddressesStmt, netNode{UUID: netNodeUUID}).GetAll(&addresses); err != nil &&
+		!errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("getting all addresses from net node %q: %w", netNodeUUID, err)
 	}
 	addressByDeviceUUID := make(map[string][]address)
 	for _, address := range addresses {
-		addressByDeviceUUID[address.DeviceUUID] = append(
-			addressByDeviceUUID[address.DeviceUUID], address,
-		)
+		addressByDeviceUUID[address.DeviceUUID] = append(addressByDeviceUUID[address.DeviceUUID], address)
 	}
 
 	var result []mergeLinkLayerDevice
 	for _, device := range devices {
 		if !corenetwork.IsValidLinkLayerDeviceType(device.Type) {
-			return nil, errors.Errorf(
-				"unexpected device type %q", device.Type)
+			return nil, errors.Errorf("unexpected device type %q", device.Type)
 		}
 		addresses, _ := addressByDeviceUUID[device.UUID]
 		result = append(result, mergeLinkLayerDevice{
@@ -589,10 +544,7 @@ func (st *State) matchByName(
 	result := make(map[string]mergeLinkLayerDevice, len(normalized))
 	for _, netInterface := range normalized {
 		if _, found := result[netInterface.Name]; found {
-			st.logger.Debugf(
-				ctx, "duplicate name %q in incoming network"+
-					" interfaces", netInterface.Name,
-			)
+			st.logger.Debugf(ctx, "duplicate name %q in incoming network interfaces", netInterface.Name)
 			continue
 		}
 		result[netInterface.Name] = netInterface
@@ -623,8 +575,7 @@ func (st *State) normalizeLinkLayerDevices(
 	normalizedIncoming := transform.Slice(incoming,
 		func(dev network.NetInterface) mergeLinkLayerDevice {
 			if dev.MACAddress == nil {
-				st.logger.Debugf(ctx,
-					"empty MACAddress for an incoming device")
+				st.logger.Debugf(ctx, "empty MACAddress for an incoming device")
 			}
 			return mergeLinkLayerDevice{
 				Name:       dev.Name,
@@ -657,10 +608,8 @@ func (st *State) normalizeLinkLayerDevices(
 		seenProviders.Add(dev.ProviderID)
 	}
 	if len(duplicatedProviders) > 0 {
-		return nil, namelessHWAddrs, errors.Errorf(
-			"unable to set provider IDs %q for multiple devices",
-			duplicatedProviders.Values(),
-		)
+		return nil, namelessHWAddrs, errors.Errorf("unable to set provider IDs %q for multiple devices",
+			duplicatedProviders.Values())
 	}
 
 	// If the incoming devices have names, no action is required
