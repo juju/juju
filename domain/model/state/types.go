@@ -25,6 +25,9 @@ type dbModel struct {
 	// Name is the human friendly name of the model.
 	Name string `db:"name"`
 
+	// Qualifier disambiguates the model name.
+	Qualifier string `db:"qualifier"`
+
 	// Life is the current state of the model.
 	// Options are alive, dying, dead. Every model starts as alive, only
 	// during the destruction of the model it transitions to dying and then
@@ -55,23 +58,14 @@ type dbModel struct {
 	// CredentialOwnerName is the owner of the model cloud credential.
 	CredentialOwnerName string `db:"cloud_credential_owner_name"`
 
-	// OwnerUUID is the uuid of the user that owns this model in the Juju controller.
-	OwnerUUID string `db:"owner_uuid"`
-
-	// OwnerName is the name of the model owner in the Juju controller.
-	OwnerName string `db:"owner_name"`
-
 	// ControllerUUID is the uuid of the controller that the model is in.
 	ControllerUUID string `db:"controller_uuid"`
 }
 
 func (m *dbModel) toCoreModel() (coremodel.Model, error) {
-	ownerName, err := user.NewName(m.OwnerName)
-	if err != nil {
-		return coremodel.Model{}, errors.Capture(err)
-	}
 	var credOwnerName user.Name
 	if m.CredentialOwnerName != "" {
+		var err error
 		credOwnerName, err = user.NewName(m.CredentialOwnerName)
 		if err != nil {
 			return coremodel.Model{}, errors.Capture(err)
@@ -95,6 +89,7 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 
 	return coremodel.Model{
 		Name:        m.Name,
+		Qualifier:   coremodel.Qualifier(m.Qualifier),
 		Life:        corelife.Value(m.Life),
 		UUID:        coremodel.UUID(m.UUID),
 		ModelType:   coremodel.ModelType(m.ModelType),
@@ -106,8 +101,6 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 			Cloud: credentialCloudName,
 			Owner: credOwnerName,
 		},
-		Owner:     user.UUID(m.OwnerUUID),
-		OwnerName: ownerName,
 	}, nil
 }
 
@@ -129,13 +122,13 @@ type dbInitialModel struct {
 	// Name is the human friendly name of the model.
 	Name string `db:"name"`
 
-	// OwnerUUID is the uuid of the user that owns this model in the Juju controller.
-	OwnerUUID string `db:"owner_uuid"`
+	// Qualifier is used to disambiguate the model name.
+	Qualifier string `db:"qualifier"`
 }
 
 type dbNames struct {
-	ModelName string `db:"name"`
-	OwnerName string `db:"owner_name"`
+	ModelName      string `db:"name"`
+	ModelQualifier string `db:"qualifier"`
 }
 
 // dbUUID represents a UUID.
@@ -158,11 +151,11 @@ type dbModelUUID struct {
 	UUID string `db:"uuid"`
 }
 
-type dbModelNameAndOwner struct {
+type dbModelNameAndQualifier struct {
 	// Name is the model name.
 	Name string `db:"name"`
-	// OwnerUUID is the UUID of the model owner.
-	OwnerUUID string `db:"owner_uuid"`
+	// Qualifier is the model qualifier.
+	Qualifier string `db:"qualifier"`
 }
 
 // dbModelType represents the model type from the model table.
@@ -181,9 +174,6 @@ type dbUserModelSummary struct {
 
 	// Life is the current model's life value.
 	Life string `db:"life"`
-
-	// OwnerName is the user name of the model owner.
-	OwnerName string `db:"owner_name"`
 
 	// Model state related members
 
@@ -209,9 +199,6 @@ type dbModelSummary struct {
 	// Life is the current model's life value.
 	Life string `db:"life"`
 
-	// OwnerName is the user name for the owner of the model.
-	OwnerName string `db:"owner_name"`
-
 	// -- Model state related members --
 
 	// Destroying indicates if the model is in the process of being destroyed.
@@ -233,6 +220,7 @@ type dbModelSummary struct {
 type dbModelInfoSummary struct {
 	UUID               string         `db:"uuid"`
 	Name               string         `db:"name"`
+	Qualifier          string         `db:"qualifier"`
 	Type               string         `db:"type"`
 	ControllerUUID     string         `db:"controller_uuid"`
 	Cloud              string         `db:"cloud"`
@@ -290,6 +278,7 @@ type dbReadOnlyModel struct {
 	UUID              string `db:"uuid"`
 	ControllerUUID    string `db:"controller_uuid"`
 	Name              string `db:"name"`
+	Qualifier         string `db:"qualifier"`
 	Type              string `db:"type"`
 	Cloud             string `db:"cloud"`
 	CloudType         string `db:"cloud_type"`

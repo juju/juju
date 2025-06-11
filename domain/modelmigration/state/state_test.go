@@ -47,6 +47,7 @@ func (s *migrationSuite) SetUpTest(c *tc.C) {
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",
+		Qualifier:       "prod",
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",
 		CloudType:       "ec2",

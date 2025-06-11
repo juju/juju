@@ -465,12 +465,12 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *tc.C) {
 
 	insertOne := func(ctx context.Context, tx *sql.Tx, modelUUID, name string) error {
 		result, err := tx.ExecContext(ctx, `
-INSERT INTO model (uuid, name, owner_uuid, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
+INSERT INTO model (uuid, name, qualifier, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
 SELECT ?, ?, ?, 0, 0, true,
 	(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
 	(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")
 			`,
-			modelUUID, name, s.userUUID,
+			modelUUID, name, "prod",
 		)
 		if err != nil {
 			return err
@@ -598,12 +598,12 @@ func (s *credentialSuite) TestInvalidateModelCloudCredential(c *tc.C) {
 
 	insertOne := func(ctx context.Context, tx *sql.Tx, modelUUID coremodel.UUID, name string) error {
 		result, err := tx.ExecContext(ctx, `
-INSERT INTO model (uuid, name, owner_uuid, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
+INSERT INTO model (uuid, name, qualifier, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
 SELECT ?, ?, ?, 0, 0, true,
 	(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
 	(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")
 			`,
-			modelUUID, name, s.userUUID,
+			modelUUID, name, "prod",
 		)
 		if err != nil {
 			return err
@@ -658,12 +658,12 @@ func (s *credentialSuite) TestInvalidateModelCloudCredentialNotSet(c *tc.C) {
 
 	insertOne := func(ctx context.Context, tx *sql.Tx, modelUUID coremodel.UUID, name string) error {
 		result, err := tx.ExecContext(ctx, `
-INSERT INTO model (uuid, name, owner_uuid, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
+INSERT INTO model (uuid, name, qualifier, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
 SELECT ?, ?, ?, 0, 0, true,
 	(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
 	NULL
 `,
-			modelUUID, name, s.userUUID,
+			modelUUID, name, "prod",
 		)
 		if err != nil {
 			return err
@@ -711,11 +711,11 @@ func (s *credentialSuite) TestGetModelCredentialStatusNotSet(c *tc.C) {
 
 	insertOne := func(ctx context.Context, tx *sql.Tx, modelUUID coremodel.UUID, name string) error {
 		result, err := tx.ExecContext(ctx, `
-INSERT INTO model (uuid, name, owner_uuid, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
+INSERT INTO model (uuid, name, qualifier, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
 SELECT ?, ?, ?, 0, 0, true,
 	(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
 	NULL`,
-			modelUUID, name, s.userUUID,
+			modelUUID, name, "prod",
 		)
 		if err != nil {
 			return err
@@ -753,12 +753,12 @@ func (s *credentialSuite) TestGetModelCredentialValid(c *tc.C) {
 
 	insertOne := func(ctx context.Context, tx *sql.Tx, modelUUID coremodel.UUID, name string) error {
 		result, err := tx.ExecContext(ctx, `
-INSERT INTO model (uuid, name, owner_uuid, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
+INSERT INTO model (uuid, name, qualifier, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
 SELECT ?, ?, ?, 0, 0, true,
 	(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
 	(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")
 			`,
-			modelUUID, name, s.userUUID,
+			modelUUID, name, "prod",
 		)
 		if err != nil {
 			return err
@@ -802,12 +802,12 @@ func (s *credentialSuite) TestGetModelCredentialInvalid(c *tc.C) {
 
 	insertOne := func(ctx context.Context, tx *sql.Tx, modelUUID coremodel.UUID, name string) error {
 		result, err := tx.ExecContext(ctx, `
-INSERT INTO model (uuid, name, owner_uuid, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
+INSERT INTO model (uuid, name, qualifier, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
 SELECT ?, ?, ?, 0, 0, true,
 	(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
 	(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")
 			`,
-			modelUUID, name, s.userUUID,
+			modelUUID, name, "prod",
 		)
 		if err != nil {
 			return err

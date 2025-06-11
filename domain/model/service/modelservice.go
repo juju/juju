@@ -235,6 +235,7 @@ func (s *ModelService) GetModelSummary(
 	status := s.statusFromModelState(ctx, mSummary.State)
 	return coremodel.ModelSummary{
 		Name:           miSummary.Name,
+		Qualifier:      miSummary.Qualifier,
 		UUID:           miSummary.UUID,
 		ModelType:      miSummary.ModelType,
 		CloudName:      miSummary.CloudName,
@@ -242,7 +243,6 @@ func (s *ModelService) GetModelSummary(
 		CloudRegion:    miSummary.CloudRegion,
 		ControllerUUID: miSummary.ControllerUUID,
 		IsController:   miSummary.IsController,
-		OwnerName:      mSummary.OwnerName,
 		Life:           mSummary.Life,
 		AgentVersion:   miSummary.AgentVersion,
 		Status: corestatus.StatusInfo{
@@ -296,6 +296,7 @@ func (s *ModelService) GetUserModelSummary(
 	return coremodel.UserModelSummary{
 		ModelSummary: coremodel.ModelSummary{
 			Name:           miSummary.Name,
+			Qualifier:      miSummary.Qualifier,
 			UUID:           miSummary.UUID,
 			ModelType:      miSummary.ModelType,
 			CloudName:      miSummary.CloudName,
@@ -303,7 +304,6 @@ func (s *ModelService) GetUserModelSummary(
 			CloudRegion:    miSummary.CloudRegion,
 			ControllerUUID: miSummary.ControllerUUID,
 			IsController:   miSummary.IsController,
-			OwnerName:      userSummary.OwnerName,
 			Life:           userSummary.Life,
 			AgentVersion:   miSummary.AgentVersion,
 			Status: corestatus.StatusInfo{
@@ -437,6 +437,7 @@ func (s *ModelService) CreateModelWithAgentVersionStream(
 		UUID:            m.UUID,
 		ControllerUUID:  m.ControllerUUID,
 		Name:            m.Name,
+		Qualifier:       m.Qualifier,
 		Type:            m.Type,
 		Cloud:           m.Cloud,
 		CloudType:       m.CloudType,

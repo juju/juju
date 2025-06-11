@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
-	access "github.com/juju/juju/domain/access"
+	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
@@ -368,6 +368,11 @@ func (api *OffersAPIv5) getApplicationOffers(ctx context.Context, user names.Use
 		// with any optional parts like model owner filled in.
 		// It is used to process the result offers.
 		fullURLs []string
+		// urlArgs is the unmodified URLs without any username -> qualifier mapping.
+		// This is used to report any errors to the caller.
+		// Legacy callers can supply an offer URL with a username in the URL
+		// and we want to report back that same URL if there's an error.
+		urlArgs []string
 	)
 	for i, urlStr := range urls.OfferURLs {
 		url, err := jujucrossmodel.ParseOfferURL(urlStr)
@@ -378,9 +383,13 @@ func (api *OffersAPIv5) getApplicationOffers(ctx context.Context, user names.Use
 		if url.User == "" {
 			url.User = user.Id()
 		}
-		if url.HasEndpoint() {
+		urlCopy := *url
+		// Older clients may try to reference an offer with a model owner username.
+		// Create a URL using a valid model qualifier.
+		url.User = model.QualifierFromUserTag(names.NewUserTag(url.User)).String()
+		if urlCopy.HasEndpoint() {
 			results.Results[i].Error = apiservererrors.ServerError(
-				errors.Errorf("saas application %q shouldn't include endpoint", url))
+				errors.Errorf("saas application %q shouldn't include endpoint", urlCopy.String()))
 			continue
 		}
 		if url.Source != "" {
@@ -389,6 +398,7 @@ func (api *OffersAPIv5) getApplicationOffers(ctx context.Context, user names.Use
 			continue
 		}
 		fullURLs = append(fullURLs, url.String())
+		urlArgs = append(urlArgs, urlCopy.String())
 		filters = append(filters, api.filterFromURL(url))
 	}
 	if len(filters) == 0 {
@@ -405,7 +415,7 @@ func (api *OffersAPIv5) getApplicationOffers(ctx context.Context, user names.Use
 	for i, urlStr := range fullURLs {
 		offer, ok := offersByURL[urlStr]
 		if !ok {
-			err = errors.NotFoundf("application offer %q", urlStr)
+			err = errors.NotFoundf("application offer %q", urlArgs[i])
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -430,7 +440,11 @@ func (api *OffersAPIv5) FindApplicationOffers(ctx context.Context, filters param
 		for _, m := range models {
 			modelFilter := filters.Filters[0]
 			modelFilter.ModelName = m.Name
-			modelFilter.OwnerName = m.OwnerName.Name()
+			tag, err := model.ApproximateUserTagFromQualifier(m.Qualifier)
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			modelFilter.OwnerName = tag.Id()
 			filtersToUse.Filters = append(filtersToUse.Filters, modelFilter)
 		}
 	} else {

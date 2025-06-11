@@ -252,8 +252,9 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 		return result, errors.Trace(err)
 	}
 	for _, model := range models {
-		if !names.IsValidUser(model.OwnerName.String()) {
-			c.logger.Errorf(ctx, "parsing owner name %q into user tag, skipping model %q: %v", model.OwnerName.Name(), model.UUID, err)
+		ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
+		if err != nil {
+			c.logger.Errorf(ctx, "parsing model qualifier %q into user tag, skipping model %q: %v", model.Qualifier, model.UUID, err)
 			continue
 		}
 		userModel := params.UserModel{
@@ -261,7 +262,7 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 				Name:     model.Name,
 				UUID:     model.UUID.String(),
 				Type:     model.ModelType.String(),
-				OwnerTag: names.NewUserTag(model.OwnerName.Name()).String(),
+				OwnerTag: ownerTag.String(),
 			},
 		}
 
@@ -317,14 +318,15 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 		for _, block := range blocks {
 			blockTypes.Add(encodeBlockType(block.Type))
 		}
-		if !names.IsValidUser(model.OwnerName.String()) {
-			c.logger.Errorf(ctx, "parsing owner name %q into user tag, skipping model %q: %v", model.OwnerName.Name(), model.UUID, err)
+		ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
+		if err != nil {
+			c.logger.Errorf(ctx, "parsing model qualifier %q into user tag, skipping model %q: %v", model.Qualifier, model.UUID, err)
 			continue
 		}
 		results.Models = append(results.Models, params.ModelBlockInfo{
 			UUID:     model.UUID.String(),
 			Name:     model.Name,
-			OwnerTag: names.NewUserTag(model.OwnerName.Name()).String(),
+			OwnerTag: ownerTag.String(),
 			Blocks:   blockTypes.SortedValues(),
 		})
 	}
@@ -370,14 +372,15 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		if model.UUID == controllerModel.UUID {
 			continue
 		}
-		if !names.IsValidUser(model.OwnerName.String()) {
-			c.logger.Errorf(ctx, "parsing owner name %q into user tag, skipping model %q: %v", model.OwnerName.Name(), model.UUID, err)
+		ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
+		if err != nil {
+			c.logger.Errorf(ctx, "parsing model qualifier %q into user tag, skipping model %q: %v", model.Qualifier, model.UUID, err)
 			continue
 		}
 
 		config := params.HostedModelConfig{
 			Name:     model.Name,
-			OwnerTag: names.NewUserTag(model.OwnerName.Name()).String(),
+			OwnerTag: ownerTag.String(),
 		}
 		svc, err := c.modelConfigServiceGetter(ctx, model.UUID)
 		if err != nil {
@@ -940,11 +943,16 @@ func makeModelInfo(ctx context.Context, st *state.State,
 		return empty, userList{}, errors.Trace(err)
 	}
 
+	ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
+	if err != nil {
+		return empty, userList{}, errors.Trace(err)
+	}
+
 	ul.identityURL = coreConf.IdentityURL()
 	return coremigration.ModelInfo{
 		UUID:                   model.UUID.String(),
 		Name:                   model.Name,
-		Owner:                  names.NewUserTag(model.OwnerName.Name()),
+		Owner:                  ownerTag,
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerModel.AgentVersion,
 		ModelDescription:       description,

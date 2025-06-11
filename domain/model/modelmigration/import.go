@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/agentbinary"
 	coreconstraints "github.com/juju/juju/core/constraints"
@@ -241,7 +242,8 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 			CloudRegion: model.CloudRegion(),
 			Credential:  cred,
 			Name:        modelName,
-			Owner:       user.UUID,
+			Qualifier:   coremodel.QualifierFromUserTag(names.NewUserTag(model.Owner())),
+			AdminUsers:  []coreuser.UUID{user.UUID},
 		},
 		UUID: modelID,
 	}

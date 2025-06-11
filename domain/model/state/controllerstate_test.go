@@ -6,8 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -173,7 +171,8 @@ func (m *stateSuite) SetUpTest(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          "my-test-model",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -237,7 +236,8 @@ func (m *stateSuite) TestModelCloudInfoController(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          coremodel.ControllerModelName,
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -309,8 +309,7 @@ func (m *stateSuite) TestGetModel(c *tc.C) {
 			Name:  "foobar",
 		},
 		Name:      "my-test-model",
-		Owner:     m.userUUID,
-		OwnerName: usertesting.GenNewName(c, "test-user"),
+		Qualifier: "prod",
 		ModelType: coremodel.IAAS,
 		Life:      corelife.Alive,
 	})
@@ -338,7 +337,8 @@ func (m *stateSuite) TestGetModelSeedInformationNotActivated(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          "my-amazing-model",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -360,6 +360,7 @@ func (m *stateSuite) TestGetModelSeedInformationNotActivated(c *tc.C) {
 		CredentialOwner: userName,
 		CredentialName:  "foobar",
 		Name:            "my-amazing-model",
+		Qualifier:       "prod",
 		Type:            coremodel.IAAS,
 	})
 }
@@ -387,6 +388,7 @@ func (m *stateSuite) TestGetModelSeedInformationActivated(c *tc.C) {
 		CredentialOwner: userName,
 		CredentialName:  "foobar",
 		Name:            "my-test-model",
+		Qualifier:       "prod",
 		Type:            coremodel.IAAS,
 	})
 }
@@ -428,7 +430,8 @@ func (m *stateSuite) TestCreateModelWithExisting(c *tc.C) {
 				Cloud:         "my-cloud",
 				CloudRegion:   "my-region",
 				Name:          "fantasticmodel",
-				Owner:         m.userUUID,
+				Qualifier:     "prod",
+				AdminUsers:    []user.UUID{m.userUUID},
 				SecretBackend: juju.BackendName,
 			},
 		)
@@ -450,7 +453,8 @@ func (m *stateSuite) TestCreateModelWithSameNameAndOwner(c *tc.C) {
 			Cloud:         "my-cloud",
 			CloudRegion:   "my-region",
 			Name:          "my-test-model",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -468,7 +472,8 @@ func (m *stateSuite) TestCreateModelWithInvalidCloudRegion(c *tc.C) {
 			Cloud:         "my-cloud",
 			CloudRegion:   "noexist",
 			Name:          "noregion",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -483,9 +488,10 @@ func (m *stateSuite) TestCreateWithEmptyRegion(c *tc.C) {
 		testUUID,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			Cloud: "my-cloud",
-			Name:  "noregion",
-			Owner: m.userUUID,
+			Cloud:      "my-cloud",
+			Name:       "noregion",
+			Qualifier:  "prod",
+			AdminUsers: []user.UUID{m.userUUID},
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -515,7 +521,8 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *tc.C) {
 			Cloud:       "my-cloud",
 			CloudRegion: "my-region",
 			Name:        "controller",
-			Owner:       m.userUUID,
+			Qualifier:   "prod",
+			AdminUsers:  []user.UUID{m.userUUID},
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -532,9 +539,10 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *tc.C) {
 		testUUID,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			Cloud: "my-cloud",
-			Name:  "noregion",
-			Owner: m.userUUID,
+			Cloud:      "my-cloud",
+			Name:       "noregion",
+			Qualifier:  "prod",
+			AdminUsers: []user.UUID{m.userUUID},
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -566,7 +574,8 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 			Cloud:       "my-cloud",
 			CloudRegion: "my-region",
 			Name:        "controller",
-			Owner:       m.userUUID,
+			Qualifier:   "prod",
+			AdminUsers:  []user.UUID{m.userUUID},
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -590,9 +599,10 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 		testUUID,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			Cloud: "other-cloud",
-			Name:  "noregion",
-			Owner: m.userUUID,
+			Cloud:      "other-cloud",
+			Name:       "noregion",
+			Qualifier:  "prod",
+			AdminUsers: []user.UUID{m.userUUID},
 			Credential: corecredential.Key{
 				Cloud: "other-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -629,7 +639,8 @@ func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *tc.C) {
 			Cloud:         "my-cloud",
 			CloudRegion:   "noexist",
 			Name:          "noregion",
-			Owner:         user.UUID("noexist"), // does not exist
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{"noexist"}, // does not exist
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -654,7 +665,8 @@ func (m *stateSuite) TestCreateModelWithRemovedOwner(c *tc.C) {
 			Cloud:         "my-cloud",
 			CloudRegion:   "noexist",
 			Name:          "noregion",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -680,7 +692,8 @@ func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          "listtest1",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -706,7 +719,8 @@ func (m *stateSuite) TestCreateModelWithInvalidCloud(c *tc.C) {
 			Cloud:         "noexist",
 			CloudRegion:   "my-region",
 			Name:          "noregion",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -810,7 +824,8 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          "controller",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: kubernetes.BackendName,
 		},
 	)
@@ -900,7 +915,8 @@ func (m *stateSuite) TestListModelUUIDs(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          "listtest1",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -922,7 +938,8 @@ func (m *stateSuite) TestListModelUUIDs(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          "listtest2",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1024,7 +1041,8 @@ func (m *stateSuite) TestListUserModelUUIDs(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          "owned1",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1060,7 +1078,8 @@ func (m *stateSuite) TestListUserModelUUIDs(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          "owned2",
-			Owner:         user2UUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{user2UUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1091,115 +1110,9 @@ func (m *stateSuite) TestListUserModelUUIDs(c *tc.C) {
 	c.Check(uuids, tc.SameContents, []coremodel.UUID{modelUUID1, modelUUID2})
 }
 
-// TestModelsOwnedByUser is asserting that all models owned by a given user are
-// returned in the resultant list.
-func (m *stateSuite) TestModelsOwnedByUser(c *tc.C) {
-	uuid1 := modeltesting.GenModelUUID(c)
-	modelSt := NewState(m.TxnRunnerFactory())
-	err := modelSt.Create(
-		c.Context(),
-		uuid1,
-		coremodel.IAAS,
-		model.GlobalModelCreationArgs{
-			Cloud:       "my-cloud",
-			CloudRegion: "my-region",
-			Credential: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: usertesting.GenNewName(c, "test-user"),
-				Name:  "foobar",
-			},
-			Name:          "owned1",
-			Owner:         m.userUUID,
-			SecretBackend: juju.BackendName,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(modelSt.Activate(c.Context(), uuid1), tc.ErrorIsNil)
-
-	uuid2 := modeltesting.GenModelUUID(c)
-	err = modelSt.Create(
-		c.Context(),
-		uuid2,
-		coremodel.IAAS,
-		model.GlobalModelCreationArgs{
-			Cloud:       "my-cloud",
-			CloudRegion: "my-region",
-			Credential: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: usertesting.GenNewName(c, "test-user"),
-				Name:  "foobar",
-			},
-			Name:          "owned2",
-			Owner:         m.userUUID,
-			SecretBackend: juju.BackendName,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(modelSt.Activate(c.Context(), uuid2), tc.ErrorIsNil)
-
-	models, err := modelSt.ListModelsForUser(c.Context(), m.userUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(len(models), tc.Equals, 3)
-	slices.SortFunc(models, func(a, b coremodel.Model) int {
-		return strings.Compare(a.Name, b.Name)
-	})
-
-	c.Check(models, tc.DeepEquals, []coremodel.Model{
-		{
-			Name:        "my-test-model",
-			UUID:        m.uuid,
-			Cloud:       "my-cloud",
-			CloudType:   "ec2",
-			CloudRegion: "my-region",
-			ModelType:   coremodel.IAAS,
-			Owner:       m.userUUID,
-			OwnerName:   usertesting.GenNewName(c, "test-user"),
-			Credential: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: usertesting.GenNewName(c, "test-user"),
-				Name:  "foobar",
-			},
-			Life: corelife.Alive,
-		},
-		{
-			Name:        "owned1",
-			UUID:        uuid1,
-			Cloud:       "my-cloud",
-			CloudType:   "ec2",
-			CloudRegion: "my-region",
-			ModelType:   coremodel.IAAS,
-			Owner:       m.userUUID,
-			OwnerName:   usertesting.GenNewName(c, "test-user"),
-			Credential: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: usertesting.GenNewName(c, "test-user"),
-				Name:  "foobar",
-			},
-			Life: corelife.Alive,
-		},
-		{
-			Name:        "owned2",
-			UUID:        uuid2,
-			Cloud:       "my-cloud",
-			CloudType:   "ec2",
-			CloudRegion: "my-region",
-			ModelType:   coremodel.IAAS,
-			Owner:       m.userUUID,
-			OwnerName:   usertesting.GenNewName(c, "test-user"),
-			Credential: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: usertesting.GenNewName(c, "test-user"),
-				Name:  "foobar",
-			},
-			Life: corelife.Alive,
-		},
-	})
-}
-
-// TestModelsOwnedByNonExistantUser tests that if we ask for models from a non
+// TestModelsForNonExistantUser tests that if we ask for models from a non
 // existent user we get back an empty model list.
-func (m *stateSuite) TestModelsOwnedByNonExistantUser(c *tc.C) {
+func (m *stateSuite) TestModelsForNonExistantUser(c *tc.C) {
 	userID := usertesting.GenUserUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
 
@@ -1216,13 +1129,12 @@ func (m *stateSuite) TestAllModels(c *tc.C) {
 	c.Check(models, tc.DeepEquals, []coremodel.Model{
 		{
 			Name:        "my-test-model",
+			Qualifier:   "prod",
 			UUID:        m.uuid,
 			Cloud:       "my-cloud",
 			CloudType:   "ec2",
 			CloudRegion: "my-region",
 			ModelType:   coremodel.IAAS,
-			Owner:       m.userUUID,
-			OwnerName:   usertesting.GenNewName(c, "test-user"),
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -1252,7 +1164,8 @@ func (m *stateSuite) TestSecretBackendNotFoundForModelCreate(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          "secretfailure",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: "no-exist",
 		},
 	)
@@ -1260,17 +1173,11 @@ func (m *stateSuite) TestSecretBackendNotFoundForModelCreate(c *tc.C) {
 }
 
 // TestGetModelByNameNotFound is here to assert that if we try and get a model
-// by name for any combination of user or model name that doesn't exist we get
-// back an error that satisfies [modelerrors.NotFound].
+// by name that doesn't exist we get back an error that satisfies
+// [modelerrors.NotFound].
 func (m *stateSuite) TestGetModelByNameNotFound(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
-	_, err := modelSt.GetModelByName(c.Context(), usertesting.GenNewName(c, "nonuser"), "my-test-model")
-	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
-
-	_, err = modelSt.GetModelByName(c.Context(), m.userName, "noexist")
-	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
-
-	_, err = modelSt.GetModelByName(c.Context(), usertesting.GenNewName(c, "nouser"), "noexist")
+	_, err := modelSt.GetModelByName(c.Context(), "staging", "my-test-model")
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -1279,10 +1186,11 @@ func (m *stateSuite) TestGetModelByNameNotFound(c *tc.C) {
 // and model name.
 func (m *stateSuite) TestGetModelByName(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
-	model, err := modelSt.GetModelByName(c.Context(), m.userName, "my-test-model")
+	model, err := modelSt.GetModelByName(c.Context(), "prod", "my-test-model")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(model, tc.DeepEquals, coremodel.Model{
 		Name:        "my-test-model",
+		Qualifier:   "prod",
 		Life:        corelife.Alive,
 		UUID:        m.uuid,
 		ModelType:   coremodel.IAAS,
@@ -1294,8 +1202,6 @@ func (m *stateSuite) TestGetModelByName(c *tc.C) {
 			Owner: usertesting.GenNewName(c, "test-user"),
 			Name:  "foobar",
 		},
-		Owner:     m.userUUID,
-		OwnerName: m.userName,
 	})
 }
 
@@ -1323,7 +1229,8 @@ func (m *stateSuite) TestCleanupBrokenModel(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          "broken-model",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1346,7 +1253,8 @@ func (m *stateSuite) TestCleanupBrokenModel(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          "broken-model",
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1377,7 +1285,8 @@ func (m *stateSuite) TestIsControllerModelDDL(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          coremodel.ControllerModelName,
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1440,7 +1349,8 @@ func (m *stateSuite) TestGetControllerModel(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          coremodel.ControllerModelName,
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1458,6 +1368,7 @@ func (m *stateSuite) TestGetControllerModel(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(model, tc.DeepEquals, coremodel.Model{
 		Name:      coremodel.ControllerModelName,
+		Qualifier: "prod",
 		Life:      corelife.Alive,
 		UUID:      modelUUID,
 		ModelType: coremodel.IAAS,
@@ -1468,8 +1379,6 @@ func (m *stateSuite) TestGetControllerModel(c *tc.C) {
 			Owner: m.userName,
 			Name:  "foobar",
 		},
-		Owner:     m.userUUID,
-		OwnerName: m.userName,
 	})
 }
 
@@ -1494,8 +1403,7 @@ func (m *stateSuite) TestGetUserModelSummary(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(summary, tc.DeepEquals, model.UserModelSummary{
 		ModelSummary: model.ModelSummary{
-			Life:      corelife.Alive,
-			OwnerName: m.userName,
+			Life: corelife.Alive,
 			State: model.ModelState{
 				Destroying:                   false,
 				HasInvalidCloudCredential:    false,
@@ -1560,8 +1468,7 @@ func (m *stateSuite) TestGetModelSummary(c *tc.C) {
 	summary, err := modelSt.GetModelSummary(c.Context(), m.uuid)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(summary, tc.DeepEquals, model.ModelSummary{
-		Life:      corelife.Alive,
-		OwnerName: m.userName,
+		Life: corelife.Alive,
 		State: model.ModelState{
 			Destroying:                   false,
 			Migrating:                    false,
@@ -1741,7 +1648,8 @@ func (m *stateSuite) TestGetEmptyCredentialsModel(c *tc.C) {
 			Cloud:         "my-cloud",
 			CloudRegion:   "my-region",
 			Name:          test.modelName,
-			Owner:         m.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: juju.BackendName,
 		}
 
@@ -1759,7 +1667,7 @@ func (m *stateSuite) TestGetEmptyCredentialsModel(c *tc.C) {
 		c.Check(retrievedModel.CloudRegion, tc.Equals, modelCreationArgs.CloudRegion)
 		c.Check(retrievedModel.Credential, tc.DeepEquals, modelCreationArgs.Credential)
 		c.Check(retrievedModel.Name, tc.Equals, modelCreationArgs.Name)
-		c.Check(retrievedModel.Owner, tc.DeepEquals, modelCreationArgs.Owner)
+		c.Check(retrievedModel.Qualifier.String(), tc.Equals, "prod")
 	}
 }
 
@@ -1816,7 +1724,8 @@ func (m *stateSuite) createTestModelWithoutActivation(
 				Name:  "foobar",
 			},
 			Name:          name,
-			Owner:         creatorUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{creatorUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -1919,7 +1828,8 @@ func (s *stateSuite) TestGetControllerModelUUID(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          coremodel.ControllerModelName,
-			Owner:         s.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{s.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
@@ -2061,7 +1971,8 @@ func (s *stateSuite) TestCheckModelExistsNotActivated(c *tc.C) {
 				Name:  "foobar",
 			},
 			Name:          "my-amazing-model",
-			Owner:         s.userUUID,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{s.userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)

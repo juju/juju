@@ -9,6 +9,7 @@ CREATE TABLE model (
     uuid TEXT NOT NULL PRIMARY KEY,
     controller_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
+    qualifier TEXT NOT NULL,
     type TEXT NOT NULL,
     cloud TEXT NOT NULL,
     cloud_type TEXT NOT NULL,

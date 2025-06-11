@@ -89,8 +89,8 @@ func (d *dummyState) Create(
 	}
 
 	for _, v := range d.models {
-		if v.Name == args.Name && v.Owner == args.Owner {
-			return errors.Errorf("%w for name %q and owner %q", modelerrors.AlreadyExists, v.Name, v.Owner)
+		if v.Name == args.Name && v.Qualifier == args.Qualifier {
+			return errors.Errorf("%w for name %s/%s", modelerrors.AlreadyExists, v.Qualifier, v.Name)
 		}
 	}
 
@@ -99,9 +99,11 @@ func (d *dummyState) Create(
 		return errors.Errorf("%w cloud %q", coreerrors.NotFound, args.Cloud)
 	}
 
-	userName, exists := d.users[user.UUID(args.Owner.String())]
-	if !exists {
-		return errors.Errorf("%w for owner %q", usererrors.UserNotFound, args.Owner)
+	for _, u := range args.AdminUsers {
+		_, exists = d.users[u]
+		if !exists {
+			return errors.Errorf("%w for creator %q", usererrors.UserNotFound, u)
+		}
 	}
 
 	hasRegion := false
@@ -133,13 +135,12 @@ func (d *dummyState) Create(
 
 	d.nonActivatedModels[modelID] = coremodel.Model{
 		Name:        args.Name,
+		Qualifier:   args.Qualifier,
 		UUID:        modelID,
 		ModelType:   modelType,
 		Cloud:       args.Cloud,
 		CloudRegion: args.CloudRegion,
 		Credential:  args.Credential,
-		Owner:       args.Owner,
-		OwnerName:   userName,
 		Life:        life.Alive,
 	}
 	return nil
@@ -184,11 +185,11 @@ func (d *dummyState) GetControllerModel(
 
 func (d *dummyState) GetModelByName(
 	_ context.Context,
-	userName user.Name,
+	qualifier string,
 	modelName string,
 ) (coremodel.Model, error) {
 	for _, model := range d.models {
-		if model.OwnerName == userName && model.Name == modelName {
+		if model.Qualifier.String() == qualifier && model.Name == modelName {
 			return model, nil
 		}
 	}
@@ -234,7 +235,11 @@ func (d *dummyState) ListModelsForUser(
 ) ([]coremodel.Model, error) {
 	rval := []coremodel.Model{}
 	for _, m := range d.models {
-		if m.Owner == userID {
+		userName, ok := d.users[userID]
+		if !ok {
+			continue
+		}
+		if m.Qualifier.String() == userName.String() {
 			rval = append(rval, m)
 		}
 	}
@@ -315,7 +320,7 @@ func (d *dummyState) GetModelUsers(_ context.Context, _ coremodel.UUID) ([]corem
 func (d *dummyState) ListModelSummariesForUser(_ context.Context, userName user.Name) ([]coremodel.UserModelSummary, error) {
 	var rval []coremodel.UserModelSummary
 	for _, m := range d.models {
-		if m.OwnerName == userName {
+		if m.Qualifier.String() == userName.String() {
 			rval = append(rval, coremodel.UserModelSummary{
 				UserAccess: permission.AdminAccess,
 				ModelSummary: coremodel.ModelSummary{
@@ -327,7 +332,7 @@ func (d *dummyState) ListModelSummariesForUser(_ context.Context, userName user.
 					CloudRegion:    m.CloudRegion,
 					ControllerUUID: jujutesting.ControllerTag.Id(),
 					IsController:   m.UUID == d.controllerModelUUID,
-					OwnerName:      m.OwnerName,
+					Qualifier:      m.Qualifier,
 					Life:           m.Life,
 					AgentVersion:   version.Current,
 				},
@@ -349,7 +354,7 @@ func (d *dummyState) ListAllModelSummaries(_ context.Context) ([]coremodel.Model
 			CloudRegion:    m.CloudRegion,
 			ControllerUUID: jujutesting.ControllerTag.Id(),
 			IsController:   m.UUID == d.controllerModelUUID,
-			OwnerName:      m.OwnerName,
+			Qualifier:      m.Qualifier,
 			Life:           m.Life,
 			AgentVersion:   version.Current,
 		})

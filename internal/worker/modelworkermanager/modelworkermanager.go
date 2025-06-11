@@ -57,7 +57,7 @@ type GetControllerConfigFunc func(ctx context.Context, domainServices services.D
 type NewModelConfig struct {
 	Authority              pki.Authority
 	ModelName              string
-	ModelOwner             string
+	ModelQualifier         model.Qualifier
 	ModelUUID              string
 	ModelType              model.ModelType
 	ModelMetrics           MetricSink
@@ -238,12 +238,12 @@ func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string)
 	}
 
 	cfg := NewModelConfig{
-		Authority:    m.config.Authority,
-		ModelName:    model.Name,
-		ModelOwner:   model.OwnerName.Name(),
-		ModelUUID:    modelUUID,
-		ModelType:    model.ModelType,
-		ModelMetrics: m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
+		Authority:      m.config.Authority,
+		ModelName:      model.Name,
+		ModelQualifier: model.Qualifier,
+		ModelUUID:      modelUUID,
+		ModelType:      model.ModelType,
+		ModelMetrics:   m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
 	}
 
 	// Creates a new worker func based on the model config.
@@ -265,7 +265,7 @@ func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string)
 
 func (m *modelWorkerManager) newWorkerFuncFromConfig(ctx context.Context, cfg NewModelConfig) (func(context.Context) (worker.Worker, error), error) {
 	modelUUID := model.UUID(cfg.ModelUUID)
-	modelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s-%s", cfg.ModelOwner, cfg.ModelName), modelUUID)
+	absoluteModelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s/%s", cfg.ModelQualifier, cfg.ModelName), modelUUID)
 
 	// Get the provider domain services for the model.
 	cfg.ProviderServicesGetter = m.config.ProviderServicesGetter
@@ -291,7 +291,7 @@ func (m *modelWorkerManager) newWorkerFuncFromConfig(ctx context.Context, cfg Ne
 	}
 
 	return func(ctx context.Context) (worker.Worker, error) {
-		m.config.Logger.Debugf(ctx, "starting workers for model %s", modelName)
+		m.config.Logger.Debugf(ctx, "starting workers for model %s", absoluteModelName)
 
 		// Get the controller config for the model worker so that we correctly
 		// handle the case where the controller config changes between model
@@ -304,7 +304,7 @@ func (m *modelWorkerManager) newWorkerFuncFromConfig(ctx context.Context, cfg Ne
 
 		worker, err := m.config.NewModelWorker(cfg)
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot manage model %s", modelName)
+			return nil, errors.Annotatef(err, "cannot manage model %s", absoluteModelName)
 		}
 		return worker, nil
 	}, nil

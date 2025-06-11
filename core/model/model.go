@@ -4,11 +4,15 @@
 package model
 
 import (
+	"regexp"
+	"strings"
+
+	"github.com/juju/names/v6"
+
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -57,6 +61,9 @@ type Model struct {
 	// Name returns the human friendly name of the model.
 	Name string
 
+	// Qualifier disambiguates the model name.
+	Qualifier Qualifier
+
 	// Life is the current state of the model.
 	// Options are alive, dying, dead. Every model starts as alive, only
 	// during the destruction of the model it transitions to dying and then
@@ -87,12 +94,6 @@ type Model struct {
 	// Credential can be the zero value of the struct to not have a credential
 	// associated with the model.
 	Credential credential.Key
-
-	// Owner is the uuid of the user that owns this model in the Juju controller.
-	Owner user.UUID
-
-	// OwnerName is the name of the owner in the Juju controller.
-	OwnerName user.Name
 }
 
 // UUID represents a model unique identifier.
@@ -122,4 +123,50 @@ func (u UUID) Validate() error {
 		return errors.Errorf("uuid %q %w", u, coreerrors.NotValid)
 	}
 	return nil
+}
+
+// Qualifier represents a string type used
+// to disambiguate a model name.
+type Qualifier string
+
+// String implements [Stringer].
+func (q Qualifier) String() string {
+	return string(q)
+}
+
+var (
+	validModelNameSnippet = regexp.MustCompile(`^[a-z0-9]+[a-z0-9-]*$`)
+)
+
+// Validate returns an error if the model qualifier is not valid.
+func (q Qualifier) Validate() error {
+	if !validModelNameSnippet.MatchString(q.String()) || len(q.String()) > 63 {
+		return errors.Errorf("model qualifier %q %w", q, coreerrors.NotValid)
+	}
+	return nil
+}
+
+// QualifierFromUserTag returns a model qualifier created
+// from the supplied user tag.
+func QualifierFromUserTag(u names.UserTag) Qualifier {
+	validQualifier := strings.ToLower(u.Id())
+	// Replace chars from a valid user tag that we
+	// don't want in a qualifier with "-".
+	validQualifier = strings.NewReplacer(
+		".", "-", "+", "-", "@", "-",
+	).Replace(validQualifier)
+	return Qualifier(validQualifier)
+}
+
+// ApproximateUserTagFromQualifier creates a valid user tag
+// from the supplied qualifier. A qualifier does not contain
+// all the same characters that a user tag can have.
+// This method is used for composing results for legacy callers
+// that still expect a user tag in the result. Such user tags may
+// still be parsed by the caller but are only used for display.
+func ApproximateUserTagFromQualifier(q Qualifier) (names.UserTag, error) {
+	if err := q.Validate(); err != nil {
+		return names.UserTag{}, err
+	}
+	return names.NewUserTag(q.String()), nil
 }

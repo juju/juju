@@ -115,11 +115,11 @@ func CreateGlobalModelRecord(
 			}
 
 			if err := state.Create(ctx, preparer{}, tx, modelID, modelType, args); err != nil {
-				return errors.Errorf("create bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
+				return errors.Errorf("create bootstrap model %s/%s with uuid %q: %w", args.Qualifier, args.Name, modelID, err)
 			}
 
 			if err := activator(ctx, preparer{}, tx, modelID); err != nil {
-				return errors.Errorf("activating bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
+				return errors.Errorf("activating bootstrap model %s/%s with uuid %q: %w", args.Qualifier, args.Name, modelID, err)
 			}
 			return nil
 		})
@@ -181,6 +181,7 @@ func CreateLocalModelRecordWithAgentStream(
 			UUID:              m.UUID,
 			ControllerUUID:    controllerUUID,
 			Name:              m.Name,
+			Qualifier:         m.Qualifier,
 			Type:              m.ModelType,
 			Cloud:             m.Cloud,
 			CloudRegion:       m.CloudRegion,

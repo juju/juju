@@ -114,8 +114,9 @@ func (s *serviceSuite) setupControllerModel(c *tc.C) {
 		Cloud:       "controller-cloud",
 		CloudRegion: "ap-southeast-2",
 		Credential:  cred,
-		Owner:       adminUUID,
+		AdminUsers:  []user.UUID{adminUUID},
 		Name:        coremodel.ControllerModelName,
+		Qualifier:   "prod",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activator(c.Context()), tc.ErrorIsNil)
@@ -168,8 +169,9 @@ func (s *serviceSuite) TestModelCreation(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Owner:       s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
+		Qualifier:   "prod",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activator(c.Context()), tc.ErrorIsNil)
@@ -212,8 +214,9 @@ func (s *serviceSuite) TestModelCreationSecretBackendNotFound(c *tc.C) {
 		Cloud:         "aws",
 		CloudRegion:   "myregion",
 		Credential:    cred,
-		Owner:         s.userUUID,
+		AdminUsers:    []user.UUID{s.userUUID},
 		Name:          "my-awesome-model",
+		Qualifier:     "prod",
 		SecretBackend: "no-exist",
 	})
 
@@ -226,8 +229,9 @@ func (s *serviceSuite) TestModelCreationInvalidCloud(c *tc.C) {
 	_, _, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Owner:       s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
+		Qualifier:   "prod",
 	})
 
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
@@ -242,8 +246,9 @@ func (s *serviceSuite) TestModelCreationNoCloudRegion(c *tc.C) {
 	_, _, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "noexist",
-		Owner:       s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
+		Qualifier:   "prod",
 	})
 
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
@@ -264,8 +269,9 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *tc.C) {
 	_, _, err = svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Owner:       notFoundUser,
+		AdminUsers:  []user.UUID{notFoundUser},
 		Name:        "my-awesome-model",
+		Qualifier:   "prod",
 	})
 
 	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
@@ -286,8 +292,9 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *tc.C) {
 			Name:  "foo",
 			Owner: usertesting.GenNewName(c, "owner"),
 		},
-		Owner: s.userUUID,
-		Name:  "my-awesome-model",
+		AdminUsers: []user.UUID{s.userUUID},
+		Name:       "my-awesome-model",
+		Qualifier:  "prod",
 	})
 
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
@@ -303,8 +310,9 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *tc.C) {
 	_, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Owner:       s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
+		Qualifier:   "prod",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activator(c.Context()), tc.ErrorIsNil)
@@ -312,8 +320,9 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *tc.C) {
 	_, _, err = svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Owner:       s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
+		Qualifier:   "prod",
 	})
 
 	c.Assert(err, tc.ErrorIs, modelerrors.AlreadyExists)
@@ -349,8 +358,9 @@ func (s *serviceSuite) TestUpdateModelCredential(c *tc.C) {
 	id, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Owner:       s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
+		Qualifier:   "prod",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activator(c.Context()), tc.ErrorIsNil)
@@ -384,8 +394,9 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Owner:       s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
+		Qualifier:   "prod",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activator(c.Context()), tc.ErrorIsNil)
@@ -412,8 +423,9 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *tc.C) {
 	id, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Owner:       s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
+		Qualifier:   "prod",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activator(c.Context()), tc.ErrorIsNil)
@@ -452,8 +464,9 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Owner:       s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
+		Qualifier:   "prod",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activator(c.Context()), tc.ErrorIsNil)
@@ -486,8 +499,9 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Owner:       s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
+		Qualifier:   "prod",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activator(c.Context()), tc.ErrorIsNil)
@@ -514,8 +528,9 @@ func (s *serviceSuite) TestDeleteModel(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Owner:       s.userUUID,
+		AdminUsers:  []user.UUID{s.userUUID},
 		Name:        "my-awesome-model",
+		Qualifier:   "prod",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activator(c.Context()), tc.ErrorIsNil)
@@ -564,7 +579,6 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 
-	usr1 := usertesting.GenUserUUID(c)
 	id1 := modeltesting.GenModelUUID(c)
 	id2 := modeltesting.GenModelUUID(c)
 	s.mockState.EXPECT().ListAllModels(gomock.Any()).Return([]coremodel.Model{
@@ -575,8 +589,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			Owner:        s.userUUID,
-			OwnerName:    usertesting.GenNewName(c, "admin"),
+			Qualifier:    "prod",
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
@@ -591,8 +604,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			Owner:        usr1,
-			OwnerName:    usertesting.GenNewName(c, "tlm"),
+			Qualifier:    "staging",
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
@@ -612,8 +624,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			Owner:        s.userUUID,
-			OwnerName:    usertesting.GenNewName(c, "admin"),
+			Qualifier:    "prod",
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
@@ -628,8 +639,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			Owner:        usr1,
-			OwnerName:    usertesting.GenNewName(c, "tlm"),
+			Qualifier:    "staging",
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
@@ -671,8 +681,9 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Owner:       usr1,
+		AdminUsers:  []user.UUID{usr1},
 		Name:        "my-awesome-model",
+		Qualifier:   "tlm",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activator(c.Context()), tc.ErrorIsNil)
@@ -681,8 +692,9 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
-		Owner:       usr1,
+		AdminUsers:  []user.UUID{usr1},
 		Name:        "my-awesome-model1",
+		Qualifier:   "tlm",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activator(c.Context()), tc.ErrorIsNil)
@@ -701,8 +713,7 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 			Cloud:       "aws",
 			CloudRegion: "myregion",
 			ModelType:   coremodel.IAAS,
-			Owner:       usr1,
-			OwnerName:   usertesting.GenNewName(c, "tlm"),
+			Qualifier:   "tlm",
 			Credential:  cred,
 			Life:        life.Alive,
 		},
@@ -712,8 +723,7 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 			Cloud:       "aws",
 			CloudRegion: "myregion",
 			ModelType:   coremodel.IAAS,
-			Owner:       usr1,
-			OwnerName:   usertesting.GenNewName(c, "tlm"),
+			Qualifier:   "tlm",
 			Credential:  cred,
 			Life:        life.Alive,
 		},
@@ -742,8 +752,9 @@ func (s *serviceSuite) TestImportModel(c *tc.C) {
 			Cloud:       "aws",
 			CloudRegion: "myregion",
 			Credential:  cred,
-			Owner:       s.userUUID,
+			AdminUsers:  []user.UUID{s.userUUID},
 			Name:        "my-awesome-model",
+			Qualifier:   "prod",
 		},
 		UUID: modelID,
 	})
@@ -780,41 +791,24 @@ func (s *serviceSuite) TestControllerModel(c *tc.C) {
 	s.state.users[adminUUID] = coremodel.ControllerModelOwnerUsername
 
 	cred := credential.Key{
-		Cloud: "aws",
-		Name:  "foobar",
+		Cloud: "controller-cloud",
+		Name:  "controller-cloud-cred",
 		Owner: usertesting.GenNewName(c, "owner"),
-	}
-	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.Key{
-			cred.String(): cred,
-		},
-		Regions: []string{"myregion"},
 	}
 
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
-	modelID, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
-		Cloud:       "aws",
-		CloudRegion: "myregion",
-		Credential:  cred,
-		Owner:       adminUUID,
-		Name:        coremodel.ControllerModelName,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(activator(c.Context()), tc.ErrorIsNil)
-	s.state.controllerModelUUID = modelID
-
+	modelID := s.state.controllerModelUUID
 	model, err := svc.ControllerModel(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(model, tc.DeepEquals, coremodel.Model{
 		Name:        coremodel.ControllerModelName,
+		Qualifier:   "prod",
 		Life:        life.Alive,
 		UUID:        modelID,
 		ModelType:   coremodel.IAAS,
-		Cloud:       "aws",
-		CloudRegion: "myregion",
+		Cloud:       "controller-cloud",
+		CloudRegion: "ap-southeast-2",
 		Credential:  cred,
-		Owner:       adminUUID,
-		OwnerName:   coremodel.ControllerModelOwnerUsername,
 	})
 }
 
@@ -923,8 +917,9 @@ func (s *serviceSuite) TestCreateModelEmptyCredentialNotSupported(c *tc.C) {
 		Cloud:       "foo",
 		CloudRegion: "ap-southeast-2",
 		Credential:  credential.Key{}, // zero value of credential implies empty
-		Owner:       usertesting.GenUserUUID(c),
+		AdminUsers:  []user.UUID{usertesting.GenUserUUID(c)},
 		Name:        "new-test-model",
+		Qualifier:   "prod",
 	})
 	c.Check(err, tc.ErrorIs, modelerrors.CredentialNotValid)
 }
@@ -1120,8 +1115,7 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerSuccess(c *tc.C) {
 		Cloud:        "aws",
 		CloudRegion:  "testregion",
 		ModelType:    coremodel.IAAS,
-		Owner:        s.userUUID,
-		OwnerName:    ownerUserName,
+		Qualifier:    "test-user",
 		Credential: credential.Key{
 			Cloud: "aws",
 			Name:  "testcredential",
@@ -1129,7 +1123,7 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerSuccess(c *tc.C) {
 		},
 		Life: life.Alive,
 	}
-	s.mockState.EXPECT().GetModelByName(gomock.Any(), ownerUserName, modelName).Return(
+	s.mockState.EXPECT().GetModelByName(gomock.Any(), "test-user", modelName).Return(
 		model,
 		nil,
 	)
@@ -1172,7 +1166,7 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerNotFound(c *tc.C) {
 
 	modelName := "test"
 	ownerUserName := usertesting.GenNewName(c, "test-user")
-	s.mockState.EXPECT().GetModelByName(gomock.Any(), ownerUserName, modelName).Return(
+	s.mockState.EXPECT().GetModelByName(gomock.Any(), "test-user", modelName).Return(
 		coremodel.Model{},
 		modelerrors.NotFound,
 	)
