@@ -57,6 +57,9 @@ func (st *State) placeMachine(
 	directive deployment.Placement,
 	platform deployment.Platform,
 ) (string, []coremachine.Name, error) {
+	st.logger.Debugf(ctx, "placing machine with directive %q, platform %q, isController %t",
+		directive.Directive, platform, isController)
+
 	switch directive.Type {
 	case deployment.PlacementTypeUnset:
 		// The placement is unset, so we need to create a machine for the

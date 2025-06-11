@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
 	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -23,10 +24,11 @@ var logger = internallogger.GetLogger("juju.apiserver.common")
 // AgentPasswordService defines the methods required to set an agent password
 // hash.
 type AgentPasswordService interface {
-	// SetUnitPassword sets the password hash for the given unit. If the unit
-	// does not exist, an error satisfying [applicationerrors.UnitNotFound] is
-	// returned.
+	// SetUnitPassword sets the password hash for the given unit.
 	SetUnitPassword(context.Context, coreunit.Name, string) error
+
+	// SetMachinePassword sets the password hash for the given machine.
+
 }
 
 // PasswordChanger implements a common SetPasswords method for use by
@@ -88,8 +90,17 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 		}
 		return nil
 
+	case names.MachineTagKind:
+		machineTag := tag.(names.MachineTag)
+		machineName := coremachine.Name(machineTag.Id())
+		if err := pc.agentPasswordService.SetMachinePassword(ctx, machineName, password); errors.Is(err, agentpassworderrors.MachineNotFound) {
+			return errors.NotFoundf("machine %q", tag.Id())
+		} else if err != nil {
+			return internalerrors.Errorf("setting password for %q: %w", tag, err)
+		}
+		return nil
+
 	// TODO: Handle the following password setting:
-	//  - machine
 	//  - model
 
 	default:

@@ -9,9 +9,13 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/machine"
+	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalpassword "github.com/juju/juju/internal/password"
 )
 
@@ -49,11 +53,11 @@ func (s *serviceSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 	password, err := internalpassword.RandomPassword()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, agentpassworderrors.UnitNotFound)
+	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, applicationerrors.UnitNotFound)
 
 	service := NewService(s.state)
 	err = service.SetUnitPassword(c.Context(), unitName, password)
-	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestSetUnitPasswordInvalidName(c *tc.C) {
@@ -106,11 +110,11 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashUnitNotFound(c *tc.C) {
 	password, err := internalpassword.RandomPassword()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, agentpassworderrors.UnitNotFound)
+	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, applicationerrors.UnitNotFound)
 
 	service := NewService(s.state)
 	_, err = service.MatchesUnitPasswordHash(c.Context(), unitName, password)
-	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidName(c *tc.C) {
@@ -142,6 +146,128 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidPassword(c *tc.C) {
 
 	service := NewService(s.state)
 	_, err := service.MatchesUnitPasswordHash(c.Context(), unitName, "abc")
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.InvalidPassword)
+}
+
+func (s *serviceSuite) TestSetMachinePassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+
+	machineName := machine.Name("0")
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
+	s.state.EXPECT().SetMachinePasswordHash(gomock.Any(), machineUUID, hashPassword(password)).Return(nil)
+
+	service := NewService(s.state)
+	err = service.SetMachinePassword(c.Context(), machineName, password)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetMachinePasswordMachineNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+
+	machineName := machine.Name("0")
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, applicationerrors.MachineNotFound)
+
+	service := NewService(s.state)
+	err = service.SetMachinePassword(c.Context(), machineName, password)
+	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
+}
+
+func (s *serviceSuite) TestSetMachinePasswordInvalidName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("!!!")
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	service := NewService(s.state)
+	err = service.SetMachinePassword(c.Context(), machineName, password)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestSetMachinePasswordInvalidPassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("0")
+	password := "foo"
+
+	service := NewService(s.state)
+	err := service.SetMachinePassword(c.Context(), machineName, password)
+	c.Assert(err, tc.ErrorMatches, "password is only 3 chars long, and is not a valid Agent password.*")
+}
+
+func (s *serviceSuite) TestMatchesMachinePasswordHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+
+	machineName := machine.Name("0")
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
+	s.state.EXPECT().MatchesMachinePasswordHash(gomock.Any(), machineUUID, hashPassword(password)).Return(true, nil)
+
+	service := NewService(s.state)
+	valid, err := service.MatchesMachinePasswordHash(c.Context(), machineName, password)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
+}
+
+func (s *serviceSuite) TestMatchesMachinePasswordHashMachineNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+
+	machineName := machine.Name("0")
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, applicationerrors.MachineNotFound)
+
+	service := NewService(s.state)
+	_, err = service.MatchesMachinePasswordHash(c.Context(), machineName, password)
+	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
+}
+
+func (s *serviceSuite) TestMatchesMachinePasswordHashInvalidName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("!!!")
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	service := NewService(s.state)
+	_, err = service.MatchesMachinePasswordHash(c.Context(), machineName, password)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestMatchesMachinePasswordHashEmptyPassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("0")
+
+	service := NewService(s.state)
+	_, err := service.MatchesMachinePasswordHash(c.Context(), machineName, "")
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.EmptyPassword)
+}
+
+func (s *serviceSuite) TestMatchesMachinePasswordHashInvalidPassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("0")
+
+	service := NewService(s.state)
+	_, err := service.MatchesMachinePasswordHash(c.Context(), machineName, "abc")
 	c.Assert(err, tc.ErrorIs, agentpassworderrors.InvalidPassword)
 }
 

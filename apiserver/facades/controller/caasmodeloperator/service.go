@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
@@ -17,6 +18,8 @@ import (
 type AgentPasswordService interface {
 	// SetUnitPassword sets the password hash for the given unit.
 	SetUnitPassword(context.Context, unit.Name, string) error
+	// SetMachinePassword sets the password hash for the given machine.
+	SetMachinePassword(context.Context, machine.Name, string) error
 }
 
 // ControllerConfigService provides access to the controller configuration.
