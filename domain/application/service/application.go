@@ -63,7 +63,7 @@ type ApplicationState interface {
 		context.Context,
 		string,
 		application.AddIAASApplicationArg,
-		[]application.AddUnitArg,
+		[]application.AddIAASUnitArg,
 	) (coreapplication.ID, []coremachine.Name, error)
 
 	// CreateCAASApplication creates an application, returning an error

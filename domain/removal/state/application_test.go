@@ -35,7 +35,7 @@ func TestApplicationSuite(t *testing.T) {
 func (s *applicationSuite) TestApplicationExists(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
-	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -268,7 +268,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNotExistsSuccess(
 func (s *applicationSuite) TestApplicationRemovalNormalSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
-	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -334,7 +334,7 @@ where  r.uuid = ?`, "removal-uuid",
 func (s *applicationSuite) TestGetApplicationLifeSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
-	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
 	// Set the application to "dying" manually.
 	_, err := s.DB().Exec("UPDATE application SET life_id = 1 WHERE uuid = ?", appUUID.String())

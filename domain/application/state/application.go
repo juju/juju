@@ -100,7 +100,7 @@ func (st *State) CreateIAASApplication(
 	ctx context.Context,
 	name string,
 	args application.AddIAASApplicationArg,
-	units []application.AddUnitArg,
+	units []application.AddIAASUnitArg,
 ) (coreapplication.ID, []coremachine.Name, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -367,7 +367,7 @@ func (st *State) insertIAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
 	args application.AddIAASApplicationArg,
-	units []application.AddUnitArg,
+	units []application.AddIAASUnitArg,
 ) ([]coremachine.Name, error) {
 	insertUnits := make([]application.InsertIAASUnitArg, len(units))
 	for i, unit := range units {
@@ -388,6 +388,7 @@ func (st *State) insertIAASApplicationUnits(
 				},
 			},
 			Platform: args.Platform,
+			Nonce:    unit.Nonce,
 		}
 	}
 

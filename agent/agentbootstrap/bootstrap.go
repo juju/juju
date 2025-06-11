@@ -516,7 +516,6 @@ func (b *AgentBootstrap) initBootstrapMachine(
 	m, err := st.AddOneMachine(
 		state.MachineTemplate{
 			Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
-			Nonce:                   agent.BootstrapNonce,
 			Constraints:             stateParams.BootstrapMachineConstraints,
 			InstanceId:              stateParams.BootstrapMachineInstanceId,
 			HardwareCharacteristics: hardware,

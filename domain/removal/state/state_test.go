@@ -169,7 +169,7 @@ func (s *baseSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *ap
 	)
 }
 
-func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
+func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddIAASUnitArg) coreapplication.ID {
 	ch := &stubCharm{name: "test-charm"}
 	appID, err := svc.CreateIAASApplication(c.Context(), name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,

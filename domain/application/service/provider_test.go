@@ -221,7 +221,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 
 	var receivedArgs application.AddIAASApplicationArg
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, appArgs application.AddIAASApplicationArg, _ []application.AddUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, appArgs application.AddIAASApplicationArg, _ []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
 		receivedArgs = appArgs
 		return id, nil, nil
 	})
@@ -350,7 +350,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 		},
 		CharmObjectStoreUUID: objectStoreUUID,
 		PendingResources:     []resource.UUID{resourceUUID},
-	}, AddUnitArg{})
+	}, AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -606,7 +606,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 	rErr := errors.New("boom")
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), []application.AddUnitArg{}).Return(id, nil, rErr)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), []application.AddIAASUnitArg{}).Return(id, nil, rErr)
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "foo",
@@ -641,16 +641,18 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 	id := applicationtesting.GenApplicationUUID(c)
 
 	now := ptr(s.clock.Now())
-	us := []application.AddUnitArg{{
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-				Status: status.UnitAgentStatusAllocating,
-				Since:  now,
-			},
-			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusWaiting,
-				Message: "waiting for machine",
-				Since:   now,
+	us := []application.AddIAASUnitArg{{
+		AddUnitArg: application.AddUnitArg{
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusAllocating,
+					Since:  now,
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusWaiting,
+					Message: "waiting for machine",
+					Since:   now,
+				},
 			},
 		},
 	}}
@@ -742,7 +744,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
 		},
-	}, AddUnitArg{})
+	}, AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -752,16 +754,18 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 	id := applicationtesting.GenApplicationUUID(c)
 
 	now := ptr(s.clock.Now())
-	us := []application.AddUnitArg{{
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-				Status: status.UnitAgentStatusAllocating,
-				Since:  now,
-			},
-			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusWaiting,
-				Message: corestatus.MessageWaitForMachine,
-				Since:   now,
+	us := []application.AddIAASUnitArg{{
+		AddUnitArg: application.AddUnitArg{
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusAllocating,
+					Since:  now,
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusWaiting,
+					Message: corestatus.MessageWaitForMachine,
+					Since:   now,
+				},
 			},
 		},
 	}}
@@ -858,7 +862,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
-	}, AddUnitArg{})
+	}, AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -868,16 +872,18 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 	id := applicationtesting.GenApplicationUUID(c)
 
 	now := ptr(s.clock.Now())
-	us := []application.AddUnitArg{{
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-				Status: status.UnitAgentStatusAllocating,
-				Since:  now,
-			},
-			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusWaiting,
-				Message: "waiting for machine",
-				Since:   now,
+	us := []application.AddIAASUnitArg{{
+		AddUnitArg: application.AddUnitArg{
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusAllocating,
+					Since:  now,
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusWaiting,
+					Message: "waiting for machine",
+					Since:   now,
+				},
 			},
 		},
 	}}
@@ -971,7 +977,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
 		},
-	}, AddUnitArg{})
+	}, AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -981,16 +987,18 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 	id := applicationtesting.GenApplicationUUID(c)
 
 	now := ptr(s.clock.Now())
-	us := []application.AddUnitArg{{
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-				Status: status.UnitAgentStatusAllocating,
-				Since:  now,
-			},
-			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusWaiting,
-				Message: "waiting for machine",
-				Since:   now,
+	us := []application.AddIAASUnitArg{{
+		AddUnitArg: application.AddUnitArg{
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusAllocating,
+					Since:  now,
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusWaiting,
+					Message: "waiting for machine",
+					Since:   now,
+				},
 			},
 		},
 	}}
@@ -1087,7 +1095,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
-	}, AddUnitArg{})
+	}, AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1121,7 +1129,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorageMissing
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
 		},
-	}, AddUnitArg{})
+	}, AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIs, storageerrors.MissingSharedStorageDirectiveError)
 	c.Assert(err, tc.ErrorMatches, `.*adding default storage directives: no storage directive specified for shared charm storage "data"`)
 }
@@ -1164,7 +1172,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageValidates(c *
 		Storage: map[string]storage.Directive{
 			"logs": {Count: 2},
 		},
-	}, AddUnitArg{})
+	}, AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorMatches, `.*invalid storage directives: charm "mine" has no store called "logs"`)
 }
 
@@ -1683,7 +1691,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidName(c *tc.C) {
 		})
 	defer ctrl.Finish()
 
-	_, err := s.service.AddIAASUnits(c.Context(), "!!!", AddUnitArg{})
+	_, err := s.service.AddIAASUnits(c.Context(), "!!!", AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
@@ -1722,7 +1730,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, applicationerrors.ApplicationNotFound)
 
-	_, err := s.service.AddIAASUnits(c.Context(), "ubuntu", AddUnitArg{})
+	_, err := s.service.AddIAASUnits(c.Context(), "ubuntu", AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1750,8 +1758,10 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 		Directive: "0/kvm/0",
 	}
 
-	a := AddUnitArg{
-		Placement: placement,
+	a := AddIAASUnitArg{
+		AddUnitArg: AddUnitArg{
+			Placement: placement,
+		},
 	}
 	_, err := s.service.AddIAASUnits(c.Context(), "ubuntu", a)
 	c.Assert(err, tc.ErrorMatches, ".*invalid placement.*")

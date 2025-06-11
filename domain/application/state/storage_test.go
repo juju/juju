@@ -207,7 +207,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnitsAndStorageInvalidC
 	ctx := c.Context()
 
 	_, _, err := s.state.CreateIAASApplication(ctx, "foo", s.addIAASApplicationArgForStorage(c, "foo",
-		chStorage, addStorageArgs), []application.AddUnitArg{{}})
+		chStorage, addStorageArgs), []application.AddIAASUnitArg{{}})
 	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidStorageCount)
 }
 
