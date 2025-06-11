@@ -16,7 +16,9 @@ jobs:
       matrix:
         # TODO: add microk8s tests
         cloud: ["lxd"]
-        channel: ["local", "3.6/edge"]
+        # TODO: Reinstate this when Juju 4 exports are fixed.
+        # channel: ["local", "3.6/edge"]
+        channel: ["3.6/edge"]
 
     steps:
       - name: Checkout code
