@@ -610,7 +610,7 @@ func validateRemoveOwnerStorageInstanceOps(si *storageInstance) ([]txn.Op, error
 		if app.Life() != Alive {
 			return nil, nil
 		}
-		ch, _, err := app.Charm()
+		ch, _, err := app.charm()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

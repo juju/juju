@@ -1009,7 +1009,7 @@ func (st *State) AddApplication(
 
 	if err = st.db().Run(buildTxn); err == nil {
 		// Refresh to pick the txn-revno.
-		if err = app.Refresh(); err != nil {
+		if err = app.refresh(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return app, nil
