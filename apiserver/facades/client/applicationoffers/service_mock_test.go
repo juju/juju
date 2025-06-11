@@ -524,41 +524,41 @@ func (m *MockModelService) EXPECT() *MockModelServiceMockRecorder {
 	return m.recorder
 }
 
-// GetModelByNameAndOwner mocks base method.
-func (m *MockModelService) GetModelByNameAndOwner(arg0 context.Context, arg1 string, arg2 user.Name) (model.Model, error) {
+// GetModelByNameAndQualifier mocks base method.
+func (m *MockModelService) GetModelByNameAndQualifier(arg0 context.Context, arg1 string, arg2 model.Qualifier) (model.Model, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelByNameAndOwner", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetModelByNameAndQualifier", arg0, arg1, arg2)
 	ret0, _ := ret[0].(model.Model)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetModelByNameAndOwner indicates an expected call of GetModelByNameAndOwner.
-func (mr *MockModelServiceMockRecorder) GetModelByNameAndOwner(arg0, arg1, arg2 any) *MockModelServiceGetModelByNameAndOwnerCall {
+// GetModelByNameAndQualifier indicates an expected call of GetModelByNameAndQualifier.
+func (mr *MockModelServiceMockRecorder) GetModelByNameAndQualifier(arg0, arg1, arg2 any) *MockModelServiceGetModelByNameAndQualifierCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelByNameAndOwner", reflect.TypeOf((*MockModelService)(nil).GetModelByNameAndOwner), arg0, arg1, arg2)
-	return &MockModelServiceGetModelByNameAndOwnerCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelByNameAndQualifier", reflect.TypeOf((*MockModelService)(nil).GetModelByNameAndQualifier), arg0, arg1, arg2)
+	return &MockModelServiceGetModelByNameAndQualifierCall{Call: call}
 }
 
-// MockModelServiceGetModelByNameAndOwnerCall wrap *gomock.Call
-type MockModelServiceGetModelByNameAndOwnerCall struct {
+// MockModelServiceGetModelByNameAndQualifierCall wrap *gomock.Call
+type MockModelServiceGetModelByNameAndQualifierCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceGetModelByNameAndOwnerCall) Return(arg0 model.Model, arg1 error) *MockModelServiceGetModelByNameAndOwnerCall {
+func (c *MockModelServiceGetModelByNameAndQualifierCall) Return(arg0 model.Model, arg1 error) *MockModelServiceGetModelByNameAndQualifierCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceGetModelByNameAndOwnerCall) Do(f func(context.Context, string, user.Name) (model.Model, error)) *MockModelServiceGetModelByNameAndOwnerCall {
+func (c *MockModelServiceGetModelByNameAndQualifierCall) Do(f func(context.Context, string, model.Qualifier) (model.Model, error)) *MockModelServiceGetModelByNameAndQualifierCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceGetModelByNameAndOwnerCall) DoAndReturn(f func(context.Context, string, user.Name) (model.Model, error)) *MockModelServiceGetModelByNameAndOwnerCall {
+func (c *MockModelServiceGetModelByNameAndQualifierCall) DoAndReturn(f func(context.Context, string, model.Qualifier) (model.Model, error)) *MockModelServiceGetModelByNameAndQualifierCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

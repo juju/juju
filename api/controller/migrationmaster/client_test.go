@@ -178,13 +178,12 @@ func (s *ClientSuite) TestSetStatusMessageError(c *tc.C) {
 
 func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *tc.C) {
 	var stub testhelpers.Stub
-	owner := names.NewUserTag("owner")
 	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.MigrationModelInfo)) = params.MigrationModelInfo{
 			UUID:                   "uuid",
 			Name:                   "name",
-			OwnerTag:               owner.String(),
+			Qualifier:              "prod",
 			AgentVersion:           semversion.MustParse("1.2.3"),
 			ControllerAgentVersion: semversion.MustParse("1.2.4"),
 		}
@@ -200,7 +199,7 @@ func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *tc.C) {
 	c.Check(model, tc.DeepEquals, migration.ModelInfo{
 		UUID:                   "uuid",
 		Name:                   "name",
-		Owner:                  owner,
+		Qualifier:              "prod",
 		AgentVersion:           semversion.MustParse("1.2.3"),
 		ControllerAgentVersion: semversion.MustParse("1.2.4"),
 	})
@@ -214,13 +213,12 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var stub testhelpers.Stub
-	owner := names.NewUserTag("owner")
 	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.MigrationModelInfo)) = params.MigrationModelInfo{
 			UUID:                   "uuid",
 			Name:                   "name",
-			OwnerTag:               owner.String(),
+			Qualifier:              "prod",
 			AgentVersion:           semversion.MustParse("1.2.3"),
 			ControllerAgentVersion: semversion.MustParse("1.2.4"),
 			ModelDescription:       serialized,
@@ -237,7 +235,7 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 	c.Check(model, tc.DeepEquals, migration.ModelInfo{
 		UUID:                   "uuid",
 		Name:                   "name",
-		Owner:                  owner,
+		Qualifier:              "prod",
 		AgentVersion:           semversion.MustParse("1.2.3"),
 		ControllerAgentVersion: semversion.MustParse("1.2.4"),
 		ModelDescription:       modelDescription,

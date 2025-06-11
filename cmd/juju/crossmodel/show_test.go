@@ -42,7 +42,7 @@ func (s *showSuite) SetUpTest(c *tc.C) {
 
 	s.mockAPI = &mockShowAPI{
 		desc:     "IBM DB2 Express Server Edition is an entry level database system",
-		offerURL: "fred/model.db2",
+		offerURL: "prod/model.db2",
 	}
 }
 
@@ -56,32 +56,32 @@ func (s *showSuite) TestShowNoUrl(c *tc.C) {
 
 func (s *showSuite) TestShowApiError(c *tc.C) {
 	s.mockAPI.msg = "fail"
-	s.assertShowError(c, []string{"fred/model.db2"}, ".*fail.*")
+	s.assertShowError(c, []string{"prod/model.db2"}, ".*fail.*")
 }
 
 func (s *showSuite) TestShowURLError(c *tc.C) {
-	s.assertShowError(c, []string{"fred/model.foo/db2"}, "application offer URL has invalid form.*")
+	s.assertShowError(c, []string{"prod/model.foo/db2"}, "application offer URL has invalid form.*")
 }
 
 func (s *showSuite) TestShowWrongModelError(c *tc.C) {
-	s.assertShowError(c, []string{"db2"}, `application offer "fred/test.db2" not found`)
+	s.assertShowError(c, []string{"db2"}, `application offer "prod/test.db2" not found`)
 }
 
 func (s *showSuite) TestShowNameOnly(c *tc.C) {
-	// CurrentModel is fred/test, so ensure api believes offer is in this model
-	s.mockAPI.offerURL = "fred/test.db2"
+	// CurrentModel is prod/test, so ensure api believes offer is in this model
+	s.mockAPI.offerURL = "prod/test.db2"
 	s.assertShowYaml(c, "db2")
 }
 
 func (s *showSuite) TestShowNameAndEnvvarOnly(c *tc.C) {
-	// Ensure envvar (fred/model) overrides CurrentModel (fred/test)
-	os.Setenv(osenv.JujuModelEnvKey, "fred/model")
+	// Ensure envvar (prod/model) overrides CurrentModel (prod/test)
+	os.Setenv(osenv.JujuModelEnvKey, "prod/model")
 	defer func() { _ = os.Unsetenv(osenv.JujuModelEnvKey) }()
 	s.assertShowYaml(c, "db2")
 }
 
 func (s *showSuite) TestShowYaml(c *tc.C) {
-	s.assertShowYaml(c, "fred/model.db2")
+	s.assertShowYaml(c, "prod/model.db2")
 }
 
 func (s *showSuite) assertShowYaml(c *tc.C, arg string) {
@@ -110,10 +110,10 @@ test-master:`[1:]+s.mockAPI.offerURL+`:
 func (s *showSuite) TestShowTabular(c *tc.C) {
 	s.assertShow(
 		c,
-		[]string{"fred/model.db2", "--format", "tabular"},
+		[]string{"prod/model.db2", "--format", "tabular"},
 		`
 Store        URL             Access   Description                                 Endpoint  Interface  Role
-test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
+test-master  prod/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
                                       level database system                       log       http       provider
 `[1:],
 	)
@@ -123,10 +123,10 @@ func (s *showSuite) TestShowDifferentController(c *tc.C) {
 	s.mockAPI.controllerName = "different"
 	s.assertShow(
 		c,
-		[]string{"different:fred/model.db2", "--format", "tabular"},
+		[]string{"different:prod/model.db2", "--format", "tabular"},
 		`
 Store      URL             Access   Description                                 Endpoint  Interface  Role
-different  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
+different  prod/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
                                     level database system                       log       http       provider
 `[1:],
 	)
@@ -136,10 +136,10 @@ func (s *showSuite) TestShowTabularExactly180Desc(c *tc.C) {
 	s.mockAPI.desc = s.mockAPI.desc + s.mockAPI.desc + s.mockAPI.desc[:52]
 	s.assertShow(
 		c,
-		[]string{"fred/model.db2", "--format", "tabular"},
+		[]string{"prod/model.db2", "--format", "tabular"},
 		`
 Store        URL             Access   Description                                   Endpoint  Interface  Role
-test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
+test-master  prod/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
                                       level database systemIBM DB2 Express Server   log       http       provider
                                       Edition is an entry level database systemIBM                       
                                       DB2 Express Server Edition is an entry level                       
@@ -152,10 +152,10 @@ func (s *showSuite) TestShowTabularMoreThan180Desc(c *tc.C) {
 	s.mockAPI.desc = s.mockAPI.desc + s.mockAPI.desc + s.mockAPI.desc
 	s.assertShow(
 		c,
-		[]string{"fred/model.db2", "--format", "tabular"},
+		[]string{"prod/model.db2", "--format", "tabular"},
 		`
 Store        URL             Access   Description                                   Endpoint  Interface  Role
-test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
+test-master  prod/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
                                       level database systemIBM DB2 Express Server   log       http       provider
                                       Edition is an entry level database systemIBM                       
                                       DB2 Express Server Edition is an entry level                       

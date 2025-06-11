@@ -158,7 +158,7 @@ type MasterMigrationStatus struct {
 type MigrationModelInfo struct {
 	UUID                   string            `json:"uuid"`
 	Name                   string            `json:"name"`
-	OwnerTag               string            `json:"owner-tag"`
+	Qualifier              string            `json:"qualifier"`
 	AgentVersion           semversion.Number `json:"agent-version"`
 	ControllerAgentVersion semversion.Number `json:"controller-agent-version"`
 	FacadeVersions         map[string][]int  `json:"facade-versions,omitempty"`

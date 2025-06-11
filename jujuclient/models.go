@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
@@ -38,78 +37,7 @@ func ReadModelsFile(file string) (map[string]*ControllerModels, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := migrateLocalModelUsers(models); err != nil {
-		return nil, err
-	}
-	if err := addModelType(models); err != nil {
-		return nil, err
-	}
 	return models, nil
-}
-
-// addModelType adds missing model type data if necessary.
-func addModelType(models map[string]*ControllerModels) error {
-	changes := false
-	for _, cm := range models {
-		for name, m := range cm.Models {
-			if m.ModelType == "" {
-				changes = true
-				m.ModelType = model.IAAS
-				cm.Models[name] = m
-			}
-		}
-	}
-	if changes {
-		return WriteModelsFile(models)
-	}
-	return nil
-}
-
-// migrateLocalModelUsers strips any @local domains from any qualified model names.
-func migrateLocalModelUsers(usermodels map[string]*ControllerModels) error {
-	changes := false
-	for _, userModel := range usermodels {
-		for name, modelDetails := range userModel.Models {
-			migratedName, changed, err := migrateModelName(name)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if !changed {
-				continue
-			}
-			delete(userModel.Models, name)
-			userModel.Models[migratedName] = modelDetails
-			changes = true
-		}
-		migratedName, changed, err := migrateModelName(userModel.CurrentModel)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !changed {
-			continue
-		}
-		userModel.CurrentModel = migratedName
-	}
-	if changes {
-		return WriteModelsFile(usermodels)
-	}
-	return nil
-}
-
-func migrateModelName(legacyName string) (string, bool, error) {
-	i := strings.IndexRune(legacyName, '/')
-	if i < 0 {
-		return legacyName, false, nil
-	}
-	owner := legacyName[:i]
-	if !names.IsValidUser(owner) {
-		return "", false, errors.NotValidf("user name %q", owner)
-	}
-	if !strings.HasSuffix(owner, "@local") {
-		return legacyName, false, nil
-	}
-	rawModelName := legacyName[i+1:]
-	return JoinOwnerModelName(names.NewUserTag(owner), rawModelName), true, nil
 }
 
 // WriteModelsFile marshals to YAML details of the given models
@@ -150,9 +78,9 @@ type ControllerModels struct {
 	PreviousModel string `yaml:"previous-model,omitempty"`
 }
 
-// JoinOwnerModelName returns a model name qualified with the model owner.
-func JoinOwnerModelName(owner names.UserTag, modelName string) string {
-	return fmt.Sprintf("%s/%s", owner.Id(), modelName)
+// QualifyModelName returns a model name qualified with the model qualifier.
+func QualifyModelName(qualifier string, modelName string) string {
+	return fmt.Sprintf("%s/%s", qualifier, modelName)
 }
 
 // IsQualifiedModelName returns true if the provided model name is qualified
@@ -162,17 +90,17 @@ func IsQualifiedModelName(name string) bool {
 	return strings.ContainsRune(name, '/')
 }
 
-// SplitModelName splits a qualified model name into the model and owner
+// SplitModelName splits a qualified model name into the model and namespace
 // name components.
-func SplitModelName(name string) (string, names.UserTag, error) {
+func SplitModelName(name string) (string, string, error) {
 	i := strings.IndexRune(name, '/')
 	if i < 0 {
-		return "", names.UserTag{}, errors.NotValidf("unqualified model name %q", name)
+		return "", "", errors.NotValidf("unqualified model name %q", name)
 	}
-	owner := name[:i]
-	if !names.IsValidUser(owner) {
-		return "", names.UserTag{}, errors.NotValidf("user name %q", owner)
+	qualifier := model.Qualifier(name[:i])
+	if err := qualifier.Validate(); err != nil {
+		return "", "", errors.NotValidf("qualifier %q", qualifier)
 	}
 	name = name[i+1:]
-	return name, names.NewUserTag(owner), nil
+	return name, qualifier.String(), nil
 }

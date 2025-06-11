@@ -127,12 +127,12 @@ Use the 'juju find-offers' command to list aliases.
 <offer-url> is a path to enable Juju to resolve communication between
 controllers and the models they control.
 
-    [[<controller>:]<user>/]<model-name>.<application-name>
+    [[<controller>:]<qualifier>/]<model-name>.<application-name>
 
 <controller> is the name of a controller. The 'juju controllers' command
 provides a list of controllers.
 
-<user> is the user account of the model's owner.
+<qualifier> is used to disambiguate the model name.
 
 
 Cross-model integration: network management

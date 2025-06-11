@@ -6,6 +6,7 @@ package crossmodel
 import (
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
@@ -82,8 +83,8 @@ func (s *ApplicationOffer) String() string {
 // ApplicationOfferFilter is used to query applications offered
 // by this model.
 type ApplicationOfferFilter struct {
-	// OwnerName is the owner of the model hosting the offer.
-	OwnerName string
+	// ModelQualifier disambiguates the name of the model hosting the offer.
+	ModelQualifier model.Qualifier
 
 	// ModelName is the name of the model hosting the offer.
 	ModelName string

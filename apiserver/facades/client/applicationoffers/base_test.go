@@ -14,7 +14,6 @@ import (
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testhelpers"
@@ -131,28 +130,21 @@ func (s *baseSuite) setupOffersForUUID(c *tc.C, offerUUID, filterAppName string,
 			bindings: map[string]string{"db2": "myspace"}, // myspace
 		},
 	}
-	userFred, err := coreuser.NewName("fred@external")
-	c.Assert(err, tc.ErrorIsNil)
-	qualifier := coremodel.QualifierFromUserTag(names.NewUserTag(userFred.Name()))
-
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]coremodel.Model{
 			{
-				Name:      "prod",
-				Qualifier: qualifier,
+				Name:      "mymodel",
+				Qualifier: "prod",
 				UUID:      s.modelUUID,
 				ModelType: coremodel.IAAS,
 			},
 		}, nil,
 	).AnyTimes()
 
-	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
-	qualifierName, err := coreuser.NewName(qualifier.String())
-	c.Assert(err, tc.ErrorIsNil)
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", qualifierName).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "mymodel", coremodel.Qualifier("prod")).Return(
 		coremodel.Model{
-			Name:      "prod",
-			Qualifier: qualifier,
+			Name:      "mymodel",
+			Qualifier: "prod",
 			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,

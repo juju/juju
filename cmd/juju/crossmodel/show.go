@@ -13,7 +13,9 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 const showCommandDoc = `
@@ -29,12 +31,12 @@ from the model 'default' on the same Juju controller:
 
      juju show-offer default.prod
 
-The supplied URL can also include a username where offers require them. 
+The supplied URL can also include a model qualifier where offers require them. 
 This will be given as part of the URL retrieved from the
 'juju find-offers' command. To show information for the application
-'prod' from the model 'default' from the user 'admin':
+'prod' from the model 'staging/default':
 
-    juju show-offer admin/default.prod
+    juju show-offer staging/default.prod
 
 To show the information regarding the application 'prod' offered from
 the model 'default' on an accessible controller named 'controller':
@@ -102,23 +104,43 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	url, err := crossmodel.ParseOfferURL(c.url)
 	if err != nil {
-		currentModel, err := c.ModelIdentifier()
-		if err != nil {
+		if !names.IsValidApplication(c.url) {
 			return errors.Trace(err)
 		}
-		url, err = makeURLFromCurrentModel(c.url, controllerName, currentModel)
-		if err != nil {
-			return errors.Trace(err)
+		url = &crossmodel.OfferURL{
+			ApplicationName: c.url,
 		}
-	}
-	if url.Source != "" {
-		controllerName = url.Source
 	}
 	accountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
 		return err
 	}
 	loggedInUser := accountDetails.User
+
+	if url.ModelName == "" {
+		currentModel, err := c.ModelIdentifier()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if jujuclient.IsQualifiedModelName(currentModel) {
+			modelName, qualifier, err := jujuclient.SplitModelName(currentModel)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			url.ModelQualifier = qualifier
+			url.ModelName = modelName
+		} else {
+			url.ModelName = currentModel
+		}
+	}
+
+	if url.ModelQualifier == "" {
+		qualifier := model.QualifierFromUserTag(names.NewUserTag(accountDetails.User))
+		url.ModelQualifier = qualifier.String()
+	}
+	if url.Source != "" {
+		controllerName = url.Source
+	}
 
 	api, err := c.newAPIFunc(ctx, controllerName)
 	if err != nil {
