@@ -204,16 +204,33 @@ func (s *netConfigSuite) TestSetProviderNetConfigInvalidMachineUUID(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `invalid machine UUID: id "invalid-uuid" not valid`)
 }
 
+func (s *netConfigSuite) TestSetProviderNetConfigGetNetNodeError(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machine.UUID(uuid.MustNewUUID().String())
+	stateErr := errors.New("boom")
+
+	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).Return("", stateErr)
+
+	// Act
+	err := s.service(c).SetProviderNetConfig(c.Context(), machineUUID, nil)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, stateErr)
+}
+
 func (s *netConfigSuite) TestSetProviderNetConfigError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
 	machineUUID := machine.UUID(uuid.MustNewUUID().String())
+	nodeUUID := "node-uuid"
 	incoming := []network.NetInterface{{}, {}}
 	stateErr := errors.New("boom")
 
-	s.st.EXPECT().MergeLinkLayerDevice(gomock.Any(), machineUUID.String(),
-		incoming).Return(stateErr)
+	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).Return(nodeUUID, nil)
+	s.st.EXPECT().MergeLinkLayerDevice(gomock.Any(), nodeUUID, incoming).Return(stateErr)
 
 	// Act
 	err := s.service(c).SetProviderNetConfig(c.Context(), machineUUID, incoming)
@@ -226,11 +243,13 @@ func (s *netConfigSuite) TestSetProviderNetConfig(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	machineUUID := machine.UUID(uuid.MustNewUUID().String())
+	nodeUUID := "node-uuid"
 	incoming := []network.NetInterface{
 		{},
 		{},
 	}
-	s.st.EXPECT().MergeLinkLayerDevice(gomock.Any(), machineUUID.String(), incoming).Return(nil)
+	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).Return(nodeUUID, nil)
+	s.st.EXPECT().MergeLinkLayerDevice(gomock.Any(), nodeUUID, incoming).Return(nil)
 
 	// Act
 	err := s.service(c).SetProviderNetConfig(c.Context(), machineUUID, incoming)

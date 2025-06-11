@@ -56,7 +56,13 @@ func (s *Service) SetProviderNetConfig(
 	if err := machineUUID.Validate(); err != nil {
 		return errors.Errorf("invalid machine UUID: %w", err)
 	}
-	return errors.Capture(s.st.MergeLinkLayerDevice(ctx, machineUUID.String(), incoming))
+
+	nodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, machineUUID.String())
+	if err != nil {
+		return errors.Errorf("retrieving net node for machine %q: %w", machineUUID, err)
+	}
+
+	return errors.Capture(s.st.MergeLinkLayerDevice(ctx, nodeUUID, incoming))
 }
 
 // SetMachineNetConfig updates the detected network configuration for
