@@ -26,16 +26,16 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// State represents the persistence layer for the statuses of applications and units.
-type State struct {
+// ModelState represents the persistence layer for the statuses of applications and units.
+type ModelState struct {
 	*domain.StateBase
 	clock  clock.Clock
 	logger logger.Logger
 }
 
-// NewState returns a new state reference.
-func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logger.Logger) *State {
-	return &State{
+// NewModelState returns a new state reference.
+func NewModelState(factory database.TxnRunnerFactory, clock clock.Clock, logger logger.Logger) *ModelState {
+	return &ModelState{
 		StateBase: domain.NewStateBase(factory),
 		clock:     clock,
 		logger:    logger,
@@ -45,7 +45,7 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 // GetModelStatusInfo returns information about the current model.
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound]: When the model does not exist.
-func (st *State) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error) {
+func (st *ModelState) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return status.ModelStatusInfo{}, errors.Capture(err)
@@ -80,7 +80,7 @@ FROM   model
 }
 
 // GetAllRelationStatuses returns all the relation statuses of the given model.
-func (st *State) GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error) {
+func (st *ModelState) GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -130,7 +130,7 @@ JOIN   relation r ON r.uuid = rs.relation_uuid
 // GetApplicationIDByName returns the application ID for the named application.
 // If no application is found, an error satisfying
 // [statuserrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error) {
+func (st *ModelState) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -151,7 +151,7 @@ func (st *State) GetApplicationIDByName(ctx context.Context, name string) (corea
 //
 // Returns an error satisfying [statuserrors.UnitNotFound] if the unit
 // doesn't exist.
-func (st *State) GetApplicationIDAndNameByUnitName(
+func (st *ModelState) GetApplicationIDAndNameByUnitName(
 	ctx context.Context,
 	name coreunit.Name,
 ) (coreapplication.ID, string, error) {
@@ -190,7 +190,7 @@ WHERE u.name = $unitName.name;
 // GetApplicationStatus looks up the status of the specified application,
 // returning an error satisfying [statuserrors.ApplicationNotFound] if the
 // application is not found.
-func (st *State) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (status.StatusInfo[status.WorkloadStatusType], error) {
+func (st *ModelState) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (status.StatusInfo[status.WorkloadStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
 		return status.StatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
@@ -240,7 +240,7 @@ WHERE application_uuid = $applicationID.uuid;
 // SetApplicationStatus saves the given application status, overwriting any
 // current status data. If returns an error satisfying
 // [statuserrors.ApplicationNotFound] if the application doesn't exist.
-func (st *State) SetApplicationStatus(
+func (st *ModelState) SetApplicationStatus(
 	ctx context.Context,
 	applicationID coreapplication.ID,
 	sts status.StatusInfo[status.WorkloadStatusType],
@@ -290,7 +290,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 
 // GetRelationStatus gets the status of the given relation. It returns an error
 // satisfying [statuserrors.RelationNotFound] if the relation doesn't exist.
-func (st *State) getRelationStatus(
+func (st *ModelState) getRelationStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid corerelation.UUID,
@@ -335,7 +335,7 @@ WHERE  relation_uuid = $relationUUID.relation_uuid
 //   - [statuserrors.RelationStatusTransitionNotValid] if the current relation
 //     status cannot transition to the new relation status. the relation does
 //     not exist.
-func (st *State) SetRelationStatus(
+func (st *ModelState) SetRelationStatus(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	sts status.StatusInfo[status.RelationStatusType],
@@ -377,7 +377,7 @@ func (st *State) SetRelationStatus(
 // ImportRelationStatus sets the given relation status. It can return the
 // following errors:
 //   - [statuserrors.RelationNotFound] if the relation doesn't exist.
-func (st *State) ImportRelationStatus(
+func (st *ModelState) ImportRelationStatus(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	sts status.StatusInfo[status.RelationStatusType],
@@ -395,7 +395,7 @@ func (st *State) ImportRelationStatus(
 // GetRelationUUIDByID returns the UUID for the given relation ID.
 // It can return the following errors:
 //   - [statuserrors.RelationNotFound] if the relation doesn't exist.
-func (st *State) GetRelationUUIDByID(
+func (st *ModelState) GetRelationUUIDByID(
 	ctx context.Context,
 	id int,
 ) (corerelation.UUID, error) {
@@ -436,7 +436,7 @@ WHERE  relation_id = $relationID.relation_id
 	return arg.UUID, nil
 }
 
-func (st *State) updateRelationStatus(
+func (st *ModelState) updateRelationStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	relationUUID corerelation.UUID,
@@ -474,7 +474,7 @@ WHERE relation_uuid = $relationStatus.relation_uuid
 
 // GetUnitUUIDByName returns the UUID for the named unit, returning an error
 // satisfying [statuserrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
+func (st *ModelState) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -509,7 +509,7 @@ WHERE name = $unitName.name
 // - an error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [statuserrors.UnitIsDead] if the unit is dead or;
 // - an error satisfying [statuserrors.UnitStatusNotFound] if the status is not set.
-func (st *State) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error) {
+func (st *ModelState) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
 		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Capture(err)
@@ -559,7 +559,7 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_agent_status WHERE unit_uuid = $unit
 // SetUnitAgentStatus updates the agent status of the specified unit,
 // returning an error satisfying [statuserrors.UnitNotFound] if the unit
 // doesn't exist.
-func (st *State) SetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID, status status.StatusInfo[status.UnitAgentStatusType]) error {
+func (st *ModelState) SetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID, status status.StatusInfo[status.UnitAgentStatusType]) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -578,7 +578,7 @@ func (st *State) SetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID,
 // - an error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [statuserrors.UnitIsDead] if the unit is dead or;
 // - an error satisfying [statuserrors.UnitStatusNotFound] if the status is not set.
-func (st *State) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error) {
+func (st *ModelState) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
 		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
@@ -628,7 +628,7 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_workload_status WHERE unit_uuid = $u
 // SetUnitWorkloadStatus updates the workload status of the specified unit,
 // returning an error satisfying [statuserrors.UnitNotFound] if the unit
 // doesn't exist.
-func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID, status status.StatusInfo[status.WorkloadStatusType]) error {
+func (st *ModelState) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID, status status.StatusInfo[status.WorkloadStatusType]) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -647,7 +647,7 @@ func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UU
 // unit. It returns;
 // - an error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [statuserrors.UnitIsDead] if the unit is dead or;
-func (st *State) GetUnitK8sPodStatus(ctx context.Context, uuid coreunit.UUID) (status.StatusInfo[status.K8sPodStatusType], error) {
+func (st *ModelState) GetUnitK8sPodStatus(ctx context.Context, uuid coreunit.UUID) (status.StatusInfo[status.K8sPodStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
 		return status.StatusInfo[status.K8sPodStatusType]{}, errors.Capture(err)
@@ -702,7 +702,7 @@ WHERE  unit_uuid = $unitUUID.uuid
 //     doesn't exist or;
 //   - error satisfying [statuserrors.ApplicationIsDead] if the application
 //     is dead.
-func (st *State) GetUnitWorkloadStatusesForApplication(
+func (st *ModelState) GetUnitWorkloadStatusesForApplication(
 	ctx context.Context, appID coreapplication.ID,
 ) (status.UnitWorkloadStatuses, error) {
 	db, err := st.DB()
@@ -729,7 +729,7 @@ func (st *State) GetUnitWorkloadStatusesForApplication(
 //     doesn't exist or;
 //   - an error satisfying [statuserrors.ApplicationIsDead] if the application
 //     is dead.
-func (st *State) GetAllFullUnitStatusesForApplication(
+func (st *ModelState) GetAllFullUnitStatusesForApplication(
 	ctx context.Context, appID coreapplication.ID,
 ) (
 	status.FullUnitStatuses, error,
@@ -821,7 +821,7 @@ WHERE application_uuid = $applicationID.uuid
 // GetAllUnitWorkloadAgentStatuses retrieves the presence, workload status, and agent status
 // of every unit in the model. Returns an error satisfying [statuserrors.UnitStatusNotFound]
 // if any units do not have statuses.
-func (st *State) GetAllUnitWorkloadAgentStatuses(ctx context.Context) (status.UnitWorkloadAgentStatuses, error) {
+func (st *ModelState) GetAllUnitWorkloadAgentStatuses(ctx context.Context) (status.UnitWorkloadAgentStatuses, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -882,7 +882,7 @@ func (st *State) GetAllUnitWorkloadAgentStatuses(ctx context.Context) (status.Un
 
 // GetAllApplicationStatuses returns the statuses of all the applications in the model,
 // indexed by application name, if they have a status set.
-func (st *State) GetAllApplicationStatuses(ctx context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error) {
+func (st *ModelState) GetAllApplicationStatuses(ctx context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -928,7 +928,7 @@ JOIN application ON application.uuid = application_status.application_uuid
 // SetUnitPresence marks the presence of the specified unit, returning an error
 // satisfying [statuserrors.UnitNotFound] if the unit doesn't exist.
 // The unit life is not considered when making this query.
-func (st *State) SetUnitPresence(ctx context.Context, name coreunit.Name) error {
+func (st *ModelState) SetUnitPresence(ctx context.Context, name coreunit.Name) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -980,7 +980,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 // DeleteUnitPresence removes the presence of the specified unit. If the
 // unit isn't found it ignores the error.
 // The unit life is not considered when making this query.
-func (st *State) DeleteUnitPresence(ctx context.Context, name coreunit.Name) error {
+func (st *ModelState) DeleteUnitPresence(ctx context.Context, name coreunit.Name) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -1013,7 +1013,7 @@ WHERE unit_uuid = (
 // application.ID.
 // If no application is found, an error satisfying
 // [statuserrors.ApplicationNotFound] is returned.
-func (st *State) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.ID, error) {
+func (st *ModelState) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.ID, error) {
 	app := applicationIDAndName{Name: name}
 	queryApplicationStmt, err := st.Prepare(`
 SELECT uuid AS &applicationIDAndName.uuid
@@ -1037,7 +1037,7 @@ WHERE name = $applicationIDAndName.name
 //   - If the application is dead, [statuserrors.ApplicationIsDead] is returned.
 //   - If the application is not found, [statuserrors.ApplicationNotFound]
 //     is returned.
-func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, ident applicationID) error {
+func (st *ModelState) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, ident applicationID) error {
 	type life struct {
 		LifeID domainlife.Life `db:"life_id"`
 	}
@@ -1072,7 +1072,7 @@ WHERE uuid = $applicationID.uuid;
 // access alive and dying units, but not dead ones:
 // - If the unit is not found, [statuserrors.UnitNotFound] is returned.
 // - If the unit is dead, [statuserrors.UnitIsDead] is returned.
-func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, ident unitUUID) error {
+func (st *ModelState) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, ident unitUUID) error {
 	type life struct {
 		LifeID domainlife.Life `db:"life_id"`
 	}
@@ -1103,7 +1103,7 @@ WHERE uuid = $unitUUID.uuid;
 	}
 }
 
-func (st *State) getUnitWorkloadStatusesForApplication(
+func (st *ModelState) getUnitWorkloadStatusesForApplication(
 	ctx context.Context, tx *sqlair.TX, ident applicationID,
 ) (
 	status.UnitWorkloadStatuses, error,
@@ -1152,7 +1152,7 @@ WHERE  application_uuid = $applicationID.uuid
 // setUnitAgentStatus saves the given unit agent status, overwriting any
 // current status data. If returns an error satisfying
 // [statuserrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) setUnitAgentStatus(
+func (st *ModelState) setUnitAgentStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
@@ -1193,7 +1193,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 // setUnitWorkloadStatus saves the given unit workload status, overwriting any
 // current status data. If returns an error satisfying
 // [statuserrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) setUnitWorkloadStatus(
+func (st *ModelState) setUnitWorkloadStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
@@ -1234,7 +1234,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 // setK8sPodStatus saves the given cloud container status, overwriting
 // any current status data. If returns an error satisfying
 // [statuserrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) setK8sPodStatus(
+func (st *ModelState) setK8sPodStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
@@ -1274,7 +1274,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 
 // GetApplicationAndUnitStatuses returns the application and unit statuses of
 // all the applications in the model, indexed by application name.
-func (st *State) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]status.Application, error) {
+func (st *ModelState) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]status.Application, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1314,7 +1314,7 @@ func (st *State) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]
 	return result, nil
 }
 
-func (st *State) getApplicationsStatuses(ctx context.Context, tx *sqlair.TX) (map[string]status.Application, error) {
+func (st *ModelState) getApplicationsStatuses(ctx context.Context, tx *sqlair.TX) (map[string]status.Application, error) {
 	// Get all the applications.
 	query, err := st.Prepare(`
 SELECT
@@ -1463,7 +1463,7 @@ ORDER BY a.name, re.relation_uuid;
 	return result, nil
 }
 
-func (st *State) getUnitsStatuses(ctx context.Context, tx *sqlair.TX) (map[string]map[coreunit.Name]status.Unit, error) {
+func (st *ModelState) getUnitsStatuses(ctx context.Context, tx *sqlair.TX) (map[string]map[coreunit.Name]status.Unit, error) {
 	// Get all the units.
 	query, err := st.Prepare(`
 WITH unit_subordinate AS (
@@ -1641,7 +1641,7 @@ ORDER BY u.name;
 
 // GetApplicationAndUnitModelStatuses returns the application name and unit
 // count for each model for the model status request.
-func (st *State) GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error) {
+func (st *ModelState) GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)

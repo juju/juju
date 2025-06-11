@@ -1283,7 +1283,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
-	statusState := statusstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
+	statusState := statusstate.NewModelState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
 	resolveState := resolvestate.NewState(modelDB)
 
 	alternateCharmID, _, err := svc.SetCharm(c.Context(), charm.SetCharmArgs{

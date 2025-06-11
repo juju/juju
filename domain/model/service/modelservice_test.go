@@ -828,6 +828,57 @@ func (s *modelServiceSuite) TestIsControllerModelNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
+func (s *modelServiceSuite) TestHasValidCredential(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockControllerState.EXPECT().HasValidCredential(gomock.Any(), modelUUID).Return(true, nil)
+
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+	hasValidCredential, err := svc.HasValidCredential(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(hasValidCredential, tc.IsTrue)
+
+	modelUUID = modeltesting.GenModelUUID(c)
+	s.mockControllerState.EXPECT().HasValidCredential(gomock.Any(), modelUUID).Return(false, nil)
+
+	svc = NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+	hasValidCredential, err = svc.HasValidCredential(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(hasValidCredential, tc.IsFalse)
+}
+
+func (s *modelServiceSuite) TestHasValidCredentialNotFound(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockControllerState.EXPECT().HasValidCredential(gomock.Any(), modelUUID).Return(false, modelerrors.NotFound)
+
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+	_, err := svc.HasValidCredential(c.Context())
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
 // GetModelType asserts the happy path of getting the models current
 // [coremodel.ModelType]. We are looking to see here that the service correctly
 // passes along the information received from the state layer.

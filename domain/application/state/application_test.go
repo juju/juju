@@ -134,7 +134,7 @@ func (s *applicationStateSuite) TestCreateIAASApplication(c *tc.C) {
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{Trust: false})
 
 	// Status should be unset.
-	statusState := statusstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	statusState := statusstate.NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	sts, err := statusState.GetApplicationStatus(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sts, tc.DeepEquals, status.StatusInfo[status.WorkloadStatusType]{
@@ -187,7 +187,7 @@ func (s *applicationStateSuite) TestCreateCAASApplication(c *tc.C) {
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{Trust: false})
 
 	// Status should be unset.
-	statusState := statusstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	statusState := statusstate.NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	sts, err := statusState.GetApplicationStatus(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sts, tc.DeepEquals, status.StatusInfo[status.WorkloadStatusType]{
@@ -334,7 +334,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertIAASApplication(c, "666", platform, channel, false)
 
-	statusState := statusstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	statusState := statusstate.NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	sts, err := statusState.GetApplicationStatus(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sts, tc.DeepEquals, status.StatusInfo[status.WorkloadStatusType]{

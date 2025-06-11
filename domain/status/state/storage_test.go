@@ -33,7 +33,7 @@ import (
 type storageSuite struct {
 	schematesting.ModelSuite
 
-	state *State
+	modelState *ModelState
 
 	storageInstCount int
 	filesystemCount  int
@@ -47,7 +47,7 @@ func TestStorageSuite(t *testing.T) {
 func (s *storageSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	s.modelState = NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
 type charmStorageArg struct {
@@ -314,7 +314,7 @@ func (s *storageSuite) TestSetFilesystemStatus(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	err := s.state.SetFilesystemStatus(c.Context(), filesystemUUID, expected)
+	err := s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, expected)
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertFilesystemStatus(c, filesystemUUID, expected)
 }
@@ -329,7 +329,7 @@ func (s *storageSuite) TestSetFilesystemStatusInitialMissing(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	err := s.state.SetFilesystemStatus(c.Context(), filesystemUUID, expected)
+	err := s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, expected)
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertFilesystemStatus(c, filesystemUUID, expected)
 }
@@ -337,7 +337,7 @@ func (s *storageSuite) TestSetFilesystemStatusInitialMissing(c *tc.C) {
 func (s *storageSuite) TestSetFilesystemStatusMultipleTimes(c *tc.C) {
 	filesystemUUID := s.createFilesystem(c)
 
-	err := s.state.SetFilesystemStatus(c.Context(), filesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]{
+	err := s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status:  status.StorageFilesystemStatusTypeAttaching,
 		Message: "waiting",
 		Since:   ptr(time.Now().UTC()),
@@ -351,7 +351,7 @@ func (s *storageSuite) TestSetFilesystemStatusMultipleTimes(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	err = s.state.SetFilesystemStatus(c.Context(), filesystemUUID, expected)
+	err = s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, expected)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertFilesystemStatus(c, filesystemUUID, expected)
@@ -366,7 +366,7 @@ func (s *storageSuite) TestSetFilesystemStatusFilesystemNotFound(c *tc.C) {
 	}
 
 	uuid := storagetesting.GenFilesystemUUID(c)
-	err := s.state.SetFilesystemStatus(c.Context(), uuid, expected)
+	err := s.modelState.SetFilesystemStatus(c.Context(), uuid, expected)
 	c.Assert(err, tc.ErrorIs, storageerrors.FilesystemNotFound)
 }
 
@@ -377,7 +377,7 @@ func (s *storageSuite) TestSetFilesystemStatusInvalidStatus(c *tc.C) {
 		Status: status.StorageFilesystemStatusType(99),
 	}
 
-	err := s.state.SetFilesystemStatus(c.Context(), filesystemUUID, expected)
+	err := s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, expected)
 	c.Assert(err, tc.ErrorMatches, `.*unknown status.*`)
 }
 
@@ -390,14 +390,14 @@ func (s *storageSuite) TestSetFilesystemStatusInvalidTransition(c *tc.C) {
 		Status: status.StorageFilesystemStatusTypeAttached,
 		Since:  ptr(now),
 	}
-	err := s.state.SetFilesystemStatus(c.Context(), filesystemUUID, sts)
+	err := s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, sts)
 	c.Assert(err, tc.ErrorIsNil)
 
 	sts = status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status: status.StorageFilesystemStatusTypePending,
 		Since:  ptr(now),
 	}
-	err = s.state.SetFilesystemStatus(c.Context(), filesystemUUID, sts)
+	err = s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, sts)
 	c.Assert(err, tc.ErrorIs, statuserrors.FilesystemStatusTransitionNotValid)
 }
 
@@ -405,14 +405,14 @@ func (s *storageSuite) TestGetFilesystemUUIDByID(c *tc.C) {
 	filesystemUUID := s.createFilesystem(c)
 
 	id := strconv.Itoa(s.filesystemCount - 1)
-	gotUUID, err := s.state.GetFilesystemUUIDByID(c.Context(), id)
+	gotUUID, err := s.modelState.GetFilesystemUUIDByID(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(gotUUID, tc.Equals, filesystemUUID)
 }
 
 func (s *storageSuite) TestGetFilesystemUUIDByIDNotFound(c *tc.C) {
-	_, err := s.state.GetFilesystemUUIDByID(c.Context(), "666")
+	_, err := s.modelState.GetFilesystemUUIDByID(c.Context(), "666")
 	c.Assert(err, tc.ErrorIs, storageerrors.FilesystemNotFound)
 }
 
@@ -426,7 +426,7 @@ func (s *storageSuite) TestImportFilesystemStatus(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	err := s.state.ImportFilesystemStatus(c.Context(), filesystemUUID, expected)
+	err := s.modelState.ImportFilesystemStatus(c.Context(), filesystemUUID, expected)
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertFilesystemStatus(c, filesystemUUID, expected)
 }
@@ -441,7 +441,7 @@ func (s *storageSuite) TestSetVolumeStatus(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	err := s.state.SetVolumeStatus(c.Context(), volumeUUID, expected)
+	err := s.modelState.SetVolumeStatus(c.Context(), volumeUUID, expected)
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertVolumeStatus(c, volumeUUID, expected)
 }
@@ -456,7 +456,7 @@ func (s *storageSuite) TestSetVolumeStatusInitialMissing(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	err := s.state.SetVolumeStatus(c.Context(), volumeUUID, expected)
+	err := s.modelState.SetVolumeStatus(c.Context(), volumeUUID, expected)
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertVolumeStatus(c, volumeUUID, expected)
 }
@@ -464,7 +464,7 @@ func (s *storageSuite) TestSetVolumeStatusInitialMissing(c *tc.C) {
 func (s *storageSuite) TestSetVolumeStatusMultipleTimes(c *tc.C) {
 	volumeUUID := s.createVolume(c)
 
-	err := s.state.SetVolumeStatus(c.Context(), volumeUUID, status.StatusInfo[status.StorageVolumeStatusType]{
+	err := s.modelState.SetVolumeStatus(c.Context(), volumeUUID, status.StatusInfo[status.StorageVolumeStatusType]{
 		Status:  status.StorageVolumeStatusTypeAttaching,
 		Message: "waiting",
 		Since:   ptr(time.Now().UTC()),
@@ -478,7 +478,7 @@ func (s *storageSuite) TestSetVolumeStatusMultipleTimes(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	err = s.state.SetVolumeStatus(c.Context(), volumeUUID, expected)
+	err = s.modelState.SetVolumeStatus(c.Context(), volumeUUID, expected)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertVolumeStatus(c, volumeUUID, expected)
@@ -493,7 +493,7 @@ func (s *storageSuite) TestSetVolumeStatusVolumeNotFound(c *tc.C) {
 	}
 
 	uuid := storagetesting.GenVolumeUUID(c)
-	err := s.state.SetVolumeStatus(c.Context(), uuid, expected)
+	err := s.modelState.SetVolumeStatus(c.Context(), uuid, expected)
 	c.Assert(err, tc.ErrorIs, storageerrors.VolumeNotFound)
 }
 
@@ -504,7 +504,7 @@ func (s *storageSuite) TestSetVolumeStatusInvalidStatus(c *tc.C) {
 		Status: status.StorageVolumeStatusType(99),
 	}
 
-	err := s.state.SetVolumeStatus(c.Context(), volumeUUID, expected)
+	err := s.modelState.SetVolumeStatus(c.Context(), volumeUUID, expected)
 	c.Assert(err, tc.ErrorMatches, `.*unknown status.*`)
 }
 
@@ -517,14 +517,14 @@ func (s *storageSuite) TestSetVolumeStatusInvalidTransition(c *tc.C) {
 		Status: status.StorageVolumeStatusTypeAttached,
 		Since:  ptr(now),
 	}
-	err := s.state.SetVolumeStatus(c.Context(), volumeUUID, sts)
+	err := s.modelState.SetVolumeStatus(c.Context(), volumeUUID, sts)
 	c.Assert(err, tc.ErrorIsNil)
 
 	sts = status.StatusInfo[status.StorageVolumeStatusType]{
 		Status: status.StorageVolumeStatusTypePending,
 		Since:  ptr(now),
 	}
-	err = s.state.SetVolumeStatus(c.Context(), volumeUUID, sts)
+	err = s.modelState.SetVolumeStatus(c.Context(), volumeUUID, sts)
 	c.Assert(err, tc.ErrorIs, statuserrors.VolumeStatusTransitionNotValid)
 }
 
@@ -532,14 +532,14 @@ func (s *storageSuite) TestGetVolumeUUIDByID(c *tc.C) {
 	volumeUUID := s.createVolume(c)
 
 	id := strconv.Itoa(s.volumeCount - 1)
-	gotUUID, err := s.state.GetVolumeUUIDByID(c.Context(), id)
+	gotUUID, err := s.modelState.GetVolumeUUIDByID(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(gotUUID, tc.Equals, volumeUUID)
 }
 
 func (s *storageSuite) TestGetVolumeUUIDByIDNotFound(c *tc.C) {
-	_, err := s.state.GetVolumeUUIDByID(c.Context(), "666")
+	_, err := s.modelState.GetVolumeUUIDByID(c.Context(), "666")
 	c.Assert(err, tc.ErrorIs, storageerrors.VolumeNotFound)
 }
 
@@ -553,7 +553,7 @@ func (s *storageSuite) TestImportVolumeStatus(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	err := s.state.ImportVolumeStatus(c.Context(), volumeUUID, expected)
+	err := s.modelState.ImportVolumeStatus(c.Context(), volumeUUID, expected)
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertVolumeStatus(c, volumeUUID, expected)
 }

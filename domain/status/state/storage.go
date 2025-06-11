@@ -21,7 +21,7 @@ const (
 // SetFilesystemStatus saves the given filesystem status, overwriting any
 // current status data. The following errors can be expected:
 // - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
-func (st *State) SetFilesystemStatus(
+func (st *ModelState) SetFilesystemStatus(
 	ctx context.Context,
 	filesystemUUID storage.FilesystemUUID,
 	sts status.StatusInfo[status.StorageFilesystemStatusType],
@@ -57,7 +57,7 @@ func (st *State) SetFilesystemStatus(
 // and a bool indicating if it is provisioned.
 // The following errors can be expected:
 // - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
-func (st *State) getFilesystemProvisioningStatus(
+func (st *ModelState) getFilesystemProvisioningStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid storage.FilesystemUUID,
@@ -98,7 +98,7 @@ WHERE     sf.uuid = $filesystemUUID.uuid
 // ImportFilesystemStatus sets the given filesystem status.
 // The following errors can be expected:
 // - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
-func (st *State) ImportFilesystemStatus(
+func (st *ModelState) ImportFilesystemStatus(
 	ctx context.Context,
 	filesystemUUID storage.FilesystemUUID,
 	sts status.StatusInfo[status.StorageFilesystemStatusType],
@@ -116,7 +116,7 @@ func (st *State) ImportFilesystemStatus(
 // GetFilesystemUUIDByID returns the UUID for the given filesystem ID.
 // It can return the following errors:
 //   - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
-func (st *State) GetFilesystemUUIDByID(
+func (st *ModelState) GetFilesystemUUIDByID(
 	ctx context.Context,
 	id string,
 ) (storage.FilesystemUUID, error) {
@@ -149,7 +149,7 @@ WHERE  filesystem_id = $filesystemUUIDID.filesystem_id
 	return storage.FilesystemUUID(arg.UUID), nil
 }
 
-func (st *State) updateFilesystemStatus(
+func (st *ModelState) updateFilesystemStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	filesystemUUID storage.FilesystemUUID,
@@ -187,7 +187,7 @@ ON CONFLICT(filesystem_uuid) DO UPDATE SET
 // SetVolumeStatus saves the given volume status, overwriting any
 // current status data. The following errors can be expected:
 // - [storageerrors.VolumeNotFound] if the volume doesn't exist.
-func (st *State) SetVolumeStatus(
+func (st *ModelState) SetVolumeStatus(
 	ctx context.Context,
 	volumeUUID storage.VolumeUUID,
 	sts status.StatusInfo[status.StorageVolumeStatusType],
@@ -223,7 +223,7 @@ func (st *State) SetVolumeStatus(
 // and a bool indicating if it is provisioned.
 // The following errors can be expected:
 // - [storageerrors.VolumeNotFound] if the volume doesn't exist.
-func (st *State) getVolumeProvisioningStatus(
+func (st *ModelState) getVolumeProvisioningStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid storage.VolumeUUID,
@@ -264,7 +264,7 @@ WHERE     sv.uuid = $volumeUUID.uuid
 // ImportVolumeStatus sets the given volume status.
 // The following errors can be expected:
 // - [storageerrors.VolumeNotFound] if the volume doesn't exist.
-func (st *State) ImportVolumeStatus(
+func (st *ModelState) ImportVolumeStatus(
 	ctx context.Context,
 	volumeUUID storage.VolumeUUID,
 	sts status.StatusInfo[status.StorageVolumeStatusType],
@@ -282,7 +282,7 @@ func (st *State) ImportVolumeStatus(
 // GetVolumeUUIDByID returns the UUID for the given volume ID.
 // It can return the following errors:
 //   - [storageerrors.VolumeNotFound] if the volume doesn't exist.
-func (st *State) GetVolumeUUIDByID(
+func (st *ModelState) GetVolumeUUIDByID(
 	ctx context.Context,
 	id string,
 ) (storage.VolumeUUID, error) {
@@ -315,7 +315,7 @@ WHERE  volume_id = $volumeUUIDID.volume_id
 	return storage.VolumeUUID(arg.UUID), nil
 }
 
-func (st *State) updateVolumeStatus(
+func (st *ModelState) updateVolumeStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	volumeUUID storage.VolumeUUID,

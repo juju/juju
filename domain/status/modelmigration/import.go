@@ -81,8 +81,8 @@ func (i *importOperation) Name() string {
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.serviceGetter = func(modelUUID model.UUID) ImportService {
 		return service.NewService(
-			state.NewState(scope.ModelDB(), i.clock, i.logger),
-			modelUUID,
+			state.NewModelState(scope.ModelDB(), i.clock, i.logger),
+			state.NewControllerState(scope.ControllerDB(), modelUUID),
 			// TODO(jack): This is currently the wrong logger. We should construct
 			// the StatusHistory using the model logger, however, at the moment, we
 			// cannot get the model logger until the model has been imported. Once

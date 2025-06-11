@@ -20,31 +20,31 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockState is a mock of State interface.
-type MockState struct {
+// MockModelState is a mock of ModelState interface.
+type MockModelState struct {
 	ctrl     *gomock.Controller
-	recorder *MockStateMockRecorder
+	recorder *MockModelStateMockRecorder
 }
 
-// MockStateMockRecorder is the mock recorder for MockState.
-type MockStateMockRecorder struct {
-	mock *MockState
+// MockModelStateMockRecorder is the mock recorder for MockModelState.
+type MockModelStateMockRecorder struct {
+	mock *MockModelState
 }
 
-// NewMockState creates a new mock instance.
-func NewMockState(ctrl *gomock.Controller) *MockState {
-	mock := &MockState{ctrl: ctrl}
-	mock.recorder = &MockStateMockRecorder{mock}
+// NewMockModelState creates a new mock instance.
+func NewMockModelState(ctrl *gomock.Controller) *MockModelState {
+	mock := &MockModelState{ctrl: ctrl}
+	mock.recorder = &MockModelStateMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockState) EXPECT() *MockStateMockRecorder {
+func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 	return m.recorder
 }
 
 // DeleteUnitPresence mocks base method.
-func (m *MockState) DeleteUnitPresence(ctx context.Context, name unit.Name) error {
+func (m *MockModelState) DeleteUnitPresence(ctx context.Context, name unit.Name) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteUnitPresence", ctx, name)
 	ret0, _ := ret[0].(error)
@@ -52,37 +52,37 @@ func (m *MockState) DeleteUnitPresence(ctx context.Context, name unit.Name) erro
 }
 
 // DeleteUnitPresence indicates an expected call of DeleteUnitPresence.
-func (mr *MockStateMockRecorder) DeleteUnitPresence(ctx, name any) *MockStateDeleteUnitPresenceCall {
+func (mr *MockModelStateMockRecorder) DeleteUnitPresence(ctx, name any) *MockModelStateDeleteUnitPresenceCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUnitPresence", reflect.TypeOf((*MockState)(nil).DeleteUnitPresence), ctx, name)
-	return &MockStateDeleteUnitPresenceCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUnitPresence", reflect.TypeOf((*MockModelState)(nil).DeleteUnitPresence), ctx, name)
+	return &MockModelStateDeleteUnitPresenceCall{Call: call}
 }
 
-// MockStateDeleteUnitPresenceCall wrap *gomock.Call
-type MockStateDeleteUnitPresenceCall struct {
+// MockModelStateDeleteUnitPresenceCall wrap *gomock.Call
+type MockModelStateDeleteUnitPresenceCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateDeleteUnitPresenceCall) Return(arg0 error) *MockStateDeleteUnitPresenceCall {
+func (c *MockModelStateDeleteUnitPresenceCall) Return(arg0 error) *MockModelStateDeleteUnitPresenceCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateDeleteUnitPresenceCall) Do(f func(context.Context, unit.Name) error) *MockStateDeleteUnitPresenceCall {
+func (c *MockModelStateDeleteUnitPresenceCall) Do(f func(context.Context, unit.Name) error) *MockModelStateDeleteUnitPresenceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDeleteUnitPresenceCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockStateDeleteUnitPresenceCall {
+func (c *MockModelStateDeleteUnitPresenceCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockModelStateDeleteUnitPresenceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetAllApplicationStatuses mocks base method.
-func (m *MockState) GetAllApplicationStatuses(arg0 context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error) {
+func (m *MockModelState) GetAllApplicationStatuses(arg0 context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllApplicationStatuses", arg0)
 	ret0, _ := ret[0].(map[string]status.StatusInfo[status.WorkloadStatusType])
@@ -91,37 +91,37 @@ func (m *MockState) GetAllApplicationStatuses(arg0 context.Context) (map[string]
 }
 
 // GetAllApplicationStatuses indicates an expected call of GetAllApplicationStatuses.
-func (mr *MockStateMockRecorder) GetAllApplicationStatuses(arg0 any) *MockStateGetAllApplicationStatusesCall {
+func (mr *MockModelStateMockRecorder) GetAllApplicationStatuses(arg0 any) *MockModelStateGetAllApplicationStatusesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllApplicationStatuses", reflect.TypeOf((*MockState)(nil).GetAllApplicationStatuses), arg0)
-	return &MockStateGetAllApplicationStatusesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllApplicationStatuses", reflect.TypeOf((*MockModelState)(nil).GetAllApplicationStatuses), arg0)
+	return &MockModelStateGetAllApplicationStatusesCall{Call: call}
 }
 
-// MockStateGetAllApplicationStatusesCall wrap *gomock.Call
-type MockStateGetAllApplicationStatusesCall struct {
+// MockModelStateGetAllApplicationStatusesCall wrap *gomock.Call
+type MockModelStateGetAllApplicationStatusesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllApplicationStatusesCall) Return(arg0 map[string]status.StatusInfo[status.WorkloadStatusType], arg1 error) *MockStateGetAllApplicationStatusesCall {
+func (c *MockModelStateGetAllApplicationStatusesCall) Return(arg0 map[string]status.StatusInfo[status.WorkloadStatusType], arg1 error) *MockModelStateGetAllApplicationStatusesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllApplicationStatusesCall) Do(f func(context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error)) *MockStateGetAllApplicationStatusesCall {
+func (c *MockModelStateGetAllApplicationStatusesCall) Do(f func(context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error)) *MockModelStateGetAllApplicationStatusesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllApplicationStatusesCall) DoAndReturn(f func(context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error)) *MockStateGetAllApplicationStatusesCall {
+func (c *MockModelStateGetAllApplicationStatusesCall) DoAndReturn(f func(context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error)) *MockModelStateGetAllApplicationStatusesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetAllFullUnitStatusesForApplication mocks base method.
-func (m *MockState) GetAllFullUnitStatusesForApplication(arg0 context.Context, arg1 application.ID) (status.FullUnitStatuses, error) {
+func (m *MockModelState) GetAllFullUnitStatusesForApplication(arg0 context.Context, arg1 application.ID) (status.FullUnitStatuses, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllFullUnitStatusesForApplication", arg0, arg1)
 	ret0, _ := ret[0].(status.FullUnitStatuses)
@@ -130,37 +130,37 @@ func (m *MockState) GetAllFullUnitStatusesForApplication(arg0 context.Context, a
 }
 
 // GetAllFullUnitStatusesForApplication indicates an expected call of GetAllFullUnitStatusesForApplication.
-func (mr *MockStateMockRecorder) GetAllFullUnitStatusesForApplication(arg0, arg1 any) *MockStateGetAllFullUnitStatusesForApplicationCall {
+func (mr *MockModelStateMockRecorder) GetAllFullUnitStatusesForApplication(arg0, arg1 any) *MockModelStateGetAllFullUnitStatusesForApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllFullUnitStatusesForApplication", reflect.TypeOf((*MockState)(nil).GetAllFullUnitStatusesForApplication), arg0, arg1)
-	return &MockStateGetAllFullUnitStatusesForApplicationCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllFullUnitStatusesForApplication", reflect.TypeOf((*MockModelState)(nil).GetAllFullUnitStatusesForApplication), arg0, arg1)
+	return &MockModelStateGetAllFullUnitStatusesForApplicationCall{Call: call}
 }
 
-// MockStateGetAllFullUnitStatusesForApplicationCall wrap *gomock.Call
-type MockStateGetAllFullUnitStatusesForApplicationCall struct {
+// MockModelStateGetAllFullUnitStatusesForApplicationCall wrap *gomock.Call
+type MockModelStateGetAllFullUnitStatusesForApplicationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllFullUnitStatusesForApplicationCall) Return(arg0 status.FullUnitStatuses, arg1 error) *MockStateGetAllFullUnitStatusesForApplicationCall {
+func (c *MockModelStateGetAllFullUnitStatusesForApplicationCall) Return(arg0 status.FullUnitStatuses, arg1 error) *MockModelStateGetAllFullUnitStatusesForApplicationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllFullUnitStatusesForApplicationCall) Do(f func(context.Context, application.ID) (status.FullUnitStatuses, error)) *MockStateGetAllFullUnitStatusesForApplicationCall {
+func (c *MockModelStateGetAllFullUnitStatusesForApplicationCall) Do(f func(context.Context, application.ID) (status.FullUnitStatuses, error)) *MockModelStateGetAllFullUnitStatusesForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllFullUnitStatusesForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (status.FullUnitStatuses, error)) *MockStateGetAllFullUnitStatusesForApplicationCall {
+func (c *MockModelStateGetAllFullUnitStatusesForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (status.FullUnitStatuses, error)) *MockModelStateGetAllFullUnitStatusesForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetAllRelationStatuses mocks base method.
-func (m *MockState) GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error) {
+func (m *MockModelState) GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllRelationStatuses", ctx)
 	ret0, _ := ret[0].([]status.RelationStatusInfo)
@@ -169,37 +169,37 @@ func (m *MockState) GetAllRelationStatuses(ctx context.Context) ([]status.Relati
 }
 
 // GetAllRelationStatuses indicates an expected call of GetAllRelationStatuses.
-func (mr *MockStateMockRecorder) GetAllRelationStatuses(ctx any) *MockStateGetAllRelationStatusesCall {
+func (mr *MockModelStateMockRecorder) GetAllRelationStatuses(ctx any) *MockModelStateGetAllRelationStatusesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllRelationStatuses", reflect.TypeOf((*MockState)(nil).GetAllRelationStatuses), ctx)
-	return &MockStateGetAllRelationStatusesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllRelationStatuses", reflect.TypeOf((*MockModelState)(nil).GetAllRelationStatuses), ctx)
+	return &MockModelStateGetAllRelationStatusesCall{Call: call}
 }
 
-// MockStateGetAllRelationStatusesCall wrap *gomock.Call
-type MockStateGetAllRelationStatusesCall struct {
+// MockModelStateGetAllRelationStatusesCall wrap *gomock.Call
+type MockModelStateGetAllRelationStatusesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllRelationStatusesCall) Return(arg0 []status.RelationStatusInfo, arg1 error) *MockStateGetAllRelationStatusesCall {
+func (c *MockModelStateGetAllRelationStatusesCall) Return(arg0 []status.RelationStatusInfo, arg1 error) *MockModelStateGetAllRelationStatusesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllRelationStatusesCall) Do(f func(context.Context) ([]status.RelationStatusInfo, error)) *MockStateGetAllRelationStatusesCall {
+func (c *MockModelStateGetAllRelationStatusesCall) Do(f func(context.Context) ([]status.RelationStatusInfo, error)) *MockModelStateGetAllRelationStatusesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllRelationStatusesCall) DoAndReturn(f func(context.Context) ([]status.RelationStatusInfo, error)) *MockStateGetAllRelationStatusesCall {
+func (c *MockModelStateGetAllRelationStatusesCall) DoAndReturn(f func(context.Context) ([]status.RelationStatusInfo, error)) *MockModelStateGetAllRelationStatusesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetAllUnitWorkloadAgentStatuses mocks base method.
-func (m *MockState) GetAllUnitWorkloadAgentStatuses(arg0 context.Context) (status.UnitWorkloadAgentStatuses, error) {
+func (m *MockModelState) GetAllUnitWorkloadAgentStatuses(arg0 context.Context) (status.UnitWorkloadAgentStatuses, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllUnitWorkloadAgentStatuses", arg0)
 	ret0, _ := ret[0].(status.UnitWorkloadAgentStatuses)
@@ -208,37 +208,37 @@ func (m *MockState) GetAllUnitWorkloadAgentStatuses(arg0 context.Context) (statu
 }
 
 // GetAllUnitWorkloadAgentStatuses indicates an expected call of GetAllUnitWorkloadAgentStatuses.
-func (mr *MockStateMockRecorder) GetAllUnitWorkloadAgentStatuses(arg0 any) *MockStateGetAllUnitWorkloadAgentStatusesCall {
+func (mr *MockModelStateMockRecorder) GetAllUnitWorkloadAgentStatuses(arg0 any) *MockModelStateGetAllUnitWorkloadAgentStatusesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUnitWorkloadAgentStatuses", reflect.TypeOf((*MockState)(nil).GetAllUnitWorkloadAgentStatuses), arg0)
-	return &MockStateGetAllUnitWorkloadAgentStatusesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUnitWorkloadAgentStatuses", reflect.TypeOf((*MockModelState)(nil).GetAllUnitWorkloadAgentStatuses), arg0)
+	return &MockModelStateGetAllUnitWorkloadAgentStatusesCall{Call: call}
 }
 
-// MockStateGetAllUnitWorkloadAgentStatusesCall wrap *gomock.Call
-type MockStateGetAllUnitWorkloadAgentStatusesCall struct {
+// MockModelStateGetAllUnitWorkloadAgentStatusesCall wrap *gomock.Call
+type MockModelStateGetAllUnitWorkloadAgentStatusesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllUnitWorkloadAgentStatusesCall) Return(arg0 status.UnitWorkloadAgentStatuses, arg1 error) *MockStateGetAllUnitWorkloadAgentStatusesCall {
+func (c *MockModelStateGetAllUnitWorkloadAgentStatusesCall) Return(arg0 status.UnitWorkloadAgentStatuses, arg1 error) *MockModelStateGetAllUnitWorkloadAgentStatusesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllUnitWorkloadAgentStatusesCall) Do(f func(context.Context) (status.UnitWorkloadAgentStatuses, error)) *MockStateGetAllUnitWorkloadAgentStatusesCall {
+func (c *MockModelStateGetAllUnitWorkloadAgentStatusesCall) Do(f func(context.Context) (status.UnitWorkloadAgentStatuses, error)) *MockModelStateGetAllUnitWorkloadAgentStatusesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllUnitWorkloadAgentStatusesCall) DoAndReturn(f func(context.Context) (status.UnitWorkloadAgentStatuses, error)) *MockStateGetAllUnitWorkloadAgentStatusesCall {
+func (c *MockModelStateGetAllUnitWorkloadAgentStatusesCall) DoAndReturn(f func(context.Context) (status.UnitWorkloadAgentStatuses, error)) *MockModelStateGetAllUnitWorkloadAgentStatusesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetApplicationAndUnitModelStatuses mocks base method.
-func (m *MockState) GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error) {
+func (m *MockModelState) GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationAndUnitModelStatuses", ctx)
 	ret0, _ := ret[0].(map[string]int)
@@ -247,37 +247,37 @@ func (m *MockState) GetApplicationAndUnitModelStatuses(ctx context.Context) (map
 }
 
 // GetApplicationAndUnitModelStatuses indicates an expected call of GetApplicationAndUnitModelStatuses.
-func (mr *MockStateMockRecorder) GetApplicationAndUnitModelStatuses(ctx any) *MockStateGetApplicationAndUnitModelStatusesCall {
+func (mr *MockModelStateMockRecorder) GetApplicationAndUnitModelStatuses(ctx any) *MockModelStateGetApplicationAndUnitModelStatusesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationAndUnitModelStatuses", reflect.TypeOf((*MockState)(nil).GetApplicationAndUnitModelStatuses), ctx)
-	return &MockStateGetApplicationAndUnitModelStatusesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationAndUnitModelStatuses", reflect.TypeOf((*MockModelState)(nil).GetApplicationAndUnitModelStatuses), ctx)
+	return &MockModelStateGetApplicationAndUnitModelStatusesCall{Call: call}
 }
 
-// MockStateGetApplicationAndUnitModelStatusesCall wrap *gomock.Call
-type MockStateGetApplicationAndUnitModelStatusesCall struct {
+// MockModelStateGetApplicationAndUnitModelStatusesCall wrap *gomock.Call
+type MockModelStateGetApplicationAndUnitModelStatusesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationAndUnitModelStatusesCall) Return(arg0 map[string]int, arg1 error) *MockStateGetApplicationAndUnitModelStatusesCall {
+func (c *MockModelStateGetApplicationAndUnitModelStatusesCall) Return(arg0 map[string]int, arg1 error) *MockModelStateGetApplicationAndUnitModelStatusesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationAndUnitModelStatusesCall) Do(f func(context.Context) (map[string]int, error)) *MockStateGetApplicationAndUnitModelStatusesCall {
+func (c *MockModelStateGetApplicationAndUnitModelStatusesCall) Do(f func(context.Context) (map[string]int, error)) *MockModelStateGetApplicationAndUnitModelStatusesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationAndUnitModelStatusesCall) DoAndReturn(f func(context.Context) (map[string]int, error)) *MockStateGetApplicationAndUnitModelStatusesCall {
+func (c *MockModelStateGetApplicationAndUnitModelStatusesCall) DoAndReturn(f func(context.Context) (map[string]int, error)) *MockModelStateGetApplicationAndUnitModelStatusesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetApplicationAndUnitStatuses mocks base method.
-func (m *MockState) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]status.Application, error) {
+func (m *MockModelState) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]status.Application, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationAndUnitStatuses", ctx)
 	ret0, _ := ret[0].(map[string]status.Application)
@@ -286,37 +286,37 @@ func (m *MockState) GetApplicationAndUnitStatuses(ctx context.Context) (map[stri
 }
 
 // GetApplicationAndUnitStatuses indicates an expected call of GetApplicationAndUnitStatuses.
-func (mr *MockStateMockRecorder) GetApplicationAndUnitStatuses(ctx any) *MockStateGetApplicationAndUnitStatusesCall {
+func (mr *MockModelStateMockRecorder) GetApplicationAndUnitStatuses(ctx any) *MockModelStateGetApplicationAndUnitStatusesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationAndUnitStatuses", reflect.TypeOf((*MockState)(nil).GetApplicationAndUnitStatuses), ctx)
-	return &MockStateGetApplicationAndUnitStatusesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationAndUnitStatuses", reflect.TypeOf((*MockModelState)(nil).GetApplicationAndUnitStatuses), ctx)
+	return &MockModelStateGetApplicationAndUnitStatusesCall{Call: call}
 }
 
-// MockStateGetApplicationAndUnitStatusesCall wrap *gomock.Call
-type MockStateGetApplicationAndUnitStatusesCall struct {
+// MockModelStateGetApplicationAndUnitStatusesCall wrap *gomock.Call
+type MockModelStateGetApplicationAndUnitStatusesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationAndUnitStatusesCall) Return(arg0 map[string]status.Application, arg1 error) *MockStateGetApplicationAndUnitStatusesCall {
+func (c *MockModelStateGetApplicationAndUnitStatusesCall) Return(arg0 map[string]status.Application, arg1 error) *MockModelStateGetApplicationAndUnitStatusesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationAndUnitStatusesCall) Do(f func(context.Context) (map[string]status.Application, error)) *MockStateGetApplicationAndUnitStatusesCall {
+func (c *MockModelStateGetApplicationAndUnitStatusesCall) Do(f func(context.Context) (map[string]status.Application, error)) *MockModelStateGetApplicationAndUnitStatusesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationAndUnitStatusesCall) DoAndReturn(f func(context.Context) (map[string]status.Application, error)) *MockStateGetApplicationAndUnitStatusesCall {
+func (c *MockModelStateGetApplicationAndUnitStatusesCall) DoAndReturn(f func(context.Context) (map[string]status.Application, error)) *MockModelStateGetApplicationAndUnitStatusesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetApplicationIDAndNameByUnitName mocks base method.
-func (m *MockState) GetApplicationIDAndNameByUnitName(ctx context.Context, name unit.Name) (application.ID, string, error) {
+func (m *MockModelState) GetApplicationIDAndNameByUnitName(ctx context.Context, name unit.Name) (application.ID, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationIDAndNameByUnitName", ctx, name)
 	ret0, _ := ret[0].(application.ID)
@@ -326,37 +326,37 @@ func (m *MockState) GetApplicationIDAndNameByUnitName(ctx context.Context, name 
 }
 
 // GetApplicationIDAndNameByUnitName indicates an expected call of GetApplicationIDAndNameByUnitName.
-func (mr *MockStateMockRecorder) GetApplicationIDAndNameByUnitName(ctx, name any) *MockStateGetApplicationIDAndNameByUnitNameCall {
+func (mr *MockModelStateMockRecorder) GetApplicationIDAndNameByUnitName(ctx, name any) *MockModelStateGetApplicationIDAndNameByUnitNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDAndNameByUnitName", reflect.TypeOf((*MockState)(nil).GetApplicationIDAndNameByUnitName), ctx, name)
-	return &MockStateGetApplicationIDAndNameByUnitNameCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDAndNameByUnitName", reflect.TypeOf((*MockModelState)(nil).GetApplicationIDAndNameByUnitName), ctx, name)
+	return &MockModelStateGetApplicationIDAndNameByUnitNameCall{Call: call}
 }
 
-// MockStateGetApplicationIDAndNameByUnitNameCall wrap *gomock.Call
-type MockStateGetApplicationIDAndNameByUnitNameCall struct {
+// MockModelStateGetApplicationIDAndNameByUnitNameCall wrap *gomock.Call
+type MockModelStateGetApplicationIDAndNameByUnitNameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationIDAndNameByUnitNameCall) Return(arg0 application.ID, arg1 string, arg2 error) *MockStateGetApplicationIDAndNameByUnitNameCall {
+func (c *MockModelStateGetApplicationIDAndNameByUnitNameCall) Return(arg0 application.ID, arg1 string, arg2 error) *MockModelStateGetApplicationIDAndNameByUnitNameCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationIDAndNameByUnitNameCall) Do(f func(context.Context, unit.Name) (application.ID, string, error)) *MockStateGetApplicationIDAndNameByUnitNameCall {
+func (c *MockModelStateGetApplicationIDAndNameByUnitNameCall) Do(f func(context.Context, unit.Name) (application.ID, string, error)) *MockModelStateGetApplicationIDAndNameByUnitNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationIDAndNameByUnitNameCall) DoAndReturn(f func(context.Context, unit.Name) (application.ID, string, error)) *MockStateGetApplicationIDAndNameByUnitNameCall {
+func (c *MockModelStateGetApplicationIDAndNameByUnitNameCall) DoAndReturn(f func(context.Context, unit.Name) (application.ID, string, error)) *MockModelStateGetApplicationIDAndNameByUnitNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetApplicationIDByName mocks base method.
-func (m *MockState) GetApplicationIDByName(ctx context.Context, name string) (application.ID, error) {
+func (m *MockModelState) GetApplicationIDByName(ctx context.Context, name string) (application.ID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationIDByName", ctx, name)
 	ret0, _ := ret[0].(application.ID)
@@ -365,37 +365,37 @@ func (m *MockState) GetApplicationIDByName(ctx context.Context, name string) (ap
 }
 
 // GetApplicationIDByName indicates an expected call of GetApplicationIDByName.
-func (mr *MockStateMockRecorder) GetApplicationIDByName(ctx, name any) *MockStateGetApplicationIDByNameCall {
+func (mr *MockModelStateMockRecorder) GetApplicationIDByName(ctx, name any) *MockModelStateGetApplicationIDByNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByName", reflect.TypeOf((*MockState)(nil).GetApplicationIDByName), ctx, name)
-	return &MockStateGetApplicationIDByNameCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByName", reflect.TypeOf((*MockModelState)(nil).GetApplicationIDByName), ctx, name)
+	return &MockModelStateGetApplicationIDByNameCall{Call: call}
 }
 
-// MockStateGetApplicationIDByNameCall wrap *gomock.Call
-type MockStateGetApplicationIDByNameCall struct {
+// MockModelStateGetApplicationIDByNameCall wrap *gomock.Call
+type MockModelStateGetApplicationIDByNameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationIDByNameCall) Return(arg0 application.ID, arg1 error) *MockStateGetApplicationIDByNameCall {
+func (c *MockModelStateGetApplicationIDByNameCall) Return(arg0 application.ID, arg1 error) *MockModelStateGetApplicationIDByNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationIDByNameCall) Do(f func(context.Context, string) (application.ID, error)) *MockStateGetApplicationIDByNameCall {
+func (c *MockModelStateGetApplicationIDByNameCall) Do(f func(context.Context, string) (application.ID, error)) *MockModelStateGetApplicationIDByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationIDByNameCall) DoAndReturn(f func(context.Context, string) (application.ID, error)) *MockStateGetApplicationIDByNameCall {
+func (c *MockModelStateGetApplicationIDByNameCall) DoAndReturn(f func(context.Context, string) (application.ID, error)) *MockModelStateGetApplicationIDByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetApplicationStatus mocks base method.
-func (m *MockState) GetApplicationStatus(ctx context.Context, appID application.ID) (status.StatusInfo[status.WorkloadStatusType], error) {
+func (m *MockModelState) GetApplicationStatus(ctx context.Context, appID application.ID) (status.StatusInfo[status.WorkloadStatusType], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationStatus", ctx, appID)
 	ret0, _ := ret[0].(status.StatusInfo[status.WorkloadStatusType])
@@ -404,37 +404,37 @@ func (m *MockState) GetApplicationStatus(ctx context.Context, appID application.
 }
 
 // GetApplicationStatus indicates an expected call of GetApplicationStatus.
-func (mr *MockStateMockRecorder) GetApplicationStatus(ctx, appID any) *MockStateGetApplicationStatusCall {
+func (mr *MockModelStateMockRecorder) GetApplicationStatus(ctx, appID any) *MockModelStateGetApplicationStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationStatus", reflect.TypeOf((*MockState)(nil).GetApplicationStatus), ctx, appID)
-	return &MockStateGetApplicationStatusCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationStatus", reflect.TypeOf((*MockModelState)(nil).GetApplicationStatus), ctx, appID)
+	return &MockModelStateGetApplicationStatusCall{Call: call}
 }
 
-// MockStateGetApplicationStatusCall wrap *gomock.Call
-type MockStateGetApplicationStatusCall struct {
+// MockModelStateGetApplicationStatusCall wrap *gomock.Call
+type MockModelStateGetApplicationStatusCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationStatusCall) Return(arg0 status.StatusInfo[status.WorkloadStatusType], arg1 error) *MockStateGetApplicationStatusCall {
+func (c *MockModelStateGetApplicationStatusCall) Return(arg0 status.StatusInfo[status.WorkloadStatusType], arg1 error) *MockModelStateGetApplicationStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationStatusCall) Do(f func(context.Context, application.ID) (status.StatusInfo[status.WorkloadStatusType], error)) *MockStateGetApplicationStatusCall {
+func (c *MockModelStateGetApplicationStatusCall) Do(f func(context.Context, application.ID) (status.StatusInfo[status.WorkloadStatusType], error)) *MockModelStateGetApplicationStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationStatusCall) DoAndReturn(f func(context.Context, application.ID) (status.StatusInfo[status.WorkloadStatusType], error)) *MockStateGetApplicationStatusCall {
+func (c *MockModelStateGetApplicationStatusCall) DoAndReturn(f func(context.Context, application.ID) (status.StatusInfo[status.WorkloadStatusType], error)) *MockModelStateGetApplicationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetModelStatusInfo mocks base method.
-func (m *MockState) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error) {
+func (m *MockModelState) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelStatusInfo", ctx)
 	ret0, _ := ret[0].(status.ModelStatusInfo)
@@ -443,37 +443,37 @@ func (m *MockState) GetModelStatusInfo(ctx context.Context) (status.ModelStatusI
 }
 
 // GetModelStatusInfo indicates an expected call of GetModelStatusInfo.
-func (mr *MockStateMockRecorder) GetModelStatusInfo(ctx any) *MockStateGetModelStatusInfoCall {
+func (mr *MockModelStateMockRecorder) GetModelStatusInfo(ctx any) *MockModelStateGetModelStatusInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelStatusInfo", reflect.TypeOf((*MockState)(nil).GetModelStatusInfo), ctx)
-	return &MockStateGetModelStatusInfoCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelStatusInfo", reflect.TypeOf((*MockModelState)(nil).GetModelStatusInfo), ctx)
+	return &MockModelStateGetModelStatusInfoCall{Call: call}
 }
 
-// MockStateGetModelStatusInfoCall wrap *gomock.Call
-type MockStateGetModelStatusInfoCall struct {
+// MockModelStateGetModelStatusInfoCall wrap *gomock.Call
+type MockModelStateGetModelStatusInfoCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetModelStatusInfoCall) Return(arg0 status.ModelStatusInfo, arg1 error) *MockStateGetModelStatusInfoCall {
+func (c *MockModelStateGetModelStatusInfoCall) Return(arg0 status.ModelStatusInfo, arg1 error) *MockModelStateGetModelStatusInfoCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelStatusInfoCall) Do(f func(context.Context) (status.ModelStatusInfo, error)) *MockStateGetModelStatusInfoCall {
+func (c *MockModelStateGetModelStatusInfoCall) Do(f func(context.Context) (status.ModelStatusInfo, error)) *MockModelStateGetModelStatusInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelStatusInfoCall) DoAndReturn(f func(context.Context) (status.ModelStatusInfo, error)) *MockStateGetModelStatusInfoCall {
+func (c *MockModelStateGetModelStatusInfoCall) DoAndReturn(f func(context.Context) (status.ModelStatusInfo, error)) *MockModelStateGetModelStatusInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetRelationUUIDByID mocks base method.
-func (m *MockState) GetRelationUUIDByID(ctx context.Context, id int) (relation.UUID, error) {
+func (m *MockModelState) GetRelationUUIDByID(ctx context.Context, id int) (relation.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRelationUUIDByID", ctx, id)
 	ret0, _ := ret[0].(relation.UUID)
@@ -482,37 +482,37 @@ func (m *MockState) GetRelationUUIDByID(ctx context.Context, id int) (relation.U
 }
 
 // GetRelationUUIDByID indicates an expected call of GetRelationUUIDByID.
-func (mr *MockStateMockRecorder) GetRelationUUIDByID(ctx, id any) *MockStateGetRelationUUIDByIDCall {
+func (mr *MockModelStateMockRecorder) GetRelationUUIDByID(ctx, id any) *MockModelStateGetRelationUUIDByIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUUIDByID", reflect.TypeOf((*MockState)(nil).GetRelationUUIDByID), ctx, id)
-	return &MockStateGetRelationUUIDByIDCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUUIDByID", reflect.TypeOf((*MockModelState)(nil).GetRelationUUIDByID), ctx, id)
+	return &MockModelStateGetRelationUUIDByIDCall{Call: call}
 }
 
-// MockStateGetRelationUUIDByIDCall wrap *gomock.Call
-type MockStateGetRelationUUIDByIDCall struct {
+// MockModelStateGetRelationUUIDByIDCall wrap *gomock.Call
+type MockModelStateGetRelationUUIDByIDCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetRelationUUIDByIDCall) Return(arg0 relation.UUID, arg1 error) *MockStateGetRelationUUIDByIDCall {
+func (c *MockModelStateGetRelationUUIDByIDCall) Return(arg0 relation.UUID, arg1 error) *MockModelStateGetRelationUUIDByIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetRelationUUIDByIDCall) Do(f func(context.Context, int) (relation.UUID, error)) *MockStateGetRelationUUIDByIDCall {
+func (c *MockModelStateGetRelationUUIDByIDCall) Do(f func(context.Context, int) (relation.UUID, error)) *MockModelStateGetRelationUUIDByIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetRelationUUIDByIDCall) DoAndReturn(f func(context.Context, int) (relation.UUID, error)) *MockStateGetRelationUUIDByIDCall {
+func (c *MockModelStateGetRelationUUIDByIDCall) DoAndReturn(f func(context.Context, int) (relation.UUID, error)) *MockModelStateGetRelationUUIDByIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitAgentStatus mocks base method.
-func (m *MockState) GetUnitAgentStatus(arg0 context.Context, arg1 unit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error) {
+func (m *MockModelState) GetUnitAgentStatus(arg0 context.Context, arg1 unit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitAgentStatus", arg0, arg1)
 	ret0, _ := ret[0].(status.UnitStatusInfo[status.UnitAgentStatusType])
@@ -521,37 +521,37 @@ func (m *MockState) GetUnitAgentStatus(arg0 context.Context, arg1 unit.UUID) (st
 }
 
 // GetUnitAgentStatus indicates an expected call of GetUnitAgentStatus.
-func (mr *MockStateMockRecorder) GetUnitAgentStatus(arg0, arg1 any) *MockStateGetUnitAgentStatusCall {
+func (mr *MockModelStateMockRecorder) GetUnitAgentStatus(arg0, arg1 any) *MockModelStateGetUnitAgentStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAgentStatus", reflect.TypeOf((*MockState)(nil).GetUnitAgentStatus), arg0, arg1)
-	return &MockStateGetUnitAgentStatusCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAgentStatus", reflect.TypeOf((*MockModelState)(nil).GetUnitAgentStatus), arg0, arg1)
+	return &MockModelStateGetUnitAgentStatusCall{Call: call}
 }
 
-// MockStateGetUnitAgentStatusCall wrap *gomock.Call
-type MockStateGetUnitAgentStatusCall struct {
+// MockModelStateGetUnitAgentStatusCall wrap *gomock.Call
+type MockModelStateGetUnitAgentStatusCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetUnitAgentStatusCall) Return(arg0 status.UnitStatusInfo[status.UnitAgentStatusType], arg1 error) *MockStateGetUnitAgentStatusCall {
+func (c *MockModelStateGetUnitAgentStatusCall) Return(arg0 status.UnitStatusInfo[status.UnitAgentStatusType], arg1 error) *MockModelStateGetUnitAgentStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitAgentStatusCall) Do(f func(context.Context, unit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error)) *MockStateGetUnitAgentStatusCall {
+func (c *MockModelStateGetUnitAgentStatusCall) Do(f func(context.Context, unit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error)) *MockModelStateGetUnitAgentStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitAgentStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error)) *MockStateGetUnitAgentStatusCall {
+func (c *MockModelStateGetUnitAgentStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error)) *MockModelStateGetUnitAgentStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitK8sPodStatus mocks base method.
-func (m *MockState) GetUnitK8sPodStatus(arg0 context.Context, arg1 unit.UUID) (status.StatusInfo[status.K8sPodStatusType], error) {
+func (m *MockModelState) GetUnitK8sPodStatus(arg0 context.Context, arg1 unit.UUID) (status.StatusInfo[status.K8sPodStatusType], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitK8sPodStatus", arg0, arg1)
 	ret0, _ := ret[0].(status.StatusInfo[status.K8sPodStatusType])
@@ -560,37 +560,37 @@ func (m *MockState) GetUnitK8sPodStatus(arg0 context.Context, arg1 unit.UUID) (s
 }
 
 // GetUnitK8sPodStatus indicates an expected call of GetUnitK8sPodStatus.
-func (mr *MockStateMockRecorder) GetUnitK8sPodStatus(arg0, arg1 any) *MockStateGetUnitK8sPodStatusCall {
+func (mr *MockModelStateMockRecorder) GetUnitK8sPodStatus(arg0, arg1 any) *MockModelStateGetUnitK8sPodStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitK8sPodStatus", reflect.TypeOf((*MockState)(nil).GetUnitK8sPodStatus), arg0, arg1)
-	return &MockStateGetUnitK8sPodStatusCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitK8sPodStatus", reflect.TypeOf((*MockModelState)(nil).GetUnitK8sPodStatus), arg0, arg1)
+	return &MockModelStateGetUnitK8sPodStatusCall{Call: call}
 }
 
-// MockStateGetUnitK8sPodStatusCall wrap *gomock.Call
-type MockStateGetUnitK8sPodStatusCall struct {
+// MockModelStateGetUnitK8sPodStatusCall wrap *gomock.Call
+type MockModelStateGetUnitK8sPodStatusCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetUnitK8sPodStatusCall) Return(arg0 status.StatusInfo[status.K8sPodStatusType], arg1 error) *MockStateGetUnitK8sPodStatusCall {
+func (c *MockModelStateGetUnitK8sPodStatusCall) Return(arg0 status.StatusInfo[status.K8sPodStatusType], arg1 error) *MockModelStateGetUnitK8sPodStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitK8sPodStatusCall) Do(f func(context.Context, unit.UUID) (status.StatusInfo[status.K8sPodStatusType], error)) *MockStateGetUnitK8sPodStatusCall {
+func (c *MockModelStateGetUnitK8sPodStatusCall) Do(f func(context.Context, unit.UUID) (status.StatusInfo[status.K8sPodStatusType], error)) *MockModelStateGetUnitK8sPodStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitK8sPodStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (status.StatusInfo[status.K8sPodStatusType], error)) *MockStateGetUnitK8sPodStatusCall {
+func (c *MockModelStateGetUnitK8sPodStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (status.StatusInfo[status.K8sPodStatusType], error)) *MockModelStateGetUnitK8sPodStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitUUIDByName mocks base method.
-func (m *MockState) GetUnitUUIDByName(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
+func (m *MockModelState) GetUnitUUIDByName(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitUUIDByName", arg0, arg1)
 	ret0, _ := ret[0].(unit.UUID)
@@ -599,37 +599,37 @@ func (m *MockState) GetUnitUUIDByName(arg0 context.Context, arg1 unit.Name) (uni
 }
 
 // GetUnitUUIDByName indicates an expected call of GetUnitUUIDByName.
-func (mr *MockStateMockRecorder) GetUnitUUIDByName(arg0, arg1 any) *MockStateGetUnitUUIDByNameCall {
+func (mr *MockModelStateMockRecorder) GetUnitUUIDByName(arg0, arg1 any) *MockModelStateGetUnitUUIDByNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUIDByName", reflect.TypeOf((*MockState)(nil).GetUnitUUIDByName), arg0, arg1)
-	return &MockStateGetUnitUUIDByNameCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUIDByName", reflect.TypeOf((*MockModelState)(nil).GetUnitUUIDByName), arg0, arg1)
+	return &MockModelStateGetUnitUUIDByNameCall{Call: call}
 }
 
-// MockStateGetUnitUUIDByNameCall wrap *gomock.Call
-type MockStateGetUnitUUIDByNameCall struct {
+// MockModelStateGetUnitUUIDByNameCall wrap *gomock.Call
+type MockModelStateGetUnitUUIDByNameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetUnitUUIDByNameCall) Return(arg0 unit.UUID, arg1 error) *MockStateGetUnitUUIDByNameCall {
+func (c *MockModelStateGetUnitUUIDByNameCall) Return(arg0 unit.UUID, arg1 error) *MockModelStateGetUnitUUIDByNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitUUIDByNameCall) Do(f func(context.Context, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDByNameCall {
+func (c *MockModelStateGetUnitUUIDByNameCall) Do(f func(context.Context, unit.Name) (unit.UUID, error)) *MockModelStateGetUnitUUIDByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitUUIDByNameCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDByNameCall {
+func (c *MockModelStateGetUnitUUIDByNameCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockModelStateGetUnitUUIDByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitWorkloadStatus mocks base method.
-func (m *MockState) GetUnitWorkloadStatus(arg0 context.Context, arg1 unit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error) {
+func (m *MockModelState) GetUnitWorkloadStatus(arg0 context.Context, arg1 unit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitWorkloadStatus", arg0, arg1)
 	ret0, _ := ret[0].(status.UnitStatusInfo[status.WorkloadStatusType])
@@ -638,37 +638,37 @@ func (m *MockState) GetUnitWorkloadStatus(arg0 context.Context, arg1 unit.UUID) 
 }
 
 // GetUnitWorkloadStatus indicates an expected call of GetUnitWorkloadStatus.
-func (mr *MockStateMockRecorder) GetUnitWorkloadStatus(arg0, arg1 any) *MockStateGetUnitWorkloadStatusCall {
+func (mr *MockModelStateMockRecorder) GetUnitWorkloadStatus(arg0, arg1 any) *MockModelStateGetUnitWorkloadStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadStatus", reflect.TypeOf((*MockState)(nil).GetUnitWorkloadStatus), arg0, arg1)
-	return &MockStateGetUnitWorkloadStatusCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadStatus", reflect.TypeOf((*MockModelState)(nil).GetUnitWorkloadStatus), arg0, arg1)
+	return &MockModelStateGetUnitWorkloadStatusCall{Call: call}
 }
 
-// MockStateGetUnitWorkloadStatusCall wrap *gomock.Call
-type MockStateGetUnitWorkloadStatusCall struct {
+// MockModelStateGetUnitWorkloadStatusCall wrap *gomock.Call
+type MockModelStateGetUnitWorkloadStatusCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetUnitWorkloadStatusCall) Return(arg0 status.UnitStatusInfo[status.WorkloadStatusType], arg1 error) *MockStateGetUnitWorkloadStatusCall {
+func (c *MockModelStateGetUnitWorkloadStatusCall) Return(arg0 status.UnitStatusInfo[status.WorkloadStatusType], arg1 error) *MockModelStateGetUnitWorkloadStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitWorkloadStatusCall) Do(f func(context.Context, unit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error)) *MockStateGetUnitWorkloadStatusCall {
+func (c *MockModelStateGetUnitWorkloadStatusCall) Do(f func(context.Context, unit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error)) *MockModelStateGetUnitWorkloadStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error)) *MockStateGetUnitWorkloadStatusCall {
+func (c *MockModelStateGetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error)) *MockModelStateGetUnitWorkloadStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitWorkloadStatusesForApplication mocks base method.
-func (m *MockState) GetUnitWorkloadStatusesForApplication(arg0 context.Context, arg1 application.ID) (status.UnitWorkloadStatuses, error) {
+func (m *MockModelState) GetUnitWorkloadStatusesForApplication(arg0 context.Context, arg1 application.ID) (status.UnitWorkloadStatuses, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitWorkloadStatusesForApplication", arg0, arg1)
 	ret0, _ := ret[0].(status.UnitWorkloadStatuses)
@@ -677,37 +677,37 @@ func (m *MockState) GetUnitWorkloadStatusesForApplication(arg0 context.Context, 
 }
 
 // GetUnitWorkloadStatusesForApplication indicates an expected call of GetUnitWorkloadStatusesForApplication.
-func (mr *MockStateMockRecorder) GetUnitWorkloadStatusesForApplication(arg0, arg1 any) *MockStateGetUnitWorkloadStatusesForApplicationCall {
+func (mr *MockModelStateMockRecorder) GetUnitWorkloadStatusesForApplication(arg0, arg1 any) *MockModelStateGetUnitWorkloadStatusesForApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadStatusesForApplication", reflect.TypeOf((*MockState)(nil).GetUnitWorkloadStatusesForApplication), arg0, arg1)
-	return &MockStateGetUnitWorkloadStatusesForApplicationCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadStatusesForApplication", reflect.TypeOf((*MockModelState)(nil).GetUnitWorkloadStatusesForApplication), arg0, arg1)
+	return &MockModelStateGetUnitWorkloadStatusesForApplicationCall{Call: call}
 }
 
-// MockStateGetUnitWorkloadStatusesForApplicationCall wrap *gomock.Call
-type MockStateGetUnitWorkloadStatusesForApplicationCall struct {
+// MockModelStateGetUnitWorkloadStatusesForApplicationCall wrap *gomock.Call
+type MockModelStateGetUnitWorkloadStatusesForApplicationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetUnitWorkloadStatusesForApplicationCall) Return(arg0 status.UnitWorkloadStatuses, arg1 error) *MockStateGetUnitWorkloadStatusesForApplicationCall {
+func (c *MockModelStateGetUnitWorkloadStatusesForApplicationCall) Return(arg0 status.UnitWorkloadStatuses, arg1 error) *MockModelStateGetUnitWorkloadStatusesForApplicationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitWorkloadStatusesForApplicationCall) Do(f func(context.Context, application.ID) (status.UnitWorkloadStatuses, error)) *MockStateGetUnitWorkloadStatusesForApplicationCall {
+func (c *MockModelStateGetUnitWorkloadStatusesForApplicationCall) Do(f func(context.Context, application.ID) (status.UnitWorkloadStatuses, error)) *MockModelStateGetUnitWorkloadStatusesForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitWorkloadStatusesForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (status.UnitWorkloadStatuses, error)) *MockStateGetUnitWorkloadStatusesForApplicationCall {
+func (c *MockModelStateGetUnitWorkloadStatusesForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (status.UnitWorkloadStatuses, error)) *MockModelStateGetUnitWorkloadStatusesForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ImportRelationStatus mocks base method.
-func (m *MockState) ImportRelationStatus(ctx context.Context, relationUUID relation.UUID, sts status.StatusInfo[status.RelationStatusType]) error {
+func (m *MockModelState) ImportRelationStatus(ctx context.Context, relationUUID relation.UUID, sts status.StatusInfo[status.RelationStatusType]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImportRelationStatus", ctx, relationUUID, sts)
 	ret0, _ := ret[0].(error)
@@ -715,37 +715,37 @@ func (m *MockState) ImportRelationStatus(ctx context.Context, relationUUID relat
 }
 
 // ImportRelationStatus indicates an expected call of ImportRelationStatus.
-func (mr *MockStateMockRecorder) ImportRelationStatus(ctx, relationUUID, sts any) *MockStateImportRelationStatusCall {
+func (mr *MockModelStateMockRecorder) ImportRelationStatus(ctx, relationUUID, sts any) *MockModelStateImportRelationStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportRelationStatus", reflect.TypeOf((*MockState)(nil).ImportRelationStatus), ctx, relationUUID, sts)
-	return &MockStateImportRelationStatusCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportRelationStatus", reflect.TypeOf((*MockModelState)(nil).ImportRelationStatus), ctx, relationUUID, sts)
+	return &MockModelStateImportRelationStatusCall{Call: call}
 }
 
-// MockStateImportRelationStatusCall wrap *gomock.Call
-type MockStateImportRelationStatusCall struct {
+// MockModelStateImportRelationStatusCall wrap *gomock.Call
+type MockModelStateImportRelationStatusCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateImportRelationStatusCall) Return(arg0 error) *MockStateImportRelationStatusCall {
+func (c *MockModelStateImportRelationStatusCall) Return(arg0 error) *MockModelStateImportRelationStatusCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateImportRelationStatusCall) Do(f func(context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType]) error) *MockStateImportRelationStatusCall {
+func (c *MockModelStateImportRelationStatusCall) Do(f func(context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType]) error) *MockModelStateImportRelationStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateImportRelationStatusCall) DoAndReturn(f func(context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType]) error) *MockStateImportRelationStatusCall {
+func (c *MockModelStateImportRelationStatusCall) DoAndReturn(f func(context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType]) error) *MockModelStateImportRelationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetApplicationStatus mocks base method.
-func (m *MockState) SetApplicationStatus(ctx context.Context, applicationID application.ID, status status.StatusInfo[status.WorkloadStatusType]) error {
+func (m *MockModelState) SetApplicationStatus(ctx context.Context, applicationID application.ID, status status.StatusInfo[status.WorkloadStatusType]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetApplicationStatus", ctx, applicationID, status)
 	ret0, _ := ret[0].(error)
@@ -753,37 +753,37 @@ func (m *MockState) SetApplicationStatus(ctx context.Context, applicationID appl
 }
 
 // SetApplicationStatus indicates an expected call of SetApplicationStatus.
-func (mr *MockStateMockRecorder) SetApplicationStatus(ctx, applicationID, status any) *MockStateSetApplicationStatusCall {
+func (mr *MockModelStateMockRecorder) SetApplicationStatus(ctx, applicationID, status any) *MockModelStateSetApplicationStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationStatus", reflect.TypeOf((*MockState)(nil).SetApplicationStatus), ctx, applicationID, status)
-	return &MockStateSetApplicationStatusCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationStatus", reflect.TypeOf((*MockModelState)(nil).SetApplicationStatus), ctx, applicationID, status)
+	return &MockModelStateSetApplicationStatusCall{Call: call}
 }
 
-// MockStateSetApplicationStatusCall wrap *gomock.Call
-type MockStateSetApplicationStatusCall struct {
+// MockModelStateSetApplicationStatusCall wrap *gomock.Call
+type MockModelStateSetApplicationStatusCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateSetApplicationStatusCall) Return(arg0 error) *MockStateSetApplicationStatusCall {
+func (c *MockModelStateSetApplicationStatusCall) Return(arg0 error) *MockModelStateSetApplicationStatusCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetApplicationStatusCall) Do(f func(context.Context, application.ID, status.StatusInfo[status.WorkloadStatusType]) error) *MockStateSetApplicationStatusCall {
+func (c *MockModelStateSetApplicationStatusCall) Do(f func(context.Context, application.ID, status.StatusInfo[status.WorkloadStatusType]) error) *MockModelStateSetApplicationStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetApplicationStatusCall) DoAndReturn(f func(context.Context, application.ID, status.StatusInfo[status.WorkloadStatusType]) error) *MockStateSetApplicationStatusCall {
+func (c *MockModelStateSetApplicationStatusCall) DoAndReturn(f func(context.Context, application.ID, status.StatusInfo[status.WorkloadStatusType]) error) *MockModelStateSetApplicationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetRelationStatus mocks base method.
-func (m *MockState) SetRelationStatus(ctx context.Context, relationUUID relation.UUID, sts status.StatusInfo[status.RelationStatusType]) error {
+func (m *MockModelState) SetRelationStatus(ctx context.Context, relationUUID relation.UUID, sts status.StatusInfo[status.RelationStatusType]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetRelationStatus", ctx, relationUUID, sts)
 	ret0, _ := ret[0].(error)
@@ -791,37 +791,37 @@ func (m *MockState) SetRelationStatus(ctx context.Context, relationUUID relation
 }
 
 // SetRelationStatus indicates an expected call of SetRelationStatus.
-func (mr *MockStateMockRecorder) SetRelationStatus(ctx, relationUUID, sts any) *MockStateSetRelationStatusCall {
+func (mr *MockModelStateMockRecorder) SetRelationStatus(ctx, relationUUID, sts any) *MockModelStateSetRelationStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelationStatus", reflect.TypeOf((*MockState)(nil).SetRelationStatus), ctx, relationUUID, sts)
-	return &MockStateSetRelationStatusCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelationStatus", reflect.TypeOf((*MockModelState)(nil).SetRelationStatus), ctx, relationUUID, sts)
+	return &MockModelStateSetRelationStatusCall{Call: call}
 }
 
-// MockStateSetRelationStatusCall wrap *gomock.Call
-type MockStateSetRelationStatusCall struct {
+// MockModelStateSetRelationStatusCall wrap *gomock.Call
+type MockModelStateSetRelationStatusCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateSetRelationStatusCall) Return(arg0 error) *MockStateSetRelationStatusCall {
+func (c *MockModelStateSetRelationStatusCall) Return(arg0 error) *MockModelStateSetRelationStatusCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetRelationStatusCall) Do(f func(context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType]) error) *MockStateSetRelationStatusCall {
+func (c *MockModelStateSetRelationStatusCall) Do(f func(context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType]) error) *MockModelStateSetRelationStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetRelationStatusCall) DoAndReturn(f func(context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType]) error) *MockStateSetRelationStatusCall {
+func (c *MockModelStateSetRelationStatusCall) DoAndReturn(f func(context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType]) error) *MockModelStateSetRelationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetUnitAgentStatus mocks base method.
-func (m *MockState) SetUnitAgentStatus(arg0 context.Context, arg1 unit.UUID, arg2 status.StatusInfo[status.UnitAgentStatusType]) error {
+func (m *MockModelState) SetUnitAgentStatus(arg0 context.Context, arg1 unit.UUID, arg2 status.StatusInfo[status.UnitAgentStatusType]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitAgentStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -829,37 +829,37 @@ func (m *MockState) SetUnitAgentStatus(arg0 context.Context, arg1 unit.UUID, arg
 }
 
 // SetUnitAgentStatus indicates an expected call of SetUnitAgentStatus.
-func (mr *MockStateMockRecorder) SetUnitAgentStatus(arg0, arg1, arg2 any) *MockStateSetUnitAgentStatusCall {
+func (mr *MockModelStateMockRecorder) SetUnitAgentStatus(arg0, arg1, arg2 any) *MockModelStateSetUnitAgentStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitAgentStatus", reflect.TypeOf((*MockState)(nil).SetUnitAgentStatus), arg0, arg1, arg2)
-	return &MockStateSetUnitAgentStatusCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitAgentStatus", reflect.TypeOf((*MockModelState)(nil).SetUnitAgentStatus), arg0, arg1, arg2)
+	return &MockModelStateSetUnitAgentStatusCall{Call: call}
 }
 
-// MockStateSetUnitAgentStatusCall wrap *gomock.Call
-type MockStateSetUnitAgentStatusCall struct {
+// MockModelStateSetUnitAgentStatusCall wrap *gomock.Call
+type MockModelStateSetUnitAgentStatusCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateSetUnitAgentStatusCall) Return(arg0 error) *MockStateSetUnitAgentStatusCall {
+func (c *MockModelStateSetUnitAgentStatusCall) Return(arg0 error) *MockModelStateSetUnitAgentStatusCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetUnitAgentStatusCall) Do(f func(context.Context, unit.UUID, status.StatusInfo[status.UnitAgentStatusType]) error) *MockStateSetUnitAgentStatusCall {
+func (c *MockModelStateSetUnitAgentStatusCall) Do(f func(context.Context, unit.UUID, status.StatusInfo[status.UnitAgentStatusType]) error) *MockModelStateSetUnitAgentStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetUnitAgentStatusCall) DoAndReturn(f func(context.Context, unit.UUID, status.StatusInfo[status.UnitAgentStatusType]) error) *MockStateSetUnitAgentStatusCall {
+func (c *MockModelStateSetUnitAgentStatusCall) DoAndReturn(f func(context.Context, unit.UUID, status.StatusInfo[status.UnitAgentStatusType]) error) *MockModelStateSetUnitAgentStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetUnitPresence mocks base method.
-func (m *MockState) SetUnitPresence(ctx context.Context, name unit.Name) error {
+func (m *MockModelState) SetUnitPresence(ctx context.Context, name unit.Name) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitPresence", ctx, name)
 	ret0, _ := ret[0].(error)
@@ -867,37 +867,37 @@ func (m *MockState) SetUnitPresence(ctx context.Context, name unit.Name) error {
 }
 
 // SetUnitPresence indicates an expected call of SetUnitPresence.
-func (mr *MockStateMockRecorder) SetUnitPresence(ctx, name any) *MockStateSetUnitPresenceCall {
+func (mr *MockModelStateMockRecorder) SetUnitPresence(ctx, name any) *MockModelStateSetUnitPresenceCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitPresence", reflect.TypeOf((*MockState)(nil).SetUnitPresence), ctx, name)
-	return &MockStateSetUnitPresenceCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitPresence", reflect.TypeOf((*MockModelState)(nil).SetUnitPresence), ctx, name)
+	return &MockModelStateSetUnitPresenceCall{Call: call}
 }
 
-// MockStateSetUnitPresenceCall wrap *gomock.Call
-type MockStateSetUnitPresenceCall struct {
+// MockModelStateSetUnitPresenceCall wrap *gomock.Call
+type MockModelStateSetUnitPresenceCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateSetUnitPresenceCall) Return(arg0 error) *MockStateSetUnitPresenceCall {
+func (c *MockModelStateSetUnitPresenceCall) Return(arg0 error) *MockModelStateSetUnitPresenceCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetUnitPresenceCall) Do(f func(context.Context, unit.Name) error) *MockStateSetUnitPresenceCall {
+func (c *MockModelStateSetUnitPresenceCall) Do(f func(context.Context, unit.Name) error) *MockModelStateSetUnitPresenceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetUnitPresenceCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockStateSetUnitPresenceCall {
+func (c *MockModelStateSetUnitPresenceCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockModelStateSetUnitPresenceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetUnitWorkloadStatus mocks base method.
-func (m *MockState) SetUnitWorkloadStatus(arg0 context.Context, arg1 unit.UUID, arg2 status.StatusInfo[status.WorkloadStatusType]) error {
+func (m *MockModelState) SetUnitWorkloadStatus(arg0 context.Context, arg1 unit.UUID, arg2 status.StatusInfo[status.WorkloadStatusType]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitWorkloadStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -905,31 +905,93 @@ func (m *MockState) SetUnitWorkloadStatus(arg0 context.Context, arg1 unit.UUID, 
 }
 
 // SetUnitWorkloadStatus indicates an expected call of SetUnitWorkloadStatus.
-func (mr *MockStateMockRecorder) SetUnitWorkloadStatus(arg0, arg1, arg2 any) *MockStateSetUnitWorkloadStatusCall {
+func (mr *MockModelStateMockRecorder) SetUnitWorkloadStatus(arg0, arg1, arg2 any) *MockModelStateSetUnitWorkloadStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitWorkloadStatus", reflect.TypeOf((*MockState)(nil).SetUnitWorkloadStatus), arg0, arg1, arg2)
-	return &MockStateSetUnitWorkloadStatusCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitWorkloadStatus", reflect.TypeOf((*MockModelState)(nil).SetUnitWorkloadStatus), arg0, arg1, arg2)
+	return &MockModelStateSetUnitWorkloadStatusCall{Call: call}
 }
 
-// MockStateSetUnitWorkloadStatusCall wrap *gomock.Call
-type MockStateSetUnitWorkloadStatusCall struct {
+// MockModelStateSetUnitWorkloadStatusCall wrap *gomock.Call
+type MockModelStateSetUnitWorkloadStatusCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateSetUnitWorkloadStatusCall) Return(arg0 error) *MockStateSetUnitWorkloadStatusCall {
+func (c *MockModelStateSetUnitWorkloadStatusCall) Return(arg0 error) *MockModelStateSetUnitWorkloadStatusCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetUnitWorkloadStatusCall) Do(f func(context.Context, unit.UUID, status.StatusInfo[status.WorkloadStatusType]) error) *MockStateSetUnitWorkloadStatusCall {
+func (c *MockModelStateSetUnitWorkloadStatusCall) Do(f func(context.Context, unit.UUID, status.StatusInfo[status.WorkloadStatusType]) error) *MockModelStateSetUnitWorkloadStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context, unit.UUID, status.StatusInfo[status.WorkloadStatusType]) error) *MockStateSetUnitWorkloadStatusCall {
+func (c *MockModelStateSetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context, unit.UUID, status.StatusInfo[status.WorkloadStatusType]) error) *MockModelStateSetUnitWorkloadStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockControllerState is a mock of ControllerState interface.
+type MockControllerState struct {
+	ctrl     *gomock.Controller
+	recorder *MockControllerStateMockRecorder
+}
+
+// MockControllerStateMockRecorder is the mock recorder for MockControllerState.
+type MockControllerStateMockRecorder struct {
+	mock *MockControllerState
+}
+
+// NewMockControllerState creates a new mock instance.
+func NewMockControllerState(ctrl *gomock.Controller) *MockControllerState {
+	mock := &MockControllerState{ctrl: ctrl}
+	mock.recorder = &MockControllerStateMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
+	return m.recorder
+}
+
+// GetModelStatusContext mocks base method.
+func (m *MockControllerState) GetModelStatusContext(arg0 context.Context) (status.ModelStatusContext, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelStatusContext", arg0)
+	ret0, _ := ret[0].(status.ModelStatusContext)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelStatusContext indicates an expected call of GetModelStatusContext.
+func (mr *MockControllerStateMockRecorder) GetModelStatusContext(arg0 any) *MockControllerStateGetModelStatusContextCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelStatusContext", reflect.TypeOf((*MockControllerState)(nil).GetModelStatusContext), arg0)
+	return &MockControllerStateGetModelStatusContextCall{Call: call}
+}
+
+// MockControllerStateGetModelStatusContextCall wrap *gomock.Call
+type MockControllerStateGetModelStatusContextCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateGetModelStatusContextCall) Return(arg0 status.ModelStatusContext, arg1 error) *MockControllerStateGetModelStatusContextCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateGetModelStatusContextCall) Do(f func(context.Context) (status.ModelStatusContext, error)) *MockControllerStateGetModelStatusContextCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateGetModelStatusContextCall) DoAndReturn(f func(context.Context) (status.ModelStatusContext, error)) *MockControllerStateGetModelStatusContextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

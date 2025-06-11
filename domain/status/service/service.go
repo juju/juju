@@ -13,7 +13,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
@@ -23,9 +22,9 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// State describes retrieval and persistence methods for the statuses of
+// ModelState describes retrieval and persistence methods for the statuses of
 // applications and units.
-type State interface {
+type ModelState interface {
 	// GetAllRelationStatuses returns all the relation statuses of the given model.
 	GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error)
 
@@ -173,11 +172,18 @@ type State interface {
 	GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error)
 }
 
+// ControllerState is the controller state required by the service.
+type ControllerState interface {
+	// GetModelStatusContext returns the status context for the given model.
+	// It returns [github.com/juju/juju/domain/model/errors.NotFound] if the model no longer exists.
+	GetModelStatusContext(context.Context) (status.ModelStatusContext, error)
+}
+
 // Service provides the API for working with the statuses of applications and
-// units.
+// units and the model.
 type Service struct {
-	st                    State
-	modelUUID             model.UUID
+	modelState            ModelState
+	controllerState       ControllerState
 	statusHistory         StatusHistory
 	statusHistoryReaderFn StatusHistoryReaderFunc
 	logger                logger.Logger
@@ -186,16 +192,16 @@ type Service struct {
 
 // NewService returns a new service reference wrapping the input state.
 func NewService(
-	st State,
-	modelUUID model.UUID,
+	modelState ModelState,
+	controllerState ControllerState,
 	statusHistory StatusHistory,
 	statusHistoryReaderFn StatusHistoryReaderFunc,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
-		st:                    st,
-		modelUUID:             modelUUID,
+		modelState:            modelState,
+		controllerState:       controllerState,
 		statusHistory:         statusHistory,
 		statusHistoryReaderFn: statusHistoryReaderFn,
 		logger:                logger,
@@ -208,7 +214,7 @@ func (s *Service) GetAllRelationStatuses(ctx context.Context) (map[corerelation.
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	statuses, err := s.st.GetAllRelationStatuses(ctx)
+	statuses, err := s.modelState.GetAllRelationStatuses(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -244,12 +250,12 @@ func (s *Service) SetApplicationStatus(
 		return errors.Errorf("encoding workload status: %w", err)
 	}
 
-	applicationID, err := s.st.GetApplicationIDByName(ctx, applicationName)
+	applicationID, err := s.modelState.GetApplicationIDByName(ctx, applicationName)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.st.SetApplicationStatus(ctx, applicationID, encodedStatus); err != nil {
+	if err := s.modelState.SetApplicationStatus(ctx, applicationID, encodedStatus); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -269,11 +275,11 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName strin
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appID, err := s.modelState.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
-	applicationStatus, err := s.st.GetApplicationStatus(ctx, appID)
+	applicationStatus, err := s.modelState.GetApplicationStatus(ctx, appID)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
@@ -295,11 +301,11 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 	if err != nil {
 		return errors.Errorf("encoding workload status: %w", err)
 	}
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	unitUUID, err := s.modelState.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if err := s.st.SetUnitWorkloadStatus(ctx, unitUUID, workloadStatus); err != nil {
+	if err := s.modelState.SetUnitWorkloadStatus(ctx, unitUUID, workloadStatus); err != nil {
 		return errors.Errorf("setting workload status: %w", err)
 	}
 
@@ -319,11 +325,11 @@ func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 	if err := unitName.Validate(); err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	unitUUID, err := s.modelState.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
-	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
+	workloadStatus, err := s.modelState.GetUnitWorkloadStatus(ctx, unitUUID)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
@@ -355,11 +361,11 @@ func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name
 	if err != nil {
 		return errors.Errorf("encoding agent status: %w", err)
 	}
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	unitUUID, err := s.modelState.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if err := s.st.SetUnitAgentStatus(ctx, unitUUID, agentStatus); err != nil {
+	if err := s.modelState.SetUnitAgentStatus(ctx, unitUUID, agentStatus); err != nil {
 		return errors.Errorf("setting agent status: %w", err)
 	}
 
@@ -381,7 +387,7 @@ func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, app
 		return nil, errors.Errorf("application ID: %w", err)
 	}
 
-	statuses, err := s.st.GetUnitWorkloadStatusesForApplication(ctx, appID)
+	statuses, err := s.modelState.GetUnitWorkloadStatusesForApplication(ctx, appID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -408,22 +414,22 @@ func (s *Service) GetUnitDisplayAndAgentStatus(ctx context.Context, unitName cor
 	// TODO (stickupkid/jack-w-shaw) This should just be 1 or 2 calls to the
 	// state layer to get the statuses. We even have a view for this!
 
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	unitUUID, err := s.modelState.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return agent, workload, errors.Capture(err)
 	}
 
-	agentStatus, err := s.st.GetUnitAgentStatus(ctx, unitUUID)
+	agentStatus, err := s.modelState.GetUnitAgentStatus(ctx, unitUUID)
 	if err != nil {
 		return agent, workload, errors.Capture(err)
 	}
 
-	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
+	workloadStatus, err := s.modelState.GetUnitWorkloadStatus(ctx, unitUUID)
 	if err != nil {
 		return agent, workload, errors.Capture(err)
 	}
 
-	k8sPodStatus, err := s.st.GetUnitK8sPodStatus(ctx, unitUUID)
+	k8sPodStatus, err := s.modelState.GetUnitK8sPodStatus(ctx, unitUUID)
 	if err != nil {
 		return agent, workload, errors.Capture(err)
 	}
@@ -447,7 +453,7 @@ func (s *Service) SetUnitPresence(ctx context.Context, unitName coreunit.Name) e
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
-	return s.st.SetUnitPresence(ctx, unitName)
+	return s.modelState.SetUnitPresence(ctx, unitName)
 }
 
 // DeleteUnitPresence removes the presence of the unit in the model. If the unit
@@ -460,7 +466,7 @@ func (s *Service) DeleteUnitPresence(ctx context.Context, unitName coreunit.Name
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
-	return s.st.DeleteUnitPresence(ctx, unitName)
+	return s.modelState.DeleteUnitPresence(ctx, unitName)
 }
 
 // CheckUnitStatusesReadyForMigration returns an error if the statuses of any units
@@ -469,7 +475,7 @@ func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) error 
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	fullStatuses, err := s.st.GetAllUnitWorkloadAgentStatuses(ctx)
+	fullStatuses, err := s.modelState.GetAllUnitWorkloadAgentStatuses(ctx)
 	if err != nil {
 		return errors.Errorf("getting unit statuses: %w", err)
 	}
@@ -504,7 +510,7 @@ func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (map[string
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	statuses, err := s.st.GetApplicationAndUnitStatuses(ctx)
+	statuses, err := s.modelState.GetApplicationAndUnitStatuses(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -527,7 +533,7 @@ func (s *Service) GetApplicationAndUnitModelStatuses(ctx context.Context) (map[s
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.GetApplicationAndUnitModelStatuses(ctx)
+	return s.modelState.GetApplicationAndUnitModelStatuses(ctx)
 }
 
 // ImportRelationStatus sets the status of the relation to the status provided.
@@ -547,12 +553,12 @@ func (s *Service) ImportRelationStatus(
 		return errors.Errorf("encoding relation status: %w", err)
 	}
 
-	relationUUID, err := s.st.GetRelationUUIDByID(ctx, relationID)
+	relationUUID, err := s.modelState.GetRelationUUIDByID(ctx, relationID)
 	if err != nil {
 		return errors.Errorf("getting UUID for relation %d: %w", relationID, err)
 	}
 
-	return s.st.ImportRelationStatus(ctx, relationUUID, relationStatus)
+	return s.modelState.ImportRelationStatus(ctx, relationUUID, relationStatus)
 }
 
 // ExportUnitStatuses returns the workload and agent statuses of all the units in
@@ -563,7 +569,7 @@ func (s *Service) ExportUnitStatuses(ctx context.Context) (map[coreunit.Name]cor
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	fullStatuses, err := s.st.GetAllUnitWorkloadAgentStatuses(ctx)
+	fullStatuses, err := s.modelState.GetAllUnitWorkloadAgentStatuses(ctx)
 	if err != nil {
 		return nil, nil, errors.Errorf("getting unit statuses: %w", err)
 	}
@@ -587,7 +593,7 @@ func (s *Service) ExportApplicationStatuses(ctx context.Context) (map[string]cor
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appStatuses, err := s.st.GetAllApplicationStatuses(ctx)
+	appStatuses, err := s.modelState.GetAllApplicationStatuses(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -609,7 +615,7 @@ func (s *Service) ExportRelationStatuses(ctx context.Context) (map[int]corestatu
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	relStatuses, err := s.st.GetAllRelationStatuses(ctx)
+	relStatuses, err := s.modelState.GetAllRelationStatuses(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -672,7 +678,7 @@ func (s *Service) decodeApplicationDisplayStatus(ctx context.Context, appID core
 		return decodeApplicationStatus(statusInfo)
 	}
 
-	fullUnitStatuses, err := s.st.GetAllFullUnitStatusesForApplication(ctx, appID)
+	fullUnitStatuses, err := s.modelState.GetAllFullUnitStatusesForApplication(ctx, appID)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
@@ -755,11 +761,60 @@ func (s *Service) decodeUnitStatusDetails(unit status.Unit) (Unit, error) {
 // GetModelStatusInfo returns information about the current model for the
 // purpose of reporting its status.
 // The following error types can be expected to be returned:
-// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does
-// not exist.
+// / - [github.com/juju/juju/domain/model/errors.NotFound]: When the model no longer exists.
 func (s *Service) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.GetModelStatusInfo(ctx)
+	return s.modelState.GetModelStatusInfo(ctx)
+}
+
+// GetModelStatus returns the current status of the model.
+//
+// The following error types can be expected to be returned:
+// / - [github.com/juju/juju/domain/model/errors.NotFound]: When the model no longer exists.
+func (s *Service) GetModelStatus(ctx context.Context) (corestatus.StatusInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	modelState, err := s.controllerState.GetModelStatusContext(ctx)
+	if err != nil {
+		return corestatus.StatusInfo{}, errors.Capture(err)
+	}
+	return s.statusFromModelContext(modelState), nil
+}
+
+// statusFromModelContext is responsible for converting a
+// [status.ModelStatusContext] into a [corestatus.StatusInfo].
+// It computes the model's status based on various environmental indicators at a given point in time.
+// Model status is not a fixed or stored value but is dynamically derived from these indicators.
+func (s *Service) statusFromModelContext(
+	modelStatusCtx status.ModelStatusContext,
+) corestatus.StatusInfo {
+	now := s.clock.Now()
+	if modelStatusCtx.HasInvalidCloudCredential {
+		return corestatus.StatusInfo{
+			Status:  corestatus.Suspended,
+			Message: "suspended since cloud credential is not valid",
+			Data:    map[string]interface{}{"reason": modelStatusCtx.InvalidCloudCredentialReason},
+			Since:   &now,
+		}
+	}
+	if modelStatusCtx.IsDestroying {
+		return corestatus.StatusInfo{
+			Status: corestatus.Destroying,
+			Since:  &now,
+		}
+	}
+	if modelStatusCtx.IsMigrating {
+		return corestatus.StatusInfo{
+			Status:  corestatus.Busy,
+			Message: "the model is being migrated",
+			Since:   &now,
+		}
+	}
+
+	return corestatus.StatusInfo{
+		Status: corestatus.Available,
+		Since:  &now,
+	}
 }
