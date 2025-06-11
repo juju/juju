@@ -59,10 +59,10 @@ func (m GlobalModelCreationArgs) Validate() error {
 		return errors.Errorf("%w cloud cannot be empty", coreerrors.NotValid)
 	}
 	if m.Name == "" {
-		return errors.Errorf("%w name cannot be empty", coreerrors.NotValid)
+		return errors.Errorf("name cannot be empty").Add(coreerrors.NotValid)
 	}
 	if err := m.Qualifier.Validate(); err != nil {
-		return errors.Errorf("%w model qualifier: %w", coreerrors.NotValid, err)
+		return errors.Errorf("invalid model qualifier: %w", err).Add(coreerrors.NotValid)
 	}
 	for _, u := range m.AdminUsers {
 		if err := u.Validate(); err != nil {
