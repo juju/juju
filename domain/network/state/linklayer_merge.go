@@ -37,9 +37,10 @@ type mergeLinkLayerDevice struct {
 //
 // It contains only the fields that are used to identify and merge the addresses
 type mergeAddress struct {
-	UUID       string
-	Value      string
-	ProviderID string
+	UUID             string
+	Value            string
+	ProviderID       string
+	ProviderSubnetID string
 }
 
 // mergeLinkLayerDevicesChanges contains the changes to be applied to the
@@ -61,9 +62,12 @@ type mergeLinkLayerDevicesChanges struct {
 // mergeAddressesChanges contains the changes to be applied to the
 // addresses.
 type mergeAddressesChanges struct {
-	// toAddOrUpdate maps provider IDs to ip_address UUID to be added or updated
+	// providerIDsToAddOrUpdate maps provider IDs to ip_address UUID to be added or updated
 	// in provider_link_layer_device.
-	toAddOrUpdate map[string]string
+	providerIDsToAddOrUpdate map[string]string
+	// providerSubnetIDsToAddOrUpdate maps provider subnet IDs to ip_address
+	// UUID to be added or updated in provider_link_layer_device.
+	providerSubnetIDsToAddOrUpdate map[string]string
 	// toRelinquish are a list of ip_address to
 	// relinquish to machine, i.e., set their origin to machine
 	// and remove from provider_ip_address
@@ -189,6 +193,42 @@ VALUES ($insert.provider_id, $insert.address_uuid)
 	return nil
 }
 
+// addProviderSubnet associates provider IDs with subnet related to an address uuid
+// in the database
+// It inserts mappings from the input map into the provider_subnet table.
+// Returns an error if the database operation fails.
+func (st *State) addProviderSubnet(
+	ctx context.Context, tx *sqlair.TX, add map[string]string,
+) error {
+	type insert struct {
+		ProviderSubnetID string `db:"provider_id"`
+		AddressUUID      string `db:"address_uuid"`
+	}
+	stmt, err := st.Prepare(
+		`
+INSERT INTO provider_subnet
+SELECT 
+    $insert.provider_id AS provider_id,
+    ipa.subnet_uuid AS subnet_uuid
+FROM ip_address AS ipa
+WHERE ipa.uuid = $insert.address_uuid
+AND ipa.subnet_uuid IS NOT NULL -- mitigate the case where the address is not associated with a subnet
+`, insert{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	for providerID, addressUUID := range add {
+		insert := insert{
+			ProviderSubnetID: providerID,
+			AddressUUID:      addressUUID,
+		}
+		if err := tx.Query(ctx, stmt, insert).Run(); err != nil {
+			return errors.Capture(err)
+		}
+	}
+	return nil
+}
+
 // applyMergeLinkLayerChanges applies the changes to the link layer devices.
 func (st *State) applyMergeLinkLayerChanges(
 	ctx context.Context, tx *sqlair.TX,
@@ -208,11 +248,20 @@ func (st *State) applyMergeLinkLayerChanges(
 			"removing provider IDs from link layer devices: %w", err,
 		)
 	}
-	addressesToRemove := append(addressChanges.toRelinquish, transform.MapToSlice(addressChanges.toAddOrUpdate, getValue)...)
+	addressesToRemove := append(addressChanges.toRelinquish,
+		transform.MapToSlice(addressChanges.providerIDsToAddOrUpdate, getValue)...)
 	err = st.removeAddressProviderIDs(ctx, tx, addressesToRemove)
 	if err != nil {
 		return errors.Errorf("removing provider IDs from addresses: %w", err)
 	}
+	// We don't remove subnets provider ID for relinquished addresses, since
+	// they still may have a provider ID (we don't know)
+	subnetsToRemove := transform.MapToSlice(addressChanges.providerSubnetIDsToAddOrUpdate, getValue)
+	err = st.removeAddressSubnetProviderIDs(ctx, tx, subnetsToRemove)
+	if err != nil {
+		return errors.Errorf("removing provider IDs from subnets: %w", err)
+	}
+
 	err = st.addProviderLinkLayerDevice(ctx, tx, lldChanges.toAddOrUpdate)
 	if err != nil {
 		return errors.Errorf(
@@ -220,9 +269,13 @@ func (st *State) applyMergeLinkLayerChanges(
 			err,
 		)
 	}
-	err = st.addProviderAddress(ctx, tx, addressChanges.toAddOrUpdate)
+	err = st.addProviderAddress(ctx, tx, addressChanges.providerIDsToAddOrUpdate)
 	if err != nil {
 		return errors.Errorf("adding provider IDs to addresses: %w", err)
+	}
+	err = st.addProviderSubnet(ctx, tx, addressChanges.providerSubnetIDsToAddOrUpdate)
+	if err != nil {
+		return errors.Errorf("adding provider IDs to subnets: %w", err)
 	}
 	err = st.relinquishAddresses(ctx, tx, addressChanges.toRelinquish)
 	if err != nil {
@@ -275,6 +328,26 @@ WHERE address_uuid IN ($uuids[:])`, uuids{})
 	return tx.Query(ctx, stmt, uuids(addressUUIDs)).Run()
 }
 
+// removeAddressSubnetProviderIDs removes provider-subnet mappings for given
+// provider IDs.
+func (st *State) removeAddressSubnetProviderIDs(
+	ctx context.Context, tx *sqlair.TX, addressUUIDs []string,
+) error {
+	type uuids []string
+	stmt, err := st.Prepare(`
+DELETE FROM provider_subnet
+WHERE subnet_uuid IN (
+    SELECT DISTINCT subnet_uuid
+    FROM ip_address
+    WHERE uuid IN ($uuids[:])
+)`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(tx.Query(ctx, stmt,
+		uuids(addressUUIDs)).Run())
+}
+
 // computeMergeAddressChanges prepares the changes to be applied to the addresses.
 //
 // It takes the normalized devices and the existing devices and returns the
@@ -290,8 +363,9 @@ func (st *State) computeMergeAddressChanges(
 	}
 
 	result := mergeAddressesChanges{
-		toAddOrUpdate: make(map[string]string),
-		toRelinquish:  nil,
+		providerIDsToAddOrUpdate:       make(map[string]string),
+		providerSubnetIDsToAddOrUpdate: make(map[string]string),
+		toRelinquish:                   nil,
 	}
 	for _, device := range existingDevices {
 		deviceName, addresses := device.Name, device.Addresses
@@ -304,10 +378,12 @@ func (st *State) computeMergeAddressChanges(
 				continue
 			}
 			// Don't update which doesn't change
-			if matchIncoming.ProviderID == existing.ProviderID {
-				continue
+			if matchIncoming.ProviderID != existing.ProviderID {
+				result.providerIDsToAddOrUpdate[matchIncoming.ProviderID] = existing.UUID
 			}
-			result.toAddOrUpdate[matchIncoming.ProviderID] = existing.UUID
+			if matchIncoming.ProviderSubnetID != existing.ProviderSubnetID {
+				result.providerSubnetIDsToAddOrUpdate[matchIncoming.ProviderSubnetID] = existing.UUID
+			}
 		}
 	}
 	return result
@@ -413,10 +489,11 @@ func (st *State) getExistingLinkLayerDevices(
 		Type       string `db:"device_type"`
 	}
 	type address struct {
-		UUID       string `db:"uuid"`
-		DeviceUUID string `db:"device_uuid"`
-		Value      string `db:"address_value"`
-		ProviderID string `db:"provider_id"`
+		UUID             string `db:"uuid"`
+		DeviceUUID       string `db:"device_uuid"`
+		Value            string `db:"address_value"`
+		ProviderID       string `db:"provider_id"`
+		ProviderSubnetID string `db:"provider_subnet_id"`
 	}
 	type netNode struct {
 		UUID string `db:"uuid"`
@@ -437,9 +514,15 @@ WHERE lld.net_node_uuid = $netNode.uuid
 		return nil, errors.Capture(err)
 	}
 	getAddressesStmt, err := st.Prepare(`
-SELECT &address.*
+SELECT 
+    &address.uuid,
+    &address.device_uuid,
+    &address.address_value,
+    pip.provider_id AS &address.provider_id,
+    ps.provider_id AS &address.provider_subnet_id
 FROM ip_address AS ip
 LEFT JOIN provider_ip_address AS pip ON ip.uuid = pip.address_uuid
+LEFT JOIN provider_subnet AS ps ON ip.subnet_uuid = ps.subnet_uuid
 WHERE ip.net_node_uuid = $netNode.uuid`, address{}, netNode{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -484,9 +567,10 @@ WHERE ip.net_node_uuid = $netNode.uuid`, address{}, netNode{})
 			Addresses: transform.Slice(addresses,
 				func(a address) mergeAddress {
 					return mergeAddress{
-						UUID:       a.UUID,
-						Value:      a.Value,
-						ProviderID: a.ProviderID,
+						UUID:             a.UUID,
+						Value:            a.Value,
+						ProviderID:       a.ProviderID,
+						ProviderSubnetID: a.ProviderSubnetID,
 					}
 				}),
 		})
@@ -550,8 +634,9 @@ func (st *State) normalizeLinkLayerDevices(
 				Addresses: transform.Slice(dev.Addrs,
 					func(addr network.NetAddr) mergeAddress {
 						return mergeAddress{
-							Value:      addr.AddressValue,
-							ProviderID: string(deref(addr.ProviderID)),
+							Value:            addr.AddressValue,
+							ProviderID:       string(deref(addr.ProviderID)),
+							ProviderSubnetID: string(deref(addr.ProviderSubnetID)),
 						}
 					}),
 			}

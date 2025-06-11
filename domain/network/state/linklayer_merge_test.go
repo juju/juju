@@ -206,18 +206,22 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
 	eth21 := s.addIPAddress(c, toRelinquishUUID, netNodeUUID, "10.168.1.1/24")
 
 	s.addProviderIPAddress(c, eth01, "provider-ip-1")
+	s.addProviderSubnet(c, eth01, "old-provider-subnet-1")
 	s.addProviderIPAddress(c, eth11, "old-provider-ip-2")
 	s.addProviderIPAddress(c, eth21, "old-provider-ip-3")
+	s.addProviderSubnet(c, eth11, "provider-subnet-2")
 
 	// Create incoming devices with updated provider ID for eth0
 	incoming := []network.NetInterface{
 		s.createNetInterface("eth0", "00:11:22:33:44:55", "new-provider-id-1",
 			[]network.NetAddr{
-				s.createNetAddr("192.168.1.1/24", "provider-ip-1"),
+				s.createNetAddr("192.168.1.1/24", "provider-ip-1",
+					"new-provider-subnet-1"),
 			}),
 		s.createNetInterface("eth1", "00:11:22:33:44:66", "provider-id-2",
 			[]network.NetAddr{
-				s.createNetAddr("100.168.1.1/24", "new-provider-ip-2"),
+				s.createNetAddr("100.168.1.1/24", "new-provider-ip-2",
+					"provider-subnet-2"),
 			}),
 	}
 
@@ -250,15 +254,17 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
 		})
 	c.Check(s.fetchLinkLayerAddresses(c, netNodeUUID), tc.SameContents,
 		[]mergedLinkLayerAddress{{
-			UUID:       eth01,
-			Address:    "192.168.1.1/24",
-			ProviderID: "provider-ip-1",
-			Origin:     "provider",
+			UUID:             eth01,
+			Address:          "192.168.1.1/24",
+			ProviderID:       "provider-ip-1",
+			SubnetProviderID: "new-provider-subnet-1", // changed
+			Origin:           "provider",
 		}, {
-			UUID:       eth11,
-			Address:    "100.168.1.1/24",
-			ProviderID: "new-provider-ip-2",
-			Origin:     "provider",
+			UUID:             eth11,
+			Address:          "100.168.1.1/24",
+			ProviderID:       "new-provider-ip-2", // changed
+			SubnetProviderID: "provider-subnet-2",
+			Origin:           "provider",
 		}, {
 			UUID:       eth21,
 			Address:    "10.168.1.1/24",
@@ -342,7 +348,9 @@ func (s *mergeLinkLayerSuite) TestApplyLinkLayerChanges(c *tc.C) {
 	eth21 := s.addIPAddress(c, eth2UUID, netNodeUUID, "10.168.2.1/24")
 
 	s.addProviderIPAddress(c, eth01, "old-eth0-ip-1")
+	s.addProviderSubnet(c, eth01, "eth0-subnet-1")
 	s.addProviderIPAddress(c, eth02, "eth0-ip-2")
+	s.addProviderSubnet(c, eth02, "old-eth0-subnet-2")
 	s.addProviderIPAddress(c, eth11, "old-eth1-ip-1")
 	s.addProviderIPAddress(c, eth12, "eth1-ip-2")
 	s.addProviderIPAddress(c, eth21, "eth2-ip-1")
@@ -362,9 +370,12 @@ func (s *mergeLinkLayerSuite) TestApplyLinkLayerChanges(c *tc.C) {
 		},
 	}
 	addressChanges := mergeAddressesChanges{
-		toAddOrUpdate: map[string]string{
+		providerIDsToAddOrUpdate: map[string]string{
 			"new-eth0-ip-1": eth01,
 			"new-eth1-ip-1": eth11,
+		},
+		providerSubnetIDsToAddOrUpdate: map[string]string{
+			"new-eth0-subnet-2": eth02,
 		},
 		toRelinquish: []string{eth12},
 	}
@@ -401,16 +412,18 @@ func (s *mergeLinkLayerSuite) TestApplyLinkLayerChanges(c *tc.C) {
 	c.Check(s.fetchLinkLayerAddresses(c, netNodeUUID), tc.SameContents,
 		[]mergedLinkLayerAddress{
 			{
-				UUID:       eth01,
-				Address:    "192.168.1.1/24",
-				ProviderID: "new-eth0-ip-1",
-				Origin:     "provider",
+				UUID:             eth01,
+				Address:          "192.168.1.1/24",
+				ProviderID:       "new-eth0-ip-1",
+				SubnetProviderID: "eth0-subnet-1",
+				Origin:           "provider",
 			},
 			{
-				UUID:       eth02,
-				Address:    "192.168.2.1/24",
-				ProviderID: "eth0-ip-2",
-				Origin:     "provider",
+				UUID:             eth02,
+				Address:          "192.168.2.1/24",
+				ProviderID:       "eth0-ip-2",
+				SubnetProviderID: "new-eth0-subnet-2",
+				Origin:           "provider",
 			},
 			{
 				UUID:       eth11,
@@ -469,7 +482,8 @@ func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesNotToBeUpdated(c *tc
 	changes := st.computeMergeAddressChanges(incomingDevices, existingDevices)
 
 	// Assert: Verify that no changes are made
-	c.Check(changes.toAddOrUpdate, tc.HasLen, 0)
+	c.Check(changes.providerIDsToAddOrUpdate, tc.HasLen, 0)
+	c.Check(changes.providerSubnetIDsToAddOrUpdate, tc.HasLen, 0)
 	c.Check(changes.toRelinquish, tc.HasLen, 0)
 }
 
@@ -515,7 +529,8 @@ func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesToBeRelinquished(c *
 	changes := st.computeMergeAddressChanges(incomingDevices, existingDevices)
 
 	// Assert: Verify that the second address is relinquished
-	c.Check(changes.toAddOrUpdate, tc.HasLen, 0)
+	c.Check(changes.providerIDsToAddOrUpdate, tc.HasLen, 0)
+	c.Check(changes.providerSubnetIDsToAddOrUpdate, tc.HasLen, 0)
 	c.Check(changes.toRelinquish, tc.SameContents,
 		[]string{"no-matching-uuid"})
 }
@@ -557,8 +572,53 @@ func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesProviderIDUpdated(c 
 	changes := st.computeMergeAddressChanges(incomingDevices, existingDevices)
 
 	// Assert: Verify that the address provider ID is updated
-	c.Check(changes.toAddOrUpdate, tc.DeepEquals,
+	c.Check(changes.providerIDsToAddOrUpdate, tc.DeepEquals,
 		map[string]string{"new-provider-ip-1": "address1-uuid"})
+	c.Check(changes.providerSubnetIDsToAddOrUpdate, tc.HasLen, 0)
+	c.Check(changes.toRelinquish, tc.HasLen, 0)
+}
+
+// TestComputeMergeAddressChangesProviderSubnetIDUpdated tests the case where some
+// addresses have their provider subnet ID updated.
+func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesProviderSubnetIDUpdated(c *tc.C) {
+	// Arrange
+	st := s.State(c)
+
+	// Create existing devices with addresses
+	existingDevices := []mergeLinkLayerDevice{
+		{
+			Name: "eth0",
+			Addresses: []mergeAddress{
+				{
+					UUID:             "address1-uuid",
+					Value:            "192.168.1.1/24",
+					ProviderSubnetID: "provider-subnet-1",
+				},
+			},
+		},
+	}
+
+	// Create incoming devices with updated provider ID for the address
+	incomingDevices := []mergeLinkLayerDevice{
+		{
+			Name: "eth0",
+			Addresses: []mergeAddress{
+				{
+					Value:            "192.168.1.1/24",
+					ProviderSubnetID: "new-provider-subnet-1",
+				},
+			},
+		},
+	}
+
+	// Act
+	changes := st.computeMergeAddressChanges(incomingDevices, existingDevices)
+
+	// Assert: Verify that the address provider ID is updated
+	c.Check(changes.providerIDsToAddOrUpdate, tc.HasLen, 0)
+	c.Check(changes.providerSubnetIDsToAddOrUpdate, tc.DeepEquals,
+		map[string]string{"new-provider-subnet-1": "address1-uuid"})
+	c.Check(changes.toRelinquish, tc.HasLen, 0)
 	c.Check(changes.toRelinquish, tc.HasLen, 0)
 }
 
@@ -819,10 +879,13 @@ func (s *mergeLinkLayerSuite) addIPAddress(
 ) string {
 	addressUUID := "address-" + addressValue + "-uuid"
 
+	subnetUUID := s.addSubnet(c, addressValue)
+
 	s.query(c, `
 		INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id, is_secondary, is_shadow)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, addressUUID, deviceUUID, addressValue, netNodeUUID, nil, 0, 4, 1, 0,
+	`, addressUUID, deviceUUID, addressValue, netNodeUUID, subnetUUID, 0, 4, 1,
+		0,
 		false, false)
 
 	return addressUUID
@@ -838,13 +901,38 @@ func (s *mergeLinkLayerSuite) addProviderIPAddress(
 	`, providerID, addressUUID)
 }
 
+func (s *mergeLinkLayerSuite) addProviderSubnet(
+	c *tc.C, addressUUID, providerID string,
+) {
+	s.query(c, `
+		INSERT INTO provider_subnet		
+SELECT 
+    ? AS provider_id,
+    ipa.subnet_uuid AS subnet_uuid
+FROM ip_address AS ipa
+WHERE ipa.uuid = ?
+AND ipa.subnet_uuid IS NOT NULL -- mitigate the case where the address is not associated with a subnet
+	`, providerID, addressUUID)
+}
+
+func (s *mergeLinkLayerSuite) addSubnet(c *tc.C, cidr string) string {
+	subnetUUID := "subnet-" + cidr + "-uuid"
+	s.query(c, `
+		INSERT INTO subnet (uuid, cidr)
+		VALUES (?, ?)
+	`, subnetUUID, cidr)
+	return subnetUUID
+}
+
 // createNetInterface creates a network.NetInterface for testing.
 func (s *mergeLinkLayerSuite) createNetAddr(value,
-	providerID string) network.NetAddr {
+	providerID, providerSubnetID string) network.NetAddr {
 	provider := corenetwork.Id(providerID)
+	providerSubnet := corenetwork.Id(providerSubnetID)
 	return network.NetAddr{
-		ProviderID:   &provider,
-		AddressValue: value,
+		ProviderID:       &provider,
+		AddressValue:     value,
+		ProviderSubnetID: &providerSubnet,
 	}
 }
 
@@ -915,9 +1003,15 @@ func (s *mergeLinkLayerSuite) fetchLinkLayerAddresses(
 	var result []mergedLinkLayerAddress
 
 	query := `
-SELECT uuid, address_value, provider_id, iao.name as origin
+SELECT 
+    uuid, 
+    address_value, 
+    pia.provider_id as provider_id, 
+    ps.provider_id as provider_subnet_id, 
+    iao.name as origin
 FROM ip_address AS ia
 LEFT JOIN provider_ip_address AS pia ON ia.uuid = pia.address_uuid
+LEFT JOIN provider_subnet AS ps ON ia.subnet_uuid = ps.subnet_uuid
 JOIN ip_address_origin AS iao ON ia.origin_id = iao.id
 WHERE ia.net_node_uuid = ?
 `
@@ -931,13 +1025,14 @@ WHERE ia.net_node_uuid = ?
 
 			for rows.Next() {
 				var addr mergedLinkLayerAddress
-				var providerID sql.NullString
+				var providerID, subnetProviderID sql.NullString
 				err := rows.Scan(&addr.UUID, &addr.Address,
-					&providerID, &addr.Origin)
+					&providerID, &subnetProviderID, &addr.Origin)
 				if err != nil {
 					return err
 				}
 				addr.ProviderID = providerID.String
+				addr.SubnetProviderID = subnetProviderID.String
 				result = append(result, addr)
 			}
 			return nil
@@ -959,8 +1054,9 @@ type mergedLinkLayerDevice struct {
 
 // mergedLinkLayerAddress represents an IP address with additional data.
 type mergedLinkLayerAddress struct {
-	UUID       string
-	Address    string
-	ProviderID string
-	Origin     string
+	UUID             string
+	Address          string
+	ProviderID       string
+	SubnetProviderID string
+	Origin           string
 }
