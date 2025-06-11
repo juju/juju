@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/machine"
 	domainapplication "github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/sequence"
@@ -25,7 +26,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesInvalidPlacement(c *tc.C) {
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementType(666),
-		})
+		}, deployment.Platform{})
 		return err
 	})
 	c.Assert(err, tc.ErrorMatches, `invalid placement type: 666`)
@@ -42,7 +43,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnset(c *tc.C) {
 		var err error
 		netNode, machineNames, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
-		})
+		}, deployment.Platform{})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -57,8 +58,64 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnset(c *tc.C) {
 	s.ensureStatusForMachine(c, machine.Name("0"), domainstatus.MachineStatusPending)
 	s.ensureStatusForMachineInstance(c, machine.Name("0"), domainstatus.InstanceStatusPending)
 
+	s.ensurePlatformForMachine(c, machine.Name("0"), deployment.Platform{})
+
 	c.Assert(machineNames, tc.HasLen, 1)
 	c.Check(machineNames[0], tc.Equals, machine.Name("0"))
+}
+
+func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithPlatform(c *tc.C) {
+	// Ensure the machine got created.
+	platform := deployment.Platform{
+		OSType:       deployment.Ubuntu,
+		Channel:      "22.04",
+		Architecture: architecture.ARM64,
+	}
+
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+			Type: deployment.PlacementTypeUnset,
+		}, platform)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.ensurePlatformForMachine(c, machine.Name("0"), platform)
+}
+
+func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingArchitecture(c *tc.C) {
+	// Ensure the machine got created.
+	platform := deployment.Platform{
+		OSType:  deployment.Ubuntu,
+		Channel: "22.04",
+	}
+
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+			Type: deployment.PlacementTypeUnset,
+		}, platform)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.ensurePlatformForMachine(c, machine.Name("0"), platform)
+}
+
+func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingBase(c *tc.C) {
+	// Ensure the machine got created.
+	platform := deployment.Platform{
+		Architecture: architecture.ARM64,
+	}
+
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+			Type: deployment.PlacementTypeUnset,
+		}, platform)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.ensurePlatformForMachine(c, machine.Name("0"), platform)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
@@ -72,7 +129,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
 		for range total {
 			netNode, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 				Type: deployment.PlacementTypeUnset,
-			})
+			}, deployment.Platform{})
 			if err != nil {
 				return err
 			}
@@ -111,7 +168,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *t
 			for range stepTotal {
 				netNode, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 					Type: deployment.PlacementTypeUnset,
-				})
+				}, deployment.Platform{})
 				if err != nil {
 					return err
 				}
@@ -137,6 +194,7 @@ WHERE m.net_node_uuid = ?
 				"machine_status",
 				"machine_cloud_instance_status",
 				"machine_cloud_instance",
+				"machine_platform",
 			} {
 				_, err := tx.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %q WHERE machine_uuid = ?`, table), child)
 				if err != nil {
@@ -185,7 +243,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
 		var err error
 		netNode, _, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
-		})
+		}, deployment.Platform{})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -199,7 +257,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
 		resultNetNode, machineNames, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: "0",
-		})
+		}, deployment.Platform{})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -214,7 +272,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachineNotFound(c *tc.C
 		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: "0",
-		})
+		}, deployment.Platform{})
 		return err
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
@@ -232,7 +290,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 		netNode, machineNames, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeContainer,
 			Container: deployment.ContainerTypeLXD,
-		})
+		}, deployment.Platform{})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -259,7 +317,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
-		})
+		}, deployment.Platform{})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -274,7 +332,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 			Type:      deployment.PlacementTypeContainer,
 			Container: deployment.ContainerTypeLXD,
 			Directive: "0",
-		})
+		}, deployment.Platform{})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -300,7 +358,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirectiveMachineNo
 			Type:      deployment.PlacementTypeContainer,
 			Container: deployment.ContainerTypeLXD,
 			Directive: "1",
-		})
+		}, deployment.Platform{})
 		return err
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
@@ -318,7 +376,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *tc.C)
 			netNode, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 				Type:      deployment.PlacementTypeContainer,
 				Container: deployment.ContainerTypeLXD,
-			})
+			}, deployment.Platform{})
 			if err != nil {
 				return err
 			}
@@ -362,7 +420,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimesWithGaps(
 				netNode, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 					Type:      deployment.PlacementTypeContainer,
 					Container: deployment.ContainerTypeLXD,
-				})
+				}, deployment.Platform{})
 				if err != nil {
 					return err
 				}
@@ -395,6 +453,7 @@ WHERE m.net_node_uuid = ?
 				"machine_status",
 				"machine_cloud_instance_status",
 				"machine_cloud_instance",
+				"machine_platform",
 			} {
 				_, err = tx.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %q WHERE machine_uuid = ?`, table), child)
 				if err != nil {
@@ -458,7 +517,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesProvider(c *tc.C) {
 		netNode, _, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeProvider,
 			Directive: "zone=eu-west-1",
-		})
+		}, deployment.Platform{})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -539,4 +598,18 @@ WHERE m.name = ?
 	statusValue, err := domainstatus.EncodeCloudInstanceStatus(expected)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(status, tc.Equals, statusValue)
+}
+
+func (s *unitStateSuite) ensurePlatformForMachine(c *tc.C, name machine.Name, expected deployment.Platform) {
+	var platform deployment.Platform
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT mp.os_id, COALESCE(mp.channel,''), mp.architecture_id
+FROM machine AS m
+LEFT JOIN machine_platform AS mp ON m.uuid = mp.machine_uuid
+WHERE m.name = ?
+`, name).Scan(&platform.OSType, &platform.Channel, &platform.Architecture)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(platform, tc.DeepEquals, expected)
 }

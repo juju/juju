@@ -129,10 +129,12 @@ func (s *baseSuite) createUnit(c *tc.C, netNodeUUID, appName string) (coreunit.U
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddUnitArg{
-		Placement: deployment.Placement{
-			Type:      deployment.PlacementTypeMachine,
-			Directive: machineName.String(),
+	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddIAASUnitArg{
+		AddUnitArg: application.AddUnitArg{
+			Placement: deployment.Placement{
+				Type:      deployment.PlacementTypeMachine,
+				Directive: machineName.String(),
+			},
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)

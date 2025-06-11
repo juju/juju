@@ -596,7 +596,7 @@ WHERE  u.name = $getUnitMachineUUID.unit_name
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
 func (st *State) AddIAASUnits(
-	ctx context.Context, appUUID coreapplication.ID, args ...application.AddUnitArg,
+	ctx context.Context, appUUID coreapplication.ID, args ...application.AddIAASUnitArg,
 ) ([]coreunit.Name, []coremachine.Name, error) {
 	if len(args) == 0 {
 		return nil, nil, nil
@@ -624,14 +624,17 @@ func (st *State) AddIAASUnits(
 			}
 			unitNames = append(unitNames, unitName)
 
-			insertArg := application.InsertUnitArg{
-				UnitName:    unitName,
-				Constraints: arg.Constraints,
-				Placement:   arg.Placement,
-				UnitStatusArg: application.UnitStatusArg{
-					AgentStatus:    arg.UnitStatusArg.AgentStatus,
-					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
+			insertArg := application.InsertIAASUnitArg{
+				InsertUnitArg: application.InsertUnitArg{
+					UnitName:    unitName,
+					Constraints: arg.Constraints,
+					Placement:   arg.Placement,
+					UnitStatusArg: application.UnitStatusArg{
+						AgentStatus:    arg.UnitStatusArg.AgentStatus,
+						WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
+					},
 				},
+				Platform: arg.Platform,
 			}
 
 			mNames, err := st.insertIAASUnit(ctx, tx, appUUID, insertArg)
@@ -733,9 +736,11 @@ func (st *State) AddIAASSubordinateUnit(
 
 		// Insert the new unit.
 		// TODO(storage) - read and use storage directives
-		insertArg := application.InsertUnitArg{
-			UnitName:      unitName,
-			UnitStatusArg: arg.UnitStatusArg,
+		insertArg := application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName:      unitName,
+				UnitStatusArg: arg.UnitStatusArg,
+			},
 		}
 		// Place the subordinate on the same machine as the principal unit.
 		machineName, err := st.getUnitMachineName(ctx, tx, arg.PrincipalUnitName)
@@ -1295,7 +1300,7 @@ func (st *State) insertIAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appUUID coreapplication.ID,
-	args application.InsertUnitArg,
+	args application.InsertIAASUnitArg,
 ) ([]coremachine.Name, error) {
 	_, err := st.getUnitDetails(ctx, tx, args.UnitName)
 	if err == nil {
@@ -1310,7 +1315,7 @@ func (st *State) insertIAASUnit(
 	}
 
 	// Handle the placement of the net node and machines accompanying the unit.
-	nodeUUID, machineNames, err := st.placeMachine(ctx, tx, args.Placement)
+	nodeUUID, machineNames, err := st.placeMachine(ctx, tx, args.Placement, args.Platform)
 	if err != nil {
 		return nil, errors.Errorf("getting net node UUID from placement %+v: %w", args.Placement, err)
 	}

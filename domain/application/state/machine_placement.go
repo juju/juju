@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"strconv"
 
 	"github.com/canonical/sqlair"
@@ -50,7 +51,7 @@ func (st *State) GetMachineNetNodeUUIDFromName(ctx context.Context, name coremac
 // on the placement.
 // It returns the net node UUID for the machine and a list of child
 // machine names that were created as part of the placement.
-func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive deployment.Placement) (string, []coremachine.Name, error) {
+func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive deployment.Placement, platform deployment.Platform) (string, []coremachine.Name, error) {
 	switch directive.Type {
 	case deployment.PlacementTypeUnset:
 		// The placement is unset, so we need to create a machine for the
@@ -60,7 +61,7 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 			return "", nil, errors.Capture(err)
 		}
 
-		_, netNode, err := st.insertMachineAndNetNode(ctx, tx, machineName)
+		_, netNode, err := st.insertMachineAndNetNode(ctx, tx, machineName, platform)
 		return netNode, []coremachine.Name{
 			machineName,
 		}, errors.Capture(err)
@@ -78,7 +79,7 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 		// to look up the existing machine and place it there. Then we need to
 		// create a child machine for the container and link it to the parent
 		// machine.
-		machineUUID, machineName, err := st.acquireParentMachineForContainer(ctx, tx, directive.Directive)
+		machineUUID, machineName, err := st.acquireParentMachineForContainer(ctx, tx, directive.Directive, platform)
 		if err != nil {
 			return "", nil, errors.Capture(err)
 		}
@@ -86,7 +87,7 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 		// Use the container type to determine the scope of the container.
 		// For example, lxd.
 		scope := directive.Container.String()
-		childNetNode, childMachineName, err := st.insertChildMachineForContainerPlacement(ctx, tx, machineUUID, machineName, scope)
+		childNetNode, childMachineName, err := st.insertChildMachineForContainerPlacement(ctx, tx, machineUUID, machineName, scope, platform)
 		if err != nil {
 			return "", nil, errors.Errorf("inserting child machine for container placement: %w", err)
 		}
@@ -104,7 +105,7 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 			return "", nil, errors.Capture(err)
 		}
 
-		machine, netNode, err := st.insertMachineAndNetNode(ctx, tx, machineName)
+		machine, netNode, err := st.insertMachineAndNetNode(ctx, tx, machineName, platform)
 		if err != nil {
 			return "", nil, errors.Capture(err)
 		}
@@ -120,7 +121,7 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 	}
 }
 
-func (st *State) acquireParentMachineForContainer(ctx context.Context, tx *sqlair.TX, directive string) (coremachine.UUID, coremachine.Name, error) {
+func (st *State) acquireParentMachineForContainer(ctx context.Context, tx *sqlair.TX, directive string, platform deployment.Platform) (coremachine.UUID, coremachine.Name, error) {
 	// If the directive is not empty, we need to look up the existing machine
 	// by name (example: 0) and then return the associated machine
 	// UUID.
@@ -141,7 +142,7 @@ func (st *State) acquireParentMachineForContainer(ctx context.Context, tx *sqlai
 		return "", "", errors.Capture(err)
 	}
 
-	machineUUID, _, err := st.insertMachineAndNetNode(ctx, tx, machineName)
+	machineUUID, _, err := st.insertMachineAndNetNode(ctx, tx, machineName, platform)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -211,7 +212,7 @@ func (st *State) insertNetNode(ctx context.Context, tx *sqlair.TX) (string, erro
 	return netNodeUUID.NetNodeUUID, nil
 }
 
-func (st *State) insertMachineAndNetNode(ctx context.Context, tx *sqlair.TX, machineName coremachine.Name) (coremachine.UUID, string, error) {
+func (st *State) insertMachineAndNetNode(ctx context.Context, tx *sqlair.TX, machineName coremachine.Name, platform deployment.Platform) (coremachine.UUID, string, error) {
 	netNodeUUID, err := st.insertNetNode(ctx, tx)
 	if err != nil {
 		return "", "", errors.Capture(err)
@@ -239,6 +240,10 @@ VALUES ($createMachine.*);
 	}
 	if err := tx.Query(ctx, createMachineStmt, m).Run(); err != nil {
 		return "", "", errors.Errorf("creating new machine: %w", err)
+	}
+
+	if err := st.insertMachinePlatform(ctx, tx, machineUUID, platform); err != nil {
+		return "", "", errors.Errorf("inserting machine platform: %w", err)
 	}
 
 	if err := st.insertMachineInstance(ctx, tx, machineUUID); err != nil {
@@ -298,13 +303,14 @@ func (st *State) insertChildMachineForContainerPlacement(
 	parentUUID coremachine.UUID,
 	parentName coremachine.Name,
 	scope string,
+	platform deployment.Platform,
 ) (string, coremachine.Name, error) {
 	machineName, err := st.nextContainerSequence(ctx, tx, scope, parentName)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
 
-	machineUUID, netNodeUUID, err := st.insertMachineAndNetNode(ctx, tx, machineName)
+	machineUUID, netNodeUUID, err := st.insertMachineAndNetNode(ctx, tx, machineName, platform)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -346,6 +352,45 @@ func (st *State) nextContainerSequence(ctx context.Context, tx *sqlair.TX, scope
 	}
 
 	return parentName.NamedChild(scope, strconv.FormatUint(seq, 10))
+}
+
+func (st *State) insertMachinePlatform(
+	ctx context.Context,
+	tx *sqlair.TX,
+	mUUID coremachine.UUID,
+	platform deployment.Platform,
+) error {
+	// Prepare query for setting the machine cloud instance.
+	query := `
+INSERT INTO machine_platform (*)
+VALUES ($machinePlatformUUID.*);
+`
+	stmt, err := st.Prepare(query, machinePlatformUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	arch, err := encodeArchitecture(platform.Architecture)
+	if err != nil {
+		return errors.Errorf("encoding architecture %q: %w", platform.Architecture, err)
+	}
+
+	var channel sql.Null[string]
+	if platform.Channel != "" {
+		channel = sql.Null[string]{V: platform.Channel, Valid: true}
+	}
+
+	osType, err := encodeOSType(platform.OSType)
+	if err != nil {
+		return errors.Errorf("encoding OS type %q: %w", platform.OSType, err)
+	}
+
+	return tx.Query(ctx, stmt, machinePlatformUUID{
+		MachineUUID:    mUUID,
+		OSID:           osType,
+		Channel:        channel,
+		ArchitectureID: arch,
+	}).Run()
 }
 
 func (st *State) insertMachineInstance(

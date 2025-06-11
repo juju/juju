@@ -3,7 +3,6 @@ CREATE TABLE machine (
     name TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
-    base TEXT,
     nonce TEXT,
     password_hash_algorithm_id TEXT,
     password_hash TEXT,
@@ -25,6 +24,22 @@ ON machine (name);
 
 CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);
+
+CREATE TABLE machine_platform (
+    machine_uuid TEXT NOT NULL,
+    os_id TEXT NOT NULL,
+    channel TEXT,
+    architecture_id INT NOT NULL,
+    CONSTRAINT fk_machine_platform_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid),
+    CONSTRAINT fk_machine_platform_os
+    FOREIGN KEY (os_id)
+    REFERENCES os (id),
+    CONSTRAINT fk_machine_platform_architecture
+    FOREIGN KEY (architecture_id)
+    REFERENCES architecture (id)
+);
 
 -- machine_placement_scope is a table which represents the valid scopes
 -- that can exist for a machine placement. The provider scope is the only

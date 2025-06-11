@@ -314,8 +314,10 @@ func (s *baseStorageSuite) TestGetStorageUUIDByIDNotFound(c *tc.C) {
 func (s *baseStorageSuite) createUnitWithCharm(c *tc.C, stor ...charmStorageArg) (coreunit.UUID, string) {
 	ctx := c.Context()
 
-	u1 := application.InsertUnitArg{
-		UnitName: "foo/666",
+	u1 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/666",
+		},
 	}
 	s.createIAASApplication(c, "foo", life.Alive, u1)
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), u1.UnitName)

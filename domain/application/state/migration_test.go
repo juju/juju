@@ -179,11 +179,13 @@ func (s *migrationStateSuite) TestGetApplicationsForExportWithNoApplications(c *
 func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
-		Password: &application.PasswordInfo{
-			PasswordHash:  "password",
-			HashAlgorithm: 0,
+	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+			Password: &application.PasswordInfo{
+				PasswordHash:  "password",
+				HashAlgorithm: 0,
+			},
 		},
 	})
 
@@ -204,15 +206,19 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *tc.C) {
 func (s *migrationStateSuite) TestGetApplicationUnitsForExportMultipleApplications(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
-		Password: &application.PasswordInfo{
-			PasswordHash:  "password",
-			HashAlgorithm: 0,
+	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+			Password: &application.PasswordInfo{
+				PasswordHash:  "password",
+				HashAlgorithm: 0,
+			},
 		},
 	})
-	s.createIAASApplication(c, "bar", life.Alive, application.InsertUnitArg{
-		UnitName: "bar/0",
+	s.createIAASApplication(c, "bar", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "bar/0",
+		},
 	})
 
 	unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/0")
@@ -234,15 +240,19 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportSubordinate(c *tc.
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	subName := coreunit.Name("foo/0")
 	principalName := coreunit.Name("principal/0")
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: subName,
-		Password: &application.PasswordInfo{
-			PasswordHash:  "password",
-			HashAlgorithm: 0,
+	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: subName,
+			Password: &application.PasswordInfo{
+				PasswordHash:  "password",
+				HashAlgorithm: 0,
+			},
 		},
 	})
-	s.createIAASApplication(c, "principal", life.Alive, application.InsertUnitArg{
-		UnitName: principalName,
+	s.createIAASApplication(c, "principal", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: principalName,
+		},
 	})
 
 	principalUUID, err := st.GetUnitUUIDByName(c.Context(), principalName)
@@ -259,7 +269,7 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportSubordinate(c *tc.
 	c.Check(units, tc.DeepEquals, []application.ExportUnit{
 		{
 			UUID:      subUUID,
-			Name:      "foo/0",
+			Name:      subName,
 			Machine:   "0",
 			Principal: principalName,
 		},
@@ -294,11 +304,13 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDying(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
-		Password: &application.PasswordInfo{
-			PasswordHash:  "password",
-			HashAlgorithm: 0,
+	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+			Password: &application.PasswordInfo{
+				PasswordHash:  "password",
+				HashAlgorithm: 0,
+			},
 		},
 	})
 
@@ -328,11 +340,13 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDead(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
-		Password: &application.PasswordInfo{
-			PasswordHash:  "password",
-			HashAlgorithm: 0,
+	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+			Password: &application.PasswordInfo{
+				PasswordHash:  "password",
+				HashAlgorithm: 0,
+			},
 		},
 	})
 
@@ -579,7 +593,10 @@ func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *tc.C) {
 	appID := s.createIAASApplication(c, "foo", life.Alive)
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := s.state.insertMachineAndNetNode(c.Context(), tx, machine.Name("0"))
+		_, _, err := s.state.insertMachineAndNetNode(c.Context(), tx, machine.Name("0"), deployment.Platform{
+			OSType:       deployment.Ubuntu,
+			Architecture: architecture.ARM64,
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -607,8 +624,10 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnits(c *tc.C) {
 func (s *unitStateSuite) TestInsertMigratingCAASUnitsSubordinate(c *tc.C) {
 	principal := unittesting.GenNewName(c, "bar/0")
 	sub := unittesting.GenNewName(c, "foo/666")
-	s.createIAASApplication(c, "bar", life.Alive, application.InsertUnitArg{
-		UnitName: principal,
+	s.createIAASApplication(c, "bar", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: principal,
+		},
 	})
 	subAppID := s.createIAASApplication(c, "foo", life.Alive)
 
@@ -625,8 +644,10 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnitsSubordinate(c *tc.C) {
 func (s *unitStateSuite) TestInsertMigratingIAASUnitsSubordinate(c *tc.C) {
 	principal := unittesting.GenNewName(c, "bar/0")
 	sub := unittesting.GenNewName(c, "foo/666")
-	s.createIAASApplication(c, "bar", life.Alive, application.InsertUnitArg{
-		UnitName: principal,
+	s.createIAASApplication(c, "bar", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: principal,
+		},
 	})
 	subAppID := s.createIAASApplication(c, "foo", life.Alive)
 

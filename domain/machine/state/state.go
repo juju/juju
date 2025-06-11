@@ -276,11 +276,6 @@ func (st *State) DeleteMachine(ctx context.Context, mName machine.Name) error {
 	if err != nil {
 		return errors.Capture(err)
 	}
-	deleteMachineInstance := `DELETE FROM machine_cloud_instance WHERE machine_uuid = $machineUUID.uuid`
-	deleteMachineInstanceStmt, err := st.Prepare(deleteMachineInstance, machineUUIDParam)
-	if err != nil {
-		return errors.Capture(err)
-	}
 
 	// Prepare query for deleting net node row.
 	deleteNode := `
@@ -288,18 +283,6 @@ DELETE FROM net_node WHERE uuid IN
 (SELECT net_node_uuid FROM machine WHERE name = $machineName.name)
 `
 	deleteNodeStmt, err := st.Prepare(deleteNode, machineNameParam)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare query for deleting status and status data for the machine.
-	deleteMachineStatus := `DELETE FROM machine_status WHERE machine_uuid = $machineUUID.uuid`
-	deleteMachineStatusStmt, err := st.Prepare(deleteMachineStatus, machineUUIDParam)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	deleteMachineInstanceStatus := `DELETE FROM machine_cloud_instance_status WHERE machine_uuid = $machineUUID.uuid`
-	deleteMachineInstanceStatusStmt, err := st.Prepare(deleteMachineInstanceStatus, machineUUIDParam)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -313,23 +296,16 @@ DELETE FROM net_node WHERE uuid IN
 			return errors.Errorf("looking up UUID for machine %q: %w", mName, err)
 		}
 
+		// Remove all basic machine data associated with the machine.
+		if err := st.removeBasicMachineData(ctx, tx, machineUUIDParam); err != nil {
+			return errors.Errorf("removing basic machine data for machine %q: %w", mName, err)
+		}
+
 		// Remove block devices for the machine.
 		if err := blockdevice.RemoveMachineBlockDevices(ctx, tx, machineUUIDParam.UUID.String()); err != nil {
 			return errors.Errorf("deleting block devices for machine %q: %w", mName, err)
 		}
 
-		// Remove the statuses for the machine.
-		if err := tx.Query(ctx, deleteMachineStatusStmt, machineUUIDParam).Run(); err != nil {
-			return errors.Errorf("deleting status for machine %q: %w", mName, err)
-		}
-		if err := tx.Query(ctx, deleteMachineInstanceStatusStmt, machineUUIDParam).Run(); err != nil {
-			return errors.Errorf("deleting status for machine instance %q: %w", mName, err)
-		}
-
-		// Remove the machine and instance rows.
-		if err := tx.Query(ctx, deleteMachineInstanceStmt, machineUUIDParam).Run(); err != nil {
-			return errors.Errorf("deleting machine instance %q: %w", mName, err)
-		}
 		if err := tx.Query(ctx, deleteMachineStmt, machineNameParam).Run(); err != nil {
 			return errors.Errorf("deleting machine %q: %w", mName, err)
 		}
@@ -343,6 +319,35 @@ DELETE FROM net_node WHERE uuid IN
 	})
 	if err != nil {
 		return errors.Errorf("deleting machine %q: %w", mName, err)
+	}
+	return nil
+}
+
+func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, machineUUID machineUUID) error {
+	tables := []string{
+		"machine_status",
+		"machine_cloud_instance_status",
+		"machine_cloud_instance",
+		"machine_platform",
+		"machine_agent_version",
+		"machine_constraint",
+		"machine_volume",
+		"machine_filesystem",
+		"machine_requires_reboot",
+		"machine_lxd_profile",
+		"machine_agent_presence",
+	}
+
+	for _, table := range tables {
+		query := fmt.Sprintf("DELETE FROM %s WHERE machine_uuid = $machineUUID.uuid", table)
+		stmt, err := st.Prepare(query, machineUUID)
+		if err != nil {
+			return errors.Errorf("preparing delete statement for %q: %w", table, err)
+		}
+
+		if err := tx.Query(ctx, stmt, machineUUID).Run(); err != nil {
+			return errors.Errorf("deleting data from %q for machine %q: %w", table, machineUUID.UUID, err)
+		}
 	}
 	return nil
 }

@@ -32,7 +32,7 @@ type UnitState interface {
 	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
 	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
 	// is returned.
-	AddIAASUnits(context.Context, coreapplication.ID, ...application.AddUnitArg) ([]coreunit.Name, []coremachine.Name, error)
+	AddIAASUnits(context.Context, coreapplication.ID, ...application.AddIAASUnitArg) ([]coreunit.Name, []coremachine.Name, error)
 
 	// AddCAASUnits adds the specified units to the application, returning their
 	// names. If the application is not found, an error satisfying
@@ -175,18 +175,20 @@ type UnitState interface {
 	GetUnitNetNodesByName(ctx context.Context, name coreunit.Name) ([]string, error)
 }
 
-func (s *Service) makeIAASUnitArgs(units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
-	args := make([]application.AddUnitArg, len(units))
+func (s *Service) makeIAASUnitArgs(units []AddUnitArg, constraints constraints.Constraints) ([]application.AddIAASUnitArg, error) {
+	args := make([]application.AddIAASUnitArg, len(units))
 	for i, u := range units {
 		placement, err := deployment.ParsePlacement(u.Placement)
 		if err != nil {
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}
 
-		arg := application.AddUnitArg{
-			Constraints:   constraints,
-			Placement:     placement,
-			UnitStatusArg: s.makeIAASUnitStatusArgs(),
+		arg := application.AddIAASUnitArg{
+			AddUnitArg: application.AddUnitArg{
+				Constraints:   constraints,
+				Placement:     placement,
+				UnitStatusArg: s.makeIAASUnitStatusArgs(),
+			},
 		}
 		args[i] = arg
 	}

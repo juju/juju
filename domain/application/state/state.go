@@ -179,10 +179,10 @@ func (s *State) setCharmState(
 		return errors.Errorf("encoding charm architecture: %w", err)
 	}
 
-	nullableArchitectureID := sql.NullInt64{}
+	nullableArchitectureID := sql.Null[int64]{}
 	if architectureID >= 0 {
-		nullableArchitectureID = sql.NullInt64{
-			Int64: int64(architectureID),
+		nullableArchitectureID = sql.Null[int64]{
+			V:     int64(architectureID),
 			Valid: true,
 		}
 	}
@@ -1455,12 +1455,12 @@ func decodeCharmState(state charmState) (charm.Charm, error) {
 
 }
 
-func decodeArchitecture(arch sql.NullInt64) (architecture.Architecture, error) {
+func decodeArchitecture(arch sql.Null[int64]) (architecture.Architecture, error) {
 	if !arch.Valid {
 		return architecture.Unknown, nil
 	}
 
-	switch arch.Int64 {
+	switch arch.V {
 	case 0:
 		return architecture.AMD64, nil
 	case 1:
@@ -1472,7 +1472,7 @@ func decodeArchitecture(arch sql.NullInt64) (architecture.Architecture, error) {
 	case 4:
 		return architecture.RISCV64, nil
 	default:
-		return -1, errors.Errorf("unsupported architecture: %d", arch.Int64)
+		return -1, errors.Errorf("unsupported architecture: %d", arch.V)
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
@@ -179,8 +180,10 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("making IAAS unit args: %w", err)
 	}
 	return appName, application.AddIAASApplicationArg{
-		BaseAddApplicationArg: arg,
-	}, unitArgs, nil
+			BaseAddApplicationArg: arg,
+		}, transform.Slice(unitArgs, func(arg application.AddIAASUnitArg) application.AddUnitArg {
+			return arg.AddUnitArg
+		}), nil
 }
 
 func (s *ProviderService) makeCAASApplicationArg(

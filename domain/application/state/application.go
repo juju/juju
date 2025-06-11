@@ -346,22 +346,25 @@ func (st *State) insertIAASApplicationUnits(
 	args application.AddIAASApplicationArg,
 	units []application.AddUnitArg,
 ) ([]coremachine.Name, error) {
-	insertUnits := make([]application.InsertUnitArg, len(units))
+	insertUnits := make([]application.InsertIAASUnitArg, len(units))
 	for i, unit := range units {
 		unitName, err := st.newUnitName(ctx, tx, appUUID)
 		if err != nil {
 			return nil, errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 		}
-		insertUnits[i] = application.InsertUnitArg{
-			UnitName:        unitName,
-			Constraints:     unit.Constraints,
-			Placement:       unit.Placement,
-			Storage:         args.Storage,
-			StoragePoolKind: args.StoragePoolKind,
-			UnitStatusArg: application.UnitStatusArg{
-				AgentStatus:    unit.UnitStatusArg.AgentStatus,
-				WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
+		insertUnits[i] = application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName:        unitName,
+				Constraints:     unit.Constraints,
+				Placement:       unit.Placement,
+				Storage:         args.Storage,
+				StoragePoolKind: args.StoragePoolKind,
+				UnitStatusArg: application.UnitStatusArg{
+					AgentStatus:    unit.UnitStatusArg.AgentStatus,
+					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
+				},
 			},
+			Platform: args.Platform,
 		}
 	}
 
@@ -2580,7 +2583,7 @@ WHERE application_uuid = $applicationID.uuid;
 
 	var revision = -1
 	if appOrigin.Revision.Valid {
-		revision = int(appOrigin.Revision.Int64)
+		revision = int(appOrigin.Revision.V)
 	}
 
 	var hash string
@@ -3041,19 +3044,19 @@ func decodeConstraints(cons applicationConstraints) constraints.Constraints {
 			res.Arch = &row.Arch.String
 		}
 		if row.CPUCores.Valid {
-			cpuCores := uint64(row.CPUCores.Int64)
+			cpuCores := uint64(row.CPUCores.V)
 			res.CpuCores = &cpuCores
 		}
 		if row.CPUPower.Valid {
-			cpuPower := uint64(row.CPUPower.Int64)
+			cpuPower := uint64(row.CPUPower.V)
 			res.CpuPower = &cpuPower
 		}
 		if row.Mem.Valid {
-			mem := uint64(row.Mem.Int64)
+			mem := uint64(row.Mem.V)
 			res.Mem = &mem
 		}
 		if row.RootDisk.Valid {
-			rootDisk := uint64(row.RootDisk.Int64)
+			rootDisk := uint64(row.RootDisk.V)
 			res.RootDisk = &rootDisk
 		}
 		if row.RootDiskSource.Valid {
@@ -3434,16 +3437,25 @@ func decodeRisk(risk string) (deployment.ChannelRisk, error) {
 	}
 }
 
-func decodeOSType(osType sql.NullInt64) (deployment.OSType, error) {
+func decodeOSType(osType sql.Null[int64]) (deployment.OSType, error) {
 	if !osType.Valid {
 		return 0, errors.Errorf("os type is null")
 	}
 
-	switch osType.Int64 {
+	switch osType.V {
 	case 0:
 		return deployment.Ubuntu, nil
 	default:
 		return -1, errors.Errorf("unknown os type %v", osType)
+	}
+}
+
+func encodeOSType(osType deployment.OSType) (sql.Null[int64], error) {
+	switch osType {
+	case deployment.Ubuntu:
+		return sql.Null[int64]{V: 0, Valid: true}, nil
+	default:
+		return sql.Null[int64]{}, nil
 	}
 }
 
@@ -3470,7 +3482,7 @@ func hashConfigAndSettings(config []applicationConfig, settings applicationSetti
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func decodePlatform(channel string, os, arch sql.NullInt64) (deployment.Platform, error) {
+func decodePlatform(channel string, os, arch sql.Null[int64]) (deployment.Platform, error) {
 	osType, err := decodeOSType(os)
 	if err != nil {
 		return deployment.Platform{}, errors.Errorf("decoding os type: %w", err)
