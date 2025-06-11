@@ -4,9 +4,10 @@
 package migration_test
 
 import (
+	gc "gopkg.in/check.v1"
+
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
-	gc "gopkg.in/check.v1"
 )
 
 type DialOpsSuite struct{}
