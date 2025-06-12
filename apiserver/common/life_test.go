@@ -51,7 +51,7 @@ func (*lifeSuite) TestLife(c *tc.C) {
 			return tag == x0 || tag == x2 || tag == x3
 		}, nil
 	}
-	lg := common.NewLifeGetter(st, getCanRead)
+	lg := common.NewLifeGetter(st, getCanRead, nil)
 	entities := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"}, {Tag: "unit-x-4"},
 	}}
@@ -72,7 +72,7 @@ func (*lifeSuite) TestLifeError(c *tc.C) {
 	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	lg := common.NewLifeGetter(&fakeState{}, getCanRead)
+	lg := common.NewLifeGetter(&fakeState{}, getCanRead, nil)
 	_, err := lg.Life(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
 	c.Assert(err, tc.ErrorMatches, "pow")
 }
@@ -81,7 +81,7 @@ func (*lifeSuite) TestLifeNoArgsNoError(c *tc.C) {
 	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	lg := common.NewLifeGetter(&fakeState{}, getCanRead)
+	lg := common.NewLifeGetter(&fakeState{}, getCanRead, nil)
 	result, err := lg.Life(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)

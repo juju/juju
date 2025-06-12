@@ -50,6 +50,7 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		domainServices.BlockDevice(),
 		domainServices.Config(),
 		domainServices.Machine(),
+		domainServices.Application(),
 		ctx.Resources(),
 		ctx.Auth(),
 		registry,

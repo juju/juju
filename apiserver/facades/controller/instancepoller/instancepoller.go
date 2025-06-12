@@ -62,6 +62,7 @@ func NewInstancePollerAPI(
 	lifeGetter := common.NewLifeGetter(
 		sti,
 		accessMachine,
+		nil,
 	)
 	// WatchModelMachines() is allowed with unrestricted access.
 	machinesWatcher := commonmodel.NewModelMachinesWatcher(

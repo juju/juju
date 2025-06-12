@@ -6,11 +6,17 @@ package lifeflag
 import (
 	"context"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
+	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
@@ -20,8 +26,25 @@ type Backend interface {
 	state.EntityFinder
 }
 
+type ApplicationService interface {
+	// GetUnitLife looks up the life of the specified unit, returning an error
+	// satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
+	GetUnitLife(ctx context.Context, unitName unit.Name) (life.Value, error)
+	// GetApplicationLifeByName looks up the life of the specified application, returning
+	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application is not found.
+	GetApplicationLifeByName(ctx context.Context, appName string) (life.Value, error)
+	// WatchUnitLife returns a watcher that observes the changes to life of one unit.
+	WatchUnitLife(ctx context.Context, unitName unit.Name) (watcher.NotifyWatcher, error)
+}
+
 // NewFacade constructs a new life flag facade.
-func NewFacade(backend Backend, watcherRegistry facade.WatcherRegistry, authorizer facade.Authorizer) (*Facade, error) {
+func NewFacade(
+	backend Backend,
+	applicationService ApplicationService,
+	watcherRegistry facade.WatcherRegistry,
+	authorizer facade.Authorizer,
+) (*Facade, error) {
 	if !authorizer.AuthUnitAgent() && authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -30,15 +53,61 @@ func NewFacade(backend Backend, watcherRegistry facade.WatcherRegistry, authoriz
 			return authorizer.AuthOwner(tag)
 		}, nil
 	}
-	life := common.NewLifeGetter(backend, getCanAccess)
-	watch := common.NewAgentEntityWatcher(backend, watcherRegistry, getCanAccess)
+	life := common.NewLifeGetter(backend, getCanAccess, applicationService)
 	return &Facade{
 		LifeGetter:         life,
-		AgentEntityWatcher: watch,
+		watcherRegistry:    watcherRegistry,
+		authorizer:         authorizer,
+		applicationService: applicationService,
 	}, nil
 }
 
 type Facade struct {
 	*common.LifeGetter
-	*common.AgentEntityWatcher
+	watcherRegistry facade.WatcherRegistry
+	authorizer      facade.Authorizer
+
+	applicationService ApplicationService
+}
+
+// Watch starts an NotifyWatcher for each given entity.
+func (a *Facade) Watch(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		err = apiservererrors.ErrPerm
+		watcherId := ""
+		if !a.authorizer.AuthOwner(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		switch tag := tag.(type) {
+		case names.UnitTag:
+			watch, err := a.applicationService.WatchUnitLife(ctx, unit.Name(tag.Id()))
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			watcherId, _, err = internal.EnsureRegisterWatcher(ctx, a.watcherRegistry, watch)
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			result.Results[i].NotifyWatcherId = watcherId
+		default:
+			result.Results[i].Error = apiservererrors.ServerError(
+				errors.NotImplementedf("agent type of %s", tag.Kind()),
+			)
+		}
+	}
+	return result, nil
 }

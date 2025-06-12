@@ -180,7 +180,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
 		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc, machineService),
 		PasswordChanger:      common.NewPasswordChanger(domainServices.AgentPassword(), st, getAuthFunc),
-		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
+		LifeGetter:           common.NewLifeGetter(st, getAuthFunc, domainServices.Application()),
 		APIAddresser:         common.NewAPIAddresser(domainServices.ControllerNode(), watcherRegistry),
 		ModelConfigWatcher:   modelConfigWatcher,
 		ModelMachinesWatcher: commonmodel.NewModelMachinesWatcher(st, resources, authorizer),

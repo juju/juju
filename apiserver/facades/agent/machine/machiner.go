@@ -15,8 +15,10 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/rpc/params"
@@ -76,6 +78,18 @@ type ModelInfoService interface {
 	GetModelCloudType(context.Context) (string, error)
 }
 
+// ApplicationService provides application domain service methods for getting
+// the life of applications and units.
+type ApplicationService interface {
+	// GetUnitLife looks up the life of the specified unit, returning an error
+	// satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
+	GetUnitLife(ctx context.Context, unitName unit.Name) (life.Value, error)
+	// GetApplicationLifeByName looks up the life of the specified application, returning
+	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application is not found.
+	GetApplicationLifeByName(ctx context.Context, appName string) (life.Value, error)
+}
+
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
 	*common.LifeGetter
@@ -109,6 +123,7 @@ func NewMachinerAPIForState(
 	modelInfoService ModelInfoService,
 	networkService NetworkService,
 	machineService MachineService,
+	applicationService ApplicationService,
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 ) (*MachinerAPI, error) {
@@ -126,7 +141,7 @@ func NewMachinerAPIForState(
 	}
 
 	return &MachinerAPI{
-		LifeGetter:              common.NewLifeGetter(st, getCanAccess),
+		LifeGetter:              common.NewLifeGetter(st, getCanAccess, applicationService),
 		StatusSetter:            common.NewStatusSetter(st, getCanAccess, clock),
 		DeadEnsurer:             common.NewDeadEnsurer(st, getCanAccess, machineService),
 		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, watcherRegistry, getCanAccess),

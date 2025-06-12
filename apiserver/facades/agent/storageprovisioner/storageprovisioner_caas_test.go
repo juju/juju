@@ -295,7 +295,7 @@ func (s *caasProvisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 			return func(names.Tag) bool {
 				return true
 			}, nil
-		}),
+		}, nil),
 		sb:        s.storageBackend,
 		st:        s.backend,
 		resources: s.resources,

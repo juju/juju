@@ -11,27 +11,72 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/life"
+	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 // LifeGetter implements a common Life method for use by various facades.
 type LifeGetter struct {
-	st         state.EntityFinder
-	getCanRead GetAuthFunc
+	st                 state.EntityFinder
+	applicationService LifeGetterApplicationService
+	getCanRead         GetAuthFunc
+}
+
+// LifeGetterApplicationService provides application domain service methods for
+// getting the life of applications and units.
+type LifeGetterApplicationService interface {
+	// GetUnitLife looks up the life of the specified unit, returning an error
+	// satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
+	GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.Value, error)
+	// GetApplicationLifeByName looks up the life of the specified application, returning
+	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application is not found.
+	GetApplicationLifeByName(ctx context.Context, appName string) (life.Value, error)
 }
 
 // NewLifeGetter returns a new LifeGetter. The GetAuthFunc will be used on
 // each invocation of Life to determine current permissions.
-func NewLifeGetter(st state.EntityFinder, getCanRead GetAuthFunc) *LifeGetter {
+func NewLifeGetter(
+	st state.EntityFinder,
+	getCanRead GetAuthFunc,
+	applicationService LifeGetterApplicationService,
+) *LifeGetter {
 	return &LifeGetter{
-		st:         st,
-		getCanRead: getCanRead,
+		st:                 st,
+		getCanRead:         getCanRead,
+		applicationService: applicationService,
 	}
 }
 
 // OneLife returns the life of the specified entity.
-func (lg *LifeGetter) OneLife(tag names.Tag) (life.Value, error) {
+func (lg *LifeGetter) OneLife(ctx context.Context, tag names.Tag) (life.Value, error) {
+	switch tag := tag.(type) {
+	case names.UnitTag:
+		if lg.applicationService == nil {
+			return "", errors.NotSupportedf("unit life getting")
+		}
+		unitLife, err := lg.applicationService.GetUnitLife(ctx, coreunit.Name(tag.Id()))
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			err = errors.NotFoundf("unit %q", tag.Id())
+		} else if err != nil {
+			return "", errors.Trace(err)
+		}
+		return unitLife, nil
+	case names.ApplicationTag:
+		if lg.applicationService == nil {
+			return "", errors.NotSupportedf("application life getting")
+		}
+		appLife, err := lg.applicationService.GetApplicationLifeByName(ctx, tag.Id())
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			err = errors.NotFoundf("application %q", tag.Id())
+		} else if err != nil {
+			return "", errors.Trace(err)
+		}
+		return appLife, nil
+	}
+
 	entity0, err := lg.st.FindEntity(tag)
 	if err != nil {
 		return "", err
@@ -63,7 +108,7 @@ func (lg *LifeGetter) Life(ctx context.Context, args params.Entities) (params.Li
 		}
 		err = apiservererrors.ErrPerm
 		if canRead(tag) {
-			result.Results[i].Life, err = lg.OneLife(tag)
+			result.Results[i].Life, err = lg.OneLife(ctx, tag)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}

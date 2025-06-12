@@ -68,6 +68,7 @@ func NewStorageProvisionerAPIv4(
 	blockDeviceService BlockDeviceService,
 	modelConfigService ModelConfigService,
 	machineService MachineService,
+	applicationService ApplicationService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	registry storage.ProviderRegistry,
@@ -224,7 +225,7 @@ func NewStorageProvisionerAPIv4(
 		}, nil
 	}
 	return &StorageProvisionerAPIv4{
-		LifeGetter:       common.NewLifeGetter(st, getLifeAuthFunc),
+		LifeGetter:       common.NewLifeGetter(st, getLifeAuthFunc, applicationService),
 		DeadEnsurer:      common.NewDeadEnsurer(st, getStorageEntityAuthFunc, machineService),
 		InstanceIdGetter: common.NewInstanceIdGetter(machineService, getMachineAuthFunc),
 		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc, clock),

@@ -9,7 +9,9 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
@@ -45,6 +47,18 @@ type MachineService interface {
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+}
+
+// ApplicationService provides application domain service methods for getting
+// the life of applications and units.
+type ApplicationService interface {
+	// GetUnitLife looks up the life of the specified unit, returning an error
+	// satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
+	GetUnitLife(ctx context.Context, unitName unit.Name) (life.Value, error)
+	// GetApplicationLifeByName looks up the life of the specified application, returning
+	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application is not found.
+	GetApplicationLifeByName(ctx context.Context, appName string) (life.Value, error)
 }
 
 // BlockDeviceService instances can fetch and watch block devices on a machine.
