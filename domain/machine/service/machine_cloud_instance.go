@@ -72,13 +72,13 @@ func (s *Service) SetMachineCloudInstance(
 	ctx context.Context,
 	machineUUID machine.UUID,
 	instanceID instance.Id,
-	displayName string,
+	displayName, nonce string,
 	hardwareCharacteristics *instance.HardwareCharacteristics,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := s.st.SetMachineCloudInstance(ctx, machineUUID, instanceID, displayName, hardwareCharacteristics); err != nil {
+	if err := s.st.SetMachineCloudInstance(ctx, machineUUID, instanceID, displayName, nonce, hardwareCharacteristics); err != nil {
 		return errors.Errorf("setting machine cloud instance for machine %q: %w", machineUUID, err)
 	}
 	return nil

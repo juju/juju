@@ -24,7 +24,7 @@ func TestMachineSuite(t *testing.T) {
 func (s *machineSuite) TestMachineExists(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
-	s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+	s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
 	machineUUIDs := s.getAllMachineUUIDs(c)
 	c.Assert(len(machineUUIDs), tc.Equals, 1)

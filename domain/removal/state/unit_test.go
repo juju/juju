@@ -85,10 +85,10 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnitParentMach
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	app1UUID := s.createIAASApplication(c, svc, "foo",
-		applicationservice.AddUnitArg{},
+		applicationservice.AddIAASUnitArg{},
 	)
 	app2UUID := s.createIAASApplication(c, svc, "bar",
-		applicationservice.AddUnitArg{},
+		applicationservice.AddIAASUnitArg{},
 	)
 
 	app1UnitUUIDs := s.getAllUnitUUIDs(c, app1UUID)
@@ -396,8 +396,8 @@ func (s *unitSuite) TestDeleteIAASUnit(c *tc.C) {
 func (s *unitSuite) TestDeleteIAASUnitWithSubordinates(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
-	appUUID1 := s.createIAASApplication(c, svc, "foo", applicationservice.AddUnitArg{})
-	appUUID2 := s.createIAASSubordinateApplication(c, svc, "baz", applicationservice.AddUnitArg{})
+	appUUID1 := s.createIAASApplication(c, svc, "foo", applicationservice.AddIAASUnitArg{})
+	appUUID2 := s.createIAASSubordinateApplication(c, svc, "baz", applicationservice.AddIAASUnitArg{})
 
 	// Force the second application to be a subordinate of the first.
 

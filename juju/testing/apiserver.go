@@ -566,8 +566,6 @@ func (s *ApiServerSuite) OpenAPIAsNewMachine(c *tc.C, jobs ...state.MachineJob) 
 	c.Assert(err, tc.ErrorIsNil)
 	password, err := password.RandomPassword()
 	c.Assert(err, tc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
-	c.Assert(err, tc.ErrorIsNil)
 	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce", s.ControllerModelUUID()), machine
 }
 

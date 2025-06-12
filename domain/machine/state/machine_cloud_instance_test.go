@@ -54,6 +54,7 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *tc
 		machineUUID,
 		instance.Id("123"),
 		"",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch:           ptr("arm64"),
 			Mem:            ptr[uint64](1024),
@@ -114,6 +115,7 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 		machineUUID,
 		instance.Id("1"),
 		"one",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch:             ptr("arm64"),
 			Mem:              ptr[uint64](1024),
@@ -189,6 +191,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyInstanceID(c *tc.C) {
 		machineUUID,
 		instance.Id(""),
 		"one",
+		"nonce",
 		&instance.HardwareCharacteristics{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -220,6 +223,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyDisplayName(c *tc.C) {
 		machineUUID,
 		instance.Id("1"),
 		"",
+		"nonce",
 		&instance.HardwareCharacteristics{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -259,6 +263,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyUniqueIndex(c *tc.C) {
 			machineUUID,
 			instance.Id(""),
 			"",
+			"nonce",
 			&instance.HardwareCharacteristics{},
 		)
 		c.Assert(err, tc.ErrorIsNil)
@@ -282,6 +287,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *tc.C) {
 		machineUUID,
 		instance.Id("1"),
 		"one",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch: ptr("arm64"),
 		},
@@ -294,6 +300,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *tc.C) {
 		machineUUID,
 		instance.Id("1"),
 		"one",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch: ptr("amd64"),
 		},
@@ -534,6 +541,7 @@ func (s *stateSuite) ensureInstance(c *tc.C, mName machine.Name) machine.UUID {
 		machineUUID,
 		instance.Id("123"),
 		"one-two-three",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch:             ptr("arm64"),
 			Mem:              ptr[uint64](1024),

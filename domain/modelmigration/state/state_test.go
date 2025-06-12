@@ -85,6 +85,7 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 		"deadbeef",
 		instance.Id("instance-0"),
 		"",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch: &arch,
 		},
@@ -97,6 +98,7 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 		"deadbeef-2",
 		instance.Id("instance-1"),
 		"",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch: &arch,
 		},

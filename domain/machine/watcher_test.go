@@ -106,7 +106,7 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 
 	// Should notify when the machine cloud instance is set.
 	harness.AddTest(func(c *tc.C) {
-		err = s.svc.SetMachineCloudInstance(c.Context(), machineUUID, "42", "", hc)
+		err = s.svc.SetMachineCloudInstance(c.Context(), machineUUID, "42", "", "nonce", hc)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
@@ -125,7 +125,7 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 		CpuCores: uintptr(4),
 		CpuPower: uintptr(75),
 	}
-	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUID, "42", "", hc)
+	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUID, "42", "", "nonce", hc)
 	c.Assert(err, tc.IsNil)
 
 	watcher, err := s.svc.WatchMachineCloudInstances(c.Context(), machineUUID)
@@ -146,11 +146,11 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 	machineUUIDm0, err := s.svc.CreateMachine(c.Context(), "machine-1")
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUIDm0, instance.Id("123"), "", nil)
+	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUIDm0, instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	machineUUIDm1, err := s.svc.CreateMachine(c.Context(), "machine-2")
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUIDm1, instance.Id("456"), "", nil)
+	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUIDm1, instance.Id("456"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	watcher, err := s.svc.WatchLXDProfiles(c.Context(), machineUUIDm0)

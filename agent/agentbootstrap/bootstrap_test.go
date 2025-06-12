@@ -238,7 +238,6 @@ func (s *bootstrapSuite) TestInitializeState(c *tc.C) {
 	base, err := corebase.ParseBase(m.Base().OS, m.Base().Channel)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(m.Base().String(), tc.Equals, base.String())
-	c.Check(m.CheckProvisioned(agent.BootstrapNonce), tc.IsTrue)
 
 	gotBootstrapConstraints, err := m.Constraints()
 	c.Assert(err, tc.ErrorIsNil)
