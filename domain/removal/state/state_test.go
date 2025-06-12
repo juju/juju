@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domaintesting "github.com/juju/juju/domain/testing"
@@ -374,6 +375,11 @@ func (s *baseSuite) checkCharmsCount(c *tc.C, expectedCount int) {
 	err := row.Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, expectedCount)
+}
+
+func (s *baseSuite) advanceUnitLife(c *tc.C, unitUUID unit.UUID, newLife life.Life) {
+	_, err := s.DB().Exec("UPDATE unit SET life_id = ? WHERE uuid = ?", newLife, unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type stubCharm struct {

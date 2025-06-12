@@ -375,6 +375,8 @@ func (s *unitSuite) TestDeleteIAASUnit(c *tc.C) {
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
 
+	s.advanceUnitLife(c, unitUUID, life.Dying)
+
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.DeleteUnit(c.Context(), unitUUID.String())
@@ -405,6 +407,8 @@ func (s *unitSuite) TestDeleteIAASUnitWithSubordinates(c *tc.C) {
 	c.Assert(len(subUnitUUIDs), tc.Equals, 1)
 	subUnitUUID := subUnitUUIDs[0]
 
+	s.advanceUnitLife(c, unitUUID, life.Dying)
+
 	_, err := s.DB().Exec(`INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)`,
 		subUnitUUID.String(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -429,6 +433,32 @@ func (s *unitSuite) TestDeleteIAASUnitWithSubordinates(c *tc.C) {
 	s.checkCharmsCount(c, 2)
 }
 
+func (s *unitSuite) TestDeleteIAASUnitWithSubordinatesNotDying(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID1 := s.createIAASApplication(c, svc, "foo", applicationservice.AddUnitArg{})
+	appUUID2 := s.createIAASSubordinateApplication(c, svc, "baz", applicationservice.AddUnitArg{})
+
+	// Force the second application to be a subordinate of the first.
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	subUnitUUIDs := s.getAllUnitUUIDs(c, appUUID2)
+	c.Assert(len(subUnitUUIDs), tc.Equals, 1)
+	subUnitUUID := subUnitUUIDs[0]
+
+	_, err := s.DB().Exec(`INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)`,
+		subUnitUUID.String(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorMatches, `.*still alive.*`)
+}
+
 func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
@@ -437,6 +467,8 @@ func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
+
+	s.advanceUnitLife(c, unitUUID, life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 

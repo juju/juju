@@ -380,6 +380,8 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(unitUUIDs, tc.HasLen, 1)
 
+	s.advanceUnitLife(c, unitUUIDs[0], life.Dying)
+
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// This should fail because the application has units.
@@ -413,6 +415,8 @@ func (s *applicationSuite) TestDeleteIAASApplicationMultipleRemovesCharm(c *tc.C
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
 	c.Assert(unitUUIDs, tc.HasLen, 1)
 
+	s.advanceUnitLife(c, unitUUIDs[0], life.Dying)
+
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Delete any units associated with the application.
@@ -436,11 +440,20 @@ func (s *applicationSuite) TestDeleteIAASApplicationMultipleRemovesCharm(c *tc.C
 func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
-	appUUID := s.createCAASApplication(c, svc, "some-app")
+	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+
+	s.advanceUnitLife(c, unitUUIDs[0], life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteApplication(c.Context(), appUUID.String())
+	// Delete any units associated with the application.
+	err := st.DeleteUnit(c.Context(), unitUUIDs[0].String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteApplication(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The application should be gone.
@@ -449,6 +462,17 @@ func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 
 	s.checkNoCharmsExist(c)
+}
+
+func (s *applicationSuite) TestDeleteCAASApplicationWithUnit(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteApplication(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorMatches, `.*still has 1 unit.*`)
 }
 
 func (s *applicationSuite) checkUnitContents(c *tc.C, actual []string, expected []unit.UUID) {
