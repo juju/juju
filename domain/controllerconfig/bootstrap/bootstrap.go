@@ -50,22 +50,11 @@ func InsertInitialControllerConfig(cfg jujucontroller.Config, controllerModelUUI
 		}
 
 		controllerData := dbController{
-			UUID:      values[jujucontroller.ControllerUUIDKey],
-			ModelUUID: controllerModelUUID.String(),
+			UUID:          values[jujucontroller.ControllerUUIDKey],
+			ModelUUID:     controllerModelUUID.String(),
+			TargetVersion: jujuversion.Current.String(),
 		}
-		controllerStmt, err := sqlair.Prepare(`INSERT INTO controller (uuid, model_uuid) VALUES ($dbController.*)`, controllerData)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		setControllerVersionInput := dbControllerVersion{
-			ControllerUUID: controllerData.UUID,
-			TargetVersion:  jujuversion.Current.String(),
-		}
-		setControllerVersionStmt, err := sqlair.Prepare(
-			"INSERT INTO controller_version (*) VALUES ($dbControllerVersion.*)",
-			setControllerVersionInput,
-		)
+		controllerStmt, err := sqlair.Prepare(`INSERT INTO controller (*) VALUES ($dbController.*)`, controllerData)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -84,11 +73,6 @@ func InsertInitialControllerConfig(cfg jujucontroller.Config, controllerModelUUI
 		return errors.Capture(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			// Insert the controller data.
 			if err := tx.Query(ctx, controllerStmt, controllerData).Run(); err != nil {
-				return errors.Capture(err)
-			}
-
-			err := tx.Query(ctx, setControllerVersionStmt, setControllerVersionInput).Run()
-			if err != nil {
 				return errors.Capture(err)
 			}
 
@@ -117,11 +101,7 @@ type dbController struct {
 	UUID string `db:"uuid"`
 	// ModelUUID is the uuid of the model this controller is in.
 	ModelUUID string `db:"model_uuid"`
-}
-
-// dbControllerVersion is used to set the initial target version for the
-// controller.
-type dbControllerVersion struct {
-	ControllerUUID string `db:"controller_uuid"`
-	TargetVersion  string `db:"target_version"`
+	// TargetVersion is the binary version controllers in this cluster should be
+	// running.
+	TargetVersion string `db:"target_version"`
 }
