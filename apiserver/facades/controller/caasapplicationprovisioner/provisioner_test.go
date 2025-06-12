@@ -661,33 +661,6 @@ func (s *CAASApplicationProvisionerSuite) TestClearApplicationsResources(c *tc.C
 	s.st.app.CheckCallNames(c, "ClearResources")
 }
 
-func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *tc.C) {
-	ctrl := s.setupAPI(c)
-	defer ctrl.Finish()
-
-	unitsChanges := make(chan []string, 1)
-	s.st.app = &mockApplication{
-		life:         state.Alive,
-		unitsChanges: unitsChanges,
-		unitsWatcher: watchertest.NewMockStringsWatcher(unitsChanges),
-	}
-	unitsChanges <- []string{"gitlab/0", "gitlab/1"}
-
-	results, err := s.api.WatchUnits(c.Context(), params.Entities{
-		Entities: []params.Entity{
-			{Tag: "application-gitlab"},
-		},
-	})
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(results.Results[0].Error, tc.IsNil)
-	c.Assert(results.Results[0].StringsWatcherId, tc.Equals, "1")
-	c.Assert(results.Results[0].Changes, tc.DeepEquals, []string{"gitlab/0", "gitlab/1"})
-	res := s.resources.Get("1")
-	c.Assert(res, tc.Equals, s.st.app.unitsWatcher)
-}
-
 func (s *CAASApplicationProvisionerSuite) TestCharmStorageParamsPoolNotFound(c *tc.C) {
 	cfg, err := envconfig.New(envconfig.NoDefaults, coretesting.FakeConfig())
 	c.Assert(err, tc.ErrorIsNil)
