@@ -147,6 +147,7 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 				Status: status.Unset,
 				Since:  ptr(b.clock.Now()),
 			},
+			IsController: true,
 		},
 		applicationservice.AddUnitArg{},
 	); err != nil {

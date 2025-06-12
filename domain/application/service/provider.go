@@ -371,6 +371,7 @@ func makeCreateApplicationArgs(
 		Settings:          args.ApplicationSettings,
 		Status:            applicationStatus,
 		Devices:           args.Devices,
+		IsController:      args.IsController,
 	}, nil
 }
 
