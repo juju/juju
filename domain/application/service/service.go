@@ -723,7 +723,7 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 	)
 }
 
-// WatchApplicationAddRemove returns a watcher that emits application uuids when
+// WatchApplication returns a watcher that emits application uuids when
 // applications are added or removed.
 func (s *WatchableService) WatchApplications(ctx context.Context) (watcher.StringsWatcher, error) {
 	applicationNamespace, query := s.st.InitialWatchStatementApplications()

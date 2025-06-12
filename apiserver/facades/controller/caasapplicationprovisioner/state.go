@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
@@ -25,7 +24,6 @@ type CAASApplicationProvisionerState interface {
 	Application(string) (Application, error)
 	ResolveConstraints(cons constraints.Value) (constraints.Value, error)
 	Resources(objectstore.ObjectStore) Resources
-	Unit(string) (Unit, error)
 	IsController() bool
 }
 
@@ -33,26 +31,10 @@ type Model interface {
 	Containers(providerIds ...string) ([]state.CloudContainer, error)
 }
 
+// TODO(storage): This interface must be removed once storage is fully migrated
+// to dqlite.
 type Application interface {
-	AllUnits() ([]Unit, error)
 	StorageConstraints() (map[string]state.StorageConstraints, error)
-	Name() string
-	Life() state.Life
-	Base() state.Base
-	CharmModifiedVersion() int
-	CharmURL() (curl *string, force bool)
-	ApplicationConfig() (coreconfig.ConfigAttributes, error)
-	ClearResources() error
-	Watch() state.NotifyWatcher
-	WatchUnits() state.StringsWatcher
-}
-
-type Unit interface {
-	Tag() names.Tag
-	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
-	EnsureDead() error
-	Remove(store objectstore.ObjectStore) error
-	UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation
 }
 
 type Resources interface {
@@ -72,39 +54,11 @@ func (s stateShim) Model() (Model, error) {
 }
 
 func (s stateShim) Application(name string) (Application, error) {
-	app, err := s.State.Application(name)
-	if err != nil {
-		return nil, err
-	}
-	return &applicationShim{app}, nil
+	return s.State.Application(name)
 }
 
 func (s stateShim) Resources(_ objectstore.ObjectStore) Resources {
 	return &resourcesShim{}
-}
-
-func (s stateShim) Unit(unitTag string) (Unit, error) {
-	return s.State.Unit(unitTag)
-}
-
-type applicationShim struct {
-	*state.Application
-}
-
-func (a *applicationShim) ClearResources() error {
-	return errors.NotImplementedf("ClearResources")
-}
-
-func (a *applicationShim) AllUnits() ([]Unit, error) {
-	units, err := a.Application.AllUnits()
-	if err != nil {
-		return nil, err
-	}
-	res := make([]Unit, 0, len(units))
-	for _, unit := range units {
-		res = append(res, unit)
-	}
-	return res, nil
 }
 
 type resourcesShim struct{}

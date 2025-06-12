@@ -5,18 +5,22 @@ package caasapplicationprovisioner
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
@@ -29,6 +33,7 @@ type Services struct {
 	ModelConfigService      ModelConfigService
 	ModelInfoService        ModelInfoService
 	StatusService           StatusService
+	RemovalService          RemovalService
 }
 
 // ControllerConfigService provides the controller configuration.
@@ -114,6 +119,60 @@ type ApplicationService interface {
 	// If the application is not found, [applicationerrors.ApplicationNotFound]
 	// is returned.
 	GetDeviceConstraints(ctx context.Context, name string) (map[string]devices.Constraints, error)
+
+	// GetUnitUUID returns the UUID for the named unit.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	GetUnitUUID(ctx context.Context, unitName unit.Name) (unit.UUID, error)
+
+	// WatchApplication returns a watcher that emits application uuids when
+	// applications are added or removed.
+	WatchApplications(ctx context.Context) (watcher.StringsWatcher, error)
+
+	// GetApplicationTrustSetting returns the application trust setting.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+	GetApplicationTrustSetting(ctx context.Context, appName string) (bool, error)
+
+	// GetCharmModifiedVersion looks up the charm modified version of the given
+	// application.
+	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)
+
+	// GetUnitNamesForApplication returns a slice of the unit names for the given application
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationIsDead] if the application is dead
+	// - [applicationerrors.ApplicationNotFound] if the application does not exist
+	GetUnitNamesForApplication(ctx context.Context, appName string) ([]unit.Name, error)
+
+	// GetApplicationCharmOrigin returns the charm origin for the specified
+	// application name. If the application does not exist, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error)
+
+	// GetApplicationLifeByName looks up the life of the specified application, returning
+	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application is not found.
+	GetApplicationLifeByName(ctx context.Context, appName string) (life.Value, error)
+}
+
+// RemovalService defines operations for removing juju entities.
+type RemovalService interface {
+	// RemoveUnit checks if a unit with the input name exists.
+	// If it does, the unit is guaranteed after this call to be:
+	// - No longer alive.
+	// - Removed or scheduled to be removed with the input force qualification.
+	// The input wait duration is the time that we will give for the normal
+	// life-cycle advancement and removal to finish before forcefully removing the
+	// unit. This duration is ignored if the force argument is false.
+	// The UUID for the scheduled removal job is returned.
+	RemoveUnit(ctx context.Context, unitUUID unit.UUID, force bool, wait time.Duration) (removal.UUID, error)
+
+	// MarkUnitAsDead marks the unit as dead. It will not remove the unit as
+	// that is a separate operation. This will advance the unit's life to dead
+	// and will not allow it to be transitioned back to alive.
+	// Returns an error if the unit does not exist.
+	MarkUnitAsDead(ctx context.Context, unitUUID unit.UUID) error
 }
 
 type StatusService interface {

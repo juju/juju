@@ -217,30 +217,6 @@ func (s *provisionerSuite) TestUpdateUnitsCount(c *tc.C) {
 	c.Assert(info, tc.IsNil)
 }
 
-func (s *provisionerSuite) TestWatchApplication(c *tc.C) {
-	client := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
-		c.Check(version, tc.Equals, 1)
-		c.Check(id, tc.Equals, "")
-		c.Check(request, tc.Equals, "Watch")
-		c.Assert(arg, tc.DeepEquals, params.Entities{
-			Entities: []params.Entity{{
-				Tag: "application-gitlab",
-			}},
-		})
-		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResults{})
-		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
-			Results: []params.NotifyWatchResult{{
-				Error: &params.Error{Message: "FAIL"},
-			}},
-		}
-		return nil
-	})
-	watcher, err := client.WatchApplication(c.Context(), "gitlab")
-	c.Assert(watcher, tc.IsNil)
-	c.Assert(err, tc.ErrorMatches, "FAIL")
-}
-
 func (s *provisionerSuite) TestClearApplicationResources(c *tc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
@@ -259,30 +235,6 @@ func (s *provisionerSuite) TestClearApplicationResources(c *tc.C) {
 	})
 	err := client.ClearApplicationResources(c.Context(), "foo")
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(called, tc.IsTrue)
-}
-
-func (s *provisionerSuite) TestWatchUnits(c *tc.C) {
-	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
-		called = true
-		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
-		c.Check(id, tc.Equals, "")
-		c.Assert(request, tc.Equals, "WatchUnits")
-		c.Assert(a, tc.DeepEquals, params.Entities{
-			Entities: []params.Entity{{Tag: "application-foo"}},
-		})
-		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
-		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
-			Results: []params.StringsWatchResult{{
-				Error: &params.Error{Message: "FAIL"},
-			}},
-		}
-		return nil
-	})
-	worker, err := client.WatchUnits(c.Context(), "foo")
-	c.Check(err, tc.ErrorMatches, "FAIL")
-	c.Check(worker, tc.IsNil)
 	c.Check(called, tc.IsTrue)
 }
 
