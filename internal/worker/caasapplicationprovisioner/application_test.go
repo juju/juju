@@ -186,7 +186,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 
 		unitFacade.EXPECT().WatchApplicationScale(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
 		applicationService.EXPECT().WatchApplicationSettings(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
-		facade.EXPECT().WatchUnits(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
+		applicationService.EXPECT().WatchApplicationUnitLife(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
 
 		// handleChange
 		applicationService.EXPECT().GetApplicationLife(gomock.Any(), s.appID).Return(life.Alive, nil),
@@ -290,7 +290,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 
 		unitFacade.EXPECT().WatchApplicationScale(gomock.Any(), "controller").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
 		applicationService.EXPECT().WatchApplicationSettings(gomock.Any(), "controller").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
-		facade.EXPECT().WatchUnits(gomock.Any(), "controller").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
+		applicationService.EXPECT().WatchApplicationUnitLife(gomock.Any(), "controller").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
 
 		// handleChange
 		applicationService.EXPECT().GetApplicationLife(gomock.Any(), s.appID).Return(life.Alive, nil),
@@ -370,7 +370,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 
 		unitFacade.EXPECT().WatchApplicationScale(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
 		applicationService.EXPECT().WatchApplicationSettings(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
-		facade.EXPECT().WatchUnits(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
+		applicationService.EXPECT().WatchApplicationUnitLife(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
 
 		// handleChange
 		applicationService.EXPECT().GetApplicationLife(gomock.Any(), s.appID).Return(life.Alive, nil),

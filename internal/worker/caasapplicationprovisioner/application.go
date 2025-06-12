@@ -197,13 +197,12 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "failed to watch for application %q trust changes", name)
 	}
 
-	var appUnitsWatcher watcher.StringsWatcher
-	appUnitsWatcher, err = a.facade.WatchUnits(ctx, name)
+	appUnitsWatcher, err := a.applicationService.WatchApplicationUnitLife(ctx, name)
 	if err != nil {
-		return errors.Annotatef(err, "creating application %q units watcher", name)
+		return errors.Annotatef(err, "creating application %q units life watcher", name)
 	}
 	if err := a.catacomb.Add(appUnitsWatcher); err != nil {
-		return errors.Annotatef(err, "failed to watch for application %q units changes", name)
+		return errors.Annotatef(err, "failed to watch for application %q units life changes", name)
 	}
 
 	var (

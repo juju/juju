@@ -54,7 +54,6 @@ type CAASProvisionerFacade interface {
 	UpdateUnits(ctx context.Context, arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
 	WatchApplication(ctx context.Context, appName string) (watcher.NotifyWatcher, error)
 	ClearApplicationResources(ctx context.Context, appName string) error
-	WatchUnits(ctx context.Context, application string) (watcher.StringsWatcher, error)
 	RemoveUnit(ctx context.Context, unitName string) error
 	WatchProvisioningInfo(context.Context, string) (watcher.NotifyWatcher, error)
 	DestroyUnits(ctx context.Context, unitNames []string) error
@@ -72,6 +71,9 @@ type ApplicationService interface {
 	// This functions returns the following errors:
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 	WatchApplicationSettings(ctx context.Context, name string) (watcher.NotifyWatcher, error)
+
+	// WatchApplicationUnitLife returns a watcher that observes changes to the life of any units if an application.
+	WatchApplicationUnitLife(ctx context.Context, appName string) (watcher.StringsWatcher, error)
 
 	SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, scaling bool) error
 	GetApplicationScalingState(ctx context.Context, name string) (applicationservice.ScalingState, error)
