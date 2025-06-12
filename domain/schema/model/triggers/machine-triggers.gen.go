@@ -39,7 +39,6 @@ WHEN
 	(NEW.force_destroyed != OLD.force_destroyed OR (NEW.force_destroyed IS NOT NULL AND OLD.force_destroyed IS NULL) OR (NEW.force_destroyed IS NULL AND OLD.force_destroyed IS NOT NULL)) OR
 	(NEW.agent_started_at != OLD.agent_started_at OR (NEW.agent_started_at IS NOT NULL AND OLD.agent_started_at IS NULL) OR (NEW.agent_started_at IS NULL AND OLD.agent_started_at IS NOT NULL)) OR
 	(NEW.hostname != OLD.hostname OR (NEW.hostname IS NOT NULL AND OLD.hostname IS NULL) OR (NEW.hostname IS NULL AND OLD.hostname IS NOT NULL)) OR
-	(NEW.is_controller != OLD.is_controller OR (NEW.is_controller IS NOT NULL AND OLD.is_controller IS NULL) OR (NEW.is_controller IS NULL AND OLD.is_controller IS NOT NULL)) OR
 	(NEW.keep_instance != OLD.keep_instance OR (NEW.keep_instance IS NOT NULL AND OLD.keep_instance IS NULL) OR (NEW.keep_instance IS NULL AND OLD.keep_instance IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)

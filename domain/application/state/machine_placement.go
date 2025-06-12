@@ -51,7 +51,12 @@ func (st *State) GetMachineNetNodeUUIDFromName(ctx context.Context, name coremac
 // on the placement.
 // It returns the net node UUID for the machine and a list of child
 // machine names that were created as part of the placement.
-func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive deployment.Placement, platform deployment.Platform) (string, []coremachine.Name, error) {
+func (st *State) placeMachine(
+	ctx context.Context,
+	tx *sqlair.TX,
+	directive deployment.Placement,
+	platform deployment.Platform,
+) (string, []coremachine.Name, error) {
 	switch directive.Type {
 	case deployment.PlacementTypeUnset:
 		// The placement is unset, so we need to create a machine for the
@@ -121,7 +126,12 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 	}
 }
 
-func (st *State) acquireParentMachineForContainer(ctx context.Context, tx *sqlair.TX, directive string, platform deployment.Platform) (coremachine.UUID, coremachine.Name, error) {
+func (st *State) acquireParentMachineForContainer(
+	ctx context.Context,
+	tx *sqlair.TX,
+	directive string,
+	platform deployment.Platform,
+) (coremachine.UUID, coremachine.Name, error) {
 	// If the directive is not empty, we need to look up the existing machine
 	// by name (example: 0) and then return the associated machine
 	// UUID.
@@ -212,7 +222,12 @@ func (st *State) insertNetNode(ctx context.Context, tx *sqlair.TX) (string, erro
 	return netNodeUUID.NetNodeUUID, nil
 }
 
-func (st *State) insertMachineAndNetNode(ctx context.Context, tx *sqlair.TX, machineName coremachine.Name, platform deployment.Platform) (coremachine.UUID, string, error) {
+func (st *State) insertMachineAndNetNode(
+	ctx context.Context,
+	tx *sqlair.TX,
+	machineName coremachine.Name,
+	platform deployment.Platform,
+) (coremachine.UUID, string, error) {
 	netNodeUUID, err := st.insertNetNode(ctx, tx)
 	if err != nil {
 		return "", "", errors.Capture(err)
@@ -401,14 +416,14 @@ func (st *State) insertMachineInstance(
 	// Prepare query for setting the machine cloud instance.
 	setInstanceData := `
 INSERT INTO machine_cloud_instance (*)
-VALUES ($machineInstanceUUID.*);
+VALUES ($machineUUID.*);
 `
-	setInstanceDataStmt, err := st.Prepare(setInstanceData, machineInstanceUUID{})
+	setInstanceDataStmt, err := st.Prepare(setInstanceData, machineUUID{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	return tx.Query(ctx, setInstanceDataStmt, machineInstanceUUID{
+	return tx.Query(ctx, setInstanceDataStmt, machineUUID{
 		MachineUUID: mUUID,
 	}).Run()
 }

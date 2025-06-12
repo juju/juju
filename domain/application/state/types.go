@@ -1324,7 +1324,7 @@ type setMachineStatus struct {
 	MachineUUID coremachine.UUID `db:"machine_uuid"`
 }
 
-type machineInstanceUUID struct {
+type machineUUID struct {
 	MachineUUID coremachine.UUID `db:"machine_uuid"`
 }
 

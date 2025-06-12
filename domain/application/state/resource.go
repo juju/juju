@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -131,7 +132,9 @@ VALUES ($linkResourceApplication.*)`, linkResourceApplication{})
 	appUUID := args.appID.String()
 	for _, res := range resources {
 		// Insert the resource.
-		if err = tx.Query(ctx, insertStmt, res).Run(); err != nil {
+		if err = tx.Query(ctx, insertStmt, res).Run(); database.IsErrConstraintForeignKey(err) {
+			return errors.Errorf("inserting resource %q: resource not found in charm metadata", res.Name)
+		} else if err != nil {
 			return errors.Errorf("inserting resource %q: %w", res.Name, err)
 		}
 		// Link the resource to the application.

@@ -9,7 +9,6 @@ CREATE TABLE machine (
     force_destroyed BOOLEAN DEFAULT FALSE,
     agent_started_at DATETIME,
     hostname TEXT,
-    is_controller BOOLEAN,
     keep_instance BOOLEAN,
     CONSTRAINT fk_machine_net_node
     FOREIGN KEY (net_node_uuid)

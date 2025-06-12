@@ -68,6 +68,9 @@ type BaseAddApplicationArg struct {
 	EndpointBindings map[string]network.SpaceName
 	// Devices contains the device constraints for the application.
 	Devices map[string]devices.Constraints
+	// IsController indicates whether the application is a controller
+	// application.
+	IsController bool
 }
 
 // AddIAASApplicationArg contains parameters for saving an IAAS application to

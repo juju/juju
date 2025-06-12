@@ -666,18 +666,36 @@ func (st *State) IsMachineController(ctx context.Context, mName machine.Name) (b
 	}
 
 	machineNameParam := machineName{Name: mName}
+	machineUUIDoutput := machineUUID{}
+	uuidQuery := `SELECT &machineUUID.uuid FROM machine WHERE name = $machineName.name`
+	uuidQueryStmt, err := st.Prepare(uuidQuery, machineNameParam, machineUUIDoutput)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
 	result := machineIsController{}
-	query := `SELECT &machineIsController.is_controller FROM machine WHERE name = $machineName.name`
-	queryStmt, err := st.Prepare(query, machineNameParam, result)
+	query := `
+SELECT    COUNT(ac.application_uuid) AS &machineIsController.count
+FROM      machine AS m
+JOIN      net_node AS n ON m.net_node_uuid = n.uuid
+LEFT JOIN unit AS u ON n.uuid = u.net_node_uuid
+LEFT JOIN application AS a ON u.application_uuid = a.uuid
+LEFT JOIN application_controller AS ac ON a.uuid = ac.application_uuid
+WHERE     m.uuid = $machineUUID.uuid
+`
+	queryStmt, err := st.Prepare(query, machineUUIDoutput, result)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return machineerrors.MachineNotFound
+		if err := tx.Query(ctx, uuidQueryStmt, machineNameParam).Get(&machineUUIDoutput); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
+		} else if err != nil {
+			return errors.Errorf("querying UUID for machine %q: %w", mName, err)
 		}
+
+		err := tx.Query(ctx, queryStmt, machineUUIDoutput).Get(&result)
 		if err != nil {
 			return errors.Errorf("querying if machine %q is a controller: %w", mName, err)
 		}
@@ -687,7 +705,7 @@ func (st *State) IsMachineController(ctx context.Context, mName machine.Name) (b
 		return false, errors.Errorf("checking if machine %q is a controller: %w", mName, err)
 	}
 
-	return result.IsController, nil
+	return result.Count == 1, nil
 }
 
 // AllMachineNames retrieves the names of all machines in the model.

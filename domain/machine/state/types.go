@@ -158,7 +158,7 @@ type machineExistsUUID struct {
 
 // machineIsController represents the struct to be used for the is_controller column within the sqlair statements in the machine domain.
 type machineIsController struct {
-	IsController bool `db:"is_controller"`
+	Count int64 `db:"count"`
 }
 
 // keepInstance represents the struct to be used for the keep_instance column

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/watcher/watchertest"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -97,6 +98,37 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServers(c *tc.C) {
 	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
 
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{}, nil)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to finish")
+	}
+
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{})
+
+	apiRemotes, err := w.GetAPIRemotes()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiRemotes, tc.DeepEquals, []RemoteConnection{})
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServerError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	ch := make(chan struct{})
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{}, controllernodeerrors.EmptyAPIAddresses)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)

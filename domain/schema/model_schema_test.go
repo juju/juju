@@ -33,6 +33,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"application_config_hash",
 		"application_config",
 		"application_constraint",
+		"application_controller",
 		"application_exposed_endpoint_cidr",
 		"application_exposed_endpoint_space",
 		"application_platform",
@@ -152,8 +153,8 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_lxd_profile",
 		"machine_parent",
 		"machine_placement_scope",
-		"machine_platform",
 		"machine_placement",
+		"machine_platform",
 		"machine_removals",
 		"machine_requires_reboot",
 		"machine_status_value",
@@ -553,6 +554,7 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 	additional := set.NewStrings(
 		"trg_model_immutable_delete",
 		"trg_model_immutable_update",
+		"trg_application_controller_immutable_update",
 
 		"trg_secret_permission_guard_update",
 		"trg_sequence_guard_update",
