@@ -60,10 +60,10 @@ func (s *ControllerSuite) SeedControllerTable(c *tc.C, controllerModelUUID corem
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(
 			ctx,
-			`INSERT INTO controller (uuid, model_uuid, target_version) VALUES (?, ?)`,
+			`INSERT INTO controller (uuid, model_uuid, target_version) VALUES (?, ?, ?)`,
 			controllerUUID,
 			controllerModelUUID,
-			jujuversion.Current,
+			jujuversion.Current.String(),
 		)
 		return err
 	})
@@ -79,7 +79,7 @@ func (s *ControllerSuite) SeedControllerUUID(c *tc.C) (controllerUUID string) {
 			`INSERT INTO controller (uuid, model_uuid, target_version) VALUES (?, ?, ?)`,
 			controllerUUID,
 			jujutesting.ControllerModelTag.Id(),
-			jujuversion.Current,
+			jujuversion.Current.String(),
 		)
 		return err
 	})
