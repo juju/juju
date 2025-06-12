@@ -989,6 +989,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.
 	if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
+	modelDomainServices.Status()
 	modelInfoService := modelDomainServices.ModelInfo()
 	modelInfo, err := modelInfoService.GetModelInfo(ctx)
 	if err != nil {
@@ -1036,7 +1037,8 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.
 	}
 	info.AgentVersion = &agentVersion
 
-	status, err := modelInfoService.GetStatus(ctx)
+	statusService := modelDomainServices.Status()
+	status, err := statusService.GetModelStatus(ctx)
 	if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
@@ -1046,16 +1048,14 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.
 	info.Status = params.EntityStatus{
 		Status: status.Status,
 		Info:   status.Message,
-		Data: map[string]interface{}{
-			"reason": status.Reason,
-		},
-		Since: &status.Since,
+		Data:   status.Data,
+		Since:  status.Since,
 	}
 
 	if status.Status == corestatus.Busy {
 		info.Migration = &params.ModelMigrationStatus{
 			Status: status.Message,
-			Start:  &status.Since,
+			Start:  status.Since,
 		}
 	}
 
