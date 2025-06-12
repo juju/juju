@@ -723,6 +723,33 @@ func (st *ModelState) GetUnitWorkloadStatusesForApplication(
 	return unitStatuses, nil
 }
 
+// GetUnitAgentStatusesForApplication returns the agent statuses for all units
+// of the specified application, returning:
+//   - an error satisfying [statuserrors.ApplicationNotFound] if the application
+//     doesn't exist or;
+//   - error satisfying [statuserrors.ApplicationIsDead] if the application
+//     is dead.
+func (st *ModelState) GetUnitAgentStatusesForApplication(
+	ctx context.Context, appID coreapplication.ID,
+) (status.UnitAgentStatuses, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	ident := applicationID{ID: appID}
+
+	var unitAgentStatuses status.UnitAgentStatuses
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		unitAgentStatuses, err = st.getUnitAgentStatusesForApplication(ctx, tx, ident)
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting workload statuses for application %q: %w", appID, err)
+	}
+	return unitAgentStatuses, nil
+}
+
 // GetAllFullUnitStatusesForApplication returns the workload, agent and container
 // statuses for all units of the specified application, returning:
 //   - an error satisfying [statuserrors.ApplicationNotFound] if the application
@@ -1143,6 +1170,49 @@ WHERE  application_uuid = $applicationID.uuid
 				Since:   unitStatus.UpdatedAt,
 			},
 			Present: unitStatus.Present,
+		}
+	}
+
+	return statuses, nil
+}
+
+func (st *ModelState) getUnitAgentStatusesForApplication(
+	ctx context.Context, tx *sqlair.TX, ident applicationID,
+) (
+	status.UnitAgentStatuses, error,
+) {
+	getUnitAgentStatusesStmt, err := st.Prepare(`
+SELECT &statusInfoAndUnitName.*
+FROM   v_unit_agent_status
+WHERE  application_uuid = $applicationID.uuid
+`, statusInfoAndUnitName{}, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var unitAgentStatuses []statusInfoAndUnitName
+	err = st.checkApplicationNotDead(ctx, tx, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	err = tx.Query(ctx, getUnitAgentStatusesStmt, ident).GetAll(&unitAgentStatuses)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	statuses := make(status.UnitAgentStatuses, len(unitAgentStatuses))
+	for _, agentStatus := range unitAgentStatuses {
+		statusID, err := status.DecodeAgentStatus(agentStatus.StatusID)
+		if err != nil {
+			return nil, errors.Errorf("decoding agent status ID for unit %q: %w", agentStatus.UnitName, err)
+		}
+		statuses[agentStatus.UnitName] = status.StatusInfo[status.UnitAgentStatusType]{
+			Status:  statusID,
+			Message: agentStatus.Message,
+			Data:    agentStatus.Data,
+			Since:   agentStatus.UpdatedAt,
 		}
 	}
 

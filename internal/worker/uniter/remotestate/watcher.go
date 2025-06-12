@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
+	tomb "gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
@@ -448,10 +449,13 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenActionsChange bool
-	actionsw, err := w.unit.WatchActionNotifications(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	//actionsw, err := w.unit.WatchActionNotifications(ctx)
+	//if err != nil {
+	//	return errors.Trace(err)
+	//}
+	hacktionsChan := make(chan []string, 1)
+	hacktionsChan <- nil
+	actionsw := NewMockStringsWatcher(hacktionsChan)
 	if err := w.catacomb.Add(actionsw); err != nil {
 		return errors.Trace(err)
 	}
@@ -1297,4 +1301,45 @@ func (w *RemoteStateWatcher) markShutdown() {
 
 func (w *RemoteStateWatcher) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
+type MockStringsWatcher struct {
+	tomb tomb.Tomb
+	ch   <-chan []string
+}
+
+func NewMockStringsWatcher(ch <-chan []string) *MockStringsWatcher {
+	w := &MockStringsWatcher{ch: ch}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		return tomb.ErrDying
+	})
+	return w
+}
+
+func (w *MockStringsWatcher) Changes() <-chan []string {
+	return w.ch
+}
+
+func (w *MockStringsWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+func (w *MockStringsWatcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// KillErr can be used to kill the worker with
+// an error, to simulate a failing watcher.
+func (w *MockStringsWatcher) KillErr(err error) {
+	w.tomb.Kill(err)
+}
+
+func (w *MockStringsWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *MockStringsWatcher) Wait() error {
+	return w.tomb.Wait()
 }

@@ -302,6 +302,23 @@ func (s *WatchableService) WatchApplicationUnitLife(ctx context.Context, appName
 	)
 }
 
+// WatchUnitLife returns a watcher that observes the changes to life of one unit.
+func (s *WatchableService) WatchUnitLife(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error) {
+	unitUUID, err := s.GetUnitUUID(ctx, unitName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	// TODO: this watches more than life.
+	table, _ := s.st.InitialWatchStatementUnitLife(unitName.Application())
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			table,
+			changestream.All,
+			eventsource.EqualsPredicate(unitUUID.String()),
+		),
+	)
+}
+
 // WatchApplicationScale returns a watcher that observes changes to an application's scale.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application doesn't exist

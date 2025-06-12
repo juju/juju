@@ -76,6 +76,44 @@ func (c *MockRunnerKillCall) DoAndReturn(f func()) *MockRunnerKillCall {
 	return c
 }
 
+// Report mocks base method.
+func (m *MockRunner) Report() map[string]any {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Report")
+	ret0, _ := ret[0].(map[string]any)
+	return ret0
+}
+
+// Report indicates an expected call of Report.
+func (mr *MockRunnerMockRecorder) Report() *MockRunnerReportCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockRunner)(nil).Report))
+	return &MockRunnerReportCall{Call: call}
+}
+
+// MockRunnerReportCall wrap *gomock.Call
+type MockRunnerReportCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRunnerReportCall) Return(arg0 map[string]any) *MockRunnerReportCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRunnerReportCall) Do(f func() map[string]any) *MockRunnerReportCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRunnerReportCall) DoAndReturn(f func() map[string]any) *MockRunnerReportCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // StartWorker mocks base method.
 func (m *MockRunner) StartWorker(arg0 context.Context, arg1 string, arg2 func(context.Context) (worker.Worker, error)) error {
 	m.ctrl.T.Helper()
