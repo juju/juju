@@ -55,7 +55,7 @@ type ApplicationService interface {
 	// and charm.
 	CreateIAASApplication(
 		context.Context, string, charm.Charm, corecharm.Origin,
-		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
+		applicationservice.AddApplicationArgs, ...applicationservice.AddIAASUnitArg,
 	) (coreapplication.ID, error)
 
 	// CreateCAASApplication creates a new application with the given name and
@@ -133,7 +133,7 @@ type MachineService interface {
 		ctx context.Context,
 		machineUUID machine.UUID,
 		instanceID instance.Id,
-		displayName string,
+		displayName, nonce string,
 		hardwareCharacteristics *instance.HardwareCharacteristics,
 	) error
 	// InstanceIDAndName returns the cloud specific instance ID and display name for

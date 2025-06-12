@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -363,13 +364,19 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 		Instance: &testInstance{id: "inst-666"},
 	}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return("machine-666-uuid", nil)
+
+	var nonce string
 	s.machineService.EXPECT().SetMachineCloudInstance(
 		gomock.Any(),
 		machine.UUID("machine-666-uuid"),
 		instance.Id("inst-666"),
 		"",
+		gomock.Any(),
 		nil,
-	)
+	).DoAndReturn(func(ctx context.Context, u machine.UUID, i instance.Id, s1, s2 string, hc *instance.HardwareCharacteristics) error {
+		nonce = s2
+		return nil
+	})
 
 	s.sendModelMachinesChange(c, mTag.Id())
 	s.checkStartInstance(c, m666)
@@ -384,6 +391,9 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 	m666.SetLife(life.Dead)
 	s.sendModelMachinesChange(c, mTag.Id())
 	s.waitForRemovalMark(c, m666)
+
+	// Make sure the nonce is set correctly.
+	c.Assert(strings.HasPrefix(nonce, "machine-0:"), tc.IsTrue)
 }
 
 func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChanges(c *tc.C) {

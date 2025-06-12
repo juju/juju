@@ -834,7 +834,7 @@ func (m *MockIAASApplicationService) EXPECT() *MockIAASApplicationServiceMockRec
 }
 
 // CreateIAASApplication mocks base method.
-func (m *MockIAASApplicationService) CreateIAASApplication(arg0 context.Context, arg1 string, arg2 charm0.Charm, arg3 charm.Origin, arg4 service.AddApplicationArgs, arg5 ...service.AddUnitArg) (application.ID, error) {
+func (m *MockIAASApplicationService) CreateIAASApplication(arg0 context.Context, arg1 string, arg2 charm0.Charm, arg3 charm.Origin, arg4 service.AddApplicationArgs, arg5 ...service.AddIAASUnitArg) (application.ID, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1, arg2, arg3, arg4}
 	for _, a := range arg5 {
@@ -866,13 +866,13 @@ func (c *MockIAASApplicationServiceCreateIAASApplicationCall) Return(arg0 applic
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockIAASApplicationServiceCreateIAASApplicationCall) Do(f func(context.Context, string, charm0.Charm, charm.Origin, service.AddApplicationArgs, ...service.AddUnitArg) (application.ID, error)) *MockIAASApplicationServiceCreateIAASApplicationCall {
+func (c *MockIAASApplicationServiceCreateIAASApplicationCall) Do(f func(context.Context, string, charm0.Charm, charm.Origin, service.AddApplicationArgs, ...service.AddIAASUnitArg) (application.ID, error)) *MockIAASApplicationServiceCreateIAASApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockIAASApplicationServiceCreateIAASApplicationCall) DoAndReturn(f func(context.Context, string, charm0.Charm, charm.Origin, service.AddApplicationArgs, ...service.AddUnitArg) (application.ID, error)) *MockIAASApplicationServiceCreateIAASApplicationCall {
+func (c *MockIAASApplicationServiceCreateIAASApplicationCall) DoAndReturn(f func(context.Context, string, charm0.Charm, charm.Origin, service.AddApplicationArgs, ...service.AddIAASUnitArg) (application.ID, error)) *MockIAASApplicationServiceCreateIAASApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
