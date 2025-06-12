@@ -1,6 +1,7 @@
 CREATE TABLE controller (
     uuid TEXT NOT NULL PRIMARY KEY,
-    model_uuid TEXT NOT NULL
+    model_uuid TEXT NOT NULL,
+    target_version TEXT NOT NULL
 );
 
 -- A unique constraint over a constant index ensures only 1 entry matching the
@@ -22,13 +23,3 @@ SELECT
     'controller-uuid' AS "key",
     controller.uuid AS value
 FROM controller;
-
--- Tracks the target binary version for the controller. Can only ever be at most
--- one reccord in the table by virtue of the controller table only supporting
--- one controller.
-CREATE TABLE controller_version (
-    controller_uuid TEXT NOT NULL PRIMARY KEY,
-    target_version TEXT NOT NULL,
-    FOREIGN KEY (controller_uuid)
-    REFERENCES controller (uuid)
-);
