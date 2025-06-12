@@ -5,6 +5,7 @@ package environ
 
 import (
 	"context"
+	"github.com/juju/juju/controller"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -25,6 +26,7 @@ var _ logger = struct{}{}
 // that allows clients to be informed of changes to the configuration.
 type ConfigObserver interface {
 	environs.EnvironConfigGetter
+	ControllerConfig() (controller.Config, error)
 	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
 	WatchCloudSpecChanges() (watcher.NotifyWatcher, error)
 }
@@ -73,7 +75,12 @@ func NewTracker(config Config) (*Tracker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	environ, spec, err := environs.GetEnvironAndCloud(config.Observer, config.NewEnvironFunc)
+	ctrlCfg, err := config.Observer.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	environ, spec, err := environs.GetEnvironAndCloud(config.Observer, ctrlCfg.ControllerUUID(), config.NewEnvironFunc)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

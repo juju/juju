@@ -38,7 +38,7 @@ func (api *CloudAPI) InstanceTypes(cons params.CloudInstanceTypesConstraints) (p
 	return instanceTypes(api, environs.GetEnviron, cons)
 }
 
-type environGetFunc func(st environs.EnvironConfigGetter, newEnviron environs.NewEnvironFunc) (environs.Environ, error)
+type environGetFunc func(st environs.EnvironConfigGetter, controllerUUID string, newEnviron environs.NewEnvironFunc) (environs.Environ, error)
 
 func instanceTypes(api *CloudAPI,
 	environGet environGetFunc,
@@ -76,7 +76,12 @@ func instanceTypes(api *CloudAPI,
 			continue
 		}
 
-		env, err := environGet(backend, environs.New)
+		ctrlCfg, err := backend.ControllerConfig()
+		if err != nil {
+			return params.InstanceTypesResults{}, errors.Annotate(err, "getting controller config")
+		}
+
+		env, err := environGet(backend, ctrlCfg.ControllerUUID(), environs.New)
 		if err != nil {
 			return params.InstanceTypesResults{}, errors.Trace(err)
 		}

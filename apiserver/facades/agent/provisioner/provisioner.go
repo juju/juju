@@ -122,7 +122,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	if isCaasModel {
 		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
 	} else {
-		env, err = environs.GetEnviron(configGetter, environs.New)
+		env, err = environs.GetEnviron(configGetter, model.ControllerUUID(), environs.New)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -169,7 +169,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	}
 
 	newEnviron := func() (environs.BootstrapEnviron, error) {
-		return environs.GetEnviron(configGetter, environs.New)
+		return environs.GetEnviron(configGetter, model.ControllerUUID(), environs.New)
 	}
 	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
 	api.toolsFinder = common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
@@ -971,7 +971,7 @@ func (api *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 // prepareContainerAccessEnvironment retrieves the environment, host machine, and access
 // for working with containers.
 func (api *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Environ, *state.Machine, common.AuthFunc, error) {
-	env, err := environs.GetEnviron(api.configGetter, environs.New)
+	env, err := environs.GetEnviron(api.configGetter, api.m.ControllerUUID(), environs.New)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}

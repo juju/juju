@@ -42,6 +42,6 @@ func EnvironFuncForModel(model stateenvirons.Model, configGetter environs.Enviro
 		}
 	}
 	return func() (environs.BootstrapEnviron, error) {
-		return environs.GetEnviron(configGetter, environs.New)
+		return environs.GetEnviron(configGetter, model.ControllerUUID(), environs.New)
 	}
 }

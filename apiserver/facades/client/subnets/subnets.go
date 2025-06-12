@@ -6,6 +6,7 @@ package subnets
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/controller"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 
@@ -47,6 +48,9 @@ type Backing interface {
 
 	// ModelTag returns the tag of the model this state is associated to.
 	ModelTag() names.ModelTag
+
+	// ControllerConfig returns the controller config.
+	ControllerConfig() (controller.Config, error)
 }
 
 // API provides the subnets API facade for version 5.
