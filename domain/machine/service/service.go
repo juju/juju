@@ -114,6 +114,9 @@ type State interface {
 	// It returns a NotFound if the given machine doesn't exist.
 	IsMachineController(context.Context, machine.Name) (bool, error)
 
+	// IsManualMachine returns whether the machine is a manual machine.
+	IsManualMachine(context.Context, machine.Name) (bool, error)
+
 	// ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
 	// the corresponding cloud instance to be stopped.
 	ShouldKeepInstance(ctx context.Context, mName machine.Name) (bool, error)
@@ -465,6 +468,18 @@ func (s *Service) IsMachineController(ctx context.Context, machineName machine.N
 		return false, errors.Errorf("checking if machine %q is a controller: %w", machineName, err)
 	}
 	return isController, nil
+}
+
+// IsManualMachine returns whether the machine is a manual machine.
+func (s *Service) IsManualMachine(ctx context.Context, machineName machine.Name) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	isManual, err := s.st.IsManualMachine(ctx, machineName)
+	if err != nil {
+		return false, errors.Errorf("checking if machine %q is a manual machine: %w", machineName, err)
+	}
+	return isManual, nil
 }
 
 // ShouldKeepInstance reports whether a machine, when removed from Juju, should cause

@@ -17,7 +17,6 @@ import (
 type Machine interface {
 	containerizer.Container
 
-	IsManual() (bool, error)
 	MachineTag() names.MachineTag
 }
 

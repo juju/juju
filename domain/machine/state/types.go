@@ -120,27 +120,19 @@ type setMachineStatus struct {
 	MachineUUID machine.UUID `db:"machine_uuid"`
 }
 
-// availabilityZoneName represents the struct to be used for the name column
-// within the sqlair statements in the availability_zone table.
 type availabilityZoneName struct {
 	UUID string `db:"uuid"`
 	Name string `db:"name"`
 }
 
-// machineName represents the struct to be used for the name column
-// within the sqlair statements in the machine domain.
 type machineName struct {
 	Name machine.Name `db:"name"`
 }
 
-// machineMarkForRemoval represents the struct to be used for the columns of the
-// machine_removals table within the sqlair statements in the machine domain.
 type machineMarkForRemoval struct {
 	UUID machine.UUID `db:"machine_uuid"`
 }
 
-// machineUUID represents the struct to be used for the machine_uuid column
-// within the sqlair statements in the machine domain.
 type machineUUID struct {
 	UUID machine.UUID `db:"uuid"`
 }
@@ -149,26 +141,19 @@ type machineInstanceUUID struct {
 	MachineUUID machine.UUID `db:"machine_uuid"`
 }
 
-// machineExistsUUID represents the struct to be used for the uuid column
-// within the sqlair statements in the machine domain.
 type machineExistsUUID struct {
 	UUID  machine.UUID `db:"uuid"`
 	Count int          `db:"count"`
 }
 
-// machineIsController represents the struct to be used for the is_controller column within the sqlair statements in the machine domain.
-type machineIsController struct {
+type count struct {
 	Count int64 `db:"count"`
 }
 
-// keepInstance represents the struct to be used for the keep_instance column
-// within the sqlair statements in the machine domain.
 type keepInstance struct {
 	KeepInstance bool `db:"keep_instance"`
 }
 
-// machineParent represents the struct to be used for the columns of the
-// machine_parent table within the sqlair statements in the machine domain.
 type machineParent struct {
 	MachineUUID machine.UUID `db:"machine_uuid"`
 	ParentUUID  machine.UUID `db:"parent_uuid"`

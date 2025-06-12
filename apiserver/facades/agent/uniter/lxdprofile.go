@@ -34,7 +34,6 @@ type LXDProfileBackend interface {
 // for executing a lxd profile upgrade.
 type LXDProfileMachine interface {
 	ContainerType() instance.ContainerType
-	IsManual() (bool, error)
 }
 
 type LXDProfileAPI struct {
