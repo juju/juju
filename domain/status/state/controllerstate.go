@@ -6,10 +6,14 @@ package state
 import (
 	"context"
 
+	"github.com/canonical/sqlair"
+
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ControllerState represents the state of a single model within the controller's context.
@@ -23,6 +27,7 @@ type ControllerState struct {
 }
 
 // NewControllerState returns a new [ControllerState] for interacting with the underlying controller state.
+// modelUUID scopes the controller state to a specific model, allowing access to only the model's data from the controller database.
 func NewControllerState(
 	factory database.TxnRunnerFactory,
 	modelUUID coremodel.UUID,
@@ -39,6 +44,39 @@ func NewControllerState(
 // information. If the model no longer exists for the provided UUID then an error
 // satisfying [modelerrors.NotFound] will be returned.
 func (s *ControllerState) GetModelStatusContext(ctx context.Context) (status.ModelStatusContext, error) {
-	// TODO: Implement this method to return the model status context from DB.
-	return status.ModelStatusContext{}, nil
+	db, err := s.DB()
+	if err != nil {
+		return status.ModelStatusContext{}, errors.Capture(err)
+	}
+
+	mUUID := modelUUID{UUID: s.modelUUID.String()}
+	var modelStatusCtxResult modelStatusContext
+
+	stmt, err := s.Prepare(`
+SELECT &modelStatusContext.*
+FROM v_model_state
+WHERE uuid = $modelUUID.uuid
+`, modelStatusCtxResult, mUUID)
+	if err != nil {
+		return status.ModelStatusContext{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, mUUID).Get(&modelStatusCtxResult)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("model %q does not exist", mUUID.UUID).Add(modelerrors.NotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return status.ModelStatusContext{}, errors.Capture(err)
+	}
+
+	return status.ModelStatusContext{
+		IsDestroying:                 modelStatusCtxResult.Destroying,
+		IsMigrating:                  modelStatusCtxResult.Migrating,
+		HasInvalidCloudCredential:    modelStatusCtxResult.CredentialInvalid,
+		InvalidCloudCredentialReason: modelStatusCtxResult.CredentialInvalidReason,
+	}, nil
 }
