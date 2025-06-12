@@ -46,6 +46,8 @@ type appWorker struct {
 	password    string
 	lastApplied caas.ApplicationConfig
 	life        life.Value
+
+	engineReportRequest chan chan<- map[string]any
 }
 
 type AppWorkerConfig struct {
@@ -78,17 +80,18 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 		changes := make(chan struct{}, 1)
 		changes <- struct{}{}
 		a := &appWorker{
-			applicationService: config.ApplicationService,
-			statusService:      config.StatusService,
-			appID:              config.AppID,
-			facade:             config.Facade,
-			broker:             config.Broker,
-			modelTag:           config.ModelTag,
-			clock:              config.Clock,
-			logger:             config.Logger,
-			changes:            changes,
-			unitFacade:         config.UnitFacade,
-			ops:                ops,
+			applicationService:  config.ApplicationService,
+			statusService:       config.StatusService,
+			appID:               config.AppID,
+			facade:              config.Facade,
+			broker:              config.Broker,
+			modelTag:            config.ModelTag,
+			clock:               config.Clock,
+			logger:              config.Logger,
+			changes:             changes,
+			unitFacade:          config.UnitFacade,
+			ops:                 ops,
+			engineReportRequest: make(chan chan<- map[string]any),
 		}
 		err := catacomb.Invoke(catacomb.Plan{
 			Name: "caas-application-provisioner",
@@ -322,6 +325,8 @@ func (a *appWorker) loop() error {
 		return nil
 	}
 
+	refreshTimer := a.clock.NewTimer(10 * time.Second)
+	defer refreshTimer.Stop()
 	for {
 		shouldRefresh := true
 		select {
@@ -452,8 +457,30 @@ func (a *appWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-		case <-a.clock.After(10 * time.Second):
+		case <-refreshTimer.Chan():
 			// Force refresh of application status.
+		case reportChan := <-a.engineReportRequest:
+			// Respond to engine reports.
+			var reportErrors []string
+			ps, err := a.applicationService.GetApplicationScalingState(ctx, name)
+			if err != nil {
+				reportErrors = append(reportErrors, err.Error())
+			}
+			report := map[string]any{
+				"application-uuid": a.appID,
+				"application-name": name,
+				"status-only":      statusOnly,
+				"application-life": a.life,
+				"scale-target":     ps.ScaleTarget,
+				"scaling":          ps.Scaling,
+				"report-error":     reportErrors,
+			}
+			select {
+			case reportChan <- report:
+			case <-a.catacomb.Dying():
+				return a.catacomb.ErrDying()
+			}
+			shouldRefresh = false
 		}
 		if done {
 			return nil
@@ -463,6 +490,22 @@ func (a *appWorker) loop() error {
 				return errors.Annotatef(err, "refreshing application status for %q", name)
 			}
 		}
+	}
+}
+
+// Report returns a report about this application provisioner.
+func (a *appWorker) Report() map[string]any {
+	reportChan := make(chan map[string]any)
+	select {
+	case a.engineReportRequest <- reportChan:
+	case <-a.catacomb.Dying():
+		return nil
+	}
+	select {
+	case report := <-reportChan:
+		return report
+	case <-a.catacomb.Dying():
+		return nil
 	}
 }
 
