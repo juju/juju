@@ -274,6 +274,40 @@ WHERE     u.uuid = $entityUUID.uuid;`, applicationUnitName{}, unitUUID)
 	return appUnitName.ApplicationName, appUnitName.UnitName, nil
 }
 
+// MarkUnitAsDead marks the unit with the input UUID as dead.
+func (st *State) MarkUnitAsDead(ctx context.Context, uUUID string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	unitUUID := entityUUID{UUID: uUUID}
+	updateStmt, err := st.Prepare(`
+UPDATE unit
+SET    life_id = 2
+WHERE  uuid = $entityUUID.uuid
+AND    life_id = 1`, unitUUID)
+	if err != nil {
+		return errors.Errorf("preparing unit life update: %w", err)
+	}
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if l, err := st.GetUnitLife(ctx, uUUID); err != nil {
+			return errors.Errorf("getting unit life: %w", err)
+		} else if l == life.Dead {
+			return nil
+		} else if l == life.Alive {
+			return removalerrors.EntityStillAlive
+		}
+
+		err := tx.Query(ctx, updateStmt, unitUUID).Run()
+		if err != nil {
+			return errors.Errorf("marking unit as dead: %w", err)
+		}
+
+		return nil
+	}))
+}
+
 // DeleteUnit removes a unit from the database completely.
 func (st *State) DeleteUnit(ctx context.Context, unitUUID string) error {
 	db, err := st.DB()

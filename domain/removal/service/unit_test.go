@@ -215,6 +215,44 @@ func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnitClaimNotHeldError(c *tc.
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func (s *unitSuite) TestMarkUnitAsDead(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uUUID := unittesting.GenUnitUUID(c)
+
+	exp := s.state.EXPECT()
+	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
+	exp.MarkUnitAsDead(gomock.Any(), uUUID.String()).Return(nil)
+
+	err := s.newService(c).MarkUnitAsDead(c.Context(), uUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *unitSuite) TestMarkUnitAsDeadUnitDoesNotExist(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uUUID := unittesting.GenUnitUUID(c)
+
+	exp := s.state.EXPECT()
+	exp.UnitExists(gomock.Any(), uUUID.String()).Return(false, nil)
+
+	err := s.newService(c).MarkUnitAsDead(c.Context(), uUUID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitSuite) TestMarkUnitAsDeadError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uUUID := unittesting.GenUnitUUID(c)
+
+	exp := s.state.EXPECT()
+	exp.UnitExists(gomock.Any(), uUUID.String()).Return(false, errors.Errorf("the front fell off"))
+
+	err := s.newService(c).MarkUnitAsDead(c.Context(), uUUID)
+	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
+}
+
 func newUnitJob(c *tc.C) removal.Job {
 	jUUID, err := removal.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)

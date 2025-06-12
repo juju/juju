@@ -43,6 +43,9 @@ type UnitState interface {
 	// and unit name for a unit identified by the input UUID. If the unit does
 	// not exist, it returns an error.
 	GetApplicationNameAndUnitNameByUnitUUID(ctx context.Context, unitUUID string) (string, string, error)
+
+	// MarkUnitAsDead marks the unit with the input UUID as dead.
+	MarkUnitAsDead(ctx context.Context, unitUUID string) error
 }
 
 // RemoveUnit checks if a unit with the input name exists.
@@ -117,6 +120,20 @@ func (s *Service) RemoveUnit(
 	}
 
 	return unitJobUUID, nil
+}
+
+// MarkUnitAsDead marks the unit as dead. It will not remove the unit as
+// that is a separate operation. This will advance the unit's life to dead
+// and will not allow it to be transitioned back to alive.
+func (s *Service) MarkUnitAsDead(ctx context.Context, unitUUID unit.UUID) error {
+	exists, err := s.st.UnitExists(ctx, unitUUID.String())
+	if err != nil {
+		return errors.Errorf("checking if unit exists: %w", err)
+	} else if !exists {
+		return errors.Errorf("unit does not exist").Add(applicationerrors.UnitNotFound)
+	}
+
+	return s.st.MarkUnitAsDead(ctx, unitUUID.String())
 }
 
 func (s *Service) unitScheduleRemoval(
