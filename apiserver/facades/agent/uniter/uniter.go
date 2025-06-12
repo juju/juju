@@ -326,8 +326,7 @@ func (u *UniterAPI) PublicAddress(ctx context.Context, args params.Entities) (pa
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		// TODO - fix me - use IP() method
-		result.Results[i].Result = address.Value
+		result.Results[i].Result = address.IP().String()
 	}
 	return result, nil
 }
@@ -363,8 +362,7 @@ func (u *UniterAPI) PrivateAddress(ctx context.Context, args params.Entities) (p
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		// TODO - fix me - use IP() method
-		result.Results[i].Result = address.Value
+		result.Results[i].Result = address.IP().String()
 	}
 	return result, nil
 }

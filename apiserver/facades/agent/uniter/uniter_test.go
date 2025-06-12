@@ -764,7 +764,7 @@ func (s *uniterSuite) TestPrivateAddress(c *tc.C) {
 	}}
 	addr := network.SpaceAddress{
 		MachineAddress: network.MachineAddress{
-			Value: "192.168.0.1",
+			Value: "192.168.0.1/24",
 		},
 	}
 	s.networkService.EXPECT().GetUnitPrivateAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(addr, nil)
@@ -773,7 +773,7 @@ func (s *uniterSuite) TestPrivateAddress(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
-			{Result: addr.Value},
+			{Result: addr.IP().String()},
 		},
 	})
 }
