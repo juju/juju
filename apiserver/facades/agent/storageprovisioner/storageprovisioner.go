@@ -47,6 +47,7 @@ type StorageProvisionerAPIv4 struct {
 	storagePoolGetter        StoragePoolGetter
 	modelConfigService       ModelConfigService
 	machineService           MachineService
+	applicationService       ApplicationService
 	getScopeAuthFunc         common.GetAuthFunc
 	getStorageEntityAuthFunc common.GetAuthFunc
 	getMachineAuthFunc       common.GetAuthFunc
@@ -69,6 +70,7 @@ func NewStorageProvisionerAPIv4(
 	modelConfigService ModelConfigService,
 	machineService MachineService,
 	resources facade.Resources,
+	applicationService ApplicationService,
 	authorizer facade.Authorizer,
 	registry storage.ProviderRegistry,
 	storagePoolGetter StoragePoolGetter,
@@ -239,6 +241,7 @@ func NewStorageProvisionerAPIv4(
 		storagePoolGetter:        storagePoolGetter,
 		modelConfigService:       modelConfigService,
 		machineService:           machineService,
+		applicationService:       applicationService,
 		getScopeAuthFunc:         getScopeAuthFunc,
 		getStorageEntityAuthFunc: getStorageEntityAuthFunc,
 		getAttachmentAuthFunc:    getAttachmentAuthFunc,
@@ -255,14 +258,22 @@ func NewStorageProvisionerAPIv4(
 // WatchApplications starts a StringsWatcher to watch CAAS applications
 // deployed to this model.
 func (s *StorageProvisionerAPIv4) WatchApplications(ctx context.Context) (params.StringsWatchResult, error) {
-	watch := s.st.WatchApplications()
-	if changes, ok := <-watch.Changes(); ok {
+	watch, err := s.applicationService.WatchApplications(ctx)
+	if err != nil {
 		return params.StringsWatchResult{
-			StringsWatcherId: s.resources.Register(watch),
-			Changes:          changes,
-		}, nil
+			Error: apiservererrors.ServerError(err),
+		}, err
 	}
-	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
+	watcherID, changes, err := internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, watch)
+	if err != nil {
+		return params.StringsWatchResult{
+			Error: apiservererrors.ServerError(err),
+		}, err
+	}
+	return params.StringsWatchResult{
+		StringsWatcherId: watcherID,
+		Changes:          changes,
+	}, nil
 }
 
 // WatchBlockDevices watches for changes to the specified machines' block devices.

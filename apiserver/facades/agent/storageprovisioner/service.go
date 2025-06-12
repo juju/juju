@@ -63,3 +63,10 @@ type StoragePoolGetter interface {
 	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }
+
+// ApplicationService is an interface for the application domain service.
+type ApplicationService interface {
+	// WatchApplications returns a watcher that emits application uuids
+	// when applications are added or removed.
+	WatchApplications(ctx context.Context) (watcher.StringsWatcher, error)
+}
