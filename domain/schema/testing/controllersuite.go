@@ -11,6 +11,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/testing"
@@ -57,7 +58,13 @@ func (s *ControllerSuite) ControllerTxnRunner() coredatabase.TxnRunner {
 func (s *ControllerSuite) SeedControllerTable(c *tc.C, controllerModelUUID coremodel.UUID) (controllerUUID string) {
 	controllerUUID = jujutesting.ControllerTag.Id()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO controller (uuid, model_uuid) VALUES (?, ?)`, controllerUUID, controllerModelUUID)
+		_, err := tx.ExecContext(
+			ctx,
+			`INSERT INTO controller (uuid, model_uuid, target_version) VALUES (?, ?, ?)`,
+			controllerUUID,
+			controllerModelUUID,
+			jujuversion.Current.String(),
+		)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -67,7 +74,13 @@ func (s *ControllerSuite) SeedControllerTable(c *tc.C, controllerModelUUID corem
 func (s *ControllerSuite) SeedControllerUUID(c *tc.C) (controllerUUID string) {
 	controllerUUID = jujutesting.ControllerTag.Id()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO controller (uuid, model_uuid) VALUES (?, ?)`, controllerUUID, jujutesting.ControllerModelTag.Id())
+		_, err := tx.ExecContext(
+			ctx,
+			`INSERT INTO controller (uuid, model_uuid, target_version) VALUES (?, ?, ?)`,
+			controllerUUID,
+			jujutesting.ControllerModelTag.Id(),
+			jujuversion.Current.String(),
+		)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

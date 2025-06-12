@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/controller"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
+	jujuversion "github.com/juju/juju/core/version"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/testing"
 )
@@ -39,12 +40,13 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 
 	c.Check(cert, tc.Equals, testing.CACert)
 
-	var dbUUID, dbModelUUID string
-	row = s.DB().QueryRow("SELECT uuid, model_uuid FROM controller")
-	c.Assert(row.Scan(&dbUUID, &dbModelUUID), tc.ErrorIsNil)
+	var dbUUID, dbModelUUID, dbTargetVersion string
+	row = s.DB().QueryRow("SELECT uuid, model_uuid, target_version FROM controller")
+	c.Assert(row.Scan(&dbUUID, &dbModelUUID, &dbTargetVersion), tc.ErrorIsNil)
 
 	c.Check(dbModelUUID, tc.Equals, modelUUID.String())
 	c.Check(dbUUID, tc.Equals, testing.ControllerTag.Id())
+	c.Check(dbTargetVersion, tc.Equals, jujuversion.Current.String())
 }
 
 func (s *bootstrapSuite) TestValidModelUUID(c *tc.C) {
