@@ -180,10 +180,8 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	}
 
 	return appName, application.AddIAASApplicationArg{
-			BaseAddApplicationArg: arg,
-		}, transform.Slice(unitArgs, func(arg application.AddIAASUnitArg) application.AddUnitArg {
-			return arg.AddUnitArg
-		}), nil
+		BaseAddApplicationArg: arg,
+	}, unitArgs, nil
 }
 
 func (s *ProviderService) makeCAASApplicationArg(

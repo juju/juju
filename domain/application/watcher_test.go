@@ -857,7 +857,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appID := s.createIAASApplication(c, svc, appName, service.AddIAASUnitArg{})
+	appID := s.createCAASApplication(c, svc, appName, service.AddUnitArg{})
 
 	ctx := c.Context()
 
