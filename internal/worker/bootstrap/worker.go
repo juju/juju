@@ -283,6 +283,7 @@ func (w *bootstrapWorker) loop() error {
 		bootstrapMachineUUID,
 		bootstrapParams.BootstrapMachineInstanceId,
 		bootstrapParams.BootstrapMachineDisplayName,
+		agent.BootstrapNonce,
 		bootstrapParams.BootstrapMachineHardwareCharacteristics,
 	); err != nil {
 		w.logger.Errorf(ctx, "unable to set machine cloud instance data for bootstrap machine %q: %w", bootstrapMachineUUID, err)
