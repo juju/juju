@@ -661,6 +661,44 @@ func (c *MockStateMachineExistsCall) DoAndReturn(f func(context.Context, string)
 	return c
 }
 
+// MarkUnitAsDead mocks base method.
+func (m *MockState) MarkUnitAsDead(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkUnitAsDead", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkUnitAsDead indicates an expected call of MarkUnitAsDead.
+func (mr *MockStateMockRecorder) MarkUnitAsDead(arg0, arg1 any) *MockStateMarkUnitAsDeadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkUnitAsDead", reflect.TypeOf((*MockState)(nil).MarkUnitAsDead), arg0, arg1)
+	return &MockStateMarkUnitAsDeadCall{Call: call}
+}
+
+// MockStateMarkUnitAsDeadCall wrap *gomock.Call
+type MockStateMarkUnitAsDeadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateMarkUnitAsDeadCall) Return(arg0 error) *MockStateMarkUnitAsDeadCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateMarkUnitAsDeadCall) Do(f func(context.Context, string) error) *MockStateMarkUnitAsDeadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateMarkUnitAsDeadCall) DoAndReturn(f func(context.Context, string) error) *MockStateMarkUnitAsDeadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NamespaceForWatchRemovals mocks base method.
 func (m *MockState) NamespaceForWatchRemovals() string {
 	m.ctrl.T.Helper()
