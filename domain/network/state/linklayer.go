@@ -525,7 +525,7 @@ WHERE     n.uuid = $unitUUID.uuid
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return encodeIpAddresses(address), nil
+	return encodeIpAddresses(address)
 }
 
 // GetUnitAddresses returns the addresses of the specified unit.
@@ -565,7 +565,7 @@ WHERE     u.uuid = $unitUUID.uuid
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return encodeIpAddresses(address), nil
+	return encodeIpAddresses(address)
 }
 
 // GetUnitUUIDByName returns the UUID for the named unit, returning an error
@@ -646,31 +646,43 @@ WHERE uuid = $unitUUID.uuid;
 	}
 }
 
-func encodeIpAddresses(addresses []spaceAddress) corenetwork.SpaceAddresses {
+func encodeIpAddresses(addresses []spaceAddress) (corenetwork.SpaceAddresses, error) {
 	res := make(corenetwork.SpaceAddresses, len(addresses))
 	for i, addr := range addresses {
-		res[i] = encodeIpAddress(addr)
+		encodedIP, err := encodeIpAddress(addr)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		res[i] = encodedIP
 	}
-	return res
+	return res, nil
 }
 
-func encodeIpAddress(address spaceAddress) corenetwork.SpaceAddress {
+func encodeIpAddress(address spaceAddress) (corenetwork.SpaceAddress, error) {
 	spaceUUID := corenetwork.AlphaSpaceId
 	if address.SpaceUUID.Valid {
 		spaceUUID = address.SpaceUUID.V
 	}
+	// The saved address value is in the form 192.0.2.1/24,
+	// parse the parts for the MachineAddress
+	ipAddr, ipNet, err := net.ParseCIDR(address.Value)
+	if err != nil {
+		return corenetwork.SpaceAddress{}, err
+	}
+	cidr := ipNet.String()
+	// Prefer the subnet cidr if one exists.
+	if address.SubnetCIDR.Valid {
+		cidr = address.SubnetCIDR.String
+	}
 	return corenetwork.SpaceAddress{
 		SpaceID: spaceUUID,
 		Origin:  ipaddress.UnMarshallOrigin(ipaddress.Origin(address.OriginID)),
-		// TODO(nvinuesa): The subnet CIDR is not inserted. This should be
-		// done when migrating machines to dqlite and rework the
-		// MachineAddress modelling so it takes a subnet UUID instead of a
-		// CIDR.
 		MachineAddress: corenetwork.MachineAddress{
-			Value:      address.Value,
+			Value:      ipAddr.String(),
+			CIDR:       cidr,
 			Type:       ipaddress.UnMarshallAddressType(ipaddress.AddressType(address.TypeID)),
 			Scope:      ipaddress.UnMarshallScope(ipaddress.Scope(address.ScopeID)),
 			ConfigType: ipaddress.UnMarshallConfigType(ipaddress.ConfigType(address.ConfigTypeID)),
 		},
-	}
+	}, nil
 }

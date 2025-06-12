@@ -81,11 +81,12 @@ type UniterAPI struct {
 	machineService          MachineService
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
+	modelProviderService    ModelProviderService
+	networkService          NetworkService
 	portService             PortService
 	relationService         RelationService
 	secretService           SecretService
 	unitStateService        UnitStateService
-	modelProviderService    ModelProviderService
 
 	// cmrBackend is a wrapper around state to handle CMR request
 	// todo(gfouillet): remove it whenever CMR have their domain.
@@ -314,7 +315,7 @@ func (u *UniterAPI) PublicAddress(ctx context.Context, args params.Entities) (pa
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		address, err := u.applicationService.GetUnitPublicAddress(ctx, coreunit.Name(tag.Id()))
+		address, err := u.networkService.GetUnitPublicAddress(ctx, coreunit.Name(tag.Id()))
 		if network.IsNoAddressError(err) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.NewNoAddressSetError(tag, "public"))
 			continue
@@ -325,6 +326,7 @@ func (u *UniterAPI) PublicAddress(ctx context.Context, args params.Entities) (pa
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		// TODO - fix me - use IP() method
 		result.Results[i].Result = address.Value
 	}
 	return result, nil
@@ -350,7 +352,7 @@ func (u *UniterAPI) PrivateAddress(ctx context.Context, args params.Entities) (p
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		address, err := u.applicationService.GetUnitPrivateAddress(ctx, coreunit.Name(tag.Id()))
+		address, err := u.networkService.GetUnitPrivateAddress(ctx, coreunit.Name(tag.Id()))
 		if network.IsNoAddressError(err) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.NewNoAddressSetError(tag, "private"))
 			continue
@@ -361,6 +363,7 @@ func (u *UniterAPI) PrivateAddress(ctx context.Context, args params.Entities) (p
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		// TODO - fix me - use IP() method
 		result.Results[i].Result = address.Value
 	}
 	return result, nil
@@ -1479,7 +1482,7 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		return internalerrors.Capture(err)
 	}
 
-	addr, err := u.applicationService.GetUnitPublicAddress(ctx, unitName)
+	addr, err := u.networkService.GetUnitPublicAddress(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return errors.NotFoundf("unit %q", unitTag.Id())
 	} else if err != nil {
@@ -2121,7 +2124,7 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	addr, err := u.applicationService.GetUnitPublicAddress(ctx, coreunit.Name(unitTag.Id()))
+	addr, err := u.networkService.GetUnitPublicAddress(ctx, coreunit.Name(unitTag.Id()))
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return params.NetworkInfoResults{}, errors.NotFoundf("unit %q", unitTag.Id())
 	} else if err != nil {
