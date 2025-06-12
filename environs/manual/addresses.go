@@ -4,8 +4,6 @@
 package manual
 
 import (
-	"net"
-
 	"github.com/juju/juju/core/network"
 )
 
@@ -13,7 +11,7 @@ import (
 // hostname, depending on whether it is an IP or a resolvable
 // hostname. The address is given public scope.
 func HostAddress(hostname string) (network.ProviderAddress, error) {
-	if ip := net.ParseIP(hostname); ip != nil {
+	if ip := network.DeriveNetIP(hostname); ip != nil {
 		addr := network.ProviderAddress{
 			MachineAddress: network.MachineAddress{
 				Value: ip.String(),

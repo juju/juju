@@ -61,8 +61,22 @@ func (s *addressesSuite) TestHostAddressIPv4(c *tc.C) {
 	c.Assert(addr, tc.Equals, network.NewMachineAddress("127.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress())
 }
 
+func (s *addressesSuite) TestHostAddressIPv4WithMask(c *tc.C) {
+	addr, err := manual.HostAddress("127.0.0.1/24")
+	c.Assert(s.netLookupHostCalled, tc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addr, tc.Equals, network.NewMachineAddress("127.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress())
+}
+
 func (s *addressesSuite) TestHostAddressIPv6(c *tc.C) {
 	addr, err := manual.HostAddress("::1")
+	c.Assert(s.netLookupHostCalled, tc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addr, tc.Equals, network.NewMachineAddress("::1", network.WithScope(network.ScopePublic)).AsProviderAddress())
+}
+
+func (s *addressesSuite) TestHostAddressIPv6WithMask(c *tc.C) {
+	addr, err := manual.HostAddress("::1/24")
 	c.Assert(s.netLookupHostCalled, tc.Equals, 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(addr, tc.Equals, network.NewMachineAddress("::1", network.WithScope(network.ScopePublic)).AsProviderAddress())
