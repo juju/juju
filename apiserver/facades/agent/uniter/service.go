@@ -115,6 +115,9 @@ type ApplicationService interface {
 	// returned.
 	GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name) (coremachine.UUID, error)
 
+	// GetUnitNamesForApplication returns a slice of the unit names for the given application
+	GetUnitNamesForApplication(ctx context.Context, appName string) ([]coreunit.Name, error)
+
 	// EnsureUnitDead is called by the unit agent just before it terminates.
 	EnsureUnitDead(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error
 

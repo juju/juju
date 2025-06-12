@@ -1479,13 +1479,10 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		return internalerrors.Capture(err)
 	}
 
-	unit, err := u.st.Unit(unitTag.Id())
-	if err != nil {
-		return internalerrors.Capture(err)
-	}
-
-	addr, err := unit.PublicAddress()
-	if err != nil {
+	addr, err := u.applicationService.GetUnitPublicAddress(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return errors.NotFoundf("unit %q", unitTag.Id())
+	} else if err != nil {
 		return internalerrors.Capture(err)
 	}
 
@@ -2236,6 +2233,9 @@ func (u *UniterAPI) CloudSpec(ctx context.Context) (params.CloudSpecResult, erro
 }
 
 // GoalStates returns information of charm units and relations.
+//
+// TODO(jack-w-shaw): This endpoint is very complex. It's implementation should
+// be pushed into into the domain layer.
 func (u *UniterAPI) GoalStates(ctx context.Context, args params.Entities) (params.GoalStateResults, error) {
 	result := params.GoalStateResults{
 		Results: make([]params.GoalStateResult, len(args.Entities)),
@@ -2260,12 +2260,7 @@ func (u *UniterAPI) GoalStates(ctx context.Context, args params.Entities) (param
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		unit, err := u.getLegacyUnit(ctx, tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		result.Results[i].Result, err = u.oneGoalState(ctx, unitName, unit)
+		result.Results[i].Result, err = u.oneGoalState(ctx, unitName)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
@@ -2274,19 +2269,18 @@ func (u *UniterAPI) GoalStates(ctx context.Context, args params.Entities) (param
 }
 
 // oneGoalState creates the goal state for a given unit.
-func (u *UniterAPI) oneGoalState(ctx context.Context, unitName coreunit.Name, unit *state.Unit) (*params.GoalState, error) {
-	app, err := unit.Application()
-	if err != nil {
-		return nil, err
+func (u *UniterAPI) oneGoalState(ctx context.Context, unitName coreunit.Name) (*params.GoalState, error) {
+	appName := unitName.Application()
+
+	appID, err := u.applicationService.GetApplicationIDByUnitName(ctx, unitName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return nil, errors.NotFoundf("application %q", appName)
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	gs := params.GoalState{}
-	gs.Units, err = u.goalStateUnits(ctx, app, unit.Name())
-	if err != nil {
-		return nil, err
-	}
-
-	appID, err := u.applicationService.GetApplicationIDByUnitName(ctx, unitName)
+	gs.Units, err = u.goalStateUnits(ctx, appName, appID, unitName)
 	if err != nil {
 		return nil, err
 	}
@@ -2296,7 +2290,7 @@ func (u *UniterAPI) oneGoalState(ctx context.Context, unitName coreunit.Name, un
 		return nil, err
 	}
 
-	gs.Relations, err = u.goalStateRelations(ctx, app.Name(), unit.Name(), allRelations)
+	gs.Relations, err = u.goalStateRelations(ctx, appName, unitName, allRelations)
 	if err != nil {
 		return nil, err
 	}
@@ -2307,7 +2301,8 @@ func (u *UniterAPI) oneGoalState(ctx context.Context, unitName coreunit.Name, un
 // goalStateRelations creates the structure with all the relations between endpoints in an application.
 func (u *UniterAPI) goalStateRelations(
 	ctx context.Context,
-	appName, principalName string,
+	baseAppName string,
+	principalName coreunit.Name,
 	allRelations []relation.GoalStateRelationData,
 ) (map[string]params.UnitsGoalState, error) {
 	result := map[string]params.UnitsGoalState{}
@@ -2323,7 +2318,7 @@ func (u *UniterAPI) goalStateRelations(
 		// as the key in the result map.
 		var resultEndpointName string
 		for _, e := range endPoints {
-			if e.ApplicationName == appName {
+			if e.ApplicationName == baseAppName {
 				resultEndpointName = e.EndpointName
 			}
 		}
@@ -2333,29 +2328,21 @@ func (u *UniterAPI) goalStateRelations(
 
 		// Now gather the goal state.
 		for _, e := range endPoints {
-			var key string
-			app, err := u.st.Application(e.ApplicationName)
+			var appName string
+			appID, err := u.applicationService.GetApplicationIDByName(ctx, e.ApplicationName)
 			if err == nil {
-				key = app.Name()
-			} else if errors.Is(err, errors.NotFound) {
+				appName = e.ApplicationName
+			} else if errors.Is(err, applicationerrors.ApplicationNotFound) {
 				u.logger.Debugf(ctx, "application %q must be a remote application.", e.ApplicationName)
-				remoteApplication, err := u.cmrBackend.RemoteApplication(e.ApplicationName)
-				if err != nil {
-					return nil, err
-				}
-				var ok bool
-				key, ok = remoteApplication.URL()
-				if !ok {
-					// If we are on the offering side of a remote relation, don't show anything
-					// in goal state for that relation.
-					continue
-				}
+				// TODO(jack-w-shaw): Once CMRs have been implemented in DQLite,
+				// set the appName to the remote application URL.
+				continue
 			} else {
 				return nil, err
 			}
 
 			// We don't show units for the same application as we are currently processing.
-			if key == appName {
+			if appName == baseAppName {
 				continue
 			}
 
@@ -2366,17 +2353,14 @@ func (u *UniterAPI) goalStateRelations(
 			if relationGoalState == nil {
 				relationGoalState = params.UnitsGoalState{}
 			}
-			relationGoalState[key] = goalState
+			relationGoalState[appName] = goalState
 
-			// For local applications, add in the status of units as well.
-			if app != nil {
-				units, err := u.goalStateUnits(ctx, app, principalName)
-				if err != nil {
-					return nil, err
-				}
-				for unitName, unitGS := range units {
-					relationGoalState[unitName] = unitGS
-				}
+			units, err := u.goalStateUnits(ctx, appName, appID, principalName)
+			if err != nil {
+				return nil, err
+			}
+			for unitName, unitGS := range units {
+				relationGoalState[unitName] = unitGS
 			}
 
 			// Merge in the goal state for the current remote endpoint
@@ -2396,46 +2380,43 @@ func (u *UniterAPI) goalStateRelations(
 
 // goalStateUnits loops through all application units related to principalName,
 // and stores the goal state status in UnitsGoalState.
-func (u *UniterAPI) goalStateUnits(ctx context.Context, app *state.Application, principalName string) (params.UnitsGoalState, error) {
+func (u *UniterAPI) goalStateUnits(ctx context.Context, appName string, appID application.ID, principalName coreunit.Name) (params.UnitsGoalState, error) {
 
-	// TODO(units) - add service method for AllUnits
-	allUnits, err := app.AllUnits()
-	if err != nil {
-		return nil, err
-	}
-
-	appID, err := u.applicationService.GetApplicationIDByName(ctx, app.Name())
+	allUnitNames, err := u.applicationService.GetUnitNamesForApplication(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return nil, errors.NotFoundf("application %q", app.Name())
+		return nil, errors.NotFoundf("application %q", appName)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	unitWorkloadStatuses, err := u.statusService.GetUnitWorkloadStatusesForApplication(ctx, appID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return nil, errors.NotFoundf("application %q", app.Name())
+		return nil, errors.NotFoundf("application %q", appName)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	unitsGoalState := params.UnitsGoalState{}
-	for _, unit := range allUnits {
-		unitName, err := coreunit.NewName(unit.Name())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
+	for _, unitName := range allUnitNames {
 		pn, hasPrincipal, err := u.applicationService.GetUnitPrincipal(ctx, unitName)
-		if err != nil {
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return nil, errors.NotFoundf("unit %q", unitName)
+		} else if err != nil {
 			return nil, internalerrors.Errorf("getting principal for unit %q: %w", unitName, err)
-		} else if hasPrincipal && pn.String() != principalName {
+		}
+		if hasPrincipal && pn != principalName {
 			continue
 		}
 
-		unitLife := unit.Life()
-		if unitLife == state.Dead {
+		unitLife, err := u.applicationService.GetUnitLife(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return nil, errors.NotFoundf("unit %q", unitName)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if unitLife == life.Dead {
 			// only show Alive and Dying units
-			u.logger.Debugf(ctx, "unit %q is dead, ignore it.", unit.Name())
+			u.logger.Debugf(ctx, "unit %q is dead, ignore it.", unitName)
 			continue
 		}
 		unitGoalState := params.GoalStateStatus{}
@@ -2444,11 +2425,11 @@ func (u *UniterAPI) goalStateUnits(ctx context.Context, app *state.Application, 
 			return nil, errors.Errorf("status for unit %q not found", unitName)
 		}
 		unitGoalState.Status = statusInfo.Status.String()
-		if unitLife == state.Dying {
-			unitGoalState.Status = unitLife.String()
+		if unitLife == life.Dying {
+			unitGoalState.Status = string(unitLife)
 		}
 		unitGoalState.Since = statusInfo.Since
-		unitsGoalState[unit.Name()] = unitGoalState
+		unitsGoalState[unitName.String()] = unitGoalState
 	}
 
 	return unitsGoalState, nil

@@ -91,17 +91,6 @@ func (a *Application) Name() string {
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
 func (a *Application) Tag() names.Tag {
-	return a.ApplicationTag()
-}
-
-// Kind returns a human readable name identifying the application kind.
-func (a *Application) Kind() string {
-	return a.Tag().Kind()
-}
-
-// ApplicationTag returns the more specific ApplicationTag rather than the generic
-// Tag.
-func (a *Application) ApplicationTag() names.ApplicationTag {
 	return names.NewApplicationTag(a.Name())
 }
 
@@ -208,7 +197,7 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 	}
 
 	if attempt > 0 {
-		if err := op.app.Refresh(); errors.Is(err, errors.NotFound) {
+		if err := op.app.refresh(); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -449,9 +438,9 @@ func (a *Application) cancelScheduledCleanupOps() ([]txn.Op, error) {
 	return cancelCleanupOps, nil
 }
 
-// Charm returns the application's charm and whether units should upgrade to that
+// charm returns the application's charm and whether units should upgrade to that
 // charm even if they are in an error state.
-func (a *Application) Charm() (CharmRefFull, bool, error) {
+func (a *Application) charm() (CharmRefFull, bool, error) {
 	if a.doc.CharmURL == nil {
 		return nil, false, errors.NotFoundf("charm for application %q", a.doc.Name)
 	}
@@ -486,7 +475,7 @@ func (a *Application) CharmURL() (*string, bool) {
 
 // Endpoints returns the application's currently available relation endpoints.
 func (a *Application) Endpoints() (eps []relation.Endpoint, err error) {
-	ch, _, err := a.Charm()
+	ch, _, err := a.charm()
 	if err != nil {
 		return nil, err
 	}
@@ -745,7 +734,7 @@ func (a *Application) newCharmStorageOps(
 	if err != nil {
 		return fail(err)
 	}
-	oldCharm, _, err := a.Charm()
+	oldCharm, _, err := a.charm()
 	if err != nil {
 		return fail(err)
 	}
@@ -934,7 +923,7 @@ func (a *Application) SetCharm(
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		a := acopy
 		if attempt > 0 {
-			if err := a.Refresh(); err != nil {
+			if err := a.refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -1022,7 +1011,7 @@ func (a *Application) SetCharm(
 	if err := a.st.db().Run(buildTxn); err != nil {
 		return err
 	}
-	return a.Refresh()
+	return a.refresh()
 }
 
 // unitAppName returns the name of the Application, given a Unit's name.
@@ -1036,10 +1025,10 @@ func (a *Application) String() string {
 	return a.doc.Name
 }
 
-// Refresh refreshes the contents of the Application from the underlying
+// refresh refreshes the contents of the Application from the underlying
 // state. It returns an error that satisfies errors.IsNotFound if the
 // application has been removed.
-func (a *Application) Refresh() error {
+func (a *Application) refresh() error {
 	applications, closer := a.st.db().GetCollection(applicationsC)
 	defer closer()
 
@@ -1556,7 +1545,7 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 // UpdateCharmConfig changes a application's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
 func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
-	ch, _, err := a.Charm()
+	ch, _, err := a.charm()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1733,7 +1722,7 @@ func (a *Application) defaultEndpointBindings() (map[string]string, error) {
 		return map[string]string{}, nil
 	}
 
-	appCharm, _, err := a.Charm()
+	appCharm, _, err := a.charm()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
