@@ -1531,27 +1531,25 @@ func (context *statusContext) processUnits(units map[string]*state.Unit, applica
 	return unitsMap
 }
 
-func (context *statusContext) getAppCharm(unit *state.Unit) string {
+func (context *statusContext) getAppCharm(unit *state.Unit) (string, error) {
 	appName := unit.ApplicationName()
 	charmStr, ok := context.appCharmCache[appName]
 	if ok {
-		return charmStr
+		return charmStr, nil
 	}
 	app, err := unit.Application()
 	if err != nil {
-		logger.Debugf("error fetching subordinate application for %q: %q", appName, err.Error())
 		context.appCharmCache[appName] = ""
-		return ""
+		return "", err
 	}
 	appCharm, _, err := app.Charm()
 	if err != nil {
-		logger.Debugf("error fetching subordinate application charm for %q: %q", appName, err.Error())
 		context.appCharmCache[appName] = ""
-		return ""
+		return "", err
 	}
 	charmStr = appCharm.String()
 	context.appCharmCache[appName] = charmStr
-	return charmStr
+	return charmStr, nil
 }
 
 func (context *statusContext) unitMachineID(unit *state.Unit) string {
@@ -1629,7 +1627,12 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 			subUnit := context.unitByName(name)
 			// subUnit may be nil if subordinate was filtered out.
 			if subUnit != nil {
-				subUnitAppCharm := context.getAppCharm(subUnit)
+				subUnitAppCharm, err := context.getAppCharm(subUnit)
+				if err != nil {
+					// We can still run processUnit with an
+					// empty string for the ApplicationCharm
+					logger.Debugf("error fetching subordinate application charm for %q: %q", appName, err.Error())
+				}
 				result.Subordinates[name] = context.processUnit(subUnit, subUnitAppCharm, true)
 			}
 		}
