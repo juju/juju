@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/docker/distribution/reference"
+	"github.com/distribution/reference"
 	"github.com/juju/ansiterm"
 	"github.com/juju/charm/v12"
 	"github.com/juju/charm/v12/hooks"
