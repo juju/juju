@@ -90,7 +90,7 @@ func (s *ControllerState) GetControllerVersion(ctx context.Context) (semversion.
 	var versionValue controllerTargetVersion
 	stmt, err := s.Prepare(`
 SELECT &controllerTargetVersion.*
-FROM   controller_version
+FROM   controller
 `,
 		versionValue)
 	if err != nil {
@@ -141,7 +141,7 @@ func (s *ControllerState) SetControllerTargetVersion(
 		TargetVersion: version.String(),
 	}
 	stmt, err := s.Prepare(`
-UPDATE controller_version
+UPDATE controller
 SET    target_version = $setControllerTargetVersion.target_version
 `,
 		toVersionInput)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/semversion"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -54,10 +55,13 @@ VALUES (?, ?, ?)
 func (s *controllerStateSuite) setInitialControllerTargetVersion(
 	c *tc.C, version string,
 ) {
-	controllerUUID := s.ControllerSuite.SeedControllerUUID(c)
-	_, err := s.DB().Exec(
-		"INSERT INTO controller_version VALUES (?, ?)",
-		controllerUUID, version,
+	controllerUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	_, err = s.DB().Exec(
+		"INSERT INTO controller VALUES (?, ?, ?)",
+		controllerUUID.String(), modelUUID.String(), version,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 }
