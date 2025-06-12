@@ -13,6 +13,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -116,7 +117,20 @@ type ApplicationService interface {
 
 	// GetCharmLXDProfile returns the LXD profile along with the revision of the
 	// charm using the charm name, source and revision.
-	GetCharmLXDProfile(ctx context.Context, locator charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error)
+	GetCharmLXDProfile(context.Context, charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error)
+
+	// GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
+	GetUnitNamesOnMachine(context.Context, coremachine.Name) ([]unit.Name, error)
+
+	// GetUnitPrincipal gets the subordinates principal unit. If no principal unit
+	// is found, for example, when the unit is not a subordinate, then false is
+	// returned.
+	GetUnitPrincipal(context.Context, unit.Name) (unit.Name, bool, error)
+
+	// GetApplicationEndpointBindings returns the mapping for each endpoint name and
+	// the space ID it is bound to (or empty if unspecified). When no bindings are
+	// stored for the application, defaults are returned.
+	GetApplicationEndpointBindings(ctx context.Context, appName string) (map[string]network.SpaceUUID, error)
 }
 
 // CloudImageMetadataService manages cloud image metadata for provisionning

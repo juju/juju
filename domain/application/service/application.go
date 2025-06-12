@@ -1484,7 +1484,7 @@ func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreappli
 }
 
 // GetAllEndpointBindings returns the all endpoint bindings for the model, where
-// endpoints are indexed by the application UUID for the application which they
+// endpoints are indexed by the application name for the application which they
 // belong to.
 func (s *Service) GetAllEndpointBindings(ctx context.Context) (map[string]map[string]network.SpaceName, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -1508,12 +1508,13 @@ func (s *Service) GetAllEndpointBindings(ctx context.Context) (map[string]map[st
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetApplicationEndpointBindings(ctx context.Context, appID coreapplication.ID) (map[string]network.SpaceUUID, error) {
+func (s *Service) GetApplicationEndpointBindings(ctx context.Context, appName string) (map[string]network.SpaceUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := appID.Validate(); err != nil {
-		return nil, errors.Errorf("validating application ID: %w", err)
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return nil, errors.Capture(err)
 	}
 
 	bindings, err := s.st.GetApplicationEndpointBindings(ctx, appID)

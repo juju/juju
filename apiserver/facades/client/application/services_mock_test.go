@@ -1115,7 +1115,7 @@ func (c *MockApplicationServiceGetApplicationConstraintsCall) DoAndReturn(f func
 }
 
 // GetApplicationEndpointBindings mocks base method.
-func (m *MockApplicationService) GetApplicationEndpointBindings(arg0 context.Context, arg1 application.ID) (map[string]network.SpaceUUID, error) {
+func (m *MockApplicationService) GetApplicationEndpointBindings(arg0 context.Context, arg1 string) (map[string]network.SpaceUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationEndpointBindings", arg0, arg1)
 	ret0, _ := ret[0].(map[string]network.SpaceUUID)
@@ -1142,13 +1142,13 @@ func (c *MockApplicationServiceGetApplicationEndpointBindingsCall) Return(arg0 m
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetApplicationEndpointBindingsCall) Do(f func(context.Context, application.ID) (map[string]network.SpaceUUID, error)) *MockApplicationServiceGetApplicationEndpointBindingsCall {
+func (c *MockApplicationServiceGetApplicationEndpointBindingsCall) Do(f func(context.Context, string) (map[string]network.SpaceUUID, error)) *MockApplicationServiceGetApplicationEndpointBindingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetApplicationEndpointBindingsCall) DoAndReturn(f func(context.Context, application.ID) (map[string]network.SpaceUUID, error)) *MockApplicationServiceGetApplicationEndpointBindingsCall {
+func (c *MockApplicationServiceGetApplicationEndpointBindingsCall) DoAndReturn(f func(context.Context, string) (map[string]network.SpaceUUID, error)) *MockApplicationServiceGetApplicationEndpointBindingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

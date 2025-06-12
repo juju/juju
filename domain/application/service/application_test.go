@@ -1110,11 +1110,9 @@ func (s *applicationServiceSuite) TestGetAllEndpointBindingsErrors(c *tc.C) {
 func (s *applicationServiceSuite) TestGetApplicationEndpointBindingsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
 
-	s.state.EXPECT().GetApplicationEndpointBindings(gomock.Any(), appID).Return(nil, applicationerrors.ApplicationNotFound)
-
-	_, err := s.service.GetApplicationEndpointBindings(c.Context(), appID)
+	_, err := s.service.GetApplicationEndpointBindings(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1123,11 +1121,12 @@ func (s *applicationServiceSuite) TestGetApplicationEndpointBindings(c *tc.C) {
 
 	appID := applicationtesting.GenApplicationUUID(c)
 
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
 	s.state.EXPECT().GetApplicationEndpointBindings(gomock.Any(), appID).Return(map[string]network.SpaceUUID{
 		"foo": "bar",
 	}, nil)
 
-	result, err := s.service.GetApplicationEndpointBindings(c.Context(), appID)
+	result, err := s.service.GetApplicationEndpointBindings(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, map[string]network.SpaceUUID{
 		"foo": "bar",

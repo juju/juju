@@ -604,6 +604,10 @@ func (s *Service) GetUnitNamesOnMachine(ctx context.Context, machineName coremac
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if err := machineName.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	netNodeUUID, err := s.st.GetMachineNetNodeUUIDFromName(ctx, machineName)
 	if err != nil {
 		return nil, errors.Capture(err)

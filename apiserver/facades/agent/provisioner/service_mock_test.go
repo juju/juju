@@ -17,6 +17,9 @@ import (
 	container "github.com/juju/juju/core/container"
 	containermanager "github.com/juju/juju/core/containermanager"
 	instance "github.com/juju/juju/core/instance"
+	machine "github.com/juju/juju/core/machine"
+	network "github.com/juju/juju/core/network"
+	unit "github.com/juju/juju/core/unit"
 	charm "github.com/juju/juju/domain/application/charm"
 	charm0 "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
@@ -247,6 +250,45 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
+// GetApplicationEndpointBindings mocks base method.
+func (m *MockApplicationService) GetApplicationEndpointBindings(arg0 context.Context, arg1 string) (map[string]network.SpaceUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationEndpointBindings", arg0, arg1)
+	ret0, _ := ret[0].(map[string]network.SpaceUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationEndpointBindings indicates an expected call of GetApplicationEndpointBindings.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationEndpointBindings(arg0, arg1 any) *MockApplicationServiceGetApplicationEndpointBindingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationEndpointBindings", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationEndpointBindings), arg0, arg1)
+	return &MockApplicationServiceGetApplicationEndpointBindingsCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationEndpointBindingsCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationEndpointBindingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationEndpointBindingsCall) Return(arg0 map[string]network.SpaceUUID, arg1 error) *MockApplicationServiceGetApplicationEndpointBindingsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationEndpointBindingsCall) Do(f func(context.Context, string) (map[string]network.SpaceUUID, error)) *MockApplicationServiceGetApplicationEndpointBindingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationEndpointBindingsCall) DoAndReturn(f func(context.Context, string) (map[string]network.SpaceUUID, error)) *MockApplicationServiceGetApplicationEndpointBindingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetCharmLXDProfile mocks base method.
 func (m *MockApplicationService) GetCharmLXDProfile(arg0 context.Context, arg1 charm.CharmLocator) (charm0.LXDProfile, int, error) {
 	m.ctrl.T.Helper()
@@ -322,6 +364,85 @@ func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) Do(f func(c
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) DoAndReturn(f func(context.Context, string) (charm.CharmLocator, error)) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitNamesOnMachine mocks base method.
+func (m *MockApplicationService) GetUnitNamesOnMachine(arg0 context.Context, arg1 machine.Name) ([]unit.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitNamesOnMachine", arg0, arg1)
+	ret0, _ := ret[0].([]unit.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitNamesOnMachine indicates an expected call of GetUnitNamesOnMachine.
+func (mr *MockApplicationServiceMockRecorder) GetUnitNamesOnMachine(arg0, arg1 any) *MockApplicationServiceGetUnitNamesOnMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitNamesOnMachine", reflect.TypeOf((*MockApplicationService)(nil).GetUnitNamesOnMachine), arg0, arg1)
+	return &MockApplicationServiceGetUnitNamesOnMachineCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitNamesOnMachineCall wrap *gomock.Call
+type MockApplicationServiceGetUnitNamesOnMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitNamesOnMachineCall) Return(arg0 []unit.Name, arg1 error) *MockApplicationServiceGetUnitNamesOnMachineCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitNamesOnMachineCall) Do(f func(context.Context, machine.Name) ([]unit.Name, error)) *MockApplicationServiceGetUnitNamesOnMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitNamesOnMachineCall) DoAndReturn(f func(context.Context, machine.Name) ([]unit.Name, error)) *MockApplicationServiceGetUnitNamesOnMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitPrincipal mocks base method.
+func (m *MockApplicationService) GetUnitPrincipal(arg0 context.Context, arg1 unit.Name) (unit.Name, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitPrincipal", arg0, arg1)
+	ret0, _ := ret[0].(unit.Name)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetUnitPrincipal indicates an expected call of GetUnitPrincipal.
+func (mr *MockApplicationServiceMockRecorder) GetUnitPrincipal(arg0, arg1 any) *MockApplicationServiceGetUnitPrincipalCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitPrincipal", reflect.TypeOf((*MockApplicationService)(nil).GetUnitPrincipal), arg0, arg1)
+	return &MockApplicationServiceGetUnitPrincipalCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitPrincipalCall wrap *gomock.Call
+type MockApplicationServiceGetUnitPrincipalCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitPrincipalCall) Return(arg0 unit.Name, arg1 bool, arg2 error) *MockApplicationServiceGetUnitPrincipalCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitPrincipalCall) Do(f func(context.Context, unit.Name) (unit.Name, bool, error)) *MockApplicationServiceGetUnitPrincipalCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitPrincipalCall) DoAndReturn(f func(context.Context, unit.Name) (unit.Name, bool, error)) *MockApplicationServiceGetUnitPrincipalCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
