@@ -61,12 +61,12 @@ func (s *Service) SetFilesystemStatus(
 		return errors.Errorf("encoding filesystem status: %w", err)
 	}
 
-	uuid, err := s.st.GetFilesystemUUIDByID(ctx, filesystemID)
+	uuid, err := s.modelState.GetFilesystemUUIDByID(ctx, filesystemID)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.st.SetFilesystemStatus(ctx, uuid, encodedStatus); err != nil {
+	if err := s.modelState.SetFilesystemStatus(ctx, uuid, encodedStatus); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -94,12 +94,12 @@ func (s *Service) SetVolumeStatus(
 		return errors.Errorf("encoding volume status: %w", err)
 	}
 
-	uuid, err := s.st.GetVolumeUUIDByID(ctx, volumeID)
+	uuid, err := s.modelState.GetVolumeUUIDByID(ctx, volumeID)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.st.SetVolumeStatus(ctx, uuid, encodedStatus); err != nil {
+	if err := s.modelState.SetVolumeStatus(ctx, uuid, encodedStatus); err != nil {
 		return errors.Capture(err)
 	}
 
