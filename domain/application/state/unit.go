@@ -1232,8 +1232,13 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 			if err != nil {
 				return errors.Errorf("getting application scale state for app %q: %w", appUUID, err)
 			}
-			if arg.OrderedId >= appScale.Scale ||
-				(appScale.Scaling && arg.OrderedId >= appScale.ScaleTarget) {
+
+			if appScale.Scaling {
+				// While scaling, we use the scaling target.
+				if arg.OrderedId >= appScale.ScaleTarget {
+					return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
+				}
+			} else {
 				return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
 			}
 

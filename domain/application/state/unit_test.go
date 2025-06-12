@@ -252,20 +252,74 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *tc.C) {
 func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 	s.createCAASScalingApplication(c, "foo", life.Alive, 1)
 
+	// Allow scaling.
+	err := s.state.SetApplicationScalingState(c.Context(), "foo", 1, true)
+	c.Assert(err, tc.ErrorIsNil)
+
 	p := application.RegisterCAASUnitArg{
-		UnitName:     "foo/666",
+		UnitName:     "foo/0",
 		PasswordHash: "passwordhash",
 		ProviderID:   "some-id",
 		Address:      ptr("10.6.6.6/8"),
-		Ports:        ptr([]string{"666"}),
+		Ports:        ptr([]string{"0"}),
+		OrderedScale: true,
+		OrderedId:    0,
+	}
+	err = s.state.RegisterCAASUnit(c.Context(), "foo", p)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.assertCAASUnit(c, "foo/0", "passwordhash", "10.6.6.6/8", []string{"0"})
+}
+
+func (s *unitStateSuite) TestRegisterCAASUnitErrorNotScaling(c *tc.C) {
+	s.createCAASScalingApplication(c, "foo", life.Alive, 1)
+
+	p := application.RegisterCAASUnitArg{
+		UnitName:     "foo/0",
+		PasswordHash: "passwordhash",
+		ProviderID:   "some-id",
+		Address:      ptr("10.6.6.6/8"),
+		Ports:        ptr([]string{"0"}),
 		OrderedScale: true,
 		OrderedId:    0,
 	}
 	err := s.state.RegisterCAASUnit(c.Context(), "foo", p)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
+
+	// Assert the unit does not exist.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		name := "foo/0"
+		return tx.QueryRowContext(ctx, "SELECT name FROM unit WHERE name = ?", name).Scan(&name)
+	})
+	c.Assert(err, tc.ErrorIs, sql.ErrNoRows)
+}
+
+func (s *unitStateSuite) TestRegisterCAASUnitErrorOutsideTargetScale(c *tc.C) {
+	s.createCAASScalingApplication(c, "foo", life.Alive, 1)
+
+	// Allow scaling.
+	err := s.state.SetApplicationScalingState(c.Context(), "foo", 1, true)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(err, tc.ErrorIsNil)
-	s.assertCAASUnit(c, "foo/666", "passwordhash", "10.6.6.6/8", []string{"666"})
+	// Try to create a unit with a higher ordinal number than the desired scale.
+	p := application.RegisterCAASUnitArg{
+		UnitName:     "foo/2",
+		PasswordHash: "passwordhash",
+		ProviderID:   "some-id",
+		Address:      ptr("10.6.6.6/8"),
+		Ports:        ptr([]string{"0"}),
+		OrderedScale: true,
+		OrderedId:    2,
+	}
+	err = s.state.RegisterCAASUnit(c.Context(), "foo", p)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
+
+	// Assert the unit does not exist.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		name := "foo/2"
+		return tx.QueryRowContext(ctx, "SELECT name FROM unit WHERE name = ?", name).Scan(&name)
+	})
+	c.Assert(err, tc.ErrorIs, sql.ErrNoRows)
 }
 
 func (s *unitStateSuite) assertCAASUnit(c *tc.C, name, passwordHash, addressValue string, ports []string) {
@@ -389,7 +443,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitReplaceDead(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitAlreadyExists)
 }
 
-func (s *unitStateSuite) TestRegisterCAASUnitApplicationNotALive(c *tc.C) {
+func (s *unitStateSuite) TestRegisterCAASUnitApplicationNotAlive(c *tc.C) {
 	s.createCAASApplication(c, "foo", life.Dying, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
@@ -433,6 +487,34 @@ WHERE application_uuid = ?`, 1, 3, appUUID)
 
 	err = s.state.RegisterCAASUnit(c.Context(), "foo", p)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
+}
+
+func (s *unitStateSuite) TestRegisterCAASUnitExceedsScaleWhileScalingWithoutError(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE application_scale
+SET scaling = ?, scale = ?, scale_target = ?
+WHERE application_uuid = ?`, true, 1, 3, appUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	p := application.RegisterCAASUnitArg{
+		UnitName:     "foo/2",
+		PasswordHash: "passwordhash",
+		ProviderID:   "foo-2",
+		Address:      ptr("10.6.6.6"),
+		Ports:        ptr([]string{"666"}),
+		OrderedScale: true,
+		OrderedId:    2,
+	}
+
+	err = s.state.RegisterCAASUnit(c.Context(), "foo", p)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitExceedsScaleTarget(c *tc.C) {
