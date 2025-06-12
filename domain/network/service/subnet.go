@@ -6,11 +6,10 @@ package service
 import (
 	"context"
 
-	"github.com/google/uuid"
-
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
+	domainnetork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -20,11 +19,11 @@ func (s *Service) AddSubnet(ctx context.Context, args network.SubnetInfo) (netwo
 	defer span.End()
 
 	if args.ID == "" {
-		uuid, err := uuid.NewV7()
+		subUUID, err := domainnetork.NewSubnetUUID()
 		if err != nil {
 			return "", errors.Errorf("creating uuid for new subnet with CIDR %q: %w", args.CIDR, err)
 		}
-		args.ID = network.Id(uuid.String())
+		args.ID = network.Id(subUUID.String())
 	}
 
 	if err := s.st.AddSubnet(ctx, args); err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
@@ -67,7 +66,7 @@ func (s *Service) UpdateSubnet(ctx context.Context, uuid string, spaceUUID netwo
 	return errors.Capture(s.st.UpdateSubnet(ctx, uuid, spaceUUID))
 }
 
-// Remove deletes a subnet identified by its uuid.
+// RemoveSubnet deletes a subnet identified by its UUID.
 func (s *Service) RemoveSubnet(ctx context.Context, uuid string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
