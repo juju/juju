@@ -13,6 +13,7 @@ import (
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
@@ -1114,7 +1115,13 @@ func (st *State) insertCAASUnit(
 		return errors.Capture(err)
 	}
 
+	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
+	}
+
 	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
+		CharmUUID:      charmUUID,
 		UnitName:       args.UnitName,
 		CloudContainer: args.CloudContainer,
 		Password:       args.Password,
@@ -1170,7 +1177,13 @@ func (st *State) insertIAASUnit(
 		return nil, errors.Errorf("getting net node UUID from placement %+v: %w", args.Placement, err)
 	}
 
+	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting charm for application %q: %w", appUUID, err)
+	}
+
 	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, nodeUUID, insertUnitArg{
+		CharmUUID:      charmUUID,
 		UnitName:       args.UnitName,
 		CloudContainer: args.CloudContainer,
 		Password:       args.Password,
@@ -1186,6 +1199,7 @@ func (st *State) insertIAASUnit(
 }
 
 type insertUnitArg struct {
+	CharmUUID      charm.ID
 	UnitName       coreunit.Name
 	CloudContainer *application.CloudContainer
 	Password       *application.PasswordInfo
@@ -1204,15 +1218,10 @@ func (st *State) insertUnit(
 		return errors.Capture(err)
 	}
 
-	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
-	if err != nil {
-		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
-	}
-
 	createParams := unitDetails{
 		ApplicationID: appUUID,
 		UnitUUID:      unitUUID,
-		CharmUUID:     charmUUID,
+		CharmUUID:     args.CharmUUID,
 		Name:          args.UnitName,
 		NetNodeID:     netNodeUUID,
 		LifeID:        life.Alive,
