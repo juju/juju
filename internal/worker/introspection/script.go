@@ -79,10 +79,12 @@ const shellFuncs = `
 juju_agent_call () {
   local agent=$1
   shift
-  if [ -x "$(which sudo)" ]; then
-    sudo juju-introspect --agent=$agent $@
-  else
+  
+  local socket="/var/lib/juju/agents/$agent/introspection.socket"
+  if [ -r "$socket" -a -w "$socket" ]; then
     juju-introspect --agent=$agent $@
+  else 
+    sudo juju-introspect --agent=$agent $@
   fi
 }
 
