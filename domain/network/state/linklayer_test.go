@@ -193,11 +193,66 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 	// Arrange
 	nodeUUID := "net-node-uuid"
 	devName := "eth0"
+	subnetUUID := "subnet-uuid"
 
 	ctx := c.Context()
 
 	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)",
+		subnetUUID, "192.168.0.0/24", corenetwork.AlphaSpaceId)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
+		Name:            devName,
+		Type:            corenetwork.EthernetDevice,
+		VirtualPortType: corenetwork.NonVirtualPort,
+		IsAutoStart:     true,
+		IsEnabled:       true,
+		Addrs: []network.NetAddr{{
+			InterfaceName: devName,
+			AddressValue:  "192.168.0.50/24",
+			AddressType:   corenetwork.IPv4Address,
+			ConfigType:    corenetwork.ConfigDHCP,
+			Origin:        corenetwork.OriginMachine,
+			Scope:         corenetwork.ScopeCloudLocal,
+		}},
+		DNSSearchDomains: []string{"search.maas.net"},
+		DNSAddresses:     []string{"8.8.8.8"},
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	checkScalarResult(c, db, "SELECT name FROM link_layer_device", "eth0")
+	checkScalarResult(c, db, "SELECT address_value FROM ip_address", "192.168.0.50/24")
+	checkScalarResult(c, db, "SELECT subnet_uuid FROM ip_address", subnetUUID)
+	checkScalarResult(c, db, "SELECT search_domain FROM link_layer_device_dns_domain", "search.maas.net")
+	checkScalarResult(c, db, "SELECT dns_address FROM link_layer_device_dns_address", "8.8.8.8")
+}
+
+func (s *linkLayerSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	db := s.DB()
+
+	// Arrange
+	nodeUUID := "net-node-uuid"
+	devName := "eth0"
+	subnetUUID1 := "subnet-uuid-1"
+	subnetUUID2 := "subnet-uuid-2"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, subnetUUID := range []string{subnetUUID1, subnetUUID2} {
+		_, err = db.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)",
+			subnetUUID, "192.168.0.0/24", corenetwork.AlphaSpaceId)
+		c.Assert(err, tc.ErrorIsNil)
+	}
 
 	// Act
 	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
@@ -225,6 +280,17 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 	checkScalarResult(c, db, "SELECT address_value FROM ip_address", "192.168.0.50/24")
 	checkScalarResult(c, db, "SELECT search_domain FROM link_layer_device_dns_domain", "search.maas.net")
 	checkScalarResult(c, db, "SELECT dns_address FROM link_layer_device_dns_address", "8.8.8.8")
+
+	// Check that we created a new subnet and linked it to the address.
+	row := db.QueryRowContext(ctx, "SELECT uuid, cidr FROM subnet WHERE uuid NOT IN (?, ?)", subnetUUID1, subnetUUID2)
+	c.Assert(row.Err(), tc.ErrorIsNil)
+
+	var newSubUUID, cidr string
+	err = row.Scan(&newSubUUID, &cidr)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cidr, tc.Equals, "192.168.0.50/32")
+
+	checkScalarResult(c, db, "SELECT subnet_uuid FROM ip_address", newSubUUID)
 }
 
 func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {

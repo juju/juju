@@ -5,6 +5,7 @@ package state
 
 import (
 	"database/sql"
+	"net"
 
 	"github.com/juju/collections/transform"
 
@@ -109,7 +110,8 @@ type SubnetRow struct {
 	// UUID is the subnet UUID.
 	UUID string `db:"subnet_uuid"`
 
-	// CIDR is the one of the subnet's cidr.
+	// CIDR is the Classless Inter-Domain Routing notation
+	// indicating this subnet's address range.
 	CIDR string `db:"subnet_cidr"`
 
 	// VLANTag is the subnet's vlan tag.
@@ -310,7 +312,7 @@ type dnsAddressRow struct {
 // The incoming map of device name to device UUID should contain entries for
 // this device's UUID and its parent device if required.
 // It is expected that the map will be populated as part of the reconciliation
-// process prior to calling this method.
+// process before calling this method.
 func netInterfaceToDML(
 	dev network.NetInterface, nodeUUID string, nameToUUID map[string]string,
 ) (linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, error) {
@@ -427,8 +429,8 @@ type ipAddressDML struct {
 // the device to which the address is assigned.
 // The incoming map of IP address to UUID should contain an entry for this
 // address.
-// It is expected that the maps will be populated as part of the reconciliation
-// process prior to calling this method.
+// It is expected that UUID lookups will be populated as part of the
+// reconciliation process before calling this method.
 func netAddrToDML(
 	addr network.NetAddr, nodeUUID, devUUID string, ipToUUID map[string]string,
 ) (ipAddressDML, error) {
@@ -607,4 +609,46 @@ type linkLayerDeviceParent struct {
 type providerLinkLayerDevice struct {
 	ProviderID string `db:"provider_id"`
 	DeviceUUID string `db:"device_uuid"`
+}
+
+// subnetGroup is a CIDR-centric view of subnets sharing the same CIDR.
+// For practical purposes, each CIDR will have a single subnet identity,
+// but our model allows the same CIDR to exist in different provider networks.
+type subnetGroup struct {
+	ipNet net.IPNet
+	uuids []string
+}
+
+type subnetGroups []subnetGroup
+
+// subnetForIP returns the subnet UUID for the input IP address in CIDR format
+// if one can be determined.
+// If the UUIDs for the CIDR are not unique, an empty string is returned.
+func (subs subnetGroups) subnetForIP(ip string) (string, error) {
+	netIP, _, _ := net.ParseCIDR(ip)
+	if netIP == nil {
+		return "", errors.Errorf("invalid IP address %q", ip)
+	}
+
+	for _, s := range subs {
+		if s.ipNet.Contains(netIP) {
+			if len(s.uuids) == 1 {
+				return s.uuids[0], nil
+			}
+
+			// If there are multiple subnets for the same CIDR,
+			// the caller must create a subnet for the IP address.
+			if len(s.uuids) > 1 {
+				return "", nil
+			}
+
+			// This should not be possible if the subnet
+			// groups are constructed correctly,
+			if len(s.uuids) == 0 {
+				return "", errors.Errorf("no subnet UUIDs for CIDR %q", s.ipNet.String())
+			}
+		}
+	}
+
+	return "", errors.Errorf("no subnet found for IP %q", ip)
 }
