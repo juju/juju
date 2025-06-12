@@ -49,8 +49,8 @@ func (s *controllerModelStateSuite) seedControllerModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
-INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, is_controller_model)
-VALUES            (?, ?, "test-model", "iaas", "test-cloud", "ec2", true)
+INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, qualifier, is_controller_model)
+VALUES            (?, ?, "test-model", "iaas", "test-cloud", "ec2", "testq", true)
 `,
 		modelUUID, controllerUUID.String(),
 	)
@@ -64,8 +64,8 @@ func (s *controllerModelStateSuite) seedModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
-INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-VALUES            (?, ?, "test-model", "iaas", "test-cloud", "ec2")
+INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, qualifier)
+VALUES            (?, ?, "test-model", "iaas", "test-cloud", "ec2", "testq")
 `,
 		modelUUID, controllerUUID.String(),
 	)
