@@ -2555,8 +2555,7 @@ AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
 // empty.
 //
 // The following error types can be expected to be returned:
-//   - [relationerrors.UnitNotAlive] if the unit is dead or dying, or
-//     not found.
+//   - [relationerrors.UnitDead] if the unit is dead or not found.
 func (st *State) GetPrincipalSubordinateApplicationIDs(
 	ctx context.Context,
 	unitUUID unit.UUID,
@@ -2569,10 +2568,10 @@ func (st *State) GetPrincipalSubordinateApplicationIDs(
 	var principalAppID, subordinateAppID application.ID
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if alive, err := st.checkLife(ctx, tx, "unit", unitUUID.String(), life.IsAlive); err != nil {
+		if alive, err := st.checkLife(ctx, tx, "unit", unitUUID.String(), life.IsNotDead); err != nil {
 			return errors.Errorf("cannot check unit %q life: %w", unitUUID, err)
 		} else if !alive {
-			return errors.Errorf("unit %s is not alive", unitUUID).Add(relationerrors.UnitNotAlive)
+			return errors.Errorf("unit %s is dead", unitUUID).Add(relationerrors.UnitDead)
 		}
 		var principalUnit bool
 		principalAppID, err = st.getPrincipalApplicationOfUnit(ctx, tx, unitUUID)
