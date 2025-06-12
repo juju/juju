@@ -5,10 +5,12 @@ package state
 
 import (
 	"context"
+	"net"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
+	corenetwork "github.com/juju/juju/core/network"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
@@ -49,8 +51,19 @@ func (st *State) GetMachineNetNodeUUID(ctx context.Context, machineUUID string) 
 //   - New devices and their addresses are insert with origin = "machine".
 //   - Existing devices and addresses are updated (unchanged rows will not cause
 //     triggers to fire).
-//   - Existing addresses not in the input will be deleted if origin == "machine"
-//   - Devices not observed will be deleted if they have no addresses.
+//   - Existing addresses not in the input will be deleted
+//     if origin == "machine"
+//   - Devices not observed will be deleted if they have no addresses and no
+//     provider ID.
+//
+// Addresses are associated with a subnet according to the following logic:
+//   - If the address is determined to be in a subnet with a unique CIDR,
+//     it is inserted with that subnet UUID.
+//   - If the address cannot be unambiguously associated with a subnet,
+//     i.e. if there are multiple subnets with the same CIDR, a new /32 (IPv4)
+//     or /128 (IPv6) subnet is created for it and the address is inserted with
+//     that subnet UUID. The instance-poller reconciliation will match it based
+//     on provider subnet ID if it can; see [SetProviderNetConfig].
 func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics []network.NetInterface) error {
 	db, err := st.DB()
 	if err != nil {
@@ -104,13 +117,25 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 			return errors.Errorf("updating DNS addresses: %w", err)
 		}
 
-		addrsToInsert, err := st.reconcileNetConfigAddresses(nodeUUID, nics, nicNameToUUID)
+		subs, err := st.getSubnetGroups(ctx, tx)
+		if err != nil {
+			return errors.Errorf("getting subnet groups: %w", err)
+		}
+		st.logger.Debugf(ctx, "matching with subnet groups: %#v", subs)
+
+		addrsToInsert, newSubs, err := st.reconcileNetConfigAddresses(ctx, nodeUUID, nics, nicNameToUUID, subs)
 		if err != nil {
 			return errors.Errorf("reconciling incoming ip addresses: %w", err)
 		}
 
 		if len(addrsToInsert) == 0 {
 			return nil
+		}
+
+		if len(newSubs) > 0 {
+			if err := st.insertSubnets(ctx, tx, newSubs); err != nil {
+				return errors.Errorf("inserting subnets: %w", err)
+			}
 		}
 
 		if err = st.insertIPAddresses(ctx, tx, addrsToInsert); err != nil {
@@ -239,13 +264,64 @@ func (st *State) updateDNSAddresses(ctx context.Context, tx *sqlair.TX, rows []d
 	return nil
 }
 
+// getSubnetGroups retrieves all subnets, parses then into net.IPNet,
+// and groups the UUIDs by CIDR.
+func (st *State) getSubnetGroups(ctx context.Context, tx *sqlair.TX) (subnetGroups, error) {
+	stmt, err := st.Prepare("SELECT &subnet.* FROM subnet", subnet{})
+	if err != nil {
+		return nil, errors.Errorf("preparing subnets statement: %w", err)
+	}
+
+	var subs []subnet
+	if err := tx.Query(ctx, stmt).GetAll(&subs); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Errorf("running subnets query: %w", err)
+	}
+
+	results := make(map[string]subnetGroup)
+	for _, sub := range subs {
+		res, ok := results[sub.CIDR]
+		if !ok {
+			_, ipNet, err := net.ParseCIDR(sub.CIDR)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			results[sub.CIDR] = subnetGroup{
+				ipNet: *ipNet,
+				uuids: []string{sub.UUID},
+			}
+			continue
+		}
+
+		// This represents a multi-net case, which is possible on OpenStack
+		// where multiple provider networks can contain the same CIDR.
+		// At the time of writing it has never been observed in practice,
+		// but our modelling allows it.
+		res.uuids = append(results[sub.CIDR].uuids, sub.UUID)
+		results[sub.CIDR] = res
+	}
+
+	return transform.MapToSlice(results, func(cidr string, s subnetGroup) []subnetGroup {
+		return subnetGroups{s}
+	}), nil
+}
+
 func (st *State) reconcileNetConfigAddresses(
-	nodeUUID string, nics []network.NetInterface, nicNameToUUID map[string]string,
-) ([]ipAddressDML, error) {
-	var addrsDML []ipAddressDML
+	ctx context.Context,
+	nodeUUID string,
+	nics []network.NetInterface,
+	nicNameToUUID map[string]string,
+	subs subnetGroups,
+) ([]ipAddressDML, []subnet, error) {
+	var (
+		addrsDML []ipAddressDML
+		newSubs  []subnet
+	)
 
 	for _, n := range nics {
-		// If we don't know this NIC, we can assume that is a deletion candidate.
+		// If we don't know this NIC, we can assume that it is a deletion candidate.
 		devUUID, ok := nicNameToUUID[n.Name]
 		if !ok {
 			continue
@@ -257,7 +333,7 @@ func (st *State) reconcileNetConfigAddresses(
 		for _, a := range n.Addrs {
 			addrUUID, err := network.NewAddressUUID()
 			if err != nil {
-				return nil, errors.Capture(err)
+				return nil, nil, errors.Capture(err)
 			}
 			addrToUUID[a.AddressValue] = addrUUID.String()
 		}
@@ -265,18 +341,75 @@ func (st *State) reconcileNetConfigAddresses(
 		for _, a := range n.Addrs {
 			addrDML, err := netAddrToDML(a, nodeUUID, devUUID, addrToUUID)
 			if err != nil {
-				return nil, errors.Capture(err)
+				return nil, nil, errors.Capture(err)
+			}
+
+			subnetUUID, err := subs.subnetForIP(a.AddressValue)
+			if err != nil {
+				// TODO (manadart 2025-04-29): Figure out what to do with
+				// loopback addresses before making
+				// ip_address.subnet_uuid NOT NULL.
+				st.logger.Warningf(ctx, "determining subnet: %v", err)
+			}
+
+			if subnetUUID != "" {
+				addrDML.SubnetUUID = &subnetUUID
+			} else if err == nil {
+				// If we cannot find a *unique* subnet for the address,
+				// we create a new /32 or /128 subnet in the alpha space and
+				// link this address to it.
+				// The instance-poller will attempt to reconcile the real subnet
+				// using the provider subnet ID subsequently.
+				ip, _, _ := net.ParseCIDR(a.AddressValue)
+				if ip == nil {
+					return nil, nil, errors.Errorf("invalid IP address %q", a.AddressValue)
+				}
+
+				suffix := "/32"
+				if a.AddressType == corenetwork.IPv6Address {
+					suffix = "/128"
+				}
+
+				sUUID, err := network.NewSubnetUUID()
+				if err != nil {
+					return nil, nil, errors.Capture(err)
+				}
+				newSubUUID := sUUID.String()
+
+				newSub := subnet{
+					UUID:      newSubUUID,
+					CIDR:      ip.String() + suffix,
+					SpaceUUID: corenetwork.AlphaSpaceId,
+				}
+				newSubs = append(newSubs, newSub)
+				addrDML.SubnetUUID = &newSubUUID
 			}
 
 			addrsDML = append(addrsDML, addrDML)
 		}
 	}
 
-	return addrsDML, nil
+	return addrsDML, newSubs, nil
+}
+
+func (st *State) insertSubnets(ctx context.Context, tx *sqlair.TX, subs []subnet) error {
+	st.logger.Debugf(ctx, "inserting new subnets %#v", subs)
+
+	stmt, err := st.Prepare("INSERT INTO subnet (*) VALUES ($subnet.*)", subs[0])
+	if err != nil {
+		return errors.Errorf("preparing subnet insert statement: %w", err)
+	}
+
+	err = tx.Query(ctx, stmt, subs).Run()
+	if err != nil {
+		return errors.Errorf("running subnet insert statement: %w", err)
+	}
+
+	return nil
 }
 
 func (st *State) insertIPAddresses(ctx context.Context, tx *sqlair.TX, addrs []ipAddressDML) error {
-	st.logger.Tracef(ctx, "inserting IP addresses %#v", addrs)
+	st.logger.Debugf(ctx, "inserting IP addresses %#v", addrs)
 
 	stmt, err := st.Prepare(
 		"INSERT INTO ip_address (*) VALUES ($ipAddressDML.*)", addrs[0])
