@@ -14,8 +14,6 @@ import (
 
 var netLookupHost = net.LookupHost
 
-const ManualInstancePrefix = "manual:"
-
 // RecordMachineInState records and saves into the state machine the provisioned machine
 func RecordMachineInState(ctx context.Context, client ProvisioningClientAPI, machineParams params.AddMachineParams) (machineId string, err error) {
 	results, err := client.AddMachines(ctx, []params.AddMachineParams{machineParams})

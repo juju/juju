@@ -360,25 +360,6 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 		if m.IsManager() {
 			continue
 		}
-		manual, err := m.IsManual()
-		if err != nil {
-			// TODO (force 2019-4-24) we should not break out here but continue with other machines.
-			return errors.Trace(err)
-		}
-		if manual {
-			// Manually added machines should never be force-
-			// destroyed automatically. That should be a user-
-			// driven decision, since it may leak applications
-			// and resources on the machine. If something is
-			// stuck, then the user can still force-destroy
-			// the manual machines.
-			if err := m.DestroyWithContainers(); err != nil {
-				// Since we cannot delete a manual machine, we cannot proceed with model destruction even if it is forced.
-				// TODO (force 2019-4-24) However, we should not break out here but continue with other machines.
-				return errors.Trace(errors.Annotatef(err, "could not destroy manual machine %v", m.Id()))
-			}
-			continue
-		}
 		if force {
 			err = m.ForceDestroy(args.MaxWait)
 		} else {
@@ -1403,17 +1384,7 @@ func cleanupDyingMachineResources(m *Machine, force bool) error {
 		logger.Warningf(context.TODO(), "%v", err)
 	}
 
-	// Check if the machine is manual, to decide whether or not to
-	// short circuit the removal of non-detachable filesystems.
-	manual, err := m.IsManual()
-	if err != nil {
-		if !force {
-			return errors.Trace(err)
-		}
-		logger.Warningf(context.TODO(), "could not determine if machine %v is manual: %v", m.MachineTag().Id(), err)
-	}
-
-	cleaner := newDyingEntityStorageCleaner(sb, m.Tag(), manual, force)
+	cleaner := newDyingEntityStorageCleaner(sb, m.Tag(), false, force)
 	return errors.Trace(cleaner.cleanupStorage(filesystemAttachments, volumeAttachments))
 }
 

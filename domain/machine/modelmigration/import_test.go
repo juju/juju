@@ -111,7 +111,8 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	machine0 := model.AddMachine(description.MachineArgs{
-		Id: "0",
+		Id:    "0",
+		Nonce: "nonce",
 	})
 	cloudInstanceArgs := description.CloudInstanceArgs{
 		InstanceId:       "inst-0",
@@ -147,6 +148,7 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *tc.C) {
 		expectedMachineUUID,
 		instance.Id("inst-0"),
 		"inst-0",
+		"nonce",
 		expectedHardwareCharacteristics,
 	).Return(errors.New("boom"))
 
@@ -160,7 +162,8 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	machine0 := model.AddMachine(description.MachineArgs{
-		Id: "0",
+		Id:    "0",
+		Nonce: "nonce",
 	})
 	cloudInstanceArgs := description.CloudInstanceArgs{
 		InstanceId:       "inst-0",
@@ -196,6 +199,7 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *tc.C) {
 		expectedMachineUUID,
 		instance.Id("inst-0"),
 		"inst-0",
+		"nonce",
 		expectedHardwareCharacteristics,
 	).Return(nil)
 

@@ -67,10 +67,12 @@ func (s *serviceSuite) TestSetMachineCloudInstance(c *tc.C) {
 		machine.UUID("42"),
 		instance.Id("instance-42"),
 		"42",
+		"nonce",
 		hc,
 	).Return(nil)
 
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).SetMachineCloudInstance(c.Context(), "42", "instance-42", "42", hc)
+	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		SetMachineCloudInstance(c.Context(), "42", "instance-42", "42", "nonce", hc)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -88,10 +90,12 @@ func (s *serviceSuite) TestSetMachineCloudInstanceFails(c *tc.C) {
 		machine.UUID("42"),
 		instance.Id("instance-42"),
 		"42",
+		"nonce",
 		hc,
 	).Return(errors.New("boom"))
 
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).SetMachineCloudInstance(c.Context(), "42", "instance-42", "42", hc)
+	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		SetMachineCloudInstance(c.Context(), "42", "instance-42", "42", "nonce", hc)
 	c.Assert(err, tc.ErrorMatches, "setting machine cloud instance for machine \"42\": boom")
 }
 

@@ -801,6 +801,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 			machineUUID,
 			arg.InstanceId,
 			arg.DisplayName,
+			arg.Nonce,
 			arg.Characteristics,
 		); err != nil {
 			return errors.Annotatef(err, "setting machine cloud instance for machine uuid %q", machineUUID)

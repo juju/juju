@@ -86,10 +86,6 @@ func (job MachineJob) String() string {
 	return string(job.ToParams())
 }
 
-// manualMachinePrefix signals as prefix of Nonce that a machine is
-// manually provisioned.
-const manualMachinePrefix = "manual:"
-
 // machineDoc represents the internal state of a machine in MongoDB.
 // Note the correspondence with MachineInfo in apiserver/juju.
 type machineDoc struct {
@@ -289,16 +285,6 @@ func (m *Machine) Jobs() []MachineJob {
 // IsManager returns true if the machine has JobManageModel.
 func (m *Machine) IsManager() bool {
 	return isController(&m.doc)
-}
-
-// IsManual returns true if the machine was manually provisioned.
-func (m *Machine) IsManual() (bool, error) {
-	// If the controller was bootstrapped with a manual cloud,
-	// this method will not return the correct answer to IsManual.
-	// Doing so requires model config which has been moved to a
-	// domains. This will be corrected once the machine domain is
-	// completed.
-	return strings.HasPrefix(m.doc.Nonce, manualMachinePrefix), nil
 }
 
 // AgentTools returns the tools that the agent is currently running.

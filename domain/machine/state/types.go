@@ -202,3 +202,8 @@ type lxdProfile struct {
 	Name        string       `db:"name"`
 	Index       int          `db:"array_index"`
 }
+
+type machineNonce struct {
+	MachineUUID machine.UUID `db:"machine_uuid"`
+	Nonce       string       `db:"nonce"`
+}

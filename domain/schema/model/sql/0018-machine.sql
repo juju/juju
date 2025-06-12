@@ -24,6 +24,13 @@ ON machine (name);
 CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);
 
+CREATE TABLE machine_manual (
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
+    CONSTRAINT fk_machine_manual_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid)
+);
+
 CREATE TABLE machine_platform (
     machine_uuid TEXT NOT NULL,
     os_id TEXT NOT NULL,

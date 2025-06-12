@@ -735,7 +735,7 @@ func (s *stateSuite) TestSetKeepInstanceNotFound(c *tc.C) {
 func (s *stateSuite) TestSetAppliedLXDProfileNames(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.SetAppliedLXDProfileNames(c.Context(), "deadbeef", []string{"profile1", "profile2"})
 	c.Assert(err, tc.ErrorIsNil)
@@ -758,7 +758,7 @@ func (s *stateSuite) TestSetAppliedLXDProfileNames(c *tc.C) {
 func (s *stateSuite) TestSetLXDProfilesPartial(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Insert a single lxd profile.
@@ -788,7 +788,7 @@ func (s *stateSuite) TestSetLXDProfilesPartial(c *tc.C) {
 func (s *stateSuite) TestSetLXDProfilesOverwriteAll(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Insert 3 lxd profiles.
@@ -817,7 +817,7 @@ func (s *stateSuite) TestSetLXDProfilesOverwriteAll(c *tc.C) {
 func (s *stateSuite) TestSetLXDProfilesSameOrder(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.SetAppliedLXDProfileNames(c.Context(), "deadbeef", []string{"profile3", "profile1", "profile2"})
 	c.Assert(err, tc.ErrorIsNil)
@@ -842,7 +842,7 @@ func (s *stateSuite) TestSetLXDProfilesNotProvisioned(c *tc.C) {
 func (s *stateSuite) TestSetLXDProfilesEmpty(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.SetAppliedLXDProfileNames(c.Context(), "deadbeef", []string{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -855,7 +855,7 @@ func (s *stateSuite) TestSetLXDProfilesEmpty(c *tc.C) {
 func (s *stateSuite) TestAppliedLXDProfileNames(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Insert 2 lxd profiles.
@@ -880,7 +880,7 @@ func (s *stateSuite) TestAppliedLXDProfileNamesNotProvisioned(c *tc.C) {
 func (s *stateSuite) TestAppliedLXDProfileNamesNoErrorEmpty(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
@@ -941,7 +941,7 @@ func (s *stateSuite) createApplication(c *tc.C, controller bool) machine.Name {
 			},
 			IsController: controller,
 		},
-	}, []application.AddUnitArg{{}})
+	}, []application.AddIAASUnitArg{{}})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(machineNames, tc.HasLen, 1)
