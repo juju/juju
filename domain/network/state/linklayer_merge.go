@@ -70,8 +70,8 @@ type mergeAddressesChanges struct {
 	toRelinquish []string
 }
 
-// MergeLinkLayerDevice merges the existing link layer devices with the
-// incoming ones.
+// MergeLinkLayerDevice is part of the [service.LinkLayerDeviceState]
+// interface.
 func (st *State) MergeLinkLayerDevice(
 	ctx context.Context,
 	netNodeUUID string,
