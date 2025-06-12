@@ -203,6 +203,10 @@ type applicationNameUnitCount struct {
 	UnitCount int    `db:"unit_count"`
 }
 
+type modelUUID struct {
+	UUID string `db:"uuid"`
+}
+
 type modelInfo struct {
 	Type string `db:"type"`
 }
@@ -242,4 +246,13 @@ type volumeStatusInfo struct {
 	StatusID   int        `db:"status_id"`
 	Message    string     `db:"message"`
 	UpdatedAt  *time.Time `db:"updated_at"`
+}
+
+// modelStatusContext represents a single row from the v_model_state view.
+// These information are used to determine a model's status.
+type modelStatusContext struct {
+	Destroying              bool   `db:"destroying"`
+	CredentialInvalid       bool   `db:"cloud_credential_invalid"`
+	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
+	Migrating               bool   `db:"migrating"`
 }

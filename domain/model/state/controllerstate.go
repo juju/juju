@@ -320,7 +320,7 @@ SELECT &dbModelState.* FROM v_model_state WHERE uuid = $dbModelUUID.uuid
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, modelUUIDVal).Get(&modelState)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.New("model does not exist").Add(modelerrors.NotFound)
+			return errors.Errorf("model %q does not exist", modelUUIDVal.UUID).Add(modelerrors.NotFound)
 		}
 		return err
 	})
@@ -2116,6 +2116,33 @@ WHERE uuid = $dbModelLife.uuid;
 // The following errors may be returned:
 // - [modelerrors.NotFound] when the model no longer exists.
 func (st *State) HasValidCredential(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
-	// TODO: Implement this function to check if the model has a valid credential.
-	return false, nil
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	invalidCredentialStatus := dbModelCredentialInvalidStatus{}
+	uuid := dbModelUUID{UUID: modelUUID.String()}
+	stmt, err := st.Prepare(`
+SELECT &dbModelCredentialInvalidStatus.*
+FROM v_model_state 
+WHERE uuid = $dbModelUUID.uuid;`,
+		invalidCredentialStatus, uuid)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, uuid).Get(&invalidCredentialStatus)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("model %q does not exist", uuid.UUID).Add(modelerrors.NotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return !invalidCredentialStatus.CredentialInvalid, nil
 }
