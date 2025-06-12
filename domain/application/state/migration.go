@@ -390,7 +390,13 @@ func (st *State) importCAASUnit(
 		return errors.Capture(err)
 	}
 
+	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
+	}
+
 	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
+		CharmUUID:      charmUUID,
 		UnitName:       args.UnitName,
 		CloudContainer: args.CloudContainer,
 		Password:       args.Password,
@@ -445,7 +451,13 @@ func (st *State) importIAASUnit(
 		return errors.Capture(err)
 	}
 
+	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
+	}
+
 	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
+		CharmUUID:      charmUUID,
 		UnitName:       args.UnitName,
 		CloudContainer: args.CloudContainer,
 		Password:       args.Password,
