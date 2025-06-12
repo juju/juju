@@ -329,6 +329,52 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	c.Check(addrCount, tc.Equals, 0)
 }
 
+func (s *linkLayerSuite) TestSetMachineNetConfigWithParentDevices(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	db := s.DB()
+
+	// Arrange
+	nodeUUID := "net-node-uuid"
+	devName := "eth0"
+	brName := "br0"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{
+		{
+			Name:             devName,
+			Type:             corenetwork.EthernetDevice,
+			VirtualPortType:  corenetwork.NonVirtualPort,
+			IsAutoStart:      true,
+			IsEnabled:        true,
+			ParentDeviceName: brName,
+		},
+		{
+			Name:            brName,
+			Type:            corenetwork.BridgeDevice,
+			VirtualPortType: corenetwork.NonVirtualPort,
+			IsAutoStart:     true,
+			IsEnabled:       true,
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	parentSQL := `
+SELECT dp.name 
+FROM   link_layer_device AS dp
+	   JOIN link_layer_device_parent AS p ON dp.uuid = p.parent_uuid
+	   JOIN link_layer_device AS dc ON p.device_uuid = dc.uuid	
+WHERE  dc.name = 'eth0'`
+
+	checkScalarResult(c, db, parentSQL, brName)
+}
+
 func checkScalarResult(c *tc.C, db *sql.DB, query string, expected string) {
 	rows, err := db.QueryContext(c.Context(), query)
 	c.Assert(err, tc.ErrorIsNil)
