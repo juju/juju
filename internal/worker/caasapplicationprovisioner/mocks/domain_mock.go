@@ -15,6 +15,7 @@ import (
 
 	application "github.com/juju/juju/core/application"
 	life "github.com/juju/juju/core/life"
+	network "github.com/juju/juju/core/network"
 	status "github.com/juju/juju/core/status"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
@@ -158,6 +159,45 @@ func (c *MockApplicationServiceGetApplicationNameCall) Do(f func(context.Context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetApplicationNameCall) DoAndReturn(f func(context.Context, application.ID) (string, error)) *MockApplicationServiceGetApplicationNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationScale mocks base method.
+func (m *MockApplicationService) GetApplicationScale(arg0 context.Context, arg1 string) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationScale", arg0, arg1)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationScale indicates an expected call of GetApplicationScale.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationScale(arg0, arg1 any) *MockApplicationServiceGetApplicationScaleCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationScale", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationScale), arg0, arg1)
+	return &MockApplicationServiceGetApplicationScaleCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationScaleCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationScaleCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationScaleCall) Return(arg0 int, arg1 error) *MockApplicationServiceGetApplicationScaleCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationScaleCall) Do(f func(context.Context, string) (int, error)) *MockApplicationServiceGetApplicationScaleCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationScaleCall) DoAndReturn(f func(context.Context, string) (int, error)) *MockApplicationServiceGetApplicationScaleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -313,6 +353,83 @@ func (c *MockApplicationServiceSetApplicationScalingStateCall) Do(f func(context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceSetApplicationScalingStateCall) DoAndReturn(f func(context.Context, string, int, bool) error) *MockApplicationServiceSetApplicationScalingStateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateCloudService mocks base method.
+func (m *MockApplicationService) UpdateCloudService(arg0 context.Context, arg1, arg2 string, arg3 network.ProviderAddresses) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateCloudService", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateCloudService indicates an expected call of UpdateCloudService.
+func (mr *MockApplicationServiceMockRecorder) UpdateCloudService(arg0, arg1, arg2, arg3 any) *MockApplicationServiceUpdateCloudServiceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCloudService", reflect.TypeOf((*MockApplicationService)(nil).UpdateCloudService), arg0, arg1, arg2, arg3)
+	return &MockApplicationServiceUpdateCloudServiceCall{Call: call}
+}
+
+// MockApplicationServiceUpdateCloudServiceCall wrap *gomock.Call
+type MockApplicationServiceUpdateCloudServiceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceUpdateCloudServiceCall) Return(arg0 error) *MockApplicationServiceUpdateCloudServiceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceUpdateCloudServiceCall) Do(f func(context.Context, string, string, network.ProviderAddresses) error) *MockApplicationServiceUpdateCloudServiceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceUpdateCloudServiceCall) DoAndReturn(f func(context.Context, string, string, network.ProviderAddresses) error) *MockApplicationServiceUpdateCloudServiceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchApplicationScale mocks base method.
+func (m *MockApplicationService) WatchApplicationScale(arg0 context.Context, arg1 string) (watcher.Watcher[struct{}], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchApplicationScale", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchApplicationScale indicates an expected call of WatchApplicationScale.
+func (mr *MockApplicationServiceMockRecorder) WatchApplicationScale(arg0, arg1 any) *MockApplicationServiceWatchApplicationScaleCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationScale", reflect.TypeOf((*MockApplicationService)(nil).WatchApplicationScale), arg0, arg1)
+	return &MockApplicationServiceWatchApplicationScaleCall{Call: call}
+}
+
+// MockApplicationServiceWatchApplicationScaleCall wrap *gomock.Call
+type MockApplicationServiceWatchApplicationScaleCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceWatchApplicationScaleCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockApplicationServiceWatchApplicationScaleCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceWatchApplicationScaleCall) Do(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchApplicationScaleCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceWatchApplicationScaleCall) DoAndReturn(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchApplicationScaleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -50,7 +50,6 @@ In Juju, the term "worker" is most commonly used to denote types whose instances
   - [`caasoperatorprovisioner`](#caasoperatorprovisioner)
   - [`caasprober`](#caasprober)
   - [`caasrbacmapper`](#caasrbacmapper)
-  - [`caasunitprovisioner`](#caasunitprovisioner)
   - [`caasunitsmanager`](#caasunitsmanager)
   - [`caasunitterminationworker`](#caasunitterminationworker)
   - [`caasupgrader`](#caasupgrader)
@@ -215,9 +214,6 @@ The `caasapplicationprovisioner` worker is actually two workers:
 
 ## `caasrbacmapper`
 > See more: [`juju/worker/caasrbacmapper`](https://github.com/juju/juju/tree/3.3/worker/caasrbacmapper)
-
-## `caasunitprovisioner`
-> See more: [`juju/worker/caasunitprovisioner`](https://github.com/juju/juju/tree/3.3/worker/caasunitprovisioner)
 
 ## `caasunitsmanager`
 > See more: [`juju/worker/caasunitsmanager`](https://github.com/juju/juju/tree/3.3/worker/caasunitsmanager)

@@ -35,12 +35,12 @@ type ApplicationOps interface {
 		facade CAASProvisionerFacade, statusService StatusService, clk clock.Clock, logger logger.Logger) error
 
 	AppDying(ctx context.Context, appName string, appID coreapplication.ID, app caas.Application, appLife life.Value,
-		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
+		facade CAASProvisionerFacade,
 		applicationService ApplicationService, statusService StatusService,
 		logger logger.Logger) error
 
 	AppDead(ctx context.Context, appName string, app caas.Application,
-		broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
+		broker CAASBroker, facade CAASProvisionerFacade, applicationService ApplicationService,
 		clk clock.Clock, logger logger.Logger) error
 
 	CheckCharmFormat(ctx context.Context, appName string,
@@ -50,7 +50,7 @@ type ApplicationOps interface {
 		applicationService ApplicationService, logger logger.Logger) error
 
 	UpdateState(ctx context.Context, appName string, app caas.Application, lastReportedStatus map[string]status.StatusInfo,
-		broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger logger.Logger) (map[string]status.StatusInfo, error)
+		broker CAASBroker, facade CAASProvisionerFacade, applicationService ApplicationService, logger logger.Logger) (map[string]status.StatusInfo, error)
 
 	RefreshApplicationStatus(ctx context.Context, appName string, appID coreapplication.ID, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, statusService StatusService, clk clock.Clock, logger logger.Logger) error
@@ -64,7 +64,7 @@ type ApplicationOps interface {
 		logger logger.Logger) error
 
 	EnsureScale(ctx context.Context, appName string, appID coreapplication.ID, app caas.Application, appLife life.Value,
-		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
+		facade CAASProvisionerFacade,
 		applicationService ApplicationService, statusService StatusService,
 		logger logger.Logger) error
 }
@@ -86,19 +86,19 @@ func (applicationOps) AppAlive(
 func (applicationOps) AppDying(
 	ctx context.Context,
 	appName string, appID coreapplication.ID, app caas.Application, appLife life.Value,
-	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
+	facade CAASProvisionerFacade,
 	applicationService ApplicationService, statusService StatusService,
 	logger logger.Logger,
 ) error {
-	return appDying(ctx, appName, appID, app, appLife, facade, unitFacade, applicationService, statusService, logger)
+	return appDying(ctx, appName, appID, app, appLife, facade, applicationService, statusService, logger)
 }
 
 func (applicationOps) AppDead(ctx context.Context,
 	appName string, app caas.Application,
-	broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
+	broker CAASBroker, facade CAASProvisionerFacade, applicationService ApplicationService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
-	return appDead(ctx, appName, app, broker, facade, unitFacade, clk, logger)
+	return appDead(ctx, appName, app, broker, facade, applicationService, clk, logger)
 }
 
 func (applicationOps) CheckCharmFormat(
@@ -119,10 +119,10 @@ func (applicationOps) EnsureTrust(
 func (applicationOps) UpdateState(
 	ctx context.Context,
 	appName string, app caas.Application, lastReportedStatus map[string]status.StatusInfo,
-	broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
+	broker CAASBroker, facade CAASProvisionerFacade, applicationService ApplicationService,
 	logger logger.Logger,
 ) (map[string]status.StatusInfo, error) {
-	return updateState(ctx, appName, app, lastReportedStatus, broker, facade, unitFacade, logger)
+	return updateState(ctx, appName, app, lastReportedStatus, broker, facade, applicationService, logger)
 }
 
 func (applicationOps) RefreshApplicationStatus(
@@ -154,11 +154,11 @@ func (applicationOps) ReconcileDeadUnitScale(
 func (applicationOps) EnsureScale(
 	ctx context.Context,
 	appName string, appID coreapplication.ID, app caas.Application, appLife life.Value,
-	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
+	facade CAASProvisionerFacade,
 	applicationService ApplicationService, statusService StatusService,
 	logger logger.Logger,
 ) error {
-	return ensureScale(ctx, appName, appID, app, appLife, facade, unitFacade, applicationService, statusService, logger)
+	return ensureScale(ctx, appName, appID, app, appLife, facade, applicationService, statusService, logger)
 }
 
 type Tomb interface {
@@ -290,12 +290,12 @@ func appAlive(ctx context.Context, appName string, app caas.Application,
 func appDying(
 	ctx context.Context,
 	appName string, appID coreapplication.ID, app caas.Application, appLife life.Value,
-	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
+	facade CAASProvisionerFacade,
 	applicationService ApplicationService, statusService StatusService,
 	logger logger.Logger,
 ) (err error) {
 	logger.Debugf(ctx, "application %q dying", appName)
-	err = ensureScale(ctx, appName, appID, app, appLife, facade, unitFacade, applicationService, statusService, logger)
+	err = ensureScale(ctx, appName, appID, app, appLife, facade, applicationService, statusService, logger)
 	if err != nil {
 		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
@@ -311,7 +311,7 @@ func appDying(
 func appDead(
 	ctx context.Context,
 	appName string, app caas.Application,
-	broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
+	broker CAASBroker, facade CAASProvisionerFacade, applicationService ApplicationService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
 	logger.Debugf(ctx, "application %q dead", appName)
@@ -323,7 +323,7 @@ func appDead(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = updateState(ctx, appName, app, nil, broker, facade, unitFacade, logger)
+	_, err = updateState(ctx, appName, app, nil, broker, facade, applicationService, logger)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -386,7 +386,7 @@ func ensureTrust(
 func updateState(
 	ctx context.Context,
 	appName string, app caas.Application, lastReportedStatus map[string]status.StatusInfo,
-	broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
+	broker CAASBroker, facade CAASProvisionerFacade, applicationService ApplicationService,
 	logger logger.Logger,
 ) (map[string]status.StatusInfo, error) {
 	appTag := names.NewApplicationTag(appName).String()
@@ -396,20 +396,17 @@ func updateState(
 		return nil, errors.Trace(err)
 	}
 	if svc != nil {
+		err := applicationService.UpdateCloudService(
+			ctx, appName, svc.Id, svc.Addresses)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			// Do nothing
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
 		appStatus = params.EntityStatus{
 			Status: svc.Status.Status,
 			Info:   svc.Status.Message,
 			Data:   svc.Status.Data,
-		}
-		err = unitFacade.UpdateApplicationService(ctx, params.UpdateApplicationServiceArg{
-			ApplicationTag: appTag,
-			ProviderId:     svc.Id,
-			Addresses:      params.FromProviderAddresses(svc.Addresses...),
-		})
-		if errors.Is(err, errors.NotFound) {
-			// Do nothing
-		} else if err != nil {
-			return nil, errors.Trace(err)
 		}
 	}
 
@@ -654,7 +651,7 @@ func reconcileDeadUnitScale(
 func ensureScale(
 	ctx context.Context,
 	appName string, appID coreapplication.ID, app caas.Application, appLife life.Value,
-	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
+	facade CAASProvisionerFacade,
 	applicationService ApplicationService, statusService StatusService,
 	logger logger.Logger,
 ) error {
@@ -662,7 +659,7 @@ func ensureScale(
 	var desiredScale int
 	switch appLife {
 	case life.Alive:
-		desiredScale, err = unitFacade.ApplicationScale(ctx, appName)
+		desiredScale, err = applicationService.GetApplicationScale(ctx, appName)
 		if err != nil {
 			return errors.Annotatef(err, "fetching application %q desired scale", appName)
 		}
