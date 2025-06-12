@@ -40,9 +40,6 @@ type MachineState interface {
 
 // Machine defines machine methods needed for the check.
 type Machine interface {
-	// IsManual returns true if the machine was manually provisioned.
-	IsManual() (bool, error)
-
 	// IsContainer returns true if the machine is a container.
 	IsContainer() bool
 

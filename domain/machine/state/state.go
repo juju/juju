@@ -665,17 +665,9 @@ func (st *State) IsMachineController(ctx context.Context, mName machine.Name) (b
 		return false, errors.Capture(err)
 	}
 
-	machineNameParam := machineName{Name: mName}
-	machineUUIDoutput := machineUUID{}
-	uuidQuery := `SELECT &machineUUID.uuid FROM machine WHERE name = $machineName.name`
-	uuidQueryStmt, err := st.Prepare(uuidQuery, machineNameParam, machineUUIDoutput)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	result := machineIsController{}
+	var result count
 	query := `
-SELECT    COUNT(ac.application_uuid) AS &machineIsController.count
+SELECT    COUNT(ac.application_uuid) AS &count.count
 FROM      machine AS m
 JOIN      net_node AS n ON m.net_node_uuid = n.uuid
 LEFT JOIN unit AS u ON n.uuid = u.net_node_uuid
@@ -683,20 +675,18 @@ LEFT JOIN application AS a ON u.application_uuid = a.uuid
 LEFT JOIN application_controller AS ac ON a.uuid = ac.application_uuid
 WHERE     m.uuid = $machineUUID.uuid
 `
-	queryStmt, err := st.Prepare(query, machineUUIDoutput, result)
+	queryStmt, err := st.Prepare(query, machineUUID{}, result)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, uuidQueryStmt, machineNameParam).Get(&machineUUIDoutput); errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
-		} else if err != nil {
-			return errors.Errorf("querying UUID for machine %q: %w", mName, err)
+		mUUID, err := st.getMachineUUIDFromName(ctx, tx, mName)
+		if err != nil {
+			return err
 		}
 
-		err := tx.Query(ctx, queryStmt, machineUUIDoutput).Get(&result)
-		if err != nil {
+		if err := tx.Query(ctx, queryStmt, mUUID).Get(&result); err != nil {
 			return errors.Errorf("querying if machine %q is a controller: %w", mName, err)
 		}
 		return nil
@@ -706,6 +696,61 @@ WHERE     m.uuid = $machineUUID.uuid
 	}
 
 	return result.Count == 1, nil
+}
+
+// IsManualMachine returns whether the machine is a manual machine.
+// It returns a NotFound if the given machine doesn't exist.
+func (st *State) IsManualMachine(ctx context.Context, mName machine.Name) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var result count
+	query := `
+SELECT     COUNT(m.uuid) AS &count.count
+FROM       machine AS m
+LEFT JOIN  machine_manual AS mm ON m.uuid = mm.machine_uuid
+WHERE      m.uuid = $machineUUID.uuid
+`
+	queryStmt, err := st.Prepare(query, machineUUID{}, count{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		mUUID, err := st.getMachineUUIDFromName(ctx, tx, mName)
+		if err != nil {
+			return err
+		}
+
+		if err := tx.Query(ctx, queryStmt, mUUID).Get(&result); err != nil {
+			return errors.Errorf("querying if machine %q is a controller: %w", mName, err)
+		}
+
+		return nil
+	}); err != nil {
+		return false, errors.Errorf("checking if machine %q is manual: %w", mName, err)
+	}
+
+	return result.Count == 1, nil
+}
+
+func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName machine.Name) (machineUUID, error) {
+	machineNameParam := machineName{Name: mName}
+	machineUUIDoutput := machineUUID{}
+	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name`
+	queryStmt, err := st.Prepare(query, machineNameParam, machineUUIDoutput)
+	if err != nil {
+		return machineUUID{}, errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, queryStmt, machineNameParam).Get(&machineUUIDoutput); errors.Is(err, sqlair.ErrNoRows) {
+		return machineUUID{}, errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
+	} else if err != nil {
+		return machineUUID{}, errors.Errorf("querying UUID for machine %q: %w", mName, err)
+	}
+	return machineUUIDoutput, nil
 }
 
 // AllMachineNames retrieves the names of all machines in the model.

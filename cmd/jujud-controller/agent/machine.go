@@ -1121,13 +1121,6 @@ func openStatePool(
 	if m.Life() == state.Dead {
 		return nil, internalworker.ErrTerminateAgent
 	}
-	// Check the machine nonce as provisioned matches the agent.Conf value.
-	if !m.CheckProvisioned(agentConfig.Nonce()) {
-		// The agent is running on a different machine to the one it
-		// should be according to state. It must stop immediately.
-		logger.Errorf(context.TODO(), "running machine %v agent on inappropriate instance", m)
-		return nil, internalworker.ErrTerminateAgent
-	}
 	return pool, nil
 }
 
