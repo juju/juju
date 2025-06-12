@@ -37,7 +37,6 @@ type appWorker struct {
 	broker             CAASBroker
 	clock              clock.Clock
 	logger             logger.Logger
-	unitFacade         CAASUnitProvisionerFacade
 	ops                ApplicationOps
 
 	appID       coreapplication.ID
@@ -62,9 +61,8 @@ type AppWorkerConfig struct {
 	Logger logger.Logger
 
 	// TODO: remove these
-	Facade     CAASProvisionerFacade
-	UnitFacade CAASUnitProvisionerFacade
-	ModelTag   names.ModelTag
+	Facade   CAASProvisionerFacade
+	ModelTag names.ModelTag
 }
 
 const tryAgain errors.ConstError = "try again"
@@ -89,7 +87,6 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 			clock:               config.Clock,
 			logger:              config.Logger,
 			changes:             changes,
-			unitFacade:          config.UnitFacade,
 			ops:                 ops,
 			engineReportRequest: make(chan chan<- map[string]any),
 		}
@@ -149,11 +146,11 @@ func (a *appWorker) loop() error {
 	a.life = appLife
 	if appLife == life.Dead {
 		if !statusOnly {
-			err = a.ops.AppDying(ctx, name, a.appID, app, a.life, a.facade, a.unitFacade, a.applicationService, a.statusService, a.logger)
+			err = a.ops.AppDying(ctx, name, a.appID, app, a.life, a.facade, a.applicationService, a.statusService, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", name)
 			}
-			err = a.ops.AppDead(ctx, name, app, a.broker, a.facade, a.unitFacade, a.clock, a.logger)
+			err = a.ops.AppDead(ctx, name, app, a.broker, a.facade, a.applicationService, a.clock, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", name)
 			}
@@ -184,7 +181,7 @@ func (a *appWorker) loop() error {
 	var replicaChanges watcher.NotifyChannel
 	var lastReportedStatus map[string]status.StatusInfo
 
-	appScaleWatcher, err := a.unitFacade.WatchApplicationScale(ctx, name)
+	appScaleWatcher, err := a.applicationService.WatchApplicationScale(ctx, name)
 	if err != nil {
 		return errors.Annotatef(err, "creating application %q scale watcher", name)
 	}
@@ -299,7 +296,7 @@ func (a *appWorker) loop() error {
 			ready = true
 		case life.Dying:
 			if !statusOnly {
-				err = a.ops.AppDying(ctx, name, a.appID, app, a.life, a.facade, a.unitFacade, a.applicationService, a.statusService, a.logger)
+				err = a.ops.AppDying(ctx, name, a.appID, app, a.life, a.facade, a.applicationService, a.statusService, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -307,11 +304,11 @@ func (a *appWorker) loop() error {
 			ready = false
 		case life.Dead:
 			if !statusOnly {
-				err = a.ops.AppDying(ctx, name, a.appID, app, a.life, a.facade, a.unitFacade, a.applicationService, a.statusService, a.logger)
+				err = a.ops.AppDying(ctx, name, a.appID, app, a.life, a.facade, a.applicationService, a.statusService, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
-				err = a.ops.AppDead(ctx, name, app, a.broker, a.facade, a.unitFacade, a.clock, a.logger)
+				err = a.ops.AppDead(ctx, name, app, a.broker, a.facade, a.applicationService, a.clock, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -349,7 +346,7 @@ func (a *appWorker) loop() error {
 				shouldRefresh = false
 				break
 			}
-			err := a.ops.EnsureScale(ctx, name, a.appID, app, a.life, a.facade, a.unitFacade, a.applicationService, a.statusService, a.logger)
+			err := a.ops.EnsureScale(ctx, name, a.appID, app, a.life, a.facade, a.applicationService, a.statusService, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				if scaleTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
@@ -447,13 +444,17 @@ func (a *appWorker) loop() error {
 			}
 		case <-appChanges:
 			// Respond to changes in provider application.
-			lastReportedStatus, err = a.ops.UpdateState(ctx, name, app, lastReportedStatus, a.broker, a.facade, a.unitFacade, a.logger)
+			lastReportedStatus, err = a.ops.UpdateState(
+				ctx, name, app, lastReportedStatus,
+				a.broker, a.facade, a.applicationService, a.logger)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-replicaChanges:
 			// Respond to changes in replicas of the application.
-			lastReportedStatus, err = a.ops.UpdateState(ctx, name, app, lastReportedStatus, a.broker, a.facade, a.unitFacade, a.logger)
+			lastReportedStatus, err = a.ops.UpdateState(
+				ctx, name, app, lastReportedStatus,
+				a.broker, a.facade, a.applicationService, a.logger)
 			if err != nil {
 				return errors.Trace(err)
 			}

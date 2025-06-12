@@ -131,7 +131,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	broker := mocks.NewMockCAASBroker(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
 
 	appTag := names.NewApplicationTag("test").String()
 	service := &caas.Service{
@@ -146,16 +146,6 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 		Addresses: network.ProviderAddresses{{
 			MachineAddress: network.NewMachineAddress("1.2.3.4"),
 			SpaceName:      "space-name",
-		}},
-	}
-	updateServiceArg := params.UpdateApplicationServiceArg{
-		ApplicationTag: appTag,
-		ProviderId:     "provider-id",
-		Addresses: []params.Address{{
-			Value:     "1.2.3.4",
-			SpaceName: "space-name",
-			Type:      "ipv4",
-			Scope:     "public",
 		}},
 	}
 	units := []caas.Unit{{
@@ -227,7 +217,10 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 	}
 	gomock.InOrder(
 		app.EXPECT().Service().Return(service, nil),
-		unitFacade.EXPECT().UpdateApplicationService(gomock.Any(), updateServiceArg).Return(nil),
+		applicationService.EXPECT().UpdateCloudService(gomock.Any(), "test", "provider-id", network.ProviderAddresses{{
+			MachineAddress: network.NewMachineAddress("1.2.3.4"),
+			SpaceName:      "space-name",
+		}}).Return(nil),
 		app.EXPECT().Units().Return(units, nil),
 		facade.EXPECT().UpdateUnits(gomock.Any(), updateUnitsArg).Return(appUnitInfo, nil),
 		broker.EXPECT().AnnotateUnit(gomock.Any(), "test", "a", names.NewUnitTag("test/0")).Return(nil),
@@ -240,7 +233,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 			Message: "same",
 		},
 	}
-	currentReportedStatus, err := caasapplicationprovisioner.AppOps.UpdateState(c.Context(), "test", app, lastReportedStatus, broker, facade, unitFacade, s.logger)
+	currentReportedStatus, err := caasapplicationprovisioner.AppOps.UpdateState(c.Context(), "test", app, lastReportedStatus, broker, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(currentReportedStatus, tc.DeepEquals, map[string]status.StatusInfo{
 		"a": {Status: "active", Message: "different"},
@@ -357,7 +350,6 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 	appId, _ := application.NewID()
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 
@@ -367,7 +359,7 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 	}
 	unitsToDestroy := []string{"test/1"}
 	gomock.InOrder(
-		unitFacade.EXPECT().ApplicationScale(gomock.Any(), "test").Return(1, nil),
+		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(1, nil),
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 1, true).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
@@ -375,7 +367,7 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 		facade.EXPECT().DestroyUnits(gomock.Any(), unitsToDestroy).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app, life.Alive, facade, unitFacade, applicationService, statusService, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app, life.Alive, facade, applicationService, statusService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -386,7 +378,6 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *tc.C) {
 	appId, _ := application.NewID()
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 
@@ -400,14 +391,14 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *tc.C) {
 	}
 	unitsToDestroy := []string{"test/1"}
 	gomock.InOrder(
-		unitFacade.EXPECT().ApplicationScale(gomock.Any(), "test").Return(10, nil),
+		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(10, nil),
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
 		app.EXPECT().UnitsToRemove(gomock.Any(), 1).Return(unitsToDestroy, nil),
 		facade.EXPECT().DestroyUnits(gomock.Any(), unitsToDestroy).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app, life.Alive, facade, unitFacade, applicationService, statusService, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app, life.Alive, facade, applicationService, statusService, s.logger)
 	c.Assert(err, tc.ErrorMatches, `try again`)
 }
 
@@ -418,7 +409,6 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *tc.C) {
 	appId, _ := application.NewID()
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 
@@ -435,7 +425,7 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *tc.C) {
 		facade.EXPECT().DestroyUnits(gomock.Any(), unitsToDestroy).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app, life.Dead, facade, unitFacade, applicationService, statusService, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app, life.Dead, facade, applicationService, statusService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -577,7 +567,6 @@ func (s *OpsSuite) TestAppDying(c *tc.C) {
 	appId, _ := application.NewID()
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 
@@ -591,7 +580,7 @@ func (s *OpsSuite) TestAppDying(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.AppDying(c.Context(), "test", appId, app, life.Dying, facade, unitFacade, applicationService, statusService, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppDying(c.Context(), "test", appId, app, life.Dying, facade, applicationService, statusService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -601,8 +590,8 @@ func (s *OpsSuite) TestAppDead(c *tc.C) {
 
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 	broker := mocks.NewMockCAASBroker(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
 
 	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
 
@@ -619,7 +608,7 @@ func (s *OpsSuite) TestAppDead(c *tc.C) {
 		facade.EXPECT().ClearApplicationResources(gomock.Any(), "test").Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.AppDead(c.Context(), "test", app, broker, facade, unitFacade, clk, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppDead(c.Context(), "test", app, broker, facade, applicationService, clk, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

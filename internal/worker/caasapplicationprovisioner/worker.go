@@ -28,6 +28,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
@@ -36,13 +37,6 @@ import (
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
-
-// TODO: Replace these facades with direct calls to domain services.
-type CAASUnitProvisionerFacade interface {
-	ApplicationScale(context.Context, string) (int, error)
-	WatchApplicationScale(context.Context, string) (watcher.NotifyWatcher, error)
-	UpdateApplicationService(ctx context.Context, arg params.UpdateApplicationServiceArg) error
-}
 
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
@@ -75,6 +69,16 @@ type ApplicationService interface {
 	// WatchApplicationUnitLife returns a watcher that observes changes to the life of any units if an application.
 	WatchApplicationUnitLife(ctx context.Context, appName string) (watcher.StringsWatcher, error)
 
+	// WatchApplicationScale returns a watcher that observes changes to an application's scale.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+	WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error)
+
+	// GetApplicationScale returns the desired scale of an application,
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+	GetApplicationScale(ctx context.Context, appName string) (int, error)
+
 	SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, scaling bool) error
 	GetApplicationScalingState(ctx context.Context, name string) (applicationservice.ScalingState, error)
 	GetApplicationLife(ctx context.Context, id application.ID) (life.Value, error)
@@ -86,6 +90,9 @@ type ApplicationService interface {
 
 	// WatchApplications returns a watcher that observes changes to applications.
 	WatchApplications(ctx context.Context) (watcher.StringsWatcher, error)
+
+	// UpsertCloudService updates the cloud service for the specified application.
+	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.
@@ -127,7 +134,6 @@ type Config struct {
 	Clock              clock.Clock
 	Logger             logger.Logger
 	NewAppWorker       NewAppWorkerFunc
-	UnitFacade         CAASUnitProvisionerFacade
 }
 
 type provisioner struct {
@@ -141,7 +147,6 @@ type provisioner struct {
 	logger             logger.Logger
 	newAppWorker       NewAppWorkerFunc
 	modelTag           names.ModelTag
-	unitFacade         CAASUnitProvisionerFacade
 }
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
@@ -172,7 +177,6 @@ func newProvisionerWorker(
 		logger:             config.Logger,
 		newAppWorker:       config.NewAppWorker,
 		runner:             runner,
-		unitFacade:         config.UnitFacade,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "caas-application-provisioner",
@@ -244,7 +248,6 @@ func (p *provisioner) loop() error {
 					ModelTag:           p.modelTag,
 					Clock:              p.clock,
 					Logger:             p.logger.Child(id),
-					UnitFacade:         p.unitFacade,
 				}
 				startFunc := p.newAppWorker(config)
 				p.logger.Debugf(ctx, "starting app worker %q", appID)
