@@ -53,7 +53,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 type APIGroup struct {
@@ -1418,41 +1417,6 @@ func (a *API) ClearApplicationsResources(ctx context.Context, args params.Entiti
 		}
 	}
 	return result, nil
-}
-
-// WatchUnits starts a StringsWatcher to watch changes to the
-// lifecycle states of units for the specified applications in
-// this model.
-func (a *API) WatchUnits(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	results := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
-	}
-	for i, arg := range args.Entities {
-		id, changes, err := a.watchUnits(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results.Results[i].StringsWatcherId = id
-		results.Results[i].Changes = changes
-	}
-	return results, nil
-}
-
-func (a *API) watchUnits(tagString string) (string, []string, error) {
-	tag, err := names.ParseApplicationTag(tagString)
-	if err != nil {
-		return "", nil, errors.Trace(err)
-	}
-	app, err := a.state.Application(tag.Id())
-	if err != nil {
-		return "", nil, errors.Trace(err)
-	}
-	w := app.WatchUnits()
-	if changes, ok := <-w.Changes(); ok {
-		return a.resources.Register(w), changes, nil
-	}
-	return "", nil, watcher.EnsureErr(w)
 }
 
 // DestroyUnits is responsible for scaling down a set of units on the this
