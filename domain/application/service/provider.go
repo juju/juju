@@ -186,7 +186,6 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 
 	return appName, application.AddIAASApplicationArg{
 		BaseAddApplicationArg: arg,
-		IsController:          args.IsController,
 	}, unitArgs, nil
 }
 

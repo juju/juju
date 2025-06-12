@@ -68,6 +68,9 @@ type BaseAddApplicationArg struct {
 	EndpointBindings map[string]network.SpaceName
 	// Devices contains the device constraints for the application.
 	Devices map[string]devices.Constraints
+	// IsController indicates whether the application is a controller
+	// application.
+	IsController bool
 }
 
 // AddIAASApplicationArg contains parameters for saving an IAAS application to
@@ -76,9 +79,6 @@ type BaseAddApplicationArg struct {
 // added *just* for IAAS applications.
 type AddIAASApplicationArg struct {
 	BaseAddApplicationArg
-	// IsController indicates whether the application is a controller
-	// application.
-	IsController bool
 }
 
 // AddCAASApplicationArg contains parameters for saving a CAAS application to
@@ -227,8 +227,7 @@ type InsertUnitArg struct {
 // InsertIAASUnitArg contains parameters for inserting an IAAS unit.
 type InsertIAASUnitArg struct {
 	InsertUnitArg
-	Platform     deployment.Platform
-	IsController bool
+	Platform deployment.Platform
 }
 
 // RegisterCAASUnitParams contains parameters for introducing

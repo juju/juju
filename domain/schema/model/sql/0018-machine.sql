@@ -40,16 +40,6 @@ CREATE TABLE machine_platform (
     REFERENCES architecture (id)
 );
 
--- This table is only used to track whether a machine is a controller or not.
--- It should be sparse and only contain a single row for the controller
--- machines.
-CREATE TABLE machine_controller (
-    machine_uuid TEXT NOT NULL PRIMARY KEY,
-    CONSTRAINT fk_machine_controller_machine
-    FOREIGN KEY (machine_uuid)
-    REFERENCES machine (uuid)
-);
-
 -- machine_placement_scope is a table which represents the valid scopes
 -- that can exist for a machine placement. The provider scope is the only
 -- placement that is deferred until the instance is started by the provider.

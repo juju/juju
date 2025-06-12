@@ -19,6 +19,10 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/machine/testing"
+	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
+	"github.com/juju/juju/domain/application/charm"
+	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -500,27 +504,29 @@ func (s *stateSuite) TestListAllMachineNamesSuccess(c *tc.C) {
 	c.Assert(ms, tc.DeepEquals, expectedMachines)
 }
 
-// TestIsControllerSuccess asserts the happy path of IsController at the state
-// layer.
-func (s *stateSuite) TestIsControllerSuccess(c *tc.C) {
+func (s *stateSuite) TestIsControllerApplicationController(c *tc.C) {
+	machineName := s.createApplication(c, true)
+
+	isController, err := s.state.IsMachineController(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.Equals, true)
+}
+
+func (s *stateSuite) TestIsControllerApplicationNonController(c *tc.C) {
+	machineName := s.createApplication(c, false)
+
+	isController, err := s.state.IsMachineController(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.Equals, false)
+}
+
+func (s *stateSuite) TestIsControllerFailure(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "", "")
 	c.Assert(err, tc.ErrorIsNil)
 
 	isController, err := s.state.IsMachineController(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(isController, tc.Equals, false)
-
-	db := s.DB()
-
-	updateIsController := `
-INSERT INTO machine_controller (machine_uuid)
-VALUES ((SELECT uuid FROM machine WHERE name = ?));
-`
-	_, err = db.ExecContext(c.Context(), updateIsController, "666")
-	c.Assert(err, tc.ErrorIsNil)
-	isController, err = s.state.IsMachineController(c.Context(), "666")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(isController, tc.Equals, true)
 }
 
 // TestIsControllerNotFound asserts that a NotFound error is returned when the
@@ -911,4 +917,33 @@ func (s *stateSuite) TestGetNamesForUUIDsNotFound(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) createApplication(c *tc.C, controller bool) machine.Name {
+	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	_, machineNames, err := applicationSt.CreateIAASApplication(c.Context(), "foo", application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: "foo",
+				},
+				Manifest: charm.Manifest{
+					Bases: []charm.Base{{
+						Name:          "ubuntu",
+						Channel:       charm.Channel{Risk: charm.RiskStable},
+						Architectures: []string{"amd64"},
+					}},
+				},
+				ReferenceName: "foo",
+				Architecture:  architecture.AMD64,
+				Revision:      1,
+				Source:        charm.LocalSource,
+			},
+			IsController: controller,
+		},
+	}, []application.AddUnitArg{{}})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(machineNames, tc.HasLen, 1)
+	return machineNames[0]
 }

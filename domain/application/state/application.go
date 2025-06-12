@@ -299,6 +299,9 @@ func (st *State) insertApplication(
 	); err != nil {
 		return errors.Errorf("inserting or resolving resources for application %q: %w", name, err)
 	}
+	if err := st.insertApplicationController(ctx, tx, appDetails, args.IsController); err != nil {
+		return errors.Errorf("inserting controller for application %q: %w", name, err)
+	}
 	if err := st.insertApplicationStorage(ctx, tx, appDetails, args.Storage); err != nil {
 		return errors.Errorf("inserting storage for application %q: %w", name, err)
 	}
@@ -340,6 +343,26 @@ func (st *State) insertApplication(
 	return nil
 }
 
+func (st *State) insertApplicationController(
+	ctx context.Context, tx *sqlair.TX,
+	appDetails applicationDetails,
+	isController bool,
+) error {
+	if !isController {
+		return nil
+	}
+
+	stmt, err := st.Prepare(`
+INSERT INTO application_controller (application_uuid)
+VALUES ($applicationDetails.uuid)
+`, appDetails)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return tx.Query(ctx, stmt, appDetails).Run()
+}
+
 func (st *State) insertIAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
@@ -364,8 +387,7 @@ func (st *State) insertIAASApplicationUnits(
 					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
 				},
 			},
-			Platform:     args.Platform,
-			IsController: args.IsController,
+			Platform: args.Platform,
 		}
 	}
 
