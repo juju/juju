@@ -11,7 +11,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	modeltesting "github.com/juju/juju/core/model/testing"
 	corestatus "github.com/juju/juju/core/status"
 	storagetesting "github.com/juju/juju/core/storage/testing"
 	"github.com/juju/juju/domain/status"
@@ -22,8 +21,9 @@ import (
 )
 
 type storageServiceSuite struct {
-	state         *MockState
-	statusHistory *statusHistoryRecorder
+	modelState      *MockModelState
+	controllerState *MockControllerState
+	statusHistory   *statusHistoryRecorder
 
 	service *Service
 }
@@ -38,8 +38,8 @@ func (s *storageServiceSuite) TestSetFilesystemStatus(c *tc.C) {
 	now := time.Now()
 
 	filesystemUUID := storagetesting.GenFilesystemUUID(c)
-	s.state.EXPECT().GetFilesystemUUIDByID(gomock.Any(), "666").Return(filesystemUUID, nil)
-	s.state.EXPECT().SetFilesystemStatus(gomock.Any(), filesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]{
+	s.modelState.EXPECT().GetFilesystemUUIDByID(gomock.Any(), "666").Return(filesystemUUID, nil)
+	s.modelState.EXPECT().SetFilesystemStatus(gomock.Any(), filesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status:  status.StorageFilesystemStatusTypeAttached,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
@@ -68,7 +68,7 @@ func (s *storageServiceSuite) TestSetFilesystemStatus(c *tc.C) {
 func (s *storageServiceSuite) TestSetFilesystemStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetFilesystemUUIDByID(gomock.Any(), "666").Return("", storageerrors.FilesystemNotFound)
+	s.modelState.EXPECT().GetFilesystemUUIDByID(gomock.Any(), "666").Return("", storageerrors.FilesystemNotFound)
 
 	err := s.service.SetFilesystemStatus(c.Context(), "666", corestatus.StatusInfo{
 		Status: corestatus.Attached,
@@ -96,8 +96,8 @@ func (s *storageServiceSuite) TestSetVolumeStatus(c *tc.C) {
 	now := time.Now()
 
 	volumeUUID := storagetesting.GenVolumeUUID(c)
-	s.state.EXPECT().GetVolumeUUIDByID(gomock.Any(), "666").Return(volumeUUID, nil)
-	s.state.EXPECT().SetVolumeStatus(gomock.Any(), volumeUUID, status.StatusInfo[status.StorageVolumeStatusType]{
+	s.modelState.EXPECT().GetVolumeUUIDByID(gomock.Any(), "666").Return(volumeUUID, nil)
+	s.modelState.EXPECT().SetVolumeStatus(gomock.Any(), volumeUUID, status.StatusInfo[status.StorageVolumeStatusType]{
 		Status:  status.StorageVolumeStatusTypeAttached,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
@@ -126,7 +126,7 @@ func (s *storageServiceSuite) TestSetVolumeStatus(c *tc.C) {
 func (s *storageServiceSuite) TestSetVolumeStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetVolumeUUIDByID(gomock.Any(), "666").Return("", storageerrors.VolumeNotFound)
+	s.modelState.EXPECT().GetVolumeUUIDByID(gomock.Any(), "666").Return("", storageerrors.VolumeNotFound)
 
 	err := s.service.SetVolumeStatus(c.Context(), "666", corestatus.StatusInfo{
 		Status: corestatus.Attached,
@@ -151,12 +151,13 @@ func (s *storageServiceSuite) TestSetVolumeStatusInvalidStatus(c *tc.C) {
 func (s *storageServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.state = NewMockState(ctrl)
+	s.modelState = NewMockModelState(ctrl)
+	s.controllerState = NewMockControllerState(ctrl)
 	s.statusHistory = &statusHistoryRecorder{}
 
 	s.service = NewService(
-		s.state,
-		modeltesting.GenModelUUID(c),
+		s.modelState,
+		s.controllerState,
 		s.statusHistory,
 		func() (StatusHistoryReader, error) {
 			return nil, errors.Errorf("status history reader not available")
@@ -166,7 +167,8 @@ func (s *storageServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	)
 
 	c.Cleanup(func() {
-		s.state = nil
+		s.modelState = nil
+		s.controllerState = nil
 		s.statusHistory = nil
 		s.service = nil
 	})

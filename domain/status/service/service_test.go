@@ -1573,9 +1573,9 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	)
 
 	c.Cleanup(func() {
-		s.state = nil
+		s.modelState = nil
 		s.statusHistory = nil
-		s.service = nil
+		s.modelService = nil
 	})
 
 	return ctrl
