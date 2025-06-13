@@ -91,7 +91,7 @@ type Authorizer interface {
 // MachineService is the interface that is used to interact with the machines.
 type MachineService interface {
 	// CreateMachine creates a machine with the given name.
-	CreateMachine(context.Context, coremachine.Name, string) (coremachine.UUID, error)
+	CreateMachine(context.Context, coremachine.Name, *string) (coremachine.UUID, error)
 	// DeleteMachine deletes a machine with the given name.
 	DeleteMachine(context.Context, coremachine.Name) error
 	// GetBootstrapEnviron returns the bootstrap environ.
@@ -362,7 +362,11 @@ func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineName, n
 	// This is temporary - just insert the machine id all al the parent ones.
 	var errs []error
 	for machineName != "" {
-		_, err := mm.machineService.CreateMachine(ctx, coremachine.Name(machineName), nonce)
+		var n *string
+		if nonce != "" {
+			n = &nonce
+		}
+		_, err := mm.machineService.CreateMachine(ctx, coremachine.Name(machineName), n)
 		// The machine might already exist e.g. if we are adding a subordinate
 		// unit to an already existing machine. In this case, just continue
 		// without error.
