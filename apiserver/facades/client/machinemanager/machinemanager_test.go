@@ -153,9 +153,9 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 			},
 		},
 	}).Return(m1, nil)
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("666"))
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("667/lxd/1"))
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("667"))
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("666"), nil)
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("667/lxd/1"), nil)
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("667"), nil)
 	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("22.04"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
