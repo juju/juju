@@ -611,6 +611,12 @@ type linkLayerDevice struct {
 	VLAN            int            `db:"vlan_tag"`
 }
 
+// linkLayerDeviceName is used for identifying known link-layer devices.
+type linkLayerDeviceName struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
+
 type linkLayerDeviceParent struct {
 	DeviceUUID string `db:"device_uuid"`
 	ParentUUID string `db:"parent_uuid"`

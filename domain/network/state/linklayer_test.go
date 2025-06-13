@@ -129,53 +129,6 @@ func (s *linkLayerSuite) TestGetMachineNetNodeUUIDNotFoundError(c *tc.C) {
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-// TODO (manadart 2025-05-26) this test is temporary.
-// Future changes will reconcile existing devices and update them.
-func (s *linkLayerSuite) TestSetMachineNetConfigAlreadySet(c *tc.C) {
-	db := s.DB()
-
-	// Arrange
-	nodeUUID := "net-node-uuid"
-	devName := "eth0"
-
-	ctx := c.Context()
-
-	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	insertLLD := `
-INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
-VALUES (?, ?, ?, ?, ?, ?, ?)`
-
-	_, err = db.ExecContext(ctx, insertLLD, "dev-uuid", nodeUUID, devName, 1500, "00:11:22:33:44:55", 0, 0)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Act
-	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{Name: "eth1"}})
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-
-	rows, err := db.QueryContext(ctx, "SELECT name FROM link_layer_device")
-	c.Assert(err, tc.ErrorIsNil)
-	defer func() { _ = rows.Close() }()
-
-	var (
-		name  string
-		count int
-	)
-
-	for rows.Next() {
-		err = rows.Scan(&name)
-		c.Assert(err, tc.ErrorIsNil)
-		count++
-	}
-
-	c.Assert(count, tc.Equals, 1)
-	// Incoming device "eth1" was ignored.
-	c.Check(name, tc.Equals, "eth0")
-}
-
 func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 	db := s.DB()
 
@@ -314,6 +267,38 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	err = row.Scan(&addrCount)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addrCount, tc.Equals, 0)
+}
+
+func (s *linkLayerSuite) TestSetMachineNetConfigUpdatedNIC(c *tc.C) {
+	db := s.DB()
+
+	// Arrange
+	nodeUUID := "net-node-uuid"
+	devName := "eth0"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: insert then update.
+	nic := network.NetInterface{
+		Name:            devName,
+		Type:            corenetwork.EthernetDevice,
+		VirtualPortType: corenetwork.NonVirtualPort,
+		IsAutoStart:     true,
+		IsEnabled:       true,
+	}
+
+	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{nic})
+	c.Assert(err, tc.ErrorIsNil)
+
+	nic.VLANTag = uint64(30)
+	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{nic})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	checkScalarResult(c, db, "SELECT vlan_tag FROM link_layer_device", "30")
 }
 
 func (s *linkLayerSuite) TestSetMachineNetConfigWithParentDevices(c *tc.C) {

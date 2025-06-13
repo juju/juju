@@ -70,32 +70,8 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 		return errors.Capture(err)
 	}
 
-	nUUID := entityUUID{UUID: nodeUUID}
-
-	// TODO (manadart 2025-04-29): This is temporary and serves to get us
-	// operational with addresses on Dqlite.
-	// We will set devices and addresses for any given machine *one time*
-	// with subsequent updates being a no-op until we add the full
-	// reconciliation logic.
-	var devCount countResult
-	devCountSql := "SELECT COUNT(*) AS &countResult.count FROM link_layer_device WHERE net_node_uuid = $entityUUID.uuid"
-	devCountStmt, err := st.Prepare(devCountSql, nUUID, devCount)
-	if err != nil {
-		return errors.Errorf("preparing device count statement: %w", err)
-	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, devCountStmt, nUUID).Get(&devCount); err != nil {
-			return errors.Errorf("running device count statement: %w", err)
-		}
-
-		// If we've done it for this machine before, bug out.
-		if devCount.Count > 0 {
-			return nil
-		}
-
-		// Otherwise, insert the data.
-		newNics, dnsSearchDoms, dnsAddrs, parents, nicNameToUUID, err := st.reconcileNetConfigDevices(nodeUUID, nics)
+		newNics, dnsDoms, dnsAddrs, parents, nicNameToUUID, err := st.reconcileNetConfigDevices(ctx, tx, nodeUUID, nics)
 		if err != nil {
 			return errors.Errorf("reconciling incoming network devices: %w", err)
 		}
@@ -105,11 +81,11 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 		// I.e. those inserted and updated.
 		retainedDeviceUUIDs := transform.MapToSlice(nicNameToUUID, func(k, v string) []string { return []string{v} })
 
-		if err = st.insertLinkLayerDevices(ctx, tx, newNics); err != nil {
+		if err = st.upsertLinkLayerDevices(ctx, tx, newNics); err != nil {
 			return errors.Errorf("inserting link layer devices: %w", err)
 		}
 
-		if err = st.updateDNSSearchDomains(ctx, tx, dnsSearchDoms, retainedDeviceUUIDs); err != nil {
+		if err = st.updateDNSSearchDomains(ctx, tx, dnsDoms, retainedDeviceUUIDs); err != nil {
 			return errors.Errorf("updating DNS search domains: %w", err)
 		}
 
@@ -151,17 +127,22 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 }
 
 func (st *State) reconcileNetConfigDevices(
-	nodeUUID string, nics []network.NetInterface,
+	ctx context.Context, tx *sqlair.TX, nodeUUID string, nics []network.NetInterface,
 ) ([]linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, []deviceParent, map[string]string, error) {
-	// TODO (manadart 2025-04-30): This will have to return more types for
-	// provider ID entries etc.
+	// Determine all the known UUIDs for incoming devices,
+	// and generate new UUIDs for the others.
+	existing, err := st.getCurrentDevices(ctx, tx, nodeUUID)
+	if err != nil {
+		return nil, nil, nil, nil, nil, errors.Capture(err)
+	}
 
-	// The idea here will be to set the UUIDs that we know from querying
-	// existing devices, then generate new ones for devices we don't have yet.
-	// Interfaces that we do not observe will be deleted along with their
-	// addresses if they have an origin of "machine".
 	nameToUUID := make(map[string]string, len(nics))
 	for _, n := range nics {
+		if existingUUID, ok := existing[n.Name]; ok {
+			nameToUUID[n.Name] = existingUUID
+			continue
+		}
+
 		nicUUID, err := network.NewInterfaceUUID()
 		if err != nil {
 			return nil, nil, nil, nil, nil, errors.Capture(err)
@@ -207,9 +188,41 @@ func (st *State) reconcileNetConfigDevices(
 	return nicsDML, dnsSearchDMLs, dnsAddrDMLs, parentDMLs, nameToUUID, nil
 }
 
-func (st *State) insertLinkLayerDevices(ctx context.Context, tx *sqlair.TX, devs []linkLayerDeviceDML) error {
-	stmt, err := st.Prepare(
-		"INSERT INTO link_layer_device (*) VALUES ($linkLayerDeviceDML.*)", devs[0])
+func (st *State) getCurrentDevices(ctx context.Context, tx *sqlair.TX, nodeUUID string) (map[string]string, error) {
+	nUUID := entityUUID{UUID: nodeUUID}
+
+	qry := "SELECT &linkLayerDeviceName.* FROM link_layer_device WHERE net_node_uuid = $entityUUID.uuid"
+	stmt, err := st.Prepare(qry, nUUID, linkLayerDeviceName{})
+	if err != nil {
+		return nil, errors.Errorf("preparing current devices statement: %w", err)
+	}
+
+	var devs []linkLayerDeviceName
+	if err := tx.Query(ctx, stmt, nUUID).GetAll(&devs); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Errorf("running current devices query: %w", err)
+	}
+
+	return transform.SliceToMap(devs, func(d linkLayerDeviceName) (string, string) {
+		return d.Name, d.UUID
+	}), nil
+}
+
+func (st *State) upsertLinkLayerDevices(ctx context.Context, tx *sqlair.TX, devs []linkLayerDeviceDML) error {
+	dml := `
+INSERT INTO link_layer_device (*) VALUES ($linkLayerDeviceDML.*)
+ON CONFLICT (uuid) DO UPDATE SET
+    mtu = EXCLUDED.mtu,
+    gateway_address = EXCLUDED.gateway_address,
+    is_auto_start = EXCLUDED.is_auto_start,
+    is_enabled = EXCLUDED.is_enabled,
+    device_type_id = EXCLUDED.device_type_id,
+    virtual_port_type_id = EXCLUDED.virtual_port_type_id,
+    vlan_tag = EXCLUDED.vlan_tag`
+
+	stmt, err := st.Prepare(dml, devs[0])
 	if err != nil {
 		return errors.Errorf("preparing device insert statement: %w", err)
 	}
@@ -358,7 +371,8 @@ func (st *State) reconcileNetConfigAddresses(
 	)
 
 	for _, n := range nics {
-		// If we don't know this NIC, we can assume that it is a deletion candidate.
+		// If we don't know this NIC, we can assume
+		// that it is a deletion candidate.
 		devUUID, ok := nicNameToUUID[n.Name]
 		if !ok {
 			continue
