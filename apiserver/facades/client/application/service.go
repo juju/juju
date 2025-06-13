@@ -291,7 +291,7 @@ type ApplicationService interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]network.SpaceUUID, error)
+	GetApplicationEndpointBindings(context.Context, string) (map[string]network.SpaceUUID, error)
 
 	// GetApplicationEndpointNames returns the names of the endpoints for the given
 	// application.

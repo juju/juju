@@ -29,6 +29,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -565,6 +566,7 @@ func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.En
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
+		machineName := coremachine.Name(tag.Id())
 		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
 			// If the machine is a controller, return
@@ -572,9 +574,9 @@ func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.En
 			// instances with services in common with the machine
 			// being provisioned.
 			if machine.IsManager() {
-				result.Results[i].Result, err = api.controllerInstances(ctx, api.st)
+				result.Results[i].Result, err = api.controllerInstances(ctx)
 			} else {
-				result.Results[i].Result, err = api.commonServiceInstances(ctx, api.st, machine)
+				result.Results[i].Result, err = api.commonServiceInstances(ctx, machineName)
 			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -583,18 +585,14 @@ func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.En
 }
 
 // controllerInstances returns all environ manager instances.
-func (api *ProvisionerAPI) controllerInstances(ctx context.Context, st *state.State) ([]instance.Id, error) {
-	controllerIds, err := st.ControllerIds()
+func (api *ProvisionerAPI) controllerInstances(ctx context.Context) ([]instance.Id, error) {
+	controllerIds, err := api.st.ControllerIds()
 	if err != nil {
 		return nil, err
 	}
 	instances := make([]instance.Id, 0, len(controllerIds))
 	for _, id := range controllerIds {
-		machine, err := st.Machine(id)
-		if err != nil {
-			return nil, err
-		}
-		instanceId, err := api.getInstanceID(ctx, machine.Id())
+		instanceId, err := api.getInstanceID(ctx, id)
 		if errors.Is(err, machineerrors.NotProvisioned) {
 			continue
 		}
@@ -608,17 +606,23 @@ func (api *ProvisionerAPI) controllerInstances(ctx context.Context, st *state.St
 
 // commonServiceInstances returns instances with
 // services in common with the specified machine.
-func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, st *state.State, m *state.Machine) ([]instance.Id, error) {
-	units, err := m.Units()
-	if err != nil {
-		return nil, err
+func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, machineName coremachine.Name) ([]instance.Id, error) {
+	unitNames, err := api.applicationService.GetUnitNamesOnMachine(ctx, machineName)
+	if errors.Is(err, applicationerrors.MachineNotFound) {
+		return nil, errors.NotFoundf("machine %q", machineName)
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
 	instanceIdSet := make(set.Strings)
-	for _, unit := range units {
-		if !unit.IsPrincipal() {
+	for _, unitName := range unitNames {
+		if _, isPrincipal, err := api.applicationService.GetUnitPrincipal(ctx, unitName); err != nil {
+			return nil, errors.Trace(err)
+		} else if !isPrincipal {
 			continue
 		}
-		machineIDs, err := state.ApplicationMachines(st, unit.ApplicationName())
+
+		appName := unitName.Application()
+		machineIDs, err := state.ApplicationMachines(api.st, appName)
 		if err != nil {
 			return nil, err
 		}
@@ -1179,20 +1183,20 @@ func (h *containerProfileHandler) ProcessOneContainer(
 	ctx context.Context,
 	_ environs.Environ, _ BridgePolicy, idx int, _, guest Machine, _, _ instance.Id, _ network.SubnetInfos,
 ) error {
-	units, err := guest.Units()
-	if err != nil {
-		h.result.Results[idx].Error = apiservererrors.ServerError(err)
+	guestName := coremachine.Name(guest.Id())
+	unitNames, err := h.applicationService.GetUnitNamesOnMachine(ctx, guestName)
+	if errors.Is(err, applicationerrors.MachineNotFound) {
+		err = errors.NotFoundf("machine %q", guestName)
+		h.SetError(idx, err)
+		return errors.Trace(err)
+	} else if err != nil {
+		h.SetError(idx, err)
 		return errors.Trace(err)
 	}
-	var resPro []*params.ContainerLXDProfile
-	for _, unit := range units {
-		app, err := unit.Application()
-		if err != nil {
-			h.SetError(idx, err)
-			return errors.Trace(err)
-		}
 
-		appName := app.Name()
+	var resPro []*params.ContainerLXDProfile
+	for _, unitName := range unitNames {
+		appName := unitName.Application()
 		locator, err := h.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
 		if err != nil {
 			h.SetError(idx, err)
@@ -1206,7 +1210,7 @@ func (h *containerProfileHandler) ProcessOneContainer(
 		}
 
 		if profile.Empty() {
-			h.logger.Tracef(ctx, "no profile to return for %q", unit.Name())
+			h.logger.Tracef(ctx, "no profile to return for %q", unitName)
 			continue
 		}
 		resPro = append(resPro, &params.ContainerLXDProfile{

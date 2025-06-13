@@ -340,6 +340,13 @@ func (s *unitServiceSuite) TestGetUnitNamesOnMachineNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
 }
 
+func (s *unitServiceSuite) TestGetUnitNamesOnMachineInvalidMachineName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetUnitNamesOnMachine(c.Context(), coremachine.Name(""))
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
 func (s *unitServiceSuite) TestGetUnitNamesOnMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

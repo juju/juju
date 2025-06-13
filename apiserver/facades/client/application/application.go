@@ -2149,7 +2149,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
-		bindings, err := api.applicationService.GetApplicationEndpointBindings(ctx, appID)
+		bindings, err := api.applicationService.GetApplicationEndpointBindings(ctx, tag.Name)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
 			continue

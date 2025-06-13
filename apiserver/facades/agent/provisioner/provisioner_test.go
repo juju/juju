@@ -11,7 +11,9 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/environs/config"
 	environtesting "github.com/juju/juju/environs/testing"
@@ -49,9 +51,6 @@ type provisionerMockSuite struct {
 	applicationService *MockApplicationService
 	device             *MockLinkLayerDevice
 	parentDevice       *MockLinkLayerDevice
-
-	unit        *MockUnit
-	application *MockApplication
 }
 
 func TestProvisionerMockSuite(t *testing.T) {
@@ -135,10 +134,10 @@ func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *tc.C) {
 func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
-	s.expectCharmLXDProfiles(ctrl)
 
-	s.application.EXPECT().Name().Return("application")
-
+	machineName := coremachine.Name("0/lxd/0")
+	s.container.EXPECT().Id().Return(machineName.String())
+	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return([]coreunit.Name{"application/0"}, nil)
 	locator := applicationcharm.CharmLocator{
 		Name:     "application",
 		Revision: 42,
@@ -181,11 +180,10 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *tc.C) {
 func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
-	s.expectCharmLXDProfiles(ctrl)
 
-	s.unit.EXPECT().Name().Return("application/0")
-	s.application.EXPECT().Name().Return("application")
-
+	machineName := coremachine.Name("0/lxd/0")
+	s.container.EXPECT().Id().Return(machineName.String())
+	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return([]coreunit.Name{"application/0"}, nil)
 	locator := applicationcharm.CharmLocator{
 		Name:     "application",
 		Revision: 42,
@@ -212,11 +210,6 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *tc.C) {
 	c.Assert(res.Results[0].LXDProfiles, tc.HasLen, 0)
 }
 
-func (s *provisionerMockSuite) expectCharmLXDProfiles(ctrl *gomock.Controller) {
-	s.container.EXPECT().Units().Return([]Unit{s.unit}, nil)
-	s.unit.EXPECT().Application().Return(s.application, nil)
-}
-
 func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -228,8 +221,6 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	s.parentDevice = NewMockLinkLayerDevice(ctrl)
 
 	s.applicationService = NewMockApplicationService(ctrl)
-	s.application = NewMockApplication(ctrl)
-	s.unit = NewMockUnit(ctrl)
 
 	return ctrl
 }
