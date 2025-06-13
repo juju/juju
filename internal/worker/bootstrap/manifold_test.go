@@ -14,10 +14,12 @@ import (
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"go.uber.org/goleak"
 
+	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/bootstrap"
+	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 )
 
 type manifoldSuite struct {
@@ -93,6 +95,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg = s.getConfig()
 	cfg.BootstrapAddressFinderGetter = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.SetMachineProvisioned = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -124,6 +130,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		},
 		RequiresBootstrap: func(context.Context, FlagService) (bool, error) {
 			return false, nil
+		},
+		SetMachineProvisioned: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, c agent.Config) error {
+			return nil
 		},
 	}
 }

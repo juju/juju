@@ -29,10 +29,10 @@ import (
 
 // AgentPasswordService provides access to agent password management.
 type AgentPasswordService interface {
-	// SetUnitPassword sets the password for the given unit. If the unit does
-	// not exist, an error satisfying [applicationerrors.UnitNotFound] is
-	// returned.
+	// SetUnitPassword sets the password for the given unit.
 	SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error
+	// SetMachinePassword sets the password for the given machine.
+	SetMachinePassword(ctx context.Context, machineName machine.Name, password string) error
 }
 
 // AgentBinaryStore is responsible for persisting agent binary's into a long
