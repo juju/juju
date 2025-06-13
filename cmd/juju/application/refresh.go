@@ -477,7 +477,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	// 1. There is a change to the charm's channel.
 	// 2. There is a resource change to process.
 	if errors.Is(runErr, refresher.ErrAlreadyUpToDate) {
-		ctx.Infof(runErr.Error())
+		ctx.Infof("%s", runErr.Error())
 		if len(resourceIDs) == 0 && c.Channel.String() == oldOrigin.CoreCharmOrigin().Channel.String() {
 			return nil
 		}
@@ -537,7 +537,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 
 	// Emit binding changelog after a successful call to SetCharm.
 	for _, change := range bindingsChangelog {
-		ctx.Infof(change)
+		ctx.Infof("%s", change)
 	}
 
 	return nil

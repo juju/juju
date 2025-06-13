@@ -124,5 +124,5 @@ func (psa PrimeServiceAccountSpecV3) Validate() error {
 	if psa.name != "" {
 		msg = fmt.Sprintf("%s %q", msg, psa.name)
 	}
-	return errors.Annotatef(err, msg)
+	return errors.Annotate(err, msg)
 }

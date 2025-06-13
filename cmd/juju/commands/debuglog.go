@@ -320,7 +320,7 @@ var SeverityColor = map[string]*ansiterm.Context{
 func (c *debugLogCommand) writeLogRecord(w *ansiterm.Writer, r common.LogMessage) {
 	ts := r.Timestamp.In(c.tz).Format(c.format)
 	fmt.Fprintf(w, "%s: %s ", r.Entity, ts)
-	SeverityColor[r.Severity].Fprintf(w, r.Severity)
+	SeverityColor[r.Severity].Fprint(w, r.Severity)
 	fmt.Fprintf(w, " %s ", r.Module)
 	if c.location {
 		loggocolor.LocationColor.Fprintf(w, "%s ", r.Location)

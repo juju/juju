@@ -233,7 +233,7 @@ func (d *deployCharm) deploy(
 		appConfig = nil
 	}
 
-	ctx.Infof(d.formatDeployingText())
+	ctx.Infof("%s", d.formatDeployingText())
 	args := applicationapi.DeployArgs{
 		CharmID:          id,
 		CharmOrigin:      id.Origin,
@@ -259,11 +259,11 @@ func (d *deployCharm) deploy(
 
 	if errors.IsAlreadyExists(err) {
 		// Would be nice to be able to access the app name here
-		return errors.Wrapf(err, errors.Errorf(`
+		return errors.Wrapf(err, errors.New(`
 deploy application using an alias name:
     juju deploy <application> <alias>
 or use remove-application to remove the existing one and try again.`,
-		), err.Error())
+		), "%s", err.Error())
 	}
 	return errors.Trace(err)
 }
@@ -344,7 +344,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ctx.Infof(formatLocatedText(d.userCharmURL, commoncharm.Origin{}))
+	ctx.Infof("%s", formatLocatedText(d.userCharmURL, commoncharm.Origin{}))
 
 	if err := d.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
 		return errors.Trace(err)
@@ -403,7 +403,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	ctx.Infof(formatLocatedText(curl, origin))
+	ctx.Infof("%s", formatLocatedText(curl, origin))
 	l.id = application.CharmID{
 		URL:    curl,
 		Origin: origin,
@@ -471,7 +471,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		if usingDefaultSeries {
 			msg = msg + " Used the default-series."
 		}
-		return errors.Errorf(msg)
+		return errors.New(msg)
 	} else if err != nil {
 		return errors.Trace(err)
 	}
@@ -507,7 +507,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		if usingDefaultSeries {
 			msg = msg + " Used the default-series."
 		}
-		return errors.Errorf(msg)
+		return errors.New(msg)
 	}
 	if validationErr := charmValidationError(storeCharmOrBundleURL.Name, errors.Trace(err)); validationErr != nil {
 		return errors.Trace(validationErr)
@@ -534,8 +534,8 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 			channel = fmt.Sprintf(" in channel %s", channel)
 		}
 
-		ctx.Infof(fmt.Sprintf("%q from %s charm %q, revision %d%s on %s would be deployed",
-			name, origin.Source, deployableURL.Name, deployableURL.Revision, channel, origin.Series))
+		ctx.Infof("%q from %s charm %q, revision %d%s on %s would be deployed",
+			name, origin.Source, deployableURL.Name, deployableURL.Revision, channel, origin.Series)
 		return nil
 	}
 
@@ -547,7 +547,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 		return errors.Annotatef(err, "storing charm %q", deployableURL.Name)
 	}
-	ctx.Infof(formatLocatedText(curl, csOrigin))
+	ctx.Infof("%s", formatLocatedText(curl, csOrigin))
 
 	// If the original series was empty, so we couldn't validate the original
 	// charm series, but the charm url wasn't nil, we can check and validate

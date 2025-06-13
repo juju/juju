@@ -4,7 +4,6 @@
 package subnets
 
 import (
-	"fmt"
 	"net"
 	"strings"
 
@@ -54,7 +53,7 @@ func NewAddSubnetsCache(api Backing) *addSubnetsCache {
 // associated with the space name given.
 func (cache *addSubnetsCache) validateSpace(api Backing, spaceTag string) (string, error) {
 	if spaceTag == "" {
-		return "", errors.Errorf("SpaceTag is required")
+		return "", errors.New("SpaceTag is required")
 	}
 	tag, err := names.ParseSpaceTag(spaceTag)
 	if err != nil {
@@ -80,7 +79,7 @@ func (cache *addSubnetsCache) validateSpace(api Backing, spaceTag string) (strin
 		}
 	}
 	if len(cache.allSpaces) == 0 {
-		return "", errors.Errorf("no spaces defined")
+		return "", errors.New("no spaces defined")
 	}
 	logger.Tracef("using cached spaces: %v", cache.allSpaces)
 
@@ -126,7 +125,7 @@ func (cache *addSubnetsCache) cacheZones(ctx context.ProviderCallContext) error 
 	if cache.allZones.IsEmpty() {
 		cache.allZones = nil
 		// Cached an empty list.
-		return errors.Errorf("no zones defined")
+		return errors.New("no zones defined")
 	}
 	return nil
 }
@@ -143,7 +142,7 @@ func (cache *addSubnetsCache) validateZones(ctx context.ProviderCallContext, pro
 	// First check if we can validate without using the cache.
 	switch {
 	case providerSet.IsEmpty() && givenSet.IsEmpty():
-		return nil, errors.Errorf("Zones cannot be discovered from the provider and must be set")
+		return nil, errors.New("Zones cannot be discovered from the provider and must be set")
 	case !providerSet.IsEmpty() && givenSet.IsEmpty():
 		// Use provider zones when none given.
 		return providerSet.SortedValues(), nil
@@ -153,8 +152,7 @@ func (cache *addSubnetsCache) validateZones(ctx context.ProviderCallContext, pro
 		extraGiven := givenSet.Difference(providerSet)
 		if !extraGiven.IsEmpty() {
 			extra := `"` + strings.Join(extraGiven.SortedValues(), `", "`) + `"`
-			msg := fmt.Sprintf("Zones contain zones not allowed by the provider: %s", extra)
-			return nil, errors.Errorf(msg)
+			return nil, errors.Errorf("Zones contain zones not allowed by the provider: %s", extra)
 		}
 	}
 
@@ -252,7 +250,7 @@ func (cache *addSubnetsCache) cacheSubnets(ctx context.ProviderCallContext) erro
 	logger.Tracef("%d provider subnets cached", len(cache.allSubnets))
 	if len(cache.allSubnets) == 0 {
 		// Cached an empty list.
-		return errors.Errorf("no subnets defined")
+		return errors.New("no subnets defined")
 	}
 	return nil
 }
@@ -271,13 +269,13 @@ func (cache *addSubnetsCache) validateSubnet(ctx context.ProviderCallContext, ci
 	haveProviderId := providerId != ""
 
 	if !haveCidr && !haveProviderId {
-		return nil, errors.Errorf("either CIDR or SubnetProviderId is required")
+		return nil, errors.New("either CIDR or SubnetProviderId is required")
 	} else if haveCidr && haveProviderId {
-		return nil, errors.Errorf("CIDR and SubnetProviderId cannot be both set")
+		return nil, errors.New("CIDR and SubnetProviderId cannot be both set")
 	}
 	if haveCidr {
 		if !network.IsValidCIDR(cidr) {
-			return nil, errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
+			return nil, errors.Errorf("%q is not a valid CIDR", cidr)
 		}
 	}
 

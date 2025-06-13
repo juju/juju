@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,7 +31,7 @@ type fakeInstanceIdGetter struct {
 
 func (f *fakeInstanceIdGetter) InstanceId() (instance.Id, error) {
 	if f.err != "" {
-		return "", fmt.Errorf(f.err)
+		return "", errors.New(f.err)
 	}
 	return instance.Id(f.instanceId), nil
 }

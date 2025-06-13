@@ -343,9 +343,9 @@ upgrade the controller to version 2.3 or greater.
 		// in the controller model.
 		ctx.Infof("Waiting for hosted model resources to be reclaimed")
 		for ; hasUnreclaimedResources(modelStatus); modelStatus = updateStatus(2 * time.Second) {
-			ctx.Infof(fmtCtrStatus(modelStatus.controller))
+			ctx.Infof("%s", fmtCtrStatus(modelStatus.controller))
 			for _, model := range modelStatus.models {
-				ctx.Verbosef(fmtModelStatus(model))
+				ctx.Verbosef("%s", fmtModelStatus(model))
 			}
 		}
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
@@ -485,7 +485,7 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 				logger.Errorf("Unable to list models: %s", err)
 				return cmd.ErrSilent
 			}
-			ctx.Infof(out.String())
+			ctx.Infof("%s", out.String())
 		}
 		return cmd.ErrSilent
 	}

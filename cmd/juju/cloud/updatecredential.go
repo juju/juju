@@ -439,7 +439,7 @@ func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.
 				if !force {
 					msg = "Use ‘juju set-credential’ to change credential for these models before repeating this update."
 				}
-				ctx.Infof(msg)
+				ctx.Infof("%s", msg)
 			}
 			if result.Error != nil {
 				ctx.Warningf("Controller credential %q for user %q for cloud %q on controller %q not %v: %v.", tag.Name(), accountDetails.User, tag.Cloud().Id(), controllerName, op, result.Error)

@@ -60,6 +60,14 @@ Safe removal possible. No constraints, bindings or controller config found with 
 
 Continue [y/N]? `[1:]
 
+var removeSpaceMsgBounds = `
+WARNING! This command will remove the space with the following existing boundaries:
+
+%v
+
+
+Continue [y/N]? `[1:]
+
 // Info is defined on the cmd.Command interface.
 func (c *RemoveCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
@@ -148,14 +156,9 @@ func (c *RemoveCommand) handleForceOption(api SpaceAPI, currentModel string, ctx
 
 	errorList := buildRemoveErrorList(result, currentModel)
 	if len(errorList) == 0 {
-		fmt.Fprintf(ctx.Stdout, removeSpaceMsgNoBounds)
+		fmt.Fprint(ctx.Stdout, removeSpaceMsgNoBounds)
 	} else {
-		removeSpaceMsg := fmt.Sprintf(""+
-			"WARNING! This command will remove the space"+
-			" with the following existing boundaries:"+
-			"\n\n%v\n\n\n"+
-			"Continue [y/N]?", strings.Join(errorList, "\n"))
-		fmt.Fprintf(ctx.Stdout, removeSpaceMsg)
+		fmt.Fprintf(ctx.Stdout, removeSpaceMsgBounds, strings.Join(errorList, "\n"))
 	}
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
 		return errors.Annotate(err, "space removal")

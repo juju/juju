@@ -194,7 +194,7 @@ func (srv *Server) AssociateIamInstanceProfile(
 	}
 
 	if inst.state.Name != types.InstanceStateNameRunning {
-		return nil, apiError("Instance %q not in a running state", *params.InstanceId)
+		return nil, apiError("InvalidInstanceStateName.NotRunning", "Instance %q not in a running state", *params.InstanceId)
 	}
 
 	inst.iamInstanceProfile = params.IamInstanceProfile

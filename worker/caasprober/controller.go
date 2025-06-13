@@ -123,7 +123,7 @@ func ProbeHandler(name string, aggProbe *probe.Aggregate) http.Handler {
 				}
 
 				// Print the probe name
-				fmt.Fprintf(res, probeKey)
+				fmt.Fprint(res, probeKey)
 
 				// Print the error if one exists
 				if err != nil {

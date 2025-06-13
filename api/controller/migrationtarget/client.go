@@ -262,7 +262,7 @@ func (c *Client) CheckMachines(modelUUID string) ([]error, error) {
 	}
 	var results []error
 	for _, res := range result.Results {
-		results = append(results, errors.Errorf(res.Error.Message))
+		results = append(results, errors.New(res.Error.Message))
 	}
 	return results, nil
 }

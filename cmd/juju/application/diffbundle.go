@@ -321,7 +321,7 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 			msg := `
 Current controller version is not compatible with CharmHub bundles.
 Consider using a CharmStore bundle instead.`
-			return nil, errors.Errorf(msg[1:])
+			return nil, errors.New(msg[1:])
 		} else if isCharmHub && errors.IsNotValid(err) {
 			return nil, errors.Errorf("%q can not be found or is not a valid bundle", c.bundle)
 		}

@@ -675,7 +675,7 @@ func (p *unitProcessor) processUnitPlacement() error {
 
 		// If we haven't done any then we have a cycle
 		if done == 0 {
-			return errors.Errorf("cycle in placement directives for: " + strings.Join(toDo.SortedValues(), ", "))
+			return errors.Errorf("cycle in placement directives for: %s", strings.Join(toDo.SortedValues(), ", "))
 		}
 	}
 	return nil

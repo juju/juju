@@ -175,7 +175,7 @@ func (c *bindCommand) Run(ctx *cmd.Context) error {
 
 	// Emit binding changelog after a successful call to MergeBindings.
 	for _, change := range bindingsChangelog {
-		ctx.Infof(change)
+		ctx.Infof("%s", change)
 	}
 	return nil
 }
