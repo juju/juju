@@ -42,7 +42,7 @@ type NodeService interface {
 
 // MachineService instances save a machine to dqlite state.
 type MachineService interface {
-	CreateMachine(context.Context, machine.Name) (machine.UUID, error)
+	CreateMachine(context.Context, machine.Name, *string) (machine.UUID, error)
 }
 
 // ApplicationService instances add units to an application in dqlite state.
@@ -193,7 +193,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 
 	// Add the dqlite records for new machines.
 	for _, m := range changes.Added {
-		if _, err := api.machineService.CreateMachine(ctx, machine.Name(m)); err != nil {
+		if _, err := api.machineService.CreateMachine(ctx, machine.Name(m), nil); err != nil {
 			return params.ControllersChanges{}, err
 		}
 	}
