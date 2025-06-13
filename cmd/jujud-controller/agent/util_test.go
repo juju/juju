@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
-	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/provider/dummy"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -277,8 +276,6 @@ func NewTestMachineAgentFactory(
 			loopDeviceManager:           &mockLoopDeviceManager{},
 			newDBWorkerFunc:             newDBWorkerFunc,
 			prometheusRegistry:          prometheusRegistry,
-			mongoTxnCollector:           mongometrics.NewTxnCollector(),
-			mongoDialCollector:          mongometrics.NewDialCollector(),
 			preUpgradeSteps:             preUpgradeSteps,
 			upgradeSteps:                upgradeSteps,
 			isCaasAgent:                 isCAAS,

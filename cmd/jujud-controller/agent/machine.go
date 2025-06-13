@@ -64,7 +64,6 @@ import (
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
-	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/pki"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/service"
@@ -331,8 +330,6 @@ func NewMachineAgent(
 		newDBWorkerFunc:             newDBWorkerFunc,
 		loopDeviceManager:           loopDeviceManager,
 		prometheusRegistry:          prometheusRegistry,
-		mongoTxnCollector:           mongometrics.NewTxnCollector(),
-		mongoDialCollector:          mongometrics.NewDialCollector(),
 		preUpgradeSteps:             preUpgradeSteps,
 		upgradeSteps:                upgradeSteps,
 		isCaasAgent:                 isCaasAgent,
@@ -342,22 +339,6 @@ func NewMachineAgent(
 }
 
 func (a *MachineAgent) registerPrometheusCollectors() error {
-	agentConfig := a.CurrentConfig()
-	if v := agentConfig.Value(agent.MgoStatsEnabled); v == "true" {
-		// Enable mgo stats collection only if requested,
-		// as it may affect performance.
-		mgo.SetStats(true)
-		collector := mongometrics.NewMgoStatsCollector(mgo.GetStats)
-		if err := a.prometheusRegistry.Register(collector); err != nil {
-			return errors.Annotate(err, "registering mgo stats collector")
-		}
-	}
-	if err := a.prometheusRegistry.Register(a.mongoTxnCollector); err != nil {
-		return errors.Annotate(err, "registering mgo/txn collector")
-	}
-	if err := a.prometheusRegistry.Register(a.mongoDialCollector); err != nil {
-		return errors.Annotate(err, "registering mongo dial collector")
-	}
 	return nil
 }
 
@@ -405,8 +386,6 @@ type MachineAgent struct {
 
 	loopDeviceManager  looputil.LoopDeviceManager
 	prometheusRegistry *prometheus.Registry
-	mongoTxnCollector  *mongometrics.TxnCollector
-	mongoDialCollector *mongometrics.DialCollector
 
 	// To allow for testing in legacy tests (brittle integration tests), we
 	// need to override these.
@@ -868,7 +847,6 @@ func (a *MachineAgent) setupContainerSupport(ctx context.Context, st api.Connect
 func mongoDialOptions(
 	baseOpts mongo.DialOpts,
 	agentConfig agent.Config,
-	mongoDialCollector *mongometrics.DialCollector,
 ) (mongo.DialOpts, error) {
 	dialOpts := baseOpts
 	if limitStr := agentConfig.Value("MONGO_SOCKET_POOL_LIMIT"); limitStr != "" {
@@ -882,7 +860,6 @@ func mongoDialOptions(
 	if dialOpts.PostDialServer != nil {
 		return mongo.DialOpts{}, errors.New("did not expect PostDialServer to be set")
 	}
-	dialOpts.PostDialServer = mongoDialCollector.PostDialServer
 	return dialOpts, nil
 }
 
@@ -899,7 +876,6 @@ func (a *MachineAgent) initState(
 	dialOpts, err := mongoDialOptions(
 		stateWorkerDialOpts,
 		agentConfig,
-		a.mongoDialCollector,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -909,7 +885,6 @@ func (a *MachineAgent) initState(
 		dialOpts,
 		domainServices,
 		domainServicesGetter,
-		a.mongoTxnCollector.AfterRunTransaction,
 	)
 	if err != nil {
 		// On error, force a mongo refresh.
@@ -1068,7 +1043,6 @@ func openStatePool(
 	dialOpts mongo.DialOpts,
 	domainServices services.ControllerDomainServices,
 	domainServicesGetter services.DomainServicesGetter,
-	runTransactionObserver state.RunTransactionObserverFunc,
 ) (_ *state.StatePool, err error) {
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
@@ -1111,14 +1085,12 @@ func openStatePool(
 	}
 
 	pool, err := state.OpenStatePool(state.OpenParams{
-
-		Clock:                  clock.WallClock,
-		ControllerTag:          agentConfig.Controller(),
-		ControllerModelTag:     agentConfig.Model(),
-		MongoSession:           session,
-		NewPolicy:              stateenvirons.GetNewPolicyFunc(cloudService, credService, modelConfigServiceGetter, storageServiceGetter),
-		CharmServiceGetter:     charmServiceGetter,
-		RunTransactionObserver: runTransactionObserver,
+		Clock:              clock.WallClock,
+		ControllerTag:      agentConfig.Controller(),
+		ControllerModelTag: agentConfig.Model(),
+		MongoSession:       session,
+		NewPolicy:          stateenvirons.GetNewPolicyFunc(cloudService, credService, modelConfigServiceGetter, storageServiceGetter),
+		CharmServiceGetter: charmServiceGetter,
 	})
 	if err != nil {
 		return nil, err

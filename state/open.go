@@ -43,11 +43,6 @@ type OpenParams struct {
 	// validate and modify behaviour of certain operations in state.
 	NewPolicy NewPolicyFunc
 
-	// RunTransactionObserver, if non-nil, is a function that will
-	// be called after mgo/txn transactions are run, successfully
-	// or not.
-	RunTransactionObserver RunTransactionObserverFunc
-
 	// InitDatabaseFunc, if non-nil, is a function that will be called
 	// just after the state database is opened.
 	InitDatabaseFunc InitDatabaseFunc
@@ -105,7 +100,6 @@ func open(
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	charmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error),
-	runTransactionObserver RunTransactionObserverFunc,
 	maxTxnAttempts int,
 ) (*State, error) {
 	st, err := newState(controllerTag,
@@ -115,7 +109,6 @@ func open(
 		newPolicy,
 		clock,
 		charmServiceGetter,
-		runTransactionObserver,
 		maxTxnAttempts)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -144,7 +137,6 @@ func newState(
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	charmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error),
-	runTransactionObserver RunTransactionObserverFunc,
 	maxTxnAttempts int,
 ) (_ *State, err error) {
 
@@ -171,25 +163,23 @@ func newState(
 	}
 	mongodb := session.DB(jujuDB)
 	db := &database{
-		raw:                    mongodb,
-		schema:                 allCollections(),
-		modelUUID:              modelTag.Id(),
-		runTransactionObserver: runTransactionObserver,
-		clock:                  clock,
-		maxTxnAttempts:         maxTxnAttempts,
+		raw:            mongodb,
+		schema:         allCollections(),
+		modelUUID:      modelTag.Id(),
+		clock:          clock,
+		maxTxnAttempts: maxTxnAttempts,
 	}
 
 	// Create State.
 	st := &State{
-		stateClock:             clock,
-		modelTag:               modelTag,
-		controllerModelTag:     controllerModelTag,
-		session:                session,
-		database:               db,
-		newPolicy:              newPolicy,
-		runTransactionObserver: runTransactionObserver,
-		charmServiceGetter:     charmServiceGetter,
-		maxTxnAttempts:         maxTxnAttempts,
+		stateClock:         clock,
+		modelTag:           modelTag,
+		controllerModelTag: controllerModelTag,
+		session:            session,
+		database:           db,
+		newPolicy:          newPolicy,
+		charmServiceGetter: charmServiceGetter,
+		maxTxnAttempts:     maxTxnAttempts,
 	}
 	if newPolicy != nil {
 		st.policy = newPolicy(st)

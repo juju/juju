@@ -54,16 +54,15 @@ type providerIdDoc struct {
 // State represents the state of an model
 // managed by juju.
 type State struct {
-	stateClock             clock.Clock
-	modelTag               names.ModelTag
-	controllerModelTag     names.ModelTag
-	controllerTag          names.ControllerTag
-	session                *mgo.Session
-	database               Database
-	policy                 Policy
-	newPolicy              NewPolicyFunc
-	runTransactionObserver RunTransactionObserverFunc
-	maxTxnAttempts         int
+	stateClock         clock.Clock
+	modelTag           names.ModelTag
+	controllerModelTag names.ModelTag
+	controllerTag      names.ControllerTag
+	session            *mgo.Session
+	database           Database
+	policy             Policy
+	newPolicy          NewPolicyFunc
+	maxTxnAttempts     int
 	// Note(nvinuesa): Having a dqlite domain service here is an awful hack
 	// and should disapear as soon as we migrate units and applications.
 	charmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error)
@@ -85,7 +84,6 @@ func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {
 		st.newPolicy,
 		st.stateClock,
 		st.charmServiceGetter,
-		st.runTransactionObserver,
 		st.maxTxnAttempts,
 	)
 	// We explicitly don't start the workers.

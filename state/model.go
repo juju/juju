@@ -270,7 +270,6 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		st.newPolicy,
 		st.clock(),
 		st.charmServiceGetter,
-		st.runTransactionObserver,
 		st.maxTxnAttempts,
 	)
 	if err != nil {
