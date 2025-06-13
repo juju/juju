@@ -743,7 +743,7 @@ func (m *Machine) assessCanDieUnit(principalUnit string) (bool, error) {
 	if err != nil {
 		return false, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
 	}
-	app, err := u.Application()
+	app, err := u.application()
 	if err != nil {
 		return false, errors.Annotatef(err, "reading machine %s principal unit application %v", m, u.doc.Application)
 	}

@@ -2664,7 +2664,7 @@ func (w *hashWatcher) loop() error {
 // - the machine addresses for the unit change.
 // - the endpoint bindings for the unit's application change.
 func (u *Unit) WatchMachineAndEndpointAddressesHash() (StringsWatcher, error) {
-	app, err := u.Application()
+	app, err := u.application()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

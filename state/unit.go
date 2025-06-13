@@ -106,8 +106,8 @@ func (u *Unit) isCaas() bool {
 	return u.modelType == ModelTypeCAAS
 }
 
-// Application returns the application.
-func (u *Unit) Application() (*Application, error) {
+// application returns the application.
+func (u *Unit) application() (*Application, error) {
 	return u.st.Application(u.doc.Application)
 }
 
@@ -965,7 +965,7 @@ func (u *Unit) AllAddresses() (addrs network.SpaceAddresses, _ error) {
 // serviceAddresses returns the addresses of the service
 // managing the pods in which the unit workload is running.
 func (u *Unit) serviceAddresses() (network.SpaceAddresses, error) {
-	app, err := u.Application()
+	app, err := u.application()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1058,7 +1058,7 @@ func (u *Unit) CharmURL() *string {
 func (u *Unit) charm() (CharmRefFull, error) {
 	cURL := u.CharmURL()
 	if cURL == nil {
-		app, err := u.Application()
+		app, err := u.application()
 		if err != nil {
 			return nil, err
 		}
@@ -1557,7 +1557,7 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 		return nil, err
 	}
 	if !cons.HasArch() && !cons.HasInstanceType() {
-		app, err := u.Application()
+		app, err := u.application()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

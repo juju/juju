@@ -1317,7 +1317,7 @@ func (st *State) addMachineWithPlacement(
 	// endpoint bindings.
 	// TODO (manadart 2019-10-08): This step is not necessary when a single
 	// transaction is used based on the comment below.
-	app, err := unit.Application()
+	app, err := unit.application()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
