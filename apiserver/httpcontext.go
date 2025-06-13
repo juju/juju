@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/stateauthenticator"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -236,6 +237,32 @@ func (a controllerAdminAuthorizer) Authorize(authInfo httpcontext.AuthInfo) erro
 	}
 	if !admin {
 		return errors.Errorf("%s is not a controller admin", names.ReadableString(authInfo.Entity.Tag()))
+	}
+	return nil
+}
+
+// modelPermissionAuthorizer checks that the authenticated user
+// has the given permission on a model.
+type modelPermissionAuthorizer struct {
+	userAccess func(names.UserTag, names.Tag) (permission.Access, error)
+	perm       permission.Access
+}
+
+// Authorize is part of the httpcontext.Authorizer interface.
+func (a modelPermissionAuthorizer) Authorize(authInfo httpcontext.AuthInfo) error {
+	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
+	if !ok {
+		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Entity.Tag()))
+	}
+	if !names.IsValidModel(authInfo.ModelTag.Id()) {
+		return errors.Errorf("%q is not a valid model", authInfo.ModelTag.Id())
+	}
+	has, err := common.HasPermission(a.userAccess, userTag, a.perm, authInfo.ModelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !has {
+		return errors.Errorf("%s does not have %q permission", names.ReadableString(authInfo.Entity.Tag()), a.perm)
 	}
 	return nil
 }

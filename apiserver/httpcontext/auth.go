@@ -67,6 +67,21 @@ type Authorizer interface {
 	Authorize(AuthInfo) error
 }
 
+// CompositeAuthorizer invokes the underlying authorizers and
+// returns success (nil) when the first one succeeds.
+// If none are successful, returns [apiservererrors.ErrPerm].
+type CompositeAuthorizer []Authorizer
+
+// Authorize is part of the [Authorizer] interface.
+func (c CompositeAuthorizer) Authorize(authInfo AuthInfo) error {
+	for _, a := range c {
+		if err := a.Authorize(authInfo); err == nil {
+			return nil
+		}
+	}
+	return apiservererrors.ErrPerm
+}
+
 // AuthorizerFunc is a function type implementing Authorizer.
 type AuthorizerFunc func(AuthInfo) error
 
@@ -85,6 +100,12 @@ type Entity interface {
 type AuthInfo struct {
 	// Entity is the user/machine/unit/etc that has authenticated.
 	Entity Entity
+
+	// ModelTag is the tag of the model for which access
+	// may be required. Not all auth operations will use it,
+	// eg checking for controller admin.
+	// The model UUID for the tag comes off the login request.
+	ModelTag names.ModelTag
 
 	// Controller reports whether or not the authenticated
 	// entity is a controller agent.
