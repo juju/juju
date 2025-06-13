@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -18,7 +17,6 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	internallogger "github.com/juju/juju/internal/logger"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 const (
@@ -587,36 +585,6 @@ func newAction(st *State, adoc actionDoc) Action {
 	}
 }
 
-// newActionDoc builds the actionDoc with the given name and parameters.
-func newActionDoc(mb modelBackend, operationID string, receiverTag names.Tag,
-	actionName string, parameters map[string]interface{}, parallel bool, executionGroup string) (actionDoc, actionNotificationDoc, error) {
-	prefix := ensureActionMarker(receiverTag.Id())
-	id, err := sequenceWithMin(mb, "task", 1)
-	if err != nil {
-		return actionDoc{}, actionNotificationDoc{}, err
-	}
-	actionId := strconv.Itoa(id)
-	actionLogger.Debugf(context.TODO(), "newActionDoc name: '%s', receiver: '%s', actionId: '%s'", actionName, receiverTag, actionId)
-	modelUUID := mb.ModelUUID()
-	return actionDoc{
-			DocId:          mb.docID(actionId),
-			ModelUUID:      modelUUID,
-			Receiver:       receiverTag.Id(),
-			Name:           actionName,
-			Parameters:     parameters,
-			Parallel:       parallel,
-			ExecutionGroup: executionGroup,
-			Enqueued:       mb.nowToTheSecond(),
-			Operation:      operationID,
-			Status:         ActionPending,
-		}, actionNotificationDoc{
-			DocId:     mb.docID(prefix + actionId),
-			ModelUUID: modelUUID,
-			Receiver:  receiverTag.Id(),
-			ActionID:  actionId,
-		}, nil
-}
-
 var ensureActionMarker = ensureSuffixFn(actionMarker)
 
 // Action returns an Action by Id.
@@ -678,94 +646,6 @@ func (m *Model) FindActionsByName(name string) ([]Action, error) {
 		results = append(results, newAction(m.st, doc))
 	}
 	return results, errors.Trace(iter.Close())
-}
-
-// EnqueueAction caches the action doc to the database.
-func (m *Model) EnqueueAction(operationID string, receiver names.Tag,
-	actionName string, payload map[string]interface{}, parallel bool, executionGroup string, actionError error) (Action, error) {
-	if len(actionName) == 0 {
-		return nil, errors.New("action name required")
-	}
-
-	checkNotDead := true
-	receiverCollectionName, receiverId, err := m.st.tagToCollectionAndId(receiver)
-	if errors.Is(err, errors.NotImplemented) {
-		checkNotDead = false
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	doc, ndoc, err := newActionDoc(m.st, operationID, receiver, actionName, payload, parallel, executionGroup)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if actionError != nil {
-		doc.Status = ActionError
-		doc.Message = actionError.Error()
-	}
-
-	var ops []txn.Op
-	if checkNotDead {
-		ops = append(ops, txn.Op{
-			C:      receiverCollectionName,
-			Id:     receiverId,
-			Assert: notDeadDoc,
-		})
-	}
-	ops = append(ops, []txn.Op{{
-		C:      operationsC,
-		Id:     m.st.docID(operationID),
-		Assert: txn.DocExists,
-	}, {
-		C:      actionsC,
-		Id:     doc.DocId,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}}...)
-	if actionError == nil {
-		ops = append(ops, txn.Op{
-			C:      actionNotificationsC,
-			Id:     ndoc.DocId,
-			Assert: txn.DocMissing,
-			Insert: ndoc,
-		})
-	}
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if checkNotDead {
-			if notDead, err := isNotDead(m.st, receiverCollectionName, receiverId); err != nil {
-				return nil, err
-			} else if !notDead {
-				return nil, stateerrors.ErrDead
-			}
-		}
-		if attempt != 0 {
-			_, err := m.Operation(operationID)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return nil, errors.Errorf("unexpected attempt number '%d'", attempt)
-		}
-		return ops, nil
-	}
-	if err = m.st.db().Run(buildTxn); err == nil {
-		return newAction(m.st, doc), nil
-	}
-	return nil, err
-}
-
-// AddAction adds a new Action of type name and using arguments payload to
-// the receiver, and returns its ID.
-func (m *Model) AddAction(receiver ActionReceiver, operationID, name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (Action, error) {
-	payload, runParallel, runExecutionGroup, err := receiver.PrepareActionPayload(name, payload, parallel, executionGroup)
-	if err != nil {
-		_, err2 := m.EnqueueAction(operationID, receiver.Tag(), name, payload, runParallel, runExecutionGroup, err)
-		if err2 != nil {
-			err = err2
-		}
-		return nil, errors.Trace(err)
-	}
-	return m.EnqueueAction(operationID, receiver.Tag(), name, payload, runParallel, runExecutionGroup, nil)
 }
 
 // matchingActions finds actions that match ActionReceiver.

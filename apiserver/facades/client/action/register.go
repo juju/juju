@@ -24,7 +24,6 @@ func newActionAPIV7(ctx facade.ModelContext) (*APIv7, error) {
 	domainServices := ctx.DomainServices()
 
 	api, err := newActionAPI(
-		&stateShim{st: ctx.State()},
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.LeadershipReader,

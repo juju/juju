@@ -70,20 +70,7 @@ func (a *ActionAPI) RunOnAllMachines(ctx context.Context, run params.RunParams) 
 		return results, errors.Errorf("cannot run on all machines with a %s model", modelInfo.Type)
 	}
 
-	machines, err := a.state.AllMachines()
-	if err != nil {
-		return results, err
-	}
-	machineTags := make([]names.Tag, len(machines))
-	for i, machine := range machines {
-		machineTags[i] = machine.Tag()
-	}
-
-	actionParams, err := a.createRunActionsParams(machineTags, run.Commands, run.Timeout, run.Parallel, run.ExecutionGroup)
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-	return a.EnqueueOperation(ctx, actionParams)
+	return results, errors.NotSupportedf("actions in Dqlite")
 }
 
 func (a *ActionAPI) createRunActionsParams(

@@ -4,16 +4,13 @@
 package state
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
-	jujutxn "github.com/juju/txn/v3"
 )
 
 // Operation represents a number of tasks resulting from running an action.
@@ -204,86 +201,6 @@ func newOperation(st *State, doc operationDoc, taskStatus []ActionStatus) Operat
 	}
 }
 
-// newOperationDoc builds a new operationDoc.
-func newOperationDoc(mb modelBackend, summary string, count int) (operationDoc, string, error) {
-	id, err := sequenceWithMin(mb, "task", 1)
-	if err != nil {
-		return operationDoc{}, "", errors.Trace(err)
-	}
-	operationID := strconv.Itoa(id)
-	modelUUID := mb.ModelUUID()
-	return operationDoc{
-		DocId:            mb.docID(operationID),
-		ModelUUID:        modelUUID,
-		Enqueued:         mb.nowToTheSecond(),
-		Status:           ActionPending,
-		Summary:          summary,
-		SpawnedTaskCount: count,
-	}, operationID, nil
-}
-
-// EnqueueOperation records the start of an operation.
-func (m *Model) EnqueueOperation(summary string, count int) (string, error) {
-	var operationID string
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var doc operationDoc
-		var err error
-		doc, operationID, err = newOperationDoc(m.st, summary, count)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		ops := []txn.Op{{
-			C:      operationsC,
-			Id:     doc.DocId,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		}}
-		return ops, nil
-	}
-	err := m.st.db().Run(buildTxn)
-	return operationID, errors.Trace(err)
-}
-
-// FailOperationEnqueuing sets the operation fail message and updates the
-// spawned task count. The spawned task count must be accurate to finalize
-// the operation.
-func (m *Model) FailOperationEnqueuing(operationID, failMessage string, count int) error {
-	operation, err := m.Operation(operationID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 1 {
-			if err = operation.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		if operation.SpawnedTaskCount() == count {
-			return nil, jujutxn.ErrNoOperations
-		}
-
-		update := bson.D{
-			{"spawned-task-count", count},
-			{"fail", failMessage},
-		}
-		if count == 0 {
-			// If no actions were successfully enqueued, set the operation
-			// status to error.
-			update = append(update, bson.DocElem{"status", "error"})
-		}
-
-		return []txn.Op{{
-			C:      operationsC,
-			Id:     m.st.docID(operationID),
-			Assert: txn.DocExists,
-			Update: bson.D{{"$set", update}},
-		}}, nil
-	}
-	err = m.st.db().Run(buildTxn)
-	return errors.Trace(err)
-}
-
 // Operation returns an Operation by Id.
 func (m *Model) Operation(id string) (Operation, error) {
 	doc, taskStatus, err := m.st.getOperationDoc(id)
@@ -374,107 +291,9 @@ func (m *Model) AllOperations() ([]Operation, error) {
 	return results, nil
 }
 
-// defaultMaxOperationsLimit is the default maximum number of operations to
-// return when performing an operations query.
-const defaultMaxOperationsLimit = 50
-
 // OperationInfo encapsulates an operation and summary
 // information about some of its actions.
 type OperationInfo struct {
 	Operation Operation
 	Actions   []Action
-}
-
-// ListOperations returns operations that match the specified criteria.
-func (m *Model) ListOperations(
-	actionNames []string, actionReceivers []names.Tag, operationStatus []ActionStatus,
-	offset, limit int,
-) ([]OperationInfo, bool, error) {
-	// First gather the matching actions and record the parent operation ids we need.
-	actionsCollection, closer := m.st.db().GetCollection(actionsC)
-	defer closer()
-
-	var receiverIDs []string
-	for _, tag := range actionReceivers {
-		receiverIDs = append(receiverIDs, tag.Id())
-	}
-	var receiverTerm, namesTerm bson.D
-	if len(receiverIDs) > 0 {
-		receiverTerm = bson.D{{"receiver", bson.D{{"$in", receiverIDs}}}}
-	}
-	if len(actionNames) > 0 {
-		namesTerm = bson.D{{"name", bson.D{{"$in", actionNames}}}}
-	}
-	actionsQuery := append(receiverTerm, namesTerm...)
-	var actions []actionDoc
-	err := actionsCollection.Find(actionsQuery).
-		// For now we'll limit what we return to the caller as action results
-		// can be large and show-task can be used to get more detail as needed.
-		Select(bson.D{
-			{"model-uuid", 0},
-			{"messages", 0},
-			{"results", 0}}).
-		Sort("_id").All(&actions)
-	if err != nil {
-		return nil, false, errors.Trace(err)
-	}
-	if len(actions) == 0 {
-		return nil, false, nil
-	}
-
-	// We have the operation ids which are parent to any actions matching the criteria.
-	// Combine these with additional operation filtering criteria to do the final query.
-	operationIds := make([]string, len(actions))
-	operationActions := make(map[string][]actionDoc)
-	for i, action := range actions {
-		operationIds[i] = m.st.docID(action.Operation)
-		actions := operationActions[action.Operation]
-		actions = append(actions, action)
-		operationActions[action.Operation] = actions
-	}
-
-	idsTerm := bson.D{{"_id", bson.D{{"$in", operationIds}}}}
-	var statusTerm bson.D
-	if len(operationStatus) > 0 {
-		statusTerm = bson.D{{"status", bson.D{{"$in", operationStatus}}}}
-	}
-	operationsQuery := append(idsTerm, statusTerm...)
-
-	operationCollection, closer := m.st.db().GetCollection(operationsC)
-	defer closer()
-
-	var docs []operationDoc
-	query := operationCollection.Find(operationsQuery).Sort("$natural")
-	if offset != 0 {
-		query = query.Skip(offset)
-	}
-	// Don't let the user shoot themselves in the foot.
-	if limit <= 0 {
-		limit = defaultMaxOperationsLimit
-	}
-	query = query.Limit(limit)
-	err = query.All(&docs)
-	if err != nil {
-		return nil, false, errors.Trace(err)
-	}
-	query = query.Skip(offset + limit).Limit(1)
-	nextCount, err := query.Count()
-	if err != nil {
-		return nil, false, errors.Trace(err)
-	}
-	truncated := nextCount != 0
-
-	result := make([]OperationInfo, len(docs))
-	for i, doc := range docs {
-		actions := operationActions[m.st.localID(doc.DocId)]
-		taskStatus := make([]ActionStatus, len(actions))
-		result[i].Actions = make([]Action, len(actions))
-		for j, action := range actions {
-			result[i].Actions[j] = newAction(m.st, action)
-			taskStatus[j] = action.Status
-		}
-		operation := newOperation(m.st, doc, taskStatus)
-		result[i].Operation = operation
-	}
-	return result, truncated, nil
 }
