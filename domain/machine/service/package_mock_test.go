@@ -207,17 +207,17 @@ func (c *MockStateClearMachineRebootCall) DoAndReturn(f func(context.Context, ma
 }
 
 // CreateMachine mocks base method.
-func (m *MockState) CreateMachine(arg0 context.Context, arg1 machine.Name, arg2 string, arg3 machine.UUID) error {
+func (m *MockState) CreateMachine(arg0 context.Context, arg1 machine.Name, arg2 string, arg3 machine.UUID, arg4 *string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateMachine indicates an expected call of CreateMachine.
-func (mr *MockStateMockRecorder) CreateMachine(arg0, arg1, arg2, arg3 any) *MockStateCreateMachineCall {
+func (mr *MockStateMockRecorder) CreateMachine(arg0, arg1, arg2, arg3, arg4 any) *MockStateCreateMachineCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachine", reflect.TypeOf((*MockState)(nil).CreateMachine), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachine", reflect.TypeOf((*MockState)(nil).CreateMachine), arg0, arg1, arg2, arg3, arg4)
 	return &MockStateCreateMachineCall{Call: call}
 }
 
@@ -233,13 +233,13 @@ func (c *MockStateCreateMachineCall) Return(arg0 error) *MockStateCreateMachineC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateMachineCall) Do(f func(context.Context, machine.Name, string, machine.UUID) error) *MockStateCreateMachineCall {
+func (c *MockStateCreateMachineCall) Do(f func(context.Context, machine.Name, string, machine.UUID, *string) error) *MockStateCreateMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name, string, machine.UUID) error) *MockStateCreateMachineCall {
+func (c *MockStateCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name, string, machine.UUID, *string) error) *MockStateCreateMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

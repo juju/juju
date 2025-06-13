@@ -102,18 +102,18 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 }
 
 // CreateMachine mocks base method.
-func (m *MockImportService) CreateMachine(arg0 context.Context, arg1 machine.Name) (machine.UUID, error) {
+func (m *MockImportService) CreateMachine(arg0 context.Context, arg1 machine.Name, arg2 *string) (machine.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1, arg2)
 	ret0, _ := ret[0].(machine.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateMachine indicates an expected call of CreateMachine.
-func (mr *MockImportServiceMockRecorder) CreateMachine(arg0, arg1 any) *MockImportServiceCreateMachineCall {
+func (mr *MockImportServiceMockRecorder) CreateMachine(arg0, arg1, arg2 any) *MockImportServiceCreateMachineCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachine", reflect.TypeOf((*MockImportService)(nil).CreateMachine), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachine", reflect.TypeOf((*MockImportService)(nil).CreateMachine), arg0, arg1, arg2)
 	return &MockImportServiceCreateMachineCall{Call: call}
 }
 
@@ -129,13 +129,13 @@ func (c *MockImportServiceCreateMachineCall) Return(arg0 machine.UUID, arg1 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceCreateMachineCall) Do(f func(context.Context, machine.Name) (machine.UUID, error)) *MockImportServiceCreateMachineCall {
+func (c *MockImportServiceCreateMachineCall) Do(f func(context.Context, machine.Name, *string) (machine.UUID, error)) *MockImportServiceCreateMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name) (machine.UUID, error)) *MockImportServiceCreateMachineCall {
+func (c *MockImportServiceCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name, *string) (machine.UUID, error)) *MockImportServiceCreateMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

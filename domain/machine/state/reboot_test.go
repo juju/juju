@@ -25,7 +25,7 @@ func (s *stateSuite) TestIsMachineRebootRequiredNoMachine(c *tc.C) {
 
 func (s *stateSuite) TestRequireMachineReboot(c *tc.C) {
 	// Setup: Create a machine with a given ID
-	err := s.state.CreateMachine(c.Context(), "", "", "u-u-i-d")
+	err := s.state.CreateMachine(c.Context(), "", "", "u-u-i-d", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Call the function under test
@@ -40,7 +40,7 @@ func (s *stateSuite) TestRequireMachineReboot(c *tc.C) {
 
 func (s *stateSuite) TestRequireMachineRebootIdempotent(c *tc.C) {
 	// Setup: Create a machine with a given ID
-	err := s.state.CreateMachine(c.Context(), "", "", "u-u-i-d")
+	err := s.state.CreateMachine(c.Context(), "", "", "u-u-i-d", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Call the function under test, twice (idempotency)
@@ -57,9 +57,9 @@ func (s *stateSuite) TestRequireMachineRebootIdempotent(c *tc.C) {
 
 func (s *stateSuite) TestRequireMachineRebootSeveralMachine(c *tc.C) {
 	// Setup: Create several machine with a given IDs
-	err := s.state.CreateMachine(c.Context(), "alive", "a-l-i-ve", "a-l-i-ve")
+	err := s.state.CreateMachine(c.Context(), "alive", "a-l-i-ve", "a-l-i-ve", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.CreateMachine(c.Context(), "dead", "d-e-a-d", "d-e-a-d")
+	err = s.state.CreateMachine(c.Context(), "dead", "d-e-a-d", "d-e-a-d", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Call the function under test
@@ -77,7 +77,7 @@ func (s *stateSuite) TestRequireMachineRebootSeveralMachine(c *tc.C) {
 
 func (s *stateSuite) TestCancelMachineReboot(c *tc.C) {
 	// Setup: Create a machine with a given ID and add its ID to the reboot table.
-	err := s.state.CreateMachine(c.Context(), "", "", "u-u-i-d")
+	err := s.state.CreateMachine(c.Context(), "", "", "u-u-i-d", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("u-u-i-d")`)
 	c.Assert(err, tc.ErrorIsNil)
@@ -94,7 +94,7 @@ func (s *stateSuite) TestCancelMachineReboot(c *tc.C) {
 
 func (s *stateSuite) TestCancelMachineRebootIdempotent(c *tc.C) {
 	// Setup: Create a machine with a given ID  add its ID to the reboot table.
-	err := s.state.CreateMachine(c.Context(), "", "", "u-u-i-d")
+	err := s.state.CreateMachine(c.Context(), "", "", "u-u-i-d", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("u-u-i-d")`)
 	c.Assert(err, tc.ErrorIsNil)
@@ -113,9 +113,9 @@ func (s *stateSuite) TestCancelMachineRebootIdempotent(c *tc.C) {
 
 func (s *stateSuite) TestCancelMachineRebootSeveralMachine(c *tc.C) {
 	// Setup: Create several machine with a given IDs,  add both ids in the reboot table
-	err := s.state.CreateMachine(c.Context(), "alive", "a-l-i-ve", "a-l-i-ve")
+	err := s.state.CreateMachine(c.Context(), "alive", "a-l-i-ve", "a-l-i-ve", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.CreateMachine(c.Context(), "dead", "d-e-a-d", "d-e-a-d")
+	err = s.state.CreateMachine(c.Context(), "dead", "d-e-a-d", "d-e-a-d", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("a-l-i-ve")`)
 	c.Assert(err, tc.ErrorIsNil)
@@ -139,7 +139,7 @@ func (s *stateSuite) TestRebootNotOrphan(c *tc.C) {
 	description := "orphan, non-rebooting machine, should do nothing"
 
 	// Setup: machines and parent if any and setup reboot if required in test case
-	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
+	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Call the function under test
@@ -154,7 +154,7 @@ func (s *stateSuite) TestRebootOrphan(c *tc.C) {
 	description := "orphan, rebooting machine, should reboot"
 
 	// Setup: machines and parent if any and setup reboot if required in test case
-	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
+	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("machine")`)
 	c.Assert(err, tc.ErrorIsNil)
@@ -171,9 +171,9 @@ func (s *stateSuite) TestRebootNotParentChild(c *tc.C) {
 	description := "non-rebooting machine with non-rebooting parent, should do nothing"
 
 	// Setup: machines and parent if any and setup reboot if required in test case
-	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
+	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent")
+	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.runQuery(c, `INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES ("machine", "parent")`)
 	c.Assert(err, tc.ErrorIsNil)
@@ -190,11 +190,11 @@ func (s *stateSuite) TestRebootChildNotParent(c *tc.C) {
 	description := "rebooting machine with non-rebooting parent, should reboot"
 
 	// Setup: machines and parent if any and setup reboot if required in test case
-	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
+	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("machine")`)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent")
+	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.runQuery(c, `INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES ("machine", "parent")`)
 	c.Assert(err, tc.ErrorIsNil)
@@ -211,9 +211,9 @@ func (s *stateSuite) TestRebootParentNotChild(c *tc.C) {
 	description := "non-rebooting machine with rebooting parent, should shutdown"
 
 	// Setup: machines and parent if any and setup reboot if required in test case
-	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
+	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent")
+	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.runQuery(c, `INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES ("machine", "parent")`)
 	c.Assert(err, tc.ErrorIsNil)
@@ -232,11 +232,11 @@ func (s *stateSuite) TestRebootParentChild(c *tc.C) {
 	description := "rebooting machine with rebooting parent, should shutdown"
 
 	// Setup: machines and parent if any and setup reboot if required in test case
-	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
+	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("machine")`)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent")
+	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.runQuery(c, `INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES ("machine", "parent")`)
 	c.Assert(err, tc.ErrorIsNil)
@@ -253,11 +253,11 @@ func (s *stateSuite) TestRebootParentChild(c *tc.C) {
 
 func (s *stateSuite) TestRebootLogicGrandParentNotSupported(c *tc.C) {
 	// Setup: Create a machine hierarchy
-	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine")
+	err := s.state.CreateMachine(c.Context(), "machine", "machine", "machine", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent")
+	err = s.state.CreateMachine(c.Context(), "parent", "parent", "parent", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.CreateMachine(c.Context(), "grandparent", "grandparent", "grandparent")
+	err = s.state.CreateMachine(c.Context(), "grandparent", "grandparent", "grandparent", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.runQuery(c, `INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES ("machine", "parent")`)
 	c.Assert(err, tc.ErrorIsNil)

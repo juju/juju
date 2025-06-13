@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -45,11 +46,12 @@ func NewState(factory coredb.TxnRunnerFactory, clock clock.Clock, logger logger.
 // Adds a row to machine table, as well as a row to the net_node table.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
-func (st *State) CreateMachine(ctx context.Context, machineName machine.Name, nodeUUID string, machineUUID machine.UUID) error {
+func (st *State) CreateMachine(ctx context.Context, machineName machine.Name, nodeUUID string, machineUUID machine.UUID, nonce *string) error {
 	return st.createMachine(ctx, createMachineArgs{
 		name:        machineName,
 		netNodeUUID: nodeUUID,
 		machineUUID: machineUUID,
+		nonce:       nonce,
 	})
 }
 
@@ -95,16 +97,30 @@ WHERE name = $machineName.name;
 		return errors.Capture(err)
 	}
 
+	var nonce sql.Null[string]
+	if args.nonce != nil {
+		nonce = sql.Null[string]{
+			V:     *args.nonce,
+			Valid: true,
+		}
+	}
+
+	lifeID, err := encodeLife(life.Alive)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	// Prepare query for creating machine row.
-	createParams := sqlair.M{
-		"machine_uuid":  args.machineUUID,
-		"net_node_uuid": args.netNodeUUID,
-		"name":          mName,
-		"life_id":       life.Alive,
+	createParams := createMachine{
+		UUID:        args.machineUUID.String(),
+		Name:        mName.String(),
+		NetNodeUUID: args.netNodeUUID,
+		Nonce:       nonce,
+		LifeID:      lifeID,
 	}
 	createMachineQuery := `
-INSERT INTO machine (uuid, net_node_uuid, name, life_id)
-VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
+INSERT INTO machine (*)
+VALUES ($createMachine.*)
 `
 	createMachineStmt, err := st.Prepare(createMachineQuery, createParams)
 	if err != nil {
@@ -112,7 +128,7 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 	}
 
 	// Prepare query for creating net node row.
-	createNodeQuery := `INSERT INTO net_node (uuid) VALUES ($M.net_node_uuid)`
+	createNodeQuery := `INSERT INTO net_node (uuid) VALUES ($createMachine.net_node_uuid)`
 	createNodeStmt, err := st.Prepare(createNodeQuery, createParams)
 	if err != nil {
 		return errors.Capture(err)
@@ -1403,6 +1419,21 @@ VALUES ($setMachineStatus.*)
 	}
 
 	return nil
+}
+
+func encodeLife(v life.Life) (int64, error) {
+	// Encode the life status as an int64.
+	// This is a simple mapping, but can be extended if needed.
+	switch v {
+	case life.Alive:
+		return 0, nil
+	case life.Dying:
+		return 1, nil
+	case life.Dead:
+		return 2, nil
+	default:
+		return 0, errors.Errorf("encoding life status: %v", v)
+	}
 }
 
 func ptr[T any](v T) *T {

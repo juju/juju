@@ -72,7 +72,7 @@ func (s *modelStateSuite) addMachineWithName(c *tc.C, name machine.Name) string 
 		loggertesting.WrapCheckLog(c),
 	)
 	uuid := coremachinetesting.GenUUID(c)
-	err := machineSt.CreateMachine(c.Context(), name, uuid.String(), uuid)
+	err := machineSt.CreateMachine(c.Context(), name, uuid.String(), uuid, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -578,7 +578,7 @@ func (s *modelStateSuite) TestMachineSetRunningAgentBinaryVersionMachineDead(c *
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	err := machineSt.CreateMachine(c.Context(), "666", "", machineUUID)
+	err := machineSt.CreateMachine(c.Context(), "666", "", machineUUID, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = machineSt.SetMachineLife(c.Context(), "666", life.Dead)

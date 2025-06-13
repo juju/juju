@@ -32,7 +32,7 @@ type State interface {
 	// CreateMachine persists the input machine entity.
 	// It returns a MachineAlreadyExists error if a machine with the same name
 	// already exists.
-	CreateMachine(context.Context, machine.Name, string, machine.UUID) error
+	CreateMachine(context.Context, machine.Name, string, machine.UUID, *string) error
 
 	// CreateMachineWithparent persists the input machine entity, associating it
 	// with the parent machine.
@@ -222,7 +222,7 @@ func NewService(st State, statusHistory StatusHistory, clock clock.Clock, logger
 // CreateMachine creates the specified machine.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
-func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (machine.UUID, error) {
+func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name, nonce *string) (machine.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -234,7 +234,7 @@ func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (
 		return "", errors.Errorf("creating machine %q: %w", machineName, err)
 	}
 
-	err = s.st.CreateMachine(ctx, machineName, nodeUUID, machineUUID)
+	err = s.st.CreateMachine(ctx, machineName, nodeUUID, machineUUID, nonce)
 	if err != nil {
 		return machineUUID, errors.Errorf("creating machine %q: %w", machineName, err)
 	}

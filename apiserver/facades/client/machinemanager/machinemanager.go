@@ -91,7 +91,7 @@ type Authorizer interface {
 // MachineService is the interface that is used to interact with the machines.
 type MachineService interface {
 	// CreateMachine creates a machine with the given name.
-	CreateMachine(context.Context, coremachine.Name) (coremachine.UUID, error)
+	CreateMachine(context.Context, coremachine.Name, string) (coremachine.UUID, error)
 	// DeleteMachine deletes a machine with the given name.
 	DeleteMachine(context.Context, coremachine.Name) error
 	// GetBootstrapEnviron returns the bootstrap environ.
@@ -337,7 +337,6 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 		Volumes:                 volumes,
 		InstanceId:              p.InstanceId,
 		Jobs:                    jobs,
-		Nonce:                   p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
 		Addresses:               sAddrs,
 		Placement:               placementDirective,
@@ -346,7 +345,7 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 	defer func() {
 		if err == nil {
 			// Ensure machine(s) exist in dqlite.
-			err = mm.saveMachineInfo(ctx, result.Id())
+			err = mm.saveMachineInfo(ctx, result.Id(), p.Nonce)
 		}
 	}()
 
@@ -359,11 +358,11 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 	return mm.st.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
 
-func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineName string) error {
+func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineName, nonce string) error {
 	// This is temporary - just insert the machine id all al the parent ones.
 	var errs []error
 	for machineName != "" {
-		_, err := mm.machineService.CreateMachine(ctx, coremachine.Name(machineName))
+		_, err := mm.machineService.CreateMachine(ctx, coremachine.Name(machineName), nonce)
 		// The machine might already exist e.g. if we are adding a subordinate
 		// unit to an already existing machine. In this case, just continue
 		// without error.
