@@ -10,7 +10,7 @@ import (
 
 // These structs represent the persistent storage pool entity schema in the database.
 
-type StoragePool struct {
+type storagePool struct {
 	ID string `db:"uuid"`
 
 	Name         string `db:"name"`
@@ -32,16 +32,16 @@ type storagePoolNames []string
 
 type storageProviderTypes []string
 
-type StoragePools []StoragePool
+type storagePools []storagePool
 
-func (rows StoragePools) toStoragePools(keyValues []poolAttribute) ([]storage.StoragePool, error) {
+func (rows storagePools) toStoragePools(keyValues []poolAttribute) ([]storage.StoragePool, error) {
 	if n := len(rows); n != len(keyValues) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch")
 	}
 
 	var result []storage.StoragePool
-	recordResult := func(row *StoragePool, attrs poolAttributes) {
+	recordResult := func(row *storagePool, attrs poolAttributes) {
 		result = append(result, storage.StoragePool{
 			Name:     row.Name,
 			Provider: row.ProviderType,
@@ -50,7 +50,7 @@ func (rows StoragePools) toStoragePools(keyValues []poolAttribute) ([]storage.St
 	}
 
 	var (
-		current *StoragePool
+		current *storagePool
 		attrs   poolAttributes
 	)
 	for i, row := range rows {
