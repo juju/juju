@@ -369,8 +369,9 @@ func (s *localServerSuite) openEnviron(c *gc.C, attrs coretesting.Attrs) environ
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(attrs))
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
-		Cloud:  s.CloudSpec(),
-		Config: cfg,
+		Cloud:          s.CloudSpec(),
+		Config:         cfg,
+		ControllerUUID: coretesting.FakeControllerConfig().ControllerUUID(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -2036,24 +2037,24 @@ func (s *localServerSuite) TestEnsureModelGroup(c *gc.C) {
 func (s *localServerSuite) TestMatchingGroup(c *gc.C) {
 	err := bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
+	machineName1 := openstack.MachineGroupName(s.env, s.ControllerUUID, "1")
 	group1, err := openstack.EnsureGroup(s.env, s.callCtx,
-		openstack.MachineGroupName(s.env, s.ControllerUUID, "1"), false)
+		machineName1, false)
 	c.Assert(err, jc.ErrorIsNil)
+	machineName2 := openstack.MachineGroupName(s.env, s.ControllerUUID, "2")
 	group2, err := openstack.EnsureGroup(s.env, s.callCtx,
-		openstack.MachineGroupName(s.env, s.ControllerUUID, "2"), false)
+		machineName2, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = openstack.EnsureGroup(s.env, s.callCtx, openstack.MachineGroupName(s.env, s.ControllerUUID, "11"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = openstack.EnsureGroup(s.env, s.callCtx, openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	machineNameRegexp := openstack.MachineGroupRegexp(s.env, "1")
-	groupMatched, err := openstack.MatchingGroup(s.env, s.callCtx, machineNameRegexp)
+	groupMatched, err := openstack.GetSecurityGroupByName(s.env, s.callCtx, machineName1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group1.Id, gc.Equals, groupMatched.Id)
 
-	machineNameRegexp = openstack.MachineGroupRegexp(s.env, "2")
-	groupMatched, err = openstack.MatchingGroup(s.env, s.callCtx, machineNameRegexp)
+	groupMatched, err = openstack.GetSecurityGroupByName(s.env, s.callCtx, machineName2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group2.Id, gc.Equals, groupMatched.Id)
 }

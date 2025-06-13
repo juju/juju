@@ -541,7 +541,7 @@ func (c *neutronFirewaller) ClosePorts(ctx context.ProviderCallContext, rules fi
 		return errors.Errorf("invalid firewall mode %q for closing ports on model",
 			c.environ.Config().FirewallMode())
 	}
-	if err := c.closePortsInGroup(ctx, c.globalGroupRegexp(), rules); err != nil {
+	if err := c.closePortsInGroup(ctx, c.globalGroupName(c.environ.controllerUUID), rules); err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
 	}
