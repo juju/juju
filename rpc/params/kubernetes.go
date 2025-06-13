@@ -71,8 +71,11 @@ type KubernetesVolumeParams struct {
 // KubernetesVolumeAttachmentParams holds the parameters for
 // creating a volume attachment.
 type KubernetesVolumeAttachmentParams struct {
-	Provider string `json:"provider"`
-	ReadOnly bool   `json:"read-only,omitempty"`
+	Provider  string `json:"provider"`
+	ReadOnly  bool   `json:"read-only,omitempty"`
+	UnitTag   string `json:"unit-tag,omitempty"`
+	VolumeId  string `json:"volume-id,omitempty"`
+	VolumeTag string `json:"volume-tag,omitempty"`
 }
 
 // KubernetesFilesystemInfo describes a storage filesystem in the cloud

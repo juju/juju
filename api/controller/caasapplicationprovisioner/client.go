@@ -142,6 +142,7 @@ type ProvisioningInfo struct {
 	Tags                 map[string]string
 	Constraints          constraints.Value
 	Filesystems          []storage.KubernetesFilesystemParams
+	Volumes              []storage.KubernetesVolumeParams
 	Devices              []devices.KubernetesDeviceParams
 	Base                 corebase.Base
 	ImageDetails         resources.DockerImageDetails
@@ -186,12 +187,20 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		Trust:                r.Trust,
 		Scale:                r.Scale,
 	}
+
 	for _, fs := range r.Filesystems {
 		f, err := filesystemFromParams(fs)
 		if err != nil {
 			return info, errors.Trace(err)
 		}
 		info.Filesystems = append(info.Filesystems, *f)
+	}
+	for _, vol := range r.Volumes {
+		v, err := volumeFromParams(vol)
+		if err != nil {
+			return info, errors.Trace(err)
+		}
+		info.Volumes = append(info.Volumes, *v)
 	}
 
 	for _, device := range r.Devices {
@@ -209,7 +218,6 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		}
 		info.CharmURL = charmURL
 	}
-
 	return info, nil
 }
 
@@ -233,6 +241,7 @@ func filesystemFromParams(in params.KubernetesFilesystemParams) (*storage.Kubern
 }
 
 func filesystemAttachmentFromParams(in params.KubernetesFilesystemAttachmentParams) (*storage.KubernetesFilesystemAttachmentParams, error) {
+
 	return &storage.KubernetesFilesystemAttachmentParams{
 		AttachmentParams: storage.AttachmentParams{
 			Provider: storage.ProviderType(in.Provider),
@@ -240,6 +249,34 @@ func filesystemAttachmentFromParams(in params.KubernetesFilesystemAttachmentPara
 		},
 		Path: in.MountPoint,
 	}, nil
+}
+
+func volumeFromParams(in params.KubernetesVolumeParams) (*storage.KubernetesVolumeParams, error) {
+	params := &storage.KubernetesVolumeParams{
+		StorageName: in.StorageName,
+		Provider:    storage.ProviderType(in.Provider),
+		Size:        in.Size,
+		Attributes:  in.Attributes,
+		Tags:        in.Tags,
+	}
+	if in.Attachment != nil {
+		unitTag, err := names.ParseTag(in.Attachment.UnitTag)
+		if err != nil {
+			return nil, err
+		}
+		params.Attachment = &storage.KubernetesVolumeAttachmentParams{
+			VolumeAttachmentParams: storage.VolumeAttachmentParams{
+				AttachmentParams: storage.AttachmentParams{
+					Provider: storage.ProviderType(in.Provider),
+					Machine:  unitTag,
+					ReadOnly: in.Attachment.ReadOnly,
+				},
+				Volume:   names.NewVolumeTag(in.Attachment.VolumeTag),
+				VolumeId: in.Attachment.VolumeId,
+			},
+		}
+	}
+	return params, nil
 }
 
 // SetOperatorStatus updates the provisioning status of an operator.
