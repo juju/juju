@@ -15,6 +15,8 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -174,6 +176,46 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 	// Assert
 	c.Assert(err, tc.ErrorMatches,
 		".*limit of 1 for my-app:established.*established relations[^0-9]+2[^0-9]+")
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmMergesEndpointBindings(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		relations: []charm.Relation{
+			{
+				Name: "established",
+				Role: charm.RoleProvider,
+			},
+		},
+	})
+	newCharm, finish := s.createCharm(c, createCharmArgs{})
+	defer finish()
+
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceName := network.SpaceName("beta")
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO space (uuid, name)
+VALUES (?, ?)`, spaceUUID, spaceName)
+		return errors.Capture(err)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	err = s.state.SetApplicationCharm(c.Context(), appID, application.UpdateCharmParams{
+		Charm: newCharm,
+		EndpointBindings: map[string]network.SpaceName{
+			"established": spaceName,
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	bindings, err := s.state.GetApplicationEndpointBindings(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bindings["established"], tc.Equals, spaceUUID)
 }
 
 // createApplication creates a new application in the state with the provided arguments and returns its unique ID.
