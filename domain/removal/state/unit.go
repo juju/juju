@@ -48,6 +48,7 @@ WHERE  uuid = $entityUUID.uuid`, unitUUID)
 	return unitExists, errors.Capture(err)
 }
 
+
 // EnsureUnitNotAliveCascade ensures that there is no unit identified by the
 // input unit UUID, that is still alive. If the unit is the last one on the
 // machine, it will cascade and the machine is also set to dying. The

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/semversion"
@@ -66,11 +65,10 @@ func (s *SourcePrecheckSuite) TestSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectAgentVersion()
 	s.expectIsUpgrade(false)
-	s.expectApplicationLife("foo", life.Alive)
-	s.expectApplicationLife("bar", life.Alive)
+	s.expectAllAppsAndUnitsAlive()
 	s.expectCheckUnitStatuses(nil)
 	s.expectAgentTargetVersions(c)
-	s.expectCheckRelation(nil)
+	s.expectCheckRelation(fakeRelation{})
 
 	backend := newHappyBackend()
 	backend.controllerBackend = newHappyBackend()
@@ -166,7 +164,8 @@ func (s *SourcePrecheckSuite) TestCleanupsError(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectCheckUnitStatuses(nil)
-	s.expectCheckRelation(nil)
+	s.expectCheckRelation(fakeRelation{})
+	s.expectAllAppsAndUnitsAlive()
 
 	backend := newFakeBackend()
 	backend.cleanupErr = errors.New("boom")
@@ -179,7 +178,8 @@ func (s *SourcePrecheckSuite) TestCleanupsNeeded(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectCheckUnitStatuses(nil)
-	s.expectCheckRelation(nil)
+	s.expectCheckRelation(fakeRelation{})
+	s.expectAllAppsAndUnitsAlive()
 
 	backend := newFakeBackend()
 	backend.cleanupNeeded = true
@@ -192,8 +192,9 @@ func (s *SourcePrecheckSuite) TestIsUpgradingError(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgradeError(errors.New("boom"))
+	s.expectAllAppsAndUnitsAlive()
 	s.expectCheckUnitStatuses(nil)
-	s.expectCheckRelation(nil)
+	s.expectCheckRelation(fakeRelation{})
 
 	backend := newFakeBackend()
 	err := sourcePrecheck(c, backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
@@ -205,8 +206,9 @@ func (s *SourcePrecheckSuite) TestIsUpgrading(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(true)
+	s.expectAllAppsAndUnitsAlive()
 	s.expectCheckUnitStatuses(nil)
-	s.expectCheckRelation(nil)
+	s.expectCheckRelation(fakeRelation{})
 
 	backend := newFakeBackend()
 	err := sourcePrecheck(c, backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
@@ -289,19 +291,13 @@ func (s *SourcePrecheckSuite) TestDownMachineAgent(c *tc.C) {
 func (s *SourcePrecheckSuite) TestDyingApplication(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
-	s.expectApplicationLife("foo", life.Dying)
+	s.expectDeadAppsOrUnits(errors.Errorf("application foo is dying"))
 	s.expectCheckUnitStatuses(nil)
 
-	backend := &fakeBackend{
-		apps: []migration.PrecheckApplication{
-			&fakeApp{
-				name: "foo",
-			},
-		},
-	}
+	backend := &fakeBackend{}
 	err := sourcePrecheck(c, backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), tc.Equals, "application foo is dying")
+	c.Assert(err, tc.ErrorMatches, ".*application foo is dying")
 }
 
 func (s *SourcePrecheckSuite) TestUnitVersionsDoNotMatch(c *tc.C) {
@@ -321,12 +317,6 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDoNotMatch(c *tc.C) {
 
 	backend := &fakeBackend{
 		model: fakeModel{modelType: state.ModelTypeIAAS},
-		apps: []migration.PrecheckApplication{
-			&fakeApp{
-				name:  "foo",
-				units: []migration.PrecheckUnit{&fakeUnit{name: "foo/0"}},
-			},
-		},
 	}
 	err := sourcePrecheck(c, backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
@@ -337,18 +327,12 @@ func (s *SourcePrecheckSuite) TestCAASModelNoUnitVersionCheck(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
-	s.expectApplicationLife("foo", life.Alive)
+	s.expectAllAppsAndUnitsAlive()
 	s.expectCheckUnitStatuses(nil)
-	s.expectCheckRelation(nil)
+	s.expectCheckRelation(fakeRelation{})
 
 	backend := &fakeBackend{
 		model: fakeModel{modelType: state.ModelTypeCAAS},
-		apps: []migration.PrecheckApplication{
-			&fakeApp{
-				name:  "foo",
-				units: []migration.PrecheckUnit{&fakeUnit{name: "foo/0", noTools: true}},
-			},
-		},
 	}
 	err := sourcePrecheck(c, backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
@@ -358,43 +342,25 @@ func (s *SourcePrecheckSuite) TestCAASModelNoUnitVersionCheck(c *tc.C) {
 func (s *SourcePrecheckSuite) TestDeadUnit(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
-	s.expectApplicationLife("foo", life.Alive)
+	s.expectDeadAppsOrUnits(errors.Errorf("unit foo/0 is dead"))
 	s.expectCheckUnitStatuses(nil)
 
-	backend := &fakeBackend{
-		apps: []migration.PrecheckApplication{
-			&fakeApp{
-				name: "foo",
-				units: []migration.PrecheckUnit{
-					&fakeUnit{name: "foo/0", life: state.Dead},
-				},
-			},
-		},
-	}
+	backend := &fakeBackend{}
 	err := sourcePrecheck(c, backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), tc.Equals, "unit foo/0 is dead")
+	c.Assert(err, tc.ErrorMatches, ".*unit foo/0 is dead")
 }
 
 func (s *SourcePrecheckSuite) TestUnitExecuting(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
-	s.expectApplicationLife("foo", life.Alive)
+	s.expectAllAppsAndUnitsAlive()
 	s.expectCheckUnitStatuses(nil)
 	s.expectAgentTargetVersions(c)
-	s.expectCheckRelation(nil)
+	s.expectCheckRelation(fakeRelation{})
 
-	backend := &fakeBackend{
-		apps: []migration.PrecheckApplication{
-			&fakeApp{
-				name: "foo",
-				units: []migration.PrecheckUnit{
-					&fakeUnit{name: "foo/0"},
-				},
-			},
-		},
-	}
+	backend := &fakeBackend{}
 	err := sourcePrecheck(c, backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
 	c.Assert(err, tc.ErrorIsNil)
@@ -406,16 +372,7 @@ func (s *SourcePrecheckSuite) TestUnitNotReadyForMigration(c *tc.C) {
 	s.expectCheckUnitStatuses(errors.Errorf("boom"))
 	s.expectAgentTargetVersions(c)
 
-	backend := &fakeBackend{
-		apps: []migration.PrecheckApplication{
-			&fakeApp{
-				name: "foo",
-				units: []migration.PrecheckUnit{
-					&fakeUnit{name: "foo/0"},
-				},
-			},
-		},
-	}
+	backend := &fakeBackend{}
 	err := sourcePrecheck(c, backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
 	c.Assert(err.Error(), tc.Equals, "boom")
@@ -425,7 +382,8 @@ func (s *SourcePrecheckSuite) TestDyingControllerModel(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectCheckUnitStatuses(nil)
-	s.expectCheckRelation(nil)
+	s.expectAllAppsAndUnitsAlive()
+	s.expectCheckRelation(fakeRelation{})
 
 	backend := newFakeBackend()
 	backend.controllerBackend.model.life = state.Dying
@@ -440,7 +398,7 @@ func (s *SourcePrecheckSuite) TestControllerMachineVersionsDoNotMatch(c *tc.C) {
 
 	s.expectIsUpgrade(false)
 	s.expectCheckUnitStatuses(nil)
-	s.expectCheckRelation(nil)
+	s.expectCheckRelation(fakeRelation{})
 
 	backend := newFakeBackend()
 	backend.controllerBackend = newBackendWithMismatchingTools()
@@ -457,7 +415,7 @@ func (s *SourcePrecheckSuite) TestControllerMachineRequiresReboot(c *tc.C) {
 
 	s.expectIsUpgrade(false)
 	s.expectCheckUnitStatuses(nil)
-	s.expectCheckRelation(nil)
+	s.expectCheckRelation(fakeRelation{})
 
 	backend := newFakeBackend()
 	backend.controllerBackend = newBackendWithRebootingMachine()
@@ -470,8 +428,9 @@ func (s *SourcePrecheckSuite) TestDyingControllerMachine(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
+	s.expectAllAppsAndUnitsAlive()
 	s.expectCheckUnitStatuses(nil)
-	s.expectCheckRelation(nil)
+	s.expectCheckRelation(fakeRelation{})
 
 	backend := &fakeBackend{
 		controllerBackend: newBackendWithDyingMachine(),
@@ -484,9 +443,10 @@ func (s *SourcePrecheckSuite) TestDyingControllerMachine(c *tc.C) {
 func (s *SourcePrecheckSuite) TestNonStartedControllerMachine(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
+	s.expectAllAppsAndUnitsAlive()
 	s.expectIsUpgrade(false)
 	s.expectCheckUnitStatuses(nil)
-	s.expectCheckRelation(nil)
+	s.expectCheckRelation(fakeRelation{})
 
 	backend := &fakeBackend{
 		controllerBackend: newBackendWithDownMachine(),
@@ -500,8 +460,9 @@ func (s *SourcePrecheckSuite) TestProvisioningControllerMachine(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
+	s.expectAllAppsAndUnitsAlive()
 	s.expectCheckUnitStatuses(nil)
-	s.expectCheckRelation(nil)
+	s.expectCheckRelation(fakeRelation{})
 
 	backend := &fakeBackend{
 		controllerBackend: newBackendWithProvisioningMachine(),
@@ -516,30 +477,28 @@ func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *tc.C) {
 
 	s.expectAgentVersion()
 	s.expectIsUpgrade(false)
-	s.expectApplicationLife("foo", life.Alive)
-	s.expectApplicationLife("bar", life.Alive)
+	s.expectAllAppsAndUnitsAlive()
 	s.expectCheckUnitStatuses(nil)
 	s.expectAgentTargetVersions(c)
-	s.expectCheckRelation(map[int]fakeRelation{
-		1: {
-			eps: []relation.Endpoint{
-				{
-					ApplicationName: "foo",
-					Relation: charm.Relation{
-						Name: "db",
-						Role: charm.RoleRequirer,
-					},
-				},
-				{
-					ApplicationName: "bar",
-					Relation: charm.Relation{
-						Name: "db",
-						Role: charm.RoleProvider,
-					},
+	s.expectCheckRelation(fakeRelation{
+		eps: []relation.Endpoint{
+			{
+				ApplicationName: "foo",
+				Relation: charm.Relation{
+					Name: "db",
+					Role: charm.RoleRequirer,
 				},
 			},
-			units: set.NewStrings("foo/0", "bar/0", "bar/1"),
+			{
+				ApplicationName: "bar",
+				Relation: charm.Relation{
+					Name: "db",
+					Role: charm.RoleProvider,
+				},
+			},
 		},
+		units:       set.NewStrings("foo/0", "bar/0", "bar/1"),
+		appsToUnits: map[string][]coreunit.Name{"foo": {"foo/0"}, "bar": {"bar/0", "bar/1"}},
 	})
 
 	backend := newHappyBackend()
@@ -552,30 +511,28 @@ func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAgentVersion()
-	s.expectApplicationLife("foo", life.Alive)
-	s.expectApplicationLife("bar", life.Alive)
+	s.expectAllAppsAndUnitsAlive()
 	s.expectCheckUnitStatuses(nil)
 	s.expectAgentTargetVersions(c)
-	s.expectCheckRelation(map[int]fakeRelation{
-		1: {
-			eps: []relation.Endpoint{
-				{
-					ApplicationName: "foo",
-					Relation: charm.Relation{
-						Name: "db",
-						Role: charm.RoleRequirer,
-					},
-				},
-				{
-					ApplicationName: "bar",
-					Relation: charm.Relation{
-						Name: "db",
-						Role: charm.RoleProvider,
-					},
+	s.expectCheckRelation(fakeRelation{
+		eps: []relation.Endpoint{
+			{
+				ApplicationName: "foo",
+				Relation: charm.Relation{
+					Name: "db",
+					Role: charm.RoleRequirer,
 				},
 			},
-			units: set.NewStrings("foo/0", "bar/0"), // bar/1 hasn't joined yet
+			{
+				ApplicationName: "bar",
+				Relation: charm.Relation{
+					Name: "db",
+					Role: charm.RoleProvider,
+				},
+			},
 		},
+		units:       set.NewStrings("foo/0", "bar/0"), // bar/1 hasn't joined yet
+		appsToUnits: map[string][]coreunit.Name{"foo": {"foo/0"}, "bar": {"bar/0", "bar/1"}},
 	})
 
 	backend := newHappyBackend()
@@ -590,10 +547,9 @@ func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *tc.C) {
 
 	s.expectAgentVersion()
 	s.expectAgentTargetVersions(c)
-	s.expectApplicationLife("foo", life.Alive)
-	s.expectApplicationLife("bar", life.Alive)
+	s.expectAllAppsAndUnitsAlive()
 	s.expectCheckUnitStatuses(nil)
-	s.expectCheckRelation(nil)
+	s.expectCheckRelation(fakeRelation{})
 	// todo(gfouillet) - to test CMR, mock CMR relation, once CMR implemented
 	//   - application "foo" (local) and "remote-mysql" (remote)
 	//   - relation "foo:db" (local) to "remote-mysql:db (remote)
@@ -1041,19 +997,6 @@ func newHappyBackend() *fakeBackend {
 			&fakeMachine{id: "0"},
 			&fakeMachine{id: "1"},
 		},
-		apps: []migration.PrecheckApplication{
-			&fakeApp{
-				name:  "foo",
-				units: []migration.PrecheckUnit{&fakeUnit{name: "foo/0"}},
-			},
-			&fakeApp{
-				name: "bar",
-				units: []migration.PrecheckUnit{
-					&fakeUnit{name: "bar/0"},
-					&fakeUnit{name: "bar/1"},
-				},
-			},
-		},
 		machineCountForSeriesUbuntu: map[string]int{"ubuntu@22.04": 2},
 	}
 }
@@ -1136,9 +1079,6 @@ type fakeBackend struct {
 	machines       []migration.PrecheckMachine
 	allMachinesErr error
 
-	apps       []migration.PrecheckApplication
-	allAppsErr error
-
 	controllerBackend *fakeBackend
 
 	machineCountForSeriesUbuntu map[string]int
@@ -1170,10 +1110,6 @@ func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {
 
 func (b *fakeBackend) AllMachinesCount() (int, error) {
 	return len(b.machines), b.allMachinesErr
-}
-
-func (b *fakeBackend) AllApplications() ([]migration.PrecheckApplication, error) {
-	return b.apps, b.allAppsErr
 }
 
 func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {
@@ -1314,76 +1250,3 @@ func (m *fakeMachine) AgentTools() (*tools.Tools, error) {
 // 	}
 // 	return m.rebootAction, nil
 // }
-
-type fakeApp struct {
-	name     string
-	charmURL string
-	units    []migration.PrecheckUnit
-}
-
-func (a *fakeApp) Name() string {
-	return a.name
-}
-
-func (a *fakeApp) CharmURL() (*string, bool) {
-	url := a.charmURL
-	if url == "" {
-		url = "ch:foo-1"
-	}
-	return &url, false
-}
-
-func (a *fakeApp) AllUnits() ([]migration.PrecheckUnit, error) {
-	return a.units, nil
-}
-
-type fakeUnit struct {
-	name     string
-	version  semversion.Binary
-	noTools  bool
-	life     state.Life
-	charmURL string
-}
-
-func (u *fakeUnit) Name() string {
-	return u.name
-}
-
-func (u *fakeUnit) AgentTools() (*tools.Tools, error) {
-	if u.noTools {
-		return nil, errors.NotFoundf("tools")
-	}
-	// Avoid having to specify the version when it's supposed to match
-	// the model config.
-	v := u.version
-	if v.Compare(semversion.Zero) == 0 {
-		v = backendVersionBinary
-	}
-	return &tools.Tools{
-		Version: v,
-	}, nil
-}
-
-func (u *fakeUnit) Life() state.Life {
-	return u.life
-}
-
-func (u *fakeUnit) ShouldBeAssigned() bool {
-	return true
-}
-
-func (u *fakeUnit) CharmURL() *string {
-	url := u.charmURL
-	if url == "" {
-		url = "ch:foo-1"
-	}
-	return &url
-}
-
-func (u *fakeUnit) Status() (status.StatusInfo, error) {
-	return status.StatusInfo{Status: status.Idle}, nil
-}
-
-func (u *fakeUnit) IsSidecar() (bool, error) {
-	return false, nil
-}

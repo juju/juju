@@ -14,13 +14,11 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/life"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -56,12 +54,12 @@ func SourcePrecheck(
 		return errors.Trace(err)
 	}
 
-	appUnits, err := c.checkApplications(ctx)
+	err := c.checkApplications(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := c.checkRelations(ctx, appUnits); err != nil {
+	if err := c.checkRelations(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -284,94 +282,61 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 	return nil
 }
 
-func (c *precheckContext) checkApplications(ctx context.Context) (map[string][]PrecheckUnit, error) {
-	modelVersion, err := c.modelAgentService.GetModelTargetAgentVersion(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving model version")
-	}
-	apps, err := c.backend.AllApplications()
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving applications")
-	}
-
-	model, err := c.backend.Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving model")
-	}
-
+func (c *precheckContext) checkApplications(ctx context.Context) error {
 	// We check all units in the model for every application. This checks to see
 	// that there agent versions are what we expect.
 	agentLaggingUnits, err := c.modelAgentService.GetUnitsNotAtTargetAgentVersion(ctx)
 	if err != nil {
-		return nil, internalerrors.Errorf(
+		return internalerrors.Errorf(
 			"getting units that are not running the target agent version for the model: %w", err,
 		)
 	}
 	if len(agentLaggingUnits) > 0 {
-		return nil, internalerrors.Errorf(
+		return internalerrors.Errorf(
 			"there exists units in the model that are not running the target agent version of the model %v",
 			agentLaggingUnits,
 		)
 	}
 
-	appUnits := make(map[string][]PrecheckUnit, len(apps))
-	for _, app := range apps {
-		appLife, err := c.applicationService.GetApplicationLifeByName(ctx, app.Name())
-		if err != nil {
-			if errors.Is(err, applicationerrors.ApplicationNotFound) {
-				err = errors.NotFoundf("application %s", app.Name())
-			}
-			return nil, errors.Annotatef(err, "retrieving life for %q", app.Name())
-		}
-		if appLife != life.Alive {
-			return nil, errors.Errorf("application %s is %s", app.Name(), appLife)
-		}
-		units, err := app.AllUnits()
-		if err != nil {
-			return nil, errors.Annotatef(err, "retrieving units for %s", app.Name())
-		}
-		err = c.checkUnits(ctx, app, units, modelVersion, model.Type())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		appUnits[app.Name()] = units
-	}
-	return appUnits, nil
-}
-
-func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplication, units []PrecheckUnit, modelVersion semversion.Number, modelType state.ModelType) error {
-	appCharmURL, _ := app.CharmURL()
-	if appCharmURL == nil {
-		return errors.Errorf("application charm url is nil")
+	err = c.applicationService.CheckAllApplicationsAndUnitsAreAlive(ctx)
+	if err != nil {
+		return internalerrors.Errorf("pre-checking applications for migration: %w", err)
 	}
 
-	for _, unit := range units {
-		if unit.Life() != state.Alive {
-			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())
-		}
+	// TODO(aflynn): 2025-05-24 check if any units are mid-upgrade.
 
-		// TODO(aflynn): 2025-05-24 check if any units are mid-upgrade.
-	}
 	return nil
 }
 
 // checkRelations verify that all units involved in a relation are actually in
 // scope and valid.
-func (c *precheckContext) checkRelations(ctx context.Context, appUnits map[string][]PrecheckUnit) error {
-	// todo(gfouillet): Handle crossmodel relation
+func (c *precheckContext) checkRelations(ctx context.Context) error {
+	// TODO(gfouillet): Handle crossmodel relation
 	//  This code doesn't rely on future crossmodel domain, but similar check
 	//  would be required on remote units.
+
+	// TODO(jack-w-shaw): Push this entire check into a service method
 	relations, err := c.relationService.GetAllRelationDetails(ctx)
 	if err != nil {
 		return errors.Annotate(err, "retrieving model relations")
 	}
 
+	unitsCache := make(map[string][]coreunit.Name)
+
 	for _, rel := range relations {
 		for _, ep := range rel.Endpoints {
-			for _, unit := range appUnits[ep.ApplicationName] {
-				ok, err := c.relationService.RelationUnitInScopeByID(ctx, rel.ID, coreunit.Name(unit.Name()))
+			unitNames, ok := unitsCache[ep.ApplicationName]
+			if !ok {
+				unitNames, err = c.applicationService.GetUnitNamesForApplication(ctx, ep.ApplicationName)
 				if err != nil {
-					return errors.Annotatef(err, "retrieving relation unit %s", unit.Name())
+					return errors.Annotatef(err, "retrieving unit names for application %s", ep.ApplicationName)
+				}
+				unitsCache[ep.ApplicationName] = unitNames
+			}
+			for _, unitName := range unitNames {
+				ok, err := c.relationService.RelationUnitInScopeByID(ctx, rel.ID, unitName)
+				if err != nil {
+					return errors.Annotatef(err, "retrieving relation unit %s", unitName)
 				}
 				if !ok {
 					// means the unit is not in scope
@@ -380,7 +345,7 @@ func (c *precheckContext) checkRelations(ctx context.Context, appUnits map[strin
 					if err != nil {
 						return errors.Trace(err)
 					}
-					return errors.Errorf("unit %s hasn't joined relation %q yet", unit.Name(), key)
+					return errors.Errorf("unit %s hasn't joined relation %q yet", unitName, key)
 				}
 			}
 		}

@@ -268,6 +268,44 @@ func (c *MockStateAttachStorageCall) DoAndReturn(f func(context.Context, storage
 	return c
 }
 
+// CheckAllApplicationsAndUnitsAreAlive mocks base method.
+func (m *MockState) CheckAllApplicationsAndUnitsAreAlive(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckAllApplicationsAndUnitsAreAlive", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckAllApplicationsAndUnitsAreAlive indicates an expected call of CheckAllApplicationsAndUnitsAreAlive.
+func (mr *MockStateMockRecorder) CheckAllApplicationsAndUnitsAreAlive(arg0 any) *MockStateCheckAllApplicationsAndUnitsAreAliveCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAllApplicationsAndUnitsAreAlive", reflect.TypeOf((*MockState)(nil).CheckAllApplicationsAndUnitsAreAlive), arg0)
+	return &MockStateCheckAllApplicationsAndUnitsAreAliveCall{Call: call}
+}
+
+// MockStateCheckAllApplicationsAndUnitsAreAliveCall wrap *gomock.Call
+type MockStateCheckAllApplicationsAndUnitsAreAliveCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCheckAllApplicationsAndUnitsAreAliveCall) Return(arg0 error) *MockStateCheckAllApplicationsAndUnitsAreAliveCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCheckAllApplicationsAndUnitsAreAliveCall) Do(f func(context.Context) error) *MockStateCheckAllApplicationsAndUnitsAreAliveCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCheckAllApplicationsAndUnitsAreAliveCall) DoAndReturn(f func(context.Context) error) *MockStateCheckAllApplicationsAndUnitsAreAliveCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CreateCAASApplication mocks base method.
 func (m *MockState) CreateCAASApplication(arg0 context.Context, arg1 string, arg2 application0.AddCAASApplicationArg, arg3 []application0.AddUnitArg) (application.ID, error) {
 	m.ctrl.T.Helper()
