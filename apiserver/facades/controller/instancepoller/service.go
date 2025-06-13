@@ -43,4 +43,6 @@ type MachineService interface {
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	// IsManualMachine returns whether the machine is a manual machine.
+	IsManualMachine(ctx context.Context, machineName machine.Name) (bool, error)
 }
