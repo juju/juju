@@ -114,7 +114,7 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 			return errors.Annotate(err, "cannot list Juju Dashboard release versions")
 		}
 		for _, metadata := range allMeta {
-			ctx.Infof(metadata.Version.String())
+			ctx.Infof("%s", metadata.Version.String())
 		}
 		return nil
 	}

@@ -546,7 +546,7 @@ func (c *upgradeJujuCommand) upgradeModel(
 		}
 
 		if err == errUpToDate {
-			ctx.Infof(err.Error())
+			ctx.Infof("%s", err.Error())
 			err = nil
 		}
 		if err != nil {
@@ -765,7 +765,7 @@ func (c *upgradeJujuCommand) upgradeModelLegacy(
 	defer controllerClient.Close()
 	defer func() {
 		if err == errUpToDate {
-			ctx.Infof(err.Error())
+			ctx.Infof("%s", err.Error())
 			err = nil
 		}
 	}()

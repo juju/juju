@@ -270,7 +270,7 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 			returnErr = cmd.ErrSilent
 			return
 		}
-		ctx.Infof(successMsg)
+		ctx.Infof("%s", successMsg)
 	}
 	if c.Client {
 		if !haveBuiltinCloud && !havePersonalCloud {

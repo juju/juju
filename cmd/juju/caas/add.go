@@ -887,7 +887,7 @@ func (c *AddCAASCommand) verifyName(name string) error {
 		return errors.Trace(err)
 	}
 	if msg != "" {
-		return errors.Errorf(msg)
+		return errors.New(msg)
 	}
 	return nil
 }

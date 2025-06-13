@@ -118,6 +118,6 @@ func (c *setDefaultRegionCommand) Run(ctxt *cmd.Context) error {
 	if err := c.store.UpdateCredential(c.cloud, *cred); err != nil {
 		return err
 	}
-	ctxt.Infof(msg)
+	ctxt.Infof("%s", msg)
 	return nil
 }

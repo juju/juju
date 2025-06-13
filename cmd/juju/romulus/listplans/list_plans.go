@@ -74,7 +74,7 @@ func (c *ListPlansCommand) Init(args []string) error {
 	}
 	charmURL, args := args[0], args[1:]
 	if err := cmd.CheckEmpty(args); err != nil {
-		return errors.Errorf("unknown command line arguments: " + strings.Join(args, ","))
+		return errors.Errorf("unknown command line arguments: %s", strings.Join(args, ","))
 	}
 	curl, err := charm.ParseURL(charmURL)
 	if err != nil {

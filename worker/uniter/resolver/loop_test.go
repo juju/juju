@@ -506,7 +506,7 @@ func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {
 	case v := <-ch:
 		return v
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out " + activity)
+		c.Fatalf("timed out %s", activity)
 		panic("unreachable")
 	}
 }

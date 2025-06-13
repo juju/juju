@@ -595,7 +595,7 @@ to create a new model to deploy %sworkloads.
 			} else {
 				msg = fmt.Sprintf("Initial model %q added", c.hostedModelName)
 			}
-			ctx.Infof(msg)
+			ctx.Infof("%s", msg)
 		}
 	}()
 
@@ -872,7 +872,7 @@ to create a new model to deploy %sworkloads.
 	defer func() {
 		if resultErr != nil {
 			if c.KeepBrokenEnvironment {
-				ctx.Infof(`
+				ctx.Infof("%s", `
 bootstrap failed but --keep-broken was specified.
 This means that cloud resources are left behind, but not registered to
 your local client, as the controller was not successfully created.

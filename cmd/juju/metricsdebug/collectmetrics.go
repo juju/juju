@@ -75,7 +75,7 @@ func (c *collectMetricsCommand) Init(args []string) error {
 		return errors.Errorf("%q is not a valid unit or application", args[0])
 	}
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
-		return errors.Errorf("unknown command line arguments: " + strings.Join(args, ","))
+		return errors.Errorf("unknown command line arguments: %s", strings.Join(args, ","))
 	}
 	return nil
 }

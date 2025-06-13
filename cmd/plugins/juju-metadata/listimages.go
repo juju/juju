@@ -130,7 +130,7 @@ func (c *listImagesCommand) Run(ctx *cmd.Context) (err error) {
 	info, errs := convertDetailsToInfo(found)
 	if len(errs) > 0 {
 		// display individual error
-		fmt.Fprintf(ctx.Stderr, strings.Join(errs, "\n"))
+		fmt.Fprintf(ctx.Stderr, "%s", strings.Join(errs, "\n"))
 	}
 
 	var output interface{}

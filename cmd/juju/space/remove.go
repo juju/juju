@@ -148,14 +148,13 @@ func (c *RemoveCommand) handleForceOption(api SpaceAPI, currentModel string, ctx
 
 	errorList := buildRemoveErrorList(result, currentModel)
 	if len(errorList) == 0 {
-		fmt.Fprintf(ctx.Stdout, removeSpaceMsgNoBounds)
+		fmt.Fprintf(ctx.Stdout, "%s", removeSpaceMsgNoBounds)
 	} else {
-		removeSpaceMsg := fmt.Sprintf(""+
+		fmt.Fprintf(ctx.Stdout,
 			"WARNING! This command will remove the space"+
 			" with the following existing boundaries:"+
 			"\n\n%v\n\n\n"+
 			"Continue [y/N]?", strings.Join(errorList, "\n"))
-		fmt.Fprintf(ctx.Stdout, removeSpaceMsg)
 	}
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
 		return errors.Annotate(err, "space removal")

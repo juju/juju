@@ -227,6 +227,6 @@ func (c *imageMetadataCommand) Run(context *cmd.Context) error {
 	}
 	dir := context.AbsPath(c.Dir)
 	dest := filepath.Join(dir, storage.BaseImagesPath, "streams", "v1")
-	fmt.Fprintf(out, fmt.Sprintf(helpDoc, dest, dir, dir))
+	fmt.Fprintf(out, helpDoc, dest, dir, dir)
 	return nil
 }
