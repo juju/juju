@@ -302,8 +302,10 @@ func (st *State) insertApplication(
 	if err := st.insertApplicationController(ctx, tx, appDetails, args.IsController); err != nil {
 		return errors.Errorf("inserting controller for application %q: %w", name, err)
 	}
-	if err := st.insertApplicationStorage(ctx, tx, appDetails, args.Storage); err != nil {
-		return errors.Errorf("inserting storage for application %q: %w", name, err)
+	if err := st.insertApplicationStorageDirectives(
+		ctx, tx, appDetails.UUID, appDetails.CharmUUID, args.StorageDirectives,
+	); err != nil {
+		return errors.Errorf("inserting storage directives for application %q: %w", name, err)
 	}
 	if err := st.insertApplicationConfig(ctx, tx, appDetails.UUID, args.Config); err != nil {
 		return errors.Errorf("inserting config for application %q: %w", name, err)
