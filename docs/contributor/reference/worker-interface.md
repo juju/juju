@@ -1,8 +1,8 @@
 (worker-interface)=
 # Worker interface
-In Juju, the **worker interface** is a Go interface in the Go [`worker`](worker-package.md) library that defines the
+In Juju, the **`worker` interface** is a Go interface in {ref}`the Go worker package <worker-package>` that defines the
 `Kill()` and
-`Wait()` methods implemented by any Juju [worker](worker.md).
+`Wait()` methods implemented by any Juju {ref}`worker <worker>`.
 
 
-> See more: [Go packages | `worker` > `worker.go`](https://github.com/juju/worker/blob/v3.3.0/worker.go)
+> See more: [Go packages | `worker` > `worker.go`](https://github.com/juju/worker/blob/HEAD/worker.go)
