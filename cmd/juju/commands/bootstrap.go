@@ -580,7 +580,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	defer func() {
 		resultErr = handleChooseCloudRegionError(ctx, resultErr)
 		if !c.showClouds && resultErr == nil {
-			var msg string
 			if hostedModel == nil {
 				workloadType := ""
 				if isCAASController {
