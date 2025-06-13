@@ -104,7 +104,7 @@ type NetworkService interface {
 // service.
 type MachineService interface {
 	// CreateMachine creates the specified machine.
-	CreateMachine(context.Context, machine.Name) (machine.UUID, error)
+	CreateMachine(context.Context, machine.Name, *string) (machine.UUID, error)
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
 	// HardwareCharacteristics returns the hardware characteristics of the
