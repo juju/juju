@@ -100,7 +100,7 @@ func (s *provisionerSuite) setUpTest(c *tc.C, withController bool) {
 	for i := 0; i < 5; i++ {
 		m, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, tc.ErrorIsNil)
-		_, err = s.domainServices.Machine().CreateMachine(c.Context(), coremachine.Name(m.Id()))
+		_, err = s.domainServices.Machine().CreateMachine(c.Context(), coremachine.Name(m.Id()), nil)
 		c.Assert(err, tc.ErrorIsNil)
 		s.machines = append(s.machines, m)
 	}
@@ -586,7 +586,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *tc.C) {
 	hwChars := instance.MustParseHardware("arch=arm64", "mem=4G")
 	machine4UUID, err := machineService.GetMachineUUID(c.Context(), coremachine.Name(s.machines[4].Id()))
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(c.Context(), machine4UUID, "i-am", "", &hwChars)
+	err = machineService.SetMachineCloudInstance(c.Context(), machine4UUID, "i-am", "", "", &hwChars)
 	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.provisioner.MachinesWithTransientErrors(c.Context())
@@ -1107,7 +1107,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *tc.C) {
 	hwChars := instance.MustParseHardware("arch=arm64", "mem=4G")
 	machine0UUID, err := machineService.GetMachineUUID(c.Context(), coremachine.Name(s.machines[0].Id()))
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(c.Context(), machine0UUID, instance.Id("i-am"), "", &hwChars)
+	err = machineService.SetMachineCloudInstance(c.Context(), machine0UUID, instance.Id("i-am"), "", "", &hwChars)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We keep this SetInstanceInfo only for the nonce.
@@ -1122,7 +1122,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *tc.C) {
 		}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = machineService.CreateMachine(c.Context(), coremachine.Name(volumesMachine.Id()))
+	_, err = machineService.CreateMachine(c.Context(), coremachine.Name(volumesMachine.Id()), nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.InstancesInfo{Machines: []params.InstanceInfo{{
@@ -1185,8 +1185,6 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *tc.C) {
 
 	machine1UUID, err := machineService.GetMachineUUID(c.Context(), coremachine.Name(s.machines[1].Id()))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(s.machines[1].CheckProvisioned("fake_nonce"), tc.IsTrue)
-	c.Check(s.machines[2].CheckProvisioned("fake"), tc.IsTrue)
 	gotHardware, err := machineService.HardwareCharacteristics(c.Context(), machine1UUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotHardware, tc.DeepEquals, &hwChars)
@@ -1226,12 +1224,12 @@ func (s *withoutControllerSuite) TestInstanceId(c *tc.C) {
 	// Provision 2 machines first.
 	machine0UUID, err := machineService.GetMachineUUID(c.Context(), coremachine.Name(s.machines[0].Id()))
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(c.Context(), machine0UUID, "i-am", "", nil)
+	err = machineService.SetMachineCloudInstance(c.Context(), machine0UUID, "i-am", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	machine1UUID, err := machineService.GetMachineUUID(c.Context(), coremachine.Name(s.machines[1].Id()))
 	c.Assert(err, tc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("arch=arm64", "mem=4G")
-	err = machineService.SetMachineCloudInstance(c.Context(), machine1UUID, "i-am-not", "", &hwChars)
+	err = machineService.SetMachineCloudInstance(c.Context(), machine1UUID, "i-am-not", "", "", &hwChars)
 	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

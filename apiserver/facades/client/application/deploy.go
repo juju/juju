@@ -141,10 +141,6 @@ func DeployApplication(
 		asa.Constraints = args.Constraints
 	}
 
-	unitArgs, err := makeUnitArgs(args)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	app, err := st.AddApplication(asa, store)
 
 	// Dual write storage directives to dqlite.
@@ -171,38 +167,75 @@ func DeployApplication(
 			return nil, errors.Trace(err)
 		}
 
-		createApplication := applicationService.CreateIAASApplication
-		if modelType == coremodel.CAAS {
-			createApplication = applicationService.CreateCAASApplication
-		}
-
-		_, err = createApplication(
-			ctx,
-			args.ApplicationName,
-			args.Charm,
-			args.CharmOrigin,
-			applicationservice.AddApplicationArgs{
-				ReferenceName:    chURL.Name,
-				Storage:          args.Storage,
-				DownloadInfo:     downloadInfo,
-				PendingResources: pendingResources,
-				EndpointBindings: args.EndpointBindings,
-				Devices:          args.Devices,
-				ApplicationStatus: &status.StatusInfo{
-					Status: status.Unset,
-					Since:  ptr(clock.Now()),
-				},
+		applicationArg := applicationservice.AddApplicationArgs{
+			ReferenceName:    chURL.Name,
+			Storage:          args.Storage,
+			DownloadInfo:     downloadInfo,
+			PendingResources: pendingResources,
+			EndpointBindings: args.EndpointBindings,
+			Devices:          args.Devices,
+			ApplicationStatus: &status.StatusInfo{
+				Status: status.Unset,
+				Since:  ptr(clock.Now()),
 			},
-			unitArgs...,
-		)
-		if err != nil {
-			return nil, errors.Trace(err)
+		}
+		if modelType == coremodel.CAAS {
+			unitArgs, err := makeCAASUnitArgs(args)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			_, err = applicationService.CreateCAASApplication(
+				ctx,
+				args.ApplicationName,
+				args.Charm,
+				args.CharmOrigin,
+				applicationArg,
+				unitArgs...,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		} else {
+			unitArgs, err := makeIAASUnitArgs(args)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			_, err = applicationService.CreateIAASApplication(
+				ctx,
+				args.ApplicationName,
+				args.Charm,
+				args.CharmOrigin,
+				applicationArg,
+				unitArgs...,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 	}
 	return app, errors.Trace(err)
 }
 
-func makeUnitArgs(args DeployApplicationParams) ([]applicationservice.AddUnitArg, error) {
+func makeIAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddIAASUnitArg, error) {
+	unitArgs := make([]applicationservice.AddIAASUnitArg, args.NumUnits)
+	for i := range args.NumUnits {
+		var unitPlacement *instance.Placement
+		if i < len(args.Placement) {
+			unitPlacement = args.Placement[i]
+		}
+		unitArgs[i] = applicationservice.AddIAASUnitArg{
+			AddUnitArg: applicationservice.AddUnitArg{
+				Placement: unitPlacement,
+			},
+		}
+	}
+
+	return unitArgs, nil
+}
+
+func makeCAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddUnitArg, error) {
 	unitArgs := make([]applicationservice.AddUnitArg, args.NumUnits)
 	for i := range args.NumUnits {
 		var unitPlacement *instance.Placement
@@ -256,11 +289,6 @@ func (api *APIBase) addUnits(
 		return nil, err
 	}
 
-	createUnit := api.applicationService.AddIAASUnits
-	if api.modelType == coremodel.CAAS {
-		createUnit = api.applicationService.AddCAASUnits
-	}
-
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := unitAdder.AddUnit(state.AddUnitParams{
@@ -280,7 +308,15 @@ func (api *APIBase) addUnits(
 			Placement: unitPlacement,
 		}
 
-		unitNames, err := createUnit(ctx, appName, unitArg)
+		var unitNames []coreunit.Name
+
+		if api.modelType == coremodel.CAAS {
+			unitNames, err = api.applicationService.AddCAASUnits(ctx, appName, unitArg)
+		} else {
+			unitNames, err = api.applicationService.AddIAASUnits(ctx, appName, applicationservice.AddIAASUnitArg{
+				AddUnitArg: unitArg,
+			})
+		}
 		if err != nil {
 			return nil, internalerrors.Errorf("adding unit to application %q: %w", appName, err)
 		}

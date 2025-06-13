@@ -279,13 +279,8 @@ func (u *LXDProfileAPI) getOneCanApplyLXDProfile(ctx context.Context, tag names.
 	if err != nil {
 		return false, err
 	}
-	if manual, err := machine.IsManual(); err != nil {
-		return false, err
-	} else if manual {
-		// We do no know what type of machine a manual one is, so we do not
-		// manage lxd profiles on it.
-		return false, nil
-	}
+	// TODO (stickupkid): Check if the machine is manual, if it is, just return
+	// false.
 	if providerType == "lxd" {
 		return true, nil
 	}
