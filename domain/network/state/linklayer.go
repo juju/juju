@@ -116,7 +116,7 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 			return errors.Errorf("inserting subnets: %w", err)
 		}
 
-		if err = st.insertIPAddresses(ctx, tx, addrsToInsert); err != nil {
+		if err = st.upsertIPAddresses(ctx, tx, addrsToInsert); err != nil {
 			return errors.Errorf("inserting IP addresses: %w", err)
 		}
 
@@ -472,16 +472,29 @@ func (st *State) insertSubnets(ctx context.Context, tx *sqlair.TX, subs []subnet
 	return nil
 }
 
-func (st *State) insertIPAddresses(ctx context.Context, tx *sqlair.TX, addrs []ipAddressDML) error {
+func (st *State) upsertIPAddresses(ctx context.Context, tx *sqlair.TX, addrs []ipAddressDML) error {
 	// This guard is present in SetMachineNetConfig, but we play it safe.
 	if len(addrs) == 0 {
 		return nil
 	}
 
-	st.logger.Debugf(ctx, "inserting IP addresses %#v", addrs)
+	st.logger.Debugf(ctx, "updating IP addresses %#v", addrs)
 
-	stmt, err := st.Prepare(
-		"INSERT INTO ip_address (*) VALUES ($ipAddressDML.*)", addrs[0])
+	// Note that we do not update addresses where
+	// the provider has taken authority.
+	dml := `
+INSERT INTO ip_address (*) VALUES ($ipAddressDML.*)
+ON CONFLICT (uuid) DO UPDATE SET
+	address_value = EXCLUDED.address_value,
+	config_type_id = EXCLUDED.config_type_id,
+	type_id = EXCLUDED.type_id,
+	subnet_uuid = EXCLUDED.subnet_uuid,
+	scope_id = EXCLUDED.scope_id,
+	is_secondary = EXCLUDED.is_secondary,
+	is_shadow = EXCLUDED.is_shadow
+WHERE origin_id = 0`
+
+	stmt, err := st.Prepare(dml, addrs[0])
 	if err != nil {
 		return errors.Errorf("preparing address insert statement: %w", err)
 	}
