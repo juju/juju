@@ -12,6 +12,7 @@ import (
 	"github.com/juju/collections/set"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -163,6 +164,73 @@ func (st *State) composeStorageTemplates(ctx context.Context, tx *sqlair.TX, app
 		})
 	}
 	return templates, nil
+}
+
+// unitStorageDirective represents a single storage directive for a unit.
+type unitStorageDirective struct {
+	CharmUUID       corecharm.ID
+	Count           uint64
+	Name            string
+	Size            uint64
+	StoragePoolUUID *string
+	StorageType     *string
+}
+
+func (st *State) checkCharmStorageSupportsNames()
+
+// createUnitStorageDirectives is responisble for creating the storage
+// directives for a unit. This func assumes that no storage directives exist
+// already for the unit.
+//
+// The storage directives supply must match the storage defined by the charm.
+// It is expected that the caller is satsified this check has been performed.
+func (st *State) createUnitStorageDirectives(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID coreunit.UUID,
+	charmUUID corecharm.ID,
+	args []application.ApplicationStorageArg,
+) ([]unitStorageDirective, error) {
+	insertStorageDirectiveStmt, err := st.Prepare(`
+INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
+`,
+		insertUnitStorageDirective{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	insertArgs := make([]insertUnitStorageDirective, 0, len(args))
+	rval := make([]unitStorageDirective, 0, len(args))
+	for _, arg := range args {
+		insertArgs = append(insertArgs, insertUnitStorageDirective{
+			CharmUUID:   charmUUID.String(),
+			Count:       arg.Count,
+			Size:        arg.Size,
+			StorageName: arg.Name.String(),
+			// TODO set pool or type.
+			UnitUUID: unitUUID.String(),
+		})
+
+		var (
+			poolUUID *string
+			poolType *string
+		)
+		rval = append(rval, unitStorageDirective{
+			CharmUUID:       charmUUID,
+			Count:           arg.Count,
+			Name:            arg.Name.String(),
+			StoragePoolUUID: poolUUID,
+			StorageType:     poolType,
+			Size:            arg.Size,
+		})
+	}
+
+	err = tx.Query(ctx, insertStorageDirectiveStmt, insertArgs).Run()
+	if err != nil {
+		return nil, errors.Errorf("creating unit %q storage directives: %w", unitUUID, err)
+	}
+
+	return rval, nil
 }
 
 // insertUnitStorage inserts the storage records need to record the intent

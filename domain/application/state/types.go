@@ -1298,3 +1298,16 @@ type controllerApplication struct {
 	ApplicationID coreapplication.ID `db:"application_uuid"`
 	IsController  bool               `db:"is_controller"`
 }
+
+// insertUnitStorageDirective represents the set of values required for
+// inserting a new unit storage directive.
+type insertUnitStorageDirective struct {
+	CharmUUID string `db:"charm_uuid"`
+	Count     uint64 `db:"count"`
+	// Size is the number of MiB requested for the storage.
+	Size            uint64           `db:"size_mib"`
+	StorageName     string           `db:"storage_name"`
+	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
+	StorageType     sql.Null[string] `db:"storage_type"`
+	UnitUUID        string           `db:"unit_uuid"`
+}
