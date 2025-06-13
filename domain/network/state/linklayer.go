@@ -93,7 +93,7 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 			return errors.Errorf("updating DNS addresses: %w", err)
 		}
 
-		if err = st.insertDeviceParents(ctx, tx, parents); err != nil {
+		if err = st.updateDeviceParents(ctx, tx, parents, retainedDeviceUUIDs); err != nil {
 			return errors.Errorf("inserting device parents: %w", err)
 		}
 
@@ -297,12 +297,21 @@ func (st *State) updateDNSAddresses(ctx context.Context, tx *sqlair.TX, rows []d
 	return nil
 }
 
-func (st *State) insertDeviceParents(ctx context.Context, tx *sqlair.TX, parents []deviceParent) error {
+func (st *State) updateDeviceParents(ctx context.Context, tx *sqlair.TX, parents []deviceParent, devs uuids) error {
+	stmt, err := st.Prepare("DELETE FROM link_layer_device_parent WHERE device_uuid IN ($uuids[:])", devs)
+	if err != nil {
+		return errors.Errorf("preparing device parent delete statement: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, devs).Run(); err != nil {
+		return errors.Errorf("running device parent delete statement: %w", err)
+	}
+
 	if len(parents) == 0 {
 		return nil
 	}
 
-	stmt, err := st.Prepare("INSERT INTO link_layer_device_parent (*) VALUES ($deviceParent.*)", parents[0])
+	stmt, err = st.Prepare("INSERT INTO link_layer_device_parent (*) VALUES ($deviceParent.*)", parents[0])
 	if err != nil {
 		return errors.Errorf("preparing device parent insert statement: %w", err)
 	}
