@@ -37,6 +37,8 @@ import (
 type AgentPasswordService interface {
 	// SetUnitPassword sets the password hash for the given unit.
 	SetUnitPassword(context.Context, coreunit.Name, string) error
+	// SetMachinePassword sets the password hash for the given machine.
+	SetMachinePassword(context.Context, machine.Name, string) error
 }
 
 // ControllerConfigGetter is the interface that the facade needs to get controller config.

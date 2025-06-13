@@ -600,8 +600,9 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *tc.C) {
 	err := s.setupAPI(c)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.st.SetMachineInfo(c, machineInfo{id: "1", isManual: true})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", isManual: false})
+	s.machineService.EXPECT().IsManualMachine(gomock.Any(), machine.Name("1")).Return(true, nil)
+	s.machineService.EXPECT().IsManualMachine(gomock.Any(), machine.Name("2")).Return(false, nil)
+	s.machineService.EXPECT().IsManualMachine(gomock.Any(), machine.Name("42")).Return(false, machineerrors.MachineNotFound)
 
 	result, err := s.api.AreManuallyProvisioned(c.Context(), s.mixedEntities)
 	c.Assert(err, tc.ErrorIsNil)
@@ -609,7 +610,7 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *tc.C) {
 		Results: []params.BoolResult{
 			{Result: true},
 			{Result: false},
-			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.NotFoundError(`machine "42"`)},
 			{Error: apiservertesting.ServerError(`"application-unknown" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},
 			{Error: apiservertesting.ServerError(`"unit-missing-1" is not a valid machine tag`)},
@@ -617,43 +618,6 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *tc.C) {
 			{Error: apiservertesting.ServerError(`"42" is not a valid tag`)},
 		}},
 	)
-
-	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckCall(c, 1, "IsManual")
-	s.st.CheckMachineCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "IsManual")
-	s.st.CheckMachineCall(c, 4, "42")
-}
-
-func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *tc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-	err := s.setupAPI(c)
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.st.SetErrors(
-		errors.New("pow!"),                   // m1 := FindEntity("1")
-		nil,                                  // m2 := FindEntity("2")
-		errors.New("FAIL"),                   // m2.IsManual()
-		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
-	)
-	s.st.SetMachineInfo(c, machineInfo{id: "1", isManual: true})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", isManual: false})
-
-	result, err := s.api.AreManuallyProvisioned(c.Context(), s.machineEntities)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.BoolResults{
-		Results: []params.BoolResult{
-			{Error: apiservertesting.ServerError("pow!")},
-			{Error: apiservertesting.ServerError("FAIL")},
-			{Error: apiservertesting.NotProvisionedError("42")},
-		}},
-	)
-
-	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckMachineCall(c, 1, "2")
-	s.st.CheckCall(c, 2, "IsManual")
-	s.st.CheckMachineCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *tc.C) {

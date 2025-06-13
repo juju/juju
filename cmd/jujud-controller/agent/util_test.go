@@ -202,13 +202,12 @@ func (s *commonMachineSuite) configureMachine(c *tc.C, machineId string, vers se
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Add a machine and ensure it is provisioned.
-	inst, md := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerUUID, machineId)
-	c.Assert(m.SetProvisioned(inst.Id(), "", agent.BootstrapNonce, md), tc.ErrorIsNil)
+	inst, _ := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerUUID, machineId)
 	// Double write to machine domain.
 	machineService := s.ControllerDomainServices(c).Machine()
-	machineUUID, err := machineService.CreateMachine(c.Context(), machine.Name(m.Id()))
+	machineUUID, err := machineService.CreateMachine(c.Context(), machine.Name(m.Id()), nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(c.Context(), machineUUID, inst.Id(), "", nil)
+	err = machineService.SetMachineCloudInstance(c.Context(), machineUUID, inst.Id(), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Add an address for the tests in case the initiateMongoServer
@@ -218,8 +217,11 @@ func (s *commonMachineSuite) configureMachine(c *tc.C, machineId string, vers se
 	// Set up the new machine.
 	err = m.SetAgentVersion(vers)
 	c.Assert(err, tc.ErrorIsNil)
-	err = m.SetPassword(initialMachinePassword)
+
+	passwordService := s.ControllerDomainServices(c).AgentPassword()
+	err = passwordService.SetMachinePassword(c.Context(), machine.Name(m.Id()), initialMachinePassword)
 	c.Assert(err, tc.ErrorIsNil)
+
 	tag := m.Tag()
 	if m.IsManager() {
 		err = m.SetMongoPassword(initialMachinePassword)

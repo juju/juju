@@ -26,7 +26,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesInvalidPlacement(c *tc.C) {
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementType(666),
-		}, deployment.Platform{})
+		}, deployment.Platform{}, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorMatches, `invalid placement type: 666`)
@@ -43,7 +43,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnset(c *tc.C) {
 		var err error
 		netNode, machineNames, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
-		}, deployment.Platform{})
+		}, deployment.Platform{}, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -75,12 +75,25 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithPlatform(c *tc.C) {
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
-		}, platform)
+		}, platform, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkPlatformForMachine(c, machine.Name("0"), platform)
+}
+
+func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithNonce(c *tc.C) {
+	nonce := ptr("test-nonce")
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+			Type: deployment.PlacementTypeUnset,
+		}, deployment.Platform{}, nonce)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkNonceForMachine(c, machine.Name("0"), nonce)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingArchitecture(c *tc.C) {
@@ -93,7 +106,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingArchite
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
-		}, platform)
+		}, platform, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -110,7 +123,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingBase(c 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
-		}, platform)
+		}, platform, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -129,7 +142,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
 		for range total {
 			netNode, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 				Type: deployment.PlacementTypeUnset,
-			}, deployment.Platform{})
+			}, deployment.Platform{}, nil)
 			if err != nil {
 				return err
 			}
@@ -168,7 +181,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *t
 			for range stepTotal {
 				netNode, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 					Type: deployment.PlacementTypeUnset,
-				}, deployment.Platform{})
+				}, deployment.Platform{}, nil)
 				if err != nil {
 					return err
 				}
@@ -243,7 +256,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
 		var err error
 		netNode, _, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
-		}, deployment.Platform{})
+		}, deployment.Platform{}, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -257,7 +270,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
 		resultNetNode, machineNames, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: "0",
-		}, deployment.Platform{})
+		}, deployment.Platform{}, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -272,7 +285,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachineNotFound(c *tc.C
 		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: "0",
-		}, deployment.Platform{})
+		}, deployment.Platform{}, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
@@ -290,7 +303,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 		netNode, machineNames, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeContainer,
 			Container: deployment.ContainerTypeLXD,
-		}, deployment.Platform{})
+		}, deployment.Platform{}, ptr("nonce"))
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -308,6 +321,10 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 		machine.Name("0"),
 		machine.Name("0/lxd/0"),
 	})
+
+	// Check the nonce.
+	s.checkNonceForMachine(c, machine.Name("0"), nil)
+	s.checkNonceForMachine(c, machine.Name("0/lxd/0"), ptr("nonce"))
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C) {
@@ -317,7 +334,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		_, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
-		}, deployment.Platform{})
+		}, deployment.Platform{}, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -332,7 +349,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 			Type:      deployment.PlacementTypeContainer,
 			Container: deployment.ContainerTypeLXD,
 			Directive: "0",
-		}, deployment.Platform{})
+		}, deployment.Platform{}, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -358,7 +375,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirectiveMachineNo
 			Type:      deployment.PlacementTypeContainer,
 			Container: deployment.ContainerTypeLXD,
 			Directive: "1",
-		}, deployment.Platform{})
+		}, deployment.Platform{}, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
@@ -376,7 +393,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *tc.C)
 			netNode, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 				Type:      deployment.PlacementTypeContainer,
 				Container: deployment.ContainerTypeLXD,
-			}, deployment.Platform{})
+			}, deployment.Platform{}, nil)
 			if err != nil {
 				return err
 			}
@@ -420,7 +437,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimesWithGaps(
 				netNode, _, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 					Type:      deployment.PlacementTypeContainer,
 					Container: deployment.ContainerTypeLXD,
-				}, deployment.Platform{})
+				}, deployment.Platform{}, nil)
 				if err != nil {
 					return err
 				}
@@ -517,7 +534,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesProvider(c *tc.C) {
 		netNode, _, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeProvider,
 			Directive: "zone=eu-west-1",
-		}, deployment.Platform{})
+		}, deployment.Platform{}, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -612,4 +629,25 @@ WHERE m.name = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(platform, tc.DeepEquals, expected)
+}
+
+func (s *unitStateSuite) checkNonceForMachine(c *tc.C, name machine.Name, expected *string) {
+	var nonce sql.Null[string]
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(`
+SELECT nonce
+FROM machine
+WHERE name = ?
+`, name).Scan(&nonce)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	if expected == nil {
+		c.Check(nonce.Valid, tc.Equals, false)
+	} else {
+		c.Check(nonce.V, tc.Equals, *expected)
+	}
 }

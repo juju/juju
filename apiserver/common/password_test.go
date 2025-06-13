@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/unit"
-	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
@@ -81,7 +81,7 @@ func (s *passwordSuite) TestSetPasswordsForUnitNotFoundError(c *tc.C) {
 
 	s.agentPasswordService.EXPECT().
 		SetUnitPassword(gomock.Any(), unit.Name("foo/1"), "password").
-		Return(agentpassworderrors.UnitNotFound)
+		Return(applicationerrors.UnitNotFound)
 
 	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
 	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{

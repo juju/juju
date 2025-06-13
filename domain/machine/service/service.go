@@ -32,7 +32,7 @@ type State interface {
 	// CreateMachine persists the input machine entity.
 	// It returns a MachineAlreadyExists error if a machine with the same name
 	// already exists.
-	CreateMachine(context.Context, machine.Name, string, machine.UUID) error
+	CreateMachine(context.Context, machine.Name, string, machine.UUID, *string) error
 
 	// CreateMachineWithparent persists the input machine entity, associating it
 	// with the parent machine.
@@ -100,7 +100,7 @@ type State interface {
 
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
-	SetMachineCloudInstance(context.Context, machine.UUID, instance.Id, string, *instance.HardwareCharacteristics) error
+	SetMachineCloudInstance(context.Context, machine.UUID, instance.Id, string, string, *instance.HardwareCharacteristics) error
 
 	// SetRunningAgentBinaryVersion sets the running agent version for the machine.
 	// A MachineNotFound error will be returned if the machine does not exist.
@@ -113,6 +113,9 @@ type State interface {
 	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
 	IsMachineController(context.Context, machine.Name) (bool, error)
+
+	// IsManualMachine returns whether the machine is a manual machine.
+	IsManualMachine(context.Context, machine.Name) (bool, error)
 
 	// ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
 	// the corresponding cloud instance to be stopped.
@@ -176,6 +179,11 @@ type State interface {
 	// [machineerrors.MachineNotFound] will be returned if the machine does not
 	// exist.
 	GetNamesForUUIDs(ctx context.Context, machineUUIDs []string) (map[string]machine.Name, error)
+
+	// GetMachineArchesForApplication returns a map of machine names to their
+	// instance IDs. This will ignore non-provisioned machines or container
+	// machines.
+	GetAllProvisionedMachineInstanceID(ctx context.Context) (map[string]string, error)
 }
 
 // StatusHistory records status information into a generalized way.
@@ -214,7 +222,7 @@ func NewService(st State, statusHistory StatusHistory, clock clock.Clock, logger
 // CreateMachine creates the specified machine.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
-func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (machine.UUID, error) {
+func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name, nonce *string) (machine.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -226,7 +234,7 @@ func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (
 		return "", errors.Errorf("creating machine %q: %w", machineName, err)
 	}
 
-	err = s.st.CreateMachine(ctx, machineName, nodeUUID, machineUUID)
+	err = s.st.CreateMachine(ctx, machineName, nodeUUID, machineUUID, nonce)
 	if err != nil {
 		return machineUUID, errors.Errorf("creating machine %q: %w", machineName, err)
 	}
@@ -467,6 +475,18 @@ func (s *Service) IsMachineController(ctx context.Context, machineName machine.N
 	return isController, nil
 }
 
+// IsManualMachine returns whether the machine is a manual machine.
+func (s *Service) IsManualMachine(ctx context.Context, machineName machine.Name) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	isManual, err := s.st.IsManualMachine(ctx, machineName)
+	if err != nil {
+		return false, errors.Errorf("checking if machine %q is a manual machine: %w", machineName, err)
+	}
+	return isManual, nil
+}
+
 // ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
 // the corresponding cloud instance to be stopped.
 // It returns a NotFound if the given machine doesn't exist.
@@ -582,6 +602,7 @@ func (s *Service) GetAllMachineRemovals(ctx context.Context) ([]machine.UUID, er
 func (s *Service) GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	return s.st.GetMachineUUID(ctx, name)
 }
 
@@ -589,6 +610,7 @@ func (s *Service) GetMachineUUID(ctx context.Context, name machine.Name) (machin
 func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID) ([]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	profiles, err := s.st.AppliedLXDProfileNames(ctx, mUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -604,6 +626,7 @@ func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID
 func (s *Service) SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID, profileNames []string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	return errors.Capture(s.st.SetAppliedLXDProfileNames(ctx, mUUID, profileNames))
 }
 
@@ -616,6 +639,24 @@ func (s *Service) GetMachineArchesForApplication(ctx context.Context, appUUID ap
 	defer span.End()
 
 	return nil, errors.Errorf("GetMachineArchesForApplication not implemented")
+}
+
+// GetAllProvisionedMachineInstanceID returns all provisioned machine
+// instance IDs in the model.
+func (s *Service) GetAllProvisionedMachineInstanceID(ctx context.Context) (map[machine.Name]instance.Id, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	m, err := s.st.GetAllProvisionedMachineInstanceID(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting all provisioned machine instance IDs: %w", err)
+	}
+
+	result := make(map[machine.Name]instance.Id, len(m))
+	for name, id := range m {
+		result[machine.Name(name)] = instance.Id(id)
+	}
+	return result, nil
 }
 
 // ProviderService provides the API for working with machines using the

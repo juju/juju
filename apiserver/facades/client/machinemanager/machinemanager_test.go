@@ -55,6 +55,7 @@ type AddMachineManagerSuite struct {
 	keyUpdaterService       *MockKeyUpdaterService
 	blockCommandService     *MockBlockCommandService
 	agentBinaryService      *MockAgentBinaryService
+	agentPasswordService    *MockAgentPasswordService
 }
 
 func TestAddMachineManagerSuite(t *testing.T) {
@@ -85,6 +86,7 @@ func (s *AddMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 	s.blockCommandService = NewMockBlockCommandService(ctrl)
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
 	s.agentBinaryService = NewMockAgentBinaryService(ctrl)
+	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 
 	s.api = NewMachineManagerAPI(
 		s.modelUUID,
@@ -108,6 +110,7 @@ func (s *AddMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 		nil,
 		s.blockCommandService,
 		s.agentBinaryService,
+		s.agentPasswordService,
 	)
 
 	return ctrl
@@ -150,9 +153,9 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 			},
 		},
 	}).Return(m1, nil)
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("666"))
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("667/lxd/1"))
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("667"))
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("666"), nil)
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("667/lxd/1"), nil)
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("667"), nil)
 	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("22.04"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
@@ -211,6 +214,7 @@ type DestroyMachineManagerSuite struct {
 	keyUpdaterService       *MockKeyUpdaterService
 	blockCommandService     *MockBlockCommandService
 	agentBinaryService      *MockAgentBinaryService
+	agentPasswordService    *MockAgentPasswordService
 }
 
 func TestDestroyMachineManagerSuite(t *testing.T) {
@@ -245,6 +249,7 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.blockCommandService = NewMockBlockCommandService(ctrl)
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
 	s.agentBinaryService = NewMockAgentBinaryService(ctrl)
+	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 
 	s.api = NewMachineManagerAPI(
 		s.modelUUID,
@@ -268,6 +273,7 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 		nil,
 		s.blockCommandService,
 		s.agentBinaryService,
+		s.agentPasswordService,
 	)
 
 	return ctrl
@@ -732,6 +738,7 @@ type ProvisioningMachineManagerSuite struct {
 	bootstrapEnviron        *MockBootstrapEnviron
 	blockCommandService     *MockBlockCommandService
 	agentBinaryService      *MockAgentBinaryService
+	agentPasswordService    *MockAgentPasswordService
 }
 
 func TestProvisioningMachineManagerSuite(t *testing.T) {
@@ -771,6 +778,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 
 	s.machineService.EXPECT().GetBootstrapEnviron(gomock.Any()).Return(s.bootstrapEnviron, nil).AnyTimes()
 	s.agentBinaryService = NewMockAgentBinaryService(ctrl)
+	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 
 	s.api = NewMachineManagerAPI(
 		s.modelUUID,
@@ -794,6 +802,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 		s.modelConfigService,
 		s.blockCommandService,
 		s.agentBinaryService,
+		s.agentPasswordService,
 	)
 	return ctrl
 }
@@ -805,7 +814,7 @@ func (s *ProvisioningMachineManagerSuite) expectProvisioningMachine(ctrl *gomock
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
 	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&instance.HardwareCharacteristics{Arch: arch}, nil)
 	if arch != nil {
-		machine.EXPECT().SetPassword(gomock.Any()).Return(nil)
+		s.agentPasswordService.EXPECT().SetMachinePassword(gomock.Any(), coremachine.Name("0"), gomock.Any()).Return(nil).AnyTimes()
 	}
 
 	return machine
@@ -886,7 +895,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *tc.C) 
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
-	c.Assert(err, tc.ErrorMatches, `getting instance config: arch is not set for "machine-0"`)
+	c.Assert(err, tc.ErrorMatches, `getting instance config: arch is not set for "0"`)
 }
 
 func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCommands(c *tc.C) {

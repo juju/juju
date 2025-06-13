@@ -43,7 +43,7 @@ type IAASApplicationService interface {
 	// charm.
 	CreateIAASApplication(
 		context.Context, string, charm.Charm, corecharm.Origin,
-		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
+		applicationservice.AddApplicationArgs, ...applicationservice.AddIAASUnitArg,
 	) (coreapplication.ID, error)
 }
 

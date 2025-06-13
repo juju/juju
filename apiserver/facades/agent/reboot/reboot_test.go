@@ -63,7 +63,7 @@ func TestRebootSuite(t *testing.T) {
 }
 
 func (s *rebootSuite) createMachine(c *tc.C, tag names.MachineTag) *testMachine {
-	uuid, err := s.machineService.CreateMachine(c.Context(), coremachine.Name(tag.Id()))
+	uuid, err := s.machineService.CreateMachine(c.Context(), coremachine.Name(tag.Id()), nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return s.setupMachine(c, tag, err, uuid)

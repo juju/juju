@@ -15,8 +15,10 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -348,11 +350,26 @@ func (a *InstancePollerAPI) AreManuallyProvisioned(ctx context.Context, args par
 		return result, err
 	}
 	for i, arg := range args.Entities {
-		machine, err := a.getOneMachine(arg.Tag, canAccess)
-		if err == nil {
-			result.Results[i].Result, err = machine.IsManual()
+		machineTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+
+		if !canAccess(machineTag) {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		manual, err := a.machineService.IsManualMachine(ctx, machine.Name(machineTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %q", machineTag.Id()))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Result = manual
 	}
 	return result, nil
 }

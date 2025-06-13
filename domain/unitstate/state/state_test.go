@@ -73,7 +73,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.unitName = unittesting.GenNewName(c, "app/0")
-	unitArgs := []application.AddUnitArg{{}}
+	unitArgs := []application.AddIAASUnitArg{{}}
 
 	ctx := c.Context()
 	_, _, err = appState.CreateIAASApplication(ctx, "app", appArg, unitArgs)

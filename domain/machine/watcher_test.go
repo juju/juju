@@ -50,10 +50,10 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
-	_, err := s.svc.CreateMachine(c.Context(), "0")
+	_, err := s.svc.CreateMachine(c.Context(), "0", ptr("nonce-123"))
 	c.Assert(err, tc.IsNil)
 
-	_, err = s.svc.CreateMachine(c.Context(), "0/lxd/0")
+	_, err = s.svc.CreateMachine(c.Context(), "0/lxd/0", ptr("nonce-123"))
 	c.Assert(err, tc.IsNil)
 
 	s.AssertChangeStreamIdle(c)
@@ -69,7 +69,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	watcherC.AssertChange("0")
 
 	// A new machine triggers an emission.
-	_, err = s.svc.CreateMachine(c.Context(), "1")
+	_, err = s.svc.CreateMachine(c.Context(), "1", ptr("nonce-123"))
 	c.Assert(err, tc.IsNil)
 	watcherC.AssertChange("1")
 
@@ -83,7 +83,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	// As is a container creation.
-	_, err = s.svc.CreateMachine(c.Context(), "0/lxd/1")
+	_, err = s.svc.CreateMachine(c.Context(), "0/lxd/1", ptr("nonce-123"))
 	c.Assert(err, tc.IsNil)
 
 	s.AssertChangeStreamIdle(c)
@@ -92,13 +92,13 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 	// Create a machineUUID and set its cloud instance.
-	machineUUID, err := s.svc.CreateMachine(c.Context(), "machine-1")
+	machineUUID, err := s.svc.CreateMachine(c.Context(), "machine-1", ptr("nonce-123"))
 	c.Assert(err, tc.IsNil)
 	hc := &instance.HardwareCharacteristics{
-		Mem:      uintptr(1024),
-		RootDisk: uintptr(256),
-		CpuCores: uintptr(4),
-		CpuPower: uintptr(75),
+		Mem:      ptr[uint64](1024),
+		RootDisk: ptr[uint64](256),
+		CpuCores: ptr[uint64](4),
+		CpuPower: ptr[uint64](75),
 	}
 	watcher, err := s.svc.WatchMachineCloudInstances(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -106,7 +106,7 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 
 	// Should notify when the machine cloud instance is set.
 	harness.AddTest(func(c *tc.C) {
-		err = s.svc.SetMachineCloudInstance(c.Context(), machineUUID, "42", "", hc)
+		err = s.svc.SetMachineCloudInstance(c.Context(), machineUUID, "42", "", "nonce", hc)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
@@ -117,15 +117,15 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 	// Create a machineUUID and set its cloud instance.
-	machineUUID, err := s.svc.CreateMachine(c.Context(), "machine-1")
+	machineUUID, err := s.svc.CreateMachine(c.Context(), "machine-1", ptr("nonce-123"))
 	c.Assert(err, tc.IsNil)
 	hc := &instance.HardwareCharacteristics{
-		Mem:      uintptr(1024),
-		RootDisk: uintptr(256),
-		CpuCores: uintptr(4),
-		CpuPower: uintptr(75),
+		Mem:      ptr[uint64](1024),
+		RootDisk: ptr[uint64](256),
+		CpuCores: ptr[uint64](4),
+		CpuPower: ptr[uint64](75),
 	}
-	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUID, "42", "", hc)
+	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUID, "42", "", "nonce", hc)
 	c.Assert(err, tc.IsNil)
 
 	watcher, err := s.svc.WatchMachineCloudInstances(c.Context(), machineUUID)
@@ -144,13 +144,13 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
-	machineUUIDm0, err := s.svc.CreateMachine(c.Context(), "machine-1")
+	machineUUIDm0, err := s.svc.CreateMachine(c.Context(), "machine-1", ptr("nonce-123"))
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUIDm0, instance.Id("123"), "", nil)
+	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUIDm0, instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	machineUUIDm1, err := s.svc.CreateMachine(c.Context(), "machine-2")
+	machineUUIDm1, err := s.svc.CreateMachine(c.Context(), "machine-2", ptr("nonce-123"))
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUIDm1, instance.Id("456"), "", nil)
+	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUIDm1, instance.Id("456"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	watcher, err := s.svc.WatchLXDProfiles(c.Context(), machineUUIDm0)
@@ -194,7 +194,7 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 // The tests are run using the watchertest harness.
 func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	// Create machine hierarchy to reboot from parent, with a child (which will be watched) and a control child
-	parentUUID, err := s.svc.CreateMachine(c.Context(), "parent")
+	parentUUID, err := s.svc.CreateMachine(c.Context(), "parent", ptr("nonce-123"))
 	c.Assert(err, tc.IsNil)
 	childUUID, err := s.svc.CreateMachineWithParent(c.Context(), "child", "parent")
 	c.Assert(err, tc.ErrorIsNil)
@@ -258,6 +258,6 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func uintptr(u uint64) *uint64 {
+func ptr[T any](u T) *T {
 	return &u
 }

@@ -104,7 +104,7 @@ type NetworkService interface {
 // service.
 type MachineService interface {
 	// CreateMachine creates the specified machine.
-	CreateMachine(context.Context, machine.Name) (machine.UUID, error)
+	CreateMachine(context.Context, machine.Name, *string) (machine.UUID, error)
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
 	// HardwareCharacteristics returns the hardware characteristics of the
@@ -116,14 +116,14 @@ type MachineService interface {
 type ApplicationService interface {
 	// CreateIAASApplication creates the specified IAAS application and
 	// subsequent units if supplied.
-	CreateIAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg) (coreapplication.ID, error)
+	CreateIAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddIAASUnitArg) (coreapplication.ID, error)
 
 	// CreateCAASApplication creates the specified CAAS application and
 	// subsequent units if supplied.
 	CreateCAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg) (coreapplication.ID, error)
 
 	// AddIAASUnits adds IAAS units to the application.
-	AddIAASUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) ([]unit.Name, error)
+	AddIAASUnits(ctx context.Context, name string, units ...applicationservice.AddIAASUnitArg) ([]unit.Name, error)
 
 	// AddCAASUnits adds CAAS units to the application.
 	AddCAASUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) ([]unit.Name, error)

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/password"
@@ -39,6 +40,13 @@ type AgentBinaryService interface {
 	GetEnvironAgentBinariesFinder() agentbinaryservice.EnvironAgentBinariesFinderFunc
 }
 
+// AgentPasswordService defines the methods required to set an agent password
+// hash.
+type AgentPasswordService interface {
+	// SetMachinePassword sets the password hash for the given machine.
+	SetMachinePassword(context.Context, coremachine.Name, string) error
+}
+
 // InstanceConfigServices holds the services needed to configure instances.
 type InstanceConfigServices struct {
 	ControllerConfigService ControllerConfigService
@@ -48,6 +56,7 @@ type InstanceConfigServices struct {
 	MachineService          MachineService
 	ObjectStore             objectstore.ObjectStore
 	AgentBinaryService      AgentBinaryService
+	AgentPasswordService    AgentPasswordService
 }
 
 // InstanceConfig returns information from the model config that
@@ -74,6 +83,8 @@ func InstanceConfig(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting machine")
 	}
+
+	machineName := coremachine.Name(machineId)
 	machineUUID, err := services.MachineService.GetMachineUUID(ctx, coremachine.Name(machineId))
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrieving machine UUID for machine %q", machineId)
@@ -83,7 +94,7 @@ func InstanceConfig(
 		return nil, errors.Annotate(err, "getting machine hardware characteristics")
 	}
 	if hc.Arch == nil {
-		return nil, fmt.Errorf("arch is not set for %q", machine.Tag())
+		return nil, fmt.Errorf("arch is not set for %q", machineName)
 	}
 
 	controllerConfigService := services.ControllerConfigService
@@ -128,11 +139,14 @@ func InstanceConfig(
 
 	password, err := password.RandomPassword()
 	if err != nil {
-		return nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
+		return nil, fmt.Errorf("cannot make password for machine %v: %v", machineName, err)
 	}
-	if err := machine.SetPassword(password); err != nil {
-		return nil, fmt.Errorf("cannot set API password for machine %v: %v", machine, err)
+	if err := services.AgentPasswordService.SetMachinePassword(ctx, machineName, password); errors.Is(err, applicationerrors.MachineNotFound) {
+		return nil, errors.NotFoundf("machine %q", machineId)
+	} else if err != nil {
+		return nil, fmt.Errorf("setting password for machine %v: %v", machineName, err)
 	}
+
 	caCert, _ := controllerConfig.CACert()
 	apiInfo := &api.Info{
 		Addrs:    apiAddrs.SortedValues(),

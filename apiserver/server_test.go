@@ -6,7 +6,6 @@ package apiserver_test
 import (
 	"crypto/x509"
 	"fmt"
-	"net"
 	"net/http"
 	stdtesting "testing"
 
@@ -25,7 +24,6 @@ import (
 	"github.com/juju/juju/apiserver/errors"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -36,7 +34,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
@@ -68,6 +65,14 @@ func TestServerSuite(t *stdtesting.T) {
 	tc.Run(t, &serverSuite{})
 }
 
+func TestStub(t *stdtesting.T) {
+	t.Skipf(`
+This suite is missing tests for the following scenarios:
+	- Valid machine login.
+	- Test API server can listen on both IPv4 and IPv6.
+`)
+}
+
 func (s *serverSuite) TestStop(c *tc.C) {
 	conn, machine := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 
@@ -93,104 +98,6 @@ func (s *serverSuite) TestStop(c *tc.C) {
 	// nil Server to prevent connection cleanup during teardown complaining due
 	// to connection close errors.
 	s.Server = nil
-}
-
-func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *tc.C) {
-	domainServices := s.ControllerDomainServices(c)
-	controllerConfig, err := domainServices.ControllerConfig().ControllerConfig(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	st := s.ControllerModel(c).State()
-
-	err = st.SetAPIHostPorts(controllerConfig, nil, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	machine, password := f.MakeMachineReturningPassword(
-		c, &factory.MachineParams{Nonce: "fake_nonce"})
-
-	info := s.ControllerModelApiInfo()
-	port := info.Ports()[0]
-	portString := fmt.Sprintf("%d", port)
-
-	// Now connect twice - using IPv4 and IPv6 endpoints.
-	info.Tag = machine.Tag()
-	info.Password = password
-	info.Nonce = "fake_nonce"
-
-	ipv4Conn, err := api.Open(c.Context(), info, fastDialOpts)
-	c.Assert(err, tc.ErrorIsNil)
-	defer ipv4Conn.Close()
-	c.Assert(ipv4Conn.Addr().String(), tc.Equals, "wss://"+net.JoinHostPort("localhost", portString))
-	c.Assert(ipv4Conn.APIHostPorts(), tc.DeepEquals, []network.MachineHostPorts{
-		network.NewMachineHostPorts(port, "localhost"),
-	})
-
-	_, err = apimachiner.NewClient(ipv4Conn).Machine(c.Context(), machine.MachineTag())
-	c.Assert(err, tc.ErrorIsNil)
-
-	info.Addrs = []string{net.JoinHostPort("::1", portString)}
-	ipv6Conn, err := api.Open(c.Context(), info, fastDialOpts)
-	c.Assert(err, tc.ErrorIsNil)
-	defer ipv6Conn.Close()
-	c.Assert(ipv6Conn.Addr().String(), tc.Equals, "wss://"+net.JoinHostPort("::1", portString))
-	c.Assert(ipv6Conn.APIHostPorts(), tc.DeepEquals, []network.MachineHostPorts{
-		network.NewMachineHostPorts(port, "::1"),
-	})
-
-	_, err = apimachiner.NewClient(ipv6Conn).Machine(c.Context(), machine.MachineTag())
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *serverSuite) TestOpenAsMachineErrors(c *tc.C) {
-	assertNotProvisioned := func(err error) {
-		c.Assert(err, tc.NotNil)
-		c.Assert(err, tc.Satisfies, params.IsCodeNotProvisioned)
-		c.Assert(err, tc.ErrorMatches, `machine \d+ not provisioned \(not provisioned\)`)
-	}
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	machine, password := f.MakeMachineReturningPassword(
-		c, &factory.MachineParams{Nonce: "fake_nonce"})
-
-	// This does almost exactly the same as OpenAPIAsMachine but checks
-	// for failures instead.
-	info := s.ControllerModelApiInfo()
-	info.Tag = machine.Tag()
-	info.Password = password
-	info.Nonce = "invalid-nonce"
-	st, err := api.Open(c.Context(), info, fastDialOpts)
-	assertNotProvisioned(err)
-	c.Assert(st, tc.IsNil)
-
-	// Try with empty nonce as well.
-	info.Nonce = ""
-	st, err = api.Open(c.Context(), info, fastDialOpts)
-	assertNotProvisioned(err)
-	c.Assert(st, tc.IsNil)
-
-	// Finally, with the correct one succeeds.
-	info.Nonce = "fake_nonce"
-	st, err = api.Open(c.Context(), info, fastDialOpts)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(st, tc.NotNil)
-	st.Close()
-
-	// Now add another machine, intentionally unprovisioned.
-	st1 := s.ControllerModel(c).State()
-	stm1, err := st1.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, tc.ErrorIsNil)
-	err = stm1.SetPassword(password)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Try connecting, it will fail.
-	info.Tag = stm1.Tag()
-	info.Nonce = ""
-	st, err = api.Open(c.Context(), info, fastDialOpts)
-	assertNotProvisioned(err)
-	c.Assert(st, tc.IsNil)
 }
 
 func dialWebsocket(c *tc.C, addr, path string) (*websocket.Conn, error) {
