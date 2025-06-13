@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/secrets"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -632,15 +631,18 @@ func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApp
 	return result
 }
 
-// makeStorageArgs creates a slice of ApplicationStorageArg from a map of storage directives.
-func makeStorageArgs(storage map[string]storage.Directive) []application.ApplicationStorageArg {
-	var result []application.ApplicationStorageArg
+// makeStorageArgs creates a slice of
+// [application.ApplicationStorageDirectiveArg] from a map of storage directives.
+// These are used to inform the application storage directives when creating
+// applications.
+func makeStorageArgs(storage map[string]storage.Directive) []application.ApplicationStorageDirectiveArg {
+	var result []application.ApplicationStorageDirectiveArg
 	for name, stor := range storage {
-		result = append(result, application.ApplicationStorageArg{
-			Name:           corestorage.Name(name),
-			PoolNameOrType: stor.Pool,
-			Size:           stor.Size,
-			Count:          stor.Count,
+		result = append(result, application.ApplicationStorageDirectiveArg{
+			Count: stor.Count,
+			Name:  domainstorage.Name(name),
+			// TODO: lookup pool uuid for storage.
+			Size: stor.Size,
 		})
 	}
 	return result
