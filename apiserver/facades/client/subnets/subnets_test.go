@@ -6,6 +6,11 @@ package subnets_test
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
+	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	networkcommonmocks "github.com/juju/juju/apiserver/common/networkingcommon/mocks"
@@ -21,10 +26,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 // SubnetSuite uses mocks for testing.
@@ -357,6 +358,7 @@ func (s *SubnetsSuite) TestControllerConfigFails(c *gc.C) {
 		s.callContext,
 		s.resources, s.authorizer,
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.facade.AllZones()
 

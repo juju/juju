@@ -5,7 +5,6 @@ package environ_test
 
 import (
 	"context"
-	"github.com/juju/juju/controller"
 	"sync"
 
 	"github.com/juju/names/v5"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"

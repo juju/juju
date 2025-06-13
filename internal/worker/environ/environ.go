@@ -5,12 +5,12 @@ package environ
 
 import (
 	"context"
-	"github.com/juju/juju/controller"
 	"reflect"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
