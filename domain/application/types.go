@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
@@ -212,16 +213,40 @@ type AddIAASUnitArg struct {
 	Nonce    *string
 }
 
+// UnitStorageDirectiveArg describes the arguments required for making storage
+// directives on a unit.
+type UnitStorageDirectiveArg struct {
+	// Count is the number of storage instances to create from this directive.
+	Count uint64
+
+	// Size is the desired size of the storage directive in MiB.
+	Size uint64
+
+	// StorageName is the name of the storage associated with the charm storage
+	// definition.
+	StorageName string
+
+	// StoragePoolUUID is the UUID of the storage pool to use when creating
+	// storage instances from this directive. This value is optional and if nil
+	// it is expected that [UnitStorageDirective.StorageType] is set.
+	StoragePoolUUID *domainstorage.StoragePoolUUID
+
+	// Storage provider defines the unique name of the provider to use when
+	// provisioning storage from this directive.
+	StorageProvider *string
+}
+
 // InsertUnitArg is used to insert a fully populated unit.
 // Used by import and when registering a CAAS unit.
 type InsertUnitArg struct {
-	UnitName        coreunit.Name
-	CloudContainer  *CloudContainer
-	Password        *PasswordInfo
-	Constraints     constraints.Constraints
-	Placement       deployment.Placement
-	Storage         []ApplicationStorageArg
-	StoragePoolKind map[string]storage.StorageKind
+	UnitName          coreunit.Name
+	CloudContainer    *CloudContainer
+	Password          *PasswordInfo
+	Constraints       constraints.Constraints
+	Placement         deployment.Placement
+	Storage           []ApplicationStorageArg
+	StorageDirectives []UnitStorageDirectiveArg
+	StoragePoolKind   map[string]storage.StorageKind
 	UnitStatusArg
 }
 

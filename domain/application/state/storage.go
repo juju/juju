@@ -173,7 +173,7 @@ type unitStorageDirective struct {
 	Name            string
 	Size            uint64
 	StoragePoolUUID *string
-	StorageType     *string
+	StorageProvider *string
 }
 
 func (st *State) checkCharmStorageSupportsNames()
@@ -189,7 +189,7 @@ func (st *State) createUnitStorageDirectives(
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
 	charmUUID corecharm.ID,
-	args []application.ApplicationStorageArg,
+	args []application.UnitStorageDirectiveArg,
 ) ([]unitStorageDirective, error) {
 	insertStorageDirectiveStmt, err := st.Prepare(`
 INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
@@ -206,21 +206,29 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 			CharmUUID:   charmUUID.String(),
 			Count:       arg.Count,
 			Size:        arg.Size,
-			StorageName: arg.Name.String(),
+			StorageName: arg.StorageName,
 			// TODO set pool or type.
 			UnitUUID: unitUUID.String(),
 		})
 
 		var (
 			poolUUID *string
-			poolType *string
+			provider *string
 		)
+		if arg.StoragePoolUUID != nil {
+			poolUUIDStr := arg.StoragePoolUUID.String()
+			poolUUID = &poolUUIDStr
+		}
+		if arg.StorageProvider != nil {
+			poolTypeStr := *arg.StorageProvider
+			provider = &poolTypeStr
+		}
 		rval = append(rval, unitStorageDirective{
 			CharmUUID:       charmUUID,
 			Count:           arg.Count,
-			Name:            arg.Name.String(),
+			Name:            arg.StorageName,
 			StoragePoolUUID: poolUUID,
-			StorageType:     poolType,
+			StorageProvider: provider,
 			Size:            arg.Size,
 		})
 	}
