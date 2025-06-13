@@ -919,6 +919,56 @@ func (s *stateSuite) TestGetNamesForUUIDsNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+func (s *stateSuite) TestGetAllProvisionedMachineInstanceID(c *tc.C) {
+	machineInstances, err := s.state.GetAllProvisionedMachineInstanceID(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machineInstances, tc.HasLen, 0)
+
+	err = s.state.CreateMachine(c.Context(), "666", "", "deadbeef")
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineInstances, err = s.state.GetAllProvisionedMachineInstanceID(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machineInstances, tc.HasLen, 0)
+
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineInstances, err = s.state.GetAllProvisionedMachineInstanceID(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machineInstances, tc.DeepEquals, map[string]string{
+		"666": "123",
+	})
+}
+
+func (s *stateSuite) TestGetAllProvisionedMachineInstanceIDContainer(c *tc.C) {
+	err := s.state.CreateMachine(c.Context(), "666", "abc1", "deadbeef1")
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.CreateMachine(c.Context(), "667", "abc2", "deadbeef2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef1", instance.Id("123"), "", "nonce", nil)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef2", instance.Id("124"), "", "nonce", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().Txn(c.Context(), func(c context.Context, tx *sqlair.TX) error {
+		return s.state.createParentMachineLink(c, tx, createMachineArgs{
+			name:        "667",
+			machineUUID: "deadbeef2",
+			netNodeUUID: "abc1",
+			parentName:  "666",
+		})
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineInstances, err := s.state.GetAllProvisionedMachineInstanceID(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machineInstances, tc.DeepEquals, map[string]string{
+		"666": "123",
+	})
+}
+
 func (s *stateSuite) createApplication(c *tc.C, controller bool) machine.Name {
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	_, machineNames, err := applicationSt.CreateIAASApplication(c.Context(), "foo", application.AddIAASApplicationArg{

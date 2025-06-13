@@ -179,6 +179,11 @@ type State interface {
 	// [machineerrors.MachineNotFound] will be returned if the machine does not
 	// exist.
 	GetNamesForUUIDs(ctx context.Context, machineUUIDs []string) (map[string]machine.Name, error)
+
+	// GetMachineArchesForApplication returns a map of machine names to their
+	// instance IDs. This will ignore non-provisioned machines or container
+	// machines.
+	GetAllProvisionedMachineInstanceID(ctx context.Context) (map[string]string, error)
 }
 
 // StatusHistory records status information into a generalized way.
@@ -597,6 +602,7 @@ func (s *Service) GetAllMachineRemovals(ctx context.Context) ([]machine.UUID, er
 func (s *Service) GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	return s.st.GetMachineUUID(ctx, name)
 }
 
@@ -604,6 +610,7 @@ func (s *Service) GetMachineUUID(ctx context.Context, name machine.Name) (machin
 func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID) ([]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	profiles, err := s.st.AppliedLXDProfileNames(ctx, mUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -619,6 +626,7 @@ func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID
 func (s *Service) SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID, profileNames []string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	return errors.Capture(s.st.SetAppliedLXDProfileNames(ctx, mUUID, profileNames))
 }
 
@@ -631,6 +639,24 @@ func (s *Service) GetMachineArchesForApplication(ctx context.Context, appUUID ap
 	defer span.End()
 
 	return nil, errors.Errorf("GetMachineArchesForApplication not implemented")
+}
+
+// GetAllProvisionedMachineInstanceID returns all provisioned machine
+// instance IDs in the model.
+func (s *Service) GetAllProvisionedMachineInstanceID(ctx context.Context) (map[machine.Name]instance.Id, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	m, err := s.st.GetAllProvisionedMachineInstanceID(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting all provisioned machine instance IDs: %w", err)
+	}
+
+	result := make(map[machine.Name]instance.Id, len(m))
+	for name, id := range m {
+		result[machine.Name(name)] = instance.Id(id)
+	}
+	return result, nil
 }
 
 // ProviderService provides the API for working with machines using the

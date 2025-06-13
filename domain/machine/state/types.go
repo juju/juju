@@ -192,3 +192,9 @@ type machineNonce struct {
 	MachineUUID machine.UUID `db:"machine_uuid"`
 	Nonce       string       `db:"nonce"`
 }
+
+type machineInstance struct {
+	MachineName string `db:"machine_name"`
+	InstanceID  string `db:"instance_id"`
+	IsContainer int64  `db:"is_container"`
+}
