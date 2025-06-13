@@ -95,7 +95,7 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 		}
 
 		// Otherwise, insert the data.
-		newNics, dnsSearchDoms, dnsAddrs, nicNameToUUID, err := st.reconcileNetConfigDevices(nodeUUID, nics)
+		newNics, dnsSearchDoms, dnsAddrs, parents, nicNameToUUID, err := st.reconcileNetConfigDevices(nodeUUID, nics)
 		if err != nil {
 			return errors.Errorf("reconciling incoming network devices: %w", err)
 		}
@@ -117,6 +117,10 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 			return errors.Errorf("updating DNS addresses: %w", err)
 		}
 
+		if err = st.insertDeviceParents(ctx, tx, parents); err != nil {
+			return errors.Errorf("inserting device parents: %w", err)
+		}
+
 		subs, err := st.getSubnetGroups(ctx, tx)
 		if err != nil {
 			return errors.Errorf("getting subnet groups: %w", err)
@@ -132,10 +136,8 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 			return nil
 		}
 
-		if len(newSubs) > 0 {
-			if err := st.insertSubnets(ctx, tx, newSubs); err != nil {
-				return errors.Errorf("inserting subnets: %w", err)
-			}
+		if err := st.insertSubnets(ctx, tx, newSubs); err != nil {
+			return errors.Errorf("inserting subnets: %w", err)
 		}
 
 		if err = st.insertIPAddresses(ctx, tx, addrsToInsert); err != nil {
@@ -150,7 +152,7 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 
 func (st *State) reconcileNetConfigDevices(
 	nodeUUID string, nics []network.NetInterface,
-) ([]linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, map[string]string, error) {
+) ([]linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, []deviceParent, map[string]string, error) {
 	// TODO (manadart 2025-04-30): This will have to return more types for
 	// provider ID entries etc.
 
@@ -162,7 +164,7 @@ func (st *State) reconcileNetConfigDevices(
 	for _, n := range nics {
 		nicUUID, err := network.NewInterfaceUUID()
 		if err != nil {
-			return nil, nil, nil, nil, errors.Capture(err)
+			return nil, nil, nil, nil, nil, errors.Capture(err)
 		}
 		nameToUUID[n.Name] = nicUUID.String()
 	}
@@ -176,7 +178,7 @@ func (st *State) reconcileNetConfigDevices(
 	for i, n := range nics {
 		nicDML, dnsSearchDML, dnsAddrDML, err := netInterfaceToDML(n, nodeUUID, nameToUUID)
 		if err != nil {
-			return nil, nil, nil, nil, errors.Capture(err)
+			return nil, nil, nil, nil, nil, errors.Capture(err)
 		}
 
 		nicsDML[i] = nicDML
@@ -184,7 +186,25 @@ func (st *State) reconcileNetConfigDevices(
 		dnsAddrDMLs = append(dnsAddrDMLs, dnsAddrDML...)
 	}
 
-	return nicsDML, dnsSearchDMLs, dnsAddrDMLs, nameToUUID, nil
+	// Use the nameToUUID map to populate device parents.
+	var parentDMLs []deviceParent
+	for _, n := range nics {
+		if n.ParentDeviceName == "" {
+			continue
+		}
+
+		if parentUUID, ok := nameToUUID[n.ParentDeviceName]; ok {
+			parentDMLs = append(parentDMLs, deviceParent{
+				DeviceUUID: nameToUUID[n.Name],
+				ParentUUID: parentUUID,
+			})
+		} else {
+			st.logger.Warningf(context.TODO(), "parent device %q for %q not found in incoming data",
+				n.ParentDeviceName, n.Name)
+		}
+	}
+
+	return nicsDML, dnsSearchDMLs, dnsAddrDMLs, parentDMLs, nameToUUID, nil
 }
 
 func (st *State) insertLinkLayerDevices(ctx context.Context, tx *sqlair.TX, devs []linkLayerDeviceDML) error {
@@ -259,6 +279,23 @@ func (st *State) updateDNSAddresses(ctx context.Context, tx *sqlair.TX, rows []d
 
 	if err := tx.Query(ctx, stmt, rows).Run(); err != nil {
 		return errors.Errorf("running DNS address insert statement: %w", err)
+	}
+
+	return nil
+}
+
+func (st *State) insertDeviceParents(ctx context.Context, tx *sqlair.TX, parents []deviceParent) error {
+	if len(parents) == 0 {
+		return nil
+	}
+
+	stmt, err := st.Prepare("INSERT INTO link_layer_device_parent (*) VALUES ($deviceParent.*)", parents[0])
+	if err != nil {
+		return errors.Errorf("preparing device parent insert statement: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, parents).Run(); err != nil {
+		return errors.Errorf("running device parent insert statement: %w", err)
 	}
 
 	return nil
@@ -393,6 +430,10 @@ func (st *State) reconcileNetConfigAddresses(
 }
 
 func (st *State) insertSubnets(ctx context.Context, tx *sqlair.TX, subs []subnet) error {
+	if len(subs) == 0 {
+		return nil
+	}
+
 	st.logger.Debugf(ctx, "inserting new subnets %#v", subs)
 
 	stmt, err := st.Prepare("INSERT INTO subnet (*) VALUES ($subnet.*)", subs[0])
@@ -409,6 +450,11 @@ func (st *State) insertSubnets(ctx context.Context, tx *sqlair.TX, subs []subnet
 }
 
 func (st *State) insertIPAddresses(ctx context.Context, tx *sqlair.TX, addrs []ipAddressDML) error {
+	// This guard is present in SetMachineNetConfig, but we play it safe.
+	if len(addrs) == 0 {
+		return nil
+	}
+
 	st.logger.Debugf(ctx, "inserting IP addresses %#v", addrs)
 
 	stmt, err := st.Prepare(
