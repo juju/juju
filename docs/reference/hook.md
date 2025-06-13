@@ -240,7 +240,7 @@ This phase occurs when a charm has completed its installation operations and sta
 The behaviour when in this phase can be explained by understanding the events which trigger the execution of the different hook kinds, and the context in which the hooks execute.
 This is covered in subsequent sections where hook kinds are explored in more detail.
 
-(operation-phase)=
+(upgrade-phase)=
 ### Upgrade phase
 
 When a charm is upgraded, the `upgrade-charm` hook is followed by a `config-changed` hook.
