@@ -14,9 +14,3 @@ import (
 type CAASModelOperatorState interface {
 	FindEntity(tag names.Tag) (state.Entity, error)
 }
-
-// CAASModelOperatorState provides the subset of controller state required by the
-// model operator provisioner.
-type CAASControllerState interface {
-	WatchAPIHostPortsForAgents() state.NotifyWatcher
-}

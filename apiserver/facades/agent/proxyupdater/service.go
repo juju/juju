@@ -17,6 +17,14 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// ControllerNodeService defines the methods on the controller node service
+// that are needed the proxy updater API.
+type ControllerNodeService interface {
+	// WatchControllerAPIAddresses returns a watcher that observes changes to the
+	// controller ip addresses.
+	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
+}
+
 // ModelConfigService provides access to the model's configuration.
 type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.

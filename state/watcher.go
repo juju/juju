@@ -1155,12 +1155,6 @@ func (st *State) WatchAPIHostPortsForClients() NotifyWatcher {
 	return newEntityWatcher(st, controllersC, apiHostPortsKey)
 }
 
-// WatchAPIHostPortsForAgents returns a NotifyWatcher that notifies
-// when the set of API addresses usable by agents changes.
-func (st *State) WatchAPIHostPortsForAgents() NotifyWatcher {
-	return newEntityWatcher(st, controllersC, apiHostPortsForAgentsKey)
-}
-
 // WatchStorageAttachment returns a watcher for observing changes
 // to a storage attachment.
 func (sb *storageBackend) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) NotifyWatcher {

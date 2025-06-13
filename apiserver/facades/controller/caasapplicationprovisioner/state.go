@@ -36,7 +36,6 @@ type CAASApplicationProvisionerState interface {
 // required by the CAAS operator provisioner facade.
 type CAASApplicationControllerState interface {
 	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
-	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
 
 type Model interface {
