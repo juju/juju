@@ -36,7 +36,7 @@ var extractControllerRe = regexp.MustCompile(GroupControllerPattern)
 var shortRetryStrategy = retry.CallArgs{
 	Clock:       clock.WallClock,
 	MaxDuration: 5 * time.Second,
-	Delay:       200 * time.Millisecond,
+	Delay:       3 * time.Second,
 	BackoffFunc: retry.DoubleDelay,
 }
 
