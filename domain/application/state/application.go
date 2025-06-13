@@ -375,13 +375,27 @@ func (st *State) insertIAASApplicationUnits(
 		if err != nil {
 			return nil, errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 		}
+
+		storageDirectives := make([]application.UnitStorageDirectiveArg, 0, len(args.Storage))
+		for _, appStorageArg := range args.Storage {
+			storageDirectives = append(
+				storageDirectives, application.UnitStorageDirectiveArg{
+					Count:       appStorageArg.Count,
+					Size:        appStorageArg.Size,
+					StorageName: appStorageArg.Name.String(),
+					// TODO set storage pool uuid or type.
+				},
+			)
+		}
+
 		insertUnits[i] = application.InsertIAASUnitArg{
 			InsertUnitArg: application.InsertUnitArg{
-				UnitName:        unitName,
-				Constraints:     unit.Constraints,
-				Placement:       unit.Placement,
-				Storage:         args.Storage,
-				StoragePoolKind: args.StoragePoolKind,
+				UnitName:          unitName,
+				Constraints:       unit.Constraints,
+				Placement:         unit.Placement,
+				Storage:           args.Storage,
+				StorageDirectives: storageDirectives,
+				StoragePoolKind:   args.StoragePoolKind,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    unit.UnitStatusArg.AgentStatus,
 					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
@@ -416,12 +430,26 @@ func (st *State) insertCAASApplicationUnits(
 		if err != nil {
 			return errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 		}
+
+		storageDirectives := make([]application.UnitStorageDirectiveArg, 0, len(args.Storage))
+		for _, appStorageArg := range args.Storage {
+			storageDirectives = append(
+				storageDirectives, application.UnitStorageDirectiveArg{
+					Count:       appStorageArg.Count,
+					Size:        appStorageArg.Size,
+					StorageName: appStorageArg.Name.String(),
+					// TODO set storage pool uuid or type.
+				},
+			)
+		}
+
 		insertUnits[i] = application.InsertUnitArg{
-			UnitName:        unitName,
-			Constraints:     unit.Constraints,
-			Placement:       unit.Placement,
-			Storage:         args.Storage,
-			StoragePoolKind: args.StoragePoolKind,
+			UnitName:          unitName,
+			Constraints:       unit.Constraints,
+			Placement:         unit.Placement,
+			Storage:           args.Storage,
+			StorageDirectives: storageDirectives,
+			StoragePoolKind:   args.StoragePoolKind,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus:    unit.UnitStatusArg.AgentStatus,
 				WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
@@ -1282,7 +1310,7 @@ func (st *State) deleteCloudServiceAddresses(ctx context.Context, tx *sqlair.TX,
 	deleteAddressStmt, err := st.Prepare(`
 DELETE FROM ip_address
 WHERE device_uuid IN (
-    SELECT device_uuid 
+    SELECT device_uuid
     FROM   link_layer_device AS lld
     JOIN   net_node AS nn ON nn.uuid = lld.net_node_uuid
     JOIN   k8s_service AS ks ON ks.net_node_uuid = nn.uuid
@@ -3388,7 +3416,7 @@ AND charm_uuid = $charmID.uuid;
 
 func (st *State) getApplicationConfigWithDefaults(ctx context.Context, tx *sqlair.TX, appID applicationID) ([]applicationConfig, error) {
 	configStmt, err := st.Prepare(`
-SELECT 
+SELECT
 	cc.key AS &applicationConfig.key,
 	COALESCE(ac.value, cc.default_value) AS &applicationConfig.value,
 	cct.name AS &applicationConfig.type
@@ -3690,7 +3718,7 @@ SELECT
     vcr.scope AS &relationInfo.scope,
     COUNT(DISTINCT re.relation_uuid) AS &relationInfo.count
 FROM   v_charm_relation AS vcr
-JOIN   application_endpoint AS ae ON vcr.uuid = ae.charm_relation_uuid    
+JOIN   application_endpoint AS ae ON vcr.uuid = ae.charm_relation_uuid
 JOIN   relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
 JOIN   application AS a ON ae.application_uuid = a.uuid
 WHERE  ae.application_uuid = $application.uuid
