@@ -64,6 +64,7 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	defer ctrl.Finish()
 
 	model := mocks.NewMockModel(ctrl)
+	model.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 	s.st.EXPECT().Model().Return(model, nil)
 
 	itCons := constraints.Value{CpuCores: &over9kCPUCores}
@@ -84,6 +85,7 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	).MinTimes(1)
 
 	fakeEnvironGet := func(st environs.EnvironConfigGetter,
+		controllerUUID string,
 		newEnviron environs.NewEnvironFunc,
 	) (environs.Environ, error) {
 		return env, nil

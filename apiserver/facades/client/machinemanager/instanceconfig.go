@@ -63,7 +63,7 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
 	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
 	newEnviron := func() (environs.BootstrapEnviron, error) {
-		return environs.GetEnviron(configGetter, environs.New)
+		return environs.GetEnviron(configGetter, model.ControllerUUID(), environs.New)
 	}
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	toolsList, err := toolsFinder.FindAgents(common.FindAgentsParams{

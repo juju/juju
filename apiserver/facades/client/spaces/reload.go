@@ -110,8 +110,8 @@ type ReloadSpacesEnvirons struct {
 
 // GetEnviron returns the environs.Environ ("provider") associated
 // with the model.
-func (ReloadSpacesEnvirons) GetEnviron(st environs.EnvironConfigGetter, fn environs.NewEnvironFunc) (environs.Environ, error) {
-	return environs.GetEnviron(st, fn)
+func (r ReloadSpacesEnvirons) GetEnviron(st environs.EnvironConfigGetter, fn environs.NewEnvironFunc) (environs.Environ, error) {
+	return environs.GetEnviron(st, r.ControllerUUID(), fn)
 }
 
 // DefaultReloadSpacesEnvirons creates a new ReloadSpacesEnviron from state.

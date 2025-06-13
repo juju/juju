@@ -21,7 +21,7 @@ func (mm *MachineManagerAPI) InstanceTypes(cons params.ModelInstanceTypesConstra
 	return instanceTypes(mm, environs.GetEnviron, cons)
 }
 
-type environGetFunc func(st environs.EnvironConfigGetter, newEnviron environs.NewEnvironFunc) (environs.Environ, error)
+type environGetFunc func(st environs.EnvironConfigGetter, controllerUUID string, newEnviron environs.NewEnvironFunc) (environs.Environ, error)
 
 func instanceTypes(mm *MachineManagerAPI,
 	getEnviron environGetFunc,
@@ -40,7 +40,7 @@ func instanceTypes(mm *MachineManagerAPI,
 		ModelConfigFunc: model.Config,
 	}
 
-	env, err := getEnviron(backend, environs.New)
+	env, err := getEnviron(backend, model.ControllerUUID(), environs.New)
 	if err != nil {
 		return params.InstanceTypesResults{}, errors.Trace(err)
 	}
