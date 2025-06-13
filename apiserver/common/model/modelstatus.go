@@ -12,7 +12,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
-	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -29,15 +28,15 @@ type StatusServiceGetter = func(context.Context, coremodel.UUID) (StatusService,
 
 // ModelInfoService defines domain service methods for managing a model.
 type ModelInfoService interface {
-	// GetStatus returns the current status of the model.
-	// The following error types can be expected to be returned:
-	// - [github.com/juju/juju/modelerrors.NotFound]: When the model does not exist.
-	GetStatus(context.Context) (domainmodel.StatusInfo, error)
-
 	// IsControllerModel returns true if the model is the controller model.
 	// The following errors may be returned:
 	// - [modelerrors.NotFound] when the model does not exist.
 	IsControllerModel(context.Context) (bool, error)
+
+	// HasValidCredential returns true if the model has a valid credential.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model no longer exists.
+	HasValidCredential(context.Context) (bool, error)
 }
 
 // ModelService provides access to information about the models within the controller.

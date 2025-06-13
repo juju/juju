@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/blockcommand"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	interrors "github.com/juju/juju/internal/errors"
@@ -121,12 +120,12 @@ func destroyModel(
 	}
 	notForcing := args.Force == nil || !*args.Force
 	if notForcing {
-		// If model status is suspended, then model's cloud credential is invalid.
-		modelStatus, err := modelInfoService.GetStatus(ctx)
+		hasValidCredential, err := modelInfoService.HasValidCredential(ctx)
+
 		if err != nil {
 			return interrors.Capture(err)
 		}
-		if modelStatus.Status == status.Suspended {
+		if !hasValidCredential {
 			return interrors.Errorf("invalid cloud credential, use --force")
 		}
 	}

@@ -19,6 +19,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
+	corestatus "github.com/juju/juju/core/status"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
@@ -208,12 +209,6 @@ type ModelInfoService interface {
 	// question.
 	GetModelInfo(context.Context) (coremodel.ModelInfo, error)
 
-	// GetStatus returns the current status of the model.
-	// The following error types can be expected to be returned:
-	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model
-	// does not exist.
-	GetStatus(context.Context) (model.StatusInfo, error)
-
 	// GetModelSummary returns a summary of the current model as a
 	// [coremodel.ModelSummary] type.
 	// The following error types can be expected:
@@ -233,7 +228,12 @@ type ModelInfoService interface {
 	// IsControllerModel returns true if the model is the controller model.
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does not exist.
-	IsControllerModel(context.Context) (bool, error)
+	IsControllerModel(ctx context.Context) (bool, error)
+
+	// HasValidCredential returns true if the model has a valid credential.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model no longer exists.
+	HasValidCredential(ctx context.Context) (bool, error)
 }
 
 // ModelExporter defines a interface for exporting models.
@@ -307,6 +307,12 @@ type StatusService interface {
 	// The following error types can be expected to be returned:
 	// - [modelerrors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error)
+
+	// GetModelStatus returns the current status of the model.
+	//
+	// The following error types can be expected to be returned:
+	// / - [github.com/juju/juju/domain/model/errors.NotFound]: When the model no longer exists.
+	GetModelStatus(ctx context.Context) (corestatus.StatusInfo, error)
 }
 
 // SecretBackendService is an interface for interacting with secret backend service.
