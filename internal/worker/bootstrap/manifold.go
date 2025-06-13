@@ -17,10 +17,12 @@ import (
 	"github.com/juju/juju/core/flags"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/internal/bootstrap"
+	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
@@ -52,6 +54,10 @@ type PopulateControllerCharmFunc func(context.Context, bootstrap.ControllerCharm
 // bootstrap address finder.
 type BootstrapAddressFinderGetter func(providerFactory providertracker.ProviderFactory, namespace string) BootstrapAddressFinderFunc
 
+// SetMachineProvisionedFunc is the function that is used to set the
+// machine provisioned.
+type SetMachineProvisionedFunc func(context.Context, AgentPasswordService, MachineService, instancecfg.StateInitializationParams, agent.Config) error
+
 // ControllerUnitPasswordFunc is the function that is used to get the
 // controller unit password.
 type ControllerUnitPasswordFunc func(context.Context) (string, error)
@@ -82,6 +88,7 @@ type ManifoldConfig struct {
 	RequiresBootstrap            RequiresBootstrapFunc
 	PopulateControllerCharm      PopulateControllerCharmFunc
 	BootstrapAddressFinderGetter BootstrapAddressFinderGetter
+	SetMachineProvisioned        SetMachineProvisionedFunc
 
 	Logger logger.Logger
 	Clock  clock.Clock
@@ -136,6 +143,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.BootstrapAddressFinderGetter == nil {
 		return errors.NotValidf("nil BootstrapAddressFinderGetter")
+	}
+	if cfg.SetMachineProvisioned == nil {
+		return errors.NotValidf("nil SetMachineProvisioned")
 	}
 	return nil
 }
@@ -291,6 +301,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				AgentBinaryUploader:     config.AgentBinaryUploader,
 				ControllerCharmDeployer: config.ControllerCharmDeployer,
 				PopulateControllerCharm: config.PopulateControllerCharm,
+				SetMachineProvisioned:   config.SetMachineProvisioned,
 				CharmhubHTTPClient:      charmhubHTTPClient,
 				UnitPassword:            unitPassword,
 				ServiceManagerGetter:    serviceManagerGetter,
@@ -330,4 +341,51 @@ func PopulateIAASControllerCharm(ctx context.Context, controllerCharmDeployer bo
 // controller CAAS charm.
 func PopulateCAASControllerCharm(ctx context.Context, controllerCharmDeployer bootstrap.ControllerCharmDeployer) error {
 	return bootstrap.PopulateCAASControllerCharm(ctx, controllerCharmDeployer)
+}
+
+// SetIAASMachineProvisioned is the function that is used to set the
+// machine provisioned for IAAS workloads.
+func IAASSetMachineProvisioned(
+	ctx context.Context,
+	agentPasswordService AgentPasswordService,
+	machineService MachineService,
+	bootstrapParams instancecfg.StateInitializationParams,
+	agentConfig agent.Config) error {
+	// Set machine cloud instance data for the bootstrap machine.
+	bootstrapMachineUUID, err := machineService.GetMachineUUID(ctx, machine.Name(agent.BootstrapControllerId))
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	apiInfo, ok := agentConfig.APIInfo()
+	if !ok {
+		// If this is missing, we cannot set the machine password or set the
+		// machine as provisioned.
+		return errors.Errorf("agent config is missing APIInfo for %q", agent.BootstrapControllerId)
+	}
+
+	// Set the machine password for the bootstrap controller.
+	if err := agentPasswordService.SetMachinePassword(ctx, machine.Name(agent.BootstrapControllerId), apiInfo.Password); err != nil {
+		return errors.Trace(err)
+	}
+
+	// If this data exists, we consider the machine as provisioned.
+	if err := machineService.SetMachineCloudInstance(
+		ctx,
+		bootstrapMachineUUID,
+		bootstrapParams.BootstrapMachineInstanceId,
+		bootstrapParams.BootstrapMachineDisplayName,
+		agent.BootstrapNonce,
+		bootstrapParams.BootstrapMachineHardwareCharacteristics,
+	); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// SetCAASMachineProvisioned is a no-op function for CAAS workloads, as they
+// don't have machines.
+func CAASSetMachineProvisioned(context.Context, AgentPasswordService, MachineService, instancecfg.StateInitializationParams, agent.Config) error {
+	return nil
 }

@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
-	machine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
@@ -75,7 +74,6 @@ func (s *workerSuite) TestKilled(c *tc.C) {
 	s.expectAgentConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
-	s.expectSetMachineCloudInstance()
 	s.expectSetAPIHostPorts()
 	s.expectStateServingInfo()
 	s.expectReloadSpaces()
@@ -102,7 +100,6 @@ func (s *workerSuite) TestReloadSpacesBeforeControllerCharm(c *tc.C) {
 	s.expectAgentConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
-	s.expectSetMachineCloudInstance()
 	s.expectSetAPIHostPorts()
 	s.expectStateServingInfo()
 	controllerCharmDeployerFunc := s.expectReloadSpacesWithFunc(c)
@@ -377,6 +374,9 @@ func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc Con
 		BootstrapAddressFinder: func(context.Context, instance.Id) (network.ProviderAddresses, error) {
 			return nil, nil
 		},
+		SetMachineProvisioned: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, c agent.Config) error {
+			return nil
+		},
 		Clock: clock.WallClock,
 	}, s.states)
 	c.Assert(err, tc.ErrorIsNil)
@@ -437,11 +437,6 @@ func (s *workerSuite) expectStateServingInfo() {
 	s.agentConfig.EXPECT().StateServingInfo().Return(controller.StateServingInfo{
 		APIPort: 42,
 	}, true)
-}
-
-func (s *workerSuite) expectSetMachineCloudInstance() {
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(agent.BootstrapControllerId)).Return("deadbeef", nil)
-	s.machineService.EXPECT().SetMachineCloudInstance(gomock.Any(), machine.UUID("deadbeef"), instance.Id("i-deadbeef"), "", agent.BootstrapNonce, nil)
 }
 
 func (s *workerSuite) expectReloadSpaces() {

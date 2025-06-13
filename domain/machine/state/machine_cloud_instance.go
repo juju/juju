@@ -147,7 +147,7 @@ WHERE machine_uuid=$instanceData.machine_uuid
 UPDATE machine
 SET    nonce = $machineNonce.nonce
 WHERE  uuid = $machineNonce.machine_uuid
-AND    nonce IS NULL
+AND    nonce IS NULL OR nonce = ''
 `, mNonce)
 	if err != nil {
 		return errors.Capture(err)
