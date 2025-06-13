@@ -210,8 +210,6 @@ func (s *storagePoolStateSuite) TestDeleteStoragePoolNotFound(c *tc.C) {
 }
 
 func (s *storagePoolStateSuite) TestListStoragePoolsWithoutBuiltins(c *tc.C) {
-	c.Skip(c, "TODO: enable this test when storage pools are fully implemented in the state package")
-
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePool{
@@ -240,6 +238,141 @@ func (s *storagePoolStateSuite) TestListStoragePoolsWithoutBuiltins(c *tc.C) {
 	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{sp, sp2})
 }
 
+func (s *storagePoolStateSuite) TestListStoragePoolsWithoutBuiltinsEmpty(c *tc.C) {
+	st := newStoragePoolState(s.TxnRunnerFactory())
+
+	out, err := st.ListStoragePoolsWithoutBuiltins(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.HasLen, 0)
+}
+
+func (s *storagePoolStateSuite) TestListStoragePools(c *tc.C) {
+	st := newStoragePoolState(s.TxnRunnerFactory())
+
+	sp := domainstorage.StoragePool{
+		Name:     "ebs-fast",
+		Provider: "ebs",
+		Attrs: map[string]string{
+			"foo": "foo val",
+			"bar": "bar val",
+		},
+	}
+	sp2 := domainstorage.StoragePool{
+		Name:     "ebs-faster",
+		Provider: "ebs",
+		Attrs: map[string]string{
+			"baz": "baz val",
+		},
+	}
+	ctx := c.Context()
+	err := st.CreateStoragePool(ctx, sp)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.CreateStoragePool(ctx, sp2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	out, err := st.ListStoragePools(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.SameContents, append([]domainstorage.StoragePool{sp, sp2}, getBuiltInStoragePools(c)...))
+}
+
+func getBuiltInStoragePools(c *tc.C) []domainstorage.StoragePool {
+	storagePools, err := domainstorage.BuiltInStoragePools()
+	c.Assert(err, tc.ErrorIsNil)
+	return storagePools
+}
+
+func (s *storagePoolStateSuite) TestListStoragePoolsEmpty(c *tc.C) {
+	st := newStoragePoolState(s.TxnRunnerFactory())
+
+	out, err := st.ListStoragePools(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.SameContents, getBuiltInStoragePools(c))
+}
+
+func (s *storagePoolStateSuite) TestListStoragePoolsByNamesAndProviders(c *tc.C) {
+	st := newStoragePoolState(s.TxnRunnerFactory())
+
+	sp := domainstorage.StoragePool{
+		Name:     "ebs-fast",
+		Provider: "ebs",
+		Attrs: map[string]string{
+			"foo": "foo val",
+			"bar": "bar val",
+		},
+	}
+
+	ctx := c.Context()
+	err := st.CreateStoragePool(ctx, sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	out, err := st.ListStoragePoolsByNamesAndProviders(c.Context(),
+		domainstorage.Names{"ebs-fast", "ebs-fast", "loop", ""},
+		domainstorage.Providers{"ebs", "ebs", "loop", ""},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{
+		sp,
+		{
+			Name:     "loop",
+			Provider: "loop",
+		},
+	})
+}
+
+func (s *storagePoolStateSuite) TestListStoragePoolsByNames(c *tc.C) {
+	st := newStoragePoolState(s.TxnRunnerFactory())
+
+	sp := domainstorage.StoragePool{
+		Name:     "ebs-fast",
+		Provider: "ebs",
+		Attrs: map[string]string{
+			"foo": "foo val",
+			"bar": "bar val",
+		},
+	}
+
+	ctx := c.Context()
+	err := st.CreateStoragePool(ctx, sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	out, err := st.ListStoragePoolsByNames(c.Context(), domainstorage.Names{"ebs-fast", "loop", "loop", ""})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{
+		sp,
+		{
+			Name:     "loop",
+			Provider: "loop",
+		},
+	})
+}
+
+func (s *storagePoolStateSuite) TestListStoragePoolsByProviders(c *tc.C) {
+	st := newStoragePoolState(s.TxnRunnerFactory())
+
+	sp := domainstorage.StoragePool{
+		Name:     "ebs-fast",
+		Provider: "ebs",
+		Attrs: map[string]string{
+			"foo": "foo val",
+			"bar": "bar val",
+		},
+	}
+
+	ctx := c.Context()
+	err := st.CreateStoragePool(ctx, sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	out, err := st.ListStoragePoolsByProviders(c.Context(), domainstorage.Providers{"ebs", "loop", "loop", ""})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{
+		sp,
+		{
+			Name:     "loop",
+			Provider: "loop",
+		},
+	})
+}
+
 func (s *storagePoolStateSuite) TestGetStoragePoolByName(c *tc.C) {
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
@@ -251,14 +384,9 @@ func (s *storagePoolStateSuite) TestGetStoragePoolByName(c *tc.C) {
 			"bar": "bar val",
 		},
 	}
-	sp2 := domainstorage.StoragePool{
-		Name:     "loop",
-		Provider: "loop",
-	}
+
 	ctx := c.Context()
 	err := st.CreateStoragePool(ctx, sp)
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.CreateStoragePool(ctx, sp2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	out, err := st.GetStoragePoolByName(c.Context(), "ebs-fast")
@@ -266,86 +394,13 @@ func (s *storagePoolStateSuite) TestGetStoragePoolByName(c *tc.C) {
 	c.Assert(out, tc.DeepEquals, sp)
 }
 
-func (s *storagePoolStateSuite) TestListStoragePoolsByNamesAndProviders(c *tc.C) {
-	c.Skip(c, "TODO: enable this test when storage pools are fully implemented in the state package")
-
+func (s *storagePoolStateSuite) TestGetStoragePoolByNameBuiltIn(c *tc.C) {
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
-	sp := domainstorage.StoragePool{
-		Name:     "ebs-fast",
-		Provider: "ebs",
-		Attrs: map[string]string{
-			"foo": "foo val",
-			"bar": "bar val",
-		},
-	}
-	sp2 := domainstorage.StoragePool{
+	out, err := st.GetStoragePoolByName(c.Context(), "loop")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, domainstorage.StoragePool{
 		Name:     "loop",
 		Provider: "loop",
-	}
-	ctx := c.Context()
-	err := st.CreateStoragePool(ctx, sp)
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.CreateStoragePool(ctx, sp2)
-	c.Assert(err, tc.ErrorIsNil)
-
-	out, err := st.ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{"ebs-fast"}, domainstorage.Providers{"ebs"})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{sp})
-}
-
-func (s *storagePoolStateSuite) TestListStoragePoolsByNames(c *tc.C) {
-	c.Skip(c, "TODO: enable this test when storage pools are fully implemented in the state package")
-
-	st := newStoragePoolState(s.TxnRunnerFactory())
-
-	sp := domainstorage.StoragePool{
-		Name:     "ebs-fast",
-		Provider: "ebs",
-		Attrs: map[string]string{
-			"foo": "foo val",
-			"bar": "bar val",
-		},
-	}
-	sp2 := domainstorage.StoragePool{
-		Name:     "loop",
-		Provider: "loop",
-	}
-	ctx := c.Context()
-	err := st.CreateStoragePool(ctx, sp)
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.CreateStoragePool(ctx, sp2)
-	c.Assert(err, tc.ErrorIsNil)
-
-	out, err := st.ListStoragePoolsByNames(c.Context(), domainstorage.Names{"loop"})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{sp2})
-}
-
-func (s *storagePoolStateSuite) TestListStoragePoolsByProviders(c *tc.C) {
-	c.Skip(c, "TODO: enable this test when storage pools are fully implemented in the state package")
-
-	st := newStoragePoolState(s.TxnRunnerFactory())
-
-	sp := domainstorage.StoragePool{
-		Name:     "ebs-fast",
-		Provider: "ebs",
-		Attrs: map[string]string{
-			"foo": "foo val",
-			"bar": "bar val",
-		},
-	}
-	sp2 := domainstorage.StoragePool{
-		Name:     "loop",
-		Provider: "loop",
-	}
-	ctx := c.Context()
-	err := st.CreateStoragePool(ctx, sp)
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.CreateStoragePool(ctx, sp2)
-	c.Assert(err, tc.ErrorIsNil)
-
-	out, err := st.ListStoragePoolsByProviders(c.Context(), domainstorage.Providers{"ebs"})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{sp})
+	})
 }

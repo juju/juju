@@ -43,11 +43,29 @@ func (s *typesSuite) TestDefaultStoragePools(c *tc.C) {
 }
 
 func (s *typesSuite) TestNamesValues(c *tc.C) {
-	n := storage.Names{"a", "b", "c", "a"}
+	n := storage.Names{"a", "b", "c", "a", ""}
 	c.Assert(n.Values(), tc.SameContents, []string{"a", "b", "c"})
 }
 
+func (s *typesSuite) TestNamesContains(c *tc.C) {
+	n := storage.Names{"a", "b", "c"}
+	c.Assert(n.Contains("a"), tc.Equals, true)
+	c.Assert(n.Contains("b"), tc.Equals, true)
+	c.Assert(n.Contains("c"), tc.Equals, true)
+	c.Assert(n.Contains("d"), tc.Equals, false)
+	c.Assert(n.Contains(""), tc.Equals, false)
+}
+
 func (s *typesSuite) TestProvidersValues(c *tc.C) {
-	p := storage.Providers{"x", "y", "z", "x"}
+	p := storage.Providers{"x", "y", "z", "x", ""}
 	c.Assert(p.Values(), tc.SameContents, []string{"x", "y", "z"})
+}
+
+func (s *typesSuite) TestProvidersContains(c *tc.C) {
+	p := storage.Providers{"x", "y", "z"}
+	c.Assert(p.Contains("x"), tc.Equals, true)
+	c.Assert(p.Contains("y"), tc.Equals, true)
+	c.Assert(p.Contains("z"), tc.Equals, true)
+	c.Assert(p.Contains("a"), tc.Equals, false)
+	c.Assert(p.Contains(""), tc.Equals, false)
 }
