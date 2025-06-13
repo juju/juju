@@ -13,6 +13,8 @@ const (
 	MissingPoolNameError = errors.ConstError("pool name is empty")
 	// InvalidPoolNameError is used when a storage pool name is invalid.
 	InvalidPoolNameError = errors.ConstError("pool name is not valid")
+	// InvalidStorageName represents an invalid storage name.
+	InvalidStorageName = errors.ConstError("invalid storage name")
 	// PoolNotFoundError is used when a storage pool is not found.
 	PoolNotFoundError = errors.ConstError("storage pool is not found")
 	// PoolAlreadyExists is used when a storage pool already exists.
