@@ -303,7 +303,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 		netNode, machineNames, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeContainer,
 			Container: deployment.ContainerTypeLXD,
-		}, deployment.Platform{}, nil)
+		}, deployment.Platform{}, ptr("nonce"))
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -321,6 +321,10 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 		machine.Name("0"),
 		machine.Name("0/lxd/0"),
 	})
+
+	// Check the nonce.
+	s.checkNonceForMachine(c, machine.Name("0"), nil)
+	s.checkNonceForMachine(c, machine.Name("0/lxd/0"), ptr("nonce"))
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C) {

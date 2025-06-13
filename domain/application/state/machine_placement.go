@@ -88,7 +88,7 @@ func (st *State) placeMachine(
 		// to look up the existing machine and place it there. Then we need to
 		// create a child machine for the container and link it to the parent
 		// machine.
-		machineUUID, machineName, err := st.acquireParentMachineForContainer(ctx, tx, directive.Directive, platform, nonce)
+		machineUUID, machineName, err := st.acquireParentMachineForContainer(ctx, tx, directive.Directive, platform, nil)
 		if err != nil {
 			return "", nil, errors.Capture(err)
 		}
