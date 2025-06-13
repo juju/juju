@@ -48,6 +48,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/internal/worker/syslogger"
@@ -707,15 +708,19 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	healthHandler := srv.monitoredHandler(http.HandlerFunc(srv.healthHandler), "health")
 	logStreamHandler := srv.monitoredHandler(newLogStreamEndpointHandler(httpCtxt), "logstream")
 	embeddedCLIHandler := srv.monitoredHandler(newEmbeddedCLIHandler(httpCtxt), "commands")
+	var debuglogAuth httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind},
+		controllerAdminAuthorizer{
+			controllerTag: systemState.ControllerTag(),
+		},
+		modelPermissionAuthorizer{
+			perm: permission.ReadAccess,
+		},
+	}
 	debugLogHandler := srv.monitoredHandler(newDebugLogDBHandler(
 		httpCtxt,
 		httpAuthenticator,
-		tagKindAuthorizer{
-			names.MachineTagKind,
-			names.ControllerAgentTagKind,
-			names.UserTagKind,
-			names.ApplicationTagKind,
-		},
+		debuglogAuth,
 	), "log")
 	pubsubHandler := srv.monitoredHandler(newPubSubHandler(httpCtxt, srv.shared.centralHub), "pubsub")
 	logSinkHandler := logsink.NewHTTPHandler(
