@@ -5,6 +5,7 @@ package environ_test
 
 import (
 	"context"
+	"github.com/juju/juju/controller"
 	"sync"
 
 	"github.com/juju/names/v5"
@@ -33,23 +34,25 @@ func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
 	cloudWatcher := newNotifyWatcher(fix.watcherErr)
 	defer workertest.DirtyKill(c, cloudWatcher)
 	context := &runContext{
-		cloud:        fix.initialSpec,
-		config:       newModelConfig(c, fix.initialConfig),
-		watcher:      watcher,
-		cloudWatcher: cloudWatcher,
+		cloud:            fix.initialSpec,
+		config:           newModelConfig(c, fix.initialConfig),
+		watcher:          watcher,
+		cloudWatcher:     cloudWatcher,
+		controllerConfig: controller.Config{controller.ControllerUUIDKey: "dummy-cd6db08b-1df3-4915-a05d-40ca2402d4bc"},
 	}
 	context.stub.SetErrors(fix.observerErrs...)
 	test(context)
 }
 
 type runContext struct {
-	mu           sync.Mutex
-	stub         testing.Stub
-	cloud        environscloudspec.CloudSpec
-	config       map[string]interface{}
-	watcher      *notifyWatcher
-	cloudWatcher *notifyWatcher
-	credWatcher  *notifyWatcher
+	mu               sync.Mutex
+	stub             testing.Stub
+	cloud            environscloudspec.CloudSpec
+	config           map[string]interface{}
+	watcher          *notifyWatcher
+	cloudWatcher     *notifyWatcher
+	credWatcher      *notifyWatcher
+	controllerConfig controller.Config
 }
 
 // SetConfig updates the configuration returned by ModelConfig.
@@ -131,6 +134,16 @@ func (context *runContext) WatchForModelConfigChanges() (watcher.NotifyWatcher, 
 		return nil, err
 	}
 	return context.watcher, nil
+}
+
+func (context *runContext) ControllerConfig() (controller.Config, error) {
+	context.mu.Lock()
+	defer context.mu.Unlock()
+	context.stub.AddCall("ControllerConfig")
+	if err := context.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return context.controllerConfig, nil
 }
 
 func (context *runContext) WatchCloudSpecChanges() (watcher.NotifyWatcher, error) {

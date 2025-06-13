@@ -77,14 +77,14 @@ func (s *TrackerSuite) testValidate(c *gc.C, config environ.Config, check func(e
 func (s *TrackerSuite) TestModelConfigFails(c *gc.C) {
 	fix := &fixture{
 		observerErrs: []error{
-			errors.New("no you"),
+			nil, errors.New("no you"),
 		},
 	}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(s.validConfig(context))
 		c.Check(err, gc.ErrorMatches, "retrieving model config: no you")
 		c.Check(tracker, gc.IsNil)
-		context.CheckCallNames(c, "ModelConfig")
+		context.CheckCallNames(c, "ControllerConfig", "ModelConfig")
 	})
 }
 
@@ -99,7 +99,7 @@ func (s *TrackerSuite) TestModelConfigInvalid(c *gc.C) {
 		c.Check(err, gc.ErrorMatches,
 			`creating environ for model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): config not valid`)
 		c.Check(tracker, gc.IsNil)
-		runContext.CheckCallNames(c, "ModelConfig", "CloudSpec")
+		runContext.CheckCallNames(c, "ControllerConfig", "ModelConfig", "CloudSpec")
 	})
 }
 
@@ -137,14 +137,14 @@ func (s *TrackerSuite) TestCloudSpec(c *gc.C) {
 		c.Check(err, gc.ErrorMatches,
 			`creating environ for model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): cloud spec not valid`)
 		c.Check(tracker, gc.IsNil)
-		runContext.CheckCallNames(c, "ModelConfig", "CloudSpec")
+		runContext.CheckCallNames(c, "ControllerConfig", "ModelConfig", "CloudSpec")
 	})
 }
 
 func (s *TrackerSuite) TestWatchFails(c *gc.C) {
 	fix := &fixture{
 		observerErrs: []error{
-			nil, nil, errors.New("grrk splat"),
+			nil, nil, nil, errors.New("grrk splat"),
 		},
 	}
 	fix.Run(c, func(context *runContext) {
@@ -155,7 +155,7 @@ func (s *TrackerSuite) TestWatchFails(c *gc.C) {
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches,
 			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): watching environ config: grrk splat`)
-		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges")
+		context.CheckCallNames(c, "ControllerConfig", "ModelConfig", "CloudSpec", "WatchForModelConfigChanges")
 	})
 }
 
@@ -170,7 +170,7 @@ func (s *TrackerSuite) TestModelConfigWatchCloses(c *gc.C) {
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches,
 			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): environ config watch closed`)
-		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
+		context.CheckCallNames(c, "ControllerConfig", "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
 	})
 }
 
@@ -185,14 +185,14 @@ func (s *TrackerSuite) TestCloudSpecWatchCloses(c *gc.C) {
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches,
 			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): cloud watch closed`)
-		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
+		context.CheckCallNames(c, "ControllerConfig", "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
 	})
 }
 
 func (s *TrackerSuite) TestWatchedModelConfigFails(c *gc.C) {
 	fix := &fixture{
 		observerErrs: []error{
-			nil, nil, nil, nil, errors.New("blam ouch"),
+			nil, nil, nil, nil, nil, errors.New("blam ouch"),
 		},
 	}
 	fix.Run(c, func(context *runContext) {
@@ -225,7 +225,7 @@ func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 		c.Check(err, gc.ErrorMatches,
 			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): updating environ config: SetConfig is broken`)
 		runContext.CheckCallNames(c,
-			"ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges", "ModelConfig")
+			"ControllerConfig", "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges", "ModelConfig")
 	})
 }
 
