@@ -101,7 +101,7 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 		}
 
 		// TODO (stickupkid): This should be removed once we delete mongo.
-		return pc.legacySetPassword(tag, password)
+		return pc.legacyMachineSetPassword(tag, password)
 
 	// TODO: Handle the following password setting:
 	//  - model
@@ -111,33 +111,26 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 	}
 }
 
-func (pc *PasswordChanger) legacySetPassword(tag names.Tag, password string) error {
+func (pc *PasswordChanger) legacyMachineSetPassword(tag names.Tag, password string) error {
 	// This is being removed, this is to ensure we just set up the mongo
 	// password. If the state is nil, just ignore the request.
 	if pc.st == nil {
 		return nil
 	}
 
-	type isManager interface {
-		IsManager() bool
-	}
-	var err error
 	entity0, err := pc.st.FindEntity(tag)
 	if err != nil {
 		return err
 	}
-	entity, ok := entity0.(state.Authenticator)
+	entity, ok := entity0.(*state.Machine)
 	if !ok {
 		return apiservererrors.NotSupportedError(tag, "authentication")
 	}
-	if entity, ok := entity0.(isManager); ok && entity.IsManager() {
-		err = pc.setMongoPassword(entity0, password)
+	if !entity.IsManager() {
+		return nil
 	}
-	if err == nil {
-		err = entity.SetPassword(password)
-		logger.Infof(context.TODO(), "setting password for %q", tag)
-	}
-	return err
+
+	return pc.setMongoPassword(entity0, password)
 }
 
 // setMongoPassword applies to controller machines.
@@ -158,4 +151,27 @@ func (pc *PasswordChanger) setMongoPassword(entity state.Entity, password string
 	}
 	// TODO(dfc) fix
 	return apiservererrors.NotSupportedError(entity.Tag(), "mongo access")
+}
+
+func (pc *PasswordChanger) legacySetPassword(tag names.Tag, password string) error {
+	// This is being removed, this is to ensure we just set up the mongo
+	// password. If the state is nil, just ignore the request.
+	if pc.st == nil {
+		return nil
+	}
+
+	var err error
+	entity0, err := pc.st.FindEntity(tag)
+	if err != nil {
+		return err
+	}
+	entity, ok := entity0.(state.Authenticator)
+	if !ok {
+		return apiservererrors.NotSupportedError(tag, "authentication")
+	}
+
+	err = entity.SetPassword(password)
+	logger.Infof(context.TODO(), "setting password for %q", tag)
+
+	return err
 }
