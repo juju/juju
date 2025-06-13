@@ -48,12 +48,24 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *serviceSuite) TestCreateMachineSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CreateMachine(gomock.Any(), machine.Name("666"), gomock.Any(), gomock.Any()).Return(nil)
+	s.state.EXPECT().CreateMachine(gomock.Any(), machine.Name("666"), gomock.Any(), gomock.Any(), nil).Return(nil)
 
 	s.expectCreateMachineStatusHistory(c)
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		CreateMachine(c.Context(), "666")
+		CreateMachine(c.Context(), "666", nil)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestCreateMachineSuccessNonce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().CreateMachine(gomock.Any(), machine.Name("666"), gomock.Any(), gomock.Any(), ptr("foo")).Return(nil)
+
+	s.expectCreateMachineStatusHistory(c)
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		CreateMachine(c.Context(), "666", ptr("foo"))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -63,10 +75,10 @@ func (s *serviceSuite) TestCreateMachineError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().CreateMachine(gomock.Any(), machine.Name("666"), gomock.Any(), gomock.Any()).Return(rErr)
+	s.state.EXPECT().CreateMachine(gomock.Any(), machine.Name("666"), gomock.Any(), gomock.Any(), nil).Return(rErr)
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		CreateMachine(c.Context(), "666")
+		CreateMachine(c.Context(), "666", nil)
 	c.Check(err, tc.ErrorIs, rErr)
 	c.Assert(err, tc.ErrorMatches, `creating machine "666": boom`)
 }
@@ -78,10 +90,10 @@ func (s *serviceSuite) TestCreateMachineError(c *tc.C) {
 func (s *serviceSuite) TestCreateMachineAlreadyExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CreateMachine(gomock.Any(), machine.Name("666"), gomock.Any(), gomock.Any()).Return(machineerrors.MachineAlreadyExists)
+	s.state.EXPECT().CreateMachine(gomock.Any(), machine.Name("666"), gomock.Any(), gomock.Any(), nil).Return(machineerrors.MachineAlreadyExists)
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		CreateMachine(c.Context(), machine.Name("666"))
+		CreateMachine(c.Context(), machine.Name("666"), nil)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineAlreadyExists)
 }
 

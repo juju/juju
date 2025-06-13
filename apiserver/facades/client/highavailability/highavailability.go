@@ -51,7 +51,7 @@ type ApplicationService interface {
 	AddIAASUnits(
 		ctx context.Context,
 		name string,
-		units ...applicationservice.AddUnitArg,
+		units ...applicationservice.AddIAASUnitArg,
 	) ([]unit.Name, error)
 }
 
@@ -198,7 +198,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		}
 	}
 	if len(addedUnits) > 0 {
-		addUnitArgs := make([]applicationservice.AddUnitArg, len(addedUnits))
+		addUnitArgs := make([]applicationservice.AddIAASUnitArg, len(addedUnits))
 		for i := range addedUnits {
 			// Try and get the placement for this unit. If it doesn't exist,
 			// then the default behaviour is to create a new machine for the
@@ -212,8 +212,10 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 				}
 			}
 
-			addUnitArgs[i] = applicationservice.AddUnitArg{
-				Placement: placement,
+			addUnitArgs[i] = applicationservice.AddIAASUnitArg{
+				AddUnitArg: applicationservice.AddUnitArg{
+					Placement: placement,
+				},
 			}
 		}
 		if _, err := api.applicationService.AddIAASUnits(

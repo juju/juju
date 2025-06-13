@@ -74,7 +74,7 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 	db := s.DB()
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	err := machineState.CreateMachine(c.Context(), "666", "0", "deadbeef")
+	err := machineState.CreateMachine(c.Context(), "666", "0", "deadbeef", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	// Add a reference AZ.
 	_, err = db.ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef', 'az-1')")
@@ -91,7 +91,7 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineState.CreateMachine(c.Context(), "667", "1", "deadbeef-2")
+	err = machineState.CreateMachine(c.Context(), "667", "1", "deadbeef-2", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = machineState.SetMachineCloudInstance(
 		c.Context(),

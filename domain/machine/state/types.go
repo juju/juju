@@ -178,6 +178,7 @@ type createMachineArgs struct {
 	machineUUID machine.UUID
 	netNodeUUID string
 	parentName  machine.Name
+	nonce       *string
 }
 
 // lxdProfile represents the struct to be used for the sqlair statements on the
@@ -197,4 +198,12 @@ type machineInstance struct {
 	MachineName string `db:"machine_name"`
 	InstanceID  string `db:"instance_id"`
 	IsContainer int64  `db:"is_container"`
+}
+
+type createMachine struct {
+	Name        string           `db:"name"`
+	NetNodeUUID string           `db:"net_node_uuid"`
+	UUID        string           `db:"uuid"`
+	Nonce       sql.Null[string] `db:"nonce"`
+	LifeID      int64            `db:"life_id"`
 }

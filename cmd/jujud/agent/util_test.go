@@ -159,7 +159,7 @@ func (s *commonMachineSuite) configureMachine(c *tc.C, machineId string, vers se
 	inst, _ := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerUUID, machineId)
 	// Double write to machine domain.
 	machineService := s.ControllerDomainServices(c).Machine()
-	machineUUID, err := machineService.CreateMachine(c.Context(), machine.Name(m.Id()))
+	machineUUID, err := machineService.CreateMachine(c.Context(), machine.Name(m.Id()), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = machineService.SetMachineCloudInstance(c.Context(), machineUUID, inst.Id(), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)

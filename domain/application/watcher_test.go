@@ -968,9 +968,9 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 
-	_, err := machineSvc.CreateMachine(c.Context(), "0")
+	_, err := machineSvc.CreateMachine(c.Context(), "0", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = machineSvc.CreateMachine(c.Context(), "1")
+	_, err = machineSvc.CreateMachine(c.Context(), "1", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := c.Context()
@@ -1039,9 +1039,9 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 
-	_, err := machineSvc.CreateMachine(c.Context(), "0")
+	_, err := machineSvc.CreateMachine(c.Context(), "0", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = machineSvc.CreateMachine(c.Context(), "1")
+	_, err = machineSvc.CreateMachine(c.Context(), "1", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := c.Context()
