@@ -18,6 +18,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreapplication "github.com/juju/juju/core/application"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
@@ -54,12 +54,14 @@ type CAASApplicationProvisionerSuite struct {
 	clock clock.Clock
 
 	resources               *common.Resources
+	watcherRegistry         *facademocks.MockWatcherRegistry
 	authorizer              *apiservertesting.FakeAuthorizer
 	api                     *caasapplicationprovisioner.API
 	st                      *mockState
 	storage                 *mockStorage
 	storagePoolGetter       *mockStoragePoolGetter
 	controllerConfigService *MockControllerConfigService
+	controllerNodeService   *MockControllerNodeService
 	modelConfigService      *MockModelConfigService
 	modelInfoService        *MockModelInfoService
 	applicationService      *MockApplicationService
@@ -99,12 +101,14 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 	s.leadershipRevoker = NewMockRevoker(ctrl)
 	s.resourceOpener = NewMockOpener(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 	newResourceOpener := func(context.Context, string) (jujuresource.Opener, error) {
 		return s.resourceOpener, nil
 	}
@@ -114,17 +118,35 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 		s.authorizer,
 		s.storage,
 		s.storagePoolGetter,
-		s.controllerConfigService,
-		s.modelConfigService,
-		s.modelInfoService,
-		s.applicationService,
-		s.statusService,
+		caasapplicationprovisioner.Services{
+			ControllerConfigService: s.controllerConfigService,
+			ControllerNodeService:   s.controllerNodeService,
+			ModelConfigService:      s.modelConfigService,
+			ModelInfoService:        s.modelInfoService,
+			ApplicationService:      s.applicationService,
+			StatusService:           s.statusService,
+		},
 		s.leadershipRevoker,
 		s.store,
 		s.clock,
-		loggertesting.WrapCheckLog(c))
+		loggertesting.WrapCheckLog(c),
+		s.watcherRegistry)
+
 	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
+
+	c.Cleanup(func() {
+		s.controllerNodeService = nil
+		s.controllerNodeService = nil
+		s.modelConfigService = nil
+		s.modelInfoService = nil
+		s.applicationService = nil
+		s.statusService = nil
+		s.leadershipRevoker = nil
+		s.resourceOpener = nil
+		s.watcherRegistry = nil
+		s.api = nil
+	})
 
 	return ctrl
 }
@@ -139,15 +161,12 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *tc.C) {
 		s.authorizer,
 		s.storage,
 		s.storagePoolGetter,
-		s.controllerConfigService,
-		s.modelConfigService,
-		s.modelInfoService,
-		s.applicationService,
-		s.statusService,
+		caasapplicationprovisioner.Services{},
 		s.leadershipRevoker,
 		s.store,
 		s.clock,
-		loggertesting.WrapCheckLog(c))
+		loggertesting.WrapCheckLog(c),
+		s.watcherRegistry)
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
@@ -237,10 +256,12 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *tc.C) {
 	portsChanged := make(chan struct{}, 1)
 	modelConfigChanged := make(chan []string, 1)
 	controllerConfigChanged := make(chan []string, 1)
-	s.st.apiHostPortsForAgentsWatcher = watchertest.NewMockNotifyWatcher(portsChanged)
+	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(portsChanged), nil)
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(watchertest.NewMockStringsWatcher(controllerConfigChanged), nil)
 	s.modelConfigService.EXPECT().Watch().Return(watchertest.NewMockStringsWatcher(modelConfigChanged), nil)
 	s.applicationService.EXPECT().WatchApplication(gomock.Any(), "gitlab").Return(watchertest.NewMockNotifyWatcher(appChanged), nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("42", nil)
+
 	s.st.app = &mockApplication{
 		life:    state.Alive,
 		watcher: watchertest.NewMockNotifyWatcher(legacyAppChanged),
@@ -260,8 +281,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.IsNil)
-	res := s.resources.Get("1")
-	c.Assert(res, tc.FitsTypeOf, (*eventsource.MultiWatcher[struct{}])(nil))
+	c.Assert(results.Results[0].NotifyWatcherId, tc.Equals, "42")
 }
 
 func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *tc.C) {

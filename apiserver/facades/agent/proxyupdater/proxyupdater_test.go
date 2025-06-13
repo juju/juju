@@ -4,15 +4,15 @@
 package proxyupdater_test
 
 import (
+	"sync"
 	"testing"
-	"time"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/proxyupdater"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
@@ -21,20 +21,20 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type ProxyUpdaterSuite struct {
 	coretesting.BaseSuite
 
 	state      *stubBackend
-	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 	facade     *proxyupdater.API
 	tag        names.MachineTag
 
 	modelConfigService      *MockModelConfigService
 	controllerConfigService *MockControllerConfigService
+	controllerNodeService   *MockControllerNodeService
+	watcherRegistry         *facademocks.MockWatcherRegistry
 }
 
 func TestProxyUpdaterSuite(t *testing.T) {
@@ -47,8 +47,6 @@ func (s *ProxyUpdaterSuite) SetUpSuite(c *tc.C) {
 
 func (s *ProxyUpdaterSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("1"),
 		Controller: false,
@@ -63,9 +61,11 @@ func (s *ProxyUpdaterSuite) setupAPI(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 
-	api, err := proxyupdater.NewAPIV2(s.state, s.controllerConfigService, s.modelConfigService, s.resources, s.authorizer)
+	api, err := proxyupdater.NewAPIV2(s.state, s.controllerConfigService, s.controllerNodeService, s.modelConfigService, s.authorizer, s.watcherRegistry)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(api, tc.NotNil)
 	s.facade = api
@@ -73,43 +73,44 @@ func (s *ProxyUpdaterSuite) setupAPI(c *tc.C) *gomock.Controller {
 	// Shouldn't have any calls yet
 	apiservertesting.CheckMethodCalls(c, s.state.Stub)
 
+	c.Cleanup(func() {
+		s.facade = nil
+		s.controllerConfigService = nil
+		s.controllerNodeService = nil
+		s.modelConfigService = nil
+		s.watcherRegistry = nil
+	})
+
 	return ctrl
 }
 
 func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
+	done := make(chan struct{})
+	defer close(done)
+	wg := sync.WaitGroup{}
+	defer wg.Wait()
 
 	// WatchForProxyConfigAndAPIHostPortChanges combines WatchForModelConfigChanges
 	// and WatchAPIHostPorts. Check that they are both called.
 
 	// Create fake model config watcher preloaded with one item in the channel
 	modelConfigChanges := make(chan []string, 1)
-	modelConfigChanges <- []string{}
 	modelConfigWatcher := watchertest.NewMockStringsWatcher(modelConfigChanges)
-	defer modelConfigWatcher.Kill()
+	modelConfigChanges <- []string{}
 	s.modelConfigService.EXPECT().Watch().Return(modelConfigWatcher, nil)
+
+	apiHostPortsForAgentsChanged := make(chan struct{}, 1)
+	hostPortWatcher := watchertest.NewMockNotifyWatcher(apiHostPortsForAgentsChanged)
+	apiHostPortsForAgentsChanged <- struct{}{}
+	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(hostPortWatcher, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("42", nil)
 
 	result := s.facade.WatchForProxyConfigAndAPIHostPortChanges(c.Context(), s.oneEntity())
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.IsNil)
-
-	s.state.Stub.CheckCallNames(c,
-		"WatchAPIHostPortsForAgents",
-	)
-
-	// Verify the watcher resource was registered.
-	c.Assert(s.resources.Count(), tc.Equals, 1)
-	resource := s.resources.Get(result.Results[0].NotifyWatcherId)
-	watcher, ok := resource.(state.NotifyWatcher)
-	c.Assert(ok, tc.IsTrue)
-
-	// Verify the initial event was consumed.
-	select {
-	case <-watcher.Changes():
-		c.Fatalf("initial event never consumed")
-	case <-time.After(coretesting.ShortWait):
-	}
+	c.Assert(result.Results[0].NotifyWatcherId, tc.Equals, "42")
 }
 
 func (s *ProxyUpdaterSuite) oneEntity() params.Entities {
@@ -333,9 +334,4 @@ func (sb *stubBackend) APIHostPortsForAgents(_ controller.Config) ([]network.Spa
 		network.NewSpaceHostPorts(1234, "0.1.2.5"),
 	}
 	return hps, nil
-}
-
-func (sb *stubBackend) WatchAPIHostPortsForAgents() state.NotifyWatcher {
-	sb.MethodCall(sb, "WatchAPIHostPortsForAgents")
-	return sb.hpWatcher
 }

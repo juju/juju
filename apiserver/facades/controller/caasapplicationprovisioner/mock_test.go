@@ -38,12 +38,11 @@ type mockState struct {
 	testhelpers.Stub
 
 	common.APIAddressAccessor
-	model                        *mockModel
-	applicationWatcher           *mockStringsWatcher
-	app                          *mockApplication
-	resource                     *mockResources
-	apiHostPortsForAgentsWatcher *watchertest.MockNotifyWatcher
-	isController                 bool
+	model              *mockModel
+	applicationWatcher *mockStringsWatcher
+	app                *mockApplication
+	resource           *mockResources
+	isController       bool
 }
 
 func newMockState() *mockState {
@@ -108,11 +107,6 @@ func (st *mockState) Resources(objectstore.ObjectStore) caasapplicationprovision
 func (st *mockState) IsController() bool {
 	st.MethodCall(st, "IsController")
 	return st.isController
-}
-
-func (st *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {
-	st.MethodCall(st, "WatchAPIHostPortsForAgents")
-	return st.apiHostPortsForAgentsWatcher
 }
 
 type mockResources struct {

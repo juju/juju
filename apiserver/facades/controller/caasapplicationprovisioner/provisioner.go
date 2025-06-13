@@ -71,8 +71,9 @@ type APIGroup struct {
 type NewResourceOpenerFunc func(ctx context.Context, appName string) (coreresource.Opener, error)
 
 type API struct {
-	auth      facade.Authorizer
-	resources facade.Resources
+	auth            facade.Authorizer
+	resources       facade.Resources
+	watcherRegistry facade.WatcherRegistry
 
 	store                   objectstore.ObjectStore
 	ctrlSt                  CAASApplicationControllerState
@@ -81,6 +82,7 @@ type API struct {
 	storage                 StorageBackend
 	storagePoolGetter       StoragePoolGetter
 	controllerConfigService ControllerConfigService
+	controllerNodeService   ControllerNodeService
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
 	applicationService      ApplicationService
@@ -99,6 +101,7 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 
 	agentPasswordService := domainServices.AgentPassword()
 	controllerConfigService := domainServices.ControllerConfig()
+	controllerNodeService := domainServices.ControllerNode()
 	modelConfigService := domainServices.Config()
 	modelInfoService := domainServices.ModelInfo()
 	storageService := domainServices.Storage()
@@ -132,6 +135,15 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 		return resource.NewResourceOpenerForApplication(ctx, args, appName)
 	}
 
+	services := Services{
+		ControllerConfigService: controllerConfigService,
+		ControllerNodeService:   controllerNodeService,
+		ModelConfigService:      modelConfigService,
+		ModelInfoService:        modelInfoService,
+		ApplicationService:      applicationService,
+		StatusService:           statusService,
+	}
+
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -148,15 +160,12 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 		authorizer,
 		sb,
 		storageService,
-		controllerConfigService,
-		modelConfigService,
-		modelInfoService,
-		applicationService,
-		statusService,
+		services,
 		leadershipRevoker,
 		ctx.ObjectStore(),
 		ctx.Clock(),
 		ctx.Logger().Child("caasapplicationprovisioner"),
+		ctx.WatcherRegistry(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -248,15 +257,12 @@ func NewCAASApplicationProvisionerAPI(
 	authorizer facade.Authorizer,
 	sb StorageBackend,
 	storagePoolGetter StoragePoolGetter,
-	controllerConfigService ControllerConfigService,
-	modelConfigService ModelConfigService,
-	modelInfoService ModelInfoService,
-	applicationService ApplicationService,
-	statusService StatusService,
+	service Services,
 	leadershipRevoker leadership.Revoker,
 	store objectstore.ObjectStore,
 	clock clock.Clock,
 	logger corelogger.Logger,
+	watcherRegistry facade.WatcherRegistry,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -265,17 +271,19 @@ func NewCAASApplicationProvisionerAPI(
 	return &API{
 		auth:                    authorizer,
 		resources:               resources,
+		watcherRegistry:         watcherRegistry,
 		newResourceOpener:       newResourceOpener,
 		ctrlSt:                  ctrlSt,
 		state:                   st,
 		storage:                 sb,
 		store:                   store,
 		storagePoolGetter:       storagePoolGetter,
-		controllerConfigService: controllerConfigService,
-		modelConfigService:      modelConfigService,
-		modelInfoService:        modelInfoService,
-		applicationService:      applicationService,
-		statusService:           statusService,
+		controllerConfigService: service.ControllerConfigService,
+		controllerNodeService:   service.ControllerNodeService,
+		modelConfigService:      service.ModelConfigService,
+		modelInfoService:        service.ModelInfoService,
+		applicationService:      service.ApplicationService,
+		statusService:           service.StatusService,
 		leadershipRevoker:       leadershipRevoker,
 		clock:                   clock,
 		logger:                  logger,
@@ -395,9 +403,10 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-
-	controllerAPIHostPortsWatcher := a.ctrlSt.WatchAPIHostPortsForAgents()
-
+	controllerAPIHostPortsWatcher, err := a.controllerNodeService.WatchControllerAPIAddresses(ctx)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 	modelConfigWatcher, err := a.modelConfigService.Watch()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -423,12 +432,10 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 		return result, errors.Trace(err)
 	}
 
-	// Consume the initial event and forward it to the result.
-	if _, err := internal.FirstResult[struct{}](ctx, multiWatcher); err != nil {
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, a.watcherRegistry, multiWatcher)
+	if err != nil {
 		return result, errors.Trace(err)
 	}
-
-	result.NotifyWatcherId = a.resources.Register(multiWatcher)
 	return result, nil
 }
 
