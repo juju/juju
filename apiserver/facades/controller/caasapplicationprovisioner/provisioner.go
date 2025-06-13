@@ -307,6 +307,11 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.Trace(err)
 	}
 
+	volumeParams, err := a.applicationVolumeParams(app, cfg, modelConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	devices, err := a.devicesParams(app)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -364,6 +369,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		CACert:               caCert,
 		Tags:                 resourceTags,
 		Filesystems:          filesystemParams,
+		Volumes:              volumeParams,
 		Devices:              devices,
 		Constraints:          mergedCons,
 		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
@@ -533,6 +539,64 @@ func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.P
 	}
 	providerType := pool.Provider()
 	return providerType, pool.Attrs(), nil
+}
+
+func (a *API) applicationVolumeParams(
+	app Application,
+	controllerConfig controller.Config,
+	modelConfig *config.Config,
+) ([]params.KubernetesVolumeParams, error) {
+
+	units, err := app.AllUnits()
+	if err != nil {
+		return []params.KubernetesVolumeParams{}, err
+	}
+	var k8sVolParams []params.KubernetesVolumeParams
+	for _, unit := range units {
+		unitStorageAttachments, err := a.storage.UnitStorageAttachments(unit.Tag().(names.UnitTag))
+		if err != nil {
+			return []params.KubernetesVolumeParams{}, err
+		}
+		for _, unitStorageAttachment := range unitStorageAttachments {
+			storageTag := unitStorageAttachment.StorageInstance()
+			volume, err := a.storage.StorageInstanceVolume(storageTag)
+			if err != nil {
+				return []params.KubernetesVolumeParams{}, err
+			}
+
+			volumeInfo, err := volume.Info()
+			if errors.Is(err, errors.NotProvisioned) {
+				// Skip if the volume has not been provisioned; this indicates the user did not attach the storage.
+				continue
+			} else if err != nil {
+				return []params.KubernetesVolumeParams{}, err
+			}
+
+			storageName, err := names.StorageName(storageTag.Id())
+			if err != nil {
+				return []params.KubernetesVolumeParams{}, err
+			}
+			k8sVolParams = append(
+				k8sVolParams,
+				params.KubernetesVolumeParams{
+					StorageName: storageName,
+					Size:        volumeInfo.Size,
+					Provider:    volumeInfo.Pool,
+					// TODO: Add missing fields: Attributes, Tags
+					Attachment: &params.KubernetesVolumeAttachmentParams{
+						// Ignore ReadOnly field here because it's impossible to change
+						// PersistentVolume's accessMode after created.
+						Provider:  volumeInfo.Pool,
+						VolumeId:  volumeInfo.VolumeId,
+						VolumeTag: volume.VolumeTag().Id(),
+						UnitTag:   unit.Tag().String(),
+					},
+				},
+			)
+		}
+
+	}
+	return k8sVolParams, nil
 }
 
 func (a *API) applicationFilesystemParams(

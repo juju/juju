@@ -732,9 +732,6 @@ func (c *DeployCommand) validateStorageByModelType() error {
 	if modelType == model.IAAS {
 		return nil
 	}
-	if len(c.AttachStorage) > 0 {
-		return errors.New("--attach-storage cannot be used on k8s models")
-	}
 	return nil
 }
 

@@ -129,6 +129,9 @@ type ApplicationConfig struct {
 	// Filesystems is a set of parameters for filesystems that should be created.
 	Filesystems []storage.KubernetesFilesystemParams
 
+	// Volumes is a set of parameters for volumes that should be created.
+	Volumes []storage.KubernetesVolumeParams
+
 	// Devices is a set of parameters for Devices that is required.
 	Devices []devices.KubernetesDeviceParams
 

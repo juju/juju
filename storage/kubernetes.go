@@ -57,3 +57,16 @@ type KubernetesFilesystemInfo struct {
 	// Size is the size of the filesystem in MiB.
 	Size uint64
 }
+
+type KubernetesVolumeParams struct {
+	StorageName string
+	Size        uint64
+	Provider    ProviderType
+	Attributes  map[string]interface{}
+	Tags        map[string]string
+	Attachment  *KubernetesVolumeAttachmentParams
+}
+
+type KubernetesVolumeAttachmentParams struct {
+	VolumeAttachmentParams
+}

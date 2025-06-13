@@ -205,6 +205,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		ResourceTags:         provisionInfo.Tags,
 		Constraints:          provisionInfo.Constraints,
 		Filesystems:          provisionInfo.Filesystems,
+		Volumes:              provisionInfo.Volumes,
 		Devices:              provisionInfo.Devices,
 		CharmBaseImagePath:   charmBaseImage,
 		Containers:           containers,
