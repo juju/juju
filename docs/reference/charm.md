@@ -185,7 +185,7 @@ A **Reactive charm** is a charm developed using the [Reactive](https://charmsrea
 
 
 Examples:
-- [Prometheus2](https://charmhub.io/prometheus2) (obsolete; replaced by [Prometheus K8s](charmhub.io/prometheus-k8s))
+- [Prometheus2](https://charmhub.io/prometheus2) (obsolete; replaced by [Prometheus K8s](https://charmhub.io/prometheus-k8s))
 - [Telegraf](https://charmhub.io/telegraf)
 - [Canonical Livepatch](https://charmhub.io/canonical-livepatch) (no longer maintained)
 
