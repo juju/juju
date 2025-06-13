@@ -53,6 +53,9 @@ type BaseAddApplicationArg struct {
 	// Storage defines the list of storage directives to add to an application.
 	// The Name values should match the storage defined in the Charm.
 	Storage []ApplicationStorageArg
+	// StorageDirectives defines the list of storage directives to add to an
+	// application. The Name values must match the storage defined in the Charm.
+	StorageDirectives []ApplicationStorageDirectiveArg
 	// Config contains the configuration for the application, overlaid on top
 	// of the charm's default configuration.
 	Config map[string]ApplicationConfig
@@ -106,6 +109,23 @@ type ApplicationStorageArg struct {
 	PoolNameOrType string
 	Size           uint64
 	Count          uint64
+}
+
+// ApplicationStorageDirectiveArg defines an individual storage directive to be
+// associated with an application.
+type ApplicationStorageDirectiveArg struct {
+	// Count represents the number of storage instances that should be made for
+	// this directive.
+	Count uint64
+
+	// Name relates to the charm storage name definition and must match up.
+	Name domainstorage.Name
+
+	// PoolUUID defines the storage pool uuid to use for the directive.
+	PoolUUID domainstorage.StoragePoolUUID
+
+	// Size defines the size of the storage directive in MiB.
+	Size uint64
 }
 
 // CharmOrigin represents the origin of a charm.
