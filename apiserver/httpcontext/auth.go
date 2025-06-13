@@ -15,7 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 )
 
-// StrategicAuthenticator is responsible for trying multiple Authenticators
+// HTTPStrategicAuthenticator is responsible for trying multiple Authenticators
 // until one succeeds or an error is returned that is not equal to NotFound.
 type HTTPStrategicAuthenticator []authentication.HTTPAuthenticator
 
@@ -80,4 +80,27 @@ type authInfoKey struct{}
 func RequestAuthInfo(req *http.Request) (authentication.AuthInfo, bool) {
 	authInfo, ok := req.Context().Value(authInfoKey{}).(authentication.AuthInfo)
 	return authInfo, ok
+}
+
+// CompositeAuthorizer invokes the underlying authorizers and
+// returns success (nil) when the first one succeeds.
+// If none are successful, returns [apiservererrors.ErrPerm].
+type CompositeAuthorizer []authentication.Authorizer
+
+// Authorize is part of the [Authorizer] interface.
+func (c CompositeAuthorizer) Authorize(authInfo authentication.AuthInfo) error {
+	for _, a := range c {
+		if err := a.Authorize(authInfo); err == nil {
+			return nil
+		}
+	}
+	return apiservererrors.ErrPerm
+}
+
+// AuthorizerFunc is a function type implementing Authorizer.
+type AuthorizerFunc func(authentication.AuthInfo) error
+
+// Authorize is part of the Authorizer interface.
+func (f AuthorizerFunc) Authorize(info authentication.AuthInfo) error {
+	return f(info)
 }

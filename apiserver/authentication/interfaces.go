@@ -42,6 +42,12 @@ type AuthInfo struct {
 	// concurrency safe.
 	// PermissionsFn AuthInfoPermissions
 
+	// ModelTag is the tag of the model for which access
+	// may be required. Not all auth operations will use it,
+	// eg checking for controller admin.
+	// The model UUID for the tag comes off the login request.
+	ModelTag names.ModelTag
+
 	// Controller reports whether or not the authenticated
 	// entity is a controller agent.
 	Controller bool
