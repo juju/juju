@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
