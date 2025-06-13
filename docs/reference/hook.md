@@ -210,13 +210,14 @@ A charm's lifecycle consists of distinct **phases**:
 * installation
 * operation
 * upgrade
-* tear down
+* teardown
 
 Generally, no assumptions can be made about the order of hook execution. However, there are some limited guarantees
 about hook sequencing during install, upgrade, and relation removal.
 
 In normal operation, a unit will run at least the `install`, `start`, `config-changed` and `stop` hooks over the course of its lifetime.
 
+(installation-phase)=
 ### Installation phase
 
 When a charm is first deployed, the following hooks are executed in order before a charm reaches its operation phase:
@@ -232,12 +233,14 @@ Only machine charms have the behaviour where the `storage-attached` hook must ru
 See {ref}``storage hooks` <storage-hooks>` for more details.
 ```
 
+(operation-phase)=
 ### Operation phase
 
 This phase occurs when a charm has completed its installation operations and starts responding to events which correspond to interesting (relevant) changes to the Juju model.
 The behaviour when in this phase can be explained by understanding the events which trigger the execution of the different hook kinds, and the context in which the hooks execute.
 This is covered in subsequent sections where hook kinds are explored in more detail.
 
+(operation-phase)=
 ### Upgrade phase
 
 When a charm is upgraded, the `upgrade-charm` hook is followed by a `config-changed` hook.
@@ -248,8 +251,8 @@ so after a forced upgrade; but will *not* be run after a forced upgrade from an
 existing error state. (Consequently, neither will the config-changed hook that
 would ordinarily follow the upgrade-charm.)
 
-
-### Tear down phase
+(teardown-phase)=
+### Teardown phase
 
 When a unit is to be removed, the following hooks are executed:
 
@@ -433,7 +436,7 @@ It also runs whenever:
 
 *Which environment variables is it executed with?*
 
-All [common charm hook](#common-charm-hooks) environment variables.
+All {ref}`the generic environment variables <hook-execution>`.
 
 *Who gets it*?
 
@@ -458,7 +461,7 @@ A Pebble check passing the failure threshold.
 
 *Which environment variables is it executed with?*
 
-All [common charm hook](#common-charm-hooks) and:
+All {ref}`the generic environment variables <hook-execution>` and:
 
 * $JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
 * $JUJU_PEBBLE_CHECK_NAME holds the name of the Pebble check.
@@ -479,7 +482,7 @@ A Pebble check passing after previously reaching the failure threshold.
 
 *Which environment variables is it executed with?*
 
-All [common charm hook](#common-charm-hooks) and:
+All {ref}`the generic environment variables <hook-execution>` and:
 
 * $JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
 * $JUJU_PEBBLE_CHECK_NAME holds the name of the Pebble check.
@@ -498,7 +501,7 @@ A Pebble notice of type "custom" occurring.
 
 *Which environment variables is it executed with?*
 
-All [common charm hook](#common-charm-hooks) and:
+All {ref}`the generic environment variables <hook-execution>` and:
 
 * $JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
 * $JUJU_NOTICE_ID holds the Pebble notice ID.
@@ -561,7 +564,7 @@ As such, contrary to many other events, `-relation-changed` events are mostly tr
 -->
 
 
-(hook-endpoint-relation-broken)=
+(hook-relation-broken)=
 ### `<endpoint>-relation-broken`
 
 *What triggers it?*
@@ -596,7 +599,7 @@ TBA
 
 -->
 
-(hook-endpoint-relation-changed)=
+(hook-relation-changed)=
 ### `<endpoint>-relation-changed`
 
 
@@ -654,14 +657,14 @@ TBA
 TBA
 -->
 
-(hook-endpoint-relation-created)=
+(hook-relation-created)=
 ### `<endpoint>-relation-created`
 
 *What triggers it?*
 
 `relation-created` is a "setup" event and, emitted when an application is related to another. Its purpose is to inform the newly related charms that they are entering the relation.
 
-If Juju is aware of the existence of the relation "early enough", before the application has started (i.e. *before* the application has started, i.e., before the {ref}`start <event-start>` has run), this event will be fired as part of the setup phase. An important consequence of this fact is, that for all peer-type relations, since Juju is aware of their existence from the start, those `relation-created`  events will always fire before `start`.
+If Juju is aware of the existence of the relation "early enough", before the application has started (i.e. *before* the application has started, i.e., before the {ref}`start hook <hook-start>` has run), this event will be fired as part of the setup phase. An important consequence of this fact is, that for all peer-type relations, since Juju is aware of their existence from the start, those `relation-created`  events will always fire before `start`.
 
 Similarly, if an application is being scaled up, the new unit will see `relation-created` events for all relations the application already has during the Setup phase.
 
@@ -694,22 +697,22 @@ TBA
 
 -->
 
-(hook-endpoint-relation-departed)=
+(hook-relation-departed)=
 ### `<endpoint>-relation-departed`
 
 *What triggers it?*
 
-<endpoint name>-relation-departed; emitted when a unit departs from an existing relation.
+Emitted when a unit departs from an existing relation.
 
-The "relation-departed" hook for a given unit always runs once when a related unit is no longer related. After the "relation-departed" hook has run, no further notifications will be received from that unit; however, its settings will remain accessible via relation-get for the complete lifetime of the relation.
+The `relation-departed` hook for a given unit always runs once when a related unit is no longer related. After the "relation-departed" hook has run, no further notifications will be received from that unit; however, its settings will remain accessible via relation-get for the complete lifetime of the relation.
 
 
-`relation-departed` is a "teardown" event, emitted when a remote unit departs a relation.
+`relation-departed` is a {ref}`teardown <teardown-phase>` hook, emitted when a remote unit departs a relation.
 This event is the exact inverse of `relation-joined`.
 
 
 `*-relation-broken` events are emitted on a unit when a related application is scaled down. Suppose you have two related applications, `foo` and `bar`.
-If you scale down `bar`, all `foo` units will receive a `*-relation-departed` event. The departing unit will receive a `*-relation-broken` event as part of its {ref}`teardown sequence <charm-lifecycle>`.
+If you scale down `bar`, all `foo` units will receive a `*-relation-departed` event. The departing unit will receive a `*-relation-broken` event as part of its {ref}`teardown phase <teardown-phase>`.
 Also removing a relation altogether will trigger `*-relation-departed` events (followed by `*-relation-broken`) on all involved units.
 
 |   Scenario  | Example Command                          | Resulting Events                     |
@@ -781,7 +784,7 @@ By the time this event is emitted, the only available data concerning the relati
  - the name of the joining unit.
  - the `private-address` of the joining unit.
 
-In other words, when this event is emitted the remote unit has not yet had an opportunity to write any data to the relation databag. For that, you're going to have to wait for the first {ref}``relation-changed` <event-relation-name-relation-changed>` event.
+In other words, when this event is emitted the remote unit has not yet had an opportunity to write any data to the relation databag. For that, you're going to have to wait for the first {ref}`relation-changed hook <hook-relation-changed>`.
 
 
 
@@ -973,7 +976,7 @@ If the leader unit is rescheduled, or removed entirely. When the new leader is e
 | :-------: | -------------------------- | ------------------------------------ |
 |  Removal of leader   | `juju remove-unit foo/0` (foo/0 being leader)  | `leader-settings-changed` (for all non leaders) |
 
-> Since this event needs leadership changes to trigger, check out {ref}`triggers for `leader-elected` <6471md>` as the same situations apply for `leader-settings-changed`.
+> Since this event needs leadership changes to trigger, check out {ref}`triggers for the leader-electe hook <hook-leader-elected>` as the same situations apply for `leader-settings-changed`.
 
 <!--
 *Which hooks can be guaranteed to have fired before it, if any?*?
