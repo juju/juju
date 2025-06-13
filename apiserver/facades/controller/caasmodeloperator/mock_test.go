@@ -25,9 +25,8 @@ type mockModel struct {
 
 type mockState struct {
 	common.APIAddressAccessor
-	operatorRepo                 string
-	model                        *mockModel
-	apiHostPortsForAgentsWatcher state.NotifyWatcher
+	operatorRepo string
+	model        *mockModel
 }
 
 func newMockState() *mockState {
@@ -57,10 +56,6 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 		return st.model, nil
 	}
 	return nil, errors.NotFoundf("entity %v", tag)
-}
-
-func (m *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {
-	return m.apiHostPortsForAgentsWatcher
 }
 
 func (m *mockModel) Tag() names.Tag {

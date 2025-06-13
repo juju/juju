@@ -32,20 +32,18 @@ type API struct {
 	*common.PasswordChanger
 
 	auth                    facade.Authorizer
-	ctrlState               CAASControllerState
 	controllerConfigService ControllerConfigService
+	controllerNodeService   ControllerNodeService
 	modelConfigService      ModelConfigService
 	logger                  corelogger.Logger
 
-	resources facade.Resources
-	modelUUID model.UUID
+	modelUUID       model.UUID
+	watcherRegistry facade.WatcherRegistry
 }
 
 // NewAPI is alternative means of constructing a controller model facade.
 func NewAPI(
 	authorizer facade.Authorizer,
-	resources facade.Resources,
-	ctrlSt CAASControllerState,
 	st CAASModelOperatorState,
 	agentPasswordService AgentPasswordService,
 	controllerConfigService ControllerConfigService,
@@ -63,12 +61,12 @@ func NewAPI(
 		auth:                    authorizer,
 		APIAddresser:            common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		PasswordChanger:         common.NewPasswordChanger(agentPasswordService, st, common.AuthFuncForTagKind(names.ModelTagKind)),
-		ctrlState:               ctrlSt,
 		controllerConfigService: controllerConfigService,
+		controllerNodeService:   controllerNodeService,
 		modelConfigService:      modelConfigService,
 		logger:                  logger,
-		resources:               resources,
 		modelUUID:               modelUUID,
+		watcherRegistry:         watcherRegistry,
 	}, nil
 }
 
@@ -85,13 +83,10 @@ func (a *API) WatchModelOperatorProvisioningInfo(ctx context.Context) (params.No
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-
-	// TODO: 2025-Jun-04 hml
-	// Move to use a.APIAddresser.WatchControllerNodes, and remove
-	// CAASControllerState, once the other watchers are transitioned
-	// to use domains and the multiwatcher is no longer used.
-	controllerAPIHostPortsWatcher := a.ctrlState.WatchAPIHostPortsForAgents()
-
+	controllerAPIHostPortsWatcher, err := a.controllerNodeService.WatchControllerAPIAddresses(ctx)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 	modelConfigWatcher, err := a.modelConfigService.Watch()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -106,16 +101,15 @@ func (a *API) WatchModelOperatorProvisioningInfo(ctx context.Context) (params.No
 		controllerAPIHostPortsWatcher,
 		modelConfigNotifyWatcher,
 	)
-
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	if _, err := internal.FirstResult[struct{}](ctx, multiWatcher); err != nil {
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, a.watcherRegistry, multiWatcher)
+	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	result.NotifyWatcherId = a.resources.Register(multiWatcher)
 	return result, nil
 }
 

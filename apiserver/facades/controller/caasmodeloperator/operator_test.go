@@ -14,12 +14,12 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
@@ -34,12 +34,12 @@ type ModelOperatorSuite struct {
 
 	authorizer              *apiservertesting.FakeAuthorizer
 	api                     *API
-	resources               *common.Resources
 	state                   *mockState
 	controllerConfigService *MockControllerConfigService
 	controllerNodeService   *MockControllerNodeService
 	modelConfigService      *MockModelConfigService
 	passwordService         *MockAgentPasswordService
+	watcherRegistry         *facademocks.MockWatcherRegistry
 }
 
 func TestModelOperatorSuite(t *testing.T) {
@@ -95,10 +95,13 @@ func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *tc.C) {
 	controllerConfigWatcher := watchertest.NewMockStringsWatcher(controllerConfigChanged)
 	m.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(controllerConfigWatcher, nil)
 
-	m.state.apiHostPortsForAgentsWatcher = watchertest.NewMockNotifyWatcher(apiHostPortsForAgentsChanged)
+	hostPortWatcher := watchertest.NewMockNotifyWatcher(apiHostPortsForAgentsChanged)
+	m.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(hostPortWatcher, nil)
 
 	modelConfigWatcher := watchertest.NewMockStringsWatcher(modelConfigChanged)
 	m.modelConfigService.EXPECT().Watch().Return(modelConfigWatcher, nil)
+
+	m.watcherRegistry.EXPECT().Register(gomock.Any()).Return("42", nil)
 
 	controllerConfigChanged <- []string{}
 	apiHostPortsForAgentsChanged <- struct{}{}
@@ -107,8 +110,7 @@ func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *tc.C) {
 	results, err := m.api.WatchModelOperatorProvisioningInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Error, tc.IsNil)
-	res := m.resources.Get("1")
-	c.Assert(res, tc.FitsTypeOf, (*eventsource.MultiWatcher[struct{}])(nil))
+	c.Assert(results.NotifyWatcherId, tc.Equals, "42")
 }
 
 func (s *ModelOperatorSuite) TestSetUnitPassword(c *tc.C) {
@@ -177,7 +179,7 @@ func (m *ModelOperatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 	m.controllerNodeService = NewMockControllerNodeService(ctrl)
 	m.modelConfigService = NewMockModelConfigService(ctrl)
 
-	m.resources = common.NewResources()
+	m.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 
 	m.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewModelTag("model-deadbeef-0bad-400d-8000-4b1d0d06f00d"),
@@ -192,11 +194,10 @@ func (m *ModelOperatorSuite) setupMocks(c *tc.C) *gomock.Controller {
     "repository": "test-account"
 }`[1:]
 
-	api, err := NewAPI(m.authorizer, m.resources, m.state, m.state,
-		m.passwordService,
+	api, err := NewAPI(m.authorizer, m.state, m.passwordService,
 		m.controllerConfigService, m.controllerNodeService, m.modelConfigService,
 		loggertesting.WrapCheckLog(c), model.UUID(internaltesting.ModelTag.Id()),
-		nil)
+		m.watcherRegistry)
 	c.Assert(err, tc.ErrorIsNil)
 
 	m.api = api
@@ -208,8 +209,8 @@ func (m *ModelOperatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 		m.controllerNodeService = nil
 		m.modelConfigService = nil
 		m.passwordService = nil
-		m.resources = nil
 		m.state = nil
+		m.watcherRegistry = nil
 	})
 
 	return ctrl
