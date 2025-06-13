@@ -872,7 +872,7 @@ to create a new model to deploy %sworkloads.
 	defer func() {
 		if resultErr != nil {
 			if c.KeepBrokenEnvironment {
-				ctx.Infof("%s", `
+				ctx.Infof(`
 bootstrap failed but --keep-broken was specified.
 This means that cloud resources are left behind, but not registered to
 your local client, as the controller was not successfully created.
@@ -881,7 +881,7 @@ their IP address for diagnosis and investigation.
 When you are ready to clean up the failed controller, use your cloud console or
 equivalent CLI tools to terminate the instances and remove remaining resources.
 
-See `[1:] + "`juju kill-controller`" + `.`)
+See %s.`[1:], "`juju kill-controller`")
 			} else {
 				logger.Errorf("%v", resultErr)
 				logger.Debugf("(error details: %v)", errors.Details(resultErr))

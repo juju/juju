@@ -152,9 +152,9 @@ func (c *RemoveCommand) handleForceOption(api SpaceAPI, currentModel string, ctx
 	} else {
 		fmt.Fprintf(ctx.Stdout,
 			"WARNING! This command will remove the space"+
-			" with the following existing boundaries:"+
-			"\n\n%v\n\n\n"+
-			"Continue [y/N]?", strings.Join(errorList, "\n"))
+				" with the following existing boundaries:"+
+				"\n\n%v\n\n\n"+
+				"Continue [y/N]?", strings.Join(errorList, "\n"))
 	}
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
 		return errors.Annotate(err, "space removal")
