@@ -3,12 +3,12 @@
 <!--TODO:
 - Include more base test suites. E.g., LoggingCleanupSuite, OsEnvSuite:
 https://github.com/juju/testing
-- 
+-
 -->
 
 
 A **util suite** is a struct which provides specific setup and teardown behavior as well as useful variables and
-functions to write [unit test](unit-test-suite.md) suites with.
+functions to write {ref}`unit test suites <unit-test-suite>` suites with.
 
 There are several util suites, among which:
 
