@@ -1631,7 +1631,8 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 				if err != nil {
 					// We can still run processUnit with an
 					// empty string for the ApplicationCharm
-					logger.Debugf("error fetching subordinate application charm for %q: %q", appName, err.Error())
+					logger.Debugf("error fetching subordinate application charm for %q: %q",
+						subUnit.ApplicationName(), err.Error())
 				}
 				result.Subordinates[name] = context.processUnit(subUnit, subUnitAppCharm, true)
 			}
