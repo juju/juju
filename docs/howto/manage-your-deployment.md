@@ -320,7 +320,7 @@ For an offline (to be more precise, proxy-restricted) deployment:
     - [http://cloud-images.ubuntu.com](http://cloud-images.ubuntu.com/) for base Ubuntu cloud machine images, and [http://archive.ubuntu.com](http://archive.ubuntu.com/) and [http://security.ubuntu.com](http://security.ubuntu.com/) for machine image upgrades;
     - a container image registry:
         - [https://hub.docker.com/](https://hub.docker.com/)
-        - [https://public.ecr.aws/juju](htttps://public.ecr.aws/juju)
+        - [https://public.ecr.aws/juju](https://public.ecr.aws/juju)
         - [https://ghcr.io/juju](https://ghcr.io/juju)
 
 
