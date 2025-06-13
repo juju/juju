@@ -121,8 +121,15 @@ type ApplicationStorageDirectiveArg struct {
 	// Name relates to the charm storage name definition and must match up.
 	Name domainstorage.Name
 
-	// PoolUUID defines the storage pool uuid to use for the directive.
-	PoolUUID domainstorage.StoragePoolUUID
+	// PoolUUID defines the storage pool uuid to use for the directive. This is
+	// an optional value and if not set it is expected that
+	// [ApplicationStorageDirectiveArg.ProviderType] is set.
+	PoolUUID *domainstorage.StoragePoolUUID
+
+	// ProviderType defines the storage provider type to use for the directive.
+	// This is an optional value and if not set it is expected that
+	// [ApplicationStorageDirectiveArg.PoolUUID] is set.
+	ProviderType *string
 
 	// Size defines the size of the storage directive in MiB.
 	Size uint64
