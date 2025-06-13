@@ -60,10 +60,32 @@ func (s *linkLayerBaseSuite) addNetNode(c *tc.C) string {
 	return netNodeUUID
 }
 
-func (s *linkLayerBaseSuite) addMachine(c *tc.C, name string, netNodeUUID string) {
+func (s *linkLayerBaseSuite) addLinkLayerDevice(c *tc.C, netNodeUUID string) string {
+	lldUUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		lldUUUID, netNodeUUID, lldUUUID, 1500, "00:11:22:33:44:55", 0, 0)
+	return lldUUUID
+}
+
+func (s *linkLayerBaseSuite) addMachine(c *tc.C, name, netNodeUUID string) {
 	machineUUID := machinetesting.GenUUID(c).String()
 	s.query(c, "INSERT INTO machine (uuid, net_node_uuid, name, life_id) VALUES (?, ?, ? ,?)",
 		machineUUID, netNodeUUID, name, 0)
+}
+
+func (s *linkLayerBaseSuite) addSpace(c *tc.C) string {
+	spaceUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO space (uuid, name) VALUES (?, ?)`,
+		spaceUUID, spaceUUID)
+	return spaceUUID
+}
+
+func (s *linkLayerBaseSuite) addsubnet(c *tc.C, spaceUUID string) (string, string) {
+	subnetUUID := uuid.MustNewUUID().String()
+	cidr := "10.0.0.0/24"
+	s.query(c, `INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)`,
+		subnetUUID, cidr, spaceUUID)
+	return subnetUUID, cidr
 }
 
 // checkRowCount checks that the given table has the expected number of rows.

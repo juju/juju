@@ -14,16 +14,10 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
-	schematesting "github.com/juju/juju/domain/schema/testing"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type linkLayerSuite struct {
-	schematesting.ModelSuite
-}
-
-func (s *linkLayerSuite) SetupTest(c *tc.C) {
-	s.ModelSuite.SetUpTest(c)
+	linkLayerBaseSuite
 }
 
 func TestLinkLayerSuite(t *testing.T) {
@@ -107,7 +101,6 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 }
 
 func (s *linkLayerSuite) TestGetMachineNetNodeUUID(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	// Arrange
@@ -124,7 +117,7 @@ func (s *linkLayerSuite) TestGetMachineNetNodeUUID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	gotUUID, err := st.GetMachineNetNodeUUID(ctx, machineUUID)
+	gotUUID, err := s.state.GetMachineNetNodeUUID(ctx, machineUUID)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -132,16 +125,13 @@ func (s *linkLayerSuite) TestGetMachineNetNodeUUID(c *tc.C) {
 }
 
 func (s *linkLayerSuite) TestGetMachineNetNodeUUIDNotFoundError(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	_, err := st.GetMachineNetNodeUUID(c.Context(), "machine-uuid")
+	_, err := s.state.GetMachineNetNodeUUID(c.Context(), "machine-uuid")
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TODO (manadart 2025-05-26) this test is temporary.
 // Future changes will reconcile existing devices and update them.
 func (s *linkLayerSuite) TestSetMachineNetConfigAlreadySet(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	// Arrange
@@ -161,7 +151,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{Name: "eth1"}})
+	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{Name: "eth1"}})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -187,7 +177,6 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`
 }
 
 func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	// Arrange
@@ -205,7 +194,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
+	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
 		Name:            devName,
 		Type:            corenetwork.EthernetDevice,
 		VirtualPortType: corenetwork.NonVirtualPort,
@@ -234,7 +223,6 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 }
 
 func (s *linkLayerSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	// Arrange
@@ -255,7 +243,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
 	}
 
 	// Act
-	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
+	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
 		Name:            devName,
 		Type:            corenetwork.EthernetDevice,
 		VirtualPortType: corenetwork.NonVirtualPort,
@@ -294,7 +282,6 @@ func (s *linkLayerSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
 }
 
 func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	// Arrange
@@ -307,7 +294,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
+	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
 		Name:            devName,
 		Type:            corenetwork.EthernetDevice,
 		VirtualPortType: corenetwork.NonVirtualPort,
@@ -330,7 +317,6 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 }
 
 func (s *linkLayerSuite) TestSetMachineNetConfigWithParentDevices(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	// Arrange
@@ -344,7 +330,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigWithParentDevices(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = st.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{
+	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{
 		{
 			Name:             devName,
 			Type:             corenetwork.EthernetDevice,

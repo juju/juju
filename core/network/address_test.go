@@ -644,14 +644,14 @@ var stringTests = []struct {
 }{{
 	addr: network.MachineAddress{
 		Type:  network.IPv4Address,
-		Value: "127.0.0.1",
+		Value: "127.0.0.1/4",
 	},
 	str: "127.0.0.1",
 }, {
 	addr: network.ProviderAddress{
 		MachineAddress: network.MachineAddress{
 			Type:  network.IPv4Address,
-			Value: "127.0.0.1",
+			Value: "127.0.0.1/4",
 		},
 		SpaceName: "storage-data",
 	},
@@ -659,7 +659,7 @@ var stringTests = []struct {
 }, {
 	addr: network.MachineAddress{
 		Type:  network.IPv6Address,
-		Value: "2001:db8::1",
+		Value: "2001:db8::1/128",
 		Scope: network.ScopePublic,
 	},
 	str: "public:2001:db8::1",

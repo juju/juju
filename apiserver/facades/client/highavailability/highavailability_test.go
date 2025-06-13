@@ -654,7 +654,7 @@ func (s *clientSuite) TestControllerDetails(c *tc.C) {
 		Results: []params.ControllerDetails{
 			{ControllerId: "0", APIAddresses: []string{
 				fmt.Sprintf("cloud-local0.internal:%d", apiPort),
-				fmt.Sprintf("[fc00::0]:%d", apiPort)}},
+				fmt.Sprintf("[fc00::]:%d", apiPort)}},
 			// No addresses for machines 1 and 2 yet.
 			{ControllerId: "1"},
 			{ControllerId: "2"},

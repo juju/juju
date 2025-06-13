@@ -10,6 +10,8 @@ import (
 	"github.com/juju/collections/transform"
 
 	corenetwork "github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
@@ -24,6 +26,14 @@ type entityUUID struct {
 type netNodeUUID struct {
 	// UUID uniquely identifies a net node.
 	UUID string `db:"net_node_uuid"`
+}
+
+type unitName struct {
+	Name coreunit.Name `db:"name"`
+}
+
+type lifeID struct {
+	LifeID life.Life `db:"life_id"`
 }
 
 // subnet represents a single row from the subnet table.
@@ -658,4 +668,15 @@ type deviceParent struct {
 	DeviceUUID string `db:"device_uuid"`
 	// ParentUUID is the UUID of the parent device.
 	ParentUUID string `db:"parent_uuid"`
+}
+
+type spaceAddress struct {
+	Value      string         `db:"address_value"`
+	ConfigType string         `db:"config_type_name"`
+	Type       string         `db:"type_name"`
+	Origin     string         `db:"origin_name"`
+	Scope      string         `db:"scope_name"`
+	DeviceUUID string         `db:"device_uuid"`
+	SpaceUUID  sql.NullString `db:"space_uuid"`
+	SubnetCIDR sql.NullString `db:"cidr"`
 }

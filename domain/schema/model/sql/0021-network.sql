@@ -340,6 +340,27 @@ SELECT
     fa.scope_id
 FROM fqdn_address AS fa;
 
+-- v_ip_address_with_names returns a ip_address with the
+-- type ids converted to their names.
+CREATE VIEW v_ip_address_with_names AS
+SELECT
+    ipa.uuid,
+    ipa.address_value,
+    ipa.subnet_uuid,
+    ipa.device_uuid,
+    ipa.net_node_uuid,
+    ipa.is_secondary,
+    ipa.is_shadow,
+    iact.name AS config_type_name,
+    ias.name AS scope_name,
+    iao.name AS origin_name,
+    iat.name AS type_name
+FROM ip_address AS ipa
+JOIN ip_address_config_type AS iact ON ipa.config_type_id = iact.id
+JOIN ip_address_scope AS ias ON ipa.scope_id = ias.id
+JOIN ip_address_origin AS iao ON ipa.origin_id = iao.id
+JOIN ip_address_type AS iat ON ipa.type_id = iat.id;
+
 CREATE VIEW v_machine_interface AS
 SELECT
     m.uuid AS machine_uuid,

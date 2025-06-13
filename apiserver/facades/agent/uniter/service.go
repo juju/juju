@@ -38,11 +38,12 @@ type Services struct {
 	MachineService          MachineService
 	ModelConfigService      ModelConfigService
 	ModelInfoService        ModelInfoService
+	ModelProviderService    ModelProviderService
 	PortService             PortService
+	NetworkService          NetworkService
 	RelationService         RelationService
 	SecretService           SecretService
 	UnitStateService        UnitStateService
-	ModelProviderService    ModelProviderService
 }
 
 // ControllerConfigService provides the controller configuration for the model.
@@ -213,7 +214,11 @@ type ApplicationService interface {
 	// upgrade to the latest version of the application charm even if they are in
 	// error state.
 	ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error)
+}
 
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
 	// GetUnitPublicAddress returns the public address for the specified unit.
 	// For k8s provider, it will return the first public address of the cloud
 	// service if any, the first public address of the cloud container otherwise.
