@@ -7,12 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
@@ -59,35 +56,35 @@ func (s *precheckBaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *precheckBaseSuite) expectApplicationLife(appName string, l life.Value) {
-	s.applicationService.EXPECT().GetApplicationLifeByName(gomock.Any(), appName).Return(l, nil)
+func (s *precheckBaseSuite) expectAllAppsAndUnitsAlive() {
+	s.applicationService.EXPECT().CheckAllApplicationsAndUnitsAreAlive(gomock.Any()).Return(nil)
 }
 
-func (s *precheckBaseSuite) expectCheckRelation(rels fakeRelations) {
-	result := transform.MapToSlice(rels, func(k int, rel fakeRelation) []relation.RelationDetailsResult {
-		return []relation.RelationDetailsResult{{
-			ID:        k,
-			Endpoints: rel.eps,
-		}}
-	})
+func (s *precheckBaseSuite) expectDeadAppsOrUnits(err error) {
+	s.applicationService.EXPECT().CheckAllApplicationsAndUnitsAreAlive(gomock.Any()).Return(err)
+}
+
+func (s *precheckBaseSuite) expectCheckRelation(rel fakeRelation) {
+	result := []relation.RelationDetailsResult{{
+		ID:        1,
+		Endpoints: rel.eps,
+	}}
+
+	for appName, units := range rel.appsToUnits {
+		s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), appName).Return(units, nil)
+	}
+
 	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(result, nil)
 	s.relationService.EXPECT().RelationUnitInScopeByID(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, i int, name coreunit.Name) (bool, error) {
-			rel, ok := rels[i]
-			if !ok {
-				return false, errors.Errorf("no relation %d", i)
-			}
 			return rel.units.Contains(string(name)), nil
 		}).AnyTimes()
 }
 
-// fakeRelation is a type that represents basic information for a relation,
-// grouped by relation id.
-type fakeRelations map[int]fakeRelation
-
 type fakeRelation struct {
-	eps   []relation.Endpoint
-	units set.Strings
+	eps         []relation.Endpoint
+	units       set.Strings
+	appsToUnits map[string][]coreunit.Name
 }
 
 func (s *precheckBaseSuite) expectCheckUnitStatuses(res error) {

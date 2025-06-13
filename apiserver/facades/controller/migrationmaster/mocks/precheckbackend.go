@@ -41,45 +41,6 @@ func (m *MockPrecheckBackend) EXPECT() *MockPrecheckBackendMockRecorder {
 	return m.recorder
 }
 
-// AllApplications mocks base method.
-func (m *MockPrecheckBackend) AllApplications() ([]migration.PrecheckApplication, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllApplications")
-	ret0, _ := ret[0].([]migration.PrecheckApplication)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllApplications indicates an expected call of AllApplications.
-func (mr *MockPrecheckBackendMockRecorder) AllApplications() *MockPrecheckBackendAllApplicationsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllApplications", reflect.TypeOf((*MockPrecheckBackend)(nil).AllApplications))
-	return &MockPrecheckBackendAllApplicationsCall{Call: call}
-}
-
-// MockPrecheckBackendAllApplicationsCall wrap *gomock.Call
-type MockPrecheckBackendAllApplicationsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockPrecheckBackendAllApplicationsCall) Return(arg0 []migration.PrecheckApplication, arg1 error) *MockPrecheckBackendAllApplicationsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockPrecheckBackendAllApplicationsCall) Do(f func() ([]migration.PrecheckApplication, error)) *MockPrecheckBackendAllApplicationsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockPrecheckBackendAllApplicationsCall) DoAndReturn(f func() ([]migration.PrecheckApplication, error)) *MockPrecheckBackendAllApplicationsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // AllMachines mocks base method.
 func (m *MockPrecheckBackend) AllMachines() ([]migration.PrecheckMachine, error) {
 	m.ctrl.T.Helper()

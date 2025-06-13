@@ -15,6 +15,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
@@ -804,6 +805,61 @@ func (st *State) GetApplicationLifeByName(ctx context.Context, appName string) (
 		return nil
 	})
 	return app.UUID, app.LifeID, errors.Capture(err)
+}
+
+// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
+// in the model are alive, returning an error if any are not.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotAlive] if any applications are not alive.
+// - [applicationerrors.UnitNotAlive] if any units are not alive.
+func (st *State) CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	checkApplicationsStmt, err := st.Prepare(`
+SELECT &applicationName.*
+FROM application
+WHERE life_id != 0
+`, applicationName{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	checkUnitsStmt, err := st.Prepare(`
+SELECT &unitName.*
+FROM unit
+WHERE life_id != 0
+`, unitName{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var deadApps []applicationName
+		err := tx.Query(ctx, checkApplicationsStmt).GetAll(&deadApps)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		} else if err == nil {
+			names := transform.Slice(deadApps, func(app applicationName) string { return app.Name })
+			return errors.Errorf("application(s) %q are not alive", strings.Join(names, ", ")).Add(applicationerrors.ApplicationNotAlive)
+		}
+
+		var deadUnits []unitName
+		err = tx.Query(ctx, checkUnitsStmt).GetAll(&deadUnits)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		} else if err == nil {
+			names := transform.Slice(deadUnits, func(unit unitName) string { return unit.Name.String() })
+			return errors.Errorf("unit(s) %q are not alive", strings.Join(names, ", ")).Add(applicationerrors.UnitNotAlive)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("checking apps and units are alive: %w", err)
+	}
+	return nil
 }
 
 func (st *State) getApplicationDetails(ctx context.Context, tx *sqlair.TX, appName string) (applicationDetails, error) {
