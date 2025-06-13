@@ -28,10 +28,6 @@ type netNodeUUID struct {
 	UUID string `db:"net_node_uuid"`
 }
 
-type unitUUID struct {
-	UnitUUID coreunit.UUID `db:"uuid"`
-}
-
 type unitName struct {
 	Name coreunit.Name `db:"name"`
 }
@@ -675,12 +671,12 @@ type deviceParent struct {
 }
 
 type spaceAddress struct {
-	Value        string                          `db:"address_value"`
-	ConfigTypeID int                             `db:"config_type_id"`
-	TypeID       int                             `db:"type_id"`
-	OriginID     int                             `db:"origin_id"`
-	ScopeID      int                             `db:"scope_id"`
-	DeviceID     string                          `db:"device_uuid"`
-	SpaceUUID    sql.Null[corenetwork.SpaceUUID] `db:"space_uuid"`
-	SubnetCIDR   sql.NullString                  `db:"cidr"`
+	Value      string         `db:"address_value"`
+	ConfigType string         `db:"config_type_name"`
+	Type       string         `db:"type_name"`
+	Origin     string         `db:"origin_name"`
+	Scope      string         `db:"scope_name"`
+	DeviceUUID string         `db:"device_uuid"`
+	SpaceUUID  sql.NullString `db:"space_uuid"`
+	SubnetCIDR sql.NullString `db:"cidr"`
 }
