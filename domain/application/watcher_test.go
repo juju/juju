@@ -864,9 +864,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	// Add a cloud service to get an initial state.
 	err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.ProviderAddresses{
 		{
-			MachineAddress: network.MachineAddress{
-				Value: "10.0.0.1",
-			},
+			MachineAddress: network.NewMachineAddress("10.0.0.1"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -880,9 +878,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 		// Change the address for the cloud service should trigger a change.
 		err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.ProviderAddresses{
 			{
-				MachineAddress: network.MachineAddress{
-					Value: "192.168.0.1",
-				},
+				MachineAddress: network.NewMachineAddress("192.168.0.1"),
 			},
 		})
 		c.Assert(err, tc.ErrorIsNil)
@@ -921,7 +917,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	})
 
 	// Hash of the initial state.
-	harness.Run(c, []string{"e9daa2b006ff0740cebfce4a761243bc032d518221fdfa16df53e3aa701591cc"})
+	harness.Run(c, []string{"722ba9e367e446b51bd7a473ab0a6002f8eb2f848a03169d7dfa63b7a88e3e8a"})
 }
 
 func (s *watcherSuite) TestWatchUnitAddressesHashBadName(c *tc.C) {
@@ -1602,6 +1598,11 @@ func (s *watcherSuite) createSubnetForCAASModel(c *tc.C) {
 
 		subnetUUID := uuid.MustNewUUID().String()
 		_, err := tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr) VALUES (?, ?)", subnetUUID, "0.0.0.0/0")
+		if err != nil {
+			return err
+		}
+		subnetUUID2 := uuid.MustNewUUID().String()
+		_, err = tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr) VALUES (?, ?)", subnetUUID2, "::/0")
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

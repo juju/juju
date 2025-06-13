@@ -41,7 +41,11 @@ func (s *k8sNetworkingSuite) TestSubnets(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.DeepEquals, []network.SubnetInfo{
 		{
-			CIDR: "0.0.0.0/0",
+			CIDR:       "0.0.0.0/0",
+			ProviderId: "subnet-placeholder-0.0.0.0/0",
+		}, {
+			CIDR:       "::/0",
+			ProviderId: "subnet-placeholder-::/0",
 		},
 	})
 }

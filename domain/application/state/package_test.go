@@ -378,6 +378,11 @@ func (s *baseSuite) createSubnetForCAASModel(c *tc.C) {
 
 		subnetUUID := uuid.MustNewUUID().String()
 		_, err := tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr) VALUES (?, ?)", subnetUUID, "0.0.0.0/0")
+		if err != nil {
+			return err
+		}
+		subnetUUID2 := uuid.MustNewUUID().String()
+		_, err = tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr) VALUES (?, ?)", subnetUUID2, "::/0")
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

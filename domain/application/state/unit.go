@@ -2421,9 +2421,16 @@ INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
 	}
 	deviceUUID := cloudContainerDeviceInfo.UUID
 
-	subnetUUID, err := st.k8sSubnetUUID(ctx, tx)
+	subnetUUIDs, err := st.k8sSubnetUUIDsByAddressType(ctx, tx)
 	if err != nil {
 		return errors.Capture(err)
+	}
+	subnetUUID, ok := subnetUUIDs[ipaddress.UnMarshallAddressType(address.AddressType)]
+	if !ok {
+		// Note: This is a programming error. Today the K8S subnets are
+		// placeholders which should always be created when a model is
+		// added.
+		return errors.Errorf("subnet for address type %q not found", address.AddressType)
 	}
 
 	// Now process the address details.
@@ -2440,8 +2447,8 @@ INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
 
 	selectAddressUUIDStmt, err := st.Prepare(`
 SELECT &ipAddress.uuid
-FROM ip_address
-WHERE device_uuid = $ipAddress.device_uuid;
+FROM   ip_address
+WHERE  device_uuid = $ipAddress.device_uuid;
 `, ipAddr)
 	if err != nil {
 		return errors.Capture(err)
@@ -2452,6 +2459,7 @@ INSERT INTO ip_address (*)
 VALUES ($ipAddress.*)
 ON CONFLICT(uuid) DO UPDATE SET
     address_value = excluded.address_value,
+    subnet_uuid = excluded.subnet_uuid,
     type_id = excluded.type_id,
     scope_id = excluded.scope_id,
     origin_id = excluded.origin_id,

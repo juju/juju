@@ -1064,7 +1064,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingEmptyAddress
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
+				Value:      "10.0.0.1/8",
 				ConfigType: network.ConfigStatic,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeCloudLocal,
@@ -1072,7 +1072,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingEmptyAddress
 		},
 		{
 			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
+				Value:      "10.0.0.2/8",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv6Address,
 				Scope:      network.ScopeLinkLocal,
@@ -1110,13 +1110,13 @@ WHERE application_uuid = ?
 		c.Assert(resultAddresses, tc.SameContents, expectedAddresses)
 	}
 
-	checkAddresses(c, "10.0.0.1", "10.0.0.2")
+	checkAddresses(c, "10.0.0.1/8", "10.0.0.2/8")
 
 	err = s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
 	// Since no addresses were passed as input, the previous addresses should
 	// be returned.
-	checkAddresses(c, "10.0.0.1", "10.0.0.2")
+	checkAddresses(c, "10.0.0.1/8", "10.0.0.2/8")
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingWithAddresses(c *tc.C) {
@@ -1125,7 +1125,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingWithAddresse
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
+				Value:      "10.0.0.1/24",
 				ConfigType: network.ConfigStatic,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeCloudLocal,
@@ -1133,7 +1133,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingWithAddresse
 		},
 		{
 			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
+				Value:      "10.0.0.2/24",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv6Address,
 				Scope:      network.ScopeLinkLocal,
@@ -1171,12 +1171,12 @@ WHERE application_uuid = ?
 		c.Assert(resultAddresses, tc.SameContents, expectedAddresses)
 	}
 
-	checkAddresses(c, "10.0.0.1", "10.0.0.2")
+	checkAddresses(c, "10.0.0.1/24", "10.0.0.2/24")
 
 	err = s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.MachineAddress{
-				Value:      "192.168.0.0",
+				Value:      "192.168.0.0/24",
 				ConfigType: network.ConfigStatic,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeCloudLocal,
@@ -1184,7 +1184,7 @@ WHERE application_uuid = ?
 		},
 		{
 			MachineAddress: network.MachineAddress{
-				Value:      "192.168.0.1",
+				Value:      "192.168.0.1/24",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv6Address,
 				Scope:      network.ScopeLinkLocal,
@@ -1194,7 +1194,7 @@ WHERE application_uuid = ?
 	c.Assert(err, tc.ErrorIsNil)
 	// Since no addresses were passed as input, the previous addresses should
 	// be returned.
-	checkAddresses(c, "192.168.0.0", "192.168.0.1")
+	checkAddresses(c, "192.168.0.0/24", "192.168.0.1/24")
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *tc.C) {
@@ -3721,11 +3721,10 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
 			UnitName: "foo/0",
 		})
 
+	network.NewMachineAddress("10.0.0.1/24")
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
-			MachineAddress: network.MachineAddress{
-				Value: "10.0.0.1",
-			},
+			MachineAddress: network.NewMachineAddress("10.0.0.1/24"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -3742,7 +3741,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
 
 	hash, err := s.state.GetAddressesHash(c.Context(), appID, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(hash, tc.Equals, "6a6a947ce7d1aa01e1da0984ecf037c76fa1b9f2136b3113cd7e8ab312239686")
+	c.Check(hash, tc.Equals, "6e97876f0c817d2ba3b4d736f3fceb639049997e609803028673eeaeeaa01cf5")
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBindings(c *tc.C) {
@@ -3751,9 +3750,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBind
 	})
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
-			MachineAddress: network.MachineAddress{
-				Value: "10.0.0.1",
-			},
+			MachineAddress: network.NewMachineAddress("10.0.0.1/24"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -3792,7 +3789,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBind
 
 	hash, err := s.state.GetAddressesHash(c.Context(), appID, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(hash, tc.Equals, "e174cad78a387fb380d0f9cf277a7edb759549f6afdafdfc4adf0c243e18d375")
+	c.Check(hash, tc.Equals, "55d79355f44aa2d2799338219e2c2d2e67f61d3de026bf0415093d2de9d01afc")
 }
 
 func (s *applicationStateSuite) TestHashAddresses(c *tc.C) {
@@ -3843,9 +3840,7 @@ func (s *applicationStateSuite) TestGetNetNodeFromK8sService(c *tc.C) {
 
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
-			MachineAddress: network.MachineAddress{
-				Value: "10.0.0.1",
-			},
+			MachineAddress: network.NewMachineAddress("10.0.0.1/8"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
