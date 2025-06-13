@@ -5,12 +5,16 @@ package state
 
 import (
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 
 	corenetwork "github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type unitAddressSuite struct {
@@ -32,8 +36,8 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(
 	spaceUUID := s.addSpace(c)
 	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
 
-	podAddr := s.addIPAddress(c, podNodeUUID, podDeviceUUID, subnetUUID, corenetwork.ScopeMachineLocal, corenetwork.OriginMachine)
-	svcAddr := s.addIPAddress(c, svcNodeUUID, svcDeviceUUID, subnetUUID, corenetwork.ScopePublic, corenetwork.OriginProvider)
+	podAddr := s.addKubernetesIPAddress(c, podNodeUUID, podDeviceUUID, subnetUUID, 3, 0)
+	svcAddr := s.addKubernetesIPAddress(c, svcNodeUUID, svcDeviceUUID, subnetUUID, 1, 1)
 
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, spaceUUID)
@@ -77,7 +81,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesWithoutK8sService(c 
 	deviceUUID := s.addLinkLayerDevice(c, nodeUUID)
 	spaceUUID := s.addSpace(c)
 	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
-	expectedAddr := s.addIPAddress(c, nodeUUID, deviceUUID, subnetUUID, corenetwork.ScopeMachineLocal, corenetwork.OriginProvider)
+	expectedAddr := s.addIPAddress(c, nodeUUID, deviceUUID, subnetUUID, 3, 1)
 
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, spaceUUID)
@@ -144,7 +148,7 @@ func (s *unitAddressSuite) TestGetUnitAddresses(c *tc.C) {
 	deviceUUID := s.addLinkLayerDevice(c, nodeUUID)
 	spaceUUID := s.addSpace(c)
 	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
-	expectedAddr := s.addIPAddress(c, nodeUUID, deviceUUID, subnetUUID, corenetwork.ScopeMachineLocal, corenetwork.OriginProvider)
+	expectedAddr := s.addIPAddress(c, nodeUUID, deviceUUID, subnetUUID, 3, 1)
 
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, spaceUUID)
@@ -190,4 +194,47 @@ func (s *unitAddressSuite) TestGetUnitAddressesNoAddresses(c *tc.C) {
 func (s *unitAddressSuite) TestGetUnitAddressesNotFound(c *tc.C) {
 	_, err := s.state.GetUnitAddresses(c.Context(), coreunit.UUID("foo"))
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitAddressSuite) addIPAddress(c *tc.C, nodeUUID, deviceUUID, subnetUUID string, scopeID, originID int) string {
+	ipAddrUUID := uuid.MustNewUUID().String()
+	addr := "10.0.0.1"
+	s.query(c, `INSERT INTO ip_address (uuid, net_node_uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		ipAddrUUID, nodeUUID, deviceUUID, addr+"/24", 0, scopeID, originID, 1, subnetUUID)
+	return addr
+}
+
+func (s *unitAddressSuite) addKubernetesIPAddress(c *tc.C, nodeUUID, deviceUUID, subnetUUID string, scopeID, originID int) string {
+	ipAddrUUID := uuid.MustNewUUID().String()
+	addr := "10.0.0.1"
+	s.query(c, `INSERT INTO ip_address (uuid, net_node_uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		ipAddrUUID, nodeUUID, deviceUUID, addr, 0, scopeID, originID, 1, subnetUUID)
+	return addr
+}
+
+func (s *unitAddressSuite) addCharm(c *tc.C) string {
+	charmUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO charm (uuid, reference_name, create_time) VALUES (?, ?, ?)`,
+		charmUUID, charmUUID, time.Now())
+	return charmUUID
+}
+
+func (s *unitAddressSuite) addApplication(c *tc.C, charmUUID, spaceUUID string) string {
+	appUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
+		appUUID, appUUID, life.Alive, charmUUID, spaceUUID)
+	return appUUID
+}
+
+func (s *unitAddressSuite) addUnit(c *tc.C, appUUID, charmUUID, nodeUUID string) coreunit.UUID {
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
+		unitUUID, unitUUID, life.Alive, appUUID, charmUUID, nodeUUID)
+	return unitUUID
+}
+
+func (s *unitAddressSuite) addk8sService(c *tc.C, nodeUUID, appUUID string) {
+	svcUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO k8s_service (uuid, net_node_uuid, application_uuid, provider_id) VALUES (?, ?, ?, ?)`,
+		svcUUID, nodeUUID, appUUID, "provider-id")
 }

@@ -208,7 +208,10 @@ func encodeIpAddress(address spaceAddress) (corenetwork.SpaceAddress, error) {
 	// parse the parts for the MachineAddress
 	ipAddr, ipNet, err := net.ParseCIDR(address.Value)
 	if err != nil {
-		return corenetwork.SpaceAddress{}, err
+		// Note: IP addresses from Kubernetes do not contain subnet
+		// mask suffixes yet. Handle that scenario here. Eventually
+		// an error should be returned instead.
+		ipAddr = net.ParseIP(address.Value)
 	}
 	cidr := ipNet.String()
 	// Prefer the subnet cidr if one exists.
