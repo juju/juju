@@ -91,35 +91,35 @@ func (s *MigrateSuite) SetUpTest(c *tc.C) {
 	}
 	s.modelAPI = &fakeModelAPI{
 		models: []base.UserModel{{
-			Name:  "model",
-			UUID:  modelUUID,
-			Type:  model.IAAS,
-			Owner: "sourceuser",
+			Name:      "model",
+			UUID:      modelUUID,
+			Type:      model.IAAS,
+			Qualifier: "prod",
 		}, {
-			Name:  "production",
-			UUID:  "prod-1-uuid",
-			Type:  model.IAAS,
-			Owner: "alpha",
+			Name:      "production",
+			UUID:      "prod-1-uuid",
+			Type:      model.IAAS,
+			Qualifier: "alpha",
 		}, {
-			Name:  "production",
-			UUID:  "prod-2-uuid",
-			Type:  model.IAAS,
-			Owner: "sourceuser",
+			Name:      "production",
+			UUID:      "prod-2-uuid",
+			Type:      model.IAAS,
+			Qualifier: "prod",
 		}, {
-			Name:  "model-with-extra-local-users",
-			UUID:  "extra-local-users-uuid",
-			Type:  model.IAAS,
-			Owner: "sourceuser",
+			Name:      "model-with-extra-local-users",
+			UUID:      "extra-local-users-uuid",
+			Type:      model.IAAS,
+			Qualifier: "prod",
 		}, {
-			Name:  "model-with-extra-external-users",
-			UUID:  "extra-external-users-uuid",
-			Type:  model.IAAS,
-			Owner: "sourceuser",
+			Name:      "model-with-extra-external-users",
+			UUID:      "extra-external-users-uuid",
+			Type:      model.IAAS,
+			Qualifier: "prod",
 		}, {
-			Name:  "model-with-extra-users",
-			UUID:  "extra-users-uuid",
-			Type:  model.IAAS,
-			Owner: "sourceuser",
+			Name:      "model-with-extra-users",
+			UUID:      "extra-users-uuid",
+			Type:      model.IAAS,
+			Qualifier: "prod",
 		}},
 		modelInfo: []params.ModelInfo{
 			{
@@ -249,7 +249,7 @@ func (s *MigrateSuite) TestTooManyArgs(c *tc.C) {
 }
 
 func (s *MigrateSuite) TestSuccess(c *tc.C) {
-	ctx, err := s.makeAndRun(c, "model", "target")
+	ctx, err := s.makeAndRun(c, "prod/model", "target")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(cmdtesting.Stderr(ctx), tc.Matches, "Migration started with ID \"uuid:0\"\n")
@@ -271,7 +271,7 @@ func (s *MigrateSuite) TestSuccessMacaroons(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	ctx, err := s.makeAndRun(c, "model", "target")
+	ctx, err := s.makeAndRun(c, "prod/model", "target")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(cmdtesting.Stderr(ctx), tc.Matches, "Migration started with ID \"uuid:0\"\n")
@@ -302,7 +302,7 @@ func (s *MigrateSuite) TestMultipleModelMatch(c *tc.C) {
 	cmd := s.makeCommand()
 	// Disambiguation is done in the standard way by choosing
 	// the current user's model.
-	ctx, err := cmdtesting.RunCommand(c, cmd, "production", "target")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "prod/production", "target")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), tc.Matches, "Migration started with ID \"uuid:0\"\n")
 	c.Check(s.api.specSeen, tc.DeepEquals, &controller.MigrationSpec{
@@ -394,7 +394,7 @@ the current model:
 		inner := modelcmd.InnerCommand(cmd).(*migrateCommand)
 		inner.migAPI["source"].(*fakeMigrateAPI).identityURL = spec.srcIdentityURL
 		inner.migAPI["target"].(*fakeMigrateAPI).identityURL = spec.dstIdentityURL
-		_, err := cmdtesting.RunCommand(c, cmd, spec.srcModel, "target")
+		_, err := cmdtesting.RunCommand(c, cmd, "prod/"+spec.srcModel, "target")
 
 		if spec.expErr == "" {
 			c.Assert(err, tc.IsNil)
@@ -405,7 +405,7 @@ the current model:
 	}
 }
 
-func (s *MigrateSuite) TestSpecifyOwner(c *tc.C) {
+func (s *MigrateSuite) TestSpecifyQualifier(c *tc.C) {
 	ctx, err := s.makeAndRun(c, "alpha/production", "target")
 	c.Assert(err, tc.ErrorIsNil)
 

@@ -110,7 +110,7 @@ func (s *offerSuite) TestOfferDataErred(c *tc.C) {
 func (s *offerSuite) TestOfferValid(c *tc.C) {
 	s.args = []string{"tst:db"}
 	s.assertOfferOutput(c, "test", "tst", "tst", []string{"db"})
-	c.Assert(s.mockAPI.modelUUID, tc.Equals, "fred-uuid")
+	c.Assert(s.mockAPI.modelUUID, tc.Equals, "test-uuid")
 }
 
 func (s *offerSuite) TestOfferWithAlias(c *tc.C) {
@@ -119,7 +119,7 @@ func (s *offerSuite) TestOfferWithAlias(c *tc.C) {
 }
 
 func (s *offerSuite) TestOfferExplicitModel(c *tc.C) {
-	s.args = []string{"bob/prod.tst:db"}
+	s.args = []string{"prod/test2.tst:db"}
 	s.assertOfferOutput(c, "prod", "tst", "tst", []string{"db"})
 }
 

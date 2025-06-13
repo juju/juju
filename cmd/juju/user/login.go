@@ -563,8 +563,8 @@ const badCred = "invalid entity name or password"
 
 const noModelsMessage = `
 There are no models available. You can add models with
-"juju add-model", or you can ask an administrator or owner
-of a model to grant access to that model with "juju grant".
+"juju add-model", or you can ask an administrator of a
+model to grant access to that model with "juju grant".
 `
 
 func (c *loginCommand) maybeSetCurrentModel(ctx *cmd.Context, store jujuclient.ClientStore, controllerName, userName string, models []apibase.UserModel) error {
@@ -578,8 +578,7 @@ func (c *loginCommand) maybeSetCurrentModel(ctx *cmd.Context, store jujuclient.C
 		// There is exactly one model shared,
 		// so set it as the current model.
 		model := models[0]
-		owner := names.NewUserTag(model.Owner)
-		modelName := jujuclient.JoinOwnerModelName(owner, model.Name)
+		modelName := jujuclient.QualifyModelName(model.Qualifier.String(), model.Name)
 		err := store.SetCurrentModel(controllerName, modelName)
 		if err != nil {
 			return errors.Trace(err)
@@ -595,12 +594,11 @@ one of them:
 	ownerModelNames := make(set.Strings)
 	otherModelNames := make(set.Strings)
 	for _, model := range models {
-		if model.Owner == userName {
+		if model.Qualifier.String() == userName {
 			ownerModelNames.Add(model.Name)
 			continue
 		}
-		owner := names.NewUserTag(model.Owner)
-		modelName := common.OwnerQualifiedModelName(model.Name, owner, user)
+		modelName := common.OwnerQualifiedModelName(model.Name, model.Qualifier.String(), user)
 		otherModelNames.Add(modelName)
 	}
 	for _, modelName := range ownerModelNames.SortedValues() {

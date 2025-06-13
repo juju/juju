@@ -105,9 +105,9 @@ type ModelService interface {
 	// models exist a zero value slice will be returned.
 	ListAllModels(ctx context.Context) ([]model.Model, error)
 
-	// GetModelByNameAndOwner returns the model associated with the given model name and owner name.
+	// GetModelByNameAndQualifier returns the model associated with the given model name and owner name.
 	// The following errors may be returned:
-	// - [modelerrors.NotFound] if no model exists
-	// - [accesserrors.UserNameNotValid] if ownerName is zero
-	GetModelByNameAndOwner(ctx context.Context, name string, ownerName user.Name) (model.Model, error)
+	// - [modelerrors.NotFound] if no model exists.
+	// - [github.com/juju/juju/core/errors.NotValid] if qualifier is not valid.
+	GetModelByNameAndQualifier(ctx context.Context, name string, qualifier model.Qualifier) (model.Model, error)
 }

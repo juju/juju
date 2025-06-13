@@ -22,7 +22,6 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -32,7 +31,7 @@ import (
 
 type offerAccessSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPIv5
+	api *applicationoffers.OffersAPI
 }
 
 func TestOfferAccessSuite(t *testing.T) {
@@ -106,9 +105,7 @@ func (s *offerAccessSuite) revoke(c *tc.C, user names.UserTag, access params.Off
 	return s.modifyAccess(c, user, params.RevokeOfferAccess, access, offerURL)
 }
 
-func (s *offerAccessSuite) setupOffer(c *tc.C, modelUUID, modelName, owner, offerName string) string {
-	qualifier := coremodel.QualifierFromUserTag(names.NewUserTag(owner))
-
+func (s *offerAccessSuite) setupOffer(c *tc.C, modelUUID, modelName string, qualifier coremodel.Qualifier, offerName string) string {
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]coremodel.Model{
 			{
@@ -119,9 +116,7 @@ func (s *offerAccessSuite) setupOffer(c *tc.C, modelUUID, modelName, owner, offe
 			},
 		}, nil,
 	).AnyTimes()
-	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
-	ownerName := usertesting.GenNewName(c, qualifier.String())
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), modelName, ownerName).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, qualifier).Return(
 		coremodel.Model{
 			Name:      modelName,
 			Qualifier: qualifier,
@@ -139,31 +134,13 @@ func (s *offerAccessSuite) setupOffer(c *tc.C, modelUUID, modelName, owner, offe
 	return uuid
 }
 
-func (s *offerAccessSuite) TestGrantMissingUserFails(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.setupAPI(c)
-
-	offerUUID := s.setupOffer(c, "uuid", "test", "admin", "someoffer")
-	user := names.NewUserTag("foobar")
-
-	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
-		AccessSpec: offerAccessSpec(offerUUID, permission.ReadAccess),
-		Subject:    coreuser.NameFromTag(user),
-		Change:     permission.Grant,
-	}).Return(accesserrors.UserNotFound)
-
-	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
-	expectedErr := `could not grant offer access for "foobar": user not found`
-	c.Assert(err, tc.ErrorMatches, expectedErr)
-}
-
 func (s *offerAccessSuite) TestGrantMissingOfferFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer(c, "uuid", "test", "admin", "differentoffer")
+	s.setupOffer(c, "uuid", "test", "prod", "differentoffer")
 	user := names.NewUserTag("foobar")
-	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
+	err := s.grant(c, user, params.OfferReadAccess, "prod/test.someoffer")
 	expectedErr := `.*application offer "someoffer" not found`
 	c.Assert(err, tc.ErrorMatches, expectedErr)
 }
@@ -172,7 +149,7 @@ func (s *offerAccessSuite) TestRevokePermission(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer(c, "uuid", "test", "admin", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "prod", "someoffer")
 	user := names.NewUserTag("foobar")
 	userName := coreuser.NameFromTag(user)
 	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
@@ -181,7 +158,7 @@ func (s *offerAccessSuite) TestRevokePermission(c *tc.C) {
 		Change:     permission.Revoke,
 	})
 
-	err := s.revoke(c, user, params.OfferReadAccess, "test.someoffer")
+	err := s.revoke(c, user, params.OfferReadAccess, "prod/test.someoffer")
 	c.Assert(err, tc.IsNil)
 }
 
@@ -189,7 +166,7 @@ func (s *offerAccessSuite) TestGrantPermission(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer(c, "uuid", "test", "admin", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "prod", "someoffer")
 
 	user := names.NewUserTag("foobar")
 	userName := coreuser.NameFromTag(user)
@@ -199,7 +176,7 @@ func (s *offerAccessSuite) TestGrantPermission(c *tc.C) {
 		Change:     permission.Grant,
 	}).Return(accesserrors.PermissionAccessGreater)
 
-	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
+	err := s.grant(c, user, params.OfferReadAccess, "prod/test.someoffer")
 
 	c.Assert(errors.Cause(err), tc.ErrorMatches, `could not grant offer access for .*: access or greater`)
 }
@@ -208,7 +185,7 @@ func (s *offerAccessSuite) TestGrantPermissionAddRemoteUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer(c, "uuid", "test", "superuser-bob", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "prod", "someoffer")
 
 	apiUser := names.NewUserTag("superuser-bob")
 	s.authorizer.Tag = apiUser
@@ -221,12 +198,12 @@ func (s *offerAccessSuite) TestGrantPermissionAddRemoteUser(c *tc.C) {
 		Change:     permission.Grant,
 	})
 
-	err := s.grant(c, user, params.OfferReadAccess, "superuser-bob/test.someoffer")
+	err := s.grant(c, user, params.OfferReadAccess, "prod/test.someoffer")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *offerAccessSuite) assertGrantToOffer(c *tc.C, userAccess permission.Access) {
-	offerUUID := s.setupOffer(c, "uuid", "test", "bob@remote", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "prod", "someoffer")
 
 	user := names.NewUserTag("bob@remote")
 	s.authorizer.Tag = user
@@ -237,7 +214,7 @@ func (s *offerAccessSuite) assertGrantToOffer(c *tc.C, userAccess permission.Acc
 		Key:        offerUUID,
 	}).Return(userAccess, nil)
 
-	err := s.grant(c, other, params.OfferReadAccess, "bob@remote/test.someoffer")
+	err := s.grant(c, other, params.OfferReadAccess, "prod/test.someoffer")
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
@@ -292,7 +269,7 @@ func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer(c, "uuid", "test", "admin", "someoffer")
+	s.setupOffer(c, "uuid", "test", "prod", "someoffer")
 	for _, testParam := range []struct {
 		tag      string
 		validTag bool
@@ -350,7 +327,7 @@ func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *tc.C) {
 				UserTag:  testParam.tag,
 				Action:   params.GrantOfferAccess,
 				Access:   params.OfferReadAccess,
-				OfferURL: "test.someoffer",
+				OfferURL: "prod/test.someoffer",
 			}}}
 
 		result, err := s.api.ModifyOfferAccess(c.Context(), args)
@@ -363,9 +340,9 @@ func (s *offerAccessSuite) TestModifyOfferAccessEmptyArgs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer(c, "uuid", "test", "admin", "someoffer")
+	s.setupOffer(c, "uuid", "test", "prod", "someoffer")
 	args := params.ModifyOfferAccessRequest{
-		Changes: []params.ModifyOfferAccess{{OfferURL: "test.someoffer"}}}
+		Changes: []params.ModifyOfferAccess{{OfferURL: "prod/test.someoffer"}}}
 
 	result, err := s.api.ModifyOfferAccess(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -377,7 +354,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer(c, "uuid", "test", "admin", "someoffer")
+	s.setupOffer(c, "uuid", "test", "prod", "someoffer")
 
 	var dance params.OfferAction = "dance"
 	args := params.ModifyOfferAccessRequest{
@@ -385,7 +362,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *tc.C) {
 			UserTag:  "user-user",
 			Action:   dance,
 			Access:   params.OfferReadAccess,
-			OfferURL: "test.someoffer",
+			OfferURL: "prod/test.someoffer",
 		}}}
 
 	result, err := s.api.ModifyOfferAccess(c.Context(), args)
@@ -401,7 +378,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessForModelAdminPermission(c *tc.C)
 	s.setupAPI(c)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	offerUUID := s.setupOffer(c, modelUUID.String(), "test", "admin", "someoffer")
+	offerUUID := s.setupOffer(c, modelUUID.String(), "test", "prod", "someoffer")
 
 	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, a access.UpdatePermissionArgs) error {
 		name, err := coreuser.NewName("luke")
@@ -426,7 +403,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessForModelAdminPermission(c *tc.C)
 			UserTag:  "user-luke",
 			Action:   params.GrantOfferAccess,
 			Access:   params.OfferReadAccess,
-			OfferURL: "admin/test.someoffer",
+			OfferURL: "prod/test.someoffer",
 		}}}
 
 	result, err := s.api.ModifyOfferAccess(c.Context(), args)

@@ -255,20 +255,20 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentMode
 	})
 }
 
-func (s *SwitchSimpleSuite) TestSwitchToModelDifferentOwner(c *tc.C) {
+func (s *SwitchSimpleSuite) TestSwitchToModelDifferentQualifier(c *tc.C) {
 	s.store.CurrentControllerName = "same"
 	s.addController(c, "same")
 	s.store.Models["same"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
-			"admin/mymodel":  {},
-			"bianca/mymodel": {},
+			"prod/mymodel":    {},
+			"staging/mymodel": {},
 		},
-		CurrentModel: "admin/mymodel",
+		CurrentModel: "prod/mymodel",
 	}
-	context, err := s.run(c, "bianca/mymodel")
+	context, err := s.run(c, "staging/mymodel")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), tc.Equals, "same:admin/mymodel -> same:bianca/mymodel\n")
-	c.Assert(s.store.Models["same"].CurrentModel, tc.Equals, "bianca/mymodel")
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "same:prod/mymodel -> same:staging/mymodel\n")
+	c.Assert(s.store.Models["same"].CurrentModel, tc.Equals, "staging/mymodel")
 }
 
 func (s *SwitchSimpleSuite) TestSwitchUnknownNoCurrentController(c *tc.C) {

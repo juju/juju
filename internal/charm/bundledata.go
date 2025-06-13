@@ -18,6 +18,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/keyvalues"
+
+	coreerrors "github.com/juju/juju/core/errors"
 )
 
 const kubernetes = "kubernetes"
@@ -547,7 +549,63 @@ var (
 	// to validate the endpoint name.
 	validOfferName         = regexp.MustCompile("^" + names.ApplicationSnippet + "$")
 	validOfferEndpointName = regexp.MustCompile("^" + names.RelationSnippet + "$")
+	validOfferRegexp       = regexp.MustCompile(`(/?((?P<qualifier>[^/]+)/)?(?P<model>[^.]*)(\.(?P<application>[^:]*(:.*)?))?)?`)
 )
+
+func removeURLSource(urlStr string) string {
+	parts := strings.Split(urlStr, ":")
+	switch len(parts) {
+	case 3:
+		return parts[1] + ":" + parts[2]
+	case 2:
+		if validOfferEndpointName.MatchString(parts[1]) {
+			return urlStr
+		}
+		return parts[1]
+	}
+	return urlStr
+}
+
+// validateOfferURL offers basic syntax checks of the offer URL.
+// The qualifier part may come from older clients which use a username.
+// This is no longer a reasonable qualifier check, so we don't perform
+// any validation checks here; the target controller which handles the
+// URL will do any validation.
+func validateOfferURL(urlStr string) error {
+	urlParts := removeURLSource(urlStr)
+
+	var (
+		modelName       string
+		applicationName string
+	)
+	valid := !strings.HasPrefix(urlStr, ":")
+	valid = valid && validOfferRegexp.MatchString(urlParts)
+	if valid {
+		modelName = validOfferRegexp.ReplaceAllString(urlParts, "$model")
+		applicationName = validOfferRegexp.ReplaceAllString(urlParts, "$application")
+	}
+	if !valid || strings.Contains(modelName, "/") || strings.Contains(applicationName, "/") {
+		return errors.Errorf("application offer URL has invalid form, must be [<qualifier/]<model>.<appname>: %q", urlStr)
+	}
+	if modelName == "" {
+		return errors.Errorf("application offer URL is missing model")
+	}
+	if applicationName == "" {
+		return errors.Errorf("application offer URL is missing application")
+	}
+
+	// Application name part may contain a relation name part, so strip that bit out
+	// before validating the name.
+	appName := strings.Split(applicationName, ":")[0]
+	// Validate the resulting URL part values.
+	if !names.IsValidModelName(modelName) {
+		return fmt.Errorf("model name %q %w", modelName, coreerrors.NotValid)
+	}
+	if !names.IsValidApplication(appName) {
+		return fmt.Errorf("application name %q %w", appName, coreerrors.NotValid)
+	}
+	return nil
+}
 
 func (verifier *bundleDataVerifier) verifySaas() {
 	for name, saas := range verifier.bd.Saas {
@@ -560,8 +618,10 @@ func (verifier *bundleDataVerifier) verifySaas() {
 		if saas == nil {
 			continue
 		}
-		if saas.URL != "" && !IsValidOfferURL(saas.URL) {
-			verifier.addErrorf("invalid offer URL %q for SAAS %s", saas.URL, name)
+		if saas.URL != "" {
+			if err := validateOfferURL(saas.URL); err != nil {
+				verifier.addErrorf("invalid offer URL %q for SAAS %s", saas.URL, name)
+			}
 		}
 	}
 }

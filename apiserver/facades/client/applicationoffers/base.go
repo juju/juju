@@ -67,19 +67,12 @@ func (api *BaseAPI) checkControllerAdmin(ctx context.Context) error {
 // The following errors may be returned:
 // - [coreerrors.NotFound] when no model with the given name exists.
 // - [coreerrors.NotValid] when ownerName is not valid.
-func (api *BaseAPI) modelForName(ctx context.Context, modelName, ownerName string) (model.Model, error) {
-	modelPath := fmt.Sprintf("%s/%s", ownerName, modelName)
-	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
-	qualifier := model.QualifierFromUserTag(names.NewUserTag(ownerName))
-	qualifierName, err := coreuser.NewName(qualifier.String())
-	if err != nil {
-		return model.Model{}, errors.Trace(err)
-	}
-	m, err := api.modelService.GetModelByNameAndOwner(ctx, modelName, qualifierName)
+func (api *BaseAPI) modelForName(ctx context.Context, modelName, qualifierStr string) (model.Model, error) {
+	modelPath := fmt.Sprintf("%s/%s", qualifierStr, modelName)
+	qualifier := model.Qualifier(qualifierStr)
+	m, err := api.modelService.GetModelByNameAndQualifier(ctx, modelName, qualifier)
 	if interrors.Is(err, modelerrors.NotFound) {
 		return model.Model{}, interrors.Errorf("model %q %w", modelPath, coreerrors.NotFound)
-	} else if interrors.Is(err, accesserrors.UserNameNotValid) {
-		return model.Model{}, interrors.Errorf("user name %q %w", ownerName, coreerrors.NotValid)
 	}
 
 	return m, errors.Trace(err)
@@ -283,16 +276,12 @@ func (api *BaseAPI) getModelsFromOffers(ctx context.Context, user names.UserTag,
 		if err != nil {
 			return model.Model{}, errors.Trace(err)
 		}
-		modelPath := fmt.Sprintf("%s/%s", url.User, url.ModelName)
+		modelPath := fmt.Sprintf("%s/%s", url.ModelQualifier, url.ModelName)
 		if model, ok := modelsCache[modelPath]; ok {
 			return model, nil
 		}
 
-		ownerName := url.User
-		if ownerName == "" {
-			ownerName = user.Id()
-		}
-		m, err := api.modelForName(ctx, url.ModelName, ownerName)
+		m, err := api.modelForName(ctx, url.ModelName, url.ModelQualifier)
 		if err != nil {
 			return model.Model{}, errors.Trace(err)
 		}
@@ -325,9 +314,8 @@ func (api *BaseAPI) getModelFilters(ctx context.Context, user names.UserTag, fil
 		if f.ModelName == "" {
 			return nil, nil, errors.New("application offer filter must specify a model name")
 		}
-		ownerName := f.OwnerName
-		if ownerName == "" {
-			ownerName = user.Id()
+		if f.ModelQualifier == "" {
+			return nil, nil, errors.New("application offer filter must specify a model qualifier")
 		}
 		var (
 			modelUUID string
@@ -335,7 +323,7 @@ func (api *BaseAPI) getModelFilters(ctx context.Context, user names.UserTag, fil
 		)
 		if modelUUID, ok = modelUUIDs[f.ModelName]; !ok {
 			var err error
-			model, err := api.modelForName(ctx, f.ModelName, ownerName)
+			model, err := api.modelForName(ctx, f.ModelName, f.ModelQualifier)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
@@ -394,13 +382,8 @@ func (api *BaseAPI) getApplicationOffersDetails(
 			return nil, errors.Trace(err)
 		}
 		m := models[modelUUID]
-		ownerTag, err := model.ApproximateUserTagFromQualifier(m.Qualifier)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
 		for _, offerDetails := range offers {
-			offerDetails.OfferURL = jujucrossmodel.MakeURL(ownerTag.Id(), m.Name, offerDetails.OfferName, "")
+			offerDetails.OfferURL = jujucrossmodel.MakeURL(m.Qualifier.String(), m.Name, offerDetails.OfferName, "")
 			result = append(result, offerDetails)
 		}
 	}

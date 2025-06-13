@@ -18,8 +18,8 @@ Removes one or more offers specified by their URL.
 
 ## Examples
 
-    juju remove-offer prod.model/hosted-mysql
-    juju remove-offer prod.model/hosted-mysql --force
+    juju remove-offer staging/mymodel.hosted-mysql
+    juju remove-offer staging/mymodel.hosted-mysql --force
     juju remove-offer hosted-mysql
 
 

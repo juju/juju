@@ -97,9 +97,9 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			if userName != "" {
 				// There's a user logged in, so display the
 				// model name relative to that user.
-				if unqualifiedModelName, owner, err := jujuclient.SplitModelName(modelName); err == nil {
+				if unqualifiedModelName, qualifier, err := jujuclient.SplitModelName(modelName); err == nil {
 					user := names.NewUserTag(userName)
-					modelName = common.OwnerQualifiedModelName(unqualifiedModelName, owner, user)
+					modelName = common.OwnerQualifiedModelName(unqualifiedModelName, qualifier, user)
 				}
 			}
 		}

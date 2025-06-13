@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/jujuclient"
@@ -159,12 +160,12 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	unqualifiedModelName, ownerTag, err := jujuclient.SplitModelName(modelName)
+	unqualifiedModelName, qualifier, err := jujuclient.SplitModelName(modelName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	c.filters = []crossmodel.ApplicationOfferFilter{{
-		OwnerName:       ownerTag.Id(),
+		ModelQualifier:  coremodel.Qualifier(qualifier),
 		ModelName:       unqualifiedModelName,
 		ApplicationName: c.applicationName,
 	}}

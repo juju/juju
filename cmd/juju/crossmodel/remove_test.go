@@ -50,39 +50,39 @@ func (s *removeSuite) TestNonExistentController(c *tc.C) {
 }
 
 func (s *removeSuite) TestRemoveURLError(c *tc.C) {
-	_, err := s.runRemove(c, "fred/model.foo/db2")
+	_, err := s.runRemove(c, "prod/model.foo/db2")
 	c.Assert(err, tc.ErrorMatches, "application offer URL has invalid form.*")
 }
 
 func (s *removeSuite) TestRemoveURLWithEndpoints(c *tc.C) {
-	_, err := s.runRemove(c, "fred@external/model.db2:db")
+	_, err := s.runRemove(c, "prod/model.db2:db")
 	c.Assert(err, tc.NotNil)
 	c.Assert(err.Error(), tc.Equals, `
 These offers contain endpoints. Only specify the offer name itself.
- -fred@external/model.db2:db`[1:])
+ -prod/model.db2:db`[1:])
 }
 
 func (s *removeSuite) TestRemoveInconsistentControllers(c *tc.C) {
-	_, err := s.runRemove(c, "ctrl:fred/model.db2", "ctrl2:fred/model.db2")
+	_, err := s.runRemove(c, "ctrl:prod/model.db2", "ctrl2:prod/model.db2")
 	c.Assert(err, tc.ErrorMatches, "all offer URLs must use the same controller")
 }
 
 func (s *removeSuite) TestRemoveApiError(c *tc.C) {
 	s.mockAPI.msg = "fail"
-	_, err := s.runRemove(c, "fred/model.db2", "-y")
+	_, err := s.runRemove(c, "prod/model.db2", "-y")
 	c.Assert(err, tc.ErrorMatches, ".*fail.*")
 }
 
 func (s *removeSuite) TestRemove(c *tc.C) {
-	s.mockAPI.expectedURLs = []string{"fred@external/model.db2", "mary/model.db2"}
-	_, err := s.runRemove(c, "fred@external/model.db2", "mary/model.db2", "-y")
+	s.mockAPI.expectedURLs = []string{"prod/model.db2", "staging/model.db2"}
+	_, err := s.runRemove(c, "prod/model.db2", "staging/model.db2", "-y")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *removeSuite) TestRemoveForce(c *tc.C) {
-	s.mockAPI.expectedURLs = []string{"fred/model.db2", "mary/model.db2"}
+	s.mockAPI.expectedURLs = []string{"prod/model.db2", "staging/model.db2"}
 	s.mockAPI.expectedForce = true
-	_, err := s.runRemove(c, "fred/model.db2", "mary/model.db2", "-y", "--force")
+	_, err := s.runRemove(c, "prod/model.db2", "staging/model.db2", "-y", "--force")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -96,12 +96,12 @@ func (s *removeSuite) TestRemoveForceMessage(c *tc.C) {
 	stdin.WriteString("y")
 
 	com := newRemoveCommandForTest(s.store, s.mockAPI)
-	err = cmdtesting.InitCommand(com, []string{"fred/model.db2", "--force"})
+	err = cmdtesting.InitCommand(com, []string{"prod/model.db2", "--force"})
 	c.Assert(err, tc.ErrorIsNil)
 	com.Run(ctx)
 
 	expected := `
-WARNING! This command will remove offers: fred/model.db2
+WARNING! This command will remove offers: prod/model.db2
 This includes all relations to those offers.
 
 Continue [y/N]? `[1:]
@@ -110,7 +110,7 @@ Continue [y/N]? `[1:]
 }
 
 func (s *removeSuite) TestRemoveNameOnly(c *tc.C) {
-	s.mockAPI.expectedURLs = []string{"fred/test.db2"}
+	s.mockAPI.expectedURLs = []string{"prod/test.db2"}
 	_, err := s.runRemove(c, "db2")
 	c.Assert(err, tc.ErrorIsNil)
 }

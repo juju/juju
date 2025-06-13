@@ -146,6 +146,11 @@ type UpgradeService interface {
 	IsUpgrading(context.Context) (bool, error)
 }
 
+// APIV4 implements the APIV4.
+type APIV4 struct {
+	*API
+}
+
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
@@ -264,10 +269,6 @@ with an earlier version of the target controller and try again.
 		return fmt.Errorf("migration import prechecks: %w", err)
 	}
 
-	ownerTag, err := names.ParseUserTag(model.OwnerTag)
-	if err != nil {
-		return errors.Errorf("cannot parse model %q owner during prechecks: %w", model.UUID, err)
-	}
 	controllerState, err := api.pool.SystemState()
 	if err != nil {
 		return errors.Errorf(
@@ -294,7 +295,7 @@ with an earlier version of the target controller and try again.
 		migration.PoolShim(api.pool), coremigration.ModelInfo{
 			UUID:                   model.UUID,
 			Name:                   model.Name,
-			Owner:                  ownerTag,
+			Qualifier:              coremodel.Qualifier(model.Qualifier),
 			AgentVersion:           model.AgentVersion,
 			ControllerAgentVersion: model.ControllerAgentVersion,
 			ModelDescription:       modelDescription,

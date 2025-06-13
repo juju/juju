@@ -30,11 +30,11 @@ func TestModelValidationSuite(t *stdtesting.T) {
 }
 
 func (s *ModelValidationSuite) TestValidateModelName(c *tc.C) {
-	c.Assert(jujuclient.ValidateModelName("foo@bar/baz"), tc.ErrorIsNil)
+	c.Assert(jujuclient.ValidateModelName("foobar/baz"), tc.ErrorIsNil)
 	c.Assert(jujuclient.ValidateModelName("foo"), tc.ErrorMatches, `validating model name "foo": unqualified model name "foo" not valid`)
 	c.Assert(jujuclient.ValidateModelName(""), tc.ErrorMatches, `validating model name "": unqualified model name "" not valid`)
 	c.Assert(jujuclient.ValidateModelName("!"), tc.ErrorMatches, `validating model name "!": unqualified model name "!" not valid`)
-	c.Assert(jujuclient.ValidateModelName("!/foo"), tc.ErrorMatches, `validating model name "!/foo": user name "!" not valid`)
+	c.Assert(jujuclient.ValidateModelName("!/foo"), tc.ErrorMatches, `validating model name "!/foo": qualifier "!" not valid`)
 }
 
 func (s *ModelValidationSuite) TestValidateModelDetailsNoModelUUID(c *tc.C) {

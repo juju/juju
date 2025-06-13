@@ -56,7 +56,7 @@ func (s *AddModelSuite) SetUpTest(c *tc.C) {
 			Name:         "test",
 			Type:         model.IAAS,
 			UUID:         "fake-model-uuid",
-			Owner:        "ignored-for-now",
+			Qualifier:    "ignored-for-now",
 			AgentVersion: &agentVersion,
 		},
 	}
@@ -714,11 +714,11 @@ func (*fakeAddClient) Close() error {
 	return nil
 }
 
-func (f *fakeAddClient) CreateModel(ctx context.Context, name, owner, cloudName, cloudRegion string, cloudCredential names.CloudCredentialTag, config map[string]interface{}) (base.ModelInfo, error) {
+func (f *fakeAddClient) CreateModel(ctx context.Context, name string, qualifier model.Qualifier, cloudName, cloudRegion string, cloudCredential names.CloudCredentialTag, config map[string]interface{}) (base.ModelInfo, error) {
 	if f.err != nil {
 		return base.ModelInfo{}, f.err
 	}
-	f.owner = owner
+	f.owner = qualifier.String()
 	f.cloudCredential = cloudCredential
 	f.cloudName = cloudName
 	f.cloudRegion = cloudRegion

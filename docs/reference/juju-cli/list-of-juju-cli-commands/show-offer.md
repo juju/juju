@@ -23,12 +23,12 @@ from the model 'default' on the same Juju controller:
 
      juju show-offer default.prod
 
-The supplied URL can also include a username where offers require them. 
+The supplied URL can also include a model qualifier where offers require them. 
 This will be given as part of the URL retrieved from the
 'juju find-offers' command. To show information for the application
-'prod' from the model 'default' from the user 'admin':
+'prod' from the model 'staging/default':
 
-    juju show-offer admin/default.prod
+    juju show-offer staging/default.prod
 
 To show the information regarding the application 'prod' offered from
 the model 'default' on an accessible controller named 'controller':

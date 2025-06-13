@@ -38,7 +38,7 @@ import (
 
 type applicationOffersSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPIv5
+	api *applicationoffers.OffersAPI
 }
 
 func TestApplicationOffersSuite(t *stdtesting.T) {
@@ -359,8 +359,8 @@ func (s *applicationOffersSuite) assertList(c *tc.C, offerUUID string, expectedC
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
-				OwnerName:       "fred@external",
-				ModelName:       "prod",
+				ModelQualifier:  "prod",
+				ModelName:       "mymodel",
 				OfferName:       "hosted-db2",
 				ApplicationName: "test",
 			},
@@ -392,7 +392,7 @@ func (s *applicationOffersSuite) assertList(c *tc.C, offerUUID string, expectedC
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
-				OfferURL:               "fred-external/prod.hosted-db2",
+				OfferURL:               "prod/mymodel.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Users: []params.OfferUserDetails{
 					{UserName: "admin", DisplayName: "admin", Access: "admin"},
@@ -454,8 +454,8 @@ func (s *applicationOffersSuite) TestListPermission(c *tc.C) {
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
-				OwnerName:       "fred@external",
-				ModelName:       "prod",
+				ModelQualifier:  "prod",
+				ModelName:       "mymodel",
 				OfferName:       "hosted-db2",
 				ApplicationName: "test",
 			},
@@ -474,8 +474,8 @@ func (s *applicationOffersSuite) TestListError(c *tc.C) {
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
-				OwnerName:       "fred@external",
-				ModelName:       "prod",
+				ModelQualifier:  "prod",
+				ModelName:       "mymodel",
 				OfferName:       "hosted-db2",
 				ApplicationName: "test",
 			},
@@ -542,7 +542,7 @@ func (s *applicationOffersSuite) TestShow(c *tc.C) {
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 				ApplicationDescription: "description",
-				OfferURL:               "fred-external/prod.hosted-db2",
+				OfferURL:               "prod/mymodel.hosted-db2",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
@@ -578,7 +578,7 @@ func (s *applicationOffersSuite) TestShow(c *tc.C) {
 	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(coreuser.User{
 		DisplayName: "",
 	}, nil)
-	s.assertShow(c, "fred@external/prod.hosted-db2", offerUUID, expected)
+	s.assertShow(c, "prod/mymodel.hosted-db2", offerUUID, expected)
 	// Again with an unqualified model path.
 	s.mockState.AdminTag = names.NewUserTag("fred@external")
 	s.authorizer.AdminTag = s.mockState.AdminTag
@@ -589,7 +589,7 @@ func (s *applicationOffersSuite) TestShow(c *tc.C) {
 	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "fred@external")).Return(coreuser.User{
 		DisplayName: "",
 	}, nil)
-	s.assertShow(c, "prod.hosted-db2", offerUUID, expected)
+	s.assertShow(c, "prod/mymodel.hosted-db2", offerUUID, expected)
 }
 
 func (s *applicationOffersSuite) TestShowNoPermission(c *tc.C) {
@@ -611,9 +611,9 @@ func (s *applicationOffersSuite) TestShowNoPermission(c *tc.C) {
 
 	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferResult{{
-		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "fred@external/prod.hosted-db2")),
+		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "prod/mymodel.hosted-db2")),
 	}}
-	s.assertShow(c, "fred@external/prod.hosted-db2", offerUUID, expected)
+	s.assertShow(c, "prod/mymodel.hosted-db2", offerUUID, expected)
 }
 
 func (s *applicationOffersSuite) TestShowNonSuperuser(c *tc.C) {
@@ -629,7 +629,7 @@ func (s *applicationOffersSuite) TestShowNonSuperuser(c *tc.C) {
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 				ApplicationDescription: "description",
-				OfferURL:               "fred-external/prod.hosted-db2",
+				OfferURL:               "prod/mymodel.hosted-db2",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
@@ -647,7 +647,7 @@ func (s *applicationOffersSuite) TestShowNonSuperuser(c *tc.C) {
 		ObjectType: permission.Offer,
 		Key:        offerUUID,
 	}).Return(permission.ReadAccess, nil)
-	s.assertShow(c, "fred@external/prod.hosted-db2", offerUUID, expected)
+	s.assertShow(c, "prod/mymodel.hosted-db2", offerUUID, expected)
 }
 
 func (s *applicationOffersSuite) TestShowNonSuperuserExternal(c *tc.C) {
@@ -663,7 +663,7 @@ func (s *applicationOffersSuite) TestShowNonSuperuserExternal(c *tc.C) {
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 				ApplicationDescription: "description",
-				OfferURL:               "fred-external/prod.hosted-db2",
+				OfferURL:               "prod/mymodel.hosted-db2",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
@@ -681,28 +681,24 @@ func (s *applicationOffersSuite) TestShowNonSuperuserExternal(c *tc.C) {
 		ObjectType: permission.Offer,
 		Key:        offerUUID,
 	}).Return(permission.ReadAccess, nil)
-	s.assertShow(c, "fred@external/prod.hosted-db2", offerUUID, expected)
+	s.assertShow(c, "prod/mymodel.hosted-db2", offerUUID, expected)
 }
 
 func (s *applicationOffersSuite) TestShowError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	url := "fred@external/prod.hosted-db2"
+	url := "prod/mymodel.hosted-db2"
 	filter := params.OfferURLs{OfferURLs: []string{url}, BakeryVersion: bakery.LatestVersion}
 	msg := "fail"
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return nil, errors.New(msg)
 	}
-	qualifier := coremodel.QualifierFromUserTag(names.NewUserTag("fred-external"))
-	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
-	qualifierName := coreuser.NameFromTag(names.NewUserTag(qualifier.String()))
-
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", qualifierName).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "mymodel", coremodel.Qualifier("prod")).Return(
 		coremodel.Model{
-			Name:      "prod",
-			Qualifier: qualifier,
+			Name:      "mymodel",
+			Qualifier: "prod",
 			UUID:      coremodel.UUID(s.modelUUID.String()),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -717,21 +713,17 @@ func (s *applicationOffersSuite) TestShowNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	urls := []string{"fred@external/prod.hosted-db2"}
+	urls := []string{"prod/mymodel.hosted-db2"}
 	filter := params.OfferURLs{OfferURLs: urls, BakeryVersion: bakery.LatestVersion}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return nil, nil
 	}
 
-	qualifier := coremodel.QualifierFromUserTag(names.NewUserTag("fred-external"))
-	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
-	qualifierName := coreuser.NameFromTag(names.NewUserTag(qualifier.String()))
-
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", qualifierName).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "mymodel", coremodel.Qualifier("prod")).Return(
 		coremodel.Model{
-			Name:      "prod",
-			Qualifier: qualifier,
+			Name:      "mymodel",
+			Qualifier: "prod",
 			UUID:      coremodel.UUID(s.modelUUID.String()),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -744,7 +736,7 @@ func (s *applicationOffersSuite) TestShowNotFound(c *tc.C) {
 	found, err := s.api.ApplicationOffers(c.Context(), filter)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
-	c.Assert(found.Results[0].Error.Error(), tc.Matches, `application offer "fred@external/prod.hosted-db2" not found`)
+	c.Assert(found.Results[0].Error.Error(), tc.Matches, `application offer "prod/mymodel.hosted-db2" not found`)
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
 }
 
@@ -752,20 +744,20 @@ func (s *applicationOffersSuite) TestShowRejectsEndpoints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	urls := []string{"fred@external/prod.hosted-db2:db"}
+	urls := []string{"prod/mymodel.hosted-db2:db"}
 	filter := params.OfferURLs{OfferURLs: urls, BakeryVersion: bakery.LatestVersion}
 
 	found, err := s.api.ApplicationOffers(c.Context(), filter)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
-	c.Assert(found.Results[0].Error.Message, tc.Equals, `saas application "fred@external/prod.hosted-db2:db" shouldn't include endpoint`)
+	c.Assert(found.Results[0].Error.Message, tc.Equals, `saas application "prod/mymodel.hosted-db2:db" shouldn't include endpoint`)
 }
 
 func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	urls := []string{"fred@external/prod.hosted-mysql", "fred@external/test.hosted-db2"}
+	urls := []string{"prod/mymodel.hosted-mysql", "prod/test.hosted-db2"}
 	filter := params.OfferURLs{OfferURLs: urls, BakeryVersion: bakery.LatestVersion}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
@@ -779,22 +771,18 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *tc.C) {
 		DisplayName: "",
 	}, nil).Times(2)
 
-	qualifier := coremodel.QualifierFromUserTag(names.NewUserTag("fred-external"))
-	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
-	qualifierName := coreuser.NameFromTag(names.NewUserTag(qualifier.String()))
-
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", qualifierName).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "mymodel", coremodel.Qualifier("prod")).Return(
 		coremodel.Model{
 			Name:      "prod",
-			Qualifier: qualifier,
+			Qualifier: "prod",
 			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,
 	)
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "test", qualifierName).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "test", coremodel.Qualifier("prod")).Return(
 		coremodel.Model{
 			Name:      "test",
-			Qualifier: qualifier,
+			Qualifier: "prod",
 			UUID:      coremodel.UUID("uuid2"),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -803,8 +791,8 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *tc.C) {
 	found, err := s.api.ApplicationOffers(c.Context(), filter)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 2)
-	c.Assert(found.Results[0].Error.Error(), tc.Matches, `application offer "fred@external/prod.hosted-mysql" not found`)
-	c.Assert(found.Results[1].Error.Error(), tc.Matches, `application offer "fred@external/test.hosted-db2" not found`)
+	c.Assert(found.Results[0].Error.Error(), tc.Matches, `application offer "prod/mymodel.hosted-mysql" not found`)
+	c.Assert(found.Results[1].Error.Error(), tc.Matches, `application offer "prod/test.hosted-db2" not found`)
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall, listOffersBackendCall)
 }
 
@@ -813,7 +801,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *tc.C) {
 	s.setupAPI(c)
 
 	name := "test"
-	url := "fred@external/prod.hosted-" + name
+	url := "prod/mymodel.hosted-" + name
 	anOffer := jujucrossmodel.ApplicationOffer{
 		ApplicationName:        name,
 		ApplicationDescription: "description",
@@ -823,7 +811,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *tc.C) {
 	}
 
 	name2 := "testagain"
-	url2 := "mary/test.hosted-" + name2
+	url2 := "staging/test.hosted-" + name2
 	anOffer2 := jujucrossmodel.ApplicationOffer{
 		ApplicationName:        name2,
 		ApplicationDescription: "description2",
@@ -872,21 +860,18 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *tc.C) {
 		DisplayName: "someone",
 	}, nil).Times(2)
 
-	qualifier := coremodel.QualifierFromUserTag(names.NewUserTag("fred-external"))
-	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
-	qualifierName := coreuser.NameFromTag(names.NewUserTag(qualifier.String()))
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", qualifierName).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "mymodel", coremodel.Qualifier("prod")).Return(
 		coremodel.Model{
-			Name:      "prod",
-			Qualifier: "fred-external",
+			Name:      "mymodel",
+			Qualifier: "prod",
 			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,
 	)
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "test", coreuser.NameFromTag(names.NewUserTag("mary"))).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "test", coremodel.Qualifier("staging")).Return(
 		coremodel.Model{
 			Name:      "test",
-			Qualifier: "mary",
+			Qualifier: "staging",
 			UUID:      coremodel.UUID("uuid2"),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -906,7 +891,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *tc.C) {
 				ApplicationDescription: "description",
 				OfferName:              "hosted-" + name,
 				OfferUUID:              "hosted-" + name + "-uuid",
-				OfferURL:               "fred-external/prod.hosted-" + name,
+				OfferURL:               "prod/mymodel.hosted-" + name,
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Users: []params.OfferUserDetails{
 					{UserName: "someone", DisplayName: "someone", Access: "read"},
@@ -974,7 +959,7 @@ func (s *applicationOffersSuite) TestFind(c *tc.C) {
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
-				OfferURL:               "fred-external/prod.hosted-db2",
+				OfferURL:               "prod/mymodel.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Users: []params.OfferUserDetails{
 					{UserName: "admin", DisplayName: "admin", Access: "admin"},
@@ -1040,7 +1025,7 @@ func (s *applicationOffersSuite) TestFindPermission(c *tc.C) {
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
-				OfferURL:               "fred-external/prod.hosted-db2",
+				OfferURL:               "prod/mymodel.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Users: []params.OfferUserDetails{
 					{UserName: "someone", DisplayName: "someone", Access: "read"},
@@ -1179,24 +1164,24 @@ func (s *applicationOffersSuite) TestFindMulti(c *tc.C) {
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
-				OfferName: "hosted-db2",
-				OwnerName: "fred@external",
-				ModelName: "prod",
+				OfferName:      "hosted-db2",
+				ModelQualifier: "prod",
+				ModelName:      "mymodel",
 			},
 			{
-				OfferName: "hosted-mysql",
-				OwnerName: "mary",
-				ModelName: "another",
+				OfferName:      "hosted-mysql",
+				ModelQualifier: "staging",
+				ModelName:      "another",
 			},
 			{
-				OfferName: "hosted-postgresql",
-				OwnerName: "mary",
-				ModelName: "another",
+				OfferName:      "hosted-postgresql",
+				ModelQualifier: "staging",
+				ModelName:      "another",
 			},
 			{
-				OfferName: "badoffer",
-				OwnerName: "mary",
-				ModelName: "another",
+				OfferName:      "badoffer",
+				ModelQualifier: "staging",
+				ModelName:      "another",
 			},
 		},
 	}
@@ -1226,22 +1211,18 @@ func (s *applicationOffersSuite) TestFindMulti(c *tc.C) {
 	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), userName).Return(coreuser.User{
 		DisplayName: "someone",
 	}, nil).AnyTimes()
-	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
-	qualifierName := coreuser.NameFromTag(names.NewUserTag("fred-external"))
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", qualifierName).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "mymodel", coremodel.Qualifier("prod")).Return(
 		coremodel.Model{
-			Name:      "prod",
-			Qualifier: "fred-external",
+			Name:      "mymodel",
+			Qualifier: "prod",
 			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,
 	)
-	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
-	qualifierName = coreuser.NameFromTag(names.NewUserTag("mary"))
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "another", qualifierName).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "another", coremodel.Qualifier("staging")).Return(
 		coremodel.Model{
 			Name:      "another",
-			Qualifier: "mary",
+			Qualifier: "staging",
 			UUID:      coremodel.UUID("uuid2"),
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -1257,7 +1238,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *tc.C) {
 					ApplicationDescription: "db2 description",
 					OfferName:              "hosted-db2",
 					OfferUUID:              oneOfferUUID,
-					OfferURL:               "fred-external/prod.hosted-db2",
+					OfferURL:               "prod/mymodel.hosted-db2",
 					Endpoints: []params.RemoteEndpoint{
 						{Name: "db"},
 					},
@@ -1272,7 +1253,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *tc.C) {
 					ApplicationDescription: "mysql description",
 					OfferName:              "hosted-mysql",
 					OfferUUID:              twoOfferUUID,
-					OfferURL:               "mary/another.hosted-mysql",
+					OfferURL:               "staging/another.hosted-mysql",
 					Endpoints: []params.RemoteEndpoint{
 						{Name: "db"},
 					},
@@ -1287,7 +1268,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *tc.C) {
 					ApplicationDescription: "postgresql description",
 					OfferName:              "hosted-postgresql",
 					OfferUUID:              "hosted-postgresql-uuid",
-					OfferURL:               "mary/another.hosted-postgresql",
+					OfferURL:               "staging/another.hosted-postgresql",
 					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 					Users: []params.OfferUserDetails{
 						{UserName: "someone", DisplayName: "someone", Access: "admin"},
@@ -1317,31 +1298,27 @@ func (s *applicationOffersSuite) TestFindError(c *tc.C) {
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return nil, errors.New(msg)
 	}
-	userFred, err := coreuser.NewName("fred@external")
-	c.Assert(err, tc.ErrorIsNil)
 
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]coremodel.Model{
 			{
-				Name:      "prod",
-				Qualifier: coremodel.QualifierFromUserTag(names.NewUserTag(userFred.Name())),
+				Name:      "mymodel",
+				Qualifier: "prod",
 				UUID:      coremodel.UUID(s.modelUUID.String()),
 				ModelType: coremodel.IAAS,
 			},
 		}, nil,
 	)
-	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
-	qualifierName := coreuser.NameFromTag(names.NewUserTag("fred-external"))
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", qualifierName).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "mymodel", coremodel.Qualifier("prod")).Return(
 		coremodel.Model{
-			Name:      "prod",
-			Qualifier: coremodel.QualifierFromUserTag(names.NewUserTag(userFred.Name())),
+			Name:      "mymodel",
+			Qualifier: "prod",
 			UUID:      coremodel.UUID(s.modelUUID.String()),
 			ModelType: coremodel.IAAS,
 		}, nil,
 	)
 
-	_, err = s.api.FindApplicationOffers(c.Context(), filter)
+	_, err := s.api.FindApplicationOffers(c.Context(), filter)
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
 }
@@ -1374,7 +1351,7 @@ func (s *applicationOffersSuite) TestFindMissingModelInMultipleFilters(c *tc.C) 
 
 type consumeSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPIv5
+	api *applicationoffers.OffersAPI
 }
 
 func TestConsumeSuite(t *stdtesting.T) {
@@ -1421,13 +1398,13 @@ func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *tc.C) {
 		c.Context(),
 		params.ConsumeOfferDetailsArg{
 			OfferURLs: params.OfferURLs{
-				OfferURLs: []string{"fred@external/prod.application:db"},
+				OfferURLs: []string{"prod/mymodel.application:db"},
 			}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error != nil, tc.IsTrue)
-	c.Assert(results.Results[0].Error.Message, tc.Equals, `saas application "fred@external/prod.application:db" shouldn't include endpoint`)
+	c.Assert(results.Results[0].Error.Message, tc.Equals, `saas application "prod/mymodel.application:db" shouldn't include endpoint`)
 }
 
 func (s *consumeSuite) TestConsumeDetailsNoPermission(c *tc.C) {
@@ -1454,12 +1431,12 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *tc.C) {
 		c.Context(),
 		params.ConsumeOfferDetailsArg{
 			OfferURLs: params.OfferURLs{
-				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+				OfferURLs: []string{"prod/mymodel.hosted-mysql"},
 			}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := []params.ConsumeOfferDetailsResult{{
-		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "fred@external/prod.hosted-mysql")),
+		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "prod/mymodel.hosted-mysql")),
 	}}
 	c.Assert(results.Results, tc.DeepEquals, expected)
 }
@@ -1527,7 +1504,7 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 		params.ConsumeOfferDetailsArg{
 			UserTag: userTag,
 			OfferURLs: params.OfferURLs{
-				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+				OfferURLs: []string{"prod/mymodel.hosted-mysql"},
 			}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1535,7 +1512,7 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 	c.Assert(results.Results[0].Error, tc.IsNil)
 	c.Assert(results.Results[0].Offer, tc.DeepEquals, &params.ApplicationOfferDetailsV5{
 		SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
-		OfferURL:               "fred-external/prod.hosted-mysql",
+		OfferURL:               "prod/mymodel.hosted-mysql",
 		OfferName:              "hosted-mysql",
 		OfferUUID:              offerUUID,
 		ApplicationDescription: "a database",
@@ -1572,7 +1549,7 @@ func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *tc.C) {
 		params.ConsumeOfferDetailsArg{
 			UserTag: apiUser.String(),
 			OfferURLs: params.OfferURLs{
-				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+				OfferURLs: []string{"prod/mymodel.hosted-mysql"},
 			}},
 	)
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -1610,7 +1587,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *tc.C) {
 		c.Context(),
 		params.ConsumeOfferDetailsArg{
 			OfferURLs: params.OfferURLs{
-				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+				OfferURLs: []string{"prod/mymodel.hosted-mysql"},
 			},
 		},
 	)
@@ -1620,7 +1597,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *tc.C) {
 	c.Assert(results.Results[0].Error, tc.IsNil)
 	c.Assert(results.Results[0].Offer, tc.DeepEquals, &params.ApplicationOfferDetailsV5{
 		SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
-		OfferURL:               "fred-external/prod.hosted-mysql",
+		OfferURL:               "prod/mymodel.hosted-mysql",
 		OfferName:              "hosted-mysql",
 		OfferUUID:              offerUUID,
 		ApplicationDescription: "a database",
@@ -1635,26 +1612,20 @@ func (s *consumeSuite) setupOffer(c *tc.C) string {
 	modelUUID := s.modelUUID
 	offerName := "hosted-mysql"
 
-	userFred, err := coreuser.NewName("fred@external")
-	c.Assert(err, tc.ErrorIsNil)
-
-	qualifier := coremodel.QualifierFromUserTag(names.NewUserTag(userFred.Name()))
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]coremodel.Model{
 			{
-				Name:      "prod",
-				Qualifier: qualifier,
+				Name:      "mymodel",
+				Qualifier: "prod",
 				UUID:      modelUUID,
 				ModelType: coremodel.IAAS,
 			},
 		}, nil,
 	).AnyTimes()
-	// TODO - GetModelByNameAndOwner is being renamed to GetModelByNameAndQualifier
-	qualifierName := coreuser.NameFromTag(names.NewUserTag(qualifier.String()))
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", qualifierName).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "mymodel", coremodel.Qualifier("prod")).Return(
 		coremodel.Model{
-			Name:      "prod",
-			Qualifier: qualifier,
+			Name:      "mymodel",
+			Qualifier: "prod",
 			UUID:      modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,
@@ -1706,7 +1677,7 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *tc.C) {
 
 	s.authorizer.Tag = user
 	results, err := s.api.RemoteApplicationInfo(c.Context(), params.OfferURLs{
-		OfferURLs: []string{"fred@external/prod.hosted-mysql", "fred@external/prod.unknown"},
+		OfferURLs: []string{"prod/mymodel.hosted-mysql", "prod/mymodel.unknown"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 2)
@@ -1716,8 +1687,8 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *tc.C) {
 			ModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 			Name:             "hosted-mysql",
 			Description:      "a database",
-			OfferURL:         "fred@external/prod.hosted-mysql",
-			SourceModelLabel: "prod",
+			OfferURL:         "prod/mymodel.hosted-mysql",
+			SourceModelLabel: "mymodel",
 			IconURLPath:      "rest/1.0/remote-application/hosted-mysql/icon",
 			Endpoints: []params.RemoteEndpoint{
 				{Name: "server", Role: "provider", Interface: "mysql"}},
@@ -1751,7 +1722,7 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *tc.C) {
 
 	results, err := s.api.DestroyOffers(c.Context(), params.DestroyApplicationOffers{
 		OfferURLs: []string{
-			"fred@external/prod.hosted-mysql"},
+			"prod/mymodel.hosted-mysql"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
@@ -1761,7 +1732,7 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *tc.C) {
 		},
 	})
 
-	urls := []string{"fred@external/prod.hosted-db2"}
+	urls := []string{"prod/mymodel.hosted-db2"}
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
 
 	// Get the api user from the database to retrieve their display name.
@@ -1772,7 +1743,7 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *tc.C) {
 	found, err := s.api.ApplicationOffers(c.Context(), filter)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
-	c.Assert(found.Results[0].Error.Error(), tc.Matches, `application offer "fred@external/prod.hosted-db2" not found`)
+	c.Assert(found.Results[0].Error.Error(), tc.Matches, `application offer "prod/mymodel.hosted-db2" not found`)
 }
 
 func (s *consumeSuite) TestDestroyOffersForce(c *tc.C) {
@@ -1792,17 +1763,17 @@ func (s *consumeSuite) TestDestroyOffersForce(c *tc.C) {
 	}
 	s.authorizer.Tag = names.NewUserTag("admin")
 
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "badmodel", coreuser.NameFromTag(names.NewUserTag("garbage"))).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "badmodel", coremodel.Qualifier("garbage")).Return(
 		coremodel.Model{}, modelerrors.NotFound,
 	)
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "badmodel", coreuser.NameFromTag(names.NewUserTag("admin"))).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "badmodel", coremodel.Qualifier("prod")).Return(
 		coremodel.Model{}, modelerrors.NotFound,
 	)
 
 	results, err := s.api.DestroyOffers(c.Context(), params.DestroyApplicationOffers{
 		Force: true,
 		OfferURLs: []string{
-			"fred@external/prod.hosted-mysql", "fred@external/prod.unknown", "garbage/badmodel.someoffer", "badmodel.someoffer"},
+			"prod/mymodel.hosted-mysql", "prod/mymodel.unknown", "garbage/badmodel.someoffer", "prod/badmodel.someoffer"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 4)
@@ -1814,11 +1785,11 @@ func (s *consumeSuite) TestDestroyOffersForce(c *tc.C) {
 		}, {
 			Error: &params.Error{Message: `model "garbage/badmodel" not found`, Code: "not found"},
 		}, {
-			Error: &params.Error{Message: `model "admin/badmodel" not found`, Code: "not found"},
+			Error: &params.Error{Message: `model "prod/badmodel" not found`, Code: "not found"},
 		},
 	})
 
-	urls := []string{"fred@external/prod.hosted-db2"}
+	urls := []string{"prod/mymodel.hosted-db2"}
 	filter := params.OfferURLs{OfferURLs: urls, BakeryVersion: bakery.LatestVersion}
 
 	// Get the api user from the database to retrieve their display name.
@@ -1829,7 +1800,7 @@ func (s *consumeSuite) TestDestroyOffersForce(c *tc.C) {
 	found, err := s.api.ApplicationOffers(c.Context(), filter)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
-	c.Assert(found.Results[0].Error.Error(), tc.Matches, `application offer "fred@external/prod.hosted-db2" not found`)
+	c.Assert(found.Results[0].Error.Error(), tc.Matches, `application offer "prod/mymodel.hosted-db2" not found`)
 }
 
 func (s *consumeSuite) TestDestroyOffersPermission(c *tc.C) {
@@ -1840,7 +1811,7 @@ func (s *consumeSuite) TestDestroyOffersPermission(c *tc.C) {
 	s.authorizer.Tag = names.NewUserTag("mary")
 
 	results, err := s.api.DestroyOffers(c.Context(), params.DestroyApplicationOffers{
-		OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+		OfferURLs: []string{"prod/mymodel.hosted-mysql"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
