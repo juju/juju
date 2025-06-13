@@ -1276,6 +1276,57 @@ WHERE  machine.uuid IN ($uuids[:])`, nameAndUUID{}, uuids{})
 	}), err
 }
 
+// GetMachineArchesForApplication returns a map of machine names to their
+// instance IDs. This will ignore non-provisioned machines or container
+// machines.
+func (st *State) GetAllProvisionedMachineInstanceID(ctx context.Context) (map[string]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query := `
+SELECT    m.name AS &machineInstance.machine_name,
+          mci.instance_id AS &machineInstance.instance_id
+FROM      machine AS m
+JOIN      machine_cloud_instance AS mci ON m.uuid = mci.machine_uuid
+WHERE     mci.instance_id IS NOT NULL AND mci.instance_id != ''
+AND       (
+            SELECT COUNT(mp.machine_uuid) AS cc
+            FROM machine_parent AS mp
+            WHERE mp.machine_uuid = m.uuid
+          ) = 0
+`
+	stmt, err := st.Prepare(query, machineInstance{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var results []machineInstance
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&results)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("querying all provisioned machines: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	instanceIDs := make(map[string]string)
+	for _, result := range results {
+		if result.IsContainer > 0 || result.MachineName == "" || result.InstanceID == "" {
+			continue
+		}
+		instanceIDs[result.MachineName] = result.InstanceID
+	}
+	return instanceIDs, nil
+}
+
 // NamespaceForWatchMachineCloudInstance returns the namespace for watching
 // machine cloud instance changes.
 func (*State) NamespaceForWatchMachineCloudInstance() string {
