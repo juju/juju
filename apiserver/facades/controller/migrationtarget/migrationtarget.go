@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
@@ -66,9 +65,12 @@ type ControllerConfigService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	// GetApplicationLifeByName returns the life value of the application with the
-	// given name.
-	GetApplicationLifeByName(ctx context.Context, name string) (life.Value, error)
+	// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
+	// in the model are alive, returning an error if any are not.
+	CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error
+
+	// GetUnitNamesForApplication returns a slice of the unit names for the given application
+	GetUnitNamesForApplication(ctx context.Context, appName string) ([]unit.Name, error)
 }
 
 // RelationService provides access to the relation service.

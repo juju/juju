@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
@@ -29,7 +28,6 @@ type PrecheckBackend interface {
 	IsMigrationActive(string) (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
 	AllMachinesCount() (int, error)
-	AllApplications() ([]PrecheckApplication, error)
 	ControllerBackend() (PrecheckBackend, error)
 	MachineCountForBase(base ...state.Base) (map[string]int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
@@ -47,11 +45,12 @@ type UpgradeService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	// GetApplicationLifeByName looks up the life of the specified application,
-	// returning an error satisfying
-	// [applicationerrors.ApplicationNotFound] if the application is not
-	// found.
-	GetApplicationLifeByName(context.Context, string) (life.Value, error)
+	// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
+	// in the model are alive, returning an error if any are not.
+	CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error
+
+	// GetUnitNamesForApplication returns a slice of the unit names for the given application
+	GetUnitNamesForApplication(ctx context.Context, appName string) ([]unit.Name, error)
 }
 
 // RelationService provides access to the relation service.
@@ -106,22 +105,4 @@ type PrecheckMachine interface {
 	InstanceStatus() (status.StatusInfo, error)
 	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
 	// ShouldRebootOrShutdown() (state.RebootAction, error)
-}
-
-// PrecheckApplication describes the state interface for an
-// application needed by migration prechecks.
-type PrecheckApplication interface {
-	Name() string
-	CharmURL() (*string, bool)
-	AllUnits() ([]PrecheckUnit, error)
-}
-
-// PrecheckUnit describes state interface for a unit needed by
-// migration prechecks.
-type PrecheckUnit interface {
-	Name() string
-	AgentTools() (*tools.Tools, error)
-	Life() state.Life
-	CharmURL() *string
-	ShouldBeAssigned() bool
 }
