@@ -128,7 +128,7 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 
 func (st *State) reconcileNetConfigDevices(
 	ctx context.Context, tx *sqlair.TX, nodeUUID string, nics []network.NetInterface,
-) ([]linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, []deviceParent, map[string]string, error) {
+) ([]linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, []linkLayerDeviceParent, map[string]string, error) {
 	// Determine all the known UUIDs for incoming devices,
 	// and generate new UUIDs for the others.
 	existing, err := st.getCurrentDevices(ctx, tx, nodeUUID)
@@ -168,14 +168,14 @@ func (st *State) reconcileNetConfigDevices(
 	}
 
 	// Use the nameToUUID map to populate device parents.
-	var parentDMLs []deviceParent
+	var parentDMLs []linkLayerDeviceParent
 	for _, n := range nics {
 		if n.ParentDeviceName == "" {
 			continue
 		}
 
 		if parentUUID, ok := nameToUUID[n.ParentDeviceName]; ok {
-			parentDMLs = append(parentDMLs, deviceParent{
+			parentDMLs = append(parentDMLs, linkLayerDeviceParent{
 				DeviceUUID: nameToUUID[n.Name],
 				ParentUUID: parentUUID,
 			})
@@ -297,7 +297,9 @@ func (st *State) updateDNSAddresses(ctx context.Context, tx *sqlair.TX, rows []d
 	return nil
 }
 
-func (st *State) updateDeviceParents(ctx context.Context, tx *sqlair.TX, parents []deviceParent, devs uuids) error {
+func (st *State) updateDeviceParents(
+	ctx context.Context, tx *sqlair.TX, parents []linkLayerDeviceParent, devs uuids,
+) error {
 	stmt, err := st.Prepare("DELETE FROM link_layer_device_parent WHERE device_uuid IN ($uuids[:])", devs)
 	if err != nil {
 		return errors.Errorf("preparing device parent delete statement: %w", err)
@@ -311,7 +313,7 @@ func (st *State) updateDeviceParents(ctx context.Context, tx *sqlair.TX, parents
 		return nil
 	}
 
-	stmt, err = st.Prepare("INSERT INTO link_layer_device_parent (*) VALUES ($deviceParent.*)", parents[0])
+	stmt, err = st.Prepare("INSERT INTO link_layer_device_parent (*) VALUES ($linkLayerDeviceParent.*)", parents[0])
 	if err != nil {
 		return errors.Errorf("preparing device parent insert statement: %w", err)
 	}

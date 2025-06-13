@@ -669,13 +669,6 @@ func (subs subnetGroups) subnetForIP(ip string) (string, error) {
 	return "", errors.Errorf("no subnet found for IP %q", ip)
 }
 
-type deviceParent struct {
-	// DeviceUUID is the UUID of the device.
-	DeviceUUID string `db:"device_uuid"`
-	// ParentUUID is the UUID of the parent device.
-	ParentUUID string `db:"parent_uuid"`
-}
-
 type spaceAddress struct {
 	Value      string         `db:"address_value"`
 	ConfigType string         `db:"config_type_name"`
