@@ -122,18 +122,13 @@ The mongodb databases run on machines we refer to as *controllers*, and are only
 accessed by agents running on those machines; it's important to keep it locked down
 (and, honestly, to lock it down further and better than we currently have).
 
-There's some documentation on how to work with [the state package](hacking-state.md);
-and plenty more on the [state entities](lifecycles.md) and the details of their
-[creation](entity-creation.md) and [destruction](death-and-destruction.md) from various
-perspectives; but there's not a lot more to say in this context.
-
 It *is* important to understand that the transaction-log watching is not an ideal
 solution, and we'll be retiring it at some point, in favour of an in-memory model
 of state and a pub-sub system for watchers; we *know* it's a scalability problem,
 but we're not devoting resources to it until it becomes more pressing.
 
 Code for dealing with mongodb is found primarily in the `state`, `state/watcher`,
-`replicaset`, and `worker/peergrouper` packages.
+`replicaset`, and `internal/worker/peergrouper` packages.
 
 
 ## API
