@@ -5,7 +5,6 @@
 
 ```{toctree}
 :hidden:
-charm/charm-development-best-practices
 charm/charm-maturity
 ```
 
