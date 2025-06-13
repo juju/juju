@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -59,81 +58,126 @@ WHERE  name IN ($poolnames[:])
 	return poolsByName, nil
 }
 
-// insertApplicationStorage constructs inserts storage directive records for the application.
-func (st *State) insertApplicationStorage(ctx context.Context, tx *sqlair.TX, appDetails applicationDetails, appStorage []application.ApplicationStorageArg) error {
-	if len(appStorage) == 0 {
+// insertApplicationStorageDirectives inserts all of the storage directives for
+// a new application. This func checks to make sure that the caller has supplied
+// a directive for each of the storage definitions on the charm.
+func (st *State) insertApplicationStorageDirectives(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid coreapplication.ID,
+	charmUUID corecharm.ID,
+	directives []application.ApplicationStorageDirectiveArg,
+) error {
+
+	// Build up the set of directive names we have to insert.
+	directiveNamesInput := make([]charmStorageName, 0, len(directives))
+	insertDirectivesInput := make([]insertApplicationStorageDirective, 0, len(directives))
+	for _, d := range directives {
+		directiveNamesInput = append(directiveNamesInput, charmStorageName{
+			Name: d.Name.String(),
+		})
+
+		var (
+			poolUUIDVal     sql.Null[string]
+			providerTypeVal sql.Null[string]
+		)
+		if d.PoolUUID != nil {
+			poolUUIDVal = sql.Null[string]{
+				V:     d.PoolUUID.String(),
+				Valid: true,
+			}
+		}
+		if d.ProviderType != nil {
+			providerTypeVal = sql.Null[string]{
+				V:     *d.ProviderType,
+				Valid: true,
+			}
+		}
+
+		insertDirectivesInput = append(
+			insertDirectivesInput,
+			insertApplicationStorageDirective{
+				ApplicationUUID:     uuid.String(),
+				CharmUUID:           charmUUID.String(),
+				Count:               d.Count,
+				Size:                d.Size,
+				StorageName:         d.Name.String(),
+				StoragePoolUUID:     poolUUIDVal,
+				StorageProviderType: providerTypeVal,
+			},
+		)
+	}
+	charmUUIDInput := charmStorageUUID{UUID: charmUUID.String()}
+
+	// This check is here until we rework all of the AddApplication logic to
+	// run in a single transaction. There's a TODO in the AddApplication service
+	// method. We want to check here that the set of directives to insert for
+	// the application matches the charm storage metadata.
+	charmStorageCovered, err := st.Prepare(`
+SELECT &charmStorageName.name
+FROM    charm_storage
+WHERE   charm_uuid = $charmStorageUUID.charm_uuid
+AND     name NOT IN ($charmStorageName[:].name)
+`,
+		charmUUIDInput, charmStorageName{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// allCharmStorageNames is a stmt used when the list of directives is empty.
+	// This is done as an empty list of values for an SQL IN clause is a syntax
+	// error. This is a gaurd condition.
+	allCharmStorageNames, err := st.Prepare(`
+SELECT &charmStorageName.name
+FROM charm_storage
+WHERE charm_uuid = $charmStorageUUID.charm_uuid
+`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var missingDirectiveNames []charmStorageName
+	if len(directiveNamesInput) == 0 {
+		err = tx.Query(ctx, allCharmStorageNames, charmUUIDInput).GetAll(
+			&missingDirectiveNames,
+		)
+	} else {
+		err = tx.Query(
+			ctx, charmStorageCovered, charmUUIDInput, directiveNamesInput,
+		).GetAll(&missingDirectiveNames)
+	}
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf(
+			"checking for missing application storage directives on charm %q: %w",
+			charmUUID, err,
+		)
+	}
+
+	if len(missingDirectiveNames) > 0 {
+		return errors.Errorf(
+			"application %q is missing storage directives for charm storage %v",
+			uuid, missingDirectiveNames,
+		)
+	}
+
+	if len(insertDirectivesInput) == 0 {
 		return nil
 	}
 
-	// This check is here until we rework all of the AddApplication logic to
-	// run in a single transaction. There's a TO-DO in the AddApplication service method.
-	queryStmt, err := st.Prepare(`
-SELECT &charmStorage.name FROM charm_storage
-WHERE  charm_uuid = $applicationDetails.charm_uuid
-`, appDetails, charmStorage{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	var storageMetadata []charmStorage
-	err = tx.Query(ctx, queryStmt, appDetails).GetAll(&storageMetadata)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return errors.Errorf("querying supported charm storage: %w", err)
-	}
-	supportedStorage := set.NewStrings()
-	for _, stor := range storageMetadata {
-		supportedStorage.Add(stor.Name)
-	}
-	wantStorage := set.NewStrings()
-	for _, stor := range appStorage {
-		wantStorage.Add(stor.Name.String())
-	}
-	unsupportedStorage := wantStorage.Difference(supportedStorage)
-	if unsupportedStorage.Size() > 0 {
-		return errors.Errorf("storage %q is not supported", unsupportedStorage.SortedValues())
-	}
-
-	// Storage is either a storage type or a pool name.
-	// Get a mapping of pool name to pool UUID for any
-	// pools specified in the app storage directives.
-	poolNames := make([]string, len(appStorage))
-	for i, stor := range appStorage {
-		poolNames[i] = stor.PoolNameOrType
-	}
-	poolsByName, err := st.loadStoragePoolUUIDByName(ctx, tx, poolNames)
-	if err != nil {
-		return errors.Errorf("loading storage pool UUIDs: %w", err)
-	}
-
-	storage := make([]storageToAdd, len(appStorage))
-	for i, stor := range appStorage {
-		storage[i] = storageToAdd{
-			ApplicationUUID: appDetails.UUID.String(),
-			CharmUUID:       appDetails.CharmUUID,
-			StorageName:     stor.Name.String(),
-			Size:            uint(stor.Size),
-			Count:           uint(stor.Count),
-		}
-		// PoolNameOrType has already been validated to either be
-		// a pool name or a valid storage type for the relevant cloud.
-		if uuid, ok := poolsByName[stor.PoolNameOrType]; ok {
-			storage[i].StoragePoolUUID = &uuid
-		} else {
-			storage[i].StorageType = &stor.PoolNameOrType
-		}
-	}
-
-	insertStmt, err := st.Prepare(`
+	insertDirectivesStmt, err := st.Prepare(`
 INSERT INTO application_storage_directive (*)
-VALUES ($storageToAdd.*)`, storageToAdd{})
+VALUES ($insertApplicationStorageDirective.*)
+`,
+		insertApplicationStorageDirective{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, insertStmt, storage).Run()
+	err = tx.Query(ctx, insertDirectivesStmt, insertDirectivesInput).Run()
 	if err != nil {
 		return errors.Capture(err)
 	}
+
 	return nil
 }
 
