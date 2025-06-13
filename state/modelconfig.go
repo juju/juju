@@ -54,7 +54,7 @@ func checkModelConfig(cfg *config.Config) error {
 	allAttrs := cfg.AllAttrs()
 	for _, attr := range disallowedModelConfigAttrs {
 		if _, ok := allAttrs[attr]; ok {
-			return errors.New(attr + " should never be written to the state")
+			return errors.Errorf("%s should never be written to the state", attr)
 		}
 	}
 	if _, ok := cfg.AgentVersion(); !ok {

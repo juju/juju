@@ -30,7 +30,7 @@ type fakeInstanceIdGetter struct {
 
 func (f *fakeInstanceIdGetter) InstanceId() (instance.Id, error) {
 	if f.err != "" {
-		return "", fmt.Errorf("%s", f.err)
+		return "", errors.New(f.err)
 	}
 	return instance.Id(f.instanceId), nil
 }

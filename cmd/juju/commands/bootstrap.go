@@ -586,16 +586,15 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 				if isCAASController {
 					workloadType = "k8s "
 				}
-				msg = fmt.Sprintf(`
+				ctx.Infof(`
 Now you can run
 	juju add-model <model-name>
 to create a new model to deploy %sworkloads.
 `, workloadType)
 
 			} else {
-				msg = fmt.Sprintf("Initial model %q added", c.hostedModelName)
+				ctx.Infof("Initial model %q added", c.hostedModelName)
 			}
-			ctx.Infof("%s", msg)
 		}
 	}()
 
