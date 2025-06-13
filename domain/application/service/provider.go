@@ -377,7 +377,7 @@ func makeCreateApplicationArgs(
 		EndpointBindings:  args.EndpointBindings,
 		Resources:         makeResourcesArgs(args.ResolvedResources),
 		PendingResources:  args.PendingResources,
-		Storage:           makeStorageArgs(storageDirectives),
+		StorageDirectives: makeStorageArgs(storageDirectives),
 		Config:            applicationConfig,
 		Settings:          args.ApplicationSettings,
 		Status:            applicationStatus,
