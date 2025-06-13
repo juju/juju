@@ -19,11 +19,14 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
+
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -53,6 +56,7 @@ type FirewallerAPI struct {
 	st                                       State
 	networkService                           NetworkService
 	applicationService                       ApplicationService
+	machineService                           MachineService
 	resources                                facade.Resources
 	watcherRegistry                          facade.WatcherRegistry
 	authorizer                               facade.Authorizer
@@ -132,6 +136,7 @@ func NewStateFirewallerAPI(
 		modelConfigService:                       modelConfigService,
 		networkService:                           networkService,
 		applicationService:                       applicationService,
+		machineService:                           machineService,
 		modelInfoService:                         modelInfoService,
 		logger:                                   logger,
 	}, nil
@@ -314,11 +319,21 @@ func (f *FirewallerAPI) AreManuallyProvisioned(ctx context.Context, args params.
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		machine, err := f.getMachine(canAccess, machineTag)
-		if err == nil {
-			result.Results[i].Result, err = machine.IsManual()
+
+		if !canAccess(machineTag) {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+
+		manual, err := f.machineService.IsManualMachine(ctx, machine.Name(machineTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("machine %q", machineTag.Id()))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Result = manual
 	}
 	return result, nil
 }
