@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -924,7 +925,9 @@ type perContainerHandler interface {
 	ProcessOneContainer(
 		ctx context.Context,
 		env environs.Environ,
-		policy BridgePolicy, idx int, host, guest Machine,
+		policy BridgePolicy, idx int,
+		host Machine, hostIsManual bool,
+		guest Machine,
 		hostInstanceID, guestInstanceID instance.Id,
 		allSubnets network.SubnetInfos,
 	) error
@@ -955,6 +958,11 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		return errors.Trace(err)
 	}
 
+	hostIsManual, err := api.machineService.IsManualMachine(ctx, machine.Name(hostMachine.Id()))
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	containerNetworkingMethod, err := api.agentProvisionerService.ContainerNetworkingMethod(ctx)
 	if err != nil {
 		return fmt.Errorf("cannot get container networking method: %w", err)
@@ -976,6 +984,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 			handler.SetError(i, err)
 			continue
 		}
+
 		// The auth function (canAccess) checks that the machine is a
 		// top level machine (we filter those out next) or that the
 		// machine has the host as a parent.
@@ -996,6 +1005,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 			ctx,
 			env, policy, i,
 			NewMachine(hostMachine),
+			hostIsManual,
 			NewMachine(guest),
 			hostInstanceID,
 			guestInstanceID,
@@ -1028,7 +1038,10 @@ func (h *prepareOrGetHandler) ConfigType() string {
 func (h *prepareOrGetHandler) ProcessOneContainer(
 	ctx context.Context,
 	env environs.Environ, policy BridgePolicy,
-	idx int, host, guest Machine, hostInstanceID, guestInstanceID instance.Id, _ network.SubnetInfos,
+	idx int,
+	host Machine, hostIsManual bool,
+	guest Machine,
+	hostInstanceID, guestInstanceID instance.Id, _ network.SubnetInfos,
 ) error {
 	if h.maintain {
 		if guestInstanceID != "" {
@@ -1041,11 +1054,7 @@ func (h *prepareOrGetHandler) ProcessOneContainer(
 
 	// We do not ask the provider to allocate addresses for manually provisioned
 	// machines as we do not expect such machines to be recognised (LP:1796106).
-	askProviderForAddress := false
-	hostIsManual, err := host.IsManual()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	var askProviderForAddress bool
 	if !hostIsManual {
 		askProviderForAddress = environs.SupportsContainerAddresses(ctx, env)
 	}
@@ -1128,7 +1137,8 @@ type hostChangesHandler struct {
 func (h *hostChangesHandler) ProcessOneContainer(
 	_ context.Context,
 	_ environs.Environ, policy BridgePolicy,
-	idx int, host, guest Machine, _, _ instance.Id, allSubnets network.SubnetInfos,
+	idx int, host Machine, hostIsManual bool,
+	guest Machine, _, _ instance.Id, allSubnets network.SubnetInfos,
 ) error {
 	bridges, err := policy.FindMissingBridgesForContainer(host, guest, allSubnets)
 	if err != nil {
@@ -1182,7 +1192,9 @@ type containerProfileHandler struct {
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (h *containerProfileHandler) ProcessOneContainer(
 	ctx context.Context,
-	_ environs.Environ, _ BridgePolicy, idx int, _, guest Machine, _, _ instance.Id, _ network.SubnetInfos,
+	_ environs.Environ, _ BridgePolicy, idx int,
+	_ Machine, _ bool,
+	guest Machine, _, _ instance.Id, _ network.SubnetInfos,
 ) error {
 	guestName := coremachine.Name(guest.Id())
 	unitNames, err := h.applicationService.GetUnitNamesOnMachine(ctx, guestName)

@@ -91,6 +91,9 @@ type MachineService interface {
 
 	// InstanceID returns the cloud specific instance id for this machine.
 	InstanceID(ctx context.Context, mUUID coremachine.UUID) (instance.Id, error)
+
+	// IsManualMachine returns whether the machine is a manual machine.
+	IsManualMachine(ctx context.Context, machineName coremachine.Name) (bool, error)
 }
 
 // StoragePoolGetter instances get a storage pool by name.
