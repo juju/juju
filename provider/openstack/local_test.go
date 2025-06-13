@@ -2032,9 +2032,9 @@ func (s *localServerSuite) TestEnsureModelGroup(c *gc.C) {
 	c.Check(stringRules, gc.DeepEquals, expectedRules)
 }
 
-// TestMatchingGroup checks that you receive the group you expected.  matchingGroup()
+// GetSecurityGroupByName checks that you receive the group you expected.  getSecurityGroupByName()
 // is used by the firewaller when opening and closing ports.  Unit test in response to bug 1675799.
-func (s *localServerSuite) TestMatchingGroup(c *gc.C) {
+func (s *localServerSuite) TestGetSecurityGroupByName(c *gc.C) {
 	err := bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
 	machineName1 := openstack.MachineGroupName(s.env, s.ControllerUUID, "1")
@@ -2057,6 +2057,9 @@ func (s *localServerSuite) TestMatchingGroup(c *gc.C) {
 	groupMatched, err = openstack.GetSecurityGroupByName(s.env, s.callCtx, machineName2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group2.Id, gc.Equals, groupMatched.Id)
+
+	groupMatched, err = openstack.GetSecurityGroupByName(s.env, s.callCtx, "juju-unknown-machine-name")
+	c.Assert(err, gc.ErrorMatches, "failed to find security group with name: juju-unknown-machine-name")
 }
 
 // localHTTPSServerSuite contains tests that run against an Openstack service
