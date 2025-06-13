@@ -268,14 +268,6 @@ func (c *firewallerBase) jujuGroupPrefixRegexp() string {
 	return fmt.Sprintf("juju-.*-%v", cfg.UUID())
 }
 
-func (c *firewallerBase) jujuGroupRegexp() string {
-	return fmt.Sprintf("%s$", c.jujuGroupPrefixRegexp())
-}
-
-func (c *firewallerBase) globalGroupRegexp() string {
-	return fmt.Sprintf("%s-global", c.jujuGroupPrefixRegexp())
-}
-
 func (c *firewallerBase) machineGroupRegexp(machineID string) string {
 	// we are only looking to match 1 machine
 	return fmt.Sprintf("%s-%s$", c.jujuGroupPrefixRegexp(), machineID)
