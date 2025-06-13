@@ -467,6 +467,18 @@ type charmStorage struct {
 	Property    string `db:"property"`
 }
 
+// charmStorageName is used to represent the name column from the charm_storage
+// table.
+type charmStorageName struct {
+	Name string `db:"name"`
+}
+
+// charmStorageUUID is used to represent the charm_uuid column in the
+// charm storage table.
+type charmStorageUUID struct {
+	UUID string `db:"charm_uuid"`
+}
+
 // setCharmStorage is used to set the storage of a charm.
 type setCharmStorage struct {
 	CharmUUID   string `db:"charm_uuid"`
@@ -1338,6 +1350,19 @@ type machinePlatformUUID struct {
 type getUnitMachine struct {
 	UnitName    coreunit.Name    `db:"unit_name"`
 	UnitMachine coremachine.Name `db:"machine_name"`
+}
+
+// insertApplicationStorageDirective represents the set of values required for
+// inserting a new application storage directive on behalf of an application.
+type insertApplicationStorageDirective struct {
+	ApplicationUUID string `db:"application_uuid"`
+	CharmUUID       string `db:"charm_uuid"`
+	Count           uint64 `db:"count"`
+	// Size is the number of MiB requested for the storage.
+	Size                uint64           `db:"size_mib"`
+	StorageName         string           `db:"storage_name"`
+	StoragePoolUUID     sql.Null[string] `db:"storage_pool_uuid"`
+	StorageProviderType sql.Null[string] `db:"storage_type"`
 }
 
 // insertUnitStorageDirective represents the set of values required for
