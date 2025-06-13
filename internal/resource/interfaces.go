@@ -7,43 +7,16 @@ import (
 	"context"
 	"io"
 
-	"github.com/juju/names/v6"
-
 	coreapplication "github.com/juju/juju/core/application"
 	corelogger "github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
-	domaincharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/environs/config"
-	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/resource/charmhub"
-	"github.com/juju/juju/state"
 )
-
-// DeprecatedState is the deprecated backend soon to be replaced with the
-// resource and application domains.
-type DeprecatedState interface {
-	Unit(name string) (DeprecatedStateUnit, error)
-	Application(name string) (DeprecatedStateApplication, error)
-	ModelUUID() string
-}
-
-// DeprecatedStateUnit is the deprecated unit state, soon to be replaced with
-// the application domain.
-type DeprecatedStateUnit interface {
-	ApplicationName() string
-	CharmURL() *string
-	Tag() names.Tag
-}
-
-// DeprecatedStateApplication is the deprecated application state, soon to be
-// replaced with the application domain.
-type DeprecatedStateApplication interface {
-	CharmOrigin() *state.CharmOrigin
-	CharmURL() (*string, bool)
-	Tag() names.Tag
-}
 
 // ModelConfigService provides access to the model configuration.
 type ModelConfigService interface {
@@ -70,9 +43,15 @@ type ApplicationService interface {
 	// returns an error if the application can not be found by the name.
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
 
-	// GetCharmByApplicationID returns the charm for the specified application
-	// ID.
-	GetCharmByApplicationID(ctx context.Context, id coreapplication.ID) (internalcharm.Charm, domaincharm.CharmLocator, error)
+	// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
+	// It returns an error if the charm can not be found by the name. This can also
+	// be used as a cheap way to see if a charm exists without needing to load the
+	// charm metadata.
+	GetCharmLocatorByApplicationName(ctx context.Context, name string) (charm.CharmLocator, error)
+
+	// GetApplicationCharmOrigin returns the charm origin for the specified
+	// application name.
+	GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error)
 }
 
 type ResourceService interface {

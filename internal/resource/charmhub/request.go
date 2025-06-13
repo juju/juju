@@ -6,9 +6,8 @@ package charmhub
 import (
 	"io"
 
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/application"
 	charmresource "github.com/juju/juju/internal/charm/resource"
-	"github.com/juju/juju/state"
 )
 
 // ResourceData represents the response from store about a request for
@@ -36,13 +35,8 @@ type ResourceRequest struct {
 // CharmID represents the underlying charm for a given application. This
 // includes both the URL and the origin.
 type CharmID struct {
-
-	// URL of the given charm, includes the reference name and a revision.
-	// Old style charm URLs are also supported i.e. charmstore.
-	URL *charm.URL
-
 	// Origin holds the origin of a charm. This includes the source of the
 	// charm, along with the revision and channel to identify where the charm
 	// originated from.
-	Origin state.CharmOrigin
+	Origin application.CharmOrigin
 }
