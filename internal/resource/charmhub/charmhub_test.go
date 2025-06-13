@@ -12,13 +12,14 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
+	"github.com/juju/juju/domain/deployment"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/state"
 )
 
 type CharmHubSuite struct {
@@ -49,20 +50,18 @@ func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 	s.downloader.EXPECT().Download(gomock.Any(), parsedURL, fingerprint, size).Return(reader, nil)
 
 	cl := s.newCharmHubClient(c)
-	curl, _ := charm.ParseURL("ch:postgresql")
 	rev := 42
 	result, err := cl.GetResource(
 		c.Context(),
 		charmhub.ResourceRequest{
 			CharmID: charmhub.CharmID{
-				URL: curl,
-				Origin: state.CharmOrigin{
-					ID:       "mycharmhubid",
-					Channel:  &state.Channel{Risk: "stable"},
-					Revision: &rev,
-					Platform: &state.Platform{
-						Architecture: "amd64",
-						OS:           "ubuntu",
+				Origin: application.CharmOrigin{
+					CharmhubIdentifier: "mycharmhubid",
+					Channel:            &deployment.Channel{Risk: "stable"},
+					Revision:           rev,
+					Platform: deployment.Platform{
+						Architecture: architecture.AMD64,
+						OSType:       deployment.Ubuntu,
 						Channel:      "20.04/stable",
 					},
 				},

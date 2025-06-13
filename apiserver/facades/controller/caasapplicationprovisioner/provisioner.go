@@ -121,10 +121,11 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	modelUUID := ctx.ModelUUID().String()
 
 	newResourceOpener := func(ctx context.Context, appName string) (coreresource.Opener, error) {
 		args := resource.ResourceOpenerArgs{
-			State:                st,
+			ModelUUID:            modelUUID,
 			ResourceService:      resourceService,
 			ApplicationService:   applicationService,
 			CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(modelConfigService),

@@ -97,9 +97,6 @@ func (ch *CharmHubClient) getResourceDetails(ctx context.Context, req ResourceRe
 	// GetResource is called after a charm is installed, therefore the
 	// origin must have an ID. Error if not.
 	origin := req.CharmID.Origin
-	if origin.Revision == nil {
-		return charmresource.Resource{}, nil, jujuerrors.BadRequestf("empty charm origin revision")
-	}
 
 	// The charm revision isn't really required here, just handy for
 	// getting the correct resource revision. Using a channel would
@@ -107,7 +104,7 @@ func (ch *CharmHubClient) getResourceDetails(ctx context.Context, req ResourceRe
 	// during deploy when a resolving resources for add pending resources.
 	// This also closes a timing window where a charm and resource
 	// is updated in the channel in between deploy and resource use.
-	cfg, err := charmhub.DownloadOneFromRevision(ctx, origin.ID, *origin.Revision)
+	cfg, err := charmhub.DownloadOneFromRevision(ctx, origin.CharmhubIdentifier, origin.Revision)
 	if err != nil {
 		return charmresource.Resource{}, nil, errors.Capture(err)
 	}
