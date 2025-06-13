@@ -154,7 +154,7 @@ func (c *removeUnitCommand) validateCAASRemoval() error {
 k8s models do not support removing named units.
 Instead specify an application with --num-units.
 `[1:]
-		return errors.Errorf(msg)
+		return errors.New(msg)
 	}
 	if !names.IsValidApplication(c.EntityNames[0]) {
 		return errors.NotValidf("application name %q", c.EntityNames[0])

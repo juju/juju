@@ -154,7 +154,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 
 	// If a mirror is specified, rewrite sources.list and rename cached index files.
 	if newMirror := cfg.PackageMirror(); newMirror != "" {
-		cmds = append(cmds, LogProgressCmd(fmt.Sprintf("Changing apt mirror to %q", newMirror)))
+		cmds = append(cmds, LogProgressCmd("Changing apt mirror to %q", newMirror))
 		cmds = append(cmds, pkgCmder.SetMirrorCommands(newMirror, newMirror)...)
 	}
 
@@ -232,7 +232,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	}
 
 	if len(pkgCmds) > 0 {
-		pkgCmds = append([]string{LogProgressCmd(fmt.Sprintf("Installing %s", strings.Join(pkgNames, ", ")))}, pkgCmds...)
+		pkgCmds = append([]string{LogProgressCmd("Installing %s", strings.Join(pkgNames, ", "))}, pkgCmds...)
 		cmds = append(cmds, pkgCmds...)
 		// setting DEBIAN_FRONTEND=noninteractive prevents debconf
 		// from prompting, always taking default values instead.

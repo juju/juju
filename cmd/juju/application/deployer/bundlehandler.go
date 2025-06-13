@@ -421,7 +421,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			origin = origin.WithSeries("")
 		}
 
-		h.ctx.Infof(formatLocatedText(ch, origin))
+		h.ctx.Infof("%s", formatLocatedText(ch, origin))
 		if url.Series == "bundle" || origin.Type == "bundle" {
 			return errors.Errorf("expected charm, got bundle %q", ch.Name)
 		}

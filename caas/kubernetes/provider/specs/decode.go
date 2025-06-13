@@ -54,7 +54,7 @@ func (d *YAMLOrJSONDecoder) processError(err error, decoder *json.Decoder) error
 	}
 	return k8syaml.JSONSyntaxError{
 		Offset: syntax.Offset,
-		Err:    fmt.Errorf(syntax.Error()),
+		Err:    fmt.Errorf("%s", syntax.Error()),
 	}
 }
 

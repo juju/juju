@@ -37,7 +37,7 @@ var nameRule = charm.GetActionNameRule()
 func NewRunCommand() cmd.Command {
 	return modelcmd.Wrap(&runCommand{
 		logMessageHandler: func(ctx *cmd.Context, msg string) {
-			ctx.Infof(msg)
+			ctx.Infof("%s", msg)
 		},
 	})
 }
