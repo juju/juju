@@ -4,6 +4,7 @@
 package service
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -72,13 +73,15 @@ func (s *statusSuite) TestEncodeK8sPodStatus(c *tc.C) {
 	}
 
 	for i, test := range testCases {
-		c.Logf("test %d: %v", i, test.input)
-		output, err := encodeK8sPodStatus(test.input)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(output, tc.DeepEquals, test.output)
-		result, err := decodeK8sPodStatus(output)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(result, tc.DeepEquals, test.input)
+		c.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
+			t.Logf("test %d: %v", i, test.input)
+			output, err := encodeK8sPodStatus(test.input)
+			tc.Assert(t, err, tc.ErrorIsNil)
+			tc.Assert(t, output, tc.DeepEquals, test.output)
+			result, err := decodeK8sPodStatus(output)
+			tc.Assert(t, err, tc.ErrorIsNil)
+			tc.Assert(t, result, tc.DeepEquals, test.input)
+		})
 	}
 }
 
@@ -138,13 +141,15 @@ func (s *statusSuite) TestEncodeUnitAgentStatus(c *tc.C) {
 	}
 
 	for i, test := range testCases {
-		c.Logf("test %d: %v", i, test.input)
-		output, err := encodeUnitAgentStatus(test.input)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(output, tc.DeepEquals, test.output)
-		result, err := decodeUnitAgentStatus(output, true)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(result, tc.DeepEquals, test.input)
+		c.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
+			t.Logf("test %d: %v", i, test.input)
+			output, err := encodeUnitAgentStatus(test.input)
+			tc.Assert(t, err, tc.ErrorIsNil)
+			tc.Check(t, output, tc.DeepEquals, test.output)
+			result, err := decodeUnitAgentStatus(output, true)
+			tc.Assert(t, err, tc.ErrorIsNil)
+			tc.Check(t, result, tc.DeepEquals, test.input)
+		})
 	}
 }
 
@@ -273,13 +278,15 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *tc.C) {
 	}
 
 	for i, test := range testCases {
-		c.Logf("test %d: %v", i, test.input)
-		output, err := encodeWorkloadStatus(test.input)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(output, tc.DeepEquals, test.output)
-		result, err := decodeUnitWorkloadStatus(output, true)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(result, tc.DeepEquals, test.input)
+		c.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
+			t.Logf("test %d: %v", i, test.input)
+			output, err := encodeWorkloadStatus(test.input)
+			tc.Assert(t, err, tc.ErrorIsNil)
+			tc.Check(t, output, tc.DeepEquals, test.output)
+			result, err := decodeUnitWorkloadStatus(output, true)
+			tc.Assert(t, err, tc.ErrorIsNil)
+			tc.Check(t, result, tc.DeepEquals, test.input)
+		})
 	}
 }
 
