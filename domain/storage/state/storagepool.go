@@ -454,29 +454,49 @@ WHERE  sp.type IN ($storageProviderTypes[:])`, spTypes, storagePool{}, poolAttri
 	return dbRows.toStoragePools(keyValues)
 }
 
-// GetStoragePoolByName returns the storage pool with the specified name.
+// GetStoragePoolUUID returns the UUID of the storage pool with the specified name.
 // The following errors can be expected:
 // - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-func (st State) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error) {
+func (st State) GetStoragePoolUUID(ctx context.Context, name string) (domainstorage.StoragePoolUUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return getStoragePoolUUID(ctx, db, name)
+}
+
+func getStoragePoolUUID(
+	ctx context.Context,
+	db domain.TxnRunner,
+	name string,
+) (domainstorage.StoragePoolUUID, error) {
+	// TODO: !!!
+	return "", nil
+}
+
+// GetStoragePool returns the storage pool with the specified name.
+// The following errors can be expected:
+// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+func (st State) GetStoragePool(ctx context.Context, uuid domainstorage.StoragePoolUUID) (domainstorage.StoragePool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return domainstorage.StoragePool{}, errors.Capture(err)
 	}
-	return GetStoragePoolByName(ctx, db, name)
+	return getStoragePool(ctx, db, uuid)
 }
 
-// GetStoragePoolByName returns the storage pool with the specified name.
-// The following errors can be expected:
-// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-// Exported for use by other domains that need to load storage pools.
-func GetStoragePoolByName(ctx context.Context, db domain.TxnRunner, name string) (domainstorage.StoragePool, error) {
-	inputArg := storagePool{Name: name}
+func getStoragePool(
+	ctx context.Context,
+	db domain.TxnRunner,
+	uuid domainstorage.StoragePoolUUID,
+) (domainstorage.StoragePool, error) {
+	inputArg := storagePool{ID: uuid.String()}
 	stmt, err := sqlair.Prepare(`
 SELECT (sp.*) AS (&storagePool.*),
        (sp_attr.*) AS (&poolAttribute.*)
 FROM   storage_pool sp
        LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
-WHERE  sp.name = $storagePool.name`, inputArg, poolAttribute{})
+WHERE  sp.uuid = $storagePool.uuid`, inputArg, poolAttribute{})
 	if err != nil {
 		return domainstorage.StoragePool{}, errors.Capture(err)
 	}
@@ -501,10 +521,22 @@ WHERE  sp.name = $storagePool.name`, inputArg, poolAttribute{})
 	}
 
 	if len(storagePools) == 0 {
-		return domainstorage.StoragePool{}, errors.Errorf("storage pool %q", name).Add(storageerrors.PoolNotFoundError)
+		return domainstorage.StoragePool{}, errors.Errorf("storage pool %q", uuid).Add(storageerrors.PoolNotFoundError)
 	}
 	if len(storagePools) > 1 {
 		return domainstorage.StoragePool{}, errors.Errorf("expected 1 storage pool, got %d", len(storagePools))
 	}
 	return storagePools[0], errors.Capture(err)
+}
+
+// GetStoragePoolByName returns the storage pool with the specified name.
+// The following errors can be expected:
+// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+// Exported for use by other domains that need to load storage pools.
+func GetStoragePoolByName(ctx context.Context, db domain.TxnRunner, name string) (domainstorage.StoragePool, error) {
+	spUUID, err := getStoragePoolUUID(ctx, db, name)
+	if err != nil {
+		return domainstorage.StoragePool{}, errors.Capture(err)
+	}
+	return getStoragePool(ctx, db, spUUID)
 }
