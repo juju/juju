@@ -7,7 +7,7 @@ import (
 	"github.com/juju/names/v6"
 
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/network/containerizer"
 )
 

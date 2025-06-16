@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/containermanager"
 	corenetwork "github.com/juju/juju/core/network"
+	domainnetwork "github.com/juju/juju/domain/network"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/state"
@@ -81,7 +82,7 @@ func NewBridgePolicy(ctx context.Context,
 // machine cannot provide.
 func (p *BridgePolicy) FindMissingBridgesForContainer(
 	host Machine, guest Container, allSubnets corenetwork.SubnetInfos,
-) ([]network.DeviceToBridge, error) {
+) ([]domainnetwork.DeviceToBridge, error) {
 	guestSpaceInfos, devicesPerSpace, err := p.findSpacesAndDevicesForContainer(context.TODO(), host, guest)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -154,9 +155,9 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 		return nil, errors.Errorf("host machine %q has no available device in space(s) %s", host.Id(), notFoundNames)
 	}
 
-	hostToBridge := make([]network.DeviceToBridge, 0, len(hostDeviceNamesToBridge))
+	hostToBridge := make([]domainnetwork.DeviceToBridge, 0, len(hostDeviceNamesToBridge))
 	for _, hostName := range network.NaturallySortDeviceNames(hostDeviceNamesToBridge...) {
-		hostToBridge = append(hostToBridge, network.DeviceToBridge{
+		hostToBridge = append(hostToBridge, domainnetwork.DeviceToBridge{
 			DeviceName: hostName,
 			BridgeName: BridgeNameForDevice(hostName),
 			MACAddress: hostDeviceByName[hostName].MACAddress(),

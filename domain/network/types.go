@@ -55,6 +55,23 @@ type NetInterface struct {
 	// here and handled by network config updates if they become pertinent.
 }
 
+// DeviceToBridge indicates a device on a known machine that should be bridged
+// in order to provision a container or virtual machine on it with appropriate
+// network connectivity.
+// It is the result of factoring space constraints and/or bindings of the
+// application to be deployed into the container or virtual machine.
+type DeviceToBridge struct {
+	// DeviceName is the name of the device on the machine that should
+	// be bridged.
+	DeviceName string
+
+	// BridgeName is the name of the bridge that we want created.
+	BridgeName string
+
+	// MACAddress is the MAC address of the device to be bridged
+	MACAddress string
+}
+
 // DeviceType represents the type of a link layer device, as recorded
 // in the link_layer_device_type lookup table.
 type DeviceType int

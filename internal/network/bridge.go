@@ -10,13 +10,14 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/network/netplan"
 )
 
 // Bridger creates network bridges to support addressable containers.
 type Bridger interface {
 	// Bridge turns existing devices into bridged devices.
-	Bridge(devices []DeviceToBridge) error
+	Bridge(devices []network.DeviceToBridge) error
 }
 
 type netplanBridger struct {
@@ -27,7 +28,7 @@ type netplanBridger struct {
 
 var _ Bridger = (*netplanBridger)(nil)
 
-func (b *netplanBridger) Bridge(devices []DeviceToBridge) error {
+func (b *netplanBridger) Bridge(devices []network.DeviceToBridge) error {
 	npDevices := make([]netplan.DeviceToBridge, len(devices))
 	for i, device := range devices {
 		npDevices[i] = netplan.DeviceToBridge(device)
