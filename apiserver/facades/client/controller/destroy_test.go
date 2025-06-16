@@ -42,12 +42,13 @@ type destroyControllerSuite struct {
 	resources  *common.Resources
 	controller *controller.ControllerAPI
 
-	otherState       *state.State
-	otherModel       *state.Model
-	otherModelOwner  names.UserTag
-	otherModelUUID   string
-	context          facadetest.MultiModelContext
-	mockModelService *mocks.MockModelService
+	otherState           *state.State
+	otherModel           *state.Model
+	otherModelOwner      names.UserTag
+	otherModelUUID       string
+	context              facadetest.MultiModelContext
+	mockModelService     *mocks.MockModelService
+	mockModelInfoService *mocks.MockModelInfoService
 }
 
 func TestDestroyControllerSuite(t *stdtesting.T) {
@@ -57,6 +58,7 @@ func TestDestroyControllerSuite(t *stdtesting.T) {
 func (s *destroyControllerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockModelService = mocks.NewMockModelService(ctrl)
+	s.mockModelInfoService = mocks.NewMockModelInfoService(ctrl)
 	s.controller = s.controllerAPI(c)
 
 	return ctrl
@@ -187,7 +189,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		domainServices.Access(),
 		machineServiceGetter,
 		s.mockModelService,
-		domainServices.ModelInfo(),
+		s.mockModelInfoService,
 		domainServices.BlockCommand(),
 		applicationServiceGetter,
 		relationServiceGetter,
@@ -262,6 +264,9 @@ func (s *destroyControllerSuite) TestDestroyControllerKillsHostedModels(c *tc.C)
 			coremodel.UUID(s.ControllerUUID),
 		}, nil,
 	)
+	s.mockModelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
+
 	err := s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
@@ -310,6 +315,8 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *tc.C) {
 			coremodel.UUID(s.otherModelUUID),
 		}, nil,
 	)
+	s.mockModelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
 	err = s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -325,9 +332,11 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 			coremodel.UUID(s.otherModelUUID),
 		}, nil,
 	)
+	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
+
 	err := model.DestroyModel(
 		c.Context(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
-		domainServices.BlockCommand(), domainServices.ModelInfo(),
+		domainServices.BlockCommand(), s.mockModelInfoService,
 		nil, nil, nil, nil,
 	)
 	c.Assert(err, tc.ErrorIsNil)
