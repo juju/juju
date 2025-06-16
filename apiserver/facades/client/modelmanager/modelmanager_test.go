@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/status"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
@@ -126,8 +126,8 @@ func (s *modelManagerSuite) SetUpTest(c *tc.C) {
 		owner: names.NewUserTag("admin"),
 		life:  state.Alive,
 		cfg:   cfg,
-		status: status.StatusInfo{
-			Status: status.Available,
+		status: corestatus.StatusInfo{
+			Status: corestatus.Available,
 			Since:  &time.Time{},
 		},
 	}
@@ -139,8 +139,8 @@ func (s *modelManagerSuite) SetUpTest(c *tc.C) {
 			life:  state.Alive,
 			tag:   coretesting.ModelTag,
 			cfg:   cfg,
-			status: status.StatusInfo{
-				Status: status.Available,
+			status: corestatus.StatusInfo{
+				Status: corestatus.Available,
 				Since:  &time.Time{},
 			},
 		},
@@ -295,15 +295,20 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	modelAgentService := NewMockModelAgentService(ctrl)
+
+	statusService := NewMockStatusService(ctrl)
+
 	modelDomainServices.EXPECT().ModelInfo().Return(s.modelInfoService).AnyTimes()
 	modelDomainServices.EXPECT().Network().Return(networkService)
 	modelDomainServices.EXPECT().Config().Return(s.modelConfigService).AnyTimes()
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
+	modelDomainServices.EXPECT().Status().Return(statusService).AnyTimes()
 
 	// Expect calls to functions of the model services.
-	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{
-		Status: status.Available,
-		Since:  time.Now(),
+	t := time.Now()
+	statusService.EXPECT().GetModelStatus(gomock.Any()).Return(corestatus.StatusInfo{
+		Status: corestatus.Available,
+		Since:  &t,
 	}, nil)
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
 		// Use a version we shouldn't have now to ensure we're using the

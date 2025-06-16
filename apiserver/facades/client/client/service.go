@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
-	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/port"
 	domainrelation "github.com/juju/juju/domain/relation"
 	statusservice "github.com/juju/juju/domain/status/service"
@@ -62,6 +61,9 @@ type StatusService interface {
 
 	// GetStatusHistory returns the status history based on the request.
 	GetStatusHistory(ctx context.Context, request statusservice.StatusHistoryRequest) ([]status.DetailedStatus, error)
+
+	// GetModelStatus returns the current status of the model.
+	GetModelStatus(ctx context.Context) (status.StatusInfo, error)
 }
 
 // BlockDeviceService instances can fetch block devices for a machine.
@@ -91,10 +93,6 @@ type MachineService interface {
 type ModelInfoService interface {
 	// GetModelInfo returns information about the current model.
 	GetModelInfo(context.Context) (model.ModelInfo, error)
-	// GetStatus returns the current status of the model.
-	// The following error types can be expected to be returned:
-	// - [modelerrors.NotFound]: When the model does not exist.
-	GetStatus(context.Context) (domainmodel.StatusInfo, error)
 }
 
 // NetworkService is the interface that is used to interact with the

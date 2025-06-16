@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
-	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/relation"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs/cloudspec"
@@ -72,14 +71,14 @@ type ModelService interface {
 
 // ModelInfoService defines domain service methods for managing a model.
 type ModelInfoService interface {
-	// GetStatus returns the current status of the model. The following error
-	// types can be expected to be returned:
-	//  - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does not exist.
-	GetStatus(context.Context) (domainmodel.StatusInfo, error)
 	// IsControllerModel returns true if the model is the controller model.
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] When the model does not exist.
 	IsControllerModel(context.Context) (bool, error)
+	// HasValidCredential returns true if the model has a valid credential.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model no longer exists.
+	HasValidCredential(context.Context) (bool, error)
 }
 
 // ApplicationService provides access to the application service.
