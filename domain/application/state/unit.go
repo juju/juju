@@ -1177,6 +1177,15 @@ func (st *State) insertCAASUnit(
 		return nil
 	}
 
+	_, err = st.createUnitStorageDirectives(
+		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
+	)
+	if err != nil {
+		return errors.Errorf(
+			"creating storage directives for unit %q: %w", args.UnitName, err,
+		)
+	}
+
 	attachArgs, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind)
 	if err != nil {
 		return errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
@@ -1233,6 +1242,16 @@ func (st *State) insertIAASUnit(
 	}); err != nil {
 		return nil, errors.Errorf("inserting unit for application %q: %w", appUUID, err)
 	}
+
+	_, err = st.createUnitStorageDirectives(
+		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"creating storage directives for unit %q: %w", args.UnitName, err,
+		)
+	}
+
 	if _, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind); err != nil {
 		return nil, errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
 	}
