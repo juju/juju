@@ -115,7 +115,6 @@ func (s *subscription) dispatch(ctx context.Context, changes ChangeSet) error {
 		}
 
 	case s.changes <- changes:
-
 	}
 	return nil
 }
@@ -123,6 +122,6 @@ func (s *subscription) dispatch(ctx context.Context, changes ChangeSet) error {
 // close closes the active channel, which will signal to the consumer that the
 // subscription is no longer active.
 func (s *subscription) close() error {
-	s.Kill()
+	s.tomb.Kill(nil)
 	return s.Wait()
 }

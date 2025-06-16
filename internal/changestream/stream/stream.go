@@ -394,6 +394,9 @@ func (s *Stream) loop() error {
 			case s.terms <- term:
 			}
 
+			// TODO (stickupkid): For certain setups, we may want to run
+			// runtime.Gosched() here to allow other goroutines to run.
+
 			select {
 			case <-s.tomb.Dying():
 				return tomb.ErrDying

@@ -5,17 +5,21 @@ package eventmultiplexer
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 // ChangeSet represents a set of changes.
@@ -68,6 +72,7 @@ type EventMultiplexer struct {
 	clock    clock.Clock
 	metrics  MetricsCollector
 
+	mutex              sync.Mutex
 	subscriptions      map[uint64]*subscription
 	subscriptionsByNS  map[string][]*eventFilter
 	subscriptionsAll   map[uint64]struct{}
@@ -80,15 +85,33 @@ type EventMultiplexer struct {
 	unsubscriptionCh chan uint64
 
 	reportsCh chan reportRequest
+
+	runner *worker.Runner
 }
 
 // New creates a new EventMultiplexer that will use the Stream for events.
 func New(stream Stream, clock clock.Clock, metrics MetricsCollector, logger logger.Logger) (*EventMultiplexer, error) {
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "event-multiplexer",
+		IsFatal: func(err error) bool {
+			return false
+		},
+		ShouldRestart: func(err error) bool {
+			return false
+		},
+		Clock:  clock,
+		Logger: internalworker.WrapLogger(logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	queue := &EventMultiplexer{
-		stream:             stream,
-		logger:             logger,
-		clock:              clock,
-		metrics:            metrics,
+		stream:  stream,
+		logger:  logger,
+		clock:   clock,
+		metrics: metrics,
+
 		subscriptions:      make(map[uint64]*subscription),
 		subscriptionsByNS:  make(map[string][]*eventFilter),
 		subscriptionsAll:   make(map[uint64]struct{}),
@@ -99,12 +122,17 @@ func New(stream Stream, clock clock.Clock, metrics MetricsCollector, logger logg
 		unsubscriptionCh: make(chan uint64),
 
 		reportsCh: make(chan reportRequest),
+
+		runner: runner,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "event-multiplexer",
 		Site: &queue.catacomb,
 		Work: queue.loop,
+		Init: []worker.Worker{
+			queue.runner,
+		},
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -195,12 +223,59 @@ func (e *EventMultiplexer) loop() error {
 	ctx, cancel := e.scopedContext()
 	defer cancel()
 
-	defer func() {
-		for _, sub := range e.subscriptions {
-			sub.close()
+	// The subscription channels need to handle the case where they're not
+	// attempting
+	go func() {
+		for {
+			select {
+			case <-e.catacomb.Dying():
+				return
+			case request := <-e.subscriptionCh:
+				// Get a new subscription count without using any mutexes.
+				subID := atomic.AddUint64(&e.subscriptionsCount, 1)
+
+				err := e.runner.StartWorker(ctx, e.subName(subID), func(ctx context.Context) (worker.Worker, error) {
+					sub := newSubscription(subID, func() { e.unsubscribe(subID) })
+
+					e.processSubscription(sub, request)
+
+					request.result <- requestSubscriptionResult{
+						sub: sub,
+					}
+
+					return sub, nil
+				})
+				if errors.Is(err, e.catacomb.ErrDying()) {
+					return
+				} else if err != nil {
+					request.result <- requestSubscriptionResult{
+						err: err,
+					}
+				}
+
+				continue
+
+			case subscriptionID := <-e.unsubscriptionCh:
+
+				e.processUnsubscription(ctx, subscriptionID)
+
+			case r := <-e.reportsCh:
+
+				e.mutex.Lock()
+				r.data["subscriptions"] = len(e.runner.WorkerNames())
+				r.data["subscriptions-by-ns"] = len(e.subscriptionsByNS)
+				r.data["subscriptions-all"] = len(e.subscriptionsAll)
+				r.data["dispatch-error-count"] = e.dispatchErrorCount
+
+				// If the stream supports reporting, then include it in the report.
+				if s, ok := e.stream.(reporter); ok {
+					r.data["stream"] = s.Report()
+				}
+				e.mutex.Unlock()
+
+				close(r.done)
+			}
 		}
-		e.subscriptions = nil
-		e.subscriptionsByNS = nil
 	}()
 
 	for {
@@ -258,110 +333,89 @@ func (e *EventMultiplexer) loop() error {
 			// can force false here.
 			term.Done(false, e.catacomb.Dying())
 
-		case request := <-e.subscriptionCh:
-			// Get a new subscription count without using any mutexes.
-			subID := atomic.AddUint64(&e.subscriptionsCount, 1)
-
-			e.metrics.SubscriptionsInc()
-
-			sub := newSubscription(subID, func() { e.unsubscribe(subID) })
-
-			if err := e.catacomb.Add(sub); err != nil {
-				e.metrics.SubscriptionsDec()
-				sub.Kill()
-
-				if errors.Is(err, e.catacomb.ErrDying()) {
-					return err
-				}
-
-				select {
-				case <-e.catacomb.Dying():
-					return e.catacomb.ErrDying()
-				case request.result <- requestSubscriptionResult{
-					err: err,
-				}:
-					continue
-				}
-			}
-
-			// Create a new subscription and assign a unique ID to it.
-			e.subscriptions[sub.id] = sub
-
-			// No options were supplied, just add it to the all bucket, so
-			// they'll be included in every dispatch.
-			if len(request.opts) == 0 {
-				e.subscriptionsAll[sub.id] = struct{}{}
-			} else {
-				// Register filters to route changes matching the subscription criteria to
-				// the newly created subscription.
-				for _, opt := range request.opts {
-					namespace := opt.Namespace()
-					e.subscriptionsByNS[namespace] = append(e.subscriptionsByNS[namespace], &eventFilter{
-						subscriptionID: sub.id,
-						changeMask:     opt.ChangeMask(),
-						filter:         opt.Filter(),
-					})
-					sub.topics[namespace] = struct{}{}
-				}
-			}
-
-			select {
-			case <-e.catacomb.Dying():
-				return e.catacomb.ErrDying()
-			case request.result <- requestSubscriptionResult{
-				sub: sub,
-			}:
-				continue
-			}
-
-		case subscriptionID := <-e.unsubscriptionCh:
-			sub, found := e.subscriptions[subscriptionID]
-			if !found {
-				continue
-			}
-
-			for topic := range sub.topics {
-				var updatedFilters []*eventFilter
-				for _, filter := range e.subscriptionsByNS[topic] {
-					if filter.subscriptionID == subscriptionID {
-						continue
-					}
-					updatedFilters = append(updatedFilters, filter)
-				}
-
-				// If we don't have any more filters for this topic, remove it
-				// otherwise we'll keep iterating over it.
-				if len(updatedFilters) == 0 {
-					delete(e.subscriptionsByNS, topic)
-					continue
-				}
-
-				e.subscriptionsByNS[topic] = updatedFilters
-			}
-
-			delete(e.subscriptions, subscriptionID)
-			delete(e.subscriptionsAll, subscriptionID)
-
-			// If the subscription errors out on a close, we don't want that
-			// to bring down the entire multiplexer. Instead, just log it out
-			// and continue.
-			if err := sub.close(); err != nil {
-				e.logger.Infof(ctx, "error closing subscription: %v", err)
-			}
-
-		case r := <-e.reportsCh:
-			r.data["subscriptions"] = len(e.subscriptions)
-			r.data["subscriptions-by-ns"] = len(e.subscriptionsByNS)
-			r.data["subscriptions-all"] = len(e.subscriptionsAll)
-			r.data["dispatch-error-count"] = e.dispatchErrorCount
-
-			// If the stream supports reporting, then include it in the report.
-			if s, ok := e.stream.(reporter); ok {
-				r.data["stream"] = s.Report()
-			}
-			close(r.done)
+			// TODO (stickupkid): We might want to run runtime.Gosched()
+			/// here to allow other goroutines to run. This might end up
+			// being a bottleneck if we have a lot of changes coming in.
 		}
 	}
+}
+
+func (e *EventMultiplexer) processSubscription(sub *subscription, request requestSubscription) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	e.metrics.SubscriptionsInc()
+
+	// No options were supplied, just add it to the all bucket, so
+	// they'll be included in every dispatch.
+	e.subscriptions[sub.id] = sub
+
+	if len(request.opts) == 0 {
+		e.subscriptionsAll[sub.id] = struct{}{}
+	} else {
+		// Register filters to route changes matching the subscription criteria to
+		// the newly created subscription.
+		for _, opt := range request.opts {
+			namespace := opt.Namespace()
+			e.subscriptionsByNS[namespace] = append(e.subscriptionsByNS[namespace], &eventFilter{
+				subscriptionID: sub.id,
+				changeMask:     opt.ChangeMask(),
+				filter:         opt.Filter(),
+			})
+			sub.topics[namespace] = struct{}{}
+		}
+	}
+}
+
+func (e *EventMultiplexer) processUnsubscription(ctx context.Context, subscriptionID uint64) {
+	worker, err := e.runner.Worker(e.subName(subscriptionID), e.catacomb.Dying())
+	if errors.Is(err, e.catacomb.ErrDying()) || errors.Is(err, errors.NotFound) {
+		return
+	} else if err != nil {
+		e.logger.Errorf(ctx, "error getting worker for subscription %d: %v", subscriptionID, err)
+		return
+	}
+
+	sub, ok := worker.(*subscription)
+	if !ok {
+		e.logger.Errorf(ctx, "worker for subscription %d is not a subscription: %T", subscriptionID, worker)
+		return
+	}
+
+	e.mutex.Lock()
+
+	for topic := range sub.topics {
+		var updatedFilters []*eventFilter
+		for _, filter := range e.subscriptionsByNS[topic] {
+			if filter.subscriptionID == subscriptionID {
+				continue
+			}
+			updatedFilters = append(updatedFilters, filter)
+		}
+
+		// If we don't have any more filters for this topic, remove it
+		// otherwise we'll keep iterating over it.
+		if len(updatedFilters) == 0 {
+			delete(e.subscriptionsByNS, topic)
+			continue
+		}
+
+		e.subscriptionsByNS[topic] = updatedFilters
+	}
+
+	delete(e.subscriptionsAll, subscriptionID)
+	delete(e.subscriptions, subscriptionID)
+
+	e.mutex.Unlock()
+
+	// If the subscription errors out on a close, we don't want that
+	// to bring down the entire multiplexer. Instead, just log it out
+	// and continue.
+	if err := sub.close(); err != nil {
+		e.logger.Infof(ctx, "error closing subscription: %v", err)
+	}
+
+	e.metrics.SubscriptionsDec()
 }
 
 type reporter interface {
@@ -371,11 +425,12 @@ type reporter interface {
 func (e *EventMultiplexer) gatherSubscriptions(ctx context.Context, ch changestream.ChangeEvent) []*subscription {
 	subs := make(map[uint64]*subscription)
 
+	e.mutex.Lock()
+
 	for id := range e.subscriptionsAll {
 		subs[id] = e.subscriptions[id]
 	}
 
-	traceEnabled := e.logger.IsLevelEnabled(logger.TRACE)
 	for _, subOpt := range e.subscriptionsByNS[ch.Namespace()] {
 		if _, ok := subs[subOpt.subscriptionID]; ok {
 			continue
@@ -386,18 +441,13 @@ func (e *EventMultiplexer) gatherSubscriptions(ctx context.Context, ch changestr
 		}
 
 		if !subOpt.filter(ch) {
-			if traceEnabled {
-				e.logger.Tracef(ctx, "filtering out change: %v", ch)
-			}
 			continue
-		}
-
-		if traceEnabled {
-			e.logger.Tracef(ctx, "dispatching change: %v", ch)
 		}
 
 		subs[subOpt.subscriptionID] = e.subscriptions[subOpt.subscriptionID]
 	}
+
+	e.mutex.Unlock()
 
 	// By collecting the subs within a map to ensure that a sub can be only
 	// called once, we actually gain random ordering. This prevents subscribers
@@ -405,6 +455,10 @@ func (e *EventMultiplexer) gatherSubscriptions(ctx context.Context, ch changestr
 	results := make([]*subscription, 0, len(subs))
 	for _, sub := range subs {
 		results = append(results, sub)
+	}
+
+	if e.logger.IsLevelEnabled(logger.TRACE) {
+		e.logger.Tracef(ctx, "dispatching change: %v for: %v", ch, len(results))
 	}
 	return results
 }
@@ -431,4 +485,8 @@ func (e *EventMultiplexer) dispatchSet(changeSet map[*subscription]ChangeSet) er
 
 func (e *EventMultiplexer) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(e.catacomb.Context(context.Background()))
+}
+
+func (e *EventMultiplexer) subName(id uint64) string {
+	return fmt.Sprintf("sub-%d", id)
 }

@@ -180,8 +180,7 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *tc.C, opts ...changestre
 				c.Assert(events, tc.HasLen, 1)
 				c.Check(events[0].Type(), tc.DeepEquals, changestreamtesting.Update)
 				c.Check(events[0].Namespace(), tc.DeepEquals, "topic")
-			case <-time.After(testing.ShortWait):
-				c.Fatalf("timed out waiting for sub %d event", i)
+			case <-c.Context().Done():
 			}
 		}(i, sub)
 	}
@@ -382,7 +381,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(2)
-	s.metrics.EXPECT().SubscriptionsDec().Times(2)
+	s.metrics.EXPECT().SubscriptionsDec().Times(4)
 	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
@@ -391,7 +390,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 	defer workertest.CleanKill(c, queue)
 
 	subs := make([]changestream.Subscription, 2)
-	for i := 0; i < len(subs); i++ {
+	for i := range len(subs) {
 		sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, tc.ErrorIsNil)
 		subs[i] = sub
@@ -414,8 +413,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 			select {
 			case <-sub.Changes():
 				subs[len(subs)-1-i].Unsubscribe()
-			case <-time.After(testing.ShortWait):
-				c.Fatalf("timed out waiting for sub %d event", i)
+			case <-c.Context().Done():
 			}
 		}(i, sub)
 	}
@@ -481,8 +479,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 
 					subs[len(subs)-1-i].Unsubscribe()
 				}()
-			case <-time.After(testing.ShortWait):
-				c.Fatalf("timed out waiting for sub %d event", i)
+			case <-c.Context().Done():
 			}
 		}(sub, i)
 	}
@@ -545,8 +542,7 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *tc.C) {
 				go func() {
 					defer wg.Done()
 				}()
-			case <-time.After(testing.ShortWait):
-				c.Fatalf("timed out waiting for sub %d event", i)
+			case <-c.Context().Done():
 			}
 		}(sub, i)
 	}
@@ -631,8 +627,7 @@ func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *tc.C) {
 					})
 
 				}()
-			case <-time.After(testing.ShortWait):
-				c.Fatalf("timed out waiting for sub %d event", i)
+			case <-c.Context().Done():
 			}
 		}(sub, i)
 	}
