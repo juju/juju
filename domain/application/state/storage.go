@@ -285,6 +285,54 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 	return rval, nil
 }
 
+// getApplicationStorageDirectiveAsArgs returns the current set of storage
+// directives set for an application as the directive arguments that would have
+// been used to create them. This func does not check to make sure that the
+// application exists. No error is returned when no storage directives exist.
+func (st *State) getApplicationStorageDirectiveAsArgs(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appUUID coreapplication.ID,
+) ([]application.ApplicationStorageDirectiveArg, error) {
+	appUUIDInput := applicationID{ID: appUUID}
+
+	getStorageDirectivesStmt, err := st.Prepare(`
+SELECT &applicationStorageDirective.*
+FROM   application_storage_directive
+WHERE  application_uuid = $applicationID.uuid
+`,
+		applicationStorageDirective{}, appUUIDInput)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbVals []applicationStorageDirective
+	err = tx.Query(ctx, getStorageDirectivesStmt, appUUIDInput).GetAll(&dbVals)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	rval := make([]application.ApplicationStorageDirectiveArg, 0, len(dbVals))
+	for _, val := range dbVals {
+		arg := application.ApplicationStorageDirectiveArg{
+			Count: val.Count,
+			Name:  domainstorage.Name(val.StorageName),
+			Size:  val.SizeMiB,
+		}
+		if val.StoragePoolUUID.Valid {
+			poolUUIID := domainstorage.StoragePoolUUID(val.StoragePoolUUID.V)
+			arg.PoolUUID = &poolUUIID
+		}
+		if val.StorageType.Valid {
+			providerType := val.StorageType.V
+			arg.ProviderType = &providerType
+		}
+
+		rval = append(rval, arg)
+	}
+	return rval, nil
+}
+
 // insertUnitStorage inserts the storage records need to record the intent
 // for the specified new unit and storage args. Records include:
 // - storage instance
