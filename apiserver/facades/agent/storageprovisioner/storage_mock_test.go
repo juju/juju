@@ -1672,44 +1672,6 @@ func (c *MockBackendFindEntityCall) DoAndReturn(f func(names.Tag) (state.Entity,
 	return c
 }
 
-// WatchApplications mocks base method.
-func (m *MockBackend) WatchApplications() state.StringsWatcher {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchApplications")
-	ret0, _ := ret[0].(state.StringsWatcher)
-	return ret0
-}
-
-// WatchApplications indicates an expected call of WatchApplications.
-func (mr *MockBackendMockRecorder) WatchApplications() *MockBackendWatchApplicationsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplications", reflect.TypeOf((*MockBackend)(nil).WatchApplications))
-	return &MockBackendWatchApplicationsCall{Call: call}
-}
-
-// MockBackendWatchApplicationsCall wrap *gomock.Call
-type MockBackendWatchApplicationsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendWatchApplicationsCall) Return(arg0 state.StringsWatcher) *MockBackendWatchApplicationsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendWatchApplicationsCall) Do(f func() state.StringsWatcher) *MockBackendWatchApplicationsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendWatchApplicationsCall) DoAndReturn(f func() state.StringsWatcher) *MockBackendWatchApplicationsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // WatchMachine mocks base method.
 func (m *MockBackend) WatchMachine(arg0 names.MachineTag) (state.NotifyWatcher, error) {
 	m.ctrl.T.Helper()

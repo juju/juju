@@ -50,7 +50,7 @@ type ApplicationService interface {
 	//
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.Value, error)
+	GetUnitLife(context.Context, coreunit.Name) (life.Value, error)
 
 	// WatchUnitAddRemoveOnMachine returns a watcher that observes changes to
 	// the units on a specified machine, emitting the names of the units. That
@@ -65,7 +65,12 @@ type ApplicationService interface {
 	//
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
+	GetUnitUUID(context.Context, coreunit.Name) (coreunit.UUID, error)
+
+	// GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
+	// The following errors may be returned:
+	// - [applicationerrors.MachineNotFound] if the machine does not exist
+	GetUnitNamesOnMachine(context.Context, machine.Name) ([]coreunit.Name, error)
 }
 
 // ControllerNodeService defines the methods on the controller node service
@@ -140,21 +145,21 @@ func NewDeployerAPI(
 	watcherRegistry facade.WatcherRegistry,
 	clock clock.Clock,
 ) (*DeployerAPI, error) {
-	getAuthFunc := func(context.Context) (common.AuthFunc, error) {
+	getAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		// Get all units of the machine and cache them.
-		thisMachineTag := authorizer.GetAuthTag()
-		units, err := getAllUnits(st, thisMachineTag)
+		thisMachineName := machine.Name(authorizer.GetAuthTag().Id())
+		unitNames, err := applicationService.GetUnitNamesOnMachine(ctx, thisMachineName)
 		if err != nil {
 			return nil, err
 		}
+		unitNameIndex := make(map[string]struct{}, len(unitNames))
+		for _, unitName := range unitNames {
+			unitNameIndex[unitName.String()] = struct{}{}
+		}
 		// Then we just check if the unit is already known.
 		return func(tag names.Tag) bool {
-			for _, unit := range units {
-				// TODO (thumper): remove the names.Tag conversion when gccgo
-				// implements concrete-type-to-interface comparison correctly.
-				if names.Tag(names.NewUnitTag(unit)) == tag {
-					return true
-				}
+			if _, ok := unitNameIndex[tag.Id()]; ok {
+				return true
 			}
 			return false
 		}, nil
@@ -290,22 +295,6 @@ func (d *DeployerAPI) Life(ctx context.Context, args params.Entities) (params.Li
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-// getAllUnits returns a list of all principal and subordinate units
-// assigned to the given machine.
-func getAllUnits(st *state.State, tag names.Tag) ([]string, error) {
-	machine, err := st.Machine(tag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Start a watcher on machine's units, read the initial event and stop it.
-	watch := machine.WatchUnits()
-	defer func() { _ = watch.Stop() }()
-	if units, ok := <-watch.Changes(); ok {
-		return units, nil
-	}
-	return nil, errors.Errorf("cannot obtain units of machine %q: %v", tag, watch.Err())
 }
 
 // Remove removes every given unit from the application domain, this is ensured
