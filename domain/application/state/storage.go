@@ -218,6 +218,7 @@ type unitStorageDirective struct {
 	Size            uint64
 	StoragePoolUUID *string
 	StorageProvider *string
+	UnitUUID        coreunit.UUID
 }
 
 func (st *State) checkCharmStorageSupportsNames()
@@ -274,6 +275,7 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 			StoragePoolUUID: poolUUID,
 			StorageProvider: provider,
 			Size:            arg.Size,
+			UnitUUID:        unitUUID,
 		})
 	}
 
@@ -283,6 +285,134 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 	}
 
 	return rval, nil
+}
+
+// createUnitStorageInstances is responsible for creating all of the needed
+// storage instances to satisfy the set of unit storage directives supplied.
+// For every storage instance created, a storage unit owner record is also
+// created.
+//
+// This func assumes that for each unit in the storage directive no storage
+// instances have previously been created for this unit and directive.
+func (s *State) createUnitStorageInstances(
+	ctx context.Context,
+	tx *sqlair.TX,
+	stDirectives []unitStorageDirective,
+) error {
+	insertStorageInstArgs := make([]insertStorageInstance, 0, len(stDirectives))
+	insertStorageOwnerArgs := make([]insertStorageUnitOwner, 0, len(stDirectives))
+	for _, directive := range stDirectives {
+		storageInstanceArgs, storageUnitOwnerArgs, err :=
+			s.makeUnitStorageInstanceArgs(
+				ctx, tx, directive,
+			)
+		if err != nil {
+			return errors.Errorf(
+				"creating storage instance(s) from unit %q directive %q: %w",
+				directive.UnitUUID, directive.Name, err,
+			)
+		}
+
+		insertStorageInstArgs = append(
+			insertStorageInstArgs, storageInstanceArgs...,
+		)
+		insertStorageOwnerArgs = append(
+			insertStorageOwnerArgs, storageUnitOwnerArgs...,
+		)
+	}
+
+	insertStorageInstStmt, err := s.Prepare(`
+INSERT INTO storage_instance (*) VALUES ($insertStorageInstance.*)
+`,
+		insertStorageInstance{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertStorageOwnerStmt, err := s.Prepare(`
+INSERT INTO storage_unit_owner (*) VALUES ($insertStorageUnitOwner.*)
+`,
+		insertStorageUnitOwner{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, insertStorageInstStmt, insertStorageInstArgs).Run()
+	if err != nil {
+		return errors.Errorf(
+			"creating %d storage instances: %w",
+			len(insertStorageInstArgs), err,
+		)
+	}
+
+	err = tx.Query(ctx, insertStorageOwnerStmt, insertStorageOwnerArgs).Run()
+	if err != nil {
+		return errors.Errorf(
+			"setting storage instance unit owners: %w", err,
+		)
+	}
+
+	return nil
+}
+
+// makeUnitStorageInstanceArgs is responsible for making the insert args
+// required for instantiating a new storage instance that matches a unit's
+// storage directive. Included in the return is the set of insert values
+// required for making the unit the owner of the new storage instance(s).
+func (st *State) makeUnitStorageInstanceArgs(
+	ctx context.Context,
+	tx *sqlair.TX,
+	directive unitStorageDirective,
+) ([]insertStorageInstance, []insertStorageUnitOwner, error) {
+	storageInstanceRval := make([]insertStorageInstance, 0, directive.Count)
+	storageOwnerRval := make([]insertStorageUnitOwner, 0, directive.Count)
+	for range directive.Count {
+		uuid, err := corestorage.NewUUID()
+		if err != nil {
+			return nil, nil, errors.Errorf(
+				"creating storage uuid for new storage instance: %w", err,
+			)
+		}
+
+		id, err := sequencestate.NextValue(ctx, st, tx, storageNamespace)
+		if err != nil {
+			return nil, nil, errors.Errorf(
+				"creating unique storage instance id: %w", err,
+			)
+		}
+
+		storageID := corestorage.MakeID(
+			corestorage.Name(directive.Name), id,
+		).String()
+
+		storagePoolVal := sql.Null[string]{}
+		if directive.StoragePoolUUID != nil {
+			storagePoolVal.V = *directive.StoragePoolUUID
+			storagePoolVal.Valid = true
+		}
+		storageTypeVal := sql.Null[string]{}
+		if directive.StorageProvider != nil {
+			storageTypeVal.V = *directive.StorageProvider
+			storageTypeVal.Valid = true
+		}
+
+		storageInstanceRval = append(storageInstanceRval, insertStorageInstance{
+			CharmUUID:       directive.CharmUUID.String(),
+			LifeID:          int(life.Alive),
+			RequestSizeMiB:  directive.Size,
+			StorageID:       storageID,
+			StorageName:     directive.Name,
+			StoragePoolUUID: storagePoolVal,
+			StorageType:     storageTypeVal,
+			UUID:            uuid.String(),
+		})
+		storageOwnerRval = append(storageOwnerRval, insertStorageUnitOwner{
+			StorageInstanceUUID: uuid.String(),
+			UnitUUID:            directive.UnitUUID.String(),
+		})
+	}
+
+	return storageInstanceRval, storageOwnerRval, nil
 }
 
 // getApplicationStorageDirectiveAsArgs returns the current set of storage
