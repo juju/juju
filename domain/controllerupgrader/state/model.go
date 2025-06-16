@@ -44,15 +44,7 @@ func (s *ControllerModelState) GetModelTargetAgentVersion(
 		return semversion.Zero, errors.Capture(err)
 	}
 
-	var dbVal agentVersionTarget
-	stmt, err := s.Prepare(
-		"SELECT &agentVersionTarget.* FROM agent_version",
-		dbVal,
-	)
-	if err != nil {
-		return semversion.Zero, errors.Capture(err)
-	}
-
+	var currentAgentVersion string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		isControllerModel, err := s.isControllerModel(ctx, tx)
 		if err != nil {
@@ -62,10 +54,7 @@ func (s *ControllerModelState) GetModelTargetAgentVersion(
 			return errors.New("model being operated on is not the controller's model")
 		}
 
-		err = tx.Query(ctx, stmt).Get(&dbVal)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.New("no target agent version has previously been set for the controller's model")
-		}
+		currentAgentVersion, err = s.getModelTargetAgentVersion(ctx, tx)
 		return err
 	})
 
@@ -73,14 +62,35 @@ func (s *ControllerModelState) GetModelTargetAgentVersion(
 		return semversion.Zero, errors.Capture(err)
 	}
 
-	rval, err := semversion.Parse(dbVal.TargetVersion)
+	rval, err := semversion.Parse(currentAgentVersion)
 	if err != nil {
 		return semversion.Zero, errors.Errorf(
 			"parsing controller model target agent version %q: %w",
-			dbVal.TargetVersion, err,
+			currentAgentVersion, err,
 		)
 	}
 	return rval, nil
+}
+
+func (s *ControllerModelState) getModelTargetAgentVersion(
+	ctx context.Context,
+	tx *sqlair.TX,
+) (string, error) {
+	var dbVal agentVersionTarget
+	stmt, err := s.Prepare(
+		"SELECT &agentVersionTarget.* FROM agent_version",
+		dbVal,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt).Get(&dbVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.New("no target agent version has previously been set for the controller's model")
+	}
+
+	return dbVal.TargetVersion, err
 }
 
 // isControllerModel is a sanity check to ensure that the current model database
@@ -122,14 +132,6 @@ func (s *ControllerModelState) SetModelTargetAgentVersion(
 		return errors.Capture(err)
 	}
 
-	checkAgentVersionStmt, err := s.Prepare(
-		"SELECT &agentVersionTarget.* FROM agent_version",
-		agentVersionTarget{},
-	)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	toVersionInput := setAgentVersionTarget{TargetVersion: toVersion.String()}
 	setAgentVersionStmt, err := s.Prepare(`
 UPDATE agent_version
@@ -151,29 +153,24 @@ SET    target_version = $setAgentVersionTarget.target_version
 			return errors.New("model being operated on is not the controller's model")
 		}
 
-		currentAgentVersion := agentVersionTarget{}
-		err = tx.Query(ctx, checkAgentVersionStmt).Get(&currentAgentVersion)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.New(
-				"checking current target agent version for controller model, no agent version has been previously set",
-			)
-		} else if err != nil {
+		currentAgentVersion, err := s.getModelTargetAgentVersion(ctx, tx)
+		if err != nil {
 			return errors.Errorf(
-				"checking current target agent version for controller model: %w", err,
+				"checking current target agent version for controller model to validate precondition: %w", err,
 			)
 		}
 
-		if currentAgentVersion.TargetVersion != preConditionVersionStr {
+		if currentAgentVersion != preConditionVersionStr {
 			return errors.Errorf(
 				"unable to set agent version for controller model. The agent version has changed to %q",
-				currentAgentVersion.TargetVersion,
+				currentAgentVersion,
 			)
 		}
 
 		// If the current version is the same as the toVersion we don't need to
 		// perform the set operation. This avoids creating any churn in the
 		// change log.
-		if currentAgentVersion.TargetVersion == toVersionInput.TargetVersion {
+		if currentAgentVersion == toVersionInput.TargetVersion {
 			return nil
 		}
 
@@ -213,15 +210,6 @@ func (s *ControllerModelState) SetModelTargetAgentVersionAndStream(
 		return errors.Capture(err)
 	}
 
-	checkAgentVersionStmt, err := s.Prepare(`
-SELECT &agentVersionTarget.*
-FROM   agent_version
-`,
-		agentVersionTarget{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	toVersionStreamInput := setAgentVersionTargetStream{
 		StreamID:      int(stream),
 		TargetVersion: toVersion.String(),
@@ -247,22 +235,17 @@ SET    target_version = $setAgentVersionTargetStream.target_version,
 			return errors.New("model being operated on is not the controller's model")
 		}
 
-		currentAgentVersion := agentVersionTarget{}
-		err = tx.Query(ctx, checkAgentVersionStmt).Get(&currentAgentVersion)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.New(
-				"checking current target agent version for controller model, no agent version has been previously set",
-			)
-		} else if err != nil {
+		currentAgentVersion, err := s.getModelTargetAgentVersion(ctx, tx)
+		if err != nil {
 			return errors.Errorf(
-				"checking current target agent version for controller model: %w", err,
+				"checking current target agent version for controller model to validate precondition: %w", err,
 			)
 		}
 
-		if currentAgentVersion.TargetVersion != preConditionVersionStr {
+		if currentAgentVersion != preConditionVersionStr {
 			return errors.Errorf(
 				"unable to set agent version and stream for controller model. The agent version has changed to %q",
-				currentAgentVersion.TargetVersion,
+				currentAgentVersion,
 			)
 		}
 
