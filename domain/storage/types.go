@@ -4,8 +4,6 @@
 package storage
 
 import (
-	"slices"
-
 	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/internal/errors"
@@ -59,23 +57,9 @@ func (n Names) Values() []string {
 	return deduplicateNamesOrProviders(n)
 }
 
-// Contains checks if the Names contains a specific name.
-// It returns true if the name is found, false otherwise.
-// If the Names is empty, it returns false.
-func (n Names) Contains(name string) bool {
-	return slices.Contains(n, name)
-}
-
 // Values returns the unique values of the Providers.
 func (p Providers) Values() []string {
 	return deduplicateNamesOrProviders(p)
-}
-
-// Contains checks if the Providers contains a specific provider.
-// It returns true if the provider is found, false otherwise.
-// If the Providers is empty, it returns false.
-func (p Providers) Contains(provider string) bool {
-	return slices.Contains(p, provider)
 }
 
 // BuiltInStoragePools returns the built in providers common to all.

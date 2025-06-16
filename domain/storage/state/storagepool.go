@@ -270,6 +270,12 @@ func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.Stora
 
 // ListStoragePoolsWithoutBuiltins returns the storage pools excluding the built-in storage pools.
 func (st State) ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainstorage.StoragePool, error) {
+	// TODO: we need to exclude the built-in storage pools.
+	return nil, nil
+}
+
+// ListStoragePools returns the storage pools including default storage pools.
+func (st State) ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -302,19 +308,6 @@ FROM   storage_pool sp
 	return dbRows.toStoragePools(keyValues)
 }
 
-// ListStoragePools returns the storage pools including default storage pools.
-func (st State) ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error) {
-	pools, err := st.ListStoragePoolsWithoutBuiltins(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	builtInPools, err := domainstorage.BuiltInStoragePools()
-	if err != nil {
-		return nil, errors.Errorf("getting built-in storage pools: %w", err)
-	}
-	return append(pools, builtInPools...), nil
-}
-
 // ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
 // names and or providers, including the default storage pools.
 // If no storage pools match the criteria, an empty slice is returned without an error.
@@ -323,6 +316,8 @@ func (st State) ListStoragePoolsByNamesAndProviders(
 	names domainstorage.Names,
 	providers domainstorage.Providers,
 ) ([]domainstorage.StoragePool, error) {
+	// TODO: we need to include the built-in storage pools.
+
 	spNames := storagePoolNames(names.Values())
 	spTypes := storageProviderTypes(providers.Values())
 
@@ -364,22 +359,7 @@ WHERE  sp.type IN ($storageProviderTypes[:])
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-
-	pools, err := dbRows.toStoragePools(keyValues)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	builtIns, err := domainstorage.BuiltInStoragePools()
-	if err != nil {
-		return nil, errors.Errorf("getting built-in storage pools: %w", err)
-	}
-	for _, builtIn := range builtIns {
-		// Only append built-in pools that match the specified names and providers.
-		if names.Contains(builtIn.Name) && providers.Contains(builtIn.Provider) {
-			pools = append(pools, builtIn)
-		}
-	}
-	return pools, nil
+	return dbRows.toStoragePools(keyValues)
 }
 
 // ListStoragePoolsByNames returns the storage pools matching the specified names, including
@@ -390,6 +370,7 @@ func (st State) ListStoragePoolsByNames(
 	ctx context.Context,
 	names domainstorage.Names,
 ) ([]domainstorage.StoragePool, error) {
+	// TODO: we need to include the built-in storage pools.
 	spNames := storagePoolNames(names.Values())
 
 	if len(spNames) == 0 {
@@ -424,21 +405,7 @@ WHERE  sp.name IN ($storagePoolNames[:])`, spNames, storagePool{}, poolAttribute
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	pools, err := dbRows.toStoragePools(keyValues)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	builtIns, err := domainstorage.BuiltInStoragePools()
-	if err != nil {
-		return nil, errors.Errorf("getting built-in storage pools: %w", err)
-	}
-	for _, builtIn := range builtIns {
-		// Only append built-in pools that match the specified names.
-		if names.Contains(builtIn.Name) {
-			pools = append(pools, builtIn)
-		}
-	}
-	return pools, nil
+	return dbRows.toStoragePools(keyValues)
 }
 
 // ListStoragePoolsByProviders returns the storage pools matching the specified
@@ -449,6 +416,7 @@ func (st State) ListStoragePoolsByProviders(
 	ctx context.Context,
 	providers domainstorage.Providers,
 ) ([]domainstorage.StoragePool, error) {
+	// TODO: we need to include the built-in storage pools.
 	spTypes := storageProviderTypes(providers)
 
 	if len(spTypes) == 0 {
@@ -483,21 +451,7 @@ WHERE  sp.type IN ($storageProviderTypes[:])`, spTypes, storagePool{}, poolAttri
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	pools, err := dbRows.toStoragePools(keyValues)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	builtIns, err := domainstorage.BuiltInStoragePools()
-	if err != nil {
-		return nil, errors.Errorf("getting built-in storage pools: %w", err)
-	}
-	for _, builtIn := range builtIns {
-		// Only append built-in pools that match the specified providers.
-		if providers.Contains(builtIn.Provider) {
-			pools = append(pools, builtIn)
-		}
-	}
-	return pools, nil
+	return dbRows.toStoragePools(keyValues)
 }
 
 // GetStoragePoolByName returns the storage pool with the specified name.
@@ -516,16 +470,6 @@ func (st State) GetStoragePoolByName(ctx context.Context, name string) (domainst
 // - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 // Exported for use by other domains that need to load storage pools.
 func GetStoragePoolByName(ctx context.Context, db domain.TxnRunner, name string) (domainstorage.StoragePool, error) {
-	builtIns, err := domainstorage.BuiltInStoragePools()
-	if err != nil {
-		return domainstorage.StoragePool{}, errors.Errorf("getting built-in storage pools: %w", err)
-	}
-	for _, pool := range builtIns {
-		if pool.Name == name {
-			return pool, nil
-		}
-	}
-
 	inputArg := storagePool{Name: name}
 	stmt, err := sqlair.Prepare(`
 SELECT (sp.*) AS (&storagePool.*),
