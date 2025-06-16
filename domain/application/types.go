@@ -111,9 +111,9 @@ type ApplicationStorageArg struct {
 	Count          uint64
 }
 
-// ApplicationStorageDirectiveArg defines an individual storage directive to be
-// associated with an application.
-type ApplicationStorageDirectiveArg struct {
+// StorageDirectiveArg defines the arguments required to add a storage
+// directive to the model.
+type StorageDirectiveArg struct {
 	// Count represents the number of storage instances that should be made for
 	// this directive.
 	Count uint64
@@ -134,6 +134,10 @@ type ApplicationStorageDirectiveArg struct {
 	// Size defines the size of the storage directive in MiB.
 	Size uint64
 }
+
+// ApplicationStorageDirectiveArg defines an individual storage directive to be
+// associated with an application.
+type ApplicationStorageDirectiveArg = StorageDirectiveArg
 
 // CharmOrigin represents the origin of a charm.
 type CharmOrigin struct {
@@ -242,26 +246,7 @@ type AddIAASUnitArg struct {
 
 // UnitStorageDirectiveArg describes the arguments required for making storage
 // directives on a unit.
-type UnitStorageDirectiveArg struct {
-	// Count is the number of storage instances to create from this directive.
-	Count uint64
-
-	// Size is the desired size of the storage directive in MiB.
-	Size uint64
-
-	// StorageName is the name of the storage associated with the charm storage
-	// definition.
-	StorageName string
-
-	// StoragePoolUUID is the UUID of the storage pool to use when creating
-	// storage instances from this directive. This value is optional and if nil
-	// it is expected that [UnitStorageDirective.StorageType] is set.
-	StoragePoolUUID *domainstorage.StoragePoolUUID
-
-	// Storage provider defines the unique name of the provider to use when
-	// provisioning storage from this directive.
-	StorageProvider *string
-}
+type UnitStorageDirectiveArg = StorageDirectiveArg
 
 // InsertUnitArg is used to insert a fully populated unit.
 // Used by import and when registering a CAAS unit.
