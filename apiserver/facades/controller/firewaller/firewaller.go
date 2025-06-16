@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
-
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -240,13 +239,6 @@ func (f *FirewallerAPI) WatchModelFirewallRules(ctx context.Context) (params.Not
 		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.NotifyWatchResult{NotifyWatcherId: watcherId}, nil
-}
-
-func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
-	if !canAccess(tag) {
-		return nil, apiservererrors.ErrPerm
-	}
-	return f.st.Machine(tag.Id())
 }
 
 // WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which

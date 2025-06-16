@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -974,7 +973,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		return errors.Trace(err)
 	}
 
-	hostIsManual, err := api.machineService.IsManualMachine(ctx, machine.Name(hostMachine.Id()))
+	hostIsManual, err := api.machineService.IsManualMachine(ctx, coremachine.Name(hostMachine.Id()))
 	if err != nil {
 		return errors.Trace(err)
 	}

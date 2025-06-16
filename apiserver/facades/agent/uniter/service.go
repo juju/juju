@@ -355,6 +355,9 @@ type MachineService interface {
 	// AvailabilityZone returns the hardware characteristics of the
 	// specified machine.
 	AvailabilityZone(ctx context.Context, machineUUID coremachine.UUID) (string, error)
+
+	// IsManualMachine returns whether the machine is a manual machine.
+	IsManualMachine(ctx context.Context, machineName coremachine.Name) (bool, error)
 }
 
 // RelationService defines the methods that the facade assumes from the

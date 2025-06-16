@@ -42,7 +42,6 @@ type Relation interface {
 
 type Machine interface {
 	Id() string
-	IsManual() (bool, error)
 }
 
 // NetworkService is the interface that is used to interact with the
