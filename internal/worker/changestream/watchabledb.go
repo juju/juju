@@ -102,6 +102,11 @@ func (w *WatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (change
 	return w.mux.Subscribe(opts...)
 }
 
+// Report returns the report from the stream muxer.
+func (w *WatchableDB) Report() map[string]any {
+	return w.mux.Report()
+}
+
 func (w *WatchableDB) loop() error {
 	<-w.catacomb.Dying()
 	return w.catacomb.ErrDying()
