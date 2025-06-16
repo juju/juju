@@ -412,19 +412,21 @@ func (st *State) importCAASUnit(
 		}
 	}
 
+	// TODO (TLM): Storage is currently not being set during import migration
+	// of an application. This needs further re-work to be marked as done.
 	// If there is no storage, return early.
-	if len(args.Storage) == 0 {
-		return nil
-	}
+	//if len(args.Storage) == 0 {
+	//	return nil
+	//}
 
-	attachArgs, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind)
-	if err != nil {
-		return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
-	}
-	err = st.attachUnitStorage(ctx, tx, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
-	if err != nil {
-		return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
-	}
+	//attachArgs, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind)
+	//if err != nil {
+	//	return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
+	//}
+	//err = st.attachUnitStorage(ctx, tx, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
+	//if err != nil {
+	//	return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
+	//}
 	return nil
 }
 
@@ -473,8 +475,10 @@ func (st *State) importIAASUnit(
 		}
 	}
 
-	if _, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind); err != nil {
-		return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
-	}
+	// TODO (TLM): Storage is currently not being set during import migration
+	// of an application. This needs further re-work to be marked as done.
+	//if _, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind); err != nil {
+	//	return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
+	//}
 	return nil
 }
