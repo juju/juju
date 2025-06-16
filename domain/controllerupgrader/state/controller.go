@@ -52,7 +52,7 @@ FROM   controller_node_agent_version
 
 	var dbValues []controllerNodeAgentVersion
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		tx.Query(ctx, stmt).GetAll(&dbValues)
+		err := tx.Query(ctx, stmt).GetAll(&dbValues)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return err
 		}
