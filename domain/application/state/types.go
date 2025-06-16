@@ -708,16 +708,6 @@ type storagePool struct {
 	Name string `db:"name"`
 }
 
-type storageToAdd struct {
-	ApplicationUUID string       `db:"application_uuid"`
-	CharmUUID       corecharm.ID `db:"charm_uuid"`
-	StorageName     string       `db:"storage_name"`
-	StoragePoolUUID *string      `db:"storage_pool_uuid"`
-	StorageType     *string      `db:"storage_type"`
-	Size            uint         `db:"size_mib"`
-	Count           uint         `db:"count"`
-}
-
 type linkResourceApplication struct {
 	ResourceUUID    string `db:"resource_uuid"`
 	ApplicationUUID string `db:"application_uuid"`
