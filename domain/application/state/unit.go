@@ -435,7 +435,9 @@ WHERE  u.name = $getUnitMachineUUID.unit_name
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
 func (st *State) AddIAASUnits(
-	ctx context.Context, appUUID coreapplication.ID, args ...application.AddIAASUnitArg,
+	ctx context.Context,
+	appUUID coreapplication.ID,
+	args ...application.AddIAASUnitArg,
 ) ([]coreunit.Name, []coremachine.Name, error) {
 	if len(args) == 0 {
 		return nil, nil, nil
@@ -455,7 +457,15 @@ func (st *State) AddIAASUnits(
 			return errors.Capture(err)
 		}
 
-		// TODO(storage) - read and use storage directives
+		stDirectives, err := st.getApplicationStorageDirectiveAsArgs(
+			ctx, tx, appUUID,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting appllication %q storage directives: %w", appUUID, err,
+			)
+		}
+
 		for _, arg := range args {
 			unitName, err := st.newUnitName(ctx, tx, appUUID)
 			if err != nil {
@@ -465,9 +475,10 @@ func (st *State) AddIAASUnits(
 
 			insertArg := application.InsertIAASUnitArg{
 				InsertUnitArg: application.InsertUnitArg{
-					UnitName:    unitName,
-					Constraints: arg.Constraints,
-					Placement:   arg.Placement,
+					UnitName:          unitName,
+					Constraints:       arg.Constraints,
+					Placement:         arg.Placement,
+					StorageDirectives: stDirectives,
 					UnitStatusArg: application.UnitStatusArg{
 						AgentStatus:    arg.UnitStatusArg.AgentStatus,
 						WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
@@ -506,7 +517,15 @@ func (st *State) AddCAASUnits(
 
 	var unitNames []coreunit.Name
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// TODO(storage) - read and use storage directives
+		stDirectives, err := st.getApplicationStorageDirectiveAsArgs(
+			ctx, tx, appUUID,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting application %q storage directives: %w", appUUID, err,
+			)
+		}
+
 		for _, arg := range args {
 			unitName, err := st.newUnitName(ctx, tx, appUUID)
 			if err != nil {
@@ -515,9 +534,10 @@ func (st *State) AddCAASUnits(
 			unitNames = append(unitNames, unitName)
 
 			insertArg := application.InsertUnitArg{
-				UnitName:    unitName,
-				Constraints: arg.Constraints,
-				Placement:   arg.Placement,
+				UnitName:          unitName,
+				Constraints:       arg.Constraints,
+				Placement:         arg.Placement,
+				StorageDirectives: stDirectives,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
 					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
@@ -574,12 +594,23 @@ func (st *State) AddIAASSubordinateUnit(
 			return errors.Errorf("getting new unit name for application %q: %w", arg.SubordinateAppID, err)
 		}
 
+		stDirectives, err := st.getApplicationStorageDirectiveAsArgs(
+			ctx, tx, arg.SubordinateAppID,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting subordinate application %q storage directives: %w",
+				arg.SubordinateAppID, err,
+			)
+		}
+
 		// Insert the new unit.
 		// TODO(storage) - read and use storage directives
 		insertArg := application.InsertIAASUnitArg{
 			InsertUnitArg: application.InsertUnitArg{
-				UnitName:      unitName,
-				UnitStatusArg: arg.UnitStatusArg,
+				StorageDirectives: stDirectives,
+				UnitName:          unitName,
+				UnitStatusArg:     arg.UnitStatusArg,
 			},
 		}
 		// Place the subordinate on the same machine as the principal unit.
@@ -1035,6 +1066,16 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 			} else {
 				return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
 			}
+
+			stDirectives, err := st.getApplicationStorageDirectiveAsArgs(
+				ctx, tx, appUUID,
+			)
+			if err != nil {
+				return errors.Errorf(
+					"getting application %q storage directives: %w", appUUID, err,
+				)
+			}
+			insertArg.StorageDirectives = stDirectives
 
 			return st.insertCAASUnit(ctx, tx, appUUID, insertArg)
 		} else if err != nil {
