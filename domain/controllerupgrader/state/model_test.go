@@ -78,8 +78,8 @@ func (s *controllerModelStateSuite) setModelTargetAgentVersion(c *tc.C, vers str
 	s.setModelTargetAgentVersionAndStream(c, vers, modelagent.AgentStreamReleased)
 }
 
-// setModelTargetAgentVersion is a testing utility for establishing an initial
-// target agent version and stream for the model.
+// setModelTargetAgentVersionAndStream is a testing utility for establishing an
+// initial target agent version and stream for the model.
 func (s *controllerModelStateSuite) setModelTargetAgentVersionAndStream(
 	c *tc.C, vers string, stream modelagent.AgentStream,
 ) {

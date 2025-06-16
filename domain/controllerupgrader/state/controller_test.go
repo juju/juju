@@ -75,8 +75,8 @@ func (s *controllerStateSuite) TestGetControllerNodeVersionsEmpty(c *tc.C) {
 	c.Check(versions, tc.HasLen, 0)
 }
 
-// TestGetControllerNodeVersions is a happy path test of
-// [ControllerState.GetControllerNodeVersions].
+// TestGetControllerNodeVersions verifies that the controller node versions are
+// reported correctly when two nodes have their version recorded.
 func (s *controllerStateSuite) TestGetControllerNodeVersions(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 
@@ -98,7 +98,7 @@ func (s *controllerStateSuite) TestGetControllerNodeVersions(c *tc.C) {
 
 // TestSetAndGetControllerVersion tests that the controller version can be
 // retrieved with no errors and can also be set (upgraded) with no errors.
-// This is a hppy path test of:
+// This is a happy path test of:
 // - [ControllerState.GetControllerVersion]
 // - [ControllerState.SetControllerTargetVersion]
 func (s *controllerStateSuite) TestSetAndGetControllerVersion(c *tc.C) {
