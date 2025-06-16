@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type patchingSuite interface {
@@ -128,12 +127,6 @@ func (s *AgentSuite) SetUpTest(c *tc.C) {
 	s.LogDir = c.MkDir()
 }
 
-func mongoInfo() *mongo.MongoInfo {
-	info := statetesting.NewMongoInfo()
-	info.Password = testing.AdminSecret
-	return info
-}
-
 // PrimeAgent writes the configuration file and tools for an agent
 // with the given entity name. It returns the agent's configuration and the
 // current tools.
@@ -160,7 +153,6 @@ func (s *AgentSuite) PrimeAgentVersion(c *tc.C, tag names.Tag, password string, 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tools1, tc.DeepEquals, agentTools)
 
-	stateInfo := mongoInfo()
 	apiInfo := s.ControllerModelApiInfo()
 
 	paths := agent.DefaultPaths
@@ -179,7 +171,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *tc.C, tag names.Tag, password string, 
 			Password:          password,
 			Nonce:             agent.BootstrapNonce,
 			APIAddresses:      apiInfo.Addrs,
-			CACert:            stateInfo.CACert,
+			CACert:            coretesting.CACert,
 			Controller:        coretesting.ControllerTag,
 			Model:             apiInfo.ModelTag,
 
@@ -250,7 +242,6 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	modelTag names.ModelTag,
 	apiPort int,
 ) agent.ConfigSetterWriter {
-	stateInfo := mongoInfo()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	dqlitePort := mgotesting.FindTCPPort()
 	conf, err := agent.NewStateMachineConfig(
@@ -264,7 +255,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			Password:              password,
 			Nonce:                 agent.BootstrapNonce,
 			APIAddresses:          apiAddr,
-			CACert:                stateInfo.CACert,
+			CACert:                coretesting.CACert,
 			Controller:            s.ControllerModel(c).ControllerTag(),
 			Model:                 modelTag,
 			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
