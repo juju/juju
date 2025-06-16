@@ -1472,7 +1472,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 		},
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
-		removeUnitStateOp(a.st, u.globalKey()),
 		removeStatusOp(a.st, u.globalCloudContainerKey()),
 		removeConstraintsOp(u.globalAgentKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name, op.Force),
