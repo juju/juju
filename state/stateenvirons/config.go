@@ -124,7 +124,7 @@ type NewEnvironFunc = func(Model) (environs.Environ, error)
 func GetNewEnvironFunc(newEnviron environs.NewEnvironFunc) NewEnvironFunc {
 	return func(m Model) (environs.Environ, error) {
 		g := EnvironConfigGetter{Model: m}
-		return environs.GetEnviron(g, m.ControllerUUID(), newEnviron)
+		return environs.GetEnviron(g, newEnviron)
 	}
 }
 

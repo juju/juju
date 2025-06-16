@@ -17,6 +17,19 @@ import (
 type EnvironConfigGetterFuncs struct {
 	ModelConfigFunc func() (*config.Config, error)
 	CloudSpecFunc   func() (environscloudspec.CloudSpec, error)
+	controllerUUID  string
+}
+
+func NewEnvironConfigGetterFuncs(
+	modelConfigFunc func() (*config.Config, error),
+	cloudSpecFunc func() (environscloudspec.CloudSpec, error),
+	controllerUUID string,
+) EnvironConfigGetterFuncs {
+	return EnvironConfigGetterFuncs{
+		ModelConfigFunc: modelConfigFunc,
+		CloudSpecFunc:   cloudSpecFunc,
+		controllerUUID:  controllerUUID,
+	}
 }
 
 // ModelConfig implements EnvironConfigGetter.
@@ -27,6 +40,11 @@ func (f EnvironConfigGetterFuncs) ModelConfig() (*config.Config, error) {
 // CloudSpec implements environs.EnvironConfigGetter.
 func (f EnvironConfigGetterFuncs) CloudSpec() (environscloudspec.CloudSpec, error) {
 	return f.CloudSpecFunc()
+}
+
+// ControllerUUID implements environs.EnvironConfigGetter.
+func (f EnvironConfigGetterFuncs) ControllerUUID() string {
+	return f.controllerUUID
 }
 
 // NewEnvironFunc is a function that returns a BootstrapEnviron instance.
@@ -42,6 +60,6 @@ func EnvironFuncForModel(model stateenvirons.Model, configGetter environs.Enviro
 		}
 	}
 	return func() (environs.BootstrapEnviron, error) {
-		return environs.GetEnviron(configGetter, model.ControllerUUID(), environs.New)
+		return environs.GetEnviron(configGetter, environs.New)
 	}
 }

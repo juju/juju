@@ -20,7 +20,8 @@ import (
 // in terms of a *state.State.
 type cloudEnvironConfigGetter struct {
 	Backend
-	region string
+	region         string
+	controllerUUID string
 }
 
 // CloudSpec implements environs.EnvironConfigGetter.
@@ -32,13 +33,17 @@ func (g cloudEnvironConfigGetter) CloudSpec() (environscloudspec.CloudSpec, erro
 	return stateenvirons.CloudSpecForModel(model)
 }
 
+func (g cloudEnvironConfigGetter) ControllerUUID() string {
+	return g.controllerUUID
+}
+
 // InstanceTypes returns instance type information for the cloud and region
 // in which the current model is deployed.
 func (api *CloudAPI) InstanceTypes(cons params.CloudInstanceTypesConstraints) (params.InstanceTypesResults, error) {
 	return instanceTypes(api, environs.GetEnviron, cons)
 }
 
-type environGetFunc func(st environs.EnvironConfigGetter, controllerUUID string, newEnviron environs.NewEnvironFunc) (environs.Environ, error)
+type environGetFunc func(st environs.EnvironConfigGetter, newEnviron environs.NewEnvironFunc) (environs.Environ, error)
 
 func instanceTypes(api *CloudAPI,
 	environGet environGetFunc,
@@ -54,6 +59,11 @@ func instanceTypes(api *CloudAPI,
 	}
 	defer releaser()
 
+	ctrlCfg, err := api.backend.ControllerConfig()
+	if err != nil {
+		return params.InstanceTypesResults{}, errors.Annotate(err, "getting controller config")
+	}
+
 	result := make([]params.InstanceTypesResult, len(cons.Constraints))
 	// TODO(perrito666) Cache the results to avoid excessive querying of the cloud.
 	// TODO(perrito666) Add Region<>Cloud validation.
@@ -63,8 +73,9 @@ func instanceTypes(api *CloudAPI,
 			value = *cons.Constraints
 		}
 		backend := cloudEnvironConfigGetter{
-			Backend: api.backend,
-			region:  cons.CloudRegion,
+			Backend:        api.backend,
+			region:         cons.CloudRegion,
+			controllerUUID: ctrlCfg.ControllerUUID(),
 		}
 		cloudTag, err := names.ParseCloudTag(cons.CloudTag)
 		if err != nil {
@@ -76,12 +87,7 @@ func instanceTypes(api *CloudAPI,
 			continue
 		}
 
-		ctrlCfg, err := backend.ControllerConfig()
-		if err != nil {
-			return params.InstanceTypesResults{}, errors.Annotate(err, "getting controller config")
-		}
-
-		env, err := environGet(backend, ctrlCfg.ControllerUUID(), environs.New)
+		env, err := environGet(backend, environs.New)
 		if err != nil {
 			return params.InstanceTypesResults{}, errors.Trace(err)
 		}

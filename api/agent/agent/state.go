@@ -25,6 +25,7 @@ type State struct {
 	*common.ModelWatcher
 	*cloudspec.CloudSpecAPI
 	*common.ControllerConfigAPI
+	controllerUUID string
 }
 
 // NewState returns a version of the state that provides functionality
@@ -35,12 +36,23 @@ func NewState(caller base.APICaller) (*State, error) {
 		return nil, errors.New("expected model specific API connection")
 	}
 	facadeCaller := base.NewFacadeCaller(caller, "Agent")
+	ctrlCfgApi := common.NewControllerConfig(facadeCaller)
+	ctrlCfg, err := ctrlCfgApi.ControllerConfig()
+	if err != nil {
+		return nil, errors.New("cannot get controller config")
+	}
+
 	return &State{
 		facade:              facadeCaller,
 		ModelWatcher:        common.NewModelWatcher(facadeCaller),
 		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
-		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
+		ControllerConfigAPI: ctrlCfgApi,
+		controllerUUID:      ctrlCfg.ControllerUUID(),
 	}, nil
+}
+
+func (st *State) ControllerUUID() string {
+	return st.controllerUUID
 }
 
 func (st *State) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error) {

@@ -42,7 +42,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 		return result, errors.Trace(err)
 	}
 
-	env, err := environs.GetEnviron(api.configGetter, api.m.ControllerUUID(), environs.New)
+	env, err := environs.GetEnviron(api.configGetter, environs.New)
 	if err != nil {
 		return result, errors.Annotate(err, "retrieving environ")
 	}
