@@ -470,11 +470,28 @@ func getStoragePoolUUID(
 	db domain.TxnRunner,
 	name string,
 ) (domainstorage.StoragePoolUUID, error) {
-	// TODO: !!!
-	return "", nil
+	inputArg := storagePool{Name: name}
+	stmt, err := sqlair.Prepare(`
+SELECT &storagePool.uuid
+FROM   storage_pool
+WHERE  name = $storagePool.name`, inputArg)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, inputArg).Get(&inputArg)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("storage pool %q not found", name).Add(storageerrors.PoolNotFoundError)
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return domainstorage.StoragePoolUUID(inputArg.ID), nil
 }
 
-// GetStoragePool returns the storage pool with the specified name.
+// GetStoragePool returns the storage pool with the specified UUID.
 // The following errors can be expected:
 // - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 func (st State) GetStoragePool(ctx context.Context, uuid domainstorage.StoragePoolUUID) (domainstorage.StoragePool, error) {

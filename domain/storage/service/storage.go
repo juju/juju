@@ -56,15 +56,22 @@ func (s *StorageService) ImportFilesystem(ctx context.Context, arg ImportStorage
 		return "", errors.Capture(err)
 	}
 
-	poolDetails, err := s.st.GetStoragePoolByName(ctx, arg.Pool)
-	if errors.Is(err, storageerrors.PoolNotFoundError) {
+	poolUUID, err := s.st.GetStoragePoolUUID(ctx, arg.Pool)
+	if err != nil && !errors.Is(err, storageerrors.PoolNotFoundError) {
+		return "", errors.Capture(err)
+	}
+	var poolDetails storage.StoragePool
+	if err == nil && poolUUID != "" {
+		poolDetails, err = s.st.GetStoragePool(ctx, poolUUID)
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+	} else {
 		poolDetails = storage.StoragePool{
 			Name:     arg.Pool,
 			Provider: arg.Pool,
 			Attrs:    map[string]string{},
 		}
-	} else if err != nil {
-		return "", errors.Capture(err)
 	}
 
 	var attr map[string]any

@@ -64,10 +64,15 @@ type StoragePoolState interface {
 		ctx context.Context, providers domainstorage.Providers,
 	) ([]domainstorage.StoragePool, error)
 
-	// GetStoragePoolByName returns the storage pool with the specified name.
+	// GetStoragePoolUUID returns the UUID of the storage pool with the specified name.
 	// The following errors can be expected:
 	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
+	GetStoragePoolUUID(ctx context.Context, name string) (domainstorage.StoragePoolUUID, error)
+
+	// GetStoragePool returns the storage pool with the specified UUID.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	GetStoragePool(ctx context.Context, uuid domainstorage.StoragePoolUUID) (domainstorage.StoragePool, error)
 }
 
 // StoragePoolService defines a service for interacting with the underlying state.
@@ -186,11 +191,15 @@ func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string
 
 	// Use the existing provider type unless explicitly overwritten.
 	if providerType == "" {
-		existingConfig, err := s.st.GetStoragePoolByName(ctx, name)
+		spUUID, err := s.st.GetStoragePoolUUID(ctx, name)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		providerType = storage.ProviderType(existingConfig.Provider)
+		existingPool, err := s.st.GetStoragePool(ctx, spUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		providerType = storage.ProviderType(existingPool.Provider)
 	}
 
 	if err := s.validateConfig(ctx, name, providerType, attrs); err != nil {
@@ -306,6 +315,26 @@ func (s *StoragePoolService) ListStoragePoolsByProviders(
 	return pools, nil
 }
 
+// GetStoragePoolUUID returns the UUID of the storage pool with the specified name.
+// The following errors can be expected:
+// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+func (s *StoragePoolService) GetStoragePoolUUID(ctx context.Context, name string) (domainstorage.StoragePoolUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if !storage.IsValidPoolName(name) {
+		return "", errors.Errorf(
+			"pool name %q not valid", name,
+		).Add(storageerrors.InvalidPoolNameError)
+	}
+
+	spUUID, err := s.st.GetStoragePoolUUID(ctx, name)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return spUUID, nil
+}
+
 // GetStoragePoolByName returns the storage pool with the specified name.
 // The following errors can be expected:
 // - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
@@ -313,17 +342,11 @@ func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name stri
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !storage.IsValidPoolName(name) {
-		return domainstorage.StoragePool{}, errors.Errorf(
-			"pool name %q not valid", name,
-		).Add(storageerrors.InvalidPoolNameError)
-	}
-
-	pool, err := s.st.GetStoragePoolByName(ctx, name)
+	spUUID, err := s.GetStoragePoolUUID(ctx, name)
 	if err != nil {
 		return domainstorage.StoragePool{}, errors.Capture(err)
 	}
-	return pool, nil
+	return s.st.GetStoragePool(ctx, spUUID)
 }
 
 func (s *StoragePoolService) validatePoolListFilterTerms(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) error {
