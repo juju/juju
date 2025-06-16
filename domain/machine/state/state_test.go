@@ -541,7 +541,7 @@ func (s *stateSuite) TestIsControllerApplicationController(c *tc.C) {
 
 	isController, err := s.state.IsMachineController(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(isController, tc.Equals, true)
+	c.Assert(isController, tc.IsTrue)
 }
 
 func (s *stateSuite) TestIsControllerApplicationNonController(c *tc.C) {
@@ -549,7 +549,7 @@ func (s *stateSuite) TestIsControllerApplicationNonController(c *tc.C) {
 
 	isController, err := s.state.IsMachineController(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(isController, tc.Equals, false)
+	c.Assert(isController, tc.IsFalse)
 }
 
 func (s *stateSuite) TestIsControllerFailure(c *tc.C) {
@@ -558,13 +558,43 @@ func (s *stateSuite) TestIsControllerFailure(c *tc.C) {
 
 	isController, err := s.state.IsMachineController(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(isController, tc.Equals, false)
+	c.Assert(isController, tc.IsFalse)
 }
 
 // TestIsControllerNotFound asserts that a NotFound error is returned when the
 // machine is not found.
 func (s *stateSuite) TestIsControllerNotFound(c *tc.C) {
 	_, err := s.state.IsMachineController(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestIsManualMachine(c *tc.C) {
+	machineName := s.createApplication(c, false)
+
+	isManual, err := s.state.IsManualMachine(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isManual, tc.IsFalse)
+}
+
+func (s *stateSuite) TestIsManualMachineManual(c *tc.C) {
+	machineName := s.createApplication(c, false)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO machine_manual (machine_uuid)
+VALUES ((SELECT uuid FROM machine WHERE name=?))
+`, machineName)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	isManual, err := s.state.IsManualMachine(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isManual, tc.IsTrue)
+}
+
+func (s *stateSuite) TestIsManualMachineNotFound(c *tc.C) {
+	_, err := s.state.IsManualMachine(c.Context(), machine.Name("666"))
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
@@ -717,7 +747,7 @@ func (s *stateSuite) TestKeepInstance(c *tc.C) {
 
 	isController, err := s.state.ShouldKeepInstance(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(isController, tc.Equals, false)
+	c.Assert(isController, tc.IsFalse)
 
 	db := s.DB()
 
@@ -729,7 +759,7 @@ WHERE  name = $1`
 	c.Assert(err, tc.ErrorIsNil)
 	isController, err = s.state.ShouldKeepInstance(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(isController, tc.Equals, true)
+	c.Assert(isController, tc.IsTrue)
 }
 
 // TestIsControllerNotFound asserts that a NotFound error is returned when the

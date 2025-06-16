@@ -726,7 +726,7 @@ func (st *State) IsManualMachine(ctx context.Context, mName machine.Name) (bool,
 	query := `
 SELECT     COUNT(m.uuid) AS &count.count
 FROM       machine AS m
-LEFT JOIN  machine_manual AS mm ON m.uuid = mm.machine_uuid
+JOIN  machine_manual AS mm ON m.uuid = mm.machine_uuid
 WHERE      m.uuid = $machineUUID.uuid
 `
 	queryStmt, err := st.Prepare(query, machineUUID{}, count{})
