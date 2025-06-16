@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"net"
 	"slices"
 	"sort"
 	"strconv"
@@ -3187,47 +3186,6 @@ func encodeConstraints(constraintUUID string, cons constraints.Constraints, cont
 		res.ContainerTypeID = &containerTypeID
 	}
 	return res
-}
-
-func encodeIpAddresses(addresses []spaceAddress) (network.SpaceAddresses, error) {
-	res := make(network.SpaceAddresses, len(addresses))
-	for i, addr := range addresses {
-		encodedIP, err := encodeIpAddress(addr)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		res[i] = encodedIP
-	}
-	return res, nil
-}
-
-func encodeIpAddress(address spaceAddress) (network.SpaceAddress, error) {
-	spaceUUID := network.AlphaSpaceId
-	if address.SpaceUUID.Valid {
-		spaceUUID = address.SpaceUUID.V
-	}
-	// The saved address value is in the form 192.0.2.1/24,
-	// parse the parts for the MachineAddress
-	ipAddr, ipNet, err := net.ParseCIDR(address.Value)
-	if err != nil {
-		return network.SpaceAddress{}, err
-	}
-	cidr := ipNet.String()
-	// Prefer the subnet cidr if one exists.
-	if address.SubnetCIDR.Valid {
-		cidr = address.SubnetCIDR.String
-	}
-	return network.SpaceAddress{
-		SpaceID: spaceUUID,
-		Origin:  ipaddress.UnMarshallOrigin(ipaddress.Origin(address.OriginID)),
-		MachineAddress: network.MachineAddress{
-			Value:      ipAddr.String(),
-			CIDR:       cidr,
-			Type:       ipaddress.UnMarshallAddressType(ipaddress.AddressType(address.TypeID)),
-			Scope:      ipaddress.UnMarshallScope(ipaddress.Scope(address.ScopeID)),
-			ConfigType: ipaddress.UnMarshallConfigType(ipaddress.ConfigType(address.ConfigTypeID)),
-		},
-	}, nil
 }
 
 // lookupApplication looks up the application by name and returns the

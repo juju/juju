@@ -333,6 +333,7 @@ func (s *modelSchemaSuite) TestModelViews(c *tc.C) {
 		"v_constraint",
 		"v_endpoint",
 		"v_hardware_characteristics",
+		"v_ip_address_with_names",
 		"v_machine_agent_version",
 		"v_machine_cloud_instance_status",
 		"v_machine_interface",

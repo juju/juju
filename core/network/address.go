@@ -234,7 +234,11 @@ type MachineAddress struct {
 
 // Host returns the value for the host-name/IP address.
 func (a MachineAddress) Host() string {
-	return a.Value
+	ip := a.IP()
+	if ip == nil {
+		return a.Value
+	}
+	return ip.String()
 }
 
 // AddressType returns the type of the address.
@@ -274,7 +278,9 @@ func (a MachineAddress) String() string {
 	if a.Scope != ScopeUnknown {
 		prefix = string(a.Scope) + ":"
 	}
-	return prefix + a.Value
+	// Use the Host rather than the IP method to ensure the result contains
+	// either the host name or the IP Address.
+	return prefix + a.Host()
 }
 
 // IP returns the net.IP representation of this address.

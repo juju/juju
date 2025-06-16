@@ -61,11 +61,12 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 			MachineService:          domainServices.Machine(),
 			ModelConfigService:      domainServices.Config(),
 			ModelInfoService:        domainServices.ModelInfo(),
+			ModelProviderService:    domainServices.ModelProvider(),
+			NetworkService:          domainServices.Network(),
 			PortService:             domainServices.Port(),
 			RelationService:         domainServices.Relation(),
 			SecretService:           domainServices.Secret(),
 			UnitStateService:        domainServices.UnitState(),
-			ModelProviderService:    domainServices.ModelProvider(),
 		},
 	)
 }
@@ -184,11 +185,12 @@ func newUniterAPIWithServices(
 		machineService:          services.MachineService,
 		modelConfigService:      services.ModelConfigService,
 		modelInfoService:        services.ModelInfoService,
+		modelProviderService:    services.ModelProviderService,
+		networkService:          services.NetworkService,
 		portService:             services.PortService,
 		relationService:         services.RelationService,
 		secretService:           services.SecretService,
 		unitStateService:        services.UnitStateService,
-		modelProviderService:    services.ModelProviderService,
 
 		cmrBackend: commoncrossmodel.GetBackend(st),
 	}, nil

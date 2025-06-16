@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -115,6 +116,25 @@ type SubnetState interface {
 type NetConfigState interface {
 	// GetMachineNetNodeUUID returns the net node UUID for the input machine UUID.
 	GetMachineNetNodeUUID(ctx context.Context, machineUUID string) (string, error)
+	// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit.
+	// The addresses are taken by unioning the net node UUIDs of the cloud service
+	// (if any) and the net node UUIDs of the unit, where each net node has an
+	// associated address.
+	// This approach allows us to get the addresses regardless of the substrate
+	// (k8s or machines).
+	//
+	// The following errors may be returned:
+	// - [uniterrors.UnitNotFound] if the unit does not exist
+	GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
+	// GetUnitAddresses returns the addresses of the specified unit.
+	//
+	// The following errors may be returned:
+	// - [uniterrors.UnitNotFound] if the unit does not exist
+	GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
+	// GetUnitUUIDByName returns the UUID for the named unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+	// exist.
+	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
 	// SetMachineNetConfig updates the network configuration for the machine with
 	// the input net node UUID.
 	SetMachineNetConfig(ctx context.Context, nodeUUID string, nics []domainnetwork.NetInterface) error

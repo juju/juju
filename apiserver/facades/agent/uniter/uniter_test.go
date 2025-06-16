@@ -55,6 +55,7 @@ type uniterSuite struct {
 
 	applicationService *MockApplicationService
 	machineService     *MockMachineService
+	networkService     *MockNetworkService
 	resolveService     *MockResolveService
 	watcherRegistry    *MockWatcherRegistry
 
@@ -688,7 +689,7 @@ func (s *uniterSuite) TestPublicAddressErrorFromDomain(c *tc.C) {
 		{Tag: "unit-mysql-0"},
 	}}
 	boom := internalerrors.New("boom")
-	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(network.SpaceAddress{}, boom)
+	s.networkService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(network.SpaceAddress{}, boom)
 
 	result, err := s.uniter.PublicAddress(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -710,7 +711,7 @@ func (s *uniterSuite) TestPublicAddress(c *tc.C) {
 			Value: "192.168.0.1",
 		},
 	}
-	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(addr, nil)
+	s.networkService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(addr, nil)
 
 	result, err := s.uniter.PublicAddress(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -744,7 +745,7 @@ func (s *uniterSuite) TestPrivateAddressErrorFromDomain(c *tc.C) {
 		{Tag: "unit-mysql-0"},
 	}}
 	boom := internalerrors.New("boom")
-	s.applicationService.EXPECT().GetUnitPrivateAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(network.SpaceAddress{}, boom)
+	s.networkService.EXPECT().GetUnitPrivateAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(network.SpaceAddress{}, boom)
 
 	result, err := s.uniter.PrivateAddress(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -763,16 +764,16 @@ func (s *uniterSuite) TestPrivateAddress(c *tc.C) {
 	}}
 	addr := network.SpaceAddress{
 		MachineAddress: network.MachineAddress{
-			Value: "192.168.0.1",
+			Value: "192.168.0.1/24",
 		},
 	}
-	s.applicationService.EXPECT().GetUnitPrivateAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(addr, nil)
+	s.networkService.EXPECT().GetUnitPrivateAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(addr, nil)
 
 	result, err := s.uniter.PrivateAddress(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
-			{Result: addr.Value},
+			{Result: addr.IP().String()},
 		},
 	})
 }
@@ -797,7 +798,7 @@ func (s *uniterSuite) TestNetworkInfoErrorFromDomain(c *tc.C) {
 		Endpoints: []string{"endpoint-0", "endpoint-1"},
 	}
 	boom := internalerrors.New("boom")
-	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("foo/42")).Return(network.SpaceAddress{}, boom)
+	s.networkService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("foo/42")).Return(network.SpaceAddress{}, boom)
 
 	_, err := s.uniter.NetworkInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -815,7 +816,7 @@ func (s *uniterSuite) TestNetworkInfo(c *tc.C) {
 			Value: "192.168.0.1",
 		},
 	}
-	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("foo/42")).Return(addr, nil)
+	s.networkService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("foo/42")).Return(addr, nil)
 
 	result, err := s.uniter.NetworkInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -876,6 +877,7 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
+	s.networkService = NewMockNetworkService(ctrl)
 	s.resolveService = NewMockResolveService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 
@@ -887,11 +889,20 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.uniter = &UniterAPI{
 		applicationService: s.applicationService,
 		machineService:     s.machineService,
+		networkService:     s.networkService,
 		resolveService:     s.resolveService,
 		accessUnit:         authFunc,
 		accessApplication:  authFunc,
 		watcherRegistry:    s.watcherRegistry,
 	}
+
+	c.Cleanup(func() {
+		s.applicationService = nil
+		s.machineService = nil
+		s.networkService = nil
+		s.resolveService = nil
+		s.watcherRegistry = nil
+	})
 
 	return ctrl
 }
@@ -1048,6 +1059,7 @@ type uniterRelationSuite struct {
 	wordpressUnitTag names.UnitTag
 
 	applicationService *MockApplicationService
+	networkService     *MockNetworkService
 	relationService    *MockRelationService
 	statusService      *MockStatusService
 	watcherRegistry    *MockWatcherRegistry
@@ -1875,6 +1887,7 @@ func (s *uniterRelationSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.networkService = NewMockNetworkService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
@@ -1906,11 +1919,20 @@ func (s *uniterRelationSuite) setupMocks(c *tc.C) *gomock.Controller {
 		logger:            loggertesting.WrapCheckLog(c),
 
 		applicationService: s.applicationService,
+		networkService:     s.networkService,
 		relationService:    s.relationService,
 		statusService:      s.statusService,
 		watcherRegistry:    s.watcherRegistry,
 	}
 
+	c.Cleanup(func() {
+		s.applicationService = nil
+		s.networkService = nil
+		s.relationService = nil
+		s.statusService = nil
+		s.watcherRegistry = nil
+
+	})
 	return ctrl
 }
 
@@ -1919,7 +1941,7 @@ func (s *uniterRelationSuite) expectGetRelationUUIDByKey(key corerelation.Key, r
 }
 
 func (s *uniterRelationSuite) expectUnitPublicAddress(unitName coreunit.Name, addr string) {
-	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), unitName).Return(network.SpaceAddress{
+	s.networkService.EXPECT().GetUnitPublicAddress(gomock.Any(), unitName).Return(network.SpaceAddress{
 		MachineAddress: network.MachineAddress{
 			Value: addr,
 		},
