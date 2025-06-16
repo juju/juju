@@ -103,7 +103,7 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 		}
 		st.logger.Debugf(ctx, "matching with subnet groups: %#v", subs)
 
-		addrsToInsert, newSubs, err := st.reconcileNetConfigAddresses(ctx, nodeUUID, nics, nicNameToUUID, subs)
+		addrsToInsert, newSubs, err := st.reconcileNetConfigAddresses(ctx, tx, nodeUUID, nics, nicNameToUUID, subs)
 		if err != nil {
 			return errors.Errorf("reconciling incoming ip addresses: %w", err)
 		}
@@ -371,6 +371,7 @@ func (st *State) getSubnetGroups(ctx context.Context, tx *sqlair.TX) (subnetGrou
 
 func (st *State) reconcileNetConfigAddresses(
 	ctx context.Context,
+	tx *sqlair.TX,
 	nodeUUID string,
 	nics []network.NetInterface,
 	nicNameToUUID map[string]string,
@@ -381,18 +382,23 @@ func (st *State) reconcileNetConfigAddresses(
 		newSubs  []subnet
 	)
 
-	for _, n := range nics {
-		// If we don't know this NIC, we can assume
-		// that it is a deletion candidate.
-		devUUID, ok := nicNameToUUID[n.Name]
-		if !ok {
-			continue
-		}
+	// Determine all the known UUIDs for incoming addresses,
+	// and generate new UUIDs for the others.
+	existingAddrs, err := st.getCurrentAddresses(ctx, tx, nodeUUID)
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
 
-		// As with the interfaces, this will really be formed by querying the
-		// existing addresses in addition to creating UUIDs for new ones.
+	for _, n := range nics {
+		devUUID := nicNameToUUID[n.Name]
+
 		addrToUUID := make(map[string]string, len(n.Addrs))
 		for _, a := range n.Addrs {
+			if existingAddr, ok := existingAddrs[a.AddressValue]; ok {
+				addrToUUID[a.AddressValue] = existingAddr.UUID
+				continue
+			}
+
 			addrUUID, err := network.NewAddressUUID()
 			if err != nil {
 				return nil, nil, errors.Capture(err)
@@ -401,27 +407,43 @@ func (st *State) reconcileNetConfigAddresses(
 		}
 
 		for _, a := range n.Addrs {
+			existingAddr := existingAddrs[a.AddressValue]
+
+			// We do not process addresses that are managed by the provider.
+			if existingAddr.OriginID != 0 {
+				st.logger.Infof(ctx, "address %q for device %q is managed by the provider", a.AddressValue, n.Name)
+				continue
+			}
+
 			addrDML, err := netAddrToDML(a, nodeUUID, devUUID, addrToUUID)
 			if err != nil {
 				return nil, nil, errors.Capture(err)
 			}
 
-			subnetUUID, err := subs.subnetForIP(a.AddressValue)
-			if err != nil {
-				// TODO (manadart 2025-04-29): Figure out what to do with
-				// loopback addresses before making
-				// ip_address.subnet_uuid NOT NULL.
-				st.logger.Warningf(ctx, "determining subnet: %v", err)
+			// If the address already has a subnet UUID, we use it.
+			// Otherwise, we try to find a subnet by locating an existing subnet
+			// that contains it.
+			// If we cannot find a *unique* subnet for the address,
+			// we create a new /32 or /128 subnet in the alpha space and
+			// link this address to it.
+			// The instance-poller will attempt to reconcile the real subnet
+			// using the provider subnet ID subsequently.
+			var subnetUUID string
+			if existingAddr.SubnetUUID.Valid && existingAddr.SubnetUUID.String != "" {
+				subnetUUID = existingAddr.SubnetUUID.String
+			} else {
+				subnetUUID, err = subs.subnetForIP(a.AddressValue)
+				if err != nil {
+					// TODO (manadart 2025-04-29): Figure out what to do with
+					// loopback addresses before making
+					// ip_address.subnet_uuid NOT NULL.
+					st.logger.Warningf(ctx, "determining subnet: %v", err)
+				}
 			}
 
 			if subnetUUID != "" {
 				addrDML.SubnetUUID = &subnetUUID
 			} else if err == nil {
-				// If we cannot find a *unique* subnet for the address,
-				// we create a new /32 or /128 subnet in the alpha space and
-				// link this address to it.
-				// The instance-poller will attempt to reconcile the real subnet
-				// using the provider subnet ID subsequently.
 				ip, _, _ := net.ParseCIDR(a.AddressValue)
 				if ip == nil {
 					return nil, nil, errors.Errorf("invalid IP address %q", a.AddressValue)
@@ -454,6 +476,30 @@ func (st *State) reconcileNetConfigAddresses(
 	return addrsDML, newSubs, nil
 }
 
+func (st *State) getCurrentAddresses(
+	ctx context.Context, tx *sqlair.TX, nodeUUID string,
+) (map[string]ipAddressValue, error) {
+	nUUID := entityUUID{UUID: nodeUUID}
+
+	qry := "SELECT &ipAddressValue.* FROM ip_address WHERE net_node_uuid = $entityUUID.uuid"
+	stmt, err := st.Prepare(qry, nUUID, ipAddressValue{})
+	if err != nil {
+		return nil, errors.Errorf("preparing current addresses statement: %w", err)
+	}
+
+	var addrs []ipAddressValue
+	if err := tx.Query(ctx, stmt, nUUID).GetAll(&addrs); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Errorf("running current devices query: %w", err)
+	}
+
+	return transform.SliceToMap(addrs, func(d ipAddressValue) (string, ipAddressValue) {
+		return d.Value, d
+	}), nil
+}
+
 func (st *State) insertSubnets(ctx context.Context, tx *sqlair.TX, subs []subnet) error {
 	if len(subs) == 0 {
 		return nil
@@ -482,8 +528,8 @@ func (st *State) upsertIPAddresses(ctx context.Context, tx *sqlair.TX, addrs []i
 
 	st.logger.Debugf(ctx, "updating IP addresses %#v", addrs)
 
-	// Note that we do not update addresses where
-	// the provider has taken authority.
+	// We should already have filtered out addresses that are managed by the
+	// provider, but we play it safe here with the clause.
 	dml := `
 INSERT INTO ip_address (*) VALUES ($ipAddressDML.*)
 ON CONFLICT (uuid) DO UPDATE SET

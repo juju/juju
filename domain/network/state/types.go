@@ -611,10 +611,19 @@ type linkLayerDevice struct {
 	VLAN            int            `db:"vlan_tag"`
 }
 
-// linkLayerDeviceName is used for identifying known link-layer devices.
+// linkLayerDeviceName is used for identifying
+// known link-layer devices on a single node.
 type linkLayerDeviceName struct {
 	UUID string `db:"uuid"`
 	Name string `db:"name"`
+}
+
+// ipAddressValue is used for identifying known IP addresses on a single node.
+type ipAddressValue struct {
+	UUID       string         `db:"uuid"`
+	Value      string         `db:"address_value"`
+	OriginID   int64          `db:"origin_id"`
+	SubnetUUID sql.NullString `db:"subnet_uuid"`
 }
 
 type linkLayerDeviceParent struct {
