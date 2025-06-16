@@ -501,27 +501,8 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 
 	// This has to be a function since we want to delay the evaluation of the value,
 	// in case agent erred out.
-	isReady := func() (bool, error) {
-		// IAAS models need the unit to be assigned.
-		if shouldBeAssigned {
-			return isAssigned && agentStatusInfo.Status != status.Allocating, nil
-		}
-		// For CAAS models, check to see if the unit agent has started (the
-		// presence of the unitstates row indicates this).
-		unitState, err := op.unit.State()
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		return unitState.Modified(), nil
-	}
 	if agentErr == nil {
-		ready, err := isReady()
-		if op.FatalError(err) {
-			return nil, errors.Trace(err)
-		}
-		if ready {
-			return setDyingOps(agentErr)
-		}
+		return setDyingOps(agentErr)
 	}
 	switch agentStatusInfo.Status {
 	case status.Error, status.Allocating:
