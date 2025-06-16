@@ -110,6 +110,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *gc.C) {
 	subnetID := "3"
 
 	s.Backing.EXPECT().MovingSubnet(subnetID).Return(nil, errors.NotFoundf("subnet 3"))
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, jc.ErrorIsNil)
@@ -148,6 +149,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
 			Name: network.SpaceName(spaceName),
 		},
 	}, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	moveSubnetsOp := spaces.NewMockMoveSubnetsOp(ctrl)
 	moveSubnetsOp.EXPECT().GetMovedSubnets().Return([]spaces.MovedSubnet{{
@@ -206,6 +208,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *gc.C) 
 			Name: network.SpaceName(spaceName),
 		},
 	}, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	// MySQL has only non-space constraints.
 	cons1 := spaces.NewMockConstraints(ctrl)
@@ -267,6 +270,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceE
 			Name: network.SpaceName(spaceName),
 		},
 	}, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	// MySQL is constrained not to be in the target space.
 	cons := spaces.NewMockConstraints(ctrl)
@@ -329,6 +333,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedForOverl
 			Name: network.SpaceName(spaceName),
 		},
 	}, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	// MySQL is constrained not to be in the target space.
 	cons := spaces.NewMockConstraints(ctrl)
@@ -387,6 +392,7 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 			Name: network.SpaceName(spaceName),
 		},
 	}, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	// MySQL is constrained not to be in the target space.
 	cons := spaces.NewMockConstraints(ctrl)
@@ -456,6 +462,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceE
 			Name: network.SpaceName(spaceName),
 		},
 	}, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	// MySQL is constrained to be in a different space.
 	cons := spaces.NewMockConstraints(ctrl)
@@ -519,6 +526,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 			Name: network.SpaceName(spaceName),
 		},
 	}, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	// MySQL has a binding to the old space.
 	bindings := spaces.NewMockBindings(ctrl)
@@ -561,6 +569,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsHasUnderlayError(c *gc.C) {
 
 	bExp := s.Backing.EXPECT()
 	bExp.MovingSubnet(subnetID).Return(subnet, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, jc.ErrorIsNil)

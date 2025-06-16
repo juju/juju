@@ -5,6 +5,8 @@ package undertaker
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
@@ -12,7 +14,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/names/v5"
 )
 
 // NewWatcherFunc exists to let us test Watch properly.

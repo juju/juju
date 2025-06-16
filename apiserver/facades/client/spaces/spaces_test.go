@@ -50,6 +50,7 @@ func (s *APISuite) TestShowSpaceDefault(c *gc.C) {
 	s.expectDefaultSpace(ctrl, "default", nil, nil)
 	s.expectEndpointBindings(ctrl, "1")
 	s.expectMachines(ctrl, s.getDefaultSpaces(), nil, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	expectedApplications := []string{"mysql", "mediawiki"}
 	sort.Strings(expectedApplications)
@@ -88,6 +89,7 @@ func (s *APISuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", bamErr, nil)
 	args := s.getShowSpaceArg("default")
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	res, err := s.API.ShowSpace(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,6 +104,7 @@ func (s *APISuite) TestShowSpaceErrorGettingSubnets(c *gc.C) {
 
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", nil, bamErr)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 	args := s.getShowSpaceArg("default")
 
 	res, err := s.API.ShowSpace(args)
@@ -118,6 +121,7 @@ func (s *APISuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
 	expErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", nil, nil)
 	s.Backing.EXPECT().AllEndpointBindings().Return(nil, expErr)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	args := s.getShowSpaceArg("default")
 
@@ -136,6 +140,7 @@ func (s *APISuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
 	s.expectDefaultSpace(ctrl, "default", nil, nil)
 	s.expectEndpointBindings(ctrl, "1")
 	s.expectMachines(ctrl, s.getDefaultSpaces(), bamErr, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	args := s.getShowSpaceArg("default")
 	res, err := s.API.ShowSpace(args)
@@ -150,6 +155,7 @@ func (s *APISuite) TestRenameSpaceErrorToAlreadyExist(c *gc.C) {
 	defer unreg()
 
 	s.expectDefaultSpace(ctrl, "blub", nil, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	from, to := "bla", "blub"
 	args := s.getRenameArgs(from, to)
@@ -168,6 +174,7 @@ func (s *APISuite) TestRenameSpaceErrorUnexpectedError(c *gc.C) {
 
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, to, bamErr, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	args := s.getRenameArgs(from, to)
 
@@ -188,6 +195,7 @@ func (s *APISuite) TestRenameSpaceErrorRename(c *gc.C) {
 	args := s.getRenameArgs(from, to)
 
 	s.OpFactory.EXPECT().NewRenameSpaceOp(from, to).Return(nil, bamErr)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	res, err := s.API.RenameSpace(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,6 +209,7 @@ func (s *APISuite) TestRenameAlphaSpaceError(c *gc.C) {
 	from, to := "alpha", "blub"
 
 	args := s.getRenameArgs(from, to)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	res, err := s.API.RenameSpace(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -216,6 +225,7 @@ func (s *APISuite) TestRenameSpaceSuccess(c *gc.C) {
 	s.OpFactory.EXPECT().NewRenameSpaceOp(from, to).Return(s.renameSpaceOp, nil)
 	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"), nil)
 	s.Backing.EXPECT().ApplyOperation(s.renameSpaceOp).Return(nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 	args := s.getRenameArgs(from, to)
 
 	res, err := s.API.RenameSpace(args)
@@ -230,6 +240,7 @@ func (s *APISuite) TestRenameSpaceErrorProviderSpacesSupport(c *gc.C) {
 	from, to := "bla", "blub"
 
 	args := s.getRenameArgs(from, to)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	res, err := s.API.RenameSpace(args)
 	c.Assert(err, gc.ErrorMatches, "modifying provider-sourced spaces not supported")
@@ -249,6 +260,7 @@ func (s *APISuite) TestRemoveSpaceSuccessNoControllerConfig(c *gc.C) {
 	s.Backing.EXPECT().IsController().Return(false)
 	s.OpFactory.EXPECT().NewRemoveSpaceOp(tag.Id()).Return(nil, nil)
 	s.Backing.EXPECT().ApplyOperation(nil).Return(nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	res, err := s.API.RemoveSpace(args)
 
@@ -270,6 +282,7 @@ func (s *APISuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
 	s.Backing.EXPECT().ControllerConfig().Return(nil, nil)
 	s.OpFactory.EXPECT().NewRemoveSpaceOp(tag.Id()).Return(nil, nil)
 	s.Backing.EXPECT().ApplyOperation(nil).Return(nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	res, err := s.API.RemoveSpace(args)
 
@@ -288,6 +301,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundApplications(c *gc.C) {
 	s.expectEndpointBindings(ctrl, "1")
 	s.Backing.EXPECT().IsController().Return(false)
 	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings: []params.Entity{
 			{
@@ -322,6 +336,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
 	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
 	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil)
 	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings:           nil,
 		Constraints:        nil,
@@ -345,6 +360,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
 	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(ctrl, "2")
 	s.Backing.EXPECT().IsController().Return(false)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	cApp, cModel := s.expectAllTags(space)
 
@@ -384,6 +400,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 
 	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
 	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	cApp, cModel := s.expectAllTags(space)
 
@@ -432,6 +449,7 @@ func (s *APISuite) TestRemoveSpaceFoundAllWithForce(c *gc.C) {
 	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil)
 	s.OpFactory.EXPECT().NewRemoveSpaceOp(tag.Id()).Return(nil, nil)
 	s.Backing.EXPECT().ApplyOperation(nil).Return(nil)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	_, _ = s.expectAllTags(space)
 
@@ -450,6 +468,7 @@ func (s *APISuite) TestRemoveSpaceErrorProviderSpacesSupport(c *gc.C) {
 	space := "myspace"
 
 	args, _ := s.getRemoveArgs(space, false)
+	s.Backing.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
 
 	_, err := s.API.RemoveSpace(args)
 	c.Assert(err, gc.ErrorMatches, "modifying provider-sourced spaces not supported")
