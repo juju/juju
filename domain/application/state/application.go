@@ -378,25 +378,14 @@ func (st *State) insertIAASApplicationUnits(
 			return nil, errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 		}
 
-		storageDirectives := make([]application.UnitStorageDirectiveArg, 0, len(args.Storage))
-		for _, appStorageArg := range args.Storage {
-			storageDirectives = append(
-				storageDirectives, application.UnitStorageDirectiveArg{
-					Count:       appStorageArg.Count,
-					Size:        appStorageArg.Size,
-					StorageName: appStorageArg.Name.String(),
-					// TODO set storage pool uuid or type.
-				},
-			)
-		}
-
 		insertUnits[i] = application.InsertIAASUnitArg{
 			InsertUnitArg: application.InsertUnitArg{
-				UnitName:          unitName,
-				Constraints:       unit.Constraints,
-				Placement:         unit.Placement,
-				Storage:           args.Storage,
-				StorageDirectives: storageDirectives,
+				UnitName:    unitName,
+				Constraints: unit.Constraints,
+				Placement:   unit.Placement,
+				// For new application units we follow the application directives
+				// verbatum.
+				StorageDirectives: args.StorageDirectives,
 				StoragePoolKind:   args.StoragePoolKind,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    unit.UnitStatusArg.AgentStatus,
@@ -433,24 +422,13 @@ func (st *State) insertCAASApplicationUnits(
 			return errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 		}
 
-		storageDirectives := make([]application.UnitStorageDirectiveArg, 0, len(args.Storage))
-		for _, appStorageArg := range args.Storage {
-			storageDirectives = append(
-				storageDirectives, application.UnitStorageDirectiveArg{
-					Count:       appStorageArg.Count,
-					Size:        appStorageArg.Size,
-					StorageName: appStorageArg.Name.String(),
-					// TODO set storage pool uuid or type.
-				},
-			)
-		}
-
 		insertUnits[i] = application.InsertUnitArg{
-			UnitName:          unitName,
-			Constraints:       unit.Constraints,
-			Placement:         unit.Placement,
-			Storage:           args.Storage,
-			StorageDirectives: storageDirectives,
+			UnitName:    unitName,
+			Constraints: unit.Constraints,
+			Placement:   unit.Placement,
+			// For new application units we follow the application directives
+			// verbatum.
+			StorageDirectives: args.StorageDirectives,
 			StoragePoolKind:   args.StoragePoolKind,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus:    unit.UnitStatusArg.AgentStatus,
