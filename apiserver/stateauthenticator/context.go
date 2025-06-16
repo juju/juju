@@ -263,10 +263,10 @@ type authenticator struct {
 func (a authenticator) Authenticate(
 	ctx context.Context,
 	authParams authentication.AuthParams,
-) (state.Entity, error) {
+) (state.Entity, bool, error) {
 	auth, err := a.authenticatorForTag(ctx, authParams.AuthTag)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, false, errors.Trace(err)
 	}
 	return auth.Authenticate(ctx, authParams)
 }

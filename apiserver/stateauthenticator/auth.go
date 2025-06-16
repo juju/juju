@@ -222,14 +222,15 @@ func (a *Authenticator) checkCreds(
 	authParams authentication.AuthParams,
 	authenticator authentication.EntityAuthenticator,
 ) (authentication.AuthInfo, error) {
-	entity, err := authenticator.Authenticate(ctx, authParams)
+	entity, controller, err := authenticator.Authenticate(ctx, authParams)
 	if err != nil {
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 
 	authInfo := authentication.AuthInfo{
-		Delegator: &PermissionDelegator{AccessService: a.authContext.accessService},
-		Entity:    entity,
+		Delegator:  &PermissionDelegator{AccessService: a.authContext.accessService},
+		Entity:     entity,
+		Controller: controller,
 	}
 
 	switch entity.Tag().Kind() {
@@ -244,7 +245,7 @@ func (a *Authenticator) checkCreds(
 			logger.Warningf(ctx, "updating last login time for %v, %v", userTag, err)
 		}
 
-	case names.MachineTagKind, names.ControllerAgentTagKind:
+	case names.ControllerAgentTagKind:
 		// Currently only machines and controller agents are managers in the
 		// context of a controller.
 		authInfo.Controller = a.isManager(entity)

@@ -302,11 +302,7 @@ func (r *apiHandler) AuthOwner(tag names.Tag) bool {
 // AuthController returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
 func (r *apiHandler) AuthController() bool {
-	type hasIsManager interface {
-		IsManager() bool
-	}
-	m, ok := r.authInfo.Entity.(hasIsManager)
-	return ok && m.IsManager()
+	return r.authInfo.Controller
 }
 
 // AuthClient returns whether the authenticated entity is a client

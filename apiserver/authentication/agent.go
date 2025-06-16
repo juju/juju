@@ -26,7 +26,7 @@ type AgentPasswordService interface {
 
 	// MatchesMachinePasswordHashWithNonce checks if the password with a nonce
 	// is valid or not.
-	MatchesMachinePasswordHashWithNonce(context.Context, machine.Name, string, string) (bool, error)
+	MatchesMachinePasswordHashWithNonce(context.Context, machine.Name, string, string) (valid, controller bool, err error)
 }
 
 // AgentAuthenticatorGetter is a factory for creating authenticators, which
@@ -78,10 +78,10 @@ type taggedAuthenticator interface {
 
 // Authenticate authenticates the provided entity.
 // It takes an entityfinder and the tag used to find the entity that requires authentication.
-func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthParams) (state.Entity, error) {
+func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthParams) (state.Entity, bool, error) {
 	switch authParams.AuthTag.Kind() {
 	case names.UserTagKind:
-		return nil, errors.Trace(apiservererrors.ErrBadRequest)
+		return nil, false, errors.Trace(apiservererrors.ErrBadRequest)
 
 	case names.UnitTagKind:
 		return a.authenticateUnit(ctx, authParams.AuthTag.(names.UnitTag), authParams.Credentials)
@@ -90,11 +90,12 @@ func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthPar
 		return a.authenticateMachine(ctx, authParams.AuthTag.(names.MachineTag), authParams.Credentials, authParams.Nonce)
 
 	default:
-		return a.fallbackAuth(ctx, authParams)
+		entity, err := a.fallbackAuth(ctx, authParams)
+		return entity, false, err
 	}
 }
 
-func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.UnitTag, credentials string) (state.Entity, error) {
+func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.UnitTag, credentials string) (state.Entity, bool, error) {
 	unitName := unit.Name(tag.Id())
 
 	// Check if the password is correct.
@@ -109,19 +110,19 @@ func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.Uni
 
 	valid, err := a.agentPasswordService.MatchesUnitPasswordHash(ctx, unitName, credentials)
 	if errors.Is(err, agentpassworderrors.EmptyPassword) {
-		return nil, errors.Trace(apiservererrors.ErrBadRequest)
+		return nil, false, errors.Trace(apiservererrors.ErrBadRequest)
 	} else if errors.Is(err, agentpassworderrors.InvalidPassword) || errors.Is(err, applicationerrors.UnitNotFound) {
-		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+		return nil, false, errors.Trace(apiservererrors.ErrUnauthorized)
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, false, errors.Trace(err)
 	} else if !valid {
-		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+		return nil, false, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 
-	return TagToEntity(tag), nil
+	return TagToEntity(tag), false, nil
 }
 
-func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.MachineTag, credentials, nonce string) (state.Entity, error) {
+func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.MachineTag, credentials, nonce string) (state.Entity, bool, error) {
 	machineName := machine.Name(tag.Id())
 
 	// Check if the password is correct.
@@ -134,18 +135,18 @@ func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.
 	//   unauthorized.
 	// - Any other error, is considered an internal server error.
 
-	valid, err := a.agentPasswordService.MatchesMachinePasswordHashWithNonce(ctx, machineName, credentials, nonce)
+	valid, controller, err := a.agentPasswordService.MatchesMachinePasswordHashWithNonce(ctx, machineName, credentials, nonce)
 	if errors.Is(err, agentpassworderrors.EmptyPassword) || errors.Is(err, agentpassworderrors.EmptyNonce) {
-		return nil, errors.Trace(apiservererrors.ErrBadRequest)
+		return nil, false, errors.Trace(apiservererrors.ErrBadRequest)
 	} else if errors.Is(err, agentpassworderrors.InvalidPassword) || errors.Is(err, applicationerrors.MachineNotFound) {
-		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+		return nil, false, errors.Trace(apiservererrors.ErrUnauthorized)
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, false, errors.Trace(err)
 	} else if !valid {
-		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+		return nil, false, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 
-	return TagToEntity(tag), nil
+	return TagToEntity(tag), controller, nil
 }
 
 func (a *agentAuthenticator) fallbackAuth(ctx context.Context, authParams AuthParams) (state.Entity, error) {

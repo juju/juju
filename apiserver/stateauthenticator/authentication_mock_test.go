@@ -44,12 +44,13 @@ func (m *MockEntityAuthenticator) EXPECT() *MockEntityAuthenticatorMockRecorder 
 }
 
 // Authenticate mocks base method.
-func (m *MockEntityAuthenticator) Authenticate(arg0 context.Context, arg1 authentication.AuthParams) (state.Entity, error) {
+func (m *MockEntityAuthenticator) Authenticate(arg0 context.Context, arg1 authentication.AuthParams) (state.Entity, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Authenticate", arg0, arg1)
 	ret0, _ := ret[0].(state.Entity)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Authenticate indicates an expected call of Authenticate.
@@ -65,19 +66,19 @@ type MockEntityAuthenticatorAuthenticateCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockEntityAuthenticatorAuthenticateCall) Return(arg0 state.Entity, arg1 error) *MockEntityAuthenticatorAuthenticateCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockEntityAuthenticatorAuthenticateCall) Return(arg0 state.Entity, arg1 bool, arg2 error) *MockEntityAuthenticatorAuthenticateCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEntityAuthenticatorAuthenticateCall) Do(f func(context.Context, authentication.AuthParams) (state.Entity, error)) *MockEntityAuthenticatorAuthenticateCall {
+func (c *MockEntityAuthenticatorAuthenticateCall) Do(f func(context.Context, authentication.AuthParams) (state.Entity, bool, error)) *MockEntityAuthenticatorAuthenticateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEntityAuthenticatorAuthenticateCall) DoAndReturn(f func(context.Context, authentication.AuthParams) (state.Entity, error)) *MockEntityAuthenticatorAuthenticateCall {
+func (c *MockEntityAuthenticatorAuthenticateCall) DoAndReturn(f func(context.Context, authentication.AuthParams) (state.Entity, bool, error)) *MockEntityAuthenticatorAuthenticateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -106,12 +107,13 @@ func (m *MockAgentPasswordService) EXPECT() *MockAgentPasswordServiceMockRecorde
 }
 
 // MatchesMachinePasswordHashWithNonce mocks base method.
-func (m *MockAgentPasswordService) MatchesMachinePasswordHashWithNonce(arg0 context.Context, arg1 machine.Name, arg2, arg3 string) (bool, error) {
+func (m *MockAgentPasswordService) MatchesMachinePasswordHashWithNonce(arg0 context.Context, arg1 machine.Name, arg2, arg3 string) (bool, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MatchesMachinePasswordHashWithNonce", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // MatchesMachinePasswordHashWithNonce indicates an expected call of MatchesMachinePasswordHashWithNonce.
@@ -127,19 +129,19 @@ type MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall) Return(arg0 bool, arg1 error) *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall) Return(arg0, arg1 bool, arg2 error) *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall) Do(f func(context.Context, machine.Name, string, string) (bool, error)) *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall {
+func (c *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall) Do(f func(context.Context, machine.Name, string, string) (bool, bool, error)) *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall) DoAndReturn(f func(context.Context, machine.Name, string, string) (bool, error)) *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall {
+func (c *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall) DoAndReturn(f func(context.Context, machine.Name, string, string) (bool, bool, error)) *MockAgentPasswordServiceMatchesMachinePasswordHashWithNonceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
