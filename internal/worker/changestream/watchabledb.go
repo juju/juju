@@ -49,6 +49,7 @@ func NewWatchableDB(
 
 	mux, err := eventmultiplexer.New(stream, clock, metrics, logger)
 	if err != nil {
+		stream.Kill()
 		return nil, errors.Trace(err)
 	}
 
