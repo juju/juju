@@ -930,13 +930,29 @@ func (u *UniterAPI) SetWorkloadVersion(ctx context.Context, args params.EntityWo
 // Unit.WatchActionNotifications(). This method is called from
 // api/uniter/uniter.go WatchActionNotifications().
 func (u *UniterAPI) WatchActionNotifications(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	tagToActionReceiver := common.TagToActionReceiverFn(u.st.FindEntity)
-	watchOne := common.WatchOneActionReceiverNotifications(tagToActionReceiver, u.resources.Register)
+	// TODO (stickupkid): The actions watcher shouldn't cause the uniter to
+	// start up, but here we are.
+	// This is will need to fixed when actions are moved to dqlite.
+
+	//tagToActionReceiver := common.TagToActionReceiverFn(u.st.FindEntity)
+	//watchOne := common.WatchOneActionReceiverNotifications(tagToActionReceiver, u.resources.Register)
 	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringsWatchResults{}, err
 	}
-	return common.WatchActionNotifications(args, canAccess, watchOne), nil
+	return common.WatchActionNotifications(args, canAccess, func(t names.Tag) (params.StringsWatchResult, error) {
+		watcher := watcher.TODO[[]string]()
+
+		id, changes, err := internal.EnsureRegisterWatcher(ctx, u.watcherRegistry, watcher)
+		if err != nil {
+			return params.StringsWatchResult{Error: apiservererrors.ServerError(err)}, nil
+		}
+
+		return params.StringsWatchResult{
+			StringsWatcherId: id,
+			Changes:          changes,
+		}, nil
+	}), nil
 }
 
 // ConfigSettings returns the complete set of application charm config

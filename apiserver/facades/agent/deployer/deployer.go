@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
@@ -223,11 +222,8 @@ func (s *DeployerAPI) watchOneUnit(ctx context.Context, canWatch common.AuthFunc
 		return params.StringsWatchResult{}, apiservererrors.ErrPerm
 	}
 
-	loggo.GetLogger("***").Criticalf(">>> watchOneUnit: %s", machineTag.Id())
-
 	machineName := machine.Name(machineTag.Id())
 	watcher, err := s.applicationService.WatchUnitAddRemoveOnMachine(ctx, machineName)
-	loggo.GetLogger("!!!").Criticalf(">>> watchOneUnit: %s, watcher: %v, err: %v", machineName, watcher, err)
 	if errors.Is(err, applicationerrors.MachineNotFound) {
 		return params.StringsWatchResult{}, errors.NotFoundf("machine %q", machineName)
 	} else if err != nil {
