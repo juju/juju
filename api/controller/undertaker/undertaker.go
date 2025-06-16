@@ -5,14 +5,14 @@ package undertaker
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
-
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/names/v5"
 )
 
 // NewWatcherFunc exists to let us test Watch properly.
@@ -22,9 +22,10 @@ type NewWatcherFunc func(base.APICaller, params.NotifyWatchResult) watcher.Notif
 type Client struct {
 	*cloudspec.CloudSpecAPI
 	*common.ModelWatcher
-	modelTag   names.ModelTag
-	caller     base.FacadeCaller
-	newWatcher NewWatcherFunc
+	modelTag         names.ModelTag
+	caller           base.FacadeCaller
+	newWatcher       NewWatcherFunc
+	controllerConfig controller.Config
 }
 
 // NewClient creates a new client for accessing the undertaker API.
@@ -34,13 +35,26 @@ func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) (*Client, error
 		return nil, errors.New("undertaker client is not appropriate for controller-only API")
 	}
 	facadeCaller := base.NewFacadeCaller(caller, "Undertaker")
+	ctrlCfgAPI := common.NewControllerConfig(facadeCaller)
+
+	ctrlCfg, err := ctrlCfgAPI.ControllerConfig()
+	if err != nil {
+		return nil, errors.New("cannot get controller config")
+	}
+
 	return &Client{
-		modelTag:     modelTag,
-		caller:       facadeCaller,
-		newWatcher:   newWatcher,
-		CloudSpecAPI: cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
-		ModelWatcher: common.NewModelWatcher(facadeCaller),
+		modelTag:         modelTag,
+		caller:           facadeCaller,
+		newWatcher:       newWatcher,
+		CloudSpecAPI:     cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
+		ModelWatcher:     common.NewModelWatcher(facadeCaller),
+		controllerConfig: ctrlCfg,
 	}, nil
+}
+
+// ControllerUUID implements environs.EnvironConfigGetter.
+func (c *Client) ControllerUUID() string {
+	return c.controllerConfig.ControllerUUID()
 }
 
 // ModelInfo returns information on the model needed by the undertaker worker.

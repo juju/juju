@@ -24,69 +24,95 @@ var _ = gc.Suite(&UndertakerSuite{})
 
 func (s *UndertakerSuite) TestModelInfo(c *gc.C) {
 	var called bool
-	client := s.mockClient(c, "ModelInfo", func(response interface{}) {
+	var obtainedRequest string
+	expectedRequest := "ModelInfo"
+
+	client := s.mockClient(c, func(obtainedReq string, response interface{}) {
 		called = true
 		result := response.(*params.UndertakerModelInfoResult)
 		result.Result = params.UndertakerModelInfo{}
+		obtainedRequest = obtainedReq
 	})
 
 	result, err := client.ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
 	c.Assert(result, gc.Equals, params.UndertakerModelInfoResult{})
+	c.Assert(called, jc.IsTrue)
+	c.Assert(obtainedRequest, gc.Equals, expectedRequest)
 }
 
 func (s *UndertakerSuite) TestProcessDyingModel(c *gc.C) {
 	var called bool
-	client := s.mockClient(c, "ProcessDyingModel", func(response interface{}) {
+	var obtainedRequest string
+	expectedRequest := "ProcessDyingModel"
+	client := s.mockClient(c, func(obtainedReq string, response interface{}) {
 		called = true
 		c.Assert(response, gc.IsNil)
+		obtainedRequest = obtainedReq
 	})
 
 	c.Assert(client.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+	c.Assert(obtainedRequest, gc.Equals, expectedRequest)
 }
 
 func (s *UndertakerSuite) TestRemoveModel(c *gc.C) {
 	var called bool
-	client := s.mockClient(c, "RemoveModel", func(response interface{}) {
+	var obtainedRequest string
+	expectedRequest := "RemoveModel"
+	client := s.mockClient(c, func(obtainedReq string, response interface{}) {
 		called = true
 		c.Assert(response, gc.IsNil)
+		obtainedRequest = obtainedReq
 	})
 
 	err := client.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+	c.Assert(obtainedRequest, gc.Equals, expectedRequest)
 }
 
 func (s *UndertakerSuite) TestRemoveModelSecrets(c *gc.C) {
 	var called bool
-	client := s.mockClient(c, "RemoveModelSecrets", func(response interface{}) {
+	var obtainedRequest string
+	expectedRequest := "RemoveModelSecrets"
+	client := s.mockClient(c, func(obtainedReq string, response interface{}) {
 		called = true
 		c.Assert(response, gc.IsNil)
+		obtainedRequest = obtainedReq
 	})
 
 	err := client.RemoveModelSecrets()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+	c.Assert(obtainedRequest, gc.Equals, expectedRequest)
 }
 
-func (s *UndertakerSuite) mockClient(c *gc.C, expectedRequest string, callback func(response interface{})) *undertaker.Client {
+func (s *UndertakerSuite) assertControllerConfig(c *gc.C, objType, id, request string, response interface{}) {
+	c.Check(objType, gc.Equals, "Undertaker")
+	c.Check(id, gc.Equals, "")
+	c.Check(request, gc.Equals, "ControllerConfig")
+	_, ok := response.(*params.ControllerConfigResult)
+	c.Check(ok, jc.IsTrue)
+}
+
+func (s *UndertakerSuite) mockClient(c *gc.C, callback func(obtainedRequest string, response interface{})) *undertaker.Client {
 	apiCaller := basetesting.APICallerFunc(func(
 		objType string,
 		version int,
 		id, request string,
 		args, response interface{},
 	) error {
-		c.Check(objType, gc.Equals, "Undertaker")
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, expectedRequest)
+		if request == "ControllerConfig" {
+			s.assertControllerConfig(c, objType, id, request, response)
+			return nil
+		}
 
 		a, ok := args.(params.Entities)
 		c.Check(ok, jc.IsTrue)
 		c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: coretesting.ModelTag.String()}})
 
-		callback(response)
+		callback(request, response)
 		return nil
 	})
 	client, err := undertaker.NewClient(apiCaller, nil)
@@ -101,6 +127,11 @@ func (s *UndertakerSuite) TestWatchModelResourcesCreatesWatcher(c *gc.C) {
 		id, request string,
 		args, response interface{},
 	) error {
+		if request == "ControllerConfig" {
+			s.assertControllerConfig(c, objType, id, request, response)
+			return nil
+		}
+
 		c.Check(objType, gc.Equals, "Undertaker")
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "WatchModelResources")
@@ -135,16 +166,20 @@ func (s *UndertakerSuite) TestWatchModelResourcesCreatesWatcher(c *gc.C) {
 
 func (s *UndertakerSuite) TestWatchModelResourcesError(c *gc.C) {
 	var called bool
-	client := s.mockClient(c, "WatchModelResources", func(response interface{}) {
+	var obtainedRequest string
+	expectedRequest := "WatchModelResources"
+	client := s.mockClient(c, func(obtainedReq string, response interface{}) {
 		called = true
 		_, ok := response.(*params.NotifyWatchResults)
 		c.Check(ok, jc.IsTrue)
+		obtainedRequest = obtainedReq
 	})
 
 	w, err := client.WatchModelResources()
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 	c.Assert(w, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
+	c.Assert(obtainedRequest, gc.Equals, expectedRequest)
 }
 
 type fakeWatcher struct {
