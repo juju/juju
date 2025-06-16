@@ -598,17 +598,18 @@ func reconcileDeadUnitScale(
 	}
 
 	desiredScale := ps.ScaleTarget
-	unitsToRemove := len(unitNamesAndLives) - desiredScale
+	unitsToRemove := 0
 
 	var deadUnits []coreunit.Name
 	for unitName, unitLife := range unitNamesAndLives {
+		if unitName.Number() < desiredScale {
+			// This is a unit we want to keep.
+			continue
+		}
+		unitsToRemove++
 		if unitLife == life.Dead {
 			deadUnits = append(deadUnits, unitName)
 		}
-	}
-
-	if unitsToRemove <= 0 {
-		unitsToRemove = len(deadUnits)
 	}
 
 	// We haven't met the threshold to initiate scale down in the CAAS provider
@@ -688,25 +689,49 @@ func ensureScale(
 	if err != nil {
 		return err
 	}
-	if ps.ScaleTarget >= len(units) {
+	unitScale := 0
+	for unitName := range units {
+		nextUnitNumber := unitName.Number() + 1
+		if nextUnitNumber > unitScale {
+			unitScale = nextUnitNumber
+		}
+	}
+	if ps.ScaleTarget >= unitScale {
 		logger.Infof(ctx, "scaling application %q to desired scale %d", appName, ps.ScaleTarget)
 		err = app.Scale(ps.ScaleTarget)
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
 			logger.Infof(ctx, "dying application %q is already removed from k8s", appName)
+			return updateProvisioningState(ctx, appName, false, 0, applicationService)
 		} else if err != nil {
 			return err
 		}
-		return updateProvisioningState(ctx, appName, false, 0, applicationService)
-	}
-
-	unitsToDestroy, err := app.UnitsToRemove(ctx, ps.ScaleTarget)
-	if err != nil && errors.Is(err, errors.NotFound) {
+		if ps.ScaleTarget > len(units) {
+			// Scaling up must see units created.
+			return tryAgain
+		}
+		err := updateProvisioningState(ctx, appName, false, 0, applicationService)
+		if err != nil {
+			return err
+		}
+		if ps.ScaleTarget != desiredScale {
+			// if the current scale target doesn't equal the desired scale
+			// we need to rerun this.
+			logger.Debugf(ctx, "application %q currently scaling to %d but desired scale is %d", appName, ps.ScaleTarget, desiredScale)
+			return tryAgain
+		}
 		return nil
-	} else if err != nil {
-		return fmt.Errorf("scaling application %q to desired scale %d: %w",
-			appName, ps.ScaleTarget, err)
 	}
 
+	var unitsToDestroy []string
+	for unitName, unitLife := range units {
+		if unitName.Number() < ps.ScaleTarget {
+			// This is a unit we want to keep.
+			continue
+		}
+		if unitLife == life.Alive {
+			unitsToDestroy = append(unitsToDestroy, unitName.String())
+		}
+	}
 	if len(unitsToDestroy) > 0 {
 		if err := facade.DestroyUnits(ctx, unitsToDestroy); err != nil {
 			return errors.Trace(err)

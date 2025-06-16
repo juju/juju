@@ -355,7 +355,9 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 
 	units := map[unit.Name]life.Value{
 		"test/0": life.Alive,
-		"test/1": life.Dead,
+		"test/1": life.Alive,
+		"test/2": life.Dying,
+		"test/3": life.Dead,
 	}
 	unitsToDestroy := []string{"test/1"}
 	gomock.InOrder(
@@ -363,7 +365,6 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 1, true).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
-		app.EXPECT().UnitsToRemove(gomock.Any(), 1).Return(unitsToDestroy, nil),
 		facade.EXPECT().DestroyUnits(gomock.Any(), unitsToDestroy).Return(nil),
 	)
 
@@ -387,14 +388,15 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *tc.C) {
 	}
 	units := map[unit.Name]life.Value{
 		"test/0": life.Alive,
-		"test/1": life.Dead,
+		"test/1": life.Alive,
+		"test/2": life.Dying,
+		"test/3": life.Dead,
 	}
 	unitsToDestroy := []string{"test/1"}
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(10, nil),
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
-		app.EXPECT().UnitsToRemove(gomock.Any(), 1).Return(unitsToDestroy, nil),
 		facade.EXPECT().DestroyUnits(gomock.Any(), unitsToDestroy).Return(nil),
 	)
 
@@ -413,16 +415,13 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *tc.C) {
 	statusService := mocks.NewMockStatusService(ctrl)
 
 	units := map[unit.Name]life.Value{
-		"test/0": life.Dead,
+		"test/0": life.Dying,
 		"test/1": life.Dead,
 	}
-	unitsToDestroy := []string{"test/0", "test/1"}
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, true).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
-		app.EXPECT().UnitsToRemove(gomock.Any(), 0).Return(unitsToDestroy, nil),
-		facade.EXPECT().DestroyUnits(gomock.Any(), unitsToDestroy).Return(nil),
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app, life.Dead, facade, applicationService, statusService, s.logger)
