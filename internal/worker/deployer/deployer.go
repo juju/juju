@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 
@@ -106,36 +105,30 @@ func (d *Deployer) Report() map[string]interface{} {
 // SetUp is called by the NewStringsWorker to create the watcher that drives the
 // worker.
 func (d *Deployer) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
-	d.logger.Criticalf(ctx, "SetUp")
 	tag := d.ctx.AgentConfig().Tag()
 	machineTag, ok := tag.(names.MachineTag)
 	if !ok {
 		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
-	d.logger.Criticalf(ctx, "getting Machine %s", machineTag)
 	machine, err := d.client.Machine(machineTag)
 	if err != nil {
-		d.logger.Criticalf(ctx, "error 1: %v", err)
 		return nil, err
 	}
-	d.logger.Criticalf(ctx, "getting units watcher")
+
 	machineUnitsWatcher, err := machine.WatchUnits(ctx)
 	if err != nil {
-		d.logger.Criticalf(ctx, "error 2: %v", err)
 		return nil, err
 	}
-	d.logger.Criticalf(ctx, "looking for deployed units")
+	d.logger.Infof(ctx, "looking for deployed units")
 
 	deployed, err := d.ctx.DeployedUnits()
 	if err != nil {
-		d.logger.Criticalf(ctx, "error 3: %v", err)
 		return nil, err
 	}
-	d.logger.Criticalf(ctx, "deployed units: %v", deployed)
+	d.logger.Infof(ctx, "deployed units: %v", deployed)
 	for _, unitName := range deployed {
 		d.deployed.Add(unitName)
 		if err := d.changed(ctx, unitName); err != nil {
-			d.logger.Criticalf(ctx, "error 4: %v", err)
 			return nil, err
 		}
 	}
@@ -144,7 +137,6 @@ func (d *Deployer) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
 
 // Handle is called for new value in the StringsWatcher.
 func (d *Deployer) Handle(ctx context.Context, unitNames []string) error {
-	d.logger.Criticalf(ctx, "Handle: %v", unitNames)
 	for _, unitName := range unitNames {
 		if err := d.changed(ctx, unitName); err != nil {
 			return err
@@ -158,10 +150,9 @@ func (d *Deployer) Handle(ctx context.Context, unitNames []string) error {
 func (d *Deployer) changed(ctx context.Context, unitName string) error {
 	unitTag := names.NewUnitTag(unitName)
 	// Determine unit life state, and whether we're responsible for it.
-	d.logger.Criticalf(ctx, "checking unit %q", unitName)
+	d.logger.Tracef(ctx, "checking unit %q", unitName)
 	var unitLife life.Value
 	unit, err := d.client.Unit(ctx, unitTag)
-	d.logger.Criticalf(ctx, "unit %q life: %v, err: %v", unitName, unitLife, err)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		unitLife = life.Dead
 	} else if err != nil {
@@ -182,7 +173,6 @@ func (d *Deployer) changed(ctx context.Context, unitName string) error {
 	// for and (2) are Alive -- if we're responsible for a Dying unit that is not
 	// yet deployed, we should remove it immediately rather than undergo the hassle
 	// of deploying a unit agent purely so it can set itself to Dead.
-	loggo.GetLogger("****").Criticalf("unit %q life: %v, deployed: %v", unitName, unitLife, d.deployed.Contains(unitName))
 	if !d.deployed.Contains(unitName) {
 		if unitLife == life.Alive {
 			return d.deploy(ctx, unit)
@@ -203,7 +193,7 @@ func (d *Deployer) deploy(ctx context.Context, unit Unit) error {
 	if err := unit.SetStatus(ctx, status.Waiting, status.MessageInstallingAgent, nil); err != nil {
 		return errors.Trace(err)
 	}
-	d.logger.Criticalf(ctx, "deploying unit %q", unitName)
+	d.logger.Infof(ctx, "deploying unit %q", unitName)
 	initialPassword, err := password.RandomPassword()
 	if err != nil {
 		return err
@@ -224,7 +214,7 @@ func (d *Deployer) recall(ctx context.Context, unitName string) error {
 	if !d.deployed.Contains(unitName) {
 		panic("must not recall a unit that is not deployed")
 	}
-	d.logger.Criticalf(ctx, "recalling unit %q", unitName)
+	d.logger.Infof(ctx, "recalling unit %q", unitName)
 	if err := d.ctx.RecallUnit(unitName); err != nil {
 		return err
 	}

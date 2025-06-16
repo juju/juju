@@ -737,8 +737,6 @@ func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error)
 		return errors.Errorf("unknown model type %q", u.modelType)
 	}
 
-	loggo.GetLogger("*****").Criticalf("UNIT %q STARTING UP", unitTag.Id())
-
 	// If we started up already dead, we should not progress further.
 	// If we become Dead immediately after starting up, we may well
 	// complete any operations in progress before detecting it,
@@ -760,8 +758,6 @@ func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	loggo.GetLogger("*****").Criticalf("WAITING FOR UNIT %q TO INITIALIZE %v", u.unit.Name(), currentStatus)
 
 	// TODO(fwereade/wallyworld): we should have an explicit place in the model
 	// to tell us when we've hit this point, instead of piggybacking on top of
