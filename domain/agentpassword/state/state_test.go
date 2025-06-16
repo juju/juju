@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
@@ -216,9 +217,39 @@ func (s *stateSuite) TestMatchesMachinePasswordHash(c *tc.C) {
 	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 
-	valid, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, nonce)
+	valid, controller, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, nonce)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(valid, tc.IsTrue)
+	c.Check(valid, tc.IsTrue)
+	c.Check(controller, tc.IsFalse)
+}
+
+func (s *stateSuite) TestMatchesMachinePasswordHashController(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	appID := s.createApplication(c)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_controller (application_uuid)
+VALUES (?);
+`, appID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineName, nonce := s.createMachine(c)
+
+	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	passwordHash := s.genPasswordHash(c)
+
+	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, controller, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, nonce)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
+	c.Check(controller, tc.IsTrue)
 }
 
 func (s *stateSuite) TestMatchesMachinePasswordHashMachineNotFound(c *tc.C) {
@@ -226,7 +257,7 @@ func (s *stateSuite) TestMatchesMachinePasswordHashMachineNotFound(c *tc.C) {
 
 	passwordHash := s.genPasswordHash(c)
 
-	_, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machine.UUID("foo"), passwordHash, "")
+	_, _, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machine.UUID("foo"), passwordHash, "")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -244,9 +275,10 @@ func (s *stateSuite) TestMatchesMachinePasswordHashInvalidPassword(c *tc.C) {
 	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 
-	valid, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash+"1", nonce)
+	valid, controller, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash+"1", nonce)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(valid, tc.IsFalse)
+	c.Check(valid, tc.IsFalse)
+	c.Check(controller, tc.IsFalse)
 }
 
 func (s *stateSuite) TestGetAllMachinePasswordHashes(c *tc.C) {
@@ -298,9 +330,9 @@ func (s *stateSuite) genPasswordHash(c *tc.C) agentpassword.PasswordHash {
 	return agentpassword.PasswordHash(internalpassword.AgentPasswordHash(rand))
 }
 
-func (s *stateSuite) createApplication(c *tc.C) {
+func (s *stateSuite) createApplication(c *tc.C) coreapplication.ID {
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	_, _, err := applicationSt.CreateIAASApplication(c.Context(), "foo", application.AddIAASApplicationArg{
+	appID, _, err := applicationSt.CreateIAASApplication(c.Context(), "foo", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Charm: charm.Charm{
 				Metadata: charm.Metadata{
@@ -321,6 +353,7 @@ func (s *stateSuite) createApplication(c *tc.C) {
 		},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
+	return appID
 }
 
 func (s *stateSuite) createUnit(c *tc.C) unit.Name {

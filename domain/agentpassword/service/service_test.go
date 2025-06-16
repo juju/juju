@@ -215,12 +215,13 @@ func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonce(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.state.EXPECT().MatchesMachinePasswordHashWithNonce(gomock.Any(), machineUUID, hashPassword(password), "foo").Return(true, nil)
+	s.state.EXPECT().MatchesMachinePasswordHashWithNonce(gomock.Any(), machineUUID, hashPassword(password), "foo").Return(true, false, nil)
 
 	service := NewService(s.state)
-	valid, err := service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, password, "foo")
+	valid, controller, err := service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, password, "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(valid, tc.IsTrue)
+	c.Check(controller, tc.IsFalse)
 }
 
 func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonceMachineNotFound(c *tc.C) {
@@ -235,7 +236,7 @@ func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonceMachineNotFound(c 
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, applicationerrors.MachineNotFound)
 
 	service := NewService(s.state)
-	_, err = service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, password, "foo")
+	_, _, err = service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, password, "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
 }
 
@@ -247,7 +248,7 @@ func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonceInvalidName(c *tc.
 	c.Assert(err, tc.ErrorIsNil)
 
 	service := NewService(s.state)
-	_, err = service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, password, "")
+	_, _, err = service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, password, "")
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -257,7 +258,7 @@ func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonceEmptyPassword(c *t
 	machineName := machine.Name("0")
 
 	service := NewService(s.state)
-	_, err := service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, "", "")
+	_, _, err := service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, "", "")
 	c.Assert(err, tc.ErrorIs, agentpassworderrors.EmptyPassword)
 }
 
@@ -267,7 +268,7 @@ func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonceInvalidPassword(c 
 	machineName := machine.Name("0")
 
 	service := NewService(s.state)
-	_, err := service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, "abc", "foo")
+	_, _, err := service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, "abc", "foo")
 	c.Assert(err, tc.ErrorIs, agentpassworderrors.InvalidPassword)
 }
 
@@ -279,7 +280,7 @@ func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonceEmptyNonce(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 
 	service := NewService(s.state)
-	_, err = service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, password, "")
+	_, _, err = service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, password, "")
 	c.Assert(err, tc.ErrorIs, agentpassworderrors.EmptyNonce)
 }
 

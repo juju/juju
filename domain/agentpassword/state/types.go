@@ -24,7 +24,6 @@ type validatePasswordHashWithNonce struct {
 	UUID         string                     `db:"uuid"`
 	PasswordHash agentpassword.PasswordHash `db:"password_hash"`
 	Nonce        string                     `db:"nonce"`
-	Count        int                        `db:"count"`
 }
 
 type entityPasswordHash struct {
@@ -40,4 +39,8 @@ type entityNamePasswordHashes struct {
 type unitPasswordHashes struct {
 	UnitName     unit.Name                  `db:"unit_name"`
 	PasswordHash agentpassword.PasswordHash `db:"password_hash"`
+}
+
+type count struct {
+	Count int `db:"count"`
 }

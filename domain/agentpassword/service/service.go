@@ -35,7 +35,7 @@ type State interface {
 
 	// MatchesMachinePasswordHashWithNonce checks if the password is valid or
 	// not against the password hash with the nonce stored in the database.
-	MatchesMachinePasswordHashWithNonce(context.Context, machine.UUID, agentpassword.PasswordHash, string) (bool, error)
+	MatchesMachinePasswordHashWithNonce(context.Context, machine.UUID, agentpassword.PasswordHash, string) (bool, bool, error)
 }
 
 // Service provides the means for interacting with the passwords in a model.
@@ -119,28 +119,28 @@ func (s *Service) SetMachinePassword(ctx context.Context, machineName machine.Na
 
 // MatchesMachinePasswordHashWithNonce checks if the password with a nonce is
 // valid or not against the password hash stored in the database.
-func (s *Service) MatchesMachinePasswordHashWithNonce(ctx context.Context, machineName machine.Name, password, nonce string) (bool, error) {
+func (s *Service) MatchesMachinePasswordHashWithNonce(ctx context.Context, machineName machine.Name, password, nonce string) (bool, bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := machineName.Validate(); err != nil {
-		return false, errors.Capture(err)
+		return false, false, errors.Capture(err)
 	}
 
 	// An empty password is never valid.
 	if password == "" {
-		return false, passworderrors.EmptyPassword
+		return false, false, passworderrors.EmptyPassword
 	} else if len(password) < internalpassword.MinAgentPasswordLength {
-		return false, errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+		return false, false, errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
 	if nonce == "" {
-		return false, passworderrors.EmptyNonce
+		return false, false, passworderrors.EmptyNonce
 	}
 
 	unitUUID, err := s.st.GetMachineUUID(ctx, machineName)
 	if err != nil {
-		return false, errors.Capture(err)
+		return false, false, errors.Capture(err)
 	}
 
 	return s.st.MatchesMachinePasswordHashWithNonce(ctx, unitUUID, hashPassword(password), nonce)
