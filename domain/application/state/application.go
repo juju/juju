@@ -3559,15 +3559,6 @@ func decodeOSType(osType sql.Null[int64]) (deployment.OSType, error) {
 	}
 }
 
-func encodeOSType(osType deployment.OSType) (sql.Null[int64], error) {
-	switch osType {
-	case deployment.Ubuntu:
-		return sql.Null[int64]{V: 0, Valid: true}, nil
-	default:
-		return sql.Null[int64]{}, nil
-	}
-}
-
 func hashConfigAndSettings(config []applicationConfig, settings applicationSettings) (string, error) {
 	h := sha256.New()
 

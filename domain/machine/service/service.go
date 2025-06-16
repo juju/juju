@@ -81,7 +81,7 @@ type State interface {
 	// SetInstanceStatus sets the cloud specific instance status for this
 	// machine.
 	// It returns MachineNotFound if the machine does not exist.
-	SetInstanceStatus(context.Context, machine.Name, domainstatus.StatusInfo[domainstatus.InstanceStatusType]) error
+	SetInstanceStatus(context.Context, machine.UUID, domainstatus.StatusInfo[domainstatus.InstanceStatusType]) error
 
 	// GetMachineStatus returns the status of the specified machine.
 	// It returns MachineNotFound if the machine does not exist.
@@ -402,12 +402,17 @@ func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Nam
 		return machineerrors.InvalidStatus
 	}
 
+	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	if err != nil {
+		return errors.Errorf("getting machine uuid for %q: %w", machineName, err)
+	}
+
 	instanceStatus, err := encodeInstanceStatus(statusInfo)
 	if err != nil {
 		return errors.Errorf("encoding status for machine %q: %w", machineName, err)
 	}
 
-	if err := s.st.SetInstanceStatus(ctx, machineName, instanceStatus); err != nil {
+	if err := s.st.SetInstanceStatus(ctx, machineUUID, instanceStatus); err != nil {
 		return errors.Errorf("setting instance status for machine %q: %w", machineName, err)
 	}
 
