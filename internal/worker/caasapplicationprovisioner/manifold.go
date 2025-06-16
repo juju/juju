@@ -106,7 +106,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.DomainServicesName,
 			config.BrokerName,
 			config.ClockName,
-			config.DomainServicesName,
 		},
 		Start: config.start,
 	}
