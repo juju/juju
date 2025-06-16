@@ -60,7 +60,7 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, passw
 		return errors.Capture(err)
 	}
 	if len(password) < internalpassword.MinAgentPasswordLength {
-		return errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
 	unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
@@ -85,7 +85,7 @@ func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Nam
 	if password == "" {
 		return false, passworderrors.EmptyPassword
 	} else if len(password) < internalpassword.MinAgentPasswordLength {
-		return false, errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+		return false, errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
 	unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
@@ -106,7 +106,7 @@ func (s *Service) SetMachinePassword(ctx context.Context, machineName machine.Na
 		return errors.Capture(err)
 	}
 	if len(password) < internalpassword.MinAgentPasswordLength {
-		return errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
 	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
@@ -131,7 +131,7 @@ func (s *Service) MatchesMachinePasswordHashWithNonce(ctx context.Context, machi
 	if password == "" {
 		return false, false, passworderrors.EmptyPassword
 	} else if len(password) < internalpassword.MinAgentPasswordLength {
-		return false, false, errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+		return false, false, errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
 	if nonce == "" {

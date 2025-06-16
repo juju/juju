@@ -17,6 +17,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -24,10 +25,11 @@ import (
 type machinerSuite struct {
 	commonSuite
 
-	machiner        *machine.MachinerAPI
-	networkService  *MockNetworkService
-	machineService  *MockMachineService
-	watcherRegistry *MockWatcherRegistry
+	machiner           *machine.MachinerAPI
+	networkService     *MockNetworkService
+	machineService     *MockMachineService
+	applicationService *MockApplicationService
+	watcherRegistry    *MockWatcherRegistry
 }
 
 func TestMachinerSuite(t *testing.T) {
@@ -40,6 +42,7 @@ func (s *machinerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 	return ctrl
 }
 
@@ -54,9 +57,11 @@ func (s *machinerSuite) makeAPI(c *tc.C) {
 		s.ControllerDomainServices(c).ControllerNode(),
 		s.ControllerDomainServices(c).ModelInfo(),
 		s.networkService,
+		s.applicationService,
 		s.machineService,
 		s.watcherRegistry,
 		s.authorizer,
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	s.machiner = machiner
@@ -76,9 +81,11 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *tc.C) {
 		nil,
 		nil,
 		s.networkService,
+		s.applicationService,
 		s.machineService,
 		s.watcherRegistry,
 		anAuthorizer,
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, tc.NotNil)
 	c.Assert(aMachiner, tc.IsNil)

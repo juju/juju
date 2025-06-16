@@ -15,8 +15,12 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/rpc/params"
@@ -67,6 +71,19 @@ type MachineService interface {
 	IsMachineController(context.Context, machine.Name) (bool, error)
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
+	// InstanceID returns the cloud specific instance id for this machine.
+	InstanceID(ctx context.Context, mUUID machine.UUID) (instance.Id, error)
+	// GetMachineLife returns the lifecycle state of the machine with the
+	// specified name.
+	GetMachineLife(ctx context.Context, name machine.Name) (life.Value, error)
+}
+
+// ApplicationService defines the methods that the facade assumes from the
+// Application service.
+type ApplicationService interface {
+	// GetUnitLife returns the lifecycle state of the unit with the
+	// specified name.
+	GetUnitLife(ctx context.Context, name unit.Name) (life.Value, error)
 }
 
 // ModelInfoService is the interface that is used to ask questions about the
@@ -108,9 +125,11 @@ func NewMachinerAPIForState(
 	controllerNodeService ControllerNodeService,
 	modelInfoService ModelInfoService,
 	networkService NetworkService,
+	applicationService ApplicationService,
 	machineService MachineService,
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
+	logger logger.Logger,
 ) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -126,7 +145,7 @@ func NewMachinerAPIForState(
 	}
 
 	return &MachinerAPI{
-		LifeGetter:              common.NewLifeGetter(st, getCanAccess),
+		LifeGetter:              common.NewLifeGetter(applicationService, machineService, st, getCanAccess, logger),
 		StatusSetter:            common.NewStatusSetter(st, getCanAccess, clock),
 		DeadEnsurer:             common.NewDeadEnsurer(st, getCanAccess, machineService),
 		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, watcherRegistry, getCanAccess),

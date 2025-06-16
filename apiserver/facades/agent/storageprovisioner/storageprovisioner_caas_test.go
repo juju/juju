@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/life"
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -31,6 +32,7 @@ type caasProvisionerSuite struct {
 
 	storageBackend       *MockStorageBackend
 	applicationService   *MockApplicationService
+	machineService       *MockMachineService
 	filesystemAttachment *MockFilesystemAttachment
 	volumeAttachment     *MockVolumeAttachment
 	entityFinder         *MockEntityFinder
@@ -286,14 +288,16 @@ func (s *caasProvisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.resources = NewMockResources(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 
 	s.api = &StorageProvisionerAPIv4{
 		watcherRegistry: s.watcherRegistry,
-		LifeGetter: common.NewLifeGetter(s.entityFinder, func(context.Context) (common.AuthFunc, error) {
+		LifeGetter: common.NewLifeGetter(s.applicationService, s.machineService, s.entityFinder, func(context.Context) (common.AuthFunc, error) {
 			return func(names.Tag) bool {
 				return true
 			}, nil
-		}),
+		}, loggertesting.WrapCheckLog(c)),
 		sb:        s.storageBackend,
 		st:        s.backend,
 		resources: s.resources,

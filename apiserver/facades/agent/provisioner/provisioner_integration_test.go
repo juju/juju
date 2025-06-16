@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -220,7 +221,7 @@ func (s *withoutControllerSuite) TestShortSetPasswords(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches,
-		"password is only 4 bytes long, and is not a valid Agent password")
+		".*password is only 4 bytes long, and is not a valid Agent password.*")
 }
 
 func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *tc.C) {
@@ -694,13 +695,13 @@ func (s *withoutControllerSuite) TestEnsureDead(c *tc.C) {
 	// Verify the changes.
 	obtainedLife, err := s.domainServices.Machine().GetMachineLife(c.Context(), coremachine.Name(s.machines[0].Id()))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(*obtainedLife, tc.Equals, life.Dead)
+	c.Check(obtainedLife, tc.Equals, corelife.Dead)
 	obtainedLife, err = s.domainServices.Machine().GetMachineLife(c.Context(), coremachine.Name(s.machines[1].Id()))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(*obtainedLife, tc.Equals, life.Dead)
+	c.Check(obtainedLife, tc.Equals, corelife.Dead)
 	obtainedLife, err = s.domainServices.Machine().GetMachineLife(c.Context(), coremachine.Name(s.machines[2].Id()))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(*obtainedLife, tc.Equals, life.Dead)
+	c.Check(obtainedLife, tc.Equals, corelife.Dead)
 }
 
 func (s *withoutControllerSuite) assertLife(c *tc.C, index int, expectLife state.Life) {
