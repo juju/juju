@@ -15,27 +15,14 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/lease"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type sharedServerContextSuite struct {
-	statetesting.StateSuite
-
 	controllerConfigService ControllerConfigService
 }
 
 func TestSharedServerContextSuite(t *stdtesting.T) {
 	tc.Run(t, &sharedServerContextSuite{})
-}
-func (s *sharedServerContextSuite) TestConfigNoStatePool(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	config := s.newConfig(c)
-
-	config.statePool = nil
-	err := config.validate()
-	c.Check(err, tc.ErrorIs, errors.NotValid)
-	c.Check(err, tc.ErrorMatches, "nil statePool not valid")
 }
 
 func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *tc.C) {
@@ -87,7 +74,6 @@ func (s *sharedServerContextSuite) newConfig(c *tc.C) sharedServerConfig {
 	controllerConfig := testing.FakeControllerConfig()
 
 	return sharedServerConfig{
-		statePool:               s.StatePool,
 		leaseManager:            &lease.Manager{},
 		controllerConfig:        controllerConfig,
 		controllerConfigService: s.controllerConfigService,
