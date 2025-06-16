@@ -201,6 +201,20 @@ func (mr *MockBackingMockRecorder) ControllerConfig() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBacking)(nil).ControllerConfig))
 }
 
+// ControllerUUID mocks base method.
+func (m *MockBacking) ControllerUUID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerUUID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ControllerUUID indicates an expected call of ControllerUUID.
+func (mr *MockBackingMockRecorder) ControllerUUID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerUUID", reflect.TypeOf((*MockBacking)(nil).ControllerUUID))
+}
+
 // IsController mocks base method.
 func (m *MockBacking) IsController() bool {
 	m.ctrl.T.Helper()
@@ -1274,6 +1288,20 @@ func (m *MockReloadSpacesEnviron) CloudSpec() (cloudspec.CloudSpec, error) {
 func (mr *MockReloadSpacesEnvironMockRecorder) CloudSpec() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockReloadSpacesEnviron)(nil).CloudSpec))
+}
+
+// ControllerUUID mocks base method.
+func (m *MockReloadSpacesEnviron) ControllerUUID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerUUID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ControllerUUID indicates an expected call of ControllerUUID.
+func (mr *MockReloadSpacesEnvironMockRecorder) ControllerUUID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerUUID", reflect.TypeOf((*MockReloadSpacesEnviron)(nil).ControllerUUID))
 }
 
 // GetEnviron mocks base method.

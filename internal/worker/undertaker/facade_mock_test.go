@@ -58,6 +58,20 @@ func (mr *MockFacadeMockRecorder) CloudSpec() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockFacade)(nil).CloudSpec))
 }
 
+// ControllerUUID mocks base method.
+func (m *MockFacade) ControllerUUID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerUUID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ControllerUUID indicates an expected call of ControllerUUID.
+func (mr *MockFacadeMockRecorder) ControllerUUID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerUUID", reflect.TypeOf((*MockFacade)(nil).ControllerUUID))
+}
+
 // ModelConfig mocks base method.
 func (m *MockFacade) ModelConfig() (*config.Config, error) {
 	m.ctrl.T.Helper()
