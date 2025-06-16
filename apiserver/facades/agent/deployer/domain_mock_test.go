@@ -145,6 +145,45 @@ func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetUnitNamesOnMachine mocks base method.
+func (m *MockApplicationService) GetUnitNamesOnMachine(arg0 context.Context, arg1 machine.Name) ([]unit.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitNamesOnMachine", arg0, arg1)
+	ret0, _ := ret[0].([]unit.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitNamesOnMachine indicates an expected call of GetUnitNamesOnMachine.
+func (mr *MockApplicationServiceMockRecorder) GetUnitNamesOnMachine(arg0, arg1 any) *MockApplicationServiceGetUnitNamesOnMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitNamesOnMachine", reflect.TypeOf((*MockApplicationService)(nil).GetUnitNamesOnMachine), arg0, arg1)
+	return &MockApplicationServiceGetUnitNamesOnMachineCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitNamesOnMachineCall wrap *gomock.Call
+type MockApplicationServiceGetUnitNamesOnMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitNamesOnMachineCall) Return(arg0 []unit.Name, arg1 error) *MockApplicationServiceGetUnitNamesOnMachineCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitNamesOnMachineCall) Do(f func(context.Context, machine.Name) ([]unit.Name, error)) *MockApplicationServiceGetUnitNamesOnMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitNamesOnMachineCall) DoAndReturn(f func(context.Context, machine.Name) ([]unit.Name, error)) *MockApplicationServiceGetUnitNamesOnMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitUUID mocks base method.
 func (m *MockApplicationService) GetUnitUUID(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()
