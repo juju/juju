@@ -68,7 +68,7 @@ func (config ManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCall
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	shim := &facadeShim{deployerFacade}
+	shim := &facadeShim{st: deployerFacade}
 	w, err := NewDeployer(shim, config.Logger, context)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start unit agent deployer worker")

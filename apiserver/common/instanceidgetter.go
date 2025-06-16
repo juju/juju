@@ -11,6 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
@@ -23,6 +24,8 @@ type MachineService interface {
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
 	// InstanceID returns the cloud specific instance id for this machine.
 	InstanceID(ctx context.Context, mUUID machine.UUID) (instance.Id, error)
+	// GetMachineLife returns the lifecycle of the machine.
+	GetMachineLife(ctx context.Context, name machine.Name) (life.Value, error)
 }
 
 // InstanceIdGetter implements a common InstanceId method for use by

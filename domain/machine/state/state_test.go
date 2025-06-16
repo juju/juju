@@ -310,7 +310,7 @@ func (s *stateSuite) TestGetMachineLifeSuccess(c *tc.C) {
 	obtainedLife, err := s.state.GetMachineLife(c.Context(), "666")
 	expectedLife := life.Alive
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(*obtainedLife, tc.Equals, expectedLife)
+	c.Assert(obtainedLife, tc.Equals, expectedLife)
 }
 
 // TestGetMachineLifeNotFound asserts that a NotFound error is returned when the
@@ -489,7 +489,7 @@ func (s *stateSuite) TestSetMachineLifeSuccess(c *tc.C) {
 	// Assert the life status is initially Alive
 	obtainedLife, err := s.state.GetMachineLife(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(*obtainedLife, tc.Equals, life.Alive)
+	c.Assert(obtainedLife, tc.Equals, life.Alive)
 
 	// Set the machine's life to Dead
 	err = s.state.SetMachineLife(c.Context(), "666", life.Dead)
@@ -498,7 +498,7 @@ func (s *stateSuite) TestSetMachineLifeSuccess(c *tc.C) {
 	// Assert we get the Dead as the machine's new life status.
 	obtainedLife, err = s.state.GetMachineLife(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(*obtainedLife, tc.Equals, life.Dead)
+	c.Assert(obtainedLife, tc.Equals, life.Dead)
 }
 
 // TestSetMachineLifeNotFoundError asserts that we get a NotFound if the

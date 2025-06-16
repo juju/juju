@@ -13,6 +13,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
@@ -183,12 +184,12 @@ func (s *serviceSuite) TestGetLifeSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	alive := life.Alive
-	s.state.EXPECT().GetMachineLife(gomock.Any(), machine.Name("666")).Return(&alive, nil)
+	s.state.EXPECT().GetMachineLife(gomock.Any(), machine.Name("666")).Return(alive, nil)
 
 	l, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineLife(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(l, tc.Equals, &alive)
+	c.Assert(l, tc.Equals, corelife.Alive)
 }
 
 // TestGetLifeError asserts that an error coming from the state layer is
@@ -197,11 +198,10 @@ func (s *serviceSuite) TestGetLifeError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetMachineLife(gomock.Any(), machine.Name("666")).Return(nil, rErr)
+	s.state.EXPECT().GetMachineLife(gomock.Any(), machine.Name("666")).Return(-1, rErr)
 
-	l, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineLife(c.Context(), "666")
-	c.Check(l, tc.IsNil)
 	c.Check(err, tc.ErrorIs, rErr)
 	c.Assert(err, tc.ErrorMatches, `getting life status for machine "666": boom`)
 }
@@ -212,11 +212,10 @@ func (s *serviceSuite) TestGetLifeError(c *tc.C) {
 func (s *serviceSuite) TestGetLifeNotFoundError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineLife(gomock.Any(), machine.Name("666")).Return(nil, coreerrors.NotFound)
+	s.state.EXPECT().GetMachineLife(gomock.Any(), machine.Name("666")).Return(-1, coreerrors.NotFound)
 
-	l, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineLife(c.Context(), "666")
-	c.Check(l, tc.IsNil)
 	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
 }
 

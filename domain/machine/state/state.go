@@ -370,17 +370,17 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mach
 
 // GetMachineLife returns the life status of the specified machine.
 // It returns a MachineNotFound if the given machine doesn't exist.
-func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.Life, error) {
+func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Capture(err)
+		return -1, errors.Capture(err)
 	}
 
 	machineNameParam := machineName{Name: mName}
 	queryForLife := `SELECT life_id as &machineLife.life_id FROM machine WHERE name = $machineName.name`
 	lifeStmt, err := st.Prepare(queryForLife, machineNameParam, machineLife{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return -1, errors.Capture(err)
 	}
 
 	var lifeResult life.Life
@@ -399,9 +399,9 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Errorf("getting life status for machine %q: %w", mName, err)
+		return -1, errors.Errorf("getting life status for machine %q: %w", mName, err)
 	}
-	return &lifeResult, nil
+	return lifeResult, nil
 }
 
 // GetMachineStatus returns the status of the specified machine.

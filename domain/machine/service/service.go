@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
@@ -54,7 +55,7 @@ type State interface {
 
 	// GetMachineLife returns the life status of the specified machine.
 	// It returns a MachineNotFound if the given machine doesn't exist.
-	GetMachineLife(context.Context, machine.Name) (*life.Life, error)
+	GetMachineLife(context.Context, machine.Name) (life.Life, error)
 
 	// SetMachineLife sets the life status of the specified machine.
 	// It returns a MachineNotFound if the provided machine doesn't exist.
@@ -316,15 +317,16 @@ func (s *Service) DeleteMachine(ctx context.Context, machineName machine.Name) e
 
 // GetMachineLife returns the GetMachineLife status of the specified machine.
 // It returns a NotFound if the given machine doesn't exist.
-func (s *Service) GetMachineLife(ctx context.Context, machineName machine.Name) (*life.Life, error) {
+func (s *Service) GetMachineLife(ctx context.Context, machineName machine.Name) (corelife.Value, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	life, err := s.st.GetMachineLife(ctx, machineName)
 	if err != nil {
-		return life, errors.Errorf("getting life status for machine %q: %w", machineName, err)
+		return corelife.Dead, errors.Errorf("getting life status for machine %q: %w", machineName, err)
 	}
-	return life, nil
+
+	return life.Value()
 }
 
 // SetMachineLife sets the life status of the specified machine.

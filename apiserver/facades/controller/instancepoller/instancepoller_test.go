@@ -67,6 +67,7 @@ func (s *InstancePollerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 func (s *InstancePollerSuite) setupAPI(c *tc.C) (err error) {
 	s.api, err = instancepoller.NewInstancePollerAPI(
 		nil,
+		nil,
 		s.networkService,
 		s.machineService,
 		nil,

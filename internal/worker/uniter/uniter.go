@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/exec"
@@ -257,6 +258,8 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	ctx, cancel := u.scopedContext()
 	defer cancel()
+
+	loggo.GetLogger("****").Criticalf("LOOP")
 
 	// Ensure that we pass in the tracer to the context, so that it can be
 	// used by the resolver.
@@ -734,6 +737,8 @@ func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error)
 		return errors.Errorf("unknown model type %q", u.modelType)
 	}
 
+	loggo.GetLogger("*****").Criticalf("UNIT %q STARTING UP", unitTag.Id())
+
 	// If we started up already dead, we should not progress further.
 	// If we become Dead immediately after starting up, we may well
 	// complete any operations in progress before detecting it,
@@ -755,6 +760,9 @@ func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	loggo.GetLogger("*****").Criticalf("WAITING FOR UNIT %q TO INITIALIZE %v", u.unit.Name(), currentStatus)
+
 	// TODO(fwereade/wallyworld): we should have an explicit place in the model
 	// to tell us when we've hit this point, instead of piggybacking on top of
 	// status and/or status history.

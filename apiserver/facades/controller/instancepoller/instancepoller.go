@@ -43,6 +43,7 @@ type InstancePollerAPI struct {
 // facade.
 func NewInstancePollerAPI(
 	st *state.State,
+	applicationService ApplicationService,
 	networkService NetworkService,
 	machineService MachineService,
 	m *state.Model,
@@ -62,8 +63,11 @@ func NewInstancePollerAPI(
 
 	// Life() is supported for machines.
 	lifeGetter := common.NewLifeGetter(
+		applicationService,
+		machineService,
 		sti,
 		accessMachine,
+		logger,
 	)
 	// WatchModelMachines() is allowed with unrestricted access.
 	machinesWatcher := commonmodel.NewModelMachinesWatcher(

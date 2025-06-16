@@ -476,10 +476,10 @@ func (c *MockStateGetInstanceStatusCall) DoAndReturn(f func(context.Context, mac
 }
 
 // GetMachineLife mocks base method.
-func (m *MockState) GetMachineLife(arg0 context.Context, arg1 machine.Name) (*life.Life, error) {
+func (m *MockState) GetMachineLife(arg0 context.Context, arg1 machine.Name) (life.Life, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachineLife", arg0, arg1)
-	ret0, _ := ret[0].(*life.Life)
+	ret0, _ := ret[0].(life.Life)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -497,19 +497,19 @@ type MockStateGetMachineLifeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachineLifeCall) Return(arg0 *life.Life, arg1 error) *MockStateGetMachineLifeCall {
+func (c *MockStateGetMachineLifeCall) Return(arg0 life.Life, arg1 error) *MockStateGetMachineLifeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachineLifeCall) Do(f func(context.Context, machine.Name) (*life.Life, error)) *MockStateGetMachineLifeCall {
+func (c *MockStateGetMachineLifeCall) Do(f func(context.Context, machine.Name) (life.Life, error)) *MockStateGetMachineLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachineLifeCall) DoAndReturn(f func(context.Context, machine.Name) (*life.Life, error)) *MockStateGetMachineLifeCall {
+func (c *MockStateGetMachineLifeCall) DoAndReturn(f func(context.Context, machine.Name) (life.Life, error)) *MockStateGetMachineLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

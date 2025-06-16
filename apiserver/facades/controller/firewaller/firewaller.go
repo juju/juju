@@ -98,8 +98,11 @@ func NewStateFirewallerAPI(
 
 	// Life() is supported for units, applications or machines.
 	lifeGetter := common.NewLifeGetter(
+		applicationService,
+		machineService,
 		st,
 		accessUnitApplicationOrMachineOrRelation,
+		logger,
 	)
 	// ModelConfig() and WatchForModelConfigChanges() are allowed
 	// with unrestricted access.
@@ -181,7 +184,7 @@ func (f *FirewallerAPI) Life(ctx context.Context, args params.Entities) (params.
 				err = jujuerrors.NotFoundf("unit %q", unitName)
 			}
 		default:
-			lifeValue, err = f.LifeGetter.OneLife(tag)
+			lifeValue, err = f.LifeGetter.OneLife(ctx, tag)
 		}
 		result.Results[i].Life = lifeValue
 		result.Results[i].Error = apiservererrors.ServerError(err)
