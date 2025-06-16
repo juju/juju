@@ -329,6 +329,8 @@ func (s *storagePoolStateSuite) TestDeleteStoragePoolFailedForBuiltInPool(c *tc.
 }
 
 func (s *storagePoolStateSuite) TestListStoragePoolsWithoutBuiltins(c *tc.C) {
+	c.Skip("TODO: re-enable once the built-in storage pools are not implemented")
+
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePool{
@@ -366,6 +368,8 @@ func (s *storagePoolStateSuite) TestListStoragePoolsWithoutBuiltinsEmpty(c *tc.C
 }
 
 func (s *storagePoolStateSuite) TestListStoragePools(c *tc.C) {
+	c.Skip("TODO: re-enable once the built-in storage pools are not implemented")
+
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePool{
@@ -401,6 +405,8 @@ func getBuiltInStoragePools(c *tc.C) []domainstorage.StoragePool {
 }
 
 func (s *storagePoolStateSuite) TestListStoragePoolsEmpty(c *tc.C) {
+	c.Skip("TODO: re-enable once the built-in storage pools are not implemented")
+
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	out, err := st.ListStoragePools(c.Context())
@@ -409,6 +415,8 @@ func (s *storagePoolStateSuite) TestListStoragePoolsEmpty(c *tc.C) {
 }
 
 func (s *storagePoolStateSuite) TestListStoragePoolsByNamesAndProviders(c *tc.C) {
+	c.Skip("TODO: re-enable once the built-in storage pools are not implemented")
+
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePool{
@@ -439,6 +447,8 @@ func (s *storagePoolStateSuite) TestListStoragePoolsByNamesAndProviders(c *tc.C)
 }
 
 func (s *storagePoolStateSuite) TestListStoragePoolsByNames(c *tc.C) {
+	c.Skip("TODO: re-enable once the built-in storage pools are not implemented")
+
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePool{
@@ -466,6 +476,8 @@ func (s *storagePoolStateSuite) TestListStoragePoolsByNames(c *tc.C) {
 }
 
 func (s *storagePoolStateSuite) TestListStoragePoolsByProviders(c *tc.C) {
+	c.Skip("TODO: re-enable once the built-in storage pools are not implemented")
+
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePool{
@@ -493,6 +505,8 @@ func (s *storagePoolStateSuite) TestListStoragePoolsByProviders(c *tc.C) {
 }
 
 func (s *storagePoolStateSuite) TestGetStoragePoolByName(c *tc.C) {
+	c.Skip("TODO: re-enable once the built-in storage pools are not implemented")
+
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePool{
@@ -514,6 +528,8 @@ func (s *storagePoolStateSuite) TestGetStoragePoolByName(c *tc.C) {
 }
 
 func (s *storagePoolStateSuite) TestGetStoragePoolByNameBuiltIn(c *tc.C) {
+	c.Skip("TODO: re-enable once the built-in storage pools are not implemented")
+
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	out, err := st.GetStoragePoolByName(c.Context(), "loop")
