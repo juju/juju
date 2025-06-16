@@ -35,6 +35,8 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.metrics = NewMockMetricsCollector(ctrl)
 	s.term = NewMockTerm(ctrl)
 
+	s.clock.EXPECT().Now().AnyTimes()
+
 	return ctrl
 }
 
@@ -110,11 +112,13 @@ func newWaitGroup(amount uint64) *waitGroup {
 		amount: amount,
 	}
 }
+
 func (w *waitGroup) Done() {
 	if atomic.AddUint64(&w.state, 1) == w.amount {
 		close(w.ch)
 	}
 }
+
 func (w *waitGroup) Wait() <-chan struct{} {
 	return w.ch
 }

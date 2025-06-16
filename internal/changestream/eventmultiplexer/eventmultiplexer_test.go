@@ -72,7 +72,6 @@ func (s *eventMultiplexerSuite) TestDispatch(c *tc.C) {
 
 	s.metrics.EXPECT().SubscriptionsInc()
 	s.metrics.EXPECT().SubscriptionsDec()
-	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
@@ -140,7 +139,6 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *tc.C, opts ...changestre
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(10)
 	s.metrics.EXPECT().SubscriptionsDec().Times(10)
-	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
@@ -208,7 +206,6 @@ func (s *eventMultiplexerSuite) TestUnsubscribeTwice(c *tc.C) {
 
 	s.metrics.EXPECT().SubscriptionsInc()
 	s.metrics.EXPECT().SubscriptionsDec()
-	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
@@ -288,7 +285,6 @@ func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *tc.C) {
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(2)
 	s.metrics.EXPECT().SubscriptionsDec().Times(2)
-	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
@@ -340,7 +336,6 @@ func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *tc.C
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
 	s.metrics.EXPECT().SubscriptionsInc()
-	s.clock.EXPECT().Now().MinTimes(1)
 	// We might encounter a dispatch error, therefore we cannot hard-code
 	// a false on the second argument of DispatchDurationObserve.
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), gomock.Any())
@@ -381,8 +376,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(2)
-	s.metrics.EXPECT().SubscriptionsDec().Times(4)
-	s.clock.EXPECT().Now().MinTimes(1)
+	s.metrics.EXPECT().SubscriptionsDec().Times(2)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
@@ -410,24 +404,28 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 		go func(i int, sub changestream.Subscription) {
 			defer wg.Done()
 
+			// Wait for the changes, but we might not receive them, as we
+			// are unsubscribing the other subscription during a dispatch. In
+			// this case, just wait for the timeout.
 			select {
 			case <-sub.Changes():
-				subs[len(subs)-1-i].Unsubscribe()
-			case <-c.Context().Done():
+			case <-time.After(testing.ShortWait):
 			}
+
+			subs[len(subs)-1-i].Unsubscribe()
 		}(i, sub)
 	}
 
 	select {
 	case <-wg.Wait():
-	case <-time.After(testing.ShortWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for all events")
 	}
 
 	for _, sub := range subs {
 		select {
 		case <-sub.Done():
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for event")
 		}
 	}
@@ -445,7 +443,6 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(2)
 	s.metrics.EXPECT().SubscriptionsDec().Times(2)
-	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
@@ -472,28 +469,32 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 	wg := newWaitGroup(uint64(len(subs)))
 	for i, sub := range subs {
 		go func(sub changestream.Subscription, i int) {
+			// Wait for the changes, but we might not receive them, as we
+			// are unsubscribing the other subscription during a dispatch. In
+			// this case, just wait for the timeout.
 			select {
 			case <-sub.Changes():
-				go func() {
-					defer wg.Done()
-
-					subs[len(subs)-1-i].Unsubscribe()
-				}()
-			case <-c.Context().Done():
+			case <-time.After(testing.ShortWait):
 			}
+
+			go func() {
+				defer wg.Done()
+
+				subs[len(subs)-1-i].Unsubscribe()
+			}()
 		}(sub, i)
 	}
 
 	select {
 	case <-wg.Wait():
-	case <-time.After(testing.ShortWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for all events")
 	}
 
 	for _, sub := range subs {
 		select {
 		case <-sub.Done():
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for event")
 		}
 	}
@@ -511,7 +512,6 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *tc.C) {
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(2)
-	s.clock.EXPECT().Now().MinTimes(2)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
@@ -580,7 +580,6 @@ func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *tc.C) {
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(2)
 	s.metrics.EXPECT().SubscriptionsDec().MinTimes(1)
-	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
@@ -717,7 +716,7 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *tc.C) {
 	defer workertest.CleanKill(c, queue)
 
 	var subs []changestream.Subscription
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		sub, err := queue.Subscribe()
 		c.Assert(err, tc.ErrorIsNil)
 

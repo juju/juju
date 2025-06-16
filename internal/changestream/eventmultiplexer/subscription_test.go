@@ -108,7 +108,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNoteWitnessChangesWithCancelledC
 		cancel()
 
 		err := sub.dispatch(ctx, changes)
-		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIs, context.Canceled)
 	}()
 
 	select {
@@ -133,7 +133,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *tc
 	sub := newSubscription(0, func() {
 		atomic.AddInt64(&witnessed, 1)
 	})
-	defer workertest.CleanKill(c, sub)
+	defer workertest.DirtyKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
 		ctype:   changestreamtesting.Create,
@@ -151,7 +151,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *tc
 		time.Sleep(time.Millisecond)
 
 		err := sub.dispatch(ctx, changes)
-		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIs, context.DeadlineExceeded)
 	}()
 
 	select {
@@ -178,7 +178,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *tc
 	sub := newSubscription(0, func() {
 		c.Fatalf("failed if called")
 	})
-	defer workertest.CleanKill(c, sub)
+	defer workertest.DirtyKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
 		ctype:   changestreamtesting.Create,
@@ -194,7 +194,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *tc
 		c.Assert(err, tc.ErrorIsNil)
 
 		err = sub.dispatch(c.Context(), changes)
-		c.Assert(err, tc.ErrorMatches, "tomb: dying")
+		c.Assert(err, tc.ErrorIs, subscriptionClosed)
 	}()
 
 	select {
@@ -209,5 +209,6 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *tc
 	case <-time.After(testing.ShortWait):
 	}
 
-	workertest.CleanKill(c, sub)
+	err := workertest.CheckKill(c, sub)
+	c.Assert(err, tc.ErrorIs, subscriptionClosed)
 }

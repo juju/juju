@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -214,9 +213,6 @@ func (e *EventMultiplexer) unsubscribe(subscriptionID uint64) {
 		return
 	case e.unsubscriptionCh <- subscriptionID:
 	}
-
-	// Decrease number of subscriptions metric.
-	e.metrics.SubscriptionsDec()
 }
 
 func (e *EventMultiplexer) loop() error {
@@ -234,25 +230,36 @@ func (e *EventMultiplexer) loop() error {
 				// Get a new subscription count without using any mutexes.
 				subID := atomic.AddUint64(&e.subscriptionsCount, 1)
 
+				// Start the worker for the subscription.
 				err := e.runner.StartWorker(ctx, e.subName(subID), func(ctx context.Context) (worker.Worker, error) {
-					sub := newSubscription(subID, func() { e.unsubscribe(subID) })
-
-					e.processSubscription(sub, request)
-
-					request.result <- requestSubscriptionResult{
-						sub: sub,
-					}
-
-					return sub, nil
+					return newSubscription(subID, func() { e.unsubscribe(subID) }), nil
 				})
 				if errors.Is(err, e.catacomb.ErrDying()) {
+					// This is fine since the caller should also be
+					// handling the dying state of the multiplexer.
 					return
 				} else if err != nil {
 					request.result <- requestSubscriptionResult{
 						err: err,
 					}
+					continue
 				}
 
+				sub := e.processSubscription(ctx, subID, request)
+				if sub == nil {
+					// If the subscription was not created, then we should
+					// signal the request with an error.
+					request.result <- requestSubscriptionResult{
+						err: errors.Errorf("subscription %d not found", subID),
+					}
+					continue
+				}
+
+				// We're up and running, so we can signal to the subscription that
+				// it has been successfully created and is ready to receive changes.
+				request.result <- requestSubscriptionResult{
+					sub: sub,
+				}
 				continue
 
 			case subscriptionID := <-e.unsubscriptionCh:
@@ -322,29 +329,35 @@ func (e *EventMultiplexer) loop() error {
 			// Dispatch the set of changes, but do not cause the worker to
 			// exit. Just log out the error and then mark the term as done.
 			// There isn't anything we can do in this case.
-			err := e.dispatchSet(changeSet)
-			if err != nil {
-				e.logger.Errorf(ctx, "dispatching set: %v", err)
+			dispatchErrs := e.dispatchSet(ctx, changeSet)
+			failed := len(dispatchErrs) > 0
+			if failed {
+				e.logger.Errorf(ctx, "dispatching set: %v", dispatchErrs)
 				e.dispatchErrorCount++
 			}
-			e.metrics.DispatchDurationObserve(e.clock.Now().Sub(begin).Seconds(), err != nil)
+			e.metrics.DispatchDurationObserve(e.clock.Now().Sub(begin).Seconds(), failed)
 
 			// We should guarantee that the change set is not empty, so we
 			// can force false here.
 			term.Done(false, e.catacomb.Dying())
 
 			// TODO (stickupkid): We might want to run runtime.Gosched()
-			/// here to allow other goroutines to run. This might end up
+			// here to allow other goroutines to run. This might end up
 			// being a bottleneck if we have a lot of changes coming in.
 		}
 	}
 }
 
-func (e *EventMultiplexer) processSubscription(sub *subscription, request requestSubscription) {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
+func (e *EventMultiplexer) processSubscription(ctx context.Context, subscriptionID uint64, request requestSubscription) *subscription {
+	sub, err := e.getSubscription(subscriptionID)
+	if err != nil {
+		e.logger.Debugf(ctx, "unsubscription for %d failed: %v", subscriptionID, err)
+		return nil
+	} else if sub == nil {
+		return nil
+	}
 
-	e.metrics.SubscriptionsInc()
+	e.mutex.Lock()
 
 	// No options were supplied, just add it to the all bucket, so
 	// they'll be included in every dispatch.
@@ -365,20 +378,19 @@ func (e *EventMultiplexer) processSubscription(sub *subscription, request reques
 			sub.topics[namespace] = struct{}{}
 		}
 	}
+
+	e.mutex.Unlock()
+
+	e.metrics.SubscriptionsInc()
+
+	return sub
 }
 
 func (e *EventMultiplexer) processUnsubscription(ctx context.Context, subscriptionID uint64) {
-	worker, err := e.runner.Worker(e.subName(subscriptionID), e.catacomb.Dying())
-	if errors.Is(err, e.catacomb.ErrDying()) || errors.Is(err, errors.NotFound) {
+	sub, err := e.getSubscription(subscriptionID)
+	if err != nil {
 		return
-	} else if err != nil {
-		e.logger.Errorf(ctx, "error getting worker for subscription %d: %v", subscriptionID, err)
-		return
-	}
-
-	sub, ok := worker.(*subscription)
-	if !ok {
-		e.logger.Errorf(ctx, "worker for subscription %d is not a subscription: %T", subscriptionID, worker)
+	} else if sub == nil {
 		return
 	}
 
@@ -408,14 +420,30 @@ func (e *EventMultiplexer) processUnsubscription(ctx context.Context, subscripti
 
 	e.mutex.Unlock()
 
+	e.metrics.SubscriptionsDec()
+
 	// If the subscription errors out on a close, we don't want that
 	// to bring down the entire multiplexer. Instead, just log it out
 	// and continue.
 	if err := sub.close(); err != nil {
-		e.logger.Infof(ctx, "error closing subscription: %v", err)
+		e.logger.Infof(ctx, "error closing subscription %d: %v", subscriptionID, err)
 	}
 
-	e.metrics.SubscriptionsDec()
+	// Lastly, remove the worker from the runner. This will prevent the
+	// report from including the subscription in the list of active
+	// subscriptions.
+	_ = e.runner.StopAndRemoveWorker(e.subName(subscriptionID), e.catacomb.Dying())
+}
+
+func (e *EventMultiplexer) getSubscription(subscriptionID uint64) (*subscription, error) {
+	worker, err := e.runner.Worker(e.subName(subscriptionID), e.catacomb.Dying())
+	if errors.Is(err, e.catacomb.ErrDying()) || errors.Is(err, errors.NotFound) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return worker.(*subscription), nil
 }
 
 type reporter interface {
@@ -463,24 +491,33 @@ func (e *EventMultiplexer) gatherSubscriptions(ctx context.Context, ch changestr
 	return results
 }
 
-// dispatchSet fans out the subscription requests against a given term of changes.
-// Each subscription signals the change in a asynchronous fashion, allowing
-// a subscription to not block another change within a given term.
-func (e *EventMultiplexer) dispatchSet(changeSet map[*subscription]ChangeSet) error {
-	grp, ctx := errgroup.WithContext(e.catacomb.Context(context.Background()))
+// dispatchSet fans out the subscription requests against a given term of
+// changes. Each subscription signals the change in a asynchronous fashion,
+// allowing a subscription to not block another change within a given term.
+func (e *EventMultiplexer) dispatchSet(ctx context.Context, changeSet map[*subscription]ChangeSet) []error {
+	var wg sync.WaitGroup
 
+	errs := make(chan error, len(changeSet))
 	for sub, changes := range changeSet {
-		sub, changes := sub, changes
+		wg.Add(1)
 
-		grp.Go(func() error {
-			// Pass the context of the catacomb with the deadline to the
-			// subscription. This allows the subscription to be cancelled
-			// if the catacomb is dying or if the deadline is reached.
-			return sub.dispatch(ctx, changes)
-		})
+		go func(sub *subscription, changes ChangeSet) {
+			defer wg.Done()
+
+			errs <- sub.dispatch(ctx, changes)
+		}(sub, changes)
 	}
 
-	return grp.Wait()
+	wg.Wait()
+	close(errs)
+
+	var results []error
+	for err := range errs {
+		if err != nil && !errors.Is(err, subscriptionClosed) {
+			results = append(results, err)
+		}
+	}
+	return results
 }
 
 func (e *EventMultiplexer) scopedContext() (context.Context, context.CancelFunc) {

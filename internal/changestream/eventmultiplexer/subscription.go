@@ -11,6 +11,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -19,6 +20,8 @@ const (
 	// Failure to consume the changes within this time will result in the
 	// subscriber being unsubscribed.
 	DefaultSignalTimeout = time.Second * 10
+
+	subscriptionClosed = internalerrors.ConstError("subscription closed")
 )
 
 type requestSubscription struct {
@@ -56,16 +59,8 @@ func newSubscription(id uint64, unsubscribeFn func()) *subscription {
 }
 
 // Unsubscribe removes the subscription from the event queue asynchronously.
-// This ensures that all unsubscriptions can be serialized. No unsubscribe will
-// actually never happen inside a dispatch call. If you attempt to unsubscribe
-// whilst the dispatch signalling, the unsubscribe will happen after all
-// dispatches have been called.
 func (s *subscription) Unsubscribe() {
-	select {
-	case <-s.tomb.Dying():
-	default:
-		s.unsubscribeFn()
-	}
+	s.unsubscribeFn()
 }
 
 // Changes returns the channel that the subscription will receive events on.
@@ -101,7 +96,7 @@ func (s *subscription) dispatch(ctx context.Context, changes ChangeSet) error {
 
 	select {
 	case <-s.tomb.Dying():
-		return tomb.ErrDying
+		return s.tomb.Err()
 
 	case <-ctx.Done():
 		// If the context was timed out, which means that nothing was pulling
@@ -110,18 +105,23 @@ func (s *subscription) dispatch(ctx context.Context, changes ChangeSet) error {
 		// notified via the done channel. The listener will still have the
 		// opportunity to resubscribe in the future. They're just no longer
 		// par-taking in this term whilst they're unresponsive.
-		if err := ctx.Err(); err != nil && errors.Is(err, context.DeadlineExceeded) {
+		err := ctx.Err()
+		if errors.Is(err, context.DeadlineExceeded) {
 			s.Unsubscribe()
 		}
+		return err
 
 	case s.changes <- changes:
+		return nil
 	}
-	return nil
 }
 
 // close closes the active channel, which will signal to the consumer that the
 // subscription is no longer active.
 func (s *subscription) close() error {
-	s.tomb.Kill(nil)
-	return s.Wait()
+	s.tomb.Kill(subscriptionClosed)
+	if err := s.Wait(); err != nil && !errors.Is(err, subscriptionClosed) {
+		return err
+	}
+	return nil
 }
