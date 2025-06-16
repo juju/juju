@@ -980,7 +980,7 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 			for _, sa := range unitStorage {
 				si, err := a.storage.StorageInstance(sa.StorageInstance())
 				if errors.Is(err, errors.NotFound) {
-					a.logger.Warningf(ctx, "ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
+					//a.logger.Warningf(ctx, "ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
 					continue
 				}
 				if err != nil {
@@ -1053,7 +1053,7 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 	for _, unitParams := range unitUpdates {
 		unit, ok := unitByProviderID[unitParams.ProviderId]
 		if !ok {
-			a.logger.Warningf(ctx, "ignoring non-existent unit with provider id %q", unitParams.ProviderId)
+			//a.logger.Warningf(ctx, "ignoring non-existent unit with provider id %q", unitParams.ProviderId)
 			continue
 		}
 
