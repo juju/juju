@@ -471,6 +471,10 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 	}
 }
 
+func (sb *StubBacking) ControllerUUID() string {
+	return "dummy-controller-uuid"
+}
+
 func (sb *StubBacking) AdditionalSubnets() {
 	for i, info := range ProviderInstance.Subnets[10:] {
 		sb.Subnets = append(sb.Subnets, &FakeSubnet{

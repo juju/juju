@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/subnets"
 	"github.com/juju/juju/apiserver/facades/client/subnets/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
@@ -118,23 +117,11 @@ type stubBacking struct {
 	*apiservertesting.StubBacking
 }
 
-func (sb *stubBacking) ControllerConfig() (controller.Config, error) {
-	return controller.Config{controller.ControllerUUIDKey: "dummy-controller-uuid"}, nil
+func (sb *stubBacking) ControllerUUID() string {
+	return sb.StubBacking.ControllerUUID()
 }
 
 func (sb *stubBacking) SubnetsByCIDR(_ string) ([]networkingcommon.BackingSubnet, error) {
-	panic("should not be called")
-}
-
-type stubBackingWithBrokenController struct {
-	*apiservertesting.StubBacking
-}
-
-func (s *stubBackingWithBrokenController) ControllerConfig() (controller.Config, error) {
-	return controller.Config{}, errors.New("broken controller")
-}
-
-func (sb *stubBackingWithBrokenController) SubnetsByCIDR(_ string) ([]networkingcommon.BackingSubnet, error) {
 	panic("should not be called")
 }
 
@@ -345,27 +332,6 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *gc.C
 		apiservertesting.BackingCall("AvailabilityZones"),
 		apiservertesting.BackingCall("ModelConfig"),
 	)
-}
-
-func (s *SubnetsSuite) TestControllerConfigFails(c *gc.C) {
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
-	apiservertesting.SharedStub.SetErrors(
-		nil, // Backing.AvailabilityZones
-	)
-	var err error
-	s.facade, err = subnets.NewAPIWithBacking(
-		&stubBackingWithBrokenController{apiservertesting.BackingInstance},
-		s.callContext,
-		s.resources, s.authorizer,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	results, err := s.facade.AllZones()
-
-	c.Assert(err, gc.ErrorMatches,
-		`cannot update known zones: getting controller config: broken controller`,
-	)
-	c.Assert(results.Results, gc.HasLen, 0)
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {

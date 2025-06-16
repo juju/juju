@@ -62,9 +62,10 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
+	dummyControllerUuid := "dummy-controller-uuid"
 
 	model := mocks.NewMockModel(ctrl)
-	model.EXPECT().ControllerUUID().Return("dummy-controller-uuid")
+	model.EXPECT().ControllerUUID().Return(dummyControllerUuid)
 	s.st.EXPECT().Model().Return(model, nil)
 
 	itCons := constraints.Value{CpuCores: &over9kCPUCores}
@@ -85,9 +86,9 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	).MinTimes(1)
 
 	fakeEnvironGet := func(st environs.EnvironConfigGetter,
-		controllerUUID string,
 		newEnviron environs.NewEnvironFunc,
 	) (environs.Environ, error) {
+		c.Assert(st.ControllerUUID(), gc.Equals, dummyControllerUuid)
 		return env, nil
 	}
 

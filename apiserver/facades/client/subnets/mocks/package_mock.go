@@ -13,7 +13,6 @@ import (
 	reflect "reflect"
 
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
-	controller "github.com/juju/juju/controller"
 	network "github.com/juju/juju/core/network"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
@@ -104,19 +103,18 @@ func (mr *MockBackingMockRecorder) CloudSpec() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockBacking)(nil).CloudSpec))
 }
 
-// ControllerConfig mocks base method.
-func (m *MockBacking) ControllerConfig() (controller.Config, error) {
+// ControllerUUID mocks base method.
+func (m *MockBacking) ControllerUUID() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(controller.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "ControllerUUID")
+	ret0, _ := ret[0].(string)
+	return ret0
 }
 
-// ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockBackingMockRecorder) ControllerConfig() *gomock.Call {
+// ControllerUUID indicates an expected call of ControllerUUID.
+func (mr *MockBackingMockRecorder) ControllerUUID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBacking)(nil).ControllerConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerUUID", reflect.TypeOf((*MockBacking)(nil).ControllerUUID))
 }
 
 // ModelConfig mocks base method.
