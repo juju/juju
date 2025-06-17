@@ -391,7 +391,7 @@ Storage declares that a charm needs either a block or filesystem - how that is r
 
 ### In general
 
-Charm storage is defined in the [`storage` key in `charmcraft.yaml`](https://juju.is/docs/sdk/charmcraft-yaml#heading--storage).
+Charm storage is defined [in the `storage` key in `charmcraft.yaml`](https://canonical-charmcraft.readthedocs-hosted.com/stable/reference/files/charmcraft-yaml-file/).
 
 The `storage` map definition:
 
@@ -473,8 +473,8 @@ There are two key events associated with storage:
 
 |         Event name         |                                                 Event Type                                                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | :------------------------: | :--------------------------------------------------------------------------------------------------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>_storage_attached`  | [`StorageAttachedEvents`](https://ops.readthedocs.io/en/latest/index.html#ops.StorageAttachedEvent)  | This event is triggered when new storage is available for the charm to use. Callback methods bound to this event allow the charm to run code when storage has been added.<br/><br/>Such methods will be run before the `install` event fires, so that the installation routine may use the storage. The name prefix of this hook will depend on the storage key defined in the `metadata.yaml` file.                            |
-| `<name>_storage_detaching` | [`StorageDetachingEvent`](https://ops.readthedocs.io/en/latest/index.html#ops.StorageDetachingEvent) | Callback methods bound to this event allow the charm to run code before storage is removed.<br/><br/>Such methods will be run before storage is detached, and always before the `stop` event fires, thereby allowing the charm to gracefully release resources before they are removed and before the unit terminates.<br/><br/>The name prefix of the hook will depend on the storage key defined in the `metadata.yaml` file. |
+| `<name>_storage_attached`  | [`StorageAttachedEvents`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageAttachedEvent)  | This event is triggered when new storage is available for the charm to use. Callback methods bound to this event allow the charm to run code when storage has been added.<br/><br/>Such methods will be run before the `install` event fires, so that the installation routine may use the storage. The name prefix of this hook will depend on the storage key defined in the `metadata.yaml` file.                            |
+| `<name>_storage_detaching` | [`StorageDetachingEvent`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageDetachingEvent) | Callback methods bound to this event allow the charm to run code before storage is removed.<br/><br/>Such methods will be run before storage is detached, and always before the `stop` event fires, thereby allowing the charm to gracefully release resources before they are removed and before the unit terminates.<br/><br/>The name prefix of the hook will depend on the storage key defined in the `metadata.yaml` file. |
 
 ### Charm and container access to storage
 
@@ -510,8 +510,8 @@ def _my_hook_function(self, event):
 ```
 
 This example utilizes the framework's representation of juju storage - i.e. `self.model.storages`
-which returns a [`mapping`](https://ops.readthedocs.io/en/latest/index.html#ops.StorageMapping) of
-`<storage_name>` to [`Storage`](https://ops.readthedocs.io/en/latest/index.html#ops.Storage)
+which returns a [`mapping`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageMapping) of
+`<storage_name>` to [`Storage`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.Storage)
 objects, which exposes the `name`, `id` and `location` of each storage to the charm developer,
 where `id` is the underlying storage provider ID.
 
@@ -572,15 +572,13 @@ under an indexed subdirectory of that storage's main directory - e.g.
 does not modify or affect existing storage mounts.  This would generate two separate
 storage-attached events that should be handled.
 
-In addition to juju client requests for adding storage, the [`StorageMapping`](https://ops.readthedocs.io/en/latest/index.html#ops.StorageMapping)
+In addition to juju client requests for adding storage, the [`StorageMapping`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageMapping)
 returned by `self.model.storages` also exposes a
-[`request`](https://ops.readthedocs.io/en/latest/index.html#ops.StorageMapping.request)
+[`request`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageMapping.request)
 method (e.g. `self.model.storages.request()`) which provides an expedient method for the developer
 to invoke the underlying {ref}`storage-add <hook-command-storage-add>` hook command in
 the charm to request additional storage. On success, this will fire a
 {ref}`storage-attached <hook-storage-attached>` hook.
-
-
 
 (storage-support)=
 ## Storage Support

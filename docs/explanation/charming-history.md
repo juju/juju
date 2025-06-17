@@ -1,7 +1,7 @@
 (charming-history)=
 # About charming history
 
-Since its beginnings in 2009, the writing of charms has gone through multiple phases, comprising three different frameworks based on three different libraries. This document explains this evolution. 
+Since its beginnings in 2009, the writing of charms has gone through multiple phases, comprising three different frameworks based on three different libraries. This document explains this evolution.
 
 ## Background
 
@@ -25,9 +25,9 @@ Derived from [reactive programming](https://en.wikipedia.org/wiki/Reactive_progr
 
 ## 2019 - Present: The Operator Framework Ops
 
-The latest and most current framework is the [Ops Framework](https://github.com/canonical/operator), which was released with initial focus on enabling the development of charms for Kubernetes, while also simplifying the development of charms for other substrates. This framework provides a single library for developers to target when authoring charms for any substrate. The Ops Framework extends the operator pattern beyond Kubernetes and into multi-cloud, multi-substrate application management.
+The latest and most current framework is the [Ops framework](https://github.com/canonical/operator), which was released with initial focus on enabling the development of charms for Kubernetes, while also simplifying the development of charms for other substrates. This framework provides a single library for developers to target when authoring charms for any substrate. The Ops Framework extends the operator pattern beyond Kubernetes and into multi-cloud, multi-substrate application management.
 
-The Ops Framework is event driven and implements the [observer pattern](https://en.wikipedia.org/wiki/Observer_pattern). The Juju controller emits events that charms observe and respond to at key points during an application’s [lifecycle](https://juju.is/docs/sdk/events). In-keeping with the goal of enabling developers to share and reuse quality, reviewed operator code, the Ops Framework introduced the concept of charm [libraries](https://juju.is/docs/sdk/libraries).
+The Ops framework is event driven and implements the [observer pattern](https://en.wikipedia.org/wiki/Observer_pattern). The Juju controller emits events that charms observe and respond to at key points during an application’s {ref}`lifecycle <hook>`. In keeping with the goal of enabling developers to share and reuse quality, reviewed operator code, the Ops Framework introduced the concept of charm [libraries](https://canonical-charmcraft.readthedocs-hosted.com/stable/reference/files/libname-py-file/).
 
 In addition to the new framework, a new tool was introduced named [`charmcraft`](https://github.com/canonical/charmcraft), which enables developers to easily create new charms (templated for use with the Ops Framework), and publish/release charms to the [Charmhub](https://charmhub.io) - the home of the Open Operator Collection.
 

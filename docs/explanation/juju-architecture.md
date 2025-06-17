@@ -32,7 +32,7 @@ A controller is needed to perform any further Juju operations, such as deploying
 ![JujuOnMachinesBootstrapProcess](juju-architecture-bootstrap-machines-process.png)
 <br> *Bootstrapping a controller on a machine cloud: The process.*<br>
 
-> See more: [Source code](https://github.com/juju/juju/blob/HEAD/cmd/jujud/agent/bootstrap.go), {ref}`bootstrap-a-controller`
+> See more: {ref}`bootstrap-a-controller`
 
 #### The result
 

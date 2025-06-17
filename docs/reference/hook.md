@@ -4,7 +4,7 @@
 In Juju, a **hook** is a notification from  the controller agent through the unit agent to the charm that the internal representation of Juju has changed in a way that requires a reaction from the charm so that the unit's state and the controller's state can be reconciled.
 
 
-For a charm written with [Ops](https://ops.readthedocs.io/en/latest/), Juju hooks are translated into Ops events = 'events', specifically, into classes that inherit from [`HookEvent`](https://ops.readthedocs.io/en/latest/index.html#ops.HookEvent).
+For a charm written with [Ops](https://ops.readthedocs.io/en/latest/), Juju hooks are translated into Ops events = 'events', specifically, into classes that inherit from [`HookEvent`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.HookEvent).
 
 Whenever a hook event is received, the associated event handler should ensure the current charm configuration is properly reflected in the underlying application configuration.
 Invocations of associated handlers should be idempotent and should not make changes to the environment, or restart services, unless there is a material change to the charm's configuration, such as a change in the port exposed by the charm, addition or removal of a relation which may require a database migration or a "scale out" event for high availability, or similar.
@@ -521,9 +521,9 @@ The charm responsible for the container to which the hook pertains.
 The requested container being ready.
 
 The `pebble-ready` event doesn't guarantee the workload container is *still* up. For example, if you manually `kubectl patch` during (for example) `install`, then you may receive this event after the old workload is down but before the new one is up.
-For this reason it's essential, even in `pebble-ready` event handlers, to catch [`ConnectionError`](https://ops.readthedocs.io/en/latest/pebble.html#ops.pebble.ConnectionError) when using Pebble to make container changes. There is a [`Container.can_connect`()](https://ops.readthedocs.io/en/latest/#ops.Container.can_connect) method, but note that this is a point-in-time check, so just because `can_connect()` returns `True` doesn’t mean it will still return `True` moments later. So, **code defensively** to avoid race conditions.
+For this reason it's essential, even in `pebble-ready` event handlers, to catch [`ConnectionError`](https://ops.readthedocs.io/en/latest/reference/pebble.html#ops.pebble.ConnectionError) when using Pebble to make container changes. There is a [`Container.can_connect`()](https://ops.readthedocs.io/en/latest/reference/ops-testing.html#ops.testing.Container.can_connect) method, but note that this is a point-in-time check, so just because `can_connect()` returns `True` doesn’t mean it will still return `True` moments later. So, **code defensively** to avoid race conditions.
 
-Moreover, as pod churn can occur at any moment, `pebble-ready` events can be received throughout any phase of [a charm's lifecycle](https://juju.is/docs/sdk/a-charms-life). Each container could churn multiple times, and they all can do so independently from one another. In short, the charm should make no assumptions at all about the moment in time at which it may or may not receive `pebble-ready` events, or how often that can occur. The fact that the charm receives a `pebble-ready` event indicates that the container has just become ready (for the first time, or again, after pod churn), therefore you typically will need to **reconfigure your workload from scratch** every single time.
+Moreover, as pod churn can occur at any moment, `pebble-ready` events can be received throughout any phase of a charm's lifecycle. Each container could churn multiple times, and they all can do so independently from one another. In short, the charm should make no assumptions at all about the moment in time at which it may or may not receive `pebble-ready` events, or how often that can occur. The fact that the charm receives a `pebble-ready` event indicates that the container has just become ready (for the first time, or again, after pod churn), therefore you typically will need to **reconfigure your workload from scratch** every single time.
 
 This feature of `pebble-ready` events make them especially suitable for a [holistic handling pattern](https://ops.readthedocs.io/en/latest/explanation/holistic-vs-delta-charms.html).
 
@@ -1269,7 +1269,7 @@ Any unit.
 
 
 
-(hook-storage-storage-attached)=
+(hook-storage-attached)=
 ### `<storage>-storage-attached`
 
 *What triggers it?*
@@ -1290,7 +1290,7 @@ TBA
 TBA
 -->
 
-(hook-storage-storage-detaching)=
+(hook-storage-detaching)=
 ### `<storage>-storage-detaching`
 
 *What triggers it?*
