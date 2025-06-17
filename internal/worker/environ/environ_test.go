@@ -27,12 +27,12 @@ type TrackerSuite struct {
 
 var _ = gc.Suite(&TrackerSuite{})
 
-func (s *TrackerSuite) validConfig(observer environ.ConfigAPI) environ.Config {
-	if observer == nil {
-		observer = &runContext{}
+func (s *TrackerSuite) validConfig(configAPI environ.ConfigAPI) environ.Config {
+	if configAPI == nil {
+		configAPI = &runContext{}
 	}
 	return environ.Config{
-		Observer:       observer,
+		ConfigAPI:      configAPI,
 		NewEnvironFunc: newMockEnviron,
 		Logger:         loggo.GetLogger("test"),
 	}
@@ -40,10 +40,10 @@ func (s *TrackerSuite) validConfig(observer environ.ConfigAPI) environ.Config {
 
 func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
 	config := s.validConfig(nil)
-	config.Observer = nil
+	config.ConfigAPI = nil
 	s.testValidate(c, config, func(err error) {
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
-		c.Check(err, gc.ErrorMatches, "nil Observer not valid")
+		c.Check(err, gc.ErrorMatches, "nil ConfigAPI not valid")
 	})
 }
 

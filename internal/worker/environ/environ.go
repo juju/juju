@@ -34,15 +34,15 @@ type ConfigAPI interface {
 // It's arguable that it should be called TrackerConfig, because of the heavy
 // use of model config in this package.
 type Config struct {
-	Observer       ConfigAPI
+	ConfigAPI      ConfigAPI
 	NewEnvironFunc environs.NewEnvironFunc
 	Logger         Logger
 }
 
 // Validate returns an error if the config cannot be used to start a Tracker.
 func (config Config) Validate() error {
-	if config.Observer == nil {
-		return errors.NotValidf("nil Observer")
+	if config.ConfigAPI == nil {
+		return errors.NotValidf("nil ConfigAPI")
 	}
 	if config.NewEnvironFunc == nil {
 		return errors.NotValidf("nil NewEnvironFunc")
@@ -73,7 +73,7 @@ func NewTracker(config Config) (*Tracker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	environ, spec, err := environs.GetEnvironAndCloud(config.Observer, config.NewEnvironFunc)
+	environ, spec, err := environs.GetEnvironAndCloud(config.ConfigAPI, config.NewEnvironFunc)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -104,7 +104,7 @@ func (t *Tracker) loop() (err error) {
 	defer errors.DeferredAnnotatef(&err, "model %q (%s)", cfg.Name(), cfg.UUID())
 
 	logger := t.config.Logger
-	environWatcher, err := t.config.Observer.WatchForModelConfigChanges()
+	environWatcher, err := t.config.ConfigAPI.WatchForModelConfigChanges()
 	if err != nil {
 		return errors.Annotate(err, "watching environ config")
 	}
@@ -122,7 +122,7 @@ func (t *Tracker) loop() (err error) {
 	if cloudSpecSetter, ok = t.environ.(environs.CloudSpecSetter); !ok {
 		logger.Warningf("cloud type %v doesn't support dynamic changing of cloud spec", t.environ.Config().Type())
 	} else {
-		cloudWatcher, err := t.config.Observer.WatchCloudSpecChanges()
+		cloudWatcher, err := t.config.ConfigAPI.WatchCloudSpecChanges()
 		if err != nil {
 			return errors.Annotate(err, "cannot watch environ cloud spec")
 		}
@@ -141,7 +141,7 @@ func (t *Tracker) loop() (err error) {
 				return errors.New("environ config watch closed")
 			}
 			logger.Debugf("reloading environ config")
-			modelConfig, err := t.config.Observer.ModelConfig()
+			modelConfig, err := t.config.ConfigAPI.ModelConfig()
 			if err != nil {
 				return errors.Annotate(err, "reading model config")
 			}
@@ -152,7 +152,7 @@ func (t *Tracker) loop() (err error) {
 			if !ok {
 				return errors.New("cloud watch closed")
 			}
-			cloudSpec, err := t.config.Observer.CloudSpec()
+			cloudSpec, err := t.config.ConfigAPI.CloudSpec()
 			if err != nil {
 				return errors.Annotate(err, "reading environ cloud spec")
 			}
