@@ -68,7 +68,7 @@ Juju is an open source project that warmly welcomes community projects, contribu
 
 * [Roadmap & Releases](./reference/juju/juju-roadmap-and-releases.md)
 * [Code of Conduct ](https://ubuntu.com/community/code-of-conduct)
-* [Join our chat](https://matrix.to/#/#charmhub-jujudev:ubuntu.com)
+* [Join our chat](https://matrix.to/#/#charmhub-juju:ubuntu.com)
 * [Join our forum ](https://discourse.charmhub.io/)
 * [Report a bug](https://github.com/juju/juju/issues)
 * [Contribute](https://github.com/juju/juju/blob/main/CONTRIBUTING.md)

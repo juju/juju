@@ -84,8 +84,6 @@ A **proxy charm** is a {ref}`configurator charm <configurator-charm>` where the 
 Examples:
 
 - [Parca Scrape Target](https://charmhub.io/parca-scrape-target)
-- [Prometheus Scrape Target](https://charmhub.io/prometheus-scrape-target)
-- [Prometheus Scrape Config](https://charmhub.io/prometheus-scrape-config)
 
 (integrator-charm)=
 #### Integrator

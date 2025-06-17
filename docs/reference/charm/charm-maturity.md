@@ -139,7 +139,7 @@ Users must know where to reach out to ask questions or find relevant information
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| A Discourse link or Mattermost channel must be available for discussion, announcements and the exchange of ideas, as well as anything else which would not fit into an issue.<p>For the application, links to the referring forums can also be provided. | Discourse is preferred because framework topics and other charms are also discussed there. It is the most popular place for the community of charms. Therefore, technical questions are most likely covered there.<p>For the forum, get started with an [introduction](https://discourse.charmhub.io/t/read-me-first-admin-quick-start-guide/10).<br/>Issues can also be discussed in the [public chat](https://chat.charmhub.io/).
+| A Discourse link or Mattermost channel must be available for discussion, announcements and the exchange of ideas, as well as anything else which would not fit into an issue.<p>For the application, links to the referring forums can also be provided. | Discourse is preferred because framework topics and other charms are also discussed there. It is the most popular place for the community of charms. Therefore, technical questions are most likely covered there.<p>For the forum, get started with an [introduction](https://discourse.charmhub.io/t/read-me-first-admin-quick-start-guide/10).<br/>Issues can also be discussed in the [public chat](https://matrix.to/#/#charmhub-juju:ubuntu.com).
 
 
 (stage-2-important-capabilities)=
