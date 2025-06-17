@@ -214,11 +214,13 @@ func (st *State) upsertLinkLayerDevices(ctx context.Context, tx *sqlair.TX, devs
 	dml := `
 INSERT INTO link_layer_device (*) VALUES ($linkLayerDeviceDML.*)
 ON CONFLICT (uuid) DO UPDATE SET
+    device_type_id = EXCLUDED.device_type_id,
+	mac_address = EXCLUDED.mac_address,
     mtu = EXCLUDED.mtu,
     gateway_address = EXCLUDED.gateway_address,
+    is_default_gateway = EXCLUDED.is_default_gateway,
     is_auto_start = EXCLUDED.is_auto_start,
     is_enabled = EXCLUDED.is_enabled,
-    device_type_id = EXCLUDED.device_type_id,
     virtual_port_type_id = EXCLUDED.virtual_port_type_id,
     vlan_tag = EXCLUDED.vlan_tag`
 
