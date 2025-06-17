@@ -260,3 +260,17 @@ func (s *unitAddressSuite) addk8sService(c *tc.C, nodeUUID, appUUID string) {
 	s.query(c, `INSERT INTO k8s_service (uuid, net_node_uuid, application_uuid, provider_id) VALUES (?, ?, ?, ?)`,
 		svcUUID, nodeUUID, appUUID, "provider-id")
 }
+
+func (s *unitAddressSuite) addsubnet(c *tc.C, spaceUUID string) (string, string) {
+	subnetUUID := uuid.MustNewUUID().String()
+	cidr := "10.0.0.0/24"
+	s.query(c, `INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)`,
+		subnetUUID, cidr, spaceUUID)
+	return subnetUUID, cidr
+}
+
+func (s *unitAddressSuite) addLinkLayerDevice(c *tc.C, netNodeUUID string) string {
+	name := uuid.MustNewUUID().String()
+	return s.linkLayerBaseSuite.addLinkLayerDevice(c, netNodeUUID, name, "00:11:22:33:44:55",
+		corenetwork.EthernetDevice)
+}

@@ -553,9 +553,9 @@ func (s *linkLayerSuite) TestGetAllLinkLayerDevicesByNetNodeUUIDs(c *tc.C) {
 	s.addDNSAddresses(c, eth1UUID, "9.9.9.9", "4.4.4.4")
 
 	// Create subnets for IP addresses
-	subnet1UUID := s.addSubnet(c, "192.168.1.0/24", corenetwork.AlphaSpaceId)
-	subnet2UUID := s.addSubnet(c, "192.168.2.0/24", corenetwork.AlphaSpaceId)
-	subnet3UUID := s.addSubnet(c, "192.168.3.0/24", corenetwork.AlphaSpaceId)
+	subnet1UUID := s.addSubnet(c, "192.168.1.0/24", corenetwork.AlphaSpaceId.String())
+	subnet2UUID := s.addSubnet(c, "192.168.2.0/24", corenetwork.AlphaSpaceId.String())
+	subnet3UUID := s.addSubnet(c, "192.168.3.0/24", corenetwork.AlphaSpaceId.String())
 
 	// Create IP addresses for each device
 	insertIPAddress := `
