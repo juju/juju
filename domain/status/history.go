@@ -12,7 +12,7 @@ var (
 	// ApplicationNamespace is the namespace for application status.
 	ApplicationNamespace = statushistory.Namespace{Kind: status.KindApplication}
 
-	// UnitAgentNamespace is the namespace for unit status.
+	// UnitAgentNamespace is the namespace for unit agent status.
 	UnitAgentNamespace = statushistory.Namespace{Kind: status.KindUnitAgent}
 
 	// UnitWorkloadNamespace is the namespace for unit workload status.

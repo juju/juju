@@ -65,10 +65,25 @@ func (s *storageServiceSuite) TestSetFilesystemStatus(c *tc.C) {
 	}})
 }
 
-func (s *storageServiceSuite) TestSetFilesystemStatusNotFound(c *tc.C) {
+func (s *storageServiceSuite) TestSetFilesystemStatusUUIDNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelState.EXPECT().GetFilesystemUUIDByID(gomock.Any(), "666").Return("", storageerrors.FilesystemNotFound)
+
+	err := s.service.SetFilesystemStatus(c.Context(), "666", corestatus.StatusInfo{
+		Status: corestatus.Attached,
+	})
+	c.Assert(err, tc.ErrorIs, storageerrors.FilesystemNotFound)
+}
+
+func (s *storageServiceSuite) TestSetFilesystemStatusNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	filesystemUUID := storagetesting.GenFilesystemUUID(c)
+	s.modelState.EXPECT().GetFilesystemUUIDByID(gomock.Any(), "666").Return(filesystemUUID, nil)
+	s.modelState.EXPECT().SetFilesystemStatus(gomock.Any(), filesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]{
+		Status: status.StorageFilesystemStatusTypeAttached,
+	}).Return(storageerrors.FilesystemNotFound)
 
 	err := s.service.SetFilesystemStatus(c.Context(), "666", corestatus.StatusInfo{
 		Status: corestatus.Attached,
@@ -88,6 +103,13 @@ func (s *storageServiceSuite) TestSetFilesystemStatusInvalidStatus(c *tc.C) {
 		Status: corestatus.Allocating,
 	})
 	c.Assert(err, tc.ErrorMatches, `.*unknown filesystem status "allocating"`)
+}
+
+func (s *storageServiceSuite) TestFilesystemStatusTransitionErrorInvalid(c *tc.C) {
+	err := s.service.SetFilesystemStatus(c.Context(), "666", corestatus.StatusInfo{
+		Status: "error",
+	})
+	c.Assert(err, tc.ErrorMatches, `cannot set status .* without message`)
 }
 
 func (s *storageServiceSuite) TestSetVolumeStatus(c *tc.C) {
@@ -123,10 +145,25 @@ func (s *storageServiceSuite) TestSetVolumeStatus(c *tc.C) {
 	}})
 }
 
-func (s *storageServiceSuite) TestSetVolumeStatusNotFound(c *tc.C) {
+func (s *storageServiceSuite) TestSetVolumeStatusUUIDNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelState.EXPECT().GetVolumeUUIDByID(gomock.Any(), "666").Return("", storageerrors.VolumeNotFound)
+
+	err := s.service.SetVolumeStatus(c.Context(), "666", corestatus.StatusInfo{
+		Status: corestatus.Attached,
+	})
+	c.Assert(err, tc.ErrorIs, storageerrors.VolumeNotFound)
+}
+
+func (s *storageServiceSuite) TestSetVolumeStatusNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	volumeUUID := storagetesting.GenVolumeUUID(c)
+	s.modelState.EXPECT().GetVolumeUUIDByID(gomock.Any(), "666").Return(volumeUUID, nil)
+	s.modelState.EXPECT().SetVolumeStatus(gomock.Any(), volumeUUID, status.StatusInfo[status.StorageVolumeStatusType]{
+		Status: status.StorageVolumeStatusTypeAttached,
+	}).Return(storageerrors.VolumeNotFound)
 
 	err := s.service.SetVolumeStatus(c.Context(), "666", corestatus.StatusInfo{
 		Status: corestatus.Attached,
@@ -146,6 +183,13 @@ func (s *storageServiceSuite) TestSetVolumeStatusInvalidStatus(c *tc.C) {
 		Status: corestatus.Allocating,
 	})
 	c.Assert(err, tc.ErrorMatches, `.*unknown volume status "allocating"`)
+}
+
+func (s *storageServiceSuite) TestVolumeStatusTransitionErrorInvalid(c *tc.C) {
+	err := s.service.SetVolumeStatus(c.Context(), "666", corestatus.StatusInfo{
+		Status: "error",
+	})
+	c.Assert(err, tc.ErrorMatches, `cannot set status .* without message`)
 }
 
 func (s *storageServiceSuite) setupMocks(c *tc.C) *gomock.Controller {

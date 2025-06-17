@@ -90,8 +90,7 @@ func (s *storageStatusSuite) TestEncodeFilesystemStatus(c *tc.C) {
 	}
 
 	for i, test := range testCases {
-		c.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			t.Logf("test %d: %v", i, test.input)
+		c.Run(fmt.Sprintf("Test %d: %s", i, test.input.Status), func(t *testing.T) {
 			output, err := encodeFilesystemStatus(test.input)
 			tc.Assert(t, err, tc.ErrorIsNil)
 			tc.Check(t, output, tc.DeepEquals, test.output)
@@ -163,9 +162,10 @@ func (s *storageStatusSuite) TestEncodeVolumeStatus(c *tc.C) {
 	}
 
 	for i, test := range testCases {
-		c.Logf("test %d: %v", i, test.input)
-		output, err := encodeVolumeStatus(test.input)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(output, tc.DeepEquals, test.output)
+		c.Run(fmt.Sprintf("Test %d: %s", i, test.input.Status), func(t *testing.T) {
+			output, err := encodeVolumeStatus(test.input)
+			tc.Assert(t, err, tc.ErrorIsNil)
+			tc.Check(t, output, tc.DeepEquals, test.output)
+		})
 	}
 }

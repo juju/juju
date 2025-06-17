@@ -15,7 +15,7 @@ import (
 
 // StorageState provides access to storage related state methods.
 type StorageState interface {
-	// SetFilesystemStatus saves the given filesystem status, overwriting any
+	// SetFilesystemStatus sets the given filesystem status, overwriting any
 	// current status data. The following errors can be expected:
 	// - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
 	SetFilesystemStatus(
@@ -29,7 +29,7 @@ type StorageState interface {
 	// [storageerrors.FilesystemNotFound] is returned.
 	GetFilesystemUUIDByID(ctx context.Context, id string) (storage.FilesystemUUID, error)
 
-	// SetVolumeStatus saves the given volume status, overwriting any
+	// SetVolumeStatus sets the given volume status, overwriting any
 	// current status data. The following errors can be expected:
 	// - [storageerrors.VolumeNotFound] if the volume doesn't exist.
 	SetVolumeStatus(
@@ -44,7 +44,7 @@ type StorageState interface {
 	GetVolumeUUIDByID(ctx context.Context, id string) (storage.VolumeUUID, error)
 }
 
-// SetFilesystemStatus saves the given filesystem status, overwriting any
+// SetFilesystemStatus validates and sets the given filesystem status, overwriting any
 // current status data. If returns an error satisfying
 // [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
 func (s *Service) SetFilesystemStatus(
@@ -55,7 +55,11 @@ func (s *Service) SetFilesystemStatus(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// This will implicitly verify that the status is valid.
+	if statusInfo.Status == corestatus.Error && statusInfo.Message == "" {
+		return errors.Errorf("cannot set status %q without message", statusInfo.Status)
+	}
+
+	// This will also verify that the status is valid.
 	encodedStatus, err := encodeFilesystemStatus(statusInfo)
 	if err != nil {
 		return errors.Errorf("encoding filesystem status: %w", err)
@@ -77,7 +81,7 @@ func (s *Service) SetFilesystemStatus(
 	return nil
 }
 
-// SetVolumeStatus saves the given volume status, overwriting any
+// SetVolumeStatus validates and sets the given volume status, overwriting any
 // current status data. If returns an error satisfying
 // [storageerrors.VolumeNotFound] if the volume doesn't exist.
 func (s *Service) SetVolumeStatus(
@@ -88,7 +92,11 @@ func (s *Service) SetVolumeStatus(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// This will implicitly verify that the status is valid.
+	if statusInfo.Status == corestatus.Error && statusInfo.Message == "" {
+		return errors.Errorf("cannot set status %q without message", statusInfo.Status)
+	}
+
+	// This will also verify that the status is valid.
 	encodedStatus, err := encodeVolumeStatus(statusInfo)
 	if err != nil {
 		return errors.Errorf("encoding volume status: %w", err)

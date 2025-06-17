@@ -53,9 +53,9 @@ func NewLeadershipService(
 	}
 }
 
-// SetApplicationStatusForUnitLeader sets the application status using the
+// SetApplicationStatusForUnitLeader validates and sets the application status using the
 // leader unit of the application. If the specified unit is not the leader of
-// it's application and error satisfying [statuserrors.UnitNotLeader] is
+// its application and error satisfying [statuserrors.UnitNotLeader] is
 // returned. If the unit is not found, an error satisfying
 // [statuserrors.UnitNotFound] is returned.
 func (s *LeadershipService) SetApplicationStatusForUnitLeader(
@@ -70,7 +70,7 @@ func (s *LeadershipService) SetApplicationStatusForUnitLeader(
 		return errors.Errorf("unit name: %w", err)
 	}
 
-	// This will implicitly verify that the status is valid.
+	// This will also verify that the status is valid.
 	encodedStatus, err := encodeWorkloadStatus(status)
 	if err != nil {
 		return errors.Errorf("encoding workload status: %w", err)

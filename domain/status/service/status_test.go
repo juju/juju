@@ -74,7 +74,6 @@ func (s *statusSuite) TestEncodeK8sPodStatus(c *tc.C) {
 
 	for i, test := range testCases {
 		c.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			t.Logf("test %d: %v", i, test.input)
 			output, err := encodeK8sPodStatus(test.input)
 			tc.Assert(t, err, tc.ErrorIsNil)
 			tc.Assert(t, output, tc.DeepEquals, test.output)
@@ -142,7 +141,6 @@ func (s *statusSuite) TestEncodeUnitAgentStatus(c *tc.C) {
 
 	for i, test := range testCases {
 		c.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			t.Logf("test %d: %v", i, test.input)
 			output, err := encodeUnitAgentStatus(test.input)
 			tc.Assert(t, err, tc.ErrorIsNil)
 			tc.Check(t, output, tc.DeepEquals, test.output)
@@ -279,7 +277,6 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *tc.C) {
 
 	for i, test := range testCases {
 		c.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			t.Logf("test %d: %v", i, test.input)
 			output, err := encodeWorkloadStatus(test.input)
 			tc.Assert(t, err, tc.ErrorIsNil)
 			tc.Check(t, output, tc.DeepEquals, test.output)

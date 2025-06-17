@@ -44,7 +44,7 @@ type ModelState interface {
 	// application is not found.
 	GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (status.StatusInfo[status.WorkloadStatusType], error)
 
-	// SetApplicationStatus saves the given application status, overwriting any
+	// SetApplicationStatus sets the given application status, overwriting any
 	// current status data. If returns an error satisfying
 	// [statuserrors.ApplicationNotFound] if the application doesn't exist.
 	SetApplicationStatus(
@@ -234,7 +234,7 @@ func (s *Service) GetAllRelationStatuses(ctx context.Context) (map[corerelation.
 	return result, nil
 }
 
-// SetApplicationStatus saves the given application status, overwriting any
+// SetApplicationStatus validates and sets the given application status, overwriting any
 // current status data. If returns an error satisfying
 // [statuserrors.ApplicationNotFound] if the application doesn't exist.
 func (s *Service) SetApplicationStatus(
@@ -245,7 +245,7 @@ func (s *Service) SetApplicationStatus(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// This will implicitly verify that the status is valid.
+	// This will also verify that the status is valid.
 	encodedStatus, err := encodeWorkloadStatus(statusInfo)
 	if err != nil {
 		return errors.Errorf("encoding workload status: %w", err)

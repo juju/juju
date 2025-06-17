@@ -235,7 +235,6 @@ func (s *statusHistorySuite) TestMatches(c *tc.C) {
 		record   statushistory.HistoryRecord
 		request  StatusHistoryRequest
 		expected bool
-		err      error
 	}{
 		{
 			record: statushistory.HistoryRecord{
@@ -407,16 +406,9 @@ func (s *statusHistorySuite) TestMatches(c *tc.C) {
 	}
 
 	for i, test := range tests {
-		c.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			t.Logf("test %d: %v(%v) - %v(%v)", i, test.record.Kind, test.record.Tag, test.request.Kind, test.request.Tag)
-
+		c.Run(fmt.Sprintf("Test %d: %v(%v) - %v(%v)", i, test.record.Kind, test.record.Tag, test.request.Kind, test.request.Tag), func(t *testing.T) {
 			result, err := matches(test.record, test.request, s.now)
-			if test.err != nil {
-				tc.Assert(t, err, tc.ErrorMatches, test.err.Error())
-			} else {
-				tc.Assert(t, err, tc.ErrorIsNil)
-			}
-
+			tc.Assert(t, err, tc.ErrorIsNil)
 			tc.Check(t, result, tc.Equals, test.expected)
 		})
 	}

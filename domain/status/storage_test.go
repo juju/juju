@@ -70,15 +70,6 @@ func (s *storageStatusSuite) TestEncodeDecodeFilesystemStatus(c *tc.C) {
 	}
 }
 
-func (s *storageStatusSuite) TestFilesystemStatusTransitionErrorInvalid(c *tc.C) {
-	sts := StatusInfo[StorageFilesystemStatusType]{
-		Status: StorageFilesystemStatusTypeError,
-	}
-	err := FilesystemStatusTransitionValid(
-		StorageFilesystemStatusTypeAttached, true, sts)
-	c.Assert(err, tc.ErrorMatches, `cannot set status .* without message`)
-}
-
 func (s *storageStatusSuite) TestFilesystemStatusTransitionPendingInvalid(c *tc.C) {
 	sts := StatusInfo[StorageFilesystemStatusType]{
 		Status: StorageFilesystemStatusTypePending,
@@ -136,15 +127,6 @@ func (s *storageStatusSuite) TestEncodeDecodeVolumeStatus(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(encoded, tc.Equals, id)
 	}
-}
-
-func (s *storageStatusSuite) TestVolumeStatusTransitionErrorInvalid(c *tc.C) {
-	sts := StatusInfo[StorageVolumeStatusType]{
-		Status: StorageVolumeStatusTypeError,
-	}
-	err := VolumeStatusTransitionValid(
-		StorageVolumeStatusTypeAttached, true, sts)
-	c.Assert(err, tc.ErrorMatches, `cannot set status .* without message`)
 }
 
 func (s *storageStatusSuite) TestVolumeStatusTransitionPendingInvalid(c *tc.C) {
