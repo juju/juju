@@ -1,8 +1,0 @@
-name: dashboard4miner
-summary: "Dashboard for bitcoin miner"
-description: "A pretty popular dashboard for bitcoin miner"
-requires:
-  miner:
-    interface: miner
-    limit: 1
-    optional: false

@@ -1,5 +1,0 @@
-bases:
-  - name: ubuntu
-    channel: 18.04/stable
-  - name: ubuntu
-    channel: "20.04"

@@ -1,6 +1,0 @@
-name: two
-summary: "Two simple charm"
-description: "This cannot be more simpler than... But is used for upgrade-charm featuretests."
-requires:
-  server: 
-    interface: one

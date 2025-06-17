@@ -1,8 +1,0 @@
-network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    lo:
-      match:
-        name: lo
-      addresses: [ 7.7.7.7/32 ]

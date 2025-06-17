@@ -1,5 +1,0 @@
-options:
-  dataset-size:
-    default: '80%'
-    description: How much data do you want to keep in memory in the DB.
-    type: string

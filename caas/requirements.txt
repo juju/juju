@@ -1,4 +1,0 @@
-charmhelpers>=0.20.15,<1.0.0
-charms.reactive>=0.1.0,<2.0.0
-kubernetes==10.0.*
-google_auth>=1.21.0,<1.22.0

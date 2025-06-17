@@ -1,8 +1,0 @@
-@@
-var x, interrors identifier
-@@
-import interrors "github.com/juju/juju/internal/errors"
-+import "github.com/juju/juju/internal/errors"
-
--interrors.x
-+errors.x

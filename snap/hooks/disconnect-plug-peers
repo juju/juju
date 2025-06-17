@@ -1,9 +1,0 @@
-#!/bin/sh
-peer="$(snapctl get --slot :peers content)"
-(
-    SNAP_INSTANCE_NAME=${SNAP_INSTANCE_NAME:-$SNAP_NAME}
-    echo "hook $0 $@"
-    echo "disconnected $peer"
-    echo "$0 is stopping $SNAP_INSTANCE_NAME.fetch-oci"
-    snapctl stop --disable $SNAP_INSTANCE_NAME.fetch-oci
-) >> $SNAP_COMMON/hook.log

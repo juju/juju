@@ -1,1 +1,0 @@
-A dummy kubernetes bundle

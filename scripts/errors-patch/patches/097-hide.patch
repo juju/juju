@@ -1,6 +1,0 @@
-@@
-var x, y identifier
-var z expression
-@@
--x.Errorf(..., y.Hide(z))
-+x.Errorf(...).Add(z)

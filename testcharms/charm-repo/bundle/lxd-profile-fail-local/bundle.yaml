@@ -1,4 +1,0 @@
-applications:
-    lxd-profile-fail-local:
-        charm: ./../../quantal/lxd-profile-fail
-        num_units: 1

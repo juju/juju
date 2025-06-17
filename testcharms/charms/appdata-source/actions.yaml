@@ -1,6 +1,0 @@
-set-app-token:
-  description: Tell this unit to set the app-token itself (to ensure that non-leaders can't)
-  params:
-    value:
-      type: string
-      description: The value that should be set

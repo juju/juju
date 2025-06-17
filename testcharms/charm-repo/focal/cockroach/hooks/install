@@ -1,4 +1,0 @@
-#!/bin/bash
-juju-log -l WARN "Running install hook script"
-status-set maintenance "Installing thing"
-exit 0

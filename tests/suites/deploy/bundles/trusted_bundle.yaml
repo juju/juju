@@ -1,5 +1,0 @@
-applications:
-    trust-checker:
-        charm: ../charms/trust-checker.charm
-        num_units: 1
-        trust: true

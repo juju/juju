@@ -1,9 +1,0 @@
-name: multi-base
-summary: "This is a dummy charm that supports multiple bases."
-description: |
-    This is a longer description which
-    potentially contains multiple lines.
-provides:
-    multi-directory:
-           interface: logging
-           scope: container

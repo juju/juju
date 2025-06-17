@@ -1,8 +1,0 @@
-applications:
-    aws-integrator:
-        charm: ch:aws-integrator
-        num_units: 1
-        trust: true
-    ubuntu:
-        charm: ch:ubuntu
-        num_units: 1

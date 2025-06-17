@@ -1,6 +1,0 @@
-echo:
-  description: Echo takes a string value and echo's it out
-  params:
-    value:
-      type: string
-      description: The value that should be echo'd

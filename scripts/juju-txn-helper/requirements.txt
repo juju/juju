@@ -1,2 +1,0 @@
-# Note: PyMongo 4.0 drops Mongo 3.2 support, required by Xenial.
-pymongo<4.0

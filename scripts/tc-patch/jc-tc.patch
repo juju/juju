@@ -1,9 +1,0 @@
-# Replace jc with tc
-@@
-var jc, x identifier
-@@
--import jc "github.com/juju/testing/checkers"
-+import "github.com/juju/tc"
-
--jc.x
-+tc.x

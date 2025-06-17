@@ -1,6 +1,0 @@
-name: terms2
-summary: "This is a dummy charm with terms."
-description: |
-    This is a longer description which
-    potentially contains multiple lines.
-terms: ["term1/1", "term2/1"]

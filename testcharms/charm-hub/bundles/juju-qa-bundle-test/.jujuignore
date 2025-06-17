@@ -1,4 +1,0 @@
-/venv
-*.py[cod]
-*.charm
-charmcraft.yaml

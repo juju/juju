@@ -1,6 +1,0 @@
-#!/bin/bash
-name=`echo $JUJU_HOOK_NAME`
-juju-log -l INFO "Hello from $name."
-
-action-set result-map.time-completed="$(date)" result-map.message="Hello $(action-get who)!"
-action-set outcome="success"

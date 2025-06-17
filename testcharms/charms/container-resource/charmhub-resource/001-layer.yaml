@@ -1,8 +1,0 @@
-summary: "resource layer"
-description: "pebble config layer for the resource image"
-services:
-  serve-resource-name:
-    summary: "run resource whoami server"
-    override: "replace"
-    command: "/resource/whoami-server"
-    startup: "enabled"

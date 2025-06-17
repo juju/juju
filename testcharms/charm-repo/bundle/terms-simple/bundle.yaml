@@ -1,7 +1,0 @@
-applications:
-    terms1:
-        charm: cs:terms1
-        num_units: 1
-    terms2:
-        charm: cs:terms2
-        num_units: 1

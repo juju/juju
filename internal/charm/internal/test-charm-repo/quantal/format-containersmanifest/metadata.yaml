@@ -1,8 +1,0 @@
-name: containers and manifest
-summary: "Both manifest bases and containers present"
-containers:
-  containers:
-    snappass:
-      resource: snappass-image
-description: |
-  Format V1 should be detected.

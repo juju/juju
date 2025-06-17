@@ -1,9 +1,0 @@
-name: proxy
-summary: A test charm.
-maintainers:
-  - Juju Developers <juju@lists.ubuntu.com>
-description: |
-  A test CAAS charm with a http requires interface.
-requires:
-  website:
-    interface: http

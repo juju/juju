@@ -1,5 +1,0 @@
-name: appconfig
-summary: "That's a charm with with a few config settings to test 'config-get' and 'juju get' outputs."
-description: |
-    A very tricky charm.
-minjujuversion: "1.0.0"

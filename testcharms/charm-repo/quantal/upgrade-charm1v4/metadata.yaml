@@ -1,9 +1,0 @@
-name: one
-summary: "One simple charm"
-description: "This cannot be more simpler than... but is used for upgrade-charm featuretests"
-provides:
-  server:
-    interface: two
-peers:
-  legacy: 
-    interface: foo

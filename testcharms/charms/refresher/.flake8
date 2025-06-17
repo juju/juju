@@ -1,9 +1,0 @@
-[flake8]
-max-line-length = 99
-select: E,W,F,C,N
-exclude:
-  venv
-  .git
-  build
-  dist
-  *.egg_info

@@ -1,9 +1,0 @@
-@@
-var os identifier
-@@
-import os "os"
-+ import "io/fs"
-+ import interrors "github.com/juju/juju/internal/errors"
-
--os.IsNotExist(...)
-+interrors.Is(..., fs.ErrNotExist)

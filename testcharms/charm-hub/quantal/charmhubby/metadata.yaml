@@ -1,6 +1,0 @@
-name: charmhubby
-summary: "A test CharmHub charm"
-description: "Just a silly test"
-provides:
-  server:
-    interface: charmhubber

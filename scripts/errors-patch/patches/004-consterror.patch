@@ -1,9 +1,0 @@
-# Patch for swapping types using errors.ConstError to interrors.ConstError
-@@
-var errors identifier
-@@
-import errors "github.com/juju/errors"
-+import interrors "github.com/juju/juju/internal/errors"
-
--errors.ConstError(...)
-+interrors.ConstError(...)

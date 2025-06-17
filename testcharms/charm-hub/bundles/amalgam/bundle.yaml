@@ -1,9 +1,0 @@
-series: focal
-applications:
-  ubuntux:
-    charm: ubuntu
-    num_units: 1
-  ubuntu-s390x:
-    charm: ubuntu
-    num_units: 1
-    constraints: arch=s390x

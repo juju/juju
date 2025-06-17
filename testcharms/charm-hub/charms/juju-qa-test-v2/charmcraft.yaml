@@ -1,4 +1,0 @@
-type: charm
-charmhub:
-    api_url: https://api.charmhub.io
-    storage_url: https://storage.snapcraftcontent.com

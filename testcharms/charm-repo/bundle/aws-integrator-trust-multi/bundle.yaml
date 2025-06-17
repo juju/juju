@@ -1,9 +1,0 @@
-applications:
-    aws-integrator:
-        charm: ch:aws-integrator
-        num_units: 1
-        trust: true
-    gcp-integrator:
-        charm: ch:gcp-integrator
-        num_units: 1
-        trust: true

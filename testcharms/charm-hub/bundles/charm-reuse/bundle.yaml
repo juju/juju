@@ -1,8 +1,0 @@
-series: bionic
-applications:
-    ubuntu-amd:
-        charm: ubuntu
-        constraints: "arch=amd64"
-    ubuntu-s390x:
-        charm: ubuntu
-        constraints: "arch=s390x"

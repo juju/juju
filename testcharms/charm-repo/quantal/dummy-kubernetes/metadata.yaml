@@ -1,7 +1,0 @@
-name: dummy
-summary: "That's a dummy charm."
-description: |
-    This is a longer description which
-    potentially contains multiple lines.
-series:
-  - kubernetes

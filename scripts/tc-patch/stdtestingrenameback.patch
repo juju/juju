@@ -1,7 +1,0 @@
-@@
-var stdtesting, X identifier
-@@
--import stdtesting "testing"
-+import testing "testing"
--stdtesting.X
-+testing.X

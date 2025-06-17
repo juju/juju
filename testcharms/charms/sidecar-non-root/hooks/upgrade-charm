@@ -1,6 +1,0 @@
-#!/bin/bash
-set -e
-
-status-set maintenance "Setup..."
-juju-log "charm=$UID"
-juju-log "sudo=$(sudo -n echo yes || echo no)"

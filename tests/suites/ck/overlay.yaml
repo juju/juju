@@ -1,6 +1,0 @@
-description: Charmed Kubernetes overlay to shrink CK size.
-applications:
-  kubernetes-worker:
-    num_units: 1
-  kubernetes-control-plane:
-    num_units: 1

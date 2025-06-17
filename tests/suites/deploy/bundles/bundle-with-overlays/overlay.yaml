@@ -1,6 +1,0 @@
-# overlay 2
-applications:
-  etcd:
-    annotations:
-      raw: include-file://ext-option.txt
-      base64: include-base64://ext-option.txt

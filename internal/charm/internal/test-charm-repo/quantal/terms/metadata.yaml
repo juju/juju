@@ -1,5 +1,0 @@
-name: terms
-summary: "Sample charm with terms and conditions"
-description: |
-        That's a boring charm that requires certain terms.
-terms: ["term1/1", "term2", "owner/term3/1"]

@@ -1,5 +1,0 @@
-name: upgrade
-summary: "Sample charm to test version changes"
-description: |
-    Sample charm to test version changes.
-    This is the old charm.

@@ -1,6 +1,0 @@
-bases:
-  - name: ubuntu
-    channel: 22.04/stable
-    architectures:
-      - amd64
-      - arm64

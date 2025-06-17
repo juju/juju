@@ -1,4 +1,0 @@
-#!/bin/bash
-set -v
-juju-log -l WARN "Running db-relation-changed hook script"
-relation-set --app address="${JUJU_UNIT_NAME%/*}:26257"

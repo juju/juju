@@ -1,5 +1,0 @@
-name: mariadb
-summary: "Database engine"
-description: "A pretty popular database"
-provides:
-  server: mysql

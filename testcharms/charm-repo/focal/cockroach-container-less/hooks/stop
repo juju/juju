@@ -1,3 +1,0 @@
-#!/bin/bash
-juju-log -l WARN "Running stop hook script"
-exit 0

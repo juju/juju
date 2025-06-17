@@ -1,7 +1,0 @@
-#!/usr/bin/env python3
-
-# Load modules from $JUJU_CHARM_DIR/lib
-import sys, os
-sys.path.append('lib')
-
-print(os.environ)

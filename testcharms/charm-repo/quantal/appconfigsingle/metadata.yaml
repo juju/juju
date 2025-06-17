@@ -1,5 +1,0 @@
-name: appconfigsingle
-summary: "That's a charm with config settings that contain empty or nil default values to test 'juju config' ouput for a single setting."
-description: |
-    A very tricky charm.
-minjujuversion: "1.0.0"

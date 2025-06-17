@@ -1,5 +1,0 @@
-bases:
-  - architectures:
-      - amd64
-    channel: "20.04"
-    name: "ubuntu"

@@ -1,9 +1,0 @@
-network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    enp3s0:
-     addresses:
-       - 10.100.1.38/24
-       - 10.100.1.39/24
-     gateway4: 10.100.1.1

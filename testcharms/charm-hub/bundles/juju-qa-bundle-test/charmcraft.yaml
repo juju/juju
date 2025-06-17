@@ -1,7 +1,0 @@
-type: bundle
-parts:
-    bundle:
-        prime: ["bundle.yaml", "README.md"]
-charmhub:
-    api-url: https://api.charmhub.io
-    storage-url: https://storage.snapcraftcontent.com

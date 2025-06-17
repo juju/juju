@@ -1,8 +1,0 @@
-# Replace tc.Suite(...) with a test that runs tc.Run(...)
-@@
-var testing, X identifier
-@@
--import testing "testing"
-+import stdtesting "testing"
--testing.X
-+stdtesting.X

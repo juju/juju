@@ -1,5 +1,0 @@
-#!/bin/bash
-set -e
-
-rel_data=$(relation-get -)
-juju-log "[defend-b] relation CHANGED; new data:\n"`echo $rel_data | sed 's/^/  /g'`"\n"

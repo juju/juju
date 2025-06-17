@@ -1,4 +1,0 @@
-applications:
-    lxd-profile-fail:
-        charm: cs:~juju-qa/bionic/lxd-profile-fail-0
-        num_units: 1

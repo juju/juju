@@ -1,8 +1,0 @@
-# Replace context.Background() with c.Context().
-@@
-var tc, context identifier
-@@
- import context "context"
- import tc "github.com/juju/tc"
--context.Background()
-+c.Context()

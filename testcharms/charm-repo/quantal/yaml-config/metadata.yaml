@@ -1,5 +1,0 @@
-name: yaml-config
-summary: "That's a charm with edge case yaml config."
-description: |
-    A very boring charm.
-minjujuversion: "1.0.0"

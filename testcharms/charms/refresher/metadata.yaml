@@ -1,5 +1,0 @@
-name: refresher
-maintainer: Juju Crew <juju-crew@canonical.com>
-display-name: refresher
-description: Juju test charm for testing application refresh
-summary: Juju test charm for testing application refresh

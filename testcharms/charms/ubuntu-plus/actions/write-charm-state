@@ -1,6 +1,0 @@
-#!/bin/bash
-num_entries="$(action-get num-entries)"
-key_len="$(action-get key-len)"
-val_len="$(action-get val-len)"
-
-tools/write-charm-state ${num_entries} ${key_len} ${val_len}

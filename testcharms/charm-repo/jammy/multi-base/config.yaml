@@ -1,5 +1,0 @@
-options:
-  title: {default: My Title, description: A descriptive title used for the application., type: string}
-  outlook: {description: No default outlook., type: string}
-  username: {default: admin001, description: The name of the initial account (given admin permissions)., type: string}
-  skill-level: {description: A number indicating skill., type: int}

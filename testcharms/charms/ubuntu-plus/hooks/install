@@ -1,5 +1,0 @@
-#!/bin/bash
-date=`date`
-name=`echo $JUJU_HOOK_NAME`
-status-set waiting "Hello from $name, it is $date."
-juju-log -l INFO "Hello from $name."

@@ -1,9 +1,0 @@
-name: "test"
-description: "sample lxdprofile for testing"
-config:
-  security.nesting: "true"
-  security.privileged: "true"
-devices:
-  tun:
-    path: /dev/net/tun
-    type: unix-char

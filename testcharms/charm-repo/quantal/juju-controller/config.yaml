@@ -1,4 +1,0 @@
-options:
-  controller-url:
-    default: ""
-    type: string
