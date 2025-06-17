@@ -32,10 +32,6 @@ type mockFacade struct {
 	modelChanges chan struct{}
 }
 
-func (mock *mockFacade) ControllerUUID() string {
-	return "dummy-controller-uuid"
-}
-
 func (mock *mockFacade) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	mock.stub.AddCall("ModelInfo")
 	if err := mock.stub.NextErr(); err != nil {
