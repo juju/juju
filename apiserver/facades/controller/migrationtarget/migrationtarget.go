@@ -15,12 +15,10 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/vallerion/rscanner"
 
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
@@ -393,35 +391,6 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 				"cannot save source controller %q info when activating model %q: %w",
 				cTag.Id(),
 				st.ModelUUID(),
-				err,
-			)
-		}
-	}
-
-	// Update the source controller attribute on remote applications
-	// to allow external controller ref counts to function properly.
-	remoteApps, err := commoncrossmodel.GetBackend(st).AllRemoteApplications()
-	if err != nil {
-		return errors.Errorf("cannot get remote applications for model %q: %w", st.ModelUUID(), err)
-	}
-	for _, app := range remoteApps {
-		var sourceControllerUUID string
-		extInfo, err := api.externalControllerService.ControllerForModel(ctx, app.SourceModel().Id())
-		if err != nil && !errors.Is(err, coreerrors.NotFound) {
-			return errors.Errorf(
-				"cannot get controller information for remote application %q: %w",
-				app.Name(),
-				err,
-			)
-		}
-		if err == nil {
-			sourceControllerUUID = extInfo.ControllerUUID
-		}
-		if err := app.SetSourceController(sourceControllerUUID); err != nil {
-			return errors.Errorf(
-				"cannot update application %q source controller to %q: %w",
-				app.Name(),
-				sourceControllerUUID,
 				err,
 			)
 		}

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/firewall"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -235,7 +234,7 @@ func (f *FirewallerAPI) WatchModelFirewallRules(ctx context.Context) (params.Not
 	return params.NotifyWatchResult{NotifyWatcherId: watcherId}, nil
 }
 
-func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (firewall.Machine, error) {
+func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
 	if !canAccess(tag) {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -246,14 +245,13 @@ func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineT
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
 func (f *FirewallerAPI) WatchEgressAddressesForRelations(ctx context.Context, relations params.Entities) (params.StringsWatchResults, error) {
-	return firewall.WatchEgressAddressesForRelations(ctx, f.resources, f.st, f.modelConfigService, relations)
+	return params.StringsWatchResults{}, nil
 }
 
 // WatchIngressAddressesForRelations creates a watcher that returns the ingress networks
 // that have been recorded against the specified relations.
 func (f *FirewallerAPI) WatchIngressAddressesForRelations(ctx context.Context, relations params.Entities) (params.StringsWatchResults, error) {
-	return params.StringsWatchResults{}, jujuerrors.NotImplementedf("cross model relations are disabled until " +
-		"backend functionality is moved to domain")
+	return params.StringsWatchResults{}, nil
 }
 
 // MacaroonForRelations returns the macaroon for the specified relations.

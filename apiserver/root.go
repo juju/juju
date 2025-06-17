@@ -6,7 +6,6 @@ package apiserver
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"reflect"
 	"sync"
 	"time"
@@ -187,36 +186,6 @@ func newAPIHandler(
 		serverHost:            serverHost,
 	}
 
-	// Facades involved with managing application offers need the auth context
-	// to mint and validate macaroons.
-	offerAccessEndpoint := &url.URL{
-		Scheme: "https",
-		Host:   serverHost,
-		Path:   localOfferAccessLocationPath,
-	}
-
-	contollerConfigService := domainServices.ControllerConfig()
-	controllerConfig, err := contollerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "unable to get controller config")
-	}
-	loginTokenRefreshURL := controllerConfig.LoginTokenRefreshURL()
-	if loginTokenRefreshURL != "" {
-		offerAccessEndpoint, err = url.Parse(loginTokenRefreshURL)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	offerAuthCtxt, err := srv.offerAuthCtxt.WithDischargeURL(ctx, offerAccessEndpoint.String())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := r.resources.RegisterNamed(
-		"offerAccessAuthContext",
-		common.NewValueResource(offerAuthCtxt),
-	); err != nil {
-		return nil, errors.Trace(err)
-	}
 	return r, nil
 }
 

@@ -193,11 +193,6 @@ func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error
 func (api *API) SourceControllerInfo(ctx context.Context) (params.MigrationSourceInfo, error) {
 	empty := params.MigrationSourceInfo{}
 
-	localRelatedModels, err := api.backend.AllLocalRelatedModels()
-	if err != nil {
-		return empty, errors.Annotate(err, "retrieving local related models")
-	}
-
 	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving controller config")
@@ -216,11 +211,10 @@ func (api *API) SourceControllerInfo(ctx context.Context) (params.MigrationSourc
 	}
 
 	return params.MigrationSourceInfo{
-		LocalRelatedModels: localRelatedModels,
-		ControllerTag:      names.NewControllerTag(cfg.ControllerUUID()).String(),
-		ControllerAlias:    cfg.ControllerName(),
-		Addrs:              addr,
-		CACert:             cacert,
+		ControllerTag:   names.NewControllerTag(cfg.ControllerUUID()).String(),
+		ControllerAlias: cfg.ControllerName(),
+		Addrs:           addr,
+		CACert:          cacert,
 	}, nil
 }
 

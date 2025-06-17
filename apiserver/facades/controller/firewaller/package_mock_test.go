@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	firewall "github.com/juju/juju/apiserver/common/firewall"
+	firewaller "github.com/juju/juju/apiserver/facades/controller/firewaller"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v6"
@@ -43,45 +43,6 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
-}
-
-// Application mocks base method.
-func (m *MockState) Application(arg0 string) (firewall.Application, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Application", arg0)
-	ret0, _ := ret[0].(firewall.Application)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Application indicates an expected call of Application.
-func (mr *MockStateMockRecorder) Application(arg0 any) *MockStateApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockState)(nil).Application), arg0)
-	return &MockStateApplicationCall{Call: call}
-}
-
-// MockStateApplicationCall wrap *gomock.Call
-type MockStateApplicationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateApplicationCall) Return(arg0 firewall.Application, arg1 error) *MockStateApplicationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateApplicationCall) Do(f func(string) (firewall.Application, error)) *MockStateApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateApplicationCall) DoAndReturn(f func(string) (firewall.Application, error)) *MockStateApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // FindEntity mocks base method.
@@ -163,10 +124,10 @@ func (c *MockStateGetMacaroonCall) DoAndReturn(f func(names.Tag) (*macaroon.Maca
 }
 
 // KeyRelation mocks base method.
-func (m *MockState) KeyRelation(arg0 string) (firewall.Relation, error) {
+func (m *MockState) KeyRelation(arg0 string) (firewaller.Relation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KeyRelation", arg0)
-	ret0, _ := ret[0].(firewall.Relation)
+	ret0, _ := ret[0].(firewaller.Relation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -184,28 +145,28 @@ type MockStateKeyRelationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateKeyRelationCall) Return(arg0 firewall.Relation, arg1 error) *MockStateKeyRelationCall {
+func (c *MockStateKeyRelationCall) Return(arg0 firewaller.Relation, arg1 error) *MockStateKeyRelationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateKeyRelationCall) Do(f func(string) (firewall.Relation, error)) *MockStateKeyRelationCall {
+func (c *MockStateKeyRelationCall) Do(f func(string) (firewaller.Relation, error)) *MockStateKeyRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateKeyRelationCall) DoAndReturn(f func(string) (firewall.Relation, error)) *MockStateKeyRelationCall {
+func (c *MockStateKeyRelationCall) DoAndReturn(f func(string) (firewaller.Relation, error)) *MockStateKeyRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Machine mocks base method.
-func (m *MockState) Machine(arg0 string) (firewall.Machine, error) {
+func (m *MockState) Machine(arg0 string) (firewaller.Machine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine", arg0)
-	ret0, _ := ret[0].(firewall.Machine)
+	ret0, _ := ret[0].(firewaller.Machine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -223,58 +184,19 @@ type MockStateMachineCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateMachineCall) Return(arg0 firewall.Machine, arg1 error) *MockStateMachineCall {
+func (c *MockStateMachineCall) Return(arg0 firewaller.Machine, arg1 error) *MockStateMachineCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateMachineCall) Do(f func(string) (firewall.Machine, error)) *MockStateMachineCall {
+func (c *MockStateMachineCall) Do(f func(string) (firewaller.Machine, error)) *MockStateMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateMachineCall) DoAndReturn(f func(string) (firewall.Machine, error)) *MockStateMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Unit mocks base method.
-func (m *MockState) Unit(arg0 string) (firewall.Unit, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unit", arg0)
-	ret0, _ := ret[0].(firewall.Unit)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Unit indicates an expected call of Unit.
-func (mr *MockStateMockRecorder) Unit(arg0 any) *MockStateUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockState)(nil).Unit), arg0)
-	return &MockStateUnitCall{Call: call}
-}
-
-// MockStateUnitCall wrap *gomock.Call
-type MockStateUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateUnitCall) Return(arg0 firewall.Unit, arg1 error) *MockStateUnitCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateUnitCall) Do(f func(string) (firewall.Unit, error)) *MockStateUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUnitCall) DoAndReturn(f func(string) (firewall.Unit, error)) *MockStateUnitCall {
+func (c *MockStateMachineCall) DoAndReturn(f func(string) (firewaller.Machine, error)) *MockStateMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

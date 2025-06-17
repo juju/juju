@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -48,8 +47,7 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		controllerTag: names.NewControllerTag(ctx.ControllerUUID()),
 		modelTag:      names.NewModelTag(ctx.ModelUUID().String()),
 		stateAccessor: &stateShim{
-			State:      st,
-			cmrBackend: commoncrossmodel.GetBackend(st),
+			State: st,
 		},
 		storageAccessor:  storageAccessor,
 		auth:             authorizer,

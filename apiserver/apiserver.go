@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
-	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/httpcontext"
@@ -93,7 +92,6 @@ type Server struct {
 	httpAuthenticators  []authentication.HTTPAuthenticator
 	loginAuthenticators []authentication.LoginAuthenticator
 
-	offerAuthCtxt    *crossmodel.AuthContext
 	lastConnectionID uint64
 	newObserver      observer.ObserverFactory
 	allowModelAccess bool
@@ -399,15 +397,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	macaroonService := controllerDomainServices.Macaroon()
-
 	// The auth context for authenticating access to application offers.
-	srv.offerAuthCtxt, err = newOfferAuthContext(
-		ctx, cfg.StatePool, cfg.Clock,
-		controllerDomainServices.Access(),
-		controllerDomainServices.ModelInfo(),
-		controllerConfigService, macaroonService,
-	)
 	if err != nil {
 		return nil, fmt.Errorf("creating offer auth context: %w", err)
 	}
@@ -867,9 +857,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	registerHandler := srv.monitoredHandler(&registerUserHandler{
 		ctxt: httpCtxt,
 	}, "register")
-
-	// HTTP handler for application offer macaroon authentication.
-	addOfferAuthHandlers(srv.offerAuthCtxt, srv.mux)
 
 	handlers := []handler{{
 		pattern: modelRoutePrefix + "/log",

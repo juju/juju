@@ -210,8 +210,6 @@ func (s *Suite) TestSourceControllerInfo(c *tc.C) {
 		controller.CACertKey:         "cacert",
 	}
 
-	exp := s.backend.EXPECT()
-	exp.AllLocalRelatedModels().Return([]string{"related-model-uuid"}, nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 	apiAddr := []network.SpaceHostPorts{{{
 		SpaceAddress: network.SpaceAddress{
@@ -225,11 +223,10 @@ func (s *Suite) TestSourceControllerInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(info, tc.DeepEquals, params.MigrationSourceInfo{
-		LocalRelatedModels: []string{"related-model-uuid"},
-		ControllerTag:      coretesting.ControllerTag.String(),
-		ControllerAlias:    "mycontroller",
-		Addrs:              []string{"10.0.0.1:666"},
-		CACert:             "cacert",
+		ControllerTag:   coretesting.ControllerTag.String(),
+		ControllerAlias: "mycontroller",
+		Addrs:           []string{"10.0.0.1:666"},
+		CACert:          "cacert",
 	})
 }
 

@@ -10,18 +10,14 @@ import (
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	coresecrets "github.com/juju/juju/core/secrets"
-	corestatus "github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/rpc/params"
@@ -199,180 +195,45 @@ func (w *srvRelationUnitsWatcher) Next(ctx context.Context) (params.RelationUnit
 // fully-expanded params.RemoteRelationChangeEvents so they can be
 // used across model/controller boundaries.
 type srvRemoteRelationWatcher struct {
-	watcherCommon
-	backend crossmodel.Backend
-	watcher *crossmodel.WrappedUnitsWatcher
 }
 
 func newRemoteRelationWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	auth := context.Auth()
-	// TODO(wallyworld) - enhance this watcher to support
-	// anonymous api calls with macaroons.
-	if auth.GetAuthTag() != nil && !isAgent(auth) {
-		return nil, apiservererrors.ErrPerm
-	}
-	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	watcher, ok := w.(*crossmodel.WrappedUnitsWatcher)
-	if !ok {
-		return nil, apiservererrors.ErrUnknownWatcher
-	}
-	return &srvRemoteRelationWatcher{
-		watcherCommon: newWatcherCommon(context),
-		backend:       crossmodel.GetBackend(context.State()),
-		watcher:       watcher,
-	}, nil
+	return &srvRemoteRelationWatcher{}, nil
 }
 
 func (w *srvRemoteRelationWatcher) Next(ctx context.Context) (params.RemoteRelationWatchResult, error) {
-	changes, err := internal.FirstResult[params.RelationUnitsChange](ctx, w.watcher)
-	if err != nil {
-		return params.RemoteRelationWatchResult{}, errors.Trace(err)
-	}
-	// Expand the change into a cross-model event.
-	expanded, err := crossmodel.ExpandChange(
-		w.backend,
-		w.watcher.RelationToken,
-		w.watcher.ApplicationOrOfferToken,
-		changes,
-	)
-	if err != nil {
-		return params.RemoteRelationWatchResult{
-			Error: apiservererrors.ServerError(err),
-		}, nil
-	}
-	return params.RemoteRelationWatchResult{
-		Changes: expanded,
-	}, nil
+	return params.RemoteRelationWatchResult{}, nil
 }
 
 // srvRelationStatusWatcher defines the API wrapping a RelationStatusWatcher.
 type srvRelationStatusWatcher struct {
-	watcherCommon
-	st      *state.State
-	watcher corewatcher.StringsWatcher
 }
 
 func newRelationStatusWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	auth := context.Auth()
-	// TODO(wallyworld) - enhance this watcher to support
-	// anonymous api calls with macaroons.
-	if auth.GetAuthTag() != nil && !isAgent(auth) {
-		return nil, apiservererrors.ErrPerm
-	}
-	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	watcher, ok := w.(corewatcher.StringsWatcher)
-	if !ok {
-		return nil, apiservererrors.ErrUnknownWatcher
-	}
-	return &srvRelationStatusWatcher{
-		watcherCommon: newWatcherCommon(context),
-		st:            context.State(),
-		watcher:       watcher,
-	}, nil
+	return &srvRelationStatusWatcher{}, nil
 }
 
 // Next returns when a change has occurred to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvRelationStatusWatcher.
 func (w *srvRelationStatusWatcher) Next(ctx context.Context) (params.RelationLifeSuspendedStatusWatchResult, error) {
-	changes, err := internal.FirstResult[[]string](ctx, w.watcher)
-	if err != nil {
-		return params.RelationLifeSuspendedStatusWatchResult{}, errors.Trace(err)
-	}
-	changesParams := make([]params.RelationLifeSuspendedStatusChange, len(changes))
-	for i, key := range changes {
-		change, err := crossmodel.GetRelationLifeSuspendedStatusChange(crossmodel.GetBackend(w.st), key)
-		if err != nil {
-			return params.RelationLifeSuspendedStatusWatchResult{
-				Error: apiservererrors.ServerError(err),
-			}, nil
-		}
-		changesParams[i] = *change
-	}
-	return params.RelationLifeSuspendedStatusWatchResult{
-		Changes: changesParams,
-	}, nil
-}
-
-type ApplicationService interface {
-	// GetApplicationIDByName returns an application ID by application name. It
-	// returns an error if the application can not be found by the name.
-	//
-	// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
-	GetApplicationIDByName(context.Context, string) (coreapplication.ID, error)
-}
-
-type StatusService interface {
-	// GetApplicationDisplayStatus returns the display status of the specified application.
-	// The display status is equal to the application status if it is set, otherwise it is
-	// derived from the unit display statuses.
-	// If no application is found, an error satisfying [applicationerrors.ApplicationNotFound]
-	// is returned.
-	GetApplicationDisplayStatus(context.Context, string) (corestatus.StatusInfo, error)
+	return params.RelationLifeSuspendedStatusWatchResult{}, nil
 }
 
 // srvOfferStatusWatcher defines the API wrapping a
 // crossmodelrelations.OfferStatusWatcher.
 type srvOfferStatusWatcher struct {
-	watcherCommon
-	st            *state.State
-	statusService StatusService
-	watcher       crossmodelrelations.OfferWatcher
 }
 
 func newOfferStatusWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	auth := context.Auth()
-	// TODO(wallyworld) - enhance this watcher to support
-	// anonymous api calls with macaroons.
-	if auth.GetAuthTag() != nil && !isAgent(auth) {
-		return nil, apiservererrors.ErrPerm
-	}
-	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	watcher, ok := w.(crossmodelrelations.OfferWatcher)
-	if !ok {
-		return nil, apiservererrors.ErrUnknownWatcher
-	}
-	return &srvOfferStatusWatcher{
-		watcherCommon: newWatcherCommon(context),
-		st:            context.State(),
-		statusService: context.DomainServices().Status(),
-		watcher:       watcher,
-	}, nil
+	return &srvOfferStatusWatcher{}, nil
 }
 
 // Next returns when a change has occurred to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvOfferStatusWatcher.
 func (w *srvOfferStatusWatcher) Next(ctx context.Context) (params.OfferStatusWatchResult, error) {
-	_, err := internal.FirstResult[struct{}](ctx, w.watcher)
-	if err != nil {
-		return params.OfferStatusWatchResult{}, errors.Trace(err)
-	}
-	change, err := crossmodel.GetOfferStatusChange(ctx,
-		crossmodel.GetBackend(w.st), w.statusService,
-		w.watcher.OfferUUID(), w.watcher.OfferName())
-	if err != nil {
-		// For the specific case where we are informed that a migration is
-		// in progress, we want to return an error that causes the client
-		// to stop watching, rather than in the payload.
-		if errors.Is(err, migration.ErrMigrating) {
-			return params.OfferStatusWatchResult{}, err
-		}
-
-		return params.OfferStatusWatchResult{Error: apiservererrors.ServerError(err)}, nil
-	}
-	return params.OfferStatusWatchResult{
-		Changes: []params.OfferStatusChange{*change},
-	}, nil
+	return params.OfferStatusWatchResult{}, nil
 }
 
 // srvMachineStorageIdsWatcher defines the API wrapping a StringsWatcher
