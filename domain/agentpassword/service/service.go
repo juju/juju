@@ -142,12 +142,12 @@ func (s *Service) MatchesMachinePasswordHashWithNonce(ctx context.Context, machi
 		return false, passworderrors.EmptyNonce
 	}
 
-	unitUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	return s.st.MatchesMachinePasswordHashWithNonce(ctx, unitUUID, hashPassword(password), nonce)
+	return s.st.MatchesMachinePasswordHashWithNonce(ctx, machineUUID, hashPassword(password), nonce)
 }
 
 // IsMachineController returns whether the machine is a controller machine.
