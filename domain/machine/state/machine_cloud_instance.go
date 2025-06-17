@@ -216,8 +216,10 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 			return errors.Errorf("setting machine nonce for machine %q: %w", mUUID, err)
 		}
 
-		if err := st.insertManualMachine(ctx, tx, mUUID, instanceID); err != nil {
-			return errors.Errorf("inserting manual machine for machine %q: %w", mUUID, err)
+		if strings.HasPrefix(instanceID.String(), domainmachine.ManualInstancePrefix) {
+			if err := st.insertManualMachine(ctx, tx, mUUID, instanceID); err != nil {
+				return errors.Errorf("inserting manual machine for machine %q: %w", mUUID, err)
+			}
 		}
 
 		if hardwareCharacteristics != nil &&
@@ -252,10 +254,6 @@ func (st *State) insertManualMachine(
 	mUUID machine.UUID,
 	instanceID instance.Id,
 ) error {
-	if !strings.HasPrefix(instanceID.String(), domainmachine.ManualInstancePrefix) {
-		return nil
-	}
-
 	setManualStmt, err := st.Prepare(`
 INSERT INTO machine_manual (machine_uuid)
 VALUES ($machineUUID.uuid)
