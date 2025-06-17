@@ -23,7 +23,7 @@ A *storage constraint* is slightly different from a {ref}`constraint <constraint
 
 ```{important}
 
-To put together a storage constraint, you need information from both the charm and the {ref}`storage provider <storage-provider>` /  {ref}`storage pool <storage-pool>`. 
+To put together a storage constraint, you need information from both the charm and the {ref}`storage provider <storage-provider>` /  {ref}`storage pool <storage-pool>`.
 
 ```
 
@@ -31,7 +31,7 @@ This constraint has the form `<label>=<pool>,<count>,<size>`.
 
 ```{important}
 
-The order of the arguments does not actually matter -- they are identified based on a regex (pool names must start with a letter and sizes must end with a unit suffix). 
+The order of the arguments does not actually matter -- they are identified based on a regex (pool names must start with a letter and sizes must end with a unit suffix).
 
 ```
 
@@ -178,7 +178,7 @@ AWS-based models have access to the 'ebs' storage provider, which supports the f
 
 **iops**
 
-* The number of IOPS for io1, io2 and gp3 volume types. There are restrictions on minimum and maximum IOPS, as a ratio of the size of volumes. See [Provisioned IOPS (SSD) Volumes](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html#EBSVolumeTypes_piops) for more information.
+* The number of IOPS for io1, io2 and gp3 volume types. There are restrictions on minimum and maximum IOPS, as a ratio of the size of volumes. See [Provisioned IOPS (SSD) Volumes](https://docs.aws.amazon.com/ebs/latest/userguide/provisioned-iops.html) for more information.
 
 **encrypted**
 
@@ -186,7 +186,7 @@ AWS-based models have access to the 'ebs' storage provider, which supports the f
 
 **kms-key-id**
 
-* The KMS Key ARN used to encrypt the disk. Requires *encrypted: true* to function.  
+* The KMS Key ARN used to encrypt the disk. Requires *encrypted: true* to function.
 
 **throughput**
 
@@ -380,7 +380,7 @@ When deploying an application or unit that requires storage, using machine place
 <!--Charmed operators can be made to be storage-aware, allowing data storage that persists beyond the lifetime of any given machine.-->
 
 
-<!-- 
+<!--
 It's not always "machine independent" data volume. It can be but can also just be a directory on disk tied to the machine
 Storage declares that a charm needs either a block or filesystem - how that is realised is determined at deployment. For development, a filesystem storage requirement might be a directory on disk under the charm dir and hence is tied to the machine and goes away when the unit is destroyed. Or it could be (like the text currently says) a machine independent volume which can (if the user so chooses) outlive the machine to which it was attached and be reattached later elsewhere. It's hard to define everything n just one sentence as it's a complex topic-->
 
@@ -390,7 +390,7 @@ Storage declares that a charm needs either a block or filesystem - how that is r
 <!--TODO incorporate any useful detail into https://juju.is/docs/sdk/use-storage-in-a-charm, then delete this section.-->
 
 ### In general
- 
+
 Charm storage is defined in the [`storage` key in `charmcraft.yaml`](https://juju.is/docs/sdk/charmcraft-yaml#heading--storage).
 
 The `storage` map definition:
@@ -457,9 +457,9 @@ The above snippet will ensure that both the `important-app` container and charm 
 
 ```{note}
 
-The `location` attribute *must* be specified when mounting a storage into a workload container as shown above - this will dictate the mount point for the specific container. 
+The `location` attribute *must* be specified when mounting a storage into a workload container as shown above - this will dictate the mount point for the specific container.
 
-Optionally, developers can specify the `location` attribute on the storage itself, which will specify the mount point in the charm container. If left unset, the charm container will have the storage volume mounted at a predictable path at `/var/lib/juju/storage/<name>/<num>`, where `<num>` is the index of the storage. This defaults to `0`. 
+Optionally, developers can specify the `location` attribute on the storage itself, which will specify the mount point in the charm container. If left unset, the charm container will have the storage volume mounted at a predictable path at `/var/lib/juju/storage/<name>/<num>`, where `<num>` is the index of the storage. This defaults to `0`.
 
 For the above `metadata.yaml`, the charm container would have the storage available at: `/var/lib/juju/storage/logs/0`.
 
@@ -467,8 +467,8 @@ For the above `metadata.yaml`, the charm container would have the storage availa
 
 
 ## Storage events
- 
- 
+
+
 There are two key events associated with storage:
 
 |         Event name         |                                                 Event Type                                                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                     |
