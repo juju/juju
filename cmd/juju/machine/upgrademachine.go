@@ -476,7 +476,7 @@ func (c *upgradeSeriesCommand) handleUpgradeSeriesChange(ctx *cmd.Context, wid s
 	if len(messages) == 0 {
 		return nil
 	}
-	ctx.Infof(strings.Join(messages, "\n"))
+	ctx.Infof("%s", strings.Join(messages, "\n"))
 	return nil
 }
 

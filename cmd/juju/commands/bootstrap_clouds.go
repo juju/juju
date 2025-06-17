@@ -118,7 +118,7 @@ You will need to have a credential if you want to bootstrap on a cloud, see
 ‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
 listed is the default. Add more clouds with ‘juju add-cloud’.
 `
-	fmt.Fprintf(ctx.Stdout, credHelpText[1:])
+	fmt.Fprint(ctx.Stdout, credHelpText[1:])
 	return nil
 }
 

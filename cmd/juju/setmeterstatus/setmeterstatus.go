@@ -63,7 +63,7 @@ func (c *SetMeterStatusCommand) Init(args []string) error {
 	c.Status = args[1]
 
 	if err := cmd.CheckEmpty(args[2:]); err != nil {
-		return errors.Errorf("unknown command line arguments: " + strings.Join(args, ","))
+		return errors.Errorf("unknown command line arguments: %s", strings.Join(args, ","))
 	}
 	return nil
 }

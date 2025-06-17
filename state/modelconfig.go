@@ -54,11 +54,11 @@ func checkModelConfig(cfg *config.Config) error {
 	allAttrs := cfg.AllAttrs()
 	for _, attr := range disallowedModelConfigAttrs {
 		if _, ok := allAttrs[attr]; ok {
-			return errors.Errorf(attr + " should never be written to the state")
+			return errors.Errorf("%s should never be written to the state", attr)
 		}
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
-		return errors.Errorf("agent-version must always be set in state")
+		return errors.New("agent-version must always be set in state")
 	}
 	for attr := range allAttrs {
 		if controller.ControllerOnlyAttribute(attr) {
@@ -303,7 +303,7 @@ func checkControllerInheritedConfig(attrs attrValues) error {
 	disallowedCloudConfigAttrs := append(disallowedModelConfigAttrs[:], config.AgentVersionKey)
 	for _, attr := range disallowedCloudConfigAttrs {
 		if _, ok := attrs[attr]; ok {
-			return errors.Errorf("local cloud config cannot contain " + attr)
+			return errors.Errorf("local cloud config cannot contain %s", attr)
 		}
 	}
 	for attrName := range attrs {

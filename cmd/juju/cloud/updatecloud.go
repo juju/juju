@@ -148,7 +148,7 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 			returnErr = cmd.ErrSilent
 			return
 		}
-		ctxt.Infof(successMsg)
+		ctxt.Infof("%s", successMsg)
 	}
 	if c.isPublicCloud(c.Cloud) {
 		ctxt.Infof("To ensure this client's copy or any controller copies of public cloud information is up to date with the latest region information, use `juju update-public-clouds`.")

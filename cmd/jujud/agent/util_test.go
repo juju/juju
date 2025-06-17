@@ -264,7 +264,7 @@ func (s *signal) assertTriggered(c *gc.C, thing string) {
 	select {
 	case <-s.triggered():
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for " + thing)
+		c.Fatalf("timed out waiting for %s", thing)
 	}
 }
 

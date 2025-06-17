@@ -95,7 +95,7 @@ func (p *Parser) Run() (*QueryExpression, error) {
 	}
 	var err error
 	if len(p.errors) > 0 {
-		err = errors.Errorf(strings.Join(p.errors, "\n"))
+		err = errors.New(strings.Join(p.errors, "\n"))
 		return nil, errors.Trace(err)
 	}
 	return &exp, nil

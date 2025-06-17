@@ -271,7 +271,7 @@ func DumpTestLogsAfter(timeout time.Duration, c *gc.C, cleaner TestCleanup) {
 	go func() {
 		select {
 		case <-time.After(timeout):
-			fmt.Printf(c.GetTestLog())
+			fmt.Print(c.GetTestLog())
 		case <-done:
 		}
 	}()

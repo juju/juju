@@ -31,3 +31,4 @@ tests/tmp.*
 *.charm
 *.bundle
 *.log
+.envrc

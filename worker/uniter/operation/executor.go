@@ -139,7 +139,7 @@ func (x *executor) do(op Operation, step executorStep) (err error) {
 			x.logger.Errorf("after %s for %s: %v", message, x.unitName, writeErr)
 		}
 	}
-	return errors.Annotatef(firstErr, message)
+	return errors.Annotate(firstErr, message)
 }
 
 func (x *executor) writeState(newState State) error {

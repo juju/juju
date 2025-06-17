@@ -475,7 +475,7 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 		} else {
 			msg += " but there are other controllers registered: use -c or --controller to specify a controller if needed."
 		}
-		ctxt.Infof(msg)
+		ctxt.Infof("%s", msg)
 
 		// If there are no controllers registered on this client,
 		// assume the operation only needs to run on a client.
@@ -496,10 +496,10 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 		return nil
 	}
 
-	fmt.Fprintf(ctxt.Stdout, fmt.Sprintf("Do you want to %v:\n", action))
+	fmt.Fprintf(ctxt.Stdout, "Do you want to %v:\n", action)
 	fmt.Fprintf(ctxt.Stdout, "    1. client only (--client)\n")
-	fmt.Fprintf(ctxt.Stdout, fmt.Sprintf("    2. controller %q only (--controller %s)\n", currentController, currentController))
-	fmt.Fprintf(ctxt.Stdout, fmt.Sprintf("    3. both (--client --controller %s)\n", currentController))
+	fmt.Fprintf(ctxt.Stdout, "    2. controller %q only (--controller %s)\n", currentController, currentController)
+	fmt.Fprintf(ctxt.Stdout, "    3. both (--client --controller %s)\n", currentController)
 	fmt.Fprint(ctxt.Stdout, "Enter your choice, or type Q|q to quit: ")
 	for {
 		input, err := readLine(ctxt.Stdin)
