@@ -412,7 +412,7 @@ func (st *State) reconcileNetConfigAddresses(
 			existingAddr := existingAddrs[a.AddressValue]
 
 			// We do not process addresses that are managed by the provider.
-			if existingAddr.OriginID != 0 {
+			if existingAddr.OriginID != originMachine {
 				st.logger.Infof(ctx, "address %q for device %q is managed by the provider", a.AddressValue, n.Name)
 				continue
 			}

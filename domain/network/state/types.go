@@ -518,12 +518,17 @@ func encodeAddressConfigType(kind corenetwork.AddressConfigType) (int64, error) 
 	}
 }
 
+const (
+	originMachine  int64 = 0
+	originProvider int64 = 1
+)
+
 func encodeAddressOrigin(kind corenetwork.Origin) (int64, error) {
 	switch kind {
 	case corenetwork.OriginMachine:
-		return 0, nil
+		return originMachine, nil
 	case corenetwork.OriginProvider:
-		return 1, nil
+		return originProvider, nil
 	default:
 		return -1, errors.Errorf("unsupported address origin: %q", kind)
 	}
