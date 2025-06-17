@@ -536,7 +536,7 @@ func (s *stateSuite) TestListAllMachineNamesSuccess(c *tc.C) {
 	c.Assert(ms, tc.DeepEquals, expectedMachines)
 }
 
-func (s *stateSuite) TestIsControllerApplicationController(c *tc.C) {
+func (s *stateSuite) TestIsMachineControllerApplicationController(c *tc.C) {
 	machineName := s.createApplication(c, true)
 
 	isController, err := s.state.IsMachineController(c.Context(), machineName)
@@ -544,7 +544,7 @@ func (s *stateSuite) TestIsControllerApplicationController(c *tc.C) {
 	c.Assert(isController, tc.IsTrue)
 }
 
-func (s *stateSuite) TestIsControllerApplicationNonController(c *tc.C) {
+func (s *stateSuite) TestIsMachineControllerApplicationNonController(c *tc.C) {
 	machineName := s.createApplication(c, false)
 
 	isController, err := s.state.IsMachineController(c.Context(), machineName)
@@ -552,7 +552,7 @@ func (s *stateSuite) TestIsControllerApplicationNonController(c *tc.C) {
 	c.Assert(isController, tc.IsFalse)
 }
 
-func (s *stateSuite) TestIsControllerFailure(c *tc.C) {
+func (s *stateSuite) TestIsMachineControllerFailure(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -561,9 +561,9 @@ func (s *stateSuite) TestIsControllerFailure(c *tc.C) {
 	c.Assert(isController, tc.IsFalse)
 }
 
-// TestIsControllerNotFound asserts that a NotFound error is returned when the
+// TestIsMachineControllerNotFound asserts that a NotFound error is returned when the
 // machine is not found.
-func (s *stateSuite) TestIsControllerNotFound(c *tc.C) {
+func (s *stateSuite) TestIsMachineControllerNotFound(c *tc.C) {
 	_, err := s.state.IsMachineController(c.Context(), "666")
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }

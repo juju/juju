@@ -41,6 +41,45 @@ func (m *MockAgentPasswordService) EXPECT() *MockAgentPasswordServiceMockRecorde
 	return m.recorder
 }
 
+// IsMachineController mocks base method.
+func (m *MockAgentPasswordService) IsMachineController(arg0 context.Context, arg1 machine.Name) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsMachineController", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsMachineController indicates an expected call of IsMachineController.
+func (mr *MockAgentPasswordServiceMockRecorder) IsMachineController(arg0, arg1 any) *MockAgentPasswordServiceIsMachineControllerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMachineController", reflect.TypeOf((*MockAgentPasswordService)(nil).IsMachineController), arg0, arg1)
+	return &MockAgentPasswordServiceIsMachineControllerCall{Call: call}
+}
+
+// MockAgentPasswordServiceIsMachineControllerCall wrap *gomock.Call
+type MockAgentPasswordServiceIsMachineControllerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAgentPasswordServiceIsMachineControllerCall) Return(arg0 bool, arg1 error) *MockAgentPasswordServiceIsMachineControllerCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAgentPasswordServiceIsMachineControllerCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockAgentPasswordServiceIsMachineControllerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAgentPasswordServiceIsMachineControllerCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockAgentPasswordServiceIsMachineControllerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MatchesMachinePasswordHashWithNonce mocks base method.
 func (m *MockAgentPasswordService) MatchesMachinePasswordHashWithNonce(arg0 context.Context, arg1 machine.Name, arg2, arg3 string) (bool, error) {
 	m.ctrl.T.Helper()

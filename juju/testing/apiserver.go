@@ -387,9 +387,6 @@ func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config
 		agentPasswordServiceGetter{
 			DomainServicesGetter: s.ModelDomainServicesGetter(c),
 		},
-		machineServiceGetter{
-			DomainServicesGetter: s.ModelDomainServicesGetter(c),
-		},
 		factory.Access(),
 		factory.Macaroon(),
 		agentAuthGetter,
@@ -420,20 +417,6 @@ func (s agentPasswordServiceGetter) GetAgentPasswordServiceForModel(ctx context.
 		return nil, errors.Trace(err)
 	}
 	return svc.AgentPassword(), nil
-}
-
-type machineServiceGetter struct {
-	services.DomainServicesGetter
-}
-
-// GetMachineServiceForModel returns a MachineService for the given
-// model.
-func (s machineServiceGetter) GetMachineServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (stateauthenticator.MachineService, error) {
-	svc, err := s.DomainServicesGetter.ServicesForModel(ctx, modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return svc.Machine(), nil
 }
 
 func (s *ApiServerSuite) SetUpTest(c *tc.C) {

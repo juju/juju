@@ -5,6 +5,7 @@ package authentication
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -27,6 +28,9 @@ type AgentPasswordService interface {
 	// MatchesMachinePasswordHashWithNonce checks if the password with a nonce
 	// is valid or not.
 	MatchesMachinePasswordHashWithNonce(context.Context, machine.Name, string, string) (bool, error)
+
+	// IsMachineController checks if the machine is a controller.
+	IsMachineController(context.Context, machine.Name) (bool, error)
 }
 
 // AgentAuthenticatorGetter is a factory for creating authenticators, which
@@ -81,7 +85,7 @@ type taggedAuthenticator interface {
 func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthParams) (state.Entity, error) {
 	switch authParams.AuthTag.Kind() {
 	case names.UserTagKind:
-		return nil, errors.Trace(apiservererrors.ErrBadRequest)
+		return nil, errors.Trace(fmt.Errorf("user authentication: %w", apiservererrors.ErrBadRequest))
 
 	case names.UnitTagKind:
 		return a.authenticateUnit(ctx, authParams.AuthTag.(names.UnitTag), authParams.Credentials)
@@ -110,7 +114,7 @@ func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.Uni
 
 	valid, err := a.agentPasswordService.MatchesUnitPasswordHash(ctx, unitName, credentials)
 	if errors.Is(err, agentpassworderrors.EmptyPassword) {
-		return nil, errors.Trace(apiservererrors.ErrBadRequest)
+		return nil, errors.Trace(fmt.Errorf("unit authentication: %w", apiservererrors.ErrBadRequest))
 	} else if errors.Is(err, agentpassworderrors.InvalidPassword) || errors.Is(err, applicationerrors.UnitNotFound) {
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	} else if err != nil {
@@ -137,7 +141,7 @@ func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.
 
 	valid, err := a.agentPasswordService.MatchesMachinePasswordHashWithNonce(ctx, machineName, credentials, nonce)
 	if errors.Is(err, agentpassworderrors.EmptyPassword) || errors.Is(err, agentpassworderrors.EmptyNonce) {
-		return nil, errors.Trace(apiservererrors.ErrBadRequest)
+		return nil, errors.Trace(fmt.Errorf("machine authentication: %w", apiservererrors.ErrBadRequest))
 	} else if errors.Is(err, agentpassworderrors.InvalidPassword) || errors.Is(err, applicationerrors.MachineNotFound) {
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	} else if err != nil {
@@ -160,7 +164,7 @@ func (a *agentAuthenticator) fallbackAuth(ctx context.Context, authParams AuthPa
 	}
 	authenticator, ok := entity.(taggedAuthenticator)
 	if !ok {
-		return nil, errors.Trace(apiservererrors.ErrBadRequest)
+		return nil, errors.Trace(fmt.Errorf("Authenticate fallback: %w", apiservererrors.ErrBadRequest))
 	}
 	if !authenticator.PasswordValid(authParams.Credentials) {
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)

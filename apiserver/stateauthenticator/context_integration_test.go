@@ -86,7 +86,6 @@ func (s *macaroonAuthSuite) setupMocks(c *tc.C) *gomock.Controller {
 		model.UUID(testing.ModelTag.Id()),
 		s.controllerConfigService,
 		nil,
-		nil,
 		s.accessService,
 		s.macaroonService,
 		agentAuthGetter,

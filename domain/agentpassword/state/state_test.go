@@ -37,7 +37,7 @@ func TestStateSuite(t *testing.T) {
 func (s *stateSuite) TestSetUnitPassword(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.createApplication(c)
+	s.createApplication(c, false)
 	unitName := s.createUnit(c)
 
 	unitUUID, err := st.GetUnitUUID(c.Context(), unitName)
@@ -77,7 +77,7 @@ func (s *stateSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 func (s *stateSuite) TestMatchesUnitPasswordHash(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.createApplication(c)
+	s.createApplication(c, false)
 	unitName := s.createUnit(c)
 
 	unitUUID, err := st.GetUnitUUID(c.Context(), unitName)
@@ -105,7 +105,7 @@ func (s *stateSuite) TestMatchesUnitPasswordHashUnitNotFound(c *tc.C) {
 func (s *stateSuite) TestMatchesUnitPasswordHashInvalidPassword(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.createApplication(c)
+	s.createApplication(c, false)
 	unitName := s.createUnit(c)
 
 	unitUUID, err := st.GetUnitUUID(c.Context(), unitName)
@@ -124,7 +124,7 @@ func (s *stateSuite) TestMatchesUnitPasswordHashInvalidPassword(c *tc.C) {
 func (s *stateSuite) TestGetAllUnitPasswordHashes(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.createApplication(c)
+	s.createApplication(c, false)
 	unitName := s.createUnit(c)
 
 	unitUUID, err := st.GetUnitUUID(c.Context(), unitName)
@@ -145,7 +145,7 @@ func (s *stateSuite) TestGetAllUnitPasswordHashes(c *tc.C) {
 func (s *stateSuite) TestGetAllUnitPasswordHashesPasswordNotSet(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.createApplication(c)
+	s.createApplication(c, false)
 	s.createUnit(c)
 
 	hashes, err := st.GetAllUnitPasswordHashes(c.Context())
@@ -166,7 +166,7 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesNoUnits(c *tc.C) {
 func (s *stateSuite) TestSetMachinePassword(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.createApplication(c)
+	s.createApplication(c, false)
 	machineName, _ := s.createMachine(c)
 
 	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
@@ -206,7 +206,7 @@ func (s *stateSuite) TestSetMachinePasswordMachineNotFound(c *tc.C) {
 func (s *stateSuite) TestMatchesMachinePasswordHash(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.createApplication(c)
+	s.createApplication(c, false)
 	machineName, nonce := s.createMachine(c)
 
 	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
@@ -234,7 +234,7 @@ func (s *stateSuite) TestMatchesMachinePasswordHashMachineNotFound(c *tc.C) {
 func (s *stateSuite) TestMatchesMachinePasswordHashInvalidPassword(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.createApplication(c)
+	s.createApplication(c, false)
 	machineName, nonce := s.createMachine(c)
 
 	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
@@ -253,7 +253,7 @@ func (s *stateSuite) TestMatchesMachinePasswordHashInvalidPassword(c *tc.C) {
 func (s *stateSuite) TestGetAllMachinePasswordHashes(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.createApplication(c)
+	s.createApplication(c, false)
 	machineName, _ := s.createMachine(c)
 
 	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
@@ -274,7 +274,7 @@ func (s *stateSuite) TestGetAllMachinePasswordHashes(c *tc.C) {
 func (s *stateSuite) TestGetAllMachinePasswordHashesPasswordNotSet(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.createApplication(c)
+	s.createApplication(c, false)
 	s.createMachine(c)
 
 	hashes, err := st.GetAllMachinePasswordHashes(c.Context())
@@ -292,6 +292,51 @@ func (s *stateSuite) TestGetAllMachinePasswordHashesNoMachines(c *tc.C) {
 	c.Assert(hashes, tc.DeepEquals, agentpassword.MachinePasswordHashes{})
 }
 
+func (s *stateSuite) TestIsMachineControllerApplicationController(c *tc.C) {
+	s.createApplication(c, true)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	machineName, _ := s.createMachine(c)
+
+	isController, err := st.IsMachineController(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.IsTrue)
+}
+
+func (s *stateSuite) TestIsMachineControllerApplicationNonController(c *tc.C) {
+	s.createApplication(c, false)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	machineName, _ := s.createMachine(c)
+
+	isController, err := st.IsMachineController(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.IsFalse)
+}
+
+func (s *stateSuite) TestIsMachineControllerFailure(c *tc.C) {
+	s.createApplication(c, false)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	machineName, _ := s.createMachine(c)
+
+	isController, err := st.IsMachineController(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.IsFalse)
+}
+
+// TestIsMachineControllerNotFound asserts that a NotFound error is returned when the
+// machine is not found.
+func (s *stateSuite) TestIsMachineControllerNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.IsMachineController(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
 func (s *stateSuite) genPasswordHash(c *tc.C) agentpassword.PasswordHash {
 	rand, err := internalpassword.RandomPassword()
 	c.Assert(err, tc.ErrorIsNil)
@@ -299,7 +344,7 @@ func (s *stateSuite) genPasswordHash(c *tc.C) agentpassword.PasswordHash {
 	return agentpassword.PasswordHash(internalpassword.AgentPasswordHash(rand))
 }
 
-func (s *stateSuite) createApplication(c *tc.C) coreapplication.ID {
+func (s *stateSuite) createApplication(c *tc.C, controller bool) coreapplication.ID {
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	appID, _, err := applicationSt.CreateIAASApplication(c.Context(), "foo", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
@@ -319,6 +364,7 @@ func (s *stateSuite) createApplication(c *tc.C) coreapplication.ID {
 				Revision:      1,
 				Source:        charm.LocalSource,
 			},
+			IsController: controller,
 		},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)

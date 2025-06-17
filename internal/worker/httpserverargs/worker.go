@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
-	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -106,7 +105,6 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 		w.catacomb.Context(context.Background()),
 		w.cfg.statePool,
 		coremodel.UUID(controllerModelUUID),
-		w.managedServices,
 		w.managedServices,
 		w.managedServices,
 		w.managedServices,
@@ -265,16 +263,6 @@ func (b *managedServices) GetAgentPasswordServiceForModel(ctx context.Context, m
 		return nil, errors.Trace(err)
 	}
 	return services.AgentPassword(), nil
-}
-
-// GetMachineServiceForModel returns a Machine for the given
-// model.
-func (b *managedServices) GetMachineServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (stateauthenticator.MachineService, error) {
-	services, err := b.ServicesForModel(b.tomb.Context(ctx), modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return services.Machine(), nil
 }
 
 // ServicesForModel returns a DomainServices for the given model.

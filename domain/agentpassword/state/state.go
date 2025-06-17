@@ -326,6 +326,60 @@ WHERE  name=$entityName.name`, u)
 	return u.UUID, errors.Capture(err)
 }
 
+// IsMachineController returns whether the machine is a controller machine.
+// It returns a NotFound if the given machine doesn't exist.
+func (st *State) IsMachineController(ctx context.Context, mName machine.Name) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var result count
+	query := `
+SELECT &count.*
+FROM   v_machine_is_controller
+WHERE  machine_uuid = $machineUUID.uuid
+`
+	queryStmt, err := st.Prepare(query, machineUUID{}, result)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		mUUID, err := st.getMachineUUIDFromName(ctx, tx, mName)
+		if err != nil {
+			return err
+		}
+
+		if err := tx.Query(ctx, queryStmt, mUUID).Get(&result); err != nil {
+			return errors.Errorf("querying if machine %q is a controller: %w", mName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Errorf("checking if machine %q is a controller: %w", mName, err)
+	}
+
+	return result.Count == 1, nil
+}
+
+func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName machine.Name) (machineUUID, error) {
+	machineNameParam := machineName{Name: mName}
+	machineUUIDoutput := machineUUID{}
+	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name`
+	queryStmt, err := st.Prepare(query, machineNameParam, machineUUIDoutput)
+	if err != nil {
+		return machineUUID{}, errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, queryStmt, machineNameParam).Get(&machineUUIDoutput); errors.Is(err, sqlair.ErrNoRows) {
+		return machineUUID{}, errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
+	} else if err != nil {
+		return machineUUID{}, errors.Errorf("querying UUID for machine %q: %w", mName, err)
+	}
+	return machineUUIDoutput, nil
+}
+
 func encodeUnitPasswordHashes(results []unitPasswordHashes) agentpassword.UnitPasswordHashes {
 	ret := make(agentpassword.UnitPasswordHashes)
 	for _, r := range results {

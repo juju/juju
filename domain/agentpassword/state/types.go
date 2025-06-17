@@ -4,6 +4,7 @@
 package state
 
 import (
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
 )
@@ -43,4 +44,12 @@ type unitPasswordHashes struct {
 
 type count struct {
 	Count int `db:"count"`
+}
+
+type machineName struct {
+	Name machine.Name `db:"name"`
+}
+
+type machineUUID struct {
+	UUID machine.UUID `db:"uuid"`
 }

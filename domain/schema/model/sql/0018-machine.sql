@@ -253,3 +253,11 @@ CREATE TABLE machine_agent_presence (
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid)
 );
+
+CREATE VIEW v_machine_is_controller AS
+SELECT COUNT(ac.application_uuid) AS count, m.uuid AS machine_uuid
+FROM machine AS m
+JOIN net_node AS n ON m.net_node_uuid = n.uuid
+LEFT JOIN unit AS u ON n.uuid = u.net_node_uuid
+LEFT JOIN application AS a ON u.application_uuid = a.uuid
+LEFT JOIN application_controller AS ac ON a.uuid = ac.application_uuid

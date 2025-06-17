@@ -125,7 +125,6 @@ func TestingAPIHandler(c *tc.C, pool *state.StatePool, st *state.State, sf servi
 		modelInfo.UUID,
 		sf.ControllerConfig(),
 		nil,
-		nil,
 		sf.Access(),
 		sf.Macaroon(),
 		agentAuthGetter,

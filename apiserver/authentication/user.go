@@ -119,7 +119,7 @@ func (u *LocalUserAuthenticator) Authenticate(
 	// made, we don't need a full AgentAuthenticator.
 	userTag, ok := authParams.AuthTag.(names.UserTag)
 	if !ok {
-		return nil, errors.Errorf("invalid request")
+		return nil, errors.Errorf("invalid request 1")
 	}
 	if !userTag.IsLocal() {
 		return nil, errors.Errorf("invalid request - expected local user")

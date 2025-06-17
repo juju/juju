@@ -16,6 +16,7 @@ import (
 	unittesting "github.com/juju/juju/core/unit/testing"
 	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internalpassword "github.com/juju/juju/internal/password"
 )
 
@@ -281,6 +282,47 @@ func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonceEmptyNonce(c *tc.C
 	service := NewService(s.state)
 	_, err = service.MatchesMachinePasswordHashWithNonce(c.Context(), machineName, password, "")
 	c.Assert(err, tc.ErrorIs, agentpassworderrors.EmptyNonce)
+}
+
+// TestIsMachineControllerSuccess asserts the happy path of the
+// IsMachineController service.
+func (s *serviceSuite) TestIsMachineControllerSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().IsMachineController(gomock.Any(), machine.Name("666")).Return(true, nil)
+
+	isController, err := NewService(s.state).
+		IsMachineController(c.Context(), machine.Name("666"))
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.IsTrue)
+}
+
+// TestIsMachineControllerError asserts that an error coming from the state
+// layer is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestIsMachineControllerError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := internalerrors.Errorf("boom")
+	s.state.EXPECT().IsMachineController(gomock.Any(), machine.Name("666")).Return(false, rErr)
+
+	isController, err := NewService(s.state).
+		IsMachineController(c.Context(), machine.Name("666"))
+	c.Check(err, tc.ErrorIs, rErr)
+	c.Check(isController, tc.IsFalse)
+}
+
+// TestIsMachineControllerNotFound asserts that the state layer returns a
+// NotFound Error if a machine is not found with the given machineName, and that
+// error is preserved and passed on to the service layer to be handled there.
+func (s *serviceSuite) TestIsMachineControllerNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().IsMachineController(gomock.Any(), machine.Name("666")).Return(false, coreerrors.NotFound)
+
+	isController, err := NewService(s.state).
+		IsMachineController(c.Context(), machine.Name("666"))
+	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Check(isController, tc.IsFalse)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

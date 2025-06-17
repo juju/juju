@@ -94,7 +94,6 @@ func startedAuthFunc(started chan struct{}) NewStateAuthenticatorFunc {
 		controllerConfigService ControllerConfigService,
 		agentPasswordServiceGetter AgentPasswordServiceGetter,
 		accessService AccessService,
-		machineServiceGetter MachineServiceGetter,
 		macaroonService MacaroonService,
 		mux *apiserverhttp.Mux,
 		clock clock.Clock,

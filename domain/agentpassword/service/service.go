@@ -36,6 +36,10 @@ type State interface {
 	// MatchesMachinePasswordHashWithNonce checks if the password is valid or
 	// not against the password hash with the nonce stored in the database.
 	MatchesMachinePasswordHashWithNonce(context.Context, machine.UUID, agentpassword.PasswordHash, string) (bool, error)
+
+	// IsMachineController returns whether the machine is a controller machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	IsMachineController(context.Context, machine.Name) (bool, error)
 }
 
 // Service provides the means for interacting with the passwords in a model.
@@ -144,6 +148,19 @@ func (s *Service) MatchesMachinePasswordHashWithNonce(ctx context.Context, machi
 	}
 
 	return s.st.MatchesMachinePasswordHashWithNonce(ctx, unitUUID, hashPassword(password), nonce)
+}
+
+// IsMachineController returns whether the machine is a controller machine.
+// It returns a NotFound if the given machine doesn't exist.
+func (s *Service) IsMachineController(ctx context.Context, machineName machine.Name) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	isController, err := s.st.IsMachineController(ctx, machineName)
+	if err != nil {
+		return false, errors.Errorf("checking if machine %q is a controller: %w", machineName, err)
+	}
+	return isController, nil
 }
 
 func hashPassword(p string) agentpassword.PasswordHash {
