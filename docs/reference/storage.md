@@ -576,10 +576,9 @@ In addition to juju client requests for adding storage, the [`StorageMapping`](h
 returned by `self.model.storages` also exposes a
 [`request`](https://ops.readthedocs.io/en/latest/index.html#ops.StorageMapping.request)
 method (e.g. `self.model.storages.request()`) which provides an expedient method for the developer
-to invoke the underlying
-[`storage-add`](https://discourse.charmhub.io/t/hook-tools/1163#heading--storage-add) hook tool in
+to invoke the underlying {ref}`storage-add <hook-command-storage-add>` hook command in
 the charm to request additional storage. On success, this will fire a
-`<storage_name>-storage-attached` event.
+{ref}`storage-attached <hook-storage-attached>` hook.
 
 
 

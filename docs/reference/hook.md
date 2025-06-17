@@ -525,7 +525,7 @@ For this reason it's essential, even in `pebble-ready` event handlers, to catch 
 
 Moreover, as pod churn can occur at any moment, `pebble-ready` events can be received throughout any phase of [a charm's lifecycle](https://juju.is/docs/sdk/a-charms-life). Each container could churn multiple times, and they all can do so independently from one another. In short, the charm should make no assumptions at all about the moment in time at which it may or may not receive `pebble-ready` events, or how often that can occur. The fact that the charm receives a `pebble-ready` event indicates that the container has just become ready (for the first time, or again, after pod churn), therefore you typically will need to **reconfigure your workload from scratch** every single time.
 
-This feature of `pebble-ready` events make them especially suitable for a [holistic handling pattern](https://discourse.charmhub.io/t/deltas-vs-holistic-charming/11095).
+This feature of `pebble-ready` events make them especially suitable for a [holistic handling pattern](https://ops.readthedocs.io/en/latest/explanation/holistic-vs-delta-charms.html).
 
 
 *Which environment variables is it executed with?*
@@ -615,7 +615,7 @@ Hooks bound to this event should be the only ones that rely on remote relation s
 
 Charm authors should expect this event to fire many times during an application's life cycle. Units in an application are able to update relation data as needed, and a `relation-changed` event will fire every time the data in a relation changes. Since relation data can be updated on a per unit bases, a unit may receive multiple `relation-changed` events if it is related to multiple units in an application and all those units update their relation data.
 
-This event is guaranteed to follow immediately after each [`relation-joined`](https://discourse.charmhub.io/t/relation-name-relation-joined-event/6478). So all `juju` commands that trigger `relation-joined` will also cause `relation-changed` to be fired. So typical scenarios include:
+This event is guaranteed to follow immediately after each {ref}`hook-relation-joined`. So all `juju` commands that trigger `relation-joined` will also cause `relation-changed` to be fired. So typical scenarios include:
 
 |   Scenario  | Example Command                          | Resulting Events                     |
 | :-------: | -------------------------- | ------------------------------------ |
@@ -845,8 +845,8 @@ Therefore, ways to cause `install` to occur are:
 
 
 > Note:
-> - Typically, operations performed on `install` should also be considered for [`upgrade-charm`](https://discourse.charmhub.io/t/upgrade-charm-event/6485).
-> - In some cases, [`config-changed`](https://discourse.charmhub.io/t/config-changed-event/6465) can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
+> - Typically, operations performed on `install` should also be considered for {ref}`hook-upgrade-charm`.
+> - In some cases, the {ref}`config-changed <hook-config-changed>` hook  can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
 
 
 The `install` event is emitted once per unit at the beginning of a charm's lifecycle. Associated callbacks should be used to perform one-time initial setup operations and prepare the unit to execute the application. Depending on the charm, this may include installing packages, configuring the underlying machine or provisioning cloud-specific resources.
@@ -858,8 +858,8 @@ Therefore, ways to cause `install` to occur are:
 
 
 > Note:
-> - Typically, operations performed on `install` should also be considered for [`upgrade-charm`](https://discourse.charmhub.io/t/upgrade-charm-event/6485).
-> - In some cases, [`config-changed`](https://discourse.charmhub.io/t/config-changed-event/6465) can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
+> - Typically, operations performed on `install` should also be considered for {ref}`hook-upgrade-charm`.
+> - In some cases, {ref}`hook-config-changed` can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
 
 <!--
 *Which hooks can be guaranteed to have fired before it, if any?*?
@@ -1028,7 +1028,7 @@ This event is triggered when an operator runs `juju upgrade-series <machine> pre
 |:-:|-|-|
 |[Upgrade series](https://juju.is/docs/olm/upgrade-a-machines-series#heading--upgrading-a-machines-series) | `juju upgrade-series <machine> prepare`| `pre-series-upgrade` -> (events on pause until upgrade completes) |
 
- Notably, after this event fires and before the [post-series-upgrade event](https://discourse.charmhub.io/t/post-series-upgrade-event/6472) fires, Juju will pause events and changes for all units on the machine being upgraded.  There will be no config-changed, update-status, etc. events to interrupt the upgrade process until after the upgrade process is completed via `juju upgrade-series <machine> complete`.
+ Notably, after this event fires and before the {ref}`hook-post-series-upgrade` hook fires, Juju will pause events and changes for all units on the machine being upgraded.  There will be no config-changed, update-status, etc. events to interrupt the upgrade process until after the upgrade process is completed via `juju upgrade-series <machine> complete`.
 
 
 
@@ -1067,7 +1067,7 @@ Of course, removing an application altogether will result in these events firing
 
 If the unit has any relations active or any storage attached at the time the removal occurs, these will be cleaned up (in no specific order) between `stop` and `remove`. This means the unit will receive `stop -> (*-relation-broken | *-storage-detaching) -> remove`.
 
-The `remove` event is the last event a unit will ever see before going down, right after [`stop`](https://discourse.charmhub.io/t/6483). It is exclusively fired when the unit is in the [Teardown phase](https://discourse.charmhub.io/t/5938).
+The `remove` event is the last event a unit will ever see before going down, right after {ref}`hook-stop`. It is exclusively fired when the unit is in the {ref}`teardown phase <teardown-phase>`.
 
 <!--
 *Which hooks can be guaranteed to have fired before it, if any?*?
@@ -1359,8 +1359,8 @@ The associated callback should be used to reconcile the current state written by
 
 ```{important}
 
-- Typically, operations performed on `upgrade-charm` should also be considered for [`install`](https://discourse.charmhub.io/t/install-event/6469).
-- In some cases, [`config-changed`](https://discourse.charmhub.io/t/config-changed-event/6465) can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
+- Typically, operations performed on `upgrade-charm` should also be considered for {ref}`hook-install`.
+- In some cases, the {ref}`hook-config-changed` hook can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
 - Note that you cannot upgrade a Charmhub charm to the same version. However, upgrading a local charm from path works (and goes through the entire upgrade sequence) even if the charm is exactly the same.
 
 ```

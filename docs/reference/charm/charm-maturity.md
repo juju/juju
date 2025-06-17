@@ -13,9 +13,6 @@ An open source project is the suitable foundation for reuse. However, providing 
 
 2. {ref}`Stage 2: Important capabilities <stage-2-important-capabilities>` are about implementing the most relevant capabilities to ensure effective operations.
 
-For both stages, the reference documents above provide two parts: a first part explains the goals and a second part lists references to the documentation or example code for implementation. The points listed in the stages prioritise the development and explain how to implement the qualities and capabilities using the [Charm SDK](https://juju.is/docs/sdk). For general best practices for developing a charm, please read the [Charm development best practices](https://juju.is/docs/sdk/styleguide).
-
-
 (stage-1-important-qualities)=
 ### Stage 1: Important qualities
 
@@ -121,7 +118,7 @@ Charms cover applications which need to be updated regularly. In today’s world
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| The charm is up-to-date, that is, it has build, test and delivery automation. This automation is important to ensure the project can roll out updates quickly.<p>For this, you need CI/CD in place, including publishing edge and beta/candidate builds.<p>CI/CD is important to ensure that the most recent developments are also accessible to the community for testing.| &#8226; CI/CD builds are triggered ideally at a commit to the main line / master of the charm code.<p>&#8226; In the sense of “CD”, the charm is being published to its beta or edge channel on Charmhub<p>&#8226; The charm development best practices provide an introduction about [integration tests](https://juju.is/docs/sdk/styleguide#heading--continuous-integration). |
+| The charm is up-to-date, that is, it has build, test and delivery automation. This automation is important to ensure the project can roll out updates quickly.<p>For this, you need CI/CD in place, including publishing edge and beta/candidate builds.<p>CI/CD is important to ensure that the most recent developments are also accessible to the community for testing.| &#8226; CI/CD builds are triggered ideally at a commit to the main line / master of the charm code.<p>&#8226; In the sense of “CD”, the charm is being published to its beta or edge channel on Charmhub<p>&#8226; See more: [Ops | Write integration tests for a charm](https://ops.readthedocs.io/en/latest/howto/write-integration-tests-for-a-charm.html) |
 
 #### The charm maintainers are reachable
 
@@ -190,7 +187,7 @@ The charm can expose provides/requires interfaces for integration ready to be ad
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Newly proposed relations have been reviewed and approved by experts to ensure:<p>&#8226; The relation is ready for adoption by other charmers from a development best practice point of view.<p>&#8226;  No conflicts with existing relations of published charms.<p>&#8226;  Relation naming and structuring are consistent with existing relations.<p>&#8226; Tests cover integration with the applications consuming the relations. | A [Github project](https://github.com/canonical/charm-relation-interfaces) structures and defines the implementation of relations.<p>No new relation should conflict with the ones covered by the relation integration set [published on Github](https://github.com/canonical/charm-relation-interfaces).<p>&#8226; [Getting started with relations in Juju](https://discourse.charmhub.io/t/implementing-relations/1051)<p>&#8226; [Discussion about consistency](https://discourse.charmhub.io/t/popular-charm-library-index/5732) |
+| Newly proposed relations have been reviewed and approved by experts to ensure:<p>&#8226; The relation is ready for adoption by other charmers from a development best practice point of view.<p>&#8226;  No conflicts with existing relations of published charms.<p>&#8226;  Relation naming and structuring are consistent with existing relations.<p>&#8226; Tests cover integration with the applications consuming the relations. | A [Github project](https://github.com/canonical/charm-relation-interfaces) structures and defines the implementation of relations.<p>No new relation should conflict with the ones covered by the relation integration set [published on Github](https://github.com/canonical/charm-relation-interfaces).<p>&#8226; See more: [Charmcraft | Manage relations](https://canonical-charmcraft.readthedocs-hosted.com/stable/howto/manage-charms/#manage-relations), [Ops | Manage relations](https://ops.readthedocs.io/en/latest/howto/manage-relations.html)|
 
 #### The charm upgrades the application safely
 
@@ -198,14 +195,14 @@ The charm supports upgrading the workload and the application. An upgrade task p
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| A best practice is to support upgrades sequentially, meaning that users of the charm can regularly apply upgrades in the sequence of released revisions. | &#8226; [How to upgrade applications with Juju](https://juju.is/docs/olm/manage-applications#heading--upgrade-an-application)|
+| A best practice is to support upgrades sequentially, meaning that users of the charm can regularly apply upgrades in the sequence of released revisions. | &#8226; {ref}`upgrade-an-application`|
 
 #### The charm supports scaling up and down
 **If the application permits or supports it,** the charm does not only scale up but also supports scaling down.
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Scale-up and scale-down can involve the number of deployment units and the allocated resources (such as storage or computing). | <p>&#8226;  [Scaling applications with Juju](https://juju.is/docs/olm/manage-applications#heading--scale-an-application)<p>Note that the cited links also point to how to deal with relations when instances are added or removed:<p>&#8226;[SDK Docs - Relations](https://discourse.charmhub.io/t/relations/4465)<p>&#8226; [SDK Docs - Peer Relation Example](https://juju.is/docs/sdk/relations#heading--peer-relation-example) |
+| Scale-up and scale-down can involve the number of deployment units and the allocated resources (such as storage or computing). | <p>&#8226;  {ref}`scale-an-application` <p>Note that the cited links also point to how to deal with relations when instances are added or removed:<p>&#8226; See more: [Charmcraft | Manage relations](https://canonical-charmcraft.readthedocs-hosted.com/stable/howto/manage-charms/#manage-relations), [Ops | Manage relations](https://ops.readthedocs.io/en/latest/howto/manage-relations.html) |
 <!--
 <a href="#heading--backup"><h2 id="heading--backup">The charm supports backup and restore</h2></a>
 
@@ -222,7 +219,7 @@ Engineers and administrators who operate an application at a production-grade le
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Integrating observability refers to providing:<p>&#8226; a metrics endpoint,<p>&#8226; alert rules,<p>&#8226; Grafana dashboards, and<p>&#8226; integration with a log sink (e.g. [Loki](https://charmhub.io/loki-k8s)).| Consider the [Canonical Observability Stack](https://charmhub.io/topics/canonical-observability-stack) (COS) for covering observability in charms. Several endpoints are available from the COS to integrate with charms:<p>&#8226; Provide metrics endpoints using the MetricsProviderEndpoint<p>&#8226; Provide alert rules to Prometheus<p>&#8226; Provide dashboards using the GrafanaDashboardProvider<p>&#8226; Require a logging endpoint using the LogProxyConsumer or LokiPushApiConsumer<p>More information is available on the [Canonical Observability Stack homepage](https://charmhub.io/topics/canonical-observability-stack).<p>Consider the zinc charm implementation as [an example for integrations with Prometheus, Grafana and Loki](https://github.com/jnsgruk/zinc-k8s-operator/blob/main/metadata.yaml). |
+| Integrating observability refers to providing:<p>&#8226; a metrics endpoint,<p>&#8226; alert rules,<p>&#8226; Grafana dashboards, and<p>&#8226; integration with a log sink (e.g. [Loki](https://charmhub.io/loki-k8s)).| Consider the [Canonical Observability Stack](https://charmhub.io/topics/canonical-observability-stack) (COS) for covering observability in charms. Several endpoints are available from the COS to integrate with charms:<p>&#8226; Provide metrics endpoints using the MetricsProviderEndpoint<p>&#8226; Provide alert rules to Prometheus<p>&#8226; Provide dashboards using the GrafanaDashboardProvider<p>&#8226; Require a logging endpoint using the LogProxyConsumer or LokiPushApiConsumer<p>More information is available on the [Canonical Observability Stack homepage](https://charmhub.io/topics/canonical-observability-stack).<p>Consider the Zinc charm implementation as [an example for integrations with Prometheus, Grafana and Loki](https://github.com/jnsgruk/zinc-k8s-operator/blob/main/metadata.yaml). |
 
 
 
