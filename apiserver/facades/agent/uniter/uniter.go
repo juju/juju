@@ -934,8 +934,6 @@ func (u *UniterAPI) WatchActionNotifications(ctx context.Context, args params.En
 	// start up, but here we are.
 	// This is will need to fixed when actions are moved to dqlite.
 
-	//tagToActionReceiver := common.TagToActionReceiverFn(u.st.FindEntity)
-	//watchOne := common.WatchOneActionReceiverNotifications(tagToActionReceiver, u.resources.Register)
 	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringsWatchResults{}, err
