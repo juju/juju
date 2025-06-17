@@ -7,7 +7,11 @@ CREATE TABLE storage_pool (
     -- burden of:
     --   - Knowing every possible type up front to populate a look-up or;
     --   - Sourcing the lookup from the provider and keeping it updated. 
-    type TEXT NOT NULL
+    type TEXT NOT NULL,
+    origin_id INT NOT NULL DEFAULT 1,
+    CONSTRAINT fk_storage_pool_origin
+    FOREIGN KEY (origin_id)
+    REFERENCES storage_pool_origin (id)
 );
 
 -- It is important that the name is unique and speed up access by name.
@@ -29,6 +33,18 @@ CREATE TABLE storage_pool_attribute (
     REFERENCES storage_pool (uuid),
     PRIMARY KEY (storage_pool_uuid, "key")
 );
+
+CREATE TABLE storage_pool_origin (
+    id INT NOT NULL PRIMARY KEY,
+    origin TEXT NOT NULL,
+    CONSTRAINT chk_storage_pool_origin_not_empty
+    CHECK (origin <> '')
+);
+
+INSERT INTO storage_pool_origin (id, origin) VALUES
+    (1, 'user'),
+    (2, 'built-in'),
+    (3, 'provider-default');
 
 -- This table stores storage directive values for each named storage item
 -- defined by the application's current charm. If the charm is updated, then
@@ -194,7 +210,7 @@ LEFT JOIN storage_pool AS sp ON si.storage_pool_uuid = sp.uuid;
 CREATE TABLE storage_unit_owner (
     storage_instance_uuid TEXT NOT NULL PRIMARY KEY,
     unit_uuid TEXT NOT NULL,
-    CONSTRAINT fk_storage_owner_storage
+    CONSTRAINT fk_storage_owner_storage_instance
     FOREIGN KEY (storage_instance_uuid)
     REFERENCES storage_instance (uuid),
     CONSTRAINT fk_storage_owner_unit
@@ -206,10 +222,10 @@ CREATE TABLE storage_attachment (
     storage_instance_uuid TEXT NOT NULL PRIMARY KEY,
     unit_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
-    CONSTRAINT fk_storage_owner_storage
+    CONSTRAINT fk_storage_attachment_storage_instance
     FOREIGN KEY (storage_instance_uuid)
     REFERENCES storage_instance (uuid),
-    CONSTRAINT fk_storage_owner_unit
+    CONSTRAINT fk_storage_attachment_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
     CONSTRAINT fk_storage_attachment_life

@@ -234,6 +234,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"storage_instance",
 		"storage_pool_attribute",
 		"storage_pool",
+		"storage_pool_origin",
 		"storage_unit_owner",
 		"storage_volume_attachment_plan_attr",
 		"storage_volume_attachment_plan",
