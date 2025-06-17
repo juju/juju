@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/subnets"
 	"github.com/juju/juju/apiserver/facades/client/subnets/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
@@ -119,6 +120,10 @@ type stubBacking struct {
 
 func (sb *stubBacking) SubnetsByCIDR(_ string) ([]networkingcommon.BackingSubnet, error) {
 	panic("should not be called")
+}
+
+func (sb stubBacking) ControllerConfig() (controller.Config, error) {
+	return controller.Config{"controller-uuid": coretesting.ControllerTag.Id()}, nil
 }
 
 var _ = gc.Suite(&SubnetsSuite{})

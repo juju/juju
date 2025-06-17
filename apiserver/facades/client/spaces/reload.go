@@ -8,8 +8,11 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/state"
@@ -19,11 +22,16 @@ import (
 // ReloadSpacesState contains all the methods required to execute the API.
 type ReloadSpacesState interface {
 	space.ReloadSpacesState
+	ControllerConfig() (controller.Config, error)
 }
 
 // ReloadSpacesEnviron contains the methods for requesting environ data.
 type ReloadSpacesEnviron interface {
-	environs.EnvironConfigGetter
+	// ModelConfig returns the current model configuration.
+	ModelConfig() (*config.Config, error)
+
+	// CloudSpec returns a cloud specification.
+	CloudSpec() (environscloudspec.CloudSpec, error)
 
 	// GetEnviron returns the environs.Environ ("provider") associated
 	// with the model.
@@ -47,6 +55,15 @@ type ReloadSpacesAPI struct {
 	authorize ReloadSpacesAuthorizer
 }
 
+type environConfGetter struct {
+	ReloadSpacesEnviron
+	controllerUUID string
+}
+
+func (e environConfGetter) ControllerUUID() string {
+	return e.controllerUUID
+}
+
 // NewReloadSpacesAPI creates a new ReloadSpacesAPI.
 func NewReloadSpacesAPI(state ReloadSpacesState,
 	environs ReloadSpacesEnviron,
@@ -68,7 +85,19 @@ func (api *ReloadSpacesAPI) ReloadSpaces() error {
 	if err := api.authorize(); err != nil {
 		return errors.Trace(err)
 	}
-	env, err := api.environs.GetEnviron(api.environs, environs.New)
+
+	ctrlCfg, err := api.state.ControllerConfig()
+
+	if err != nil {
+		return errors.Annotate(err, "get controller config")
+	}
+
+	envConfGetter := environConfGetter{
+		ReloadSpacesEnviron: api.environs,
+		controllerUUID:      ctrlCfg.ControllerUUID(),
+	}
+
+	env, err := api.environs.GetEnviron(envConfGetter, environs.New)
 	if err != nil {
 		return errors.Trace(err)
 	}

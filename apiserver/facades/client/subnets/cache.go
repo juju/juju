@@ -115,10 +115,13 @@ func (e environConfigGetter) ControllerUUID() string {
 // model config. If the model does not support zones, an error satisfying
 // errors.IsNotSupported() will be returned.
 func zonedEnviron(api Backing) (providercommon.ZonedEnviron, error) {
-	// TODO (adisazhar123): set controller UUID
+	ctrlCfg, err := api.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting controller config")
+	}
 	envConfGetter := environConfigGetter{
 		Backing:        api,
-		controllerUUID: "",
+		controllerUUID: ctrlCfg.ControllerUUID(),
 	}
 	env, err := environs.GetEnviron(envConfGetter, environs.New)
 	if err != nil {

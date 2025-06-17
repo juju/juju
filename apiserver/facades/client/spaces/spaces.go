@@ -241,10 +241,13 @@ func (api *API) ReloadSpaces() error {
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
 func (api *API) checkSupportsSpaces() error {
-	// TODO (adisazhar123): set controller UUID
+	ctrlCfg, err := api.backing.ControllerConfig()
+	if err != nil {
+		return errors.Annotate(err, "getting controller config")
+	}
 	envConfGetter := environConfigGetter{
 		Backing:        api.backing,
-		controllerUUID: "",
+		controllerUUID: ctrlCfg.ControllerUUID(),
 	}
 	env, err := environs.GetEnviron(envConfGetter, environs.New)
 	if err != nil {
@@ -313,10 +316,13 @@ func (api *API) ensureSpacesAreMutable() error {
 // An error is returned if it is the provider and not the Juju operator
 // that determines the space topology.
 func (api *API) ensureSpacesNotProviderSourced() error {
-	// TODO (adisazhar123): set controller UUID
+	ctrlCfg, err := api.backing.ControllerConfig()
+	if err != nil {
+		return errors.Annotate(err, "getting controller config")
+	}
 	envConfGetter := environConfigGetter{
 		Backing:        api.backing,
-		controllerUUID: "",
+		controllerUUID: ctrlCfg.ControllerUUID(),
 	}
 	env, err := environs.GetEnviron(envConfGetter, environs.New)
 	if err != nil {

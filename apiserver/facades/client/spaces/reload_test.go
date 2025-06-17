@@ -13,8 +13,10 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/context"
 	environmocks "github.com/juju/juju/environs/mocks"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // ReloadSpacesAPISuite is used to test API calls using mocked model operations.
@@ -34,9 +36,16 @@ func (s *ReloadSpacesAPISuite) TestReloadSpaces(c *gc.C) {
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 
 	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
-	mockEnvirons.EXPECT().GetEnviron(mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, nil)
+	mockEnvirons.EXPECT().GetEnviron(
+		environConfGetter{
+			ReloadSpacesEnviron: mockEnvirons,
+			controllerUUID:      coretesting.ControllerTag.Id(),
+		}, gomock.Any()).Return(mockNetworkEnviron, nil)
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockState.EXPECT().ControllerConfig().Return(controller.Config{
+		"controller-uuid": coretesting.ControllerTag.Id(),
+	}, nil)
 
 	mockEnvironSpaces := NewMockEnvironSpaces(ctrl)
 	mockEnvironSpaces.EXPECT().ReloadSpaces(context, mockState, mockNetworkEnviron).Return(nil)
@@ -56,9 +65,16 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithNoEnviron(c *gc.C) {
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 
 	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
-	mockEnvirons.EXPECT().GetEnviron(mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, errors.New("boom"))
+	mockEnvirons.EXPECT().GetEnviron(
+		environConfGetter{
+			ReloadSpacesEnviron: mockEnvirons,
+			controllerUUID:      coretesting.ControllerTag.Id(),
+		}, gomock.Any()).Return(mockNetworkEnviron, errors.New("boom"))
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockState.EXPECT().ControllerConfig().Return(controller.Config{
+		"controller-uuid": coretesting.ControllerTag.Id(),
+	}, nil)
 
 	mockEnvironSpaces := NewMockEnvironSpaces(ctrl)
 
@@ -77,9 +93,17 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithReloadSpaceError(c *gc.C) {
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 
 	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
-	mockEnvirons.EXPECT().GetEnviron(mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, nil)
+	mockEnvirons.EXPECT().GetEnviron(
+		environConfGetter{
+			ReloadSpacesEnviron: mockEnvirons,
+			controllerUUID:      coretesting.ControllerTag.Id(),
+		}, gomock.Any()).Return(mockNetworkEnviron, nil)
+	mockEnvirons.EXPECT()
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockState.EXPECT().ControllerConfig().Return(controller.Config{
+		"controller-uuid": coretesting.ControllerTag.Id(),
+	}, nil)
 
 	mockEnvironSpaces := NewMockEnvironSpaces(ctrl)
 	mockEnvironSpaces.EXPECT().ReloadSpaces(context, mockState, mockNetworkEnviron).Return(errors.New("boom"))
