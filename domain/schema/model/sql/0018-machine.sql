@@ -255,7 +255,9 @@ CREATE TABLE machine_agent_presence (
 );
 
 CREATE VIEW v_machine_is_controller AS
-SELECT COUNT(ac.application_uuid) AS count, m.uuid AS machine_uuid
+SELECT
+    m.uuid AS machine_uuid,
+    COUNT(ac.application_uuid) AS count
 FROM machine AS m
 JOIN net_node AS n ON m.net_node_uuid = n.uuid
 LEFT JOIN unit AS u ON n.uuid = u.net_node_uuid
