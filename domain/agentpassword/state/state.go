@@ -222,10 +222,10 @@ func (s *State) MatchesMachinePasswordHashWithNonce(
 	machineUUID machine.UUID,
 	passwordHash agentpassword.PasswordHash,
 	nonce string,
-) (valid, controller bool, err error) {
+) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
-		return false, false, err
+		return false, err
 	}
 
 	args := validatePasswordHashWithNonce{
@@ -243,44 +243,21 @@ AND    nonce = $validatePasswordHashWithNonce.nonce;
 `
 	passwordStmt, err := s.Prepare(passwordQuery, args, result)
 	if err != nil {
-		return false, false, errors.Errorf("preparing statement to set password hash: %w", err)
+		return false, errors.Errorf("preparing statement to set password hash: %w", err)
 	}
 
-	controllerQuery := `
-SELECT    COUNT(ac.application_uuid) AS &count.count
-FROM      machine AS m
-JOIN      net_node AS n ON m.net_node_uuid = n.uuid
-LEFT JOIN unit AS u ON n.uuid = u.net_node_uuid
-LEFT JOIN application AS a ON u.application_uuid = a.uuid
-LEFT JOIN application_controller AS ac ON a.uuid = ac.application_uuid
-WHERE     m.uuid = $validatePasswordHashWithNonce.uuid
-`
-	controllerStmt, err := s.Prepare(controllerQuery, args, result)
-	if err != nil {
-		return false, false, errors.Errorf("preparing statement to check if machine is controller: %w", err)
-	}
-
+	var valid bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, passwordStmt, args).Get(&result); err != nil {
 			return errors.Errorf("setting password hash: %w", err)
 		}
 
 		// We've not found any rows, so the password does not match.
-		if result.Count == 0 {
-			return nil
-		}
-
-		// We also need to check if the machine was a controller.
-		if err := tx.Query(ctx, controllerStmt, args).Get(&result); err != nil {
-			return errors.Errorf("checking if machine is controller: %w", err)
-		}
-
-		valid = true
-		controller = result.Count > 0
+		valid = result.Count > 0
 
 		return nil
 	})
-	return valid, controller, errors.Capture(err)
+	return valid, errors.Capture(err)
 }
 
 // GetAllMachinePasswordHashes returns a map of machine names to password hashes.

@@ -22,9 +22,11 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -69,6 +71,13 @@ type MacaroonService interface {
 	BakeryConfigService
 }
 
+// MachineService defines the methods required to determine if a machine is a
+// controller machine.
+type MachineService interface {
+	// IsMachineController returns true if the machine is a controller machine.
+	IsMachineController(ctx context.Context, name machine.Name) (bool, error)
+}
+
 type BakeryConfigService interface {
 	GetLocalUsersKey(context.Context) (*bakery.KeyPair, error)
 	GetLocalUsersThirdPartyKey(context.Context) (*bakery.KeyPair, error)
@@ -83,11 +92,21 @@ func NewAuthenticator(
 	controllerConfigService ControllerConfigService,
 	agentPasswordServiceGetter AgentPasswordServiceGetter,
 	accessService AccessService,
+	machineService MachineService,
 	macaroonService MacaroonService,
 	agentAuthGetter AgentAuthenticatorGetter,
 	clock clock.Clock,
 ) (*Authenticator, error) {
-	authContext, err := newAuthContext(ctx, controllerModelUUID, controllerConfigService, accessService, macaroonService, agentAuthGetter, clock)
+	authContext, err := newAuthContext(
+		ctx,
+		controllerModelUUID,
+		controllerConfigService,
+		accessService,
+		machineService,
+		macaroonService,
+		agentAuthGetter,
+		clock,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -222,15 +241,14 @@ func (a *Authenticator) checkCreds(
 	authParams authentication.AuthParams,
 	authenticator authentication.EntityAuthenticator,
 ) (authentication.AuthInfo, error) {
-	entity, controller, err := authenticator.Authenticate(ctx, authParams)
+	entity, err := authenticator.Authenticate(ctx, authParams)
 	if err != nil {
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 
 	authInfo := authentication.AuthInfo{
-		Delegator:  &PermissionDelegator{AccessService: a.authContext.accessService},
-		Entity:     entity,
-		Controller: controller,
+		Delegator: &PermissionDelegator{AccessService: a.authContext.accessService},
+		Entity:    entity,
 	}
 
 	switch entity.Tag().Kind() {
@@ -244,6 +262,13 @@ func (a *Authenticator) checkCreds(
 		if err != nil {
 			logger.Warningf(ctx, "updating last login time for %v, %v", userTag, err)
 		}
+
+	case names.MachineTagKind:
+		controller, err := a.authContext.machineService.IsMachineController(ctx, machine.Name(entity.Tag().Id()))
+		if err != nil && !errors.Is(err, machineerrors.MachineNotFound) {
+			return authentication.AuthInfo{}, errors.Trace(err)
+		}
+		authInfo.Controller = controller
 
 	case names.ControllerAgentTagKind:
 		// Currently only machines and controller agents are managers in the

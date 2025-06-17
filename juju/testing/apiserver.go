@@ -388,6 +388,7 @@ func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config
 			DomainServicesGetter: s.ModelDomainServicesGetter(c),
 		},
 		factory.Access(),
+		factory.Machine(),
 		factory.Macaroon(),
 		agentAuthGetter,
 		cfg.Clock,

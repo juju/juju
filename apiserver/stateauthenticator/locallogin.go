@@ -86,7 +86,7 @@ func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Reques
 	}
 
 	authenticator := h.authCtxt.authenticator(req.Host)
-	if _, _, err := authenticator.Authenticate(ctx, authentication.AuthParams{
+	if _, err := authenticator.Authenticate(ctx, authentication.AuthParams{
 		AuthTag:     userTag,
 		Credentials: password,
 	}); err != nil {

@@ -73,6 +73,13 @@ type AccessService interface {
 	ReadUserAccessLevelForTarget(ctx context.Context, subject coreuser.Name, target permission.ID) (permission.Access, error)
 }
 
+// MachineServiceGetter defines the methods required to get a machine service
+// for a model. This is used to authenticate machines in the controller.
+type MachineServiceGetter interface {
+	// GetMachineServiceForModel returns a MachineService for the given model.
+	GetMachineServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (stateauthenticator.MachineService, error)
+}
+
 type MacaroonService interface {
 	dbrootkeystore.ContextBacking
 	BakeryConfigService
@@ -100,6 +107,7 @@ type NewStateAuthenticatorFunc func(
 	controllerConfigService ControllerConfigService,
 	agentPasswordServiceGetter AgentPasswordServiceGetter,
 	accessService AccessService,
+	machineServiceGetter MachineServiceGetter,
 	macaroonService MacaroonService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
@@ -116,6 +124,7 @@ func NewStateAuthenticator(
 	controllerConfigService ControllerConfigService,
 	agentPasswordServiceGetter AgentPasswordServiceGetter,
 	accessService AccessService,
+	machineServiceGetter MachineServiceGetter,
 	macaroonService MacaroonService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
@@ -130,6 +139,11 @@ func NewStateAuthenticator(
 		return nil, errors.Trace(err)
 	}
 
+	machineService, err := machineServiceGetter.GetMachineServiceForModel(ctx, controllerModelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(passwordService, systemState, nil)
 	stateAuthenticator, err := stateauthenticator.NewAuthenticator(
 		ctx,
@@ -137,6 +151,7 @@ func NewStateAuthenticator(
 		controllerModelUUID, controllerConfigService,
 		agentPasswordServiceGetter,
 		accessService,
+		machineService,
 		macaroonService,
 		agentAuthGetter,
 		clock,

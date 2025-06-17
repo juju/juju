@@ -121,13 +121,12 @@ func (c *MockStateGetUnitUUIDCall) DoAndReturn(f func(context.Context, unit.Name
 }
 
 // MatchesMachinePasswordHashWithNonce mocks base method.
-func (m *MockState) MatchesMachinePasswordHashWithNonce(arg0 context.Context, arg1 machine.UUID, arg2 agentpassword.PasswordHash, arg3 string) (bool, bool, error) {
+func (m *MockState) MatchesMachinePasswordHashWithNonce(arg0 context.Context, arg1 machine.UUID, arg2 agentpassword.PasswordHash, arg3 string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MatchesMachinePasswordHashWithNonce", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(bool)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // MatchesMachinePasswordHashWithNonce indicates an expected call of MatchesMachinePasswordHashWithNonce.
@@ -143,19 +142,19 @@ type MockStateMatchesMachinePasswordHashWithNonceCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateMatchesMachinePasswordHashWithNonceCall) Return(arg0, arg1 bool, arg2 error) *MockStateMatchesMachinePasswordHashWithNonceCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
+func (c *MockStateMatchesMachinePasswordHashWithNonceCall) Return(arg0 bool, arg1 error) *MockStateMatchesMachinePasswordHashWithNonceCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateMatchesMachinePasswordHashWithNonceCall) Do(f func(context.Context, machine.UUID, agentpassword.PasswordHash, string) (bool, bool, error)) *MockStateMatchesMachinePasswordHashWithNonceCall {
+func (c *MockStateMatchesMachinePasswordHashWithNonceCall) Do(f func(context.Context, machine.UUID, agentpassword.PasswordHash, string) (bool, error)) *MockStateMatchesMachinePasswordHashWithNonceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateMatchesMachinePasswordHashWithNonceCall) DoAndReturn(f func(context.Context, machine.UUID, agentpassword.PasswordHash, string) (bool, bool, error)) *MockStateMatchesMachinePasswordHashWithNonceCall {
+func (c *MockStateMatchesMachinePasswordHashWithNonceCall) DoAndReturn(f func(context.Context, machine.UUID, agentpassword.PasswordHash, string) (bool, error)) *MockStateMatchesMachinePasswordHashWithNonceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

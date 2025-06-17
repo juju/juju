@@ -217,39 +217,9 @@ func (s *stateSuite) TestMatchesMachinePasswordHash(c *tc.C) {
 	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 
-	valid, controller, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, nonce)
+	valid, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, nonce)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(valid, tc.IsTrue)
-	c.Check(controller, tc.IsFalse)
-}
-
-func (s *stateSuite) TestMatchesMachinePasswordHashController(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	appID := s.createApplication(c)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO application_controller (application_uuid)
-VALUES (?);
-`, appID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	machineName, nonce := s.createMachine(c)
-
-	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-
-	passwordHash := s.genPasswordHash(c)
-
-	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
-	c.Assert(err, tc.ErrorIsNil)
-
-	valid, controller, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, nonce)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(valid, tc.IsTrue)
-	c.Check(controller, tc.IsTrue)
 }
 
 func (s *stateSuite) TestMatchesMachinePasswordHashMachineNotFound(c *tc.C) {
@@ -257,7 +227,7 @@ func (s *stateSuite) TestMatchesMachinePasswordHashMachineNotFound(c *tc.C) {
 
 	passwordHash := s.genPasswordHash(c)
 
-	_, _, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machine.UUID("foo"), passwordHash, "")
+	_, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machine.UUID("foo"), passwordHash, "")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -275,10 +245,9 @@ func (s *stateSuite) TestMatchesMachinePasswordHashInvalidPassword(c *tc.C) {
 	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 
-	valid, controller, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash+"1", nonce)
+	valid, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash+"1", nonce)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(valid, tc.IsFalse)
-	c.Check(controller, tc.IsFalse)
 }
 
 func (s *stateSuite) TestGetAllMachinePasswordHashes(c *tc.C) {

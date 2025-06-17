@@ -74,7 +74,7 @@ type PermissionDelegator interface {
 // implement to authenticate juju entities.
 type EntityAuthenticator interface {
 	// Authenticate authenticates the given entity.
-	Authenticate(ctx context.Context, authParams AuthParams) (state.Entity, bool, error)
+	Authenticate(ctx context.Context, authParams AuthParams) (state.Entity, error)
 }
 
 // Authorizer is a function type for authorizing a request.
