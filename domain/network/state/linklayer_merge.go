@@ -98,7 +98,7 @@ func (st *State) MergeLinkLayerDevice(
 
 			if len(existingDevices) == 0 {
 				// Noop
-				st.logger.Debugf(ctx, "no existing devices, ignoring %d incoming device for net node %q",
+				st.logger.Infof(ctx, "no existing devices, ignoring %d incoming device for net node %q",
 					len(incoming), netNodeUUID)
 				return nil
 			}
