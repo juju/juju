@@ -15,7 +15,6 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network"
-	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -39,23 +38,6 @@ func (s *mergeLinkLayerSuite) Txn(
 	db, err := state.DB()
 	c.Assert(err, tc.ErrorIsNil)
 	return db.Txn(c.Context(), fn)
-}
-
-// query executes a given SQL query with optional arguments within a
-// transactional context using the test database.
-func (s *mergeLinkLayerSuite) query(c *tc.C, query string, args ...any) {
-	err := s.TxnRunner().StdTxn(c.Context(),
-		func(ctx context.Context, tx *sql.Tx) error {
-			_, err := tx.ExecContext(ctx, query, args...)
-			if err != nil {
-				return errors.Errorf("%w: query: %s (args: %s)", err, query,
-					args)
-			}
-			return nil
-		})
-	c.Assert(err, tc.ErrorIsNil,
-		tc.Commentf("(Arrange) failed to populate DB: %v",
-			errors.ErrorStack(err)))
 }
 
 // State returns a new State for testing.
