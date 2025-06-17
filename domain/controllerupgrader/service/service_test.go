@@ -20,7 +20,7 @@ import (
 type serviceSuite struct {
 	agentBinaryFinder *MockAgentBinaryFinder
 	ctrlSt            *MockControllerState
-	modelSt           *MockModelState
+	modelSt           *MockControllerModelState
 }
 
 // TestServiceSuite runs all of the tests located in the [serviceSuite].
@@ -33,15 +33,15 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.agentBinaryFinder = NewMockAgentBinaryFinder(ctrl)
 	s.ctrlSt = NewMockControllerState(ctrl)
-	s.modelSt = NewMockModelState(ctrl)
-	return ctrl
-}
+	s.modelSt = NewMockControllerModelState(ctrl)
 
-// TearDownTest cleans up the mock objects after each test.
-func (s *serviceSuite) TearDownTest(c *tc.C) {
-	s.agentBinaryFinder = nil
-	s.ctrlSt = nil
-	s.modelSt = nil
+	c.Cleanup(func() {
+		s.agentBinaryFinder = nil
+		s.ctrlSt = nil
+		s.modelSt = nil
+	})
+
+	return ctrl
 }
 
 // TestUpgradeController tests the happy path for upgrading a controller to the
