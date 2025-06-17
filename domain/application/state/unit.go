@@ -1172,11 +1172,6 @@ func (st *State) insertCAASUnit(
 		return errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
 	}
 
-	// If there is no storage, return early.
-	if len(args.Storage) == 0 {
-		return nil
-	}
-
 	unitStorageDirectives, err := st.createUnitStorageDirectives(
 		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
@@ -1193,14 +1188,15 @@ func (st *State) insertCAASUnit(
 		)
 	}
 
-	attachArgs, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind)
-	if err != nil {
-		return errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
-	}
-	err = st.attachUnitStorage(ctx, tx, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
-	if err != nil {
-		return errors.Errorf("attaching storage for unit %q: %w", args.UnitName, err)
-	}
+	// TODO (tlm): Handle storage attachment and type creation.
+	//attachArgs, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind)
+	//if err != nil {
+	//	return errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
+	//}
+	//err = st.attachUnitStorage(ctx, tx, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
+	//if err != nil {
+	//	return errors.Errorf("attaching storage for unit %q: %w", args.UnitName, err)
+	//}
 	return nil
 }
 
@@ -1266,9 +1262,10 @@ func (st *State) insertIAASUnit(
 		)
 	}
 
-	if _, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind); err != nil {
-		return nil, errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
-	}
+	// TODO (tlm): Handle storage attachment and type creation.
+	//if _, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind); err != nil {
+	//	return nil, errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
+	//}
 	return machineNames, nil
 }
 
