@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"maps"
+	"net"
 	"slices"
 	"strings"
 
@@ -37,9 +38,11 @@ type mergeLinkLayerDevice struct {
 //
 // It contains only the fields that are used to identify and merge the addresses
 type mergeAddress struct {
-	UUID       string
-	Value      string
-	ProviderID string
+	UUID             string
+	Value            string
+	ProviderID       string
+	ProviderSubnetID string
+	SubnetCIDR       string
 }
 
 // mergeLinkLayerDevicesChanges contains the changes to be applied to the
@@ -61,13 +64,17 @@ type mergeLinkLayerDevicesChanges struct {
 // mergeAddressesChanges contains the changes to be applied to the
 // addresses.
 type mergeAddressesChanges struct {
-	// toAddOrUpdate maps provider IDs to ip_address UUID to be added or updated
+	// providerIDsToAddOrUpdate maps provider IDs to ip_address UUID to be added or updated
 	// in provider_link_layer_device.
-	toAddOrUpdate map[string]string
+	providerIDsToAddOrUpdate map[string]string
 	// toRelinquish are a list of ip_address to
 	// relinquish to machine, i.e., set their origin to machine
 	// and remove from provider_ip_address
 	toRelinquish []string
+
+	// subnetToUpdate holds a list of merge address where the subnet needs to be
+	// updated
+	subnetToUpdate []mergeAddress
 }
 
 // MergeLinkLayerDevice is part of the [service.LinkLayerDeviceState]
@@ -186,7 +193,7 @@ func (st *State) applyMergeLinkLayerChanges(
 	if err != nil {
 		return errors.Errorf("removing provider IDs from link layer devices: %w", err)
 	}
-	addressesToRemove := append(addressChanges.toRelinquish, transform.MapToSlice(addressChanges.toAddOrUpdate, getValue)...)
+	addressesToRemove := append(addressChanges.toRelinquish, transform.MapToSlice(addressChanges.providerIDsToAddOrUpdate, getValue)...)
 	err = st.removeAddressProviderIDs(ctx, tx, addressesToRemove)
 	if err != nil {
 		return errors.Errorf("removing provider IDs from addresses: %w", err)
@@ -195,13 +202,24 @@ func (st *State) applyMergeLinkLayerChanges(
 	if err != nil {
 		return errors.Errorf("adding provider IDs to link layer devices: %w", err)
 	}
-	err = st.addProviderAddress(ctx, tx, addressChanges.toAddOrUpdate)
+	err = st.addProviderAddress(ctx, tx, addressChanges.providerIDsToAddOrUpdate)
 	if err != nil {
 		return errors.Errorf("adding provider IDs to addresses: %w", err)
 	}
 	err = st.relinquishAddresses(ctx, tx, addressChanges.toRelinquish)
 	if err != nil {
 		return errors.Errorf("relinquishing addresses: %w", err)
+	}
+
+	// Process subnet updates
+	err = st.updateSubnets(ctx, tx, addressChanges.subnetToUpdate)
+	if err != nil {
+		return errors.Errorf("updating subnets: %w", err)
+	}
+
+	// Remove subnets that are no longer needed
+	if err := st.cleanupUniqueAddressOrphanSubnets(ctx, tx); err != nil {
+		return errors.Errorf("cleaning up orphan subnets: %w", err)
 	}
 
 	// TODO (manadart 2020-06-12): It should be unlikely for the provider to be
@@ -214,6 +232,118 @@ func (st *State) applyMergeLinkLayerChanges(
 			dev.Name, dev.MACAddress, dev.Addresses)
 	}
 	return nil
+}
+
+// updateAddressSubnet updates the subnet_uuid field in the ip_address table.
+func (st *State) updateAddressSubnet(
+	ctx context.Context, tx *sqlair.TX,
+	addressUUID, subnetUUID string,
+) error {
+	type params struct {
+		SubnetUUID  string `db:"subnet_uuid"`
+		AddressUUID string `db:"address_uuid"`
+	}
+	stmt, err := st.Prepare(`
+UPDATE ip_address
+SET subnet_uuid = $params.subnet_uuid
+WHERE uuid = $params.address_uuid
+`, params{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return tx.Query(ctx, stmt, params{
+		SubnetUUID:  subnetUUID,
+		AddressUUID: addressUUID,
+	}).Run()
+}
+
+func (st *State) cleanupUniqueAddressOrphanSubnets(ctx context.Context, tx *sqlair.TX) error {
+	type orphan struct {
+		UUID string `db:"uuid"`
+	}
+	// Fetch orphan subnets
+	stmt, err := st.Prepare(`
+SELECT s.uuid as &orphan.uuid
+FROM subnet as s
+LEFT JOIN ip_address as a ON s.uuid = a.subnet_uuid
+LEFT JOIN provider_subnet as ps ON s.uuid = ps.subnet_uuid
+WHERE a.uuid IS NULL -- orphan subnet, linked to no addresses
+AND ps.provider_id IS NULL -- subnet without any provider id
+AND (
+    s.cidr LIKE '%.%/32' -- single address ipv4 subnet 
+    OR  
+    s.cidr LIKE '%:%/128' -- single address ipv6 subnet 
+    )`, orphan{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var orphanSubnets []orphan
+	if err := tx.Query(ctx, stmt).GetAll(&orphanSubnets); err != nil &&
+		!errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("getting orphan subnets: %w", err)
+	}
+	if len(orphanSubnets) == 0 {
+		return nil
+	}
+
+	// remove orphan subnets
+	return st.removeSubnets(ctx, tx, transform.Slice(orphanSubnets, func(o orphan) string { return o.UUID }))
+}
+
+// removeSubnets removes subnets from the subnet table.
+func (st *State) removeSubnets(
+	ctx context.Context, tx *sqlair.TX,
+	subnetUUIDs []string,
+) error {
+	// First remove any provider subnet mappings
+	type uuids []string
+	stmt, err := st.Prepare(`
+DELETE FROM provider_subnet
+WHERE subnet_uuid IN ($uuids[:])
+`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, uuids(subnetUUIDs)).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Then remove any provider network subnet mappings
+	stmt, err = st.Prepare(`
+DELETE FROM provider_network_subnet
+WHERE subnet_uuid IN ($uuids[:])
+`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, uuids(subnetUUIDs)).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Then remove any availability zone subnet mappings
+	stmt, err = st.Prepare(`
+DELETE FROM availability_zone_subnet
+WHERE subnet_uuid IN ($uuids[:])
+`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, uuids(subnetUUIDs)).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Finally remove the subnets
+	stmt, err = st.Prepare(`
+DELETE FROM subnet
+WHERE uuid IN ($uuids[:])
+`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return tx.Query(ctx, stmt, uuids(subnetUUIDs)).Run()
 }
 
 // removeDeviceProviderIDs removes provider-link layer devices mappings
@@ -259,8 +389,8 @@ func (st *State) computeMergeAddressChanges(
 	}
 
 	result := mergeAddressesChanges{
-		toAddOrUpdate: make(map[string]string),
-		toRelinquish:  nil,
+		providerIDsToAddOrUpdate: make(map[string]string),
+		toRelinquish:             nil,
 	}
 	for _, device := range existingDevices {
 		deviceName, addresses := device.Name, device.Addresses
@@ -273,10 +403,29 @@ func (st *State) computeMergeAddressChanges(
 				continue
 			}
 			// Don't update which doesn't change
-			if matchIncoming.ProviderID == existing.ProviderID {
+			if matchIncoming.ProviderID != existing.ProviderID {
+				result.providerIDsToAddOrUpdate[matchIncoming.ProviderID] = existing.UUID
+			}
+
+			// If we already have a non empty provider subnet ID which doesn't
+			// have changed
+			if existing.ProviderSubnetID != "" &&
+				matchIncoming.ProviderSubnetID == existing.ProviderSubnetID {
+				continue // no changes
+			}
+			// Update if we have a new provider subnet id
+			if matchIncoming.ProviderSubnetID != "" {
+				existing.ProviderSubnetID = matchIncoming.ProviderSubnetID
+				result.subnetToUpdate = append(result.subnetToUpdate, existing)
 				continue
 			}
-			result.toAddOrUpdate[matchIncoming.ProviderID] = existing.UUID
+			// Rematch if there is no subnet associated this address or if
+			// it is a solo ip subnet
+			ip, ipnet, _ := net.ParseCIDR(existing.SubnetCIDR)
+			if ipnet == nil || strings.HasPrefix(ipnet.String(), ip.String()) {
+				result.subnetToUpdate = append(result.subnetToUpdate, existing)
+				continue
+			}
 		}
 	}
 	return result
@@ -372,10 +521,12 @@ func (st *State) getExistingLinkLayerDevices(
 		Type       string `db:"device_type"`
 	}
 	type address struct {
-		UUID       string `db:"uuid"`
-		DeviceUUID string `db:"device_uuid"`
-		Value      string `db:"address_value"`
-		ProviderID string `db:"provider_id"`
+		UUID             string `db:"uuid"`
+		DeviceUUID       string `db:"device_uuid"`
+		Value            string `db:"address_value"`
+		ProviderID       string `db:"provider_id"`
+		ProviderSubnetID string `db:"provider_subnet_id"`
+		SubnetCIDR       string `db:"subnet_cidr"`
 	}
 	type netNode struct {
 		UUID string `db:"uuid"`
@@ -396,9 +547,17 @@ WHERE lld.net_node_uuid = $netNode.uuid
 		return nil, errors.Capture(err)
 	}
 	getAddressesStmt, err := st.Prepare(`
-SELECT &address.*
+SELECT
+	ip.uuid AS &address.uuid,
+	ip.device_uuid AS &address.device_uuid,
+	ip.address_value AS &address.address_value,
+	pip.provider_id AS &address.provider_id,
+	ps.provider_id AS &address.provider_subnet_id,
+	s.cidr AS &address.subnet_cidr
 FROM ip_address AS ip
 LEFT JOIN provider_ip_address AS pip ON ip.uuid = pip.address_uuid
+LEFT JOIN provider_subnet AS ps ON ip.subnet_uuid = ps.subnet_uuid
+LEFT JOIN subnet AS s ON ip.subnet_uuid = s.uuid
 WHERE ip.net_node_uuid = $netNode.uuid`, address{}, netNode{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -434,9 +593,11 @@ WHERE ip.net_node_uuid = $netNode.uuid`, address{}, netNode{})
 			Addresses: transform.Slice(addresses,
 				func(a address) mergeAddress {
 					return mergeAddress{
-						UUID:       a.UUID,
-						Value:      a.Value,
-						ProviderID: a.ProviderID,
+						UUID:             a.UUID,
+						Value:            a.Value,
+						ProviderID:       a.ProviderID,
+						ProviderSubnetID: a.ProviderSubnetID,
+						SubnetCIDR:       a.SubnetCIDR,
 					}
 				}),
 		})
@@ -496,8 +657,9 @@ func (st *State) normalizeLinkLayerDevices(
 				Addresses: transform.Slice(dev.Addrs,
 					func(addr network.NetAddr) mergeAddress {
 						return mergeAddress{
-							Value:      addr.AddressValue,
-							ProviderID: string(deref(addr.ProviderID)),
+							Value:            addr.AddressValue,
+							ProviderID:       string(deref(addr.ProviderID)),
+							ProviderSubnetID: string(deref(addr.ProviderSubnetID)),
 						}
 					}),
 			}
@@ -579,6 +741,71 @@ WHERE uuid IN ($uuids[:])`, uuids{})
 		return errors.Capture(err)
 	}
 	return tx.Query(ctx, stmt, uuids(uuidsToRelinquish)).Run()
+}
+
+func (st *State) updateSubnets(ctx context.Context, tx *sqlair.TX, update []mergeAddress) error {
+	// split the list between address that need to be rematched and addresses that need to be updated
+	var toRematch []mergeAddress
+	var toUpdate []mergeAddress
+	for _, address := range update {
+		if address.ProviderSubnetID == "" {
+			toRematch = append(toRematch, address)
+		} else {
+			toUpdate = append(toUpdate, address)
+		}
+	}
+
+	// update subnets for address with a provider subnet id
+	for _, address := range toUpdate {
+		err := st.updateSubnetFromProviderID(ctx, tx, address)
+		if err != nil {
+			return errors.Errorf("failed to update subnet for address %q (%s) with provider subnet id %q: %w",
+				address.Value, address.UUID, address.ProviderSubnetID, err)
+		}
+	}
+	// rematch subnets
+	subs, err := st.getSubnetGroups(ctx, tx)
+	if err != nil {
+		return errors.Errorf("getting subnet groups: %w", err)
+	}
+	for _, address := range toRematch {
+		err := st.updateSubnetByRematch(ctx, tx, address, subs)
+		if err != nil {
+			return errors.Errorf("failed to rematch subnet for address %q (%s): %w",
+				address.Value, address.UUID, err)
+		}
+	}
+	return nil
+}
+
+func (st *State) updateSubnetFromProviderID(ctx context.Context, tx *sqlair.TX, address mergeAddress) error {
+	type updateAddress struct {
+		UUID             string `db:"uuid"`
+		ProviderSubnetID string `db:"provider_subnet_id"`
+	}
+	stmt, err := st.Prepare(`
+UPDATE ip_address 
+SET subnet_uuid = (
+	SELECT subnet_uuid 
+	FROM provider_subnet 
+	WHERE provider_id = $updateAddress.provider_subnet_id)
+	WHERE uuid = $updateAddress.uuid`, updateAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return tx.Query(ctx, stmt, updateAddress{
+		UUID:             address.UUID,
+		ProviderSubnetID: address.ProviderSubnetID,
+	}).Run()
+}
+
+func (st *State) updateSubnetByRematch(ctx context.Context, tx *sqlair.TX, address mergeAddress,
+	subs subnetGroups) error {
+	subnetUUID, _ := subs.subnetForIP(address.Value)
+	if subnetUUID == "" {
+		return nil // rematch failed, so no update
+	}
+	return st.updateAddressSubnet(ctx, tx, address.UUID, subnetUUID)
 }
 
 // deref returns the value pointed to by t or the zero value of T if t is nil.
