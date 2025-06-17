@@ -234,29 +234,6 @@ func (st *State) applyMergeLinkLayerChanges(
 	return nil
 }
 
-// updateAddressSubnet updates the subnet_uuid field in the ip_address table.
-func (st *State) updateAddressSubnet(
-	ctx context.Context, tx *sqlair.TX,
-	addressUUID, subnetUUID string,
-) error {
-	type params struct {
-		SubnetUUID  string `db:"subnet_uuid"`
-		AddressUUID string `db:"address_uuid"`
-	}
-	stmt, err := st.Prepare(`
-UPDATE ip_address
-SET subnet_uuid = $params.subnet_uuid
-WHERE uuid = $params.address_uuid
-`, params{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	return tx.Query(ctx, stmt, params{
-		SubnetUUID:  subnetUUID,
-		AddressUUID: addressUUID,
-	}).Run()
-}
-
 func (st *State) cleanupUniqueAddressOrphanSubnets(ctx context.Context, tx *sqlair.TX) error {
 	type orphan struct {
 		UUID string `db:"uuid"`
@@ -763,18 +740,6 @@ func (st *State) updateSubnets(ctx context.Context, tx *sqlair.TX, update []merg
 				address.Value, address.UUID, address.ProviderSubnetID, err)
 		}
 	}
-	// rematch subnets
-	subs, err := st.getSubnetGroups(ctx, tx)
-	if err != nil {
-		return errors.Errorf("getting subnet groups: %w", err)
-	}
-	for _, address := range toRematch {
-		err := st.updateSubnetByRematch(ctx, tx, address, subs)
-		if err != nil {
-			return errors.Errorf("failed to rematch subnet for address %q (%s): %w",
-				address.Value, address.UUID, err)
-		}
-	}
 	return nil
 }
 
@@ -797,15 +762,6 @@ SET subnet_uuid = (
 		UUID:             address.UUID,
 		ProviderSubnetID: address.ProviderSubnetID,
 	}).Run()
-}
-
-func (st *State) updateSubnetByRematch(ctx context.Context, tx *sqlair.TX, address mergeAddress,
-	subs subnetGroups) error {
-	subnetUUID, _ := subs.subnetForIP(address.Value)
-	if subnetUUID == "" {
-		return nil // rematch failed, so no update
-	}
-	return st.updateAddressSubnet(ctx, tx, address.UUID, subnetUUID)
 }
 
 // deref returns the value pointed to by t or the zero value of T if t is nil.
