@@ -386,7 +386,6 @@ func (st *State) insertIAASApplicationUnits(
 				// For new application units we follow the application directives
 				// verbatum.
 				StorageDirectives: args.StorageDirectives,
-				StoragePoolKind:   args.StoragePoolKind,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    unit.UnitStatusArg.AgentStatus,
 					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
@@ -429,7 +428,6 @@ func (st *State) insertCAASApplicationUnits(
 			// For new application units we follow the application directives
 			// verbatum.
 			StorageDirectives: args.StorageDirectives,
-			StoragePoolKind:   args.StoragePoolKind,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus:    unit.UnitStatusArg.AgentStatus,
 				WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,

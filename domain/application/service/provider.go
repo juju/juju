@@ -272,30 +272,6 @@ func (s *ProviderService) makeApplicationArg(
 		// charm name.
 		name = appArg.Charm.Metadata.Name
 	}
-
-	// Adding units with storage needs to know the kind of storage supported
-	// by the underlying provider so gather that here as it needs to be
-	// done outside a transaction.
-	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
-	if err != nil {
-		return "", application.BaseAddApplicationArg{}, err
-	}
-
-	if len(appArg.Storage) > 0 {
-		appArg.StoragePoolKind = make(map[string]storage.StorageKind)
-	}
-	for _, arg := range appArg.Storage {
-		p, err := s.poolStorageProvider(ctx, registry, arg.PoolNameOrType)
-		if err != nil {
-			return "", application.BaseAddApplicationArg{}, err
-		}
-		if p.Supports(storage.StorageKindFilesystem) {
-			appArg.StoragePoolKind[arg.PoolNameOrType] = storage.StorageKindFilesystem
-		}
-		if p.Supports(storage.StorageKindBlock) {
-			appArg.StoragePoolKind[arg.PoolNameOrType] = storage.StorageKindBlock
-		}
-	}
 	return name, appArg, nil
 }
 
