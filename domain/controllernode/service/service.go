@@ -78,9 +78,13 @@ type State interface {
 	// for each controller node.
 	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
 
-	// GetAPIAddressesForAgents returns the list of API addresses for the
-	// provided controller node that are available for agents.
+	// GetAPIAddressesForAgents returns the list of API address strings including
+	// port for the provided controller node that are available for agents.
 	GetAPIAddressesForAgents(ctx context.Context, ctrlID string) ([]string, error)
+
+	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
+	// agents, divided by controller node.
+	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error)
 }
 
 // Service provides the API for working with controller nodes.
@@ -202,6 +206,7 @@ func (s *Service) SetAPIAddresses(ctx context.Context, controllerID string, addr
 		addresses = append(addresses, controllernode.APIAddress{
 			Address: address,
 			IsAgent: isAvailableForAgents,
+			Scope:   spHostPort.Scope,
 		})
 		emptyAgentAddresses = emptyAgentAddresses && !isAvailableForAgents
 	}
@@ -244,8 +249,37 @@ func (s *Service) GetAllAPIAddressesForAgents(ctx context.Context) (map[string][
 	return s.st.GetAllAPIAddressesForAgents(ctx)
 }
 
-// GetAPIAddressesForAgents returns the list of API addresses for the provided
-// controller node that are available for agents.
+// GetAllAPIAddressesForAgentsInPreferredOrder returns a string slice of api
+// addresses available for agents ordered to prefer local-cloud scoped
+// addresses and IPv4 over IPv6 for each machine.
+func (s *Service) GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error) {
+	agentAddrs, err := s.st.GetAllAPIAddressesWithScopeForAgents(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	orderedAddrs := make([]string, 0)
+	for _, addrs := range agentAddrs {
+		orderedAddrs = append(orderedAddrs, addrs.PrioritizedForScope(controllernode.ScopeMatchCloudLocal)...)
+	}
+	return orderedAddrs, nil
+}
+
+// GetAllNoProxyAPIAddressesForAgents returns a sorted, comma separated string
+// of agent API addresses suitable for no proxy settings.
+func (s *Service) GetAllNoProxyAPIAddressesForAgents(ctx context.Context) (string, error) {
+	agentAddrs, err := s.st.GetAllAPIAddressesWithScopeForAgents(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	orderedAddrs := make(controllernode.APIAddresses, 0)
+	for _, addrs := range agentAddrs {
+		orderedAddrs = append(orderedAddrs, addrs...)
+	}
+	return orderedAddrs.ToNoProxyString(), nil
+}
+
+// GetAPIAddressesForAgents returns the list of API address strings including
+// port for the provided controller node that are available for agents.
 func (s *Service) GetAPIAddressesForAgents(ctx context.Context, nodeID string) ([]string, error) {
 	if nodeID == "" {
 		return nil, errors.Errorf("node ID %q is %w, cannot be empty", nodeID, coreerrors.NotValid)
