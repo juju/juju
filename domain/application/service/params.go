@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	apperrors "github.com/juju/juju/domain/application/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
@@ -48,6 +49,12 @@ type AddApplicationArgs struct {
 
 	// Storage contains the application's storage directives.
 	Storage map[string]storage.Directive
+
+	// StorageDirectiveOverrides defines a set of storage directive overrides
+	// for the application as a map of storage name to overrides. Each name in
+	// the map must match a storage name in the charm. Any other value will be
+	// an error.
+	StorageDirectiveOverrides map[string]AddApplicationStorageDirectiveArg
 
 	// DownloadInfo contains the download information for the charm.
 	DownloadInfo *domaincharm.DownloadInfo
@@ -87,6 +94,35 @@ type AddApplicationArgs struct {
 	// application. This should only be set to true if the application
 	// is the controller application for the controller model.
 	IsController bool
+}
+
+// AddApplicationStorageDirectiveArg defines a single storage directive to
+// accompany an application when it is being added. Typically, this is supplied
+// by the caller when the user whishes to set explicitly storage directive
+// parameters of the application.
+//
+// Each value in this struct is optional and only when a value that is non nil
+// has been supplied will it be used to override the defaults.
+type AddApplicationStorageDirectiveArg struct {
+	// Count is the number of storage instances to create for each unit. This
+	// value must be greater or equal to the minimum defined by the charm. This
+	// value must also be less or equal to the maximum defined by the charm.
+	Count *uint64
+
+	// ProviderType defines the type of the provider to use when provisioning
+	// storage for this directive. Only
+	ProviderType *string
+
+	// PoolUUID defines the storage pool to use when provisioning storage for
+	// this directive. Either this value or
+	// [AddApplicationStorageDirectiveArg.ProviderType] can be set. If both are
+	// defined this is an error.
+	PoolUUID *domainstorage.StoragePoolUUID
+
+	// Size defines the size of the storage to provision as a minimum value in
+	// MiB. What gets provisioned by the provider for each unit may be larger
+	// then this value.
+	Size *uint64
 }
 
 // AddressParams contains parameters for a unit/cloud container address.
