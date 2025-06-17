@@ -32,9 +32,9 @@ type Client struct {
 }
 
 // NewClient returns a new Facade using the supplied caller.
-func NewClient(caller base.APICaller, facadeName string, options ...Option) *Client {
+func NewClient(caller base.APICaller, options ...Option) *Client {
 	return &Client{
-		caller: base.NewFacadeCaller(caller, facadeName, options...),
+		caller: base.NewFacadeCaller(caller, "AgentLifeFlag", options...),
 	}
 }
 

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4/catacomb"
 
-	apilifeflag "github.com/juju/juju/api/common/lifeflag"
+	apilifeflag "github.com/juju/juju/api/agent/lifeflag"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 )
