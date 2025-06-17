@@ -151,6 +151,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_constraint",
 		"machine_filesystem",
 		"machine_lxd_profile",
+		"machine_manual",
 		"machine_parent",
 		"machine_placement_scope",
 		"machine_platform",
