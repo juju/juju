@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination state_mock_test.go github.com/juju/juju/internal/objectstore Claimer,ClaimExtender,HashFileSystemAccessor,TrackedObjectStore,RemoteRetriever
+//go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination state_mock_test.go github.com/juju/juju/internal/objectstore Claimer,ClaimExtender,TrackedObjectStore,RemoteRetriever
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStoreMetadata,Session
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination clock_mock_test.go github.com/juju/clock Clock
 
