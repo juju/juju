@@ -276,22 +276,10 @@ func (st *State) removeSubnets(
 	ctx context.Context, tx *sqlair.TX,
 	subnetUUIDs []string,
 ) error {
-	// First remove any provider subnet mappings
 	type uuids []string
-	stmt, err := st.Prepare(`
-DELETE FROM provider_subnet
-WHERE subnet_uuid IN ($uuids[:])
-`, uuids{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, stmt, uuids(subnetUUIDs)).Run()
-	if err != nil {
-		return errors.Capture(err)
-	}
 
-	// Then remove any provider network subnet mappings
-	stmt, err = st.Prepare(`
+	// First remove any provider network subnet mappings
+	stmt, err := st.Prepare(`
 DELETE FROM provider_network_subnet
 WHERE subnet_uuid IN ($uuids[:])
 `, uuids{})
@@ -324,7 +312,12 @@ WHERE uuid IN ($uuids[:])
 	if err != nil {
 		return errors.Capture(err)
 	}
-	return tx.Query(ctx, stmt, uuids(subnetUUIDs)).Run()
+
+	// This may fail if there is a provider ID associated with this subnet.
+	// We don't remove it in this function to avoid side effects.
+	// A subnet should be allowed to be removed only once it is no longer
+	// associated to a provider_id.
+	return errors.Capture(tx.Query(ctx, stmt, uuids(subnetUUIDs)).Run())
 }
 
 // removeDeviceProviderIDs removes provider-link layer devices mappings
