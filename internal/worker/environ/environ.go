@@ -10,9 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -24,9 +26,20 @@ var _ logger = struct{}{}
 // ConfigAPI exposes a model configuration and a watch constructor
 // that allows clients to be informed of changes to the configuration.
 type ConfigAPI interface {
-	environs.EnvironConfigGetter
+	ModelConfig() (*config.Config, error)
+	CloudSpec() (environscloudspec.CloudSpec, error)
+	ControllerConfig() (controller.Config, error)
 	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
 	WatchCloudSpecChanges() (watcher.NotifyWatcher, error)
+}
+
+type environConfigGetter struct {
+	ConfigAPI
+	controllerUUID string
+}
+
+func (e environConfigGetter) ControllerUUID() string {
+	return e.controllerUUID
 }
 
 // Config describes the dependencies of a Tracker.
@@ -72,8 +85,17 @@ func NewTracker(config Config) (*Tracker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	ctrlCfg, err := config.ConfigAPI.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	environ, spec, err := environs.GetEnvironAndCloud(config.ConfigAPI, config.NewEnvironFunc)
+	cfgGetter := environConfigGetter{
+		ConfigAPI:      config.ConfigAPI,
+		controllerUUID: ctrlCfg.ControllerUUID(),
+	}
+
+	environ, spec, err := environs.GetEnvironAndCloud(cfgGetter, config.NewEnvironFunc)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

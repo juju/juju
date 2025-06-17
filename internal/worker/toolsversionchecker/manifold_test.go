@@ -86,16 +86,6 @@ func (c *fakeConfig) Tag() names.Tag {
 
 func mockAPICaller(job model.MachineJob) apitesting.APICallerFunc {
 	return apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		if request == "ControllerConfig" {
-			response := result.(*params.ControllerConfigResult)
-			*response = params.ControllerConfigResult{
-				Config: map[string]interface{}{
-					"mongo-memory-profile": "default",
-					"controller-uuid":      "dummy-controller-uuid",
-				},
-			}
-			return nil
-		}
 		if res, ok := result.(*params.AgentGetEntitiesResults); ok {
 			res.Entities = []params.AgentGetEntitiesResult{
 				{Jobs: []model.MachineJob{

@@ -100,14 +100,6 @@ func (s *AgentConfigUpdaterSuite) TestEntityLookupFailure(c *gc.C) {
 				result.Entities = []params.AgentGetEntitiesResult{{
 					Error: &params.Error{Message: "boom"},
 				}}
-			case "ControllerConfig":
-				result := response.(*params.ControllerConfigResult)
-				*result = params.ControllerConfigResult{
-					Config: map[string]interface{}{
-						"mongo-memory-profile": "default",
-						"controller-uuid":      "dummy-controller-uuid",
-					},
-				}
 			default:
 				c.Fatalf("not sure how to handle: %q", request)
 			}
@@ -152,7 +144,6 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 						"juju-db-snap-channel":    controller.DefaultJujuDBSnapChannel,
 						"query-tracing-enabled":   controller.DefaultQueryTracingEnabled,
 						"query-tracing-threshold": controller.DefaultQueryTracingThreshold,
-						"controller-uuid":         "dummy-controller-uuid",
 					},
 				}
 			default:
@@ -196,7 +187,6 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissingFirstPass(c *gc.C) {
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
 						"mongo-memory-profile": "default",
-						"controller-uuid":      "dummy-controller-uuid",
 					},
 				}
 			default:
@@ -241,7 +231,6 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 						"juju-db-snap-channel":    controller.DefaultJujuDBSnapChannel,
 						"query-tracing-enabled":   controller.DefaultQueryTracingEnabled,
 						"query-tracing-threshold": controller.DefaultQueryTracingThreshold,
-						"controller-uuid":         "dummy-controller-uuid",
 					},
 				}
 			default:
@@ -329,14 +318,6 @@ func (s *AgentConfigUpdaterSuite) checkNotController(c *gc.C, job model.MachineJ
 				result.Entities = []params.AgentGetEntitiesResult{{
 					Jobs: []model.MachineJob{job},
 				}}
-			case "ControllerConfig":
-				result := response.(*params.ControllerConfigResult)
-				*result = params.ControllerConfigResult{
-					Config: map[string]interface{}{
-						"mongo-memory-profile": "default",
-						"controller-uuid":      "dummy-controller-uuid",
-					},
-				}
 			default:
 				c.Fatalf("not sure how to handle: %q", request)
 			}
