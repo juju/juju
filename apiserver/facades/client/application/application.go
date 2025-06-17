@@ -831,7 +831,7 @@ type setCharmParams struct {
 	ConfigSettingsYAML    string
 	ResourceIDs           map[string]string
 	StorageDirectives     map[string]params.StorageDirectives
-	EndpointBindings      map[string]string
+	EndpointBindings      map[string]network.SpaceName
 	Force                 forceParams
 }
 
@@ -864,6 +864,10 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		return err
 	}
 
+	endpointBindings := transform.Map(args.EndpointBindings, func(k string, v string) (string, network.SpaceName) {
+		return k, network.SpaceName(v)
+	})
+
 	oneApplication, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
@@ -878,7 +882,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
 			ResourceIDs:           args.ResourceIDs,
 			StorageDirectives:     args.StorageDirectives,
-			EndpointBindings:      args.EndpointBindings,
+			EndpointBindings:      endpointBindings,
 			Force: forceParams{
 				ForceBase:  args.ForceBase,
 				ForceUnits: args.ForceUnits,
@@ -1049,11 +1053,11 @@ func (api *APIBase) applicationSetCharm(
 		}
 	}
 
-	// TODO: Update endpoint bindings
 	if err := api.applicationService.SetApplicationCharm(ctx, params.AppName, application.UpdateCharmParams{
 		Charm:               newCharm,
 		Storage:             storageDirectives,
 		CharmUpgradeOnError: params.Force.ForceUnits,
+		EndpointBindings:    params.EndpointBindings,
 	}); err != nil {
 		return errors.Annotatef(err, "updating charm for application %q", params.AppName)
 	}

@@ -472,4 +472,8 @@ type UpdateCharmParams struct {
 	// CharmUpgradeOnError indicates whether the charm must be upgraded
 	// even when on error.
 	CharmUpgradeOnError bool
+
+	// EndpointBindings is an operator-defined map of endpoint names to
+	// space names that should be merged with any existing bindings.
+	EndpointBindings map[string]network.SpaceName
 }
