@@ -756,7 +756,14 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		PostHandler: modelCharmsHandler.ServePost,
 		GetHandler:  modelCharmsHandler.ServeGet,
 	}, "charms")
-	modelCharmsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
+	var modelCharmsUploadAuthorizer httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+		controllerAdminAuthorizer{
+			controllerTag: systemState.ControllerTag(),
+		},
+		modelPermissionAuthorizer{
+			perm: permission.WriteAccess,
+		},
+	}
 
 	modelObjectsCharmsHandler := &objectsCharmHandler{
 		ctxt:          httpCtxt,
