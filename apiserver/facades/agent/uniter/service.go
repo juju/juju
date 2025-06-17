@@ -329,35 +329,41 @@ type PortService interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
-	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
+	// RequireMachineReboot sets the machine referenced by its UUID as requiring
+	// a reboot.
 	RequireMachineReboot(ctx context.Context, uuid coremachine.UUID) error
 
-	// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
+	// ClearMachineReboot removes the reboot flag of the machine referenced by
+	// its UUID if a reboot has previously been required.
 	ClearMachineReboot(ctx context.Context, uuid coremachine.UUID) error
 
-	// IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
+	// IsMachineRebootRequired checks if the machine referenced by its UUID
+	// requires a reboot.
 	IsMachineRebootRequired(ctx context.Context, uuid coremachine.UUID) (bool, error)
 
-	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
+	// ShouldRebootOrShutdown determines whether a machine should reboot or
+	// shutdown
 	ShouldRebootOrShutdown(ctx context.Context, uuid coremachine.UUID) (coremachine.RebootAction, error)
 
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	// It returns an errors.MachineNotFound if the machine does not exist.
 	GetMachineUUID(ctx context.Context, machineName coremachine.Name) (coremachine.UUID, error)
 
-	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
+	// AppliedLXDProfileNames returns the names of the LXD profiles on the
+	// machine.
 	AppliedLXDProfileNames(ctx context.Context, mUUID coremachine.UUID) ([]string, error)
 
 	// WatchMachineCloudInstances returns a StringsWatcher that is subscribed to
 	// the changes in the machine_cloud_instance table in the model.
 	WatchLXDProfiles(ctx context.Context, machineUUID coremachine.UUID) (watcher.NotifyWatcher, error)
 
-	// AvailabilityZone returns the hardware characteristics of the
-	// specified machine.
+	// AvailabilityZone returns the hardware characteristics of the specified
+	// machine.
 	AvailabilityZone(ctx context.Context, machineUUID coremachine.UUID) (string, error)
 
-	// IsManualMachine returns whether the machine is a manual machine.
-	IsManualMachine(ctx context.Context, machineName coremachine.Name) (bool, error)
+	// IsMachineManuallyProvisioned returns whether the machine is a manual
+	// machine.
+	IsMachineManuallyProvisioned(ctx context.Context, machineName coremachine.Name) (bool, error)
 }
 
 // RelationService defines the methods that the facade assumes from the

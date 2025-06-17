@@ -714,9 +714,9 @@ WHERE     m.uuid = $machineUUID.uuid
 	return result.Count == 1, nil
 }
 
-// IsManualMachine returns whether the machine is a manual machine.
+// IsMachineManuallyProvisioned returns whether the machine is a manual machine.
 // It returns a NotFound if the given machine doesn't exist.
-func (st *State) IsManualMachine(ctx context.Context, mName machine.Name) (bool, error) {
+func (st *State) IsMachineManuallyProvisioned(ctx context.Context, mName machine.Name) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return false, errors.Capture(err)

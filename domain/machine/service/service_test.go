@@ -487,8 +487,9 @@ func (s *serviceSuite) TestSetInstanceStatusInvalid(c *tc.C) {
 	c.Check(err, tc.ErrorIs, machineerrors.InvalidStatus)
 }
 
-// TestIsControllerSuccess asserts the happy path of the IsController service.
-func (s *serviceSuite) TestIsControllerSuccess(c *tc.C) {
+// TestIsMachineControllerSuccess asserts the happy path of the
+// IsMachineController service.
+func (s *serviceSuite) TestIsMachineControllerSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().IsMachineController(gomock.Any(), machine.Name("666")).Return(true, nil)
@@ -499,9 +500,9 @@ func (s *serviceSuite) TestIsControllerSuccess(c *tc.C) {
 	c.Assert(isController, tc.IsTrue)
 }
 
-// TestIsControllerError asserts that an error coming from the state layer is
-// preserved, passed over to the service layer to be maintained there.
-func (s *serviceSuite) TestIsControllerError(c *tc.C) {
+// TestIsMachineControllerError asserts that an error coming from the state
+// layer is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestIsMachineControllerError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
@@ -513,16 +514,59 @@ func (s *serviceSuite) TestIsControllerError(c *tc.C) {
 	c.Check(isController, tc.IsFalse)
 }
 
-// TestIsControllerNotFound asserts that the state layer returns a NotFound
-// Error if a machine is not found with the given machineName, and that error
-// is preserved and passed on to the service layer to be handled there.
-func (s *serviceSuite) TestIsControllerNotFound(c *tc.C) {
+// TestIsMachineControllerNotFound asserts that the state layer returns a
+// NotFound Error if a machine is not found with the given machineName, and that
+// error is preserved and passed on to the service layer to be handled there.
+func (s *serviceSuite) TestIsMachineControllerNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().IsMachineController(gomock.Any(), machine.Name("666")).Return(false, coreerrors.NotFound)
 
 	isController, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		IsMachineController(c.Context(), machine.Name("666"))
+	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Check(isController, tc.IsFalse)
+}
+
+// TestIsMachineManuallyProvisionedSuccess asserts the happy path of the
+// IsMachineManuallyProvisioned service.
+func (s *serviceSuite) TestIsMachineManuallyProvisionedSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machine.Name("666")).Return(true, nil)
+
+	isController, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		IsMachineManuallyProvisioned(c.Context(), machine.Name("666"))
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.IsTrue)
+}
+
+// TestIsMachineManuallyProvisionedError asserts that an error coming from the
+// state layer is preserved, passed over to the service layer to be maintained
+// there.
+func (s *serviceSuite) TestIsMachineManuallyProvisionedError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machine.Name("666")).Return(false, rErr)
+
+	isController, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		IsMachineManuallyProvisioned(c.Context(), machine.Name("666"))
+	c.Check(err, tc.ErrorIs, rErr)
+	c.Check(isController, tc.IsFalse)
+}
+
+// TestIsMachineManuallyProvisionedNotFound asserts that the state layer returns
+// a NotFound Error if a machine is not found with the given machineName, and
+// that error is preserved and passed on to the service layer to be handled
+// there.
+func (s *serviceSuite) TestIsMachineManuallyProvisionedNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machine.Name("666")).Return(false, coreerrors.NotFound)
+
+	isController, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		IsMachineManuallyProvisioned(c.Context(), machine.Name("666"))
 	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
 	c.Check(isController, tc.IsFalse)
 }

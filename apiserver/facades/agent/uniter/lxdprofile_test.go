@@ -276,7 +276,7 @@ func (s *lxdProfileSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *lxdProfileSuite) expectManual(manual bool) {
-	s.machineService.EXPECT().IsManualMachine(gomock.Any(), gomock.Any()).Return(manual, nil)
+	s.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), gomock.Any()).Return(manual, nil)
 }
 
 func (s *lxdProfileSuite) expectContainerType(cType instance.ContainerType) {

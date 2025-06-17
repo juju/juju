@@ -49,8 +49,8 @@ type State interface {
 	// for the machines.
 	InitialWatchStatement() (string, string)
 
-	// InitialWatchModelMachinesStatement returns the table and the initial watch
-	// statement for watching life changes of non-container machines.
+	// InitialWatchModelMachinesStatement returns the table and the initial
+	// watch statement for watching life changes of non-container machines.
 	InitialWatchModelMachinesStatement() (string, string)
 
 	// GetMachineLife returns the life status of the specified machine.
@@ -68,8 +68,8 @@ type State interface {
 	// InstanceID returns the cloud specific instance id for this machine.
 	InstanceID(context.Context, machine.UUID) (string, error)
 
-	// InstanceIDAndName returns the cloud specific instance ID and display name for
-	// this machine.
+	// InstanceIDAndName returns the cloud specific instance ID and display name
+	// for this machine.
 	InstanceIDAndName(ctx context.Context, mUUID machine.UUID) (string, string, error)
 
 	// GetInstanceStatus returns the cloud specific instance status for this
@@ -103,8 +103,9 @@ type State interface {
 	// along with the instance tags and the link to a lxd profile if any.
 	SetMachineCloudInstance(context.Context, machine.UUID, instance.Id, string, string, *instance.HardwareCharacteristics) error
 
-	// SetRunningAgentBinaryVersion sets the running agent version for the machine.
-	// A MachineNotFound error will be returned if the machine does not exist.
+	// SetRunningAgentBinaryVersion sets the running agent version for the
+	// machine. A MachineNotFound error will be returned if the machine does not
+	// exist.
 	SetRunningAgentBinaryVersion(context.Context, machine.UUID, coreagentbinary.Version) error
 
 	// DeleteMachineCloudInstance removes an entry in the machine cloud instance
@@ -115,25 +116,29 @@ type State interface {
 	// It returns a NotFound if the given machine doesn't exist.
 	IsMachineController(context.Context, machine.Name) (bool, error)
 
-	// IsManualMachine returns whether the machine is a manual machine.
-	IsManualMachine(context.Context, machine.Name) (bool, error)
+	// IsMachineManuallyProvisioned returns whether the machine is a manual
+	// machine.
+	IsMachineManuallyProvisioned(context.Context, machine.Name) (bool, error)
 
-	// ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
-	// the corresponding cloud instance to be stopped.
+	// ShouldKeepInstance reports whether a machine, when removed from Juju,
+	// should cause the corresponding cloud instance to be stopped.
 	ShouldKeepInstance(ctx context.Context, mName machine.Name) (bool, error)
 
 	// SetKeepInstance sets whether the machine cloud instance will be retained
-	// when the machine is removed from Juju. This is only relevant if an instance
-	// exists.
+	// when the machine is removed from Juju. This is only relevant if an
+	// instance exists.
 	SetKeepInstance(ctx context.Context, mName machine.Name, keep bool) error
 
-	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
+	// RequireMachineReboot sets the machine referenced by its UUID as requiring
+	// a reboot.
 	RequireMachineReboot(ctx context.Context, uuid machine.UUID) error
 
-	// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
+	// ClearMachineReboot removes the reboot flag of the machine referenced by
+	// its UUID if a reboot has previously been required.
 	ClearMachineReboot(ctx context.Context, uuid machine.UUID) error
 
-	// IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
+	// IsMachineRebootRequired checks if the machine referenced by its UUID
+	// requires a reboot.
 	IsMachineRebootRequired(ctx context.Context, uuid machine.UUID) (bool, error)
 
 	// GetMachineParentUUID returns the parent UUID of the specified machine.
@@ -141,7 +146,8 @@ type State interface {
 	// It returns a MachineHasNoParent if the machine has no parent.
 	GetMachineParentUUID(ctx context.Context, machineUUID machine.UUID) (machine.UUID, error)
 
-	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
+	// ShouldRebootOrShutdown determines whether a machine should reboot or
+	// shutdown
 	ShouldRebootOrShutdown(ctx context.Context, uuid machine.UUID) (machine.RebootAction, error)
 
 	// MarkMachineForRemoval marks the given machine for removal.
@@ -155,12 +161,13 @@ type State interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
 
-	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
+	// AppliedLXDProfileNames returns the names of the LXD profiles on the
+	// machine.
 	AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID) ([]string, error)
 
 	// SetAppliedLXDProfileNames sets the list of LXD profile names to the
-	// lxd_profile table for the given machine. This method will overwrite the list
-	// of profiles for the given machine without any checks.
+	// lxd_profile table for the given machine. This method will overwrite the
+	// list of profiles for the given machine without any checks.
 	SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID, profileNames []string) error
 
 	// NamespaceForWatchMachineCloudInstance returns the namespace for watching
@@ -477,12 +484,12 @@ func (s *Service) IsMachineController(ctx context.Context, machineName machine.N
 	return isController, nil
 }
 
-// IsManualMachine returns whether the machine is a manual machine.
-func (s *Service) IsManualMachine(ctx context.Context, machineName machine.Name) (bool, error) {
+// IsMachineManuallyProvisioned returns whether the machine is a manual machine.
+func (s *Service) IsMachineManuallyProvisioned(ctx context.Context, machineName machine.Name) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	isManual, err := s.st.IsManualMachine(ctx, machineName)
+	isManual, err := s.st.IsMachineManuallyProvisioned(ctx, machineName)
 	if err != nil {
 		return false, errors.Errorf("checking if machine %q is a manual machine: %w", machineName, err)
 	}

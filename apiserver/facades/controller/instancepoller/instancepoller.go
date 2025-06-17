@@ -365,7 +365,7 @@ func (a *InstancePollerAPI) AreManuallyProvisioned(ctx context.Context, args par
 			continue
 		}
 
-		manual, err := a.machineService.IsManualMachine(ctx, machine.Name(machineTag.Id()))
+		manual, err := a.machineService.IsMachineManuallyProvisioned(ctx, machine.Name(machineTag.Id()))
 		if errors.Is(err, machineerrors.MachineNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %q", machineTag.Id()))
 			continue

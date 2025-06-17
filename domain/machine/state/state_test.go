@@ -568,15 +568,15 @@ func (s *stateSuite) TestIsControllerNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *stateSuite) TestIsManualMachine(c *tc.C) {
+func (s *stateSuite) TestIsMachineManuallyProvisioned(c *tc.C) {
 	machineName := s.createApplication(c, false)
 
-	isManual, err := s.state.IsManualMachine(c.Context(), machineName)
+	isManual, err := s.state.IsMachineManuallyProvisioned(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(isManual, tc.IsFalse)
 }
 
-func (s *stateSuite) TestIsManualMachineManual(c *tc.C) {
+func (s *stateSuite) TestIsMachineManuallyProvisionedManual(c *tc.C) {
 	machineName := s.createApplication(c, false)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -588,13 +588,13 @@ VALUES ((SELECT uuid FROM machine WHERE name=?))
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isManual, err := s.state.IsManualMachine(c.Context(), machineName)
+	isManual, err := s.state.IsMachineManuallyProvisioned(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(isManual, tc.IsTrue)
 }
 
-func (s *stateSuite) TestIsManualMachineNotFound(c *tc.C) {
-	_, err := s.state.IsManualMachine(c.Context(), machine.Name("666"))
+func (s *stateSuite) TestIsMachineManuallyProvisionedNotFound(c *tc.C) {
+	_, err := s.state.IsMachineManuallyProvisioned(c.Context(), machine.Name("666"))
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 

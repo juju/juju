@@ -973,7 +973,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		return errors.Trace(err)
 	}
 
-	hostIsManual, err := api.machineService.IsManualMachine(ctx, coremachine.Name(hostMachine.Id()))
+	hostIsManual, err := api.machineService.IsMachineManuallyProvisioned(ctx, coremachine.Name(hostMachine.Id()))
 	if err != nil {
 		return errors.Trace(err)
 	}

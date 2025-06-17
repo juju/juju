@@ -320,7 +320,7 @@ func (f *FirewallerAPI) AreManuallyProvisioned(ctx context.Context, args params.
 			continue
 		}
 
-		manual, err := f.machineService.IsManualMachine(ctx, machine.Name(machineTag.Id()))
+		manual, err := f.machineService.IsMachineManuallyProvisioned(ctx, machine.Name(machineTag.Id()))
 		if errors.Is(err, machineerrors.MachineNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("machine %q", machineTag.Id()))
 			continue

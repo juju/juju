@@ -905,6 +905,45 @@ func (c *MockStateIsMachineControllerCall) DoAndReturn(f func(context.Context, m
 	return c
 }
 
+// IsMachineManuallyProvisioned mocks base method.
+func (m *MockState) IsMachineManuallyProvisioned(arg0 context.Context, arg1 machine.Name) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsMachineManuallyProvisioned", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsMachineManuallyProvisioned indicates an expected call of IsMachineManuallyProvisioned.
+func (mr *MockStateMockRecorder) IsMachineManuallyProvisioned(arg0, arg1 any) *MockStateIsMachineManuallyProvisionedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMachineManuallyProvisioned", reflect.TypeOf((*MockState)(nil).IsMachineManuallyProvisioned), arg0, arg1)
+	return &MockStateIsMachineManuallyProvisionedCall{Call: call}
+}
+
+// MockStateIsMachineManuallyProvisionedCall wrap *gomock.Call
+type MockStateIsMachineManuallyProvisionedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsMachineManuallyProvisionedCall) Return(arg0 bool, arg1 error) *MockStateIsMachineManuallyProvisionedCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsMachineManuallyProvisionedCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockStateIsMachineManuallyProvisionedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsMachineManuallyProvisionedCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockStateIsMachineManuallyProvisionedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // IsMachineRebootRequired mocks base method.
 func (m *MockState) IsMachineRebootRequired(ctx context.Context, uuid machine.UUID) (bool, error) {
 	m.ctrl.T.Helper()
@@ -940,45 +979,6 @@ func (c *MockStateIsMachineRebootRequiredCall) Do(f func(context.Context, machin
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateIsMachineRebootRequiredCall) DoAndReturn(f func(context.Context, machine.UUID) (bool, error)) *MockStateIsMachineRebootRequiredCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// IsManualMachine mocks base method.
-func (m *MockState) IsManualMachine(arg0 context.Context, arg1 machine.Name) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsManualMachine", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsManualMachine indicates an expected call of IsManualMachine.
-func (mr *MockStateMockRecorder) IsManualMachine(arg0, arg1 any) *MockStateIsManualMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsManualMachine", reflect.TypeOf((*MockState)(nil).IsManualMachine), arg0, arg1)
-	return &MockStateIsManualMachineCall{Call: call}
-}
-
-// MockStateIsManualMachineCall wrap *gomock.Call
-type MockStateIsManualMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateIsManualMachineCall) Return(arg0 bool, arg1 error) *MockStateIsManualMachineCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateIsManualMachineCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockStateIsManualMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateIsManualMachineCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockStateIsManualMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

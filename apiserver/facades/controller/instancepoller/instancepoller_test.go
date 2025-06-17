@@ -601,9 +601,9 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *tc.C) {
 	err := s.setupAPI(c)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.machineService.EXPECT().IsManualMachine(gomock.Any(), machine.Name("1")).Return(true, nil)
-	s.machineService.EXPECT().IsManualMachine(gomock.Any(), machine.Name("2")).Return(false, nil)
-	s.machineService.EXPECT().IsManualMachine(gomock.Any(), machine.Name("42")).Return(false, machineerrors.MachineNotFound)
+	s.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machine.Name("1")).Return(true, nil)
+	s.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machine.Name("2")).Return(false, nil)
+	s.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machine.Name("42")).Return(false, machineerrors.MachineNotFound)
 
 	result, err := s.api.AreManuallyProvisioned(c.Context(), s.mixedEntities)
 	c.Assert(err, tc.ErrorIsNil)
