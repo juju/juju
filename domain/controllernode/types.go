@@ -3,12 +3,19 @@
 
 package controllernode
 
+import (
+	"github.com/juju/juju/core/network"
+)
+
 // APIAddress represents one of the API addresses, accessible for clients
 // and/or agents.
 type APIAddress struct {
 	// Address is the address of the API represented as "host:port" string.
 	Address string
-
 	// IsAgent indicates whether the address is available for agents.
 	IsAgent bool
+	// Scope is the address scope.
+	Scope network.Scope
 }
+
+type APIAddresses []APIAddress

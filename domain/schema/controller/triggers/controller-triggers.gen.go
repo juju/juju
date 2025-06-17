@@ -31,7 +31,8 @@ AFTER UPDATE ON controller_api_address FOR EACH ROW
 WHEN 
 	NEW.controller_id != OLD.controller_id OR
 	NEW.address != OLD.address OR
-	(NEW.is_agent != OLD.is_agent OR (NEW.is_agent IS NOT NULL AND OLD.is_agent IS NULL) OR (NEW.is_agent IS NULL AND OLD.is_agent IS NOT NULL)) 
+	(NEW.is_agent != OLD.is_agent OR (NEW.is_agent IS NOT NULL AND OLD.is_agent IS NULL) OR (NEW.is_agent IS NULL AND OLD.is_agent IS NOT NULL)) OR
+	NEW.scope != OLD.scope 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));

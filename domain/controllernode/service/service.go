@@ -78,9 +78,13 @@ type State interface {
 	// for each controller node.
 	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
 
-	// GetAPIAddressesForAgents returns the list of API addresses for the
-	// provided controller node that are available for agents.
+	// GetAPIAddressesForAgents returns the list of API address strings including
+	// port for the provided controller node that are available for agents.
 	GetAPIAddressesForAgents(ctx context.Context, ctrlID string) ([]string, error)
+
+	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
+	// agents.
+	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (controllernode.APIAddresses, error)
 }
 
 // Service provides the API for working with controller nodes.
@@ -202,6 +206,7 @@ func (s *Service) SetAPIAddresses(ctx context.Context, controllerID string, addr
 		addresses = append(addresses, controllernode.APIAddress{
 			Address: address,
 			IsAgent: isAvailableForAgents,
+			Scope:   spHostPort.Scope,
 		})
 		emptyAgentAddresses = emptyAgentAddresses && !isAvailableForAgents
 	}
@@ -244,8 +249,14 @@ func (s *Service) GetAllAPIAddressesForAgents(ctx context.Context) (map[string][
 	return s.st.GetAllAPIAddressesForAgents(ctx)
 }
 
-// GetAPIAddressesForAgents returns the list of API addresses for the provided
-// controller node that are available for agents.
+// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
+// agents.
+func (s *Service) GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (controllernode.APIAddresses, error) {
+	return s.st.GetAllAPIAddressesWithScopeForAgents(ctx)
+}
+
+// GetAPIAddressesForAgents returns the list of API address strings including
+// port for the provided controller node that are available for agents.
 func (s *Service) GetAPIAddressesForAgents(ctx context.Context, nodeID string) ([]string, error) {
 	if nodeID == "" {
 		return nil, errors.Errorf("node ID %q is %w, cannot be empty", nodeID, coreerrors.NotValid)
