@@ -377,7 +377,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(2)
 	s.metrics.EXPECT().SubscriptionsDec().Times(2)
-	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false).AnyTimes()
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
@@ -397,22 +397,28 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 	})
 	s.dispatchTerm(c, terms)
 
+	done := make(chan struct{})
+
 	// The subscriptions are guaranteed to be out of order, so we need to just
 	// wait on them all, and then check that they all got the event.
 	wg := newWaitGroup(uint64(len(subs)))
 	for i, sub := range subs {
 		go func(i int, sub changestream.Subscription) {
-			defer wg.Done()
-
 			// Wait for the changes, but we might not receive them, as we
 			// are unsubscribing the other subscription during a dispatch. In
 			// this case, just wait for the timeout.
-			select {
-			case <-sub.Changes():
-			case <-time.After(testing.ShortWait):
-			}
-
+			<-sub.Changes()
 			subs[len(subs)-1-i].Unsubscribe()
+
+			wg.Done()
+
+			for {
+				select {
+				case <-done:
+					return
+				case <-sub.Changes():
+				}
+			}
 		}(i, sub)
 	}
 
@@ -422,6 +428,31 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 		c.Fatal("timed out waiting for all events")
 	}
 
+	// As all unsubscriptions are done after the changes have been sent, we
+	// have to pump more changes through to ensure that the unsubscribe is
+	// triggered.
+	// In a normal scenario, this would be done by changes happening in the
+	// system, but here we just simulate it.
+	s.expectAnyTermInOrder(c, changeEvent{
+		ctype:   changestreamtesting.Create,
+		ns:      "topic",
+		changed: "1",
+	})
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				s.dispatchTerm(c, terms)
+
+				time.Sleep(testing.ShortWait)
+			}
+
+		}
+	}()
+
 	for _, sub := range subs {
 		select {
 		case <-sub.Done():
@@ -429,6 +460,8 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 			c.Fatal("timed out waiting for event")
 		}
 	}
+
+	close(done)
 
 	workertest.CleanKill(c, queue)
 }
@@ -464,6 +497,8 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 	})
 	s.dispatchTerm(c, terms)
 
+	done := make(chan struct{})
+
 	// The subscriptions are guaranteed to be out of order, so we need to just
 	// wait on them all, and then check that they all got the event.
 	wg := newWaitGroup(uint64(len(subs)))
@@ -472,15 +507,20 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 			// Wait for the changes, but we might not receive them, as we
 			// are unsubscribing the other subscription during a dispatch. In
 			// this case, just wait for the timeout.
-			select {
-			case <-sub.Changes():
-			case <-time.After(testing.ShortWait):
-			}
+			<-sub.Changes()
 
 			go func() {
-				defer wg.Done()
-
 				subs[len(subs)-1-i].Unsubscribe()
+
+				wg.Done()
+
+				for {
+					select {
+					case <-done:
+						return
+					case <-sub.Changes():
+					}
+				}
 			}()
 		}(sub, i)
 	}
@@ -491,6 +531,31 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 		c.Fatal("timed out waiting for all events")
 	}
 
+	// As all unsubscriptions are done after the changes have been sent, we
+	// have to pump more changes through to ensure that the unsubscribe is
+	// triggered.
+	// In a normal scenario, this would be done by changes happening in the
+	// system, but here we just simulate it.
+	s.expectAnyTermInOrder(c, changeEvent{
+		ctype:   changestreamtesting.Create,
+		ns:      "topic",
+		changed: "1",
+	})
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				s.dispatchTerm(c, terms)
+
+				time.Sleep(testing.ShortWait)
+			}
+
+		}
+	}()
+
 	for _, sub := range subs {
 		select {
 		case <-sub.Done():
@@ -498,6 +563,8 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 			c.Fatal("timed out waiting for event")
 		}
 	}
+
+	close(done)
 
 	workertest.CleanKill(c, queue)
 }
@@ -988,6 +1055,12 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *tc
 
 func (s *eventMultiplexerSuite) unsubscribe(c *tc.C, sub changestream.Subscription) {
 	sub.Unsubscribe()
+
+	select {
+	case s.timerCh <- time.Now():
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for timer channel")
+	}
 
 	select {
 	case <-sub.Done():

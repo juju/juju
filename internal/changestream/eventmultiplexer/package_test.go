@@ -5,6 +5,7 @@ package eventmultiplexer
 
 import (
 	"sync/atomic"
+	time "time"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -21,21 +22,42 @@ import (
 type baseSuite struct {
 	domaintesting.ControllerSuite
 
-	clock   *MockClock
 	stream  *MockStream
 	metrics *MockMetricsCollector
 	term    *MockTerm
+
+	clock *MockClock
+	timer *MockTimer
+
+	timerCh chan time.Time
 }
 
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.clock = NewMockClock(ctrl)
 	s.stream = NewMockStream(ctrl)
 	s.metrics = NewMockMetricsCollector(ctrl)
 	s.term = NewMockTerm(ctrl)
 
+	s.clock = NewMockClock(ctrl)
+	s.timer = NewMockTimer(ctrl)
+
 	s.clock.EXPECT().Now().AnyTimes()
+	s.clock.EXPECT().NewTimer(gomock.Any()).Return(s.timer).AnyTimes()
+	s.timer.EXPECT().Stop().AnyTimes()
+	s.timer.EXPECT().Reset(gomock.Any()).AnyTimes()
+
+	s.timerCh = make(chan time.Time, 1)
+
+	s.timer.EXPECT().Chan().Return(s.timerCh).AnyTimes()
+
+	c.Cleanup(func() {
+		s.stream = nil
+		s.metrics = nil
+		s.term = nil
+		s.clock = nil
+		s.timer = nil
+	})
 
 	return ctrl
 }
@@ -56,13 +78,18 @@ func (s *baseSuite) expectEmptyTerm(c *tc.C, evts ...changestream.ChangeEvent) {
 	s.expectTermInOrder(c, true, evts...)
 }
 
-func (s *baseSuite) expectTermInOrder(c *tc.C, empty bool, evts ...changestream.ChangeEvent) {
+func (s *baseSuite) expectTermInOrder(c *tc.C, done bool, evts ...changestream.ChangeEvent) {
 	// The order is important here. We always expect done to be called once
 	// all the changes have been read.
 	gomock.InOrder(
 		s.term.EXPECT().Changes().Return(evts),
-		s.term.EXPECT().Done(empty, gomock.Any()),
+		s.term.EXPECT().Done(done, gomock.Any()),
 	)
+}
+
+func (s *baseSuite) expectAnyTermInOrder(c *tc.C, evts ...changestream.ChangeEvent) {
+	s.term.EXPECT().Changes().Return(evts).AnyTimes()
+	s.term.EXPECT().Done(gomock.Any(), gomock.Any()).AnyTimes()
 }
 
 func (s *baseSuite) dispatchTerm(c *tc.C, terms chan<- changestream.Term) <-chan struct{} {

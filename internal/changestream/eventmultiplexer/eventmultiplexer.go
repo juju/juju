@@ -6,6 +6,7 @@ package eventmultiplexer
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -78,6 +79,9 @@ type EventMultiplexer struct {
 	subscriptionsCount uint64
 	dispatchErrorCount int
 
+	tombstones map[uint64]struct{}
+	timer      clock.Timer
+
 	// (un)subscription related channels to serialize adding and removing
 	// subscriptions. This allows the queue to be lock less.
 	subscriptionCh   chan requestSubscription
@@ -116,6 +120,8 @@ func New(stream Stream, clock clock.Clock, metrics MetricsCollector, logger logg
 		subscriptionsAll:   make(map[uint64]struct{}),
 		subscriptionsCount: 0,
 		dispatchErrorCount: 0,
+
+		tombstones: make(map[uint64]struct{}),
 
 		subscriptionCh:   make(chan requestSubscription),
 		unsubscriptionCh: make(chan uint64),
@@ -219,6 +225,9 @@ func (e *EventMultiplexer) loop() error {
 	ctx, cancel := e.scopedContext()
 	defer cancel()
 
+	e.timer = e.clock.NewTimer(time.Second)
+	defer e.timer.Stop()
+
 	// The subscription channels need to handle the case where they're not
 	// attempting
 	go func() {
@@ -264,7 +273,15 @@ func (e *EventMultiplexer) loop() error {
 
 			case subscriptionID := <-e.unsubscriptionCh:
 
-				e.processUnsubscription(ctx, subscriptionID)
+				e.mutex.Lock()
+				e.tombstones[subscriptionID] = struct{}{}
+				e.mutex.Unlock()
+
+			case <-e.timer.Chan():
+				// To prevent the unsubscription from not triggering if there
+				// are no changes coming in, we should process the unsubscriptions
+				// periodically.
+				e.processUnsubscriptions(ctx)
 
 			case r := <-e.reportsCh:
 
@@ -322,6 +339,8 @@ func (e *EventMultiplexer) loop() error {
 			// Nothing to do here, just mark the term as done.
 			if len(changeSet) == 0 {
 				term.Done(true, e.catacomb.Dying())
+
+				e.processUnsubscriptions(ctx)
 				continue
 			}
 
@@ -340,6 +359,8 @@ func (e *EventMultiplexer) loop() error {
 			// We should guarantee that the change set is not empty, so we
 			// can force false here.
 			term.Done(false, e.catacomb.Dying())
+
+			e.processUnsubscriptions(ctx)
 
 			// TODO (stickupkid): We might want to run runtime.Gosched()
 			// here to allow other goroutines to run. This might end up
@@ -384,6 +405,31 @@ func (e *EventMultiplexer) processSubscription(ctx context.Context, subscription
 	e.metrics.SubscriptionsInc()
 
 	return sub
+}
+
+// processUnsubscriptions removes any tombstone subscriptions that have been
+// requested for unsubscription. This is done after the dispatching of the
+// changes, so that we can guarantee that the changes are dispatched to all
+// subscriptions before we remove them.
+func (e *EventMultiplexer) processUnsubscriptions(ctx context.Context) {
+	// Reset the timer, so that if we're under heavy load, we don't
+	// end up processing unsubscriptions too frequently.
+	e.timer.Reset(DefaultSignalTimeout / 2)
+
+	e.mutex.Lock()
+	tombstones := maps.Clone(e.tombstones)
+	e.mutex.Unlock()
+
+	for subscriptionID := range tombstones {
+		e.processUnsubscription(ctx, subscriptionID)
+	}
+
+	// Remove any tombstones that have been processed.
+	e.mutex.Lock()
+	for subscriptionID := range tombstones {
+		delete(e.tombstones, subscriptionID)
+	}
+	e.mutex.Unlock()
 }
 
 func (e *EventMultiplexer) processUnsubscription(ctx context.Context, subscriptionID uint64) {
@@ -456,6 +502,9 @@ func (e *EventMultiplexer) gatherSubscriptions(ctx context.Context, ch changestr
 	e.mutex.Lock()
 
 	for id := range e.subscriptionsAll {
+		if _, ok := e.tombstones[id]; ok {
+			continue
+		}
 		subs[id] = e.subscriptions[id]
 	}
 
@@ -469,6 +518,12 @@ func (e *EventMultiplexer) gatherSubscriptions(ctx context.Context, ch changestr
 		}
 
 		if !subOpt.filter(ch) {
+			continue
+		}
+
+		if _, ok := e.tombstones[subOpt.subscriptionID]; ok {
+			// If the subscription is a tombstone, then we should not
+			// include it in the dispatch.
 			continue
 		}
 
