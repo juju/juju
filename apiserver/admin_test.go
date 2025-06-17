@@ -77,7 +77,7 @@ func TestLoginStub(t *stdtesting.T) {
  - Test login from another model whilst controller, but machine not provisioned
  - Test login from another model not controller should error out
  - Test login during model migration
- - Test loging for agents
+ - Test login for agents
 	`)
 }
 
