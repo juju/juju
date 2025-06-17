@@ -91,7 +91,7 @@ func (st *State) MergeLinkLayerDevice(
 
 	return db.Txn(
 		ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			existingDevices, err := st.getExistingLinkLayerDevices(ctx, tx, netNodeUUID)
+			existingDevices, err := st.getExistingLinkLayerDevicesWithAddresses(ctx, tx, netNodeUUID)
 			if err != nil {
 				return errors.Errorf("getting existing link layer devices for node %q: %w", netNodeUUID, err)
 			}
@@ -484,9 +484,9 @@ func findMatchingAddresses(
 	return mergeAddress{}, false
 }
 
-// getExistingLinkLayerDevices retrieves existing link layer devices for a given net node UUID.
+// getExistingLinkLayerDevicesWithAddresses retrieves existing link layer devices for a given net node UUID.
 // It queries the database to fetch devices and their associated IP addresses.
-func (st *State) getExistingLinkLayerDevices(
+func (st *State) getExistingLinkLayerDevicesWithAddresses(
 	ctx context.Context, tx *sqlair.TX,
 	netNodeUUID string,
 ) ([]mergeLinkLayerDevice, error) {
