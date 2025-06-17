@@ -84,7 +84,6 @@ type authContext struct {
 	controllerConfigService ControllerConfigService
 	accessService           AccessService
 	macaroonService         MacaroonService
-	machineService          MachineService
 
 	clock           clock.Clock
 	agentAuthGetter AgentAuthenticatorGetter
@@ -130,7 +129,6 @@ func newAuthContext(
 	controllerModelUUID coremodel.UUID,
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
-	machineService MachineService,
 	macaroonService MacaroonService,
 	agentAuthGetter AgentAuthenticatorGetter,
 	ctxClock clock.Clock,
@@ -139,7 +137,6 @@ func newAuthContext(
 		clock:                   ctxClock,
 		controllerConfigService: controllerConfigService,
 		accessService:           accessService,
-		machineService:          machineService,
 		macaroonService:         macaroonService,
 		localUserInteractions:   authentication.NewInteractions(),
 		agentAuthGetter:         agentAuthGetter,

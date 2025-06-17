@@ -35,7 +35,6 @@ type macaroonCommonSuite struct {
 	controllerConfigService *MockControllerConfigService
 	accessService           *MockAccessService
 	macaroonService         *MockMacaroonService
-	machineService          *MockMachineService
 
 	controllerConfig map[string]interface{}
 }
@@ -61,8 +60,6 @@ func (s *macaroonCommonSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.macaroonService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
 	s.macaroonService.EXPECT().GetExternalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).AnyTimes()
 
-	s.machineService = NewMockMachineService(ctrl)
-
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(nil, nil, loggertesting.WrapCheckLog(c))
 
 	authenticator, err := NewAuthenticator(
@@ -71,8 +68,8 @@ func (s *macaroonCommonSuite) setupMocks(c *tc.C) *gomock.Controller {
 		model.UUID(testing.ModelTag.Id()),
 		s.controllerConfigService,
 		nil,
+		nil,
 		s.accessService,
-		s.machineService,
 		s.macaroonService,
 		agentAuthGetter,
 		s.clock,

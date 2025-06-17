@@ -139,19 +139,14 @@ func NewStateAuthenticator(
 		return nil, errors.Trace(err)
 	}
 
-	machineService, err := machineServiceGetter.GetMachineServiceForModel(ctx, controllerModelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(passwordService, systemState, nil)
 	stateAuthenticator, err := stateauthenticator.NewAuthenticator(
 		ctx,
 		statePool,
 		controllerModelUUID, controllerConfigService,
 		agentPasswordServiceGetter,
+		machineServiceGetter,
 		accessService,
-		machineService,
 		macaroonService,
 		agentAuthGetter,
 		clock,

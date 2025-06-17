@@ -35,6 +35,7 @@ type agentAuthenticatorSuite struct {
 	agentPasswordService       *MockAgentPasswordService
 	controllerConfigService    *MockControllerConfigService
 	accessService              *MockAccessService
+	machineServiceGetter       *MockMachineServiceGetter
 	machineService             *MockMachineService
 	macaroonService            *MockMacaroonService
 }
@@ -162,7 +163,10 @@ func (s *agentAuthenticatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.accessService = NewMockAccessService(ctrl)
 
+	s.machineServiceGetter = NewMockMachineServiceGetter(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
+
+	s.machineServiceGetter.EXPECT().GetMachineServiceForModel(gomock.Any(), gomock.Any()).Return(s.machineService, nil).AnyTimes()
 
 	s.macaroonService = NewMockMacaroonService(ctrl)
 	s.macaroonService.EXPECT().GetLocalUsersKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
@@ -174,8 +178,8 @@ func (s *agentAuthenticatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 		model.UUID(testing.ModelTag.Id()),
 		s.controllerConfigService,
 		s.agentPasswordServiceGetter,
+		s.machineServiceGetter,
 		s.accessService,
-		s.machineService,
 		s.macaroonService,
 		s.agentAuthenticatorGetter,
 		clock.WallClock,
