@@ -253,6 +253,42 @@ func (s *storagePoolStateSuite) TestDeleteStoragePoolNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
 }
 
+func (s *storagePoolStateSuite) TestDeleteStoragePoolFailedForProviderDefaultPool(c *tc.C) {
+	st := newStoragePoolState(s.TxnRunnerFactory())
+
+	sp := domainstorage.StoragePool{
+		Name:     "ebs-fast",
+		Provider: "ebs",
+		Attrs: map[string]string{
+			"foo": "foo val",
+			"bar": "bar val",
+		},
+		Origin: domainstorage.StoragePoolOriginProviderDefault,
+	}
+	ctx := c.Context()
+	err := st.CreateStoragePool(ctx, sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteStoragePool(ctx, "ebs-fast")
+	c.Assert(err, tc.ErrorMatches, `storage pool "ebs-fast" is not user-created, cannot delete`)
+}
+
+func (s *storagePoolStateSuite) TestDeleteStoragePoolFailedForBuiltInPool(c *tc.C) {
+	st := newStoragePoolState(s.TxnRunnerFactory())
+
+	sp := domainstorage.StoragePool{
+		Name:     "loop",
+		Provider: "loop",
+		Origin:   domainstorage.StoragePoolOriginBuiltIn,
+	}
+	ctx := c.Context()
+	err := st.CreateStoragePool(ctx, sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteStoragePool(ctx, "loop")
+	c.Assert(err, tc.ErrorMatches, `storage pool "loop" is not user-created, cannot delete`)
+}
+
 func (s *storagePoolStateSuite) TestListStoragePoolsWithoutBuiltins(c *tc.C) {
 	c.Skip(c, "TODO: enable this test when storage pools are fully implemented in the state package")
 

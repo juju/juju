@@ -26,12 +26,6 @@ func (st State) CreateStoragePool(ctx context.Context, pool domainstorage.Storag
 		return errors.Capture(err)
 	}
 
-	return CreateStoragePools(ctx, db, []domainstorage.StoragePool{pool})
-}
-
-// CreateStoragePools creates the specified storage pools.
-// It is exported for us in the storage/bootstrap package.
-func CreateStoragePools(ctx context.Context, db domain.TxnRunner, pools []domainstorage.StoragePool) error {
 	selectSPUUIDStmt, err := sqlair.Prepare(`
 SELECT &StoragePool.uuid
 FROM   storage_pool
@@ -58,39 +52,37 @@ WHERE  origin = $poolOrigin.origin`, poolOrigin{})
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, pool := range pools {
-			dbPool := StoragePool{Name: pool.Name}
-			err := tx.Query(ctx, selectSPUUIDStmt, dbPool).Get(&dbPool)
-			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Capture(err)
+		dbPool := StoragePool{Name: pool.Name}
+		err := tx.Query(ctx, selectSPUUIDStmt, dbPool).Get(&dbPool)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		if err == nil {
+			return errors.Errorf("storage pool %q %w", pool.Name, storageerrors.PoolAlreadyExists)
+		}
+		origin := poolOrigin{Origin: string(pool.Origin)}
+		if pool.Origin != "" {
+			err = tx.Query(ctx, selectOriginIDStmt, origin).Get(&origin)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				// This should never happen, as the origin has been validated
+				// in the domain service layer.
+				return errors.Errorf("storage pool %q with invalid origin %q", pool.Name, pool.Origin)
 			}
-			if err == nil {
-				return errors.Errorf("storage pool %q %w", pool.Name, storageerrors.PoolAlreadyExists)
-			}
-			origin := poolOrigin{Origin: string(pool.Origin)}
-			if pool.Origin != "" {
-				err = tx.Query(ctx, selectOriginIDStmt, origin).Get(&origin)
-				if errors.Is(err, sqlair.ErrNoRows) {
-					// This should never happen, as the origin has been validated
-					// in the domain service layer.
-					return errors.Errorf("storage pool %q with invalid origin %q", pool.Name, pool.Origin)
-				}
-				if err != nil {
-					return errors.Errorf("getting storage pool origin %q: %w", pool.Origin, err)
-				}
-			}
-
-			poolUUID, err := domainstorage.NewStoragePoolUUID()
 			if err != nil {
-				return errors.Errorf("generating storage pool UUID: %w", err)
+				return errors.Errorf("getting storage pool origin %q: %w", pool.Origin, err)
 			}
-			if err := storagePoolUpserter(ctx, tx, poolUUID.String(), pool.Name, pool.Provider, origin); err != nil {
-				return errors.Errorf("creating storage pool %q: %w", pool.Name, err)
-			}
+		}
 
-			if err := poolAttributesUpdater(ctx, tx, poolUUID.String(), pool.Attrs); err != nil {
-				return errors.Errorf("creating storage pool %q attributes: %w", pool.Name, err)
-			}
+		poolUUID, err := domainstorage.NewStoragePoolUUID()
+		if err != nil {
+			return errors.Errorf("generating storage pool UUID: %w", err)
+		}
+		if err := storagePoolUpserter(ctx, tx, poolUUID.String(), pool.Name, pool.Provider, origin); err != nil {
+			return errors.Errorf("creating storage pool %q: %w", pool.Name, err)
+		}
+
+		if err := poolAttributesUpdater(ctx, tx, poolUUID.String(), pool.Attrs); err != nil {
+			return errors.Errorf("creating storage pool %q attributes: %w", pool.Name, err)
 		}
 		return nil
 	})
@@ -232,32 +224,52 @@ func (st State) DeleteStoragePool(ctx context.Context, name string) error {
 		return errors.Capture(err)
 	}
 
-	poolAttributeDeleteQ := `
+	pool := StoragePool{Name: name}
+
+	poolAttributeDeleteStmt, err := st.Prepare(`
 DELETE FROM storage_pool_attribute
-WHERE  storage_pool_attribute.storage_pool_uuid = (select uuid FROM storage_pool WHERE name = $M.name)
-`
-
-	poolDeleteQ := `
-DELETE FROM storage_pool
-WHERE  storage_pool.uuid = (select uuid FROM storage_pool WHERE name = $M.name)
-`
-
-	poolAttributeDeleteStmt, err := st.Prepare(poolAttributeDeleteQ, sqlair.M{})
+WHERE  storage_pool_attribute.storage_pool_uuid = (
+  select uuid FROM storage_pool WHERE name = $StoragePool.name
+)`, pool)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	poolDeleteStmt, err := st.Prepare(poolDeleteQ, sqlair.M{})
+	poolDeleteStmt, err := st.Prepare(`
+DELETE FROM storage_pool
+WHERE  storage_pool.uuid = (
+  select uuid FROM storage_pool WHERE name = $StoragePool.name
+)`, pool)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	originStmt, err := st.Prepare(`
+SELECT (spo.*) AS (&poolOrigin.*)
+FROM   storage_pool sp
+       LEFT JOIN storage_pool_origin spo ON spo.id = sp.origin_id
+WHERE  sp.name = $StoragePool.name`, pool, poolOrigin{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		nameMap := sqlair.M{"name": name}
-		if err := tx.Query(ctx, poolAttributeDeleteStmt, nameMap).Run(); err != nil {
+		var origin poolOrigin
+		err := tx.Query(ctx, originStmt, pool).Get(&origin)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("storage pool %q not found", name).Add(storageerrors.PoolNotFoundError)
+		}
+		if err != nil {
+			return errors.Errorf("getting storage pool origin: %w", err)
+		}
+		if origin.Origin != string(domainstorage.StoragePoolOriginUser) {
+			return errors.Errorf("storage pool %q is not user-created, cannot delete", name)
+		}
+
+		if err := tx.Query(ctx, poolAttributeDeleteStmt, pool).Run(); err != nil {
 			return errors.Errorf("deleting storage pool attributes: %w", err)
 		}
 		var outcome = sqlair.Outcome{}
-		err = tx.Query(ctx, poolDeleteStmt, nameMap).Get(&outcome)
+		err = tx.Query(ctx, poolDeleteStmt, pool).Get(&outcome)
 		if err != nil {
 			return errors.Capture(err)
 		}
