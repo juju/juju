@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -136,7 +137,7 @@ func (s *charmsSuite) TestRequiresPOSTorGET(c *gc.C) {
 	c.Assert(string(body), gc.Equals, "Method Not Allowed\n")
 }
 
-func (s *charmsSuite) TestPOSTRequiresUserAuth(c *gc.C) {
+func (s *charmsSuite) TestPOSTRejectsNonUserAuth(c *gc.C) {
 	// Add a machine and try to login.
 	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "noncy",
@@ -150,11 +151,61 @@ func (s *charmsSuite) TestPOSTRequiresUserAuth(c *gc.C) {
 		ContentType: "foo/bar",
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusForbidden, "text/plain; charset=utf-8")
-	c.Assert(string(body), gc.Equals, "authorization failed: tag kind machine not valid\n")
+	c.Assert(string(body), gc.Equals, "authorization failed: permission denied\n")
 
 	// Now try a user login.
 	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.charmsURI("")})
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip.+")
+}
+
+func (s *charmsSuite) TestPOSTRejectsUserWithoutPermission(c *gc.C) {
+	u := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        "oryx",
+		Password:    "gardener",
+		NoModelUser: true,
+	})
+
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Tag:         u.Tag().String(),
+		Password:    "gardener",
+		Method:      "POST",
+		URL:         s.charmsURI(""),
+		Nonce:       "noncy",
+		ContentType: "foo/bar",
+	})
+	body := apitesting.AssertResponse(c, resp, http.StatusForbidden, "text/plain; charset=utf-8")
+	c.Assert(string(body), gc.Equals, "authorization failed: permission denied\n")
+
+	// Now try a user login.
+	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.charmsURI("")})
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip.+")
+}
+
+func (s *charmsSuite) TestPOSTAllowsUserWithWritePermission(c *gc.C) {
+	u := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:     "oryx",
+		Password: "gardener",
+		Access:   permission.WriteAccess,
+	})
+
+	pathToArchive := testcharms.Repo.CharmArchivePath(c.MkDir(), "dummy")
+	ch, err := charm.ReadCharmArchive(pathToArchive)
+	c.Assert(err, gc.IsNil)
+	f, err := os.Open(ch.Path)
+	c.Assert(err, jc.ErrorIsNil)
+	defer f.Close()
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Tag:         u.Tag().String(),
+		Password:    "gardener",
+		Method:      "POST",
+		URL:         s.charmsURI("?series=quantal"),
+		Nonce:       "noncy",
+		ContentType: "application/zip",
+		Body:        f,
+	})
+
+	inputURL := charm.MustParseURL("local:quantal/dummy-1")
+	s.assertUploadResponse(c, resp, inputURL.String())
 }
 
 func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
