@@ -122,6 +122,13 @@ type ApplicationState interface {
 	// found.
 	GetApplicationLifeByName(ctx context.Context, appName string) (coreapplication.ID, life.Life, error)
 
+	// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
+	// in the model are alive, returning an error if any are not.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotAlive] if any applications are not alive.
+	// - [applicationerrors.UnitNotAlive] if any units are not alive.
+	CheckAllApplicationsAndUnitsAreAlive(context.Context) error
+
 	// SetApplicationLife sets the life of the specified application.
 	SetApplicationLife(context.Context, coreapplication.ID, life.Life) error
 
@@ -895,6 +902,18 @@ func (s *Service) GetApplicationLifeByName(ctx context.Context, appName string) 
 		return "", errors.Errorf("getting life for %q: %w", appName, err)
 	}
 	return appLife.Value()
+}
+
+// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
+// in the model are alive, returning an error if any are not.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotAlive] if any applications are not alive.
+// - [applicationerrors.UnitNotAlive] if any units are not alive.
+func (s *Service) CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.CheckAllApplicationsAndUnitsAreAlive(ctx)
 }
 
 // IsSubordinateApplication returns true if the application is a subordinate

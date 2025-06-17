@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	removalstate "github.com/juju/juju/domain/removal/state"
 	"github.com/juju/juju/domain/resource"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/status"
@@ -993,6 +994,126 @@ func (s *applicationStateSuite) TestGetApplicationLifeNotFound(c *tc.C) {
 	appID := applicationtesting.GenApplicationUUID(c)
 	_, err := s.state.GetApplicationLife(c.Context(), appID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveEmptyModel(c *tc.C) {
+	err := s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAlive(c *tc.C) {
+	// Arrange: Some apps with units
+	s.createIAASApplication(c, "foo", life.Alive,
+		application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName: "foo/0",
+			},
+		},
+		application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName: "foo/1",
+			},
+		},
+		application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName: "foo/2",
+			},
+		},
+	)
+	s.createIAASApplication(c, "bar", life.Alive,
+		application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName: "bar/0",
+			},
+		},
+		application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName: "bar/1",
+			},
+		},
+		application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName: "bar/2",
+			},
+		},
+	)
+
+	// Act:
+	err := s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
+
+	// Assert:
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyingApplications(c *tc.C) {
+	// Arrange: Some apps with units, where some are dying
+	s.createIAASApplication(c, "foo", life.Dying,
+		application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName: "foo/0",
+			},
+		},
+	)
+	s.createIAASApplication(c, "bar", life.Dying,
+		application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName: "bar/0",
+			},
+		},
+	)
+	s.createIAASApplication(c, "baz", life.Alive,
+		application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName: "baz/0",
+			},
+		},
+	)
+
+	// Act:
+	err := s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
+
+	// Assert: An error of correct type, mentioning the correct applications, is returned
+	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
+	c.Check(err, tc.ErrorMatches, `.*application\(s\) "(bar, foo|foo, bar)" are not alive`)
+}
+
+func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyingUnits(c *tc.C) {
+	// Arrange: an application with some dying units
+	s.createIAASApplication(c, "foo", life.Alive,
+		application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName: "foo/0",
+			},
+		},
+		application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName: "foo/1",
+			},
+		},
+		application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName: "foo/2",
+			},
+		},
+	)
+
+	u0, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIsNil)
+	u1, err := s.state.GetUnitUUIDByName(c.Context(), "foo/1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	removalState := removalstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err = removalState.EnsureUnitNotAliveCascade(c.Context(), u0.String())
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = removalState.EnsureUnitNotAliveCascade(c.Context(), u1.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act:
+	err = s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
+
+	// Assert: an error of correct type, mentioning the correct unit, is returned.
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
+	c.Assert(err, tc.ErrorMatches, `.*unit\(s\) "(foo/0, foo/1|foo/1, foo/0)" are not alive`)
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceNew(c *tc.C) {
