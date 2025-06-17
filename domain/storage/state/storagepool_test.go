@@ -47,7 +47,36 @@ func (s *storagePoolStateSuite) TestCreateStoragePool(c *tc.C) {
 
 	out, err := st.GetStoragePoolByName(ctx, "ebs-fast")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.DeepEquals, sp)
+	c.Assert(out, tc.DeepEquals, domainstorage.StoragePool{
+		Name:     "ebs-fast",
+		Provider: "ebs",
+		Attrs: map[string]string{
+			"foo": "foo val",
+			"bar": "bar val",
+		},
+		Origin: domainstorage.StoragePoolOriginUser,
+	})
+}
+
+func (s *storagePoolStateSuite) TestCreateStoragePoolWithOrigin(c *tc.C) {
+	st := newStoragePoolState(s.TxnRunnerFactory())
+
+	sp := domainstorage.StoragePool{
+		Name:     "loop",
+		Provider: "loop",
+		Origin:   domainstorage.StoragePoolOriginBuiltIn,
+	}
+	ctx := c.Context()
+	err := st.CreateStoragePool(ctx, sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	out, err := st.GetStoragePoolByName(ctx, "loop")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, domainstorage.StoragePool{
+		Name:     "loop",
+		Provider: "loop",
+		Origin:   domainstorage.StoragePoolOriginBuiltIn,
+	})
 }
 
 func (s *storagePoolStateSuite) TestCreateStoragePoolNoAttributes(c *tc.C) {
@@ -63,7 +92,11 @@ func (s *storagePoolStateSuite) TestCreateStoragePoolNoAttributes(c *tc.C) {
 
 	out, err := st.GetStoragePoolByName(ctx, "ebs-fast")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.DeepEquals, sp)
+	c.Assert(out, tc.DeepEquals, domainstorage.StoragePool{
+		Name:     "ebs-fast",
+		Provider: "ebs",
+		Origin:   domainstorage.StoragePoolOriginUser,
+	})
 }
 
 func (s *storagePoolStateSuite) TestCreateStoragePoolAlreadyExists(c *tc.C) {
@@ -134,7 +167,14 @@ func (s *storagePoolStateSuite) TestReplaceStoragePool(c *tc.C) {
 
 	out, err := st.GetStoragePoolByName(ctx, "ebs-fast")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.DeepEquals, sp2)
+	c.Assert(out, tc.DeepEquals, domainstorage.StoragePool{
+		Name:     "ebs-fast",
+		Provider: "ebs",
+		Attrs: map[string]string{
+			"baz": "baz val",
+		},
+		Origin: domainstorage.StoragePoolOriginUser,
+	})
 }
 
 func (s *storagePoolStateSuite) TestReplaceStoragePoolNoAttributes(c *tc.C) {
@@ -161,7 +201,11 @@ func (s *storagePoolStateSuite) TestReplaceStoragePoolNoAttributes(c *tc.C) {
 
 	out, err := st.GetStoragePoolByName(ctx, "ebs-fast")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.DeepEquals, sp2)
+	c.Assert(out, tc.DeepEquals, domainstorage.StoragePool{
+		Name:     "ebs-fast",
+		Provider: "ebs",
+		Origin:   domainstorage.StoragePoolOriginUser,
+	})
 }
 
 func (s *storagePoolStateSuite) TestReplaceStoragePoolNotFound(c *tc.C) {
@@ -254,6 +298,7 @@ func (s *storagePoolStateSuite) TestGetStoragePoolByName(c *tc.C) {
 	sp2 := domainstorage.StoragePool{
 		Name:     "loop",
 		Provider: "loop",
+		Origin:   domainstorage.StoragePoolOriginBuiltIn,
 	}
 	ctx := c.Context()
 	err := st.CreateStoragePool(ctx, sp)
@@ -263,7 +308,15 @@ func (s *storagePoolStateSuite) TestGetStoragePoolByName(c *tc.C) {
 
 	out, err := st.GetStoragePoolByName(c.Context(), "ebs-fast")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.DeepEquals, sp)
+	c.Assert(out, tc.DeepEquals, domainstorage.StoragePool{
+		Name:     "ebs-fast",
+		Provider: "ebs",
+		Attrs: map[string]string{
+			"foo": "foo val",
+			"bar": "bar val",
+		},
+		Origin: domainstorage.StoragePoolOriginUser,
+	})
 }
 
 func (s *storagePoolStateSuite) TestListStoragePoolsByNamesAndProviders(c *tc.C) {
