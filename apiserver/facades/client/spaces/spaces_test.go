@@ -83,6 +83,24 @@ func (s *APISuite) TestShowSpaceDefault(c *gc.C) {
 	c.Assert(res, jc.DeepEquals, expected)
 }
 
+func (s *APISuite) TestCheckSupportsSpacesControllerConfigFail(c *gc.C) {
+	ctrl, unreg := s.setupMocks(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+
+	s.Backing.EXPECT().ControllerConfig().Return(controller.Config{}, errors.New("broken controller"))
+
+	expectedApplications := []string{"mysql", "mediawiki"}
+	sort.Strings(expectedApplications)
+	args := s.getShowSpaceArg("default")
+
+	// checkSupportsSpaces is a private method, so use ShowSpace() as the top level method
+	// because it invokes checkSupportsSpaces
+	res, err := s.API.ShowSpace(args)
+	c.Assert(err, gc.ErrorMatches, "getting controller config: broken controller")
+	c.Assert(res, jc.DeepEquals, params.ShowSpaceResults{})
+}
+
 func (s *APISuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
 	ctrl, unreg := s.setupMocks(c, true, false)
 	defer ctrl.Finish()

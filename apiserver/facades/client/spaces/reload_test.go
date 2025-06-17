@@ -55,6 +55,25 @@ func (s *ReloadSpacesAPISuite) TestReloadSpaces(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
+func (s *ReloadSpacesAPISuite) TestReloadSpacesGetControllerConfigFail(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	context := context.NewEmptyCloudCallContext()
+	authorizer := func() error { return nil }
+
+	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
+
+	mockState := NewMockReloadSpacesState(ctrl)
+	mockState.EXPECT().ControllerConfig().Return(controller.Config{}, errors.New("broken controller"))
+
+	mockEnvironSpaces := NewMockEnvironSpaces(ctrl)
+
+	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, context, authorizer)
+	err := spacesAPI.ReloadSpaces()
+	c.Assert(err, gc.ErrorMatches, "get controller config: broken controller")
+}
+
 func (s *ReloadSpacesAPISuite) TestReloadSpacesWithNoEnviron(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

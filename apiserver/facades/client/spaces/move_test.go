@@ -122,6 +122,23 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *gc.C) {
 	c.Assert(res.Results[0].Error.Message, gc.Equals, "subnet 3 not found")
 }
 
+func (s *moveSubnetsAPISuite) TestEnsureSpacesNotProviderSourcedControllerConfigFail(c *gc.C) {
+	ctrl, unReg := s.SetupMocks(c, true, false)
+	defer ctrl.Finish()
+	defer unReg()
+
+	spaceName := "destination"
+	subnetID := "3"
+
+	s.Backing.EXPECT().ControllerConfig().Return(controller.Config{}, errors.New("broken controller"))
+
+	// ensureSpacesNotProviderSourced is a private method, so use MoveSubnets() as the top level method
+	// because it invokes ensureSpacesNotProviderSourced
+	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
+	c.Assert(err, gc.ErrorMatches, "getting controller config: broken controller")
+	c.Assert(res, gc.DeepEquals, params.MoveSubnetsResults{})
+}
+
 func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()

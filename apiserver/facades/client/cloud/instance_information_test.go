@@ -14,6 +14,7 @@ import (
 	cloudfacade "github.com/juju/juju/apiserver/facades/client/cloud"
 	"github.com/juju/juju/apiserver/facades/client/cloud/mocks"
 	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -120,4 +121,48 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		{
 			Error: &params.Error{Message: "asking gce cloud information to aws cloud not valid", Code: "not valid"}}}
 	c.Assert(r.Results, gc.DeepEquals, expected)
+}
+
+func (p *instanceTypesSuite) TestInstanceTypesGettingControllerConfigFail(c *gc.C) {
+	adminTag := names.NewUserTag("admin")
+	ctrl := p.setup(c, adminTag)
+	defer ctrl.Finish()
+
+	mockModel := mocks.NewMockModel(ctrl)
+
+	mockEnv := environsmocks.NewMockEnviron(ctrl)
+	fakeEnvironGet := func(
+		st environs.EnvironConfigGetter,
+		newEnviron environs.NewEnvironFunc,
+	) (environs.Environ, error) {
+		return mockEnv, nil
+	}
+
+	mockModel.EXPECT().UUID().Return(coretesting.ModelTag.Id()).AnyTimes()
+	p.ctrlBackend.EXPECT().Model().Return(mockModel, nil)
+	p.pool.EXPECT().GetModelCallContext(coretesting.ModelTag.Id()).Return(p.credcommonPersistentBackend,
+		context.NewEmptyCloudCallContext(), func() bool { return false }, nil)
+	p.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag)
+	p.backend.EXPECT().ControllerConfig().Return(controller.Config{}, errors.New("broken controller"))
+
+	api, err := cloudfacade.NewCloudAPI(p.backend, p.ctrlBackend, p.pool, p.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	itCons := constraints.Value{CpuCores: &over9kCPUCores}
+	failureCons := constraints.Value{}
+	cons := params.CloudInstanceTypesConstraints{
+		Constraints: []params.CloudInstanceTypesConstraint{
+			{CloudTag: "cloud-aws",
+				CloudRegion: "a-region",
+				Constraints: &itCons},
+			{CloudTag: "cloud-aws",
+				CloudRegion: "a-region",
+				Constraints: &failureCons},
+			{CloudTag: "cloud-gce",
+				CloudRegion: "a-region",
+				Constraints: &itCons}},
+	}
+	r, err := cloudfacade.InstanceTypes(api, fakeEnvironGet, cons)
+	c.Assert(err, gc.ErrorMatches, "getting controller config: broken controller")
+	c.Assert(r, gc.DeepEquals, params.InstanceTypesResults{})
 }
