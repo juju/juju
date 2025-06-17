@@ -200,6 +200,7 @@ linkcheck_anchors_ignore_for_url = [
     r"https://charmhub\.io/.*",
     r"https://launchpad\.net/.*",
     r"https://matrix\.to/.*",
+    r"https://ghcr\.io/.*",
 ]
 
 

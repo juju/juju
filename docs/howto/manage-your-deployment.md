@@ -700,7 +700,7 @@ $ multipass delete --purge my-juju-vm
 
 Uninstall Multipass.
 
-> See more: [Multipass | Uninstall Multipass](https://documentation.ubuntu.com/multipass/en/latest/#uninstall)
+> See more: [Multipass | Uninstall Multipass](https://documentation.ubuntu.com/multipass/en/latest/how-to-guides/install-multipass/#uninstall)
 
 `````
 
@@ -741,7 +741,7 @@ multipass delete --purge charm-dev-vm
 
 Then uninstall Multipass.
 
-> See more: [Multipass | Uninstall Multipass](https://multipass.run/docs/install-multipass#uninstall)
+> See more: [Multipass | Uninstall Multipass](https://documentation.ubuntu.com/multipass/en/latest/how-to-guides/install-multipass/#uninstall)
 
 `````
 
