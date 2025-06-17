@@ -57,4 +57,8 @@ type MachineService interface {
 type ApplicationService interface {
 	// GetUnitLife returns the lifecycle of the unit.
 	GetUnitLife(ctx context.Context, unitName unit.Name) (life.Value, error)
+	// GetApplicationLifeByName looks up the life of the specified application, returning
+	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application is not found.
+	GetApplicationLifeByName(ctx context.Context, appName string) (life.Value, error)
 }

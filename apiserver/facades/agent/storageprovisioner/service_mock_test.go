@@ -44,6 +44,45 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
+// GetApplicationLifeByName mocks base method.
+func (m *MockApplicationService) GetApplicationLifeByName(arg0 context.Context, arg1 string) (life.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationLifeByName", arg0, arg1)
+	ret0, _ := ret[0].(life.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationLifeByName indicates an expected call of GetApplicationLifeByName.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationLifeByName(arg0, arg1 any) *MockApplicationServiceGetApplicationLifeByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLifeByName", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationLifeByName), arg0, arg1)
+	return &MockApplicationServiceGetApplicationLifeByNameCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationLifeByNameCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationLifeByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationLifeByNameCall) Return(arg0 life.Value, arg1 error) *MockApplicationServiceGetApplicationLifeByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationLifeByNameCall) Do(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetApplicationLifeByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationLifeByNameCall) DoAndReturn(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetApplicationLifeByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitLife mocks base method.
 func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Value, error) {
 	m.ctrl.T.Helper()

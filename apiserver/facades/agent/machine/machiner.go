@@ -84,6 +84,10 @@ type ApplicationService interface {
 	// GetUnitLife returns the lifecycle state of the unit with the
 	// specified name.
 	GetUnitLife(ctx context.Context, name unit.Name) (life.Value, error)
+	// GetApplicationLifeByName looks up the life of the specified application, returning
+	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application is not found.
+	GetApplicationLifeByName(ctx context.Context, appName string) (life.Value, error)
 }
 
 // ModelInfoService is the interface that is used to ask questions about the
