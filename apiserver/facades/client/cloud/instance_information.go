@@ -16,27 +16,6 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 )
 
-// EnvironConfigGetter implements environs.EnvironConfigGetter
-// in terms of a *state.State.
-type cloudEnvironConfigGetter struct {
-	Backend
-	region         string
-	controllerUUID string
-}
-
-// CloudSpec implements environs.EnvironConfigGetter.
-func (g cloudEnvironConfigGetter) CloudSpec() (environscloudspec.CloudSpec, error) {
-	model, err := g.Model()
-	if err != nil {
-		return environscloudspec.CloudSpec{}, errors.Trace(err)
-	}
-	return stateenvirons.CloudSpecForModel(model)
-}
-
-func (g cloudEnvironConfigGetter) ControllerUUID() string {
-	return g.controllerUUID
-}
-
 // InstanceTypes returns instance type information for the cloud and region
 // in which the current model is deployed.
 func (api *CloudAPI) InstanceTypes(cons params.CloudInstanceTypesConstraints) (params.InstanceTypesResults, error) {
@@ -72,11 +51,7 @@ func instanceTypes(api *CloudAPI,
 		if cons.Constraints != nil {
 			value = *cons.Constraints
 		}
-		backend := cloudEnvironConfigGetter{
-			Backend:        api.backend,
-			region:         cons.CloudRegion,
-			controllerUUID: ctrlCfg.ControllerUUID(),
-		}
+
 		cloudTag, err := names.ParseCloudTag(cons.CloudTag)
 		if err != nil {
 			result[i] = params.InstanceTypesResult{Error: apiservererrors.ServerError(err)}
@@ -86,8 +61,12 @@ func instanceTypes(api *CloudAPI,
 			result[i] = params.InstanceTypesResult{Error: apiservererrors.ServerError(errors.NotValidf("asking %s cloud information to %s cloud", cloudTag.Id(), m.CloudName()))}
 			continue
 		}
+		cloudSpecFunc := func() (environscloudspec.CloudSpec, error) {
+			return stateenvirons.CloudSpecForModel(m)
+		}
+		envConfGetter := common.NewEnvironConfigGetterFuncs(api.backend.ModelConfig, cloudSpecFunc, ctrlCfg.ControllerUUID())
 
-		env, err := environGet(backend, environs.New)
+		env, err := environGet(envConfGetter, environs.New)
 		if err != nil {
 			return params.InstanceTypesResults{}, errors.Trace(err)
 		}

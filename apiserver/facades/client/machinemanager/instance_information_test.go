@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/testing"
 )
 
 var over9kCPUCores uint64 = 9001
@@ -62,10 +63,9 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
-	dummyControllerUuid := "dummy-controller-uuid"
 
 	model := mocks.NewMockModel(ctrl)
-	model.EXPECT().ControllerUUID().Return(dummyControllerUuid)
+	model.EXPECT().ControllerUUID().Return(testing.ControllerTag.Id())
 	s.st.EXPECT().Model().Return(model, nil)
 
 	itCons := constraints.Value{CpuCores: &over9kCPUCores}
@@ -88,7 +88,7 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	fakeEnvironGet := func(st environs.EnvironConfigGetter,
 		newEnviron environs.NewEnvironFunc,
 	) (environs.Environ, error) {
-		c.Assert(st.ControllerUUID(), gc.Equals, dummyControllerUuid)
+		c.Assert(st.ControllerUUID(), gc.Equals, testing.ControllerTag.Id())
 		return env, nil
 	}
 

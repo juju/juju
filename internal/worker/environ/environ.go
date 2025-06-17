@@ -38,6 +38,7 @@ type environConfigGetter struct {
 	controllerUUID string
 }
 
+// ControllerUUID is the UUID of the controller. It implements environ.EnvironConfigGetter
 func (e environConfigGetter) ControllerUUID() string {
 	return e.controllerUUID
 }

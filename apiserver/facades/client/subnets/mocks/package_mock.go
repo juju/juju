@@ -103,20 +103,6 @@ func (mr *MockBackingMockRecorder) CloudSpec() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockBacking)(nil).CloudSpec))
 }
 
-// ControllerUUID mocks base method.
-func (m *MockBacking) ControllerUUID() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerUUID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// ControllerUUID indicates an expected call of ControllerUUID.
-func (mr *MockBackingMockRecorder) ControllerUUID() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerUUID", reflect.TypeOf((*MockBacking)(nil).ControllerUUID))
-}
-
 // ModelConfig mocks base method.
 func (m *MockBacking) ModelConfig() (*config.Config, error) {
 	m.ctrl.T.Helper()

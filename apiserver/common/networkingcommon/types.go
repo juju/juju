@@ -11,7 +11,8 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -93,7 +94,11 @@ type BackingSpace interface {
 // retrieve information from the underlying persistence layer (state
 // DB).
 type NetworkBacking interface {
-	environs.EnvironConfigGetter
+	// ModelConfig returns the current model configuration.
+	ModelConfig() (*config.Config, error)
+
+	// CloudSpec returns a cloud specification.
+	CloudSpec() (environscloudspec.CloudSpec, error)
 
 	// AvailabilityZones returns all cached availability zones (i.e.
 	// not from the provider, but in state).

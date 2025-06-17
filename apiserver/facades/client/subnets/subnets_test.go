@@ -117,10 +117,6 @@ type stubBacking struct {
 	*apiservertesting.StubBacking
 }
 
-func (sb *stubBacking) ControllerUUID() string {
-	return sb.StubBacking.ControllerUUID()
-}
-
 func (sb *stubBacking) SubnetsByCIDR(_ string) ([]networkingcommon.BackingSubnet, error) {
 	panic("should not be called")
 }
