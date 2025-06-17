@@ -26,7 +26,11 @@ func (environNetworking) Subnets(_ context.Context, _ []network.Id) ([]network.S
 	// in Kubernetes is improved.
 	return []network.SubnetInfo{
 		{
-			CIDR: "0.0.0.0/0",
+			CIDR:       "0.0.0.0/0",
+			ProviderId: "subnet-placeholder-0.0.0.0/0",
+		}, {
+			CIDR:       "::/0",
+			ProviderId: "subnet-placeholder-::/0",
 		},
 	}, nil
 }
