@@ -6,7 +6,6 @@ package undertaker
 import (
 	"context"
 	"fmt"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"time"
 
 	"github.com/juju/clock"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/worker"
