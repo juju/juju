@@ -23,6 +23,15 @@ import (
 	"github.com/juju/juju/internal/charm/resource"
 )
 
+type Services struct {
+	ControllerConfigService ControllerConfigService
+	ControllerNodeService   ControllerNodeService
+	ModelConfigService      ModelConfigService
+	ModelInfoService        ModelInfoService
+	ApplicationService      ApplicationService
+	StatusService           StatusService
+}
+
 // ControllerConfigService provides the controller configuration.
 type ControllerConfigService interface {
 	// ControllerConfig returns the config values for the controller.
@@ -30,6 +39,14 @@ type ControllerConfigService interface {
 	// WatchControllerConfig returns a watcher that returns keys for any
 	// changes to controller config.
 	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
+}
+
+// ControllerNodeService defines the methods on the controller node service
+// that are needed the caas application provisioner API.
+type ControllerNodeService interface {
+	// WatchControllerAPIAddresses returns a watcher that observes changes to the
+	// controller ip addresses.
+	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // ModelConfigService provides access to the model configuration.

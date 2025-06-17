@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // ProxyUpdaterV2 defines the public methods for the v2 facade.
@@ -40,9 +39,10 @@ func newFacadeBase(ctx facade.ModelContext) (*API, error) {
 	return NewAPIV2(
 		systemState,
 		ctx.DomainServices().ControllerConfig(),
+		ctx.DomainServices().ControllerNode(),
 		ctx.DomainServices().Config(),
-		ctx.Resources(),
 		ctx.Auth(),
+		ctx.WatcherRegistry(),
 	)
 }
 
@@ -50,25 +50,26 @@ func newFacadeBase(ctx facade.ModelContext) (*API, error) {
 type API struct {
 	controller              ControllerBackend
 	controllerConfigService ControllerConfigService
+	controllerNodeService   ControllerNodeService
 	modelConfigService      ModelConfigService
-	resources               facade.Resources
 	authorizer              facade.Authorizer
+	watcherRegistry         facade.WatcherRegistry
 }
 
 // ControllerBackend defines the controller state methods this facade needs,
 // so they can be mocked for testing.
 type ControllerBackend interface {
 	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
-	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
 
 // NewAPIV2 creates a new server-side API facade with the given Backing.
 func NewAPIV2(
 	controller ControllerBackend,
 	controllerConfigService ControllerConfigService,
+	controllerNodeService ControllerNodeService,
 	modelConfigService ModelConfigService,
-	resources facade.Resources,
 	authorizer facade.Authorizer,
+	watcherRegistry facade.WatcherRegistry,
 ) (*API, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent() || authorizer.AuthModelAgent()) {
 		return nil, apiservererrors.ErrPerm
@@ -76,9 +77,10 @@ func NewAPIV2(
 	return &API{
 		controller:              controller,
 		controllerConfigService: controllerConfigService,
+		controllerNodeService:   controllerNodeService,
 		modelConfigService:      modelConfigService,
-		resources:               resources,
 		authorizer:              authorizer,
+		watcherRegistry:         watcherRegistry,
 	}, nil
 }
 
@@ -97,24 +99,28 @@ func (api *API) oneWatch(ctx context.Context) params.NotifyWatchResult {
 		return result
 	}
 
+	controllerAPIHostPortsWatcher, err := api.controllerNodeService.WatchControllerAPIAddresses(ctx)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
+	}
+
 	watch, err := eventsource.NewMultiNotifyWatcher(ctx,
 		modelConfigNotifyWatcher,
-		api.controller.WatchAPIHostPortsForAgents(),
+		controllerAPIHostPortsWatcher,
 	)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
 
-	_, err = internal.FirstResult[struct{}](ctx, watch)
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, watch)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
 
-	return params.NotifyWatchResult{
-		NotifyWatcherId: api.resources.Register(watch),
-	}
+	return result
 }
 
 // WatchForProxyConfigAndAPIHostPortChanges watches for changes to the proxy and api host port settings.
