@@ -256,9 +256,7 @@ type InsertUnitArg struct {
 	Password          *PasswordInfo
 	Constraints       constraints.Constraints
 	Placement         deployment.Placement
-	Storage           []ApplicationStorageArg
 	StorageDirectives []UnitStorageDirectiveArg
-	StoragePoolKind   map[string]storage.StorageKind
 	UnitStatusArg
 }
 
