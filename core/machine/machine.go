@@ -43,7 +43,7 @@ type Name string
 // satisfies [errors.NotValid].
 func (n Name) Validate() error {
 	if !validMachine.MatchString(n.String()) {
-		return errors.Errorf("empty machine name").Add(coreerrors.NotValid)
+		return errors.Errorf("machine name").Add(coreerrors.NotValid)
 	}
 	return nil
 }
