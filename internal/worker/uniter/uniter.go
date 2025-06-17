@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/exec"
@@ -258,8 +257,6 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	ctx, cancel := u.scopedContext()
 	defer cancel()
-
-	loggo.GetLogger("****").Criticalf("LOOP")
 
 	// Ensure that we pass in the tracer to the context, so that it can be
 	// used by the resolver.

@@ -191,6 +191,28 @@ func (s *unitAddressSuite) TestGetUnitAddressesNoAddresses(c *tc.C) {
 	c.Assert(addr, tc.DeepEquals, corenetwork.SpaceAddresses{})
 }
 
+func (s *unitAddressSuite) TestGetUnitUUIDByName(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	spaceUUID := s.addSpace(c)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Act
+	uuid, err := s.state.GetUnitUUIDByName(c.Context(), coreunit.Name(unitUUID))
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, coreunit.UUID(unitUUID))
+}
+
+func (s *unitAddressSuite) TestGetUnitUUIDByNameNotFound(c *tc.C) {
+	_, err := s.state.GetUnitUUIDByName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *unitAddressSuite) TestGetUnitAddressesNotFound(c *tc.C) {
 	_, err := s.state.GetUnitAddresses(c.Context(), coreunit.UUID("foo"))
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)

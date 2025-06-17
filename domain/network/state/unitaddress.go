@@ -140,7 +140,7 @@ func (st *State) getUnitUUIDByName(
 	unitName := unitName{Name: name}
 
 	query, err := st.Prepare(`
-SELECT &unitUUID.*
+SELECT &entityUUID.*
 FROM   unit
 WHERE  name = $unitName.name
 `, entityUUID{}, unitName)
