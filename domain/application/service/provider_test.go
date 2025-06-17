@@ -635,6 +635,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `creating IAAS application "foo": boom`)
 }
 
+// TODO (tlm): Need to add the expectation that the default storage source is
+// added to the directives.
 func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -689,14 +691,12 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 				DownloadSize:       42,
 			},
 			Platform: platform,
-			Storage: []application.ApplicationStorageArg{{
-				Name:           "data",
-				PoolNameOrType: "loop",
-				Size:           10,
-				Count:          1,
-			}},
-			StoragePoolKind: map[string]storage.StorageKind{
-				"loop": storage.StorageKindBlock,
+			StorageDirectives: []application.ApplicationStorageDirectiveArg{
+				{
+					Name:  "data",
+					Count: 1,
+					Size:  10,
+				},
 			},
 		},
 	}
@@ -746,6 +746,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TODO (tlm): Need to add the expectation that the default storage source is
+// added to the directives.
+// TODO (tlm): Add a case where a default block and or file system source cannot
+// be supplied. What happens then?
 func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -801,14 +805,12 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 				DownloadSize:       42,
 			},
 			Platform: platform,
-			Storage: []application.ApplicationStorageArg{{
-				Name:           "data",
-				PoolNameOrType: "fast",
-				Size:           10,
-				Count:          2,
-			}},
-			StoragePoolKind: map[string]storage.StorageKind{
-				"fast": storage.StorageKindBlock,
+			StorageDirectives: []application.ApplicationStorageDirectiveArg{
+				{
+					Count: 2,
+					Name:  "data",
+					Size:  10,
+				},
 			},
 		},
 	}
@@ -862,6 +864,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TODO (tlm): Need to add the expectation that the default storage source is
+// added to the directives.
 func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -917,14 +921,12 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 				DownloadSize:       42,
 			},
 			Platform: platform,
-			Storage: []application.ApplicationStorageArg{{
-				Name:           "data",
-				PoolNameOrType: "rootfs",
-				Size:           10,
-				Count:          1,
-			}},
-			StoragePoolKind: map[string]storage.StorageKind{
-				"rootfs": storage.StorageKindFilesystem,
+			StorageDirectives: []application.ApplicationStorageDirectiveArg{
+				{
+					Count: 1,
+					Name:  "data",
+					Size:  10,
+				},
 			},
 		},
 	}
@@ -1030,14 +1032,12 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 				DownloadSize:       42,
 			},
 			Platform: platform,
-			Storage: []application.ApplicationStorageArg{{
-				Name:           "data",
-				PoolNameOrType: "fast",
-				Size:           10,
-				Count:          2,
-			}},
-			StoragePoolKind: map[string]storage.StorageKind{
-				"fast": storage.StorageKindBlock,
+			StorageDirectives: []application.ApplicationStorageDirectiveArg{
+				{
+					Count: 2,
+					Name:  "data",
+					Size:  10,
+				},
 			},
 		},
 	}
