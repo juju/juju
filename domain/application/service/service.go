@@ -823,49 +823,48 @@ func isValidReferenceName(name string) bool {
 
 // addDefaultStorageDirectives fills in default values, replacing any empty/missing values
 // in the specified directives.
-func addDefaultStorageDirectives(
+func (s *Service) addDefaultStorageDirectives(
 	ctx context.Context,
-	state State,
 	modelType coremodel.ModelType,
 	allDirectives map[string]storage.Directive,
 	storage map[string]internalcharm.Storage,
 ) (map[string]storage.Directive, error) {
-	defaults, err := state.StorageDefaults(ctx)
+	defaults, err := s.st.StorageDefaults(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting storage defaults: %w", err)
 	}
 	return domainstorage.StorageDirectivesWithDefaults(storage, modelType, defaults, allDirectives)
 }
 
-func validateStorageDirectives(
+// validateStorageDirectives ensures the supplied storage is valid for the specified
+// charm and fills in the scope of the supplied storage.
+func (s *Service) validateStorageDirectives(
 	ctx context.Context,
-	state State,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	modelType coremodel.ModelType,
 	allDirectives map[string]storage.Directive,
 	meta *internalcharm.Meta,
-) error {
-	registry, err := storageRegistryGetter.GetStorageRegistry(ctx)
+) (map[string]domainstorage.StorageDirectiveAndScope, error) {
+	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, registry, state)
+	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, registry, s.st)
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
-	err = validator.ValidateStorageDirectivesAgainstCharm(ctx, allDirectives, meta)
+	result, err := validator.ValidateStorageDirectivesAgainstCharm(ctx, allDirectives, meta)
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 	// Ensure all stores have directives specified. Defaults should have
 	// been set by this point, if the user didn't specify any.
 	for name, charmStorage := range meta.Storage {
 		if _, ok := allDirectives[name]; !ok && charmStorage.CountMin > 0 {
-			return errors.Errorf("%w for store %q", applicationerrors.MissingStorageDirective, name)
+			return nil, errors.Errorf("%w for store %q", applicationerrors.MissingStorageDirective, name)
 		}
 	}
-	return nil
+	return result, nil
 }
 
 func encodeChannelAndPlatform(origin corecharm.Origin) (*deployment.Channel, deployment.Platform, error) {

@@ -189,11 +189,11 @@ func (s *storageSuite) createStorageInstance(c *tc.C, storageName, charmUUID cor
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_instance (
     uuid, charm_uuid, storage_name, storage_id,
-    life_id, requested_size_mib, storage_type
-) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    life_id, requested_size_mib, storage_type, scope_id
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			storageUUID, charmUUID, storageName,
 			fmt.Sprintf("%s/%d", storageName, s.storageInstCount),
-			life.Alive, 100, "pool")
+			life.Alive, 100, "pool", 0)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

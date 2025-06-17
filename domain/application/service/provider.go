@@ -249,7 +249,7 @@ func (s *ProviderService) makeApplicationArg(
 	if err != nil {
 		return "", application.BaseAddApplicationArg{}, errors.Errorf("getting model type: %w", err)
 	}
-	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, charm, origin, args)
+	appArg, err := s.makeCreateApplicationArgs(ctx, modelType, charm, origin, args)
 	if err != nil {
 		return "", application.BaseAddApplicationArg{}, errors.Errorf("creating application args: %w", err)
 	}
@@ -288,10 +288,8 @@ func (s *ProviderService) makeApplicationArg(
 	return name, appArg, nil
 }
 
-func makeCreateApplicationArgs(
+func (s *Service) makeCreateApplicationArgs(
 	ctx context.Context,
-	state State,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	modelType coremodel.ModelType,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
@@ -305,10 +303,11 @@ func makeCreateApplicationArgs(
 	meta := charm.Meta()
 
 	var err error
-	if storageDirectives, err = addDefaultStorageDirectives(ctx, state, modelType, storageDirectives, meta.Storage); err != nil {
+	if storageDirectives, err = s.addDefaultStorageDirectives(ctx, modelType, storageDirectives, meta.Storage); err != nil {
 		return application.BaseAddApplicationArg{}, errors.Errorf("adding default storage directives: %w", err)
 	}
-	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, storageDirectives, meta); err != nil {
+	storageDirectivesAndScope, err := s.validateStorageDirectives(ctx, modelType, storageDirectives, meta)
+	if err != nil {
 		return application.BaseAddApplicationArg{}, errors.Errorf("invalid storage directives: %w", err)
 	}
 
@@ -366,7 +365,7 @@ func makeCreateApplicationArgs(
 		EndpointBindings:  args.EndpointBindings,
 		Resources:         makeResourcesArgs(args.ResolvedResources),
 		PendingResources:  args.PendingResources,
-		Storage:           makeStorageArgs(storageDirectives),
+		Storage:           makeStorageArgs(storageDirectivesAndScope),
 		Config:            applicationConfig,
 		Settings:          args.ApplicationSettings,
 		Status:            applicationStatus,
