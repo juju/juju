@@ -343,7 +343,7 @@ func PopulateCAASControllerCharm(ctx context.Context, controllerCharmDeployer bo
 	return bootstrap.PopulateCAASControllerCharm(ctx, controllerCharmDeployer)
 }
 
-// SetIAASMachineProvisioned is the function that is used to set the
+// IAASSetMachineProvisioned is the function that is used to set the
 // machine provisioned for IAAS workloads.
 func IAASSetMachineProvisioned(
 	ctx context.Context,
@@ -384,7 +384,7 @@ func IAASSetMachineProvisioned(
 	return nil
 }
 
-// SetCAASMachineProvisioned is a no-op function for CAAS workloads, as they
+// CAASSetMachineProvisioned is a no-op function for CAAS workloads, as they
 // don't have machines.
 func CAASSetMachineProvisioned(context.Context, AgentPasswordService, MachineService, instancecfg.StateInitializationParams, agent.Config) error {
 	return nil
