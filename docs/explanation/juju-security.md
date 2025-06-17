@@ -3,7 +3,7 @@
 
 > See also: {ref}`harden-your-deployment`
 
-Malicious actors may try to prevent you from accessing your data (Denial-of-Service (DoS) attacks, affecting availability); view your data (attacks affecting confidentiality); or tamper with your data (Man-in-the-Middle attacks, affecting data integrity). Juju takes a variety of means to protect you against all of these. 
+Malicious actors may try to prevent you from accessing your data (Denial-of-Service (DoS) attacks, affecting availability); view your data (attacks affecting confidentiality); or tamper with your data (Man-in-the-Middle attacks, affecting data integrity). Juju takes a variety of means to protect you against all of these.
 
 ##  TLS-encrypted communication
 
@@ -16,11 +16,11 @@ Any communication to and from a Juju controller’s API server and clients, Char
 User authentication with the controller, machines provisioned by the controller, the controller database, etc., is implemented following industry standards. That is:
 
 * macaroons
-* (for Juju with [JAAS](https://jaas.ai/); added in Juju 3.5) JWTs 
+* (for Juju with [JAAS](https://jaas.ai/); added in Juju 3.5) JWTs
 * SSH keys
 * passwords
 
-## Role-based access 
+## Role-based access
 
 Juju does not currently have role-based access. However, you can restrict user access at the controller, cloud, model, and application offer level.
 
@@ -28,7 +28,7 @@ Juju does not currently have role-based access. However, you can restrict user a
 
 ## Agent authentication
 
-Any Juju agent interacting with a Juju controller is authenticated with a password. 
+Any Juju agent interacting with a Juju controller is authenticated with a password.
 
 ## Rate limiting
 
@@ -82,8 +82,6 @@ Juju offers auditing and logging capabilities to help administrators track user 
 ## Guided, tested, and maintained operations code
 
 Juju encourages developers to follow best practices in creating software operators ('charms'). This includes secure coding guidelines, testing, and regular maintenance to address potential security vulnerabilities.
-
-> See more: [Charm SDK | Charm development best practices > Security](https://juju.is/docs/sdk/styleguide#heading--security-considerations)
 
 ## Regular updates and patches
 
