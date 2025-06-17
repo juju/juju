@@ -264,7 +264,11 @@ AND (
 	}
 
 	// remove orphan subnets
-	return st.removeSubnets(ctx, tx, transform.Slice(orphanSubnets, func(o orphan) string { return o.UUID }))
+	err = st.removeSubnets(ctx, tx, transform.Slice(orphanSubnets, func(o orphan) string { return o.UUID }))
+	if err != nil {
+		return errors.Errorf("removing orphan subnets: %w", err)
+	}
+	return nil
 }
 
 // removeSubnets removes subnets from the subnet table.
