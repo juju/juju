@@ -80,7 +80,7 @@ require (
 	github.com/juju/terms-client/v2 v2.0.0
 	github.com/juju/testing v1.1.0
 	github.com/juju/txn/v3 v3.0.2
-	github.com/juju/utils/v3 v3.2.1
+	github.com/juju/utils/v3 v3.2.3
 	github.com/juju/version/v2 v2.0.1
 	github.com/juju/viddy v0.0.0-beta5
 	github.com/juju/webbrowser v1.0.0
@@ -270,7 +270,7 @@ require (
 	github.com/rivo/tview v0.0.0-20220610163003-691f46d6f500 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
-	github.com/rogpeppe/go-internal v1.13.1 // indirect
+	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sagikazarmark/locafero v0.7.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
