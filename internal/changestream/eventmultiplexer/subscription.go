@@ -64,11 +64,7 @@ func newSubscription(id uint64, unsubscribeFn func()) *subscription {
 // whilst the dispatch signalling, the unsubscribe will happen after all
 // dispatches have been called.
 func (s *subscription) Unsubscribe() {
-	select {
-	case <-s.tomb.Dying():
-	default:
-		s.unsubscribeFn()
-	}
+	s.unsubscribeFn()
 }
 
 // Changes returns the channel that the subscription will receive events on.
@@ -105,22 +101,18 @@ func (s *subscription) dispatch(ctx context.Context, changes ChangeSet) error {
 	select {
 	case <-s.tomb.Dying():
 		return tomb.ErrDying
-
 	case <-ctx.Done():
-		// If the context was timed out, which means that nothing was pulling
-		// the change off from the channel. Then in this scenario it better that
-		// the listener is unsubscribed from any future events and will be
-		// notified via the done channel. The listener will still have the
-		// opportunity to resubscribe in the future. They're just no longer
-		// par-taking in this term whilst they're unresponsive.
-		if err := ctx.Err(); err != nil && errors.Is(err, context.DeadlineExceeded) {
-			s.Unsubscribe()
+		// If the subscriber is not consuming changes in a timely manner,
+		// we will kill the subscription.
+		// This will cause the watcher's loop to exit, at which point it
+		// will call the unsubscribe function.
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			s.Kill()
 		}
-
+		return ctx.Err()
 	case s.changes <- changes:
-
+		return nil
 	}
-	return nil
 }
 
 // close closes the active channel, which will signal to the consumer that the
