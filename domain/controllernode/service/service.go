@@ -85,6 +85,10 @@ type State interface {
 	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
 	// agents, divided by controller node.
 	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error)
+
+	// GetAllAPIAddressesWithScopeForClientss returns all APIAddresses available for
+	// clients, divided by controller node.
+	GetAllAPIAddressesWithScopeForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error)
 }
 
 // Service provides the API for working with controller nodes.
@@ -276,6 +280,21 @@ func (s *Service) GetAllNoProxyAPIAddressesForAgents(ctx context.Context) (strin
 		orderedAddrs = append(orderedAddrs, addrs...)
 	}
 	return orderedAddrs.ToNoProxyString(), nil
+}
+
+// GetAllAPIAddressesForClients returns a string slice of api
+// addresses available for agents ordered to prefer public scoped
+// addresses and IPv4 over IPv6 for each machine.
+func (s *Service) GetAllAPIAddressesForClients(ctx context.Context) ([]string, error) {
+	agentAddrs, err := s.st.GetAllAPIAddressesWithScopeForClients(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	orderedAddrs := make([]string, 0)
+	for _, addrs := range agentAddrs {
+		orderedAddrs = append(orderedAddrs, addrs.PrioritizedForScope(controllernode.ScopeMatchPublic)...)
+	}
+	return orderedAddrs, nil
 }
 
 // GetAPIAddressesForAgents returns the list of API address strings including

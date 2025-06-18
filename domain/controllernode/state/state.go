@@ -479,7 +479,44 @@ func (st *State) GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (map[
 	}
 
 	return decodeAllScopedAPIAddresses(result), nil
+}
 
+// GetAllAPIAddressesWithScopeForClients returns all APIAddresses available for
+// clients. These are all APIAddresses independent of is_agent value.
+func (st *State) GetAllAPIAddressesWithScopeForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []controllerAPIAddress
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result, err = st.getAllAPIAddressesForClients(ctx, tx)
+		return err
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return decodeAllScopedAPIAddresses(result), nil
+}
+
+func (st *State) getAllAPIAddressesForClients(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
+	stmt, err := st.Prepare(`
+SELECT &controllerAPIAddress.* 
+FROM controller_api_address
+`, controllerAPIAddress{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []controllerAPIAddress
+	err = tx.Query(ctx, stmt).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, controllernodeerrors.EmptyAPIAddresses
+	} else if err != nil {
+		return nil, errors.Errorf("getting all api addresses for controller nodes: %w", err)
+	}
+	return result, nil
 }
 
 // GetAPIAddressesForAgents returns the list of API address strings including

@@ -608,6 +608,64 @@ func (s *serviceSuite) TestGetAllNoProxyAPIAddressesForAgentsError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
+func (s *serviceSuite) TestGetAllAPIAddressesForClients(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	// Arrange
+	args := map[string]controllernode.APIAddresses{
+		"one": {
+			{
+				Address: "10.0.0.1:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			}, {
+				Address: "10.0.0.2:17070",
+				IsAgent: false,
+				Scope:   network.ScopePublic,
+			},
+		},
+		"two": {
+			{
+				Address: "10.0.0.34:17070",
+				IsAgent: true,
+				Scope:   network.ScopePublic,
+			}, { // This address shouldn't appear.
+				Address: "10.0.0.9:17070",
+				IsAgent: false,
+				Scope:   network.ScopeMachineLocal,
+			},
+		},
+	}
+	s.state.EXPECT().GetAllAPIAddressesWithScopeForClients(gomock.Any()).Return(args, nil)
+
+	// Act
+	apiAddrs, err := svc.GetAllAPIAddressesForClients(c.Context())
+
+	// Assert: one of the two string arrays has the correct order
+	// depending on the order in which the map is ranged over.
+	c.Assert(err, tc.ErrorIsNil)
+	expectOne := []string{"10.0.0.2:17070", "10.0.0.1:17070", "10.0.0.34:17070"}
+	expectTwo := []string{"10.0.0.34:17070", "10.0.0.2:17070", "10.0.0.1:17070"}
+	if expectOne[0] == apiAddrs[0] {
+		c.Check(apiAddrs, tc.DeepEquals, expectOne)
+	} else if expectTwo[0] == apiAddrs[0] {
+		c.Check(apiAddrs, tc.DeepEquals, expectTwo)
+	} else {
+		c.Fatalf("Expected %v or %v, got %v", expectOne, expectTwo, apiAddrs)
+	}
+}
+
+func (s *serviceSuite) TestGetAllAPIAddressesForClientsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetAllAPIAddressesWithScopeForClients(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
+
+	_, err := svc.GetAllAPIAddressesForClients(c.Context())
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 type watchableServiceSuite struct {
 	testhelpers.IsolationSuite
 
