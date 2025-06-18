@@ -938,19 +938,49 @@ func (u *UniterAPI) WatchActionNotifications(ctx context.Context, args params.En
 	if err != nil {
 		return params.StringsWatchResults{}, err
 	}
-	return common.WatchActionNotifications(args, canAccess, func(t names.Tag) (params.StringsWatchResult, error) {
-		watcher := watcher.TODO[[]string]()
 
-		id, changes, err := internal.EnsureRegisterWatcher(ctx, u.watcherRegistry, watcher)
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			return params.StringsWatchResult{Error: apiservererrors.ServerError(err)}, nil
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
 
-		return params.StringsWatchResult{
-			StringsWatcherId: id,
-			Changes:          changes,
-		}, nil
-	}), nil
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		w, err := u.applicationService.WatchUnitActions(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(
+				errors.NotFoundf("unit %s", unitName),
+			)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		id, changes, err := internal.EnsureRegisterWatcher(ctx, u.watcherRegistry, w)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(
+				internalerrors.Errorf("starting actions watcher: %w", err),
+			)
+			continue
+		}
+		result.Results[i].Changes = changes
+		result.Results[i].StringsWatcherId = id
+	}
+	return result, nil
 }
 
 // ConfigSettings returns the complete set of application charm config
