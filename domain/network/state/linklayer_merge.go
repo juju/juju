@@ -240,10 +240,10 @@ func (st *State) cleanupUniqueAddressOrphanSubnets(ctx context.Context, tx *sqla
 	}
 	// Fetch orphan subnets
 	stmt, err := st.Prepare(`
-SELECT s.uuid as &orphan.uuid
-FROM subnet as s
-LEFT JOIN ip_address as a ON s.uuid = a.subnet_uuid
-LEFT JOIN provider_subnet as ps ON s.uuid = ps.subnet_uuid
+SELECT s.uuid AS &orphan.uuid
+FROM subnet AS s
+LEFT JOIN ip_address AS a ON s.uuid = a.subnet_uuid
+LEFT JOIN provider_subnet AS ps ON s.uuid = ps.subnet_uuid
 WHERE a.uuid IS NULL -- orphan subnet, linked to no addresses
 AND ps.provider_id IS NULL -- subnet without any provider id
 AND (
