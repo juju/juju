@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/unit"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type lifeSuite struct {
@@ -46,14 +46,7 @@ func (l *lifeSuite) setUpMocks(c *tc.C) *gomock.Controller {
 func (s *lifeSuite) TestLife(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	st := &fakeState{
-		entities: map[names.Tag]entityWithError{
-			u("x/0"): &fakeLifer{life: state.Alive},
-			u("x/1"): &fakeLifer{life: state.Dying},
-			u("x/2"): &fakeLifer{life: state.Dead},
-			u("x/3"): &fakeLifer{fetchError: "x3 error"},
-		},
-	}
+	st := &fakeState{}
 	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		x0 := u("x/0")
 		x2 := u("x/2")
@@ -62,6 +55,11 @@ func (s *lifeSuite) TestLife(c *tc.C) {
 			return tag == x0 || tag == x2 || tag == x3
 		}, nil
 	}
+
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), unit.Name("x/0")).Return(life.Alive, nil)
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), unit.Name("x/2")).Return(life.Dead, nil)
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), unit.Name("x/3")).Return("", fmt.Errorf("x3 error"))
+
 	lg := common.NewLifeGetter(s.applicationService, s.machineService, st, getCanRead, loggertesting.WrapCheckLog(c))
 	entities := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"}, {Tag: "unit-x-4"},
@@ -100,14 +98,4 @@ func (s *lifeSuite) TestLifeNoArgsNoError(c *tc.C) {
 	result, err := lg.Life(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)
-}
-
-type fakeLifer struct {
-	state.Entity
-	life state.Life
-	fetchError
-}
-
-func (l *fakeLifer) Life() state.Life {
-	return l.life
 }

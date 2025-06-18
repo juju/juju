@@ -74,7 +74,7 @@ func (lg *LifeGetter) Life(ctx context.Context, args params.Entities) (params.Li
 		}
 
 		if !canRead(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 
