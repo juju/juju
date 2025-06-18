@@ -214,6 +214,13 @@ type ApplicationService interface {
 	// upgrade to the latest version of the application charm even if they are in
 	// error state.
 	ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error)
+
+	// WatchUnitActions watches for all updates to actions for the specified unit,
+	// emitting action ids.
+	//
+	// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
+	// will be returned.
+	WatchUnitActions(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error)
 }
 
 // NetworkService is the interface that is used to interact with the

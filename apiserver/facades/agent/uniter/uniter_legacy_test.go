@@ -274,35 +274,6 @@ func (s *uniterLegacySuite) TestWatchActionNotifications(c *tc.C) {
 func (s *uniterLegacySuite) TestWatchPreexistingActions(c *tc.C) {
 }
 
-func (s *uniterLegacySuite) TestWatchActionNotificationsMalformedTag(c *tc.C) {
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "ewenit-mysql-0"},
-	}}
-	results, err := s.uniter.WatchActionNotifications(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.NotNil)
-	c.Assert(len(results.Results), tc.Equals, 1)
-	result := results.Results[0]
-	c.Assert(result.Error, tc.NotNil)
-	c.Assert(result.Error.Message, tc.Equals, `invalid actionreceiver tag "ewenit-mysql-0"`)
-}
-
-func (s *uniterLegacySuite) TestWatchActionNotificationsMalformedUnitName(c *tc.C) {
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-01"},
-	}}
-	results, err := s.uniter.WatchActionNotifications(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.NotNil)
-	c.Assert(len(results.Results), tc.Equals, 1)
-	result := results.Results[0]
-	c.Assert(result.Error, tc.NotNil)
-	c.Assert(result.Error.Message, tc.Equals, `invalid actionreceiver tag "unit-mysql-01"`)
-}
-
-func (s *uniterLegacySuite) TestWatchActionNotificationsNotUnit(c *tc.C) {
-}
-
 func (s *uniterLegacySuite) TestWatchActionNotificationsPermissionDenied(c *tc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-nonexistentgarbage-0"},
