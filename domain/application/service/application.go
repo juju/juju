@@ -482,6 +482,10 @@ func validateCharmAndApplicationParams(
 		return applicationerrors.CharmManifestNotValid
 	}
 
+	if err := validateCharmStorage(charm.Meta().Storage); err != nil {
+		return errors.Capture(err)
+	}
+
 	// If the reference name is provided, it must be valid.
 	if !isValidReferenceName(referenceName) {
 		return errors.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
@@ -492,6 +496,26 @@ func validateCharmAndApplicationParams(
 		return errors.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
 	}
 
+	return nil
+}
+
+// validateCharmStorage is responsible for looking over the storage requirements
+// defined by a charm and making sure that it is able to be provisioned with the
+// current model.
+//
+// The checks performed are:
+// - Checks to see if the charm requires shared storage and if so is the min
+// count greater than 0. While we might not support shared storage we can
+// support it if we don't have to provision it.
+func validateCharmStorage(charmStorage map[string]internalcharm.Storage) error {
+	for name, storage := range charmStorage {
+		if storage.Shared && storage.CountMin > 0 {
+			return errors.Errorf(
+				"charm storage %q requires shared storage which is not implemented",
+				name,
+			)
+		}
+	}
 	return nil
 }
 
