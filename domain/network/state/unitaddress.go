@@ -121,7 +121,7 @@ func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (cor
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		uuid, err = st.getUnitUUIDByName(ctx, tx, name)
 		if err != nil {
-			return errors.Errorf("querying unit name: %w", err)
+			return err
 		}
 		return err
 	})
@@ -140,7 +140,7 @@ func (st *State) getUnitUUIDByName(
 	unitName := unitName{Name: name}
 
 	query, err := st.Prepare(`
-SELECT &unitUUID.*
+SELECT &entityUUID.*
 FROM   unit
 WHERE  name = $unitName.name
 `, entityUUID{}, unitName)

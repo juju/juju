@@ -196,6 +196,23 @@ func (s *unitAddressSuite) TestGetUnitAddressesNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
+func (s *unitAddressSuite) TestGetUnitUUIDByName(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	spaceUUID := s.addSpace(c)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	expectedUnitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Act
+	obtainedUnitUUID, err := s.state.GetUnitUUIDByName(c.Context(), coreunit.Name(expectedUnitUUID.String()))
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedUnitUUID, tc.DeepEquals, expectedUnitUUID)
+}
+
 func (s *unitAddressSuite) addIPAddress(c *tc.C, nodeUUID, deviceUUID, subnetUUID string, scopeID, originID int) string {
 	ipAddrUUID := uuid.MustNewUUID().String()
 	addr := "10.0.0.1"
