@@ -7,17 +7,19 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -25,10 +27,22 @@ import (
 // State provides the subset of global state required by the
 // remote firewaller facade.
 type State interface {
-	firewall.State
-
+	state.ModelMachinesWatcher
 	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
 	FindEntity(tag names.Tag) (state.Entity, error)
+	KeyRelation(string) (Relation, error)
+	Machine(string) (Machine, error)
+}
+
+type Relation interface {
+	status.StatusSetter
+	Endpoints() []relation.Endpoint
+	WatchUnits(applicationName string) (relation.RelationUnitsWatcher, error)
+}
+
+type Machine interface {
+	Id() string
+	IsManual() (bool, error)
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -103,11 +117,15 @@ type MacaroonGetter interface {
 }
 
 type stateShim struct {
-	firewall.State
-	st *state.State
+	*state.State
 	MacaroonGetter
 }
 
-func (st stateShim) FindEntity(tag names.Tag) (state.Entity, error) {
-	return st.st.FindEntity(tag)
+func (st stateShim) Machine(id string) (Machine, error) {
+	return st.State.Machine(id)
+}
+
+func (st stateShim) KeyRelation(key string) (Relation, error) {
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }

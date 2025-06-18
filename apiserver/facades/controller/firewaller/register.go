@@ -7,11 +7,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/crossmodel"
-	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -25,10 +21,6 @@ func Register(registry facade.FacadeRegistry) {
 // newFirewallerAPIV7 creates a new server-side FirewallerAPIv7 facade.
 func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 	st := ctx.State()
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	domainServices := ctx.DomainServices()
 	controllerConfigAPI := common.NewControllerConfigAPI(
 		st,
@@ -36,7 +28,7 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 		domainServices.ExternalController(),
 	)
 
-	stShim := stateShim{st: st, State: firewall.StateShim(st, m), MacaroonGetter: crossmodel.GetBackend(st)}
+	stShim := stateShim{State: st}
 	return NewStateFirewallerAPI(
 		stShim,
 		domainServices.Network(),

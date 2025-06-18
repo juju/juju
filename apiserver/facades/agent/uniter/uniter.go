@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -87,10 +86,6 @@ type UniterAPI struct {
 	relationService         RelationService
 	secretService           SecretService
 	unitStateService        UnitStateService
-
-	// cmrBackend is a wrapper around state to handle CMR request
-	// todo(gfouillet): remove it whenever CMR have their domain.
-	cmrBackend commoncrossmodel.Backend
 
 	store objectstore.ObjectStore
 

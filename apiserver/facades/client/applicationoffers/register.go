@@ -7,8 +7,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/juju/apiserver/common"
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -28,26 +26,6 @@ func Register(registry facade.FacadeRegistry) {
 }
 
 // makeOffersAPI returns a new application offers OffersAPI facade.
-func makeOffersAPI(facadeContext facade.MultiModelContext) (*OffersAPIv5, error) {
-	domainServices := facadeContext.DomainServices()
-	st := facadeContext.State()
-	getControllerInfo := func(ctx context.Context) ([]string, string, error) {
-		return common.ControllerAPIInfo(ctx, st, domainServices.ControllerConfig())
-	}
-
-	authContext := facadeContext.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
-	return createOffersAPI(
-		GetApplicationOffers,
-		getControllerInfo,
-		GetStateAccess(st),
-		GetStatePool(facadeContext.StatePool()),
-		domainServices.Access(),
-		newModelDomainServicesGetter(facadeContext),
-		facadeContext.Auth(),
-		authContext.(*commoncrossmodel.AuthContext),
-		facadeContext.DataDir(),
-		facadeContext.Logger().Child("applicationoffers"),
-		facadeContext.ControllerUUID(),
-		facadeContext.DomainServices().Model(),
-	)
+func makeOffersAPI(_ facade.MultiModelContext) (*OffersAPIv5, error) {
+	return createOffersAPI()
 }

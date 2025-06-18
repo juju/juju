@@ -22,7 +22,6 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
-	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets"
@@ -52,8 +51,6 @@ type SecretsManagerAPI struct {
 	modelUUID            string
 
 	remoteClientGetter func(ctx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error)
-
-	crossModelState CrossModelState
 
 	logger logger.Logger
 }
@@ -406,88 +403,6 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(ctx context.Context, args param
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *coresecrets.URI, refresh, peek bool, labelToUpdate *string) (
-	*secrets.ContentParams, *secretsprovider.ModelBackendConfig, bool, error,
-) {
-	extClient, err := s.remoteClientGetter(ctx, uri)
-	if err != nil {
-		return nil, nil, false, errors.Annotate(err, "creating remote secret client")
-	}
-	defer func() { _ = extClient.Close() }()
-
-	consumerApp, _ := names.UnitApplication(s.authTag.Id())
-	token, err := s.crossModelState.GetToken(names.NewApplicationTag(consumerApp))
-	if err != nil {
-		return nil, nil, false, errors.Annotatef(err, "getting remote token for %q", consumerApp)
-	}
-	var unitId int
-	if unitTag, ok := s.authTag.(names.UnitTag); ok {
-		unitId = unitTag.Number()
-	} else {
-		return nil, nil, false, errors.NotSupportedf("getting cross model secret for consumer %q", s.authTag)
-	}
-
-	unitName, err := unit.NewName(s.authTag.Id())
-	if err != nil {
-		return nil, nil, false, errors.Trace(err)
-	}
-	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(ctx, uri, unitName)
-	if err != nil &&
-		// Secret will be not found if the consuming side has not yet
-		// received an update on the latest revision, so we force a refresh below.
-		!errors.Is(err, secreterrors.SecretConsumerNotFound) &&
-		!errors.Is(err, secreterrors.SecretNotFound) {
-		return nil, nil, false, errors.Trace(err)
-	}
-	var wantRevision int
-	if err == nil {
-		wantRevision = consumerInfo.CurrentRevision
-	} else {
-		// Not found so need to create a new record and populate
-		// with latest revision.
-		refresh = true
-		consumerInfo = &coresecrets.SecretConsumerMetadata{}
-	}
-
-	scopeToken, err := extClient.GetSecretAccessScope(ctx, uri, token, unitId)
-	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			return nil, nil, false, apiservererrors.ErrPerm
-		}
-		return nil, nil, false, errors.Trace(err)
-	}
-	s.logger.Debugf(ctx, "secret %q scope token for %v: %s", uri.String(), token, scopeToken)
-
-	scopeEntity, err := s.crossModelState.GetRemoteEntity(scopeToken)
-	if err != nil {
-		return nil, nil, false, errors.Annotatef(err, "getting remote entity for %q", scopeToken)
-	}
-	s.logger.Debugf(ctx, "secret %q scope for %v: %s", uri.String(), scopeToken, scopeEntity)
-
-	mac, err := s.crossModelState.GetMacaroon(scopeEntity)
-	if err != nil {
-		return nil, nil, false, errors.Annotatef(err, "getting remote mac for %q", scopeEntity)
-	}
-
-	macs := macaroon.Slice{mac}
-	content, backend, latestRevision, draining, err := extClient.GetRemoteSecretContentInfo(ctx, uri, wantRevision, refresh, peek, s.controllerUUID, token, unitId, macs)
-	if err != nil {
-		return nil, nil, false, errors.Trace(err)
-	}
-	if refresh || labelToUpdate != nil {
-		if refresh {
-			consumerInfo.CurrentRevision = latestRevision
-		}
-		if labelToUpdate != nil {
-			consumerInfo.Label = *labelToUpdate
-		}
-		if err := s.secretsConsumer.SaveSecretConsumer(ctx, uri, unitName, consumerInfo); err != nil {
-			return nil, nil, false, errors.Trace(err)
-		}
-	}
-	return content, backend, draining, nil
-}
-
 // GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.
 func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(ctx context.Context, arg params.SecretRevisionArg) (params.SecretContentResults, error) {
 	result := params.SecretContentResults{
@@ -574,7 +489,7 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 	s.logger.Debugf(ctx, "getting secret content for: %s", uri)
 
 	if !uri.IsLocal(s.modelUUID) {
-		return s.getRemoteSecretContent(ctx, uri, arg.Refresh, arg.Peek, labelToUpdate)
+		return nil, nil, false, errors.Errorf("cannot get secret content for remote secrets")
 	}
 
 	// labelToUpdate is the consumer label for consumers.

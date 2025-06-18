@@ -13,7 +13,6 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/internal/charms"
@@ -160,10 +159,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		fetchAllApplicationsAndUnits(ctx, c.statusService, c.applicationService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch applications and units: %w", err)
 	}
-	if context.consumerRemoteApplications, err =
-		fetchConsumerRemoteApplications(c.stateAccessor); err != nil {
-		return noStatus, internalerrors.Errorf("could not fetch remote applications: %w", err)
-	}
 	// Only admins can see offer details.
 	if err := c.checkIsAdmin(ctx); err == nil {
 		// TODO(gfouillet): Re-enable fetching for offer details once
@@ -235,7 +230,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 
 	if logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef(ctx, "Applications: %v", context.allAppsUnitsCharmBindings.applications)
-		logger.Tracef(ctx, "Remote applications: %v", context.consumerRemoteApplications)
 		logger.Tracef(ctx, "Offers: %v", context.offers)
 		logger.Tracef(ctx, "Leaders", context.leaders)
 		logger.Tracef(ctx, "Relations: %v", context.relations)
@@ -271,7 +265,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		Model:               modelStatus,
 		Machines:            context.processMachines(ctx, c.machineService),
 		Applications:        context.processApplications(ctx),
-		RemoteApplications:  context.processRemoteApplications(),
 		Offers:              context.processOffers(),
 		Relations:           context.processRelations(ctx),
 		ControllerTimestamp: context.controllerTimestamp,
@@ -420,9 +413,6 @@ type statusContext struct {
 
 	// linkLayerDevices: machine id -> list of linkLayerDevices
 	linkLayerDevices map[string][]*state.LinkLayerDevice
-
-	// remote applications: application name -> application
-	consumerRemoteApplications map[string]commoncrossmodel.RemoteApplication
 
 	// allOpenPortRanges: all open port ranges in the model, grouped by unit name.
 	allOpenPortRanges port.UnitGroupedPortRanges
@@ -656,22 +646,6 @@ func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusServi
 		latestCharms:     latestCharms,
 		lxdProfiles:      lxdProfiles,
 	}, nil
-}
-
-// fetchConsumerRemoteApplications returns a map from application name to remote application.
-func fetchConsumerRemoteApplications(st Backend) (map[string]commoncrossmodel.RemoteApplication, error) {
-	appMap := make(map[string]commoncrossmodel.RemoteApplication)
-	applications, err := st.AllRemoteApplications()
-	if err != nil {
-		return nil, err
-	}
-	for _, a := range applications {
-		if _, ok := a.URL(); !ok {
-			continue
-		}
-		appMap[a.Name()] = a
-	}
-	return appMap, nil
 }
 
 // fetchRelations returns a map of all relations keyed by application name,
@@ -1129,17 +1103,6 @@ func (c *statusContext) mapExposedEndpointsFromDomain(
 	}
 
 	return res, nil
-}
-
-func (c *statusContext) processRemoteApplications() map[string]params.RemoteApplicationStatus {
-	applicationsMap := make(map[string]params.RemoteApplicationStatus)
-	for _, app := range c.consumerRemoteApplications {
-		applicationsMap[app.Name()] = params.RemoteApplicationStatus{
-			Err: apiservererrors.ServerError(internalerrors.Errorf("cross model relations are disabled until "+
-				"backend functionality is moved to domain: %w", errors.NotImplemented)),
-		}
-	}
-	return applicationsMap
 }
 
 type offerStatus struct {

@@ -51,45 +51,6 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
-// AllLocalRelatedModels mocks base method.
-func (m *MockBackend) AllLocalRelatedModels() ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllLocalRelatedModels")
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllLocalRelatedModels indicates an expected call of AllLocalRelatedModels.
-func (mr *MockBackendMockRecorder) AllLocalRelatedModels() *MockBackendAllLocalRelatedModelsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllLocalRelatedModels", reflect.TypeOf((*MockBackend)(nil).AllLocalRelatedModels))
-	return &MockBackendAllLocalRelatedModelsCall{Call: call}
-}
-
-// MockBackendAllLocalRelatedModelsCall wrap *gomock.Call
-type MockBackendAllLocalRelatedModelsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAllLocalRelatedModelsCall) Return(arg0 []string, arg1 error) *MockBackendAllLocalRelatedModelsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAllLocalRelatedModelsCall) Do(f func() ([]string, error)) *MockBackendAllLocalRelatedModelsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAllLocalRelatedModelsCall) DoAndReturn(f func() ([]string, error)) *MockBackendAllLocalRelatedModelsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Export mocks base method.
 func (m *MockBackend) Export(arg0 objectstore.ObjectStore) (description.Model, error) {
 	m.ctrl.T.Helper()

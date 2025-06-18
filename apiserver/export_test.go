@@ -132,13 +132,9 @@ func TestingAPIHandler(c *tc.C, pool *state.StatePool, st *state.State, sf servi
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	offerAuthCtxt, err := newOfferAuthContext(c.Context(), pool, clock.WallClock, sf.Access(), sf.ModelInfo(), sf.ControllerConfig(), sf.Macaroon())
-	c.Assert(err, tc.ErrorIsNil)
-
 	srv := &Server{
 		httpAuthenticators:  []authentication.HTTPAuthenticator{authenticator},
 		loginAuthenticators: []authentication.LoginAuthenticator{authenticator},
-		offerAuthCtxt:       offerAuthCtxt,
 		shared: &sharedServerContext{
 			statePool:            pool,
 			domainServicesGetter: &StubDomainServicesGetter{},
