@@ -7,18 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 )
-
-// useTestImageData causes the given content to be served when published metadata is requested.
-func useTestImageData(c *tc.C, files map[string]string) {
-	if files != nil {
-		sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
-	} else {
-		sstesting.SetRoundTripperFiles(nil, nil)
-	}
-}
 
 type ImageMetadataSuite struct {
 	provisionerSuite

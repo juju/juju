@@ -373,7 +373,10 @@ WHERE  machine_uuid = $machineUUID.uuid
 			return err
 		}
 
-		if err := tx.Query(ctx, queryStmt, mUUID).Get(&result); err != nil {
+		if err := tx.Query(ctx, queryStmt, mUUID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+			// If no rows are returned, the machine is not a controller.
+			return nil
+		} else if err != nil {
 			return errors.Errorf("querying if machine %q is a controller: %w", mName, err)
 		}
 		return nil
