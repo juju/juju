@@ -39,7 +39,13 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
+)
+
+const (
+	// defaultStorageDirectiveSize is the default size used for application
+	// storage directives when no other size value can be used. This value
+	// is in MiB.
+	defaultStorageDirectiveSize = 1024 // 1 GiB
 )
 
 // ApplicationState describes retrieval and persistence methods for
@@ -631,21 +637,114 @@ func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApp
 	return result
 }
 
-// makeStorageArgs creates a slice of
-// [application.ApplicationStorageDirectiveArg] from a map of storage directives.
-// These are used to inform the application storage directives when creating
-// applications.
-func makeStorageArgs(storage map[string]storage.Directive) []application.ApplicationStorageDirectiveArg {
-	var result []application.ApplicationStorageDirectiveArg
-	for name, stor := range storage {
-		result = append(result, application.ApplicationStorageDirectiveArg{
-			Count: stor.Count,
-			Name:  domainstorage.Name(name),
-			// TODO: lookup pool uuid for storage.
-			Size: stor.Size,
-		})
+// makeApplicationStorageDirectiveArgs creates a slice of
+// [application.ApplicationStorageDirectiveArg] from a set of overrides and the
+// charm storage information. The resultant directives are a merging of all the
+// data sources to form an approximation of what the storage directives for an
+// application should be.
+//
+// The directives should still be validated.
+func makeApplicationStorageDirectiveArgs(
+	directiveOverrides map[string]ApplicationStorageDirectiveOverride,
+	charmMetaStorage map[string]internalcharm.Storage,
+	defaultProvisioners application.DefaultStorageProvisioners,
+) []application.ApplicationStorageDirectiveArg {
+	rval := make([]application.ApplicationStorageDirectiveArg, 0, len(charmMetaStorage))
+	for charmStorageName, charmStorageDef := range charmMetaStorage {
+		arg := makeApplicationStorageDirectiveArg(
+			domainstorage.Name(charmStorageName),
+			directiveOverrides[charmStorageName],
+			charmStorageDef,
+			defaultProvisioners,
+		)
+		rval = append(rval, arg)
 	}
-	return result
+	return rval
+}
+
+// makeApplicationStorageDirectiveArg creates a
+// [application.ApplicationStorageDirectiveArgs] based on the overrides supplied
+// by the caller, the information contained within the charm and the default
+// provisioners supplied.
+//
+// The resultant directive argument is not garuranteed to be valid and should
+// still be checked. This function just offers a merge of all the information
+// sources to create the best approximation at an application storage directive.
+func makeApplicationStorageDirectiveArg(
+	name domainstorage.Name,
+	directiveOverride ApplicationStorageDirectiveOverride,
+	charmStorageDef internalcharm.Storage,
+	defaultProvisioners application.DefaultStorageProvisioners,
+) application.ApplicationStorageDirectiveArg {
+	rval := application.ApplicationStorageDirectiveArg{
+		Name: name,
+	}
+
+	rval.Count = 0
+	// If the charm storage definition has a negative min count we maintain zero
+	// as the directive value. Defensive programming against a bad cast that
+	// would produce an incorrect value for an already incorrect value.
+	if charmStorageDef.CountMin > 0 {
+		rval.Count = uint32(charmStorageDef.CountMin)
+	}
+	if directiveOverride.Count != nil {
+		rval.Count = *directiveOverride.Count
+	}
+
+	rval.Size = defaultStorageDirectiveSize
+	if charmStorageDef.MinimumSize > 0 {
+		rval.Size = charmStorageDef.MinimumSize
+	}
+	if directiveOverride.Size != nil {
+		rval.Size = *directiveOverride.Size
+	}
+
+	// Set the pool uuid to the value supplied by the override.
+	if rval.PoolUUID == nil && directiveOverride.PoolUUID != nil {
+		poolUUIDCopy := *directiveOverride.PoolUUID
+		rval.PoolUUID = &poolUUIDCopy
+	}
+	// Set the pool uuid if the charm storage is block and a block pool
+	// provisioner exists.
+	if rval.PoolUUID == nil &&
+		defaultProvisioners.BlockdevicePoolUUID != nil &&
+		charmStorageDef.Type == internalcharm.StorageBlock {
+		poolUUIDCopy := *defaultProvisioners.BlockdevicePoolUUID
+		rval.PoolUUID = &poolUUIDCopy
+	}
+	// Set the pool uuid if the charm storage is filesystem and a filesystem
+	// pool provisioner exists.
+	if rval.PoolUUID == nil &&
+		defaultProvisioners.FilesystemPoolUUID != nil &&
+		charmStorageDef.Type == internalcharm.StorageFilesystem {
+		poolUUIDCopy := *defaultProvisioners.FilesystemPoolUUID
+		rval.PoolUUID = &poolUUIDCopy
+	}
+
+	// There is no need to set a provider type on the directive if a pool uuid
+	// has been set. We can exit early as everything else has been set.
+	if rval.PoolUUID != nil {
+		return rval
+	}
+
+	if rval.ProviderType == nil && directiveOverride.ProviderType != nil {
+		providerTypeCopy := *directiveOverride.ProviderType
+		rval.ProviderType = &providerTypeCopy
+	}
+	if rval.ProviderType == nil &&
+		defaultProvisioners.BlockdeviceProviderType != nil &&
+		charmStorageDef.Type == internalcharm.StorageBlock {
+		providerTypeCopy := *defaultProvisioners.BlockdeviceProviderType
+		rval.ProviderType = &providerTypeCopy
+	}
+	if rval.ProviderType == nil &&
+		defaultProvisioners.FilesystemProviderType != nil &&
+		charmStorageDef.Type == internalcharm.StorageFilesystem {
+		providerTypeCopy := *defaultProvisioners.FilesystemProviderType
+		rval.ProviderType = &providerTypeCopy
+	}
+
+	return rval
 }
 
 // SetApplicationCharm sets a new charm for the application, validating that aspects such
