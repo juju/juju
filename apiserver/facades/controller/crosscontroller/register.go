@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -34,7 +33,7 @@ func newStateCrossControllerAPI(ctx facade.ModelContext) (*CrossControllerAPI, e
 			if err != nil {
 				return nil, "", errors.Trace(err)
 			}
-			return controllerInfo(st, config)
+			return controllerInfo(ctx, domainServices.ControllerNode(), config)
 		},
 		func(ctx context.Context) (string, error) {
 			controllerConfig := domainServices.ControllerConfig()
@@ -48,30 +47,22 @@ func newStateCrossControllerAPI(ctx facade.ModelContext) (*CrossControllerAPI, e
 	)
 }
 
-// controllerInfoGetter indirects state for retrieving information
+// ControllerInfoGetter indirects state for retrieving information
 // required for cross-controller communication.
-type controllerInfoGetter interface {
-	APIHostPortsForClients(config controller.Config) ([]network.SpaceHostPorts, error)
+type ControllerInfoGetter interface {
+	// GetAllAPIAddressesForClients returns a string slice of api
+	// addresses available for agents.
+	GetAllAPIAddressesForClients(ctx context.Context) ([]string, error)
 }
 
 // controllerInfo retrieves information required to communicate
 // with this controller - API addresses and the CA cert.
-func controllerInfo(st controllerInfoGetter, config controller.Config) ([]string, string, error) {
-	apiHostPorts, err := st.APIHostPortsForClients(config)
+func controllerInfo(ctx context.Context, getter ControllerInfoGetter, config controller.Config) ([]string, string, error) {
+	apiAddresses, err := getter.GetAllAPIAddressesForClients(ctx)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
 
-	var addrs []string
-	for _, hostPorts := range apiHostPorts {
-		ordered := hostPorts.HostPorts().PrioritizedForScope(network.ScopeMatchPublic)
-		for _, addr := range ordered {
-			if addr != "" {
-				addrs = append(addrs, addr)
-			}
-		}
-	}
-
 	caCert, _ := config.CACert()
-	return addrs, caCert, nil
+	return apiAddresses, caCert, nil
 }

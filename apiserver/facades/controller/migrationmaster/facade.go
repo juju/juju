@@ -43,7 +43,6 @@ type APIV4 struct {
 // master worker.
 type API struct {
 	modelExporter            ModelExporter
-	controllerState          ControllerState
 	backend                  Backend
 	precheckBackend          migration.PrecheckBackend
 	pool                     migration.Pool
@@ -57,6 +56,7 @@ type API struct {
 	statusServiceGetter      func(context.Context, coremodel.UUID) (StatusService, error)
 	modelAgentServiceGetter  func(context.Context, coremodel.UUID) (ModelAgentService, error)
 	controllerConfigService  ControllerConfigService
+	controllerNodeService    ControllerNodeService
 	modelInfoService         ModelInfoService
 	modelService             ModelService
 	store                    objectstore.ObjectStore
@@ -66,7 +66,6 @@ type API struct {
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
-	controllerState ControllerState,
 	backend Backend,
 	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
@@ -83,6 +82,7 @@ func NewAPI(
 	statusServiceGetter func(context.Context, coremodel.UUID) (StatusService, error),
 	modelAgentServiceGetter func(context.Context, coremodel.UUID) (ModelAgentService, error),
 	controllerConfigService ControllerConfigService,
+	controllerNodeService ControllerNodeService,
 	modelInfoService ModelInfoService,
 	modelService ModelService,
 ) (*API, error) {
@@ -91,7 +91,6 @@ func NewAPI(
 	}
 
 	return &API{
-		controllerState:          controllerState,
 		backend:                  backend,
 		modelExporter:            modelExporter,
 		store:                    store,
@@ -108,6 +107,7 @@ func NewAPI(
 		statusServiceGetter:      statusServiceGetter,
 		modelAgentServiceGetter:  modelAgentServiceGetter,
 		controllerConfigService:  controllerConfigService,
+		controllerNodeService:    controllerNodeService,
 		modelInfoService:         modelInfoService,
 		modelService:             modelService,
 	}, nil
@@ -207,21 +207,15 @@ func (api *API) SourceControllerInfo(ctx context.Context) (params.MigrationSourc
 	}
 	cacert, _ := cfg.CACert()
 
-	hostports, err := api.controllerState.APIHostPortsForClients(cfg)
+	apiAddresses, err := api.controllerNodeService.GetAllAPIAddressesForClients(ctx)
 	if err != nil {
 		return empty, errors.Trace(err)
-	}
-	var addr []string
-	for _, section := range hostports {
-		for _, hostport := range section {
-			addr = append(addr, hostport.String())
-		}
 	}
 
 	return params.MigrationSourceInfo{
 		ControllerTag:   names.NewControllerTag(cfg.ControllerUUID()).String(),
 		ControllerAlias: cfg.ControllerName(),
-		Addrs:           addr,
+		Addrs:           apiAddresses,
 		CACert:          cacert,
 	}, nil
 }
