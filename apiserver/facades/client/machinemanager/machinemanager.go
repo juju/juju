@@ -21,6 +21,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -31,6 +32,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/blockcommand"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -90,8 +92,12 @@ type Authorizer interface {
 
 // MachineService is the interface that is used to interact with the machines.
 type MachineService interface {
-	// CreateMachine creates a machine with the given name.
-	CreateMachine(context.Context, coremachine.Name, *string) (coremachine.UUID, error)
+	// CreateMachine creates the specified machine.
+	//
+	// The following errors may be returned:
+	//   - [machineerrors.MachineAlreadyExists] if a machine with the same name
+	//     already exists.
+	CreateMachine(ctx context.Context, args machineservice.CreateMachineArgs) (machine.UUID, machine.Name, error)
 	// DeleteMachine deletes a machine with the given name.
 	DeleteMachine(context.Context, coremachine.Name) error
 	// GetBootstrapEnviron returns the bootstrap environ.
@@ -366,7 +372,10 @@ func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineName, n
 		if nonce != "" {
 			n = &nonce
 		}
-		_, err := mm.machineService.CreateMachine(ctx, coremachine.Name(machineName), n)
+		createMachineArgs := machineservice.CreateMachineArgs{
+			Nonce: n,
+		}
+		_, _, err := mm.machineService.CreateMachine(ctx, createMachineArgs)
 		// The machine might already exist e.g. if we are adding a subordinate
 		// unit to an already existing machine. In this case, just continue
 		// without error.
