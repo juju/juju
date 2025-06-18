@@ -5,6 +5,7 @@ package storageprovisioner
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
@@ -34,7 +36,6 @@ type StorageProvisionerAPIv4 struct {
 	*common.LifeGetter
 	*common.DeadEnsurer
 	*common.InstanceIdGetter
-	*common.StatusSetter
 
 	watcherRegistry facade.WatcherRegistry
 
@@ -45,6 +46,7 @@ type StorageProvisionerAPIv4 struct {
 	authorizer               facade.Authorizer
 	registry                 storage.ProviderRegistry
 	storagePoolGetter        StoragePoolGetter
+	storageStatusService     StorageStatusService
 	modelConfigService       ModelConfigService
 	machineService           MachineService
 	applicationService       ApplicationService
@@ -54,6 +56,7 @@ type StorageProvisionerAPIv4 struct {
 	getBlockDevicesAuthFunc  common.GetAuthFunc
 	getAttachmentAuthFunc    func(context.Context) (func(names.Tag, names.Tag) bool, error)
 	logger                   logger.Logger
+	clock                    clock.Clock
 
 	controllerUUID string
 	modelUUID      model.UUID
@@ -74,6 +77,7 @@ func NewStorageProvisionerAPIv4(
 	authorizer facade.Authorizer,
 	registry storage.ProviderRegistry,
 	storagePoolGetter StoragePoolGetter,
+	storageStatusService StorageStatusService,
 	logger logger.Logger,
 	modelUUID model.UUID,
 	controllerUUID string,
@@ -229,7 +233,6 @@ func NewStorageProvisionerAPIv4(
 		LifeGetter:       common.NewLifeGetter(applicationService, machineService, st, getLifeAuthFunc, logger),
 		DeadEnsurer:      common.NewDeadEnsurer(st, getStorageEntityAuthFunc, machineService),
 		InstanceIdGetter: common.NewInstanceIdGetter(machineService, getMachineAuthFunc),
-		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc, clock),
 
 		watcherRegistry: watcherRegistry,
 
@@ -239,6 +242,7 @@ func NewStorageProvisionerAPIv4(
 		authorizer:               authorizer,
 		registry:                 registry,
 		storagePoolGetter:        storagePoolGetter,
+		storageStatusService:     storageStatusService,
 		modelConfigService:       modelConfigService,
 		machineService:           machineService,
 		applicationService:       applicationService,
@@ -249,6 +253,7 @@ func NewStorageProvisionerAPIv4(
 		getBlockDevicesAuthFunc:  getBlockDevicesAuthFunc,
 		blockDeviceService:       blockDeviceService,
 		logger:                   logger,
+		clock:                    clock,
 
 		controllerUUID: controllerUUID,
 		modelUUID:      modelUUID,
@@ -1674,4 +1679,56 @@ func (s *StorageProvisionerAPIv4) RemoveAttachment(ctx context.Context, args par
 		}
 	}
 	return results, nil
+}
+
+// SetStatus sets the status of each given storage artefact.
+func (s *StorageProvisionerAPIv4) SetStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canModify, err := s.getStorageEntityAuthFunc(ctx)
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	now := s.clock.Now()
+	for i, arg := range args.Entities {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if !canModify(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		sInfo := status.StatusInfo{
+			Status:  status.Status(arg.Status),
+			Message: arg.Info,
+			Data:    arg.Data,
+			Since:   &now,
+		}
+		var statusErr error
+		switch tag := tag.(type) {
+		case names.FilesystemTag:
+			filesystemId := idFromTag(tag.Id())
+			statusErr = s.storageStatusService.SetVolumeStatus(ctx, filesystemId, sInfo)
+		case names.VolumeTag:
+			volId := idFromTag(tag.Id())
+			statusErr = s.storageStatusService.SetVolumeStatus(ctx, volId, sInfo)
+		default:
+			statusErr = apiservererrors.ErrPerm
+		}
+		result.Results[i].Error = apiservererrors.ServerError(statusErr)
+	}
+	return result, nil
+}
+
+func idFromTag(tag string) string {
+	// filesystem or volume tags always end with "/N"
+	// where N is the filesystem or volume id that we want.
+	pos := strings.LastIndex(tag, "/")
+	return tag[pos:]
 }
