@@ -203,11 +203,22 @@ func (s *stateSuite) TestSetMachinePasswordMachineNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *stateSuite) TestMatchesMachinePasswordHash(c *tc.C) {
+func (s *stateSuite) TestMatchesMachinePasswordHashWithNonce(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c, false)
 	machineName, nonce := s.createMachine(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE machine_cloud_instance 
+SET instance_id = 'abc' 
+WHERE machine_uuid = (
+    SELECT uuid FROM machine WHERE name = ?);
+`, machineName)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -222,7 +233,7 @@ func (s *stateSuite) TestMatchesMachinePasswordHash(c *tc.C) {
 	c.Check(valid, tc.IsTrue)
 }
 
-func (s *stateSuite) TestMatchesMachinePasswordHashMachineNotFound(c *tc.C) {
+func (s *stateSuite) TestMatchesMachinePasswordHashWithNonceMachineNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	passwordHash := s.genPasswordHash(c)
@@ -231,7 +242,7 @@ func (s *stateSuite) TestMatchesMachinePasswordHashMachineNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestMatchesMachinePasswordHashInvalidPassword(c *tc.C) {
+func (s *stateSuite) TestMatchesMachinePasswordHashWithNonceInvalidPassword(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c, false)
@@ -247,6 +258,25 @@ func (s *stateSuite) TestMatchesMachinePasswordHashInvalidPassword(c *tc.C) {
 
 	valid, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash+"1", nonce)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsFalse)
+}
+
+func (s *stateSuite) TestMatchesMachinePasswordHashWithNonceNotProvisioned(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.createApplication(c, false)
+	machineName, nonce := s.createMachine(c)
+
+	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	passwordHash := s.genPasswordHash(c)
+
+	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, nonce)
+	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 	c.Check(valid, tc.IsFalse)
 }
 
@@ -403,6 +433,7 @@ WHERE u.name = ?
 		if err != nil {
 			return err
 		}
+
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)

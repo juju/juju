@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 
@@ -216,7 +217,9 @@ WHERE  uuid = $entityPasswordHash.uuid;
 }
 
 // MatchesMachinePasswordHashWithNonce checks if the password with a nonce is
-// valid or not against the password hash stored in the database.
+// valid or not against the password hash stored in the database. The machine
+// must be provisioned for the password to match. It returns an error if the
+// machine is not provisioned.
 func (s *State) MatchesMachinePasswordHashWithNonce(
 	ctx context.Context,
 	machineUUID machine.UUID,
@@ -234,12 +237,16 @@ func (s *State) MatchesMachinePasswordHashWithNonce(
 		Nonce:        nonce,
 	}
 
-	var result count
+	var result machinePassword
 	passwordQuery := `
-SELECT COUNT(*) AS &count.count FROM machine
-WHERE  uuid = $validatePasswordHashWithNonce.uuid
-AND    password_hash = $validatePasswordHashWithNonce.password_hash
-AND    nonce = $validatePasswordHashWithNonce.nonce;
+SELECT 
+    COUNT(m.uuid) AS &machinePassword.machine_count,
+    mci.instance_id AS &machinePassword.instance_id
+FROM      machine m
+LEFT JOIN machine_cloud_instance mci ON mci.machine_uuid = m.uuid
+WHERE     m.uuid = $validatePasswordHashWithNonce.uuid
+AND       m.password_hash = $validatePasswordHashWithNonce.password_hash
+AND       m.nonce = $validatePasswordHashWithNonce.nonce;
 `
 	passwordStmt, err := s.Prepare(passwordQuery, args, result)
 	if err != nil {
@@ -252,8 +259,23 @@ AND    nonce = $validatePasswordHashWithNonce.nonce;
 			return errors.Errorf("setting password hash: %w", err)
 		}
 
+		fmt.Println("???>> result:", result)
+
 		// We've not found any rows, so the password does not match.
-		valid = result.Count > 0
+		if result.MachineCount == 0 {
+			return nil
+		}
+
+		fmt.Println(">>> result:", result)
+
+		// If the machine count is greater than 0, then we can assume the
+		// password matches, but we also need to check the instance count.
+		// The machine can only login if it has been provisioned.
+		if !result.InstanceID.Valid || result.InstanceID.V == "" {
+			return machineerrors.NotProvisioned
+		}
+
+		valid = true
 
 		return nil
 	})

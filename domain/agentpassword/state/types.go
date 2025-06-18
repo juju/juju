@@ -4,6 +4,8 @@
 package state
 
 import (
+	"database/sql"
+
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
@@ -52,4 +54,9 @@ type machineName struct {
 
 type machineUUID struct {
 	UUID machine.UUID `db:"uuid"`
+}
+
+type machinePassword struct {
+	MachineCount int              `db:"machine_count"`
+	InstanceID   sql.Null[string] `db:"instance_id"`
 }

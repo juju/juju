@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -206,6 +207,22 @@ func (s *agentAuthenticatorSuite) TestMachineLoginMachineNotFound(c *tc.C) {
 		Nonce:       "",
 	})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
+}
+
+func (s *agentAuthenticatorSuite) TestMachineLoginMachineNotProvisioned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesMachinePasswordHashWithNonce(gomock.Any(), machine.Name("0"), "", "").Return(false, machineerrors.NotProvisioned)
+
+	authTag := names.NewMachineTag("0")
+
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+		AuthTag:     authTag,
+		Credentials: "",
+		Nonce:       "",
+	})
+	c.Assert(err, tc.ErrorIs, errors.NotProvisioned)
 }
 
 func (s *agentAuthenticatorSuite) TestMachineLoginMachineError(c *tc.C) {

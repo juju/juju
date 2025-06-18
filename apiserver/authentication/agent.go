@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/state"
 )
 
@@ -107,7 +108,7 @@ func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.Uni
 	//   (incorrect payload).
 	// - If the password is invalid, then we consider that unauthorized.
 	// - If the unit is not found, then we consider that unauthorized. Prevent
-	//   the knowing about which unit the password didn't match (rainbow attack).
+	//   the knowing about which unit the password didn't match (rainbow attack)
 	// - If the password isn't valid for the unit, then we consider that
 	//   unauthorized.
 	// - Any other error, is considered an internal server error.
@@ -133,10 +134,14 @@ func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.
 	// - If the password or nonce is empty, then we consider that a bad request
 	//   (incorrect payload).
 	// - If the password is invalid, then we consider that unauthorized.
-	// - If the machine is not found, then we consider that unauthorized. Prevent
-	//   the knowing about which machine the password didn't match (rainbow attack).
+	// - If the machine is not found, then we consider that unauthorized.
+	//   Prevent the knowing about which machine the password didn't match
+	//   (rainbow attack).
 	// - If the password isn't valid for the machine, then we consider that
 	//   unauthorized.
+	// - If the machine is not provisioned, then we consider that the machine
+	//   is not provisioned (the password must match first before undertaking
+	//   the provisioning).
 	// - Any other error, is considered an internal server error.
 
 	valid, err := a.agentPasswordService.MatchesMachinePasswordHashWithNonce(ctx, machineName, credentials, nonce)
@@ -144,6 +149,8 @@ func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.
 		return nil, errors.Trace(fmt.Errorf("machine authentication: %w", apiservererrors.ErrBadRequest))
 	} else if errors.Is(err, agentpassworderrors.InvalidPassword) || errors.Is(err, applicationerrors.MachineNotFound) {
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	} else if errors.Is(err, machineerrors.NotProvisioned) {
+		return nil, errors.NotProvisionedf("machine %v", tag.Id())
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else if !valid {

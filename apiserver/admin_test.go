@@ -78,6 +78,7 @@ func TestLoginStub(t *stdtesting.T) {
  - Test login from another model not controller should error out
  - Test login during model migration
  - Test login for agents
+ - Test login for agents with machine not provisioned
 	`)
 }
 
@@ -781,39 +782,6 @@ func (s *loginSuite) TestOtherModel(c *tc.C) {
 	err = st.Login(c.Context(), userTag, pass, "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertRemoteModel(c, st, names.NewModelTag(s.DefaultModelUUID.String()))
-}
-
-func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *tc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	// For the test to run properly with part of the model in mongo and
-	// part in a service domain, a model with the same uuid is required
-	// in both places for the test to work. Necessary after model config
-	// was move to the domain services.
-	modelState := f.MakeModel(c, &factory.ModelParams{
-		UUID: s.DefaultModelUUID,
-		ConfigAttrs: map[string]interface{}{
-			"controller": false,
-		},
-	})
-	defer modelState.Close()
-
-	f2, release := s.NewFactory(c, s.DefaultModelUUID.String())
-	defer release()
-	machine, pass := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
-
-	model, err := modelState.Model()
-	c.Assert(err, tc.ErrorIsNil)
-
-	st := s.openModelAPIWithoutLogin(c, model.UUID())
-
-	// If the agent attempts Login before the provisioner has recorded
-	// the machine's nonce in state, then the agent should get back an
-	// error with code "not provisioned".
-	err = st.Login(c.Context(), machine.Tag(), pass, "nonce", nil)
-	c.Assert(err, tc.ErrorMatches, `machine 0 not provisioned \(not provisioned\)`)
-	c.Assert(err, tc.Satisfies, params.IsCodeNotProvisioned)
 }
 
 func (s *loginSuite) loginLocalUser(c *tc.C, info *api.Info) (names.UserTag, params.LoginResult) {
