@@ -246,7 +246,10 @@ func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineName, n
 		if nonce != "" {
 			n = &nonce
 		}
-		_, err := mm.machineService.CreateMachine(ctx, coremachine.Name(machineName), n)
+		createMachineArgs := machineservice.CreateMachineArgs{
+			Nonce: n,
+		}
+		_, _, err := mm.machineService.CreateMachine(ctx, createMachineArgs)
 		// The machine might already exist e.g. if we are adding a subordinate
 		// unit to an already existing machine. In this case, just continue
 		// without error.

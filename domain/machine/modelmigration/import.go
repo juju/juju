@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/internal/errors"
@@ -44,11 +43,11 @@ type importOperation struct {
 // ImportService defines the machine service used to import machines from
 // another controller model to this controller.
 type ImportService interface {
-	// CreateMachine creates the specified machine.
-	CreateMachine(ctx context.Context, machineName machine.Name, nonce *string) (machine.UUID, error)
-	// SetMachineCloudInstance sets an entry in the machine cloud instance table
+	// ImportMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
-	SetMachineCloudInstance(ctx context.Context, machineUUID machine.UUID, instanceID instance.Id, displayName, nonce string, hardwareCharacteristics *instance.HardwareCharacteristics) error
+	ImportMachineCloudInstance(ctx context.Context, machineUUID machine.UUID, instanceID instance.Id, displayName, nonce string, hardwareCharacteristics *instance.HardwareCharacteristics) error
+	// ImportMachine imports the specified machine into the model.
+	ImportMachine(ctx context.Context) (machine.UUID, error)
 }
 
 // Name returns the name of this operation.
@@ -59,7 +58,6 @@ func (i *importOperation) Name() string {
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewMigrationService(
 		state.NewState(scope.ModelDB(), i.clock, i.logger),
-		domain.NewStatusHistory(i.logger, i.clock),
 		i.clock,
 		i.logger,
 	)
@@ -69,7 +67,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	for _, m := range model.Machines() {
 		// We need skeleton machines in dqlite.
-		machineUUID, err := i.service.CreateMachine(ctx, machine.Name(m.Id()), ptr(m.Nonce()))
+		machineUUID, err := i.service.ImportMachine(ctx)
 		if err != nil {
 			return errors.Errorf("importing machine %q: %w", m.Id(), err)
 		}
