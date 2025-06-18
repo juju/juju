@@ -326,7 +326,7 @@ func (s *APISuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
 	s.Backing.EXPECT().ControllerConfig().Return(
 		controller.Config{
 			"controller-uuid": testing.ControllerTag.Id(),
-		}, nil).AnyTimes()
+		}, nil).Times(2)
 
 	res, err := s.API.RemoveSpace(args)
 
@@ -385,7 +385,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
 		"controller-uuid":              testing.ControllerTag.Id()},
 	)
 	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
-	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil).AnyTimes()
+	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil).Times(2)
 
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings:           nil,
@@ -455,7 +455,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 		controller.JujuManagementSpace: space,
 		"controller-uuid":              testing.ControllerTag.Id()},
 	)
-	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil).AnyTimes()
+	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil).Times(2)
 
 	cApp, cModel := s.expectAllTags(space)
 
@@ -507,7 +507,7 @@ func (s *APISuite) TestRemoveSpaceFoundAllWithForce(c *gc.C) {
 		controller.JujuManagementSpace: space,
 		"controller-uuid":              testing.ControllerTag.Id()},
 	)
-	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil).AnyTimes()
+	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil).Times(2)
 
 	_, _ = s.expectAllTags(space)
 

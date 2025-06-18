@@ -117,7 +117,6 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithReloadSpaceError(c *gc.C) {
 			ModelCloudInfo: mockEnvirons,
 			controllerUUID: coretesting.ControllerTag.Id(),
 		}, gomock.Any()).Return(mockNetworkEnviron, nil)
-	mockEnvirons.EXPECT()
 
 	mockState := NewMockReloadSpacesState(ctrl)
 	mockState.EXPECT().ControllerConfig().Return(controller.Config{
