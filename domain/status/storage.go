@@ -90,10 +90,6 @@ func FilesystemStatusTransitionValid(
 		// If a filesystem is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
 		validTransition = !isProvisioned
-	case StorageFilesystemStatusTypeError:
-		if new.Message == "" {
-			return errors.Errorf("cannot set status %q without message", new.Status)
-		}
 	default:
 		// Anything else is ok.
 	}
@@ -187,10 +183,6 @@ func VolumeStatusTransitionValid(
 		// If a volume is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
 		validTransition = !isProvisioned
-	case StorageVolumeStatusTypeError:
-		if new.Message == "" {
-			return errors.Errorf("cannot set status %q without message", new.Status)
-		}
 	default:
 		// Anything else is ok.
 	}
