@@ -708,11 +708,12 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	healthHandler := srv.monitoredHandler(http.HandlerFunc(srv.healthHandler), "health")
 	logStreamHandler := srv.monitoredHandler(newLogStreamEndpointHandler(httpCtxt), "logstream")
 	embeddedCLIHandler := srv.monitoredHandler(newEmbeddedCLIHandler(httpCtxt), "commands")
+	controllerAdminAuthorizer := controllerAdminAuthorizer{
+		controllerTag: systemState.ControllerTag(),
+	}
 	var debuglogAuth httpcontext.CompositeAuthorizer = []authentication.Authorizer{
 		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind},
-		controllerAdminAuthorizer{
-			controllerTag: systemState.ControllerTag(),
-		},
+		controllerAdminAuthorizer,
 		modelPermissionAuthorizer{
 			perm: permission.ReadAccess,
 		},
@@ -757,9 +758,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		GetHandler:  modelCharmsHandler.ServeGet,
 	}, "charms")
 	var modelCharmsUploadAuthorizer httpcontext.CompositeAuthorizer = []authentication.Authorizer{
-		controllerAdminAuthorizer{
-			controllerTag: systemState.ControllerTag(),
-		},
+		controllerAdminAuthorizer,
 		modelPermissionAuthorizer{
 			perm: permission.WriteAccess,
 		},
@@ -779,7 +778,12 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 	}, "tools")
-	modelToolsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
+	var modelToolsUploadAuthorizer httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+		controllerAdminAuthorizer,
+		modelPermissionAuthorizer{
+			perm: permission.AdminAccess,
+		},
+	}
 	modelToolsDownloadHandler := srv.monitoredHandler(newToolsDownloadHandler(httpCtxt), "tools")
 	resourcesHandler := srv.monitoredHandler(&ResourcesHandler{
 		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, names.Tag,
@@ -826,9 +830,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		},
 	}, "units")
 
-	controllerAdminAuthorizer := controllerAdminAuthorizer{
-		controllerTag: systemState.ControllerTag(),
-	}
 	migrateCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
 		dataDir:       srv.dataDir,
@@ -983,7 +984,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, {
 		pattern:    "/tools",
 		handler:    modelToolsUploadHandler,
-		authorizer: modelToolsUploadAuthorizer,
+		authorizer: controllerAdminAuthorizer,
 	}, {
 		pattern:         "/tools/:version",
 		handler:         modelToolsDownloadHandler,
