@@ -17,11 +17,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -149,7 +147,7 @@ func (s *findToolsSuite) setup(c *tc.C) *gomock.Controller {
 
 	s.toolsStorageGetter = mocks.NewMockToolsStorageGetter(ctrl)
 	s.urlGetter = mocks.NewMockToolsURLGetter(ctrl)
-	s.urlGetter.EXPECT().ToolsURLs(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ controller.Config, arg semversion.Binary) ([]string, error) {
+	s.urlGetter.EXPECT().ToolsURLs(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, arg semversion.Binary) ([]string, error) {
 		return []string{fmt.Sprintf("tools:%v", arg)}, nil
 	}).AnyTimes()
 
@@ -199,7 +197,7 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *tc.C) {
 	}}
 	s.expectMatchingStorageTools(storageMetadata, nil)
 
-	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.store, s.mockAgentBinaryService)
+	toolsFinder := common.NewToolsFinder(s.toolsStorageGetter, s.urlGetter, s.store, s.mockAgentBinaryService)
 
 	result, err := toolsFinder.FindAgents(c.Context(), common.FindAgentsParams{
 		MajorVersion: 123,
@@ -255,7 +253,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *tc.C) {
 	}}
 	s.expectMatchingStorageTools(storageMetadata, nil)
 
-	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.store, s.mockAgentBinaryService)
+	toolsFinder := common.NewToolsFinder(s.toolsStorageGetter, s.urlGetter, s.store, s.mockAgentBinaryService)
 	result, err := toolsFinder.FindAgents(c.Context(), common.FindAgentsParams{
 		MajorVersion: 123,
 		MinorVersion: 456,
@@ -289,7 +287,7 @@ func (s *findToolsSuite) TestFindToolsNotFound(c *tc.C) {
 
 	s.expectMatchingStorageTools([]binarystorage.Metadata{}, nil)
 
-	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, nil, s.store, s.mockAgentBinaryService)
+	toolsFinder := common.NewToolsFinder(s.toolsStorageGetter, nil, s.store, s.mockAgentBinaryService)
 	_, err := toolsFinder.FindAgents(c.Context(), common.FindAgentsParams{})
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
@@ -299,7 +297,7 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *tc.C) {
 
 	s.expectMatchingStorageTools(nil, errors.New("AllMetadata failed"))
 
-	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.store, s.mockAgentBinaryService)
+	toolsFinder := common.NewToolsFinder(s.toolsStorageGetter, s.urlGetter, s.store, s.mockAgentBinaryService)
 	_, err := toolsFinder.FindAgents(c.Context(), common.FindAgentsParams{})
 	// ToolsStorage errors always cause FindAgents to bail. Only
 	// if AllMetadata succeeds but returns nothing that matches
@@ -325,41 +323,34 @@ func (s *getUrlSuite) setup(c *tc.C) *gomock.Controller {
 func (s *getUrlSuite) TestToolsURLGetterNoAPIHostPorts(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return(nil, nil)
+	s.apiHostPortsGetter.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(nil, nil)
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
-	_, err := g.ToolsURLs(c.Context(), coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
+	_, err := g.ToolsURLs(c.Context(), coretesting.CurrentVersion())
 	c.Assert(err, tc.ErrorMatches, "no suitable API server address to pick from")
 }
 
 func (s *getUrlSuite) TestToolsURLGetterAPIHostPortsError(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return(nil, errors.New("oh noes"))
+	s.apiHostPortsGetter.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(nil, errors.New("oh noes"))
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
-	_, err := g.ToolsURLs(c.Context(), coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
+	_, err := g.ToolsURLs(c.Context(), coretesting.CurrentVersion())
 	c.Assert(err, tc.ErrorMatches, "oh noes")
 }
 
 func (s *getUrlSuite) TestToolsURLGetter(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return([]network.SpaceHostPorts{
-		network.NewSpaceHostPorts(1234, "0.1.2.3"),
-	}, nil)
+	addrs := []string{"0.1.2.3:1234"}
+	s.apiHostPortsGetter.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(addrs, nil)
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
 	current := coretesting.CurrentVersion()
-	urls, err := g.ToolsURLs(c.Context(), coretesting.FakeControllerConfig(), current)
+	urls, err := g.ToolsURLs(c.Context(), current)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(urls, tc.DeepEquals, []string{
 		"https://0.1.2.3:1234/model/my-uuid/tools/" + current.String(),
 	})
-}
-
-type controllerConfigService struct{}
-
-func (controllerConfigService) ControllerConfig(context.Context) (controller.Config, error) {
-	return coretesting.FakeControllerConfig(), nil
 }

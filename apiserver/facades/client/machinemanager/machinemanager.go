@@ -16,8 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
@@ -29,151 +27,38 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/blockcommand"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
-	"github.com/juju/juju/internal/charmhub"
-	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
-// ControllerConfigService defines a method for getting the controller config.
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
-// KeyUpdaterService is responsible for returning information about the ssh keys
-// for a machine within a model.
-type KeyUpdaterService interface {
-	// GetAuthorisedKeysForMachine returns the authorized keys that should be
-	// allowed to access the given machine.
-	GetAuthorisedKeysForMachine(context.Context, coremachine.Name) ([]string, error)
-}
-
-// ModelConfigService is responsible for providing an accessor to the models
-// config.
-type ModelConfigService interface {
-	// ModelConfig provides the currently set model config for the model.
-	ModelConfig(context.Context) (*config.Config, error)
-}
-
-// Leadership represents a type for modifying the leadership settings of an
-// application for series upgrades.
-type Leadership interface {
-	// GetMachineApplicationNames returns the applications associated with a
-	// machine.
-	GetMachineApplicationNames(context.Context, string) ([]string, error)
-
-	// UnpinApplicationLeadersByName takes a slice of application names and
-	// attempts to unpin them accordingly.
-	UnpinApplicationLeadersByName(context.Context, names.Tag, []string) (params.PinApplicationsResults, error)
-}
-
-// Authorizer checks to see if an operation can be performed.
-type Authorizer interface {
-	// CanRead checks to see if a read is possible. Returns an error if a read
-	// is not possible.
-	CanRead(context.Context) error
-
-	// CanWrite checks to see if a write is possible. Returns an error if a
-	// write is not possible.
-	CanWrite(context.Context) error
-
-	// AuthClient returns true if the entity is an external user.
-	AuthClient() bool
-}
-
-// MachineService is the interface that is used to interact with the machines.
-type MachineService interface {
-	// CreateMachine creates a machine with the given name.
-	CreateMachine(context.Context, coremachine.Name, *string) (coremachine.UUID, error)
-	// DeleteMachine deletes a machine with the given name.
-	DeleteMachine(context.Context, coremachine.Name) error
-	// GetBootstrapEnviron returns the bootstrap environ.
-	GetBootstrapEnviron(context.Context) (environs.BootstrapEnviron, error)
-	// GetInstanceTypesFetcher returns the instance types fetcher.
-	GetInstanceTypesFetcher(context.Context) (environs.InstanceTypesFetcher, error)
-	// ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
-	// the corresponding cloud instance to be stopped.
-	// It returns a NotFound if the given machine doesn't exist.
-	ShouldKeepInstance(ctx context.Context, machineName coremachine.Name) (bool, error)
-	// SetKeepInstance sets whether the machine cloud instance will be retained
-	// when the machine is removed from Juju. This is only relevant if an instance
-	// exists.
-	// It returns a NotFound if the given machine doesn't exist.
-	SetKeepInstance(ctx context.Context, machineName coremachine.Name, keep bool) error
-	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name coremachine.Name) (coremachine.UUID, error)
-	// GetHardwareCharacteristics returns the hardware characteristics of the
-	// specified machine.
-	GetHardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
-}
-
-// ApplicationService is the interface that is used to interact with
-// applications and units.
-type ApplicationService interface {
-	// GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
-	// The following errors may be returned:
-	// - [applicationerrors.MachineNotFound] if the machine does not exist
-	GetUnitNamesOnMachine(context.Context, coremachine.Name) ([]coreunit.Name, error)
-}
-
-// CharmhubClient represents a way for querying the charmhub api for information
-// about the application charm.
-type CharmhubClient interface {
-	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
-}
-
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-}
-
-// BlockCommandService defines methods for interacting with block commands.
-type BlockCommandService interface {
-	// GetBlockSwitchedOn returns the optional block message if it is switched
-	// on for the given type.
-	GetBlockSwitchedOn(ctx context.Context, t blockcommand.BlockType) (string, error)
-
-	// GetBlocks returns all the blocks that are currently in place.
-	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
-}
-
-// CloudService provides access to clouds.
-type CloudService interface {
-	// Cloud returns the named cloud.
-	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
-}
-
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
-	modelUUID               coremodel.UUID
-	controllerConfigService ControllerConfigService
-	st                      Backend
-	cloudService            CloudService
-	storageAccess           StorageInterface
-	pool                    Pool
-	authorizer              Authorizer
-	check                   *common.BlockChecker
-	resources               facade.Resources
-	leadership              Leadership
-	store                   objectstore.ObjectStore
-	controllerStore         objectstore.ObjectStore
+	modelUUID       coremodel.UUID
+	st              Backend
+	storageAccess   StorageInterface
+	pool            Pool
+	authorizer      Authorizer
+	check           *common.BlockChecker
+	resources       facade.Resources
+	leadership      Leadership
+	store           objectstore.ObjectStore
+	controllerStore objectstore.ObjectStore
 
-	keyUpdaterService    KeyUpdaterService
-	machineService       MachineService
-	applicationService   ApplicationService
-	networkService       NetworkService
-	modelConfigService   ModelConfigService
-	agentBinaryService   AgentBinaryService
-	agentPasswordService AgentPasswordService
+	agentBinaryService      AgentBinaryService
+	agentPasswordService    AgentPasswordService
+	applicationService      ApplicationService
+	cloudService            CloudService
+	controllerConfigService ControllerConfigService
+	controllerNodeService   ControllerNodeService
+	keyUpdaterService       KeyUpdaterService
+	machineService          MachineService
+	modelConfigService      ModelConfigService
+	networkService          NetworkService
 
 	logger corelogger.Logger
 }
@@ -181,11 +66,7 @@ type MachineManagerAPI struct {
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
 	modelUUID coremodel.UUID,
-	controllerConfigService ControllerConfigService,
 	backend Backend,
-	cloudService CloudService,
-	machineService MachineService,
-	applicationService ApplicationService,
 	store, controllerStore objectstore.ObjectStore,
 	storageAccess StorageInterface,
 	pool Pool,
@@ -193,35 +74,33 @@ func NewMachineManagerAPI(
 	resources facade.Resources,
 	leadership Leadership,
 	logger corelogger.Logger,
-	networkService NetworkService,
-	keyUpdaterService KeyUpdaterService,
-	modelConfigService ModelConfigService,
-	blockCommandService BlockCommandService,
-	agentBinaryService AgentBinaryService,
-	agentPasswordService AgentPasswordService,
+	services Services,
 ) *MachineManagerAPI {
-	return &MachineManagerAPI{
-		modelUUID:               modelUUID,
-		controllerConfigService: controllerConfigService,
-		st:                      backend,
-		cloudService:            cloudService,
-		machineService:          machineService,
-		applicationService:      applicationService,
-		store:                   store,
-		controllerStore:         controllerStore,
-		pool:                    pool,
-		authorizer:              auth,
-		check:                   common.NewBlockChecker(blockCommandService),
-		resources:               resources,
-		leadership:              leadership,
-		storageAccess:           storageAccess,
-		logger:                  logger,
-		networkService:          networkService,
-		keyUpdaterService:       keyUpdaterService,
-		modelConfigService:      modelConfigService,
-		agentBinaryService:      agentBinaryService,
-		agentPasswordService:    agentPasswordService,
+	api := &MachineManagerAPI{
+		modelUUID:       modelUUID,
+		st:              backend,
+		store:           store,
+		controllerStore: controllerStore,
+		pool:            pool,
+		authorizer:      auth,
+		check:           common.NewBlockChecker(services.BlockCommandService),
+		resources:       resources,
+		leadership:      leadership,
+		storageAccess:   storageAccess,
+		logger:          logger,
+
+		agentBinaryService:      services.AgentBinaryService,
+		agentPasswordService:    services.AgentPasswordService,
+		applicationService:      services.ApplicationService,
+		controllerConfigService: services.ControllerConfigService,
+		controllerNodeService:   services.ControllerNodeService,
+		cloudService:            services.CloudService,
+		keyUpdaterService:       services.KeyUpdaterService,
+		machineService:          services.MachineService,
+		modelConfigService:      services.ModelConfigService,
+		networkService:          services.NetworkService,
 	}
+	return api
 }
 
 // AddMachines adds new machines with the supplied parameters.
@@ -405,6 +284,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 	services := InstanceConfigServices{
 		CloudService:            mm.cloudService,
 		ControllerConfigService: mm.controllerConfigService,
+		ControllerNodeService:   mm.controllerNodeService,
 		ObjectStore:             mm.controllerStore,
 		KeyUpdaterService:       mm.keyUpdaterService,
 		ModelConfigService:      mm.modelConfigService,

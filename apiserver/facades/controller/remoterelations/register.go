@@ -33,11 +33,17 @@ func makeAPI(_ context.Context, ctx facade.ModelContext) (*API, error) {
 	}
 	domainServices := ctx.DomainServices()
 	controllerConfigService := domainServices.ControllerConfig()
+	controllerNodeService := domainServices.ControllerNode()
 	externalControllerService := domainServices.ExternalController()
 	return NewRemoteRelationsAPI(
 		externalControllerService,
 		domainServices.Secret(),
-		common.NewControllerConfigAPI(systemState, controllerConfigService, externalControllerService),
+		common.NewControllerConfigAPI(
+			systemState,
+			controllerConfigService,
+			controllerNodeService,
+			externalControllerService,
+		),
 		ctx.Auth(),
 	)
 }

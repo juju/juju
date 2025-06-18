@@ -45,6 +45,7 @@ func NewFacadeV2AuthCheck(ctx facade.ModelContext) (*FacadeV2, error) {
 		common.NewControllerConfigAPI(
 			ctx.State(),
 			domainServices.ControllerConfig(),
+			domainServices.ControllerNode(),
 			domainServices.ExternalController(),
 		),
 		domainServices.ModelProvider(),

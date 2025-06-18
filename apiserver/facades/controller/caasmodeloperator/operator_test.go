@@ -51,10 +51,8 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	// Arrange
 	m.expectControllerConfig()
 
-	res := map[string][]string{
-		"one": {"apiaddresses:1"},
-	}
-	m.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(res, nil)
+	addrs := []string{"addresses:1"}
+	m.controllerNodeService.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(addrs, nil)
 	m.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(false, map[string]any{
 		config.NameKey:         "controller",
 		config.UUIDKey:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",

@@ -181,11 +181,9 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), systemState)
+
+	controllerNodeServices := domainServices.ControllerNode()
+	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), controllerNodeServices)
 
 	watcherRegistry := ctx.WatcherRegistry()
 	modelConfigWatcher := commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry)
@@ -204,6 +202,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
 			controllerConfigService,
+			controllerNodeServices,
 			externalControllerService,
 		),
 		NetworkConfigAPI:          netConfigAPI,
@@ -234,7 +233,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	api.InstanceIdGetter = common.NewInstanceIdGetter(machineService, getAuthFunc)
 
 	api.toolsFinder = common.NewToolsFinder(
-		controllerConfigService,
 		st, urlGetter,
 		ctx.ControllerObjectStore(),
 		agentBinaryService,

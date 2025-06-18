@@ -45,6 +45,7 @@ func NewSecretManagerAPI(_ context.Context, ctx facade.ModelContext) (*SecretsMa
 	controllerAPI := common.NewControllerConfigAPI(
 		ctx.State(),
 		domainServices.ControllerConfig(),
+		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
 	)
 	remoteClientGetter := func(stdCtx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error) {
