@@ -459,6 +459,126 @@ type ApplicationState interface {
 	IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error)
 }
 
+// validateApplicationStorageDirectiveOverrides checks a set of storage
+// directive overrides to make sure they are valid with respect to the charms
+// storage definitions.
+func validateApplicationStorageDirectiveOverrides(
+	ctx context.Context,
+	charmStorageDefs map[string]internalcharm.Storage,
+	overrides map[string]ApplicationStorageDirectiveOverride,
+	providerValidator StorageProviderValidator,
+) error {
+	for name, override := range overrides {
+		storageDef, exists := charmStorageDefs[name]
+		if !exists {
+			return errors.Errorf(
+				"storage directive %q does not exist in the charm", name,
+			)
+		}
+
+		err := validateApplicationStorageDirectiveOverride(
+			ctx, storageDef, override, providerValidator,
+		)
+		if err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	return nil
+}
+
+// validateApplicationStorageDirectiveOverride checks a set of storage directive
+// override values to make sure they are valid with respect to the charm
+// storage.
+func validateApplicationStorageDirectiveOverride(
+	ctx context.Context,
+	charmStorageDef internalcharm.Storage,
+	override ApplicationStorageDirectiveOverride,
+	providerValidator StorageProviderValidator,
+) error {
+	if override.Count != nil {
+		minCount := uint32(0)
+		if charmStorageDef.CountMin > 0 {
+			minCount = uint32(charmStorageDef.CountMin)
+		}
+		maxCount := uint32(0)
+		if charmStorageDef.CountMax > 0 {
+			maxCount = uint32(charmStorageDef.CountMax)
+		}
+
+		if *override.Count < minCount {
+			return errors.Errorf(
+				"storage directive count %d is less than the charm minimum of %d",
+				*override.Count, minCount,
+			)
+		}
+		if *override.Count > maxCount {
+			return errors.Errorf(
+				"storage directive count %d is greater than the charm maximum of %d",
+				*override.Count, maxCount,
+			)
+		}
+	}
+
+	// If the override has changed storage and the charm storage definition
+	// expects a minimum size (not zero), then we check that override size is
+	// less then the minimum size.
+	if override.Size != nil &&
+		charmStorageDef.MinimumSize != 0 &&
+		*override.Size < charmStorageDef.MinimumSize {
+		return errors.Errorf(
+			"storage directive size %d is less than the charm minimum requirement of %d",
+			*override.Size, charmStorageDef.MinimumSize,
+		)
+	}
+
+	if override.PoolUUID != nil && override.ProviderType != nil {
+		return errors.New(
+			"storage directive can only use either a pool or a provider type",
+		)
+	}
+
+	if override.PoolUUID != nil {
+		supports, err := providerValidator.CheckPoolSupportsCharmStorage(
+			ctx, *override.PoolUUID, charmStorageDef.Type,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"checking storage directive pool %q supports charm storage %q",
+				*override.PoolUUID, charmStorageDef.Type,
+			)
+		}
+
+		if !supports {
+			return errors.Errorf(
+				"storage directive pool %q does not support charm storage %q",
+				*override.PoolUUID, charmStorageDef.Type,
+			)
+		}
+	}
+
+	if override.ProviderType != nil {
+		supports, err := providerValidator.CheckProviderTypeSupportsCharmStorage(
+			ctx, *override.ProviderType, charmStorageDef.Type,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"checking storage directive provider type %q supports charm storage %q",
+				*override.ProviderType, charmStorageDef.Type,
+			)
+		}
+
+		if !supports {
+			return errors.Errorf(
+				"storage directive provider type %q does not support charm storage %q",
+				*override.ProviderType, charmStorageDef.Type,
+			)
+		}
+	}
+
+	return nil
+}
+
 func validateCharmAndApplicationParams(
 	name, referenceName string,
 	charm internalcharm.Charm,
