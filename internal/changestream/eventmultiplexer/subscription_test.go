@@ -5,7 +5,6 @@ package eventmultiplexer
 
 import (
 	"context"
-	"sync/atomic"
 	stdtesting "testing"
 	"time"
 
@@ -14,7 +13,7 @@ import (
 	"go.uber.org/goleak"
 
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
-	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/core/testing"
 )
 
 type subscriptionSuite struct {
@@ -86,7 +85,7 @@ func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *tc.C) {
 	workertest.CleanKill(c, sub)
 }
 
-func (s *subscriptionSuite) TestSubscriptionDoesNoteWitnessChangesWithCancelledContext(c *tc.C) {
+func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithCancelledContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sub := newSubscription(0, func() {
@@ -108,7 +107,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNoteWitnessChangesWithCancelledC
 		cancel()
 
 		err := sub.dispatch(ctx, changes)
-		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIs, context.Canceled)
 	}()
 
 	select {
@@ -126,13 +125,10 @@ func (s *subscriptionSuite) TestSubscriptionDoesNoteWitnessChangesWithCancelledC
 	workertest.CleanKill(c, sub)
 }
 
-func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *tc.C) {
+func (s *subscriptionSuite) TestDispatchTimeoutKillsSubscription(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	var witnessed int64
-	sub := newSubscription(0, func() {
-		atomic.AddInt64(&witnessed, 1)
-	})
+	sub := newSubscription(0, func() {})
 	defer workertest.CleanKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
@@ -151,7 +147,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *tc
 		time.Sleep(time.Millisecond)
 
 		err := sub.dispatch(ctx, changes)
-		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIs, context.DeadlineExceeded)
 	}()
 
 	select {
@@ -161,13 +157,10 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *tc
 	}
 
 	select {
-	case <-sub.Changes():
-		c.Fatalf("unexpected changes witnessed")
+	case <-sub.Done():
 	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting for subscription to be killed")
 	}
-
-	// We should have witnessed the unsubscribe
-	c.Check(atomic.LoadInt64(&witnessed), tc.Equals, int64(1))
 
 	workertest.CleanKill(c, sub)
 }
