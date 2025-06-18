@@ -90,7 +90,9 @@ func (lg *LifeGetter) OneLife(ctx context.Context, tag names.Tag) (life.Value, e
 	switch t := tag.(type) {
 	case names.MachineTag:
 		life, err := lg.machineService.GetMachineLife(ctx, machine.Name(t.Id()))
-		if errors.Is(err, machineerrors.MachineNotFound) {
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			return "", apiservererrors.ServerError(errors.NotProvisionedf("machine %s", t.Id()))
+		} else if errors.Is(err, machineerrors.MachineNotFound) {
 			return "", apiservererrors.ServerError(errors.NotFoundf("machine %s", t.Id()))
 		}
 		return life, errors.Trace(err)

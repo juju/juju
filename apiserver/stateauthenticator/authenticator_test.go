@@ -153,8 +153,10 @@ func (s *agentAuthenticatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agentAuthenticatorGetter = NewMockAgentAuthenticatorGetter(ctrl)
 	s.entityAuthenticator = NewMockEntityAuthenticator(ctrl)
 
-	s.agentPasswordServiceGetter = NewMockAgentPasswordServiceGetter(ctrl)
 	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
+
+	s.agentPasswordServiceGetter = NewMockAgentPasswordServiceGetter(ctrl)
+	s.agentPasswordServiceGetter.EXPECT().GetAgentPasswordServiceForModel(gomock.Any(), gomock.Any()).Return(s.agentPasswordService, nil)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
