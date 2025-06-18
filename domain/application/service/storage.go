@@ -10,6 +10,8 @@ import (
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -63,6 +65,35 @@ type StorageState interface {
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
 	DetachStorage(ctx context.Context, storageUUID corestorage.UUID) error
+}
+
+// StorageProviderValidator is an interface for defining the requirement of an
+// external validator that can check assumptions made about storage providers
+// when deploying applications.
+type StorageProviderValidator interface {
+	// CheckPoolSupportsCharmStorage checks that the provided storage
+	// pool uuid can be used for provisioning a certain type of charm storage.
+	//
+	// The following errors may be expected:
+	// - [github.com/juju/juju/domain/storage/errors.PoolNotFoundError] when no
+	// storage pool exists for the provided pool uuid.
+	CheckPoolSupportsCharmStorage(
+		context.Context,
+		domainstorage.StoragePoolUUID,
+		internalcharm.StorageType,
+	) (bool, error)
+
+	// CheckProviderTypeSupportsCharmStorage checks that the provider type can
+	// be used for provisioning a certain type of charm storage.
+	//
+	// The following errors may be expected:
+	// - [github.com/juju/juju/domain/storage/errors.ProviderTypeNotFound] when
+	// no provider type for the supplied name exists.
+	CheckProviderTypeSupportsCharmStorage(
+		context.Context,
+		string,
+		internalcharm.StorageType,
+	) (bool, error)
 }
 
 // AttachStorage attached the specified storage to the specified unit.
