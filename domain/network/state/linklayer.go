@@ -70,32 +70,8 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 		return errors.Capture(err)
 	}
 
-	nUUID := entityUUID{UUID: nodeUUID}
-
-	// TODO (manadart 2025-04-29): This is temporary and serves to get us
-	// operational with addresses on Dqlite.
-	// We will set devices and addresses for any given machine *one time*
-	// with subsequent updates being a no-op until we add the full
-	// reconciliation logic.
-	var devCount countResult
-	devCountSql := "SELECT COUNT(*) AS &countResult.count FROM link_layer_device WHERE net_node_uuid = $entityUUID.uuid"
-	devCountStmt, err := st.Prepare(devCountSql, nUUID, devCount)
-	if err != nil {
-		return errors.Errorf("preparing device count statement: %w", err)
-	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, devCountStmt, nUUID).Get(&devCount); err != nil {
-			return errors.Errorf("running device count statement: %w", err)
-		}
-
-		// If we've done it for this machine before, bug out.
-		if devCount.Count > 0 {
-			return nil
-		}
-
-		// Otherwise, insert the data.
-		newNics, dnsSearchDoms, dnsAddrs, parents, nicNameToUUID, err := st.reconcileNetConfigDevices(nodeUUID, nics)
+		newNics, dnsDoms, dnsAddrs, parents, nicNameToUUID, err := st.reconcileNetConfigDevices(ctx, tx, nodeUUID, nics)
 		if err != nil {
 			return errors.Errorf("reconciling incoming network devices: %w", err)
 		}
@@ -105,11 +81,11 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 		// I.e. those inserted and updated.
 		retainedDeviceUUIDs := transform.MapToSlice(nicNameToUUID, func(k, v string) []string { return []string{v} })
 
-		if err = st.insertLinkLayerDevices(ctx, tx, newNics); err != nil {
+		if err = st.upsertLinkLayerDevices(ctx, tx, newNics); err != nil {
 			return errors.Errorf("inserting link layer devices: %w", err)
 		}
 
-		if err = st.updateDNSSearchDomains(ctx, tx, dnsSearchDoms, retainedDeviceUUIDs); err != nil {
+		if err = st.updateDNSSearchDomains(ctx, tx, dnsDoms, retainedDeviceUUIDs); err != nil {
 			return errors.Errorf("updating DNS search domains: %w", err)
 		}
 
@@ -117,7 +93,7 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 			return errors.Errorf("updating DNS addresses: %w", err)
 		}
 
-		if err = st.insertDeviceParents(ctx, tx, parents); err != nil {
+		if err = st.updateDeviceParents(ctx, tx, parents, retainedDeviceUUIDs); err != nil {
 			return errors.Errorf("inserting device parents: %w", err)
 		}
 
@@ -127,7 +103,7 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 		}
 		st.logger.Debugf(ctx, "matching with subnet groups: %#v", subs)
 
-		addrsToInsert, newSubs, err := st.reconcileNetConfigAddresses(ctx, nodeUUID, nics, nicNameToUUID, subs)
+		addrsToInsert, newSubs, err := st.reconcileNetConfigAddresses(ctx, tx, nodeUUID, nics, nicNameToUUID, subs)
 		if err != nil {
 			return errors.Errorf("reconciling incoming ip addresses: %w", err)
 		}
@@ -140,7 +116,7 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 			return errors.Errorf("inserting subnets: %w", err)
 		}
 
-		if err = st.insertIPAddresses(ctx, tx, addrsToInsert); err != nil {
+		if err = st.upsertIPAddresses(ctx, tx, addrsToInsert); err != nil {
 			return errors.Errorf("inserting IP addresses: %w", err)
 		}
 
@@ -151,17 +127,22 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 }
 
 func (st *State) reconcileNetConfigDevices(
-	nodeUUID string, nics []network.NetInterface,
-) ([]linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, []deviceParent, map[string]string, error) {
-	// TODO (manadart 2025-04-30): This will have to return more types for
-	// provider ID entries etc.
+	ctx context.Context, tx *sqlair.TX, nodeUUID string, nics []network.NetInterface,
+) ([]linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, []linkLayerDeviceParent, map[string]string, error) {
+	// Determine all the known UUIDs for incoming devices,
+	// and generate new UUIDs for the others.
+	existing, err := st.getCurrentDevices(ctx, tx, nodeUUID)
+	if err != nil {
+		return nil, nil, nil, nil, nil, errors.Capture(err)
+	}
 
-	// The idea here will be to set the UUIDs that we know from querying
-	// existing devices, then generate new ones for devices we don't have yet.
-	// Interfaces that we do not observe will be deleted along with their
-	// addresses if they have an origin of "machine".
 	nameToUUID := make(map[string]string, len(nics))
 	for _, n := range nics {
+		if existingUUID, ok := existing[n.Name]; ok {
+			nameToUUID[n.Name] = existingUUID
+			continue
+		}
+
 		nicUUID, err := network.NewInterfaceUUID()
 		if err != nil {
 			return nil, nil, nil, nil, nil, errors.Capture(err)
@@ -187,14 +168,14 @@ func (st *State) reconcileNetConfigDevices(
 	}
 
 	// Use the nameToUUID map to populate device parents.
-	var parentDMLs []deviceParent
+	var parentDMLs []linkLayerDeviceParent
 	for _, n := range nics {
 		if n.ParentDeviceName == "" {
 			continue
 		}
 
 		if parentUUID, ok := nameToUUID[n.ParentDeviceName]; ok {
-			parentDMLs = append(parentDMLs, deviceParent{
+			parentDMLs = append(parentDMLs, linkLayerDeviceParent{
 				DeviceUUID: nameToUUID[n.Name],
 				ParentUUID: parentUUID,
 			})
@@ -207,9 +188,43 @@ func (st *State) reconcileNetConfigDevices(
 	return nicsDML, dnsSearchDMLs, dnsAddrDMLs, parentDMLs, nameToUUID, nil
 }
 
-func (st *State) insertLinkLayerDevices(ctx context.Context, tx *sqlair.TX, devs []linkLayerDeviceDML) error {
-	stmt, err := st.Prepare(
-		"INSERT INTO link_layer_device (*) VALUES ($linkLayerDeviceDML.*)", devs[0])
+func (st *State) getCurrentDevices(ctx context.Context, tx *sqlair.TX, nodeUUID string) (map[string]string, error) {
+	nUUID := entityUUID{UUID: nodeUUID}
+
+	qry := "SELECT &linkLayerDeviceName.* FROM link_layer_device WHERE net_node_uuid = $entityUUID.uuid"
+	stmt, err := st.Prepare(qry, nUUID, linkLayerDeviceName{})
+	if err != nil {
+		return nil, errors.Errorf("preparing current devices statement: %w", err)
+	}
+
+	var devs []linkLayerDeviceName
+	if err := tx.Query(ctx, stmt, nUUID).GetAll(&devs); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Errorf("running current devices query: %w", err)
+	}
+
+	return transform.SliceToMap(devs, func(d linkLayerDeviceName) (string, string) {
+		return d.Name, d.UUID
+	}), nil
+}
+
+func (st *State) upsertLinkLayerDevices(ctx context.Context, tx *sqlair.TX, devs []linkLayerDeviceDML) error {
+	dml := `
+INSERT INTO link_layer_device (*) VALUES ($linkLayerDeviceDML.*)
+ON CONFLICT (uuid) DO UPDATE SET
+    device_type_id = EXCLUDED.device_type_id,
+	mac_address = EXCLUDED.mac_address,
+    mtu = EXCLUDED.mtu,
+    gateway_address = EXCLUDED.gateway_address,
+    is_default_gateway = EXCLUDED.is_default_gateway,
+    is_auto_start = EXCLUDED.is_auto_start,
+    is_enabled = EXCLUDED.is_enabled,
+    virtual_port_type_id = EXCLUDED.virtual_port_type_id,
+    vlan_tag = EXCLUDED.vlan_tag`
+
+	stmt, err := st.Prepare(dml, devs[0])
 	if err != nil {
 		return errors.Errorf("preparing device insert statement: %w", err)
 	}
@@ -284,12 +299,23 @@ func (st *State) updateDNSAddresses(ctx context.Context, tx *sqlair.TX, rows []d
 	return nil
 }
 
-func (st *State) insertDeviceParents(ctx context.Context, tx *sqlair.TX, parents []deviceParent) error {
+func (st *State) updateDeviceParents(
+	ctx context.Context, tx *sqlair.TX, parents []linkLayerDeviceParent, devs uuids,
+) error {
+	stmt, err := st.Prepare("DELETE FROM link_layer_device_parent WHERE device_uuid IN ($uuids[:])", devs)
+	if err != nil {
+		return errors.Errorf("preparing device parent delete statement: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, devs).Run(); err != nil {
+		return errors.Errorf("running device parent delete statement: %w", err)
+	}
+
 	if len(parents) == 0 {
 		return nil
 	}
 
-	stmt, err := st.Prepare("INSERT INTO link_layer_device_parent (*) VALUES ($deviceParent.*)", parents[0])
+	stmt, err = st.Prepare("INSERT INTO link_layer_device_parent (*) VALUES ($linkLayerDeviceParent.*)", parents[0])
 	if err != nil {
 		return errors.Errorf("preparing device parent insert statement: %w", err)
 	}
@@ -347,6 +373,7 @@ func (st *State) getSubnetGroups(ctx context.Context, tx *sqlair.TX) (subnetGrou
 
 func (st *State) reconcileNetConfigAddresses(
 	ctx context.Context,
+	tx *sqlair.TX,
 	nodeUUID string,
 	nics []network.NetInterface,
 	nicNameToUUID map[string]string,
@@ -357,17 +384,23 @@ func (st *State) reconcileNetConfigAddresses(
 		newSubs  []subnet
 	)
 
-	for _, n := range nics {
-		// If we don't know this NIC, we can assume that it is a deletion candidate.
-		devUUID, ok := nicNameToUUID[n.Name]
-		if !ok {
-			continue
-		}
+	// Determine all the known UUIDs for incoming addresses,
+	// and generate new UUIDs for the others.
+	existingAddrs, err := st.getCurrentAddresses(ctx, tx, nodeUUID)
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
 
-		// As with the interfaces, this will really be formed by querying the
-		// existing addresses in addition to creating UUIDs for new ones.
+	for _, n := range nics {
+		devUUID := nicNameToUUID[n.Name]
+
 		addrToUUID := make(map[string]string, len(n.Addrs))
 		for _, a := range n.Addrs {
+			if existingAddr, ok := existingAddrs[a.AddressValue]; ok {
+				addrToUUID[a.AddressValue] = existingAddr.UUID
+				continue
+			}
+
 			addrUUID, err := network.NewAddressUUID()
 			if err != nil {
 				return nil, nil, errors.Capture(err)
@@ -376,27 +409,43 @@ func (st *State) reconcileNetConfigAddresses(
 		}
 
 		for _, a := range n.Addrs {
+			existingAddr := existingAddrs[a.AddressValue]
+
+			// We do not process addresses that are managed by the provider.
+			if existingAddr.OriginID != originMachine {
+				st.logger.Infof(ctx, "address %q for device %q is managed by the provider", a.AddressValue, n.Name)
+				continue
+			}
+
 			addrDML, err := netAddrToDML(a, nodeUUID, devUUID, addrToUUID)
 			if err != nil {
 				return nil, nil, errors.Capture(err)
 			}
 
-			subnetUUID, err := subs.subnetForIP(a.AddressValue)
-			if err != nil {
-				// TODO (manadart 2025-04-29): Figure out what to do with
-				// loopback addresses before making
-				// ip_address.subnet_uuid NOT NULL.
-				st.logger.Warningf(ctx, "determining subnet: %v", err)
+			// If the address already has a subnet UUID, we use it.
+			// Otherwise, we try to find a subnet by locating an existing subnet
+			// that contains it.
+			// If we cannot find a *unique* subnet for the address,
+			// we create a new /32 or /128 subnet in the alpha space and
+			// link this address to it.
+			// The instance-poller will attempt to reconcile the real subnet
+			// using the provider subnet ID subsequently.
+			var subnetUUID string
+			if existingAddr.SubnetUUID.Valid && existingAddr.SubnetUUID.String != "" {
+				subnetUUID = existingAddr.SubnetUUID.String
+			} else {
+				subnetUUID, err = subs.subnetForIP(a.AddressValue)
+				if err != nil {
+					// TODO (manadart 2025-04-29): Figure out what to do with
+					// loopback addresses before making
+					// ip_address.subnet_uuid NOT NULL.
+					st.logger.Warningf(ctx, "determining subnet: %v", err)
+				}
 			}
 
 			if subnetUUID != "" {
 				addrDML.SubnetUUID = &subnetUUID
 			} else if err == nil {
-				// If we cannot find a *unique* subnet for the address,
-				// we create a new /32 or /128 subnet in the alpha space and
-				// link this address to it.
-				// The instance-poller will attempt to reconcile the real subnet
-				// using the provider subnet ID subsequently.
 				ip, _, _ := net.ParseCIDR(a.AddressValue)
 				if ip == nil {
 					return nil, nil, errors.Errorf("invalid IP address %q", a.AddressValue)
@@ -429,6 +478,30 @@ func (st *State) reconcileNetConfigAddresses(
 	return addrsDML, newSubs, nil
 }
 
+func (st *State) getCurrentAddresses(
+	ctx context.Context, tx *sqlair.TX, nodeUUID string,
+) (map[string]ipAddressValue, error) {
+	nUUID := entityUUID{UUID: nodeUUID}
+
+	qry := "SELECT &ipAddressValue.* FROM ip_address WHERE net_node_uuid = $entityUUID.uuid"
+	stmt, err := st.Prepare(qry, nUUID, ipAddressValue{})
+	if err != nil {
+		return nil, errors.Errorf("preparing current addresses statement: %w", err)
+	}
+
+	var addrs []ipAddressValue
+	if err := tx.Query(ctx, stmt, nUUID).GetAll(&addrs); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Errorf("running current devices query: %w", err)
+	}
+
+	return transform.SliceToMap(addrs, func(d ipAddressValue) (string, ipAddressValue) {
+		return d.Value, d
+	}), nil
+}
+
 func (st *State) insertSubnets(ctx context.Context, tx *sqlair.TX, subs []subnet) error {
 	if len(subs) == 0 {
 		return nil
@@ -449,16 +522,29 @@ func (st *State) insertSubnets(ctx context.Context, tx *sqlair.TX, subs []subnet
 	return nil
 }
 
-func (st *State) insertIPAddresses(ctx context.Context, tx *sqlair.TX, addrs []ipAddressDML) error {
+func (st *State) upsertIPAddresses(ctx context.Context, tx *sqlair.TX, addrs []ipAddressDML) error {
 	// This guard is present in SetMachineNetConfig, but we play it safe.
 	if len(addrs) == 0 {
 		return nil
 	}
 
-	st.logger.Debugf(ctx, "inserting IP addresses %#v", addrs)
+	st.logger.Debugf(ctx, "updating IP addresses %#v", addrs)
 
-	stmt, err := st.Prepare(
-		"INSERT INTO ip_address (*) VALUES ($ipAddressDML.*)", addrs[0])
+	// We should already have filtered out addresses that are managed by the
+	// provider, but we play it safe here with the clause.
+	dml := `
+INSERT INTO ip_address (*) VALUES ($ipAddressDML.*)
+ON CONFLICT (uuid) DO UPDATE SET
+	address_value = EXCLUDED.address_value,
+	config_type_id = EXCLUDED.config_type_id,
+	type_id = EXCLUDED.type_id,
+	subnet_uuid = EXCLUDED.subnet_uuid,
+	scope_id = EXCLUDED.scope_id,
+	is_secondary = EXCLUDED.is_secondary,
+	is_shadow = EXCLUDED.is_shadow
+WHERE origin_id = 0`
+
+	stmt, err := st.Prepare(dml, addrs[0])
 	if err != nil {
 		return errors.Errorf("preparing address insert statement: %w", err)
 	}

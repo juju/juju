@@ -518,12 +518,17 @@ func encodeAddressConfigType(kind corenetwork.AddressConfigType) (int64, error) 
 	}
 }
 
+const (
+	originMachine  int64 = 0
+	originProvider int64 = 1
+)
+
 func encodeAddressOrigin(kind corenetwork.Origin) (int64, error) {
 	switch kind {
 	case corenetwork.OriginMachine:
-		return 0, nil
+		return originMachine, nil
 	case corenetwork.OriginProvider:
-		return 1, nil
+		return originProvider, nil
 	default:
 		return -1, errors.Errorf("unsupported address origin: %q", kind)
 	}
@@ -611,6 +616,21 @@ type linkLayerDevice struct {
 	VLAN            int            `db:"vlan_tag"`
 }
 
+// linkLayerDeviceName is used for identifying
+// known link-layer devices on a single node.
+type linkLayerDeviceName struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
+
+// ipAddressValue is used for identifying known IP addresses on a single node.
+type ipAddressValue struct {
+	UUID       string         `db:"uuid"`
+	Value      string         `db:"address_value"`
+	OriginID   int64          `db:"origin_id"`
+	SubnetUUID sql.NullString `db:"subnet_uuid"`
+}
+
 type linkLayerDeviceParent struct {
 	DeviceUUID string `db:"device_uuid"`
 	ParentUUID string `db:"parent_uuid"`
@@ -661,13 +681,6 @@ func (subs subnetGroups) subnetForIP(ip string) (string, error) {
 	}
 
 	return "", errors.Errorf("no subnet found for IP %q", ip)
-}
-
-type deviceParent struct {
-	// DeviceUUID is the UUID of the device.
-	DeviceUUID string `db:"device_uuid"`
-	// ParentUUID is the UUID of the parent device.
-	ParentUUID string `db:"parent_uuid"`
 }
 
 type spaceAddress struct {

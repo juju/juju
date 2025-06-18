@@ -129,53 +129,6 @@ func (s *linkLayerSuite) TestGetMachineNetNodeUUIDNotFoundError(c *tc.C) {
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-// TODO (manadart 2025-05-26) this test is temporary.
-// Future changes will reconcile existing devices and update them.
-func (s *linkLayerSuite) TestSetMachineNetConfigAlreadySet(c *tc.C) {
-	db := s.DB()
-
-	// Arrange
-	nodeUUID := "net-node-uuid"
-	devName := "eth0"
-
-	ctx := c.Context()
-
-	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	insertLLD := `
-INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
-VALUES (?, ?, ?, ?, ?, ?, ?)`
-
-	_, err = db.ExecContext(ctx, insertLLD, "dev-uuid", nodeUUID, devName, 1500, "00:11:22:33:44:55", 0, 0)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Act
-	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{Name: "eth1"}})
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-
-	rows, err := db.QueryContext(ctx, "SELECT name FROM link_layer_device")
-	c.Assert(err, tc.ErrorIsNil)
-	defer func() { _ = rows.Close() }()
-
-	var (
-		name  string
-		count int
-	)
-
-	for rows.Next() {
-		err = rows.Scan(&name)
-		c.Assert(err, tc.ErrorIsNil)
-		count++
-	}
-
-	c.Assert(count, tc.Equals, 1)
-	// Incoming device "eth1" was ignored.
-	c.Check(name, tc.Equals, "eth0")
-}
-
 func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 	db := s.DB()
 
@@ -194,7 +147,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{{
 		Name:            devName,
 		Type:            corenetwork.EthernetDevice,
 		VirtualPortType: corenetwork.NonVirtualPort,
@@ -243,7 +196,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
 	}
 
 	// Act
-	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{{
 		Name:            devName,
 		Type:            corenetwork.EthernetDevice,
 		VirtualPortType: corenetwork.NonVirtualPort,
@@ -294,7 +247,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{{
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{{
 		Name:            devName,
 		Type:            corenetwork.EthernetDevice,
 		VirtualPortType: corenetwork.NonVirtualPort,
@@ -316,6 +269,38 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	c.Check(addrCount, tc.Equals, 0)
 }
 
+func (s *linkLayerSuite) TestSetMachineNetConfigUpdatedNIC(c *tc.C) {
+	db := s.DB()
+
+	// Arrange
+	nodeUUID := "net-node-uuid"
+	devName := "eth0"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: insert then update.
+	nic := network.NetInterface{
+		Name:            devName,
+		Type:            corenetwork.EthernetDevice,
+		VirtualPortType: corenetwork.NonVirtualPort,
+		IsAutoStart:     true,
+		IsEnabled:       true,
+	}
+
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{nic})
+	c.Assert(err, tc.ErrorIsNil)
+
+	nic.VLANTag = uint64(30)
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{nic})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	checkScalarResult(c, db, "SELECT vlan_tag FROM link_layer_device", "30")
+}
+
 func (s *linkLayerSuite) TestSetMachineNetConfigWithParentDevices(c *tc.C) {
 	db := s.DB()
 
@@ -330,7 +315,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigWithParentDevices(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = s.state.SetMachineNetConfig(ctx, "net-node-uuid", []network.NetInterface{
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{
 		{
 			Name:             devName,
 			Type:             corenetwork.EthernetDevice,
@@ -359,6 +344,161 @@ FROM   link_layer_device AS dp
 WHERE  dc.name = 'eth0'`
 
 	checkScalarResult(c, db, parentSQL, brName)
+}
+
+func (s *linkLayerSuite) TestSetMachineNetConfigUpdateConfigType(c *tc.C) {
+	db := s.DB()
+
+	// Arrange
+	nodeUUID := "net-node-uuid"
+	devName := "eth0"
+	subnetUUID := "subnet-uuid"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)",
+		subnetUUID, "192.168.0.0/24", corenetwork.AlphaSpaceId)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Set a device and address then set again with a
+	// different address config type.
+	netConfig := []network.NetInterface{{
+		Name:            devName,
+		Type:            corenetwork.EthernetDevice,
+		VirtualPortType: corenetwork.NonVirtualPort,
+		IsAutoStart:     true,
+		IsEnabled:       true,
+		Addrs: []network.NetAddr{{
+			InterfaceName: devName,
+			AddressValue:  "192.168.0.50/24",
+			AddressType:   corenetwork.IPv4Address,
+			ConfigType:    corenetwork.ConfigDHCP,
+			Origin:        corenetwork.OriginMachine,
+			Scope:         corenetwork.ScopeCloudLocal,
+		}},
+		DNSSearchDomains: []string{"search.maas.net"},
+		DNSAddresses:     []string{"8.8.8.8"},
+	}}
+
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
+	c.Assert(err, tc.ErrorIsNil)
+
+	netConfig[0].Addrs[0].ConfigType = corenetwork.ConfigStatic
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	checkScalarResult(c, db, "SELECT config_type_id FROM ip_address", "4")
+}
+
+func (s *linkLayerSuite) TestSetMachineNetConfigUpdateProviderAddressUnchanged(c *tc.C) {
+	db := s.DB()
+
+	// Arrange
+	nodeUUID := "net-node-uuid"
+	devName := "eth0"
+	subnetUUID := "subnet-uuid"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)",
+		subnetUUID, "192.168.0.0/24", corenetwork.AlphaSpaceId)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Set a device and address, give it a provider origin,
+	// then attempt to update the address with a different config type.
+	netConfig := []network.NetInterface{{
+		Name:            devName,
+		Type:            corenetwork.EthernetDevice,
+		VirtualPortType: corenetwork.NonVirtualPort,
+		IsAutoStart:     true,
+		IsEnabled:       true,
+		Addrs: []network.NetAddr{{
+			InterfaceName: devName,
+			AddressValue:  "192.168.0.50/24",
+			AddressType:   corenetwork.IPv4Address,
+			ConfigType:    corenetwork.ConfigDHCP,
+			Origin:        corenetwork.OriginMachine,
+			Scope:         corenetwork.ScopeCloudLocal,
+		}},
+		DNSSearchDomains: []string{"search.maas.net"},
+		DNSAddresses:     []string{"8.8.8.8"},
+	}}
+
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, "UPDATE ip_address SET origin_id = 1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	netConfig[0].Addrs[0].ConfigType = corenetwork.ConfigStatic
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
+
+	// Assert: address with provider origin is unchanged.
+	c.Assert(err, tc.ErrorIsNil)
+
+	checkScalarResult(c, db, "SELECT config_type_id FROM ip_address", "1")
+}
+
+func (s *linkLayerSuite) TestSetMachineNetConfigLinkedSubnetWithDifferentCIDRNotUpdated(c *tc.C) {
+	db := s.DB()
+
+	// Arrange
+	nodeUUID := "net-node-uuid"
+	devName := "eth0"
+	subnetUUID := "subnet-uuid"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)",
+		subnetUUID, "192.168.0.0/24", corenetwork.AlphaSpaceId)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Set a device and address, change its linked subnet's CIDR,
+	// then attempt to update the address.
+	netConfig := []network.NetInterface{{
+		Name:            devName,
+		Type:            corenetwork.EthernetDevice,
+		VirtualPortType: corenetwork.NonVirtualPort,
+		IsAutoStart:     true,
+		IsEnabled:       true,
+		Addrs: []network.NetAddr{{
+			InterfaceName: devName,
+			AddressValue:  "192.168.0.50/24",
+			AddressType:   corenetwork.IPv4Address,
+			ConfigType:    corenetwork.ConfigDHCP,
+			Origin:        corenetwork.OriginMachine,
+			Scope:         corenetwork.ScopeCloudLocal,
+		}},
+		DNSSearchDomains: []string{"search.maas.net"},
+		DNSAddresses:     []string{"8.8.8.8"},
+	}}
+
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, "UPDATE subnet SET cidr = '192.168.5.0/24'")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
+
+	// Assert: address subnet is unchanged.
+	// This is contrived, but it ensures that an address already linked to a
+	// subnet does not add a /32 or /128 CIDR just because network matching
+	// does not place the address in the subnet.
+	c.Assert(err, tc.ErrorIsNil)
+
+	checkScalarResult(c, db, "SELECT subnet_uuid FROM ip_address", subnetUUID)
 }
 
 func checkScalarResult(c *tc.C, db *sql.DB, query string, expected string) {
