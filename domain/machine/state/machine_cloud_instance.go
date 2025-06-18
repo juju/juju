@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// HardwareCharacteristics returns the hardware characteristics struct with
+// GetHardwareCharacteristics returns the hardware characteristics struct with
 // data retrieved from the machine cloud instance table.
-func (st *State) HardwareCharacteristics(
+func (st *State) GetHardwareCharacteristics(
 	ctx context.Context,
 	machineUUID machine.UUID,
 ) (*instance.HardwareCharacteristics, error) {
@@ -334,10 +334,10 @@ WHERE machine_uuid=$machineUUID.uuid
 	})
 }
 
-// InstanceID returns the cloud specific instance id for this machine.
+// GetInstanceID returns the cloud specific instance id for this machine.
 // If the machine is not provisioned, it returns a
 // [machineerrors.NotProvisionedError].
-func (st *State) InstanceID(ctx context.Context, mUUID machine.UUID) (string, error) {
+func (st *State) GetInstanceID(ctx context.Context, mUUID machine.UUID) (string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -381,11 +381,11 @@ WHERE  machine_uuid = $machineUUID.uuid;`
 	return result.ID, nil
 }
 
-// InstanceIDAndName returns the cloud specific instance ID and display name for
+// GetInstanceIDAndName returns the cloud specific instance ID and display name for
 // this machine.
 // If the machine is not provisioned, it returns a
 // [machineerrors.NotProvisionedError].
-func (st *State) InstanceIDAndName(ctx context.Context, mUUID machine.UUID) (string, string, error) {
+func (st *State) GetInstanceIDAndName(ctx context.Context, mUUID machine.UUID) (string, string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", "", errors.Capture(err)

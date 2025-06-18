@@ -234,3 +234,11 @@ type machinePlacement struct {
 	ScopeID     int          `db:"scope_id"`
 	Directive   string       `db:"directive"`
 }
+
+type exportMachine struct {
+	Name         string `db:"name"`
+	UUID         string `db:"uuid"`
+	LifeID       int    `db:"life_id"`
+	Nonce        string `db:"nonce"`
+	PasswordHash string `db:"password_hash"`
+}

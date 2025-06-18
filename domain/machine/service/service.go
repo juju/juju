@@ -65,12 +65,12 @@ type State interface {
 	// If there's no machine, it returns an empty slice.
 	AllMachineNames(context.Context) ([]machine.Name, error)
 
-	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(context.Context, machine.UUID) (string, error)
+	// GetInstanceID returns the cloud specific instance id for this machine.
+	GetInstanceID(context.Context, machine.UUID) (string, error)
 
-	// InstanceIDAndName returns the cloud specific instance ID and display name
+	// GetInstanceIDAndName returns the cloud specific instance ID and display name
 	// for this machine.
-	InstanceIDAndName(ctx context.Context, mUUID machine.UUID) (string, string, error)
+	GetInstanceIDAndName(ctx context.Context, mUUID machine.UUID) (string, string, error)
 
 	// GetInstanceStatus returns the cloud specific instance status for this
 	// machine.
@@ -92,9 +92,9 @@ type State interface {
 	// It returns MachineNotFound if the machine does not exist.
 	SetMachineStatus(context.Context, machine.Name, domainstatus.StatusInfo[domainstatus.MachineStatusType]) error
 
-	// HardwareCharacteristics returns the hardware characteristics struct with
+	// GetHardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
-	HardwareCharacteristics(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)
 
 	// AvailabilityZone returns the availability zone for the specified machine.
 	AvailabilityZone(context.Context, machine.UUID) (string, error)

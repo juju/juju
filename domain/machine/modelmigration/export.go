@@ -13,7 +13,8 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/domain"
+	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/machine/state"
@@ -31,18 +32,14 @@ func RegisterExport(coordinator Coordinator, clock clock.Clock, logger logger.Lo
 // ExportService defines the machine service used to export machines to
 // another controller model to this controller.
 type ExportService interface {
-	// AllMachineNames returns the names of all machines in the model.
-	AllMachineNames(ctx context.Context) ([]coremachine.Name, error)
+	// GetMachines returns all the machines in the model.
+	GetMachines(ctx context.Context) ([]machine.ExportMachine, error)
 	// InstanceID returns the cloud specific instance id for this machine.
 	// If the machine is not provisioned, it returns a NotProvisionedError.
 	InstanceID(ctx context.Context, machineUUID coremachine.UUID) (instance.Id, error)
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	HardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
-	// GetMachineUUID returns the UUID of a machine identified by its name.
-	// It returns a [github.com/juju/juju/domain/machine/errors.MachineNotFound]
-	// if the machine does not exist.
-	GetMachineUUID(ctx context.Context, name coremachine.Name) (coremachine.UUID, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -61,9 +58,8 @@ func (e *exportOperation) Name() string {
 }
 
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
-	e.service = service.NewService(
+	e.service = service.NewMigrationService(
 		state.NewState(scope.ModelDB(), e.clock, e.logger),
-		domain.NewStatusHistory(e.logger, e.clock),
 		e.clock,
 		e.logger,
 	)
@@ -71,20 +67,21 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 }
 
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	machines, err := e.service.G
 
 	for _, machine := range model.Machines() {
-		// TODO(nvinuesa): We must check if the machine cloud instance is already
-		// set and in that case don't overwrite anything. This check can be removed
-		// once we fully move machines over to dqlite.
-		if instance := machine.Instance(); instance != nil {
-			continue
-		}
-
 		machineName := coremachine.Name(machine.Id())
 		machineUUID, err := e.service.GetMachineUUID(ctx, machineName)
 		if err != nil {
 			return errors.Errorf("retrieving instance ID for machine %q: %w", machineName, err)
 		}
+
+		machine.SetNonce()
+		machine.SetPasswordHash()
+
 		instanceID, err := e.service.InstanceID(ctx, machineUUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {
 			// TODO(nvinuesa): Here we should remove the machine from the
