@@ -6,6 +6,7 @@ package eventmultiplexer
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"gopkg.in/tomb.v2"
@@ -34,20 +35,24 @@ type requestSubscriptionResult struct {
 // subscription represents a subscriber in the event queue. It holds a tomb, so
 // that we can tie the lifecycle of a subscription to the event queue.
 type subscription struct {
-	tomb tomb.Tomb
-	id   uint64
+	tomb      tomb.Tomb
+	id        uint64
+	unsubOnce sync.Once
 
-	topics        map[string]struct{}
-	changes       chan ChangeSet
-	unsubscribeFn func()
+	topics  map[string]struct{}
+	changes chan ChangeSet
+
+	dispatchTimout time.Duration
+	unsubscribeFn  func()
 }
 
 func newSubscription(id uint64, unsubscribeFn func()) *subscription {
 	sub := &subscription{
-		id:            id,
-		changes:       make(chan ChangeSet),
-		topics:        make(map[string]struct{}),
-		unsubscribeFn: unsubscribeFn,
+		id:             id,
+		changes:        make(chan ChangeSet),
+		topics:         make(map[string]struct{}),
+		dispatchTimout: DefaultSignalTimeout,
+		unsubscribeFn:  unsubscribeFn,
 	}
 
 	sub.tomb.Go(sub.loop)
@@ -61,11 +66,9 @@ func newSubscription(id uint64, unsubscribeFn func()) *subscription {
 // whilst the dispatch signalling, the unsubscribe will happen after all
 // dispatches have been called.
 func (s *subscription) Unsubscribe() {
-	select {
-	case <-s.tomb.Dying():
-	default:
+	s.unsubOnce.Do(func() {
 		s.unsubscribeFn()
-	}
+	})
 }
 
 // Changes returns the channel that the subscription will receive events on.
@@ -96,28 +99,24 @@ func (s *subscription) loop() error {
 }
 
 func (s *subscription) dispatch(ctx context.Context, changes ChangeSet) error {
-	ctx, cancel := context.WithTimeout(ctx, DefaultSignalTimeout)
+	ctx, cancel := context.WithTimeout(ctx, s.dispatchTimout)
 	defer cancel()
 
 	select {
 	case <-s.tomb.Dying():
 		return tomb.ErrDying
-
 	case <-ctx.Done():
-		// If the context was timed out, which means that nothing was pulling
-		// the change off from the channel. Then in this scenario it better that
-		// the listener is unsubscribed from any future events and will be
-		// notified via the done channel. The listener will still have the
-		// opportunity to resubscribe in the future. They're just no longer
-		// par-taking in this term whilst they're unresponsive.
-		if err := ctx.Err(); err != nil && errors.Is(err, context.DeadlineExceeded) {
-			s.Unsubscribe()
+		// If the subscriber is not consuming changes in a timely manner,
+		// we will kill the subscription.
+		// This will cause the watcher's loop to exit, at which point it
+		// will call the unsubscribe function.
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			s.Kill()
 		}
-
+		return ctx.Err()
 	case s.changes <- changes:
-
+		return nil
 	}
-	return nil
 }
 
 // close closes the active channel, which will signal to the consumer that the

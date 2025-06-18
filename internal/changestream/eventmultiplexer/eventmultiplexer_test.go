@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/core/changestream"
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testing"
 )
 
 const (
@@ -502,6 +502,55 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 	}
 
 	workertest.CleanKill(c, queue)
+}
+
+func (s *eventMultiplexerSuite) TestUnsubscribeOnDispatchTimeout(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectStreamDying(make(<-chan struct{}))
+
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
+
+	s.metrics.EXPECT().SubscriptionsInc()
+
+	// This is important. We should see this occur as a result of the
+	// Unsubscribe call.
+	s.metrics.EXPECT().SubscriptionsDec()
+	s.clock.EXPECT().Now().AnyTimes()
+
+	// The dispatch should be observed as a failure.
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), true).AnyTimes()
+
+	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, queue)
+
+	sub, err := queue.Subscribe()
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Shorten the dispatch timeout in order to trigger Unsubscribe sooner.
+	sub.(*subscription).dispatchTimout = testing.ShortWait
+
+	s.term.EXPECT().Changes().Return([]changestream.ChangeEvent{changeEvent{
+		ctype:   changestreamtesting.Create,
+		ns:      "topic",
+		changed: "1",
+	}})
+
+	// We are not reading the subscription's changes channel,
+	// but we expect the sub to be cancelled and the term dispatch completed.
+	s.term.EXPECT().Done(false, gomock.Any())
+	s.dispatchTerm(c, terms)
+
+	// The subscription should have been unsubscribed due to the timeout.
+	select {
+	case <-sub.Done():
+		// This simulates what an upstream subscriber would do.
+		sub.Unsubscribe()
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for subscription to be done")
+	}
 }
 
 func (s *eventMultiplexerSuite) TestStreamDying(c *tc.C) {
