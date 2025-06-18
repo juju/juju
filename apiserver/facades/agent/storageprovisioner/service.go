@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -76,4 +77,17 @@ type ApplicationService interface {
 	// WatchApplications returns a watcher that emits application uuids
 	// when applications are added or removed.
 	WatchApplications(ctx context.Context) (watcher.StringsWatcher, error)
+}
+
+// StorageStatusService provides methods to set filesystem and volume status.
+type StorageStatusService interface {
+	// SetFilesystemStatus saves the given volume status, overwriting any
+	// current status data. If returns an error satisfying
+	// [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
+	SetFilesystemStatus(ctx context.Context, filesystemID string, statusInfo corestatus.StatusInfo) error
+
+	// SetVolumeStatus saves the given volume status, overwriting any
+	// current status data. If returns an error satisfying
+	// [storageerrors.VolumeNotFound] if the volume doesn't exist.
+	SetVolumeStatus(ctx context.Context, volumeID string, statusInfo corestatus.StatusInfo) error
 }
