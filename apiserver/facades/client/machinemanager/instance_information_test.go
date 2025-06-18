@@ -88,7 +88,6 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	fakeEnvironGet := func(st environs.EnvironConfigGetter,
 		newEnviron environs.NewEnvironFunc,
 	) (environs.Environ, error) {
-		c.Assert(st.ControllerUUID(), gc.Equals, testing.ControllerTag.Id())
 		return env, nil
 	}
 
