@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/agent/machine"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -145,11 +146,8 @@ func (s *machinerSuite) TestLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
-	err := s.machine1.EnsureDead()
-	c.Assert(err, tc.ErrorIsNil)
-	err = s.machine1.Refresh()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.machine1.Life(), tc.Equals, state.Dead)
+	exp := s.machineService.EXPECT()
+	exp.GetMachineLife(gomock.Any(), coremachine.Name("1")).Return(life.Dead, nil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-1"},
