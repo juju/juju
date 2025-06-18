@@ -116,7 +116,7 @@ type ApplicationStorageArg struct {
 type StorageDirectiveArg struct {
 	// Count represents the number of storage instances that should be made for
 	// this directive.
-	Count uint64
+	Count uint32
 
 	// Name relates to the charm storage name definition and must match up.
 	Name domainstorage.Name

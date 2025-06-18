@@ -54,7 +54,7 @@ type AddApplicationArgs struct {
 	// for the application as a map of storage name to overrides. Each name in
 	// the map must match a storage name in the charm. Any other value will be
 	// an error.
-	StorageDirectiveOverrides map[string]AddApplicationStorageDirectiveArg
+	StorageDirectiveOverrides map[string]ApplicationStorageDirectiveOverride
 
 	// DownloadInfo contains the download information for the charm.
 	DownloadInfo *domaincharm.DownloadInfo
@@ -96,18 +96,18 @@ type AddApplicationArgs struct {
 	IsController bool
 }
 
-// AddApplicationStorageDirectiveArg defines a single storage directive to
-// accompany an application when it is being added. Typically, this is supplied
-// by the caller when the user whishes to set explicitly storage directive
-// parameters of the application.
+// ApplicationStorageDirectiveOverride defines a single set of overrides for a
+// storage directive to accompany an application when it is being added.
+// Typically, this is supplied by the caller when the user whishes to set
+// explicitly storage directive parameters of the application.
 //
 // Each value in this struct is optional and only when a value that is non nil
 // has been supplied will it be used to override the defaults.
-type AddApplicationStorageDirectiveArg struct {
+type ApplicationStorageDirectiveOverride struct {
 	// Count is the number of storage instances to create for each unit. This
 	// value must be greater or equal to the minimum defined by the charm. This
 	// value must also be less or equal to the maximum defined by the charm.
-	Count *uint64
+	Count *uint32
 
 	// ProviderType defines the type of the provider to use when provisioning
 	// storage for this directive. Only
