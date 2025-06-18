@@ -1145,11 +1145,6 @@ func (st *State) AssignStagedUnits(
 	return results, nil
 }
 
-// AllUnitAssignments returns all staged unit assignments in the model.
-func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
-	return st.unitAssignments(nil)
-}
-
 func (st *State) unitAssignments(query bson.D) ([]UnitAssignment, error) {
 	col, closer := st.db().GetCollection(assignUnitC)
 	defer closer()
@@ -1216,7 +1211,7 @@ func (st *State) AssignUnitWithPlacement(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return unit.AssignToMachine(m)
+	return unit.assignToMachine(m)
 }
 
 // placementData is a helper type that encodes some of the logic behind how an
@@ -1272,7 +1267,7 @@ func (st *State) addMachineWithPlacement(
 	data *placementData,
 	lookup network.SpaceInfos,
 ) (*Machine, error) {
-	unitCons, err := unit.Constraints()
+	unitCons, err := unit.constraints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1288,7 +1283,7 @@ func (st *State) addMachineWithPlacement(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bindings, err := app.EndpointBindings()
+	bindings, err := app.endpointBindings()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1357,7 +1352,7 @@ func (st *State) addMachineWithPlacement(
 		return st.AddMachineInsideNewMachine(template, template, data.containerType)
 	case directivePlacement:
 		return nil, errors.NotSupportedf(
-			"programming error: directly adding a machine for %s with a non-machine placement directive", unit.Name())
+			"programming error: directly adding a machine for %s with a non-machine placement directive", unit.name())
 	default:
 		return machine, nil
 	}
@@ -1380,22 +1375,6 @@ func (st *State) Application(name string) (_ *Application, err error) {
 		return nil, errors.Annotatef(err, "cannot get application %q", name)
 	}
 	return newApplication(st, sdoc), nil
-}
-
-// AllApplications returns all deployed applications in the model.
-func (st *State) AllApplications() (applications []*Application, err error) {
-	applicationsCollection, closer := st.db().GetCollection(applicationsC)
-	defer closer()
-
-	sdocs := []applicationDoc{}
-	err = applicationsCollection.Find(bson.D{}).All(&sdocs)
-	if err != nil {
-		return nil, errors.Errorf("cannot get all applications")
-	}
-	for _, v := range sdocs {
-		applications = append(applications, newApplication(st, &v))
-	}
-	return applications, nil
 }
 
 // Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect
@@ -1436,11 +1415,11 @@ func (st *State) Unit(name string) (*Unit, error) {
 func (st *State) AssignUnit(
 	u *Unit,
 ) (err error) {
-	if !u.IsPrincipal() {
+	if !u.isPrincipal() {
 		return errors.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
 	defer errors.DeferredAnnotatef(&err, "cannot assign unit %q to machine", u)
-	return errors.Trace(u.AssignToNewMachine())
+	return errors.Trace(u.assignToNewMachine(""))
 }
 
 // SetAdminMongoPassword sets the administrative password

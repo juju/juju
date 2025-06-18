@@ -7,7 +7,6 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -26,11 +25,9 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/configschema"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
-	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -471,41 +468,6 @@ func (a *Application) CharmModifiedVersion() int {
 // in an error state.
 func (a *Application) CharmURL() (*string, bool) {
 	return a.doc.CharmURL, a.doc.ForceCharm
-}
-
-// Endpoints returns the application's currently available relation endpoints.
-func (a *Application) Endpoints() (eps []relation.Endpoint, err error) {
-	ch, _, err := a.charm()
-	if err != nil {
-		return nil, err
-	}
-	collect := func(role charm.RelationRole, rels map[string]charm.Relation) {
-		for _, rel := range rels {
-			eps = append(eps, relation.Endpoint{
-				ApplicationName: a.doc.Name,
-				Relation:        rel,
-			})
-		}
-	}
-
-	meta := ch.Meta()
-	if meta == nil {
-		return nil, errors.Errorf("nil charm metadata for application %q", a.Name())
-	}
-
-	collect(charm.RolePeer, meta.Peers)
-	collect(charm.RoleProvider, meta.Provides)
-	collect(charm.RoleRequirer, meta.Requires)
-	collect(charm.RoleProvider, map[string]charm.Relation{
-		"juju-info": {
-			Name:      "juju-info",
-			Role:      charm.RoleProvider,
-			Interface: "juju-info",
-			Scope:     charm.ScopeGlobal,
-		},
-	})
-	sort.Sort(epSlice(eps))
-	return eps, nil
 }
 
 func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []*Unit) (_ []txn.Op, err error) {
@@ -1695,10 +1657,10 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	return onAbort(a.st.db().RunTransaction(ops), applicationNotAliveErr)
 }
 
-// EndpointBindings returns the mapping for each endpoint name and the space
+// endpointBindings returns the mapping for each endpoint name and the space
 // ID it is bound to (or empty if unspecified). When no bindings are stored
 // for the application, defaults are returned.
-func (a *Application) EndpointBindings() (*Bindings, error) {
+func (a *Application) endpointBindings() (*Bindings, error) {
 	// We don't need the TxnRevno below.
 	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
 	if err != nil && !errors.Is(err, errors.NotFound) {
@@ -1790,34 +1752,6 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 	return ops, nil
 }
 
-// SetPassword sets the password for the application's agent.
-// TODO(caas) - consider a separate CAAS application entity
-func (a *Application) SetPassword(password string) error {
-	if len(password) < internalpassword.MinAgentPasswordLength {
-		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
-	}
-	passwordHash := internalpassword.AgentPasswordHash(password)
-	ops := []txn.Op{{
-		C:      applicationsC,
-		Id:     a.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
-	}}
-	err := a.st.db().RunTransaction(ops)
-	if err != nil {
-		return fmt.Errorf("cannot set password of application %q: %v", a, onAbort(err, stateerrors.ErrDead))
-	}
-	a.doc.PasswordHash = passwordHash
-	return nil
-}
-
-// PasswordValid returns whether the given password is valid
-// for the given application.
-func (a *Application) PasswordValid(password string) bool {
-	agentHash := internalpassword.AgentPasswordHash(password)
-	return agentHash == a.doc.PasswordHash
-}
-
 // UnitUpdateProperties holds information used to update
 // the state model for the unit.
 type UnitUpdateProperties struct {
@@ -1884,16 +1818,6 @@ func (op *UpdateUnitsOperation) Done(err error) error {
 	return nil
 }
 
-// AddOperation returns a model operation that will add a unit.
-func (a *Application) AddOperation(
-	props UnitUpdateProperties,
-) *AddUnitOperation {
-	return &AddUnitOperation{
-		application: &Application{st: a.st, doc: a.doc},
-		props:       props,
-	}
-}
-
 // AddUnitOperation is a model operation that will add a unit.
 type AddUnitOperation struct {
 	application *Application
@@ -1953,18 +1877,8 @@ func (op *AddUnitOperation) Done(err error) error {
 	return nil
 }
 
-// ServiceInfo returns information about this application's cloud service.
-// This is only used for CAAS models.
-func (a *Application) ServiceInfo() (CloudServicer, error) {
-	svc, err := a.st.CloudService(a.Name())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return svc, nil
-}
-
-// UnitCount returns the of number of units for this application.
-func (a *Application) UnitCount() int {
+// unitCount returns the of number of units for this application.
+func (a *Application) unitCount() int {
 	return a.doc.UnitCount
 }
 

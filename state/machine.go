@@ -747,7 +747,7 @@ func (m *Machine) assessCanDieUnit(principalUnit string) (bool, error) {
 	if err != nil {
 		return false, errors.Annotatef(err, "reading machine %s principal unit application %v", m, u.doc.Application)
 	}
-	if u.Life() == Alive && app.Life() == Alive {
+	if u.life() == Alive && app.Life() == Alive {
 		canDie = false
 	}
 	return canDie, nil
@@ -1001,19 +1001,19 @@ func (m *Machine) SetModificationStatus(sInfo status.StatusInfo) (err error) {
 // ApplicationNames returns the names of applications
 // represented by units running on the machine.
 func (m *Machine) ApplicationNames() ([]string, error) {
-	units, err := m.Units()
+	units, err := m.units()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	apps := set.NewStrings()
 	for _, unit := range units {
-		apps.Add(unit.ApplicationName())
+		apps.Add(unit.applicationName())
 	}
 	return apps.SortedValues(), nil
 }
 
-// Units returns all the units that have been assigned to the machine.
-func (m *Machine) Units() (units []*Unit, err error) {
+// units returns all the units that have been assigned to the machine.
+func (m *Machine) units() (units []*Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get units assigned to machine %v", m)
 	unitsCollection, closer := m.st.db().GetCollection(unitsC)
 	defer closer()

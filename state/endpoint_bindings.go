@@ -245,7 +245,7 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 	ops = append(ops, txn.Op{
 		C:      applicationsC,
 		Id:     b.app.doc.DocID,
-		Assert: bson.D{{"unitcount", b.app.UnitCount()}},
+		Assert: bson.D{{"unitcount", b.app.unitCount()}},
 	})
 
 	// Prepare the update operations.

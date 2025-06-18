@@ -36,7 +36,6 @@ type ModelManagerBackend interface {
 	GetBackend(string) (ModelManagerBackend, func() bool, error)
 
 	ControllerNodes() ([]ControllerNode, error)
-	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	AllMachines() (machines []Machine, err error)
 	AllFilesystems() ([]state.Filesystem, error)
@@ -246,28 +245,6 @@ func (st modelManagerStateShim) AllMachines() ([]Machine, error) {
 	all := make([]Machine, len(allStateMachines))
 	for i, m := range allStateMachines {
 		all[i] = machineShim{m}
-	}
-	return all, nil
-}
-
-// Application defines methods provided by a state.Application instance.
-type Application interface {
-	Name() string
-	UnitCount() int
-}
-
-type applicationShim struct {
-	*state.Application
-}
-
-func (st modelManagerStateShim) AllApplications() ([]Application, error) {
-	allStateApplications, err := st.State.AllApplications()
-	if err != nil {
-		return nil, err
-	}
-	all := make([]Application, len(allStateApplications))
-	for i, a := range allStateApplications {
-		all[i] = applicationShim{a}
 	}
 	return all, nil
 }

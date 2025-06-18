@@ -22,7 +22,7 @@ type addStorageForUnitOperation struct {
 // Build implements ModelOperation.
 func (op *addStorageForUnitOperation) Build(attempt int) ([]txn.Op, error) {
 	if attempt > 0 {
-		if err := op.u.Refresh(); err != nil {
+		if err := op.u.refresh(); err != nil {
 			return nil, errors.Annotatef(err, "adding %q storage to %s", op.storageName, op.u)
 		}
 	}
