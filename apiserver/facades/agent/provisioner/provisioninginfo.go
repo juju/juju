@@ -68,6 +68,10 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 	return result, nil
 }
 
+func intPtr(i uint64) *uint64 {
+	return &i
+}
+
 func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	env environs.Environ,
 	spaceInfos network.SpaceInfos,
@@ -91,6 +95,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving machine constraints")
 	}
+
 	machineSpaces, err := api.machineSpaces(cons, spaceInfos, endpointBindings)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -122,6 +127,10 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 	if result.Constraints, err = m.Constraints(); err != nil {
 		return result, errors.Trace(err)
 	}
+
+	// Hardcode charm mem constraints to 64MB
+	result.CharmConstraints = result.Constraints
+	result.CharmConstraints.Mem = intPtr(64)
 
 	// The root disk source constraint might refer to a storage pool.
 	if result.Constraints.HasRootDiskSource() {

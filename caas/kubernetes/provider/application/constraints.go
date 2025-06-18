@@ -18,26 +18,31 @@ import (
 )
 
 // ConstraintApplier defines the function type for configuring constraint for a pod.
-type ConstraintApplier func(pod *core.PodSpec, resourceName core.ResourceName, value string) error
+type ConstraintApplier func(pod *core.PodSpec, resourceName core.ResourceName, workloadConsVal string, charmConsVal string) error
 
 // ApplyConstraints applies the specified constraints to the pod.
-func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value, configureConstraint ConstraintApplier) error {
+func ApplyConstraints(pod *core.PodSpec, appName string, workloadConstraints constraints.Value, charmConstraints constraints.Value, configureConstraint ConstraintApplier) error {
 	// TODO(allow resource limits to be applied to each container).
 	// For now we only do resource requests, one container is sufficient for
 	// scheduling purposes.
-	if mem := cons.Mem; mem != nil {
-		if err := configureConstraint(pod, core.ResourceMemory, fmt.Sprintf("%dMi", *mem)); err != nil {
+	workLoadConstraintsMem := workloadConstraints.Mem
+	charmConstraintsMem := charmConstraints.Mem
+	if workLoadConstraintsMem != nil && charmConstraintsMem != nil {
+		if err := configureConstraint(pod, core.ResourceMemory, fmt.Sprintf("%dMi", *workLoadConstraintsMem), fmt.Sprintf("%dMi", *charmConstraintsMem)); err != nil {
 			return errors.Annotatef(err, "configuring memory constraint for %s", appName)
 		}
 	}
-	if cpu := cons.CpuPower; cpu != nil {
-		if err := configureConstraint(pod, core.ResourceCPU, fmt.Sprintf("%dm", *cpu)); err != nil {
+
+	workLoadConstraintsCPU := workloadConstraints.CpuPower
+	charmConstraintsCPU := charmConstraints.CpuPower
+	if workLoadConstraintsCPU != nil && charmConstraintsCPU != nil {
+		if err := configureConstraint(pod, core.ResourceCPU, fmt.Sprintf("%dm", *workLoadConstraintsCPU), fmt.Sprintf("%dm", *charmConstraintsCPU)); err != nil {
 			return errors.Annotatef(err, "configuring cpu constraint for %s", appName)
 		}
 	}
 	nodeSelector := map[string]string(nil)
-	if cons.HasArch() {
-		cpuArch := *cons.Arch
+	if workloadConstraints.HasArch() {
+		cpuArch := *workloadConstraints.Arch
 		cpuArch = arch.NormaliseArch(cpuArch)
 		// Convert to Golang arch string
 		switch cpuArch {
@@ -66,9 +71,9 @@ func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value,
 	// Tag names are prefixed with "pod.", "anti-pod.", or "node."
 	// with the default being "node".
 	// The tag 'topology-key', if set, is used for the affinity topology key value.
-	if cons.Tags != nil {
+	if workloadConstraints.Tags != nil {
 		affinityLabels := make(map[string]string)
-		for _, labelPair := range *cons.Tags {
+		for _, labelPair := range *workloadConstraints.Tags {
 			parts := strings.Split(labelPair, "=")
 			if len(parts) != 2 {
 				return errors.Errorf("invalid affinity constraints: %v", affinityLabels)
@@ -85,8 +90,8 @@ func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value,
 			return errors.Annotatef(err, "configuring pod affinity for %s", appName)
 		}
 	}
-	if cons.Zones != nil {
-		zones := *cons.Zones
+	if workloadConstraints.Zones != nil {
+		zones := *workloadConstraints.Zones
 		affinity := pod.Affinity
 		if affinity == nil {
 			affinity = &core.Affinity{
@@ -266,18 +271,23 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 	return nil
 }
 
-func configureConstraint(pod *core.PodSpec, resourceName core.ResourceName, value string) (err error) {
+func configureConstraint(pod *core.PodSpec, resourceName core.ResourceName, workloadConsVal string, charmConsVal string) (err error) {
 	if len(pod.Containers) == 0 {
 		return nil
 	}
-	pod.Containers[0].Resources.Requests, err = MergeConstraint(resourceName, value, pod.Containers[0].Resources.Requests)
+	pod.Containers[0].Resources.Requests, err = MergeConstraint(resourceName, workloadConsVal, pod.Containers[0].Resources.Requests)
 	if err != nil {
-		return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, value)
+		return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, workloadConsVal)
 	}
-	for i := range pod.Containers {
-		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, value, pod.Containers[i].Resources.Limits)
+	for i, container := range pod.Containers {
+		var err error
+		if container.Name == "charm" {
+			pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, charmConsVal, pod.Containers[i].Resources.Limits)
+		} else {
+			pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, workloadConsVal, pod.Containers[i].Resources.Limits)
+		}
 		if err != nil {
-			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, value)
+			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, workloadConsVal)
 		}
 	}
 	return nil

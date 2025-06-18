@@ -358,9 +358,10 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 				}(),
 			},
 		},
-		Constraints:  cons,
-		InitialScale: 3,
-		Trust:        trust,
+		Constraints:      cons,
+		CharmConstraints: cons,
+		InitialScale:     3,
+		Trust:            trust,
 		CharmUser: func() caas.RunAs {
 			if rootless {
 				return caas.RunAsNonRoot

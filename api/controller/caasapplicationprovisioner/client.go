@@ -141,6 +141,7 @@ type ProvisioningInfo struct {
 	CACert               string
 	Tags                 map[string]string
 	Constraints          constraints.Value
+	CharmConstraints     constraints.Value
 	Filesystems          []storage.KubernetesFilesystemParams
 	Devices              []devices.KubernetesDeviceParams
 	Base                 corebase.Base
@@ -180,6 +181,7 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		CACert:               r.CACert,
 		Tags:                 r.Tags,
 		Constraints:          r.Constraints,
+		CharmConstraints:     r.CharmConstraints,
 		Base:                 base,
 		ImageDetails:         params.ConvertDockerImageInfo(r.ImageRepo),
 		CharmModifiedVersion: r.CharmModifiedVersion,

@@ -143,8 +143,12 @@ type ServiceParams struct {
 	ResourceTags map[string]string
 
 	// Constraints is a set of constraints on
-	// the pod to create.
+	// the workload containers.
 	Constraints constraints.Value
+
+	// CharmConstraints is a set of constraints on
+	// the charm container.
+	CharmsConstraints constraints.Value
 
 	// Filesystems is a set of parameters for filesystems that should be created.
 	Filesystems []storage.KubernetesFilesystemParams

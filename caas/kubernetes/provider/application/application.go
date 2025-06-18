@@ -1789,7 +1789,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		},
 	}
-	err := ApplyConstraints(spec, a.name, config.Constraints, configureConstraint)
+	err := ApplyConstraints(spec, a.name, config.Constraints, config.CharmConstraints, configureConstraint)
 	if err != nil {
 		return nil, errors.Annotate(err, "processing constraints")
 	}
