@@ -37,17 +37,20 @@ type subscription struct {
 	tomb tomb.Tomb
 	id   uint64
 
-	topics        map[string]struct{}
-	changes       chan ChangeSet
-	unsubscribeFn func()
+	topics  map[string]struct{}
+	changes chan ChangeSet
+
+	dispatchTimout time.Duration
+	unsubscribeFn  func()
 }
 
 func newSubscription(id uint64, unsubscribeFn func()) *subscription {
 	sub := &subscription{
-		id:            id,
-		changes:       make(chan ChangeSet),
-		topics:        make(map[string]struct{}),
-		unsubscribeFn: unsubscribeFn,
+		id:             id,
+		changes:        make(chan ChangeSet),
+		topics:         make(map[string]struct{}),
+		dispatchTimout: DefaultSignalTimeout,
+		unsubscribeFn:  unsubscribeFn,
 	}
 
 	sub.tomb.Go(sub.loop)
@@ -96,7 +99,7 @@ func (s *subscription) loop() error {
 }
 
 func (s *subscription) dispatch(ctx context.Context, changes ChangeSet) error {
-	ctx, cancel := context.WithTimeout(ctx, DefaultSignalTimeout)
+	ctx, cancel := context.WithTimeout(ctx, s.dispatchTimout)
 	defer cancel()
 
 	select {
