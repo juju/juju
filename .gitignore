@@ -31,5 +31,5 @@ tests/tmp.*
 *.charm
 *.bundle
 *.log
-.envrc
 dqlite-deps.tar.bz2
+.envrc

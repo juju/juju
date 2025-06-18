@@ -58,7 +58,7 @@ func checkModelConfig(cfg *config.Config) error {
 		}
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
-		return errors.Errorf("agent-version must always be set in state")
+		return errors.New("agent-version must always be set in state")
 	}
 	for attr := range allAttrs {
 		if controller.ControllerOnlyAttribute(attr) {
