@@ -3,9 +3,13 @@
 
 package changestream
 
+import "github.com/juju/worker/v4"
+
 // Subscription describes the ability to receive events
 // from the event queue and unsubscribe from the queue.
 type Subscription interface {
+	worker.Worker
+
 	// Changes returns the channel that the subscription will receive events on.
 	Changes() <-chan []ChangeEvent
 
