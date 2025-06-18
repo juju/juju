@@ -60,7 +60,6 @@ import (
 	"github.com/juju/juju/internal/mongo/mongotest"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
-	"github.com/juju/juju/internal/password"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -550,23 +549,6 @@ func (s *ApiServerSuite) OpenControllerModelAPI(c *tc.C) api.Connection {
 // OpenModelAPI opens a model api connection for the admin user.
 func (s *ApiServerSuite) OpenModelAPI(c *tc.C, modelUUID string) api.Connection {
 	return s.openAPIAs(c, AdminUser, AdminSecret, "", modelUUID)
-}
-
-// OpenAPIAsNewMachine creates a new machine entry that lives in system state,
-// and then uses that to open the API. The returned api.Connection should not be
-// closed by the caller as a cleanup function has been registered to do that.
-// The machine will run the supplied jobs; if none are given, JobHostUnits is assumed.
-func (s *ApiServerSuite) OpenAPIAsNewMachine(c *tc.C, jobs ...state.MachineJob) (api.Connection, *state.Machine) {
-	if len(jobs) == 0 {
-		jobs = []state.MachineJob{state.JobHostUnits}
-	}
-
-	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), jobs...)
-	c.Assert(err, tc.ErrorIsNil)
-	password, err := password.RandomPassword()
-	c.Assert(err, tc.ErrorIsNil)
-	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce", s.ControllerModelUUID()), machine
 }
 
 // StatePool returns the server's state pool.

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/api"
-	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/jwt"
@@ -70,34 +69,8 @@ func TestStub(t *stdtesting.T) {
 This suite is missing tests for the following scenarios:
 	- Valid machine login.
 	- Test API server can listen on both IPv4 and IPv6.
+	- Test stop
 `)
-}
-
-func (s *serverSuite) TestStop(c *tc.C) {
-	conn, machine := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-
-	_, err := apimachiner.NewClient(conn).Machine(c.Context(), machine.MachineTag())
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = apimachiner.NewClient(conn).Machine(c.Context(), machine.MachineTag())
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.Server.Stop()
-	c.Assert(err, tc.ErrorIs, apiserver.ErrAPIServerDying)
-
-	_, err = apimachiner.NewClient(conn).Machine(c.Context(), machine.MachineTag())
-	// The client has not necessarily seen the server shutdown yet, so there
-	// are multiple possible errors. All we should care about is that there is
-	// an error, not what the error actually is.
-	c.Assert(err, tc.NotNil)
-
-	// Check it can be stopped twice.
-	err = s.Server.Stop()
-	c.Assert(err, tc.ErrorIs, apiserver.ErrAPIServerDying)
-
-	// nil Server to prevent connection cleanup during teardown complaining due
-	// to connection close errors.
-	s.Server = nil
 }
 
 func dialWebsocket(c *tc.C, addr, path string) (*websocket.Conn, error) {

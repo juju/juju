@@ -205,7 +205,7 @@ func (s *unitAddressSuite) TestGetUnitUUIDByName(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(uuid, tc.Equals, coreunit.UUID(unitUUID))
+	c.Check(uuid, tc.Equals, unitUUID)
 }
 
 func (s *unitAddressSuite) TestGetUnitUUIDByNameNotFound(c *tc.C) {
