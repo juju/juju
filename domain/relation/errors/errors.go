@@ -82,9 +82,9 @@ const (
 	// not valid.
 	UnitUUIDNotValid = errors.ConstError("unit UUID not valid")
 
-	// UnitNotAlive describes an error that occurs when trying to update a
-	// unit that is not alive.
-	UnitNotAlive = errors.ConstError("unit not alive")
+	// UnitDead describes an error that occurs when trying to update a
+	// unit that is dead.
+	UnitDead = errors.ConstError("unit is dead")
 
 	// UnitNotFound describes an error when the unit cannot be found.
 	UnitNotFound = errors.ConstError("unit not found")
