@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/canonical/sqlair"
@@ -815,6 +816,100 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceProviderSubnetIDMatching(c
 	c.Check(addresses[0].SubnetUUID, tc.Equals, subnet1UUID)
 }
 
+// TestMergeLinkLayerDeviceProviderSubnetIDMatchingWithPreviousSubnet verifies
+// that the proper subnet is updated when an incoming device has an IP linked
+// to a new provider subnet ID. It ensures proper reassignment without affecting
+// the previous subnet unnecessarily.
+func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceProviderSubnetIDMatchingWithPreviousSubnet(c *tc.C) {
+	// Arrange
+	st := s.State(c)
+
+	// Create subnets with provider subnet IDs
+	subnet1UUID := s.addSubnet(c, "192.168.1.5/32")
+	s.addProviderSubnet(c, "provider-subnet-1", subnet1UUID)
+
+	subnet2UUID := s.addSubnet(c, "192.168.1.0/24")
+	s.addProviderSubnet(c, "provider-subnet-2", subnet2UUID)
+
+	// Create a net node
+	netNodeUUID := s.addNetNode(c)
+
+	// Create a device
+	deviceUUID := s.addLinkLayerDevice(c, netNodeUUID, "eth0",
+		"00:11:22:33:44:55", corenetwork.EthernetDevice)
+
+	// Create an IP address on subnet 1
+	s.addIPAddressWithSubnet(c, deviceUUID, netNodeUUID, subnet1UUID, "192.168.1.5/24")
+
+	// Create incoming device with address that has provider subnet ID
+	incoming := []network.NetInterface{
+		s.createNetInterface("eth0", "00:11:22:33:44:55", "",
+			[]network.NetAddr{
+				s.createNetAddrWithSubnet("192.168.1.5/24", "provider-address-1", "provider-subnet-2"),
+			}),
+	}
+
+	// Act
+	err := st.MergeLinkLayerDevice(c.Context(), netNodeUUID, incoming)
+
+	// Assert
+	c.Check(err, tc.IsNil)
+
+	// Verify that the IP address in the database now has subnet_uuid = "subnet-2"
+	addresses := s.fetchLinkLayerAddresses(c, netNodeUUID)
+	c.Check(addresses, tc.HasLen, 1)
+	c.Check(addresses[0].SubnetUUID, tc.Equals, subnet2UUID)
+	// Verify that the first subnet has not been cleaned up (it has a provider ID)
+	c.Check(s.findUUIDInTable(c, "subnet", subnet1UUID), tc.IsTrue)
+}
+
+// TestMergeLinkLayerDeviceProviderSubnetIDMatchingWithPreviousPlaceholderSubnet
+// verifies that a placeholder subnet with a single IP address is replaced by a
+// provider's known subnet, if the IP address matches the provider subnet ID.
+// It also check that the placeholder subnet is properly cleaned up after the
+// merge.
+func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceProviderSubnetIDMatchingWithPreviousPlaceholderSubnet(c *tc.C) {
+	// Arrange
+	st := s.State(c)
+
+	// Create subnets with provider subnet IDs
+	subnet1UUID := s.addSubnet(c, "192.168.1.5/32") // placeholder: no provider_id
+
+	subnet2UUID := s.addSubnet(c, "192.168.1.0/24")
+	s.addProviderSubnet(c, "provider-subnet-2", subnet2UUID)
+
+	// Create a net node
+	netNodeUUID := s.addNetNode(c)
+
+	// Create a device
+	deviceUUID := s.addLinkLayerDevice(c, netNodeUUID, "eth0",
+		"00:11:22:33:44:55", corenetwork.EthernetDevice)
+
+	// Create an IP address on subnet 1
+	s.addIPAddressWithSubnet(c, deviceUUID, netNodeUUID, subnet1UUID, "192.168.1.5/24")
+
+	// Create incoming device with address that has provider subnet ID
+	incoming := []network.NetInterface{
+		s.createNetInterface("eth0", "00:11:22:33:44:55", "",
+			[]network.NetAddr{
+				s.createNetAddrWithSubnet("192.168.1.5/24", "provider-address-1", "provider-subnet-2"),
+			}),
+	}
+
+	// Act
+	err := st.MergeLinkLayerDevice(c.Context(), netNodeUUID, incoming)
+
+	// Assert
+	c.Check(err, tc.IsNil)
+
+	// Verify that the IP address in the database now has subnet_uuid = "subnet-2"
+	addresses := s.fetchLinkLayerAddresses(c, netNodeUUID)
+	c.Check(addresses, tc.HasLen, 1)
+	c.Check(addresses[0].SubnetUUID, tc.Equals, subnet2UUID)
+	// Verify that the first subnet has been cleaned up (it has a no provider ID and only one address)
+	c.Check(s.findUUIDInTable(c, "subnet", subnet1UUID), tc.IsFalse)
+}
+
 // TestMergeLinkLayerDeviceNoSubnet tests the case where an IP address
 // without a subnet is merged, the subnet shouldn't be rematch
 func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceNoSubnet(c *tc.C) {
@@ -1220,6 +1315,18 @@ WHERE ia.net_node_uuid = ?
 			"with netnodeuuid: %q", query, netNodeUUID))
 
 	return result
+}
+
+func (s *mergeLinkLayerSuite) findUUIDInTable(c *tc.C, table, uuid string) bool {
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE uuid = ?`, table)
+	var count int
+	err := s.TxnRunner().StdTxn(c.Context(),
+		func(ctx context.Context, tx *sql.Tx) error {
+			return tx.QueryRowContext(ctx, query, uuid).Scan(&count)
+		})
+	c.Assert(err, tc.ErrorIsNil,
+		tc.Commentf("(Assert) failed to check uuid %q exists in table %q, query:%s", uuid, table, query))
+	return count > 0
 }
 
 // mergedLinkLayerDevice represents a link layer device with additional data.
