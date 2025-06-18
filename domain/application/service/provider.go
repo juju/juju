@@ -299,6 +299,12 @@ func makeCreateApplicationArgs(
 		return application.BaseAddApplicationArg{}, errors.Errorf("invalid storage directives: %w", err)
 	}
 
+	storageDirectiveArgs := makeApplicationStorageDirectiveArgs(
+		args.StorageDirectiveOverrides,
+		charm.Meta().Storage,
+		application.DefaultStorageProvisioners{},
+	)
+
 	// When encoding the charm, this will also validate the charm metadata,
 	// when parsing it.
 	ch, _, err := encodeCharm(charm)
@@ -353,7 +359,7 @@ func makeCreateApplicationArgs(
 		EndpointBindings:  args.EndpointBindings,
 		Resources:         makeResourcesArgs(args.ResolvedResources),
 		PendingResources:  args.PendingResources,
-		StorageDirectives: makeStorageArgs(storageDirectives),
+		StorageDirectives: storageDirectiveArgs,
 		Config:            applicationConfig,
 		Settings:          args.ApplicationSettings,
 		Status:            applicationStatus,
