@@ -752,7 +752,15 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 	}
-	modelToolsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
+	var modelToolsUploadAuthorizer httpcontext.CompositeAuthorizer = []httpcontext.Authorizer{
+		controllerAdminAuthorizer{
+			st: systemState,
+		},
+		modelPermissionAuthorizer{
+			userAccess: systemState.UserPermission,
+			perm:       permission.AdminAccess,
+		},
+	}
 	modelToolsDownloadHandler := newToolsDownloadHandler(httpCtxt)
 	resourcesHandler := &ResourcesHandler{
 		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, names.Tag, error) {
@@ -937,7 +945,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, {
 		pattern:    "/tools",
 		handler:    modelToolsUploadHandler,
-		authorizer: modelToolsUploadAuthorizer,
+		authorizer: controllerAdminAuthorizer,
 	}, {
 		pattern:         "/tools/:version",
 		handler:         modelToolsDownloadHandler,
