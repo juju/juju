@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -34,7 +35,12 @@ type assignerState interface {
 // MachineService is the interface that is used to interact with the machine
 // domain.
 type MachineService interface {
-	CreateMachine(context.Context, machine.Name, *string) (machine.UUID, error)
+	// CreateMachine creates the specified machine.
+	//
+	// The following errors may be returned:
+	//   - [machineerrors.MachineAlreadyExists] if a machine with the same name
+	//     already exists.
+	CreateMachine(ctx context.Context, args machineservice.CreateMachineArgs) (machine.UUID, machine.Name, error)
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -128,7 +134,9 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 func (a *API) saveMachineInfo(ctx context.Context, machineName string) error {
 	// This is temporary - just insert the machine id and all the parent ones.
 	for machineName != "" {
-		_, err := a.machineService.CreateMachine(ctx, machine.Name(machineName), nil)
+		createMachineArgs := machineservice.CreateMachineArgs{}
+
+		_, _, err := a.machineService.CreateMachine(ctx, createMachineArgs)
 		// The machine might already exist e.g. if we are adding a subordinate
 		// unit to an already existing machine. In this case, just continue
 		// without error.

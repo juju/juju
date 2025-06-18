@@ -1040,9 +1040,12 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNodeNoUnits(c *tc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, _, err = machinestate.PlaceMachine(ctx, tx, s.state, deployment.Placement{
-			Type: deployment.PlacementTypeUnset,
-		}, deployment.Platform{}, nil, clock.WallClock)
+		placeMachineArgs := machinestate.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+		}
+		netNode, _, err = machinestate.PlaceMachine(ctx, tx, s.state, placeMachineArgs, clock.WallClock)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

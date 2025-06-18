@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/blockcommand"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -30,9 +31,15 @@ type NodeService interface {
 	CurateNodes(context.Context, []string, []string) error
 }
 
-// MachineService instances save a machine to dqlite state.
+// MachineService is the interface that is used to interact with the machine
+// domain.
 type MachineService interface {
-	CreateMachine(context.Context, machine.Name, *string) (machine.UUID, error)
+	// CreateMachine creates the specified machine.
+	//
+	// The following errors may be returned:
+	//   - [machineerrors.MachineAlreadyExists] if a machine with the same name
+	//     already exists.
+	CreateMachine(ctx context.Context, args machineservice.CreateMachineArgs) (machine.UUID, machine.Name, error)
 }
 
 // ApplicationService instances add units to an application in dqlite state.

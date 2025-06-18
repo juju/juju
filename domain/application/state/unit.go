@@ -1158,7 +1158,12 @@ func (st *State) insertIAASUnit(
 	}
 
 	// Handle the placement of the net node and machines accompanying the unit.
-	nodeUUID, machineNames, err := machinestate.PlaceMachine(ctx, tx, st, args.Placement, args.Platform, args.Nonce, st.clock)
+	placeMachineArgs := machinestate.PlaceMachineArgs{
+		Directive: args.Placement,
+		Platform:  args.Platform,
+		Nonce:     args.Nonce,
+	}
+	nodeUUID, machineNames, err := machinestate.PlaceMachine(ctx, tx, st, placeMachineArgs, st.clock)
 	if err != nil {
 		return nil, errors.Errorf("getting net node UUID from placement %+v: %w", args.Placement, err)
 	}
