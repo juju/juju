@@ -274,15 +274,19 @@ func (u *LXDProfileAPI) getOneCanApplyLXDProfile(ctx context.Context, tag names.
 	if err != nil {
 		return false, internalerrors.Capture(err)
 	}
+	if manual, err := u.machineService.IsMachineManuallyProvisioned(ctx, machineName); err != nil {
+		return false, errors.Trace(err)
+	} else if manual {
+		return false, nil
+	}
+
+	if providerType == "lxd" {
+		return true, nil
+	}
 
 	machine, err := u.backend.Machine(machineName.String())
 	if err != nil {
 		return false, err
-	}
-	// TODO (stickupkid): Check if the machine is manual, if it is, just return
-	// false.
-	if providerType == "lxd" {
-		return true, nil
 	}
 	switch machine.ContainerType() {
 	case instance.LXD:
