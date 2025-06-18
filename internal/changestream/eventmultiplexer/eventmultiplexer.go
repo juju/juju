@@ -264,7 +264,7 @@ func (e *EventMultiplexer) loop() error {
 
 			e.metrics.SubscriptionsInc()
 
-			sub := newSubscription(subID, func() { e.unsubscribe(subID) })
+			sub := newSubscription(subID)
 
 			if err := e.catacomb.Add(sub); err != nil {
 				e.metrics.SubscriptionsDec()

@@ -32,8 +32,8 @@ type requestSubscriptionResult struct {
 	err error
 }
 
-// subscription represents a subscriber in the event queue. It holds a tomb, so
-// that we can tie the lifecycle of a subscription to the event queue.
+// subscription represents a subscriber in the event queue. It holds a tomb,
+// so that we can tie the lifecycle of a subscription to the event queue.
 type subscription struct {
 	tomb      tomb.Tomb
 	id        uint64
@@ -42,17 +42,15 @@ type subscription struct {
 	topics  map[string]struct{}
 	changes chan ChangeSet
 
-	dispatchTimout time.Duration
-	unsubscribeFn  func()
+	dispatchTimeout time.Duration
 }
 
-func newSubscription(id uint64, unsubscribeFn func()) *subscription {
+func newSubscription(id uint64) *subscription {
 	sub := &subscription{
-		id:             id,
-		changes:        make(chan ChangeSet),
-		topics:         make(map[string]struct{}),
-		dispatchTimout: DefaultSignalTimeout,
-		unsubscribeFn:  unsubscribeFn,
+		id:              id,
+		changes:         make(chan ChangeSet),
+		topics:          make(map[string]struct{}),
+		dispatchTimeout: DefaultSignalTimeout,
 	}
 
 	sub.tomb.Go(sub.loop)
@@ -66,9 +64,6 @@ func newSubscription(id uint64, unsubscribeFn func()) *subscription {
 // whilst the dispatch signalling, the unsubscribe will happen after all
 // dispatches have been called.
 func (s *subscription) Unsubscribe() {
-	s.unsubOnce.Do(func() {
-		s.unsubscribeFn()
-	})
 }
 
 // Changes returns the channel that the subscription will receive events on.
@@ -99,7 +94,7 @@ func (s *subscription) loop() error {
 }
 
 func (s *subscription) dispatch(ctx context.Context, changes ChangeSet) error {
-	ctx, cancel := context.WithTimeout(ctx, s.dispatchTimout)
+	ctx, cancel := context.WithTimeout(ctx, s.dispatchTimeout)
 	defer cancel()
 
 	select {

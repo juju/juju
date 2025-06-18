@@ -530,7 +530,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOnDispatchTimeout(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Shorten the dispatch timeout in order to trigger Unsubscribe sooner.
-	sub.(*subscription).dispatchTimout = testing.ShortWait
+	sub.(*subscription).dispatchTimeout = testing.ShortWait
 
 	s.term.EXPECT().Changes().Return([]changestream.ChangeEvent{changeEvent{
 		ctype:   changestreamtesting.Create,
@@ -546,8 +546,6 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOnDispatchTimeout(c *tc.C) {
 	// The subscription should have been unsubscribed due to the timeout.
 	select {
 	case <-sub.Done():
-		// This simulates what an upstream subscriber would do.
-		sub.Unsubscribe()
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for subscription to be done")
 	}

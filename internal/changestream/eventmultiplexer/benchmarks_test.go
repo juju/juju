@@ -27,7 +27,7 @@ func (*mockMetrics) DispatchErrorsInc()                               {}
 
 func benchmarkSignal(b *testing.B, changes ChangeSet) {
 	c := &tc.TBC{TB: b}
-	sub := newSubscription(0, func() {})
+	sub := newSubscription(0)
 	defer workertest.CleanKill(c, sub)
 
 	ctx := c.Context()
