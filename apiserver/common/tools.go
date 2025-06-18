@@ -17,12 +17,12 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/controllernode"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
@@ -60,16 +60,15 @@ type ModelAgentService interface {
 type ToolsURLGetter interface {
 	// ToolsURLs returns URLs for the tools with
 	// the specified binary version.
-	ToolsURLs(context.Context, controller.Config, semversion.Binary) ([]string, error)
+	ToolsURLs(context.Context, semversion.Binary) ([]string, error)
 }
 
 // APIHostPortsForAgentsGetter is an interface providing
 // the APIHostPortsForAgents method.
 type APIHostPortsForAgentsGetter interface {
-	// APIHostPortsForAgents returns the HostPorts for each API server that
-	// are suitable for agent-to-controller API communication based on the
-	// configured (if any) controller management space.
-	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
+	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
+	// agents.
+	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (controllernode.APIAddresses, error)
 }
 
 // ToolsStorageGetter is an interface providing the ToolsStorage method.
@@ -227,11 +226,10 @@ type ToolsFinder interface {
 }
 
 type toolsFinder struct {
-	controllerConfigService ControllerConfigService
-	toolsStorageGetter      ToolsStorageGetter
-	urlGetter               ToolsURLGetter
-	store                   objectstore.ObjectStore
-	agentBinaryService      AgentBinaryService
+	toolsStorageGetter ToolsStorageGetter
+	urlGetter          ToolsURLGetter
+	store              objectstore.ObjectStore
+	agentBinaryService AgentBinaryService
 }
 
 // AgentBinaryService is an interface for getting the
@@ -245,18 +243,16 @@ type AgentBinaryService interface {
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
 func NewToolsFinder(
-	controllerConfigService ControllerConfigService,
 	toolsStorageGetter ToolsStorageGetter,
 	urlGetter ToolsURLGetter,
 	store objectstore.ObjectStore,
 	agentBinaryService AgentBinaryService,
 ) *toolsFinder {
 	return &toolsFinder{
-		controllerConfigService: controllerConfigService,
-		toolsStorageGetter:      toolsStorageGetter,
-		urlGetter:               urlGetter,
-		store:                   store,
-		agentBinaryService:      agentBinaryService,
+		toolsStorageGetter: toolsStorageGetter,
+		urlGetter:          urlGetter,
+		store:              store,
+		agentBinaryService: agentBinaryService,
 	}
 }
 
@@ -268,17 +264,12 @@ func (f *toolsFinder) FindAgents(ctx context.Context, args FindAgentsParams) (co
 		return nil, err
 	}
 
-	controllerConfig, err := f.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	// Rewrite the URLs so they point at the API servers. If the
 	// tools are not in tools storage, then the API server will
 	// download and cache them if the client requests that version.
 	var fullList coretools.List
 	for _, baseTools := range list {
-		urls, err := f.urlGetter.ToolsURLs(ctx, controllerConfig, baseTools.Version)
+		urls, err := f.urlGetter.ToolsURLs(ctx, baseTools.Version)
 		if err != nil {
 			return nil, err
 		}
@@ -421,8 +412,8 @@ func NewToolsURLGetter(modelUUID string, a APIHostPortsForAgentsGetter) *toolsUR
 }
 
 // ToolsURLs returns a list of tools URLs pointing at an API server.
-func (t *toolsURLGetter) ToolsURLs(ctx context.Context, controllerConfig controller.Config, v semversion.Binary) ([]string, error) {
-	addrs, err := apiAddresses(controllerConfig, t.apiHostPortsGetter)
+func (t *toolsURLGetter) ToolsURLs(ctx context.Context, v semversion.Binary) ([]string, error) {
+	addrs, err := apiAddresses(ctx, t.apiHostPortsGetter)
 	if err != nil {
 		return nil, err
 	}

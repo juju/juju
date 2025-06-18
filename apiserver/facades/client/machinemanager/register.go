@@ -65,13 +65,23 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		return nil, errors.Trace(err)
 	}
 
+	services := Services{
+		AgentBinaryService:      domainServices.AgentBinary(),
+		AgentPasswordService:    domainServices.AgentPassword(),
+		ApplicationService:      domainServices.Application(),
+		BlockCommandService:     domainServices.BlockCommand(),
+		ControllerConfigService: domainServices.ControllerConfig(),
+		ControllerNodeService:   domainServices.ControllerNode(),
+		CloudService:            domainServices.Cloud(),
+		KeyUpdaterService:       domainServices.KeyUpdater(),
+		MachineService:          domainServices.Machine(),
+		ModelConfigService:      domainServices.Config(),
+		NetworkService:          domainServices.Network(),
+	}
+
 	return NewMachineManagerAPI(
 		ctx.ModelUUID(),
-		domainServices.ControllerConfig(),
 		backend,
-		domainServices.Cloud(),
-		domainServices.Machine(),
-		domainServices.Application(),
 		ctx.ObjectStore(),
 		ctx.ControllerObjectStore(),
 		storageAccess,
@@ -83,11 +93,6 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		ctx.Resources(),
 		leadership,
 		logger,
-		domainServices.Network(),
-		domainServices.KeyUpdater(),
-		domainServices.Config(),
-		domainServices.BlockCommand(),
-		domainServices.AgentBinary(),
-		domainServices.AgentPassword(),
+		services,
 	), nil
 }

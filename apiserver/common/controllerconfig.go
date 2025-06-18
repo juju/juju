@@ -12,6 +12,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -19,6 +20,13 @@ import (
 // configuration for the model.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ControllerNodeService represents a way to get controller api addresses.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
+	// agents.
+	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (controllernode.APIAddresses, error)
 }
 
 // ExternalControllerService defines the methods that the controller
@@ -37,6 +45,7 @@ type ExternalControllerService interface {
 // facades - eg Provisioner and ControllerConfig.
 type ControllerConfigAPI struct {
 	controllerConfigService   ControllerConfigService
+	controllerNodeService     ControllerNodeService
 	externalControllerService ExternalControllerService
 	st                        ControllerConfigState
 }
@@ -45,11 +54,13 @@ type ControllerConfigAPI struct {
 func NewControllerConfigAPI(
 	st ControllerConfigState,
 	controllerConfigService ControllerConfigService,
+	controllerNodeService ControllerNodeService,
 	externalControllerService ExternalControllerService,
 ) *ControllerConfigAPI {
 	return &ControllerConfigAPI{
 		st:                        st,
 		controllerConfigService:   controllerConfigService,
+		controllerNodeService:     controllerNodeService,
 		externalControllerService: externalControllerService,
 	}
 }
@@ -92,7 +103,7 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
 	if modelExists {
-		addrs, caCert, err := ControllerAPIInfo(ctx, s.st, s.controllerConfigService)
+		addrs, caCert, err := ControllerAPIInfo(ctx, s.controllerConfigService, s.controllerNodeService)
 		if err != nil {
 			return params.ControllerAPIInfoResult{}, errors.Trace(err)
 		}
@@ -146,13 +157,17 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 }
 
 // ControllerAPIInfo returns the local controller details for the given State.
-func ControllerAPIInfo(ctx context.Context, st controllerInfoState, controllerConfigService ControllerConfigService) ([]string, string, error) {
+func ControllerAPIInfo(
+	ctx context.Context,
+	controllerConfigService ControllerConfigService,
+	controllerNodeService APIHostPortsForAgentsGetter,
+) ([]string, string, error) {
 	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
 
-	addrs, err := apiAddresses(controllerConfig, st)
+	addrs, err := apiAddresses(ctx, controllerNodeService)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}

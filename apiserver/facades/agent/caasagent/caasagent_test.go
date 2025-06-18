@@ -45,6 +45,7 @@ type caasagentSuite struct {
 	modelService                 *MockModelService
 	modelConfigService           *MockModelConfigService
 	controllerConfigService      *MockControllerConfigService
+	controllerNodeService        *MockControllerNodeService
 	externalControllerService    *MockExternalControllerService
 	controllerConfigState        *MockControllerConfigState
 	modelProviderServicebService *MockModelProviderService
@@ -81,6 +82,7 @@ func (s *caasagentSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelProviderServicebService = NewMockModelProviderService(ctrl)
 	s.modelService = NewMockModelService(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	s.controllerConfigState = NewMockControllerConfigState(ctrl)
@@ -88,6 +90,7 @@ func (s *caasagentSuite) setupMocks(c *tc.C) *gomock.Controller {
 	controllerConfigAPI := common.NewControllerConfigAPI(
 		s.controllerConfigState,
 		s.controllerConfigService,
+		s.controllerNodeService,
 		s.externalControllerService,
 	)
 	modelConfigAPI := model.NewModelConfigWatcher(

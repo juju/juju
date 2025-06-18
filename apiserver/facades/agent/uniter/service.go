@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/resolve"
 	"github.com/juju/juju/domain/unitstate"
@@ -59,6 +60,9 @@ type ControllerNodeService interface {
 	// ID, and the values are slices of strings representing the API addresses
 	// for each controller node.
 	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
+	// agents.
+	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (controllernode.APIAddresses, error)
 	// WatchControllerAPIAddresses returns a watcher that observes changes to the
 	// controller ip addresses.
 	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)

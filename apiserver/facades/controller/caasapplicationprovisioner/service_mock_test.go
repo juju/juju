@@ -25,6 +25,7 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	charm "github.com/juju/juju/domain/application/charm"
 	service "github.com/juju/juju/domain/application/service"
+	controllernode "github.com/juju/juju/domain/controllernode"
 	config "github.com/juju/juju/environs/config"
 	charm0 "github.com/juju/juju/internal/charm"
 	resource "github.com/juju/juju/internal/charm/resource"
@@ -507,6 +508,21 @@ func NewMockControllerNodeService(ctrl *gomock.Controller) *MockControllerNodeSe
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerNodeService) EXPECT() *MockControllerNodeServiceMockRecorder {
 	return m.recorder
+}
+
+// GetAllAPIAddressesWithScopeForAgents mocks base method.
+func (m *MockControllerNodeService) GetAllAPIAddressesWithScopeForAgents(arg0 context.Context) (controllernode.APIAddresses, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllAPIAddressesWithScopeForAgents", arg0)
+	ret0, _ := ret[0].(controllernode.APIAddresses)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllAPIAddressesWithScopeForAgents indicates an expected call of GetAllAPIAddressesWithScopeForAgents.
+func (mr *MockControllerNodeServiceMockRecorder) GetAllAPIAddressesWithScopeForAgents(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAPIAddressesWithScopeForAgents", reflect.TypeOf((*MockControllerNodeService)(nil).GetAllAPIAddressesWithScopeForAgents), arg0)
 }
 
 // WatchControllerAPIAddresses mocks base method.

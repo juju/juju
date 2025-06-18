@@ -18,10 +18,12 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -51,10 +53,10 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	// Arrange
 	m.expectControllerConfig()
 
-	res := map[string][]string{
-		"one": {"apiaddresses:1"},
+	addrs := controllernode.APIAddresses{
+		{Address: "addresses:1", Scope: network.ScopeCloudLocal},
 	}
-	m.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(res, nil)
+	m.controllerNodeService.EXPECT().GetAllAPIAddressesWithScopeForAgents(gomock.Any()).Return(addrs, nil)
 	m.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(false, map[string]any{
 		config.NameKey:         "controller",
 		config.UUIDKey:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",

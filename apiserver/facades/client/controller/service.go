@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/domain/relation"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs/cloudspec"
@@ -32,6 +33,13 @@ type ControllerConfigService interface {
 	// UpdateControllerConfig updates the controller config and has an optional
 	// list of config keys to remove.
 	UpdateControllerConfig(context.Context, corecontroller.Config, []string) error
+}
+
+// ControllerNodeService represents a way to get controller api addresses.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
+	// agents.
+	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (controllernode.APIAddresses, error)
 }
 
 // UpgradeService provides a subset of the upgrade domain service methods.

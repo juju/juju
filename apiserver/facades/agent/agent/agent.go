@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/rpc/params"
@@ -44,6 +45,13 @@ type AgentPasswordService interface {
 // ControllerConfigService is the interface that gets ControllerConfig form DB.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ControllerNodeService represents a way to get controller api addresses.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
+	// agents.
+	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (controllernode.APIAddresses, error)
 }
 
 // CloudService provides access to clouds.
@@ -132,6 +140,7 @@ func NewAgentAPI(
 	st *state.State,
 	agentPasswordService AgentPasswordService,
 	controllerConfigService ControllerConfigService,
+	controllerNodeService ControllerNodeService,
 	externalControllerService ExternalControllerService,
 	rebootMachineService MachineRebootService,
 	modelConfigService ModelConfigService,
@@ -149,6 +158,7 @@ func NewAgentAPI(
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
 			controllerConfigService,
+			controllerNodeService,
 			externalControllerService,
 		),
 		controllerConfigService: controllerConfigService,

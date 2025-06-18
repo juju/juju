@@ -18,17 +18,18 @@ import (
 	"github.com/juju/juju/core/watcher"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 )
 
 type Services struct {
+	ApplicationService      ApplicationService
 	ControllerConfigService ControllerConfigService
 	ControllerNodeService   ControllerNodeService
 	ModelConfigService      ModelConfigService
 	ModelInfoService        ModelInfoService
-	ApplicationService      ApplicationService
 	StatusService           StatusService
 }
 
@@ -41,9 +42,11 @@ type ControllerConfigService interface {
 	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 }
 
-// ControllerNodeService defines the methods on the controller node service
-// that are needed the caas application provisioner API.
+// ControllerNodeService represents a way to get controller api addresses.
 type ControllerNodeService interface {
+	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
+	// agents.
+	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (controllernode.APIAddresses, error)
 	// WatchControllerAPIAddresses returns a watcher that observes changes to the
 	// controller ip addresses.
 	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)

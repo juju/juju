@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/environs/config"
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/charm"
@@ -234,11 +235,10 @@ type withControllerSuite struct {
 func (s *withControllerSuite) TestAPIAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
-		"1": {
-			"0.1.2.3:1234",
-		},
-	}, nil)
+	addrs := controllernode.APIAddresses{
+		{Address: "0.1.2.3:1234", Scope: network.ScopeCloudLocal},
+	}
+	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesWithScopeForAgents(gomock.Any()).Return(addrs, nil)
 	provisioner := &ProvisionerAPI{APIAddresser: common.NewAPIAddresser(s.apiAddressAccessor, nil)}
 
 	// Act

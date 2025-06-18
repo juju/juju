@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/controllernode"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -40,10 +41,9 @@ type CAASApplicationSuite struct {
 
 	modelUUID               coremodel.UUID
 	controllerConfigService *caasapplication.MockControllerConfigService
+	controllerNodeService   *caasapplication.MockControllerNodeService
 	applicationService      *caasapplication.MockApplicationService
 	modelAgentService       *caasapplication.MockModelAgentService
-
-	controllerState *caasapplication.MockControllerState
 }
 
 func (s *CAASApplicationSuite) SetUpTest(c *tc.C) {
@@ -65,13 +65,13 @@ func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Contr
 	s.modelUUID = modeltesting.GenModelUUID(c)
 
 	s.controllerConfigService = caasapplication.NewMockControllerConfigService(ctrl)
+	s.controllerNodeService = caasapplication.NewMockControllerNodeService(ctrl)
 	s.applicationService = caasapplication.NewMockApplicationService(ctrl)
 	s.modelAgentService = caasapplication.NewMockModelAgentService(ctrl)
-	s.controllerState = caasapplication.NewMockControllerState(ctrl)
 
-	s.facade = caasapplication.NewFacade(s.resources, s.authorizer, s.controllerState,
+	s.facade = caasapplication.NewFacade(s.resources, s.authorizer,
 		coretesting.ControllerTag.Id(), s.modelUUID,
-		s.controllerConfigService, s.applicationService, s.modelAgentService, loggertesting.WrapCheckLog(c))
+		s.controllerConfigService, s.controllerNodeService, s.applicationService, s.modelAgentService, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -110,15 +110,13 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 	}
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
 
-	hp := []network.SpaceHostPort{{
-		SpaceAddress: network.SpaceAddress{
-			MachineAddress: network.MachineAddress{
-				Value: "10.6.6.6",
-			},
+	addrs := controllernode.APIAddresses{
+		{
+			Address: "10.6.6.6:17070",
+			Scope:   network.ScopeCloudLocal,
 		},
-		NetPort: 17070,
-	}}
-	s.controllerState.EXPECT().APIHostPortsForAgents(controllerCfg).Return([]network.SpaceHostPorts{hp}, nil)
+	}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesWithScopeForAgents(gomock.Any()).Return(addrs, nil)
 	vers := semversion.MustParse("6.6.6")
 	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(vers, nil)
 

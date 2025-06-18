@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	watcher "github.com/juju/juju/core/watcher"
+	controllernode "github.com/juju/juju/domain/controllernode"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -75,6 +76,45 @@ func (c *MockAPIAddressAccessorGetAllAPIAddressesForAgentsCall) Do(f func(contex
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockAPIAddressAccessorGetAllAPIAddressesForAgentsCall) DoAndReturn(f func(context.Context) (map[string][]string, error)) *MockAPIAddressAccessorGetAllAPIAddressesForAgentsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetAllAPIAddressesWithScopeForAgents mocks base method.
+func (m *MockAPIAddressAccessor) GetAllAPIAddressesWithScopeForAgents(arg0 context.Context) (controllernode.APIAddresses, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllAPIAddressesWithScopeForAgents", arg0)
+	ret0, _ := ret[0].(controllernode.APIAddresses)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllAPIAddressesWithScopeForAgents indicates an expected call of GetAllAPIAddressesWithScopeForAgents.
+func (mr *MockAPIAddressAccessorMockRecorder) GetAllAPIAddressesWithScopeForAgents(arg0 any) *MockAPIAddressAccessorGetAllAPIAddressesWithScopeForAgentsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAPIAddressesWithScopeForAgents", reflect.TypeOf((*MockAPIAddressAccessor)(nil).GetAllAPIAddressesWithScopeForAgents), arg0)
+	return &MockAPIAddressAccessorGetAllAPIAddressesWithScopeForAgentsCall{Call: call}
+}
+
+// MockAPIAddressAccessorGetAllAPIAddressesWithScopeForAgentsCall wrap *gomock.Call
+type MockAPIAddressAccessorGetAllAPIAddressesWithScopeForAgentsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAPIAddressAccessorGetAllAPIAddressesWithScopeForAgentsCall) Return(arg0 controllernode.APIAddresses, arg1 error) *MockAPIAddressAccessorGetAllAPIAddressesWithScopeForAgentsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAPIAddressAccessorGetAllAPIAddressesWithScopeForAgentsCall) Do(f func(context.Context) (controllernode.APIAddresses, error)) *MockAPIAddressAccessorGetAllAPIAddressesWithScopeForAgentsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAPIAddressAccessorGetAllAPIAddressesWithScopeForAgentsCall) DoAndReturn(f func(context.Context) (controllernode.APIAddresses, error)) *MockAPIAddressAccessorGetAllAPIAddressesWithScopeForAgentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

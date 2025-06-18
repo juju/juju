@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
@@ -39,6 +38,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/controllernode"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -76,16 +76,15 @@ type API struct {
 	watcherRegistry facade.WatcherRegistry
 
 	store                   objectstore.ObjectStore
-	ctrlSt                  CAASApplicationControllerState
 	state                   CAASApplicationProvisionerState
 	newResourceOpener       NewResourceOpenerFunc
 	storage                 StorageBackend
 	storagePoolGetter       StoragePoolGetter
+	applicationService      ApplicationService
 	controllerConfigService ControllerConfigService
 	controllerNodeService   ControllerNodeService
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
-	applicationService      ApplicationService
 	statusService           StatusService
 	leadershipRevoker       leadership.Revoker
 	clock                   clock.Clock
@@ -101,12 +100,10 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 
 	agentPasswordService := domainServices.AgentPassword()
 	controllerConfigService := domainServices.ControllerConfig()
-	controllerNodeService := domainServices.ControllerNode()
 	modelConfigService := domainServices.Config()
-	modelInfoService := domainServices.ModelInfo()
+
 	storageService := domainServices.Storage()
 	applicationService := domainServices.Application()
-	statusService := domainServices.Status()
 	resourceService := domainServices.Resource()
 
 	sb, err := state.NewStorageBackend(st)
@@ -137,24 +134,20 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	}
 
 	services := Services{
-		ControllerConfigService: controllerConfigService,
-		ControllerNodeService:   controllerNodeService,
-		ModelConfigService:      modelConfigService,
-		ModelInfoService:        modelInfoService,
 		ApplicationService:      applicationService,
-		StatusService:           statusService,
+		ControllerConfigService: controllerConfigService,
+		ControllerNodeService:   domainServices.ControllerNode(),
+		ModelConfigService:      modelConfigService,
+		ModelInfoService:        domainServices.ModelInfo(),
+		StatusService:           domainServices.Status(),
 	}
 
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	leadershipRevoker, err := ctx.LeadershipRevoker()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
 	}
+
 	api, err := NewCAASApplicationProvisionerAPI(
-		stateShim{State: systemState},
 		stateShim{State: st},
 		ctx.Resources(),
 		newResourceOpener,
@@ -251,14 +244,13 @@ func (a *APIGroup) ApplicationCharmInfo(ctx context.Context, args params.Entity)
 
 // NewCAASApplicationProvisionerAPI returns a new CAAS operator provisioner API facade.
 func NewCAASApplicationProvisionerAPI(
-	ctrlSt CAASApplicationControllerState,
 	st CAASApplicationProvisionerState,
 	resources facade.Resources,
 	newResourceOpener NewResourceOpenerFunc,
 	authorizer facade.Authorizer,
 	sb StorageBackend,
 	storagePoolGetter StoragePoolGetter,
-	service Services,
+	services Services,
 	leadershipRevoker leadership.Revoker,
 	store objectstore.ObjectStore,
 	clock clock.Clock,
@@ -274,17 +266,16 @@ func NewCAASApplicationProvisionerAPI(
 		resources:               resources,
 		watcherRegistry:         watcherRegistry,
 		newResourceOpener:       newResourceOpener,
-		ctrlSt:                  ctrlSt,
 		state:                   st,
 		storage:                 sb,
 		store:                   store,
 		storagePoolGetter:       storagePoolGetter,
-		controllerConfigService: service.ControllerConfigService,
-		controllerNodeService:   service.ControllerNodeService,
-		modelConfigService:      service.ModelConfigService,
-		modelInfoService:        service.ModelInfoService,
-		applicationService:      service.ApplicationService,
-		statusService:           service.StatusService,
+		controllerConfigService: services.ControllerConfigService,
+		controllerNodeService:   services.ControllerNodeService,
+		modelConfigService:      services.ModelConfigService,
+		modelInfoService:        services.ModelInfoService,
+		applicationService:      services.ApplicationService,
+		statusService:           services.StatusService,
 		leadershipRevoker:       leadershipRevoker,
 		clock:                   clock,
 		logger:                  logger,
@@ -545,19 +536,11 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting juju oci image path")
 	}
-	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents(cfg)
+	apiAddressesWithScope, err := a.controllerNodeService.GetAllAPIAddressesWithScopeForAgents(ctx)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting api addresses")
 	}
-	addrs := []string(nil)
-	for _, hostPorts := range apiHostPorts {
-		ordered := hostPorts.HostPorts().PrioritizedForScope(network.ScopeMatchCloudLocal)
-		for _, addr := range ordered {
-			if addr != "" {
-				addrs = append(addrs, addr)
-			}
-		}
-	}
+	addrs := apiAddressesWithScope.PrioritizedForScope(controllernode.ScopeMatchCloudLocal)
 	caCert, _ := cfg.CACert()
 	appConfig, err := app.ApplicationConfig()
 	if err != nil {
