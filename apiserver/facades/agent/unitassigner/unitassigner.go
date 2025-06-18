@@ -34,7 +34,7 @@ type assignerState interface {
 // MachineService is the interface that is used to interact with the machine
 // domain.
 type MachineService interface {
-	CreateMachine(context.Context, machine.Name) (machine.UUID, error)
+	CreateMachine(context.Context, machine.Name, *string) (machine.UUID, error)
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -128,7 +128,7 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 func (a *API) saveMachineInfo(ctx context.Context, machineName string) error {
 	// This is temporary - just insert the machine id and all the parent ones.
 	for machineName != "" {
-		_, err := a.machineService.CreateMachine(ctx, machine.Name(machineName))
+		_, err := a.machineService.CreateMachine(ctx, machine.Name(machineName), nil)
 		// The machine might already exist e.g. if we are adding a subordinate
 		// unit to an already existing machine. In this case, just continue
 		// without error.

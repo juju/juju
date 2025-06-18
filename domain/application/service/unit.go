@@ -173,7 +173,7 @@ type UnitState interface {
 	GetUnitNetNodesByName(ctx context.Context, name coreunit.Name) ([]string, error)
 }
 
-func (s *Service) makeIAASUnitArgs(units []AddUnitArg, constraints constraints.Constraints) ([]application.AddIAASUnitArg, error) {
+func (s *Service) makeIAASUnitArgs(units []AddIAASUnitArg, constraints constraints.Constraints) ([]application.AddIAASUnitArg, error) {
 	args := make([]application.AddIAASUnitArg, len(units))
 	for i, u := range units {
 		placement, err := deployment.ParsePlacement(u.Placement)
@@ -187,6 +187,7 @@ func (s *Service) makeIAASUnitArgs(units []AddUnitArg, constraints constraints.C
 				Placement:     placement,
 				UnitStatusArg: s.makeIAASUnitStatusArgs(),
 			},
+			Nonce: u.Nonce,
 		}
 		args[i] = arg
 	}

@@ -43,7 +43,7 @@ func (s *stateSuite) TestGetHardwareCharacteristics(c *tc.C) {
 func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *tc.C) {
 	db := s.DB()
 	// Create a reference machine.
-	err := s.state.CreateMachine(c.Context(), "42", "", "")
+	err := s.state.CreateMachine(c.Context(), "42", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	var machineUUID machine.UUID
 	err = db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name='42'").Scan(&machineUUID)
@@ -54,6 +54,7 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *tc
 		machineUUID,
 		instance.Id("123"),
 		"",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch:           ptr("arm64"),
 			Mem:            ptr[uint64](1024),
@@ -98,7 +99,7 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	err := s.state.CreateMachine(c.Context(), "42", "", "")
+	err := s.state.CreateMachine(c.Context(), "42", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	var machineUUID machine.UUID
 	row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name='42'")
@@ -114,6 +115,7 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 		machineUUID,
 		instance.Id("1"),
 		"one",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch:             ptr("arm64"),
 			Mem:              ptr[uint64](1024),
@@ -176,7 +178,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyInstanceID(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	err := s.state.CreateMachine(c.Context(), "42", "", "")
+	err := s.state.CreateMachine(c.Context(), "42", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	var machineUUID machine.UUID
 	row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name='42'")
@@ -189,6 +191,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyInstanceID(c *tc.C) {
 		machineUUID,
 		instance.Id(""),
 		"one",
+		"nonce",
 		&instance.HardwareCharacteristics{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -207,7 +210,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyDisplayName(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	err := s.state.CreateMachine(c.Context(), "42", "", "")
+	err := s.state.CreateMachine(c.Context(), "42", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	var machineUUID machine.UUID
 	row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name='42'")
@@ -220,6 +223,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyDisplayName(c *tc.C) {
 		machineUUID,
 		instance.Id("1"),
 		"",
+		"nonce",
 		&instance.HardwareCharacteristics{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -246,7 +250,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyUniqueIndex(c *tc.C) {
 		uuid := coremachinetesting.GenUUID(c)
 
 		// Create a reference machine.
-		err := s.state.CreateMachine(c.Context(), machine.Name(name), name, uuid)
+		err := s.state.CreateMachine(c.Context(), machine.Name(name), name, uuid, nil)
 		c.Assert(err, tc.ErrorIsNil)
 		var machineUUID machine.UUID
 		row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name=?", name)
@@ -259,6 +263,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyUniqueIndex(c *tc.C) {
 			machineUUID,
 			instance.Id(""),
 			"",
+			"nonce",
 			&instance.HardwareCharacteristics{},
 		)
 		c.Assert(err, tc.ErrorIsNil)
@@ -269,7 +274,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	err := s.state.CreateMachine(c.Context(), "42", "", "")
+	err := s.state.CreateMachine(c.Context(), "42", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	var machineUUID machine.UUID
 	row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name='42'")
@@ -282,6 +287,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *tc.C) {
 		machineUUID,
 		instance.Id("1"),
 		"one",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch: ptr("arm64"),
 		},
@@ -294,6 +300,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *tc.C) {
 		machineUUID,
 		instance.Id("1"),
 		"one",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch: ptr("amd64"),
 		},
@@ -360,7 +367,7 @@ func (s *stateSuite) TestInstanceIdSuccess(c *tc.C) {
 }
 
 func (s *stateSuite) TestInstanceIdError(c *tc.C) {
-	err := s.state.CreateMachine(c.Context(), "666", "", "")
+	err := s.state.CreateMachine(c.Context(), "666", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.state.InstanceID(c.Context(), "666")
@@ -377,7 +384,7 @@ func (s *stateSuite) TestInstanceNameSuccess(c *tc.C) {
 }
 
 func (s *stateSuite) TestInstanceNameError(c *tc.C) {
-	err := s.state.CreateMachine(c.Context(), "666", "", "")
+	err := s.state.CreateMachine(c.Context(), "666", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = s.state.InstanceIDAndName(c.Context(), "666")
@@ -523,7 +530,7 @@ func (s *stateSuite) ensureInstance(c *tc.C, mName machine.Name) machine.UUID {
 
 	// Create a reference machine.
 	machineUUID := coremachinetesting.GenUUID(c)
-	err := s.state.CreateMachine(c.Context(), mName, "", machineUUID)
+	err := s.state.CreateMachine(c.Context(), mName, "", machineUUID, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	// Add a reference AZ.
 	_, err = db.ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
@@ -534,6 +541,7 @@ func (s *stateSuite) ensureInstance(c *tc.C, mName machine.Name) machine.UUID {
 		machineUUID,
 		instance.Id("123"),
 		"one-two-three",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch:             ptr("arm64"),
 			Mem:              ptr[uint64](1024),

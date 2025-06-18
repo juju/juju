@@ -11,36 +11,47 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/life"
+	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
+// ApplicationService defines the methods required to get the life of a unit.
+type ApplicationService interface {
+	GetUnitLife(ctx context.Context, name unit.Name) (life.Value, error)
+}
+
 // LifeGetter implements a common Life method for use by various facades.
 type LifeGetter struct {
-	st         state.EntityFinder
-	getCanRead GetAuthFunc
+	applicationService ApplicationService
+	machineService     MachineService
+	getCanRead         GetAuthFunc
+	logger             corelogger.Logger
+
+	// Deprecated: use domain services instead.
+	st state.EntityFinder
 }
 
 // NewLifeGetter returns a new LifeGetter. The GetAuthFunc will be used on
 // each invocation of Life to determine current permissions.
-func NewLifeGetter(st state.EntityFinder, getCanRead GetAuthFunc) *LifeGetter {
+func NewLifeGetter(
+	applicationService ApplicationService,
+	machineService MachineService,
+	st state.EntityFinder,
+	getCanRead GetAuthFunc,
+	logger corelogger.Logger,
+) *LifeGetter {
 	return &LifeGetter{
-		st:         st,
-		getCanRead: getCanRead,
+		applicationService: applicationService,
+		machineService:     machineService,
+		st:                 st,
+		getCanRead:         getCanRead,
+		logger:             logger,
 	}
-}
-
-// OneLife returns the life of the specified entity.
-func (lg *LifeGetter) OneLife(tag names.Tag) (life.Value, error) {
-	entity0, err := lg.st.FindEntity(tag)
-	if err != nil {
-		return "", err
-	}
-	entity, ok := entity0.(state.Lifer)
-	if !ok {
-		return "", apiservererrors.NotSupportedError(tag, "life cycles")
-	}
-	return life.Value(entity.Life().String()), nil
 }
 
 // Life returns the life status of every supplied entity, where available.
@@ -61,11 +72,53 @@ func (lg *LifeGetter) Life(ctx context.Context, args params.Entities) (params.Li
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canRead(tag) {
-			result.Results[i].Life, err = lg.OneLife(tag)
+
+		if !canRead(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
+
+		life, err := lg.OneLife(ctx, tag)
+		result.Results[i].Life = life
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+// OneLife returns the life of the specified entity.
+func (lg *LifeGetter) OneLife(ctx context.Context, tag names.Tag) (life.Value, error) {
+	switch t := tag.(type) {
+	case names.MachineTag:
+		life, err := lg.machineService.GetMachineLife(ctx, machine.Name(t.Id()))
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			return "", apiservererrors.ServerError(errors.NotProvisionedf("machine %s", t.Id()))
+		} else if errors.Is(err, machineerrors.MachineNotFound) {
+			return "", apiservererrors.ServerError(errors.NotFoundf("machine %s", t.Id()))
+		}
+		return life, errors.Trace(err)
+
+	case names.UnitTag:
+		life, err := lg.applicationService.GetUnitLife(ctx, unit.Name(t.Id()))
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return "", apiservererrors.ServerError(errors.NotFoundf("unit %s", t.Id()))
+		}
+		return life, errors.Trace(err)
+
+	default:
+		lg.logger.Criticalf(ctx, "OneLife called with unsupported tag %s", tag)
+	}
+
+	return lg.legacyOneLifer(tag)
+}
+
+func (lg *LifeGetter) legacyOneLifer(tag names.Tag) (life.Value, error) {
+	entity0, err := lg.st.FindEntity(tag)
+	if err != nil {
+		return "", err
+	}
+	entity, ok := entity0.(state.Lifer)
+	if !ok {
+		return "", apiservererrors.NotSupportedError(tag, "life cycles")
+	}
+	return life.Value(entity.Life().String()), nil
 }

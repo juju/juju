@@ -22,9 +22,11 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -51,10 +53,11 @@ var AgentTags = []string{
 // This Authenticator only works with requests that have been handled
 // by one of the httpcontext.*ModelHandler handlers.
 type Authenticator struct {
-	statePool                  *state.StatePool
-	controllerConfigService    ControllerConfigService
-	agentPasswordServiceGetter AgentPasswordServiceGetter
-	authContext                *authContext
+	statePool                           *state.StatePool
+	controllerConfigService             ControllerConfigService
+	agentPasswordServiceGetter          AgentPasswordServiceGetter
+	controllerModelAgentPasswordService authentication.AgentPasswordService
+	authContext                         *authContext
 }
 
 // ControllerConfigService is an interface that can be implemented by
@@ -67,6 +70,20 @@ type ControllerConfigService interface {
 type MacaroonService interface {
 	dbrootkeystore.ContextBacking
 	BakeryConfigService
+}
+
+// MachineServiceGetter defines the methods required to get a MachineService
+// for a model.
+type MachineServiceGetter interface {
+	// GetMachineServiceForModel returns a MachineService for the given model.
+	GetMachineServiceForModel(ctx context.Context, modelUUID model.UUID) (MachineService, error)
+}
+
+// MachineService defines the methods required to determine if a machine is a
+// controller machine.
+type MachineService interface {
+	// IsMachineController returns true if the machine is a controller machine.
+	IsMachineController(ctx context.Context, name machine.Name) (bool, error)
 }
 
 type BakeryConfigService interface {
@@ -87,15 +104,31 @@ func NewAuthenticator(
 	agentAuthGetter AgentAuthenticatorGetter,
 	clock clock.Clock,
 ) (*Authenticator, error) {
-	authContext, err := newAuthContext(ctx, controllerModelUUID, controllerConfigService, accessService, macaroonService, agentAuthGetter, clock)
+	authContext, err := newAuthContext(
+		ctx,
+		controllerModelUUID,
+		controllerConfigService,
+		accessService,
+		macaroonService,
+		agentAuthGetter,
+		clock,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	controllerModelAgentPasswordService, err := agentPasswordServiceGetter.GetAgentPasswordServiceForModel(ctx, controllerModelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &Authenticator{
 		statePool:                  statePool,
 		agentPasswordServiceGetter: agentPasswordServiceGetter,
 		controllerConfigService:    controllerConfigService,
 		authContext:                authContext,
+
+		controllerModelAgentPasswordService: controllerModelAgentPasswordService,
 	}, nil
 }
 
@@ -187,7 +220,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	}
 
 	authenticator := a.authContext.authenticatorForModel(serverHost, agentPasswordService, st.State)
-	authInfo, err := a.checkCreds(ctx, modelUUID, authParams, authenticator)
+	authInfo, err := a.checkCreds(ctx, modelUUID, authParams, authenticator, agentPasswordService)
 	if err == nil {
 		return authInfo, nil
 	}
@@ -199,11 +232,20 @@ func (a *Authenticator) AuthenticateLoginRequest(
 
 	_, isMachineTag := authParams.AuthTag.(names.MachineTag)
 	_, isControllerAgentTag := authParams.AuthTag.(names.ControllerAgentTag)
+
+	// If you're a model worker api-caller using the model controller agent tag
+	// to ask questions about the non-controller model that you're running in.
 	if (isMachineTag || isControllerAgentTag) && !st.IsController() {
+		systemState, errS := a.statePool.SystemState()
+		if errS != nil {
+			return authentication.AuthInfo{}, errors.Trace(err)
+		}
+
 		// Controller agents are allowed to log into any model.
-		authenticator := a.authContext.authenticator(serverHost)
+		authenticator := a.authContext.authenticatorForModel(serverHost, a.controllerModelAgentPasswordService, systemState)
+
 		var err2 error
-		authInfo, err2 = a.checkCreds(ctx, modelUUID, authParams, authenticator)
+		authInfo, err2 = a.checkCreds(ctx, modelUUID, authParams, authenticator, a.controllerModelAgentPasswordService)
 		if err2 == nil && authInfo.Controller {
 			err = nil
 		}
@@ -212,7 +254,9 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		return authentication.AuthInfo{}, errors.NewUnauthorized(err, "")
 	}
 
-	authInfo.Delegator = &PermissionDelegator{AccessService: a.authContext.accessService}
+	authInfo.Delegator = &PermissionDelegator{
+		AccessService: a.authContext.accessService,
+	}
 	return authInfo, nil
 }
 
@@ -221,6 +265,7 @@ func (a *Authenticator) checkCreds(
 	modelUUID model.UUID,
 	authParams authentication.AuthParams,
 	authenticator authentication.EntityAuthenticator,
+	agentPasswordService authentication.AgentPasswordService,
 ) (authentication.AuthInfo, error) {
 	entity, err := authenticator.Authenticate(ctx, authParams)
 	if err != nil {
@@ -244,25 +289,20 @@ func (a *Authenticator) checkCreds(
 			logger.Warningf(ctx, "updating last login time for %v, %v", userTag, err)
 		}
 
-	case names.MachineTagKind, names.ControllerAgentTagKind:
-		// Currently only machines and controller agents are managers in the
-		// context of a controller.
-		authInfo.Controller = a.isManager(entity)
+	case names.MachineTagKind:
+		controller, err := agentPasswordService.IsMachineController(ctx, machine.Name(entity.Tag().Id()))
+		if err != nil && !errors.Is(err, machineerrors.MachineNotFound) {
+			return authentication.AuthInfo{}, errors.Trace(err)
+		}
+		authInfo.Controller = controller
+
+	case names.ControllerAgentTagKind:
+		// If you're a controller agent, then we've already authenticated so
+		// this must be true.
+		authInfo.Controller = true
 	}
 
 	return authInfo, nil
-}
-
-func (a *Authenticator) isManager(entity state.Entity) bool {
-	type withIsManager interface {
-		IsManager() bool
-	}
-
-	m, ok := entity.(withIsManager)
-	if !ok {
-		return false
-	}
-	return m.IsManager()
 }
 
 // LoginRequest extracts basic auth login details from an http.Request.

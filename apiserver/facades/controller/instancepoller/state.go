@@ -25,7 +25,6 @@ type StateMachine interface {
 	Refresh() error
 	Life() state.Life
 	Status() (status.StatusInfo, error)
-	IsManual() (bool, error)
 }
 
 type StateInterface interface {

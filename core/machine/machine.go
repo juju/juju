@@ -4,9 +4,37 @@
 package machine
 
 import (
+	"regexp"
+
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
 )
+
+const (
+	// numberPattern is a non-compiled regexp that can be composed with other
+	// snippets for validating small number sequences.
+	//
+	// Numbers are a series of digits, with no leading zeros unless the number
+	// is exactly 0.
+	numberPattern = "(?:0|[1-9][0-9]*)"
+
+	// containerTypePattern is a non-compiled regexp that matches
+	// container types. It is a series of lower case letters (lxd for example).
+	containerTypePattern = "[a-z]+"
+
+	// containerPattern is a non-compiled regexp that matches
+	// a container name. It is a slash followed by a container type and
+	// a number, for example: /lxd/0.
+	containerPattern = "/" + containerTypePattern + "/" + numberPattern + ""
+
+	// machinePattern is a non-compiled regexp that matches
+	// a machine name. It is a number, followed by an optional
+	// series of containers. Each container is a slash followed by a
+	// container type and a number, for example: 0 or 0/lxd/0.
+	machinePattern = numberPattern + "(?:" + containerPattern + ")*"
+)
+
+var validMachine = regexp.MustCompile("^" + machinePattern + "$")
 
 // Name is a unique name identifier for a machine.
 type Name string
@@ -14,8 +42,8 @@ type Name string
 // Validate returns an error if the [Name] is invalid. The error returned
 // satisfies [errors.NotValid].
 func (n Name) Validate() error {
-	if n == "" {
-		return errors.Errorf("empty machine name").Add(coreerrors.NotValid)
+	if !validMachine.MatchString(n.String()) {
+		return errors.Errorf("machine name").Add(coreerrors.NotValid)
 	}
 	return nil
 }

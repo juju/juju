@@ -29,12 +29,14 @@ import (
 // rather than the export_test functions.
 
 type macaroonCommonSuite struct {
-	discharger              *bakerytest.Discharger
-	authenticator           *Authenticator
-	clock                   *testclock.Clock
-	controllerConfigService *MockControllerConfigService
-	accessService           *MockAccessService
-	macaroonService         *MockMacaroonService
+	discharger                 *bakerytest.Discharger
+	authenticator              *Authenticator
+	clock                      *testclock.Clock
+	controllerConfigService    *MockControllerConfigService
+	accessService              *MockAccessService
+	macaroonService            *MockMacaroonService
+	agentPasswordService       *MockAgentPasswordService
+	agentPasswordServiceGetter *MockAgentPasswordServiceGetter
 
 	controllerConfig map[string]interface{}
 }
@@ -60,6 +62,11 @@ func (s *macaroonCommonSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.macaroonService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
 	s.macaroonService.EXPECT().GetExternalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).AnyTimes()
 
+	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
+
+	s.agentPasswordServiceGetter = NewMockAgentPasswordServiceGetter(ctrl)
+	s.agentPasswordServiceGetter.EXPECT().GetAgentPasswordServiceForModel(gomock.Any(), gomock.Any()).Return(s.agentPasswordService, nil)
+
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(nil, nil, loggertesting.WrapCheckLog(c))
 
 	authenticator, err := NewAuthenticator(
@@ -67,7 +74,7 @@ func (s *macaroonCommonSuite) setupMocks(c *tc.C) *gomock.Controller {
 		nil,
 		model.UUID(testing.ModelTag.Id()),
 		s.controllerConfigService,
-		nil,
+		s.agentPasswordServiceGetter,
 		s.accessService,
 		s.macaroonService,
 		agentAuthGetter,
@@ -86,6 +93,7 @@ type macaroonAuthWrongPublicKeySuite struct {
 func TestMacaroonAuthWrongPublicKeySuite(t *stdtesting.T) {
 	tc.Run(t, &macaroonAuthWrongPublicKeySuite{})
 }
+
 func (s *macaroonAuthWrongPublicKeySuite) SetUpTest(c *tc.C) {
 	s.discharger = bakerytest.NewDischarger(nil)
 	wrongKey, err := bakery.GenerateKey()

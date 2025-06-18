@@ -137,6 +137,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			instanceArgs.VirtType = *hardwareCharacteristics.VirtType
 		}
 		machine.SetInstance(instanceArgs)
+
 		instance := machine.Instance()
 		instance.SetStatus(description.StatusArgs{})
 	}

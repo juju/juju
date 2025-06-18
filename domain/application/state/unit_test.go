@@ -907,6 +907,7 @@ func (s *unitStateSuite) TestInitialWatchStatementUnitLife(c *tc.C) {
 
 func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *tc.C) {
 	s.createSubnetForCAASModel(c)
+
 	u1 := application.InsertIAASUnitArg{
 		InsertUnitArg: application.InsertUnitArg{
 			UnitName: "foo/666",
@@ -1200,7 +1201,7 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNodeNoUnits(c *tc.C) {
 		var err error
 		netNode, _, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
-		}, deployment.Platform{})
+		}, deployment.Platform{}, nil)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

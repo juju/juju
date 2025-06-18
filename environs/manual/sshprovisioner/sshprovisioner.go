@@ -21,6 +21,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
@@ -253,7 +254,7 @@ func gatherMachineParams(hostname string, login string) (*params.AddMachineParam
 	// task. The provisioner task will happily remove any and all dead
 	// machines from state, but will ignore the associated instance ID
 	// if it isn't one that the environment provider knows about.
-	instanceId := instance.Id(manual.ManualInstancePrefix + hostname)
+	instanceId := instance.Id(machine.ManualInstancePrefix + hostname)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
 	machineParams := &params.AddMachineParams{
 		Base:                    base,

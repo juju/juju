@@ -134,14 +134,31 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 	domainServices := ctx.DomainServices()
 
+	agentService := domainServices.Agent()
+	agentBinaryService := domainServices.AgentBinary()
+	applicationService := domainServices.Application()
+	machineService := domainServices.Machine()
+	modelInfoService := domainServices.ModelInfo()
+	cloudService := domainServices.Cloud()
+	credentialService := domainServices.Credential()
+	modelConfigService := domainServices.Config()
+	controllerNodeService := domainServices.ControllerNode()
+	agentPasswordService := domainServices.AgentPassword()
+	controllerConfigService := domainServices.ControllerConfig()
+	networkService := domainServices.Network()
+	storageService := domainServices.Storage()
+	keyUpdaterService := domainServices.KeyUpdater()
+	cloudImageMetadataService := domainServices.CloudImageMetadata()
+	agentProvisionerService := domainServices.AgentProvisioner()
+	externalControllerService := domainServices.ExternalController()
+
 	configGetter := stateenvirons.EnvironConfigGetter{
 		Model:              model,
-		CloudService:       domainServices.Cloud(),
-		CredentialService:  domainServices.Credential(),
-		ModelConfigService: domainServices.Config(),
+		CloudService:       cloudService,
+		CredentialService:  credentialService,
+		ModelConfigService: modelConfigService,
 	}
 
-	modelInfoService := domainServices.ModelInfo()
 	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -150,7 +167,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 
 	var env storage.ProviderRegistry
 	if isCaasModel {
-		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
+		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, cloudService, credentialService, modelConfigService)
 	} else {
 		env, err = environs.GetEnviron(stdCtx, configGetter, environs.NoopCredentialInvalidator(), environs.New)
 	}
@@ -171,41 +188,40 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), systemState)
 
 	watcherRegistry := ctx.WatcherRegistry()
-	modelConfigWatcher := commonmodel.NewModelConfigWatcher(domainServices.Config(), watcherRegistry)
+	modelConfigWatcher := commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry)
 
 	resources := ctx.Resources()
-	machineService := ctx.DomainServices().Machine()
-	controllerConfigService := domainServices.ControllerConfig()
+
 	api := &ProvisionerAPI{
 		StatusSetter:         common.NewStatusSetter(st, getAuthFunc, ctx.Clock()),
 		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
 		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc, machineService),
-		PasswordChanger:      common.NewPasswordChanger(domainServices.AgentPassword(), st, getAuthFunc),
-		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
-		APIAddresser:         common.NewAPIAddresser(domainServices.ControllerNode(), watcherRegistry),
+		PasswordChanger:      common.NewPasswordChanger(agentPasswordService, st, getAuthFunc),
+		LifeGetter:           common.NewLifeGetter(applicationService, machineService, st, getAuthFunc, ctx.Logger()),
+		APIAddresser:         common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		ModelConfigWatcher:   modelConfigWatcher,
 		ModelMachinesWatcher: commonmodel.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
 			controllerConfigService,
-			domainServices.ExternalController(),
+			externalControllerService,
 		),
 		NetworkConfigAPI:          netConfigAPI,
-		networkService:            ctx.DomainServices().Network(),
+		networkService:            networkService,
 		st:                        st,
 		controllerConfigService:   controllerConfigService,
-		agentProvisionerService:   domainServices.AgentProvisioner(),
-		cloudImageMetadataService: domainServices.CloudImageMetadata(),
-		keyUpdaterService:         domainServices.KeyUpdater(),
-		modelConfigService:        domainServices.Config(),
+		agentProvisionerService:   agentProvisionerService,
+		cloudImageMetadataService: cloudImageMetadataService,
+		keyUpdaterService:         keyUpdaterService,
+		modelConfigService:        modelConfigService,
 		modelInfoService:          modelInfoService,
 		machineService:            machineService,
-		applicationService:        domainServices.Application(),
+		applicationService:        applicationService,
 		resources:                 resources,
 		authorizer:                authorizer,
 		configGetter:              configGetter,
 		storageProviderRegistry:   storageProviderRegistry,
-		storagePoolGetter:         domainServices.Storage(),
+		storagePoolGetter:         storageService,
 		getAuthFunc:               getAuthFunc,
 		getCanModify:              getCanModify,
 		controllerUUID:            ctx.ControllerUUID(),
@@ -215,15 +231,15 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		return api, nil
 	}
 
-	api.InstanceIdGetter = common.NewInstanceIdGetter(domainServices.Machine(), getAuthFunc)
+	api.InstanceIdGetter = common.NewInstanceIdGetter(machineService, getAuthFunc)
 
 	api.toolsFinder = common.NewToolsFinder(
-		domainServices.ControllerConfig(),
+		controllerConfigService,
 		st, urlGetter,
 		ctx.ControllerObjectStore(),
-		domainServices.AgentBinary(),
+		agentBinaryService,
 	)
-	api.ToolsGetter = common.NewToolsGetter(domainServices.Agent(), st, urlGetter, api.toolsFinder, getAuthOwner)
+	api.ToolsGetter = common.NewToolsGetter(agentService, st, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
 }
 
@@ -801,6 +817,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 			machineUUID,
 			arg.InstanceId,
 			arg.DisplayName,
+			arg.Nonce,
 			arg.Characteristics,
 		); err != nil {
 			return errors.Annotatef(err, "setting machine cloud instance for machine uuid %q", machineUUID)
@@ -923,7 +940,9 @@ type perContainerHandler interface {
 	ProcessOneContainer(
 		ctx context.Context,
 		env environs.Environ,
-		policy BridgePolicy, idx int, host, guest Machine,
+		policy BridgePolicy, idx int,
+		host Machine, hostIsManual bool,
+		guest Machine,
 		hostInstanceID, guestInstanceID instance.Id,
 		allSubnets network.SubnetInfos,
 	) error
@@ -954,6 +973,11 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		return errors.Trace(err)
 	}
 
+	hostIsManual, err := api.machineService.IsMachineManuallyProvisioned(ctx, coremachine.Name(hostMachine.Id()))
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	containerNetworkingMethod, err := api.agentProvisionerService.ContainerNetworkingMethod(ctx)
 	if err != nil {
 		return fmt.Errorf("cannot get container networking method: %w", err)
@@ -975,6 +999,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 			handler.SetError(i, err)
 			continue
 		}
+
 		// The auth function (canAccess) checks that the machine is a
 		// top level machine (we filter those out next) or that the
 		// machine has the host as a parent.
@@ -995,6 +1020,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 			ctx,
 			env, policy, i,
 			NewMachine(hostMachine),
+			hostIsManual,
 			NewMachine(guest),
 			hostInstanceID,
 			guestInstanceID,
@@ -1027,7 +1053,10 @@ func (h *prepareOrGetHandler) ConfigType() string {
 func (h *prepareOrGetHandler) ProcessOneContainer(
 	ctx context.Context,
 	env environs.Environ, policy BridgePolicy,
-	idx int, host, guest Machine, hostInstanceID, guestInstanceID instance.Id, _ network.SubnetInfos,
+	idx int,
+	host Machine, hostIsManual bool,
+	guest Machine,
+	hostInstanceID, guestInstanceID instance.Id, _ network.SubnetInfos,
 ) error {
 	if h.maintain {
 		if guestInstanceID != "" {
@@ -1040,11 +1069,7 @@ func (h *prepareOrGetHandler) ProcessOneContainer(
 
 	// We do not ask the provider to allocate addresses for manually provisioned
 	// machines as we do not expect such machines to be recognised (LP:1796106).
-	askProviderForAddress := false
-	hostIsManual, err := host.IsManual()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	var askProviderForAddress bool
 	if !hostIsManual {
 		askProviderForAddress = environs.SupportsContainerAddresses(ctx, env)
 	}
@@ -1127,7 +1152,8 @@ type hostChangesHandler struct {
 func (h *hostChangesHandler) ProcessOneContainer(
 	_ context.Context,
 	_ environs.Environ, policy BridgePolicy,
-	idx int, host, guest Machine, _, _ instance.Id, allSubnets network.SubnetInfos,
+	idx int, host Machine, hostIsManual bool,
+	guest Machine, _, _ instance.Id, allSubnets network.SubnetInfos,
 ) error {
 	bridges, err := policy.FindMissingBridgesForContainer(host, guest, allSubnets)
 	if err != nil {
@@ -1181,7 +1207,9 @@ type containerProfileHandler struct {
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (h *containerProfileHandler) ProcessOneContainer(
 	ctx context.Context,
-	_ environs.Environ, _ BridgePolicy, idx int, _, guest Machine, _, _ instance.Id, _ network.SubnetInfos,
+	_ environs.Environ, _ BridgePolicy, idx int,
+	_ Machine, _ bool,
+	guest Machine, _, _ instance.Id, _ network.SubnetInfos,
 ) error {
 	guestName := coremachine.Name(guest.Id())
 	unitNames, err := h.applicationService.GetUnitNamesOnMachine(ctx, guestName)

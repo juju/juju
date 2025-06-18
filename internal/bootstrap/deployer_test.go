@@ -14,6 +14,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -280,7 +281,9 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 			},
 			IsController: true,
 		},
-		applicationservice.AddUnitArg{},
+		applicationservice.AddIAASUnitArg{
+			Nonce: ptr(agent.BootstrapNonce),
+		},
 	)
 
 	deployer, err := NewIAASDeployer(IAASDeployerConfig{

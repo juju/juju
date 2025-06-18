@@ -377,19 +377,21 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnits(c *tc.C) {
 			Channel: channel,
 		},
 	}
-	us := []application.AddUnitArg{{
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-				Status:  status.UnitAgentStatusExecuting,
-				Message: "test",
-				Data:    []byte(`{"foo": "bar"}`),
-				Since:   ptr(time.Now()),
-			},
-			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusActive,
-				Message: "test",
-				Data:    []byte(`{"foo": "bar"}`),
-				Since:   ptr(time.Now()),
+	us := []application.AddIAASUnitArg{{
+		AddUnitArg: application.AddUnitArg{
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status:  status.UnitAgentStatusExecuting,
+					Message: "test",
+					Data:    []byte(`{"foo": "bar"}`),
+					Since:   ptr(time.Now()),
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusActive,
+					Message: "test",
+					Data:    []byte(`{"foo": "bar"}`),
+					Since:   ptr(time.Now()),
+				},
 			},
 		},
 	}}

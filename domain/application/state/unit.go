@@ -635,6 +635,7 @@ func (st *State) AddIAASUnits(
 					},
 				},
 				Platform: arg.Platform,
+				Nonce:    arg.Nonce,
 			}
 
 			mNames, err := st.insertIAASUnit(ctx, tx, appUUID, insertArg)
@@ -1035,12 +1036,12 @@ func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (cor
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		uuid, err = st.getUnitUUIDByName(ctx, tx, name)
 		if err != nil {
-			return errors.Errorf("querying unit name: %w", err)
+			return errors.Errorf("getting unit UUID by name %q: %w", name, err)
 		}
-		return err
+		return nil
 	})
 	if err != nil {
-		return "", errors.Errorf("querying unit name: %w", err)
+		return "", errors.Capture(err)
 	}
 
 	return uuid, nil
@@ -1315,7 +1316,7 @@ func (st *State) insertIAASUnit(
 	}
 
 	// Handle the placement of the net node and machines accompanying the unit.
-	nodeUUID, machineNames, err := st.placeMachine(ctx, tx, args.Placement, args.Platform)
+	nodeUUID, machineNames, err := st.placeMachine(ctx, tx, args.Placement, args.Platform, args.Nonce)
 	if err != nil {
 		return nil, errors.Errorf("getting net node UUID from placement %+v: %w", args.Placement, err)
 	}

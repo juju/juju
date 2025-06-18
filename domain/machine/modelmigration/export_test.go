@@ -131,7 +131,3 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	c.Check(cloudInstance.AvailabilityZone(), tc.Equals, "az-1")
 	c.Check(cloudInstance.VirtType(), tc.Equals, "vm")
 }
-
-func ptr[T any](u T) *T {
-	return &u
-}

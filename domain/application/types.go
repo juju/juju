@@ -209,6 +209,7 @@ type AddUnitArg struct {
 type AddIAASUnitArg struct {
 	AddUnitArg
 	Platform deployment.Platform
+	Nonce    *string
 }
 
 // InsertUnitArg is used to insert a fully populated unit.
@@ -228,6 +229,7 @@ type InsertUnitArg struct {
 type InsertIAASUnitArg struct {
 	InsertUnitArg
 	Platform deployment.Platform
+	Nonce    *string
 }
 
 // RegisterCAASUnitParams contains parameters for introducing

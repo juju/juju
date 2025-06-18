@@ -44,12 +44,14 @@ import (
 // root key service is the best option
 type macaroonAuthSuite struct {
 	domaintesting.ControllerSuite
-	discharger              *bakerytest.Discharger
-	authenticator           *Authenticator
-	clock                   *testclock.Clock
-	controllerConfigService *MockControllerConfigService
-	accessService           *MockAccessService
-	macaroonService         *macaroonservice.Service
+	discharger                 *bakerytest.Discharger
+	authenticator              *Authenticator
+	clock                      *testclock.Clock
+	controllerConfigService    *MockControllerConfigService
+	accessService              *MockAccessService
+	macaroonService            *macaroonservice.Service
+	agentPasswordService       *MockAgentPasswordService
+	agentPasswordServiceGetter *MockAgentPasswordServiceGetter
 
 	controllerConfig map[string]interface{}
 }
@@ -78,6 +80,11 @@ func (s *macaroonAuthSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.controllerConfig, nil).AnyTimes()
 
+	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
+
+	s.agentPasswordServiceGetter = NewMockAgentPasswordServiceGetter(ctrl)
+	s.agentPasswordServiceGetter.EXPECT().GetAgentPasswordServiceForModel(gomock.Any(), gomock.Any()).Return(s.agentPasswordService, nil)
+
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(nil, nil, loggertesting.WrapCheckLog(c))
 
 	authenticator, err := NewAuthenticator(
@@ -85,7 +92,7 @@ func (s *macaroonAuthSuite) setupMocks(c *tc.C) *gomock.Controller {
 		nil,
 		model.UUID(testing.ModelTag.Id()),
 		s.controllerConfigService,
-		nil,
+		s.agentPasswordServiceGetter,
 		s.accessService,
 		s.macaroonService,
 		agentAuthGetter,

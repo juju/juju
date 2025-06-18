@@ -516,7 +516,7 @@ func (c *sshMachine) reachableAddressGetter(ctx context.Context, entity string) 
 	} else if len(addresses) == 0 {
 		return "", network.NoAddressError("available")
 	} else if len(addresses) == 1 {
-		logger.Debugf(context.TODO(), "Only one SSH address provided (%s), using it without probing", addresses[0])
+		logger.Debugf(ctx, "Only one SSH address provided (%s), using it without probing", addresses[0])
 		return addresses[0], nil
 	}
 	var publicKeys []string

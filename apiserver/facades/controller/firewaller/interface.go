@@ -42,7 +42,6 @@ type Relation interface {
 
 type Machine interface {
 	Id() string
-	IsManual() (bool, error)
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -73,6 +72,11 @@ type MachineService interface {
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	// IsMachineManuallyProvisioned returns whether the machine is a manual
+	// machine.
+	IsMachineManuallyProvisioned(ctx context.Context, machineName machine.Name) (bool, error)
+	// GetMachineLife returns the lifecycle of the machine.
+	GetMachineLife(ctx context.Context, name machine.Name) (life.Value, error)
 }
 
 // ApplicationService provides access to the application service.

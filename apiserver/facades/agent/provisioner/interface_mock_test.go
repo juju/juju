@@ -278,45 +278,6 @@ func (c *MockMachineIdCall) DoAndReturn(f func() string) *MockMachineIdCall {
 	return c
 }
 
-// IsManual mocks base method.
-func (m *MockMachine) IsManual() (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsManual")
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsManual indicates an expected call of IsManual.
-func (mr *MockMachineMockRecorder) IsManual() *MockMachineIsManualCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsManual", reflect.TypeOf((*MockMachine)(nil).IsManual))
-	return &MockMachineIsManualCall{Call: call}
-}
-
-// MockMachineIsManualCall wrap *gomock.Call
-type MockMachineIsManualCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineIsManualCall) Return(arg0 bool, arg1 error) *MockMachineIsManualCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineIsManualCall) Do(f func() (bool, error)) *MockMachineIsManualCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineIsManualCall) DoAndReturn(f func() (bool, error)) *MockMachineIsManualCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MachineTag mocks base method.
 func (m *MockMachine) MachineTag() names.MachineTag {
 	m.ctrl.T.Helper()

@@ -67,6 +67,7 @@ func (s *InstancePollerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 func (s *InstancePollerSuite) setupAPI(c *tc.C) (err error) {
 	s.api, err = instancepoller.NewInstancePollerAPI(
 		nil,
+		nil,
 		s.networkService,
 		s.machineService,
 		nil,
@@ -264,8 +265,10 @@ func (s *InstancePollerSuite) TestLifeSuccess(c *tc.C) {
 	err := s.setupAPI(c)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.st.SetMachineInfo(c, machineInfo{id: "1", life: state.Alive})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", life: state.Dying})
+	exp := s.machineService.EXPECT()
+	exp.GetMachineLife(gomock.Any(), machine.Name("1")).Return(life.Alive, nil)
+	exp.GetMachineLife(gomock.Any(), machine.Name("2")).Return(life.Dying, nil)
+	exp.GetMachineLife(gomock.Any(), machine.Name("42")).Return("", machineerrors.MachineNotFound)
 
 	result, err := s.api.Life(c.Context(), s.mixedEntities)
 	c.Assert(err, tc.ErrorIsNil)
@@ -281,12 +284,6 @@ func (s *InstancePollerSuite) TestLifeSuccess(c *tc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		}},
 	)
-
-	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckCall(c, 1, "Life")
-	s.st.CheckFindEntityCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "Life")
-	s.st.CheckFindEntityCall(c, 4, "42")
 }
 
 func (s *InstancePollerSuite) TestLifeFailure(c *tc.C) {
@@ -295,15 +292,10 @@ func (s *InstancePollerSuite) TestLifeFailure(c *tc.C) {
 	err := s.setupAPI(c)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.st.SetErrors(
-		errors.New("pow!"),                   // m1 := FindEntity("1"); Life not called
-		nil,                                  // m2 := FindEntity("2")
-		errors.New("FAIL"),                   // m2.Life() - unused
-		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
-	)
-	s.st.SetMachineInfo(c, machineInfo{id: "1", life: state.Alive})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", life: state.Dead})
-	s.st.SetMachineInfo(c, machineInfo{id: "3", life: state.Dying})
+	exp := s.machineService.EXPECT()
+	exp.GetMachineLife(gomock.Any(), machine.Name("1")).Return("", errors.New("pow!"))
+	exp.GetMachineLife(gomock.Any(), machine.Name("2")).Return(life.Dead, nil)
+	exp.GetMachineLife(gomock.Any(), machine.Name("3")).Return("", machineerrors.NotProvisioned)
 
 	result, err := s.api.Life(c.Context(), s.machineEntities)
 	c.Assert(err, tc.ErrorIsNil)
@@ -311,14 +303,9 @@ func (s *InstancePollerSuite) TestLifeFailure(c *tc.C) {
 		Results: []params.LifeResult{
 			{Error: apiservertesting.ServerError("pow!")},
 			{Life: life.Dead},
-			{Error: apiservertesting.NotProvisionedError("42")},
+			{Error: apiservertesting.NotProvisionedError("3")},
 		}},
 	)
-
-	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckFindEntityCall(c, 1, "2")
-	s.st.CheckCall(c, 2, "Life")
-	s.st.CheckFindEntityCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestInstanceIdSuccess(c *tc.C) {
@@ -600,8 +587,9 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *tc.C) {
 	err := s.setupAPI(c)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.st.SetMachineInfo(c, machineInfo{id: "1", isManual: true})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", isManual: false})
+	s.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machine.Name("1")).Return(true, nil)
+	s.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machine.Name("2")).Return(false, nil)
+	s.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machine.Name("42")).Return(false, machineerrors.MachineNotFound)
 
 	result, err := s.api.AreManuallyProvisioned(c.Context(), s.mixedEntities)
 	c.Assert(err, tc.ErrorIsNil)
@@ -609,7 +597,7 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *tc.C) {
 		Results: []params.BoolResult{
 			{Result: true},
 			{Result: false},
-			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.NotFoundError(`machine "42"`)},
 			{Error: apiservertesting.ServerError(`"application-unknown" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},
 			{Error: apiservertesting.ServerError(`"unit-missing-1" is not a valid machine tag`)},
@@ -617,43 +605,6 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *tc.C) {
 			{Error: apiservertesting.ServerError(`"42" is not a valid tag`)},
 		}},
 	)
-
-	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckCall(c, 1, "IsManual")
-	s.st.CheckMachineCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "IsManual")
-	s.st.CheckMachineCall(c, 4, "42")
-}
-
-func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *tc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-	err := s.setupAPI(c)
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.st.SetErrors(
-		errors.New("pow!"),                   // m1 := FindEntity("1")
-		nil,                                  // m2 := FindEntity("2")
-		errors.New("FAIL"),                   // m2.IsManual()
-		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
-	)
-	s.st.SetMachineInfo(c, machineInfo{id: "1", isManual: true})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", isManual: false})
-
-	result, err := s.api.AreManuallyProvisioned(c.Context(), s.machineEntities)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.BoolResults{
-		Results: []params.BoolResult{
-			{Error: apiservertesting.ServerError("pow!")},
-			{Error: apiservertesting.ServerError("FAIL")},
-			{Error: apiservertesting.NotProvisionedError("42")},
-		}},
-	)
-
-	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckMachineCall(c, 1, "2")
-	s.st.CheckCall(c, 2, "IsManual")
-	s.st.CheckMachineCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *tc.C) {

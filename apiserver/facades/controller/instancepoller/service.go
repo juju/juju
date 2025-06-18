@@ -8,8 +8,10 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 )
 
 // ControllerConfigService is an interface that provides access to the
@@ -43,4 +45,16 @@ type MachineService interface {
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	// IsMachineManuallyProvisioned returns whether the machine is a manual
+	// machine.
+	IsMachineManuallyProvisioned(ctx context.Context, machineName machine.Name) (bool, error)
+	// GetMachineLife returns the lifecycle of the machine.
+	GetMachineLife(ctx context.Context, machineUUID machine.Name) (life.Value, error)
+}
+
+// ApplicationService defines the methods that the facade assumes from the Application
+// service.
+type ApplicationService interface {
+	// GetUnitLife returns the lifecycle of the unit.
+	GetUnitLife(ctx context.Context, unitName unit.Name) (life.Value, error)
 }

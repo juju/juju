@@ -45,10 +45,10 @@ type importOperation struct {
 // another controller model to this controller.
 type ImportService interface {
 	// CreateMachine creates the specified machine.
-	CreateMachine(ctx context.Context, machineName machine.Name) (machine.UUID, error)
+	CreateMachine(ctx context.Context, machineName machine.Name, nonce *string) (machine.UUID, error)
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
-	SetMachineCloudInstance(ctx context.Context, machineUUID machine.UUID, instanceID instance.Id, displayName string, hardwareCharacteristics *instance.HardwareCharacteristics) error
+	SetMachineCloudInstance(ctx context.Context, machineUUID machine.UUID, instanceID instance.Id, displayName, nonce string, hardwareCharacteristics *instance.HardwareCharacteristics) error
 }
 
 // Name returns the name of this operation.
@@ -69,7 +69,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	for _, m := range model.Machines() {
 		// We need skeleton machines in dqlite.
-		machineUUID, err := i.service.CreateMachine(ctx, machine.Name(m.Id()))
+		machineUUID, err := i.service.CreateMachine(ctx, machine.Name(m.Id()), ptr(m.Nonce()))
 		if err != nil {
 			return errors.Errorf("importing machine %q: %w", m.Id(), err)
 		}
@@ -95,6 +95,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 				machineUUID,
 				instance.Id(cloudInstance.InstanceId()),
 				cloudInstance.DisplayName(),
+				m.Nonce(),
 				hardwareCharacteristics,
 			); err != nil {
 				return errors.Errorf("importing machine cloud instance %q: %w", m.Id(), err)
@@ -109,5 +110,9 @@ func nilZeroPtr[T comparable](v T) *T {
 	if v == zero {
 		return nil
 	}
+	return &v
+}
+
+func ptr[T any](v T) *T {
 	return &v
 }

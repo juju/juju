@@ -86,10 +86,6 @@ func (job MachineJob) String() string {
 	return string(job.ToParams())
 }
 
-// manualMachinePrefix signals as prefix of Nonce that a machine is
-// manually provisioned.
-const manualMachinePrefix = "manual:"
-
 // machineDoc represents the internal state of a machine in MongoDB.
 // Note the correspondence with MachineInfo in apiserver/juju.
 type machineDoc struct {
@@ -97,7 +93,6 @@ type machineDoc struct {
 	Id             string `bson:"machineid"`
 	ModelUUID      string `bson:"model-uuid"`
 	Base           Base   `bson:"base"`
-	Nonce          string
 	ContainerType  string
 	Principals     []string
 	Life           Life
@@ -292,16 +287,6 @@ func (m *Machine) IsManager() bool {
 	return isController(&m.doc)
 }
 
-// IsManual returns true if the machine was manually provisioned.
-func (m *Machine) IsManual() (bool, error) {
-	// If the controller was bootstrapped with a manual cloud,
-	// this method will not return the correct answer to IsManual.
-	// Doing so requires model config which has been moved to a
-	// domains. This will be corrected once the machine domain is
-	// completed.
-	return strings.HasPrefix(m.doc.Nonce, manualMachinePrefix), nil
-}
-
 // AgentTools returns the tools that the agent is currently running.
 // It returns an error that satisfies errors.IsNotFound if the tools
 // have not yet been set.
@@ -362,21 +347,6 @@ func (m *Machine) SetMongoPassword(password string) error {
 		return errors.NotSupportedf("setting mongo password for non-controller machine %v", m)
 	}
 	return mongo.SetAdminMongoPassword(m.st.session, m.Tag().String(), password)
-}
-
-// SetPassword sets the password for the machine's agent.
-func (m *Machine) SetPassword(password string) error {
-	if len(password) < internalpassword.MinAgentPasswordLength {
-		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
-	}
-	passwordHash := internalpassword.AgentPasswordHash(password)
-	op := m.UpdateOperation()
-	op.PasswordHash = &passwordHash
-	if err := m.st.ApplyOperation(op); err != nil {
-		return errors.Trace(err)
-	}
-	m.doc.PasswordHash = passwordHash
-	return nil
 }
 
 func (m *Machine) setPasswordHashOps(passwordHash string) ([]txn.Op, error) {
@@ -1033,52 +1003,6 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	return units, nil
 }
 
-// SetProvisioned stores the machine's provider-specific details in the
-// database. These details are used to infer that the machine has
-// been provisioned.
-//
-// When provisioning an instance, a nonce should be created and passed
-// when starting it, before adding the machine to the state. This means
-// that if the provisioner crashes (or its connection to the state is
-// lost) after starting the instance, we can be sure that only a single
-// instance will be able to act for that machine.
-//
-// Once set, the instance id cannot be changed. A non-empty instance id
-// will be detected as a provisioned machine.
-func (m *Machine) SetProvisioned(
-	id instance.Id,
-	displayName string,
-	nonce string,
-	characteristics *instance.HardwareCharacteristics,
-) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set instance data for machine %q", m)
-
-	if id == "" || nonce == "" {
-		return fmt.Errorf("instance id and nonce cannot be empty")
-	}
-
-	ops := []txn.Op{
-		{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: append(notDeadDoc, bson.DocElem{Name: "nonce", Value: ""}),
-			Update: bson.D{{"$set", bson.D{{"nonce", nonce}}}},
-		},
-	}
-
-	if err = m.st.db().RunTransaction(ops); err == nil {
-		m.doc.Nonce = nonce
-		return nil
-	} else if err != txn.ErrAborted {
-		return err
-	} else if aliveOrDying, err := isNotDead(m.st, machinesC, m.doc.DocID); err != nil {
-		return err
-	} else if !aliveOrDying {
-		return errDeadOrGone
-	}
-	return fmt.Errorf("already set")
-}
-
 // SetInstanceInfo is used to provision a machine and in one step sets its
 // instance ID, nonce, hardware characteristics, add link-layer devices and set
 // their addresses as needed.  After, set charm profiles if needed.
@@ -1127,7 +1051,7 @@ func (m *Machine) SetInstanceInfo(
 		}
 	}
 
-	return errors.Trace(m.SetProvisioned(id, displayName, nonce, characteristics))
+	return nil
 }
 
 // Addresses returns any hostnames and ips associated with a machine,
@@ -1450,11 +1374,6 @@ func (m *Machine) setAddressesOps(
 	ops = append(ops, setPrivateAddressOps...)
 	ops = append(ops, setPublicAddressOps...)
 	return ops, machineStateAddresses, providerStateAddresses, newPrivate, newPublic, nil
-}
-
-// CheckProvisioned returns true if the machine was provisioned with the given nonce.
-func (m *Machine) CheckProvisioned(nonce string) bool {
-	return nonce == m.doc.Nonce && nonce != ""
 }
 
 // String returns a unique description of this machine.

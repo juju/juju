@@ -36,6 +36,7 @@ type machineConfigSuite struct {
 	modelConfigService      *MockModelConfigService
 	machineService          *MockMachineService
 	bootstrapEnviron        *MockBootstrapEnviron
+	agentPasswordService    *MockAgentPasswordService
 }
 
 func TestMachineConfigSuite(t *testing.T) {
@@ -54,6 +55,7 @@ func (s *machineConfigSuite) setup(c *tc.C) *gomock.Controller {
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.bootstrapEnviron = NewMockBootstrapEnviron(ctrl)
+	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 
 	return ctrl
 }
@@ -76,11 +78,13 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 	machine0 := NewMockMachine(ctrl)
 	machine0.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "20.04/stable"}).AnyTimes()
 	machine0.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
-	hc := instance.MustParseHardware("mem=4G arch=amd64")
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&hc, nil)
-	machine0.EXPECT().SetPassword(gomock.Any()).Return(nil)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
+
+	hc := instance.MustParseHardware("mem=4G arch=amd64")
+
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&hc, nil)
+	s.agentPasswordService.EXPECT().SetMachinePassword(gomock.Any(), coremachine.Name("0"), gomock.Any()).Return(nil)
 
 	storageCloser := NewMockStorageCloser(ctrl)
 	storageCloser.EXPECT().AllMetadata().Return([]binarystorage.Metadata{{
@@ -108,6 +112,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 		KeyUpdaterService:       s.keyUpdaterService,
 		ModelConfigService:      s.modelConfigService,
 		MachineService:          s.machineService,
+		AgentPasswordService:    s.agentPasswordService,
 	}
 
 	modelID := modeltesting.GenModelUUID(c)

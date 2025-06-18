@@ -34,7 +34,6 @@ type LXDProfileBackend interface {
 // for executing a lxd profile upgrade.
 type LXDProfileMachine interface {
 	ContainerType() instance.ContainerType
-	IsManual() (bool, error)
 }
 
 type LXDProfileAPI struct {
@@ -275,20 +274,19 @@ func (u *LXDProfileAPI) getOneCanApplyLXDProfile(ctx context.Context, tag names.
 	if err != nil {
 		return false, internalerrors.Capture(err)
 	}
+	if manual, err := u.machineService.IsMachineManuallyProvisioned(ctx, machineName); err != nil {
+		return false, errors.Trace(err)
+	} else if manual {
+		return false, nil
+	}
+
+	if providerType == "lxd" {
+		return true, nil
+	}
 
 	machine, err := u.backend.Machine(machineName.String())
 	if err != nil {
 		return false, err
-	}
-	if manual, err := machine.IsManual(); err != nil {
-		return false, err
-	} else if manual {
-		// We do no know what type of machine a manual one is, so we do not
-		// manage lxd profiles on it.
-		return false, nil
-	}
-	if providerType == "lxd" {
-		return true, nil
 	}
 	switch machine.ContainerType() {
 	case instance.LXD:

@@ -24,6 +24,13 @@ ON machine (name);
 CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);
 
+CREATE TABLE machine_manual (
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
+    CONSTRAINT fk_machine_manual_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid)
+);
+
 CREATE TABLE machine_platform (
     machine_uuid TEXT NOT NULL,
     os_id TEXT NOT NULL,
@@ -246,3 +253,13 @@ CREATE TABLE machine_agent_presence (
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid)
 );
+
+CREATE VIEW v_machine_is_controller AS
+SELECT
+    m.uuid AS machine_uuid,
+    COUNT(ac.application_uuid) AS count
+FROM machine AS m
+JOIN net_node AS n ON m.net_node_uuid = n.uuid
+LEFT JOIN unit AS u ON n.uuid = u.net_node_uuid
+LEFT JOIN application AS a ON u.application_uuid = a.uuid
+LEFT JOIN application_controller AS ac ON a.uuid = ac.application_uuid

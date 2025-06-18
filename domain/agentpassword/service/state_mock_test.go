@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
 	agentpassword "github.com/juju/juju/domain/agentpassword"
 	gomock "go.uber.org/mock/gomock"
@@ -39,6 +40,45 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
+}
+
+// GetMachineUUID mocks base method.
+func (m *MockState) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (machine.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineUUID", arg0, arg1)
+	ret0, _ := ret[0].(machine.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineUUID indicates an expected call of GetMachineUUID.
+func (mr *MockStateMockRecorder) GetMachineUUID(arg0, arg1 any) *MockStateGetMachineUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineUUID", reflect.TypeOf((*MockState)(nil).GetMachineUUID), arg0, arg1)
+	return &MockStateGetMachineUUIDCall{Call: call}
+}
+
+// MockStateGetMachineUUIDCall wrap *gomock.Call
+type MockStateGetMachineUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineUUIDCall) Return(arg0 machine.UUID, arg1 error) *MockStateGetMachineUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineUUIDCall) Do(f func(context.Context, machine.Name) (machine.UUID, error)) *MockStateGetMachineUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (machine.UUID, error)) *MockStateGetMachineUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // GetUnitUUID mocks base method.
@@ -80,6 +120,84 @@ func (c *MockStateGetUnitUUIDCall) DoAndReturn(f func(context.Context, unit.Name
 	return c
 }
 
+// IsMachineController mocks base method.
+func (m *MockState) IsMachineController(arg0 context.Context, arg1 machine.Name) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsMachineController", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsMachineController indicates an expected call of IsMachineController.
+func (mr *MockStateMockRecorder) IsMachineController(arg0, arg1 any) *MockStateIsMachineControllerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMachineController", reflect.TypeOf((*MockState)(nil).IsMachineController), arg0, arg1)
+	return &MockStateIsMachineControllerCall{Call: call}
+}
+
+// MockStateIsMachineControllerCall wrap *gomock.Call
+type MockStateIsMachineControllerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsMachineControllerCall) Return(arg0 bool, arg1 error) *MockStateIsMachineControllerCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsMachineControllerCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockStateIsMachineControllerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsMachineControllerCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockStateIsMachineControllerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MatchesMachinePasswordHashWithNonce mocks base method.
+func (m *MockState) MatchesMachinePasswordHashWithNonce(arg0 context.Context, arg1 machine.UUID, arg2 agentpassword.PasswordHash, arg3 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MatchesMachinePasswordHashWithNonce", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MatchesMachinePasswordHashWithNonce indicates an expected call of MatchesMachinePasswordHashWithNonce.
+func (mr *MockStateMockRecorder) MatchesMachinePasswordHashWithNonce(arg0, arg1, arg2, arg3 any) *MockStateMatchesMachinePasswordHashWithNonceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MatchesMachinePasswordHashWithNonce", reflect.TypeOf((*MockState)(nil).MatchesMachinePasswordHashWithNonce), arg0, arg1, arg2, arg3)
+	return &MockStateMatchesMachinePasswordHashWithNonceCall{Call: call}
+}
+
+// MockStateMatchesMachinePasswordHashWithNonceCall wrap *gomock.Call
+type MockStateMatchesMachinePasswordHashWithNonceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateMatchesMachinePasswordHashWithNonceCall) Return(arg0 bool, arg1 error) *MockStateMatchesMachinePasswordHashWithNonceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateMatchesMachinePasswordHashWithNonceCall) Do(f func(context.Context, machine.UUID, agentpassword.PasswordHash, string) (bool, error)) *MockStateMatchesMachinePasswordHashWithNonceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateMatchesMachinePasswordHashWithNonceCall) DoAndReturn(f func(context.Context, machine.UUID, agentpassword.PasswordHash, string) (bool, error)) *MockStateMatchesMachinePasswordHashWithNonceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MatchesUnitPasswordHash mocks base method.
 func (m *MockState) MatchesUnitPasswordHash(arg0 context.Context, arg1 unit.UUID, arg2 agentpassword.PasswordHash) (bool, error) {
 	m.ctrl.T.Helper()
@@ -115,6 +233,44 @@ func (c *MockStateMatchesUnitPasswordHashCall) Do(f func(context.Context, unit.U
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateMatchesUnitPasswordHashCall) DoAndReturn(f func(context.Context, unit.UUID, agentpassword.PasswordHash) (bool, error)) *MockStateMatchesUnitPasswordHashCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetMachinePasswordHash mocks base method.
+func (m *MockState) SetMachinePasswordHash(arg0 context.Context, arg1 machine.UUID, arg2 agentpassword.PasswordHash) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetMachinePasswordHash", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMachinePasswordHash indicates an expected call of SetMachinePasswordHash.
+func (mr *MockStateMockRecorder) SetMachinePasswordHash(arg0, arg1, arg2 any) *MockStateSetMachinePasswordHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachinePasswordHash", reflect.TypeOf((*MockState)(nil).SetMachinePasswordHash), arg0, arg1, arg2)
+	return &MockStateSetMachinePasswordHashCall{Call: call}
+}
+
+// MockStateSetMachinePasswordHashCall wrap *gomock.Call
+type MockStateSetMachinePasswordHashCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetMachinePasswordHashCall) Return(arg0 error) *MockStateSetMachinePasswordHashCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetMachinePasswordHashCall) Do(f func(context.Context, machine.UUID, agentpassword.PasswordHash) error) *MockStateSetMachinePasswordHashCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetMachinePasswordHashCall) DoAndReturn(f func(context.Context, machine.UUID, agentpassword.PasswordHash) error) *MockStateSetMachinePasswordHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -180,6 +336,45 @@ func (m *MockMigrationState) EXPECT() *MockMigrationStateMockRecorder {
 	return m.recorder
 }
 
+// GetAllMachinePasswordHashes mocks base method.
+func (m *MockMigrationState) GetAllMachinePasswordHashes(arg0 context.Context) (agentpassword.MachinePasswordHashes, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllMachinePasswordHashes", arg0)
+	ret0, _ := ret[0].(agentpassword.MachinePasswordHashes)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllMachinePasswordHashes indicates an expected call of GetAllMachinePasswordHashes.
+func (mr *MockMigrationStateMockRecorder) GetAllMachinePasswordHashes(arg0 any) *MockMigrationStateGetAllMachinePasswordHashesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllMachinePasswordHashes", reflect.TypeOf((*MockMigrationState)(nil).GetAllMachinePasswordHashes), arg0)
+	return &MockMigrationStateGetAllMachinePasswordHashesCall{Call: call}
+}
+
+// MockMigrationStateGetAllMachinePasswordHashesCall wrap *gomock.Call
+type MockMigrationStateGetAllMachinePasswordHashesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMigrationStateGetAllMachinePasswordHashesCall) Return(arg0 agentpassword.MachinePasswordHashes, arg1 error) *MockMigrationStateGetAllMachinePasswordHashesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMigrationStateGetAllMachinePasswordHashesCall) Do(f func(context.Context) (agentpassword.MachinePasswordHashes, error)) *MockMigrationStateGetAllMachinePasswordHashesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMigrationStateGetAllMachinePasswordHashesCall) DoAndReturn(f func(context.Context) (agentpassword.MachinePasswordHashes, error)) *MockMigrationStateGetAllMachinePasswordHashesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllUnitPasswordHashes mocks base method.
 func (m *MockMigrationState) GetAllUnitPasswordHashes(arg0 context.Context) (agentpassword.UnitPasswordHashes, error) {
 	m.ctrl.T.Helper()
@@ -219,6 +414,45 @@ func (c *MockMigrationStateGetAllUnitPasswordHashesCall) DoAndReturn(f func(cont
 	return c
 }
 
+// GetMachineUUID mocks base method.
+func (m *MockMigrationState) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (machine.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineUUID", arg0, arg1)
+	ret0, _ := ret[0].(machine.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineUUID indicates an expected call of GetMachineUUID.
+func (mr *MockMigrationStateMockRecorder) GetMachineUUID(arg0, arg1 any) *MockMigrationStateGetMachineUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineUUID", reflect.TypeOf((*MockMigrationState)(nil).GetMachineUUID), arg0, arg1)
+	return &MockMigrationStateGetMachineUUIDCall{Call: call}
+}
+
+// MockMigrationStateGetMachineUUIDCall wrap *gomock.Call
+type MockMigrationStateGetMachineUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMigrationStateGetMachineUUIDCall) Return(arg0 machine.UUID, arg1 error) *MockMigrationStateGetMachineUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMigrationStateGetMachineUUIDCall) Do(f func(context.Context, machine.Name) (machine.UUID, error)) *MockMigrationStateGetMachineUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMigrationStateGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (machine.UUID, error)) *MockMigrationStateGetMachineUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitUUID mocks base method.
 func (m *MockMigrationState) GetUnitUUID(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()
@@ -254,6 +488,44 @@ func (c *MockMigrationStateGetUnitUUIDCall) Do(f func(context.Context, unit.Name
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMigrationStateGetUnitUUIDCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockMigrationStateGetUnitUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetMachinePasswordHash mocks base method.
+func (m *MockMigrationState) SetMachinePasswordHash(arg0 context.Context, arg1 machine.UUID, arg2 agentpassword.PasswordHash) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetMachinePasswordHash", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMachinePasswordHash indicates an expected call of SetMachinePasswordHash.
+func (mr *MockMigrationStateMockRecorder) SetMachinePasswordHash(arg0, arg1, arg2 any) *MockMigrationStateSetMachinePasswordHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachinePasswordHash", reflect.TypeOf((*MockMigrationState)(nil).SetMachinePasswordHash), arg0, arg1, arg2)
+	return &MockMigrationStateSetMachinePasswordHashCall{Call: call}
+}
+
+// MockMigrationStateSetMachinePasswordHashCall wrap *gomock.Call
+type MockMigrationStateSetMachinePasswordHashCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMigrationStateSetMachinePasswordHashCall) Return(arg0 error) *MockMigrationStateSetMachinePasswordHashCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMigrationStateSetMachinePasswordHashCall) Do(f func(context.Context, machine.UUID, agentpassword.PasswordHash) error) *MockMigrationStateSetMachinePasswordHashCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMigrationStateSetMachinePasswordHashCall) DoAndReturn(f func(context.Context, machine.UUID, agentpassword.PasswordHash) error) *MockMigrationStateSetMachinePasswordHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

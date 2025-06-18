@@ -102,6 +102,21 @@ func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *tc.C) {
 	c.Check(entity.Tag(), tc.Equals, tag)
 }
 
+func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticatorController(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewMachineTag("0")
+
+	s.agentAuthenticatorGetter.EXPECT().Authenticator().Return(s.entityAuthenticator)
+	s.entityAuthenticator.EXPECT().Authenticate(gomock.Any(), authentication.AuthParams{}).Return(authentication.TagToEntity(tag), nil)
+
+	authenticator, err := s.authenticatorForTag(c.Context(), s.authenticator, tag)
+	c.Assert(err, tc.ErrorIsNil)
+	entity, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entity.Tag(), tc.Equals, tag)
+}
+
 func (s *agentAuthenticatorSuite) TestModelGetsAgentAuthenticator(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -138,8 +153,10 @@ func (s *agentAuthenticatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agentAuthenticatorGetter = NewMockAgentAuthenticatorGetter(ctrl)
 	s.entityAuthenticator = NewMockEntityAuthenticator(ctrl)
 
-	s.agentPasswordServiceGetter = NewMockAgentPasswordServiceGetter(ctrl)
 	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
+
+	s.agentPasswordServiceGetter = NewMockAgentPasswordServiceGetter(ctrl)
+	s.agentPasswordServiceGetter.EXPECT().GetAgentPasswordServiceForModel(gomock.Any(), gomock.Any()).Return(s.agentPasswordService, nil)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()

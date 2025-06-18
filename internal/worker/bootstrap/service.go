@@ -29,10 +29,10 @@ import (
 
 // AgentPasswordService provides access to agent password management.
 type AgentPasswordService interface {
-	// SetUnitPassword sets the password for the given unit. If the unit does
-	// not exist, an error satisfying [applicationerrors.UnitNotFound] is
-	// returned.
+	// SetUnitPassword sets the password for the given unit.
 	SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error
+	// SetMachinePassword sets the password for the given machine.
+	SetMachinePassword(ctx context.Context, machineName machine.Name, password string) error
 }
 
 // AgentBinaryStore is responsible for persisting agent binary's into a long
@@ -55,7 +55,7 @@ type ApplicationService interface {
 	// and charm.
 	CreateIAASApplication(
 		context.Context, string, charm.Charm, corecharm.Origin,
-		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
+		applicationservice.AddApplicationArgs, ...applicationservice.AddIAASUnitArg,
 	) (coreapplication.ID, error)
 
 	// CreateCAASApplication creates a new application with the given name and
@@ -133,7 +133,7 @@ type MachineService interface {
 		ctx context.Context,
 		machineUUID machine.UUID,
 		instanceID instance.Id,
-		displayName string,
+		displayName, nonce string,
 		hardwareCharacteristics *instance.HardwareCharacteristics,
 	) error
 	// InstanceIDAndName returns the cloud specific instance ID and display name for
