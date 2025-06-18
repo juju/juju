@@ -38,8 +38,8 @@ func (s *ReloadSpacesAPISuite) TestReloadSpaces(c *gc.C) {
 	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
 	mockEnvirons.EXPECT().GetEnviron(
 		environConfGetter{
-			ReloadSpacesEnviron: mockEnvirons,
-			controllerUUID:      coretesting.ControllerTag.Id(),
+			ModelCloudInfo: mockEnvirons,
+			controllerUUID: coretesting.ControllerTag.Id(),
 		}, gomock.Any()).Return(mockNetworkEnviron, nil)
 
 	mockState := NewMockReloadSpacesState(ctrl)
@@ -86,8 +86,8 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithNoEnviron(c *gc.C) {
 	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
 	mockEnvirons.EXPECT().GetEnviron(
 		environConfGetter{
-			ReloadSpacesEnviron: mockEnvirons,
-			controllerUUID:      coretesting.ControllerTag.Id(),
+			ModelCloudInfo: mockEnvirons,
+			controllerUUID: coretesting.ControllerTag.Id(),
 		}, gomock.Any()).Return(mockNetworkEnviron, errors.New("boom"))
 
 	mockState := NewMockReloadSpacesState(ctrl)
@@ -114,8 +114,8 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithReloadSpaceError(c *gc.C) {
 	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
 	mockEnvirons.EXPECT().GetEnviron(
 		environConfGetter{
-			ReloadSpacesEnviron: mockEnvirons,
-			controllerUUID:      coretesting.ControllerTag.Id(),
+			ModelCloudInfo: mockEnvirons,
+			controllerUUID: coretesting.ControllerTag.Id(),
 		}, gomock.Any()).Return(mockNetworkEnviron, nil)
 	mockEnvirons.EXPECT()
 

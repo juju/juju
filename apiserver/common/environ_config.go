@@ -20,7 +20,7 @@ type EnvironConfigGetterFuncs struct {
 	controllerUUID  string
 }
 
-// NewEnvironConfigGetterFuncs instantiates a new EnvironConfigGetterFuncs
+// NewEnvironConfigGetterFuncs instantiates a new EnvironConfigGetterFuncs.
 func NewEnvironConfigGetterFuncs(
 	modelConfigFunc func() (*config.Config, error),
 	cloudSpecFunc func() (environscloudspec.CloudSpec, error),

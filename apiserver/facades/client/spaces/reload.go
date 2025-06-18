@@ -25,16 +25,15 @@ type ReloadSpacesState interface {
 	ControllerConfig() (controller.Config, error)
 }
 
+type ModelCloudInfo interface {
+	ModelConfig() (*config.Config, error)
+	CloudSpec() (environscloudspec.CloudSpec, error)
+}
+
 // ReloadSpacesEnviron contains the methods for requesting environ data.
 type ReloadSpacesEnviron interface {
-	// ModelConfig returns the current model configuration.
-	ModelConfig() (*config.Config, error)
+	ModelCloudInfo
 
-	// CloudSpec returns a cloud specification.
-	CloudSpec() (environscloudspec.CloudSpec, error)
-
-	// GetEnviron returns the environs.Environ ("provider") associated
-	// with the model.
 	GetEnviron(environs.EnvironConfigGetter, environs.NewEnvironFunc) (environs.Environ, error)
 }
 
@@ -56,7 +55,7 @@ type ReloadSpacesAPI struct {
 }
 
 type environConfGetter struct {
-	ReloadSpacesEnviron
+	ModelCloudInfo
 	controllerUUID string
 }
 
@@ -87,14 +86,13 @@ func (api *ReloadSpacesAPI) ReloadSpaces() error {
 	}
 
 	ctrlCfg, err := api.state.ControllerConfig()
-
 	if err != nil {
 		return errors.Annotate(err, "get controller config")
 	}
 
 	envConfGetter := environConfGetter{
-		ReloadSpacesEnviron: api.environs,
-		controllerUUID:      ctrlCfg.ControllerUUID(),
+		ModelCloudInfo: api.environs,
+		controllerUUID: ctrlCfg.ControllerUUID(),
 	}
 
 	env, err := api.environs.GetEnviron(envConfGetter, environs.New)

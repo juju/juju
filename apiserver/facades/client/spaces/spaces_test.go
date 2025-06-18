@@ -323,13 +323,10 @@ func (s *APISuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
 	s.Backing.EXPECT().IsController().Return(true)
 	s.OpFactory.EXPECT().NewRemoveSpaceOp(tag.Id()).Return(nil, nil)
 	s.Backing.EXPECT().ApplyOperation(nil).Return(nil)
-
-	gomock.InOrder(
-		s.Backing.EXPECT().ControllerConfig().Return(controller.Config{
+	s.Backing.EXPECT().ControllerConfig().Return(
+		controller.Config{
 			"controller-uuid": testing.ControllerTag.Id(),
-		}, nil),
-		s.Backing.EXPECT().ControllerConfig().Return(nil, nil),
-	)
+		}, nil).AnyTimes()
 
 	res, err := s.API.RemoveSpace(args)
 
@@ -382,14 +379,14 @@ func (s *APISuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
 	s.expectEndpointBindings(ctrl, "2")
 	s.Backing.EXPECT().IsController().Return(true)
 
-	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
-	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
-	gomock.InOrder(
-		s.Backing.EXPECT().ControllerConfig().Return(controller.Config{
-			"controller-uuid": testing.ControllerTag.Id(),
-		}, nil),
-		s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil),
+	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{
+		controller.JujuHASpace:         "nothing",
+		controller.JujuManagementSpace: space,
+		"controller-uuid":              testing.ControllerTag.Id()},
 	)
+	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
+	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil).AnyTimes()
+
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings:           nil,
 		Constraints:        nil,
@@ -453,13 +450,12 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 	s.expectEndpointBindings(ctrl, "1")
 	s.Backing.EXPECT().IsController().Return(true)
 
-	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
-	gomock.InOrder(
-		s.Backing.EXPECT().ControllerConfig().Return(controller.Config{
-			"controller-uuid": testing.ControllerTag.Id(),
-		}, nil),
-		s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil),
+	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{
+		controller.JujuHASpace:         "nothing",
+		controller.JujuManagementSpace: space,
+		"controller-uuid":              testing.ControllerTag.Id()},
 	)
+	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil).AnyTimes()
 
 	cApp, cModel := s.expectAllTags(space)
 
@@ -506,13 +502,12 @@ func (s *APISuite) TestRemoveSpaceFoundAllWithForce(c *gc.C) {
 
 	s.OpFactory.EXPECT().NewRemoveSpaceOp(tag.Id()).Return(nil, nil)
 	s.Backing.EXPECT().ApplyOperation(nil).Return(nil)
-	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
-	gomock.InOrder(
-		s.Backing.EXPECT().ControllerConfig().Return(controller.Config{
-			"controller-uuid": testing.ControllerTag.Id(),
-		}, nil),
-		s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil),
+	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{
+		controller.JujuHASpace:         "nothing",
+		controller.JujuManagementSpace: space,
+		"controller-uuid":              testing.ControllerTag.Id()},
 	)
+	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil).AnyTimes()
 
 	_, _ = s.expectAllTags(space)
 

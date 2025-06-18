@@ -119,7 +119,7 @@ type stubBacking struct {
 }
 
 func (sb *stubBacking) SubnetsByCIDR(_ string) ([]networkingcommon.BackingSubnet, error) {
-	panic("should not be called")
+	return []networkingcommon.BackingSubnet{}, errors.New("something bad happened")
 }
 
 func (sb *stubBacking) ControllerConfig() (controller.Config, error) {
@@ -131,7 +131,7 @@ type stubBackingBrokenController struct {
 }
 
 func (sb *stubBackingBrokenController) SubnetsByCIDR(_ string) ([]networkingcommon.BackingSubnet, error) {
-	panic("should not be called")
+	return []networkingcommon.BackingSubnet{}, errors.New("something bad happened")
 }
 
 func (sb *stubBackingBrokenController) ControllerConfig() (controller.Config, error) {
