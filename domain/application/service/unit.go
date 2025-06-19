@@ -687,6 +687,13 @@ func (s *Service) GetUnitSubordinates(ctx context.Context, unitName coreunit.Nam
 // - [applicationerrors.ApplicationIsDead] if the application is dead
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
 func (s *Service) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corelife.Value, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	namesAndLives, err := s.st.GetAllUnitLifeForApplication(ctx, appID)
 	if err != nil {
 		return nil, errors.Capture(err)
