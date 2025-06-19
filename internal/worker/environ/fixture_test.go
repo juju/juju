@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -33,23 +34,35 @@ func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
 	cloudWatcher := newNotifyWatcher(fix.watcherErr)
 	defer workertest.DirtyKill(c, cloudWatcher)
 	context := &runContext{
-		cloud:        fix.initialSpec,
-		config:       newModelConfig(c, fix.initialConfig),
-		watcher:      watcher,
-		cloudWatcher: cloudWatcher,
+		cloud:            fix.initialSpec,
+		config:           newModelConfig(c, fix.initialConfig),
+		watcher:          watcher,
+		cloudWatcher:     cloudWatcher,
+		controllerConfig: coretesting.FakeControllerConfig(),
 	}
 	context.stub.SetErrors(fix.observerErrs...)
 	test(context)
 }
 
 type runContext struct {
-	mu           sync.Mutex
-	stub         testing.Stub
-	cloud        environscloudspec.CloudSpec
-	config       map[string]interface{}
-	watcher      *notifyWatcher
-	cloudWatcher *notifyWatcher
-	credWatcher  *notifyWatcher
+	mu               sync.Mutex
+	stub             testing.Stub
+	cloud            environscloudspec.CloudSpec
+	config           map[string]interface{}
+	watcher          *notifyWatcher
+	cloudWatcher     *notifyWatcher
+	credWatcher      *notifyWatcher
+	controllerConfig controller.Config
+}
+
+func (context *runContext) ControllerConfig() (controller.Config, error) {
+	context.mu.Lock()
+	defer context.mu.Unlock()
+	context.stub.AddCall("ControllerConfig")
+	if err := context.stub.NextErr(); err != nil {
+		return controller.Config{}, err
+	}
+	return context.controllerConfig, nil
 }
 
 // SetConfig updates the configuration returned by ModelConfig.
@@ -66,7 +79,7 @@ func (context *runContext) SetCloudSpec(c *gc.C, spec environscloudspec.CloudSpe
 	context.cloud = spec
 }
 
-// CloudSpec is part of the environ.ConfigObserver interface.
+// CloudSpec is part of the environ.ConfigAPI interface.
 func (context *runContext) CloudSpec() (environscloudspec.CloudSpec, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
@@ -77,7 +90,7 @@ func (context *runContext) CloudSpec() (environscloudspec.CloudSpec, error) {
 	return context.cloud, nil
 }
 
-// ModelConfig is part of the environ.ConfigObserver interface.
+// ModelConfig is part of the environ.ConfigAPI interface.
 func (context *runContext) ModelConfig() (*config.Config, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
@@ -122,7 +135,7 @@ func (context *runContext) CloseCloudSpecNotify() {
 	close(context.cloudWatcher.changes)
 }
 
-// WatchForModelConfigChanges is part of the environ.ConfigObserver interface.
+// WatchForModelConfigChanges is part of the environ.ConfigAPI interface.
 func (context *runContext) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
@@ -160,7 +173,7 @@ func (context *runContext) CloseCredentialNotify() {
 	close(context.credWatcher.changes)
 }
 
-// WatchCredential is part of the environ.ConfigObserver interface.
+// WatchCredential is part of the environ.ConfigAPI interface.
 func (context *runContext) WatchCredential(cred names.CloudCredentialTag) (watcher.NotifyWatcher, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()

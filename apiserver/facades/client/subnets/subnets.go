@@ -12,9 +12,11 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 )
@@ -23,7 +25,11 @@ var logger = loggo.GetLogger("juju.apiserver.subnets")
 
 // Backing contains the state methods used in this package.
 type Backing interface {
-	environs.EnvironConfigGetter
+	// ModelConfig returns the current model configuration.
+	ModelConfig() (*config.Config, error)
+
+	// CloudSpec returns a cloud specification.
+	CloudSpec() (environscloudspec.CloudSpec, error)
 
 	// AvailabilityZones returns all cached availability zones (i.e.
 	// not from the provider, but in state).
@@ -47,6 +53,9 @@ type Backing interface {
 
 	// ModelTag returns the tag of the model this state is associated to.
 	ModelTag() names.ModelTag
+
+	// ControllerConfig returns the configuration of the controller.
+	ControllerConfig() (controller.Config, error)
 }
 
 // API provides the subnets API facade for version 5.

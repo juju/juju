@@ -35,10 +35,7 @@ func instanceTypes(mm *MachineManagerAPI,
 	cloudSpec := func() (environscloudspec.CloudSpec, error) {
 		return stateenvirons.CloudSpecForModel(model)
 	}
-	backend := common.EnvironConfigGetterFuncs{
-		CloudSpecFunc:   cloudSpec,
-		ModelConfigFunc: model.Config,
-	}
+	backend := common.NewEnvironConfigGetterFuncs(model.Config, cloudSpec, model.ControllerUUID())
 
 	env, err := getEnviron(backend, environs.New)
 	if err != nil {

@@ -10,9 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -21,12 +23,24 @@ type logger interface{}
 
 var _ logger = struct{}{}
 
-// ConfigObserver exposes a model configuration and a watch constructor
+// ConfigAPI exposes a model configuration and a watch constructor
 // that allows clients to be informed of changes to the configuration.
-type ConfigObserver interface {
-	environs.EnvironConfigGetter
+type ConfigAPI interface {
+	ModelConfig() (*config.Config, error)
+	CloudSpec() (environscloudspec.CloudSpec, error)
+	ControllerConfig() (controller.Config, error)
 	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
 	WatchCloudSpecChanges() (watcher.NotifyWatcher, error)
+}
+
+type environConfigGetter struct {
+	ConfigAPI
+	controllerUUID string
+}
+
+// ControllerUUID is the UUID of the controller. It implements environ.EnvironConfigGetter.
+func (e environConfigGetter) ControllerUUID() string {
+	return e.controllerUUID
 }
 
 // Config describes the dependencies of a Tracker.
@@ -34,15 +48,15 @@ type ConfigObserver interface {
 // It's arguable that it should be called TrackerConfig, because of the heavy
 // use of model config in this package.
 type Config struct {
-	Observer       ConfigObserver
+	ConfigAPI      ConfigAPI
 	NewEnvironFunc environs.NewEnvironFunc
 	Logger         Logger
 }
 
 // Validate returns an error if the config cannot be used to start a Tracker.
 func (config Config) Validate() error {
-	if config.Observer == nil {
-		return errors.NotValidf("nil Observer")
+	if config.ConfigAPI == nil {
+		return errors.NotValidf("nil ConfigAPI")
 	}
 	if config.NewEnvironFunc == nil {
 		return errors.NotValidf("nil NewEnvironFunc")
@@ -72,8 +86,17 @@ func NewTracker(config Config) (*Tracker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	ctrlCfg, err := config.ConfigAPI.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	environ, spec, err := environs.GetEnvironAndCloud(config.Observer, config.NewEnvironFunc)
+	cfgGetter := environConfigGetter{
+		ConfigAPI:      config.ConfigAPI,
+		controllerUUID: ctrlCfg.ControllerUUID(),
+	}
+
+	environ, spec, err := environs.GetEnvironAndCloud(cfgGetter, config.NewEnvironFunc)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -104,7 +127,7 @@ func (t *Tracker) loop() (err error) {
 	defer errors.DeferredAnnotatef(&err, "model %q (%s)", cfg.Name(), cfg.UUID())
 
 	logger := t.config.Logger
-	environWatcher, err := t.config.Observer.WatchForModelConfigChanges()
+	environWatcher, err := t.config.ConfigAPI.WatchForModelConfigChanges()
 	if err != nil {
 		return errors.Annotate(err, "watching environ config")
 	}
@@ -122,7 +145,7 @@ func (t *Tracker) loop() (err error) {
 	if cloudSpecSetter, ok = t.environ.(environs.CloudSpecSetter); !ok {
 		logger.Warningf("cloud type %v doesn't support dynamic changing of cloud spec", t.environ.Config().Type())
 	} else {
-		cloudWatcher, err := t.config.Observer.WatchCloudSpecChanges()
+		cloudWatcher, err := t.config.ConfigAPI.WatchCloudSpecChanges()
 		if err != nil {
 			return errors.Annotate(err, "cannot watch environ cloud spec")
 		}
@@ -141,7 +164,7 @@ func (t *Tracker) loop() (err error) {
 				return errors.New("environ config watch closed")
 			}
 			logger.Debugf("reloading environ config")
-			modelConfig, err := t.config.Observer.ModelConfig()
+			modelConfig, err := t.config.ConfigAPI.ModelConfig()
 			if err != nil {
 				return errors.Annotate(err, "reading model config")
 			}
@@ -152,7 +175,7 @@ func (t *Tracker) loop() (err error) {
 			if !ok {
 				return errors.New("cloud watch closed")
 			}
-			cloudSpec, err := t.config.Observer.CloudSpec()
+			cloudSpec, err := t.config.ConfigAPI.CloudSpec()
 			if err != nil {
 				return errors.Annotate(err, "reading environ cloud spec")
 			}

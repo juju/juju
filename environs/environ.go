@@ -16,6 +16,7 @@ import (
 type EnvironConfigGetter interface {
 	ModelConfig() (*config.Config, error)
 	CloudSpec() (environscloudspec.CloudSpec, error)
+	ControllerUUID() string
 }
 
 // NewEnvironFunc is the type of a function that, given a model config,
@@ -44,8 +45,9 @@ func GetEnvironAndCloud(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Envi
 	}
 
 	env, err := newEnviron(context.TODO(), OpenParams{
-		Cloud:  cloudSpec,
-		Config: modelConfig,
+		Cloud:          cloudSpec,
+		Config:         modelConfig,
+		ControllerUUID: st.ControllerUUID(),
 	})
 	if err != nil {
 		return nil, nil, errors.Annotatef(

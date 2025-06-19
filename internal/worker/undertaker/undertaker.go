@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/common"
@@ -29,7 +31,8 @@ import (
 // Facade covers the parts of the api/undertaker.UndertakerClient that we
 // need for the worker. It's more than a little raw, but we'll survive.
 type Facade interface {
-	environs.EnvironConfigGetter
+	ModelConfig() (*config.Config, error)
+	CloudSpec() (environscloudspec.CloudSpec, error)
 	ModelInfo() (params.UndertakerModelInfoResult, error)
 	WatchModelResources() (watcher.NotifyWatcher, error)
 	WatchModel() (watcher.NotifyWatcher, error)

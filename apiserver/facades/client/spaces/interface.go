@@ -12,7 +12,8 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -64,7 +65,11 @@ type Bindings interface {
 
 // Backing describes the state methods used in this package.
 type Backing interface {
-	environs.EnvironConfigGetter
+	// ModelConfig returns the current model configuration.
+	ModelConfig() (*config.Config, error)
+
+	// CloudSpec returns a cloud specification.
+	CloudSpec() (environscloudspec.CloudSpec, error)
 
 	// ModelTag returns the tag of this model.
 	ModelTag() names.ModelTag

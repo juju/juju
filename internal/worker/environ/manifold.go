@@ -45,7 +45,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 			w, err := NewTracker(Config{
-				Observer:       apiSt,
+				ConfigAPI:      apiSt,
 				NewEnvironFunc: config.NewEnvironFunc,
 				Logger:         config.Logger,
 			})

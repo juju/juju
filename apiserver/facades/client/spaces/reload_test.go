@@ -13,8 +13,10 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/context"
 	environmocks "github.com/juju/juju/environs/mocks"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // ReloadSpacesAPISuite is used to test API calls using mocked model operations.
@@ -34,9 +36,16 @@ func (s *ReloadSpacesAPISuite) TestReloadSpaces(c *gc.C) {
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 
 	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
-	mockEnvirons.EXPECT().GetEnviron(mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, nil)
+	mockEnvirons.EXPECT().GetEnviron(
+		environConfGetter{
+			ModelCloudInfo: mockEnvirons,
+			controllerUUID: coretesting.ControllerTag.Id(),
+		}, gomock.Any()).Return(mockNetworkEnviron, nil)
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockState.EXPECT().ControllerConfig().Return(controller.Config{
+		"controller-uuid": coretesting.ControllerTag.Id(),
+	}, nil)
 
 	mockEnvironSpaces := NewMockEnvironSpaces(ctrl)
 	mockEnvironSpaces.EXPECT().ReloadSpaces(context, mockState, mockNetworkEnviron).Return(nil)
@@ -44,6 +53,25 @@ func (s *ReloadSpacesAPISuite) TestReloadSpaces(c *gc.C) {
 	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, context, authorizer)
 	err := spacesAPI.ReloadSpaces()
 	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *ReloadSpacesAPISuite) TestReloadSpacesGetControllerConfigFail(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	context := context.NewEmptyCloudCallContext()
+	authorizer := func() error { return nil }
+
+	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
+
+	mockState := NewMockReloadSpacesState(ctrl)
+	mockState.EXPECT().ControllerConfig().Return(controller.Config{}, errors.New("broken controller"))
+
+	mockEnvironSpaces := NewMockEnvironSpaces(ctrl)
+
+	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, context, authorizer)
+	err := spacesAPI.ReloadSpaces()
+	c.Assert(err, gc.ErrorMatches, "get controller config: broken controller")
 }
 
 func (s *ReloadSpacesAPISuite) TestReloadSpacesWithNoEnviron(c *gc.C) {
@@ -56,9 +84,16 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithNoEnviron(c *gc.C) {
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 
 	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
-	mockEnvirons.EXPECT().GetEnviron(mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, errors.New("boom"))
+	mockEnvirons.EXPECT().GetEnviron(
+		environConfGetter{
+			ModelCloudInfo: mockEnvirons,
+			controllerUUID: coretesting.ControllerTag.Id(),
+		}, gomock.Any()).Return(mockNetworkEnviron, errors.New("boom"))
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockState.EXPECT().ControllerConfig().Return(controller.Config{
+		"controller-uuid": coretesting.ControllerTag.Id(),
+	}, nil)
 
 	mockEnvironSpaces := NewMockEnvironSpaces(ctrl)
 
@@ -77,9 +112,16 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithReloadSpaceError(c *gc.C) {
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 
 	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
-	mockEnvirons.EXPECT().GetEnviron(mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, nil)
+	mockEnvirons.EXPECT().GetEnviron(
+		environConfGetter{
+			ModelCloudInfo: mockEnvirons,
+			controllerUUID: coretesting.ControllerTag.Id(),
+		}, gomock.Any()).Return(mockNetworkEnviron, nil)
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockState.EXPECT().ControllerConfig().Return(controller.Config{
+		"controller-uuid": coretesting.ControllerTag.Id(),
+	}, nil)
 
 	mockEnvironSpaces := NewMockEnvironSpaces(ctrl)
 	mockEnvironSpaces.EXPECT().ReloadSpaces(context, mockState, mockNetworkEnviron).Return(errors.New("boom"))

@@ -102,11 +102,28 @@ func updateZones(ctx context.ProviderCallContext, api Backing) (network.Availabi
 	return zones, nil
 }
 
+type environConfigGetter struct {
+	Backing
+	controllerUUID string
+}
+
+func (e environConfigGetter) ControllerUUID() string {
+	return e.controllerUUID
+}
+
 // zonedEnviron returns a providercommon.ZonedEnviron instance from the current
 // model config. If the model does not support zones, an error satisfying
 // errors.IsNotSupported() will be returned.
 func zonedEnviron(api Backing) (providercommon.ZonedEnviron, error) {
-	env, err := environs.GetEnviron(api, environs.New)
+	ctrlCfg, err := api.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting controller config")
+	}
+	envConfGetter := environConfigGetter{
+		Backing:        api,
+		controllerUUID: ctrlCfg.ControllerUUID(),
+	}
+	env, err := environs.GetEnviron(envConfGetter, environs.New)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening environment")
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/subnets"
 	"github.com/juju/juju/apiserver/facades/client/subnets/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
@@ -118,7 +119,23 @@ type stubBacking struct {
 }
 
 func (sb *stubBacking) SubnetsByCIDR(_ string) ([]networkingcommon.BackingSubnet, error) {
-	panic("should not be called")
+	return []networkingcommon.BackingSubnet{}, errors.New("something bad happened")
+}
+
+func (sb *stubBacking) ControllerConfig() (controller.Config, error) {
+	return controller.Config{"controller-uuid": coretesting.ControllerTag.Id()}, nil
+}
+
+type stubBackingBrokenController struct {
+	*apiservertesting.StubBacking
+}
+
+func (sb *stubBackingBrokenController) SubnetsByCIDR(_ string) ([]networkingcommon.BackingSubnet, error) {
+	return []networkingcommon.BackingSubnet{}, errors.New("something bad happened")
+}
+
+func (sb *stubBackingBrokenController) ControllerConfig() (controller.Config, error) {
+	return controller.Config{}, errors.New("broken controller")
 }
 
 var _ = gc.Suite(&SubnetsSuite{})
@@ -230,6 +247,28 @@ func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *gc.C) {
 	results, err := s.facade.AllZones()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertAllZonesResult(c, results, apiservertesting.BackingInstance.Zones)
+
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+		apiservertesting.BackingCall("AvailabilityZones"),
+	)
+}
+
+func (s *SubnetsSuite) TestZonedEnvironControllerConfigFail(c *gc.C) {
+	var err error
+	s.facade, err = subnets.NewAPIWithBacking(
+		&stubBackingBrokenController{apiservertesting.BackingInstance},
+		s.callContext,
+		s.resources, s.authorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiservertesting.BackingInstance.Zones = network.AvailabilityZones{}
+
+	// zonedEnviron is a private method, so use AllZones() as the top level method
+	// because it invokes zonedEnviron
+	results, err := s.facade.AllZones()
+	c.Assert(err, gc.ErrorMatches, "cannot update known zones: getting controller config: broken controller")
+	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		apiservertesting.BackingCall("AvailabilityZones"),

@@ -46,6 +46,15 @@ type apiConfig struct {
 	Factory         OpFactory
 }
 
+type environConfigGetter struct {
+	Backing
+	controllerUUID string
+}
+
+func (e environConfigGetter) ControllerUUID() string {
+	return e.controllerUUID
+}
+
 // newAPIWithBacking creates a new server-side Spaces API facade with
 // the given Backing.
 func newAPIWithBacking(cfg apiConfig) (*API, error) {
@@ -232,7 +241,15 @@ func (api *API) ReloadSpaces() error {
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
 func (api *API) checkSupportsSpaces() error {
-	env, err := environs.GetEnviron(api.backing, environs.New)
+	ctrlCfg, err := api.backing.ControllerConfig()
+	if err != nil {
+		return errors.Annotate(err, "getting controller config")
+	}
+	envConfGetter := environConfigGetter{
+		Backing:        api.backing,
+		controllerUUID: ctrlCfg.ControllerUUID(),
+	}
+	env, err := environs.GetEnviron(envConfGetter, environs.New)
 	if err != nil {
 		return errors.Annotate(err, "getting environ")
 	}
@@ -299,7 +316,15 @@ func (api *API) ensureSpacesAreMutable() error {
 // An error is returned if it is the provider and not the Juju operator
 // that determines the space topology.
 func (api *API) ensureSpacesNotProviderSourced() error {
-	env, err := environs.GetEnviron(api.backing, environs.New)
+	ctrlCfg, err := api.backing.ControllerConfig()
+	if err != nil {
+		return errors.Annotate(err, "getting controller config")
+	}
+	envConfGetter := environConfigGetter{
+		Backing:        api.backing,
+		controllerUUID: ctrlCfg.ControllerUUID(),
+	}
+	env, err := environs.GetEnviron(envConfGetter, environs.New)
 	if err != nil {
 		return errors.Annotate(err, "retrieving environ")
 	}
