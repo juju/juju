@@ -132,18 +132,6 @@ func (s *InstancePollerSuite) SetUpTest(c *tc.C) {
 		}}
 }
 
-func (s *InstancePollerSuite) TestStub(c *tc.C) {
-	c.Skip(`This suite is missing tests for the following scenarios:
-- Updating a machine-sourced address should change its origin to "provider".
-- An unseen provider-sourced address should change its origin to "machine".
-- Incoming network config with 2 different devices having the same provider ID should error.
-- A bridge and an ethernet device, both with the same MAC address;
-  SetProviderNetworkConfig is called with a device match the MAC address (no name);
-  Only the ethernet has the provider ID set against it.
-  ".
-`)
-}
-
 func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresController(c *tc.C) {
 	s.authoriser.Controller = false
 
