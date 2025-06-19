@@ -159,8 +159,8 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 
 	_, err = createApplication(ctx, dt.applicationName, dt.charm, dt.origin,
 		applicationservice.AddApplicationArgs{
+			// TODO (tlm): Set storage directive overrides from the user.
 			ReferenceName: dt.charmURL.Name,
-			Storage:       dt.storage,
 			// We always have download info for a charm from the charmhub store.
 			DownloadInfo: &applicationcharm.DownloadInfo{
 				Provenance:         applicationcharm.ProvenanceDownload,

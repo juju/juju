@@ -182,8 +182,8 @@ func DeployApplication(
 			args.Charm,
 			args.CharmOrigin,
 			applicationservice.AddApplicationArgs{
+				// TODO (tlm): Set storage directive overrides from the user.
 				ReferenceName:    chURL.Name,
-				Storage:          args.Storage,
 				DownloadInfo:     downloadInfo,
 				PendingResources: pendingResources,
 				EndpointBindings: args.EndpointBindings,
