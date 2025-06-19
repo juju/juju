@@ -101,7 +101,7 @@ func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Nam
 }
 
 // SetMachinePassword sets the password for the given machine. If the machine does not
-// exist, an error satisfying [passworderrors.UnitNotFound] is returned.
+// exist, an error satisfying [passworderrors.MachineNotFound] is returned.
 func (s *Service) SetMachinePassword(ctx context.Context, machineName machine.Name, password string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
