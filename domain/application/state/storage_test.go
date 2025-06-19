@@ -15,7 +15,7 @@ import (
 
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
-	"github.com/juju/juju/core/model/testing"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	storagetesting "github.com/juju/juju/core/storage/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -32,6 +32,39 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
+
+type baseStorageSuite struct {
+	baseSuite
+
+	state *State
+
+	storageInstCount int
+	filesystemCount  int
+}
+
+type caasStorageSuite struct {
+	baseStorageSuite
+}
+
+type iaasStorageSuite struct {
+	baseStorageSuite
+}
+
+type storageSuite struct {
+	baseSuite
+}
+
+func TestCaasStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &caasStorageSuite{})
+}
+
+func TestIaasStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &iaasStorageSuite{})
+}
+
+func TestStorageSuite(t *stdtesting.T) {
+	tc.Run(t, &storageSuite{})
+}
 
 // TestCreateApplicationWithResources tests creation of an application with
 // specified resources.
@@ -146,17 +179,8 @@ WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 	c.Check(foundAppStorage, tc.SameContents, directives)
 }
 
-type baseStorageSuite struct {
-	baseSuite
-
-	state *State
-
-	storageInstCount int
-	filesystemCount  int
-}
-
 func (s *baseStorageSuite) SetUpTest(c *tc.C) {
-	s.ModelSuite.SetUpTest(c)
+	s.baseSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
@@ -685,18 +709,10 @@ INSERT INTO charm_storage (
 	c.Assert(err, tc.ErrorIs, applicationerrors.StorageNameNotSupported)
 }
 
-type caasStorageSuite struct {
-	baseStorageSuite
-}
-
-func TestCaasStorageSuite(t *stdtesting.T) {
-	tc.Run(t, &caasStorageSuite{})
-}
-
 func (s *caasStorageSuite) SetUpTest(c *tc.C) {
 	s.baseStorageSuite.SetUpTest(c)
 
-	modelUUID := testing.GenModelUUID(c)
+	modelUUID := modeltesting.GenModelUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
@@ -920,18 +936,10 @@ WHERE charm_uuid = ?`, charmUUID)
 	//})
 }
 
-type iaasStorageSuite struct {
-	baseStorageSuite
-}
-
-func TestIaasStorageSuite(t *stdtesting.T) {
-	tc.Run(t, &iaasStorageSuite{})
-}
-
 func (s *iaasStorageSuite) SetUpTest(c *tc.C) {
 	s.baseStorageSuite.SetUpTest(c)
 
-	modelUUID := testing.GenModelUUID(c)
+	modelUUID := modeltesting.GenModelUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
