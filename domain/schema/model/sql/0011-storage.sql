@@ -96,17 +96,6 @@ CREATE TABLE application_storage_directive (
 CREATE INDEX idx_application_storage_directive
 ON application_storage_directive (application_uuid);
 
-CREATE VIEW v_application_storage_directive AS
-SELECT
-    asd.application_uuid,
-    asd.charm_uuid,
-    asd.storage_name,
-    asd.size_mib,
-    asd.count,
-    COALESCE(sp.name, asd.storage_type) AS storage_pool
-FROM application_storage_directive AS asd
-LEFT JOIN storage_pool AS sp ON asd.storage_pool_uuid = sp.uuid;
-
 -- This table stores storage directive values for each named storage item
 -- defined by the unit's current charm. If the charm is updated, then
 -- so too will be the rows in this table to reflect the current charm's
@@ -153,17 +142,6 @@ CREATE TABLE unit_storage_directive (
 -- Note that this is not unique; it speeds access by unit.
 CREATE INDEX idx_unit_storage_directive
 ON unit_storage_directive (unit_uuid);
-
-CREATE VIEW v_unit_storage_directive AS
-SELECT
-    usd.unit_uuid,
-    usd.charm_uuid,
-    usd.storage_name,
-    usd.size_mib,
-    usd.count,
-    COALESCE(sp.name, usd.storage_type) AS storage_pool
-FROM unit_storage_directive AS usd
-LEFT JOIN storage_pool AS sp ON usd.storage_pool_uuid = sp.uuid;
 
 CREATE TABLE storage_instance (
     uuid TEXT NOT NULL PRIMARY KEY,
