@@ -1888,6 +1888,10 @@ func (s *applicationStateSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
 	c.Check(barUnitLife, tc.DeepEquals, map[coreunit.Name]life.Life{
 		coreunit.Name("bar/667"): life.Alive,
 	})
+
+	_, err = s.state.GetAllUnitLifeForApplication(c.Context(),
+		applicationtesting.GenApplicationUUID(c))
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestStorageDefaultsNone(c *tc.C) {

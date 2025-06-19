@@ -102,7 +102,6 @@ type UnitState interface {
 
 	// GetAllUnitLifeForApplication returns a map of the unit names and their lives
 	// for the given application.
-	//   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
 	//   - If the application is not found, [applicationerrors.ApplicationNotFound]
 	//     is returned.
 	GetAllUnitLifeForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]life.Life, error)
@@ -684,7 +683,6 @@ func (s *Service) GetUnitSubordinates(ctx context.Context, unitName coreunit.Nam
 // GetAllUnitLifeForApplication returns a map of the unit names and their lives
 // for the given application.
 // The following errors may be returned:
-// - [applicationerrors.ApplicationIsDead] if the application is dead
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
 func (s *Service) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corelife.Value, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())

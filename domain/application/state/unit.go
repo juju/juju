@@ -501,13 +501,23 @@ AND a.name = $applicationName.name
 
 // GetAllUnitLifeForApplication returns a map of the unit names and their lives
 // for the given application.
-//   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
 func (st *State) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+	appExistsQuery := `
+SELECT &applicationID.*
+FROM application
+WHERE uuid = $applicationID.uuid;
+`
+	appExistsStmt, err := st.Prepare(appExistsQuery, ident)
+	if err != nil {
+		return nil, errors.Errorf("preparing query for application %q: %w", ident.ID, err)
 	}
 
 	lifeQuery := `
@@ -524,9 +534,11 @@ WHERE u.application_uuid = $applicationID.uuid
 
 	var lifes []unitDetails
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.checkApplicationNotDead(ctx, tx, appID)
-		if err != nil {
-			return errors.Capture(err)
+		err = tx.Query(ctx, appExistsStmt, ident).Get(&ident)
+		if errors.Is(err, sql.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return errors.Errorf("checking application %q exists: %w", ident.ID, err)
 		}
 		err = tx.Query(ctx, lifeStmt, app).GetAll(&lifes)
 		if errors.Is(err, sqlair.ErrNoRows) {
