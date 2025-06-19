@@ -68,15 +68,12 @@ func (st *State) insertApplicationStorageDirectives(
 	charmUUID corecharm.ID,
 	directives []application.ApplicationStorageDirectiveArg,
 ) error {
+	if len(directives) == 0 {
+		return nil
+	}
 
-	// Build up the set of directive names we have to insert.
-	directiveNamesInput := make([]charmStorageName, 0, len(directives))
 	insertDirectivesInput := make([]insertApplicationStorageDirective, 0, len(directives))
 	for _, d := range directives {
-		directiveNamesInput = append(directiveNamesInput, charmStorageName{
-			Name: d.Name.String(),
-		})
-
 		var (
 			poolUUIDVal     sql.Null[string]
 			providerTypeVal sql.Null[string]
@@ -107,62 +104,6 @@ func (st *State) insertApplicationStorageDirectives(
 			},
 		)
 	}
-	charmUUIDInput := charmStorageUUID{UUID: charmUUID.String()}
-
-	// This check is here until we rework all of the AddApplication logic to
-	// run in a single transaction. There's a TODO in the AddApplication service
-	// method. We want to check here that the set of directives to insert for
-	// the application matches the charm storage metadata.
-	charmStorageCovered, err := st.Prepare(`
-SELECT &charmStorageName.name
-FROM    charm_storage
-WHERE   charm_uuid = $charmStorageUUID.charm_uuid
-AND     name NOT IN ($charmStorageName[:].name)
-`,
-		charmUUIDInput, charmStorageName{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// allCharmStorageNames is a stmt used when the list of directives is empty.
-	// This is done as an empty list of values for an SQL IN clause is a syntax
-	// error. This is a gaurd condition.
-	allCharmStorageNames, err := st.Prepare(`
-SELECT &charmStorageName.name
-FROM charm_storage
-WHERE charm_uuid = $charmStorageUUID.charm_uuid
-`)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	var missingDirectiveNames []charmStorageName
-	if len(directiveNamesInput) == 0 {
-		err = tx.Query(ctx, allCharmStorageNames, charmUUIDInput).GetAll(
-			&missingDirectiveNames,
-		)
-	} else {
-		err = tx.Query(
-			ctx, charmStorageCovered, charmUUIDInput, directiveNamesInput,
-		).GetAll(&missingDirectiveNames)
-	}
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf(
-			"checking for missing application storage directives on charm %q: %w",
-			charmUUID, err,
-		)
-	}
-
-	if len(missingDirectiveNames) > 0 {
-		return errors.Errorf(
-			"application %q is missing storage directives for charm storage %v",
-			uuid, missingDirectiveNames,
-		)
-	}
-
-	if len(insertDirectivesInput) == 0 {
-		return nil
-	}
 
 	insertDirectivesStmt, err := st.Prepare(`
 INSERT INTO application_storage_directive (*)
@@ -181,39 +122,10 @@ VALUES ($insertApplicationStorageDirective.*)
 	return nil
 }
 
-type storageTemplate struct {
-	meta   charmStorage
-	params application.ApplicationStorageArg
-}
-
-func (st *State) composeStorageTemplates(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, args []application.ApplicationStorageArg) ([]storageTemplate, error) {
-	templates := make([]storageTemplate, 0, len(args))
-	for _, arg := range args {
-		storageMeta, err := st.getApplicationCharmStorageByName(ctx, tx, appUUID, arg.Name)
-		if errors.Is(err, charmStorageNotFound) {
-			return nil, errors.Errorf(
-				"charm for application %q has no storage called %q",
-				appUUID, arg.Name,
-			).Add(applicationerrors.StorageNameNotSupported)
-		} else if err != nil {
-			return nil, errors.Errorf("getting charm storage metadata for storage name %q application %q: %w", arg.Name, appUUID, err)
-		}
-
-		if arg.Count == 0 {
-			continue
-		}
-		templates = append(templates, storageTemplate{
-			meta:   storageMeta,
-			params: arg,
-		})
-	}
-	return templates, nil
-}
-
 // unitStorageDirective represents a single storage directive for a unit.
 type unitStorageDirective struct {
 	CharmUUID       corecharm.ID
-	Count           uint64
+	Count           uint32
 	Name            string
 	Size            uint64
 	StoragePoolUUID *string
@@ -249,7 +161,7 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 			CharmUUID:   charmUUID.String(),
 			Count:       arg.Count,
 			Size:        arg.Size,
-			StorageName: arg.StorageName,
+			StorageName: arg.Name.String(),
 			// TODO set pool or type.
 			UnitUUID: unitUUID.String(),
 		})
@@ -258,18 +170,18 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 			poolUUID *string
 			provider *string
 		)
-		if arg.StoragePoolUUID != nil {
-			poolUUIDStr := arg.StoragePoolUUID.String()
+		if arg.PoolUUID != nil {
+			poolUUIDStr := arg.PoolUUID.String()
 			poolUUID = &poolUUIDStr
 		}
-		if arg.StorageProvider != nil {
-			poolTypeStr := *arg.StorageProvider
+		if arg.ProviderType != nil {
+			poolTypeStr := *arg.ProviderType
 			provider = &poolTypeStr
 		}
 		rval = append(rval, unitStorageDirective{
 			CharmUUID:       charmUUID,
 			Count:           arg.Count,
-			Name:            arg.StorageName,
+			Name:            arg.Name.String(),
 			StoragePoolUUID: poolUUID,
 			StorageProvider: provider,
 			Size:            arg.Size,
