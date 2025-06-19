@@ -59,15 +59,14 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisioned(c *tc.C) {
 	c.Check(machines, tc.HasLen, 1)
 	c.Check(machines, tc.DeepEquals, []machine.ExportMachine{
 		{
-			Name:         coremachine.Name("666"),
-			UUID:         coremachine.UUID("deadbeef"),
-			Nonce:        "nonce",
-			PasswordHash: "ssssh!",
+			Name:  coremachine.Name("666"),
+			UUID:  coremachine.UUID("deadbeef"),
+			Nonce: "nonce",
 		},
 	})
 }
 
-func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNoNonceOrPassword(c *tc.C) {
+func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNoNonce(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "netnode1", "deadbeef", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -79,10 +78,9 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNoNonceOrPassword
 	c.Check(machines, tc.HasLen, 1)
 	c.Check(machines, tc.DeepEquals, []machine.ExportMachine{
 		{
-			Name:         coremachine.Name("666"),
-			UUID:         coremachine.UUID("deadbeef"),
-			Nonce:        "",
-			PasswordHash: "",
+			Name:  coremachine.Name("666"),
+			UUID:  coremachine.UUID("deadbeef"),
+			Nonce: "",
 		},
 	})
 }

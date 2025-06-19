@@ -28,8 +28,8 @@ import (
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID machine.UUID) (instance.Id, error)
+	// GetInstanceID returns the cloud specific instance id for this machine.
+	GetInstanceID(ctx context.Context, mUUID machine.UUID) (instance.Id, error)
 	// GetMachineLife returns the lifecycle state of the machine with the
 	// specified name.
 	GetMachineLife(ctx context.Context, name machine.Name) (life.Value, error)

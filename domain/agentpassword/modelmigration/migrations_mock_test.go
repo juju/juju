@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
 	agentpassword "github.com/juju/juju/domain/agentpassword"
 	gomock "go.uber.org/mock/gomock"
@@ -39,6 +40,45 @@ func NewMockExportService(ctrl *gomock.Controller) *MockExportService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockExportService) EXPECT() *MockExportServiceMockRecorder {
 	return m.recorder
+}
+
+// GetAllMachinePasswordHashes mocks base method.
+func (m *MockExportService) GetAllMachinePasswordHashes(arg0 context.Context) (agentpassword.MachinePasswordHashes, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllMachinePasswordHashes", arg0)
+	ret0, _ := ret[0].(agentpassword.MachinePasswordHashes)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllMachinePasswordHashes indicates an expected call of GetAllMachinePasswordHashes.
+func (mr *MockExportServiceMockRecorder) GetAllMachinePasswordHashes(arg0 any) *MockExportServiceGetAllMachinePasswordHashesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllMachinePasswordHashes", reflect.TypeOf((*MockExportService)(nil).GetAllMachinePasswordHashes), arg0)
+	return &MockExportServiceGetAllMachinePasswordHashesCall{Call: call}
+}
+
+// MockExportServiceGetAllMachinePasswordHashesCall wrap *gomock.Call
+type MockExportServiceGetAllMachinePasswordHashesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockExportServiceGetAllMachinePasswordHashesCall) Return(arg0 agentpassword.MachinePasswordHashes, arg1 error) *MockExportServiceGetAllMachinePasswordHashesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockExportServiceGetAllMachinePasswordHashesCall) Do(f func(context.Context) (agentpassword.MachinePasswordHashes, error)) *MockExportServiceGetAllMachinePasswordHashesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockExportServiceGetAllMachinePasswordHashesCall) DoAndReturn(f func(context.Context) (agentpassword.MachinePasswordHashes, error)) *MockExportServiceGetAllMachinePasswordHashesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // GetAllUnitPasswordHashes mocks base method.
@@ -101,6 +141,44 @@ func NewMockImportService(ctrl *gomock.Controller) *MockImportService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 	return m.recorder
+}
+
+// SetMachinePasswordHash mocks base method.
+func (m *MockImportService) SetMachinePasswordHash(arg0 context.Context, arg1 machine.Name, arg2 agentpassword.PasswordHash) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetMachinePasswordHash", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMachinePasswordHash indicates an expected call of SetMachinePasswordHash.
+func (mr *MockImportServiceMockRecorder) SetMachinePasswordHash(arg0, arg1, arg2 any) *MockImportServiceSetMachinePasswordHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachinePasswordHash", reflect.TypeOf((*MockImportService)(nil).SetMachinePasswordHash), arg0, arg1, arg2)
+	return &MockImportServiceSetMachinePasswordHashCall{Call: call}
+}
+
+// MockImportServiceSetMachinePasswordHashCall wrap *gomock.Call
+type MockImportServiceSetMachinePasswordHashCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockImportServiceSetMachinePasswordHashCall) Return(arg0 error) *MockImportServiceSetMachinePasswordHashCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockImportServiceSetMachinePasswordHashCall) Do(f func(context.Context, machine.Name, agentpassword.PasswordHash) error) *MockImportServiceSetMachinePasswordHashCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockImportServiceSetMachinePasswordHashCall) DoAndReturn(f func(context.Context, machine.Name, agentpassword.PasswordHash) error) *MockImportServiceSetMachinePasswordHashCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // SetUnitPasswordHash mocks base method.

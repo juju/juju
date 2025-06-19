@@ -78,12 +78,12 @@ type Model interface {
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// InstanceIDAndName returns the cloud specific instance ID and display name for
+	// GetInstanceIDAndName returns the cloud specific instance ID and display name for
 	// this machine.
-	InstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
+	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
 }
 
 // StatusService returns the status of a applications, and units and machines.

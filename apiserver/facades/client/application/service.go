@@ -107,9 +107,9 @@ type MachineService interface {
 	CreateMachine(context.Context, machine.Name, *string) (machine.UUID, error)
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
+	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
 }
 
 // ApplicationService instances save an application to dqlite state.

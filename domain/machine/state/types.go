@@ -236,9 +236,8 @@ type machinePlacement struct {
 }
 
 type exportMachine struct {
-	Name         string `db:"name"`
-	UUID         string `db:"uuid"`
-	LifeID       int    `db:"life_id"`
-	Nonce        string `db:"nonce"`
-	PasswordHash string `db:"password_hash"`
+	Name   string `db:"name"`
+	UUID   string `db:"uuid"`
+	LifeID int    `db:"life_id"`
+	Nonce  string `db:"nonce"`
 }

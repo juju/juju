@@ -83,7 +83,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&hc, nil)
+	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&hc, nil)
 	s.agentPasswordService.EXPECT().SetMachinePassword(gomock.Any(), coremachine.Name("0"), gomock.Any()).Return(nil)
 
 	storageCloser := NewMockStorageCloser(ctrl)

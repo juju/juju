@@ -89,7 +89,7 @@ func InstanceConfig(
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrieving machine UUID for machine %q", machineId)
 	}
-	hc, err := services.MachineService.HardwareCharacteristics(ctx, machineUUID)
+	hc, err := services.MachineService.GetHardwareCharacteristics(ctx, machineUUID)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting machine hardware characteristics")
 	}

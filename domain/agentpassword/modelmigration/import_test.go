@@ -10,6 +10,7 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
 	"github.com/juju/juju/internal/errors"
@@ -113,6 +114,87 @@ func (s *importSuite) TestImportUnitPasswordHashNoUnits(c *tc.C) {
 	model.AddApplication(description.ApplicationArgs{
 		Name: "foo",
 	})
+
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportMachinePasswordHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.importService.EXPECT().SetMachinePasswordHash(gomock.Any(), coremachine.Name("0"), agentpassword.PasswordHash("hash")).Return(nil)
+
+	op := importOperation{
+		service: s.importService,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddMachine(description.MachineArgs{
+		Id:           "0",
+		PasswordHash: "hash",
+	})
+
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportMachinePasswordHashError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.importService.EXPECT().SetMachinePasswordHash(gomock.Any(), coremachine.Name("0"), agentpassword.PasswordHash("hash")).Return(errors.Errorf("boom"))
+
+	op := importOperation{
+		service: s.importService,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddMachine(description.MachineArgs{
+		Id:           "0",
+		PasswordHash: "hash",
+	})
+
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorMatches, ".*boom")
+}
+
+func (s *importSuite) TestImportMachinePasswordHashMissingHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	op := importOperation{
+		service: s.importService,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddMachine(description.MachineArgs{
+		Id:           "0",
+		PasswordHash: "",
+	})
+
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportMachinePasswordHashNoApplications(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	op := importOperation{
+		service: s.importService,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportMachinePasswordHashNoMachines(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	op := importOperation{
+		service: s.importService,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
 
 	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)

@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"context"
+	"slices"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
@@ -34,12 +35,12 @@ func RegisterExport(coordinator Coordinator, clock clock.Clock, logger logger.Lo
 type ExportService interface {
 	// GetMachines returns all the machines in the model.
 	GetMachines(ctx context.Context) ([]machine.ExportMachine, error)
-	// InstanceID returns the cloud specific instance id for this machine.
+	// GetInstanceID returns the cloud specific instance id for this machine.
 	// If the machine is not provisioned, it returns a NotProvisionedError.
-	InstanceID(ctx context.Context, machineUUID coremachine.UUID) (instance.Id, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
+	GetInstanceID(ctx context.Context, machineUUID coremachine.UUID) (instance.Id, error)
+	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -70,19 +71,25 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	machines, err := e.service.G
+	machines, err := e.service.GetMachines(ctx)
+	if err != nil {
+		return errors.Errorf("retrieving machines for export: %w", err)
+	}
 
-	for _, machine := range model.Machines() {
-		machineName := coremachine.Name(machine.Id())
-		machineUUID, err := e.service.GetMachineUUID(ctx, machineName)
-		if err != nil {
-			return errors.Errorf("retrieving instance ID for machine %q: %w", machineName, err)
+	for _, m := range model.Machines() {
+		index := slices.IndexFunc(machines, func(em machine.ExportMachine) bool {
+			return em.Name == coremachine.Name(m.Id())
+		})
+		if index == -1 {
+			// The machine is not in the exported model, so we skip it.
+			continue
 		}
 
-		machine.SetNonce()
-		machine.SetPasswordHash()
+		machine := machines[index]
 
-		instanceID, err := e.service.InstanceID(ctx, machineUUID)
+		m.SetNonce(machine.Nonce)
+
+		instanceID, err := e.service.GetInstanceID(ctx, machine.UUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {
 			// TODO(nvinuesa): Here we should remove the machine from the
 			// exported model because we should not migrate non-provisioned
@@ -94,17 +101,17 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			continue
 		}
 		if err != nil {
-			return errors.Errorf("retrieving instance ID for machine %q: %w", machineName, err)
+			return errors.Errorf("retrieving instance ID for machine %q: %w", machine.Name, err)
 		}
 		instanceArgs := description.CloudInstanceArgs{
 			InstanceId: instanceID.String(),
 		}
-		hardwareCharacteristics, err := e.service.HardwareCharacteristics(ctx, machineUUID)
+		hardwareCharacteristics, err := e.service.GetHardwareCharacteristics(ctx, machine.UUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {
 			continue
 		}
 		if err != nil {
-			return errors.Errorf("retrieving hardware characteristics for machine %q: %w", machineName, err)
+			return errors.Errorf("retrieving hardware characteristics for machine %q: %w", machine.Name, err)
 		}
 		if hardwareCharacteristics.Arch != nil {
 			instanceArgs.Architecture = *hardwareCharacteristics.Arch
@@ -133,9 +140,10 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		if hardwareCharacteristics.VirtType != nil {
 			instanceArgs.VirtType = *hardwareCharacteristics.VirtType
 		}
-		machine.SetInstance(instanceArgs)
 
-		instance := machine.Instance()
+		m.SetInstance(instanceArgs)
+
+		instance := m.Instance()
 		instance.SetStatus(description.StatusArgs{})
 	}
 	return nil

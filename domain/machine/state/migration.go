@@ -44,10 +44,9 @@ WHERE mci.instance_id IS NOT NULL AND mci.instance_id != '';`
 	result := make([]machine.ExportMachine, len(machines))
 	for i, m := range machines {
 		result[i] = machine.ExportMachine{
-			Name:         coremachine.Name(m.Name),
-			UUID:         coremachine.UUID(m.UUID),
-			Nonce:        m.Nonce,
-			PasswordHash: m.PasswordHash,
+			Name:  coremachine.Name(m.Name),
+			UUID:  coremachine.UUID(m.UUID),
+			Nonce: m.Nonce,
 		}
 	}
 	return result, nil
