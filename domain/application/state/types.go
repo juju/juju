@@ -89,7 +89,7 @@ type applicationScale struct {
 // application_storage_directive table representing the storage directives of
 // an application.
 type applicationStorageDirective struct {
-	Count           uint64           `db:"count"`
+	Count           uint32           `db:"count"`
 	SizeMiB         uint64           `db:"size_mib"`
 	StorageName     string           `db:"storage_name"`
 	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
@@ -481,18 +481,6 @@ type charmStorage struct {
 	Property    string `db:"property"`
 }
 
-// charmStorageName is used to represent the name column from the charm_storage
-// table.
-type charmStorageName struct {
-	Name string `db:"name"`
-}
-
-// charmStorageUUID is used to represent the charm_uuid column in the
-// charm storage table.
-type charmStorageUUID struct {
-	UUID string `db:"charm_uuid"`
-}
-
 // setCharmStorage is used to set the storage of a charm.
 type setCharmStorage struct {
 	CharmUUID   string `db:"charm_uuid"`
@@ -717,6 +705,16 @@ type resourceToAdd struct {
 type storagePool struct {
 	UUID string `db:"uuid"`
 	Name string `db:"name"`
+}
+
+// storagePoolType is used to represent the type value of a storage pool record.
+type storagePoolType struct {
+	Type string `db:"type"`
+}
+
+// storagePoolUUID is used to represent the UUID of a storage pool record.
+type storagePoolUUID struct {
+	UUID string `db:"uuid"`
 }
 
 type linkResourceApplication struct {
@@ -1317,12 +1315,20 @@ type controllerApplication struct {
 type insertApplicationStorageDirective struct {
 	ApplicationUUID string `db:"application_uuid"`
 	CharmUUID       string `db:"charm_uuid"`
-	Count           uint64 `db:"count"`
+	Count           uint32 `db:"count"`
 	// Size is the number of MiB requested for the storage.
 	Size                uint64           `db:"size_mib"`
 	StorageName         string           `db:"storage_name"`
 	StoragePoolUUID     sql.Null[string] `db:"storage_pool_uuid"`
 	StorageProviderType sql.Null[string] `db:"storage_type"`
+}
+
+// insertStorageAttachment represents the set of values required for
+// inserting a new storage unit attachment record.
+type insertStorageAttachment struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	LifeID              int    `db:"life_id"`
+	UnitUUID            string `db:"unit_uuid"`
 }
 
 // insertStorageInstance represents the set of values required for inserting a
@@ -1349,7 +1355,7 @@ type insertStorageUnitOwner struct {
 // inserting a new unit storage directive.
 type insertUnitStorageDirective struct {
 	CharmUUID string `db:"charm_uuid"`
-	Count     uint64 `db:"count"`
+	Count     uint32 `db:"count"`
 	// Size is the number of MiB requested for the storage.
 	Size            uint64           `db:"size_mib"`
 	StorageName     string           `db:"storage_name"`

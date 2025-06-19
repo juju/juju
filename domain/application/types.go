@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
-	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/constraints"
@@ -50,9 +49,6 @@ type BaseAddApplicationArg struct {
 	// PendingResources are the uuids of resources added before the
 	// application is created.
 	PendingResources []resource.UUID
-	// Storage defines the list of storage directives to add to an application.
-	// The Name values should match the storage defined in the Charm.
-	Storage []ApplicationStorageArg
 	// StorageDirectives defines the list of storage directives to add to an
 	// application. The Name values must match the storage defined in the Charm.
 	StorageDirectives []ApplicationStorageDirectiveArg
@@ -64,9 +60,6 @@ type BaseAddApplicationArg struct {
 	Settings ApplicationSettings
 	// Status contains the status of the application.
 	Status *status.StatusInfo[status.WorkloadStatusType]
-	// StoragePoolKind holds a mapping of the kind of storage supported
-	// by the named storage pool / provider type.
-	StoragePoolKind map[string]storage.StorageKind
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
 	EndpointBindings map[string]network.SpaceName
@@ -101,14 +94,6 @@ type AddApplicationResourceArg struct {
 	Name     string
 	Revision *int
 	Origin   charmresource.Origin
-}
-
-// ApplicationStorageArg describes details of storage for an application.
-type ApplicationStorageArg struct {
-	Name           corestorage.Name
-	PoolNameOrType string
-	Size           uint64
-	Count          uint64
 }
 
 // StorageDirectiveArg defines the arguments required to add a storage
@@ -430,13 +415,11 @@ type ExportUnit struct {
 
 // ImportUnitArg is used to import a unit.
 type ImportUnitArg struct {
-	UnitName        coreunit.Name
-	CloudContainer  *CloudContainer
-	Password        *PasswordInfo
-	Constraints     constraints.Constraints
-	Machine         machine.Name
-	Storage         []ApplicationStorageArg
-	StoragePoolKind map[string]storage.StorageKind
+	UnitName       coreunit.Name
+	CloudContainer *CloudContainer
+	Password       *PasswordInfo
+	Constraints    constraints.Constraints
+	Machine        machine.Name
 	// Principal contains the name of the units principal unit. If the unit is
 	// not a subordinate, this field is empty.
 	Principal coreunit.Name

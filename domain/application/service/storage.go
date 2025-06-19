@@ -44,8 +44,8 @@ type StorageProviderState interface {
 	// given pool.
 	//
 	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/storage/errors.PoolNotFoundError] when no
-	// storage pool exists for the provided pool uuid.
+	// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
+	// provided pool uuid.
 	GetProviderTypeOfPool(context.Context, domainstorage.StoragePoolUUID) (string, error)
 }
 
