@@ -183,6 +183,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		resources,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
+		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
 		domainServices.Credential(),
 		domainServices.Upgrade(),

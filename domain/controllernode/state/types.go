@@ -47,6 +47,8 @@ type controllerAPIAddress struct {
 	Address string `db:"address"`
 	// IsAgent is whether the address is for agents as well as for clients.
 	IsAgent bool `db:"is_agent"`
+	// Scope is the address scope.
+	Scope string `db:"scope"`
 }
 
 // countResult is the database representation of a count result.

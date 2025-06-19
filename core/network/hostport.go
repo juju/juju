@@ -7,7 +7,6 @@ import (
 	"context"
 	"net"
 	"strconv"
-	"strings"
 
 	"github.com/juju/collections/set"
 
@@ -336,21 +335,6 @@ func SpaceAddressesWithPort(addrs SpaceAddresses, port int) SpaceHostPorts {
 		}
 	}
 	return hps
-}
-
-// APIHostPortsToNoProxyString converts list of lists of NetAddrs() to
-// a NoProxy-like comma separated string, ignoring local addresses
-func APIHostPortsToNoProxyString(ahp []SpaceHostPorts) string {
-	noProxySet := set.NewStrings()
-	for _, host := range ahp {
-		for _, hp := range host {
-			if hp.SpaceAddress.Scope == ScopeMachineLocal || hp.SpaceAddress.Scope == ScopeLinkLocal {
-				continue
-			}
-			noProxySet.Add(hp.SpaceAddress.Value)
-		}
-	}
-	return strings.Join(noProxySet.SortedValues(), ",")
 }
 
 // EnsureFirstHostPort scans the given list of SpaceHostPorts and if

@@ -9,12 +9,15 @@ import (
 	"time"
 
 	"github.com/juju/tc"
+	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
+	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -30,11 +33,11 @@ func TestApiAddresserSuite(t *testing.T) {
 func (s *apiAddresserSuite) TestAPIAddresses(c *tc.C) {
 	defer s.setupMock(c).Finish()
 	// Arrange
-	res := map[string][]string{
-		"one": {"apiaddresses:1"},
-		"two": {"apiaddresses:2"},
+	res := controllernode.APIAddresses{
+		{Address: "10.2.3.43:1", Scope: network.ScopeCloudLocal},
+		{Address: "10.4.7.178:2", Scope: network.ScopeCloudLocal},
 	}
-	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(res, nil)
+	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesWithScopeForAgents(gomock.Any()).Return(res, nil)
 	addresser := s.getAddresser()
 
 	// Act
@@ -42,11 +45,32 @@ func (s *apiAddresserSuite) TestAPIAddresses(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Result, tc.SameContents, []string{"apiaddresses:1", "apiaddresses:2"})
+	c.Assert(result.Result, tc.SameContents, []string{"10.2.3.43:1", "10.4.7.178:2"})
 }
 
 func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *tc.C) {
-	c.Skip("Rewrite test when APIAddresses are ordered")
+	defer s.setupMock(c).Finish()
+	// Arrange
+	res := controllernode.APIAddresses{
+		{Address: "52.7.1.1:17070", Scope: network.ScopePublic},
+		{Address: "10.0.2.1:17070", Scope: network.ScopeCloudLocal},
+		{Address: "53.51.121.17:17070", Scope: network.ScopePublic},
+		{Address: "10.0.1.17:17070", Scope: network.ScopeCloudLocal},
+	}
+	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesWithScopeForAgents(gomock.Any()).Return(res, nil)
+	addresser := s.getAddresser()
+
+	// Act
+	result, err := addresser.APIAddresses(context.Background())
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Result, tc.DeepEquals, []string{
+		"10.0.2.1:17070",
+		"10.0.1.17:17070",
+		"52.7.1.1:17070",
+		"53.51.121.17:17070",
+	})
 }
 
 func (s *apiAddresserSuite) TestAPIHostPorts(c *tc.C) {

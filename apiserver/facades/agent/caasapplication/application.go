@@ -16,18 +16,25 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/rpc/params"
 )
 
 // ControllerConfigService defines the API methods on the ControllerState facade.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ControllerNodeService represents a way to get controller api addresses.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
+	// agents.
+	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (controllernode.APIAddresses, error)
 }
 
 // ApplicationService instances implement an application service.
@@ -52,8 +59,8 @@ type Facade struct {
 
 	auth                    facade.Authorizer
 	resources               facade.Resources
-	ctrlSt                  ControllerState
 	controllerConfigService ControllerConfigService
+	controllerNodeService   ControllerNodeService
 	applicationService      ApplicationService
 	modelAgentService       ModelAgentService
 	logger                  logger.Logger
@@ -63,10 +70,10 @@ type Facade struct {
 func NewFacade(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	ctrlSt ControllerState,
 	controllerUUID string,
 	modelUUID coremodel.UUID,
 	controllerConfigService ControllerConfigService,
+	controllerNodeService ControllerNodeService,
 	applicationService ApplicationService,
 	modelAgentService ModelAgentService,
 	logger logger.Logger,
@@ -74,10 +81,10 @@ func NewFacade(
 	return &Facade{
 		auth:                    authorizer,
 		resources:               resources,
-		ctrlSt:                  ctrlSt,
 		controllerUUID:          controllerUUID,
 		modelUUID:               modelUUID,
 		controllerConfigService: controllerConfigService,
+		controllerNodeService:   controllerNodeService,
 		applicationService:      applicationService,
 		modelAgentService:       modelAgentService,
 		logger:                  logger,
@@ -123,24 +130,16 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return errResp(err)
 	}
 
+	apiAddrsWithScope, err := f.controllerNodeService.GetAllAPIAddressesWithScopeForAgents(ctx)
+	if err != nil {
+		return errResp(err)
+	}
+	addrs := apiAddrsWithScope.PrioritizedForScope(controllernode.ScopeMatchCloudLocal)
+
 	controllerConfig, err := f.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errResp(err)
 	}
-	apiHostPorts, err := f.ctrlSt.APIHostPortsForAgents(controllerConfig)
-	if err != nil {
-		return errResp(err)
-	}
-	addrs := []string(nil)
-	for _, hostPorts := range apiHostPorts {
-		ordered := hostPorts.HostPorts().PrioritizedForScope(network.ScopeMatchCloudLocal)
-		for _, addr := range ordered {
-			if addr != "" {
-				addrs = append(addrs, addr)
-			}
-		}
-	}
-
 	// Skip checking okay on CACerts result, it will always be there
 	// Method has a comment to remove the boolean return value.
 	caCert, _ := controllerConfig.CACert()

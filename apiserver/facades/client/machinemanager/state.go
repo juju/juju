@@ -10,10 +10,8 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -36,7 +34,6 @@ type BackendState interface {
 
 type ControllerBackend interface {
 	ControllerTag() names.ControllerTag
-	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 }
 
 type Pool interface {

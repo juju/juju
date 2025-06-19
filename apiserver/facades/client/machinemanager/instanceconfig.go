@@ -17,7 +17,6 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -50,6 +49,7 @@ type AgentPasswordService interface {
 // InstanceConfigServices holds the services needed to configure instances.
 type InstanceConfigServices struct {
 	ControllerConfigService ControllerConfigService
+	ControllerNodeService   ControllerNodeService
 	CloudService            common.CloudService
 	KeyUpdaterService       KeyUpdaterService
 	ModelConfigService      ModelConfigService
@@ -108,9 +108,8 @@ func InstanceConfig(
 	if !ok {
 		return nil, errors.New("no agent version set in model configuration")
 	}
-	urlGetter := common.NewToolsURLGetter(modelID.String(), ctrlSt)
+	urlGetter := common.NewToolsURLGetter(modelID.String(), services.ControllerNodeService)
 	toolsFinder := common.NewToolsFinder(
-		services.ControllerConfigService,
 		st,
 		urlGetter,
 		services.ObjectStore,
@@ -126,14 +125,14 @@ func InstanceConfig(
 	}
 
 	// Get the API connection info; attempt all API addresses.
-	apiHostPorts, err := ctrlSt.APIHostPortsForAgents(controllerConfig)
+	apiAddrsForAgents, err := services.ControllerNodeService.GetAllAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API addresses")
 	}
 	apiAddrs := make(set.Strings)
-	for _, hostPorts := range apiHostPorts {
-		for _, hp := range hostPorts {
-			apiAddrs.Add(network.DialAddress(hp))
+	for _, apiAddrsForAgent := range apiAddrsForAgents {
+		for _, addr := range apiAddrsForAgent {
+			apiAddrs.Add(addr)
 		}
 	}
 

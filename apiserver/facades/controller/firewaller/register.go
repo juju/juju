@@ -25,6 +25,7 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 	controllerConfigAPI := common.NewControllerConfigAPI(
 		st,
 		domainServices.ControllerConfig(),
+		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
 	)
 

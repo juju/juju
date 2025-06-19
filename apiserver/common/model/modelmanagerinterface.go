@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
@@ -28,7 +27,6 @@ import (
 // All the interface methods are defined directly on state.State
 // and are reproduced here for use in tests.
 type ModelManagerBackend interface {
-	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)

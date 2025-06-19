@@ -9,9 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/container"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -137,10 +135,5 @@ func AuthFuncForMachineAgent(authorizer Authorizer) GetAuthFunc {
 // ControllerConfigAPI
 type ControllerConfigState interface {
 	ModelExists(string) (bool, error)
-	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 	CompletedMigrationForModel(string) (state.ModelMigration, error)
-}
-
-type controllerInfoState interface {
-	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 }

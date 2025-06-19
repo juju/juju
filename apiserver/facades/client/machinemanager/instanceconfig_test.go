@@ -18,6 +18,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -32,6 +33,7 @@ type machineConfigSuite struct {
 	cloudService *commonmocks.MockCloudService
 
 	controllerConfigService *MockControllerConfigService
+	controllerNodeService   *MockControllerNodeService
 	keyUpdaterService       *MockKeyUpdaterService
 	modelConfigService      *MockModelConfigService
 	machineService          *MockMachineService
@@ -46,6 +48,7 @@ func TestMachineConfigSuite(t *testing.T) {
 func (s *machineConfigSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 
 	s.ctrlSt = NewMockControllerBackend(ctrl)
 	s.st = NewMockInstanceConfigBackend(ctrl)
@@ -56,6 +59,19 @@ func (s *machineConfigSuite) setup(c *tc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.bootstrapEnviron = NewMockBootstrapEnviron(ctrl)
 	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
+
+	c.Cleanup(func() {
+		s.controllerNodeService = nil
+		s.controllerConfigService = nil
+		s.ctrlSt = nil
+		s.st = nil
+		s.cloudService = nil
+		s.store = nil
+		s.keyUpdaterService = nil
+		s.modelConfigService = nil
+		s.machineService = nil
+		s.bootstrapEnviron = nil
+	})
 
 	return ctrl
 }
@@ -93,10 +109,12 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 	storageCloser.EXPECT().Close().Return(nil)
 	s.st.EXPECT().ToolsStorage(gomock.Any()).Return(storageCloser, nil)
 
-	s.ctrlSt.EXPECT().APIHostPortsForAgents(gomock.Any()).Return([]network.SpaceHostPorts{{{
-		SpaceAddress: network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
-		NetPort:      1,
-	}}}, nil).MinTimes(1)
+	addrs := controllernode.APIAddresses{
+		{Address: "1.2.3.4:1", Scope: network.ScopeCloudLocal},
+	}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesWithScopeForAgents(gomock.Any()).Return(addrs, nil).MinTimes(1)
+	addrs2 := map[string][]string{"one": {"1.2.3.4:1"}}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs2, nil).MinTimes(1)
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
@@ -107,6 +125,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 
 	services := InstanceConfigServices{
 		ControllerConfigService: s.controllerConfigService,
+		ControllerNodeService:   s.controllerNodeService,
 		CloudService:            s.cloudService,
 		ObjectStore:             s.store,
 		KeyUpdaterService:       s.keyUpdaterService,

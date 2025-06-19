@@ -78,6 +78,10 @@ const (
 // machine belongs to, or to the machine itself for containers.
 type Scope string
 
+func (s Scope) String() string {
+	return string(s)
+}
+
 const (
 	ScopeUnknown      Scope = ""
 	ScopePublic       Scope = "public"
