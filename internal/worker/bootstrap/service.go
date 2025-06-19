@@ -100,6 +100,9 @@ type ControllerNodeService interface {
 	// The following errors can be expected:
 	// - [controllernodeerrors.NotFound] if the controller node does not exist.
 	SetAPIAddresses(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, mgmtSpace *network.SpaceInfo) error
+	// SetPassword sets the password for the given machine. If the controller node
+	// does not exist, an error satisfying [controllernodeerrors.NotFound] is returned.
+	SetPassword(ctx context.Context, controllerID string, password string) error
 }
 
 // CloudService is the interface that is used to interact with the

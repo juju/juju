@@ -79,6 +79,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		statePool:               statePool,
 		domainServicesGetter:    domainServicesGetter,
 		controllerConfigService: controllerDomainServices.ControllerConfig(),
+		controllerNodeService:   controllerDomainServices.ControllerNode(),
 		accessService:           controllerDomainServices.Access(),
 		macaroonService:         controllerDomainServices.Macaroon(),
 		mux:                     apiserverhttp.NewMux(),

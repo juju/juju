@@ -41,6 +41,14 @@ type AgentPasswordService interface {
 	SetMachinePassword(context.Context, machine.Name, string) error
 }
 
+// ControllerNodeService defines the methods required to set a controller node's
+// password hash.
+type ControllerNodeService interface {
+	// SetPassword sets the password for the given machine. If the controller node
+	// does not exist, an error satisfying [controllernodeerrors.NotFound] is returned.
+	SetPassword(ctx context.Context, nodeID string, password string) error
+}
+
 // ControllerConfigService is the interface that gets ControllerConfig form DB.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
@@ -132,6 +140,7 @@ func NewAgentAPI(
 	st *state.State,
 	agentPasswordService AgentPasswordService,
 	controllerConfigService ControllerConfigService,
+	controllerNodeService ControllerNodeService,
 	externalControllerService ExternalControllerService,
 	rebootMachineService MachineRebootService,
 	modelConfigService ModelConfigService,
@@ -143,7 +152,7 @@ func NewAgentAPI(
 	}
 
 	return &AgentAPI{
-		PasswordChanger:    common.NewPasswordChanger(agentPasswordService, st, getCanChange),
+		PasswordChanger:    common.NewPasswordChanger(agentPasswordService, controllerNodeService, st, getCanChange),
 		RebootFlagClearer:  common.NewRebootFlagClearer(rebootMachineService, getCanChange),
 		ModelConfigWatcher: commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry),
 		ControllerConfigAPI: common.NewControllerConfigAPI(

@@ -31,6 +31,14 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// ControllerNodeService defines the methods required to check a controller
+// password hash.
+type ControllerNodeService interface {
+	// MatchesPassword checks if the password is valid or not against the password
+	// hash stored in the database for the given controller node.
+	MatchesPassword(ctx context.Context, nodeID string, password string) (bool, error)
+}
+
 // DomainServicesGetter defines methods for getting domain services
 // for a model.
 type DomainServicesGetter interface {
@@ -98,6 +106,7 @@ type NewStateAuthenticatorFunc func(
 	statePool *state.StatePool,
 	controllerModelUUID coremodel.UUID,
 	controllerConfigService ControllerConfigService,
+	controllerNodeService ControllerNodeService,
 	agentPasswordServiceGetter AgentPasswordServiceGetter,
 	accessService AccessService,
 	macaroonService MacaroonService,
@@ -114,6 +123,7 @@ func NewStateAuthenticator(
 	statePool *state.StatePool,
 	controllerModelUUID coremodel.UUID,
 	controllerConfigService ControllerConfigService,
+	controllerNodeService ControllerNodeService,
 	agentPasswordServiceGetter AgentPasswordServiceGetter,
 	accessService AccessService,
 	macaroonService MacaroonService,
@@ -130,7 +140,8 @@ func NewStateAuthenticator(
 		return nil, errors.Trace(err)
 	}
 
-	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(passwordService, systemState, nil)
+	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(
+		passwordService, controllerNodeService, systemState, nil)
 	stateAuthenticator, err := stateauthenticator.NewAuthenticator(
 		ctx,
 		statePool,
