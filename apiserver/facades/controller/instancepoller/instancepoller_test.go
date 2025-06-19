@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
@@ -618,6 +619,41 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil)
+	s.machineService.EXPECT().GetMachineUUID(c.Context(), machine.Name("1")).Return("machine-uuid", nil)
+	s.networkService.EXPECT().SetProviderNetConfig(c.Context(), machine.UUID("machine-uuid"),
+		[]domainnetwork.NetInterface{{
+			IsAutoStart: true,
+			IsEnabled:   true,
+			Addrs: []domainnetwork.NetAddr{
+				{
+					AddressValue: "10.0.0.42",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				{
+					AddressValue: "10.73.37.110",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				{
+					AddressValue: "10.73.37.111",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				{
+					AddressValue: "192.168.0.1",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				// Shadows
+				{
+					AddressValue: "1.1.1.42",
+					Scope:        "public",
+					Origin:       "provider",
+					IsShadow:     true,
+				},
+			}},
+		}).Return(nil)
 
 	results, err := s.api.SetProviderNetworkConfig(c.Context(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
@@ -717,6 +753,36 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectDefaultSpaces()
+	s.machineService.EXPECT().GetMachineUUID(c.Context(), machine.Name("1")).Return("machine-uuid", nil)
+	s.networkService.EXPECT().SetProviderNetConfig(c.Context(), machine.UUID("machine-uuid"),
+		[]domainnetwork.NetInterface{{
+			IsAutoStart: true,
+			IsEnabled:   true,
+			Addrs: []domainnetwork.NetAddr{
+				{
+					AddressValue: "10.0.0.42",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				{
+					AddressValue: "10.73.37.111",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				{
+					AddressValue: "192.168.0.1",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				// Shadow
+				{
+					AddressValue: "1.1.1.42",
+					Scope:        "public",
+					Origin:       "provider",
+					IsShadow:     true,
+				},
+			}},
+		}).Return(nil)
 
 	s.st.SetMachineInfo(c, machineInfo{
 		id:             "1",
