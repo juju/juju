@@ -164,10 +164,9 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *tc
 	go func() {
 		defer close(syncPoint)
 
-		err := sub.close()
-		c.Assert(err, tc.ErrorIsNil)
+		sub.Kill()
 
-		err = sub.dispatch(c.Context(), changes)
+		err := sub.dispatch(c.Context(), changes)
 		c.Assert(err, tc.ErrorMatches, "tomb: dying")
 	}()
 

@@ -5,7 +5,6 @@ package eventmultiplexer
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -58,11 +57,6 @@ func newSubscription(id uint64) *subscription {
 	return sub
 }
 
-// Unsubscribe removes the subscription from the event queue asynchronously.
-// This ensures that all unsubscriptions can be serialized. No unsubscribe will
-// actually never happen inside a dispatch call. If you attempt to unsubscribe
-// whilst the dispatch signalling, the unsubscribe will happen after all
-// dispatches have been called.
 func (s *subscription) Unsubscribe() {
 }
 
@@ -102,21 +96,16 @@ func (s *subscription) dispatch(ctx context.Context, changes ChangeSet) error {
 		return tomb.ErrDying
 	case <-ctx.Done():
 		// If the subscriber is not consuming changes in a timely manner,
-		// we will kill the subscription.
-		// This will cause the watcher's loop to exit, at which point it
-		// will call the unsubscribe function.
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		// we will get [context.DeadlineExceeded] and kill the subscription.
+		// This will cause the subscriber's loop to exit on the next pass.
+		// If the context was cancelled, it means the multiplexer is dying,
+		// so it is safe to kill in that case as well.
+		err := ctx.Err()
+		if err != nil {
 			s.Kill()
 		}
 		return ctx.Err()
 	case s.changes <- changes:
 		return nil
 	}
-}
-
-// close closes the active channel, which will signal to the consumer that the
-// subscription is no longer active.
-func (s *subscription) close() error {
-	s.Kill()
-	return s.Wait()
 }

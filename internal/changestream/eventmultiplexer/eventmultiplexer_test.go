@@ -40,12 +40,15 @@ func TestEventMultiplexerSuite(t *stdtesting.T) {
 func (s *eventMultiplexerSuite) TestSubscribe(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectAfter()
 	s.expectStreamDying(make(<-chan struct{}))
 
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).AnyTimes()
 
 	s.metrics.EXPECT().SubscriptionsInc()
+
+	// This confirms the unsubscription invoked by killing the sub.
 	s.metrics.EXPECT().SubscriptionsDec()
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
@@ -55,7 +58,9 @@ func (s *eventMultiplexerSuite) TestSubscribe(c *tc.C) {
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.unsubscribe(c, sub)
+	// Kill, then bump the loop so it comes around to the top and cleans up.
+	sub.Kill()
+	queue.Report()
 }
 
 func (s *eventMultiplexerSuite) TestDispatch(c *tc.C) {
@@ -71,7 +76,11 @@ func (s *eventMultiplexerSuite) TestDispatch(c *tc.C) {
 	defer workertest.CleanKill(c, queue)
 
 	s.metrics.EXPECT().SubscriptionsInc()
-	s.metrics.EXPECT().SubscriptionsDec()
+	// There is a race between loop select completion and worker Kill.
+	// Killing the worker kills the subs attached to its catacomb,
+	// So they might or might not be dead when we come back to the top
+	// the loop and clean up.
+	s.metrics.EXPECT().SubscriptionsDec().MaxTimes(1)
 	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
@@ -96,8 +105,6 @@ func (s *eventMultiplexerSuite) TestDispatch(c *tc.C) {
 	c.Check(changes[0].Type(), tc.DeepEquals, changestreamtesting.Create)
 	c.Check(changes[0].Namespace(), tc.DeepEquals, "topic")
 	c.Check(changes[0].Changed(), tc.Equals, "1")
-
-	s.unsubscribe(c, sub)
 }
 
 func (s *eventMultiplexerSuite) TestMultipleDispatch(c *tc.C) {
@@ -139,13 +146,18 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *tc.C, opts ...changestre
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(10)
-	s.metrics.EXPECT().SubscriptionsDec().Times(10)
-	s.clock.EXPECT().Now().MinTimes(1)
+	// There is a race between loop select completion and worker Kill.
+	// Killing the worker kills the subs attached to its catacomb,
+	// So they might or might not be dead when we come back to the top
+	// the loop and clean up.
+	s.metrics.EXPECT().SubscriptionsDec().MaxTimes(10)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+
+	s.clock.EXPECT().Now().MinTimes(1)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.CleanKill(c, queue)
+	defer workertest.DirtyKill(c, queue)
 
 	s.expectTerm(c, changeEvent{
 		ctype:   changestreamtesting.Update,
@@ -192,49 +204,6 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *tc.C, opts ...changestre
 		c.Fatal("timed out waiting for all events")
 	}
 
-	for _, sub := range subs {
-		s.unsubscribe(c, sub)
-	}
-
-	workertest.CleanKill(c, queue)
-}
-
-func (s *eventMultiplexerSuite) TestUnsubscribeTwice(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectStreamDying(make(<-chan struct{}))
-
-	terms := make(chan changestream.Term)
-	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
-
-	s.metrics.EXPECT().SubscriptionsInc()
-	s.metrics.EXPECT().SubscriptionsDec()
-	s.clock.EXPECT().Now().MinTimes(1)
-	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
-
-	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
-	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.CleanKill(c, queue)
-
-	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.expectTerm(c, changeEvent{
-		ctype:   changestreamtesting.Create,
-		ns:      "topic",
-		changed: "1",
-	})
-	s.dispatchTerm(c, terms)
-
-	select {
-	case <-sub.Changes():
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for event")
-	}
-
-	s.unsubscribe(c, sub)
-	s.unsubscribe(c, sub)
-
 	workertest.CleanKill(c, queue)
 }
 
@@ -247,11 +216,10 @@ func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *tc.C) {
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
 	s.metrics.EXPECT().SubscriptionsInc()
-	s.metrics.EXPECT().SubscriptionsDec()
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.CleanKill(c, queue)
+	defer workertest.DirtyKill(c, queue)
 
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, tc.ErrorIsNil)
@@ -274,8 +242,6 @@ func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *tc.C) {
 	case <-time.After(witnessChangeShortDuration):
 	}
 
-	s.unsubscribe(c, sub)
-
 	workertest.CleanKill(c, queue)
 }
 
@@ -288,13 +254,13 @@ func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *tc.C) {
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(2)
-	s.metrics.EXPECT().SubscriptionsDec().Times(2)
-	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+
+	s.clock.EXPECT().Now().MinTimes(1)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.CleanKill(c, queue)
+	defer workertest.DirtyKill(c, queue)
 
 	sub0, err := queue.Subscribe(changestream.Namespace("foo", changestreamtesting.Create))
 	c.Assert(err, tc.ErrorIsNil)
@@ -326,9 +292,6 @@ func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *tc.C) {
 	case <-time.After(witnessChangeShortDuration):
 	}
 
-	s.unsubscribe(c, sub0)
-	s.unsubscribe(c, sub1)
-
 	workertest.CleanKill(c, queue)
 }
 
@@ -341,6 +304,7 @@ func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *tc.C
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
 	s.metrics.EXPECT().SubscriptionsInc()
+	s.metrics.EXPECT().SubscriptionsDec()
 	s.clock.EXPECT().Now().MinTimes(1)
 	// We might encounter a dispatch error, therefore we cannot hard-code
 	// a false on the second argument of DispatchDurationObserve.
@@ -364,8 +328,13 @@ func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *tc.C
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for event")
 	}
+
+	// There is no-one reading the subscription's changes channel.
+	// The dispatch call will be waiting for the read,
+	// so this is a mid-flight termination.
 	workertest.CleanKill(c, queue)
 
+	// Killing the queue should kill the subscription.
 	select {
 	case <-sub.Done():
 	case <-time.After(testing.ShortWait):
@@ -376,6 +345,7 @@ func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *tc.C
 func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectAfter()
 	s.expectStreamDying(make(<-chan struct{}))
 
 	terms := make(chan changestream.Term)
@@ -383,12 +353,13 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(2)
 	s.metrics.EXPECT().SubscriptionsDec().Times(2)
-	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+
+	s.clock.EXPECT().Now().MinTimes(1)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.CleanKill(c, queue)
+	defer workertest.DirtyKill(c, queue)
 
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
@@ -413,7 +384,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 
 			select {
 			case <-sub.Changes():
-				subs[len(subs)-1-i].Unsubscribe()
+				subs[len(subs)-1-i].Kill()
 			case <-time.After(testing.ShortWait):
 				c.Fatalf("timed out waiting for sub %d event", i)
 			}
@@ -425,6 +396,9 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for all events")
 	}
+
+	// Bump the loop so it comes around to the top and cleans up.
+	queue.Report()
 
 	for _, sub := range subs {
 		select {
@@ -440,6 +414,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGoroutine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectAfter()
 	s.expectStreamDying(make(<-chan struct{}))
 
 	terms := make(chan changestream.Term)
@@ -447,12 +422,12 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(2)
 	s.metrics.EXPECT().SubscriptionsDec().Times(2)
-	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+	s.clock.EXPECT().Now().MinTimes(1)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.CleanKill(c, queue)
+	defer workertest.DirtyKill(c, queue)
 
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
@@ -479,7 +454,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 				go func() {
 					defer wg.Done()
 
-					subs[len(subs)-1-i].Unsubscribe()
+					subs[len(subs)-1-i].Kill()
 				}()
 			case <-time.After(testing.ShortWait):
 				c.Fatalf("timed out waiting for sub %d event", i)
@@ -492,6 +467,9 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for all events")
 	}
+
+	// Bump the loop so it comes around to the top and cleans up.
+	queue.Report()
 
 	for _, sub := range subs {
 		select {
@@ -566,7 +544,7 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *tc.C) {
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.CleanKill(c, queue)
+	defer workertest.DirtyKill(c, queue)
 
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
@@ -606,8 +584,8 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *tc.C) {
 		c.Fatal("timed out waiting for all events")
 	}
 
-	// Give a grace period for the stream to die and then kill the queue. This
-	// should ensure that all the subscriptions are cleaned up.
+	// Give a grace period for the stream to die and then kill the queue.
+	// This should ensure that all the subscriptions are cleaned up.
 	<-time.After(testing.ShortWait)
 	workertest.CleanKill(c, queue)
 
@@ -623,6 +601,7 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *tc.C) {
 func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectAfter()
 	ch := make(chan struct{})
 	s.expectStreamDying(ch)
 
@@ -630,7 +609,6 @@ func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *tc.C) {
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(2)
-	s.metrics.EXPECT().SubscriptionsDec().MinTimes(1)
 	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
@@ -668,8 +646,6 @@ func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *tc.C) {
 
 				go func() {
 					defer wg.Done()
-
-					sub.Unsubscribe()
 
 					// This will cause a race to close the channel, but that's
 					// fine, as we're only interested in the first one.
@@ -760,7 +736,9 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *tc.C) {
 
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
+	s.clock.EXPECT().Now().AnyTimes()
 
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), gomock.Any()).AnyTimes()
 	s.metrics.EXPECT().SubscriptionsInc().Times(10)
 	s.metrics.EXPECT().SubscriptionsDec().Times(10)
 
@@ -772,12 +750,8 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *tc.C) {
 	for i := 0; i < 10; i++ {
 		sub, err := queue.Subscribe()
 		c.Assert(err, tc.ErrorIsNil)
-
 		subs = append(subs, sub)
 	}
-
-	// Sync point. Wait for sometime to let the subscriptions be registered.
-	time.Sleep(time.Millisecond * 100)
 
 	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        10,
@@ -787,8 +761,11 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *tc.C) {
 	})
 
 	for _, sub := range subs {
-		s.unsubscribe(c, sub)
+		sub.Kill()
 	}
+
+	// Bump the loop so it comes around to the top and cleans up dead subs.
+	queue.Report()
 
 	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        0,
@@ -808,9 +785,9 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *tc.C) {
 
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
+	s.clock.EXPECT().Now().AnyTimes()
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(10)
-	s.metrics.EXPECT().SubscriptionsDec().Times(10)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
@@ -824,23 +801,9 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *tc.C) {
 		subs = append(subs, sub)
 	}
 
-	// Sync point. Wait for sometime to let the subscriptions be registered.
-	time.Sleep(time.Millisecond * 100)
-
 	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        10,
 		"subscriptions-by-ns":  1,
-		"subscriptions-all":    0,
-		"dispatch-error-count": 0,
-	})
-
-	for _, sub := range subs {
-		s.unsubscribe(c, sub)
-	}
-
-	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
-		"subscriptions":        0,
-		"subscriptions-by-ns":  0,
 		"subscriptions-all":    0,
 		"dispatch-error-count": 0,
 	})
@@ -856,9 +819,9 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *tc.C
 
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
+	s.clock.EXPECT().Now().AnyTimes()
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(10)
-	s.metrics.EXPECT().SubscriptionsDec().Times(10)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
@@ -875,23 +838,9 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *tc.C
 		subs = append(subs, sub)
 	}
 
-	// Sync point. Wait for sometime to let the subscriptions be registered.
-	time.Sleep(time.Millisecond * 100)
-
 	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        10,
 		"subscriptions-by-ns":  2,
-		"subscriptions-all":    0,
-		"dispatch-error-count": 0,
-	})
-
-	for _, sub := range subs {
-		s.unsubscribe(c, sub)
-	}
-
-	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
-		"subscriptions":        0,
-		"subscriptions-by-ns":  0,
 		"subscriptions-all":    0,
 		"dispatch-error-count": 0,
 	})
@@ -907,9 +856,9 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *tc.
 
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
+	s.clock.EXPECT().Now().AnyTimes()
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(10)
-	s.metrics.EXPECT().SubscriptionsDec().Times(10)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
@@ -926,23 +875,9 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *tc.
 		subs = append(subs, sub)
 	}
 
-	// Sync point. Wait for sometime to let the subscriptions be registered.
-	time.Sleep(time.Millisecond * 100)
-
 	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        10,
 		"subscriptions-by-ns":  1,
-		"subscriptions-all":    0,
-		"dispatch-error-count": 0,
-	})
-
-	for _, sub := range subs {
-		s.unsubscribe(c, sub)
-	}
-
-	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
-		"subscriptions":        0,
-		"subscriptions-by-ns":  0,
 		"subscriptions-all":    0,
 		"dispatch-error-count": 0,
 	})
@@ -958,9 +893,9 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
+	s.clock.EXPECT().Now().AnyTimes()
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(10)
-	s.metrics.EXPECT().SubscriptionsDec().Times(10)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
@@ -977,23 +912,9 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 		subs = append(subs, sub)
 	}
 
-	// Sync point. Wait for sometime to let the subscriptions be registered.
-	time.Sleep(time.Millisecond * 100)
-
 	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        10,
 		"subscriptions-by-ns":  1,
-		"subscriptions-all":    0,
-		"dispatch-error-count": 0,
-	})
-
-	for _, sub := range subs {
-		s.unsubscribe(c, sub)
-	}
-
-	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
-		"subscriptions":        0,
-		"subscriptions-by-ns":  0,
 		"subscriptions-all":    0,
 		"dispatch-error-count": 0,
 	})
@@ -1009,7 +930,9 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *tc
 
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
+	s.clock.EXPECT().Now().AnyTimes()
 
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), gomock.Any()).AnyTimes()
 	s.metrics.EXPECT().SubscriptionsInc()
 	s.metrics.EXPECT().SubscriptionsDec()
 
@@ -1027,7 +950,10 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *tc
 		"dispatch-error-count": 0,
 	})
 
-	s.unsubscribe(c, sub)
+	sub.Kill()
+
+	// Bump the loop so it comes around to the top and cleans up dead subs.
+	queue.Report()
 
 	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        0,
@@ -1037,14 +963,4 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *tc
 	})
 
 	workertest.CleanKill(c, queue)
-}
-
-func (s *eventMultiplexerSuite) unsubscribe(c *tc.C, sub changestream.Subscription) {
-	sub.Unsubscribe()
-
-	select {
-	case <-sub.Done():
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for event")
-	}
 }
