@@ -6,16 +6,48 @@ package service
 import (
 	"context"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
+
+// DefaultStorageProviderValidator is the default implementation of
+// [StorageProviderValidator] for this domain.
+type DefaultStorageProviderValidator struct {
+	providerRegistry StorageProviderRegistry
+	st               StorageProviderState
+}
+
+// StorageProviderRegistry defines the interface set required from the
+// controller's storage registry.
+type StorageProviderRegistry interface {
+	// StorageProvider returns the storage provider with the given
+	// provider type.
+	//
+	// The following errors may be expected:
+	// - [coreerrors.NotFound] when the provider type does not exist.
+	StorageProvider(storage.ProviderType) (storage.Provider, error)
+}
+
+// StorageProviderState defines the required interface of the model's state for
+// interacting with storage providers.
+type StorageProviderState interface {
+	// GetProviderTypeOfPool returns the provider type that is in use for the
+	// given pool.
+	//
+	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/storage/errors.PoolNotFoundError] when no
+	// storage pool exists for the provided pool uuid.
+	GetProviderTypeOfPool(context.Context, domainstorage.StoragePoolUUID) (string, error)
+}
 
 // StorageState describes retrieval and persistence methods for
 // storage related interactions.
@@ -80,8 +112,9 @@ type StorageProviderValidator interface {
 	// pool uuid can be used for provisioning a certain type of charm storage.
 	//
 	// The following errors may be expected:
-	// - [github.com/juju/juju/domain/storage/errors.PoolNotFoundError] when no
-	// storage pool exists for the provided pool uuid.
+	// - [coreerrors.NotValid] if the provided pool uuid is not valid.
+	// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
+	// provided pool uuid.
 	CheckPoolSupportsCharmStorage(
 		context.Context,
 		domainstorage.StoragePoolUUID,
@@ -92,8 +125,8 @@ type StorageProviderValidator interface {
 	// be used for provisioning a certain type of charm storage.
 	//
 	// The following errors may be expected:
-	// - [github.com/juju/juju/domain/storage/errors.ProviderTypeNotFound] when
-	// no provider type for the supplied name exists.
+	// - [storageerrors.ProviderTypeNotFound] when no provider type for the
+	// supplied name exists.
 	CheckProviderTypeSupportsCharmStorage(
 		context.Context,
 		string,
@@ -169,6 +202,90 @@ func (s *Service) AddStorageForUnit(
 	return s.st.AddStorageForUnit(ctx, storageName, unitUUID, directive)
 }
 
+// CheckPoolSupportsCharmStorage checks that the provided storage
+// pool uuid can be used for provisioning a certain type of charm storage.
+//
+// The following errors may be expected:
+// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
+// provided pool uuid.
+func (v *DefaultStorageProviderValidator) CheckPoolSupportsCharmStorage(
+	ctx context.Context,
+	poolUUID domainstorage.StoragePoolUUID,
+	storageType internalcharm.StorageType,
+) (bool, error) {
+	if err := poolUUID.Validate(); err != nil {
+		return false, errors.Errorf(
+			"storage pool uuid is not valid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	providerTypeStr, err := v.st.GetProviderTypeOfPool(ctx, poolUUID)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	providerType := storage.ProviderType(providerTypeStr)
+	provider, err := v.providerRegistry.StorageProvider(providerType)
+	// We check if the error is for the provider type not being found and
+	// translate it over to a ProviderTypeNotFound error. This error type is not
+	// recorded in the contract as  this should never be possible. But we are
+	// being a good citizen and returning meaningful errors.
+	if errors.Is(err, coreerrors.NotFound) {
+		return false, errors.Errorf(
+			"provider type %q for storage pool %q does not exist",
+			providerTypeStr, poolUUID,
+		).Add(storageerrors.ProviderTypeNotFound)
+	} else if err != nil {
+		return false, errors.Errorf(
+			"getting storage provider for pool %q: %w", poolUUID, err,
+		)
+	}
+
+	switch storageType {
+	case internalcharm.StorageFilesystem:
+		return provider.Supports(storage.StorageKindFilesystem), nil
+	case internalcharm.StorageBlock:
+		return provider.Supports(storage.StorageKindBlock), nil
+	default:
+		return false, errors.Errorf(
+			"unknown charm storage type %q", storageType,
+		)
+	}
+}
+
+// CheckProviderTypeSupportsCharmStorage checks that the provider type can
+// be used for provisioning a certain type of charm storage.
+//
+// The following errors may be expected:
+// - [storageerrors.ProviderTypeNotFound] when no provider type for the
+// supplied name exists.
+func (v *DefaultStorageProviderValidator) CheckProviderTypeSupportsCharmStorage(
+	_ context.Context,
+	providerTypeStr string,
+	storageType internalcharm.StorageType,
+) (bool, error) {
+	providerType := storage.ProviderType(providerTypeStr)
+	provider, err := v.providerRegistry.StorageProvider(providerType)
+	if errors.Is(err, coreerrors.NotFound) {
+		return false, errors.Errorf(
+			"provider type %q does not exist", providerTypeStr,
+		).Add(storageerrors.ProviderTypeNotFound)
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	switch storageType {
+	case internalcharm.StorageFilesystem:
+		return provider.Supports(storage.StorageKindFilesystem), nil
+	case internalcharm.StorageBlock:
+		return provider.Supports(storage.StorageKindBlock), nil
+	default:
+		return false, errors.Errorf(
+			"unknown charm storage type %q", storageType,
+		)
+	}
+}
+
 // DetachStorageForUnit detaches the specified storage from the specified unit.
 // The following error types can be expected:
 // - [github.com/juju/juju/core/unit.InvalidUnitName]: when the unit name is not valid.
@@ -212,4 +329,17 @@ func (s *Service) DetachStorage(ctx context.Context, storageID corestorage.ID) e
 		return errors.Capture(err)
 	}
 	return s.st.DetachStorage(ctx, storageUUID)
+}
+
+// NewStorageProviderValidator returns a new [DefaultStorageProviderValidator]
+// that allows checking of storage providers against expected storage
+// requirements.
+func NewStorageProviderValidator(
+	providerRegistry StorageProviderRegistry,
+	st StorageProviderState,
+) *DefaultStorageProviderValidator {
+	return &DefaultStorageProviderValidator{
+		providerRegistry: providerRegistry,
+		st:               st,
+	}
 }

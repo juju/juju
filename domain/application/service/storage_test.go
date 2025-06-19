@@ -16,11 +16,22 @@ import (
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
+	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testhelpers"
 )
+
+// storageProviderSuite provides a set of tests for validating
+// [DefaultStorageProviderValidator].
+type storageProviderSuite struct {
+	provider *MockStorageProvider
+	registry *MockStorageProviderRegistry
+	state    *MockStorageProviderState
+}
 
 type storageSuite struct {
 	testhelpers.IsolationSuite
@@ -30,8 +41,26 @@ type storageSuite struct {
 	service *Service
 }
 
+func TestStorageProviderSuite(t *testing.T) {
+	tc.Run(t, &storageProviderSuite{})
+}
+
 func TestStorageSuite(t *testing.T) {
 	tc.Run(t, &storageSuite{})
+}
+
+func (s *storageProviderSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.provider = NewMockStorageProvider(ctrl)
+	s.registry = NewMockStorageProviderRegistry(ctrl)
+	s.state = NewMockStorageProviderState(ctrl)
+
+	c.Cleanup(func() {
+		s.provider = nil
+		s.registry = nil
+		s.state = nil
+	})
+	return ctrl
 }
 
 func (s *storageSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -146,4 +175,128 @@ func (s *storageSuite) TestDetachStorageValidate(c *tc.C) {
 
 	err := s.service.DetachStorage(c.Context(), "0")
 	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageID)
+}
+
+// TestPoolSupportsCharmStorageNotFound tests that if no storage pool exists for
+// a given storage pool uuid the caller gets back an error satisfying
+// [storageerrors.PoolNotFoundError].
+func (s *storageProviderSuite) TestPoolSupportsCharmStorageNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	poolUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.state.EXPECT().GetProviderTypeOfPool(gomock.Any(), poolUUID).Return(
+		"", storageerrors.PoolNotFoundError,
+	)
+
+	validator := NewStorageProviderValidator(s.registry, s.state)
+	_, err = validator.CheckPoolSupportsCharmStorage(
+		c.Context(), poolUUID, internalcharm.StorageFilesystem,
+	)
+	c.Check(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
+}
+
+// TestPoolSupportsCharmStorageFilesystem tests that the storage pool exists
+// and supports charm filesystem storage.
+func (s *storageProviderSuite) TestPoolSupportsCharmStorageFilesystem(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	poolUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.state.EXPECT().GetProviderTypeOfPool(gomock.Any(), poolUUID).Return(
+		"testprovider", nil,
+	)
+	s.registry.EXPECT().StorageProvider(storage.ProviderType("testprovider")).Return(
+		s.provider, nil,
+	)
+	s.provider.EXPECT().Supports(storage.StorageKindFilesystem).Return(true)
+
+	validator := NewStorageProviderValidator(s.registry, s.state)
+	supports, err := validator.CheckPoolSupportsCharmStorage(
+		c.Context(), poolUUID, internalcharm.StorageFilesystem,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(supports, tc.IsTrue)
+}
+
+// TestPoolSupportsCharmStorageBlockdevice tests that the storage pool exists
+// and supports charm blockdevice storage.
+func (s *storageProviderSuite) TestPoolSupportsCharmStorageBlockdevice(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	poolUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.state.EXPECT().GetProviderTypeOfPool(gomock.Any(), poolUUID).Return(
+		"testprovider", nil,
+	)
+	s.registry.EXPECT().StorageProvider(storage.ProviderType("testprovider")).Return(
+		s.provider, nil,
+	)
+	s.provider.EXPECT().Supports(storage.StorageKindBlock).Return(true)
+
+	validator := NewStorageProviderValidator(s.registry, s.state)
+	supports, err := validator.CheckPoolSupportsCharmStorage(
+		c.Context(), poolUUID, internalcharm.StorageBlock,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(supports, tc.IsTrue)
+}
+
+// TestPoolSupportsCharmStorageNotSupported tests that if no provider exists for
+// the supplied provider type the caller gets back an error satisfying
+// [storageerrors.ProviderTypeNotFound].
+func (s *storageProviderSuite) TestProviderTypeSupportsCharmStorageNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	providerType := storage.ProviderType("testprovider")
+	s.registry.EXPECT().StorageProvider(providerType).Return(
+		nil, storageerrors.ProviderTypeNotFound,
+	)
+
+	validator := NewStorageProviderValidator(s.registry, s.state)
+	_, err := validator.CheckProviderTypeSupportsCharmStorage(
+		c.Context(), "testprovider", internalcharm.StorageFilesystem,
+	)
+	c.Check(err, tc.ErrorIs, storageerrors.ProviderTypeNotFound)
+}
+
+// TestProviderTypeSupportsCharmStorageFilesystem tests that the provider type
+// supports charm filesystem storage.
+func (s *storageProviderSuite) TestProviderTypeSupportsCharmStorageFilesystem(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	providerType := storage.ProviderType("testprovider")
+	s.registry.EXPECT().StorageProvider(providerType).Return(
+		s.provider, nil,
+	)
+	s.provider.EXPECT().Supports(storage.StorageKindFilesystem).Return(true)
+
+	validator := NewStorageProviderValidator(s.registry, s.state)
+	supports, err := validator.CheckProviderTypeSupportsCharmStorage(
+		c.Context(), "testprovider", internalcharm.StorageFilesystem,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(supports, tc.IsTrue)
+}
+
+// TestProviderTypeSupportsCharmStorageBlockdevice tests that the provider type
+// supports charm blockdevice storage.
+func (s *storageProviderSuite) TestProviderTypeSupportsCharmStorageBlockdevice(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	providerType := storage.ProviderType("testprovider")
+	s.registry.EXPECT().StorageProvider(providerType).Return(
+		s.provider, nil,
+	)
+	s.provider.EXPECT().Supports(storage.StorageKindBlock).Return(true)
+
+	validator := NewStorageProviderValidator(s.registry, s.state)
+	supports, err := validator.CheckProviderTypeSupportsCharmStorage(
+		c.Context(), "testprovider", internalcharm.StorageBlock,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(supports, tc.IsTrue)
 }
