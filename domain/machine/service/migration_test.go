@@ -7,13 +7,14 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
+	gomock "go.uber.org/mock/gomock"
+
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/machine"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 )
 
 type migrationServiceSuite struct {
