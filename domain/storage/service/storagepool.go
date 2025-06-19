@@ -97,8 +97,6 @@ func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string,
 		Name:     name,
 		Provider: string(providerType),
 		Attrs:    attrsToSave,
-		// TODO: add support for origin in storage pools.
-		// The origin must be validated.
 	}
 
 	if err := s.st.CreateStoragePool(ctx, sp); err != nil {
