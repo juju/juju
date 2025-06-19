@@ -9,12 +9,6 @@ const (
 	// CharmSequenceNamespace is the namespace for charm sequences.
 	CharmSequenceNamespace = sequence.StaticNamespace("charm")
 
-	// MachineSequenceNamespace is the namespace for machine sequences.
-	MachineSequenceNamespace = sequence.StaticNamespace("machine")
-
-	// ContainerSequenceNamespace is the namespace for container sequences.
-	ContainerSequenceNamespace = sequence.StaticNamespace("machine_container")
-
 	// ApplicationSequenceNamespace is the namespace for application unit sequences.
 	ApplicationSequenceNamespace = sequence.StaticNamespace("application")
 )

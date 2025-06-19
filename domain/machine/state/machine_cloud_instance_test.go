@@ -481,13 +481,13 @@ WHERE machine_uuid=?`, machineUUID)
 // TestSetInstanceStatusSuccess asserts the happy path of SetInstanceStatus at
 // the state layer.
 func (s *stateSuite) TestSetInstanceStatusSuccess(c *tc.C) {
-	s.ensureInstance(c, "666")
+	machineUUID := s.ensureInstance(c, "666")
 
 	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusRunning,
 		Message: "running",
 	}
-	err := s.state.SetInstanceStatus(c.Context(), "666", expectedStatus)
+	err := s.state.SetInstanceStatus(c.Context(), machineUUID, expectedStatus)
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
@@ -499,7 +499,7 @@ func (s *stateSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 // TestSetInstanceStatusSuccessWithData asserts the happy path of
 // SetInstanceStatus at the state layer.
 func (s *stateSuite) TestSetInstanceStatusSuccessWithData(c *tc.C) {
-	s.ensureInstance(c, "666")
+	machineUUID := s.ensureInstance(c, "666")
 
 	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusRunning,
@@ -507,7 +507,7 @@ func (s *stateSuite) TestSetInstanceStatusSuccessWithData(c *tc.C) {
 		Data:    []byte(`{"key": "data"}`),
 		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
 	}
-	err := s.state.SetInstanceStatus(c.Context(), "666", expectedStatus)
+	err := s.state.SetInstanceStatus(c.Context(), machineUUID, expectedStatus)
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
@@ -515,14 +515,14 @@ func (s *stateSuite) TestSetInstanceStatusSuccessWithData(c *tc.C) {
 	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
 }
 
-// TestSetInstanceStatusError asserts that SetInstanceStatus returns a NotFound
-// error when the given machine cannot be found.
+// TestSetInstanceStatusError asserts that SetInstanceStatus returns a
+// NotProvisioned error when the given machine instance cannot be found.
 func (s *stateSuite) TestSetInstanceStatusError(c *tc.C) {
 	err := s.state.SetInstanceStatus(c.Context(), "666", status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusRunning,
 		Message: "running",
 	})
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 
 func (s *stateSuite) ensureInstance(c *tc.C, mName machine.Name) machine.UUID {

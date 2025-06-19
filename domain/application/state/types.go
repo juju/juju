@@ -1233,22 +1233,9 @@ type setDeviceConstraintAttribute struct {
 	AttributeValue       string `db:"value"`
 }
 
-type createMachine struct {
-	MachineUUID coremachine.UUID `db:"uuid"`
-	NetNodeUUID string           `db:"net_node_uuid"`
-	Name        coremachine.Name `db:"name"`
-	LifeID      life.Life        `db:"life_id"`
-	Nonce       sql.Null[string] `db:"nonce"`
-}
-
 type machineNameWithNetNode struct {
 	Name        coremachine.Name `db:"name"`
 	NetNodeUUID string           `db:"net_node_uuid"`
-}
-
-type machineNameWithMachineUUID struct {
-	Name coremachine.Name `db:"name"`
-	UUID coremachine.UUID `db:"uuid"`
 }
 
 type netNodeUUID struct {
@@ -1257,17 +1244,6 @@ type netNodeUUID struct {
 
 type unitNetNodeUUID struct {
 	NetNodeUUID string `db:"net_node_uuid"`
-}
-
-type machinePlacement struct {
-	MachineUUID coremachine.UUID `db:"machine_uuid"`
-	ScopeID     int              `db:"scope_id"`
-	Directive   string           `db:"directive"`
-}
-
-type machineParent struct {
-	ParentUUID  coremachine.UUID `db:"parent_uuid"`
-	MachineUUID coremachine.UUID `db:"machine_uuid"`
 }
 
 type applicationEndpointBinding struct {
@@ -1313,32 +1289,6 @@ type lifeID struct {
 type getCharmUpgradeOnError struct {
 	CharmUpgradeOnError bool   `db:"charm_upgrade_on_error"`
 	Name                string `db:"name"`
-}
-
-type setStatusInfo struct {
-	StatusID int        `db:"status_id"`
-	Message  string     `db:"message"`
-	Data     []byte     `db:"data"`
-	Updated  *time.Time `db:"updated_at"`
-}
-
-type setMachineStatus struct {
-	StatusID    int              `db:"status_id"`
-	Message     string           `db:"message"`
-	Data        []byte           `db:"data"`
-	Updated     *time.Time       `db:"updated_at"`
-	MachineUUID coremachine.UUID `db:"machine_uuid"`
-}
-
-type machineUUID struct {
-	MachineUUID coremachine.UUID `db:"machine_uuid"`
-}
-
-type machinePlatformUUID struct {
-	MachineUUID    coremachine.UUID `db:"machine_uuid"`
-	OSID           sql.Null[int64]  `db:"os_id"`
-	Channel        sql.Null[string] `db:"channel"`
-	ArchitectureID int              `db:"architecture_id"`
 }
 
 type getUnitMachine struct {

@@ -1212,7 +1212,7 @@ func (c *MockStateSetAppliedLXDProfileNamesCall) DoAndReturn(f func(context.Cont
 }
 
 // SetInstanceStatus mocks base method.
-func (m *MockState) SetInstanceStatus(arg0 context.Context, arg1 machine.Name, arg2 status0.StatusInfo[status0.InstanceStatusType]) error {
+func (m *MockState) SetInstanceStatus(arg0 context.Context, arg1 machine.UUID, arg2 status0.StatusInfo[status0.InstanceStatusType]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetInstanceStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1238,13 +1238,13 @@ func (c *MockStateSetInstanceStatusCall) Return(arg0 error) *MockStateSetInstanc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetInstanceStatusCall) Do(f func(context.Context, machine.Name, status0.StatusInfo[status0.InstanceStatusType]) error) *MockStateSetInstanceStatusCall {
+func (c *MockStateSetInstanceStatusCall) Do(f func(context.Context, machine.UUID, status0.StatusInfo[status0.InstanceStatusType]) error) *MockStateSetInstanceStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetInstanceStatusCall) DoAndReturn(f func(context.Context, machine.Name, status0.StatusInfo[status0.InstanceStatusType]) error) *MockStateSetInstanceStatusCall {
+func (c *MockStateSetInstanceStatusCall) DoAndReturn(f func(context.Context, machine.UUID, status0.StatusInfo[status0.InstanceStatusType]) error) *MockStateSetInstanceStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

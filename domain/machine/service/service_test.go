@@ -451,7 +451,8 @@ func (s *serviceSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newStatus := status.StatusInfo{Status: status.Running}
-	s.state.EXPECT().SetInstanceStatus(gomock.Any(), machine.Name("666"), domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d"), nil)
+	s.state.EXPECT().SetInstanceStatus(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d"), domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
 		Status: domainstatus.InstanceStatusRunning,
 	}).Return(nil)
 	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineInstanceNamespace.WithID("666"), newStatus).Return(nil)
@@ -468,7 +469,8 @@ func (s *serviceSuite) TestSetInstanceStatusError(c *tc.C) {
 
 	rErr := errors.New("boom")
 	newStatus := status.StatusInfo{Status: status.Running}
-	s.state.EXPECT().SetInstanceStatus(gomock.Any(), machine.Name("666"), domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d"), nil)
+	s.state.EXPECT().SetInstanceStatus(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d"), domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
 		Status: domainstatus.InstanceStatusRunning,
 	}).Return(rErr)
 

@@ -19,10 +19,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/machine/testing"
-	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/application/architecture"
-	"github.com/juju/juju/domain/application/charm"
-	applicationstate "github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -537,7 +534,7 @@ func (s *stateSuite) TestListAllMachineNamesSuccess(c *tc.C) {
 }
 
 func (s *stateSuite) TestIsMachineControllerApplicationController(c *tc.C) {
-	machineName := s.createApplication(c, true)
+	machineName := s.createApplicationWithUnitAndMachine(c, true)
 
 	isController, err := s.state.IsMachineController(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -545,7 +542,7 @@ func (s *stateSuite) TestIsMachineControllerApplicationController(c *tc.C) {
 }
 
 func (s *stateSuite) TestIsMachineControllerApplicationNonController(c *tc.C) {
-	machineName := s.createApplication(c, false)
+	machineName := s.createApplicationWithUnitAndMachine(c, false)
 
 	isController, err := s.state.IsMachineController(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -569,7 +566,7 @@ func (s *stateSuite) TestIsMachineControllerNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestIsMachineManuallyProvisioned(c *tc.C) {
-	machineName := s.createApplication(c, false)
+	machineName := s.createApplicationWithUnitAndMachine(c, false)
 
 	isManual, err := s.state.IsMachineManuallyProvisioned(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -577,7 +574,7 @@ func (s *stateSuite) TestIsMachineManuallyProvisioned(c *tc.C) {
 }
 
 func (s *stateSuite) TestIsMachineManuallyProvisionedManual(c *tc.C) {
-	machineName := s.createApplication(c, false)
+	machineName := s.createApplicationWithUnitAndMachine(c, false)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -1031,31 +1028,61 @@ func (s *stateSuite) TestGetAllProvisionedMachineInstanceIDContainer(c *tc.C) {
 	})
 }
 
-func (s *stateSuite) createApplication(c *tc.C, controller bool) machine.Name {
-	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	_, machineNames, err := applicationSt.CreateIAASApplication(c.Context(), "foo", application.AddIAASApplicationArg{
-		BaseAddApplicationArg: application.BaseAddApplicationArg{
-			Charm: charm.Charm{
-				Metadata: charm.Metadata{
-					Name: "foo",
-				},
-				Manifest: charm.Manifest{
-					Bases: []charm.Base{{
-						Name:          "ubuntu",
-						Channel:       charm.Channel{Risk: charm.RiskStable},
-						Architectures: []string{"amd64"},
-					}},
-				},
-				ReferenceName: "foo",
-				Architecture:  architecture.AMD64,
-				Revision:      1,
-				Source:        charm.LocalSource,
-			},
-			IsController: controller,
-		},
-	}, []application.AddIAASUnitArg{{}})
-	c.Assert(err, tc.ErrorIsNil)
+func (s *stateSuite) createApplicationWithUnitAndMachine(c *tc.C, controller bool) machine.Name {
+	machineName := machine.Name("0")
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var err error
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm (uuid, reference_name, source_id) 
+VALUES (?, 'foo', 0)`, "charm-uuid")
+		if err != nil {
+			return errors.Capture(err)
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
+VALUES (?,?,?,0,?)`, "app-uuid", "charm-uuid", "foo", network.AlphaSpaceId)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		netNodeUUID := uuid.MustNewUUID().String()
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO net_node (uuid)
+VALUES (?)
+`, netNodeUUID)
+		if err != nil {
+			return err
+		}
 
-	c.Assert(machineNames, tc.HasLen, 1)
-	return machineNames[0]
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
+SELECT ?, ?, ?, ?, uuid, charm_uuid
+FROM application
+WHERE uuid = ?
+`, "unit-uuid", "unitName", "0", netNodeUUID, "app-uuid")
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO machine (uuid, name, life_id, net_node_uuid)
+SELECT ?, ?, ?, net_node_uuid
+FROM unit
+WHERE uuid = ?
+`, "machine-uuid", machineName, 0, "unit-uuid")
+		if err != nil {
+			return err
+		}
+
+		if controller {
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO application_controller (application_uuid)
+VALUES (?)`, "app-uuid")
+			if err != nil {
+				return errors.Capture(err)
+			}
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return machineName
 }

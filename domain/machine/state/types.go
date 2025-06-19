@@ -207,3 +207,30 @@ type createMachine struct {
 	Nonce       sql.Null[string] `db:"nonce"`
 	LifeID      int64            `db:"life_id"`
 }
+
+type machinePlatformUUID struct {
+	MachineUUID    machine.UUID     `db:"machine_uuid"`
+	OSID           sql.Null[int64]  `db:"os_id"`
+	Channel        sql.Null[string] `db:"channel"`
+	ArchitectureID int              `db:"architecture_id"`
+}
+
+type netNodeUUID struct {
+	NetNodeUUID string `db:"uuid"`
+}
+
+type machineNameWithNetNodeUUID struct {
+	Name        machine.Name `db:"name"`
+	NetNodeUUID string       `db:"net_node_uuid"`
+}
+
+type machineNameWithMachineUUID struct {
+	Name machine.Name `db:"name"`
+	UUID machine.UUID `db:"uuid"`
+}
+
+type machinePlacement struct {
+	MachineUUID machine.UUID `db:"machine_uuid"`
+	ScopeID     int          `db:"scope_id"`
+	Directive   string       `db:"directive"`
+}

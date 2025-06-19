@@ -166,7 +166,7 @@ VALUES ($createMachine.*)
 		}
 		// Ensure we always have an instance as well, otherwise we can't have
 		// an associated status.
-		if err := st.insertMachineInstance(ctx, tx, args.machineUUID); err != nil {
+		if err := insertMachineInstance(ctx, tx, st, args.machineUUID); err != nil {
 			return errors.Errorf("inserting machine instance for machine %q: %w", mName, err)
 		}
 
@@ -176,7 +176,7 @@ VALUES ($createMachine.*)
 		}); err != nil {
 			return errors.Errorf("inserting machine status for machine %q: %w", mName, err)
 		}
-		if err := st.insertMachineInstanceStatus(ctx, tx, mName, setStatusInfo{
+		if err := insertMachineInstanceStatus(ctx, tx, st, args.machineUUID, setStatusInfo{
 			StatusID: instanceStatusInfo,
 			Updated:  ptr(now),
 		}); err != nil {
