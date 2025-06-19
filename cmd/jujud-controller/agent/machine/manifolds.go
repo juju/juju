@@ -265,6 +265,10 @@ type ManifoldsConfig struct {
 
 	// NewCAASBrokerFunc is a function opens a CAAS broker.
 	NewCAASBrokerFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error)
+
+	// MachineStartup is passed to the machine manifold. It does
+	// machine setup work which relies on an API connection.
+	MachineStartup func(context.Context, api.Connection, corelogger.Logger) error
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -1088,6 +1092,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			Logger:        internallogger.GetLogger("juju.worker.stateconverter"),
 		}))),
+
+		// The machineSetupName manifold runs small tasks required
+		// to setup a machine, but requires the machine agent's API
+		// connection. Once its work is complete, it stops.
+		machineSetupName: ifNotMigrating(MachineStartupManifold(MachineStartupConfig{
+			APICallerName:  apiCallerName,
+			MachineStartup: config.MachineStartup,
+			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
+		})),
 	}
 
 	return mergeManifolds(config, manifolds)
@@ -1328,4 +1341,6 @@ const (
 	toolsVersionCheckerName       = "tools-version-checker"
 	traceName                     = "trace"
 	validCredentialFlagName       = "valid-credential-flag"
+
+	machineSetupName = "machine-setup"
 )

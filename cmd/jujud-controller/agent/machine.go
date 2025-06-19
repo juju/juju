@@ -35,6 +35,7 @@ import (
 	agentengine "github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
@@ -45,6 +46,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	coremodel "github.com/juju/juju/core/model"
@@ -602,6 +604,7 @@ func (a *MachineAgent) makeEngineCreator(
 			NewModelWorker:                    a.startModelWorkers,
 			MuxShutdownWait:                   1 * time.Minute,
 			NewBrokerFunc:                     newBroker,
+			MachineStartup:                    a.machineStartup,
 			IsCaasConfig:                      a.isCaasAgent,
 			UnitEngineConfig: func() dependency.EngineConfig {
 				return agentengine.DependencyEngineConfig(
@@ -1064,6 +1067,54 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 		return err
 	}
 	return symlink.New(target, fullLink)
+}
+
+func (a *MachineAgent) machineStartup(ctx context.Context, apiConn api.Connection, logger corelogger.Logger) error {
+	logger.Tracef(ctx, "machineStartup called")
+	// CAAS agents do not have machines.
+	if a.isCaasAgent {
+		return nil
+	}
+
+	// Report the machine host name and record the agent start time. This
+	// ensures that whenever a machine restarts, the instancepoller gets a
+	// chance to immediately refresh the provider address (inc. shadow IP)
+	// information which can change between reboots.
+	hostname, err := getHostname()
+	if err != nil {
+		return errors.Annotate(err, "getting machine hostname")
+	}
+	if err := a.recordAgentStartInformation(ctx, apiConn, hostname); err != nil {
+		return errors.Annotate(err, "recording agent start information")
+	}
+
+	return nil
+}
+
+func (a *MachineAgent) machine(ctx context.Context, apiConn api.Connection) (*apimachiner.Machine, error) {
+	machinerAPI := apimachiner.NewClient(apiConn)
+	agentConfig := a.CurrentConfig()
+
+	tag, ok := agentConfig.Tag().(names.MachineTag)
+	if !ok {
+		return nil, errors.Errorf("%q is not a machine tag", agentConfig.Tag().String())
+	}
+	return machinerAPI.Machine(ctx, tag)
+}
+
+func (a *MachineAgent) recordAgentStartInformation(ctx context.Context, apiConn api.Connection, hostname string) error {
+	m, err := a.machine(ctx, apiConn)
+	if errors.Is(err, errors.NotFound) || err == nil && m.Life() == life.Dead {
+		return internalworker.ErrTerminateAgent
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot load machine %s from state", a.CurrentConfig().Tag())
+	}
+
+	if err := m.RecordAgentStartInformation(ctx, hostname); err != nil {
+		return errors.Annotate(err, "cannot record agent start information")
+	}
+	return nil
 }
 
 // statePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,
