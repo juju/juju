@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/network"
@@ -88,4 +90,26 @@ func (s *Service) SetMachineNetConfig(ctx context.Context, mUUID machine.UUID, n
 	}
 
 	return nil
+}
+
+// GetAllDevicesByMachineNames retrieves all network devices grouped by machine
+// names from stored data.
+// It fetches devices by node UUIDs and maps them to their respective machine
+// names.
+// Returns a map of machine names to their network devices or an error if the operation fails.
+func (s *Service) GetAllDevicesByMachineNames(ctx context.Context) (map[machine.Name][]network.NetInterface,
+	error) {
+	devByNodeUUIDs, err := s.st.GetAllLinkLayerDevicesByNetNodeUUIDs(ctx)
+	if err != nil {
+		return nil, errors.Errorf("retrieving devices by node UUIDs: %w", err)
+	}
+	machineNamesToNodeUUIDs, err := s.st.AllMachinesAndNetNodes(ctx)
+	if err != nil {
+		return nil, errors.Errorf("retrieving machine names to UUIDs: %w", err)
+	}
+	return transform.Map(machineNamesToNodeUUIDs, func(machineName string,
+		nodeUUID string) (machine.Name, []network.NetInterface) {
+		devs, _ := devByNodeUUIDs[nodeUUID]
+		return machine.Name(machineName), devs
+	}), nil
 }
