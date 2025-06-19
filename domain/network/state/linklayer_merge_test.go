@@ -1090,16 +1090,6 @@ func (s *mergeLinkLayerSuite) addLinkLayerDevice(
 	return deviceUUID
 }
 
-// addProviderLinkLayerDevice adds a provider link layer device to the database.
-func (s *mergeLinkLayerSuite) addProviderLinkLayerDevice(
-	c *tc.C, providerID, deviceUUID string,
-) {
-	s.query(c, `
-		INSERT INTO provider_link_layer_device (provider_id, device_uuid)
-		VALUES (?, ?)
-	`, providerID, deviceUUID)
-}
-
 // addProviderSubnet adds a provider subnet to the database.
 func (s *mergeLinkLayerSuite) addProviderSubnet(
 	c *tc.C, providerID, subnetUUID string,
@@ -1107,19 +1097,6 @@ func (s *mergeLinkLayerSuite) addProviderSubnet(
 	s.query(c, `
 		INSERT INTO provider_subnet (provider_id, subnet_uuid)
 		VALUES (?, ?)`, providerID, subnetUUID)
-}
-
-// addIPAddress adds an IP address to the database and returns its UUID.
-func (s *mergeLinkLayerSuite) addIPAddress(c *tc.C, deviceUUID, netNodeUUID, addressValue string) string {
-	addressUUID := "address-" + addressValue + "-uuid"
-
-	s.query(c, `
-		INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id, is_secondary, is_shadow)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, addressUUID, deviceUUID, addressValue, netNodeUUID, nil, 0, 4, 1, 0,
-		false, false)
-
-	return addressUUID
 }
 
 // addIPAddressWithSubnet adds an IP address to the database and returns its UUID.
@@ -1134,16 +1111,6 @@ func (s *mergeLinkLayerSuite) addIPAddressWithSubnet(c *tc.C, deviceUUID, netNod
 		false, false)
 
 	return addressUUID
-}
-
-// addProviderIPAddress adds a provider IP address to the database.
-func (s *mergeLinkLayerSuite) addProviderIPAddress(
-	c *tc.C, addressUUID, providerID string,
-) {
-	s.query(c, `
-		INSERT INTO provider_ip_address (provider_id, address_uuid)
-		VALUES (?, ?)
-	`, providerID, addressUUID)
 }
 
 // addSpace adds a space to the database and returns its UUID.
