@@ -94,12 +94,11 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 		return nil, errors.Trace(err)
 	}
 	sb := &storageBackend{
-		mb:              st,
-		modelType:       m.Type(),
-		application:     st.Application,
-		allApplications: st.AllApplications,
-		unit:            st.Unit,
-		machine:         st.Machine,
+		mb:          st,
+		modelType:   m.Type(),
+		application: st.Application,
+		unit:        st.Unit,
+		machine:     st.Machine,
 	}
 	sb.registryInit = func() {
 		sb.storagePoolGetter, sb.spRegistryErr = st.storageServices()
@@ -130,11 +129,10 @@ type StoragePoolGetter interface {
 
 // storageBackend exposes storage-specific state utilities.
 type storageBackend struct {
-	mb              modelBackend
-	application     func(string) (*Application, error)
-	allApplications func() ([]*Application, error)
-	unit            func(string) (*Unit, error)
-	machine         func(string) (*Machine, error)
+	mb          modelBackend
+	application func(string) (*Application, error)
+	unit        func(string) (*Unit, error)
+	machine     func(string) (*Machine, error)
 
 	modelType ModelType
 
@@ -628,7 +626,7 @@ func validateRemoveOwnerStorageInstanceOps(si *storageInstance) ([]txn.Op, error
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if u.Life() != Alive {
+		if u.life() != Alive {
 			return nil, nil
 		}
 		ch, err := u.charm()
@@ -1019,14 +1017,14 @@ func (sb *storageConfigBackend) AttachStorage(storage names.StorageTag, unit nam
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if u.Life() != Alive {
+		if u.life() != Alive {
 			return nil, errors.New("unit not alive")
 		}
 		ch, err := u.charm()
 		if err != nil {
 			return nil, errors.Annotate(err, "getting charm")
 		}
-		ops, err := sb.attachStorageOps(u.st, si, u.unitTag(), u.Base().OS, ch.Meta(), u)
+		ops, err := sb.attachStorageOps(u.st, si, u.unitTag(), u.base().OS, ch.Meta(), u)
 		if errors.Is(err, errors.AlreadyExists) {
 			return nil, jujutxn.ErrNoOperations
 		}
@@ -1252,7 +1250,7 @@ func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.Uni
 
 		processAttachments := true
 		var hostTag names.Tag = unit
-		if u.ShouldBeAssigned() {
+		if u.shouldBeAssigned() {
 			machineId, err := u.AssignedMachineId()
 			if errors.Is(err, errors.NotAssigned) {
 				// The unit is not assigned to a machine, therefore
@@ -2069,7 +2067,7 @@ func (sb *storageConfigBackend) addStorageForUnitOps(
 	storageName string,
 	cons StorageConstraints,
 ) ([]names.StorageTag, []txn.Op, error) {
-	if u.Life() != Alive {
+	if u.life() != Alive {
 		return nil, nil, unitNotAliveErr
 	}
 
@@ -2090,7 +2088,7 @@ func (sb *storageConfigBackend) addStorageForUnitOps(
 	if cons.Pool == "" || cons.Size == 0 {
 		// Either pool or size, or both, were not specified. Take the
 		// values from the unit's recorded storage constraints.
-		allCons, err := u.StorageConstraints()
+		allCons, err := u.storageConstraints()
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -2186,7 +2184,7 @@ func (sb *storageConfigBackend) addUnitStorageOps(
 		u.Tag(),
 		charmMeta,
 		map[string]StorageConstraints{storageName: cons},
-		u.Base().OS,
+		u.base().OS,
 		u,
 	)
 	if err != nil {

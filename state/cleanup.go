@@ -473,11 +473,11 @@ func (st *State) cleanupApplication(ctx context.Context, store objectstore.Objec
 		return errors.BadRequestf("cleanupApplication requested for an application (%s) that is still alive", appName)
 	}
 	// We know the app is at least Dying, so check if the unit/relation counts are no longer referencing this application.
-	if app.UnitCount() > 0 {
+	if app.unitCount() > 0 {
 		// this is considered a no-op because whatever is currently referencing the application
 		// should queue up a new cleanup once it stops
 		logger.Tracef(context.TODO(), "cleanupApplication(%s) called, but it still has references: unitcount: %d",
-			appName, app.UnitCount())
+			appName, app.unitCount())
 		return nil
 	}
 	destroyStorage := false
@@ -680,10 +680,10 @@ func (st *State) cleanupUnitsForDyingApplication(
 		op.MaxWait = maxWait
 		err := st.ApplyOperation(op)
 		if err == nil {
-			unitsToDestroy.Add(unit.Name())
+			unitsToDestroy.Add(unit.name())
 		}
 		if len(op.Errors) != 0 {
-			logger.Warningf(context.TODO(), "operational errors destroying unit %v for dying application %v: %v", unit.Name(), applicationName, op.Errors)
+			logger.Warningf(context.TODO(), "operational errors destroying unit %v for dying application %v: %v", unit.name(), applicationName, op.Errors)
 		}
 		if err != nil {
 			return errors.Trace(err)
@@ -797,7 +797,7 @@ func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstor
 	// dead.
 
 	// Destroy all subordinates.
-	for _, subNameString := range unit.SubordinateNames() {
+	for _, subNameString := range unit.subordinateNames() {
 		opErrs := []error{}
 		subName, err := coreunit.NewName(subNameString)
 		if err != nil {
@@ -1279,7 +1279,7 @@ func (st *State) cleanupEvacuateMachine(ctx context.Context, machineId string, s
 		return nil
 	}
 
-	units, err := machine.Units()
+	units, err := machine.units()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1294,7 +1294,7 @@ func (st *State) cleanupEvacuateMachine(ctx context.Context, machineId string, s
 	unitsToDestroy := []coreunit.Name{}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			units, err = machine.Units()
+			units, err = machine.units()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1307,7 +1307,7 @@ func (st *State) cleanupEvacuateMachine(ctx context.Context, machineId string, s
 				return nil, errors.Trace(err)
 			}
 			if err == nil {
-				unitName, err := coreunit.NewName(unit.Name())
+				unitName, err := coreunit.NewName(unit.name())
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -1429,7 +1429,7 @@ func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectSto
 			opErrs = append(opErrs, err)
 		}
 	}
-	if err := unit.Refresh(); errors.Is(err, errors.NotFound) {
+	if err := unit.refresh(); errors.Is(err, errors.NotFound) {
 		return opErrs, nil
 	} else if err != nil {
 		if !force {
@@ -1445,7 +1445,7 @@ func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectSto
 		}
 		opErrs = append(opErrs, err)
 	}
-	for _, subName := range unit.SubordinateNames() {
+	for _, subName := range unit.subordinateNames() {
 		errs, err := st.obliterateUnit(ctx, store, applicationService, subName, force, maxWait)
 		opErrs = append(opErrs, errs...)
 		if len(errs) == 0 && err == nil {

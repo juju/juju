@@ -96,9 +96,9 @@ func newUnit(st *State, modelType ModelType, udoc *unitDoc) *Unit {
 	return unit
 }
 
-// ShouldBeAssigned returns whether the unit should be assigned to a machine.
+// shouldBeAssigned returns whether the unit should be assigned to a machine.
 // IAAS models require units to be assigned.
-func (u *Unit) ShouldBeAssigned() bool {
+func (u *Unit) shouldBeAssigned() bool {
 	return !u.isCaas()
 }
 
@@ -111,13 +111,13 @@ func (u *Unit) application() (*Application, error) {
 	return u.st.Application(u.doc.Application)
 }
 
-// ApplicationName returns the application name.
-func (u *Unit) ApplicationName() string {
+// applicationName returns the application name.
+func (u *Unit) applicationName() string {
 	return u.doc.Application
 }
 
-// Base returns the deployed charm's base.
-func (u *Unit) Base() Base {
+// base returns the deployed charm's base.
+func (u *Unit) base() Base {
 	return u.doc.Base
 }
 
@@ -126,8 +126,8 @@ func (u *Unit) String() string {
 	return u.doc.Name
 }
 
-// Name returns the unit name.
-func (u *Unit) Name() string {
+// name returns the unit name.
+func (u *Unit) name() string {
 	return u.doc.Name
 }
 
@@ -152,20 +152,9 @@ func (u *Unit) globalCloudContainerKey() string {
 	return globalCloudContainerKey(u.doc.Name)
 }
 
-// Life returns whether the unit is Alive, Dying or Dead.
-func (u *Unit) Life() Life {
+// life returns whether the unit is Alive, Dying or Dead.
+func (u *Unit) life() Life {
 	return u.doc.Life
-}
-
-// AgentTools returns the tools that the agent is currently running.
-// It an error that satisfies errors.IsNotFound if the tools have not
-// yet been set.
-func (u *Unit) AgentTools() (*tools.Tools, error) {
-	if u.doc.Tools == nil {
-		return nil, errors.NotFoundf("agent binaries for unit %q", u)
-	}
-	result := *u.doc.Tools
-	return &result, nil
 }
 
 // UpdateOperation returns a model operation that will update a unit.
@@ -207,7 +196,7 @@ func (op *UpdateUnitOperation) Build(_ int) ([]txn.Op, error) {
 		newProviderId != "" &&
 		containerInfo.ProviderId != newProviderId {
 		logger.Debugf(context.TODO(), "unit %q has provider id %q which changed to %q",
-			op.unit.Name(), containerInfo.ProviderId, newProviderId)
+			op.unit.name(), containerInfo.ProviderId, newProviderId)
 	}
 
 	if op.props.ProviderId != nil {
@@ -297,7 +286,7 @@ func (op *UpdateUnitOperation) Build(_ int) ([]txn.Op, error) {
 // Done is part of the ModelOperation interface.
 func (op *UpdateUnitOperation) Done(err error) error {
 	if err != nil {
-		return errors.Annotatef(err, "updating unit %q", op.unit.Name())
+		return errors.Annotatef(err, "updating unit %q", op.unit.name())
 	}
 	return nil
 }
@@ -311,7 +300,7 @@ func (op *UpdateUnitOperation) Done(err error) error {
 func (u *Unit) Destroy(store objectstore.ObjectStore) error {
 	_, errs, err := u.DestroyWithForce(store, false, time.Duration(0))
 	if len(errs) != 0 {
-		logger.Warningf(context.TODO(), "operational errors destroying unit %v: %v", u.Name(), errs)
+		logger.Warningf(context.TODO(), "operational errors destroying unit %v: %v", u.name(), errs)
 	}
 	return err
 }
@@ -320,7 +309,7 @@ func (u *Unit) Destroy(store objectstore.ObjectStore) error {
 func (u *Unit) DestroyMaybeRemove(store objectstore.ObjectStore) (bool, error) {
 	removed, errs, err := u.DestroyWithForce(store, false, time.Duration(0))
 	if len(errs) != 0 {
-		logger.Warningf(context.TODO(), "operational errors destroying unit %v: %v", u.Name(), errs)
+		logger.Warningf(context.TODO(), "operational errors destroying unit %v: %v", u.name(), errs)
 	}
 	return removed, err
 }
@@ -375,7 +364,7 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		return nil, errors.New("no object store provided")
 	}
 	if attempt > 0 {
-		if err := op.unit.Refresh(); errors.Is(err, errors.NotFound) {
+		if err := op.unit.refresh(); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -392,7 +381,7 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		return ops, nil
 	default:
 		if op.Force {
-			logger.Warningf(context.TODO(), "forcing unit destruction for %v despite error %v", op.unit.Name(), err)
+			logger.Warningf(context.TODO(), "forcing unit destruction for %v despite error %v", op.unit.name(), err)
 			return ops, nil
 		}
 		return nil, err
@@ -474,7 +463,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		// If we are forcing, we care about the errors as we want report them to the user.
 		// But we also want operations to power through the removal.
 		if dyingErr != nil {
-			op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.Name(), dyingErr))
+			op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.name(), dyingErr))
 		}
 		ops := []txn.Op{setDyingOp, cleanupOp}
 		return ops, nil
@@ -488,7 +477,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	// See if the unit agent has started running.
 	// If so then we can't set directly to dead.
 	isAssigned := op.unit.doc.MachineId != ""
-	shouldBeAssigned := op.unit.ShouldBeAssigned()
+	shouldBeAssigned := op.unit.shouldBeAssigned()
 	agentStatusDocId := op.unit.globalAgentKey()
 	agentStatusInfo, agentErr := getStatus(op.unit.st.db(), agentStatusDocId, "agent")
 	if errors.Is(agentErr, errors.NotFound) {
@@ -732,7 +721,7 @@ func (u *Unit) EnsureDead() (err error) {
 	} else if !notDead {
 		return nil
 	}
-	if err := u.Refresh(); errors.Is(err, errors.NotFound) {
+	if err := u.refresh(); errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return err
@@ -770,7 +759,7 @@ func (op *RemoveUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		return nil, errors.New("no object store provided")
 	}
 	if attempt > 0 {
-		if err := op.unit.Refresh(); errors.Is(err, errors.NotFound) {
+		if err := op.unit.refresh(); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -787,7 +776,7 @@ func (op *RemoveUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		return ops, nil
 	default:
 		if op.Force {
-			logger.Warningf(context.TODO(), "forcing unit removal for %v despite error %v", op.unit.Name(), err)
+			logger.Warningf(context.TODO(), "forcing unit removal for %v despite error %v", op.unit.name(), err)
 			return ops, nil
 		}
 		return nil, err
@@ -842,14 +831,14 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 	return append(ops, unitRemoveOps...), nil
 }
 
-// IsPrincipal returns whether the unit is deployed in its own container,
+// isPrincipal returns whether the unit is deployed in its own container,
 // and can therefore have subordinate applications deployed alongside it.
-func (u *Unit) IsPrincipal() bool {
+func (u *Unit) isPrincipal() bool {
 	return u.doc.Principal == ""
 }
 
-// SubordinateNames returns the names of any subordinate units.
-func (u *Unit) SubordinateNames() []string {
+// subordinateNames returns the names of any subordinate units.
+func (u *Unit) subordinateNames() []string {
 	subNames := make([]string, len(u.doc.Subordinates))
 	copy(subNames, u.doc.Subordinates)
 	return subNames
@@ -883,134 +872,10 @@ func (u *Unit) noAssignedMachineOp() txn.Op {
 	}
 }
 
-// PublicAddress returns the public address of the unit.
-func (u *Unit) PublicAddress() (network.SpaceAddress, error) {
-	if !u.ShouldBeAssigned() {
-		return u.scopedAddress("public")
-	}
-	m, err := u.machine()
-	if err != nil {
-		unitLogger.Tracef(context.TODO(), "%v", err)
-		return network.SpaceAddress{}, errors.Trace(err)
-	}
-	return m.PublicAddress()
-}
-
-// PrivateAddress returns the private address of the unit.
-func (u *Unit) PrivateAddress() (network.SpaceAddress, error) {
-	if !u.ShouldBeAssigned() {
-		addr, err := u.scopedAddress("private")
-		if network.IsNoAddressError(err) {
-			return u.containerAddress()
-		}
-		return addr, errors.Trace(err)
-	}
-	m, err := u.machine()
-	if err != nil {
-		unitLogger.Tracef(context.TODO(), "%v", err)
-		return network.SpaceAddress{}, errors.Trace(err)
-	}
-	return m.PrivateAddress()
-}
-
-// AllAddresses returns the public and private addresses
-// plus the container address of the unit (if known).
-// Only relevant for CAAS models - will return an empty
-// slice for IAAS models.
-func (u *Unit) AllAddresses() (addrs network.SpaceAddresses, _ error) {
-	if u.ShouldBeAssigned() {
-		return addrs, nil
-	}
-
-	// First the addresses of the service.
-	serviceAddrs, err := u.serviceAddresses()
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-	if err == nil {
-		addrs = append(addrs, serviceAddrs...)
-	}
-
-	// Then the container address.
-	containerAddr, err := u.containerAddress()
-	if network.IsNoAddressError(err) {
-		return addrs, nil
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	addrs = append(addrs, containerAddr)
-	return addrs, nil
-}
-
-// serviceAddresses returns the addresses of the service
-// managing the pods in which the unit workload is running.
-func (u *Unit) serviceAddresses() (network.SpaceAddresses, error) {
-	app, err := u.application()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	serviceInfo, err := app.ServiceInfo()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return serviceInfo.Addresses(), nil
-}
-
-// containerAddress returns the address of the pod's container.
-func (u *Unit) containerAddress() (network.SpaceAddress, error) {
-	containerInfo, err := u.cloudContainer()
-	if errors.Is(err, errors.NotFound) {
-		return network.SpaceAddress{}, network.NoAddressError("container")
-	}
-	if err != nil {
-		return network.SpaceAddress{}, errors.Trace(err)
-	}
-	addr := containerInfo.Address
-	if addr == nil {
-		return network.SpaceAddress{}, network.NoAddressError("container")
-	}
-	return addr.networkAddress(), nil
-}
-
-func (u *Unit) scopedAddress(scope string) (network.SpaceAddress, error) {
-	addresses, err := u.AllAddresses()
-	if err != nil {
-		return network.SpaceAddress{}, errors.Trace(err)
-	}
-	if len(addresses) == 0 {
-		return network.SpaceAddress{}, network.NoAddressError(scope)
-	}
-	getStrictPublicAddr := func(addresses network.SpaceAddresses) (network.SpaceAddress, bool) {
-		addr, ok := addresses.OneMatchingScope(network.ScopeMatchPublic)
-		return addr, ok && addr.Scope == network.ScopePublic
-	}
-
-	getInternalAddr := func(addresses network.SpaceAddresses) (network.SpaceAddress, bool) {
-		return addresses.OneMatchingScope(network.ScopeMatchCloudLocal)
-	}
-
-	var addrMatch func(network.SpaceAddresses) (network.SpaceAddress, bool)
-	switch scope {
-	case "public":
-		addrMatch = getStrictPublicAddr
-	case "private":
-		addrMatch = getInternalAddr
-	default:
-		return network.SpaceAddress{}, errors.NotValidf("address scope %q", scope)
-	}
-
-	addr, found := addrMatch(addresses)
-	if !found {
-		return network.SpaceAddress{}, network.NoAddressError(scope)
-	}
-	return addr, nil
-}
-
-// Refresh refreshes the contents of the Unit from the underlying
+// refresh refreshes the contents of the Unit from the underlying
 // state. It an error that satisfies errors.IsNotFound if the unit has
 // been removed.
-func (u *Unit) Refresh() error {
+func (u *Unit) refresh() error {
 	units, closer := u.st.db().GetCollection(unitsC)
 	defer closer()
 
@@ -1024,20 +889,10 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
-// ContainerStatus returns the container status for a unit.
-func (u *Unit) ContainerStatus() (status.StatusInfo, error) {
-	return getStatus(u.st.db(), u.globalCloudContainerKey(), "cloud container")
-}
-
-// CharmURL returns the charm URL this unit is currently using.
-func (u *Unit) CharmURL() *string {
-	return u.doc.CharmURL
-}
-
 // charm returns the charm for the unit, or the application if the unit's charm
 // has not been set yet.
 func (u *Unit) charm() (CharmRefFull, error) {
-	cURL := u.CharmURL()
+	cURL := u.doc.CharmURL
 	if cURL == nil {
 		app, err := u.application()
 		if err != nil {
@@ -1047,7 +902,7 @@ func (u *Unit) charm() (CharmRefFull, error) {
 	}
 
 	if cURL == nil {
-		return nil, errors.Errorf("missing charm URL for %q", u.Name())
+		return nil, errors.Errorf("missing charm URL for %q", u.name())
 	}
 
 	var ch CharmRefFull
@@ -1061,7 +916,7 @@ func (u *Unit) charm() (CharmRefFull, error) {
 		},
 		Clock: u.st.clock(),
 		NotifyFunc: func(err error, attempt int) {
-			logger.Warningf(context.TODO(), "error getting charm for unit %q. Retrying (attempt %d): %v", u.Name(), attempt, err)
+			logger.Warningf(context.TODO(), "error getting charm for unit %q. Retrying (attempt %d): %v", u.name(), attempt, err)
 		},
 	})
 
@@ -1078,7 +933,7 @@ func (u *Unit) assertCharmOps(ch CharmRefFull) []txn.Op {
 		Assert: bson.D{{"charmurl", u.doc.CharmURL}},
 	}}
 	if u.doc.CharmURL != nil {
-		appName := u.ApplicationName()
+		appName := u.applicationName()
 		ops = append(ops, txn.Op{
 			C:      applicationsC,
 			Id:     appName,
@@ -1098,7 +953,7 @@ func (u *Unit) Tag() names.Tag {
 // unitTag returns a names.UnitTag representing this Unit, unless the
 // unit Name is invalid, in which case it will panic
 func (u *Unit) unitTag() names.UnitTag {
-	return names.NewUnitTag(u.Name())
+	return names.NewUnitTag(u.name())
 }
 
 func unitNotAssignedError(u *Unit) error {
@@ -1123,13 +978,16 @@ var (
 // assignToMachine is the internal version of AssignToMachine.
 func (u *Unit) assignToMachine(
 	m MachineRef,
-	unused bool,
 ) (err error) {
+	defer assignContextf(&err, u.name(), fmt.Sprintf("machine %s", m))
+	if u.doc.Principal != "" {
+		return fmt.Errorf("unit is a subordinate")
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		u, m := u, m // don't change outer vars
 		if attempt > 0 {
 			var err error
-			u, err = u.st.Unit(u.Name())
+			u, err = u.st.Unit(u.name())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1138,7 +996,7 @@ func (u *Unit) assignToMachine(
 				return nil, errors.Trace(err)
 			}
 		}
-		return u.assignToMachineOps(m, unused)
+		return u.assignToMachineOps(m, false)
 	}
 	if err := u.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
@@ -1158,7 +1016,7 @@ func (u *Unit) assignToMachineOps(
 	m MachineRef,
 	unused bool,
 ) ([]txn.Op, error) {
-	if u.Life() != Alive {
+	if u.life() != Alive {
 		return nil, unitNotAliveErr
 	}
 	if u.doc.MachineId != "" {
@@ -1417,28 +1275,6 @@ func assignContextf(err *error, unitName string, target string) {
 	}
 }
 
-// AssignToMachine assigns this unit to a given machine.
-func (u *Unit) AssignToMachine(
-	m *Machine,
-) (err error) {
-	defer assignContextf(&err, u.Name(), fmt.Sprintf("machine %s", m))
-	if u.doc.Principal != "" {
-		return fmt.Errorf("unit is a subordinate")
-	}
-	return u.assignToMachine(m, false)
-}
-
-// AssignToMachine assigns this unit to a given machine.
-func (u *Unit) AssignToMachineRef(
-	m MachineRef,
-) (err error) {
-	defer assignContextf(&err, u.Name(), fmt.Sprintf("machine %s", m))
-	if u.doc.Principal != "" {
-		return fmt.Errorf("unit is a subordinate")
-	}
-	return u.assignToMachine(m, false)
-}
-
 // assignToNewMachineOps returns txn.Ops to assign the unit to a machine
 // created according to the supplied params, with the supplied constraints.
 func (u *Unit) assignToNewMachineOps(
@@ -1447,7 +1283,7 @@ func (u *Unit) assignToNewMachineOps(
 	containerType instance.ContainerType,
 ) (*Machine, []txn.Op, error) {
 
-	if u.Life() != Alive {
+	if u.life() != Alive {
 		return nil, nil, unitNotAliveErr
 	}
 	if u.doc.MachineId != "" {
@@ -1528,8 +1364,8 @@ func (u *Unit) assignToNewMachineOps(
 	return &Machine{u.st, *mdoc}, ops, nil
 }
 
-// Constraints returns the unit's deployment constraints.
-func (u *Unit) Constraints() (*constraints.Value, error) {
+// constraints returns the unit's deployment constraints.
+func (u *Unit) constraints() (*constraints.Value, error) {
 	cons, err := readConstraints(u.st, u.globalAgentKey())
 	if errors.Is(err, errors.NotFound) {
 		// Lack of constraints indicates lack of unit.
@@ -1555,14 +1391,6 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 	return &cons, nil
 }
 
-// AssignToNewMachine assigns the unit to a new machine, with constraints
-// determined according to the application and model constraints at the
-// time of unit creation.
-func (u *Unit) AssignToNewMachine() (err error) {
-	defer assignContextf(&err, u.Name(), "new machine")
-	return u.assignToNewMachine("")
-}
-
 // assignToNewMachine assigns the unit to a new machine with the
 // optional placement directive, with constraints determined according
 // to the application and model constraints at the time of unit creation.
@@ -1575,12 +1403,12 @@ func (u *Unit) assignToNewMachine(placement string) error {
 		var err error
 		u := u // don't change outer var
 		if attempt > 0 {
-			u, err = u.st.Unit(u.Name())
+			u, err = u.st.Unit(u.name())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
-		cons, err := u.Constraints()
+		cons, err := u.constraints()
 		if err != nil {
 			return nil, err
 		}
@@ -1673,7 +1501,7 @@ func unitStorageParams(u *Unit) (*storageParams, error) {
 		}
 		storageInstances = append(storageInstances, storage)
 	}
-	return storageParamsForUnit(sb, storageInstances, u.unitTag(), u.Base(), ch.Meta())
+	return storageParamsForUnit(sb, storageInstances, u.unitTag(), u.base(), ch.Meta())
 }
 
 func storageParamsForUnit(
@@ -1865,7 +1693,7 @@ func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{},
 		}
 		spec, ok = specs[name]
 		if !ok {
-			return nil, false, "", errors.Errorf("action %q not defined on unit %q", name, u.Name())
+			return nil, false, "", errors.Errorf("action %q not defined on unit %q", name, u.name())
 		}
 	}
 	// Reject bad payloads before attempting to insert defaults.
@@ -1941,8 +1769,8 @@ func (u *Unit) RunningActions() ([]Action, error) {
 	return u.st.matchingActionsRunning(u)
 }
 
-// StorageConstraints returns the unit's storage constraints.
-func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
+// storageConstraints returns the unit's storage constraints.
+func (u *Unit) storageConstraints() (map[string]StorageConstraints, error) {
 	if u.doc.CharmURL == nil {
 		app, err := u.st.Application(u.doc.Application)
 		if err != nil {
