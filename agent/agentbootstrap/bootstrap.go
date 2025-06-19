@@ -74,6 +74,11 @@ type bootstrapController interface {
 	SetMongoPassword(password string) error
 }
 
+type bootstrapControllerCAAS interface {
+	state.Authenticator
+	bootstrapController
+}
+
 // CheckJWKSReachable checks if the given JWKS URL is reachable.
 func CheckJWKSReachable(url string) error {
 	ctx, cancelF := context.WithTimeout(context.TODO(), 30*time.Second)
@@ -394,14 +399,27 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		return nil, errors.Annotate(err, "getting environ provider")
 	}
 
+	// Create a new password. It is used down below to set the mongo password,
+	// the agent's initial API password in agent config and on CAAS, the
+	// controller node's initial API password.
+	newPassword, err := password.RandomPassword()
+	if err != nil {
+		return nil, err
+	}
+
 	var controllerNode bootstrapController
 	if isCAAS {
-		if controllerNode, err = b.initBootstrapNode(st); err != nil {
+		controllerNodeCAAS, err := b.initBootstrapNode(st)
+		if err != nil {
 			return nil, errors.Annotate(err, "cannot initialize bootstrap controller")
 		}
 		if err := b.initControllerCloudService(ctx, cloudSpec, provider, st); err != nil {
 			return nil, errors.Annotate(err, "cannot initialize cloud service")
 		}
+		if err := controllerNodeCAAS.SetPassword(newPassword); err != nil {
+			return nil, err
+		}
+		controllerNode = controllerNodeCAAS
 	} else {
 		if controllerNode, err = b.initBootstrapMachine(st, filteredBootstrapMachineAddresses); err != nil {
 			return nil, errors.Annotate(err, "cannot initialize bootstrap machine")
@@ -417,11 +435,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 	// a new password (other agents will change their password
 	// via the API connection).
 	b.logger.Debugf(context.TODO(), "create new random password for controller %v", controllerNode.Id())
-
-	newPassword, err := password.RandomPassword()
-	if err != nil {
-		return nil, err
-	}
 	if err := controllerNode.SetMongoPassword(newPassword); err != nil {
 		return nil, err
 	}
@@ -587,7 +600,7 @@ func (b *AgentBootstrap) getAlphaSpaceAddresses(providerAddresses corenetwork.Pr
 // initBootstrapNode initializes the initial caas bootstrap controller in state.
 func (b *AgentBootstrap) initBootstrapNode(
 	st *state.State,
-) (bootstrapController, error) {
+) (bootstrapControllerCAAS, error) {
 	b.logger.Debugf(context.TODO(), "initialising bootstrap node for with config: %+v", b.stateInitializationParams)
 
 	node, err := st.AddControllerNode()
