@@ -1059,9 +1059,9 @@ func (k *kubernetesClient) ensureService(
 			return errors.Annotatef(err, "configuring devices for %s", appName)
 		}
 	}
-	if err := k8sapplication.ApplyConstraints(
-		&workloadSpec.Pod.PodSpec, appName, params.Constraints, params.CharmsConstraints,
-		func(pod *core.PodSpec, resourceName core.ResourceName, workloadConsVal string, charmConsVal string) error {
+	if err := k8sapplication.ApplyWorkloadConstraints(
+		&workloadSpec.Pod.PodSpec, appName, params.Constraints,
+		func(pod *core.PodSpec, resourceName core.ResourceName, workloadConsVal string) error {
 			if len(pod.Containers) == 0 {
 				return nil
 			}

@@ -24,46 +24,44 @@ var _ = gc.Suite(&applyConstraintsSuite{})
 
 func (s *applyConstraintsSuite) TestMemory(c *gc.C) {
 	pod := &corev1.PodSpec{}
-	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, workloadConstraintVal string, charmConstraintVal string) (err error) {
+	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		c.Assert(got, gc.Equals, pod)
 		c.Assert(resourceName, gc.Equals, corev1.ResourceName("memory"))
-		c.Assert(workloadConstraintVal, gc.Equals, "4096Mi")
-		c.Assert(charmConstraintVal, gc.Equals, "8192Mi")
+		c.Assert(value, gc.Equals, "4096Mi")
 		return errors.New("boom")
 	}
-	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("mem=4G"), constraints.MustParse("mem=8G"), configureConstraint)
-	c.Assert(err, gc.ErrorMatches, "configuring memory constraint for foo: boom")
+	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("mem=4G"), configureConstraint)
+	c.Assert(err, gc.ErrorMatches, "configuring workload container memory constraint for foo: boom")
 }
 
 func (s *applyConstraintsSuite) TestCPU(c *gc.C) {
 	pod := &corev1.PodSpec{}
-	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, workloadConstraintVal string, charmConstraintVal string) (err error) {
+	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		c.Assert(got, gc.Equals, pod)
 		c.Assert(resourceName, gc.Equals, corev1.ResourceName("cpu"))
-		c.Assert(workloadConstraintVal, gc.Equals, "2m")
-		c.Assert(charmConstraintVal, gc.Equals, "4m")
+		c.Assert(value, gc.Equals, "2m")
 		return errors.New("boom")
 	}
-	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("cpu-power=2"), constraints.MustParse("cpu-power=4"), configureConstraint)
-	c.Assert(err, gc.ErrorMatches, "configuring cpu constraint for foo: boom")
+	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("cpu-power=2"), configureConstraint)
+	c.Assert(err, gc.ErrorMatches, "configuring workload container cpu constraint for foo: boom")
 }
 
 func (s *applyConstraintsSuite) TestArch(c *gc.C) {
-	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, workloadConstraintVal string, charmConstraintVal string) (err error) {
+	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
-	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("arch=arm64"), constraints.MustParse("arch=arm64"), configureConstraint)
+	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("arch=arm64"), configureConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.NodeSelector, jc.DeepEquals, map[string]string{"kubernetes.io/arch": "arm64"})
 }
 
 func (s *applyConstraintsSuite) TestPodAffinityJustTopologyKey(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, workloadConstraintVal string, charmConstraintVal string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
-	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=pod.topology-key=foo"), constraints.MustParse("tags=pod.topology-key=foo"), configureConstraint)
+	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=pod.topology-key=foo"), configureConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.Affinity.PodAffinity, jc.DeepEquals, &corev1.PodAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
@@ -76,11 +74,11 @@ func (s *applyConstraintsSuite) TestPodAffinityJustTopologyKey(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestAffinityPod(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, workloadConstraintVal string, charmConstraintVal string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
-	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=pod.hello=world|universe,pod.^goodbye=world"), constraints.MustParse("tags=pod.hello=world|universe,pod.^goodbye=world"), configureConstraint)
+	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=pod.hello=world|universe,pod.^goodbye=world"), configureConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.Affinity.PodAffinity, jc.DeepEquals, &corev1.PodAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
@@ -103,11 +101,11 @@ func (s *applyConstraintsSuite) TestAffinityPod(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestPodAffinityAll(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, workloadConstraintVal string, charmConstraintVal string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
-	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=pod.hello=world,pod.^goodbye=world,pod.topology-key=foo"), constraints.MustParse("tags=pod.hello=world,pod.^goodbye=world,pod.topology-key=foo"), configureConstraint)
+	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=pod.hello=world,pod.^goodbye=world,pod.topology-key=foo"), configureConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.Affinity.PodAffinity, jc.DeepEquals, &corev1.PodAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
@@ -129,11 +127,11 @@ func (s *applyConstraintsSuite) TestPodAffinityAll(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestAntiPodAffinityJustTopologyKey(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, workloadConstraintVal string, charmConstraintVal string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
-	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=anti-pod.topology-key=foo"), constraints.MustParse("tags=anti-pod.topology-key=foo"), configureConstraint)
+	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=anti-pod.topology-key=foo"), configureConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.Affinity.PodAntiAffinity, jc.DeepEquals, &corev1.PodAntiAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
@@ -146,11 +144,11 @@ func (s *applyConstraintsSuite) TestAntiPodAffinityJustTopologyKey(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestAntiPodAffinity(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, workloadConstraintVal string, charmConstraintVal string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
-	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=anti-pod.hello=world|universe,anti-pod.^goodbye=world"), constraints.MustParse("tags=anti-pod.hello=world|universe,anti-pod.^goodbye=world"), configureConstraint)
+	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=anti-pod.hello=world|universe,anti-pod.^goodbye=world"), configureConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.Affinity.PodAntiAffinity, jc.DeepEquals, &corev1.PodAntiAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
@@ -173,11 +171,11 @@ func (s *applyConstraintsSuite) TestAntiPodAffinity(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestAntiPodAffinityAll(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, workloadConstraintVal string, charmConstraintVal string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
-	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=anti-pod.hello=world,anti-pod.^goodbye=world,anti-pod.topology-key=foo"), constraints.MustParse("tags=anti-pod.hello=world,anti-pod.^goodbye=world,anti-pod.topology-key=foo"), configureConstraint)
+	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=anti-pod.hello=world,anti-pod.^goodbye=world,anti-pod.topology-key=foo"), configureConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.Affinity.PodAntiAffinity, jc.DeepEquals, &corev1.PodAntiAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
@@ -201,11 +199,11 @@ func (s *applyConstraintsSuite) TestAntiPodAffinityAll(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestNodeAntiAffinity(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, workloadConstraintVal string, charmConstraintVal string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
-	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=node.hello=world|universe,node.^goodbye=world"), constraints.MustParse("tags=node.hello=world|universe,node.^goodbye=world"), configureConstraint)
+	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=node.hello=world|universe,node.^goodbye=world"), configureConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.Affinity.NodeAffinity, jc.DeepEquals, &corev1.NodeAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{

@@ -1789,9 +1789,11 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		},
 	}
-	err := ApplyConstraints(spec, a.name, config.Constraints, config.CharmConstraints, configureConstraint)
-	if err != nil {
-		return nil, errors.Annotate(err, "processing constraints")
+	if err := ApplyCharmConstraints(spec, a.name, config.CharmConstraints, configureCharmConstraint); err != nil {
+		return nil, errors.Annotate(err, "processing charm container constraints")
+	}
+	if err := ApplyWorkloadConstraints(spec, a.name, config.Constraints, configureWorkloadConstraint); err != nil {
+		return nil, errors.Annotate(err, "processing workload container constraints")
 	}
 
 	if requireSecurityContext {

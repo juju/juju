@@ -358,10 +358,13 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 				}(),
 			},
 		},
-		Constraints:      cons,
-		CharmConstraints: cons,
-		InitialScale:     3,
-		Trust:            trust,
+		Constraints: cons,
+		CharmConstraints: constraints.CharmValue{
+			MemRequest: uint64Ptr(64),  // 100Mi
+			MemLimit:   uint64Ptr(256), // 100Mi
+		},
+		InitialScale: 3,
+		Trust:        trust,
 		CharmUser: func() caas.RunAs {
 			if rootless {
 				return caas.RunAsNonRoot
@@ -2937,5 +2940,9 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 }
 
 func int64Ptr(a int64) *int64 {
+	return &a
+}
+
+func uint64Ptr(a uint64) *uint64 {
 	return &a
 }

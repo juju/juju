@@ -141,7 +141,7 @@ type ProvisioningInfo struct {
 	CACert               string
 	Tags                 map[string]string
 	Constraints          constraints.Value
-	CharmConstraints     constraints.Value
+	CharmConstraints     constraints.CharmValue
 	Filesystems          []storage.KubernetesFilesystemParams
 	Devices              []devices.KubernetesDeviceParams
 	Base                 corebase.Base

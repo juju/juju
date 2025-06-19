@@ -129,8 +129,10 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 	}
 
 	// Hardcode charm mem constraints to 64MB
-	result.CharmConstraints = result.Constraints
-	result.CharmConstraints.Mem = intPtr(64)
+	result.CharmConstraints = constraints.CharmValue{
+		MemRequest: intPtr(64),
+		MemLimit:   intPtr(256),
+	}
 
 	// The root disk source constraint might refer to a storage pool.
 	if result.Constraints.HasRootDiskSource() {

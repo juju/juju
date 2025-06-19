@@ -128,7 +128,7 @@ type ApplicationConfig struct {
 
 	// CharmConstraints is a set of constraints on
 	// the charm container.
-	CharmConstraints constraints.Value
+	CharmConstraints constraints.CharmValue
 
 	// Filesystems is a set of parameters for filesystems that should be created.
 	Filesystems []storage.KubernetesFilesystemParams

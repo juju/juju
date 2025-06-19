@@ -28,6 +28,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
@@ -273,6 +274,10 @@ func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProv
 	return result, nil
 }
 
+func intPtr(i uint64) *uint64 {
+	return &i
+}
+
 func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
 	app, err := a.state.Application(appName.Id())
 	if err != nil {
@@ -318,6 +323,10 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	mergedCons, err := a.state.ResolveConstraints(cons)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	charmCons := constraints.CharmValue{
+		MemRequest: intPtr(64),
+		MemLimit:   intPtr(256),
 	}
 	resourceTags := tags.ResourceTags(
 		names.NewModelTag(modelConfig.UUID()),
@@ -366,6 +375,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Filesystems:          filesystemParams,
 		Devices:              devices,
 		Constraints:          mergedCons,
+		CharmConstraints:     charmCons,
 		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
 		ImageRepo:            params.NewDockerImageInfo(imageRepoDetails, imagePath),
 		CharmModifiedVersion: app.CharmModifiedVersion(),
