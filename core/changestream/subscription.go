@@ -13,9 +13,6 @@ type Subscription interface {
 	// Changes returns the channel that the subscription will receive events on.
 	Changes() <-chan []ChangeEvent
 
-	// Unsubscribe removes the subscription from the event queue.
-	Unsubscribe()
-
 	// Done provides a way to know from the consumer side if the underlying
 	// subscription has been terminated. This is useful to know if the
 	// event queue has been killed.

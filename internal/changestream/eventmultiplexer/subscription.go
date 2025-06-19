@@ -5,7 +5,6 @@ package eventmultiplexer
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"gopkg.in/tomb.v2"
@@ -34,9 +33,8 @@ type requestSubscriptionResult struct {
 // subscription represents a subscriber in the event queue. It holds a tomb,
 // so that we can tie the lifecycle of a subscription to the event queue.
 type subscription struct {
-	tomb      tomb.Tomb
-	id        uint64
-	unsubOnce sync.Once
+	tomb tomb.Tomb
+	id   uint64
 
 	topics  map[string]struct{}
 	changes chan ChangeSet
@@ -55,9 +53,6 @@ func newSubscription(id uint64) *subscription {
 	sub.tomb.Go(sub.loop)
 
 	return sub
-}
-
-func (s *subscription) Unsubscribe() {
 }
 
 // Changes returns the channel that the subscription will receive events on.

@@ -100,7 +100,7 @@ func (w *NamespaceWatcher) loop() error {
 	if err != nil {
 		return errors.Errorf("subscribing to namespaces: %w", err)
 	}
-	defer subscription.Unsubscribe()
+	defer subscription.Kill()
 
 	changes, err := w.initialQuery(ctx, w.watchableDB)
 	if err != nil {

@@ -46,7 +46,7 @@ func (s *notifySuite) TestNotificationsByNamespaceFilter(c *tc.C) {
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas)
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
@@ -127,7 +127,7 @@ func (s *notifySuite) TestNotificationsByPredicateFilter(c *tc.C) {
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas)
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
@@ -202,7 +202,7 @@ func (s *notifySuite) TestNotificationsByMapperError(c *tc.C) {
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas)
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
@@ -262,7 +262,7 @@ func (s *notifySuite) TestNotificationsSent(c *tc.C) {
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas)
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
@@ -310,7 +310,7 @@ func (s *notifySuite) TestSubscriptionDoneKillsWorker(c *tc.C) {
 	close(done)
 	subExp.Done().Return(done)
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
@@ -331,7 +331,7 @@ func (s *notifySuite) TestEnsureCloseOnCleanKill(c *tc.C) {
 	done := make(chan struct{})
 	subExp.Changes().Return(make(chan []changestream.ChangeEvent)).AnyTimes()
 	subExp.Done().Return(done)
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
@@ -357,7 +357,7 @@ func (s *notifySuite) TestEnsureCloseOnDirtyKill(c *tc.C) {
 	done := make(chan struct{})
 	subExp.Changes().Return(make(chan []changestream.ChangeEvent))
 	subExp.Done().Return(done)
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},

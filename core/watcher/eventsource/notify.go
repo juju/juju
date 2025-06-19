@@ -86,7 +86,7 @@ func (w *NotifyWatcher) loop() error {
 	if err != nil {
 		return errors.Errorf("subscribing to namespaces: %w", err)
 	}
-	defer subscription.Unsubscribe()
+	defer subscription.Kill()
 
 	// By reassigning the in and out channels, we effectively ticktock between
 	// read mode and dispatch mode. This ensures we always dispatch
