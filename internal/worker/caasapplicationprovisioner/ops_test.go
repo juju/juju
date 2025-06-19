@@ -623,6 +623,10 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 			"tag": "tag-value",
 		},
 		Constraints: constraints.MustParse("mem=1G"),
+		CharmConstraints: constraints.CharmValue{
+			MemRequest: uint64Ptr(64),
+			MemLimit:   uint64Ptr(256),
+		},
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "data",
 			Size:        100,
@@ -705,4 +709,8 @@ func (s *OpsSuite) TestAppDead(c *gc.C) {
 
 func intPtr(i int) *int {
 	return &i
+}
+
+func uint64Ptr(a uint64) *uint64 {
+	return &a
 }

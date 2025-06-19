@@ -118,7 +118,7 @@ func ApplyCharmConstraints(pod *core.PodSpec, appName string, cons constraints.C
 	request := cons.MemRequest
 	if limit != nil || request != nil {
 		if err := configureCharmConstraint(pod, core.ResourceMemory, fmt.Sprintf("%dMi", *request), fmt.Sprintf("%dMi", *limit)); err != nil {
-			return errors.Annotatef(err, "configuring charm memory constraint for %s", appName)
+			return errors.Annotatef(err, "configuring charm container memory constraint for %s", appName)
 		}
 	}
 	return nil

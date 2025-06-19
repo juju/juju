@@ -360,8 +360,8 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 		},
 		Constraints: cons,
 		CharmConstraints: constraints.CharmValue{
-			MemRequest: uint64Ptr(64),  // 100Mi
-			MemLimit:   uint64Ptr(256), // 100Mi
+			MemRequest: uint64Ptr(64),
+			MemLimit:   uint64Ptr(256),
 		},
 		InitialScale: 3,
 		Trust:        trust,
@@ -2922,7 +2922,11 @@ func (s *applicationSuite) TestPVCNames(c *gc.C) {
 }
 
 func (s *applicationSuite) TestLimits(c *gc.C) {
-	limits := corev1.ResourceList{
+	charmLimits := corev1.ResourceList{
+		corev1.ResourceMemory: *k8sresource.NewQuantity(256*1024*1024, k8sresource.BinarySI),
+	}
+
+	workloadLimits := corev1.ResourceList{
 		corev1.ResourceCPU:    *k8sresource.NewMilliQuantity(1000, k8sresource.DecimalSI),
 		corev1.ResourceMemory: *k8sresource.NewQuantity(1024*1024*1024, k8sresource.BinarySI),
 	}
@@ -2933,7 +2937,11 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			for _, ctr := range ss.Spec.Template.Spec.Containers {
-				c.Check(ctr.Resources.Limits, gc.DeepEquals, limits)
+				if ctr.Name == "charm" {
+					c.Check(ctr.Resources.Limits, gc.DeepEquals, charmLimits)
+				} else {
+					c.Check(ctr.Resources.Limits, gc.DeepEquals, workloadLimits)
+				}
 			}
 		},
 	)

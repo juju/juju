@@ -128,7 +128,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 		return result, errors.Trace(err)
 	}
 
-	// Hardcode charm mem constraints to 64MB
+	// Hardcode charm mem constraints to 64Mi, limit to 256Mi.
 	result.CharmConstraints = constraints.CharmValue{
 		MemRequest: intPtr(64),
 		MemLimit:   intPtr(256),
