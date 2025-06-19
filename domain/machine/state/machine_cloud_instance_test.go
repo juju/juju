@@ -21,14 +21,14 @@ import (
 func (s *stateSuite) TestGetHardwareCharacteristicsWithNoData(c *tc.C) {
 	machineUUID := coremachinetesting.GenUUID(c)
 
-	_, err := s.state.HardwareCharacteristics(c.Context(), machineUUID)
+	_, err := s.state.GetHardwareCharacteristics(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 
 func (s *stateSuite) TestGetHardwareCharacteristics(c *tc.C) {
 	machineUUID := s.ensureInstance(c, "42")
 
-	hc, err := s.state.HardwareCharacteristics(c.Context(), machineUUID)
+	hc, err := s.state.GetHardwareCharacteristics(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*hc.Arch, tc.Equals, "arm64")
 	c.Check(*hc.Mem, tc.Equals, uint64(1024))
@@ -68,7 +68,7 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *tc
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	hc, err := s.state.HardwareCharacteristics(c.Context(), machineUUID)
+	hc, err := s.state.GetHardwareCharacteristics(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*hc.Arch, tc.Equals, "arm64")
 	c.Check(*hc.Mem, tc.Equals, uint64(1024))
@@ -361,7 +361,7 @@ func (s *stateSuite) TestDeleteInstanceDataWithStatus(c *tc.C) {
 func (s *stateSuite) TestInstanceIdSuccess(c *tc.C) {
 	machineUUID := s.ensureInstance(c, "666")
 
-	instanceId, err := s.state.InstanceID(c.Context(), machineUUID)
+	instanceId, err := s.state.GetInstanceID(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceId, tc.Equals, "123")
 }
@@ -370,14 +370,14 @@ func (s *stateSuite) TestInstanceIdError(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.InstanceID(c.Context(), "666")
+	_, err = s.state.GetInstanceID(c.Context(), "666")
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 
 func (s *stateSuite) TestInstanceNameSuccess(c *tc.C) {
 	machineUUID := s.ensureInstance(c, "666")
 
-	instanceID, displayName, err := s.state.InstanceIDAndName(c.Context(), machineUUID)
+	instanceID, displayName, err := s.state.GetInstanceIDAndName(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instanceID, tc.Equals, "123")
 	c.Assert(displayName, tc.Equals, "one-two-three")
@@ -387,7 +387,7 @@ func (s *stateSuite) TestInstanceNameError(c *tc.C) {
 	err := s.state.CreateMachine(c.Context(), "666", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, _, err = s.state.InstanceIDAndName(c.Context(), "666")
+	_, _, err = s.state.GetInstanceIDAndName(c.Context(), "666")
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 

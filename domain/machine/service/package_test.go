@@ -3,4 +3,5 @@
 
 package service
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go -source=./service.go
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination state_mock_test.go -source=./service.go
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination migration_mock_test.go -source=./migration.go

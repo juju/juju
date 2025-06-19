@@ -288,12 +288,12 @@ type NetworkService interface {
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// InstanceIDAndName returns the cloud specific instance ID and display name for
-	// this machine.
-	InstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
+	// GetInstanceIDAndName returns the cloud specific instance ID and display
+	// name for this machine.
+	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
 }
 
 // StatusService returns the status of a applications, and units and machines.
@@ -311,13 +311,15 @@ type StatusService interface {
 	// GetModelStatus returns the current status of the model.
 	//
 	// The following error types can be expected to be returned:
-	// / - [github.com/juju/juju/domain/model/errors.NotFound]: When the model no longer exists.
+	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model no
+	// longer exists.
 	GetModelStatus(ctx context.Context) (corestatus.StatusInfo, error)
 }
 
 // SecretBackendService is an interface for interacting with secret backend service.
 type SecretBackendService interface {
-	// BackendSummaryInfoForModel returns a summary of the secret backends for a model.
+	// BackendSummaryInfoForModel returns a summary of the secret backends for a
+	// model.
 	BackendSummaryInfoForModel(ctx context.Context, modelUUID coremodel.UUID) ([]*secretbackendservice.SecretBackendInfo, error)
 }
 

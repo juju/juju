@@ -793,7 +793,7 @@ func (c *statusContext) makeMachineStatus(
 	if err != nil {
 		logger.Debugf(ctx, "error retrieving uuid for machine: %q, %w", machineID, err)
 	} else {
-		instid, displayName, err = machineService.InstanceIDAndName(ctx, machineUUID)
+		instid, displayName, err = machineService.GetInstanceIDAndName(ctx, machineUUID)
 		if err != nil && !internalerrors.Is(err, machineerrors.NotProvisioned) {
 			logger.Debugf(ctx, "error retrieving instance ID and display name for machine: %q, %w", machineID, err)
 		}
@@ -874,7 +874,7 @@ func (c *statusContext) makeMachineStatus(
 	constraints := c.machineConstraints.Machine(machineID)
 	status.Constraints = constraints.String()
 
-	hc, err := machineService.HardwareCharacteristics(ctx, machineUUID)
+	hc, err := machineService.GetHardwareCharacteristics(ctx, machineUUID)
 	if internalerrors.Is(err, machineerrors.NotProvisioned) {
 		logger.Debugf(ctx, "can't retrieve hardware characteristics of machine %q: not provisioned", machineUUID)
 	}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -45,15 +46,21 @@ func (s *exportSuite) TestFailGetInstanceIDForExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
+
 	machineNames := []coremachine.Name{"deadbeef"}
+	machineUUIDs := []coremachine.UUID{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
+
 	dst.AddMachine(description.MachineArgs{
 		Id: string(machineNames[0]),
 	})
 
-	machineUUIDs := []coremachine.UUID{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
-	s.service.EXPECT().GetMachineUUID(gomock.Any(), machineNames[0]).
-		Return(machineUUIDs[0], nil)
-	s.service.EXPECT().InstanceID(gomock.Any(), machineUUIDs[0]).
+	s.service.EXPECT().GetMachines(gomock.Any()).Return([]machine.ExportMachine{
+		{
+			Name: machineNames[0],
+			UUID: machineUUIDs[0],
+		},
+	}, nil)
+	s.service.EXPECT().GetInstanceID(gomock.Any(), machineUUIDs[0]).
 		Return("", errors.New("boom"))
 
 	op := s.newExportOperation(c)
@@ -65,17 +72,23 @@ func (s *exportSuite) TestFailGetHardwareCharacteristicsForExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
+
 	machineNames := []coremachine.Name{"deadbeef"}
+	machineUUIDs := []coremachine.UUID{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
+
 	dst.AddMachine(description.MachineArgs{
 		Id: string(machineNames[0]),
 	})
 
-	machineUUIDs := []coremachine.UUID{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
-	s.service.EXPECT().GetMachineUUID(gomock.Any(), machineNames[0]).
-		Return(machineUUIDs[0], nil)
-	s.service.EXPECT().InstanceID(gomock.Any(), machineUUIDs[0]).
+	s.service.EXPECT().GetMachines(gomock.Any()).Return([]machine.ExportMachine{
+		{
+			Name: machineNames[0],
+			UUID: machineUUIDs[0],
+		},
+	}, nil)
+	s.service.EXPECT().GetInstanceID(gomock.Any(), machineUUIDs[0]).
 		Return("inst-0", nil)
-	s.service.EXPECT().HardwareCharacteristics(gomock.Any(), machineUUIDs[0]).
+	s.service.EXPECT().GetHardwareCharacteristics(gomock.Any(), machineUUIDs[0]).
 		Return(nil, errors.New("boom"))
 
 	op := s.newExportOperation(c)
@@ -87,16 +100,23 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
+
 	machineNames := []coremachine.Name{"deadbeef"}
+	machineUUIDs := []coremachine.UUID{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
+
 	dst.AddMachine(description.MachineArgs{
 		Id: string(machineNames[0]),
 	})
 
-	machineUUIDs := []coremachine.UUID{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
-	s.service.EXPECT().InstanceID(gomock.Any(), machineUUIDs[0]).
+	s.service.EXPECT().GetInstanceID(gomock.Any(), machineUUIDs[0]).
 		Return("inst-0", nil)
-	s.service.EXPECT().GetMachineUUID(gomock.Any(), machineNames[0]).
-		Return(machineUUIDs[0], nil)
+	s.service.EXPECT().GetMachines(gomock.Any()).Return([]machine.ExportMachine{
+		{
+			Name:  machineNames[0],
+			UUID:  machineUUIDs[0],
+			Nonce: "a nonce",
+		},
+	}, nil)
 	tags := []string{"tag0", "tag1"}
 	hc := instance.HardwareCharacteristics{
 		Arch:             ptr("amd64"),
@@ -109,7 +129,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 		AvailabilityZone: ptr("az-1"),
 		VirtType:         ptr("vm"),
 	}
-	s.service.EXPECT().HardwareCharacteristics(gomock.Any(), machineUUIDs[0]).
+	s.service.EXPECT().GetHardwareCharacteristics(gomock.Any(), machineUUIDs[0]).
 		Return(&hc, nil)
 
 	op := s.newExportOperation(c)
@@ -117,8 +137,10 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	actualMachines := dst.Machines()
-	c.Check(len(actualMachines), tc.Equals, 1)
+	c.Assert(actualMachines, tc.HasLen, 1)
+
 	c.Check(actualMachines[0].Id(), tc.Equals, machineNames[0].String())
+	c.Check(actualMachines[0].Nonce(), tc.Equals, "a nonce")
 
 	cloudInstance := actualMachines[0].Instance()
 	c.Check(cloudInstance.Architecture(), tc.Equals, "amd64")

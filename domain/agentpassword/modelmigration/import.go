@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/description/v9"
 
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/modelmigration"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
@@ -35,6 +36,8 @@ type importOperation struct {
 type ImportService interface {
 	// SetUnitPasswordHash sets the password hash for the given unit.
 	SetUnitPasswordHash(ctx context.Context, unitName coreunit.Name, passwordHash agentpassword.PasswordHash) error
+	// SetMachinePasswordHash sets the password hash for the given machine.
+	SetMachinePasswordHash(ctx context.Context, machineName coremachine.Name, passwordHash agentpassword.PasswordHash) error
 }
 
 // Name returns the name of this operation.
@@ -64,6 +67,19 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			if err := i.service.SetUnitPasswordHash(ctx, coreunit.Name(unitName), agentpassword.PasswordHash(passwordHash)); err != nil {
 				return errors.Errorf("setting password hash for unit %q: %w", unit.Name(), err)
 			}
+		}
+	}
+
+	for _, machine := range model.Machines() {
+		passwordHash := machine.PasswordHash()
+		if passwordHash == "" {
+			continue
+		}
+
+		machineName := machine.Id()
+
+		if err := i.service.SetMachinePasswordHash(ctx, coremachine.Name(machineName), agentpassword.PasswordHash(passwordHash)); err != nil {
+			return errors.Errorf("setting password hash for machine %q: %w", machineName, err)
 		}
 	}
 

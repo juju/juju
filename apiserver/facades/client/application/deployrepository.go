@@ -754,7 +754,7 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(ctx context.Contex
 			}
 			return nil, false, err
 		}
-		hc, err := v.machineService.HardwareCharacteristics(ctx, machineUUID)
+		hc, err := v.machineService.GetHardwareCharacteristics(ctx, machineUUID)
 		if err != nil {
 			return nil, false, err
 		}

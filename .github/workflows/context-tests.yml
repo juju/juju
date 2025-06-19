@@ -141,13 +141,13 @@ jobs:
           shell: bash
           run: |
             # TODO - add terraform once ready.
-            # && ${{ needs.migrate.result == 'success' || needs.migrate.result == 'skipped' }} \
 
             if ${{ needs.build.result == 'success' || needs.build.result == 'skipped' }} \
                 && ${{ needs.snap.result == 'success' || needs.snap.result == 'skipped' }} \
                 && ${{ needs.generate.result == 'success' || needs.generate.result == 'skipped' }} \
                 && ${{ needs.docs.result == 'success' || needs.docs.result == 'skipped' }} \
                 && ${{ needs.client.result == 'success' || needs.client.result == 'skipped' }} \
+                && ${{ needs.migrate.result == 'success' || needs.migrate.result == 'skipped' }} \
                 && ${{ needs.terraform.result != 'fix me' || needs.terraform.result == 'skipped' }} \
                 && ${{ needs.upgrade.result == 'success' || needs.upgrade.result == 'skipped' }}; then
               exit 0

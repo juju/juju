@@ -825,7 +825,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 				if err != nil {
 					return params.VolumeParams{}, err
 				}
-				instanceId, err = s.machineService.InstanceID(ctx, machineUUID)
+				instanceId, err = s.machineService.GetInstanceID(ctx, machineUUID)
 				if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 					return params.VolumeParams{}, err
 				}
@@ -1046,7 +1046,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
 			if err != nil {
 				return params.VolumeAttachmentParams{}, err
 			}
-			instanceId, err = s.machineService.InstanceID(ctx, machineUUID)
+			instanceId, err = s.machineService.GetInstanceID(ctx, machineUUID)
 			if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 				return params.VolumeAttachmentParams{}, err
 			}
@@ -1132,7 +1132,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 			if err != nil {
 				return params.FilesystemAttachmentParams{}, err
 			}
-			instanceId, err = s.machineService.InstanceID(ctx, machineUUID)
+			instanceId, err = s.machineService.GetInstanceID(ctx, machineUUID)
 			if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 				return params.FilesystemAttachmentParams{}, errors.Trace(err)
 			}
@@ -1431,7 +1431,7 @@ func (s *StorageProvisionerAPIv4) CreateVolumeAttachmentPlans(ctx context.Contex
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if _, err := s.machineService.InstanceID(ctx, machineUUID); err != nil {
+		if _, err := s.machineService.GetInstanceID(ctx, machineUUID); err != nil {
 			return errors.Trace(err)
 		}
 		err = s.sb.CreateVolumeAttachmentPlan(machineTag, volumeTag, planInfo)
@@ -1468,7 +1468,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(ctx context.C
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if _, err := s.machineService.InstanceID(ctx, machineUUID); err != nil {
+		if _, err := s.machineService.GetInstanceID(ctx, machineUUID); err != nil {
 			return errors.Trace(err)
 		}
 		err = s.sb.SetVolumeAttachmentPlanBlockInfo(machineTag, volumeTag, blockInfo)
@@ -1510,7 +1510,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentInfo(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		_, err = s.machineService.InstanceID(ctx, machineUUID)
+		_, err = s.machineService.GetInstanceID(ctx, machineUUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {
 			return apiservererrors.ServerError(errors.NotProvisionedf("machine %s", machineTag.Id()))
 		}
@@ -1556,7 +1556,7 @@ func (s *StorageProvisionerAPIv4) SetFilesystemAttachmentInfo(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		_, err = s.machineService.InstanceID(ctx, machineUUID)
+		_, err = s.machineService.GetInstanceID(ctx, machineUUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {
 			return apiservererrors.ServerError(errors.NotProvisionedf("machine %s", machineTag.Id()))
 		}

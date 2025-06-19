@@ -77,14 +77,14 @@ type BlockDeviceService interface {
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, machineUUID machine.UUID) (instance.Id, error)
-	// InstanceIDAndName returns the cloud specific instance ID and display name
-	// for this machine.
-	InstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
+	// GetInstanceID returns the cloud specific instance id for this machine.
+	GetInstanceID(ctx context.Context, machineUUID machine.UUID) (instance.Id, error)
+	// GetInstanceIDAndName returns the cloud specific instance ID and display
+	// name for this machine.
+	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
 	// AppliedLXDProfiles returns the names of the LXD profiles on the machine.
 	AppliedLXDProfileNames(ctx context.Context, machineUUID machine.UUID) ([]string, error)
 }

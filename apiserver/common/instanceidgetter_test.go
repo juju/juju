@@ -46,11 +46,11 @@ func (s *instanceIdGetterSuite) TestInstanceId(c *tc.C) {
 		}, nil
 	}
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("x/0")).Return("uuid-0", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid-0")).Return("foo", nil)
+	s.machineService.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("uuid-0")).Return("foo", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("x/2")).Return("uuid-2", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid-2")).Return("", errors.New("x2 error"))
+	s.machineService.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("uuid-2")).Return("", errors.New("x2 error"))
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("x/3")).Return("uuid-3", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid-3")).Return("", errors.New("x3 error"))
+	s.machineService.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("uuid-3")).Return("", errors.New("x3 error"))
 	ig := common.NewInstanceIdGetter(s.machineService, getCanRead)
 	entities := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"}, {Tag: "unit-x-4"},

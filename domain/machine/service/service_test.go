@@ -311,10 +311,10 @@ func (s *serviceSuite) TestListAllMachinesError(c *tc.C) {
 func (s *serviceSuite) TestInstanceIdSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d")).Return("123", nil)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d")).Return("123", nil)
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		InstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
+		GetInstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(instanceId, tc.Equals, instance.Id("123"))
 }
@@ -325,10 +325,10 @@ func (s *serviceSuite) TestInstanceIdError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d")).Return("", rErr)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d")).Return("", rErr)
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		InstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
+		GetInstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Check(err, tc.ErrorIs, rErr)
 	c.Check(instanceId, tc.Equals, instance.UnknownId)
 }
@@ -340,10 +340,10 @@ func (s *serviceSuite) TestInstanceIdError(c *tc.C) {
 func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d")).Return("", machineerrors.NotProvisioned)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d")).Return("", machineerrors.NotProvisioned)
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		InstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
+		GetInstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Check(err, tc.ErrorIs, machineerrors.NotProvisioned)
 	c.Check(instanceId, tc.Equals, instance.UnknownId)
 }

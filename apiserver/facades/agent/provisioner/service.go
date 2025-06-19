@@ -85,12 +85,12 @@ type MachineService interface {
 	// list of profiles for the given machine without any checks.
 	SetAppliedLXDProfileNames(ctx context.Context, mUUID coremachine.UUID, profileNames []string) error
 
-	// HardwareCharacteristics returns the hardware characteristics of the
+	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
 
-	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID coremachine.UUID) (instance.Id, error)
+	// GetInstanceID returns the cloud specific instance id for this machine.
+	GetInstanceID(ctx context.Context, mUUID coremachine.UUID) (instance.Id, error)
 
 	// IsMachineManuallyProvisioned returns whether the machine is a manual
 	// machine.

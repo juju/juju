@@ -109,9 +109,9 @@ type MachineService interface {
 	SetKeepInstance(ctx context.Context, machineName coremachine.Name, keep bool) error
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (coremachine.UUID, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
+	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
 }
 
 // ApplicationService is the interface that is used to interact with

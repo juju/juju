@@ -1638,6 +1638,45 @@ func (c *MockMachineServiceGetBootstrapEnvironCall) DoAndReturn(f func(context.C
 	return c
 }
 
+// GetHardwareCharacteristics mocks base method.
+func (m *MockMachineService) GetHardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHardwareCharacteristics", arg0, arg1)
+	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHardwareCharacteristics indicates an expected call of GetHardwareCharacteristics.
+func (mr *MockMachineServiceMockRecorder) GetHardwareCharacteristics(arg0, arg1 any) *MockMachineServiceGetHardwareCharacteristicsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHardwareCharacteristics", reflect.TypeOf((*MockMachineService)(nil).GetHardwareCharacteristics), arg0, arg1)
+	return &MockMachineServiceGetHardwareCharacteristicsCall{Call: call}
+}
+
+// MockMachineServiceGetHardwareCharacteristicsCall wrap *gomock.Call
+type MockMachineServiceGetHardwareCharacteristicsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceGetHardwareCharacteristicsCall) Return(arg0 *instance.HardwareCharacteristics, arg1 error) *MockMachineServiceGetHardwareCharacteristicsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceGetHardwareCharacteristicsCall) Do(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockMachineServiceGetHardwareCharacteristicsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceGetHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockMachineServiceGetHardwareCharacteristicsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetInstanceTypesFetcher mocks base method.
 func (m *MockMachineService) GetInstanceTypesFetcher(arg0 context.Context) (environs.InstanceTypesFetcher, error) {
 	m.ctrl.T.Helper()
@@ -1712,45 +1751,6 @@ func (c *MockMachineServiceGetMachineUUIDCall) Do(f func(context.Context, machin
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (machine.UUID, error)) *MockMachineServiceGetMachineUUIDCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// HardwareCharacteristics mocks base method.
-func (m *MockMachineService) HardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HardwareCharacteristics", arg0, arg1)
-	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// HardwareCharacteristics indicates an expected call of HardwareCharacteristics.
-func (mr *MockMachineServiceMockRecorder) HardwareCharacteristics(arg0, arg1 any) *MockMachineServiceHardwareCharacteristicsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HardwareCharacteristics", reflect.TypeOf((*MockMachineService)(nil).HardwareCharacteristics), arg0, arg1)
-	return &MockMachineServiceHardwareCharacteristicsCall{Call: call}
-}
-
-// MockMachineServiceHardwareCharacteristicsCall wrap *gomock.Call
-type MockMachineServiceHardwareCharacteristicsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceHardwareCharacteristicsCall) Return(arg0 *instance.HardwareCharacteristics, arg1 error) *MockMachineServiceHardwareCharacteristicsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceHardwareCharacteristicsCall) Do(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockMachineServiceHardwareCharacteristicsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockMachineServiceHardwareCharacteristicsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -271,7 +271,7 @@ func (api *ProvisionerAPI) getInstanceID(ctx context.Context, machineID string) 
 	if err != nil {
 		return "", err
 	}
-	return api.machineService.InstanceID(ctx, machineUUID)
+	return api.machineService.GetInstanceID(ctx, machineUUID)
 }
 
 func (api *ProvisionerAPI) watchOneMachineContainers(ctx context.Context, arg params.WatchContainer) (params.StringsWatchResult, error) {
@@ -527,7 +527,7 @@ func (api *ProvisionerAPI) AvailabilityZone(ctx context.Context, args params.Ent
 			result.Results[i].Error = apiservererrors.ServerError(fmt.Errorf("%w: %w", err, errors.NotFound))
 			continue
 		}
-		hc, err := api.machineService.HardwareCharacteristics(ctx, machineUUID)
+		hc, err := api.machineService.GetHardwareCharacteristics(ctx, machineUUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFound)
 			continue
