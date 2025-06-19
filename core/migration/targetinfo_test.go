@@ -64,12 +64,13 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		},
 		"",
 	}, {
-		"Password & Macaroons",
+		"Empty Password, Macaroons & Token",
 		func(info *migration.TargetInfo) {
 			info.Password = ""
 			info.Macaroons = nil
+			info.Token = ""
 		},
-		"missing Password & Macaroons not valid",
+		"missing Password, Macaroons or Token not valid",
 	}, {
 		"Success - empty Password",
 		func(info *migration.TargetInfo) {
@@ -80,6 +81,27 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		"Success - empty Macaroons",
 		func(info *migration.TargetInfo) {
 			info.Macaroons = nil
+		},
+		"",
+	}, {
+		"Success - empty Macaroons and Token",
+		func(info *migration.TargetInfo) {
+			info.Macaroons = nil
+			info.Token = ""
+		},
+		"",
+	}, {
+		"Success - empty Macaroons and Password",
+		func(info *migration.TargetInfo) {
+			info.Macaroons = nil
+			info.Password = ""
+		},
+		"",
+	}, {
+		"Success - empty Password and Token",
+		func(info *migration.TargetInfo) {
+			info.Password = ""
+			info.Token = ""
 		},
 		"",
 	}, {
@@ -118,5 +140,6 @@ func makeValidTargetInfo(c *gc.C) migration.TargetInfo {
 		AuthTag:       names.NewUserTag("user"),
 		Password:      "password",
 		Macaroons:     []macaroon.Slice{{mac}},
+		Token:         "token",
 	}
 }

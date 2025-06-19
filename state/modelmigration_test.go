@@ -52,6 +52,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 			AuthTag:         names.NewUserTag("user"),
 			Password:        "password",
 			Macaroons:       []macaroon.Slice{{mac}},
+			Token:           "token",
 		},
 	}
 	// Before we get into the tests, ensure that all the creation events have flowed through the system.

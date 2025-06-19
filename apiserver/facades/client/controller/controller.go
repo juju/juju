@@ -670,6 +670,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		AuthTag:         authTag,
 		Password:        specTarget.Password,
 		Macaroons:       macs,
+		Token:           specTarget.Token,
 	}
 
 	// Check if the migration is likely to succeed.
@@ -838,7 +839,8 @@ var runMigrationPreChecks = func(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	targetConn, err := api.Open(targetToAPIInfo(targetInfo), migration.ControllerDialOpts())
+	loginProvider := migration.NewLoginProvider(*targetInfo)
+	targetConn, err := api.Open(targetToAPIInfo(targetInfo), migration.ControllerDialOpts(loginProvider))
 	if err != nil {
 		return errors.Annotate(err, "connect to target controller")
 	}
