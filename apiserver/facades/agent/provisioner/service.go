@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -99,7 +98,7 @@ type MachineService interface {
 
 	// GetSupportedContainersTypes returns the supported container types for the
 	// provider.
-	GetSupportedContainersTypes(ctx context.Context, mUUID machine.UUID) ([]instance.ContainerType, error)
+	GetSupportedContainersTypes(ctx context.Context, mUUID coremachine.UUID) ([]instance.ContainerType, error)
 }
 
 // StoragePoolGetter instances get a storage pool by name.

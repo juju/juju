@@ -11,7 +11,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/architecture"
@@ -436,7 +435,7 @@ func insertContainerType(
 	ctx context.Context,
 	tx *sqlair.TX,
 	preparer domain.Preparer,
-	mUUID machine.UUID,
+	mUUID coremachine.UUID,
 ) error {
 	createContainerTypeQuery := `
 INSERT INTO machine_container_type (*)

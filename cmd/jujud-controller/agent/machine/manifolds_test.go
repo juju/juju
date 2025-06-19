@@ -105,6 +105,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"logging-config-updater",
 			"lxd-container-provisioner",
 			"machine-action-runner",
+			"machine-setup",
 			"machiner",
 			"migration-fortress",
 			"migration-inactive-flag",
@@ -1100,6 +1101,18 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"machine-action-runner": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"machine-setup": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",

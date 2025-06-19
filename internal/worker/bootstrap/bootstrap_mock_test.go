@@ -1481,44 +1481,6 @@ func (c *MockMachineServiceSetMachineCloudInstanceCall) DoAndReturn(f func(conte
 	return c
 }
 
-// SetMachineHostname mocks base method.
-func (m *MockMachineService) SetMachineHostname(arg0 context.Context, arg1 machine.UUID, arg2 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetMachineHostname", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetMachineHostname indicates an expected call of SetMachineHostname.
-func (mr *MockMachineServiceMockRecorder) SetMachineHostname(arg0, arg1, arg2 any) *MockMachineServiceSetMachineHostnameCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineHostname", reflect.TypeOf((*MockMachineService)(nil).SetMachineHostname), arg0, arg1, arg2)
-	return &MockMachineServiceSetMachineHostnameCall{Call: call}
-}
-
-// MockMachineServiceSetMachineHostnameCall wrap *gomock.Call
-type MockMachineServiceSetMachineHostnameCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceSetMachineHostnameCall) Return(arg0 error) *MockMachineServiceSetMachineHostnameCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceSetMachineHostnameCall) Do(f func(context.Context, machine.UUID, string) error) *MockMachineServiceSetMachineHostnameCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceSetMachineHostnameCall) DoAndReturn(f func(context.Context, machine.UUID, string) error) *MockMachineServiceSetMachineHostnameCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockAgentPasswordService is a mock of AgentPasswordService interface.
 type MockAgentPasswordService struct {
 	ctrl     *gomock.Controller
