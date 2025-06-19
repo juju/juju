@@ -161,7 +161,7 @@ func (d *deployCharm) deploy(
 
 	if errors.IsAlreadyExists(err) {
 		// Would be nice to be able to access the app name here
-		return errors.Wrapf(err, errors.Errorf(`
+		return errors.Wrapf(err, errors.New(`
 deploy application using an alias name:
     juju deploy <application> <alias>
 or use remove-application to remove the existing one and try again.`,
@@ -497,8 +497,8 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 			channel = fmt.Sprintf(" in channel %s", channel)
 		}
 
-		ctx.Infof("%s", fmt.Sprintf("%q from %s charm %q, revision %d%s on %s would be deployed",
-			name, origin.Source, curl.Name, curl.Revision, channel, origin.Base.DisplayString()))
+		ctx.Infof("%q from %s charm %q, revision %d%s on %s would be deployed",
+			name, origin.Source, curl.Name, curl.Revision, channel, origin.Base.DisplayString())
 		return nil
 	}
 

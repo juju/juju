@@ -144,7 +144,7 @@ func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
 	s.storageAccessor.storageInstanceAttachments = func(tag names.StorageTag) ([]state.StorageAttachment, error) {
 		s.stub.AddCall(storageInstanceAttachmentsCall)
 		c.Assert(tag, jc.DeepEquals, s.storageTag)
-		return []state.StorageAttachment{}, errors.Errorf("list test error")
+		return []state.StorageAttachment{}, errors.New("list test error")
 	}
 
 	found, err := s.api.ListStorageDetails(

@@ -99,7 +99,7 @@ func ProcessBlockedError(err error, block Block) error {
 	}
 	if params.IsCodeOperationBlocked(err) {
 		msg := fmt.Sprintf("%v\n%v", err, blockedMessages[block])
-		logger.Infof(msg)
+		logger.Infof("%s", msg)
 		return errors.New(msg)
 	}
 	return err
