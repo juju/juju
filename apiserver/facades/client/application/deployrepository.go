@@ -162,7 +162,6 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 
 	applicationArg := applicationservice.AddApplicationArgs{
 		ReferenceName: dt.charmURL.Name,
-		Storage:       dt.storage,
 		// We always have download info for a charm from the charmhub store.
 		DownloadInfo: &applicationcharm.DownloadInfo{
 			Provenance:         applicationcharm.ProvenanceDownload,
