@@ -33,12 +33,10 @@ import (
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
-	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Provider defines the interface for interacting with the underlying model

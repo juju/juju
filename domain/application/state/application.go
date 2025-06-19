@@ -40,37 +40,11 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
-	domainstorage "github.com/juju/juju/domain/storage"
-	storagestate "github.com/juju/juju/domain/storage/state"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
-
-// GetModelType returns the model type for the underlying model. If the model
-// does not exist then an error satisfying [modelerrors.NotFound] will be
-// returned.
-// Deprecated: This method will be removed, as there should be no need to
-// determine the model type from the state or service. That's an artifact of
-// the caller to call the correct methods.
-func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
-	db, err := st.DB()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	var modelType coremodel.ModelType
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		modelType, err = st.getModelType(ctx, tx)
-		return err
-	}); err != nil {
-		return "", errors.Errorf("querying model type: %w", err)
-
-	}
-	return modelType, nil
-}
 
 // Deprecated: This method will be removed, as there should be no need to
 // determine the model type from the state or service. That's an artifact of
@@ -620,94 +594,6 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		}
 	}
 	return nil
-}
-
-// StorageDefaults returns the default storage sources for a model.
-func (st *State) StorageDefaults(ctx context.Context) (domainstorage.StorageDefaults, error) {
-	rval := domainstorage.StorageDefaults{}
-
-	db, err := st.DB()
-	if err != nil {
-		return rval, errors.Capture(err)
-	}
-
-	attrs := []string{application.StorageDefaultBlockSourceKey, application.StorageDefaultFilesystemSourceKey}
-	attrsSlice := sqlair.S(transform.Slice(attrs, func(s string) any { return any(s) }))
-	stmt, err := st.Prepare(`
-SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
-`, sqlair.S{}, KeyValue{})
-	if err != nil {
-		return rval, errors.Capture(err)
-	}
-
-	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var values []KeyValue
-		err := tx.Query(ctx, stmt, attrsSlice).GetAll(&values)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return nil
-			}
-			return errors.Errorf("getting model config attrs for storage defaults: %w", err)
-		}
-
-		for _, kv := range values {
-			switch k := kv.Key; k {
-			case application.StorageDefaultBlockSourceKey:
-				v := fmt.Sprint(kv.Value)
-				rval.DefaultBlockSource = &v
-			case application.StorageDefaultFilesystemSourceKey:
-				v := fmt.Sprint(kv.Value)
-				rval.DefaultFilesystemSource = &v
-			}
-		}
-		return nil
-	})
-}
-
-// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
-// The following errors can be expected:
-// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-func (st *State) GetStoragePoolUUID(
-	ctx context.Context,
-	name string,
-) (domainstorage.StoragePoolUUID, error) {
-	db, err := st.DB()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	var poolUUID domainstorage.StoragePoolUUID
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		poolUUID, err = storagestate.GetStoragePoolUUID(ctx, tx, st, name)
-		return err
-	})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	return poolUUID, nil
-}
-
-// GetStoragePool returns the storage pool for the specified UUID.
-// The following errors can be expected:
-// - [storageerrors.PoolNotFoundError] if a pool with the specified UUID does not exist.
-func (st *State) GetStoragePool(
-	ctx context.Context,
-	poolUUID domainstorage.StoragePoolUUID,
-) (domainstorage.StoragePool, error) {
-	db, err := st.DB()
-	if err != nil {
-		return domainstorage.StoragePool{}, errors.Capture(err)
-	}
-
-	var pool domainstorage.StoragePool
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		pool, err = storagestate.GetStoragePool(ctx, tx, st, poolUUID)
-		return err
-	})
-	if err != nil {
-		return domainstorage.StoragePool{}, errors.Capture(err)
-	}
-	return pool, nil
 }
 
 // GetUnitLife looks up the life of the specified unit, returning an error

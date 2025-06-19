@@ -221,8 +221,6 @@ type unitStorageDirective struct {
 	UnitUUID        coreunit.UUID
 }
 
-func (st *State) checkCharmStorageSupportsNames()
-
 // createUnitStorageDirectives is responisble for creating the storage
 // directives for a unit. This func assumes that no storage directives exist
 // already for the unit.
@@ -699,6 +697,19 @@ AND    cs.name = $unitCharmStorage.name
 	return result, nil
 }
 
+// GetDefaultStorageProvisioners returns the default storage provisioners
+// that have been set for the model.
+func (st *State) GetDefaultStorageProvisioners(
+	ctx context.Context,
+) (application.DefaultStorageProvisioners, error) {
+	// TODO (tlm) get the default storage provisioners for the model.
+	defaultProviderType := "loop"
+	return application.DefaultStorageProvisioners{
+		BlockdeviceProviderType: &defaultProviderType,
+		FilesystemProviderType:  &defaultProviderType,
+	}, nil
+}
+
 // ensureCharmStorageCountChange checks that the charm storage can change by
 // the specified (positive or negative) increment. This is a backstop - the service
 // should already have performed the necessary validation.
@@ -759,7 +770,7 @@ WHERE  uuid = $storageUnit.storage_instance_uuid
 	// that needs to be reconciled with the Juju model. It is part of the
 	// UnitIntroduction workflow when a pod appears with volumes already attached.
 	// TODO - this can be removed when ObservedAttachedVolumeIDs are processed.
-	modelType, err := st.GetModelType(ctx)
+	modelType, err := st.getModelType(ctx, tx)
 	if err != nil {
 		return errors.Errorf("getting model type: %w", err)
 	}
