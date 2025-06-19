@@ -278,27 +278,19 @@ AND (
 }
 
 // removeSubnets removes subnets from the subnet table.
+// Subnets should not be linked to a provider subnet id nor a provider network
+// id, or this function will fails.
+// This function works only for subnet which are not related to any provider
+// (such as placeholder subnet we created for addresses belonging to unknown
+// subnets)
 func (st *State) removeSubnets(
 	ctx context.Context, tx *sqlair.TX,
 	subnetUUIDs []string,
 ) error {
 	type uuids []string
 
-	// First remove any provider network subnet mappings
+	// First remove any availability zone subnet mappings
 	stmt, err := st.Prepare(`
-DELETE FROM provider_network_subnet
-WHERE subnet_uuid IN ($uuids[:])
-`, uuids{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, stmt, uuids(subnetUUIDs)).Run()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Then remove any availability zone subnet mappings
-	stmt, err = st.Prepare(`
 DELETE FROM availability_zone_subnet
 WHERE subnet_uuid IN ($uuids[:])
 `, uuids{})
