@@ -152,20 +152,26 @@ func (s *linkLayerBaseSuite) addIPAddress(
 	s.query(c, `
 		INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id, is_secondary, is_shadow)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, addressUUID, deviceUUID, addressValue, netNodeUUID, nil, 0, 4, 1, 0,
+	`, addressUUID, deviceUUID, addressValue, netNodeUUID, nil, 0, 4, 0, 0,
 		false, false)
 
 	return addressUUID
 }
 
 // addProviderIPAddress adds a provider IP address to the database.
-func (s *linkLayerBaseSuite) addProviderIPAddress(
+func (s *mergeLinkLayerSuite) addProviderIPAddress(
 	c *tc.C, addressUUID, providerID string,
 ) {
 	s.query(c, `
 		INSERT INTO provider_ip_address (provider_id, address_uuid)
 		VALUES (?, ?)
 	`, providerID, addressUUID)
+
+	s.query(c, `
+UPDATE ip_address
+SET origin_id = (SELECT id FROM ip_address_origin WHERE name = 'provider')
+WHERE uuid = ?
+	`, addressUUID)
 }
 
 func (s *linkLayerBaseSuite) setLinkLayerDeviceParent(c *tc.C, childUUID string, parentUUID string) {

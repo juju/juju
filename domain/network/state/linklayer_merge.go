@@ -165,6 +165,7 @@ VALUES ($insert.provider_id, $insert.address_uuid)
 	if err != nil {
 		return errors.Capture(err)
 	}
+
 	for providerID, addressUUID := range add {
 		insert := insert{
 			ProviderID:  providerID,
@@ -174,7 +175,16 @@ VALUES ($insert.provider_id, $insert.address_uuid)
 			return errors.Capture(err)
 		}
 	}
-	return nil
+	// Update ip_address origin
+	type uuids []string
+	updateOriginStmt, err := st.Prepare(`
+UPDATE ip_address 
+SET origin_id = 1 -- set origin to provider
+WHERE uuid IN ($uuids[:])`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return tx.Query(ctx, updateOriginStmt, uuids(slices.Collect(maps.Values(add)))).Run()
 }
 
 // applyMergeLinkLayerChanges applies the changes to the link layer devices.
