@@ -398,9 +398,7 @@ func updateState(
 	if svc != nil {
 		err := applicationService.UpdateCloudService(
 			ctx, appName, svc.Id, svc.Addresses)
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
-			// Do nothing
-		} else if err != nil {
+		if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return nil, errors.Trace(err)
 		}
 		appStatus = params.EntityStatus{
