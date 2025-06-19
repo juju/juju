@@ -40,6 +40,9 @@ WHERE mci.instance_id IS NOT NULL AND mci.instance_id != '';`
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	result := make([]machine.ExportMachine, len(machines))
 	for i, m := range machines {

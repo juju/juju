@@ -53,6 +53,7 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisioned(c *tc.C) {
 		tx.ExecContext(c, `UPDATE machine SET password_hash = 'ssssh!' WHERE uuid = 'deadbeef'`)
 		return nil
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	machines, err := s.state.GetMachinesForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
