@@ -8,6 +8,9 @@ CREATE TABLE storage_pool (
     --   - Knowing every possible type up front to populate a look-up or;
     --   - Sourcing the lookup from the provider and keeping it updated. 
     type TEXT NOT NULL,
+    -- The origin sets to "user" by default for user created pools.
+    -- The "built-in" and "provider-default" origins are used
+    -- for pools that are created by the system when a model is created.
     origin_id INT NOT NULL DEFAULT 1,
     CONSTRAINT fk_storage_pool_origin
     FOREIGN KEY (origin_id)

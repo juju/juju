@@ -160,6 +160,8 @@ func ModelDDL() *schema.Schema {
 	// Generic triggers.
 	patches = append(patches,
 		triggersForImmutableTable("model", "", "model table is immutable, only insertions are allowed"),
+		// The "built-in" storage pools are immutable, it can only be inserted once.
+		triggersForImmutableTable("storage_pool", "OLD.origin_id = 2", "built-in storage_pools are immutable, only insertions are allowed"),
 
 		// The charm is unmodifiable.
 		// There is a lot of assumptions in the code that the charm is immutable
@@ -191,6 +193,13 @@ func ModelDDL() *schema.Schema {
 		triggerGuardForTable("sequence",
 			"OLD.namespace = NEW.namespace AND NEW.value <= OLD.value",
 			"sequence number must monotonically increase",
+		),
+
+		// Storage pool origin cannot be changed.
+		triggerGuardForTable(
+			"storage_pool",
+			"OLD.origin_id <> NEW.origin_id",
+			"storage pool origin cannot be changed",
 		),
 	)
 

@@ -574,6 +574,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_charm_resource_immutable_update",
 		"trg_charm_storage_immutable_update",
 		"trg_charm_term_immutable_update",
+
+		"trg_storage_pool_guard_update",
+		"trg_storage_pool_immutable_delete",
+		"trg_storage_pool_immutable_update",
 	)
 
 	got := readEntityNames(c, s.DB(), "trigger")
