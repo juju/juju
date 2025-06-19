@@ -9,6 +9,7 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -65,6 +66,10 @@ type StorageState interface {
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
 	DetachStorage(ctx context.Context, storageUUID corestorage.UUID) error
+
+	// GetDefaultStorageProvisioners returns the default storage provisioners
+	// that have been set for the model.
+	GetDefaultStorageProvisioners(ctx context.Context) (application.DefaultStorageProvisioners, error)
 }
 
 // StorageProviderValidator is an interface for defining the requirement of an

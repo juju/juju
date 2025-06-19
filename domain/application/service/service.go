@@ -37,10 +37,8 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
-	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
 )
 
 // MachineState defines the interface for interacting with the underlying
@@ -824,53 +822,6 @@ func isValidApplicationName(name string) bool {
 // and a valid charm name.
 func isValidReferenceName(name string) bool {
 	return isValidApplicationName(name) && isValidCharmName(name)
-}
-
-// addDefaultStorageDirectives fills in default values, replacing any empty/missing values
-// in the specified directives.
-func addDefaultStorageDirectives(
-	ctx context.Context,
-	state State,
-	modelType coremodel.ModelType,
-	allDirectives map[string]storage.Directive,
-	storage map[string]internalcharm.Storage,
-) (map[string]storage.Directive, error) {
-	defaults, err := state.StorageDefaults(ctx)
-	if err != nil {
-		return nil, errors.Errorf("getting storage defaults: %w", err)
-	}
-	return domainstorage.StorageDirectivesWithDefaults(storage, modelType, defaults, allDirectives)
-}
-
-func validateStorageDirectives(
-	ctx context.Context,
-	state State,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	modelType coremodel.ModelType,
-	allDirectives map[string]storage.Directive,
-	meta *internalcharm.Meta,
-) error {
-	registry, err := storageRegistryGetter.GetStorageRegistry(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, registry, state)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = validator.ValidateStorageDirectivesAgainstCharm(ctx, allDirectives, meta)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	// Ensure all stores have directives specified. Defaults should have
-	// been set by this point, if the user didn't specify any.
-	for name, charmStorage := range meta.Storage {
-		if _, ok := allDirectives[name]; !ok && charmStorage.CountMin > 0 {
-			return errors.Errorf("%w for store %q", applicationerrors.MissingStorageDirective, name)
-		}
-	}
-	return nil
 }
 
 func encodeChannelAndPlatform(origin corecharm.Origin) (*deployment.Channel, deployment.Platform, error) {

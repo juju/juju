@@ -20,8 +20,6 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
@@ -37,41 +35,13 @@ import (
 	"github.com/juju/juju/domain/life"
 	removalstate "github.com/juju/juju/domain/removal/state"
 	"github.com/juju/juju/domain/resource"
-	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/status"
 	statusstate "github.com/juju/juju/domain/status/state"
-	domainstorage "github.com/juju/juju/domain/storage"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
-
-type modelSuite struct {
-	schematesting.ModelSuite
-}
-
-func TestModelSuite(t *stdtesting.T) {
-	tc.Run(t, &modelSuite{})
-}
-
-func (s *modelSuite) TestGetModelType(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
-		`, modelUUID.String(), coretesting.ControllerTag.Id())
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	mt, err := st.GetModelType(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(mt, tc.Equals, coremodel.IAAS)
-}
 
 type applicationStateSuite struct {
 	baseSuite
@@ -1241,7 +1211,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingEmptyAddress
 		var resultAddresses []string
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			rows, err := tx.QueryContext(ctx, `
-SELECT address_value 
+SELECT address_value
 FROM ip_address
 JOIN link_layer_device ON link_layer_device.uuid = ip_address.device_uuid
 JOIN net_node ON net_node.uuid = link_layer_device.net_node_uuid
@@ -1302,7 +1272,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingWithAddresse
 		var resultAddresses []string
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			rows, err := tx.QueryContext(ctx, `
-SELECT address_value 
+SELECT address_value
 FROM ip_address
 JOIN link_layer_device ON link_layer_device.uuid = ip_address.device_uuid
 JOIN net_node ON net_node.uuid = link_layer_device.net_node_uuid
