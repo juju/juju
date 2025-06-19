@@ -22,7 +22,7 @@ run_upgrade_charm_with_bind() {
 	configure_multi_nic_netplan "$juju_machine_id" "$hotplug_iface"
 
 	# Deploy test charm to dual-nic machine
-	juju deploy cs:~juju-qa/space-defender-2 --bind "defend-a=alpha defend-b=isolated" --to "${juju_machine_id}" --series focal
+	juju deploy ./testcharms/charms/space-defender --bind "defend-a=alpha defend-b=isolated" --to "${juju_machine_id}"
 	unit_index=$(get_unit_index "space-defender")
 	wait_for "space-defender" "$(idle_condition "space-defender" 0 "${unit_index}")"
 
@@ -34,7 +34,7 @@ run_upgrade_charm_with_bind() {
 	assert_endpoint_binding_matches "space-defender" "defend-b" "isolated"
 
 	# Upgrade the space-defender charm and modify its bindings
-	juju upgrade-charm space-defender --bind "defend-a=alpha defend-b=alpha"
+	juju refresh space-defender --bind "defend-a=alpha defend-b=alpha" --path ./testcharms/charms/space-defender
 	wait_for "space-defender" "$(idle_condition "space-defender" 0 "${unit_index}")"
 
 	# After the upgrade, defend-a should remain attached to ens5 but

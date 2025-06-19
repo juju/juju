@@ -6,15 +6,32 @@ test_firewall() {
 
 	set_verbosity
 
+	setup_awscli_credential
+
 	echo "==> Checking for dependencies"
 	check_dependencies juju aws
 
-	file="${TEST_DIR}/test-firewall.log"
+	file="${TEST_DIR}/test-firewall.txt"
 
 	bootstrap "test-firewall" "${file}"
 
-	test_expose_app_ec2
-	test_bundle_with_exposed_endpoints
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		test_expose_app_ec2
+		;;
+	*)
+		echo "==> TEST SKIPPED: test_expose_app_ec2 test runs on aws only"
+		;;
+	esac
+
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		test_bundle_with_exposed_endpoints
+		;;
+	*)
+		echo "==> TEST SKIPPED: test_bundle_with_exposed_endpoints test runs on aws only"
+		;;
+	esac
 
 	destroy_controller "test-firewall"
 }

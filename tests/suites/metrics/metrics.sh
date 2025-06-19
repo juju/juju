@@ -13,7 +13,7 @@ run_smoke_test() {
 
 	attempt=0
 	while true; do
-		OUT=$(juju metrics metered/0 --format yaml | yq -o=j | jq -r '.[]')
+		OUT=$(juju metrics metered/0 --format json | jq -r '.[]')
 		if [[ -n ${OUT} ]]; then
 			break
 		fi

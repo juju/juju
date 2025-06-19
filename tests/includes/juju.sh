@@ -343,9 +343,9 @@ destroy_model() {
 
 	echo "====> Destroying juju model ${name}"
 	echo "${name}" | xargs -I % timeout "$timeout" juju destroy-model -y --destroy-storage % >"${output}" 2>&1 || true
-	CHK=$(cat "${output}" | grep -i "ERROR\|Unable to get the model status from the API" || true)
-	if [[ -n ${CHK} ]]; then
-		printf '\nFound some issues\n'
+	CHK=$(cat "${output}" | grep -i "Model destroyed." || true)
+	if [[ -z ${CHK} ]]; then
+		printf '\nFound some issues destroying model\n'
 		cat "${output}"
 		exit 1
 	fi
@@ -409,7 +409,7 @@ destroy_controller() {
 	set +e
 	CHK=$(cat "${output}" | grep -i "ERROR" || true)
 	if [[ -n ${CHK} ]]; then
-		printf '\nFound some issues\n'
+		printf '\nFound some issues destroying controller\n'
 		cat "${output}"
 		exit 1
 	fi

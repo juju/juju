@@ -25,7 +25,7 @@ launch_and_wait_addr_ec2() {
 	aws ec2 wait instance-running --instance-ids "${instance_id}"
 	sleep 10
 
-	address=$(aws ec2 describe-instances --instance-ids "${instance_id}" --query 'Reservations[0].Instances[0].PublicDnsName' --output text)
+	address=$(aws ec2 describe-instances --instance-ids "${instance_id}" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
 
 	# shellcheck disable=SC2086
 	eval $addr_result="'${address}'"

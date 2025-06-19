@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/featureflag"
 
+	"github.com/juju/juju/internal/debug/coveruploader"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -20,5 +21,6 @@ func init() {
 }
 
 func main() {
+	coveruploader.Enable()
 	MainWrapper(os.Args)
 }

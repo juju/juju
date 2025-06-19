@@ -67,6 +67,12 @@ run_spaces_manual_aws() {
 		aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 22 --cidr 0.0.0.0/0
 		aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 17070 --cidr 0.0.0.0/0
 		aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol udp --port 17070 --cidr 0.0.0.0/0
+		# 37017 is required for mongo and aws with public ip to init replica set.
+		# See findSelfInConfig in src/mongo/db/repl/repl_set_config_checks.cpp and isSelf in src/mongo/db/repl/isself.cpp
+		# isSelfFastPath: checks if a host:port matches a local interface mongo is bound to.
+		# isSelfSlowPath: checks if a host:port can be dialed and reaches the current mongo daemon.
+		# Since elastic IPs are not bound to a local interface (instead handled by AWS through routing rules)
+		aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 37017 --cidr 0.0.0.0/0
 		aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 0-65535 --source-group "${sg_id}"
 		aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol udp --port 0-65535 --source-group "${sg_id}"
 	else

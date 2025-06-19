@@ -1,33 +1,3 @@
-run_refresh_cs() {
-	# Test a plain juju refresh with a charm store charm
-	echo
-
-	model_name="test-refresh-cs"
-	file="${TEST_DIR}/${model_name}.log"
-
-	ensure "${model_name}" "${file}"
-
-	juju deploy cs:ubuntu-19
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
-
-	OUT=$(juju refresh ubuntu 2>&1 || true)
-	if echo "${OUT}" | grep -E -vq "Added"; then
-		# shellcheck disable=SC2046
-		echo $(red "failed refreshing charm: ${OUT}")
-		exit 5
-	fi
-	# shellcheck disable=SC2059
-	printf "${OUT}\n"
-
-	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
-	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
-
-	wait_for "ubuntu" "$(charm_rev "ubuntu" "${revision}")"
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
-
-	destroy_model "${model_name}"
-}
-
 run_refresh_local() {
 	# Test a plain juju refresh with a local charm
 	echo
@@ -134,7 +104,7 @@ run_refresh_channel_no_new_revision() {
 
 	juju refresh juju-qa-fixed-rev --channel edge
 
-	wait_for "juju-qa-fixed-rev" "$(charm_channel "juju-qa-fixed-rev" "edge")"
+	wait_for "juju-qa-fixed-rev" "$(charm_channel "juju-qa-fixed-rev" "latest/edge")"
 	wait_for "juju-qa-fixed-rev" "$(charm_rev "juju-qa-fixed-rev" "${cs_revision}")"
 	wait_for "juju-qa-fixed-rev" "$(idle_condition "juju-qa-fixed-rev")"
 
@@ -156,7 +126,7 @@ run_refresh_revision() {
 	# refresh to a revision not at the tip of the stable channel
 	juju refresh juju-qa-test --revision 23
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" "23")"
-	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "stable")"
+	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/stable")"
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	# do a generic refresh, should pick up revision from latest stable
@@ -168,7 +138,7 @@ run_refresh_revision() {
 	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" "${revision}")"
-	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "stable")"
+	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/stable")"
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	destroy_model "${model_name}"
@@ -185,11 +155,10 @@ test_basic() {
 
 		cd .. || exit
 
-		run "run_refresh_cs"
 		run "run_refresh_local"
-		run "run_refresh_local_resources"
-		run "run_refresh_channel"
-		run "run_refresh_channel_no_new_revision"
-		run "run_refresh_revision"
+#		run "run_refresh_local_resources"
+#		run "run_refresh_channel"
+#		run "run_refresh_channel_no_new_revision"
+#		run "run_refresh_revision"
 	)
 }

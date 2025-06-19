@@ -38,25 +38,33 @@ run_deploy_cmr_bundle() {
 
 	ensure "test-cmr-bundles-deploy" "${file}"
 
-	juju deploy easyrsa
-	wait_for "easyrsa" ".applications | keys[0]"
-	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
+	juju deploy juju-qa-dummy-source --series focal
+	juju offer dummy-source:sink
 
-	juju offer easyrsa:client
+	wait_for "dummy-source" "$(idle_condition "dummy-source")"
+
 	juju add-model other
-
 	juju switch other
 
 	bundle=./tests/suites/deploy/bundles/cmr_bundles_test_deploy.yaml
 	sed "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${BOOTSTRAPPED_JUJU_CTRL_NAME}/g" "${bundle}" >"${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 	juju deploy "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 
-	wait_for "active" '.applications["etcd"] | ."application-status".current'
-	wait_for "etcd" "$(idle_condition "etcd")"
-	wait_for "active" "$(workload_status "etcd" 0).current"
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
+
+	juju switch "test-cmr-bundles-deploy"
+	juju config dummy-source token=yeah-boi
+	juju switch "other"
+	wait_for "active" '."application-endpoints"["dummy-source"]."application-status".current'
 
 	# TODO: no need to remove-relation before destroying model once we fixed(lp:1952221).
-	juju remove-relation etcd easyrsa
+	juju remove-relation dummy-sink dummy-source
+	# wait for relation removed.
+	wait_for null '.applications["dummy-sink"] | .relations.source[0]'
+	# The offer must be removed before model/controller destruction will work.
+	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
+	juju switch "test-cmr-bundles-deploy"
+	juju remove-offer "admin/test-cmr-bundles-deploy.dummy-source" -y
 
 	destroy_model "other"
 	destroy_model "test-cmr-bundles-deploy"
@@ -288,6 +296,7 @@ test_deploy_bundles() {
 		run "run_deploy_charmhub_bundle"
 		run "run_deploy_multi_app_single_charm_bundle"
 
+		# LXD specific profile tests.
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd" | "localhost")
 			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle - tests for non LXD only"
