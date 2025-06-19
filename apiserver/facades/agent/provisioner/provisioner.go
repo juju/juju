@@ -327,41 +327,35 @@ func (api *ProvisionerAPI) WatchAllContainers(ctx context.Context, args params.W
 	return api.WatchContainers(ctx, args)
 }
 
-// SetSupportedContainers updates the list of containers supported by the machines passed in args.
+// SetSupportedContainers updates the list of containers supported by the
+// machines passed in args.
+// Deprecated: This method doesn't do anything and can be removed in the future.
 func (api *ProvisionerAPI) SetSupportedContainers(ctx context.Context, args params.MachineContainersParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
 	}
 
-	canAccess, err := api.getAuthFunc(ctx)
+	canModify, err := api.getCanModify(ctx)
 	if err != nil {
 		return result, err
 	}
 	for i, arg := range args.Params {
 		tag, err := names.ParseMachineTag(arg.MachineTag)
 		if err != nil {
-			api.logger.Warningf(ctx, "SetSupportedContainers called with %q which is not a valid machine tag: %v", arg.MachineTag, err)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := api.getMachine(canAccess, tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+		if !canModify(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		if len(arg.ContainerTypes) == 0 {
-			err = machine.SupportsNoContainers()
-		} else {
-			err = machine.SetSupportedContainers(arg.ContainerTypes)
-		}
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-		}
 	}
+
 	return result, nil
 }
 
-// SupportedContainers returns the list of containers supported by the machines passed in args.
+// SupportedContainers returns the list of containers supported by the machines
+// passed in args.
 func (api *ProvisionerAPI) SupportedContainers(ctx context.Context, args params.Entities) (params.MachineContainerResults, error) {
 	result := params.MachineContainerResults{
 		Results: make([]params.MachineContainerResult, len(args.Entities)),
@@ -374,18 +368,26 @@ func (api *ProvisionerAPI) SupportedContainers(ctx context.Context, args params.
 	for i, arg := range args.Entities {
 		tag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			api.logger.Warningf(ctx, "SupportedContainers called with %q which is not a valid machine tag: %v", arg.Tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := api.getMachine(canAccess, tag)
-		if err != nil {
+
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		containerTypes, err := api.machineService.GetSupportedContainersTypes(ctx, coremachine.UUID(tag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFound)
+			continue
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		containerTypes, determined := machine.SupportedContainers()
+
 		result.Results[i].ContainerTypes = containerTypes
-		result.Results[i].Determined = determined
+		result.Results[i].Determined = true
 	}
 	return result, nil
 }

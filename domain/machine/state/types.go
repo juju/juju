@@ -246,3 +246,7 @@ type machineHostName struct {
 	Hostname       sql.Null[string] `db:"hostname"`
 	AgentStartedAt time.Time        `db:"agent_started_at"`
 }
+
+type containerType struct {
+	ContainerType string `db:"container_type"`
+}

@@ -1063,6 +1063,21 @@ func (s *stateSuite) TestSetMachineHostnameNoMachine(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+func (s *stateSuite) TestGetSupportedContainersTypes(c *tc.C) {
+	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	containerTypes, err := s.state.GetSupportedContainersTypes(c.Context(), "deadbeef")
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(containerTypes, tc.DeepEquals, []string{"lxd"})
+}
+
+func (s *stateSuite) TestGetSupportedContainersTypesNoMachine(c *tc.C) {
+	_, err := s.state.GetSupportedContainersTypes(c.Context(), "deadbeef")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
 func (s *stateSuite) createApplicationWithUnitAndMachine(c *tc.C, controller bool) machine.Name {
 	machineName := machine.Name("0")
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

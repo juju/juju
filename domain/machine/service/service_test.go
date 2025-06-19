@@ -81,8 +81,8 @@ func (s *serviceSuite) TestCreateMachineError(c *tc.C) {
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		CreateMachine(c.Context(), "666", nil)
-	c.Check(err, tc.ErrorIs, rErr)
-	c.Assert(err, tc.ErrorMatches, `creating machine "666": boom`)
+	c.Assert(err, tc.ErrorIs, rErr)
+	c.Check(err, tc.ErrorMatches, `creating machine "666": boom`)
 }
 
 // TestCreateMachineAlreadyExists asserts that the state layer returns a
@@ -96,7 +96,7 @@ func (s *serviceSuite) TestCreateMachineAlreadyExists(c *tc.C) {
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		CreateMachine(c.Context(), machine.Name("666"), nil)
-	c.Check(err, tc.ErrorIs, machineerrors.MachineAlreadyExists)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineAlreadyExists)
 }
 
 // TestCreateMachineWithParentSuccess asserts the happy path of the
@@ -123,8 +123,8 @@ func (s *serviceSuite) TestCreateMachineWithParentError(c *tc.C) {
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		CreateMachineWithParent(c.Context(), machine.Name("666"), machine.Name("parent"))
-	c.Check(err, tc.ErrorIs, rErr)
-	c.Assert(err, tc.ErrorMatches, `creating machine "666" with parent "parent": boom`)
+	c.Assert(err, tc.ErrorIs, rErr)
+	c.Check(err, tc.ErrorMatches, `creating machine "666" with parent "parent": boom`)
 }
 
 // TestCreateMachineWithParentParentNotFound asserts that the state layer
@@ -138,7 +138,7 @@ func (s *serviceSuite) TestCreateMachineWithParentParentNotFound(c *tc.C) {
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		CreateMachineWithParent(c.Context(), machine.Name("666"), machine.Name("parent"))
-	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 // TestCreateMachineWithParentMachineAlreadyExists asserts that the state layer
@@ -152,7 +152,7 @@ func (s *serviceSuite) TestCreateMachineWithParentMachineAlreadyExists(c *tc.C) 
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		CreateMachineWithParent(c.Context(), machine.Name("666"), machine.Name("parent"))
-	c.Check(err, tc.ErrorIs, machineerrors.MachineAlreadyExists)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineAlreadyExists)
 }
 
 // TestDeleteMachineSuccess asserts the happy path of the DeleteMachine service.
@@ -176,8 +176,8 @@ func (s *serviceSuite) TestDeleteMachineError(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		DeleteMachine(c.Context(), "666")
-	c.Check(err, tc.ErrorIs, rErr)
-	c.Assert(err, tc.ErrorMatches, `deleting machine "666": boom`)
+	c.Assert(err, tc.ErrorIs, rErr)
+	c.Check(err, tc.ErrorMatches, `deleting machine "666": boom`)
 }
 
 // TestGetLifeSuccess asserts the happy path of the GetMachineLife service.
@@ -190,7 +190,7 @@ func (s *serviceSuite) TestGetLifeSuccess(c *tc.C) {
 	l, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineLife(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(l, tc.Equals, corelife.Alive)
+	c.Check(l, tc.Equals, corelife.Alive)
 }
 
 // TestGetLifeError asserts that an error coming from the state layer is
@@ -203,8 +203,8 @@ func (s *serviceSuite) TestGetLifeError(c *tc.C) {
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineLife(c.Context(), "666")
-	c.Check(err, tc.ErrorIs, rErr)
-	c.Assert(err, tc.ErrorMatches, `getting life status for machine "666": boom`)
+	c.Assert(err, tc.ErrorIs, rErr)
+	c.Check(err, tc.ErrorMatches, `getting life status for machine "666": boom`)
 }
 
 // TestGetLifeNotFoundError asserts that the state layer returns a NotFound
@@ -217,7 +217,7 @@ func (s *serviceSuite) TestGetLifeNotFoundError(c *tc.C) {
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineLife(c.Context(), "666")
-	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 // TestSetMachineLifeSuccess asserts the happy path of the SetMachineLife
@@ -229,7 +229,7 @@ func (s *serviceSuite) TestSetMachineLifeSuccess(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetMachineLife(c.Context(), "666", life.Alive)
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestSetMachineLifeError asserts that an error coming from the state layer is
@@ -242,8 +242,8 @@ func (s *serviceSuite) TestSetMachineLifeError(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetMachineLife(c.Context(), "666", life.Alive)
-	c.Check(err, tc.ErrorIs, rErr)
-	c.Assert(err, tc.ErrorMatches, `setting life status for machine "666": boom`)
+	c.Assert(err, tc.ErrorIs, rErr)
+	c.Check(err, tc.ErrorMatches, `setting life status for machine "666": boom`)
 }
 
 // TestSetMachineLifeMachineDontExist asserts that the state layer returns a
@@ -281,7 +281,7 @@ func (s *serviceSuite) TestEnsureDeadMachineError(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		EnsureDeadMachine(c.Context(), "666")
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 }
 
 func (s *serviceSuite) TestListAllMachinesSuccess(c *tc.C) {
@@ -291,8 +291,8 @@ func (s *serviceSuite) TestListAllMachinesSuccess(c *tc.C) {
 
 	machines, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		AllMachineNames(c.Context())
-	c.Check(err, tc.ErrorIsNil)
-	c.Assert(machines, tc.DeepEquals, []machine.Name{"666"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(machines, tc.DeepEquals, []machine.Name{"666"})
 }
 
 // TestListAllMachinesError asserts that an error coming from the state layer is
@@ -305,7 +305,7 @@ func (s *serviceSuite) TestListAllMachinesError(c *tc.C) {
 
 	machines, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		AllMachineNames(c.Context())
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 	c.Check(machines, tc.IsNil)
 }
 
@@ -316,7 +316,7 @@ func (s *serviceSuite) TestInstanceIdSuccess(c *tc.C) {
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceId, tc.Equals, instance.Id("123"))
 }
 
@@ -330,7 +330,7 @@ func (s *serviceSuite) TestInstanceIdError(c *tc.C) {
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 	c.Check(instanceId, tc.Equals, instance.UnknownId)
 }
 
@@ -345,7 +345,7 @@ func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *tc.C) {
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Check(err, tc.ErrorIs, machineerrors.NotProvisioned)
+	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 	c.Check(instanceId, tc.Equals, instance.UnknownId)
 }
 
@@ -360,8 +360,8 @@ func (s *serviceSuite) TestGetMachineStatusSuccess(c *tc.C) {
 
 	machineStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineStatus(c.Context(), "666")
-	c.Check(err, tc.ErrorIsNil)
-	c.Assert(machineStatus, tc.DeepEquals, expectedStatus)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(machineStatus, tc.DeepEquals, expectedStatus)
 }
 
 // TestGetMachineStatusError asserts that an error coming from the state layer
@@ -374,7 +374,7 @@ func (s *serviceSuite) TestGetMachineStatusError(c *tc.C) {
 
 	machineStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineStatus(c.Context(), "666")
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 	c.Check(machineStatus, tc.DeepEquals, status.StatusInfo{})
 }
 
@@ -390,7 +390,7 @@ func (s *serviceSuite) TestSetMachineStatusSuccess(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetMachineStatus(c.Context(), "666", newStatus)
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestSetMachineStatusError asserts that an error coming from the state layer
@@ -406,7 +406,7 @@ func (s *serviceSuite) TestSetMachineStatusError(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetMachineStatus(c.Context(), "666", newStatus)
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 }
 
 // TestSetMachineStatusInvalid asserts that an invalid status is passed to the
@@ -414,7 +414,7 @@ func (s *serviceSuite) TestSetMachineStatusError(c *tc.C) {
 func (s *serviceSuite) TestSetMachineStatusInvalid(c *tc.C) {
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetMachineStatus(c.Context(), "666", status.StatusInfo{Status: "invalid"})
-	c.Check(err, tc.ErrorIs, machineerrors.InvalidStatus)
+	c.Assert(err, tc.ErrorIs, machineerrors.InvalidStatus)
 }
 
 // TestGetInstanceStatusSuccess asserts the happy path of the GetInstanceStatus.
@@ -428,8 +428,8 @@ func (s *serviceSuite) TestGetInstanceStatusSuccess(c *tc.C) {
 
 	instanceStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceStatus(c.Context(), "666")
-	c.Check(err, tc.ErrorIsNil)
-	c.Assert(instanceStatus, tc.DeepEquals, expectedStatus)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(instanceStatus, tc.DeepEquals, expectedStatus)
 }
 
 // TestGetInstanceStatusError asserts that an error coming from the state layer
@@ -442,7 +442,7 @@ func (s *serviceSuite) TestGetInstanceStatusError(c *tc.C) {
 
 	instanceStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceStatus(c.Context(), "666")
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 	c.Check(instanceStatus, tc.DeepEquals, status.StatusInfo{})
 }
 
@@ -460,7 +460,7 @@ func (s *serviceSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetInstanceStatus(c.Context(), "666", newStatus)
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestSetInstanceStatusError asserts that an error coming from the state layer
@@ -477,7 +477,7 @@ func (s *serviceSuite) TestSetInstanceStatusError(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetInstanceStatus(c.Context(), "666", newStatus)
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 }
 
 // TestSetInstanceStatusInvalid asserts that an invalid status is passed to the
@@ -487,7 +487,7 @@ func (s *serviceSuite) TestSetInstanceStatusInvalid(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetInstanceStatus(c.Context(), "666", status.StatusInfo{Status: "invalid"})
-	c.Check(err, tc.ErrorIs, machineerrors.InvalidStatus)
+	c.Assert(err, tc.ErrorIs, machineerrors.InvalidStatus)
 }
 
 // TestIsMachineControllerSuccess asserts the happy path of the
@@ -499,8 +499,8 @@ func (s *serviceSuite) TestIsMachineControllerSuccess(c *tc.C) {
 
 	isController, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		IsMachineController(c.Context(), machine.Name("666"))
-	c.Check(err, tc.ErrorIsNil)
-	c.Assert(isController, tc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isController, tc.IsTrue)
 }
 
 // TestIsMachineControllerError asserts that an error coming from the state
@@ -513,7 +513,7 @@ func (s *serviceSuite) TestIsMachineControllerError(c *tc.C) {
 
 	isController, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		IsMachineController(c.Context(), machine.Name("666"))
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 	c.Check(isController, tc.IsFalse)
 }
 
@@ -527,7 +527,7 @@ func (s *serviceSuite) TestIsMachineControllerNotFound(c *tc.C) {
 
 	isController, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		IsMachineController(c.Context(), machine.Name("666"))
-	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 	c.Check(isController, tc.IsFalse)
 }
 
@@ -540,8 +540,8 @@ func (s *serviceSuite) TestIsMachineManuallyProvisionedSuccess(c *tc.C) {
 
 	isController, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		IsMachineManuallyProvisioned(c.Context(), machine.Name("666"))
-	c.Check(err, tc.ErrorIsNil)
-	c.Assert(isController, tc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isController, tc.IsTrue)
 }
 
 // TestIsMachineManuallyProvisionedError asserts that an error coming from the
@@ -555,7 +555,7 @@ func (s *serviceSuite) TestIsMachineManuallyProvisionedError(c *tc.C) {
 
 	isController, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		IsMachineManuallyProvisioned(c.Context(), machine.Name("666"))
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 	c.Check(isController, tc.IsFalse)
 }
 
@@ -570,7 +570,7 @@ func (s *serviceSuite) TestIsMachineManuallyProvisionedNotFound(c *tc.C) {
 
 	isController, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		IsMachineManuallyProvisioned(c.Context(), machine.Name("666"))
-	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 	c.Check(isController, tc.IsFalse)
 }
 
@@ -594,8 +594,8 @@ func (s *serviceSuite) TestRequireMachineRebootError(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		RequireMachineReboot(c.Context(), "u-u-i-d")
-	c.Check(err, tc.ErrorIs, rErr)
-	c.Assert(err, tc.ErrorMatches, `requiring a machine reboot for machine with uuid "u-u-i-d": boom`)
+	c.Assert(err, tc.ErrorIs, rErr)
+	c.Check(err, tc.ErrorMatches, `requiring a machine reboot for machine with uuid "u-u-i-d": boom`)
 }
 
 func (s *serviceSuite) TestClearMachineRebootSuccess(c *tc.C) {
@@ -618,8 +618,8 @@ func (s *serviceSuite) TestClearMachineRebootError(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		ClearMachineReboot(c.Context(), "u-u-i-d")
-	c.Check(err, tc.ErrorIs, rErr)
-	c.Assert(err, tc.ErrorMatches, `clear machine reboot flag for machine with uuid "u-u-i-d": boom`)
+	c.Assert(err, tc.ErrorIs, rErr)
+	c.Check(err, tc.ErrorMatches, `clear machine reboot flag for machine with uuid "u-u-i-d": boom`)
 }
 
 func (s *serviceSuite) TestIsMachineRebootSuccessMachineNeedReboot(c *tc.C) {
@@ -630,7 +630,7 @@ func (s *serviceSuite) TestIsMachineRebootSuccessMachineNeedReboot(c *tc.C) {
 	needReboot, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		IsMachineRebootRequired(c.Context(), "u-u-i-d")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(needReboot, tc.Equals, true)
+	c.Check(needReboot, tc.Equals, true)
 }
 
 func (s *serviceSuite) TestIsMachineRebootSuccessMachineDontNeedReboot(c *tc.C) {
@@ -641,7 +641,7 @@ func (s *serviceSuite) TestIsMachineRebootSuccessMachineDontNeedReboot(c *tc.C) 
 	needReboot, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		IsMachineRebootRequired(c.Context(), "u-u-i-d")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(needReboot, tc.Equals, false)
+	c.Check(needReboot, tc.Equals, false)
 }
 
 // TestIsMachineRebootError asserts that an error coming from the state layer is
@@ -654,8 +654,8 @@ func (s *serviceSuite) TestIsMachineRebootError(c *tc.C) {
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		IsMachineRebootRequired(c.Context(), "u-u-i-d")
-	c.Check(err, tc.ErrorIs, rErr)
-	c.Assert(err, tc.ErrorMatches, `checking if machine with uuid "u-u-i-d" is requiring a reboot: boom`)
+	c.Assert(err, tc.ErrorIs, rErr)
+	c.Check(err, tc.ErrorMatches, `checking if machine with uuid "u-u-i-d" is requiring a reboot: boom`)
 }
 
 // TestGetMachineParentUUIDSuccess asserts the happy path of the
@@ -668,7 +668,7 @@ func (s *serviceSuite) TestGetMachineParentUUIDSuccess(c *tc.C) {
 	parentUUID, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineParentUUID(c.Context(), machine.UUID("666"))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(parentUUID, tc.Equals, machine.UUID("123"))
+	c.Check(parentUUID, tc.Equals, machine.UUID("123"))
 }
 
 // TestGetMachineParentUUIDError asserts that an error coming from the state
@@ -681,7 +681,7 @@ func (s *serviceSuite) TestGetMachineParentUUIDError(c *tc.C) {
 
 	parentUUID, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineParentUUID(c.Context(), machine.UUID("666"))
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 	c.Check(parentUUID, tc.Equals, machine.UUID(""))
 }
 
@@ -695,7 +695,7 @@ func (s *serviceSuite) TestGetMachineParentUUIDNotFound(c *tc.C) {
 
 	parentUUID, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineParentUUID(c.Context(), machine.UUID("666"))
-	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 	c.Check(parentUUID, tc.Equals, machine.UUID(""))
 }
 
@@ -710,7 +710,7 @@ func (s *serviceSuite) TestGetMachineParentUUIDMachineHasNoParent(c *tc.C) {
 
 	parentUUID, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineParentUUID(c.Context(), "666")
-	c.Check(err, tc.ErrorIs, machineerrors.MachineHasNoParent)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineHasNoParent)
 	c.Check(parentUUID, tc.Equals, machine.UUID(""))
 }
 
@@ -724,7 +724,7 @@ func (s *serviceSuite) TestMachineShouldRebootOrShutdownDoNothing(c *tc.C) {
 	needReboot, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		ShouldRebootOrShutdown(c.Context(), "u-u-i-d")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(needReboot, tc.Equals, machine.ShouldDoNothing)
+	c.Check(needReboot, tc.Equals, machine.ShouldDoNothing)
 }
 
 // TestMachineShouldRebootOrShutdownReboot asserts that the reboot action is
@@ -737,7 +737,7 @@ func (s *serviceSuite) TestMachineShouldRebootOrShutdownReboot(c *tc.C) {
 	needReboot, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		ShouldRebootOrShutdown(c.Context(), "u-u-i-d")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(needReboot, tc.Equals, machine.ShouldReboot)
+	c.Check(needReboot, tc.Equals, machine.ShouldReboot)
 }
 
 // TestMachineShouldRebootOrShutdownShutdown asserts that the reboot action is
@@ -750,7 +750,7 @@ func (s *serviceSuite) TestMachineShouldRebootOrShutdownShutdown(c *tc.C) {
 	needReboot, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		ShouldRebootOrShutdown(c.Context(), "u-u-i-d")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(needReboot, tc.Equals, machine.ShouldShutdown)
+	c.Check(needReboot, tc.Equals, machine.ShouldShutdown)
 }
 
 // TestMachineShouldRebootOrShutdownError asserts that if the state layer
@@ -764,8 +764,8 @@ func (s *serviceSuite) TestMachineShouldRebootOrShutdownError(c *tc.C) {
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		ShouldRebootOrShutdown(c.Context(), "u-u-i-d")
-	c.Check(err, tc.ErrorIs, rErr)
-	c.Assert(err, tc.ErrorMatches, `getting if the machine with uuid "u-u-i-d" need to reboot or shutdown: boom`)
+	c.Assert(err, tc.ErrorIs, rErr)
+	c.Check(err, tc.ErrorMatches, `getting if the machine with uuid "u-u-i-d" need to reboot or shutdown: boom`)
 }
 
 // TestMarkMachineForRemovalSuccess asserts the happy path of the
@@ -777,7 +777,7 @@ func (s *serviceSuite) TestMarkMachineForRemovalSuccess(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		MarkMachineForRemoval(c.Context(), machine.Name("666"))
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestMarkMachineForRemovalMachineNotFoundError asserts that the state layer
@@ -790,7 +790,7 @@ func (s *serviceSuite) TestMarkMachineForRemovalMachineNotFoundError(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		MarkMachineForRemoval(c.Context(), machine.Name("666"))
-	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestMarkMachineForRemovalError asserts that an error coming from the state
@@ -803,7 +803,7 @@ func (s *serviceSuite) TestMarkMachineForRemovalError(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		MarkMachineForRemoval(c.Context(), machine.Name("666"))
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 }
 
 // TestGetAllMachineRemovalsSuccess asserts the happy path of the
@@ -815,8 +815,8 @@ func (s *serviceSuite) TestGetAllMachineRemovalsSuccess(c *tc.C) {
 
 	machineRemovals, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetAllMachineRemovals(c.Context())
-	c.Check(err, tc.ErrorIsNil)
-	c.Assert(machineRemovals, tc.DeepEquals, []machine.UUID{"666"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(machineRemovals, tc.DeepEquals, []machine.UUID{"666"})
 }
 
 // TestGetAllMachineRemovalsError asserts that an error coming from the state
@@ -829,7 +829,7 @@ func (s *serviceSuite) TestGetAllMachineRemovalsError(c *tc.C) {
 
 	machineRemovals, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetAllMachineRemovals(c.Context())
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 	c.Check(machineRemovals, tc.IsNil)
 }
 
@@ -843,7 +843,7 @@ func (s *serviceSuite) TestGetMachineUUIDSuccess(c *tc.C) {
 	uuid, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineUUID(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(uuid, tc.Equals, machine.UUID("123"))
+	c.Check(uuid, tc.Equals, machine.UUID("123"))
 }
 
 // TestGetMachineUUIDNotFound asserts that the state layer returns a
@@ -856,7 +856,7 @@ func (s *serviceSuite) TestGetMachineUUIDNotFound(c *tc.C) {
 
 	uuid, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineUUID(c.Context(), "666")
-	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 	c.Check(uuid, tc.Equals, machine.UUID(""))
 }
 
@@ -867,8 +867,8 @@ func (s *serviceSuite) TestLXDProfilesSuccess(c *tc.C) {
 
 	profiles, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		AppliedLXDProfileNames(c.Context(), "666")
-	c.Check(err, tc.ErrorIsNil)
-	c.Assert(profiles, tc.DeepEquals, []string{"profile1", "profile2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(profiles, tc.DeepEquals, []string{"profile1", "profile2"})
 }
 
 func (s *serviceSuite) TestLXDProfilesError(c *tc.C) {
@@ -879,7 +879,7 @@ func (s *serviceSuite) TestLXDProfilesError(c *tc.C) {
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		AppliedLXDProfileNames(c.Context(), "666")
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 }
 
 func (s *serviceSuite) TestSetLXDProfilesSuccess(c *tc.C) {
@@ -889,7 +889,7 @@ func (s *serviceSuite) TestSetLXDProfilesSuccess(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetAppliedLXDProfileNames(c.Context(), machine.UUID("666"), []string{"profile1", "profile2"})
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestSetLXDProfilesError(c *tc.C) {
@@ -900,7 +900,7 @@ func (s *serviceSuite) TestSetLXDProfilesError(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetAppliedLXDProfileNames(c.Context(), "666", []string{"profile1", "profile2"})
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 }
 
 func (s *serviceSuite) TestGetAllProvisionedMachineInstanceID(c *tc.C) {
@@ -912,7 +912,7 @@ func (s *serviceSuite) TestGetAllProvisionedMachineInstanceID(c *tc.C) {
 
 	result, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetAllProvisionedMachineInstanceID(c.Context())
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, map[machine.Name]instance.Id{
 		machine.Name("foo"): instance.Id("123"),
 	})
@@ -926,7 +926,7 @@ func (s *serviceSuite) TestGetAllProvisionedMachineInstanceIDError(c *tc.C) {
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetAllProvisionedMachineInstanceID(c.Context())
-	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorIs, rErr)
 }
 
 func (s *serviceSuite) TestSetMachineHostname(c *tc.C) {
@@ -938,7 +938,40 @@ func (s *serviceSuite) TestSetMachineHostname(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetMachineHostname(c.Context(), machineUUID, "new-hostname")
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetMachineHostnameInvalidMachineUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		SetMachineHostname(c.Context(), "foo", "new-hostname")
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+}
+
+func (s *serviceSuite) TestGetSupportedContainersTypes(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+
+	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID).Return([]string{"lxd"}, nil)
+
+	containerTypes, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetSupportedContainersTypes(c.Context(), machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(containerTypes, tc.DeepEquals, []instance.ContainerType{"lxd"})
+}
+
+func (s *serviceSuite) TestGetSupportedContainersTypesInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+
+	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID).Return([]string{"boo"}, nil)
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetSupportedContainersTypes(c.Context(), machineUUID)
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *serviceSuite) expectCreateMachineStatusHistory(c *tc.C) {

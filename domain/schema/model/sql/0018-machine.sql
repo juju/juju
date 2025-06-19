@@ -10,12 +10,17 @@ CREATE TABLE machine (
     agent_started_at DATETIME,
     hostname TEXT,
     keep_instance BOOLEAN,
+    -- All machines are created with a container type of 'lxd' by default.
+    container_type_id INT NOT NULL DEFAULT 1,
     CONSTRAINT fk_machine_net_node
     FOREIGN KEY (net_node_uuid)
     REFERENCES net_node (uuid),
     CONSTRAINT fk_machine_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id)
+    REFERENCES life (id),
+    CONSTRAINT fk_machine_container_type
+    FOREIGN KEY (container_type_id)
+    REFERENCES container_type (id)
 );
 
 CREATE UNIQUE INDEX idx_machine_name

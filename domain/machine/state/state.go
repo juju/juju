@@ -1397,6 +1397,47 @@ WHERE
 	})
 }
 
+// GetSupportedContainersTypes returns the supported container types for the
+// given machine.
+func (st *State) GetSupportedContainersTypes(ctx context.Context, mUUID machine.UUID) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	currentMachineUUID := machineUUID{UUID: mUUID}
+	query := `
+SELECT ct.value AS &containerType.container_type
+FROM machine AS m
+LEFT JOIN container_type AS ct ON m.container_type_id = ct.id
+WHERE uuid = $machineUUID.uuid
+`
+	queryStmt, err := st.Prepare(query, currentMachineUUID, containerType{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var containerTypes []containerType
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, currentMachineUUID).GetAll(&containerTypes)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("machine %q: %w", mUUID, machineerrors.MachineNotFound)
+		} else if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting supported container types %q: %w", mUUID, err)
+	}
+
+	result := make([]string, len(containerTypes))
+	for i, ct := range containerTypes {
+		result[i] = ct.ContainerType
+	}
+	return result, nil
+}
+
 // NamespaceForWatchMachineCloudInstance returns the namespace for watching
 // machine cloud instance changes.
 func (*State) NamespaceForWatchMachineCloudInstance() string {

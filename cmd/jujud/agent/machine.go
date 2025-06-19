@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
-	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/base"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
@@ -42,7 +41,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
@@ -643,10 +641,6 @@ func (a *MachineAgent) machineStartup(ctx context.Context, apiConn api.Connectio
 		return errors.Annotate(err, "recording agent start information")
 	}
 
-	if err := a.setupContainerSupport(ctx, apiConn, logger); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -710,45 +704,6 @@ func (a *MachineAgent) validateMigration(ctx context.Context, apiCaller base.API
 		_, err = facade.Machine(ctx, a.agentTag.(names.MachineTag))
 	}
 	return errors.Trace(err)
-}
-
-// setupContainerSupport determines what containers can be run on this machine and
-// passes the result to the juju controller.
-func (a *MachineAgent) setupContainerSupport(ctx context.Context, st api.Connection, logger corelogger.Logger) error {
-	logger.Tracef(context.TODO(), "setupContainerSupport called")
-	pr := apiprovisioner.NewClient(st)
-	mTag, ok := a.CurrentConfig().Tag().(names.MachineTag)
-	if !ok {
-		return errors.New("not a machine")
-	}
-	result, err := pr.Machines(ctx, mTag)
-	if err != nil {
-		return errors.Annotatef(err, "cannot load machine %s from state", mTag)
-	}
-	if len(result) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(result))
-	}
-	if errors.Is(err, errors.NotFound) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
-		return internalworker.ErrTerminateAgent
-	}
-	m := result[0].Machine
-
-	var supportedContainers []instance.ContainerType
-	supportedContainers = append(supportedContainers, instance.LXD)
-
-	logger.Debugf(context.TODO(), "Supported container types %q", supportedContainers)
-
-	if len(supportedContainers) == 0 {
-		if err := m.SupportsNoContainers(ctx); err != nil {
-			return errors.Annotatef(err, "clearing supported supportedContainers for %s", mTag)
-		}
-		return nil
-	}
-	err = m.SetSupportedContainers(ctx, supportedContainers...)
-	if err != nil {
-		return errors.Annotatef(err, "setting supported supportedContainers for %s", mTag)
-	}
-	return nil
 }
 
 // WorkersStarted returns a channel that's closed once all top level workers

@@ -788,6 +788,45 @@ func (c *MockStateGetNamesForUUIDsCall) DoAndReturn(f func(context.Context, []st
 	return c
 }
 
+// GetSupportedContainersTypes mocks base method.
+func (m *MockState) GetSupportedContainersTypes(ctx context.Context, mUUID machine.UUID) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSupportedContainersTypes", ctx, mUUID)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSupportedContainersTypes indicates an expected call of GetSupportedContainersTypes.
+func (mr *MockStateMockRecorder) GetSupportedContainersTypes(ctx, mUUID any) *MockStateGetSupportedContainersTypesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSupportedContainersTypes", reflect.TypeOf((*MockState)(nil).GetSupportedContainersTypes), ctx, mUUID)
+	return &MockStateGetSupportedContainersTypesCall{Call: call}
+}
+
+// MockStateGetSupportedContainersTypesCall wrap *gomock.Call
+type MockStateGetSupportedContainersTypesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetSupportedContainersTypesCall) Return(arg0 []string, arg1 error) *MockStateGetSupportedContainersTypesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetSupportedContainersTypesCall) Do(f func(context.Context, machine.UUID) ([]string, error)) *MockStateGetSupportedContainersTypesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetSupportedContainersTypesCall) DoAndReturn(f func(context.Context, machine.UUID) ([]string, error)) *MockStateGetSupportedContainersTypesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchModelMachinesStatement mocks base method.
 func (m *MockState) InitialWatchModelMachinesStatement() (string, string) {
 	m.ctrl.T.Helper()

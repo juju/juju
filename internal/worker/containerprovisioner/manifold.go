@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
+// GetContainerWatcherFunc is a function that returns a watcher for
+// the containers on a machine.
 type GetContainerWatcherFunc func(context.Context) (watcher.StringsWatcher, error)
 
 // Manifold creates a manifold that runs a
