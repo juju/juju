@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
+	domainnetwork "github.com/juju/juju/domain/network"
 )
 
 // ControllerConfigService is an interface that provides access to the
@@ -26,6 +27,9 @@ type ControllerConfigService interface {
 type NetworkService interface {
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+
+	// SetProviderNetConfig updates the network configuration for a machine using its unique identifier and new interface data.
+	SetProviderNetConfig(ctx context.Context, machineUUID machine.UUID, incoming []domainnetwork.NetInterface) error
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

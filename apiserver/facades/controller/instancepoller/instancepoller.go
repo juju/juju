@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -19,6 +20,8 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -183,7 +186,14 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 				"link layer device merge attempt for machine %v failed due to error: %v; "+
 					"waiting until next instance-poller run to retry", machine.Id(), err)
 		}
+
+		// Write in dqlite
+		if err := a.setProviderConfigOneMachine(ctx, arg); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 	}
+
 	return result, nil
 }
 
@@ -376,4 +386,70 @@ func (a *InstancePollerAPI) AreManuallyProvisioned(ctx context.Context, args par
 		result.Results[i].Result = manual
 	}
 	return result, nil
+}
+
+// setProviderConfigOneMachine sets the provider network configuration for a
+// single machine given its tag and network info.
+func (a *InstancePollerAPI) setProviderConfigOneMachine(ctx context.Context, arg params.ProviderNetworkConfig) error {
+	tag, err := names.ParseMachineTag(arg.Tag)
+	if err != nil {
+		return internalerrors.Errorf("failed to parse machine tag %q: %w", arg.Tag, err)
+	}
+	uuid, err := a.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+	if err != nil {
+		return internalerrors.Errorf("failed to get machine uuid for %q: %w", tag.Id(), err)
+	}
+
+	devices := transform.Slice(arg.Configs, newNetInterface)
+	return a.networkService.SetProviderNetConfig(ctx, uuid, devices)
+}
+
+func newNetInterface(cfg params.NetworkConfig) domainnetwork.NetInterface {
+	return domainnetwork.NetInterface{
+		Name:             cfg.InterfaceName,
+		MTU:              ptr(int64(cfg.MTU)),
+		MACAddress:       ptr(cfg.MACAddress),
+		ProviderID:       ptr(network.Id(cfg.ProviderId)),
+		Type:             network.LinkLayerDeviceType(cfg.ConfigType),
+		VirtualPortType:  network.VirtualPortType(cfg.VirtualPortType),
+		IsAutoStart:      !cfg.NoAutoStart,
+		IsEnabled:        !cfg.Disabled,
+		ParentDeviceName: cfg.ParentInterfaceName,
+		GatewayAddress:   ptr(cfg.GatewayAddress),
+		IsDefaultGateway: cfg.IsDefaultGateway,
+		VLANTag:          uint64(cfg.VLANTag),
+		DNSSearchDomains: cfg.DNSSearchDomains,
+		DNSAddresses:     cfg.DNSServers,
+		Addrs: append(
+			transform.Slice(cfg.Addresses, newNetAddress(cfg.InterfaceName, false)),
+			transform.Slice(cfg.ShadowAddresses, newNetAddress(cfg.InterfaceName, true))...),
+	}
+}
+
+func newNetAddress(interfaceName string, isShadow bool) func(addr params.Address) domainnetwork.NetAddr {
+	return func(addr params.Address) domainnetwork.NetAddr {
+		providerAddr := addr.ProviderAddress()
+		return domainnetwork.NetAddr{
+			InterfaceName: interfaceName,
+			AddressValue:  addr.Value,
+			AddressType:   network.AddressType(addr.Type),
+			ConfigType:    network.AddressConfigType(addr.ConfigType),
+			Origin:        network.OriginProvider,
+			Scope:         network.Scope(addr.Scope),
+			IsSecondary:   addr.IsSecondary,
+			IsShadow:      isShadow,
+			// TODO gfouillet: I am really suspicious since I didn't see any
+			//   code where those ID are populated.
+			ProviderID:       ptr(providerAddr.ProviderID),
+			ProviderSubnetID: ptr(providerAddr.ProviderSubnetID),
+		}
+	}
+}
+
+func ptr[T comparable](f T) *T {
+	var zero T
+	if f == zero {
+		return nil
+	}
+	return &f
 }
