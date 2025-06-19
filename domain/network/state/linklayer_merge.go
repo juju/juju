@@ -234,6 +234,12 @@ func (st *State) applyMergeLinkLayerChanges(
 	return nil
 }
 
+// cleanupUniqueAddressOrphanSubnets removes orphan subnets that are unique IP
+// addresses and unassociated with providers.
+// It queries the database for IPv4 /32 or IPv6 /128 subnets not linked to
+// addresses or providers and deletes them.
+// Those subnets are created when addresses are created when their related subnet
+// aren't already known, which is part of the SetMachineNetConfig responsibility.
 func (st *State) cleanupUniqueAddressOrphanSubnets(ctx context.Context, tx *sqlair.TX) error {
 	type orphan struct {
 		UUID string `db:"uuid"`
