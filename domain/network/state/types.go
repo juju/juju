@@ -533,7 +533,6 @@ func encodeAddressOrigin(kind corenetwork.Origin) (int64, error) {
 		return -1, errors.Errorf("unsupported address origin: %q", kind)
 	}
 }
-
 func encodeAddressScope(kind corenetwork.Scope) (int64, error) {
 	switch kind {
 	case corenetwork.ScopeUnknown:
@@ -631,6 +630,84 @@ type ipAddressValue struct {
 	SubnetUUID sql.NullString `db:"subnet_uuid"`
 }
 
+type getLinkLayerDevice struct {
+	UUID             string  `db:"uuid"`
+	NetNodeUUID      string  `db:"net_node_uuid"`
+	Name             string  `db:"name"`
+	ParentName       string  `db:"parent_name"`
+	ProviderID       *string `db:"provider_id"`
+	MTU              *int64  `db:"mtu"`
+	MACAddress       *string `db:"mac_address"`
+	DeviceType       string  `db:"device_type"`
+	VirtualPortType  string  `db:"virtual_port_type"`
+	IsAutoStart      bool    `db:"is_auto_start"`
+	IsEnabled        bool    `db:"is_enabled"`
+	IsDefaultGateway bool    `db:"is_default_gateway"`
+	GatewayAddress   *string `db:"gateway_address"`
+	VlanTag          uint64  `db:"vlan_tag"`
+}
+
+type getIpAddress struct {
+	UUID             string  `db:"uuid"`
+	NodeUUID         string  `db:"net_node_uuid"`
+	ProviderID       *string `db:"provider_id"`
+	ProviderSubnetID *string `db:"provider_subnet_id"`
+	DeviceUUID       string  `db:"device_uuid"`
+	AddressValue     string  `db:"address_value"`
+	SubnetUUID       *string `db:"subnet_uuid"`
+	Type             string  `db:"type"`
+	ConfigType       string  `db:"config_type"`
+	Origin           string  `db:"origin"`
+	Scope            string  `db:"scope"`
+	IsSecondary      bool    `db:"is_secondary"`
+	IsShadow         bool    `db:"is_shadow"`
+}
+
+// dmlToNetInterface converts a getLinkLayerDevice and related input data
+// to a corresponding network.NetInterface structure.
+// It maps device types, virtual port types, and initializes fields
+// using provided DNS domains, addresses, and IP data.
+func dmlToNetInterface(in getLinkLayerDevice,
+	dnsDomains, dnsAddresses []string,
+	ipAddresses []getIpAddress) (network.NetInterface, error) {
+	addresses := transform.Slice(ipAddresses, func(addr getIpAddress) network.NetAddr {
+		return dmlToNetAddr(addr, in.Name)
+	})
+
+	return network.NetInterface{
+		Name:             in.Name,
+		MTU:              in.MTU,
+		MACAddress:       in.MACAddress,
+		ProviderID:       nilstr[corenetwork.Id](in.ProviderID),
+		Type:             corenetwork.LinkLayerDeviceType(in.DeviceType),
+		VirtualPortType:  corenetwork.VirtualPortType(in.VirtualPortType),
+		IsAutoStart:      in.IsAutoStart,
+		IsEnabled:        in.IsEnabled,
+		ParentDeviceName: in.ParentName,
+		GatewayAddress:   in.GatewayAddress,
+		IsDefaultGateway: in.IsDefaultGateway,
+		VLANTag:          in.VlanTag,
+		DNSSearchDomains: dnsDomains,
+		DNSAddresses:     dnsAddresses,
+		Addrs:            addresses,
+	}, nil
+}
+
+func dmlToNetAddr(addr getIpAddress, deviceName string) network.NetAddr {
+	return network.NetAddr{
+		InterfaceName:    deviceName,
+		ProviderID:       nilstr[corenetwork.Id](addr.ProviderID),
+		AddressValue:     addr.AddressValue,
+		ProviderSubnetID: nilstr[corenetwork.Id](addr.ProviderSubnetID),
+		AddressType:      corenetwork.AddressType(addr.Type),
+		ConfigType:       corenetwork.AddressConfigType(addr.ConfigType),
+		Origin:           corenetwork.Origin(addr.Origin),
+		Scope:            corenetwork.Scope(addr.Scope),
+		IsSecondary:      addr.IsSecondary,
+		IsShadow:         addr.IsShadow,
+	}
+}
+
 type linkLayerDeviceParent struct {
 	DeviceUUID string `db:"device_uuid"`
 	ParentUUID string `db:"parent_uuid"`
@@ -688,4 +765,13 @@ type spaceAddress struct {
 	DeviceUUID string         `db:"device_uuid"`
 	SpaceUUID  sql.NullString `db:"space_uuid"`
 	SubnetCIDR sql.NullString `db:"cidr"`
+}
+
+func nilstr[T ~string](s *string) *T {
+	var res *T
+	if s != nil {
+		cast := T(*s)
+		res = &cast
+	}
+	return res
 }

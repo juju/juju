@@ -138,6 +138,11 @@ type NetConfigState interface {
 	// SetMachineNetConfig updates the network configuration for the machine with
 	// the input net node UUID.
 	SetMachineNetConfig(ctx context.Context, nodeUUID string, nics []domainnetwork.NetInterface) error
+	// GetAllLinkLayerDevicesByNetNodeUUIDs retrieves all link-layer devices
+	// grouped by net node UUIDs from the persistence layer.
+	// It returns a map where keys are machine UUIDs and values are
+	// corresponding network interfaces or an error if retrieval fails.
+	GetAllLinkLayerDevicesByNetNodeUUIDs(ctx context.Context) (map[string][]domainnetwork.NetInterface, error)
 }
 
 // NetConfigMigrationState describes methods required
