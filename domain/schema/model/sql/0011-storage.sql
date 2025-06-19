@@ -12,6 +12,10 @@ CREATE TABLE storage_pool (
     -- The "built-in" and "provider-default" origins are used
     -- for pools that are created by the system when a model is created.
     origin_id INT NOT NULL DEFAULT 1,
+    CONSTRAINT chk_storage_pool_name_not_empty
+    CHECK (name <> ''),
+    CONSTRAINT chk_storage_pool_type_not_empty
+    CHECK (type <> ''),
     CONSTRAINT fk_storage_pool_origin
     FOREIGN KEY (origin_id)
     REFERENCES storage_pool_origin (id)
@@ -39,7 +43,7 @@ CREATE TABLE storage_pool_attribute (
 
 CREATE TABLE storage_pool_origin (
     id INT NOT NULL PRIMARY KEY,
-    origin TEXT NOT NULL,
+    origin TEXT NOT NULL UNIQUE,
     CONSTRAINT chk_storage_pool_origin_not_empty
     CHECK (origin <> '')
 );
