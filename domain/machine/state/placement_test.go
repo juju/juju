@@ -75,6 +75,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnset(c *tc.C) {
 	s.checkStatusForMachineInstance(c, machine.Name("0"), domainstatus.InstanceStatusPending)
 
 	s.checkPlatformForMachine(c, machine.Name("0"), deployment.Platform{})
+	s.checkContainerTypeForMachine(c, machine.Name("0"), "lxd")
 
 	c.Assert(machineNames, tc.HasLen, 1)
 	c.Check(machineNames[0], tc.Equals, machine.Name("0"))
@@ -220,6 +221,7 @@ WHERE m.net_node_uuid = ?
 				"machine_cloud_instance_status",
 				"machine_cloud_instance",
 				"machine_platform",
+				"machine_container_type",
 			} {
 				_, err := tx.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %q WHERE machine_uuid = ?`, table), child)
 				if err != nil {
@@ -479,6 +481,7 @@ WHERE m.net_node_uuid = ?
 				"machine_cloud_instance_status",
 				"machine_cloud_instance",
 				"machine_platform",
+				"machine_container_type",
 			} {
 				_, err = tx.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %q WHERE machine_uuid = ?`, table), child)
 				if err != nil {
@@ -639,6 +642,36 @@ WHERE m.name = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(platform, tc.DeepEquals, expected)
+}
+
+func (s *placementSuite) checkContainerTypeForMachine(c *tc.C, name machine.Name, expected ...string) {
+	var containerTypes []string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT ct.value
+FROM machine AS m
+LEFT JOIN machine_container_type AS mct ON m.uuid = mct.machine_uuid
+LEFT JOIN container_type AS ct ON mct.container_type_id = ct.id
+WHERE m.name = ?`, name)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var ct string
+			if err := rows.Scan(&ct); err != nil {
+				return errors.Capture(err)
+			}
+			containerTypes = append(containerTypes, ct)
+		}
+		if err := rows.Err(); err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(containerTypes, tc.DeepEquals, expected)
 }
 
 func (s *placementSuite) checkMachineNetNode(c *tc.C, name machine.Name, expectedNetNodeUUID string) {

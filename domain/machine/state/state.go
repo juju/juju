@@ -165,15 +165,15 @@ VALUES ($createMachine.*)
 			return errors.Errorf("creating machine row for machine %q: %w", mName, err)
 		}
 
-		// Run query to create machine container type row.
-		if err := insertContainerType(ctx, tx, st, args.machineUUID); err != nil {
-			return errors.Errorf("inserting machine container type for machine %q: %w", mName, err)
-		}
-
 		// Ensure we always have an instance as well, otherwise we can't have
 		// an associated status.
 		if err := insertMachineInstance(ctx, tx, st, args.machineUUID); err != nil {
 			return errors.Errorf("inserting machine instance for machine %q: %w", mName, err)
+		}
+
+		// Run query to create machine container type row.
+		if err := insertContainerType(ctx, tx, st, args.machineUUID); err != nil {
+			return errors.Errorf("inserting machine container type for machine %q: %w", mName, err)
 		}
 
 		if err := st.insertMachineStatus(ctx, tx, mName, setStatusInfo{
@@ -205,33 +205,6 @@ VALUES ($createMachine.*)
 	if err != nil {
 		return errors.Errorf("inserting machine %q: %w", mName, err)
 	}
-	return nil
-}
-
-func insertContainerType(
-	ctx context.Context,
-	tx *sqlair.TX,
-	preparer domain.Preparer,
-	mUUID machine.UUID,
-) error {
-	createContainerTypeQuery := `
-INSERT INTO machine_container_type (*)
-VALUES ($machineContainerType.*);
-`
-	createContainerTypeStmt, err := preparer.Prepare(createContainerTypeQuery, machineContainerType{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// We insert LXD container for every machine by default.
-	err = tx.Query(ctx, createContainerTypeStmt, machineContainerType{
-		MachineUUID:     mUUID,
-		ContainerTypeID: 1,
-	}).Run()
-	if err != nil {
-		return errors.Errorf("inserting machine container type for machine %q: %w", mUUID, err)
-	}
-
 	return nil
 }
 

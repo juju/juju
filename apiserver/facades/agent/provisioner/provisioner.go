@@ -377,7 +377,16 @@ func (api *ProvisionerAPI) SupportedContainers(ctx context.Context, args params.
 			continue
 		}
 
-		containerTypes, err := api.machineService.GetSupportedContainersTypes(ctx, coremachine.UUID(tag.Id()))
+		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(tag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFound)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		containerTypes, err := api.machineService.GetSupportedContainersTypes(ctx, machineUUID)
 		if errors.Is(err, machineerrors.MachineNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFound)
 			continue
