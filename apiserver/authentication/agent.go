@@ -62,10 +62,9 @@ func (f AgentAuthenticatorGetter) Authenticator() EntityAuthenticator {
 }
 
 // AuthenticatorForModel returns an authenticator for the given model.
-func (f AgentAuthenticatorGetter) AuthenticatorForModel(agentPasswordService AgentPasswordService, st *state.State) EntityAuthenticator {
+func (f AgentAuthenticatorGetter) AuthenticatorForModel(agentPasswordService AgentPasswordService) EntityAuthenticator {
 	return agentAuthenticator{
 		agentPasswordService: agentPasswordService,
-		state:                st,
 		logger:               f.logger,
 	}
 }

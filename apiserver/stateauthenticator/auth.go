@@ -53,11 +53,13 @@ var AgentTags = []string{
 // This Authenticator only works with requests that have been handled
 // by one of the httpcontext.*ModelHandler handlers.
 type Authenticator struct {
-	statePool                           *state.StatePool
+	authContext *authContext
+
 	controllerConfigService             ControllerConfigService
 	agentPasswordServiceGetter          AgentPasswordServiceGetter
 	controllerModelAgentPasswordService authentication.AgentPasswordService
-	authContext                         *authContext
+
+	controllerModelUUID model.UUID
 }
 
 // ControllerConfigService is an interface that can be implemented by
@@ -123,12 +125,13 @@ func NewAuthenticator(
 	}
 
 	return &Authenticator{
-		statePool:                  statePool,
-		agentPasswordServiceGetter: agentPasswordServiceGetter,
-		controllerConfigService:    controllerConfigService,
-		authContext:                authContext,
+		authContext: authContext,
 
+		agentPasswordServiceGetter:          agentPasswordServiceGetter,
+		controllerConfigService:             controllerConfigService,
 		controllerModelAgentPasswordService: controllerModelAgentPasswordService,
+
+		controllerModelUUID: controllerModelUUID,
 	}, nil
 }
 
@@ -208,18 +211,12 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		}
 	}()
 
-	st, err := a.statePool.Get(modelUUID.String())
-	if err != nil {
-		return authentication.AuthInfo{}, errors.Trace(err)
-	}
-	defer st.Release()
-
 	agentPasswordService, err := a.agentPasswordServiceGetter.GetAgentPasswordServiceForModel(ctx, modelUUID)
 	if err != nil {
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 
-	authenticator := a.authContext.authenticatorForModel(serverHost, agentPasswordService, st.State)
+	authenticator := a.authContext.authenticatorForModel(serverHost, agentPasswordService)
 	authInfo, err := a.checkCreds(ctx, modelUUID, authParams, authenticator, agentPasswordService)
 	if err == nil {
 		return authInfo, nil
@@ -235,14 +232,9 @@ func (a *Authenticator) AuthenticateLoginRequest(
 
 	// If you're a model worker api-caller using the model controller agent tag
 	// to ask questions about the non-controller model that you're running in.
-	if (isMachineTag || isControllerAgentTag) && !st.IsController() {
-		systemState, errS := a.statePool.SystemState()
-		if errS != nil {
-			return authentication.AuthInfo{}, errors.Trace(err)
-		}
-
+	if (isMachineTag || isControllerAgentTag) && a.controllerModelUUID != modelUUID {
 		// Controller agents are allowed to log into any model.
-		authenticator := a.authContext.authenticatorForModel(serverHost, a.controllerModelAgentPasswordService, systemState)
+		authenticator := a.authContext.authenticatorForModel(serverHost, a.controllerModelAgentPasswordService)
 
 		var err2 error
 		authInfo, err2 = a.checkCreds(ctx, modelUUID, authParams, authenticator, a.controllerModelAgentPasswordService)
@@ -290,11 +282,11 @@ func (a *Authenticator) checkCreds(
 		}
 
 	case names.MachineTagKind:
-		controller, err := agentPasswordService.IsMachineController(ctx, machine.Name(entity.Tag().Id()))
+		ctrl, err := agentPasswordService.IsMachineController(ctx, machine.Name(entity.Tag().Id()))
 		if err != nil && !errors.Is(err, machineerrors.MachineNotFound) {
 			return authentication.AuthInfo{}, errors.Trace(err)
 		}
-		authInfo.Controller = controller
+		authInfo.Controller = ctrl
 
 	case names.ControllerAgentTagKind:
 		// If you're a controller agent, then we've already authenticated so

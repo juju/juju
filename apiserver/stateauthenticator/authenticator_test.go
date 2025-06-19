@@ -46,7 +46,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticateLoginRequestHandleNotSupported
 	defer s.setupMocks(c).Finish()
 
 	s.agentPasswordServiceGetter.EXPECT().GetAgentPasswordServiceForModel(gomock.Any(), gomock.Any()).Return(s.agentPasswordService, nil)
-	s.agentAuthenticatorGetter.EXPECT().AuthenticatorForModel(gomock.Any(), gomock.Any()).Return(s.entityAuthenticator)
+	s.agentAuthenticatorGetter.EXPECT().AuthenticatorForModel(gomock.Any()).Return(s.entityAuthenticator)
 
 	_, err := s.authenticator.AuthenticateLoginRequest(c.Context(), "", "", authentication.AuthParams{Token: "token"})
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)

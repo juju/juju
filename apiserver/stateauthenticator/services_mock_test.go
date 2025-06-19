@@ -22,7 +22,6 @@ import (
 	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
 	auth "github.com/juju/juju/internal/auth"
-	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -622,17 +621,17 @@ func (c *MockAgentAuthenticatorGetterAuthenticatorCall) DoAndReturn(f func() aut
 }
 
 // AuthenticatorForModel mocks base method.
-func (m *MockAgentAuthenticatorGetter) AuthenticatorForModel(arg0 authentication.AgentPasswordService, arg1 *state.State) authentication.EntityAuthenticator {
+func (m *MockAgentAuthenticatorGetter) AuthenticatorForModel(arg0 authentication.AgentPasswordService) authentication.EntityAuthenticator {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AuthenticatorForModel", arg0, arg1)
+	ret := m.ctrl.Call(m, "AuthenticatorForModel", arg0)
 	ret0, _ := ret[0].(authentication.EntityAuthenticator)
 	return ret0
 }
 
 // AuthenticatorForModel indicates an expected call of AuthenticatorForModel.
-func (mr *MockAgentAuthenticatorGetterMockRecorder) AuthenticatorForModel(arg0, arg1 any) *MockAgentAuthenticatorGetterAuthenticatorForModelCall {
+func (mr *MockAgentAuthenticatorGetterMockRecorder) AuthenticatorForModel(arg0 any) *MockAgentAuthenticatorGetterAuthenticatorForModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthenticatorForModel", reflect.TypeOf((*MockAgentAuthenticatorGetter)(nil).AuthenticatorForModel), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthenticatorForModel", reflect.TypeOf((*MockAgentAuthenticatorGetter)(nil).AuthenticatorForModel), arg0)
 	return &MockAgentAuthenticatorGetterAuthenticatorForModelCall{Call: call}
 }
 
@@ -648,13 +647,13 @@ func (c *MockAgentAuthenticatorGetterAuthenticatorForModelCall) Return(arg0 auth
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentAuthenticatorGetterAuthenticatorForModelCall) Do(f func(authentication.AgentPasswordService, *state.State) authentication.EntityAuthenticator) *MockAgentAuthenticatorGetterAuthenticatorForModelCall {
+func (c *MockAgentAuthenticatorGetterAuthenticatorForModelCall) Do(f func(authentication.AgentPasswordService) authentication.EntityAuthenticator) *MockAgentAuthenticatorGetterAuthenticatorForModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentAuthenticatorGetterAuthenticatorForModelCall) DoAndReturn(f func(authentication.AgentPasswordService, *state.State) authentication.EntityAuthenticator) *MockAgentAuthenticatorGetterAuthenticatorForModelCall {
+func (c *MockAgentAuthenticatorGetterAuthenticatorForModelCall) DoAndReturn(f func(authentication.AgentPasswordService) authentication.EntityAuthenticator) *MockAgentAuthenticatorGetterAuthenticatorForModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
