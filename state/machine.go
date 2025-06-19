@@ -804,33 +804,6 @@ func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
 	})
 }
 
-// ModificationStatus returns the provider specific modification status for
-// this machine or NotProvisionedError if instance is not yet provisioned.
-func (m *Machine) ModificationStatus() (status.StatusInfo, error) {
-	machineStatus, err := getStatus(m.st.db(), m.globalModificationKey(), "modification")
-	if err != nil {
-		logger.Warningf(context.TODO(), "error when retrieving instance status for machine: %s, %v", m.Id(), err)
-		return status.StatusInfo{}, err
-	}
-	return machineStatus, nil
-}
-
-// SetModificationStatus sets the provider specific modification status
-// for a machine. Allowing the propagation of status messages to the
-// operator.
-func (m *Machine) SetModificationStatus(sInfo status.StatusInfo) (err error) {
-	return setStatus(m.st.db(), setStatusParams{
-		badge:      "modification",
-		statusKind: m.ModificationKind(),
-		statusId:   m.doc.Id,
-		globalKey:  m.globalModificationKey(),
-		status:     sInfo.Status,
-		message:    sInfo.Message,
-		rawData:    sInfo.Data,
-		updated:    timeOrNow(sInfo.Since, m.st.clock()),
-	})
-}
-
 // ApplicationNames returns the names of applications
 // represented by units running on the machine.
 func (m *Machine) ApplicationNames() ([]string, error) {

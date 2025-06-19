@@ -365,10 +365,6 @@ func (task *provisionerTask) processMachinesWithTransientErrors(ctx context.Cont
 			task.logger.Errorf(ctx, "cannot reset instance status of machine %q: %v", machine.Id(), err)
 			continue
 		}
-		if err := machine.SetModificationStatus(ctx, status.Idle, "", nil); err != nil {
-			task.logger.Errorf(ctx, "cannot reset modification status of machine %q: %v", machine.Id(), err)
-			continue
-		}
 		task.machinesMutex.Lock()
 		task.machines[machine.Id()] = machine
 		task.machinesMutex.Unlock()
