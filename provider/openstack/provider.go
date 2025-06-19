@@ -168,12 +168,13 @@ func (p EnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) 
 	}
 
 	e := &Environ{
-		name:         args.Config.Name(),
-		uuid:         uuid,
-		namespace:    namespace,
-		clock:        clock.WallClock,
-		configurator: p.Configurator,
-		flavorFilter: p.FlavorFilter,
+		name:           args.Config.Name(),
+		uuid:           uuid,
+		namespace:      namespace,
+		clock:          clock.WallClock,
+		configurator:   p.Configurator,
+		flavorFilter:   p.FlavorFilter,
+		controllerUUID: args.ControllerUUID,
 	}
 
 	if err := e.SetConfig(args.Config); err != nil {
@@ -310,9 +311,10 @@ type Environ struct {
 	environs.NoSpaceDiscoveryEnviron
 	environs.NoContainerAddressesEnviron
 
-	name      string
-	uuid      string
-	namespace instance.Namespace
+	name           string
+	uuid           string
+	controllerUUID string
+	namespace      instance.Namespace
 
 	ecfgMutex       sync.Mutex
 	ecfgUnlocked    *environConfig
