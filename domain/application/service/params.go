@@ -22,7 +22,6 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
 )
 
 // AddApplicationArgs contains arguments for adding an application to the model.
@@ -46,9 +45,6 @@ type AddApplicationArgs struct {
 	// CharmObjectStoreUUID is the UUID of the object store where the charm is
 	// stored.
 	CharmObjectStoreUUID objectstore.UUID
-
-	// Storage contains the application's storage directives.
-	Storage map[string]storage.Directive
 
 	// StorageDirectiveOverrides defines a set of storage directive overrides
 	// for the application as a map of storage name to overrides. Each name in
