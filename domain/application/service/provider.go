@@ -30,11 +30,9 @@ import (
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
-	storageerrors "github.com/juju/juju/domain/storage/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
-	"github.com/juju/juju/internal/storage"
 )
 
 // ProviderService defines a service for interacting with the underlying
@@ -242,11 +240,7 @@ func (s *ProviderService) makeApplicationArg(
 		return "", application.BaseAddApplicationArg{}, errors.Errorf("validating device constraints: %w", err)
 	}
 
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return "", application.BaseAddApplicationArg{}, errors.Errorf("getting model type: %w", err)
-	}
-	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, charm, origin, args)
+	appArg, err := makeCreateApplicationArgs(ctx, s.st, charm, origin, args)
 	if err != nil {
 		return "", application.BaseAddApplicationArg{}, errors.Errorf("creating application args: %w", err)
 	}
@@ -263,32 +257,23 @@ func (s *ProviderService) makeApplicationArg(
 
 func makeCreateApplicationArgs(
 	ctx context.Context,
-	state State,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	modelType coremodel.ModelType,
+	storageSt StorageState,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 ) (application.BaseAddApplicationArg, error) {
-	storageDirectives := make(map[string]storage.Directive)
-	for n, sc := range args.Storage {
-		storageDirectives[n] = sc
-	}
-
 	meta := charm.Meta()
 
-	var err error
-	if storageDirectives, err = addDefaultStorageDirectives(ctx, state, modelType, storageDirectives, meta.Storage); err != nil {
-		return application.BaseAddApplicationArg{}, errors.Errorf("adding default storage directives: %w", err)
+	defaultStorageProviders, err := storageSt.GetDefaultStorageProvisioners(ctx)
+	if err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf(
+			"getting default storage provisioners for model: %w", err,
+		)
 	}
-	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, storageDirectives, meta); err != nil {
-		return application.BaseAddApplicationArg{}, errors.Errorf("invalid storage directives: %w", err)
-	}
-
 	storageDirectiveArgs := makeApplicationStorageDirectiveArgs(
 		args.StorageDirectiveOverrides,
-		charm.Meta().Storage,
-		application.DefaultStorageProvisioners{},
+		meta.Storage,
+		defaultStorageProviders,
 	)
 
 	// When encoding the charm, this will also validate the charm metadata,
@@ -698,32 +683,4 @@ func (s *ProviderService) validateConstraints(ctx context.Context, cons corecons
 	}
 
 	return nil
-}
-
-func (s *Service) poolStorageProvider(
-	ctx context.Context,
-	registry storage.ProviderRegistry,
-	poolNameOrType string,
-) (storage.Provider, error) {
-	pool, err := s.st.GetStoragePoolByName(ctx, poolNameOrType)
-	if errors.Is(err, storageerrors.PoolNotFoundError) {
-		// If there's no pool called poolNameOrType, maybe a provider type
-		// has been specified directly.
-		providerType := storage.ProviderType(poolNameOrType)
-		aProvider, registryErr := registry.StorageProvider(providerType)
-		if registryErr != nil {
-			// The name can't be resolved as a storage provider type,
-			// so return the original "pool not found" error.
-			return nil, errors.Capture(err)
-		}
-		return aProvider, nil
-	} else if err != nil {
-		return nil, errors.Capture(err)
-	}
-	providerType := storage.ProviderType(pool.Provider)
-	aProvider, err := registry.StorageProvider(providerType)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return aProvider, nil
 }

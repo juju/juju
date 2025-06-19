@@ -21,7 +21,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/secrets"
@@ -77,22 +76,6 @@ type ApplicationState interface {
 	// [applicationerrors.CharmNotFound] if the charm for the application is not
 	// found.
 	CreateCAASApplication(context.Context, string, application.AddCAASApplicationArg, []application.AddUnitArg) (coreapplication.ID, error)
-
-	// GetModelType returns the model type for the underlying model. If the
-	// model does not exist then an error satisfying [modelerrors.NotFound] will
-	// be returned.
-	// Deprecated: This method will be removed, as there should be no need to
-	// determine the model type from the state or service. That's an artifact of
-	// the caller to call the correct methods.
-	GetModelType(context.Context) (coremodel.ModelType, error)
-
-	// StorageDefaults returns the default storage sources for a model.
-	StorageDefaults(context.Context) (domainstorage.StorageDefaults, error)
-
-	// GetStoragePoolByName returns the storage pool with the specified name,
-	// returning an error satisfying [storageerrors.PoolNotFoundError] if it
-	// doesn't exist.
-	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 
 	// UpsertCloudService updates the cloud service for the specified application.
 	// The following errors may be returned:
@@ -801,6 +784,12 @@ func makeApplicationStorageDirectiveArgs(
 ) []application.ApplicationStorageDirectiveArg {
 	rval := make([]application.ApplicationStorageDirectiveArg, 0, len(charmMetaStorage))
 	for charmStorageName, charmStorageDef := range charmMetaStorage {
+		// We don't support shared storage. If the charm has a shared storage
+		// definition we ignore it.
+		if charmStorageDef.Shared {
+			continue
+		}
+
 		arg := makeApplicationStorageDirectiveArg(
 			domainstorage.Name(charmStorageName),
 			directiveOverrides[charmStorageName],
