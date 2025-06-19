@@ -196,7 +196,6 @@ type mockApplication struct {
 	charmModifiedVersion int
 	config               coreconfig.ConfigAttributes
 	unitsWatcher         *watchertest.MockStringsWatcher
-	unitsChanges         chan []string
 	watcher              *watchertest.MockNotifyWatcher
 }
 

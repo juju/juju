@@ -18,7 +18,6 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	devices "github.com/juju/juju/core/devices"
 	leadership "github.com/juju/juju/core/leadership"
-	life "github.com/juju/juju/core/life"
 	model "github.com/juju/juju/core/model"
 	status "github.com/juju/juju/core/status"
 	unit "github.com/juju/juju/core/unit"
@@ -242,21 +241,6 @@ func (mr *MockApplicationServiceMockRecorder) GetApplicationIDByName(arg0, arg1 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByName", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationIDByName), arg0, arg1)
 }
 
-// GetApplicationLifeByName mocks base method.
-func (m *MockApplicationService) GetApplicationLifeByName(arg0 context.Context, arg1 string) (life.Value, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationLifeByName", arg0, arg1)
-	ret0, _ := ret[0].(life.Value)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetApplicationLifeByName indicates an expected call of GetApplicationLifeByName.
-func (mr *MockApplicationServiceMockRecorder) GetApplicationLifeByName(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLifeByName", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationLifeByName), arg0, arg1)
-}
-
 // GetApplicationScale mocks base method.
 func (m *MockApplicationService) GetApplicationScale(arg0 context.Context, arg1 string) (int, error) {
 	m.ctrl.T.Helper()
@@ -270,21 +254,6 @@ func (m *MockApplicationService) GetApplicationScale(arg0 context.Context, arg1 
 func (mr *MockApplicationServiceMockRecorder) GetApplicationScale(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationScale", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationScale), arg0, arg1)
-}
-
-// GetApplicationScalingState mocks base method.
-func (m *MockApplicationService) GetApplicationScalingState(arg0 context.Context, arg1 string) (service.ScalingState, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationScalingState", arg0, arg1)
-	ret0, _ := ret[0].(service.ScalingState)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetApplicationScalingState indicates an expected call of GetApplicationScalingState.
-func (mr *MockApplicationServiceMockRecorder) GetApplicationScalingState(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationScalingState", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationScalingState), arg0, arg1)
 }
 
 // GetCharmLocatorByApplicationName mocks base method.
@@ -347,21 +316,6 @@ func (mr *MockApplicationServiceMockRecorder) GetDeviceConstraints(arg0, arg1 an
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeviceConstraints", reflect.TypeOf((*MockApplicationService)(nil).GetDeviceConstraints), arg0, arg1)
 }
 
-// GetUnitLife mocks base method.
-func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Value, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
-	ret0, _ := ret[0].(life.Value)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUnitLife indicates an expected call of GetUnitLife.
-func (mr *MockApplicationServiceMockRecorder) GetUnitLife(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitLife", reflect.TypeOf((*MockApplicationService)(nil).GetUnitLife), arg0, arg1)
-}
-
 // IsCharmAvailable mocks base method.
 func (m *MockApplicationService) IsCharmAvailable(arg0 context.Context, arg1 charm.CharmLocator) (bool, error) {
 	m.ctrl.T.Helper()
@@ -389,20 +343,6 @@ func (m *MockApplicationService) RemoveUnit(arg0 context.Context, arg1 unit.Name
 func (mr *MockApplicationServiceMockRecorder) RemoveUnit(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUnit", reflect.TypeOf((*MockApplicationService)(nil).RemoveUnit), arg0, arg1, arg2)
-}
-
-// SetApplicationScalingState mocks base method.
-func (m *MockApplicationService) SetApplicationScalingState(arg0 context.Context, arg1 string, arg2 int, arg3 bool) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetApplicationScalingState", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetApplicationScalingState indicates an expected call of SetApplicationScalingState.
-func (mr *MockApplicationServiceMockRecorder) SetApplicationScalingState(arg0, arg1, arg2, arg3 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationScalingState", reflect.TypeOf((*MockApplicationService)(nil).SetApplicationScalingState), arg0, arg1, arg2, arg3)
 }
 
 // UpdateCAASUnit mocks base method.

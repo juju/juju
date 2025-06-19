@@ -526,15 +526,6 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 	}, nil
 }
 
-func statusInfoToDetailedStatus(in status.StatusInfo) params.DetailedStatus {
-	return params.DetailedStatus{
-		Status: in.Status.String(),
-		Info:   in.Message,
-		Since:  in.Since,
-		Data:   in.Data,
-	}
-}
-
 // CharmStorageParams returns filesystem parameters needed
 // to provision storage used for a charm operator or workload.
 func CharmStorageParams(

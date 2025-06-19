@@ -256,7 +256,7 @@ func (s *OpsSuite) TestRefreshApplicationStatus(c *tc.C) {
 		DesiredReplicas: 2,
 	}
 	units := map[unit.Name]status.StatusInfo{
-		"test/0": status.StatusInfo{
+		"test/0": {
 			Status: status.Active,
 		},
 		"test/1": {

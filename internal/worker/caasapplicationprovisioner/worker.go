@@ -25,7 +25,6 @@ import (
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
@@ -86,7 +85,7 @@ type ApplicationService interface {
 	GetAllUnitLifeForApplication(context.Context, application.ID) (map[unit.Name]life.Value, error)
 
 	// GetApplicationName returns the application name for the given application ID.
-	GetApplicationName(ctx context.Context, id coreapplication.ID) (string, error)
+	GetApplicationName(ctx context.Context, id application.ID) (string, error)
 
 	// WatchApplications returns a watcher that observes changes to applications.
 	WatchApplications(ctx context.Context) (watcher.StringsWatcher, error)
@@ -116,7 +115,7 @@ type StatusService interface {
 	// units in the specified application, indexed by unit name, returning an error
 	// satisfying [statuserrors.ApplicationNotFound] if the application doesn't
 	// exist.
-	GetUnitAgentStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[unit.Name]status.StatusInfo, error)
+	GetUnitAgentStatusesForApplication(ctx context.Context, appID application.ID) (map[unit.Name]status.StatusInfo, error)
 
 	// SetApplicationStatus saves the given application status, overwriting any
 	// current status data. If returns an error satisfying
@@ -218,7 +217,7 @@ func (p *provisioner) loop() error {
 				return errors.New("app watcher closed channel")
 			}
 			for _, id := range apps {
-				appID, err := coreapplication.ParseID(id)
+				appID, err := application.ParseID(id)
 				if err != nil {
 					return errors.Trace(err)
 				}

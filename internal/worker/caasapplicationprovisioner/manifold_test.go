@@ -19,7 +19,6 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	statusservice "github.com/juju/juju/domain/status/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner/mocks"
@@ -139,12 +138,4 @@ func (*mockAPICaller) BestFacadeVersion(facade string) int {
 
 func (*mockAPICaller) ModelTag() (names.ModelTag, bool) {
 	return names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"), true
-}
-
-type mockDomainServices struct {
-	services.ModelDomainServices
-}
-
-func (*mockDomainServices) Application() *applicationservice.WatchableService {
-	return nil
 }
