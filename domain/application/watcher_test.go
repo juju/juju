@@ -119,7 +119,7 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 	harness.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
+func (s *watcherSuite) TestWatchApplicationUnitLife(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit")
 
 	svc := s.setupService(c, factory)
@@ -310,7 +310,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	harness.Run(c, []string{})
 }
 
-func (s *watcherSuite) TestWatchUnitLifeInitial(c *tc.C) {
+func (s *watcherSuite) TestWatchApplicationUnitLifeInitial(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit")
 
 	svc := s.setupService(c, factory)
@@ -346,6 +346,86 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *tc.C) {
 	})
 
 	harness.Run(c, []string{})
+}
+
+func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit")
+
+	svc := s.setupService(c, factory)
+	s.createIAASApplication(c, svc, "foo", service.AddIAASUnitArg{}, service.AddIAASUnitArg{})
+
+	watcher, err := svc.WatchUnitLife(c.Context(), unit.Name("foo/0"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+	harness.AddTest(func(c *tc.C) {
+		// Test unit life going to dying fires.
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "foo/0"); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		// Test unit life going to dead fires.
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name=?", "foo/0"); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		// Test unit removal fires.
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			var unitID1 string
+			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/0").Scan(&unitID1); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_agent_status WHERE unit_uuid=?", unitID1); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_status WHERE unit_uuid=?", unitID1); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_version WHERE unit_uuid=?", unitID1); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_constraint WHERE unit_uuid=?", unitID1); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "foo/0"); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		// Test annother unit life going to dying does not fire.
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "foo/1"); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+	harness.Run(c, struct{}{})
 }
 
 func (s *watcherSuite) TestWatchApplicationScale(c *tc.C) {

@@ -23,6 +23,10 @@ import (
 // ApplicationService defines the methods required to get the life of a unit.
 type ApplicationService interface {
 	GetUnitLife(ctx context.Context, name unit.Name) (life.Value, error)
+	// GetApplicationLifeByName looks up the life of the specified application, returning
+	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application is not found.
+	GetApplicationLifeByName(ctx context.Context, appName string) (life.Value, error)
 }
 
 // LifeGetter implements a common Life method for use by various facades.
@@ -91,19 +95,30 @@ func (lg *LifeGetter) OneLife(ctx context.Context, tag names.Tag) (life.Value, e
 	case names.MachineTag:
 		life, err := lg.machineService.GetMachineLife(ctx, machine.Name(t.Id()))
 		if errors.Is(err, machineerrors.NotProvisioned) {
-			return "", apiservererrors.ServerError(errors.NotProvisionedf("machine %s", t.Id()))
+			return "", errors.NotProvisionedf("machine %s", t.Id())
 		} else if errors.Is(err, machineerrors.MachineNotFound) {
-			return "", apiservererrors.ServerError(errors.NotFoundf("machine %s", t.Id()))
+			return "", errors.NotFoundf("machine %s", t.Id())
 		}
 		return life, errors.Trace(err)
 
 	case names.UnitTag:
 		life, err := lg.applicationService.GetUnitLife(ctx, unit.Name(t.Id()))
 		if errors.Is(err, applicationerrors.UnitNotFound) {
-			return "", apiservererrors.ServerError(errors.NotFoundf("unit %s", t.Id()))
+			return "", errors.NotFoundf("unit %s", t.Id())
 		}
 		return life, errors.Trace(err)
 
+	case names.ApplicationTag:
+		if lg.applicationService == nil {
+			return "", errors.NotSupportedf("application life getting")
+		}
+		appLife, err := lg.applicationService.GetApplicationLifeByName(ctx, tag.Id())
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return "", errors.NotFoundf("application %q", tag.Id())
+		} else if err != nil {
+			return "", errors.Trace(err)
+		}
+		return appLife, nil
 	default:
 		lg.logger.Criticalf(ctx, "OneLife called with unsupported tag %s", tag)
 	}

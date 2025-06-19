@@ -76,4 +76,8 @@ type ApplicationService interface {
 	// WatchApplications returns a watcher that emits application uuids
 	// when applications are added or removed.
 	WatchApplications(ctx context.Context) (watcher.StringsWatcher, error)
+	// GetApplicationLifeByName looks up the life of the specified application, returning
+	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application is not found.
+	GetApplicationLifeByName(ctx context.Context, appName string) (life.Value, error)
 }
