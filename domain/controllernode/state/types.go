@@ -65,3 +65,10 @@ type controllerAPIAddressStr struct {
 	// Address is the address of the controller node.
 	Address string `db:"address"`
 }
+
+// controllerPasswordHash is the database representation of a controller with
+// a password hash. Used as input only.
+type controllerPasswordHash struct {
+	ControllerID string `db:"controller_id"`
+	PasswordHash string `db:"password_hash"`
+}

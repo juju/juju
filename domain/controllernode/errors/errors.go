@@ -21,4 +21,8 @@ const (
 	// EmptyAPIAddresses describes an error that occurs when no API addresses
 	// are found.
 	EmptyAPIAddresses = errors.ConstError("no API addresses found")
+
+	// InvalidPassword describes an error that occurs when the password is not
+	// valid.
+	InvalidPassword = errors.ConstError("invalid password")
 )

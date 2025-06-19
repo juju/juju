@@ -12,3 +12,10 @@ type APIAddress struct {
 	// IsAgent indicates whether the address is available for agents.
 	IsAgent bool
 }
+
+// ControllerPasswordHash represents a hashed password.
+type ControllerPasswordHash string
+
+func (p ControllerPasswordHash) String() string {
+	return string(p)
+}

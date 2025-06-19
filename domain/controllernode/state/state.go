@@ -527,6 +527,96 @@ FROM controller_node
 	return res, nil
 }
 
+// SetPasswordHash sets the password hash for the given controller node.
+func (s *State) SetPasswordHash(
+	ctx context.Context,
+	ctrlID string,
+	passwordHash controllernode.ControllerPasswordHash,
+) error {
+	db, err := s.DB()
+	if err != nil {
+		return err
+	}
+
+	args := controllerPasswordHash{
+		ControllerID: ctrlID,
+		PasswordHash: passwordHash.String(),
+	}
+
+	query := `
+UPDATE controller_node
+SET    password_hash = $controllerPasswordHash.password_hash,
+       password_hash_algorithm_id = 0
+WHERE  controller_id = $controllerPasswordHash.controller_id;
+`
+	stmt, err := s.Prepare(query, args)
+	if err != nil {
+		return errors.Errorf("preparing statement to set password hash: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, stmt, args).Get(&outcome); err != nil {
+			return errors.Errorf("setting password hash: %w", err)
+		}
+
+		result := outcome.Result()
+		if err != nil {
+			return errors.Errorf("getting result of setting password hash: %w", err)
+		} else if affected, err := result.RowsAffected(); err != nil {
+			return errors.Errorf("getting number of affected rows: %w", err)
+		} else if affected == 0 {
+			return controllernodeerrors.NotFound
+		}
+		return nil
+	})
+	return errors.Capture(err)
+}
+
+// MatchesPasswordHash checks if the password is valid or not against the
+// password hash stored in the database. The controller node must have a
+// password. It returns an error if the controller node is not found.
+func (s *State) MatchesPasswordHash(
+	ctx context.Context,
+	ctrlID string,
+	passwordHash controllernode.ControllerPasswordHash,
+) (bool, error) {
+	db, err := s.DB()
+	if err != nil {
+		return false, err
+	}
+
+	args := controllerPasswordHash{
+		ControllerID: ctrlID,
+		PasswordHash: passwordHash.String(),
+	}
+
+	var result controllerID
+	passwordQuery := `
+SELECT 
+    controller_id AS &controllerID.controller_id
+FROM      controller_node
+WHERE     controller_id = $controllerPasswordHash.controller_id
+AND       password_hash = $controllerPasswordHash.password_hash
+AND       password_hash_algorithm_id = 0;
+`
+	passwordStmt, err := s.Prepare(passwordQuery, args, result)
+	if err != nil {
+		return false, errors.Errorf("preparing statement to set password hash: %w", err)
+	}
+
+	var valid bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, passwordStmt, args).Get(&result); err != nil {
+			return errors.Errorf("checking password hash: %w", err)
+		}
+
+		valid = result.ID == ctrlID
+		return nil
+	})
+	return valid, errors.Capture(err)
+}
+
 // calculateAddressDeltas returns the list of addresses to add, remove, and
 // update from the controller node table given the existing and new addresses.
 // The updated addresses are the list of addresses for which the IsAgent flag
