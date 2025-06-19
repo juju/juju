@@ -18,6 +18,7 @@ import (
 	life "github.com/juju/juju/core/life"
 	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
+	network0 "github.com/juju/juju/domain/network"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -141,6 +142,44 @@ func (c *MockNetworkServiceGetAllSpacesCall) Do(f func(context.Context) (network
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNetworkServiceGetAllSpacesCall) DoAndReturn(f func(context.Context) (network.SpaceInfos, error)) *MockNetworkServiceGetAllSpacesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetProviderNetConfig mocks base method.
+func (m *MockNetworkService) SetProviderNetConfig(arg0 context.Context, arg1 machine.UUID, arg2 []network0.NetInterface) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetProviderNetConfig", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetProviderNetConfig indicates an expected call of SetProviderNetConfig.
+func (mr *MockNetworkServiceMockRecorder) SetProviderNetConfig(arg0, arg1, arg2 any) *MockNetworkServiceSetProviderNetConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProviderNetConfig", reflect.TypeOf((*MockNetworkService)(nil).SetProviderNetConfig), arg0, arg1, arg2)
+	return &MockNetworkServiceSetProviderNetConfigCall{Call: call}
+}
+
+// MockNetworkServiceSetProviderNetConfigCall wrap *gomock.Call
+type MockNetworkServiceSetProviderNetConfigCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkServiceSetProviderNetConfigCall) Return(arg0 error) *MockNetworkServiceSetProviderNetConfigCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkServiceSetProviderNetConfigCall) Do(f func(context.Context, machine.UUID, []network0.NetInterface) error) *MockNetworkServiceSetProviderNetConfigCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkServiceSetProviderNetConfigCall) DoAndReturn(f func(context.Context, machine.UUID, []network0.NetInterface) error) *MockNetworkServiceSetProviderNetConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

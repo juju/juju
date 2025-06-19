@@ -203,10 +203,12 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
 
 	// Add Ips addresses
 	eth01 := s.addIPAddress(c, device1UUID, netNodeUUID, "192.168.1.1/24")
+	eth02 := s.addIPAddress(c, device1UUID, netNodeUUID, "192.90.1.1/24")
 	eth11 := s.addIPAddress(c, device2UUID, netNodeUUID, "100.168.1.1/24")
 	eth21 := s.addIPAddress(c, toRelinquishUUID, netNodeUUID, "10.168.1.1/24")
 
 	s.addProviderIPAddress(c, eth01, "provider-ip-1")
+	// eth02 has no provider id
 	s.addProviderIPAddress(c, eth11, "old-provider-ip-2")
 	s.addProviderIPAddress(c, eth21, "old-provider-ip-3")
 
@@ -214,11 +216,12 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
 	incoming := []network.NetInterface{
 		s.createNetInterface("eth0", "00:11:22:33:44:55", "new-provider-id-1",
 			[]network.NetAddr{
-				s.createNetAddr("192.168.1.1/24", "provider-ip-1"),
+				s.createNetAddr("192.168.1.1/24", "provider-ip-1"), // eth01
+				s.createNetAddr("192.90.1.1/24", "provider-ip-2"),  // eth02
 			}),
 		s.createNetInterface("eth1", "00:11:22:33:44:66", "provider-id-2",
 			[]network.NetAddr{
-				s.createNetAddr("100.168.1.1/24", "new-provider-ip-2"),
+				s.createNetAddr("100.168.1.1/24", "new-provider-ip-2"), // eth11
 			}),
 	}
 
@@ -254,6 +257,11 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDevice(c *tc.C) {
 			UUID:       eth01,
 			Address:    "192.168.1.1/24",
 			ProviderID: "provider-ip-1",
+			Origin:     "provider",
+		}, {
+			UUID:       eth02,
+			Address:    "192.90.1.1/24",
+			ProviderID: "provider-ip-2",
 			Origin:     "provider",
 		}, {
 			UUID:       eth11,
@@ -1135,7 +1143,7 @@ func (s *mergeLinkLayerSuite) addIPAddress(c *tc.C, deviceUUID, netNodeUUID, add
 	s.query(c, `
 		INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id, is_secondary, is_shadow)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, addressUUID, deviceUUID, addressValue, netNodeUUID, nil, 0, 4, 1, 0,
+	`, addressUUID, deviceUUID, addressValue, netNodeUUID, nil, 0, 4, 0, 0,
 		false, false)
 
 	return addressUUID
@@ -1163,6 +1171,12 @@ func (s *mergeLinkLayerSuite) addProviderIPAddress(
 		INSERT INTO provider_ip_address (provider_id, address_uuid)
 		VALUES (?, ?)
 	`, providerID, addressUUID)
+
+	s.query(c, `
+UPDATE ip_address
+SET origin_id = (SELECT id FROM ip_address_origin WHERE name = 'provider')
+WHERE uuid = ?
+	`, addressUUID)
 }
 
 // addSpace adds a space to the database and returns its UUID.
