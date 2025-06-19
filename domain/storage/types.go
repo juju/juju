@@ -20,19 +20,6 @@ const (
 // Attrs defines storage attributes.
 type Attrs map[string]string
 
-// StoragePoolOrigin defines the origin value of a storage pool.
-// It can be "user", "built-in", or "provider-default".
-type StoragePoolOrigin string
-
-const (
-	// StoragePoolOriginUser defines a storage pool created by a user.
-	StoragePoolOriginUser StoragePoolOrigin = "user"
-	// StoragePoolOriginBuiltIn defines a storage pool that is built-in to Juju.
-	StoragePoolOriginBuiltIn StoragePoolOrigin = "built-in"
-	// StoragePoolOriginProviderDefault defines a storage pool that is provided by the storage provider.
-	StoragePoolOriginProviderDefault StoragePoolOrigin = "provider-default"
-)
-
 // StoragePool represents a storage pool in Juju.
 // It contains the name of the pool, the provider type, and any attributes
 type StoragePool struct {
@@ -40,7 +27,6 @@ type StoragePool struct {
 	Name     string
 	Provider string
 	Attrs    Attrs
-	Origin   StoragePoolOrigin
 }
 
 // These type aliases are used to specify filter terms.

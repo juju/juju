@@ -15,7 +15,6 @@ type StoragePool struct {
 
 	Name         string `db:"name"`
 	ProviderType string `db:"type"`
-	Origin       string `db:"origin"`
 }
 
 type poolAttribute struct {
@@ -27,11 +26,6 @@ type poolAttribute struct {
 
 	// Value is the value associated with key.
 	Value string `db:"value"`
-}
-
-type poolOrigin struct {
-	ID     int    `db:"id"`
-	Origin string `db:"origin"`
 }
 
 type StoragePoolNames []string
@@ -48,24 +42,11 @@ func (rows StoragePools) toStoragePools(keyValues []poolAttribute) ([]storage.St
 
 	var result []storage.StoragePool
 	recordResult := func(row *StoragePool, attrs poolAttributes) {
-		sp := storage.StoragePool{
+		result = append(result, storage.StoragePool{
 			Name:     row.Name,
 			Provider: row.ProviderType,
 			Attrs:    storage.Attrs(attrs),
-		}
-		switch row.Origin {
-		case "user":
-			sp.Origin = storage.StoragePoolOriginUser
-		case "built-in":
-			sp.Origin = storage.StoragePoolOriginBuiltIn
-		case "provider-default":
-			sp.Origin = storage.StoragePoolOriginProviderDefault
-		default:
-			// Invalid origin, skip this pool.
-			// This should not happen in practice, because we have validation during pool creation.
-			return
-		}
-		result = append(result, sp)
+		})
 	}
 
 	var (
