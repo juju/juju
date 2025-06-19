@@ -3717,6 +3717,45 @@ func (c *MockStateIsCharmAvailableCall) DoAndReturn(f func(context.Context, char
 	return c
 }
 
+// IsControllerApplication mocks base method.
+func (m *MockState) IsControllerApplication(ctx context.Context, appID application.ID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsControllerApplication", ctx, appID)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsControllerApplication indicates an expected call of IsControllerApplication.
+func (mr *MockStateMockRecorder) IsControllerApplication(ctx, appID any) *MockStateIsControllerApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerApplication", reflect.TypeOf((*MockState)(nil).IsControllerApplication), ctx, appID)
+	return &MockStateIsControllerApplicationCall{Call: call}
+}
+
+// MockStateIsControllerApplicationCall wrap *gomock.Call
+type MockStateIsControllerApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsControllerApplicationCall) Return(arg0 bool, arg1 error) *MockStateIsControllerApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsControllerApplicationCall) Do(f func(context.Context, application.ID) (bool, error)) *MockStateIsControllerApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsControllerApplicationCall) DoAndReturn(f func(context.Context, application.ID) (bool, error)) *MockStateIsControllerApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // IsControllerCharm mocks base method.
 func (m *MockState) IsControllerCharm(ctx context.Context, id charm.ID) (bool, error) {
 	m.ctrl.T.Helper()

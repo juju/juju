@@ -972,6 +972,35 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourc
 			errors.ErrorStack(err)))
 }
 
+func (s *applicationStateSuite) TestIsControllerApplication(c *tc.C) {
+	appID := s.createIAASApplication(c, "foo", life.Dying)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`INSERT INTO application_controller (application_uuid) VALUES (?)`,
+			appID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	isController, err := s.state.IsControllerApplication(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.IsTrue)
+}
+
+func (s *applicationStateSuite) TestIsControllerApplicationFalse(c *tc.C) {
+	// Existing application:
+	appID := s.createIAASApplication(c, "foo", life.Dying)
+	isController, err := s.state.IsControllerApplication(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.IsFalse)
+
+	// Non-existing application:
+	missingAppID := applicationtesting.GenApplicationUUID(c)
+	isController, err = s.state.IsControllerApplication(c.Context(), missingAppID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.IsFalse)
+}
+
 func (s *applicationStateSuite) TestGetApplicationLifeByName(c *tc.C) {
 	appID := s.createIAASApplication(c, "foo", life.Dying)
 	gotID, appLife, err := s.state.GetApplicationLifeByName(c.Context(), "foo")

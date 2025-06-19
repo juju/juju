@@ -92,6 +92,9 @@ type ApplicationService interface {
 
 	// UpsertCloudService updates the cloud service for the specified application.
 	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
+
+	// IsControllerApplication returns true when the application is the controller.
+	IsControllerApplication(ctx context.Context, id application.ID) (bool, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.

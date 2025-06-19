@@ -319,6 +319,45 @@ func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// IsControllerApplication mocks base method.
+func (m *MockApplicationService) IsControllerApplication(arg0 context.Context, arg1 application.ID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsControllerApplication", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsControllerApplication indicates an expected call of IsControllerApplication.
+func (mr *MockApplicationServiceMockRecorder) IsControllerApplication(arg0, arg1 any) *MockApplicationServiceIsControllerApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerApplication", reflect.TypeOf((*MockApplicationService)(nil).IsControllerApplication), arg0, arg1)
+	return &MockApplicationServiceIsControllerApplicationCall{Call: call}
+}
+
+// MockApplicationServiceIsControllerApplicationCall wrap *gomock.Call
+type MockApplicationServiceIsControllerApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceIsControllerApplicationCall) Return(arg0 bool, arg1 error) *MockApplicationServiceIsControllerApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceIsControllerApplicationCall) Do(f func(context.Context, application.ID) (bool, error)) *MockApplicationServiceIsControllerApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceIsControllerApplicationCall) DoAndReturn(f func(context.Context, application.ID) (bool, error)) *MockApplicationServiceIsControllerApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetApplicationScalingState mocks base method.
 func (m *MockApplicationService) SetApplicationScalingState(arg0 context.Context, arg1 string, arg2 int, arg3 bool) error {
 	m.ctrl.T.Helper()

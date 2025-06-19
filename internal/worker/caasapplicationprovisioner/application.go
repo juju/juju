@@ -128,8 +128,15 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "fetching info for application %q", a.appID)
 	}
 
-	// TODO: figure out how to do this.
-	statusOnly := name == "controller"
+	// If the application is the Juju controller, only provide updates on the
+	// status of the application.
+	statusOnly, err := a.applicationService.IsControllerApplication(ctx, a.appID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		a.logger.Debugf(ctx, "application %q no longer exists", a.appID)
+		return nil
+	} else if err != nil {
+		return errors.Annotatef(err, "fetching info for application %q", a.appID)
+	}
 
 	// TODO(sidecar): support more than statefulset
 	app := a.broker.Application(name, caas.DeploymentStateful)

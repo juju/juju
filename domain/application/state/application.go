@@ -787,6 +787,35 @@ WHERE uuid = $applicationID.uuid
 	return life.LifeID, nil
 }
 
+// IsControllerApplication returns true when the application is the controller.
+func (st *State) IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	controllerApp := controllerApplication{
+		ApplicationID: appID,
+	}
+	stmt, err := st.Prepare(`
+SELECT TRUE AS &controllerApplication.is_controller
+FROM application_controller
+WHERE application_uuid = $controllerApplication.application_uuid
+`, controllerApp)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, controllerApp).Get(&controllerApp)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	return controllerApp.IsController, errors.Capture(err)
+}
+
 // GetApplicationLifeByName looks up the life of the specified application, returning
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.

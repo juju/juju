@@ -1345,3 +1345,8 @@ type getUnitMachine struct {
 	UnitName    coreunit.Name    `db:"unit_name"`
 	UnitMachine coremachine.Name `db:"machine_name"`
 }
+
+type controllerApplication struct {
+	ApplicationID coreapplication.ID `db:"application_uuid"`
+	IsController  bool               `db:"is_controller"`
+}
