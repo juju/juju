@@ -111,6 +111,10 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 						Provider:   "static",
 					},
 				}},
+				CharmConstraints: constraints.CharmValue{
+					MemRequest: uintPtr(64),
+					MemLimit:   uintPtr(256),
+				},
 			}},
 		},
 	}
@@ -197,6 +201,10 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 				"space1": {"subnet-0"},
 				"space2": {"subnet-1", "subnet-2"},
 			},
+		},
+		CharmConstraints: constraints.CharmValue{
+			MemRequest: uintPtr(64),
+			MemLimit:   uintPtr(256),
 		},
 	}
 
@@ -286,6 +294,10 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 						"space2": {"subnet-1", "subnet-2"},
 						"alpha":  {"subnet-alpha"},
 					},
+				},
+				CharmConstraints: constraints.CharmValue{
+					MemRequest: uintPtr(64),
+					MemLimit:   uintPtr(256),
 				},
 			},
 		}},
@@ -558,6 +570,10 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 					"ubuntu":  network.AlphaSpaceName,
 				},
 				CharmLXDProfiles: []string{pName},
+				CharmConstraints: constraints.CharmValue{
+					MemRequest: uintPtr(64),
+					MemLimit:   uintPtr(256),
+				},
 			},
 		}}}
 	c.Assert(result, jc.DeepEquals, expected)
@@ -614,6 +630,10 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 					},
 				}},
 				EndpointBindings: make(map[string]string),
+				CharmConstraints: constraints.CharmValue{
+					MemRequest: uintPtr(64),
+					MemLimit:   uintPtr(256),
+				},
 			},
 			}},
 	})
@@ -749,6 +769,10 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 					tags.JujuMachine:    "controller-machine-0",
 				},
 				EndpointBindings: make(map[string]string),
+				CharmConstraints: constraints.CharmValue{
+					MemRequest: uintPtr(64),
+					MemLimit:   uintPtr(256),
+				},
 			},
 			},
 			{Error: apiservertesting.NotFoundError("machine 0/lxd/0")},
@@ -757,4 +781,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
+}
+
+func uintPtr(i uint64) *uint64 {
+	return &i
 }
