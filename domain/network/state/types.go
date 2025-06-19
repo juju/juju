@@ -660,27 +660,23 @@ func (subs subnetGroups) subnetForIP(ip string) (string, error) {
 		return "", errors.Errorf("invalid IP address %q", ip)
 	}
 
+	var matches []string
 	for _, s := range subs {
 		if s.ipNet.Contains(netIP) {
-			if len(s.uuids) == 1 {
-				return s.uuids[0], nil
-			}
-
-			// If there are multiple subnets for the same CIDR,
-			// the caller must create a subnet for the IP address.
-			if len(s.uuids) > 1 {
-				return "", nil
-			}
-
-			// This should not be possible if the subnet
-			// groups are constructed correctly,
-			if len(s.uuids) == 0 {
-				return "", errors.Errorf("no subnet UUIDs for CIDR %q", s.ipNet.String())
-			}
+			matches = append(matches, s.uuids...)
 		}
 	}
 
-	return "", errors.Errorf("no subnet found for IP %q", ip)
+	if len(matches) == 0 {
+		return "", errors.Errorf("no subnet found for IP %q", ip)
+	}
+
+	// If there are multiple subnets for the same CIDR,
+	// the caller must create a subnet for the IP address.
+	if len(matches) > 1 {
+		return "", nil
+	}
+	return matches[0], nil
 }
 
 type spaceAddress struct {
