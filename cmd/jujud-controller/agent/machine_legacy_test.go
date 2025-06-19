@@ -469,69 +469,6 @@ func (s *MachineLegacySuite) TestManageModelServesAPI(c *tc.C) {
 	})
 }
 
-func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFile(c *tc.C) {
-	c.Skip("This test relies on pubsub to notify all workers that the apiserver details has changed. This needs to be an integration test, not a unit test.")
-
-	s.assertJob(c, state.JobManageModel,
-		func() {
-			s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
-				Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
-			}).Return(&exec.ExecResponse{Code: 0}, nil).AnyTimes()
-		},
-		func(conf agent.Config, a *MachineAgent) {
-			apiInfo, ok := conf.APIInfo()
-			c.Assert(ok, tc.IsTrue)
-			st, err := api.Open(c.Context(), apiInfo, fastDialOpts)
-			c.Assert(err, tc.ErrorIsNil)
-			defer func() { _ = st.Close() }()
-			err = a.machineStartup(c.Context(), st, loggertesting.WrapCheckLog(c))
-			c.Assert(err, tc.ErrorIsNil)
-		},
-	)
-}
-
-func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileErrored(c *tc.C) {
-	c.Skip("This test relies on pubsub to notify all workers that the apiserver details has changed. This needs to be an integration test, not a unit test.")
-
-	s.assertJob(c, state.JobManageModel,
-		func() {
-			s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
-				Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
-			}).Return(nil, errors.New("unknown error")).MinTimes(1)
-		},
-		func(conf agent.Config, a *MachineAgent) {
-			apiInfo, ok := conf.APIInfo()
-			c.Assert(ok, tc.IsTrue)
-			st, err := api.Open(c.Context(), apiInfo, fastDialOpts)
-			c.Assert(err, tc.ErrorIsNil)
-			defer func() { _ = st.Close() }()
-			err = a.machineStartup(c.Context(), st, loggertesting.WrapCheckLog(c))
-			c.Assert(err, tc.ErrorMatches, `unknown error`)
-		},
-	)
-}
-
-func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileNonZeroExitCode(c *tc.C) {
-	c.Skip("This test relies on pubsub to notify all workers that the apiserver details has changed. This needs to be an integration test, not a unit test.")
-
-	s.assertJob(c, state.JobManageModel,
-		func() {
-			s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
-				Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
-			}).Return(&exec.ExecResponse{Code: 1, Stderr: []byte(`unknown error`)}, nil).MinTimes(1)
-		},
-		func(conf agent.Config, a *MachineAgent) {
-			apiInfo, ok := conf.APIInfo()
-			c.Assert(ok, tc.IsTrue)
-			st, err := api.Open(c.Context(), apiInfo, fastDialOpts)
-			c.Assert(err, tc.ErrorIsNil)
-			defer func() { _ = st.Close() }()
-			err = a.machineStartup(c.Context(), st, loggertesting.WrapCheckLog(c))
-			c.Assert(err, tc.ErrorMatches, `cannot patch /etc/update-manager/release-upgrades: unknown error`)
-		},
-	)
-}
-
 func (s *MachineLegacySuite) TestControllerModelWorkers(c *tc.C) {
 	c.Skip("These rely on model databases, which aren't available in the agent tests. See addendum.")
 

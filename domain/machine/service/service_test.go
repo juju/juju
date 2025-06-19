@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -926,6 +927,18 @@ func (s *serviceSuite) TestGetAllProvisionedMachineInstanceIDError(c *tc.C) {
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetAllProvisionedMachineInstanceID(c.Context())
 	c.Check(err, tc.ErrorIs, rErr)
+}
+
+func (s *serviceSuite) TestSetMachineHostname(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+
+	s.state.EXPECT().SetMachineHostname(gomock.Any(), machineUUID, "new-hostname").Return(nil)
+
+	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		SetMachineHostname(c.Context(), machineUUID, "new-hostname")
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) expectCreateMachineStatusHistory(c *tc.C) {

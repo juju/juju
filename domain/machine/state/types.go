@@ -241,3 +241,8 @@ type exportMachine struct {
 	LifeID int    `db:"life_id"`
 	Nonce  string `db:"nonce"`
 }
+
+type machineHostName struct {
+	Hostname       sql.Null[string] `db:"hostname"`
+	AgentStartedAt time.Time        `db:"agent_started_at"`
+}

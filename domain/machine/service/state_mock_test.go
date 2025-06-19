@@ -1325,6 +1325,44 @@ func (c *MockStateSetMachineCloudInstanceCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// SetMachineHostname mocks base method.
+func (m *MockState) SetMachineHostname(ctx context.Context, mUUID machine.UUID, hostname string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetMachineHostname", ctx, mUUID, hostname)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMachineHostname indicates an expected call of SetMachineHostname.
+func (mr *MockStateMockRecorder) SetMachineHostname(ctx, mUUID, hostname any) *MockStateSetMachineHostnameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineHostname", reflect.TypeOf((*MockState)(nil).SetMachineHostname), ctx, mUUID, hostname)
+	return &MockStateSetMachineHostnameCall{Call: call}
+}
+
+// MockStateSetMachineHostnameCall wrap *gomock.Call
+type MockStateSetMachineHostnameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetMachineHostnameCall) Return(arg0 error) *MockStateSetMachineHostnameCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetMachineHostnameCall) Do(f func(context.Context, machine.UUID, string) error) *MockStateSetMachineHostnameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetMachineHostnameCall) DoAndReturn(f func(context.Context, machine.UUID, string) error) *MockStateSetMachineHostnameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetMachineLife mocks base method.
 func (m *MockState) SetMachineLife(arg0 context.Context, arg1 machine.Name, arg2 life.Life) error {
 	m.ctrl.T.Helper()

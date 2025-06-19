@@ -173,10 +173,6 @@ type ManifoldsConfig struct {
 	// *state.StatePool.
 	OpenStatePool func(context.Context, coreagent.Config, services.ControllerDomainServices, services.DomainServicesGetter) (*state.StatePool, error)
 
-	// MachineStartup is passed to the machine manifold. It does
-	// machine setup work which relies on an API connection.
-	MachineStartup func(context.Context, api.Connection, corelogger.Logger) error
-
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
@@ -1078,14 +1074,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewBrokerFunc: config.NewBrokerFunc,
 			NewTracker:    lxdbroker.NewWorkerTracker,
 		})),
-		// The machineSetupName manifold runs small tasks required
-		// to setup a machine, but requires the machine agent's API
-		// connection. Once its work is complete, it stops.
-		machineSetupName: ifNotMigrating(MachineStartupManifold(MachineStartupConfig{
-			APICallerName:  apiCallerName,
-			MachineStartup: config.MachineStartup,
-			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
-		})),
 		lxdContainerProvisioner: ifNotMigrating(containerprovisioner.Manifold(containerprovisioner.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -1318,7 +1306,6 @@ const (
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	machineActionName             = "machine-action-runner"
 	machinerName                  = "machiner"
-	machineSetupName              = "machine-setup"
 	modelWorkerManagerName        = "model-worker-manager"
 	objectStoreName               = "object-store"
 	objectStoreS3CallerName       = "object-store-s3-caller"

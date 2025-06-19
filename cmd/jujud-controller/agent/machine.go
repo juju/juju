@@ -5,7 +5,6 @@ package agent
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -36,10 +35,7 @@ import (
 	agentengine "github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api"
-	apiagent "github.com/juju/juju/api/agent/agent"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
-	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
@@ -49,8 +45,6 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	coremodel "github.com/juju/juju/core/model"
@@ -591,7 +585,6 @@ func (a *MachineAgent) makeEngineCreator(
 			UpgradeCheckLock:                  a.initialUpgradeCheckComplete,
 			NewDBWorkerFunc:                   a.newDBWorkerFunc,
 			OpenStatePool:                     a.initState,
-			MachineStartup:                    a.machineStartup,
 			PreUpgradeSteps:                   a.preUpgradeSteps,
 			UpgradeSteps:                      a.upgradeSteps,
 			LogSink:                           logSink,
@@ -687,62 +680,6 @@ var (
 	newBroker     = broker.New
 )
 
-func (a *MachineAgent) machineStartup(ctx context.Context, apiConn api.Connection, logger corelogger.Logger) error {
-	logger.Tracef(context.TODO(), "machineStartup called")
-	// CAAS agents do not have machines.
-	if a.isCaasAgent {
-		return nil
-	}
-
-	apiSt, err := apiagent.NewClient(apiConn)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	entity, err := apiSt.Entity(ctx, a.Tag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// Report the machine host name and record the agent start time. This
-	// ensures that whenever a machine restarts, the instancepoller gets a
-	// chance to immediately refresh the provider address (inc. shadow IP)
-	// information which can change between reboots.
-	hostname, err := getHostname()
-	if err != nil {
-		return errors.Annotate(err, "getting machine hostname")
-	}
-	if err := a.recordAgentStartInformation(ctx, apiConn, hostname); err != nil {
-		return errors.Annotate(err, "recording agent start information")
-	}
-
-	if err := a.setupContainerSupport(ctx, apiConn, logger); err != nil {
-		return err
-	}
-
-	var isController bool
-	for _, job := range entity.Jobs() {
-		switch job {
-		case coremodel.JobManageModel:
-			isController = true
-		default:
-		}
-	}
-	if isController {
-		// We disallow "do-release-upgrade" to run on Juju Controller machine because we do not want to break mongodb.
-		// - https://bugs.launchpad.net/juju/+bug/1881218
-		result, err := a.cmdRunner.RunCommands(exec.RunParams{
-			Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if result.Code != 0 {
-			return fmt.Errorf("cannot patch /etc/update-manager/release-upgrades: %s", result.Stderr)
-		}
-	}
-
-	return nil
-}
-
 type noopStatusSetter struct{}
 
 // SetStatus implements upgradesteps.StatusSetter
@@ -757,32 +694,6 @@ func (a *MachineAgent) statusSetter(ctx context.Context, apiCaller base.APICalle
 	}
 	machinerAPI := apimachiner.NewClient(apiCaller)
 	return machinerAPI.Machine(ctx, a.Tag().(names.MachineTag))
-}
-
-func (a *MachineAgent) machine(ctx context.Context, apiConn api.Connection) (*apimachiner.Machine, error) {
-	machinerAPI := apimachiner.NewClient(apiConn)
-	agentConfig := a.CurrentConfig()
-
-	tag, ok := agentConfig.Tag().(names.MachineTag)
-	if !ok {
-		return nil, errors.Errorf("%q is not a machine tag", agentConfig.Tag().String())
-	}
-	return machinerAPI.Machine(ctx, tag)
-}
-
-func (a *MachineAgent) recordAgentStartInformation(ctx context.Context, apiConn api.Connection, hostname string) error {
-	m, err := a.machine(ctx, apiConn)
-	if errors.Is(err, errors.NotFound) || err == nil && m.Life() == life.Dead {
-		return internalworker.ErrTerminateAgent
-	}
-	if err != nil {
-		return errors.Annotatef(err, "cannot load machine %s from state", a.CurrentConfig().Tag())
-	}
-
-	if err := m.RecordAgentStartInformation(ctx, hostname); err != nil {
-		return errors.Annotate(err, "cannot record agent start information")
-	}
-	return nil
 }
 
 // Restart restarts the agent's service.
@@ -803,45 +714,6 @@ func (a *MachineAgent) validateMigration(ctx context.Context, apiCaller base.API
 		_, err = facade.Machine(ctx, a.agentTag.(names.MachineTag))
 	}
 	return errors.Trace(err)
-}
-
-// setupContainerSupport determines what containers can be run on this machine and
-// passes the result to the juju controller.
-func (a *MachineAgent) setupContainerSupport(ctx context.Context, st api.Connection, logger corelogger.Logger) error {
-	logger.Tracef(context.TODO(), "setupContainerSupport called")
-	pr := apiprovisioner.NewClient(st)
-	mTag, ok := a.CurrentConfig().Tag().(names.MachineTag)
-	if !ok {
-		return errors.New("not a machine")
-	}
-	result, err := pr.Machines(ctx, mTag)
-	if err != nil {
-		return errors.Annotatef(err, "cannot load machine %s from state", mTag)
-	}
-	if len(result) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(result))
-	}
-	if errors.Is(err, errors.NotFound) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
-		return internalworker.ErrTerminateAgent
-	}
-	m := result[0].Machine
-
-	var supportedContainers []instance.ContainerType
-	supportedContainers = append(supportedContainers, instance.LXD)
-
-	logger.Debugf(context.TODO(), "Supported container types %q", supportedContainers)
-
-	if len(supportedContainers) == 0 {
-		if err := m.SupportsNoContainers(ctx); err != nil {
-			return errors.Annotatef(err, "clearing supported supportedContainers for %s", mTag)
-		}
-		return nil
-	}
-	err = m.SetSupportedContainers(ctx, supportedContainers...)
-	if err != nil {
-		return errors.Annotatef(err, "setting supported supportedContainers for %s", mTag)
-	}
-	return nil
 }
 
 func mongoDialOptions(

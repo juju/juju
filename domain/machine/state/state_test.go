@@ -1028,6 +1028,41 @@ func (s *stateSuite) TestGetAllProvisionedMachineInstanceIDContainer(c *tc.C) {
 	})
 }
 
+func (s *stateSuite) TestSetMachineHostname(c *tc.C) {
+	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetMachineHostname(c.Context(), "deadbeef", "my-hostname")
+	c.Assert(err, tc.ErrorIsNil)
+
+	var hostname string
+	err = s.TxnRunner().StdTxn(c.Context(), func(c context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(c, "SELECT hostname FROM machine WHERE name = ?", "666").Scan(&hostname)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hostname, tc.Equals, "my-hostname")
+}
+
+func (s *stateSuite) TestSetMachineHostnameEmpty(c *tc.C) {
+	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetMachineHostname(c.Context(), "deadbeef", "")
+	c.Assert(err, tc.ErrorIsNil)
+
+	var hostname *string
+	err = s.TxnRunner().StdTxn(c.Context(), func(c context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(c, "SELECT hostname FROM machine WHERE name = ?", "666").Scan(&hostname)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hostname, tc.IsNil)
+}
+
+func (s *stateSuite) TestSetMachineHostnameNoMachine(c *tc.C) {
+	err := s.state.SetMachineHostname(c.Context(), "666", "my-hostname")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
 func (s *stateSuite) createApplicationWithUnitAndMachine(c *tc.C, controller bool) machine.Name {
 	machineName := machine.Name("0")
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -379,6 +380,15 @@ func IAASSetMachineProvisioned(
 		bootstrapParams.BootstrapMachineHardwareCharacteristics,
 	); err != nil {
 		return errors.Trace(err)
+	}
+
+	// Set the machine host name.
+	hostname, err := os.Hostname()
+	if err != nil {
+		return errors.Annotatef(err, "failed to get hostname for %q", agent.BootstrapControllerId)
+	}
+	if err := machineService.SetMachineHostname(ctx, bootstrapMachineUUID, hostname); err != nil {
+		return errors.Annotatef(err, "failed to set hostname for %q", agent.BootstrapControllerId)
 	}
 
 	return nil

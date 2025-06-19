@@ -139,6 +139,8 @@ type MachineService interface {
 	// GetInstanceIDAndName returns the cloud specific instance ID and display name for
 	// this machine.
 	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+	// SetMachineHostname sets the hostname for the given machine.
+	SetMachineHostname(ctx context.Context, machineUUID machine.UUID, hostname string) error
 }
 
 // ModelService provides a means for interacting with the underlying models of

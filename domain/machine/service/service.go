@@ -192,6 +192,10 @@ type State interface {
 	// instance IDs. This will ignore non-provisioned machines or container
 	// machines.
 	GetAllProvisionedMachineInstanceID(ctx context.Context) (map[string]string, error)
+
+	// SetMachineHostname sets the hostname for the given machine.
+	// Also updates the agent_started_at timestamp.
+	SetMachineHostname(ctx context.Context, mUUID machine.UUID, hostname string) error
 }
 
 // StatusHistory records status information into a generalized way.
@@ -671,6 +675,22 @@ func (s *Service) GetAllProvisionedMachineInstanceID(ctx context.Context) (map[m
 		result[machine.Name(name)] = instance.Id(id)
 	}
 	return result, nil
+}
+
+// SetMachineHostname sets the hostname for the given machine.
+// Also updates the agent_started_at timestamp for a machine.
+func (s *Service) SetMachineHostname(ctx context.Context, mUUID machine.UUID, hostname string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := mUUID.Validate(); err != nil {
+		return errors.Errorf("validating machine UUID %q: %w", mUUID, err)
+	}
+
+	if err := s.st.SetMachineHostname(ctx, mUUID, hostname); err != nil {
+		return errors.Errorf("setting hostname for machine with UUID %q: %w", mUUID, err)
+	}
+	return nil
 }
 
 // ProviderService provides the API for working with machines using the

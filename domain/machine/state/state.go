@@ -1342,6 +1342,61 @@ AND       (
 	return instanceIDs, nil
 }
 
+// SetMachineHostname sets the hostname for the given machine.
+// Also updates the agent_started_at timestamp.
+func (st *State) SetMachineHostname(ctx context.Context, mUUID machine.UUID, hostname string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	currentMachineUUID := machineUUID{UUID: mUUID}
+	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE uuid = $machineUUID.uuid`
+	queryStmt, err := st.Prepare(query, currentMachineUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var nullableHostname sql.Null[string]
+	if hostname != "" {
+		nullableHostname.Valid = true
+		nullableHostname.V = hostname
+	}
+
+	currentMachineHostName := machineHostName{
+		Hostname:       nullableHostname,
+		AgentStartedAt: st.clock.Now(),
+	}
+	updateQuery := `
+UPDATE machine
+SET
+    hostname = $machineHostName.hostname,
+	agent_started_at = $machineHostName.agent_started_at
+WHERE 
+	uuid = $machineUUID.uuid`
+	updateStmt, err := st.Prepare(updateQuery, currentMachineUUID, currentMachineHostName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Query for the machine UUID.
+		err := tx.Query(ctx, queryStmt, currentMachineUUID).Get(&currentMachineUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("machine %q: %w", mUUID, machineerrors.MachineNotFound)
+		} else if err != nil {
+			return errors.Errorf("querying UUID for machine %q: %w", mUUID, err)
+		}
+
+		// Update the hostname.
+		err = tx.Query(ctx, updateStmt, currentMachineUUID, currentMachineHostName).Run()
+		if err != nil {
+			return errors.Errorf("updating hostname for machine %q: %w", mUUID, err)
+		}
+		return nil
+	})
+}
+
 // NamespaceForWatchMachineCloudInstance returns the namespace for watching
 // machine cloud instance changes.
 func (*State) NamespaceForWatchMachineCloudInstance() string {
