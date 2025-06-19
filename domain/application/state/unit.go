@@ -534,7 +534,7 @@ WHERE u.application_uuid = $applicationID.uuid
 
 	var lifes []unitDetails
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, appExistsStmt, ident).Get(&ident)
+		err := tx.Query(ctx, appExistsStmt, ident).Get(&ident)
 		if errors.Is(err, sql.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {

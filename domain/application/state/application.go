@@ -794,6 +794,17 @@ func (st *State) IsControllerApplication(ctx context.Context, appID coreapplicat
 		return false, errors.Capture(err)
 	}
 
+	ident := applicationID{ID: appID}
+	appExistsQuery := `
+SELECT &applicationID.*
+FROM application
+WHERE uuid = $applicationID.uuid;
+`
+	appExistsStmt, err := st.Prepare(appExistsQuery, ident)
+	if err != nil {
+		return false, errors.Errorf("preparing query for application %q: %w", ident.ID, err)
+	}
+
 	controllerApp := controllerApplication{
 		ApplicationID: appID,
 	}
@@ -807,7 +818,13 @@ WHERE application_uuid = $controllerApplication.application_uuid
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, controllerApp).Get(&controllerApp)
+		err := tx.Query(ctx, appExistsStmt, ident).Get(&ident)
+		if errors.Is(err, sql.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return errors.Errorf("checking application %q exists: %w", ident.ID, err)
+		}
+		err = tx.Query(ctx, stmt, controllerApp).Get(&controllerApp)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}

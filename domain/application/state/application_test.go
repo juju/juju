@@ -997,7 +997,7 @@ func (s *applicationStateSuite) TestIsControllerApplicationFalse(c *tc.C) {
 	// Non-existing application:
 	missingAppID := applicationtesting.GenApplicationUUID(c)
 	isController, err = s.state.IsControllerApplication(c.Context(), missingAppID)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 	c.Assert(isController, tc.IsFalse)
 }
 
