@@ -413,6 +413,9 @@ func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, app
 // satisfying [statuserrors.ApplicationNotFound] if the application doesn't
 // exist.
 func (s *Service) GetUnitAgentStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := appID.Validate(); err != nil {
 		return nil, errors.Errorf("application ID: %w", err)
 	}
