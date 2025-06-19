@@ -63,7 +63,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *stateSuite) TestCreateMachine(c *tc.C) {
-	err := s.state.CreateMachine(c.Context(), "666", "", "", nil)
+	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var (
@@ -88,6 +88,10 @@ func (s *stateSuite) TestCreateMachine(c *tc.C) {
 	instanceStatusInfo, err := s.state.GetInstanceStatus(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceStatusInfo.Status, tc.Equals, status.InstanceStatusPending)
+
+	containerTypes, err := s.state.GetSupportedContainersTypes(c.Context(), "deadbeef")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(containerTypes, tc.DeepEquals, []string{"lxd"})
 }
 
 func (s *stateSuite) TestCreateMachineWithNonce(c *tc.C) {

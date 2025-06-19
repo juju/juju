@@ -250,3 +250,8 @@ type machineHostName struct {
 type containerType struct {
 	ContainerType string `db:"container_type"`
 }
+
+type machineContainerType struct {
+	MachineUUID     machine.UUID `db:"machine_uuid"`
+	ContainerTypeID int          `db:"container_type_id"`
+}

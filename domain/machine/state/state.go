@@ -164,6 +164,12 @@ VALUES ($createMachine.*)
 		if err := tx.Query(ctx, createMachineStmt, createParams).Run(); err != nil {
 			return errors.Errorf("creating machine row for machine %q: %w", mName, err)
 		}
+
+		// Run query to create machine container type row.
+		if err := insertContainerType(ctx, tx, st, args.machineUUID); err != nil {
+			return errors.Errorf("inserting machine container type for machine %q: %w", mName, err)
+		}
+
 		// Ensure we always have an instance as well, otherwise we can't have
 		// an associated status.
 		if err := insertMachineInstance(ctx, tx, st, args.machineUUID); err != nil {
@@ -199,6 +205,33 @@ VALUES ($createMachine.*)
 	if err != nil {
 		return errors.Errorf("inserting machine %q: %w", mName, err)
 	}
+	return nil
+}
+
+func insertContainerType(
+	ctx context.Context,
+	tx *sqlair.TX,
+	preparer domain.Preparer,
+	mUUID machine.UUID,
+) error {
+	createContainerTypeQuery := `
+INSERT INTO machine_container_type (*)
+VALUES ($machineContainerType.*);
+`
+	createContainerTypeStmt, err := preparer.Prepare(createContainerTypeQuery, machineContainerType{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// We insert LXD container for every machine by default.
+	err = tx.Query(ctx, createContainerTypeStmt, machineContainerType{
+		MachineUUID:     mUUID,
+		ContainerTypeID: 1,
+	}).Run()
+	if err != nil {
+		return errors.Errorf("inserting machine container type for machine %q: %w", mUUID, err)
+	}
+
 	return nil
 }
 
@@ -352,6 +385,7 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mach
 		"machine_requires_reboot",
 		"machine_lxd_profile",
 		"machine_agent_presence",
+		"machine_container_type",
 	}
 
 	for _, table := range tables {
@@ -1409,7 +1443,8 @@ func (st *State) GetSupportedContainersTypes(ctx context.Context, mUUID machine.
 	query := `
 SELECT ct.value AS &containerType.container_type
 FROM machine AS m
-LEFT JOIN container_type AS ct ON m.container_type_id = ct.id
+LEFT JOIN machine_container_type AS mct ON m.uuid = mct.machine_uuid
+LEFT JOIN container_type AS ct ON mct.container_type_id = ct.id
 WHERE uuid = $machineUUID.uuid
 `
 	queryStmt, err := st.Prepare(query, currentMachineUUID, containerType{})
