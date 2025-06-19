@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
@@ -68,11 +67,7 @@ type ModelInfoService interface {
 
 // ApplicationService describes the service for accessing application scaling info.
 type ApplicationService interface {
-	SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, scaling bool) error
-	GetApplicationScalingState(ctx context.Context, name string) (service.ScalingState, error)
 	GetApplicationScale(ctx context.Context, name string) (int, error)
-	GetApplicationLifeByName(ctx context.Context, name string) (life.Value, error)
-	GetUnitLife(context.Context, unit.Name) (life.Value, error)
 	// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
 	// It returns an error if the charm can not be found by the name. This can also
 	// be used as a cheap way to see if a charm exists without needing to load the

@@ -115,6 +115,14 @@ type ModelState interface {
 	//     application is dead.
 	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (status.UnitWorkloadStatuses, error)
 
+	// GetUnitAgentStatusesForApplication returns the agent statuses for
+	// all units of the specified application, returning:
+	//   - an error satisfying [statuserrors.ApplicationNotFound] if the
+	//     application doesn't exist or;
+	//   - error satisfying [statuserrors.ApplicationIsDead] if the
+	//     application is dead.
+	GetUnitAgentStatusesForApplication(context.Context, coreapplication.ID) (status.UnitAgentStatuses, error)
+
 	// GetAllFullUnitStatusesForApplication returns the workload statuses and
 	// the cloud container statuses for all units of the specified application,
 	// returning:
@@ -394,6 +402,30 @@ func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, app
 	}
 
 	decoded, err := decodeUnitWorkloadStatuses(statuses)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return decoded, nil
+}
+
+// GetUnitAgentStatusesForApplication returns the agent statuses of all
+// units in the specified application, indexed by unit name, returning an error
+// satisfying [statuserrors.ApplicationNotFound] if the application doesn't
+// exist.
+func (s *Service) GetUnitAgentStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appID.Validate(); err != nil {
+		return nil, errors.Errorf("application ID: %w", err)
+	}
+
+	statuses, err := s.modelState.GetUnitAgentStatusesForApplication(ctx, appID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	decoded, err := decodeUnitAgentStatusesWithoutPresence(statuses)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

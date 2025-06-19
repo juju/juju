@@ -1261,6 +1261,22 @@ func (s *applicationServiceSuite) TestGetDeviceConstraints(c *tc.C) {
 	})
 }
 
+func (s *applicationServiceSuite) TestIsControllerApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().IsControllerApplication(gomock.Any(), id).Return(false, nil)
+	isController, err := s.service.IsControllerApplication(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isController, tc.IsFalse)
+
+	s.state.EXPECT().IsControllerApplication(gomock.Any(), id).Return(true, nil)
+	isController, err = s.service.IsControllerApplication(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isController, tc.IsTrue)
+}
+
 type applicationWatcherServiceSuite struct {
 	testhelpers.IsolationSuite
 

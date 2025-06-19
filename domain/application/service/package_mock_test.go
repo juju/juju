@@ -692,6 +692,45 @@ func (c *MockStateGetAllEndpointBindingsCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetAllUnitLifeForApplication mocks base method.
+func (m *MockState) GetAllUnitLifeForApplication(arg0 context.Context, arg1 application.ID) (map[unit.Name]life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllUnitLifeForApplication", arg0, arg1)
+	ret0, _ := ret[0].(map[unit.Name]life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllUnitLifeForApplication indicates an expected call of GetAllUnitLifeForApplication.
+func (mr *MockStateMockRecorder) GetAllUnitLifeForApplication(arg0, arg1 any) *MockStateGetAllUnitLifeForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUnitLifeForApplication", reflect.TypeOf((*MockState)(nil).GetAllUnitLifeForApplication), arg0, arg1)
+	return &MockStateGetAllUnitLifeForApplicationCall{Call: call}
+}
+
+// MockStateGetAllUnitLifeForApplicationCall wrap *gomock.Call
+type MockStateGetAllUnitLifeForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllUnitLifeForApplicationCall) Return(arg0 map[unit.Name]life.Life, arg1 error) *MockStateGetAllUnitLifeForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllUnitLifeForApplicationCall) Do(f func(context.Context, application.ID) (map[unit.Name]life.Life, error)) *MockStateGetAllUnitLifeForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllUnitLifeForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (map[unit.Name]life.Life, error)) *MockStateGetAllUnitLifeForApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllUnitNames mocks base method.
 func (m *MockState) GetAllUnitNames(arg0 context.Context) ([]unit.Name, error) {
 	m.ctrl.T.Helper()
@@ -3674,6 +3713,45 @@ func (c *MockStateIsCharmAvailableCall) Do(f func(context.Context, charm.ID) (bo
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateIsCharmAvailableCall) DoAndReturn(f func(context.Context, charm.ID) (bool, error)) *MockStateIsCharmAvailableCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsControllerApplication mocks base method.
+func (m *MockState) IsControllerApplication(ctx context.Context, appID application.ID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsControllerApplication", ctx, appID)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsControllerApplication indicates an expected call of IsControllerApplication.
+func (mr *MockStateMockRecorder) IsControllerApplication(ctx, appID any) *MockStateIsControllerApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerApplication", reflect.TypeOf((*MockState)(nil).IsControllerApplication), ctx, appID)
+	return &MockStateIsControllerApplicationCall{Call: call}
+}
+
+// MockStateIsControllerApplicationCall wrap *gomock.Call
+type MockStateIsControllerApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsControllerApplicationCall) Return(arg0 bool, arg1 error) *MockStateIsControllerApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsControllerApplicationCall) Do(f func(context.Context, application.ID) (bool, error)) *MockStateIsControllerApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsControllerApplicationCall) DoAndReturn(f func(context.Context, application.ID) (bool, error)) *MockStateIsControllerApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

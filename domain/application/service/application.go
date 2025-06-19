@@ -448,6 +448,9 @@ type ApplicationState interface {
 	// An error satisfying [applicationerrors.ApplicationNotFoundError]
 	// is returned if the application doesn't exist.
 	ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error)
+
+	// IsControllerApplication returns true when the application is the controller.
+	IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error)
 }
 
 func validateCharmAndApplicationParams(
@@ -1586,6 +1589,18 @@ func (s *Service) GetDeviceConstraints(ctx context.Context, name string) (map[st
 		return nil, errors.Capture(err)
 	}
 	return s.st.GetDeviceConstraints(ctx, appID)
+}
+
+// IsControllerApplication returns true when the application is the controller.
+func (s *Service) IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appID.Validate(); err != nil {
+		return false, errors.Errorf("validating application ID: %w", err)
+	}
+
+	return s.st.IsControllerApplication(ctx, appID)
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (*bool, error) {

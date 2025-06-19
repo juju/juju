@@ -100,6 +100,12 @@ type UnitState interface {
 	// SetUnitLife sets the life of the specified unit.
 	SetUnitLife(context.Context, coreunit.Name, life.Life) error
 
+	// GetAllUnitLifeForApplication returns a map of the unit names and their lives
+	// for the given application.
+	//   - If the application is not found, [applicationerrors.ApplicationNotFound]
+	//     is returned.
+	GetAllUnitLifeForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]life.Life, error)
+
 	// GetModelConstraints returns the currently set constraints for the model.
 	// The following error types can be expected:
 	// - [modelerrors.NotFound]: when no model exists to set constraints for.
@@ -672,4 +678,30 @@ func (s *Service) GetUnitSubordinates(ctx context.Context, unitName coreunit.Nam
 	}
 
 	return s.st.GetUnitSubordinates(ctx, unitName)
+}
+
+// GetAllUnitLifeForApplication returns a map of the unit names and their lives
+// for the given application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
+func (s *Service) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corelife.Value, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	namesAndLives, err := s.st.GetAllUnitLifeForApplication(ctx, appID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	namesAndCoreLives := map[coreunit.Name]corelife.Value{}
+	for name, life := range namesAndLives {
+		namesAndCoreLives[name], err = life.Value()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+	}
+	return namesAndCoreLives, nil
 }

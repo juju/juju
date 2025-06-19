@@ -17,7 +17,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -25,7 +25,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner/mocks"
-	"github.com/juju/juju/rpc/params"
 )
 
 func TestCAASApplicationSuite(t *testing.T) {
@@ -53,21 +52,19 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *tc.C) {
 	appChan := make(chan []string, 1)
 	done := make(chan struct{})
 
+	applicationService := mocks.NewMockApplicationService(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	runner := mocks.NewMockRunner(ctrl)
+	testAppID, _ := application.NewID()
 
-	facade.EXPECT().WatchApplications(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
-		appChan <- []string{"test"}
+	applicationService.EXPECT().WatchApplications(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
+		appChan <- []string{testAppID.String()}
 		return watchertest.NewMockStringsWatcher(appChan), nil
 	})
-	facade.EXPECT().ProvisionerConfig(gomock.Any()).Return(params.CAASApplicationProvisionerConfig{
-		UnmanagedApplications: params.Entities{},
-	}, nil)
-	facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil)
-	runner.EXPECT().Worker("test", gomock.Any()).Return(nil, errors.NotFoundf(""))
-	runner.EXPECT().StartWorker(gomock.Any(), "test", gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _ string, startFunc func(ctx context.Context) (worker.Worker, error)) error {
-			startFunc(ctx)
+	runner.EXPECT().Worker(testAppID.String(), gomock.Any()).Return(nil, errors.NotFoundf(""))
+	runner.EXPECT().StartWorker(gomock.Any(), testAppID.String(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, startFunc func(context.Context) (worker.Worker, error)) error {
+			startFunc(c.Context())
 			return nil
 		},
 	)
@@ -78,7 +75,7 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *tc.C) {
 	runner.EXPECT().Kill().AnyTimes()
 
 	called := false
-	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func(ctx context.Context) (worker.Worker, error) {
+	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func(context.Context) (worker.Worker, error) {
 		c.Assert(called, tc.IsFalse)
 		called = true
 		mc := tc.NewMultiChecker()
@@ -86,9 +83,9 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *tc.C) {
 		mc.AddExpr("_.Broker", tc.NotNil)
 		mc.AddExpr("_.Clock", tc.NotNil)
 		mc.AddExpr("_.Logger", tc.NotNil)
-		mc.AddExpr("_.ShutDownCleanUpFunc", tc.NotNil)
+		mc.AddExpr("_.ApplicationService", tc.NotNil)
 		c.Check(config, mc, caasapplicationprovisioner.AppWorkerConfig{
-			Name:     "test",
+			AppID:    testAppID,
 			ModelTag: s.modelTag,
 		})
 		return func(ctx context.Context) (worker.Worker, error) {
@@ -97,85 +94,13 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *tc.C) {
 		}
 	}
 	config := caasapplicationprovisioner.Config{
-		Facade:       facade,
-		Broker:       struct{ caas.Broker }{},
-		ModelTag:     s.modelTag,
-		Clock:        s.clock,
-		Logger:       s.logger,
-		NewAppWorker: newWorker,
-	}
-	provisioner, err := caasapplicationprovisioner.NewProvisionerWorkerForTest(config, runner)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(provisioner, tc.NotNil)
-
-	select {
-	case <-done:
-		c.Assert(called, tc.IsTrue)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for worker to start")
-	}
-
-	workertest.CleanKill(c, provisioner)
-}
-
-func (s *CAASApplicationSuite) TestWorkerStartUnmanaged(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	appChan := make(chan []string, 1)
-	done := make(chan struct{})
-
-	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-	runner := mocks.NewMockRunner(ctrl)
-
-	facade.EXPECT().WatchApplications(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
-		appChan <- []string{"test"}
-		return watchertest.NewMockStringsWatcher(appChan), nil
-	})
-	facade.EXPECT().ProvisionerConfig(gomock.Any()).Return(params.CAASApplicationProvisionerConfig{
-		UnmanagedApplications: params.Entities{Entities: []params.Entity{{Tag: "application-test"}}},
-	}, nil)
-	facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil)
-	runner.EXPECT().Worker("test", gomock.Any()).Return(nil, errors.NotFoundf(""))
-	runner.EXPECT().StartWorker(gomock.Any(), "test", gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _ string, startFunc func(ctx context.Context) (worker.Worker, error)) error {
-			startFunc(ctx)
-			return nil
-		},
-	)
-	runner.EXPECT().Wait().AnyTimes().DoAndReturn(func() error {
-		<-done
-		return nil
-	})
-	runner.EXPECT().Kill().AnyTimes()
-
-	called := false
-	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func(ctx context.Context) (worker.Worker, error) {
-		c.Assert(called, tc.IsFalse)
-		called = true
-		mc := tc.NewMultiChecker()
-		mc.AddExpr("_.Facade", tc.NotNil)
-		mc.AddExpr("_.Broker", tc.NotNil)
-		mc.AddExpr("_.Clock", tc.NotNil)
-		mc.AddExpr("_.Logger", tc.NotNil)
-		mc.AddExpr("_.ShutDownCleanUpFunc", tc.NotNil)
-		c.Check(config, mc, caasapplicationprovisioner.AppWorkerConfig{
-			Name:       "test",
-			ModelTag:   s.modelTag,
-			StatusOnly: true,
-		})
-		return func(ctx context.Context) (worker.Worker, error) {
-			close(done)
-			return workertest.NewErrorWorker(nil), nil
-		}
-	}
-	config := caasapplicationprovisioner.Config{
-		Facade:       facade,
-		Broker:       struct{ caas.Broker }{},
-		ModelTag:     s.modelTag,
-		Clock:        s.clock,
-		Logger:       s.logger,
-		NewAppWorker: newWorker,
+		ApplicationService: applicationService,
+		Facade:             facade,
+		Broker:             struct{ caas.Broker }{},
+		ModelTag:           s.modelTag,
+		Clock:              s.clock,
+		Logger:             s.logger,
+		NewAppWorker:       newWorker,
 	}
 	provisioner, err := caasapplicationprovisioner.NewProvisionerWorkerForTest(config, runner)
 	c.Assert(err, tc.ErrorIsNil)
@@ -197,42 +122,34 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *tc.C) {
 
 	appChan := make(chan []string, 5)
 	done := make(chan struct{})
+	testAppID, _ := application.NewID()
 
-	appChan <- []string{"test"}
-	appChan <- []string{"test"}
-	appChan <- []string{"test"}
-	appChan <- []string{"test"}
-	appChan <- []string{"test"}
+	appChan <- []string{testAppID.String()}
+	appChan <- []string{testAppID.String()}
+	appChan <- []string{testAppID.String()}
+	appChan <- []string{testAppID.String()}
+	appChan <- []string{testAppID.String()}
+	applicationService := mocks.NewMockApplicationService(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	runner := mocks.NewMockRunner(ctrl)
 
 	var notifyWorker = &mockNotifyWorker{Worker: workertest.NewErrorWorker(nil)}
 
 	gomock.InOrder(
-		facade.EXPECT().WatchApplications(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
+		applicationService.EXPECT().WatchApplications(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 			return watchertest.NewMockStringsWatcher(appChan), nil
 		}),
-		facade.EXPECT().ProvisionerConfig(gomock.Any()).Return(params.CAASApplicationProvisionerConfig{}, nil),
-		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
-		runner.EXPECT().Worker("test", gomock.Any()).Return(nil, errors.NotFoundf("")),
-		runner.EXPECT().StartWorker(gomock.Any(), "test", gomock.Any()).DoAndReturn(
-			func(ctx context.Context, _ string, startFunc func(ctx context.Context) (worker.Worker, error)) error {
+		runner.EXPECT().Worker(testAppID.String(), gomock.Any()).Return(nil, errors.NotFoundf("")),
+		runner.EXPECT().StartWorker(gomock.Any(), testAppID.String(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, _ string, startFunc func(context.Context) (worker.Worker, error)) error {
 				startFunc(ctx)
 				return nil
 			},
 		),
-
-		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
-		runner.EXPECT().Worker("test", gomock.Any()).Return(notifyWorker, nil),
-
-		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
-		runner.EXPECT().Worker("test", gomock.Any()).Return(notifyWorker, nil),
-
-		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
-		runner.EXPECT().Worker("test", gomock.Any()).Return(notifyWorker, nil),
-
-		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
-		runner.EXPECT().Worker("test", gomock.Any()).DoAndReturn(
+		runner.EXPECT().Worker(testAppID.String(), gomock.Any()).Return(notifyWorker, nil),
+		runner.EXPECT().Worker(testAppID.String(), gomock.Any()).Return(notifyWorker, nil),
+		runner.EXPECT().Worker(testAppID.String(), gomock.Any()).Return(notifyWorker, nil),
+		runner.EXPECT().Worker(testAppID.String(), gomock.Any()).DoAndReturn(
 			func(_ string, abort <-chan struct{}) (worker.Worker, error) {
 				close(done)
 				return nil, worker.ErrDead
@@ -253,9 +170,9 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *tc.C) {
 		mc.AddExpr("_.Broker", tc.NotNil)
 		mc.AddExpr("_.Clock", tc.NotNil)
 		mc.AddExpr("_.Logger", tc.NotNil)
-		mc.AddExpr("_.ShutDownCleanUpFunc", tc.NotNil)
+		mc.AddExpr("_.ApplicationService", tc.NotNil)
 		c.Check(config, mc, caasapplicationprovisioner.AppWorkerConfig{
-			Name:     "test",
+			AppID:    testAppID,
 			ModelTag: s.modelTag,
 		})
 		return func(ctx context.Context) (worker.Worker, error) {
@@ -263,12 +180,13 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *tc.C) {
 		}
 	}
 	config := caasapplicationprovisioner.Config{
-		Facade:       facade,
-		Broker:       struct{ caas.Broker }{},
-		ModelTag:     s.modelTag,
-		Clock:        s.clock,
-		Logger:       s.logger,
-		NewAppWorker: newWorker,
+		ApplicationService: applicationService,
+		Facade:             facade,
+		Broker:             struct{ caas.Broker }{},
+		ModelTag:           s.modelTag,
+		Clock:              s.clock,
+		Logger:             s.logger,
+		NewAppWorker:       newWorker,
 	}
 	provisioner, err := caasapplicationprovisioner.NewProvisionerWorkerForTest(config, runner)
 	c.Assert(err, tc.ErrorIsNil)

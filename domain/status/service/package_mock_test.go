@@ -590,6 +590,45 @@ func (c *MockModelStateGetUnitAgentStatusCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// GetUnitAgentStatusesForApplication mocks base method.
+func (m *MockModelState) GetUnitAgentStatusesForApplication(arg0 context.Context, arg1 application.ID) (status.UnitAgentStatuses, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitAgentStatusesForApplication", arg0, arg1)
+	ret0, _ := ret[0].(status.UnitAgentStatuses)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitAgentStatusesForApplication indicates an expected call of GetUnitAgentStatusesForApplication.
+func (mr *MockModelStateMockRecorder) GetUnitAgentStatusesForApplication(arg0, arg1 any) *MockModelStateGetUnitAgentStatusesForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAgentStatusesForApplication", reflect.TypeOf((*MockModelState)(nil).GetUnitAgentStatusesForApplication), arg0, arg1)
+	return &MockModelStateGetUnitAgentStatusesForApplicationCall{Call: call}
+}
+
+// MockModelStateGetUnitAgentStatusesForApplicationCall wrap *gomock.Call
+type MockModelStateGetUnitAgentStatusesForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetUnitAgentStatusesForApplicationCall) Return(arg0 status.UnitAgentStatuses, arg1 error) *MockModelStateGetUnitAgentStatusesForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetUnitAgentStatusesForApplicationCall) Do(f func(context.Context, application.ID) (status.UnitAgentStatuses, error)) *MockModelStateGetUnitAgentStatusesForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetUnitAgentStatusesForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (status.UnitAgentStatuses, error)) *MockModelStateGetUnitAgentStatusesForApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitK8sPodStatus mocks base method.
 func (m *MockModelState) GetUnitK8sPodStatus(arg0 context.Context, arg1 unit.UUID) (status.StatusInfo[status.K8sPodStatusType], error) {
 	m.ctrl.T.Helper()

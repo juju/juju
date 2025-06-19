@@ -972,6 +972,35 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourc
 			errors.ErrorStack(err)))
 }
 
+func (s *applicationStateSuite) TestIsControllerApplication(c *tc.C) {
+	appID := s.createIAASApplication(c, "foo", life.Dying)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`INSERT INTO application_controller (application_uuid) VALUES (?)`,
+			appID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	isController, err := s.state.IsControllerApplication(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.IsTrue)
+}
+
+func (s *applicationStateSuite) TestIsControllerApplicationFalse(c *tc.C) {
+	// Existing application:
+	appID := s.createIAASApplication(c, "foo", life.Dying)
+	isController, err := s.state.IsControllerApplication(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.IsFalse)
+
+	// Non-existing application:
+	missingAppID := applicationtesting.GenApplicationUUID(c)
+	isController, err = s.state.IsControllerApplication(c.Context(), missingAppID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(isController, tc.IsFalse)
+}
+
 func (s *applicationStateSuite) TestGetApplicationLifeByName(c *tc.C) {
 	appID := s.createIAASApplication(c, "foo", life.Dying)
 	gotID, appLife, err := s.state.GetApplicationLifeByName(c.Context(), "foo")
@@ -1818,6 +1847,51 @@ func (s *applicationStateSuite) TestGetApplicationUnitLife(c *tc.C) {
 	got, err = s.state.GetApplicationUnitLife(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.HasLen, 0)
+}
+
+func (s *applicationStateSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
+	u1 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/666",
+		},
+	}
+	u2 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/667",
+		},
+	}
+	u3 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "bar/667",
+		},
+	}
+	fooAppID := s.createIAASApplication(c, "foo", life.Alive, u1, u2)
+	barAppID := s.createIAASApplication(c, "bar", life.Alive, u3)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name=?", "foo/666"); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	fooUnitLife, err := s.state.GetAllUnitLifeForApplication(c.Context(), fooAppID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(fooUnitLife, tc.DeepEquals, map[coreunit.Name]life.Life{
+		coreunit.Name("foo/666"): life.Dead,
+		coreunit.Name("foo/667"): life.Alive,
+	})
+
+	barUnitLife, err := s.state.GetAllUnitLifeForApplication(c.Context(), barAppID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(barUnitLife, tc.DeepEquals, map[coreunit.Name]life.Life{
+		coreunit.Name("bar/667"): life.Alive,
+	})
+
+	_, err = s.state.GetAllUnitLifeForApplication(c.Context(),
+		applicationtesting.GenApplicationUUID(c))
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestStorageDefaultsNone(c *tc.C) {

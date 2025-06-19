@@ -88,6 +88,14 @@ type statusInfoAndUnitNameAndPresence struct {
 	Present   bool          `db:"present"`
 }
 
+type statusInfoAndUnitName struct {
+	UnitName  coreunit.Name `db:"unit_name"`
+	StatusID  int           `db:"status_id"`
+	Message   string        `db:"message"`
+	Data      []byte        `db:"data"`
+	UpdatedAt *time.Time    `db:"updated_at"`
+}
+
 type workloadAgentStatus struct {
 	UnitName          coreunit.Name `db:"unit_name"`
 	WorkloadStatusID  *int          `db:"workload_status_id"`

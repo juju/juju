@@ -28,7 +28,6 @@ type CAASApplicationProvisionerState interface {
 	ResolveConstraints(cons constraints.Value) (constraints.Value, error)
 	Resources(objectstore.ObjectStore) Resources
 	Unit(string) (Unit, error)
-	WatchApplications() state.StringsWatcher
 	IsController() bool
 }
 

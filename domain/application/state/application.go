@@ -787,6 +787,52 @@ WHERE uuid = $applicationID.uuid
 	return life.LifeID, nil
 }
 
+// IsControllerApplication returns true when the application is the controller.
+func (st *State) IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+	appExistsQuery := `
+SELECT &applicationID.*
+FROM application
+WHERE uuid = $applicationID.uuid;
+`
+	appExistsStmt, err := st.Prepare(appExistsQuery, ident)
+	if err != nil {
+		return false, errors.Errorf("preparing query for application %q: %w", ident.ID, err)
+	}
+
+	controllerApp := controllerApplication{
+		ApplicationID: appID,
+	}
+	stmt, err := st.Prepare(`
+SELECT TRUE AS &controllerApplication.is_controller
+FROM application_controller
+WHERE application_uuid = $controllerApplication.application_uuid
+`, controllerApp)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, appExistsStmt, ident).Get(&ident)
+		if errors.Is(err, sql.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return errors.Errorf("checking application %q exists: %w", ident.ID, err)
+		}
+		err = tx.Query(ctx, stmt, controllerApp).Get(&controllerApp)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	return controllerApp.IsController, errors.Capture(err)
+}
+
 // GetApplicationLifeByName looks up the life of the specified application, returning
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
@@ -2823,7 +2869,7 @@ func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplic
 
 	selectConstraintUUIDQuery := `
 SELECT &constraintUUID.*
-FROM application_constraint 
+FROM application_constraint
 WHERE application_uuid = $applicationUUID.application_uuid
 `
 	selectConstraintUUIDStmt, err := st.Prepare(selectConstraintUUIDQuery, constraintUUID{}, applicationUUID{})
@@ -2862,7 +2908,7 @@ WHERE application_uuid = $applicationUUID.application_uuid
 	}
 
 	insertConstraintsQuery := `
-INSERT INTO "constraint"(*) 
+INSERT INTO "constraint"(*)
 VALUES ($setConstraint.*)
 ON CONFLICT (uuid) DO UPDATE SET
     arch = excluded.arch,

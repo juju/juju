@@ -865,6 +865,38 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationNoUnits(c *tc
 	c.Assert(results, tc.HasLen, 0)
 }
 
+func (s *modelStateSuite) TestGetUnitAgentStatusesForApplication(c *tc.C) {
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
+	appID, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
+	unitUUID1 := unitUUIDs[0]
+	unitUUID2 := unitUUIDs[1]
+
+	status1 := status.StatusInfo[status.UnitAgentStatusType]{
+		Status:  status.UnitAgentStatusExecuting,
+		Message: "it's executing",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+	err := s.state.SetUnitAgentStatus(c.Context(), unitUUID1, status1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	status2 := status.StatusInfo[status.UnitAgentStatusType]{
+		Status:  status.UnitAgentStatusAllocating,
+		Message: "it's allocating m8",
+		Data:    []byte(`{"foo": "baz"}`),
+		Since:   ptr(time.Now()),
+	}
+	err = s.state.SetUnitAgentStatus(c.Context(), unitUUID2, status2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	gotStatuses, err := s.state.GetUnitAgentStatusesForApplication(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotStatuses, tc.HasLen, 2)
+	assertStatusInfoEqual(c, gotStatuses[coreunit.Name("foo/0")], status1)
+	assertStatusInfoEqual(c, gotStatuses[coreunit.Name("foo/1")], status2)
+}
+
 func (s *modelStateSuite) TestGetAllUnitStatusesForApplication(c *tc.C) {
 	u1 := application.AddIAASUnitArg{}
 	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)

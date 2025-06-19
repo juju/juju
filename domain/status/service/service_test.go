@@ -393,6 +393,47 @@ func (s *serviceSuite) TestGetUnitWorkloadStatusesForApplication(c *tc.C) {
 	})
 }
 
+func (s *serviceSuite) TestGetUnitAgentStatusesForApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	s.modelState.EXPECT().GetUnitAgentStatusesForApplication(gomock.Any(), appUUID).Return(
+		status.UnitAgentStatuses{
+			"unit-1": status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusAllocating,
+				Message: "doink",
+				Data:    []byte(`{"foo":"bar"}`),
+				Since:   &now,
+			},
+			"unit-2": status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusError,
+				Message: "boink",
+				Data:    []byte(`{"foo":"baz"}`),
+				Since:   &now,
+			},
+		}, nil,
+	)
+
+	obtained, err := s.modelService.GetUnitAgentStatusesForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
+		"unit-1": {
+			Status:  corestatus.Allocating,
+			Message: "doink",
+			Data:    map[string]any{"foo": "bar"},
+			Since:   &now,
+		},
+		"unit-2": {
+			Status:  corestatus.Error,
+			Message: "boink",
+			Data:    map[string]any{"foo": "baz"},
+			Since:   &now,
+		},
+	})
+}
+
 func (s *serviceSuite) TestGetUnitDisplayAndAgentStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -500,6 +500,63 @@ AND a.name = $applicationName.name
 	return result, nil
 }
 
+// GetAllUnitLifeForApplication returns a map of the unit names and their lives
+// for the given application.
+//   - If the application is not found, [applicationerrors.ApplicationNotFound]
+//     is returned.
+func (st *State) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]life.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+	appExistsQuery := `
+SELECT &applicationID.*
+FROM application
+WHERE uuid = $applicationID.uuid;
+`
+	appExistsStmt, err := st.Prepare(appExistsQuery, ident)
+	if err != nil {
+		return nil, errors.Errorf("preparing query for application %q: %w", ident.ID, err)
+	}
+
+	lifeQuery := `
+SELECT (u.name, u.life_id) AS (&unitDetails.*)
+FROM unit u
+WHERE u.application_uuid = $applicationID.uuid
+`
+
+	app := applicationID{ID: appID}
+	lifeStmt, err := st.Prepare(lifeQuery, app, unitDetails{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var lifes []unitDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, appExistsStmt, ident).Get(&ident)
+		if errors.Is(err, sql.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return errors.Errorf("checking application %q exists: %w", ident.ID, err)
+		}
+		err = tx.Query(ctx, lifeStmt, app).GetAll(&lifes)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf("querying unit life for %q: %w", appID, err)
+	}
+	result := make(map[coreunit.Name]life.Life)
+	for _, u := range lifes {
+		result[u.Name] = u.LifeID
+	}
+	return result, nil
+}
+
 // GetUnitMachineName gets the unit's machine name.
 //
 // The following errors may be returned:
@@ -517,7 +574,7 @@ func (st *State) GetUnitMachineName(ctx context.Context, unitName coreunit.Name)
 	}
 	stmt, err := st.Prepare(`
 SELECT (m.name) AS (&getUnitMachineName.*)
-FROM   unit AS u 
+FROM   unit AS u
 JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
 WHERE  u.name = $getUnitMachineName.unit_name
 `, arg)
@@ -560,7 +617,7 @@ func (st *State) GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name)
 	}
 	stmt, err := st.Prepare(`
 SELECT (m.uuid) AS (&getUnitMachineUUID.*)
-FROM   unit AS u 
+FROM   unit AS u
 JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
 WHERE  u.name = $getUnitMachineUUID.unit_name
 `, arg)
@@ -792,7 +849,7 @@ func (st *State) GetUnitPrincipal(
 SELECT principal.name AS &getPrincipal.principal_unit_name
 FROM   unit AS principal
 JOIN   unit_principal AS up ON principal.uuid = up.principal_uuid
-JOIN   unit AS sub ON up.unit_uuid = sub.uuid 
+JOIN   unit AS sub ON up.unit_uuid = sub.uuid
 WHERE  sub.name = $getPrincipal.subordinate_unit_name
 `, arg)
 	if err != nil {
@@ -1188,8 +1245,13 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 			if err != nil {
 				return errors.Errorf("getting application scale state for app %q: %w", appUUID, err)
 			}
-			if arg.OrderedId >= appScale.Scale ||
-				(appScale.Scaling && arg.OrderedId >= appScale.ScaleTarget) {
+
+			if appScale.Scaling {
+				// While scaling, we use the scaling target.
+				if arg.OrderedId >= appScale.ScaleTarget {
+					return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
+				}
+			} else {
 				return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
 			}
 
@@ -1899,7 +1961,7 @@ func (st *State) getUnitMachineName(
 	}
 	stmt, err := st.Prepare(`
 SELECT m.name AS &getUnitMachine.machine_name
-FROM   unit u 
+FROM   unit u
 JOIN   machine m ON u.net_node_uuid = m.net_node_uuid
 WHERE  u.name = $getUnitMachine.unit_name
 `, arg)
