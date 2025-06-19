@@ -17,6 +17,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	coreerrors "github.com/juju/juju/core/errors"
+	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
@@ -643,4 +644,40 @@ func (s *unitServiceSuite) TestGetUnitSubordinatesError(c *tc.C) {
 
 	_, err := s.service.GetUnitSubordinates(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIs, boom)
+}
+
+func (s *unitServiceSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	allUnitDomainLife := map[coreunit.Name]life.Life{
+		coreunit.Name("foo/0"): life.Alive,
+		coreunit.Name("foo/1"): life.Dying,
+		coreunit.Name("foo/2"): life.Dead,
+	}
+	s.state.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).
+		Return(allUnitDomainLife, nil)
+
+	allUnitLife, err := s.service.GetAllUnitLifeForApplication(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(allUnitLife, tc.DeepEquals, map[coreunit.Name]corelife.Value{
+		coreunit.Name("foo/0"): corelife.Alive,
+		coreunit.Name("foo/1"): corelife.Dying,
+		coreunit.Name("foo/2"): corelife.Dead,
+	})
+}
+
+func (s *unitServiceSuite) TestGetAllUnitLifeForApplicationError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	boom := errors.New("boom")
+	s.state.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).
+		Return(nil, boom)
+
+	allUnitLife, err := s.service.GetAllUnitLifeForApplication(c.Context(), appID)
+	c.Assert(err, tc.ErrorIs, boom)
+	c.Check(allUnitLife, tc.IsNil)
 }

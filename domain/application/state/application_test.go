@@ -1849,6 +1849,47 @@ func (s *applicationStateSuite) TestGetApplicationUnitLife(c *tc.C) {
 	c.Assert(got, tc.HasLen, 0)
 }
 
+func (s *applicationStateSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
+	u1 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/666",
+		},
+	}
+	u2 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/667",
+		},
+	}
+	u3 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "bar/667",
+		},
+	}
+	fooAppID := s.createIAASApplication(c, "foo", life.Alive, u1, u2)
+	barAppID := s.createIAASApplication(c, "bar", life.Alive, u3)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name=?", "foo/666"); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	fooUnitLife, err := s.state.GetAllUnitLifeForApplication(c.Context(), fooAppID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(fooUnitLife, tc.DeepEquals, map[coreunit.Name]life.Life{
+		coreunit.Name("foo/666"): life.Dead,
+		coreunit.Name("foo/667"): life.Alive,
+	})
+
+	barUnitLife, err := s.state.GetAllUnitLifeForApplication(c.Context(), barAppID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(barUnitLife, tc.DeepEquals, map[coreunit.Name]life.Life{
+		coreunit.Name("bar/667"): life.Alive,
+	})
+}
+
 func (s *applicationStateSuite) TestStorageDefaultsNone(c *tc.C) {
 	defaults, err := s.state.StorageDefaults(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
