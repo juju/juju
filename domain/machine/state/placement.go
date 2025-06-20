@@ -449,7 +449,7 @@ VALUES ($machineContainerType.*);
 	// We insert LXD container for every machine by default.
 	err = tx.Query(ctx, createContainerTypeStmt, machineContainerType{
 		MachineUUID:     mUUID,
-		ContainerTypeID: 1,
+		ContainerTypeID: 1, // 1 is the ID for LXD container type.
 	}).Run()
 	if err != nil {
 		return errors.Errorf("inserting machine container type for machine %q: %w", mUUID, err)

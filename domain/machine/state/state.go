@@ -1376,11 +1376,8 @@ func (st *State) SetMachineHostname(ctx context.Context, mUUID machine.UUID, hos
 	}
 	updateQuery := `
 UPDATE machine
-SET
-    hostname = $machineHostName.hostname,
-	agent_started_at = $machineHostName.agent_started_at
-WHERE 
-	uuid = $machineUUID.uuid`
+SET    hostname = $machineHostName.hostname, agent_started_at = $machineHostName.agent_started_at
+WHERE  uuid = $machineUUID.uuid`
 	updateStmt, err := st.Prepare(updateQuery, currentMachineUUID, currentMachineHostName)
 	if err != nil {
 		return errors.Capture(err)
