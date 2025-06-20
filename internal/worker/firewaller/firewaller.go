@@ -1145,7 +1145,6 @@ func (fw *Firewaller) flushModel() error {
 	if fw.flushModelNotify != nil {
 		fw.flushModelNotify()
 	}
-
 	return nil
 }
 
