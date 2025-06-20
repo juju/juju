@@ -203,7 +203,7 @@ func (api *MachinerAPI) SetObservedNetworkConfig(ctx context.Context, args param
 
 // SetMachineAddresses is not supported in MachinerAPI at version 5.
 // Deprecated: SetMachineAddresses is being deprecated.
-func (api *MachinerAPIv5) SetMachineAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
+func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
 	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineAddresses)),
 	}, nil
