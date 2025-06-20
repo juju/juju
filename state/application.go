@@ -7,6 +7,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -64,6 +65,13 @@ func (exp ExposedEndpoint) AllowTrafficFromAnyNetwork() bool {
 	}
 
 	return false
+}
+
+// UnitAttachmentInfo represents the information about the unit attachement.
+type UnitAttachmentInfo struct {
+	Unit      string `bson:"unit"`
+	VolumeId  string `bson:"volumeid"`
+	StorageId string `bson:"storageid"`
 }
 
 // Application represents the state of an application.
@@ -3122,6 +3130,83 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 		units = append(units, newUnit(st, m.Type(), &docs[i]))
 	}
 	return units, nil
+}
+
+// GetUnitAttachmentInfos returns a list of UnitAttachmentInfo for this application.
+func (a *Application) GetUnitAttachmentInfos(statuses []status.Status) (unitAttachmentInfos []UnitAttachmentInfo, err error) {
+	logger.Warningf("jneo8 unitCount: %d scale: %d", a.doc.UnitCount, a.doc.DesiredScale)
+	// In case of scale down, there won't have attachment info.
+	if a.doc.DesiredScale < a.doc.UnitCount {
+		return unitAttachmentInfos, nil
+	}
+
+	unitIds := []string{}
+
+	// When deploying an application, UnitCount will match DesiredScale (which defaults to 1).
+	// Note: Attaching storage is not allowed during deployment if DesiredScale > 1, so that case is ignored.
+	// When using add-unit, DesiredScale will be greater than UnitCount during the initial part of the lifecycle.
+	if (a.doc.UnitCount == 1 && a.doc.DesiredScale == 1) || (a.doc.UnitCount < a.doc.DesiredScale) {
+		for i := a.doc.UnitCount; i <= a.doc.DesiredScale; i++ {
+			unitIds = append(unitIds, strconv.Itoa(i))
+		}
+	}
+
+	if len(unitIds) == 0 {
+		return unitAttachmentInfos, nil
+	}
+
+	idReg := "(" + strings.Join(unitIds, "|") + ")"
+	storageAttachmentDocs, err := getstorageAttachmentDocs(
+		a.st.db(),
+		bson.M{
+			"unitid": bson.RegEx{
+				Pattern: fmt.Sprintf(
+					"^%s/%s$",
+					regexp.QuoteMeta(a.doc.Name),
+					regexp.QuoteMeta(idReg),
+				),
+				Options: "",
+			},
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var storageIds []string
+	storageAttachmentDocByStorageId := make(map[string]storageAttachmentDoc)
+	for _, stDoc := range storageAttachmentDocs {
+		storageIds = append(
+			storageIds,
+			stDoc.StorageInstance,
+		)
+		storageAttachmentDocByStorageId[stDoc.StorageInstance] = stDoc
+	}
+
+	volumeDocs, err := getVolumeDocs(
+		a.st.db(),
+		bson.M{
+			"info":      bson.M{"$ne": nil},
+			"storageid": bson.M{"$in": storageIds},
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	for _, volDoc := range volumeDocs {
+		if stDoc, ok := storageAttachmentDocByStorageId[volDoc.StorageId]; ok {
+			unitAttachmentInfos = append(
+				unitAttachmentInfos,
+				UnitAttachmentInfo{
+					Unit:      stDoc.Unit,
+					StorageId: volDoc.StorageId,
+					VolumeId:  volDoc.Info.VolumeId,
+				},
+			)
+		}
+	}
+	return unitAttachmentInfos, nil
 }
 
 // Relations returns a Relation for every relation the application is in.
