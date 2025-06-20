@@ -132,7 +132,6 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
-		s.modelUUID,
 		nil,
 		func(ctx context.Context) (applicationservice.Provider, error) {
 			return serviceProvider{}, nil

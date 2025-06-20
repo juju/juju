@@ -13,9 +13,12 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
+<<<<<<< HEAD
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+=======
+>>>>>>> 4a23afafeb (refactor: remove model uuid from application service)
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
@@ -38,8 +41,6 @@ import (
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
-
-	modelID model.UUID
 
 	state              *MockState
 	charm              *MockCharm
@@ -71,8 +72,6 @@ func (s *baseSuite) setupMocksWithProvider(
 ) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.modelID = modeltesting.GenModelUUID(c)
-
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
 	s.caasProvider = NewMockCAASProvider(ctrl)
@@ -95,7 +94,6 @@ func (s *baseSuite) setupMocksWithProvider(
 		s.state,
 		s.leadership,
 		s.storageRegistryGetter,
-		s.modelID,
 		s.agentVersionGetter,
 		func(ctx context.Context) (Provider, error) {
 			if err := providerGetterError(); err != nil {
@@ -127,8 +125,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Controller) StatusHistory) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.modelID = modeltesting.GenModelUUID(c)
-
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
 	s.caasProvider = NewMockCAASProvider(ctrl)
@@ -151,7 +147,6 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 		s.state,
 		s.leadership,
 		s.storageRegistryGetter,
-		s.modelID,
 		s.agentVersionGetter,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
