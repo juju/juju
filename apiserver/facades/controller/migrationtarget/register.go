@@ -23,6 +23,7 @@ func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(regis
 			}
 			return api, nil
 		}, reflect.TypeOf((*APIV4)(nil)))
+		// v5 handles requests with a model qualifier instead of a model owner.
 		registry.MustRegisterForMultiModel("MigrationTarget", 5, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 			api, err := makeFacade(stdCtx, ctx, requiredMigrationFacadeVersions)
 			if err != nil {

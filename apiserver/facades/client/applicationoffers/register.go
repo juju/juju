@@ -25,6 +25,7 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegisterForMultiModel("ApplicationOffers", 5, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		return makeOffersAPIV5(ctx)
 	}, reflect.TypeOf((*OffersAPIv5)(nil)))
+	// v6 handles offer URLs with a model qualifier instead of a username.
 	registry.MustRegisterForMultiModel("ApplicationOffers", 6, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		return makeOffersAPI(ctx)
 	}, reflect.TypeOf((*OffersAPI)(nil)))

@@ -52,10 +52,10 @@ func (s *ListControllersSuite) TestListControllers(c *tc.C) {
 Use --refresh option with this command to see the latest information.
 
 Controller           Model              User   Access     Cloud/Region        Models  Nodes  HA  Version
-aws-test             prod/controller    -      -          aws/us-east-1            1      5   -  2.0.1
-k8s-controller       prod/my-k8s-model  admin  superuser  microk8s/localhost       2      3   -  6.6.6
-mallards*            prod/my-model      admin  superuser  mallards/mallards1       2      -   -  (unknown)
-mark-test-prodstack  -                  admin  (unknown)  prodstack                -      -   -  (unknown)
+aws-test             prod/controller    -      -          aws/us-east-1            1      5   -  2.0.1      
+k8s-controller       prod/my-k8s-model  admin  superuser  microk8s/localhost       2      3   -  6.6.6      
+mallards*            prod/my-model      admin  superuser  mallards/mallards1       2      -   -  (unknown)  
+mark-test-prodstack  -                  admin  (unknown)  prodstack                -      -   -  (unknown)  
 `[1:]
 
 	s.assertListControllers(c)
@@ -79,10 +79,10 @@ func (s *ListControllersSuite) TestListControllersRefresh(c *tc.C) {
 	}
 	s.expectedOutput = `
 Controller           Model              User   Access     Cloud/Region        Models  Nodes  HA  Version
-aws-test             prod/controller    admin  (unknown)  aws/us-east-1            1      2   -  2.0.1
-k8s-controller       prod/my-k8s-model  admin  superuser  microk8s/localhost       2      4   -  6.6.6
-mallards*            prod/my-model      admin  superuser  mallards/mallards1       2      4   -  (unknown)
-mark-test-prodstack  -                  admin  (unknown)  prodstack                -      -   -  (unknown)
+aws-test             prod/controller    admin  (unknown)  aws/us-east-1            1      2   -  2.0.1      
+k8s-controller       prod/my-k8s-model  admin  superuser  microk8s/localhost       2      4   -  6.6.6      
+mallards*            prod/my-model      admin  superuser  mallards/mallards1       2      4   -  (unknown)  
+mark-test-prodstack  -                  admin  (unknown)  prodstack                -      -   -  (unknown)  
 `[1:]
 	s.assertListControllers(c, "--refresh")
 	// Check store was updated.
@@ -135,10 +135,10 @@ func (s *ListControllersSuite) TestListControllersKnownHAStatus(c *tc.C) {
 	s.setupAPIForControllerMachines()
 	s.expectedOutput = `
 Controller           Model              User   Access     Cloud/Region        Models  Nodes    HA  Version
-aws-test             prod/controller    admin  (unknown)  aws/us-east-1            1      2   2/3  2.0.1
-k8s-controller       prod/my-k8s-model  admin  superuser  microk8s/localhost       2      4     -  6.6.6
-mallards*            prod/my-model      admin  superuser  mallards/mallards1       2      4  none  (unknown)
-mark-test-prodstack  -                  admin  (unknown)  prodstack                -      -     -  (unknown)
+aws-test             prod/controller    admin  (unknown)  aws/us-east-1            1      2   2/3  2.0.1      
+k8s-controller       prod/my-k8s-model  admin  superuser  microk8s/localhost       2      4     -  6.6.6      
+mallards*            prod/my-model      admin  superuser  mallards/mallards1       2      4  none  (unknown)  
+mark-test-prodstack  -                  admin  (unknown)  prodstack                -      -     -  (unknown)  
 `[1:]
 	s.assertListControllers(c, "--refresh")
 }

@@ -520,7 +520,7 @@ func (s *store) CurrentModel(controllerName string) (string, error) {
 	var controller bool
 	var modelNames []string
 	for ns := range controllerModels.Models {
-		name, _, err := SplitModelName(ns)
+		name, _, err := SplitFullyQualifiedModelName(ns)
 		if err != nil {
 			continue
 		}

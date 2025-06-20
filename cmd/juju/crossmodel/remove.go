@@ -118,24 +118,18 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	currentModel, err := c.ClientStore().CurrentModel(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var invalidOffers []string
 	for i, urlStr := range c.offers {
-		url, err := crossmodel.ParseOfferURL(urlStr)
+		url, err := c.parseOfferURL(controllerName, currentModel, urlStr)
 		if err != nil {
-			if !names.IsValidApplication(urlStr) {
-				return errors.Trace(err)
-			}
-			store := c.ClientStore()
-			currentModel, err := store.CurrentModel(controllerName)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			url, err = makeURLFromCurrentModel(store, controllerName, c.offerSource, currentModel, urlStr)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			c.offers[i] = url.String()
+			return errors.Trace(err)
 		}
+		c.offers[i] = url.String()
 		if c.offerSource == "" {
 			c.offerSource = url.Source
 		}
@@ -173,6 +167,18 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	return block.ProcessBlockedError(err, block.BlockRemove)
 }
 
+func (c *removeCommand) parseOfferURL(controllerName, currentModel, urlStr string) (*crossmodel.OfferURL, error) {
+	url, err := crossmodel.ParseOfferURL(urlStr)
+	if err == nil {
+		return url, nil
+	}
+	if !names.IsValidApplication(urlStr) {
+		return nil, errors.Trace(err)
+	}
+	store := c.ClientStore()
+	return makeURLFromCurrentModel(store, controllerName, c.offerSource, currentModel, urlStr)
+}
+
 func makeURLFromCurrentModel(
 	store jujuclient.ClientStore, controllerName, offerSource, modelName, offerName string,
 ) (*crossmodel.OfferURL, error) {
@@ -184,7 +190,7 @@ func makeURLFromCurrentModel(
 	}
 	if url.ModelName == "" {
 		if jujuclient.IsQualifiedModelName(modelName) {
-			modelName, qualifier, err := jujuclient.SplitModelName(modelName)
+			modelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(modelName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

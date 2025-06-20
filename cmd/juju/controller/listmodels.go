@@ -142,7 +142,7 @@ func (c *modelsCommand) currentModelName() (qualified, name string) {
 	if err == nil {
 		qualified, name = current, current
 		if c.user != "" {
-			unqualifiedModelName, qualifier, err := jujuclient.SplitModelName(current)
+			unqualifiedModelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(current)
 			if err == nil {
 				// If current model's qualifier is this user, un-qualify model name.
 				name = common.OwnerQualifiedModelName(
@@ -408,53 +408,53 @@ func (c *modelsCommand) tabularSummaries(writer io.Writer, modelSet ModelSummary
 	w := output.Wrapper{tw}
 	c.tabularColumns(tw, w)
 
-	for _, model := range modelSet.Models {
-		cloudRegion := strings.Trim(model.Cloud+"/"+model.CloudRegion, "/")
-		name := model.Name
-		if c.runVars.currentUser.Id() == model.Qualifier {
+	for _, m := range modelSet.Models {
+		cloudRegion := strings.Trim(m.Cloud+"/"+m.CloudRegion, "/")
+		name := m.Name
+		if model.QualifierFromUserTag(c.runVars.currentUser).String() == m.Qualifier {
 			// No need to display fully qualified model name if it matches the user.
-			name = model.ShortName
+			name = m.ShortName
 		}
-		if model.Name == modelSet.CurrentModelQualified {
+		if m.Name == modelSet.CurrentModelQualified {
 			name += "*"
 			w.PrintColor(output.CurrentHighlight, name)
 		} else {
 			w.Print(name)
 		}
 		if c.listUUID {
-			w.Print(model.UUID)
+			w.Print(m.UUID)
 		}
 		status := "-"
-		if model.Status != nil && model.Status.Current.String() != "" {
-			status = model.Status.Current.String()
+		if m.Status != nil && m.Status.Current.String() != "" {
+			status = m.Status.Current.String()
 		}
-		w.Print(cloudRegion, model.ProviderType, status)
+		w.Print(cloudRegion, m.ProviderType, status)
 		if c.runVars.hasMachinesCount {
-			if v, ok := model.Counts[string(params.Machines)]; ok {
+			if v, ok := m.Counts[string(params.Machines)]; ok {
 				w.Print(v)
 			} else {
 				w.Print(0)
 			}
 		}
 		if c.runVars.hasCoresCount {
-			if v, ok := model.Counts[string(params.Cores)]; ok {
+			if v, ok := m.Counts[string(params.Cores)]; ok {
 				w.Print(v)
 			} else {
 				w.Print("-")
 			}
 		}
 		if c.runVars.hasUnitsCount {
-			if v, ok := model.Counts[string(params.Units)]; ok {
+			if v, ok := m.Counts[string(params.Units)]; ok {
 				w.Print(v)
 			} else {
 				w.Print("-")
 			}
 		}
-		access := model.UserAccess
+		access := m.UserAccess
 		if access == "" {
 			access = "-"
 		}
-		w.Println(access, model.UserLastConnection)
+		w.Println(access, m.UserLastConnection)
 	}
 	tw.Flush()
 	return nil

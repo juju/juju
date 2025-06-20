@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/jujuclient"
 )
 
 const showCommandDoc = `
@@ -118,20 +117,12 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 	loggedInUser := accountDetails.User
 
 	if url.ModelName == "" {
-		currentModel, err := c.ModelIdentifier()
+		modelName, qualifier, err := c.ModelNameWithQualifier()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if jujuclient.IsQualifiedModelName(currentModel) {
-			modelName, qualifier, err := jujuclient.SplitModelName(currentModel)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			url.ModelQualifier = qualifier
-			url.ModelName = modelName
-		} else {
-			url.ModelName = currentModel
-		}
+		url.ModelQualifier = qualifier
+		url.ModelName = modelName
 	}
 
 	if url.ModelQualifier == "" {

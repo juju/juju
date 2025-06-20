@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/credential"
 	coremigration "github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
@@ -176,7 +177,7 @@ func TargetPrecheck(
 			return errors.Errorf("model with same UUID already exists (%s)", modelInfo.UUID)
 		}
 		// TODO - model owner comes from mongo and will be replace by a Qualifier.
-		if model.Name() == modelInfo.Name && model.Owner().Id() == modelInfo.Qualifier.String() {
+		if model.Name() == modelInfo.Name && coremodel.QualifierFromUserTag(model.Owner()) == modelInfo.Qualifier {
 			return errors.Errorf("model named %q already exists", model.Name())
 		}
 	}
