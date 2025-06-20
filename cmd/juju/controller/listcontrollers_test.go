@@ -135,7 +135,7 @@ func (s *ListControllersSuite) TestListControllersKnownHAStatus(c *tc.C) {
 	s.setupAPIForControllerMachines()
 	s.expectedOutput = `
 Controller           Model         User   Access     Cloud/Region        Models  Nodes    HA  Version
-aws-test             controller    admin  (unknown)  aws/us-east-1            1      2   1/3  2.0.1      
+aws-test             controller    admin  (unknown)  aws/us-east-1            1      2   2/3  2.0.1      
 k8s-controller       my-k8s-model  admin  superuser  microk8s/localhost       2      4     -  6.6.6      
 mallards*            my-model      admin  superuser  mallards/mallards1       2      4  none  (unknown)  
 mark-test-prodstack  -             admin  (unknown)  prodstack                -      -     -  (unknown)  
@@ -159,7 +159,7 @@ controllers:
     model-count: 1
     machine-count: 2
     controller-machines:
-      active: 1
+      active: 2
       total: 3
   k8s-controller:
     current-model: my-k8s-model

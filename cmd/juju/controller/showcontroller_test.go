@@ -257,13 +257,12 @@ aws-test:
   controller-machines:
     "0":
       instance-id: id-0
-      ha-status: ha-pending
     "1":
       instance-id: id-1
-      ha-status: down, lost connection
     "2":
       instance-id: id-2
-      ha-status: ha-enabled
+    "3":
+      instance-id: id-3
   models:
     controller:
       model-uuid: ghi
@@ -294,13 +293,12 @@ aws-test:
   controller-machines:
     "0":
       instance-id: id-0
-      ha-status: ha-pending
     "1":
       instance-id: id-1
-      ha-status: down, lost connection
     "2":
       instance-id: id-2
-      ha-status: ha-enabled
+    "3":
+      instance-id: id-3
   models:
     controller:
       model-uuid: ghi
@@ -332,7 +330,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *tc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0"},"1":{"instance-id":"id-1"},"2":{"instance-id":"id-2"},"3":{"instance-id":"id-3"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "aws-test")
@@ -341,7 +339,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *tc.C) {
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *tc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"cloud":"prodstack","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-a-ca-cert"},"account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0"},"1":{"instance-id":"id-1"},"2":{"instance-id":"id-2"},"3":{"instance-id":"id-3"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"cloud":"prodstack","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-a-ca-cert"},"account":{"user":"admin","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "aws-test", "mark-test-prodstack")
 }
@@ -364,7 +362,7 @@ func (s *ShowControllerSuite) TestShowControllerNoArgs(c *tc.C) {
 	store.CurrentControllerName = "aws-test"
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0"},"1":{"instance-id":"id-1"},"2":{"instance-id":"id-2"},"3":{"instance-id":"id-3"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json")
 }
@@ -397,11 +395,11 @@ func (s *ShowControllerSuite) TestShowControllerRefreshesStore(c *tc.C) {
 	store := s.createTestClientStore(c)
 	_, err := s.runShowController(c, "aws-test")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, tc.Equals, 1)
+	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, tc.Equals, 3)
 	_, err = s.runShowController(c, "aws-test")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(store.Controllers["aws-test"].ControllerMachineCount, tc.Equals, 3)
-	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, tc.Equals, 2)
+	c.Check(store.Controllers["aws-test"].ControllerMachineCount, tc.Equals, 4)
+	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, tc.Equals, 3)
 }
 
 func (s *ShowControllerSuite) TestShowControllerRefreshesStoreModels(c *tc.C) {
@@ -575,6 +573,8 @@ aws-test:
       instance-id: id-1
     "2":
       instance-id: id-2
+    "3":
+      instance-id: id-3
   models:
     controller:
       model-uuid: ghi
