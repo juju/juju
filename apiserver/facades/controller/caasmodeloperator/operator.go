@@ -60,7 +60,7 @@ func NewAPI(
 	return &API{
 		auth:                    authorizer,
 		APIAddresser:            common.NewAPIAddresser(controllerNodeService, watcherRegistry),
-		PasswordChanger:         common.NewPasswordChanger(agentPasswordService, st, common.AuthFuncForTagKind(names.ModelTagKind)),
+		PasswordChanger:         common.NewPasswordChanger(agentPasswordService, nil, st, common.AuthFuncForTagKind(names.ModelTagKind)),
 		controllerConfigService: controllerConfigService,
 		controllerNodeService:   controllerNodeService,
 		modelConfigService:      modelConfigService,

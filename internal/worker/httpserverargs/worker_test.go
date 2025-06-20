@@ -41,6 +41,7 @@ func (s *workerConfigSuite) SetUpTest(c *tc.C) {
 	s.config = workerConfig{
 		statePool:               &state.StatePool{},
 		controllerConfigService: &managedServices{},
+		controllerNodeService:   &managedServices{},
 		accessService:           &managedServices{},
 		macaroonService:         &managedServices{},
 		domainServicesGetter:    &managedServices{},
@@ -92,6 +93,7 @@ func startedAuthFunc(started chan struct{}) NewStateAuthenticatorFunc {
 		statePool *state.StatePool,
 		controllerModelUUID model.UUID,
 		controllerConfigService ControllerConfigService,
+		controllerNodeService ControllerNodeService,
 		agentPasswordServiceGetter AgentPasswordServiceGetter,
 		accessService AccessService,
 		macaroonService MacaroonService,

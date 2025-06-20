@@ -31,6 +31,7 @@ type workerConfig struct {
 	statePool               *state.StatePool
 	domainServicesGetter    DomainServicesGetter
 	controllerConfigService ControllerConfigService
+	controllerNodeService   ControllerNodeService
 	accessService           AccessService
 	macaroonService         MacaroonService
 	mux                     *apiserverhttp.Mux
@@ -47,6 +48,9 @@ func (w workerConfig) Validate() error {
 	}
 	if w.controllerConfigService == nil {
 		return errors.NotValidf("empty controllerConfigService")
+	}
+	if w.controllerNodeService == nil {
+		return errors.NotValidf("empty controllerNodeService")
 	}
 	if w.accessService == nil {
 		return errors.NotValidf("empty accessService")
@@ -79,6 +83,7 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 		managedServices: newManagedServices(
 			cfg.domainServicesGetter,
 			cfg.controllerConfigService,
+			cfg.controllerNodeService,
 			cfg.accessService,
 			cfg.macaroonService,
 		),
@@ -105,6 +110,8 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 		w.catacomb.Context(context.Background()),
 		w.cfg.statePool,
 		coremodel.UUID(controllerModelUUID),
+		// This is asinine.
+		w.managedServices,
 		w.managedServices,
 		w.managedServices,
 		w.managedServices,
@@ -144,6 +151,7 @@ type managedServices struct {
 	tomb                    tomb.Tomb
 	domainServicesGetter    DomainServicesGetter
 	controllerConfigService ControllerConfigService
+	controllerNodeService   ControllerNodeService
 	accessService           AccessService
 	macaroonService         MacaroonService
 }
@@ -151,12 +159,14 @@ type managedServices struct {
 func newManagedServices(
 	domainServicesGetter DomainServicesGetter,
 	controllerConfigService ControllerConfigService,
+	controllerNodeService ControllerNodeService,
 	accessService AccessService,
 	macaroonService MacaroonService,
 ) *managedServices {
 	w := &managedServices{
 		domainServicesGetter:    domainServicesGetter,
 		controllerConfigService: controllerConfigService,
+		controllerNodeService:   controllerNodeService,
 		accessService:           accessService,
 		macaroonService:         macaroonService,
 	}
@@ -170,6 +180,12 @@ func newManagedServices(
 // ControllerConfig is part of the ControllerConfigService interface.
 func (b *managedServices) ControllerConfig(ctx context.Context) (controller.Config, error) {
 	return b.controllerConfigService.ControllerConfig(b.tomb.Context(ctx))
+}
+
+// MatchesPassword checks if the password is valid or not against the password
+// hash stored in the database for the given controller node.
+func (b *managedServices) MatchesPassword(ctx context.Context, nodeID string, password string) (bool, error) {
+	return b.controllerNodeService.MatchesPassword(ctx, nodeID, password)
 }
 
 // GetUserByAuth is part of the AccessService interface.

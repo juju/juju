@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 
@@ -101,7 +100,7 @@ AND    password_hash = $validatePasswordHash.password_hash;
 	var count int
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, args).Get(&args); err != nil {
-			return errors.Errorf("setting password hash: %w", err)
+			return errors.Errorf("checking password hash: %w", err)
 		}
 		count = args.Count
 		return nil
@@ -256,17 +255,13 @@ AND       m.nonce = $validatePasswordHashWithNonce.nonce;
 	var valid bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, passwordStmt, args).Get(&result); err != nil {
-			return errors.Errorf("setting password hash: %w", err)
+			return errors.Errorf("checking password hash: %w", err)
 		}
-
-		fmt.Println("???>> result:", result)
 
 		// We've not found any rows, so the password does not match.
 		if result.MachineCount == 0 {
 			return nil
 		}
-
-		fmt.Println(">>> result:", result)
 
 		// If the machine count is greater than 0, then we can assume the
 		// password matches, but we also need to check the instance count.

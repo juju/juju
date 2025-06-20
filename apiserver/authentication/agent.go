@@ -16,11 +16,12 @@ import (
 	"github.com/juju/juju/core/unit"
 	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/state"
 )
 
-// AgentPasswordService defines the methods required to set an agent password
+// AgentPasswordService defines the methods required to check an agent password
 // hash.
 type AgentPasswordService interface {
 	// MatchesUnitPasswordHash checks if the password is valid or not.
@@ -34,46 +35,67 @@ type AgentPasswordService interface {
 	IsMachineController(context.Context, machine.Name) (bool, error)
 }
 
+// ControllerNodeService defines the methods required to check a controller
+// password hash.
+type ControllerNodeService interface {
+	// MatchesPassword checks if the password is valid or not against the password
+	// hash stored in the database for the given controller node.
+	MatchesPassword(ctx context.Context, nodeID string, password string) (bool, error)
+}
+
 // AgentAuthenticatorGetter is a factory for creating authenticators, which
 // can create authenticators for a given state.
 type AgentAuthenticatorGetter struct {
-	agentPasswordService AgentPasswordService
-	legacyState          *state.State
-	logger               corelogger.Logger
+	agentPasswordService  AgentPasswordService
+	controllerNodeService ControllerNodeService
+	legacyState           *state.State
+	logger                corelogger.Logger
 }
 
 // NewAgentAuthenticatorGetter returns a new agent authenticator factory, for
 // a known state.
-func NewAgentAuthenticatorGetter(agentPasswordService AgentPasswordService, legacy *state.State, logger corelogger.Logger) AgentAuthenticatorGetter {
+func NewAgentAuthenticatorGetter(
+	agentPasswordService AgentPasswordService,
+	controllerNodeService ControllerNodeService,
+	legacy *state.State,
+	logger corelogger.Logger,
+) AgentAuthenticatorGetter {
 	return AgentAuthenticatorGetter{
-		agentPasswordService: agentPasswordService,
-		legacyState:          legacy,
-		logger:               logger,
+		agentPasswordService:  agentPasswordService,
+		controllerNodeService: controllerNodeService,
+		legacyState:           legacy,
+		logger:                logger,
 	}
 }
 
 // Authenticator returns an authenticator using the factory's controller model.
 func (f AgentAuthenticatorGetter) Authenticator() EntityAuthenticator {
 	return agentAuthenticator{
-		agentPasswordService: f.agentPasswordService,
-		state:                f.legacyState,
-		logger:               f.logger,
+		agentPasswordService:  f.agentPasswordService,
+		controllerNodeService: f.controllerNodeService,
+		state:                 f.legacyState,
+		logger:                f.logger,
 	}
 }
 
 // AuthenticatorForModel returns an authenticator for the given model.
-func (f AgentAuthenticatorGetter) AuthenticatorForModel(agentPasswordService AgentPasswordService, st *state.State) EntityAuthenticator {
+func (f AgentAuthenticatorGetter) AuthenticatorForModel(
+	agentPasswordService AgentPasswordService,
+	st *state.State,
+) EntityAuthenticator {
 	return agentAuthenticator{
-		agentPasswordService: agentPasswordService,
-		state:                st,
-		logger:               f.logger,
+		agentPasswordService:  agentPasswordService,
+		controllerNodeService: f.controllerNodeService,
+		state:                 st,
+		logger:                f.logger,
 	}
 }
 
 type agentAuthenticator struct {
-	agentPasswordService AgentPasswordService
-	state                *state.State
-	logger               corelogger.Logger
+	agentPasswordService  AgentPasswordService
+	controllerNodeService ControllerNodeService
+	state                 *state.State
+	logger                corelogger.Logger
 }
 
 type taggedAuthenticator interface {
@@ -93,6 +115,9 @@ func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthPar
 
 	case names.MachineTagKind:
 		return a.authenticateMachine(ctx, authParams.AuthTag.(names.MachineTag), authParams.Credentials, authParams.Nonce)
+
+	case names.ControllerAgentTagKind:
+		return a.authenticateController(ctx, authParams.AuthTag.(names.ControllerAgentTag), authParams.Credentials)
 
 	default:
 		entity, err := a.fallbackAuth(ctx, authParams)
@@ -158,6 +183,31 @@ func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.
 	}
 
 	return TagToEntity(tag), nil
+}
+
+func (a *agentAuthenticator) authenticateController(ctx context.Context, tag names.ControllerAgentTag, credentials string) (state.Entity, error) {
+	// Check if the password is correct.
+	// - If the password is invalid, then we consider that unauthorized.
+	// - If the controller node is not found, then we consider that unauthorized.
+	//   Prevent the knowing about which controller the password didn't match
+	//   (rainbow attack).
+	// - If the password isn't valid for the controller, then we consider that
+	//   unauthorized.
+	// - Any other error, is considered an internal server error.
+
+	valid, err := a.controllerNodeService.MatchesPassword(ctx, tag.Id(), credentials)
+	if errors.Is(err, controllernodeerrors.InvalidPassword) || errors.Is(err, controllernodeerrors.NotFound) {
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Explicitly assert validity.
+	if valid {
+		return TagToEntity(tag), nil
+	}
+
+	return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 }
 
 func (a *agentAuthenticator) fallbackAuth(ctx context.Context, authParams AuthParams) (state.Entity, error) {

@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -22,7 +21,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/mongo"
-	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -614,7 +612,6 @@ type controllerNodeDoc struct {
 	DocID        string       `bson:"_id"`
 	HasVote      bool         `bson:"has-vote"`
 	WantsVote    bool         `bson:"wants-vote"`
-	PasswordHash string       `bson:"password-hash"`
 	AgentVersion *tools.Tools `bson:"agent-version,omitempty"`
 }
 
@@ -644,31 +641,6 @@ func (c *controllerNode) Tag() names.Tag {
 
 func (c *controllerNode) SetMongoPassword(password string) error {
 	return mongo.SetAdminMongoPassword(c.st.session, c.Tag().String(), password)
-}
-
-// SetPassword implements Authenticator.
-func (c *controllerNode) SetPassword(password string) error {
-	if len(password) < internalpassword.MinAgentPasswordLength {
-		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
-	}
-	passwordHash := internalpassword.AgentPasswordHash(password)
-	ops := []txn.Op{{
-		C:      controllerNodesC,
-		Id:     c.doc.DocID,
-		Update: bson.D{{"$set", bson.D{{"password-hash", passwordHash}}}},
-	}}
-	err := c.st.db().RunTransaction(ops)
-	if err != nil {
-		return fmt.Errorf("cannot set password of controller node %q: %v", c.Id(), err)
-	}
-	c.doc.PasswordHash = passwordHash
-	return nil
-}
-
-// PasswordValid implements Authenticator.
-func (c *controllerNode) PasswordValid(password string) bool {
-	agentHash := internalpassword.AgentPasswordHash(password)
-	return agentHash == c.doc.PasswordHash
 }
 
 func (c *controllerNode) AgentTools() (*tools.Tools, error) {

@@ -13,6 +13,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -32,21 +33,34 @@ type AgentPasswordService interface {
 	SetMachinePassword(context.Context, coremachine.Name, string) error
 }
 
+// ControllerNodeService defines the methods required to set a controller node's
+// password hash.
+type ControllerNodeService interface {
+	// SetPassword sets the password for the given machine. If the controller node
+	// does not exist, an error satisfying [controllernodeerrors.NotFound] is returned.
+	SetPassword(ctx context.Context, nodeID string, password string) error
+}
+
 // PasswordChanger implements a common SetPasswords method for use by
 // various facades.
 type PasswordChanger struct {
-	agentPasswordService AgentPasswordService
-	st                   state.EntityFinder
-	getCanChange         GetAuthFunc
+	agentPasswordService  AgentPasswordService
+	controllerNodeService ControllerNodeService
+	st                    state.EntityFinder
+	getCanChange          GetAuthFunc
 }
 
 // NewPasswordChanger returns a new PasswordChanger. The GetAuthFunc will be
 // used on each invocation of SetPasswords to determine current permissions.
-func NewPasswordChanger(agentPasswordService AgentPasswordService, st state.EntityFinder, getCanChange GetAuthFunc) *PasswordChanger {
+func NewPasswordChanger(
+	agentPasswordService AgentPasswordService,
+	controllerNodeService ControllerNodeService,
+	st state.EntityFinder, getCanChange GetAuthFunc) *PasswordChanger {
 	return &PasswordChanger{
-		agentPasswordService: agentPasswordService,
-		st:                   st,
-		getCanChange:         getCanChange,
+		agentPasswordService:  agentPasswordService,
+		controllerNodeService: controllerNodeService,
+		st:                    st,
+		getCanChange:          getCanChange,
 	}
 }
 
@@ -102,6 +116,18 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 
 		// TODO (stickupkid): This should be removed once we delete mongo.
 		return pc.legacyMachineSetPassword(tag, password)
+
+	case names.ControllerAgentTagKind:
+		if pc.controllerNodeService == nil {
+			return internalerrors.New("changing controller node password")
+		}
+		controllerAgentTag := tag.(names.ControllerAgentTag)
+		if err := pc.controllerNodeService.SetPassword(ctx, controllerAgentTag.Id(), password); errors.Is(err, controllernodeerrors.NotFound) {
+			return errors.NotFoundf("controller node %q", tag.Id())
+		} else if err != nil {
+			return internalerrors.Errorf("setting password for %q: %w", tag, err)
+		}
+		return nil
 
 	// TODO: Handle the following password setting:
 	//  - model

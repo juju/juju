@@ -39,7 +39,7 @@ func (s *passwordSuite) TestSetPasswordsForUnit(c *tc.C) {
 		SetUnitPassword(gomock.Any(), unit.Name("foo/1"), "password").
 		Return(nil)
 
-	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, nil, nil, alwaysAllow)
 	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "unit-foo/1",
@@ -61,7 +61,7 @@ func (s *passwordSuite) TestSetPasswordsForUnitError(c *tc.C) {
 		SetUnitPassword(gomock.Any(), unit.Name("foo/1"), "password").
 		Return(internalerrors.Errorf("boom"))
 
-	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, nil, nil, alwaysAllow)
 	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "unit-foo/1",
@@ -83,7 +83,7 @@ func (s *passwordSuite) TestSetPasswordsForUnitNotFoundError(c *tc.C) {
 		SetUnitPassword(gomock.Any(), unit.Name("foo/1"), "password").
 		Return(applicationerrors.UnitNotFound)
 
-	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, nil, nil, alwaysAllow)
 	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "unit-foo/1",

@@ -1,7 +1,9 @@
 CREATE TABLE controller_node (
     controller_id TEXT NOT NULL PRIMARY KEY,
     dqlite_node_id TEXT,              -- This is the uint64 from Dqlite NodeInfo, stored as text.
-    dqlite_bind_address TEXT          -- IP address (no port) that Dqlite is bound to.
+    dqlite_bind_address TEXT,         -- IP address (no port) that Dqlite is bound to.
+    password_hash_algorithm_id TEXT,
+    password_hash TEXT
 );
 
 CREATE UNIQUE INDEX idx_controller_node_dqlite_node

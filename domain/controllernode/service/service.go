@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/internal/errors"
+	internalpassword "github.com/juju/juju/internal/password"
 )
 
 // State describes retrieval and persistence
@@ -81,6 +82,14 @@ type State interface {
 	// GetAPIAddressesForAgents returns the list of API addresses for the
 	// provided controller node that are available for agents.
 	GetAPIAddressesForAgents(ctx context.Context, ctrlID string) ([]string, error)
+
+	// SetPasswordHash sets the password hash for the given controller node.
+	SetPasswordHash(ctx context.Context, ctrlID string, passwordHash controllernode.ControllerPasswordHash) error
+
+	// MatchesPasswordHash checks if the password is valid or not against the
+	// password hash stored in the database. The controller node must have a
+	// password. It returns an error if the controller node is not found.
+	MatchesPasswordHash(ctx context.Context, ctrlID string, passwordHash controllernode.ControllerPasswordHash) (bool, error)
 }
 
 // Service provides the API for working with controller nodes.
@@ -253,6 +262,38 @@ func (s *Service) GetAPIAddressesForAgents(ctx context.Context, nodeID string) (
 	return s.st.GetAPIAddressesForAgents(ctx, nodeID)
 }
 
+// SetPassword sets the password for the given machine. If the controller node
+// does not exist, an error satisfying [controllernodeerrors.NotFound] is returned.
+func (s *Service) SetPassword(ctx context.Context, nodeID string, password string) error {
+	if nodeID == "" {
+		return errors.Errorf("node ID %q is %w, cannot be empty", nodeID, coreerrors.NotValid)
+	}
+
+	if len(password) < internalpassword.MinAgentPasswordLength {
+		return errors.Errorf(
+			"password is only %d bytes long, and is not a valid Controller password: %w",
+			len(password), controllernodeerrors.InvalidPassword)
+	}
+
+	return s.st.SetPasswordHash(ctx, nodeID, hashPassword(password))
+}
+
+// MatchesPassword checks if the password is valid or not against the password
+// hash stored in the database for the given controller node.
+func (s *Service) MatchesPassword(ctx context.Context, nodeID string, password string) (bool, error) {
+	if nodeID == "" {
+		return false, errors.Errorf("node ID %q is %w, cannot be empty", nodeID, coreerrors.NotValid)
+	}
+
+	if len(password) < internalpassword.MinAgentPasswordLength {
+		return false, errors.Errorf(
+			"password is only %d bytes long, and is not a valid Controller password: %w",
+			len(password), controllernodeerrors.InvalidPassword)
+	}
+
+	return s.st.MatchesPasswordHash(ctx, nodeID, hashPassword(password))
+}
+
 // WatcherFactory instances return watchers for a given namespace and UUID.
 type WatcherFactory interface {
 	// NewNotifyWatcher returns a new watcher that filters changes from the
@@ -307,4 +348,9 @@ func (s *WatchableService) WatchControllerAPIAddresses(ctx context.Context) (wat
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerAPIAddresses(), changestream.All),
 	)
+}
+
+func hashPassword(p string) controllernode.ControllerPasswordHash {
+	return controllernode.ControllerPasswordHash(
+		internalpassword.AgentPasswordHash(p))
 }

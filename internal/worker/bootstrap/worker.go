@@ -69,6 +69,7 @@ type WorkerConfig struct {
 	ControllerCharmDeployer    ControllerCharmDeployerFunc
 	PopulateControllerCharm    PopulateControllerCharmFunc
 	SetMachineProvisioned      SetMachineProvisionedFunc
+	FinaliseControllerNode     FinaliseControllerNodeFunc
 	CharmhubHTTPClient         HTTPClient
 	UnitPassword               string
 	ServiceManagerGetter       ServiceManagerGetterFunc
@@ -146,6 +147,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.SetMachineProvisioned == nil {
 		return errors.NotValidf("nil SetMachineProvisioned")
+	}
+	if c.FinaliseControllerNode == nil {
+		return errors.NotValidf("nil FinaliseControllerNode")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -277,6 +281,11 @@ func (w *bootstrapWorker) loop() error {
 	// Set the bootstrap machine as provisioned.
 	if err := w.cfg.SetMachineProvisioned(ctx, w.cfg.AgentPasswordService, w.cfg.MachineService, bootstrapParams, agentConfig); err != nil {
 		return errors.Annotatef(err, "setting machine as provisioned")
+	}
+
+	// Finalise the controller node.
+	if err := w.cfg.FinaliseControllerNode(ctx, w.cfg.ControllerNodeService, agentConfig); err != nil {
+		return errors.Annotatef(err, "finalising controller node")
 	}
 
 	// Convert the provider addresses that we got from the bootstrap instance

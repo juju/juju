@@ -58,6 +58,10 @@ type BootstrapAddressFinderGetter func(providerFactory providertracker.ProviderF
 // machine provisioned.
 type SetMachineProvisionedFunc func(context.Context, AgentPasswordService, MachineService, instancecfg.StateInitializationParams, agent.Config) error
 
+// FinaliseControllerNodeFunc is the function that is used to set the finish
+// setting up the controller node.
+type FinaliseControllerNodeFunc func(context.Context, ControllerNodeService, agent.Config) error
+
 // ControllerUnitPasswordFunc is the function that is used to get the
 // controller unit password.
 type ControllerUnitPasswordFunc func(context.Context) (string, error)
@@ -89,6 +93,7 @@ type ManifoldConfig struct {
 	PopulateControllerCharm      PopulateControllerCharmFunc
 	BootstrapAddressFinderGetter BootstrapAddressFinderGetter
 	SetMachineProvisioned        SetMachineProvisionedFunc
+	FinaliseControllerNode       FinaliseControllerNodeFunc
 
 	Logger logger.Logger
 	Clock  clock.Clock
@@ -146,6 +151,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.SetMachineProvisioned == nil {
 		return errors.NotValidf("nil SetMachineProvisioned")
+	}
+	if cfg.FinaliseControllerNode == nil {
+		return errors.NotValidf("nil FinaliseControllerNode")
 	}
 	return nil
 }
@@ -302,6 +310,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ControllerCharmDeployer: config.ControllerCharmDeployer,
 				PopulateControllerCharm: config.PopulateControllerCharm,
 				SetMachineProvisioned:   config.SetMachineProvisioned,
+				FinaliseControllerNode:  config.FinaliseControllerNode,
 				CharmhubHTTPClient:      charmhubHTTPClient,
 				UnitPassword:            unitPassword,
 				ServiceManagerGetter:    serviceManagerGetter,
@@ -343,8 +352,8 @@ func PopulateCAASControllerCharm(ctx context.Context, controllerCharmDeployer bo
 	return bootstrap.PopulateCAASControllerCharm(ctx, controllerCharmDeployer)
 }
 
-// IAASSetMachineProvisioned is the function that is used to set the
-// machine provisioned for IAAS workloads.
+// IAASSetMachineProvisioned is the function that is used to set the machine
+// provisioned for IAAS controllers.
 func IAASSetMachineProvisioned(
 	ctx context.Context,
 	agentPasswordService AgentPasswordService,
@@ -384,8 +393,38 @@ func IAASSetMachineProvisioned(
 	return nil
 }
 
-// CAASSetMachineProvisioned is a no-op function for CAAS workloads, as they
+// CAASSetMachineProvisioned is a no-op function for CAAS controllers, as they
 // don't have machines.
 func CAASSetMachineProvisioned(context.Context, AgentPasswordService, MachineService, instancecfg.StateInitializationParams, agent.Config) error {
+	return nil
+}
+
+// IAASFinaliseControllerNode is a no-op function for IAAS controllers, as they
+// use machine authentication for controller facades.
+func IAASFinaliseControllerNode(
+	ctx context.Context,
+	controllerNodeService ControllerNodeService,
+	agentConfig agent.Config,
+) error {
+	return nil
+}
+
+// CAASFinaliseControllerNode sets the controller node's password.
+func CAASFinaliseControllerNode(
+	ctx context.Context,
+	controllerNodeService ControllerNodeService,
+	agentConfig agent.Config,
+) error {
+	apiInfo, ok := agentConfig.APIInfo()
+	if !ok {
+		// If this is missing, we cannot set the controller password.
+		return errors.Errorf("agent config is missing APIInfo for %q", agent.BootstrapControllerId)
+	}
+
+	// Set the controller password for the bootstrap controller.
+	if err := controllerNodeService.SetPassword(ctx, agent.BootstrapControllerId, apiInfo.Password); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }

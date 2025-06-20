@@ -144,7 +144,7 @@ func (s *deployerSuite) TestSetUnitPassword(c *tc.C) {
 		Return(nil)
 
 	api := &DeployerAPI{
-		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, alwaysAllow),
+		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, nil, alwaysAllow),
 	}
 
 	result, err := api.SetPasswords(c.Context(), params.EntityPasswords{
@@ -173,7 +173,7 @@ func (s *deployerSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 		Return(applicationerrors.UnitNotFound)
 
 	api := &DeployerAPI{
-		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, alwaysAllow),
+		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, nil, alwaysAllow),
 	}
 
 	result, err := api.SetPasswords(c.Context(), params.EntityPasswords{
