@@ -255,3 +255,7 @@ type machineContainerType struct {
 	MachineUUID     machine.UUID `db:"machine_uuid"`
 	ContainerTypeID int          `db:"container_type_id"`
 }
+
+type appName struct {
+	Name string `db:"name"`
+}

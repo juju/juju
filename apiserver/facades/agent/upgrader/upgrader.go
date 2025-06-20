@@ -35,11 +35,21 @@ type ControllerConfigGetter interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// Upgrader defines the methods that the upgrader API facade
+// implements. It is used by the upgrader facade to provide
+// a consistent interface for the upgrader API facade.
 type Upgrader interface {
 	WatchAPIVersion(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error)
 	DesiredVersion(ctx context.Context, args params.Entities) (params.VersionResults, error)
 	Tools(ctx context.Context, args params.Entities) (params.ToolsResults, error)
 	SetTools(ctx context.Context, args params.EntitiesVersion) (params.ErrorResults, error)
+}
+
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// IsMachineController checks if the machine is a controller.
+	IsMachineController(ctx context.Context, machineName coremachine.Name) (bool, error)
 }
 
 // UpgraderAPI provides access to the Upgrader API facade.
@@ -53,6 +63,7 @@ type UpgraderAPI struct {
 
 	controllerNodeService ControllerNodeService
 	modelAgentService     ModelAgentService
+	machineService        MachineService
 }
 
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.
@@ -64,6 +75,7 @@ func NewUpgraderAPI(
 	watcherRegistry facade.WatcherRegistry,
 	controllerNodeService ControllerNodeService,
 	modelAgentService ModelAgentService,
+	machineService MachineService,
 ) *UpgraderAPI {
 	return &UpgraderAPI{
 		ToolsGetter:           toolsGetter,
@@ -73,6 +85,7 @@ func NewUpgraderAPI(
 		watcherRegistry:       watcherRegistry,
 		controllerNodeService: controllerNodeService,
 		modelAgentService:     modelAgentService,
+		machineService:        machineService,
 	}
 }
 
@@ -145,22 +158,6 @@ func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities)
 	return result, nil
 }
 
-type hasIsManager interface {
-	IsManager() bool
-}
-
-func (u *UpgraderAPI) entityIsManager(tag names.Tag) bool {
-	entity, err := u.st.FindEntity(tag)
-	if err != nil {
-		return false
-	}
-	if m, ok := entity.(hasIsManager); !ok {
-		return false
-	} else {
-		return m.IsManager()
-	}
-}
-
 // DesiredVersion reports the Agent Version that we want that agent to be running
 func (u *UpgraderAPI) DesiredVersion(ctx context.Context, args params.Entities) (params.VersionResults, error) {
 	results := make([]params.VersionResult, len(args.Entities))
@@ -179,29 +176,50 @@ func (u *UpgraderAPI) DesiredVersion(ctx context.Context, args params.Entities) 
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if u.authorizer.AuthOwner(tag) {
-			// Only return the globally desired agent version if the
-			// asking entity is a machine agent with JobManageModel or
-			// if this API server is running the globally desired agent
-			// version. Otherwise report this API server's current
-			// agent version.
-			//
-			// This ensures that state machine agents will upgrade
-			// first - once they have restarted and are running the
-			// new version other agents will start to see the new
-			// agent version.
-			if !isNewerVersion || u.entityIsManager(tag) {
-				results[i].Version = &agentVersion
-			} else {
-				u.logger.Debugf(ctx, "desired version is %s, but current version is %s and agent is not a manager node", agentVersion, jujuversion.Current)
-				results[i].Version = &jujuversion.Current
-			}
-			err = nil
+		if !u.authorizer.AuthOwner(tag) {
+			results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		results[i].Error = apiservererrors.ServerError(err)
+
+		// Only return the globally desired agent version if the
+		// asking entity is a machine agent with JobManageModel or
+		// if this API server is running the globally desired agent
+		// version. Otherwise report this API server's current
+		// agent version.
+		//
+		// This ensures that state machine agents will upgrade
+		// first - once they have restarted and are running the
+		// new version other agents will start to see the new
+		// agent version.
+		isController, err := u.isControllerMachine(tag)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if !isNewerVersion || isController {
+			results[i].Version = &agentVersion
+		} else {
+			u.logger.Debugf(ctx, "desired version is %s, but current version is %s and agent is not a manager node", agentVersion, jujuversion.Current)
+			results[i].Version = &jujuversion.Current
+		}
 	}
 	return params.VersionResults{Results: results}, nil
+}
+
+func (u *UpgraderAPI) isControllerMachine(tag names.Tag) (bool, error) {
+	if tag.Kind() != names.MachineTagKind {
+		return false, nil
+	}
+
+	machineName := coremachine.Name(tag.Id())
+	isController, err := u.machineService.IsMachineController(context.Background(), machineName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Errorf("checking if machine %q is a controller: %w", machineName, err)
+	}
+	return isController, nil
 }
 
 // SetTools is responsible for updating a a set of entities reported agent

@@ -580,18 +580,28 @@ func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.En
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
 		machineName := coremachine.Name(tag.Id())
-		machine, err := api.getMachine(canAccess, tag)
-		if err == nil {
-			// If the machine is a controller, return
-			// controller instances. Otherwise, return
-			// instances with services in common with the machine
-			// being provisioned.
-			if machine.IsManager() {
-				result.Results[i].Result, err = api.controllerInstances(ctx)
-			} else {
-				result.Results[i].Result, err = api.commonServiceInstances(ctx, machineName)
-			}
+		isController, err := api.machineService.IsMachineController(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %q", machineName))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// If the machine is a controller, return controller instances.
+		// Otherwise, return instances with services in common with the machine
+		// being provisioned.
+		if isController {
+			result.Results[i].Result, err = api.controllerInstances(ctx)
+		} else {
+			result.Results[i].Result, err = api.commonServiceInstances(ctx, machineName)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -609,8 +619,7 @@ func (api *ProvisionerAPI) controllerInstances(ctx context.Context) ([]instance.
 		instanceId, err := api.getInstanceID(ctx, id)
 		if errors.Is(err, machineerrors.NotProvisioned) {
 			continue
-		}
-		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
+		} else if err != nil {
 			return nil, err
 		}
 		instances = append(instances, instanceId)
@@ -677,17 +686,29 @@ func (api *ProvisionerAPI) DistributionGroupByMachineId(ctx context.Context, arg
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := api.getMachine(canAccess, tag)
-		if err == nil {
-			// If the machine is a controller, return
-			// controller instances. Otherwise, return
-			// instances with services in common with the machine
-			// being provisioned.
-			if machine.IsManager() {
-				result.Results[i].Result, err = controllerMachineIds(api.st, machine)
-			} else {
-				result.Results[i].Result, err = commonApplicationMachineId(api.st, machine)
-			}
+
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		machineName := coremachine.Name(tag.Id())
+		isController, err := api.machineService.IsMachineController(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %q", machineName))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// If the machine is a controller, return controller instances.
+		// Otherwise, return instances with services in common with the machine
+		// being provisioned.
+		if isController {
+			result.Results[i].Result, err = controllerMachineIds(api.st, machineName)
+		} else {
+			result.Results[i].Result, err = api.commonApplicationMachineId(ctx, api.st, machineName)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -695,20 +716,26 @@ func (api *ProvisionerAPI) DistributionGroupByMachineId(ctx context.Context, arg
 }
 
 // controllerMachineIds returns a slice of all other environ manager machine.Ids.
-func controllerMachineIds(st *state.State, m *state.Machine) ([]string, error) {
+func controllerMachineIds(st *state.State, mName coremachine.Name) ([]string, error) {
 	ids, err := st.ControllerIds()
 	if err != nil {
 		return nil, err
 	}
 	result := set.NewStrings(ids...)
-	result.Remove(m.Id())
+	result.Remove(mName.String())
 	return result.SortedValues(), nil
 }
 
 // commonApplicationMachineId returns a slice of machine.Ids with
 // applications in common with the specified machine.
-func commonApplicationMachineId(st *state.State, m *state.Machine) ([]string, error) {
-	applications := m.Principals()
+func (api *ProvisionerAPI) commonApplicationMachineId(ctx context.Context, st *state.State, mName coremachine.Name) ([]string, error) {
+	applications, err := api.machineService.GetMachinePrincipalApplications(ctx, mName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return nil, errors.NotFoundf("machine %q", mName)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	union := set.NewStrings()
 	for _, app := range applications {
 		machines, err := state.ApplicationMachines(st, app)
@@ -717,7 +744,7 @@ func commonApplicationMachineId(st *state.State, m *state.Machine) ([]string, er
 		}
 		union = union.Union(set.NewStrings(machines...))
 	}
-	union.Remove(m.Id())
+	union.Remove(mName.String())
 	return union.SortedValues(), nil
 }
 

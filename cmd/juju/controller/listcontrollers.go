@@ -209,11 +209,8 @@ func ControllerMachineCounts(controllerModelUUID string, modelStatusResults []ba
 			continue
 		}
 		for _, m := range s.Machines {
-			if !m.WantsVote {
-				continue
-			}
 			totalCount++
-			if m.Status != string(status.Down) && m.HasVote {
+			if m.Status != string(status.Down) {
 				activeCount++
 			}
 		}
