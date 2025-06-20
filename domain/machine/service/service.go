@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs"
@@ -33,14 +34,14 @@ type State interface {
 	// CreateMachine persists the input machine entity.
 	// It returns a MachineAlreadyExists error if a machine with the same name
 	// already exists.
-	CreateMachine(context.Context, machine.Name, string, machine.UUID, *string) error
+	CreateMachine(context.Context, domainmachine.CreateMachineArgs) (machine.UUID, machine.Name, error)
 
 	// CreateMachineWithparent persists the input machine entity, associating it
 	// with the parent machine.
 	// It returns a MachineAlreadyExists error if a machine with the same name
 	// already exists.
 	// It returns a MachineNotFound error if the parent machine does not exist.
-	CreateMachineWithParent(context.Context, machine.Name, machine.Name, string, machine.UUID) error
+	CreateMachineWithParent(context.Context, domainmachine.CreateMachineArgs, machine.UUID) (machine.UUID, machine.Name, error)
 
 	// DeleteMachine deletes the input machine entity.
 	DeleteMachine(context.Context, machine.Name) error
@@ -228,23 +229,50 @@ func NewService(st State, statusHistory StatusHistory, clock clock.Clock, logger
 }
 
 // CreateMachine creates the specified machine.
-// It returns a MachineAlreadyExists error if a machine with the same name
-// already exists.
-func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name, nonce *string) (machine.UUID, error) {
+//
+// The following errors may be returned:
+//   - [machineerrors.MachineAlreadyExists] if a machine with the same name
+//     already exists.
+func (s *Service) CreateMachine(ctx context.Context, args CreateMachineArgs) (machine.UUID, machine.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Make a new UUIDs for the net-node and the machine.
-	// We want to do this in the service layer so that if retries are invoked at
-	// the state layer we don't keep regenerating.
-	nodeUUID, machineUUID, err := createUUIDs()
+	stateArgs, err := s.makeCreateMachineArgs(args)
 	if err != nil {
-		return "", errors.Errorf("creating machine %q: %w", machineName, err)
+		return "", "", errors.Capture(err)
 	}
 
-	err = s.st.CreateMachine(ctx, machineName, nodeUUID, machineUUID, nonce)
+	machineUUID, machineName, err := s.st.CreateMachine(ctx, stateArgs)
 	if err != nil {
-		return machineUUID, errors.Errorf("creating machine %q: %w", machineName, err)
+		return "", "", errors.Capture(err)
+	}
+
+	if err := s.recordCreateMachineStatusHistory(ctx, machineName); err != nil {
+		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
+	}
+
+	return machineUUID, machineName, nil
+}
+
+// CreateMachineWithParent creates the specified machine with the specified
+// parent.
+// It returns a MachineAlreadyExists error if a machine with the same name
+// already exists.
+// It returns a MachineNotFound error if the parent machine does not exist.
+func (s *Service) CreateMachineWithParent(ctx context.Context, args CreateMachineArgs, parentName machine.Name) (machine.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// Get the parent UUID.
+	parentUUID, err := s.st.GetMachineUUID(ctx, parentName)
+	if err != nil {
+		return "", errors.Errorf("getting parent UUID for machine %q: %w", parentName, err)
+	}
+
+	// Create the machine.
+	machineUUID, machineName, err := s.st.CreateMachineWithParent(ctx, domainmachine.CreateMachineArgs{}, parentUUID)
+	if err != nil {
+		return machineUUID, errors.Errorf("creating machine with parent %q: %w", parentName, err)
 	}
 
 	if err := s.recordCreateMachineStatusHistory(ctx, machineName); err != nil {
@@ -254,33 +282,8 @@ func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name, n
 	return machineUUID, nil
 }
 
-// CreateMachineWithParent creates the specified machine with the specified
-// parent.
-// It returns a MachineAlreadyExists error if a machine with the same name
-// already exists.
-// It returns a MachineNotFound error if the parent machine does not exist.
-func (s *Service) CreateMachineWithParent(ctx context.Context, machineName, parentName machine.Name) (machine.UUID, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	// Make a new UUIDs for the net-node and the machine.
-	// We want to do this in the service layer so that if retries are invoked at
-	// the state layer we don't keep regenerating.
-	nodeUUID, machineUUID, err := createUUIDs()
-	if err != nil {
-		return "", errors.Errorf("creating machine %q with parent %q: %w", machineName, parentName, err)
-	}
-
-	err = s.st.CreateMachineWithParent(ctx, machineName, parentName, nodeUUID, machineUUID)
-	if err != nil {
-		return machineUUID, errors.Errorf("creating machine %q with parent %q: %w", machineName, parentName, err)
-	}
-
-	if err := s.recordCreateMachineStatusHistory(ctx, machineName); err != nil {
-		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
-	}
-
-	return machineUUID, nil
+func (s *Service) makeCreateMachineArgs(args CreateMachineArgs) (domainmachine.CreateMachineArgs, error) {
+	return domainmachine.CreateMachineArgs{}, nil
 }
 
 func (s *Service) recordCreateMachineStatusHistory(ctx context.Context, machineName machine.Name) error {

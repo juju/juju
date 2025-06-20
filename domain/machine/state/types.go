@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 )
 
@@ -171,16 +172,6 @@ func (s machineName) nameSliceTransform() machine.Name {
 	return s.Name
 }
 
-// createMachineArgs represents the struct to be used for the input parameters
-// of the createMachine state method in the machine domain.
-type createMachineArgs struct {
-	name        machine.Name
-	machineUUID machine.UUID
-	netNodeUUID string
-	parentName  machine.Name
-	nonce       *string
-}
-
 // lxdProfile represents the struct to be used for the sqlair statements on the
 // lxd_profile table.
 type lxdProfile struct {
@@ -240,4 +231,16 @@ type exportMachine struct {
 	UUID   string `db:"uuid"`
 	LifeID int    `db:"life_id"`
 	Nonce  string `db:"nonce"`
+}
+
+type PlaceMachineArgs struct {
+	Directive deployment.Placement
+	Platform  deployment.Platform
+	Nonce     *string
+}
+
+type insertMachineAndNetNodeArgs struct {
+	machineName string
+	platform    deployment.Platform
+	nonce       *string
 }

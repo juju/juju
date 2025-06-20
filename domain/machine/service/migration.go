@@ -49,6 +49,28 @@ func NewMigrationService(
 	}
 }
 
+// ImportMachine imports the specified machine into the model.
+func (s *MigrationService) ImportMachine(ctx context.Context) (coremachine.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return "", nil
+}
+
+// ImportMachineCloudInstance sets an entry in the machine cloud instance table
+// along with the instance tags and the link to a lxd profile if any.
+func (s *MigrationService) ImportMachineCloudInstance(
+	ctx context.Context,
+	machineUUID coremachine.UUID,
+	instanceID instance.Id,
+	displayName,
+	nonce string,
+	hardwareCharacteristics *instance.HardwareCharacteristics,
+) error {
+
+	return nil
+}
+
 // GetMachines returns all the machines in the model.
 func (s *MigrationService) GetMachines(ctx context.Context) ([]machine.ExportMachine, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
