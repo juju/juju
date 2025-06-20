@@ -354,7 +354,13 @@ func (api *MachinerAPI) recordAgentStartInformation(ctx context.Context, tag, ho
 		return err
 	}
 
-	return api.machineService.SetMachineHostname(ctx, mUUID, hostname)
+	err = api.machineService.SetMachineHostname(ctx, mUUID, hostname)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return errors.NotFoundf("machine %q", mTag.Id())
+	} else if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (api *MachinerAPI) canModify(tag string, authChecker common.AuthFunc) (names.MachineTag, error) {

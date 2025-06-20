@@ -331,27 +331,9 @@ func (api *ProvisionerAPI) WatchAllContainers(ctx context.Context, args params.W
 // machines passed in args.
 // Deprecated: This method doesn't do anything and can be removed in the future.
 func (api *ProvisionerAPI) SetSupportedContainers(ctx context.Context, args params.MachineContainersParams) (params.ErrorResults, error) {
-	result := params.ErrorResults{
+	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
-	}
-
-	canModify, err := api.getCanModify(ctx)
-	if err != nil {
-		return result, err
-	}
-	for i, arg := range args.Params {
-		tag, err := names.ParseMachineTag(arg.MachineTag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		if !canModify(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-	}
-
-	return result, nil
+	}, nil
 }
 
 // SupportedContainers returns the list of containers supported by the machines
@@ -395,6 +377,11 @@ func (api *ProvisionerAPI) SupportedContainers(ctx context.Context, args params.
 			continue
 		}
 
+		// Container types will always return a non-empty slice of `[lxd]`.
+		// We can make this guarantee at the moment, because we only support
+		// deployment to ubuntu machines. If this ever changes, we will need
+		// to ratify this logic.
+		// As a result we can set the determined field to true.
 		result.Results[i].ContainerTypes = containerTypes
 		result.Results[i].Determined = true
 	}
