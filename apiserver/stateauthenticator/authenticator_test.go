@@ -169,7 +169,6 @@ func (s *agentAuthenticatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	authenticator, err := NewAuthenticator(
 		c.Context(),
-		s.StatePool,
 		model.UUID(testing.ModelTag.Id()),
 		s.controllerConfigService,
 		s.agentPasswordServiceGetter,

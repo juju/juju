@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/user"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // AgentPasswordServiceGetter defines the methods required to get an
@@ -97,7 +96,6 @@ type BakeryConfigService interface {
 // NewAuthenticator returns a new Authenticator using the given StatePool.
 func NewAuthenticator(
 	ctx context.Context,
-	statePool *state.StatePool,
 	controllerModelUUID model.UUID,
 	controllerConfigService ControllerConfigService,
 	agentPasswordServiceGetter AgentPasswordServiceGetter,
