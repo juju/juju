@@ -175,6 +175,7 @@ type Firewaller struct {
 	// Set to true if the environment supports ingress rules containing
 	// IPV6 CIDRs.
 	envIPV6CIDRSupport bool
+	needsToFlushModel  bool
 
 	modelUUID                  string
 	newRemoteFirewallerAPIFunc newCrossModelFacadeFunc
@@ -858,6 +859,12 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	if fw.globalMode {
 		return fw.flushGlobalPorts(toOpen, toClose)
 	}
+	if fw.needsToFlushModel {
+		if err := fw.flushModel(); err != nil {
+			return errors.Trace(err)
+		}
+
+	}
 	return fw.flushInstancePorts(machined, toOpen, toClose)
 }
 
@@ -1095,6 +1102,13 @@ func (fw *Firewaller) flushModel() error {
 	if fw.environModelFirewaller == nil {
 		return nil
 	}
+
+	if len(fw.machineds) == 0 {
+		fw.needsToFlushModel = true
+		fw.logger.Debugf("skipping flushing model because there are no machines for this model")
+		return nil
+	}
+
 	want, err := fw.firewallerApi.ModelFirewallRules()
 	if err != nil {
 		return errors.Trace(err)
@@ -1126,6 +1140,9 @@ func (fw *Firewaller) flushModel() error {
 	if fw.flushModelNotify != nil {
 		fw.flushModelNotify()
 	}
+
+	// reset the flag once we have flushed the model
+	fw.needsToFlushModel = false
 	return nil
 }
 
