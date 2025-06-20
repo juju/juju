@@ -69,6 +69,10 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 					tags.JujuMachine:    "controller-machine-0",
 				},
 				EndpointBindings: make(map[string]string),
+				CharmConstraints: constraints.CharmValue{
+					MemRequest: uintPtr(64),
+					MemLimit:   uintPtr(256),
+				},
 			}},
 			{Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
