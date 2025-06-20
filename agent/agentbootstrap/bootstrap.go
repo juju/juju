@@ -103,10 +103,6 @@ type AgentBootstrap struct {
 	// BootstrapMachineAddresses holds the bootstrap machine's addresses.
 	bootstrapMachineAddresses corenetwork.ProviderAddresses
 
-	// BootstrapMachineJobs holds the jobs that the bootstrap machine
-	// agent will run.
-	bootstrapMachineJobs []coremodel.MachineJob
-
 	// SharedSecret is the Mongo replica set shared secret (keyfile).
 	sharedSecret string
 
@@ -126,7 +122,7 @@ type AgentBootstrapArgs struct {
 	AgentConfig               agent.ConfigSetter
 	BootstrapEnviron          environs.BootstrapEnviron
 	BootstrapMachineAddresses corenetwork.ProviderAddresses
-	BootstrapMachineJobs      []coremodel.MachineJob
+	//BootstrapMachineJobs      []coremodel.MachineJob
 	MongoDialOpts             mongo.DialOpts
 	SharedSecret              string
 	StateInitializationParams instancecfg.StateInitializationParams
@@ -183,7 +179,6 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		bootstrapDqlite:           args.BootstrapDqlite,
 		bootstrapEnviron:          args.BootstrapEnviron,
 		bootstrapMachineAddresses: args.BootstrapMachineAddresses,
-		bootstrapMachineJobs:      args.BootstrapMachineJobs,
 		logger:                    args.Logger,
 		mongoDialOpts:             args.MongoDialOpts,
 		provider:                  args.Provider,
@@ -507,14 +502,6 @@ func (b *AgentBootstrap) initBootstrapMachine(
 	stateParams := b.stateInitializationParams
 	b.logger.Infof(context.TODO(), "initialising bootstrap machine with config: %+v", stateParams)
 
-	jobs := make([]state.MachineJob, len(b.bootstrapMachineJobs))
-	for i, job := range b.bootstrapMachineJobs {
-		machineJob, err := machineJobFromParams(job)
-		if err != nil {
-			return nil, errors.Errorf("invalid bootstrap machine job %q: %v", job, err)
-		}
-		jobs[i] = machineJob
-	}
 	var hardware instance.HardwareCharacteristics
 	if stateParams.BootstrapMachineHardwareCharacteristics != nil {
 		hardware = *stateParams.BootstrapMachineHardwareCharacteristics
@@ -532,7 +519,6 @@ func (b *AgentBootstrap) initBootstrapMachine(
 			Constraints:             stateParams.BootstrapMachineConstraints,
 			InstanceId:              stateParams.BootstrapMachineInstanceId,
 			HardwareCharacteristics: hardware,
-			Jobs:                    jobs,
 			DisplayName:             stateParams.BootstrapMachineDisplayName,
 		},
 	)
@@ -608,18 +594,4 @@ func (b *AgentBootstrap) initBootstrapNode(
 		return nil, errors.Annotate(err, "cannot create bootstrap controller in state")
 	}
 	return node, nil
-}
-
-// machineJobFromParams returns the job corresponding to model.MachineJob.
-// TODO(dfc) this function should live in apiserver/params, move there once
-// state does not depend on apiserver/params
-func machineJobFromParams(job coremodel.MachineJob) (state.MachineJob, error) {
-	switch job {
-	case coremodel.JobHostUnits:
-		return state.JobHostUnits, nil
-	case coremodel.JobManageModel:
-		return state.JobManageModel, nil
-	default:
-		return -1, errors.Errorf("invalid machine job %q", job)
-	}
 }

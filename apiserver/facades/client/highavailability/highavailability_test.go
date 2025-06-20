@@ -67,7 +67,6 @@ func (s *clientSuite) SetUpTest(c *tc.C) {
 	_, err = st.AddMachines(
 		state.MachineTemplate{
 			Base:        state.UbuntuBase("12.10"),
-			Jobs:        []state.MachineJob{state.JobManageModel},
 			Constraints: controllerCons,
 			Addresses: []network.SpaceAddress{
 				network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
@@ -421,13 +420,12 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *tc.C) {
 	_, err := st.AddMachines(
 		state.MachineTemplate{
 			Base:        state.UbuntuBase("12.10"),
-			Jobs:        []state.MachineJob{state.JobHostUnits},
 			Constraints: machine1Cons,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(state.UbuntuBase("12.10"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	placement := []string{"1", "2"}

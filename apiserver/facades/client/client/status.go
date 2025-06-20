@@ -765,7 +765,7 @@ func (c *statusContext) makeMachineStatus(
 
 	mBase := machine.Base()
 	status.Base = params.Base{Name: mBase.OS, Channel: mBase.Channel}
-	status.Jobs = paramsJobsFromJobs(machine.Jobs())
+	//status.Jobs = paramsJobsFromJobs(machine.Jobs())
 	node, wantsVote := c.controllerNodes[machineID]
 	status.WantsVote = wantsVote
 	if wantsVote {
@@ -949,15 +949,6 @@ func (c *statusContext) isSubordinate(ep *relation.Endpoint) bool {
 
 func isSubordinate(ep *relation.Endpoint, application statusservice.Application) bool {
 	return ep.Scope == charm.ScopeContainer && application.Subordinate
-}
-
-// paramsJobsFromJobs converts state jobs to params jobs.
-func paramsJobsFromJobs(jobs []state.MachineJob) []model.MachineJob {
-	paramsJobs := make([]model.MachineJob, len(jobs))
-	for i, machineJob := range jobs {
-		paramsJobs[i] = machineJob.ToParams()
-	}
-	return paramsJobs
 }
 
 func (c *statusContext) processApplications(ctx context.Context) map[string]params.ApplicationStatus {

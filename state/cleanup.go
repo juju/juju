@@ -357,9 +357,6 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 	}
 	force := args.Force != nil && *args.Force
 	for _, m := range machines {
-		if m.IsManager() {
-			continue
-		}
 		if force {
 			err = m.ForceDestroy(args.MaxWait)
 		} else {
@@ -1157,23 +1154,6 @@ func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store
 	}
 	if err := cleanupDyingMachineResources(machine, true); err != nil {
 		return errors.Trace(err)
-	}
-	if machine.IsManager() {
-		node, err := st.ControllerNode(machineID)
-		if err != nil {
-			return errors.Annotatef(err, "cannot get controller node for machine %v", machineID)
-		}
-		if node.HasVote() {
-			// we remove the vote from the controller so that it can be torn
-			// down cleanly. Note that this isn't reflected in the actual
-			// replicaset, so users using --force should be careful.
-			if err := node.SetHasVote(false); err != nil {
-				return errors.Trace(err)
-			}
-		}
-		if err := st.RemoveControllerReference(node); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	// We need to refresh the machine at this point, because the local copy

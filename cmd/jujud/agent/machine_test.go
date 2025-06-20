@@ -31,7 +31,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	databasetesting "github.com/juju/juju/internal/worker/dbaccessor/testing"
-	"github.com/juju/juju/state"
 )
 
 type MachineSuite struct {
@@ -201,7 +200,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *tc.C) {
 }
 
 func (s *MachineSuite) TestRunStop(c *tc.C) {
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
 	done := make(chan error)

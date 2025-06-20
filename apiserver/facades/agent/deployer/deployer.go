@@ -39,6 +39,9 @@ type AgentPasswordService interface {
 	SetUnitPassword(context.Context, coreunit.Name, string) error
 	// SetMachinePassword sets the password hash for the given machine.
 	SetMachinePassword(context.Context, machine.Name, string) error
+	// IsMachineController returns whether the machine is a controller machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	IsMachineController(ctx context.Context, machineName machine.Name) (bool, error)
 }
 
 // ControllerConfigGetter is the interface that the facade needs to get controller config.
