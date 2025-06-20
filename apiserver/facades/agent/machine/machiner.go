@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -76,6 +77,8 @@ type MachineService interface {
 	// GetMachineLife returns the lifecycle state of the machine with the
 	// specified name.
 	GetMachineLife(ctx context.Context, name machine.Name) (life.Value, error)
+	// SetMachineHostname sets the hostname for the given machine.
+	SetMachineHostname(ctx context.Context, mUUID machine.UUID, hostname string) error
 }
 
 // ApplicationService defines the methods that the facade assumes from the
@@ -198,21 +201,6 @@ func (api *MachinerAPI) SetObservedNetworkConfig(ctx context.Context, args param
 	return nil
 }
 
-func (api *MachinerAPI) getMachine(tag string, authChecker common.AuthFunc) (*state.Machine, error) {
-	mtag, err := names.ParseMachineTag(tag)
-	if err != nil {
-		return nil, apiservererrors.ErrPerm
-	} else if !authChecker(mtag) {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	entity, err := api.st.FindEntity(mtag)
-	if err != nil {
-		return nil, err
-	}
-	return entity.(*state.Machine), nil
-}
-
 func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineAddresses)),
@@ -329,14 +317,8 @@ func (api *MachinerAPI) RecordAgentStartTime(ctx context.Context, args params.En
 	}
 
 	for i, entity := range args.Entities {
-		m, err := api.getMachine(entity.Tag, canModify)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := m.RecordAgentStartInformation(""); err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-		}
+		err := api.recordAgentStartInformation(ctx, entity.Tag, "", canModify)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -353,14 +335,55 @@ func (api *MachinerAPI) RecordAgentStartInformation(ctx context.Context, args pa
 	}
 
 	for i, arg := range args.Args {
-		m, err := api.getMachine(arg.Tag, canModify)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := m.RecordAgentStartInformation(arg.Hostname); err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-		}
+		err := api.recordAgentStartInformation(ctx, arg.Tag, arg.Hostname, canModify)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
+}
+
+func (api *MachinerAPI) recordAgentStartInformation(ctx context.Context, tag, hostname string, authChecker common.AuthFunc) error {
+	mTag, err := api.canModify(tag, authChecker)
+	if err != nil {
+		return err
+	}
+
+	mUUID, err := api.machineService.GetMachineUUID(ctx, machine.Name(mTag.Id()))
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return errors.NotFoundf("machine %q", mTag.Id())
+	} else if err != nil {
+		return err
+	}
+
+	err = api.machineService.SetMachineHostname(ctx, mUUID, hostname)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return errors.NotFoundf("machine %q", mTag.Id())
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (api *MachinerAPI) canModify(tag string, authChecker common.AuthFunc) (names.MachineTag, error) {
+	mTag, err := names.ParseMachineTag(tag)
+	if err != nil {
+		return names.MachineTag{}, apiservererrors.ErrPerm
+	} else if !authChecker(mTag) {
+		return names.MachineTag{}, apiservererrors.ErrPerm
+	}
+	return mTag, nil
+}
+
+func (api *MachinerAPI) getMachine(tag string, authChecker common.AuthFunc) (*state.Machine, error) {
+	mtag, err := names.ParseMachineTag(tag)
+	if err != nil {
+		return nil, apiservererrors.ErrPerm
+	} else if !authChecker(mtag) {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	entity, err := api.st.FindEntity(mtag)
+	if err != nil {
+		return nil, err
+	}
+	return entity.(*state.Machine), nil
 }

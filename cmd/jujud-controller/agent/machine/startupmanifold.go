@@ -46,7 +46,7 @@ func MachineStartupManifold(config MachineStartupConfig) dependency.Manifold {
 			if err := config.Validate(); err != nil {
 				return nil, err
 			}
-			config.Logger.Debugf(context.TODO(), "Starting machine setup requiring an API connection")
+			config.Logger.Debugf(ctx, "Starting machine setup requiring an API connection")
 
 			// Get API connection.
 			var apiConn api.Connection
@@ -56,7 +56,7 @@ func MachineStartupManifold(config MachineStartupConfig) dependency.Manifold {
 			if err := config.MachineStartup(ctx, apiConn, config.Logger); err != nil {
 				return nil, err
 			}
-			config.Logger.Debugf(context.TODO(), "Finished machine setup requiring an API connection")
+			config.Logger.Debugf(ctx, "Finished machine setup requiring an API connection")
 			return nil, dependency.ErrUninstall
 		},
 	}

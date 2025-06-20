@@ -164,10 +164,16 @@ VALUES ($createMachine.*)
 		if err := tx.Query(ctx, createMachineStmt, createParams).Run(); err != nil {
 			return errors.Errorf("creating machine row for machine %q: %w", mName, err)
 		}
+
 		// Ensure we always have an instance as well, otherwise we can't have
 		// an associated status.
 		if err := insertMachineInstance(ctx, tx, st, args.machineUUID); err != nil {
 			return errors.Errorf("inserting machine instance for machine %q: %w", mName, err)
+		}
+
+		// Run query to create machine container type row.
+		if err := insertContainerType(ctx, tx, st, args.machineUUID); err != nil {
+			return errors.Errorf("inserting machine container type for machine %q: %w", mName, err)
 		}
 
 		if err := st.insertMachineStatus(ctx, tx, mName, setStatusInfo{
@@ -352,6 +358,7 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mach
 		"machine_requires_reboot",
 		"machine_lxd_profile",
 		"machine_agent_presence",
+		"machine_container_type",
 	}
 
 	for _, table := range tables {
@@ -1340,6 +1347,100 @@ AND       (
 		instanceIDs[result.MachineName] = result.InstanceID
 	}
 	return instanceIDs, nil
+}
+
+// SetMachineHostname sets the hostname for the given machine.
+// Also updates the agent_started_at timestamp.
+func (st *State) SetMachineHostname(ctx context.Context, mUUID machine.UUID, hostname string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	currentMachineUUID := machineUUID{UUID: mUUID}
+	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE uuid = $machineUUID.uuid`
+	queryStmt, err := st.Prepare(query, currentMachineUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var nullableHostname sql.Null[string]
+	if hostname != "" {
+		nullableHostname.Valid = true
+		nullableHostname.V = hostname
+	}
+
+	currentMachineHostName := machineHostName{
+		Hostname:       nullableHostname,
+		AgentStartedAt: st.clock.Now(),
+	}
+	updateQuery := `
+UPDATE machine
+SET    hostname = $machineHostName.hostname, agent_started_at = $machineHostName.agent_started_at
+WHERE  uuid = $machineUUID.uuid`
+	updateStmt, err := st.Prepare(updateQuery, currentMachineUUID, currentMachineHostName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Query for the machine UUID.
+		err := tx.Query(ctx, queryStmt, currentMachineUUID).Get(&currentMachineUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("machine %q: %w", mUUID, machineerrors.MachineNotFound)
+		} else if err != nil {
+			return errors.Errorf("querying UUID for machine %q: %w", mUUID, err)
+		}
+
+		// Update the hostname.
+		err = tx.Query(ctx, updateStmt, currentMachineUUID, currentMachineHostName).Run()
+		if err != nil {
+			return errors.Errorf("updating hostname for machine %q: %w", mUUID, err)
+		}
+		return nil
+	})
+}
+
+// GetSupportedContainersTypes returns the supported container types for the
+// given machine.
+func (st *State) GetSupportedContainersTypes(ctx context.Context, mUUID machine.UUID) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	currentMachineUUID := machineUUID{UUID: mUUID}
+	query := `
+SELECT ct.value AS &containerType.container_type
+FROM machine AS m
+LEFT JOIN machine_container_type AS mct ON m.uuid = mct.machine_uuid
+LEFT JOIN container_type AS ct ON mct.container_type_id = ct.id
+WHERE uuid = $machineUUID.uuid
+`
+	queryStmt, err := st.Prepare(query, currentMachineUUID, containerType{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var containerTypes []containerType
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, currentMachineUUID).GetAll(&containerTypes)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("machine %q: %w", mUUID, machineerrors.MachineNotFound)
+		} else if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting supported container types %q: %w", mUUID, err)
+	}
+
+	result := make([]string, len(containerTypes))
+	for i, ct := range containerTypes {
+		result[i] = ct.ContainerType
+	}
+	return result, nil
 }
 
 // NamespaceForWatchMachineCloudInstance returns the namespace for watching

@@ -63,7 +63,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *stateSuite) TestCreateMachine(c *tc.C) {
-	err := s.state.CreateMachine(c.Context(), "666", "", "", nil)
+	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var (
@@ -88,6 +88,10 @@ func (s *stateSuite) TestCreateMachine(c *tc.C) {
 	instanceStatusInfo, err := s.state.GetInstanceStatus(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceStatusInfo.Status, tc.Equals, status.InstanceStatusPending)
+
+	containerTypes, err := s.state.GetSupportedContainersTypes(c.Context(), "deadbeef")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(containerTypes, tc.DeepEquals, []string{"lxd"})
 }
 
 func (s *stateSuite) TestCreateMachineWithNonce(c *tc.C) {
@@ -1026,6 +1030,56 @@ func (s *stateSuite) TestGetAllProvisionedMachineInstanceIDContainer(c *tc.C) {
 	c.Assert(machineInstances, tc.DeepEquals, map[string]string{
 		"666": "123",
 	})
+}
+
+func (s *stateSuite) TestSetMachineHostname(c *tc.C) {
+	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetMachineHostname(c.Context(), "deadbeef", "my-hostname")
+	c.Assert(err, tc.ErrorIsNil)
+
+	var hostname string
+	err = s.TxnRunner().StdTxn(c.Context(), func(c context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(c, "SELECT hostname FROM machine WHERE name = ?", "666").Scan(&hostname)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hostname, tc.Equals, "my-hostname")
+}
+
+func (s *stateSuite) TestSetMachineHostnameEmpty(c *tc.C) {
+	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetMachineHostname(c.Context(), "deadbeef", "")
+	c.Assert(err, tc.ErrorIsNil)
+
+	var hostname *string
+	err = s.TxnRunner().StdTxn(c.Context(), func(c context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(c, "SELECT hostname FROM machine WHERE name = ?", "666").Scan(&hostname)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hostname, tc.IsNil)
+}
+
+func (s *stateSuite) TestSetMachineHostnameNoMachine(c *tc.C) {
+	err := s.state.SetMachineHostname(c.Context(), "666", "my-hostname")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestGetSupportedContainersTypes(c *tc.C) {
+	err := s.state.CreateMachine(c.Context(), "666", "", "deadbeef", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	containerTypes, err := s.state.GetSupportedContainersTypes(c.Context(), "deadbeef")
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(containerTypes, tc.DeepEquals, []string{"lxd"})
+}
+
+func (s *stateSuite) TestGetSupportedContainersTypesNoMachine(c *tc.C) {
+	_, err := s.state.GetSupportedContainersTypes(c.Context(), "deadbeef")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 func (s *stateSuite) createApplicationWithUnitAndMachine(c *tc.C, controller bool) machine.Name {

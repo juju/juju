@@ -177,6 +177,10 @@ VALUES ($createMachine.*);
 		return "", "", errors.Errorf("inserting machine instance: %w", err)
 	}
 
+	if err := insertContainerType(ctx, tx, preparer, machineUUID); err != nil {
+		return "", "", errors.Errorf("inserting machine container type: %w", err)
+	}
+
 	now := clock.Now()
 
 	machineStatusID, err := domainstatus.EncodeMachineStatus(domainstatus.MachineStatusPending)
@@ -424,6 +428,33 @@ VALUES ($machinePlacement.*);
 	if err := tx.Query(ctx, stmt, machinePlacement).Run(); err != nil {
 		return errors.Errorf("inserting machine placement: %w", err)
 	}
+	return nil
+}
+
+func insertContainerType(
+	ctx context.Context,
+	tx *sqlair.TX,
+	preparer domain.Preparer,
+	mUUID coremachine.UUID,
+) error {
+	createContainerTypeQuery := `
+INSERT INTO machine_container_type (*)
+VALUES ($machineContainerType.*);
+`
+	createContainerTypeStmt, err := preparer.Prepare(createContainerTypeQuery, machineContainerType{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// We insert LXD container for every machine by default.
+	err = tx.Query(ctx, createContainerTypeStmt, machineContainerType{
+		MachineUUID:     mUUID,
+		ContainerTypeID: 1, // 1 is the ID for LXD container type.
+	}).Run()
+	if err != nil {
+		return errors.Errorf("inserting machine container type for machine %q: %w", mUUID, err)
+	}
+
 	return nil
 }
 

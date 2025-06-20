@@ -103,6 +103,11 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 
 // SetMachineCloudInstance sets an entry in the machine cloud instance table
 // along with the instance tags and the link to a lxd profile if any.
+// This also includes the following fields:
+//   - machine nonce if it's not already set.
+//   - hardware characteristics such as architecture, memory, root disk,
+//     root disk source, cpu cores, cpu power, virt type, and availability zone.
+//   - machine instance tags.
 func (st *State) SetMachineCloudInstance(
 	ctx context.Context,
 	mUUID machine.UUID,

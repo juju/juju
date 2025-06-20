@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -215,9 +214,6 @@ func (s *machinerSuite) TestWatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
-	loggo.GetLogger("juju.state.pool.txnwatcher").SetLogLevel(loggo.TRACE)
-	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
-
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -240,6 +236,9 @@ func (s *machinerSuite) TestRecordAgentStartInformation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("1")).Return("uuid-1", nil)
+	s.machineService.EXPECT().SetMachineHostname(gomock.Any(), coremachine.UUID("uuid-1"), "thundering-herds").Return(nil)
+
 	args := params.RecordAgentStartInformationArgs{Args: []params.RecordAgentStartInformationArg{
 		{Tag: "machine-1", Hostname: "thundering-herds"},
 		{Tag: "machine-0", Hostname: "eldritch-octopii"},
@@ -255,10 +254,6 @@ func (s *machinerSuite) TestRecordAgentStartInformation(c *tc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
-
-	err = s.machine1.Refresh()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.machine1.Hostname(), tc.Equals, "thundering-herds", tc.Commentf("expected the machine hostname to be updated"))
 }
 
 func (s *machinerSuite) TestSetObservedNetworkConfig(c *tc.C) {

@@ -95,6 +95,10 @@ type MachineService interface {
 	// IsMachineManuallyProvisioned returns whether the machine is a manual
 	// machine.
 	IsMachineManuallyProvisioned(ctx context.Context, machineName coremachine.Name) (bool, error)
+
+	// GetSupportedContainersTypes returns the supported container types for the
+	// provider.
+	GetSupportedContainersTypes(ctx context.Context, mUUID coremachine.UUID) ([]instance.ContainerType, error)
 }
 
 // StoragePoolGetter instances get a storage pool by name.

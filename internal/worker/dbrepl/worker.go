@@ -234,6 +234,8 @@ func (w *dbReplWorker) loop() (err error) {
 			w.execViews(ctx)
 		case ".ddl":
 			w.execShowDDL(ctx, args[1:])
+		case ".query-models":
+			w.execQueryForModels(ctx, args[1:])
 
 		default:
 			if err := w.executeQuery(ctx, w.currentDB, input); err != nil {
@@ -289,6 +291,47 @@ func (w *dbReplWorker) execSwitch(ctx context.Context, args []string) {
 func (w *dbReplWorker) execModels(ctx context.Context) {
 	if err := w.executeQuery(ctx, w.controllerDB, "SELECT uuid, name FROM model"); err != nil {
 		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
+	}
+}
+
+func (w *dbReplWorker) execQueryForModels(ctx context.Context, args []string) {
+	var models []string
+	if err := w.controllerDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, "SELECT uuid FROM model")
+		if err != nil {
+			return err
+		}
+
+		defer rows.Close()
+
+		for rows.Next() {
+			var uuid string
+			if err := rows.Scan(&uuid); err != nil {
+				return err
+			}
+			models = append(models, uuid)
+		}
+
+		return nil
+	}); err != nil {
+		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
+		return
+	}
+
+	for _, model := range models {
+		db, err := w.dbGetter.GetDB(model)
+		if err != nil {
+			w.cfg.Logger.Errorf(ctx, "failed to get db for model %q: %v", model, err)
+			continue
+		}
+
+		str := "Executing query on model: " + model
+		fmt.Fprintln(w.cfg.Stdout, str)
+		fmt.Fprintln(w.cfg.Stdout, strings.Repeat("-", len(str)))
+		query := strings.Join(args, " ")
+		if err := w.executeQuery(ctx, db, query); err != nil {
+			w.cfg.Logger.Errorf(ctx, "failed to execute query on model %q: %v", model, err)
+		}
 	}
 }
 
@@ -430,5 +473,6 @@ The following commands are available:
   .triggers                Show all trigger tables in the current database.
   .views                   Show all views in the current database.
   .ddl <name>              Show the DDL for the specified table, trigger, or view.
+  .query-models <query>    Execute a query on all models and print the results.
 
 `

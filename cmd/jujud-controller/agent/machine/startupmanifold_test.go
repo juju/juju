@@ -12,7 +12,7 @@ import (
 	dt "github.com/juju/worker/v4/dependency/testing"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/jujud-controller/agent/machine"
+	"github.com/juju/juju/cmd/jujud/agent/machine"
 	corelogger "github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"

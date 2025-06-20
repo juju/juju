@@ -192,6 +192,14 @@ type State interface {
 	// instance IDs. This will ignore non-provisioned machines or container
 	// machines.
 	GetAllProvisionedMachineInstanceID(ctx context.Context) (map[string]string, error)
+
+	// SetMachineHostname sets the hostname for the given machine.
+	// Also updates the agent_started_at timestamp.
+	SetMachineHostname(ctx context.Context, mUUID machine.UUID, hostname string) error
+
+	// GetSupportedContainersTypes returns the supported container types for the
+	// given machine.
+	GetSupportedContainersTypes(ctx context.Context, mUUID machine.UUID) ([]string, error)
 }
 
 // StatusHistory records status information into a generalized way.
@@ -671,6 +679,49 @@ func (s *Service) GetAllProvisionedMachineInstanceID(ctx context.Context) (map[m
 		result[machine.Name(name)] = instance.Id(id)
 	}
 	return result, nil
+}
+
+// SetMachineHostname sets the hostname for the given machine.
+// Also updates the agent_started_at timestamp for a machine.
+func (s *Service) SetMachineHostname(ctx context.Context, mUUID machine.UUID, hostname string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := mUUID.Validate(); err != nil {
+		return errors.Errorf("validating machine UUID %q: %w", mUUID, err)
+	}
+
+	if err := s.st.SetMachineHostname(ctx, mUUID, hostname); err != nil {
+		return errors.Errorf("setting hostname for machine with UUID %q: %w", mUUID, err)
+	}
+	return nil
+}
+
+// GetSupportedContainersTypes returns the supported container types for the
+// provider.
+// This will always return LXD as the only supported container type. This
+// is hardcoded for now.
+func (s *Service) GetSupportedContainersTypes(ctx context.Context, mUUID machine.UUID) ([]instance.ContainerType, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := mUUID.Validate(); err != nil {
+		return nil, errors.Errorf("validating machine UUID %q: %w", mUUID, err)
+	}
+
+	var results []instance.ContainerType
+	containerTypes, err := s.st.GetSupportedContainersTypes(ctx, mUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting supported container types for machine with UUID %q: %w", mUUID, err)
+	}
+	for _, containerType := range containerTypes {
+		if containerType == "lxd" {
+			results = append(results, instance.LXD)
+		} else {
+			return nil, errors.Errorf("unknown container type %q for machine with UUID %q", containerType, mUUID)
+		}
+	}
+	return results, nil
 }
 
 // ProviderService provides the API for working with machines using the

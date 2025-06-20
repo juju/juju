@@ -149,6 +149,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_cloud_instance_status",
 		"machine_cloud_instance",
 		"machine_constraint",
+		"machine_container_type",
 		"machine_filesystem",
 		"machine_lxd_profile",
 		"machine_manual",
