@@ -27,10 +27,10 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/mocks"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/internal/provider/dummy"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
@@ -159,7 +159,10 @@ func (s *commonMachineSuite) configureMachine(c *tc.C, machineId string, vers se
 	inst, _ := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerUUID, machineId)
 	// Double write to machine domain.
 	machineService := s.ControllerDomainServices(c).Machine()
-	machineUUID, err := machineService.CreateMachine(c.Context(), machine.Name(m.Id()), nil)
+	machineUUID, machineName, err := machineService.CreateMachine(c.Context(), machineservice.CreateMachineArgs{
+		InstanceID: inst.Id().String(),
+		Nonce:      ptr("nonce"),
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	err = machineService.SetMachineCloudInstance(c.Context(), machineUUID, inst.Id(), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -173,7 +176,7 @@ func (s *commonMachineSuite) configureMachine(c *tc.C, machineId string, vers se
 	c.Assert(err, tc.ErrorIsNil)
 
 	passwordService := s.ControllerDomainServices(c).AgentPassword()
-	err = passwordService.SetMachinePassword(c.Context(), machine.Name(m.Id()), initialMachinePassword)
+	err = passwordService.SetMachinePassword(c.Context(), machineName, initialMachinePassword)
 	c.Assert(err, tc.ErrorIsNil)
 
 	tag := m.Tag()
@@ -333,3 +336,7 @@ func (FakeAgentConfig) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 func (FakeAgentConfig) CheckArgs([]string) error { return nil }
+
+func ptr[T any](v T) *T {
+	return &v
+}

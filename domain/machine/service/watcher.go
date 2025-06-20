@@ -172,8 +172,8 @@ func (s *WatchableService) uuidToNameMapper(filter func(string, machine.Name) bo
 	) ([]string, error) {
 		// Generate a slice of UUIDs and placeholders for our query
 		// and index the events by those UUIDs.
-		machineUUIDs := transform.Slice(events, func(e changestream.ChangeEvent) string {
-			return e.Changed()
+		machineUUIDs := transform.Slice(events, func(e changestream.ChangeEvent) machine.UUID {
+			return machine.UUID(e.Changed())
 		})
 
 		uuidsToName, err := s.st.GetNamesForUUIDs(ctx, machineUUIDs)
@@ -183,7 +183,7 @@ func (s *WatchableService) uuidToNameMapper(filter func(string, machine.Name) bo
 
 		var changes []string
 		for uuid, name := range uuidsToName {
-			if filter != nil && filter(uuid, name) {
+			if filter != nil && filter(uuid.String(), name) {
 				continue
 			}
 

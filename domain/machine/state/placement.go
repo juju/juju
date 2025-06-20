@@ -40,7 +40,10 @@ func PlaceMachine(
 	case deployment.PlacementTypeUnset:
 		// The placement is unset, so we need to create a machine for the
 		// net node to link the unit to.
-		netNodeUUID, _, machineName, err := CreateMachine(ctx, tx, preparer, domainmachine.CreateMachineArgs{Platform: args.Platform}, clock)
+		netNodeUUID, _, machineName, err := CreateMachine(ctx, tx, preparer, domainmachine.CreateMachineArgs{
+			Platform: args.Platform,
+			Nonce:    args.Nonce,
+		}, clock)
 		return netNodeUUID, []coremachine.Name{machineName}, errors.Capture(err)
 
 	case deployment.PlacementTypeMachine:
@@ -103,6 +106,9 @@ func PlaceMachine(
 	}
 }
 
+// CreateMachine creates a new machine with the given arguments. Its name is
+// generated from the machine sequence. Also, the needed net node is inserted in
+// the net_node table.
 func CreateMachine(
 	ctx context.Context,
 	tx *sqlair.TX,

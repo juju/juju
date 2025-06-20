@@ -50,10 +50,14 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
-	_, err := s.svc.CreateMachine(c.Context(), "0", ptr("nonce-123"))
+	_, _, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{
+		Nonce: ptr("nonce-123"),
+	})
 	c.Assert(err, tc.IsNil)
 
-	_, err = s.svc.CreateMachine(c.Context(), "0/lxd/0", ptr("nonce-123"))
+	_, _, err = s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{
+		Nonce: ptr("nonce-123"),
+	})
 	c.Assert(err, tc.IsNil)
 
 	s.AssertChangeStreamIdle(c)
@@ -66,12 +70,14 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 
 	// The initial event should have the machine we created prior,
 	// but not the container.
-	watcherC.AssertChange("0")
+	watcherC.AssertChange("0", "1")
 
 	// A new machine triggers an emission.
-	_, err = s.svc.CreateMachine(c.Context(), "1", ptr("nonce-123"))
+	_, _, err = s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{
+		Nonce: ptr("nonce-123"),
+	})
 	c.Assert(err, tc.IsNil)
-	watcherC.AssertChange("1")
+	watcherC.AssertChange("2")
 
 	// An update triggers an emission.
 	err = s.svc.SetMachineLife(c.Context(), "1", life.Dying)
@@ -83,8 +89,11 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	// As is a container creation.
-	_, err = s.svc.CreateMachine(c.Context(), "0/lxd/1", ptr("nonce-123"))
+	_, _, err = s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{
+		Nonce: ptr("nonce-123"),
+	})
 	c.Assert(err, tc.IsNil)
+	watcherC.AssertChange("3")
 
 	s.AssertChangeStreamIdle(c)
 	watcherC.AssertNoChange()
@@ -92,7 +101,9 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 	// Create a machineUUID and set its cloud instance.
-	machineUUID, err := s.svc.CreateMachine(c.Context(), "machine-1", ptr("nonce-123"))
+	machineUUID, _, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{
+		Nonce: ptr("nonce-123"),
+	})
 	c.Assert(err, tc.IsNil)
 	hc := &instance.HardwareCharacteristics{
 		Mem:      ptr[uint64](1024),
@@ -117,7 +128,7 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 	// Create a machineUUID and set its cloud instance.
-	machineUUID, err := s.svc.CreateMachine(c.Context(), "machine-1", ptr("nonce-123"))
+	machineUUID, _, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
 	c.Assert(err, tc.IsNil)
 	hc := &instance.HardwareCharacteristics{
 		Mem:      ptr[uint64](1024),
@@ -144,11 +155,11 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
-	machineUUIDm0, err := s.svc.CreateMachine(c.Context(), "machine-1", ptr("nonce-123"))
+	machineUUIDm0, _, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUIDm0, instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	machineUUIDm1, err := s.svc.CreateMachine(c.Context(), "machine-2", ptr("nonce-123"))
+	machineUUIDm1, _, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUIDm1, instance.Id("456"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -194,11 +205,11 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 // The tests are run using the watchertest harness.
 func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	// Create machine hierarchy to reboot from parent, with a child (which will be watched) and a control child
-	parentUUID, err := s.svc.CreateMachine(c.Context(), "parent", ptr("nonce-123"))
+	parentUUID, parentName, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
 	c.Assert(err, tc.IsNil)
-	childUUID, err := s.svc.CreateMachineWithParent(c.Context(), "child", "parent")
+	childUUID, _, err := s.svc.CreateMachineWithParent(c.Context(), service.CreateMachineArgs{}, parentName)
 	c.Assert(err, tc.ErrorIsNil)
-	controlUUID, err := s.svc.CreateMachineWithParent(c.Context(), "control", "parent")
+	controlUUID, _, err := s.svc.CreateMachineWithParent(c.Context(), service.CreateMachineArgs{}, parentName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create watcher for child

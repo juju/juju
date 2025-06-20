@@ -69,7 +69,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 		Id:    "666",
 		Nonce: "nonce",
 	})
-	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("666"), ptr("nonce")).Times(1)
+	s.service.EXPECT().ImportMachine(gomock.Any())
 
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)
@@ -85,7 +85,7 @@ func (s *importSuite) TestFailImportMachineWithoutCloudInstance(c *tc.C) {
 		Nonce: "nonce",
 	})
 
-	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0"), ptr("nonce")).
+	s.service.EXPECT().ImportMachine(gomock.Any()).
 		Return("", errors.New("boom"))
 
 	op := s.newImportOperation(c)
@@ -102,7 +102,7 @@ func (s *importSuite) TestImportMachineWithoutCloudInstance(c *tc.C) {
 		Nonce: "nonce",
 	})
 
-	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0"), ptr("nonce"))
+	s.service.EXPECT().ImportMachine(gomock.Any())
 
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)
@@ -133,7 +133,7 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *tc.C) {
 	machine0.SetInstance(cloudInstanceArgs)
 
 	expectedMachineUUID := machine.UUID("deadbeef-1bad-500d-9000-4b1d0d06f00d")
-	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0"), ptr("nonce")).
+	s.service.EXPECT().ImportMachine(gomock.Any()).
 		Return(expectedMachineUUID, nil)
 	expectedHardwareCharacteristics := &instance.HardwareCharacteristics{
 		Arch:             &cloudInstanceArgs.Architecture,
@@ -146,7 +146,7 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *tc.C) {
 		AvailabilityZone: &cloudInstanceArgs.AvailabilityZone,
 		VirtType:         &cloudInstanceArgs.VirtType,
 	}
-	s.service.EXPECT().SetMachineCloudInstance(
+	s.service.EXPECT().ImportMachineCloudInstance(
 		gomock.Any(),
 		expectedMachineUUID,
 		instance.Id("inst-0"),
@@ -184,7 +184,7 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *tc.C) {
 	machine0.SetInstance(cloudInstanceArgs)
 
 	expectedMachineUUID := machine.UUID("deadbeef-1bad-500d-9000-4b1d0d06f00d")
-	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0"), ptr("nonce")).
+	s.service.EXPECT().ImportMachine(gomock.Any()).
 		Return(expectedMachineUUID, nil)
 	expectedHardwareCharacteristics := &instance.HardwareCharacteristics{
 		Arch:             &cloudInstanceArgs.Architecture,
@@ -197,7 +197,7 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *tc.C) {
 		AvailabilityZone: &cloudInstanceArgs.AvailabilityZone,
 		VirtType:         &cloudInstanceArgs.VirtType,
 	}
-	s.service.EXPECT().SetMachineCloudInstance(
+	s.service.EXPECT().ImportMachineCloudInstance(
 		gomock.Any(),
 		expectedMachineUUID,
 		instance.Id("inst-0"),
