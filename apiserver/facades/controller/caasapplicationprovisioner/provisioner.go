@@ -315,9 +315,31 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	mergedCons, err := a.state.ResolveConstraints(cons)
+	stMergedCons, err := a.state.ResolveConstraints(cons)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	mergedCons := params.Value{
+		Arch:             stMergedCons.Arch,
+		Container:        stMergedCons.Container,
+		CpuCores:         stMergedCons.CpuCores,
+		CpuPower:         stMergedCons.CpuPower,
+		Mem:              stMergedCons.Mem,
+		RootDisk:         stMergedCons.RootDisk,
+		RootDiskSource:   stMergedCons.RootDiskSource,
+		Tags:             stMergedCons.Tags,
+		InstanceRole:     stMergedCons.InstanceRole,
+		InstanceType:     stMergedCons.InstanceType,
+		Spaces:           stMergedCons.Spaces,
+		VirtType:         stMergedCons.VirtType,
+		Zones:            stMergedCons.Zones,
+		AllocatePublicIP: stMergedCons.AllocatePublicIP,
+		ImageID:          stMergedCons.ImageID,
+	}
+
+	charmCons := params.CharmValue{
+		MemRequest: caas.CharmMemRequestMi,
+		MemLimit:   caas.CharmMemLimitMi,
 	}
 	resourceTags := tags.ResourceTags(
 		names.NewModelTag(modelConfig.UUID()),
@@ -366,6 +388,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Filesystems:          filesystemParams,
 		Devices:              devices,
 		Constraints:          mergedCons,
+		CharmConstraints:     charmCons,
 		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
 		ImageRepo:            params.NewDockerImageInfo(imageRepoDetails, imagePath),
 		CharmModifiedVersion: app.CharmModifiedVersion(),

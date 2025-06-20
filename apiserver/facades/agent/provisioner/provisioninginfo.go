@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -68,6 +69,10 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 	return result, nil
 }
 
+func uintPtr(i uint64) *uint64 {
+	return &i
+}
+
 func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	env environs.Environ,
 	spaceInfos network.SpaceInfos,
@@ -91,6 +96,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving machine constraints")
 	}
+
 	machineSpaces, err := api.machineSpaces(cons, spaceInfos, endpointBindings)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -118,9 +124,33 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 		EndpointBindings: endpointBindings,
 	}
 
-	var err error
-	if result.Constraints, err = m.Constraints(); err != nil {
+	machineCons, err := m.Constraints()
+	if err != nil {
 		return result, errors.Trace(err)
+	}
+	cons := params.Value{
+		Arch:             machineCons.Arch,
+		Container:        machineCons.Container,
+		CpuCores:         machineCons.CpuCores,
+		CpuPower:         machineCons.CpuPower,
+		Mem:              machineCons.Mem,
+		RootDisk:         machineCons.RootDisk,
+		RootDiskSource:   machineCons.RootDiskSource,
+		Tags:             machineCons.Tags,
+		InstanceRole:     machineCons.InstanceRole,
+		InstanceType:     machineCons.InstanceType,
+		Spaces:           machineCons.Spaces,
+		VirtType:         machineCons.VirtType,
+		Zones:            machineCons.Zones,
+		AllocatePublicIP: machineCons.AllocatePublicIP,
+		ImageID:          machineCons.ImageID,
+	}
+	result.Constraints = cons
+
+	// Hardcode charm mem constraints to 64Mi, limit to 256Mi.
+	result.CharmConstraints = params.CharmValue{
+		MemRequest: caas.CharmMemRequestMi,
+		MemLimit:   caas.CharmMemLimitMi,
 	}
 
 	// The root disk source constraint might refer to a storage pool.

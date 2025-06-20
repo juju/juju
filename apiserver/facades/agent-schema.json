@@ -6998,6 +6998,18 @@
                         "devices"
                     ]
                 },
+                "CharmValue": {
+                    "type": "object",
+                    "properties": {
+                        "mem-limit": {
+                            "type": "integer"
+                        },
+                        "mem-request": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "CloudImageMetadata": {
                     "type": "object",
                     "properties": {
@@ -8043,6 +8055,9 @@
                                 "type": "string"
                             }
                         },
+                        "charmconstraints": {
+                            "$ref": "#/definitions/CharmValue"
+                        },
                         "cloudinit-userdata": {
                             "type": "object",
                             "patternProperties": {
@@ -8136,6 +8151,7 @@
                     "additionalProperties": false,
                     "required": [
                         "constraints",
+                        "charmconstraints",
                         "base",
                         "placement",
                         "jobs",

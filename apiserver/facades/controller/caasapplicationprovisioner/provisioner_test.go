@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/resources"
 	jujuresource "github.com/juju/juju/core/resources"
@@ -116,6 +117,10 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 			CharmModifiedVersion: 10,
 			Scale:                3,
 			Trust:                true,
+			CharmConstraints: params.CharmValue{
+				MemRequest: caas.CharmMemRequestMi,
+				MemLimit:   caas.CharmMemLimitMi,
+			},
 		}},
 	})
 }
@@ -675,4 +680,8 @@ func (s *CAASApplicationProvisionerSuite) TestProvisionerConfig(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.ProvisionerConfig, gc.NotNil)
 	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, gc.DeepEquals, []params.Entity{{Tag: "application-controller"}})
+}
+
+func uintPtr(i uint64) *uint64 {
+	return &i
 }

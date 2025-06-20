@@ -39,6 +39,7 @@ import (
 	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -358,7 +359,11 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 				}(),
 			},
 		},
-		Constraints:  cons,
+		Constraints: cons,
+		CharmConstraints: params.CharmValue{
+			MemRequest: caas.CharmMemRequestMi,
+			MemLimit:   caas.CharmMemLimitMi,
+		},
 		InitialScale: 3,
 		Trust:        trust,
 		CharmUser: func() caas.RunAs {
@@ -2706,13 +2711,24 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 			ps.NodeSelector = map[string]string{
 				"kubernetes.io/arch": "arm64",
 			}
+			charmResourceMemRequest := corev1.ResourceList{
+				corev1.ResourceMemory: k8sresource.MustParse("64Mi"),
+			}
+			charmResourceMemLimit := corev1.ResourceList{
+				corev1.ResourceMemory: k8sresource.MustParse("256Mi"),
+			}
 			resourceRequests := corev1.ResourceList{
 				corev1.ResourceCPU:    k8sresource.MustParse("1000m"),
 				corev1.ResourceMemory: k8sresource.MustParse("1024Mi"),
 			}
 			ps.Containers[0].Resources.Requests = resourceRequests
-			for i := range ps.Containers {
-				ps.Containers[i].Resources.Limits = resourceRequests
+			for i, container := range ps.Containers {
+				if container.Name == caas.CharmContainerName {
+					ps.Containers[i].Resources.Requests = charmResourceMemRequest
+					ps.Containers[i].Resources.Limits = charmResourceMemLimit
+				} else {
+					ps.Containers[i].Resources.Limits = resourceRequests
+				}
 			}
 
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
@@ -2918,7 +2934,11 @@ func (s *applicationSuite) TestPVCNames(c *gc.C) {
 }
 
 func (s *applicationSuite) TestLimits(c *gc.C) {
-	limits := corev1.ResourceList{
+	charmLimits := corev1.ResourceList{
+		corev1.ResourceMemory: *k8sresource.NewQuantity(256*1024*1024, k8sresource.BinarySI),
+	}
+
+	workloadLimits := corev1.ResourceList{
 		corev1.ResourceCPU:    *k8sresource.NewMilliQuantity(1000, k8sresource.DecimalSI),
 		corev1.ResourceMemory: *k8sresource.NewQuantity(1024*1024*1024, k8sresource.BinarySI),
 	}
@@ -2929,12 +2949,20 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			for _, ctr := range ss.Spec.Template.Spec.Containers {
-				c.Check(ctr.Resources.Limits, gc.DeepEquals, limits)
+				if ctr.Name == "charm" {
+					c.Check(ctr.Resources.Limits, gc.DeepEquals, charmLimits)
+				} else {
+					c.Check(ctr.Resources.Limits, gc.DeepEquals, workloadLimits)
+				}
 			}
 		},
 	)
 }
 
 func int64Ptr(a int64) *int64 {
+	return &a
+}
+
+func uint64Ptr(a uint64) *uint64 {
 	return &a
 }

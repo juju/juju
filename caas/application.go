@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
 
@@ -123,8 +124,12 @@ type ApplicationConfig struct {
 	ResourceTags map[string]string
 
 	// Constraints is a set of constraints on
-	// the pod to create.
+	// the workload containers.
 	Constraints constraints.Value
+
+	// CharmConstraints is a set of constraints on
+	// the charm container.
+	CharmConstraints params.CharmValue
 
 	// Filesystems is a set of parameters for filesystems that should be created.
 	Filesystems []storage.KubernetesFilesystemParams

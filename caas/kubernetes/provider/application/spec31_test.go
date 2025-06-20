@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
@@ -207,6 +208,14 @@ func getPodSpec31() corev1.PodSpec {
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  int64Ptr(0),
 				RunAsGroup: int64Ptr(0),
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: k8sresource.MustParse("64Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: k8sresource.MustParse("256Mi"),
+				},
 			},
 		}, {
 			Name:            "gitlab",
