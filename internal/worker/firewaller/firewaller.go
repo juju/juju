@@ -850,6 +850,13 @@ func (fw *Firewaller) flushUnits(unitds []*unitData) error {
 
 // flushMachine opens and closes ports for the passed machine.
 func (fw *Firewaller) flushMachine(machined *machineData) error {
+	// We may have received a notification to flushModel() in the past but did not have any machines yet.
+	if fw.needsToFlushModel {
+		if err := fw.flushModel(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	want, err := fw.gatherIngressRules(machined)
 	if err != nil {
 		return errors.Trace(err)
@@ -858,15 +865,6 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	machined.ingressRules = want
 	if fw.globalMode {
 		return fw.flushGlobalPorts(toOpen, toClose)
-	}
-
-	// We may have had a call to flushModel() in the past but did not have any machines yet.
-	// Call flushModel() now.
-	if fw.needsToFlushModel {
-		if err := fw.flushModel(); err != nil {
-			return errors.Trace(err)
-		}
-
 	}
 	return fw.flushInstancePorts(machined, toOpen, toClose)
 }
@@ -1106,14 +1104,14 @@ func (fw *Firewaller) flushModel() error {
 		return nil
 	}
 
-	// We may be in a situation where we have added a model but doesn't have machines yet.
-	// To prevent the firewall worker from infinitely polling the Neutron security group API
-	// we skip flushing a model if we have no machines.
+	// Model specific artefacts shouldn't be created until the model contains at least one machine.
 	if len(fw.machineds) == 0 {
 		fw.needsToFlushModel = true
 		fw.logger.Debugf("skipping flushing model because there are no machines for this model")
 		return nil
 	}
+	// Reset the flag once we have flushed the model.
+	fw.needsToFlushModel = false
 
 	want, err := fw.firewallerApi.ModelFirewallRules()
 	if err != nil {
@@ -1147,8 +1145,6 @@ func (fw *Firewaller) flushModel() error {
 		fw.flushModelNotify()
 	}
 
-	// Reset the flag once we have flushed the model.
-	fw.needsToFlushModel = false
 	return nil
 }
 
