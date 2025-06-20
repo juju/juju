@@ -178,16 +178,12 @@ func (s *machineSuite) TestMachineInstanceInfo(c *tc.C) {
 			Id:         "1",
 			InstanceId: "123",
 			Status:     "down",
-			HasVote:    true,
-			WantsVote:  true,
 		},
 		{
 			Id:          "2",
 			InstanceId:  "456",
 			DisplayName: "four-five-six",
 			Status:      "allocating",
-			HasVote:     false,
-			WantsVote:   true,
 		},
 	})
 }
@@ -223,8 +219,6 @@ func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *tc.C) {
 			InstanceId:  "123",
 			DisplayName: "",
 			Status:      "down",
-			HasVote:     true,
-			WantsVote:   true,
 		},
 	})
 }
@@ -260,8 +254,6 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *tc.C) {
 			InstanceId:  "123",
 			DisplayName: "snowflake",
 			Status:      "down",
-			HasVote:     true,
-			WantsVote:   true,
 		},
 	})
 }
@@ -299,16 +291,12 @@ func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *tc.C) {
 	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), machine.UUID("uuid-1")).Return(&instance.HardwareCharacteristics{}, nil)
 	info, err := model.ModelMachineInfo(c.Context(), &st, s.machineService)
 	c.Assert(err, tc.ErrorIsNil)
-	_true := true
 	c.Assert(info, tc.DeepEquals, []params.ModelMachineInfo{
 		{
 			Id:          "1",
 			InstanceId:  "123",
 			DisplayName: "snowflake",
 			Status:      "down",
-			HasVote:     true,
-			WantsVote:   true,
-			HAPrimary:   &_true,
 		},
 	})
 }

@@ -40,13 +40,13 @@ func (s *ShowControllerSuite) SetUpTest(c *tc.C) {
 	s.fakeController = &fakeController{
 		machines: map[string][]base.Machine{
 			"ghi": {
-				{Id: "0", InstanceId: "id-0", HasVote: false, WantsVote: true, Status: "active"},
-				{Id: "1", InstanceId: "id-1", HasVote: false, WantsVote: true, Status: "down"},
-				{Id: "2", InstanceId: "id-2", HasVote: true, WantsVote: true, Status: "active"},
-				{Id: "3", InstanceId: "id-3", HasVote: false, WantsVote: false, Status: "active"},
+				{Id: "0", InstanceId: "id-0", Status: "active"},
+				{Id: "1", InstanceId: "id-1", Status: "down"},
+				{Id: "2", InstanceId: "id-2", Status: "active"},
+				{Id: "3", InstanceId: "id-3", Status: "active"},
 			},
 			"xyz": {
-				{Id: "0", InstanceId: "id-0", HasVote: false, WantsVote: true, Status: "active"},
+				{Id: "0", InstanceId: "id-0", Status: "active"},
 			},
 		},
 		modelTypes: map[string]model.ModelType{"def": model.CAAS, "xyz": model.CAAS},
@@ -398,7 +398,6 @@ func (s *ShowControllerSuite) TestShowControllerRefreshesStore(c *tc.C) {
 	_, err := s.runShowController(c, "aws-test")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, tc.Equals, 1)
-	s.fakeController.machines["ghi"][0].HasVote = true
 	_, err = s.runShowController(c, "aws-test")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(store.Controllers["aws-test"].ControllerMachineCount, tc.Equals, 3)
@@ -572,14 +571,10 @@ aws-test:
   controller-machines:
     "0":
       instance-id: id-0
-      ha-status: ha-pending
     "1":
       instance-id: id-1
-      ha-status: down, lost connection
     "2":
       instance-id: id-2
-      ha-status: ha-enabled
-      ha-primary: true
   models:
     controller:
       model-uuid: ghi
@@ -590,9 +585,6 @@ aws-test:
     user: admin
     access: superuser
 `[1:]
-
-	_true := true
-	s.fakeController.machines["ghi"][2].HAPrimary = &_true
 
 	s.assertShowController(c, "aws-test")
 }
@@ -619,8 +611,6 @@ aws-test:
   - model status incomplete
 `[1:]
 
-	_true := true
-	s.fakeController.machines["ghi"][2].HAPrimary = &_true
 	s.fakeController.emptyModelStatus = true
 
 	s.assertShowController(c, "aws-test")

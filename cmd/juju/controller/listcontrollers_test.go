@@ -102,27 +102,27 @@ func (s *ListControllersSuite) setupAPIForControllerMachines() {
 		case "aws-test":
 			fakeController.machines = map[string][]base.Machine{
 				"ghi": {
-					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
-					{Id: "2", HasVote: true, WantsVote: true, Status: "down"},
-					{Id: "3", HasVote: false, WantsVote: true, Status: "active"},
+					{Id: "1", Status: "active"},
+					{Id: "2", Status: "down"},
+					{Id: "3", Status: "active"},
 				},
 			}
 		case "mallards":
 			fakeController.machines = map[string][]base.Machine{
 				"abc": {
-					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
+					{Id: "1", Status: "active"},
 				},
 				"def": {
-					{Id: "2", HasVote: true, WantsVote: true, Status: "active"},
+					{Id: "2", Status: "active"},
 				},
 			}
 		case "k8s-controller":
 			fakeController.machines = map[string][]base.Machine{
 				"xyz": {
-					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
+					{Id: "1", Status: "active"},
 				},
 				"def": {
-					{Id: "2", HasVote: true, WantsVote: true, Status: "active"},
+					{Id: "2", Status: "active"},
 				},
 			}
 		}

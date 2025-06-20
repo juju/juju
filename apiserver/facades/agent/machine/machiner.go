@@ -201,43 +201,8 @@ func (api *MachinerAPI) SetObservedNetworkConfig(ctx context.Context, args param
 	return nil
 }
 
-func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.MachineAddresses)),
-	}
-	canModify, err := api.getCanModify(ctx)
-	if err != nil {
-		return results, err
-	}
-	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return results, err
-	}
-	allSpaces, err := api.networkService.GetAllSpaces(ctx)
-	if err != nil {
-		return results, apiservererrors.ServerError(err)
-	}
-	for i, arg := range args.MachineAddresses {
-		m, err := api.getMachine(arg.Tag, canModify)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		pas := params.ToProviderAddresses(arg.Addresses...)
-		addresses, err := pas.ToSpaceAddresses(allSpaces)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := m.SetMachineAddresses(controllerConfig, addresses...); err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return results, nil
-}
-
 // SetMachineAddresses is not supported in MachinerAPI at version 5.
+// Deprecated: SetMachineAddresses is being deprecated.
 func (api *MachinerAPIv5) SetMachineAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
 	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineAddresses)),
@@ -250,24 +215,10 @@ func (api *MachinerAPIv5) Jobs(ctx context.Context, args params.Entities) (param
 	results := params.JobsResults{
 		Results: make([]params.JobsResult, len(args.Entities)),
 	}
-
-	for i, entity := range args.Entities {
-		machineTag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-		}
-
-		isController, err := api.machineService.IsMachineController(ctx, machine.Name(machineTag.Id()))
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		jobs := []string{"host-units"}
-		if isController {
-			jobs = append(jobs, "api-server")
-		}
-
-		results.Results[i].Jobs = jobs
+	for i := range args.Entities {
+		// 3.6 controller models can not be migrated, so we can always just
+		// return the host-units job. The api-server job is not required.
+		results.Results[i].Jobs = []string{"host-units"}
 	}
 	return results, nil
 }

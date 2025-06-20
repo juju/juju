@@ -200,6 +200,10 @@ type State interface {
 	// GetSupportedContainersTypes returns the supported container types for the
 	// given machine.
 	GetSupportedContainersTypes(ctx context.Context, mUUID machine.UUID) ([]string, error)
+
+	// GetMachinePrincipalApplications returns the names of the principal
+	// (non-subordinate) applications for the specified machine.
+	GetMachinePrincipalApplications(ctx context.Context, mName machine.Name) ([]string, error)
 }
 
 // StatusHistory records status information into a generalized way.
@@ -722,6 +726,19 @@ func (s *Service) GetSupportedContainersTypes(ctx context.Context, mUUID machine
 		}
 	}
 	return results, nil
+}
+
+// GetMachinePrincipalApplications returns the names of the principal (non-subordinate)
+// units for the specified machine.
+func (s *Service) GetMachinePrincipalApplications(ctx context.Context, mName machine.Name) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := mName.Validate(); err != nil {
+		return nil, errors.Errorf("validating machine name %q: %w", mName, err)
+	}
+
+	return s.st.GetMachinePrincipalApplications(ctx, mName)
 }
 
 // ProviderService provides the API for working with machines using the

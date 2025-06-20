@@ -378,12 +378,6 @@ type MachineDetails struct {
 
 	// InstanceID holds the cloud instance id of the machine.
 	InstanceID string `yaml:"instance-id,omitempty" json:"instance-id,omitempty"`
-
-	// HAStatus holds information informing of the HA status of the machine.
-	HAStatus string `yaml:"ha-status,omitempty" json:"ha-status,omitempty"`
-
-	// HAPrimary is set to true for a primary controller machine in HA.
-	HAPrimary bool `yaml:"ha-primary,omitempty" json:"ha-primary,omitempty"`
 }
 
 // ModelDetails holds details of a model to show.
@@ -549,29 +543,12 @@ func (c *showControllerCommand) convertMachinesForShow(
 		nodes = controller.Machines
 	}
 
-	numControllers := 0
 	for _, m := range controllerModel.Machines {
-		if !m.WantsVote {
-			continue
-		}
-		numControllers++
-	}
-	for _, m := range controllerModel.Machines {
-		if !m.WantsVote {
-			// Skip non controller machines.
-			continue
-		}
 		instId := m.InstanceId
 		if instId == "" {
 			instId = "(unprovisioned)"
 		}
 		details := MachineDetails{InstanceID: instId}
-		if numControllers > 1 {
-			details.HAStatus = haStatus(m.HasVote, m.WantsVote, m.Status)
-			if m.HAPrimary != nil && *m.HAPrimary {
-				details.HAPrimary = *m.HAPrimary
-			}
-		}
 		nodes[m.Id] = details
 	}
 }

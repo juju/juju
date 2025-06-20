@@ -62,7 +62,6 @@ type Machine interface {
 	Life() state.Life
 	ForceDestroy(time.Duration) error
 	Destroy(objectstore.ObjectStore) error
-	IsManager() bool
 }
 
 // Model defines methods provided by a state.Model instance.

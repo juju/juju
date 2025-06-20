@@ -1443,6 +1443,54 @@ WHERE uuid = $machineUUID.uuid
 	return result, nil
 }
 
+// GetMachinePrincipalApplications returns the names of the principal
+// (non-subordinate) applications for the specified machine.
+func (st *State) GetMachinePrincipalApplications(ctx context.Context, mName machine.Name) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	principalQuery := `
+SELECT a.name AS &appName.name
+FROM machine AS m
+JOIN net_node AS nn ON m.net_node_uuid = nn.uuid
+LEFT JOIN unit AS u ON u.net_node_uuid = nn.uuid
+LEFT JOIN application AS a ON u.application_uuid = a.uuid
+LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
+LEFT JOIN charm_metadata AS cm ON cm.charm_uuid = c.uuid
+WHERE m.uuid = $machineUUID.uuid AND cm.subordinate = FALSE
+ORDER BY a.name ASC
+`
+	principalQueryStmt, err := st.Prepare(principalQuery, machineUUID{}, appName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var appNames []appName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		machineUUID, err := st.getMachineUUIDFromName(ctx, tx, mName)
+		if err != nil {
+			return err
+		}
+
+		err = tx.Query(ctx, principalQueryStmt, machineUUID).GetAll(&appNames)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("querying principal units for machine %q: %w", mName, err)
+	}
+	result := make([]string, len(appNames))
+	for i, unit := range appNames {
+		result[i] = unit.Name
+	}
+	return result, nil
+}
+
 // NamespaceForWatchMachineCloudInstance returns the namespace for watching
 // machine cloud instance changes.
 func (*State) NamespaceForWatchMachineCloudInstance() string {
