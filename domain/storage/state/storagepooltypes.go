@@ -10,7 +10,7 @@ import (
 
 // These structs represent the persistent storage pool entity schema in the database.
 
-type StoragePool struct {
+type storagePool struct {
 	ID string `db:"uuid"`
 
 	Name         string `db:"name"`
@@ -28,47 +28,54 @@ type poolAttribute struct {
 	Value string `db:"value"`
 }
 
-type StoragePoolNames []string
+type storagePoolNames []string
 
-type StorageProviderTypes []string
+type storageProviderTypes []string
 
-type StoragePools []StoragePool
+type storagePools []storagePool
 
-func (rows StoragePools) toStoragePools(keyValues []poolAttribute) ([]storage.StoragePool, error) {
+func (rows storagePools) toStoragePools(keyValues []poolAttribute) ([]storage.StoragePool, error) {
 	if n := len(rows); n != len(keyValues) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch")
 	}
 
-	var result []storage.StoragePool
-	recordResult := func(row *StoragePool, attrs poolAttributes) {
-		result = append(result, storage.StoragePool{
-			Name:     row.Name,
-			Provider: row.ProviderType,
-			Attrs:    storage.Attrs(attrs),
-		})
+	var (
+		result  []storage.StoragePool
+		current *storage.StoragePool
+	)
+
+	pushResult := func() {
+		if current == nil {
+			return
+		}
+		current.UUID = ""
+		result = append(result, *current)
+		current = nil
 	}
 
-	var (
-		current *StoragePool
-		attrs   poolAttributes
-	)
 	for i, row := range rows {
-		if current != nil && row.ID != current.ID {
-			recordResult(current, attrs)
-			attrs = nil
+		if current != nil && current.UUID != row.ID {
+			// We have a new storage pool, so push the current one to the result.
+			pushResult()
 		}
-		if keyValues[i].Key != "" {
-			if attrs == nil {
-				attrs = make(poolAttributes)
+
+		if current == nil {
+			current = &storage.StoragePool{
+				UUID:     row.ID,
+				Name:     row.Name,
+				Provider: row.ProviderType,
 			}
-			attrs[keyValues[i].Key] = keyValues[i].Value
 		}
-		rowCopy := row
-		current = &rowCopy
+
+		if keyValues[i].Key != "" {
+			if current.Attrs == nil {
+				current.Attrs = make(map[string]string)
+			}
+			current.Attrs[keyValues[i].Key] = keyValues[i].Value
+		}
 	}
-	if current != nil {
-		recordResult(current, attrs)
-	}
+	// Push the last storage pool if it exists.
+	pushResult()
 	return result, nil
 }
