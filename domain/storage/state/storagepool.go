@@ -276,12 +276,13 @@ func (st State) ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainst
 	}
 
 	stmt, err := sqlair.Prepare(`
-SELECT (sp.*) AS (&storagePool.*),
-       (sp_attr.*) AS (&poolAttribute.*)
-FROM   storage_pool sp
-       LEFT JOIN storage_pool_origin spo ON spo.id = sp.origin_id
-       LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
-WHERE  spo.origin <> 'built-in'`,
+SELECT   (sp.*) AS (&storagePool.*),
+         (sp_attr.*) AS (&poolAttribute.*)
+FROM     storage_pool sp
+         LEFT JOIN storage_pool_origin spo ON spo.id = sp.origin_id
+         LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
+WHERE    spo.origin <> 'built-in'
+ORDER BY sp.uuid`,
 		storagePool{}, poolAttribute{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -312,10 +313,11 @@ func (st State) ListStoragePools(ctx context.Context) ([]domainstorage.StoragePo
 	}
 
 	stmt, err := sqlair.Prepare(`
-SELECT (sp.*) AS (&storagePool.*),
-       (sp_attr.*) AS (&poolAttribute.*)
-FROM   storage_pool sp
-       LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid`,
+SELECT   (sp.*) AS (&storagePool.*),
+         (sp_attr.*) AS (&poolAttribute.*)
+FROM     storage_pool sp
+         LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
+ORDER BY sp.uuid`,
 		storagePool{}, poolAttribute{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -361,13 +363,13 @@ func (st State) ListStoragePoolsByNamesAndProviders(
 		return nil, errors.Capture(err)
 	}
 	stmt, err := sqlair.Prepare(`
-SELECT (sp.*) AS (&storagePool.*),
-       (sp_attr.*) AS (&poolAttribute.*)
-FROM   storage_pool sp
-       LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
+SELECT   (sp.*) AS (&storagePool.*),
+         (sp_attr.*) AS (&poolAttribute.*)
+FROM     storage_pool sp
+         LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
 -- order matters because the index is on (type, name)
-WHERE  sp.type IN ($storageProviderTypes[:])
-       AND sp.name IN ($storagePoolNames[:])`,
+WHERE    sp.type IN ($storageProviderTypes[:]) AND sp.name IN ($storagePoolNames[:])
+ORDER BY sp.uuid`,
 		spNames, spTypes, storagePool{}, poolAttribute{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -409,11 +411,12 @@ func (st State) ListStoragePoolsByNames(
 	}
 
 	stmt, err := sqlair.Prepare(`
-SELECT (sp.*) AS (&storagePool.*),
-       (sp_attr.*) AS (&poolAttribute.*)
-FROM   storage_pool sp
-       LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
-WHERE  sp.name IN ($storagePoolNames[:])`, spNames, storagePool{}, poolAttribute{})
+SELECT   (sp.*) AS (&storagePool.*),
+         (sp_attr.*) AS (&poolAttribute.*)
+FROM     storage_pool sp
+         LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
+WHERE    sp.name IN ($storagePoolNames[:])
+ORDER BY sp.uuid`, spNames, storagePool{}, poolAttribute{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -454,11 +457,12 @@ func (st State) ListStoragePoolsByProviders(
 	}
 
 	stmt, err := sqlair.Prepare(`
-SELECT (sp.*) AS (&storagePool.*),
-       (sp_attr.*) AS (&poolAttribute.*)
-FROM   storage_pool sp
-       LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
-WHERE  sp.type IN ($storageProviderTypes[:])`, spTypes, storagePool{}, poolAttribute{})
+SELECT   (sp.*) AS (&storagePool.*),
+         (sp_attr.*) AS (&poolAttribute.*)
+FROM     storage_pool sp
+         LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
+WHERE    sp.type IN ($storageProviderTypes[:])
+ORDER BY sp.uuid`, spTypes, storagePool{}, poolAttribute{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -498,11 +502,12 @@ func (st State) GetStoragePoolByName(ctx context.Context, name string) (domainst
 func GetStoragePoolByName(ctx context.Context, db domain.TxnRunner, name string) (domainstorage.StoragePool, error) {
 	inputArg := storagePool{Name: name}
 	stmt, err := sqlair.Prepare(`
-SELECT (sp.*) AS (&storagePool.*),
-       (sp_attr.*) AS (&poolAttribute.*)
-FROM   storage_pool sp
-       LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
-WHERE  sp.name = $storagePool.name`, inputArg, poolAttribute{})
+SELECT   (sp.*) AS (&storagePool.*),
+         (sp_attr.*) AS (&poolAttribute.*)
+FROM     storage_pool sp
+         LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
+WHERE    sp.name = $storagePool.name
+ORDER BY sp.uuid`, inputArg, poolAttribute{})
 	if err != nil {
 		return domainstorage.StoragePool{}, errors.Capture(err)
 	}
