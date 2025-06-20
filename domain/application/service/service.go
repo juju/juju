@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -230,7 +229,6 @@ func NewWatchableService(
 	st State,
 	leaderEnsurer leadership.Ensurer,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	modelID coremodel.UUID,
 	watcherFactory WatcherFactory,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
@@ -245,7 +243,6 @@ func NewWatchableService(
 			st,
 			leaderEnsurer,
 			storageRegistryGetter,
-			modelID,
 			agentVersionGetter,
 			provider,
 			caasProvider,

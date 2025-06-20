@@ -61,7 +61,7 @@ func (s *stateSuite) TestGetAllJobsNoRows(c *tc.C) {
 
 func (s *stateSuite) TestGetAllJobsWithData(c *tc.C) {
 	ins := `
-INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for, arg) 
+INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for, arg)
 VALUES (?, ?, ?, ?, ?, ?)`
 
 	jID1, _ := removal.NewUUID()
@@ -102,7 +102,7 @@ VALUES (?, ?, ?, ?, ?, ?)`
 
 func (s *stateSuite) TestDeleteJob(c *tc.C) {
 	ins := `
-INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for, arg) 
+INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for, arg)
 VALUES (?, ?, ?, ?, ?, ?)`
 
 	jID1, _ := removal.NewUUID()
@@ -161,7 +161,6 @@ func (s *baseSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *ap
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
-		"",
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		nil,
 		providerGetter,
@@ -321,7 +320,7 @@ func (s *baseSuite) getAllUnitAndMachineUUIDs(c *tc.C) ([]unit.UUID, []machine.U
 	result := make(map[unit.UUID]machine.UUID)
 	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
-SELECT u.uuid, m.uuid 
+SELECT u.uuid, m.uuid
 FROM unit AS u
 JOIN net_node AS nn ON nn.uuid = u.net_node_uuid
 JOIN machine AS m ON m.net_node_uuid = nn.uuid
