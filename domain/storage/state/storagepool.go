@@ -270,11 +270,41 @@ func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.Stora
 
 // ListStoragePoolsWithoutBuiltins returns the storage pools excluding the built-in storage pools.
 func (st State) ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainstorage.StoragePool, error) {
-	// TODO: we need to exclude the built-in storage pools.
-	return nil, nil
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := sqlair.Prepare(`
+SELECT (sp.*) AS (&storagePool.*),
+       (sp_attr.*) AS (&poolAttribute.*)
+FROM   storage_pool sp
+       LEFT JOIN storage_pool_origin spo ON spo.id = sp.origin_id
+       LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
+WHERE  spo.origin <> 'built-in'`,
+		storagePool{}, poolAttribute{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var (
+		dbRows    storagePools
+		keyValues []poolAttribute
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt).GetAll(&dbRows, &keyValues)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("listing storage pools: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return dbRows.toStoragePools(keyValues)
 }
 
-// ListStoragePools returns the storage pools including default storage pools.
+// ListStoragePools returns the storage pools including default and built-in storage pools.
 func (st State) ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -316,8 +346,6 @@ func (st State) ListStoragePoolsByNamesAndProviders(
 	names domainstorage.Names,
 	providers domainstorage.Providers,
 ) ([]domainstorage.StoragePool, error) {
-	// TODO: we need to include the built-in storage pools.
-
 	spNames := storagePoolNames(names.Values())
 	spTypes := storageProviderTypes(providers.Values())
 
@@ -370,7 +398,6 @@ func (st State) ListStoragePoolsByNames(
 	ctx context.Context,
 	names domainstorage.Names,
 ) ([]domainstorage.StoragePool, error) {
-	// TODO: we need to include the built-in storage pools.
 	spNames := storagePoolNames(names.Values())
 
 	if len(spNames) == 0 {
@@ -416,7 +443,6 @@ func (st State) ListStoragePoolsByProviders(
 	ctx context.Context,
 	providers domainstorage.Providers,
 ) ([]domainstorage.StoragePool, error) {
-	// TODO: we need to include the built-in storage pools.
 	spTypes := storageProviderTypes(providers)
 
 	if len(spTypes) == 0 {
