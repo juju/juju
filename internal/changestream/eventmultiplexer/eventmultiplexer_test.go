@@ -353,7 +353,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(2)
 	s.metrics.EXPECT().SubscriptionsDec().Times(2)
-	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), gomock.Any())
 
 	s.clock.EXPECT().Now().MinTimes(1)
 
@@ -375,8 +375,8 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 	})
 	s.dispatchTerm(c, terms)
 
-	// The subscriptions are guaranteed to be out of order, so we need to just
-	// wait on them all, and then check that they all got the event.
+	// Whichever subscription receives the event first will kill the other.
+	// We wait on them all to either get the event or to be done.
 	wg := newWaitGroup(uint64(len(subs)))
 	for i, sub := range subs {
 		go func(i int, sub changestream.Subscription) {
@@ -384,6 +384,8 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 
 			select {
 			case <-sub.Changes():
+				subs[len(subs)-1-i].Kill()
+			case <-sub.Done():
 				subs[len(subs)-1-i].Kill()
 			case <-time.After(testing.ShortWait):
 				c.Fatalf("timed out waiting for sub %d event", i)
@@ -422,7 +424,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(2)
 	s.metrics.EXPECT().SubscriptionsDec().Times(2)
-	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), gomock.Any())
 	s.clock.EXPECT().Now().MinTimes(1)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
@@ -444,17 +446,21 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 	})
 	s.dispatchTerm(c, terms)
 
-	// The subscriptions are guaranteed to be out of order, so we need to just
-	// wait on them all, and then check that they all got the event.
+	// Whichever subscription receives the event first will kill the other.
+	// We wait on them all to either get the event or to be done.
 	wg := newWaitGroup(uint64(len(subs)))
 	for i, sub := range subs {
 		go func(sub changestream.Subscription, i int) {
 			select {
 			case <-sub.Changes():
 				go func() {
-					defer wg.Done()
-
 					subs[len(subs)-1-i].Kill()
+					wg.Done()
+				}()
+			case <-sub.Done():
+				go func() {
+					subs[len(subs)-1-i].Kill()
+					wg.Done()
 				}()
 			case <-time.After(testing.ShortWait):
 				c.Fatalf("timed out waiting for sub %d event", i)
