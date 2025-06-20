@@ -654,11 +654,11 @@ type getIpAddress struct {
 	ProviderSubnetID *string `db:"provider_subnet_id"`
 	DeviceUUID       string  `db:"device_uuid"`
 	AddressValue     string  `db:"address_value"`
-	SubnetUUID       *string `db:"subnet_uuid"`
 	Type             string  `db:"type"`
 	ConfigType       string  `db:"config_type"`
 	Origin           string  `db:"origin"`
 	Scope            string  `db:"scope"`
+	Space            string  `db:"space"`
 	IsSecondary      bool    `db:"is_secondary"`
 	IsShadow         bool    `db:"is_shadow"`
 }
@@ -705,6 +705,7 @@ func dmlToNetAddr(addr getIpAddress, deviceName string) network.NetAddr {
 		Scope:            corenetwork.Scope(addr.Scope),
 		IsSecondary:      addr.IsSecondary,
 		IsShadow:         addr.IsShadow,
+		Space:            addr.Space,
 	}
 }
 

@@ -26,6 +26,7 @@ type NetAddr struct {
 	Scope       network.Scope
 	IsSecondary bool
 	IsShadow    bool
+	Space       string
 }
 
 // NetInterface represents a physical or virtual

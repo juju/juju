@@ -615,6 +615,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 			return network.NetAddr{
 				InterfaceName: in.InterfaceName,
 				AddressValue:  in.AddressValue,
+				Space:         in.Space,
 			}
 		})
 	}
@@ -628,9 +629,11 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	c.Check(filterNetAddr(eth0.Addrs), tc.SameContents, []network.NetAddr{{
 		InterfaceName: "eth0",
 		AddressValue:  "192.168.1.10/24",
+		Space:         "alpha",
 	}, {
 		InterfaceName: "eth0",
 		AddressValue:  "192.168.1.11/24",
+		Space:         "alpha",
 	}})
 	c.Check(eth0.DNSSearchDomains, tc.SameContents, []string{"search1.maas.net", "search2.maas.net"})
 	c.Check(eth0.DNSAddresses, tc.SameContents, []string{"8.8.8.8", "8.8.4.4"})
@@ -646,6 +649,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 		{
 			InterfaceName: "eth0-bridge",
 			AddressValue:  "192.168.2.10/24",
+			Space:         "alpha",
 		},
 	})
 	c.Check(bridge.DNSSearchDomains, tc.SameContents, []string{"search3.maas.net"})
@@ -661,10 +665,12 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 		{
 			InterfaceName: "eth1",
 			AddressValue:  "192.168.3.10/24",
+			Space:         "alpha",
 		},
 		{
 			InterfaceName: "eth1",
 			AddressValue:  "192.168.3.11/24",
+			Space:         "alpha",
 		},
 	})
 	c.Check(eth1.DNSSearchDomains, tc.SameContents, []string{"search4.maas.net", "search5.maas.net"})
