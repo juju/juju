@@ -96,7 +96,7 @@ type Authorizer interface {
 // MachineService is the interface that is used to interact with the machines.
 type MachineService interface {
 	// CreateMachine creates a machine with the given name.
-	CreateMachine(ctx context.Context, args machineservice.CreateMachineArgs) (coremachine.Name, error)
+	CreateMachine(ctx context.Context, args machineservice.CreateMachineArgs) (coremachine.UUID, coremachine.Name, error)
 	// DeleteMachine deletes a machine with the given name.
 	DeleteMachine(context.Context, coremachine.Name) error
 

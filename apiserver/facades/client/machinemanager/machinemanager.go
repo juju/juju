@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/rpc/params"
@@ -225,7 +225,7 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 	defer func() {
 		if err == nil {
 			// Ensure machine(s) exist in dqlite.
-			err = mm.saveMachineInfo(ctx, result.Id(), p.Nonce)
+			err = mm.saveMachineInfo(ctx, p.Nonce)
 		}
 	}()
 
@@ -238,38 +238,17 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 	return mm.st.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
 
-func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineName, nonce string) error {
+func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, nonce string) error {
 	// This is temporary - just insert the machine id all al the parent ones.
-	var errs []error
-	for machineName != "" {
-		var n *string
-		if nonce != "" {
-			n = &nonce
-		}
-		createMachineArgs := machineservice.CreateMachineArgs{
-			Nonce: n,
-		}
-		_, _, err := mm.machineService.CreateMachine(ctx, createMachineArgs)
-		// The machine might already exist e.g. if we are adding a subordinate
-		// unit to an already existing machine. In this case, just continue
-		// without error.
-		if err != nil && !errors.Is(err, machineerrors.MachineAlreadyExists) {
-			errs = append(errs, errors.Annotatef(err, "saving info for machine %q", machineName))
-		}
-		parent := names.NewMachineTag(machineName).Parent()
-		if parent == nil {
-			break
-		}
-		machineName = parent.Id()
+	var n *string
+	if nonce != "" {
+		n = &nonce
 	}
-	if len(errs) == 0 {
-		return nil
+	createMachineArgs := machineservice.CreateMachineArgs{
+		Nonce: n,
 	}
-	var errStr string
-	for _, e := range errs {
-		errStr += e.Error() + "\n"
-	}
-	return errors.New(errStr)
+	_, _, err := mm.machineService.CreateMachine(ctx, createMachineArgs)
+	return errors.Trace(err)
 }
 
 // ProvisioningScript returns a shell script that, when run,

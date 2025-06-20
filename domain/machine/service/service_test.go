@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -40,6 +41,117 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.statusHistory = NewMockStatusHistory(ctrl)
 
 	return ctrl
+}
+
+// TestCreateMachineSuccess asserts the happy path of the CreateMachine service.
+func (s *serviceSuite) TestCreateMachineSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().CreateMachine(gomock.Any(), domainmachine.CreateMachineArgs{}).Return(machine.UUID("uuid"), machine.Name("name"), nil)
+
+	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	createArgs := CreateMachineArgs{}
+	obtainedUUID, obtainedName, err := svc.CreateMachine(c.Context(), createArgs)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedUUID, tc.Equals, machine.UUID("uuid"))
+	c.Check(obtainedName, tc.Equals, machine.Name("name"))
+}
+
+// TestCreateError asserts that an error coming from the state layer is
+// preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestCreateMachineError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().CreateMachine(gomock.Any(), domainmachine.CreateMachineArgs{}).
+		Return(machine.UUID(""), machine.Name(""), rErr)
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	createArgs := CreateMachineArgs{}
+	_, _, err := svc.CreateMachine(c.Context(), createArgs)
+	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorMatches, `boom`)
+}
+
+// TestCreateMachineSuccessWithNonce asserts the happy path of the CreateMachine
+// service (with nonce in arguments used).
+func (s *serviceSuite) TestCreateMachineSuccessWithNonce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().CreateMachine(gomock.Any(), domainmachine.CreateMachineArgs{
+		Nonce: ptr("nonce-ense"),
+	}).Return(machine.UUID("uuid"), machine.Name("name"), nil)
+
+	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	createArgs := CreateMachineArgs{
+		Nonce: ptr("nonce-ense"),
+	}
+	obtainedUUID, obtainedName, err := svc.CreateMachine(c.Context(), createArgs)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedUUID, tc.Equals, machine.UUID("uuid"))
+	c.Check(obtainedName, tc.Equals, machine.Name("name"))
+}
+
+// TestCreateMachineAlreadyExists asserts that the state layer returns a
+// MachineAlreadyExists Error if a machine is already found with the given
+// machineName, and that error is preserved and passed on to the service layer
+// to be handled there.
+func (s *serviceSuite) TestCreateMachineAlreadyExists(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().CreateMachine(gomock.Any(), domainmachine.CreateMachineArgs{}).
+		Return(machine.UUID(""), machine.Name(""), machineerrors.MachineAlreadyExists)
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	createArgs := CreateMachineArgs{}
+	_, _, err := svc.CreateMachine(c.Context(), createArgs)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineAlreadyExists)
+}
+
+// TestCreateMachineWithParentSuccess asserts the happy path of the
+// CreateMachineWithParent service.
+func (s *serviceSuite) TestCreateMachineWithParentSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("parent-name")).Return(machine.UUID("uuid"), nil)
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), domainmachine.CreateMachineArgs{}, machine.UUID("uuid")).Return(machine.UUID("uuid"), machine.Name("name"), nil)
+
+	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	_, _, err := svc.CreateMachineWithParent(c.Context(), CreateMachineArgs{}, machine.Name("parent-name"))
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestCreateMachineWithParentError asserts that an error coming from the state
+// layer is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestCreateMachineWithParentError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("parent-name")).Return(machine.UUID("uuid"), nil)
+	rErr := errors.New("boom")
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), domainmachine.CreateMachineArgs{}, machine.UUID("uuid")).Return(machine.UUID(""), machine.Name(""), rErr)
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	_, _, err := svc.CreateMachineWithParent(c.Context(), CreateMachineArgs{}, machine.Name("parent-name"))
+	c.Check(err, tc.ErrorIs, rErr)
+	c.Assert(err, tc.ErrorMatches, `creating machine with parent "parent-name": boom`)
+}
+
+// TestCreateMachineWithParentParentNotFound asserts that the state layer
+// returns a NotFound Error if a machine is not found with the given parent
+// machineName, and that error is preserved and passed on to the service layer
+// to be handled there.
+func (s *serviceSuite) TestCreateMachineWithParentParentNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("parent-name")).Return(machine.UUID(""), machineerrors.MachineNotFound)
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	_, _, err := svc.CreateMachineWithParent(c.Context(), CreateMachineArgs{}, machine.Name("parent-name"))
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestDeleteMachineSuccess asserts the happy path of the DeleteMachine service.
@@ -687,8 +799,8 @@ func (s *serviceSuite) TestSetLXDProfilesError(c *tc.C) {
 func (s *serviceSuite) TestGetAllProvisionedMachineInstanceID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetAllProvisionedMachineInstanceID(gomock.Any()).Return(map[string]string{
-		"foo": "123",
+	s.state.EXPECT().GetAllProvisionedMachineInstanceID(gomock.Any()).Return(map[machine.Name]string{
+		machine.Name("foo"): "123",
 	}, nil)
 
 	result, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
@@ -799,3 +911,19 @@ func (s *serviceSuite) TestGetMachinePrincipalUnitsError(c *tc.C) {
 		GetMachinePrincipalApplications(c.Context(), machineName)
 	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 }
+<<<<<<< HEAD
+=======
+
+func (s *serviceSuite) expectCreateMachineStatusHistory(c *tc.C, machineName machine.Name) {
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineNamespace.WithID(machineName.String()), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
+			c.Check(si.Status, tc.Equals, status.Pending)
+			return nil
+		})
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineInstanceNamespace.WithID(machineName.String()), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
+			c.Check(si.Status, tc.Equals, status.Pending)
+			return nil
+		})
+}
+>>>>>>> 28b7b8789f (fix: update tests with new machine creation signature)

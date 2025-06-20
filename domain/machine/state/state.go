@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
@@ -43,8 +44,6 @@ func NewState(factory coredb.TxnRunnerFactory, clock clock.Clock, logger logger.
 
 // CreateMachine creates or updates the specified machine.
 // Adds a row to machine table, as well as a row to the net_node table.
-// It returns a MachineAlreadyExists error if a machine with the same name
-// already exists.
 func (st *State) CreateMachine(ctx context.Context, args domainmachine.CreateMachineArgs) (machine.UUID, machine.Name, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -79,14 +78,33 @@ func (st *State) CreateMachineWithParent(ctx context.Context, args domainmachine
 		return "", "", errors.Capture(err)
 	}
 
+	parentIdent := machineUUID{UUID: parentUUID}
+	checkParentExistsStmt, err := st.Prepare(
+		`SELECT COUNT(*) AS &count.count FROM machine WHERE uuid=$machineUUID.uuid`,
+		count{},
+		parentIdent)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
 	var (
 		machineName machine.Name
 		machineUUID machine.UUID
+		parentCount count
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// First check if the parent machine exists.
+		err := tx.Query(ctx, checkParentExistsStmt, parentIdent).Get(&parentCount)
+		if err != nil {
+			return errors.Errorf("checking parent machine %q existence: %w", parentUUID, err)
+		}
+		if parentCount.Count == 0 {
+			return errors.Errorf("parent machine %q not found", parentUUID).Add(machineerrors.MachineNotFound)
+		}
+		// Create the machine.
 		_, machineUUID, machineName, err = CreateMachine(ctx, tx, st, args, st.clock)
 		if err != nil {
-			return err
+			return errors.Errorf("creating machine with parent %q: %w", parentUUID, err)
 		}
 		// Associate a parent machine if parentName is provided.
 		return st.createParentMachineLink(ctx, tx, machineUUID, parentUUID)
@@ -116,7 +134,7 @@ VALUES ($machineParent.machine_uuid, $machineParent.parent_uuid)
 	parentIdent := machineUUID{UUID: parentUUID}
 	parentResult := machineParent{}
 	parentQuery := `
-SELECT &parentResult.*
+SELECT &machineParent.*
 FROM   machine_parent 
 WHERE  machine_uuid = $machineUUID.uuid`
 	parentQueryStmt, err := st.Prepare(parentQuery, parentResult, parentIdent)
@@ -1023,14 +1041,14 @@ VALUES      ($lxdProfile.*)`, lxdProfile{})
 // on the given machine UUIDs.
 // [machineerrors.MachineNotFound] will be returned if the machine does not
 // exist.
-func (st *State) GetNamesForUUIDs(ctx context.Context, machineUUIDs []string) (map[string]machine.Name, error) {
+func (st *State) GetNamesForUUIDs(ctx context.Context, machineUUIDs []machine.UUID) (map[machine.UUID]machine.Name, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Errorf("cannot get database find names for machines %q: %w", machineUUIDs, err)
 	}
 
 	type nameAndUUID availabilityZoneName
-	type uuids []string
+	type uuids []machine.UUID
 
 	stmt, err := st.Prepare(`
 SELECT &nameAndUUID.*
@@ -1051,15 +1069,15 @@ WHERE  machine.uuid IN ($uuids[:])`, nameAndUUID{}, uuids{})
 		return nil
 	})
 
-	return transform.SliceToMap(namesAndUUIDs, func(n nameAndUUID) (string, machine.Name) {
-		return n.UUID, machine.Name(n.Name)
+	return transform.SliceToMap(namesAndUUIDs, func(n nameAndUUID) (machine.UUID, machine.Name) {
+		return machine.UUID(n.UUID), machine.Name(n.Name)
 	}), err
 }
 
 // GetMachineArchesForApplication returns a map of machine names to their
 // instance IDs. This will ignore non-provisioned machines or container
 // machines.
-func (st *State) GetAllProvisionedMachineInstanceID(ctx context.Context) (map[string]string, error) {
+func (st *State) GetAllProvisionedMachineInstanceID(ctx context.Context) (map[machine.Name]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1097,12 +1115,12 @@ AND       (
 		return nil, errors.Capture(err)
 	}
 
-	instanceIDs := make(map[string]string)
+	instanceIDs := make(map[machine.Name]string)
 	for _, result := range results {
 		if result.IsContainer > 0 || result.MachineName == "" || result.InstanceID == "" {
 			continue
 		}
-		instanceIDs[result.MachineName] = result.InstanceID
+		instanceIDs[machine.Name(result.MachineName)] = result.InstanceID
 	}
 	return instanceIDs, nil
 }

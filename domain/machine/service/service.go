@@ -23,7 +23,6 @@ import (
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // State describes retrieval and persistence methods for machines.
@@ -176,12 +175,12 @@ type State interface {
 	// on the given machine UUIDs.
 	// [machineerrors.MachineNotFound] will be returned if the machine does not
 	// exist.
-	GetNamesForUUIDs(ctx context.Context, machineUUIDs []string) (map[string]machine.Name, error)
+	GetNamesForUUIDs(ctx context.Context, machineUUIDs []machine.UUID) (map[machine.UUID]machine.Name, error)
 
 	// GetMachineArchesForApplication returns a map of machine names to their
 	// instance IDs. This will ignore non-provisioned machines or container
 	// machines.
-	GetAllProvisionedMachineInstanceID(ctx context.Context) (map[string]string, error)
+	GetAllProvisionedMachineInstanceID(ctx context.Context) (map[machine.Name]string, error)
 
 	// SetMachineHostname sets the hostname for the given machine.
 	// Also updates the agent_started_at timestamp.
@@ -224,10 +223,6 @@ func NewService(st State, statusHistory StatusHistory, clock clock.Clock, logger
 }
 
 // CreateMachine creates the specified machine.
-//
-// The following errors may be returned:
-//   - [machineerrors.MachineAlreadyExists] if a machine with the same name
-//     already exists.
 func (s *Service) CreateMachine(ctx context.Context, args CreateMachineArgs) (machine.UUID, machine.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -254,31 +249,33 @@ func (s *Service) CreateMachine(ctx context.Context, args CreateMachineArgs) (ma
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
 // It returns a MachineNotFound error if the parent machine does not exist.
-func (s *Service) CreateMachineWithParent(ctx context.Context, args CreateMachineArgs, parentName machine.Name) (machine.UUID, error) {
+func (s *Service) CreateMachineWithParent(ctx context.Context, args CreateMachineArgs, parentName machine.Name) (machine.UUID, machine.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	// Get the parent UUID.
 	parentUUID, err := s.st.GetMachineUUID(ctx, parentName)
 	if err != nil {
-		return "", errors.Errorf("getting parent UUID for machine %q: %w", parentName, err)
+		return "", "", errors.Errorf("getting parent UUID for machine %q: %w", parentName, err)
 	}
 
 	// Create the machine.
 	machineUUID, machineName, err := s.st.CreateMachineWithParent(ctx, domainmachine.CreateMachineArgs{}, parentUUID)
 	if err != nil {
-		return machineUUID, errors.Errorf("creating machine with parent %q: %w", parentName, err)
+		return "", "", errors.Errorf("creating machine with parent %q: %w", parentName, err)
 	}
 
 	if err := s.recordCreateMachineStatusHistory(ctx, machineName); err != nil {
 		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
 	}
 
-	return machineUUID, nil
+	return machineUUID, machineName, nil
 }
 
 func (s *Service) makeCreateMachineArgs(args CreateMachineArgs) (domainmachine.CreateMachineArgs, error) {
-	return domainmachine.CreateMachineArgs{}, nil
+	return domainmachine.CreateMachineArgs{
+		Nonce: args.Nonce,
+	}, nil
 }
 
 func (s *Service) recordCreateMachineStatusHistory(ctx context.Context, machineName machine.Name) error {
@@ -294,19 +291,6 @@ func (s *Service) recordCreateMachineStatusHistory(ctx context.Context, machineN
 		return errors.Errorf("recording instance status history: %w", err)
 	}
 	return nil
-}
-
-// createUUIDs generates a new UUID for the machine and the net-node.
-func createUUIDs() (string, machine.UUID, error) {
-	nodeUUID, err := uuid.NewUUID()
-	if err != nil {
-		return "", "", errors.Errorf("generating net-node UUID: %w", err)
-	}
-	machineUUID, err := machine.NewUUID()
-	if err != nil {
-		return "", "", errors.Errorf("generating machine UUID: %w", err)
-	}
-	return nodeUUID.String(), machineUUID, nil
 }
 
 // DeleteMachine deletes the specified machine.
@@ -560,7 +544,7 @@ func (s *Service) GetAllProvisionedMachineInstanceID(ctx context.Context) (map[m
 
 	result := make(map[machine.Name]instance.Id, len(m))
 	for name, id := range m {
-		result[machine.Name(name)] = instance.Id(id)
+		result[name] = instance.Id(id)
 	}
 	return result, nil
 }

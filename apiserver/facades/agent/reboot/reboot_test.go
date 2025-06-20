@@ -43,13 +43,6 @@ type testMachine struct {
 	wc watchertest.NotifyWatcherC
 }
 
-var (
-	// parentTag is used to create a parent machine
-	parentTag = names.NewMachineTag("0")
-	// childTag is used to create a child machine
-	childTag = names.NewMachineTag("1")
-)
-
 type rebootSuite struct {
 	testhelpers.CleanupSuite
 	jujutesting.ApiServerSuite
@@ -63,18 +56,18 @@ func TestRebootSuite(t *testing.T) {
 	tc.Run(t, &rebootSuite{})
 }
 
-func (s *rebootSuite) createMachine(c *tc.C, tag names.MachineTag) *testMachine {
-	uuid, err := s.machineService.CreateMachine(c.Context(), coremachine.Name(tag.Id()), nil)
+func (s *rebootSuite) createMachine(c *tc.C) *testMachine {
+	uuid, name, err := s.machineService.CreateMachine(c.Context(), service.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	return s.setupMachine(c, tag, err, uuid)
+	return s.setupMachine(c, names.NewMachineTag(name.String()), err, uuid)
 }
 
-func (s *rebootSuite) createMachineWithParent(c *tc.C, tag names.MachineTag, parent *testMachine) *testMachine {
-	uuid, err := s.machineService.CreateMachineWithParent(c.Context(), coremachine.Name(tag.Id()), coremachine.Name(parent.tag.Id()))
+func (s *rebootSuite) createMachineWithParent(c *tc.C, parent *testMachine) *testMachine {
+	uuid, name, err := s.machineService.CreateMachineWithParent(c.Context(), service.CreateMachineArgs{}, coremachine.Name(parent.tag.Id()))
 	c.Assert(err, tc.ErrorIsNil)
 
-	return s.setupMachine(c, names.NewMachineTag(parent.tag.Id()+"/lxd/"+tag.Id()), err, uuid)
+	return s.setupMachine(c, names.NewMachineTag(name.String()), err, uuid)
 }
 
 func (s *rebootSuite) setupMachine(c *tc.C, tag names.MachineTag, err error, uuid coremachine.UUID) *testMachine {
@@ -170,8 +163,8 @@ func (s *rebootSuite) TearDownSuite(c *tc.C) {
 // It creates a parent machine and a child machine, sends a reboot request to the child machine,
 // and asserts that the child machine receives the reboot event while the parent machine does not.
 func (s *rebootSuite) TestWatchForRebootEventFromChild(c *tc.C) {
-	parent := s.createMachine(c, parentTag)
-	child := s.createMachineWithParent(c, childTag, parent)
+	parent := s.createMachine(c)
+	child := s.createMachineWithParent(c, parent)
 
 	_, err := child.rebootAPI.RequestReboot(c.Context(), child.args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -184,8 +177,8 @@ func (s *rebootSuite) TestWatchForRebootEventFromChild(c *tc.C) {
 // It creates a parent machine and a child machine, sends a reboot request to the parent machine,
 // and asserts that both the parent machine and child receives a reboot event.
 func (s *rebootSuite) TestWatchForRebootEventFromParent(c *tc.C) {
-	parent := s.createMachine(c, parentTag)
-	child := s.createMachineWithParent(c, childTag, parent)
+	parent := s.createMachine(c)
+	child := s.createMachineWithParent(c, parent)
 
 	_, err := parent.rebootAPI.RequestReboot(c.Context(), parent.args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -198,7 +191,7 @@ func (s *rebootSuite) TestWatchForRebootEventFromParent(c *tc.C) {
 // It creates a machine, sends a reboot request, and asserts that the request is successful and the appropriate changes are made.
 // Additionally, it verifies the reboot action after the request.
 func (s *rebootSuite) TestRequestReboot(c *tc.C) {
-	machine := s.createMachine(c, parentTag)
+	machine := s.createMachine(c)
 
 	errResult, err := machine.rebootAPI.RequestReboot(c.Context(), machine.args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -222,7 +215,7 @@ func (s *rebootSuite) TestRequestReboot(c *tc.C) {
 // It asserts that the request and clearing are successful and the appropriate changes are made.
 // Additionally, it verifies the reboot action after the clearing.
 func (s *rebootSuite) TestClearReboot(c *tc.C) {
-	machine := s.createMachine(c, parentTag)
+	machine := s.createMachine(c)
 
 	errResult, err := machine.rebootAPI.RequestReboot(c.Context(), machine.args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -263,8 +256,8 @@ func (s *rebootSuite) TestClearReboot(c *tc.C) {
 // to shut down.
 // It also verifies that the proper rebootEvent are sent.
 func (s *rebootSuite) TestRebootRequestFromParent(c *tc.C) {
-	parent := s.createMachine(c, parentTag)
-	child := s.createMachineWithParent(c, childTag, parent)
+	parent := s.createMachine(c)
+	child := s.createMachineWithParent(c, parent)
 	// Request reboot on the root machine: all machines should see it
 	// parent should reboot
 	// child should shutdown
@@ -310,8 +303,8 @@ func (s *rebootSuite) TestRebootRequestFromParent(c *tc.C) {
 // It asserts that the appropriate changes are made and the expected reboot action is received.
 // It also check that the correct events are sent.
 func (s *rebootSuite) TestRebootRequestFromChild(c *tc.C) {
-	parent := s.createMachine(c, parentTag)
-	child := s.createMachineWithParent(c, childTag, parent)
+	parent := s.createMachine(c)
+	child := s.createMachineWithParent(c, parent)
 
 	// Request reboot on the container: container and nested container should see it
 	// parent should do nothing

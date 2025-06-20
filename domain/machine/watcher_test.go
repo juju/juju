@@ -192,8 +192,10 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
 
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 	// Create a machineUUID and set its cloud instance.
-	machineUUID, err := s.svc.CreateMachine(c.Context(), "machine-1", ptr("nonce-123"))
-	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, _, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{
+		Nonce: ptr("nonce-123"),
+	})
+	c.Assert(err, tc.IsNil)
 	hc := &instance.HardwareCharacteristics{
 		Mem:      ptr[uint64](1024),
 		RootDisk: ptr[uint64](256),
@@ -217,8 +219,8 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 	// Create a machineUUID and set its cloud instance.
-	machineUUID, err := s.svc.CreateMachine(c.Context(), "machine-1", ptr("nonce-123"))
-	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, _, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
+	c.Assert(err, tc.IsNil)
 	hc := &instance.HardwareCharacteristics{
 		Mem:      ptr[uint64](1024),
 		RootDisk: ptr[uint64](256),
@@ -244,11 +246,11 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
-	machineUUIDm0, err := s.svc.CreateMachine(c.Context(), "machine-1", ptr("nonce-123"))
+	machineUUIDm0, _, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUIDm0, instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	machineUUIDm1, err := s.svc.CreateMachine(c.Context(), "machine-2", ptr("nonce-123"))
+	machineUUIDm1, _, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUIDm1, instance.Id("456"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -294,11 +296,11 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 // The tests are run using the watchertest harness.
 func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	// Create machine hierarchy to reboot from parent, with a child (which will be watched) and a control child
-	parentUUID, err := s.svc.CreateMachine(c.Context(), "0", ptr("nonce-123"))
+	parentUUID, parentName, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
+	c.Assert(err, tc.IsNil)
+	childUUID, _, err := s.svc.CreateMachineWithParent(c.Context(), service.CreateMachineArgs{}, parentName)
 	c.Assert(err, tc.ErrorIsNil)
-	childUUID, err := s.svc.CreateMachineWithParent(c.Context(), "1", "0")
-	c.Assert(err, tc.ErrorIsNil)
-	controlUUID, err := s.svc.CreateMachineWithParent(c.Context(), "2", "0")
+	controlUUID, _, err := s.svc.CreateMachineWithParent(c.Context(), service.CreateMachineArgs{}, parentName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create watcher for child

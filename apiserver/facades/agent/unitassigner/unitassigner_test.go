@@ -14,10 +14,10 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -26,7 +26,8 @@ import (
 type testsuite struct {
 	testhelpers.IsolationSuite
 
-	statusService *MockStatusService
+	statusService  *MockStatusService
+	machineService *MockMachineService
 }
 
 func TestTestsuite(t *testing.T) {
@@ -34,17 +35,22 @@ func TestTestsuite(t *testing.T) {
 }
 
 func (s *testsuite) TestAssignUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f := &fakeState{
 		unitMachines: map[string]string{"foo/0": "1/lxd/2"},
 	}
 	f.results = []state.UnitAssignmentResult{{Unit: "foo/0"}}
-	machineService := &fakeMachineService{}
 	api := API{
 		st:             f,
 		res:            common.NewResources(),
-		machineService: machineService,
+		machineService: s.machineService,
 		networkService: &fakeNetworkService{},
 	}
+
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), machineservice.CreateMachineArgs{}).Return("uuid1", "1", nil)
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), machineservice.CreateMachineArgs{}).Return("uuid2", "1/lxd/2", nil)
+
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -52,7 +58,6 @@ func (s *testsuite) TestAssignUnits(c *tc.C) {
 	c.Assert(res.Results, tc.HasLen, 2)
 	c.Check(res.Results[0].Error, tc.IsNil)
 	c.Check(res.Results[1].Error, tc.ErrorMatches, `unit "unit-bar-1" not found`)
-	c.Check(machineService.machineNames, tc.SameContents, []machine.Name{machine.Name("1"), machine.Name("1/lxd/2")})
 }
 
 func (s *testsuite) TestWatchUnitAssignment(c *tc.C) {
@@ -103,24 +108,17 @@ func (s *testsuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.statusService = NewMockStatusService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 
 	return ctrl
 }
 
 func (s *testsuite) newAPI(c *tc.C) *API {
 	return &API{
-		statusService: s.statusService,
-		clock:         clock.WallClock,
+		statusService:  s.statusService,
+		machineService: s.machineService,
+		clock:          clock.WallClock,
 	}
-}
-
-type fakeMachineService struct {
-	machineNames []machine.Name
-}
-
-func (f *fakeMachineService) CreateMachine(_ context.Context, machineName machine.Name, nonce *string) (machine.UUID, error) {
-	f.machineNames = append(f.machineNames, machineName)
-	return "", nil
 }
 
 type fakeNetworkService struct {
