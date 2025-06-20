@@ -14,10 +14,12 @@ import (
 	reflect "reflect"
 
 	blockdevice "github.com/juju/juju/core/blockdevice"
+	machine "github.com/juju/juju/core/machine"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	relation "github.com/juju/juju/core/relation"
 	status "github.com/juju/juju/core/status"
+	network0 "github.com/juju/juju/domain/network"
 	relation0 "github.com/juju/juju/domain/relation"
 	service "github.com/juju/juju/domain/status/service"
 	gomock "go.uber.org/mock/gomock"
@@ -106,6 +108,45 @@ func NewMockNetworkService(ctrl *gomock.Controller) *MockNetworkService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 	return m.recorder
+}
+
+// GetAllDevicesByMachineNames mocks base method.
+func (m *MockNetworkService) GetAllDevicesByMachineNames(arg0 context.Context) (map[machine.Name][]network0.NetInterface, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllDevicesByMachineNames", arg0)
+	ret0, _ := ret[0].(map[machine.Name][]network0.NetInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllDevicesByMachineNames indicates an expected call of GetAllDevicesByMachineNames.
+func (mr *MockNetworkServiceMockRecorder) GetAllDevicesByMachineNames(arg0 any) *MockNetworkServiceGetAllDevicesByMachineNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllDevicesByMachineNames", reflect.TypeOf((*MockNetworkService)(nil).GetAllDevicesByMachineNames), arg0)
+	return &MockNetworkServiceGetAllDevicesByMachineNamesCall{Call: call}
+}
+
+// MockNetworkServiceGetAllDevicesByMachineNamesCall wrap *gomock.Call
+type MockNetworkServiceGetAllDevicesByMachineNamesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkServiceGetAllDevicesByMachineNamesCall) Return(arg0 map[machine.Name][]network0.NetInterface, arg1 error) *MockNetworkServiceGetAllDevicesByMachineNamesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkServiceGetAllDevicesByMachineNamesCall) Do(f func(context.Context) (map[machine.Name][]network0.NetInterface, error)) *MockNetworkServiceGetAllDevicesByMachineNamesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkServiceGetAllDevicesByMachineNamesCall) DoAndReturn(f func(context.Context) (map[machine.Name][]network0.NetInterface, error)) *MockNetworkServiceGetAllDevicesByMachineNamesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // GetAllSpaces mocks base method.
