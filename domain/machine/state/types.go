@@ -134,11 +134,6 @@ type machineInstanceUUID struct {
 	MachineUUID machine.UUID `db:"machine_uuid"`
 }
 
-type machineExistsUUID struct {
-	UUID  machine.UUID `db:"uuid"`
-	Count int          `db:"count"`
-}
-
 type count struct {
 	Count int64 `db:"count"`
 }

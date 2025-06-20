@@ -411,10 +411,12 @@ WHERE  machine_uuid = $machineUUID.uuid;`
 		var result instanceIDAndDisplayName
 		err := tx.Query(ctx, queryStmt, mUUIDParam).Get(&result)
 		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("machine: %q: %w", mUUID, machineerrors.NotProvisioned)
-			}
 			return errors.Errorf("querying display name for machine %q: %w", mUUID, err)
+		}
+		// The instance is not provisioned only if it has an empty instance ID.
+		// We always insert a record when creating the machine.
+		if result.ID == "" {
+			return errors.Errorf("machine: %q: %w", mUUID, machineerrors.NotProvisioned)
 		}
 
 		instanceID = result.ID

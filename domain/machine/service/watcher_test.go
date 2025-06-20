@@ -28,11 +28,11 @@ func TestMapperSuite(t *stdtesting.T) {
 func (s *mapperSuite) TestUuidToNameMapper(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	uuid0 := testing.GenUUID(c).String()
-	uuid1 := testing.GenUUID(c).String()
+	uuid0 := testing.GenUUID(c)
+	uuid1 := testing.GenUUID(c)
 
-	in := []string{uuid0, uuid1}
-	out := map[string]machine.Name{
+	in := []machine.UUID{uuid0, uuid1}
+	out := map[machine.UUID]machine.Name{
 		uuid0: machine.Name("0"),
 		uuid1: machine.Name("1"),
 	}
@@ -42,12 +42,12 @@ func (s *mapperSuite) TestUuidToNameMapper(c *tc.C) {
 		changeEventShim{
 			changeType: 1,
 			namespace:  "machine",
-			changed:    uuid0,
+			changed:    uuid0.String(),
 		},
 		changeEventShim{
 			changeType: 2,
 			namespace:  "machine",
-			changed:    uuid1,
+			changed:    uuid1.String(),
 		},
 	}
 
@@ -76,7 +76,7 @@ func (s *mapperSuite) getService() *WatchableService {
 	}
 }
 
-func (s *mapperSuite) expectGetNamesForUUIDs(in []string, out map[string]machine.Name) {
+func (s *mapperSuite) expectGetNamesForUUIDs(in []machine.UUID, out map[machine.UUID]machine.Name) {
 	s.state.EXPECT().GetNamesForUUIDs(gomock.Any(), in).Return(out, nil)
 }
 

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -151,9 +152,9 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 			},
 		},
 	}).Return(m1, nil)
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("666"), nil)
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("667/lxd/1"), nil)
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("667"), nil)
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), machineservice.CreateMachineArgs{})
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), machineservice.CreateMachineArgs{})
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), machineservice.CreateMachineArgs{})
 	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("22.04"),
 		Volumes: []state.HostVolumeParams{

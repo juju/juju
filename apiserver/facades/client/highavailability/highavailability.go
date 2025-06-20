@@ -199,7 +199,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	}
 
 	// Add the dqlite records for new machines.
-	for _ = range changes.Added {
+	for range changes.Added {
 		createMachineArgs := machineservice.CreateMachineArgs{}
 
 		if _, _, err := api.machineService.CreateMachine(ctx, createMachineArgs); err != nil {

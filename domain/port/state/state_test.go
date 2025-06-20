@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/port"
 	porterrors "github.com/juju/juju/domain/port/errors"
@@ -48,8 +49,8 @@ func TestStateSuite(t *stdtesting.T) {
 }
 
 var (
-	machineUUIDs = []string{"machine-0-uuid", "machine-1-uuid"}
-	netNodeUUIDs = []string{"net-node-0-uuid", "net-node-1-uuid"}
+	machineUUIDs []string
+	netNodeUUIDs []string
 	appNames     = []string{"app-zero", "app-one"}
 )
 
@@ -67,13 +68,30 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	err = machineSt.CreateMachine(c.Context(), "0", netNodeUUIDs[0], machine.UUID(machineUUIDs[0]), nil)
+
+	m0uuid, _, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineSt.CreateMachine(c.Context(), "1", netNodeUUIDs[1], machine.UUID(machineUUIDs[1]), nil)
+	m1uuid, _, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
+
+	machineUUIDs = []string{string(m0uuid), string(m1uuid)}
+	netNodeUUIDs = []string{s.getNetNodeUUID(c, m0uuid), s.getNetNodeUUID(c, m1uuid)}
 
 	s.appUUID = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")
 	s.unitUUID, s.unitName = s.createUnit(c, netNodeUUIDs[0], appNames[0])
+}
+
+func (s *baseSuite) getNetNodeUUID(c *tc.C, mUUID machine.UUID) string {
+	var netNodeUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM machine WHERE uuid = ?", mUUID).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return netNodeUUID
 }
 
 func (s *baseSuite) createApplicationWithRelations(c *tc.C, appName string, relations ...string) coreapplication.ID {

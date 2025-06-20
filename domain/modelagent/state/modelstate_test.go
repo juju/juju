@@ -9,7 +9,6 @@ import (
 	"crypto/sha512"
 	"database/sql"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -40,6 +39,7 @@ import (
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/modelagent"
@@ -59,28 +59,16 @@ func TestModelStateSuite(t *testing.T) {
 
 // addMachine is a testing utility function that adds a machine with a fixed
 // name to the model. The machine's UUID is generated and returned.
-func (s *modelStateSuite) addMachine(c *tc.C) string {
-	return s.addMachineWithName(c, machine.Name("6666"))
-}
-
-// addMachineWithName is a testing utility function that adds a machine to the
-// model using the supplied name. The machine's UUID is generated and returned.
-func (s *modelStateSuite) addMachineWithName(c *tc.C, name machine.Name) string {
+func (s *modelStateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
 	machineSt := machinestate.NewState(
 		s.TxnRunnerFactory(),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	uuid := coremachinetesting.GenUUID(c)
-	err := machineSt.CreateMachine(c.Context(), name, uuid.String(), uuid, nil)
+	machineUUID, machineName, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	st := NewState(s.TxnRunnerFactory())
-	machineUUID, err := st.GetMachineUUIDByName(c.Context(), name)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(machineUUID, tc.Equals, uuid.String())
-
-	return uuid.String()
+	return machineUUID, machineName
 }
 
 // addMachineWithBase adds a new machine to the model using the provided base.
@@ -395,14 +383,14 @@ func (s *modelStateSuite) TestGetModelAgentVersionCantParseVersion(c *tc.C) {
 // TestGetMachineTargetAgentVersion asserts the happy path of getting the target
 // agent version for machine that exists.
 func (s *modelStateSuite) TestGetMachineTargetAgentVersion(c *tc.C) {
-	machineUUID := s.addMachine(c)
-	s.setMachineAgentVersion(c, machineUUID, "4.0.0")
+	machineUUID, _ := s.addMachine(c)
+	s.setMachineAgentVersion(c, machineUUID.String(), "4.0.0")
 	s.setModelTargetAgentVersion(c, "4.0.1")
 
 	st := NewState(s.TxnRunnerFactory())
 	vers, err := st.GetMachineTargetAgentVersion(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(vers, tc.DeepEquals, coreagentbinary.Version{
@@ -415,24 +403,24 @@ func (s *modelStateSuite) TestGetMachineTargetAgentVersion(c *tc.C) {
 // agent version has been set we get back an error satisfying
 // [modelagenterrors.AgentVersionNotFound].
 func (s *modelStateSuite) TestGetMachineTargetAgentVersionTargetVersionNotSet(c *tc.C) {
-	machineUUID := s.addMachine(c)
-	s.setMachineAgentVersion(c, machineUUID, "4.0.0")
+	machineUUID, _ := s.addMachine(c)
+	s.setMachineAgentVersion(c, machineUUID.String(), "4.0.0")
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetMachineTargetAgentVersion(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 	)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
 func (s *modelStateSuite) TestGetMachineTargetAgentVersionCantParseVersion(c *tc.C) {
-	machineUUID := s.addMachine(c)
-	s.setMachineAgentVersion(c, machineUUID, "4.0.0")
+	machineUUID, _ := s.addMachine(c)
+	s.setMachineAgentVersion(c, machineUUID.String(), "4.0.0")
 	s.setModelTargetAgentVersion(c, "invalid-version")
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetMachineTargetAgentVersion(c.Context(), machineUUID)
+	_, err := st.GetMachineTargetAgentVersion(c.Context(), machineUUID.String())
 	c.Check(err, tc.ErrorMatches, `parsing machine .* agent version: invalid version "invalid-version".*`)
 }
 
@@ -441,11 +429,11 @@ func (s *modelStateSuite) TestGetMachineTargetAgentVersionCantParseVersion(c *tc
 // agent version for the machine we back an error satisfying
 // [modelagenterrors.AgentVersionNotFound].
 func (s *modelStateSuite) TestGetMachineTargetAgentVersionNotFound(c *tc.C) {
-	machineUUID := s.addMachine(c)
+	machineUUID, _ := s.addMachine(c)
 	s.setModelTargetAgentVersion(c, "4.0.1")
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetMachineTargetAgentVersion(c.Context(), machineUUID)
+	_, err := st.GetMachineTargetAgentVersion(c.Context(), machineUUID.String())
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
@@ -477,20 +465,20 @@ func (s *modelStateSuite) TestGetMachineRunningAgentBinaryVersionMachineNotFound
 // has not set it's running agent binary version and we ask for it we get back
 // an error satisfying [modelagenterrors.AgentVersionNotFound].
 func (s *modelStateSuite) TestGetMachineRunningAgentBinaryVersionNotFound(c *tc.C) {
-	machineUUID := s.addMachine(c)
+	machineUUID, _ := s.addMachine(c)
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetMachineRunningAgentBinaryVersion(c.Context(), machineUUID)
+	_, err := st.GetMachineRunningAgentBinaryVersion(c.Context(), machineUUID.String())
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
 // TestGetMachineRunningAgentBinaryVersion asserts the happy path.
 func (s *modelStateSuite) TestGetMachineRunningAgentBinaryVersion(c *tc.C) {
-	machineUUID := s.addMachine(c)
-	s.setMachineAgentVersion(c, machineUUID, "4.1.1")
+	machineUUID, _ := s.addMachine(c)
+	s.setMachineAgentVersion(c, machineUUID.String(), "4.1.1")
 
 	st := NewState(s.TxnRunnerFactory())
-	ver, err := st.GetMachineRunningAgentBinaryVersion(c.Context(), machineUUID)
+	ver, err := st.GetMachineRunningAgentBinaryVersion(c.Context(), machineUUID.String())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.DeepEquals, coreagentbinary.Version{
 		Number: semversion.MustParse("4.1.1"),
@@ -572,16 +560,15 @@ func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersionMachineNotFound
 }
 
 func (s *modelStateSuite) TestMachineSetRunningAgentBinaryVersionMachineDead(c *tc.C) {
-	machineUUID := coremachinetesting.GenUUID(c)
 	machineSt := machinestate.NewState(
 		s.TxnRunnerFactory(),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	err := machineSt.CreateMachine(c.Context(), "666", "", machineUUID, nil)
+	machineUUID, machineName, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = machineSt.SetMachineLife(c.Context(), "666", life.Dead)
+	err = machineSt.SetMachineLife(c.Context(), machineName, life.Dead)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -600,12 +587,12 @@ func (s *modelStateSuite) TestMachineSetRunningAgentBinaryVersionMachineDead(c *
 // architecture that isn't supported by the database we get back an error
 // that satisfies [coreerrors.NotValid].
 func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersionNotSupportedArch(c *tc.C) {
-	machineUUID := s.addMachine(c)
+	machineUUID, _ := s.addMachine(c)
 
 	st := NewState(s.TxnRunnerFactory())
 	err := st.SetMachineRunningAgentBinaryVersion(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
 			Arch:   corearch.Arch("noexist"),
@@ -617,12 +604,12 @@ func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersionNotSupportedArc
 // TestSetMachineRunningAgentBinaryVersion asserts setting the initial agent
 // binary version (happy path).
 func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersion(c *tc.C) {
-	machineUUID := s.addMachine(c)
+	machineUUID, _ := s.addMachine(c)
 
 	st := NewState(s.TxnRunnerFactory())
 	err := st.SetMachineRunningAgentBinaryVersion(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
 			Arch:   corearch.ARM64,
@@ -652,7 +639,7 @@ WHERE machine_uuid = ?
 		)
 	})
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(obtainedMachineUUID, tc.Equals, machineUUID)
+	c.Check(obtainedMachineUUID, tc.Equals, machineUUID.String())
 	c.Check(obtainedVersion, tc.Equals, jujuversion.Current.String())
 	c.Check(obtainedArch, tc.Equals, corearch.ARM64)
 }
@@ -660,12 +647,12 @@ WHERE machine_uuid = ?
 // TestSetMachineRunningAgentBinaryVersion asserts setting the initial agent
 // binary version (happy path) and then updating the value.
 func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersionUpdate(c *tc.C) {
-	machineUUID := s.addMachine(c)
+	machineUUID, _ := s.addMachine(c)
 
 	st := NewState(s.TxnRunnerFactory())
 	err := st.SetMachineRunningAgentBinaryVersion(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
 			Arch:   corearch.ARM64,
@@ -695,13 +682,13 @@ WHERE machine_uuid = ?
 		)
 	})
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(obtainedMachineUUID, tc.Equals, machineUUID)
+	c.Check(obtainedMachineUUID, tc.Equals, machineUUID.String())
 	c.Check(obtainedVersion, tc.Equals, jujuversion.Current.String())
 
 	// Update
 	err = st.SetMachineRunningAgentBinaryVersion(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
 			Arch:   corearch.ARM64,
@@ -847,12 +834,11 @@ func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionEmpty(c *tc.C) {
 // a machine that has no reported agent version in the database it appears in
 // the list returned.
 func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionUnreported(c *tc.C) {
-	notRegName := machine.Name("1")
-	regName := machine.Name("2")
-	s.addMachineWithName(c, notRegName)
-	regUUID := s.addMachineWithName(c, regName)
+	_, notRegName := s.addMachine(c)
+	regUUID, _ := s.addMachine(c)
+
 	s.setModelTargetAgentVersion(c, "4.0.1")
-	s.setMachineAgentVersion(c, regUUID, "4.0.1")
+	s.setMachineAgentVersion(c, regUUID.String(), "4.0.1")
 	st := NewState(s.TxnRunnerFactory())
 	list, err := st.GetMachinesNotAtTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
@@ -865,13 +851,12 @@ func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionUnreported(c *tc.C)
 // machine's agent version is behind that of the target for the model it is
 // reported in the list.
 func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionFallingBehind(c *tc.C) {
-	m1Name := machine.Name("1")
-	m2Name := machine.Name("2")
-	m1UUID := s.addMachineWithName(c, m1Name)
-	m2UUID := s.addMachineWithName(c, m2Name)
+	m1UUID, m1Name := s.addMachine(c)
+	m2UUID, m2Name := s.addMachine(c)
+
 	s.setModelTargetAgentVersion(c, "4.1.0")
-	s.setMachineAgentVersion(c, m1UUID, "4.0.1")
-	s.setMachineAgentVersion(c, m2UUID, "4.0.1")
+	s.setMachineAgentVersion(c, m1UUID.String(), "4.0.1")
+	s.setMachineAgentVersion(c, m2UUID.String(), "4.0.1")
 	st := NewState(s.TxnRunnerFactory())
 	list, err := st.GetMachinesNotAtTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
@@ -884,13 +869,12 @@ func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionFallingBehind(c *tc
 // machines are at the same version as that of the target model agent version
 // the list returned is empty.
 func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionAllUptoDate(c *tc.C) {
-	m1Name := machine.Name("1")
-	m2Name := machine.Name("2")
-	m1UUID := s.addMachineWithName(c, m1Name)
-	m2UUID := s.addMachineWithName(c, m2Name)
+	m1UUID, _ := s.addMachine(c)
+	m2UUID, _ := s.addMachine(c)
+
 	s.setModelTargetAgentVersion(c, "4.1.0")
-	s.setMachineAgentVersion(c, m1UUID, "4.1.0")
-	s.setMachineAgentVersion(c, m2UUID, "4.1.0")
+	s.setMachineAgentVersion(c, m1UUID.String(), "4.1.0")
+	s.setMachineAgentVersion(c, m2UUID.String(), "4.1.0")
 	st := NewState(s.TxnRunnerFactory())
 	list, err := st.GetMachinesNotAtTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
@@ -986,20 +970,18 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadata(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	expected := map[machine.Name]coreagentbinary.Metadata{}
 
-	for i := range 5 {
-		machineName := machine.Name(fmt.Sprintf("amd64-%d", i))
-		machineUUID := s.addMachineWithName(c, machineName)
+	for range 5 {
+		machineUUID, machineName := s.addMachine(c)
 		err := st.SetMachineRunningAgentBinaryVersion(
-			c.Context(), machineUUID, versionAMD64,
+			c.Context(), machineUUID.String(), versionAMD64,
 		)
 		c.Assert(err, tc.ErrorIsNil)
 		expected[machineName] = metaAMD64
 	}
-	for i := range 5 {
-		machineName := machine.Name(fmt.Sprintf("arm64-%d", i))
-		machineUUID := s.addMachineWithName(c, machineName)
+	for range 5 {
+		machineUUID, machineName := s.addMachine(c)
 		err := st.SetMachineRunningAgentBinaryVersion(
-			c.Context(), machineUUID, versionARM64,
+			c.Context(), machineUUID.String(), versionARM64,
 		)
 		c.Assert(err, tc.ErrorIsNil)
 		expected[machineName] = metaARM64
@@ -1027,18 +1009,16 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMachineNotSet(c *tc.
 
 	st := NewState(s.TxnRunnerFactory())
 
-	for i := range 5 {
-		machineName := machine.Name(fmt.Sprintf("amd64-%d", i))
-		machineUUID := s.addMachineWithName(c, machineName)
+	for range 5 {
+		machineUUID, _ := s.addMachine(c)
 		err := st.SetMachineRunningAgentBinaryVersion(
-			c.Context(), machineUUID, versionAMD64,
+			c.Context(), machineUUID.String(), versionAMD64,
 		)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	// This is our rogue machine with no agent version set.
-	machineName := machine.Name("amd64-6")
-	s.addMachineWithName(c, machineName)
+	s.addMachine(c)
 
 	data, err := st.GetMachinesAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSet)
@@ -1059,22 +1039,20 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMissingAgentBinary(c
 
 	st := NewState(s.TxnRunnerFactory())
 
-	for i := range 5 {
-		machineName := machine.Name(fmt.Sprintf("amd64-%d", i))
-		machineUUID := s.addMachineWithName(c, machineName)
+	for range 5 {
+		machineUUID, _ := s.addMachine(c)
 		err := st.SetMachineRunningAgentBinaryVersion(
-			c.Context(), machineUUID, versionAMD64,
+			c.Context(), machineUUID.String(), versionAMD64,
 		)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	// This is the machine that is running an agent version for which there
 	// exists no agent binaries in the store.
-	machineName := machine.Name("arm64-6")
-	machineUUID := s.addMachineWithName(c, machineName)
+	machineUUID, _ := s.addMachine(c)
 	err := st.SetMachineRunningAgentBinaryVersion(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.1.0"),
 			Arch:   corearch.ARM64,

@@ -13,11 +13,11 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/machine"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	porterrors "github.com/juju/juju/domain/port/errors"
 	"github.com/juju/juju/internal/logger"
@@ -51,10 +51,14 @@ func (s *updateUnitPortsSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
-	err = machineSt.CreateMachine(c.Context(), "0", netNodeUUIDs[0], machine.UUID(machineUUIDs[0]), nil)
+
+	m0uuid, _, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineSt.CreateMachine(c.Context(), "1", netNodeUUIDs[1], machine.UUID(machineUUIDs[1]), nil)
+	m1uuid, _, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
+
+	machineUUIDs = []string{string(m0uuid), string(m1uuid)}
+	netNodeUUIDs = []string{s.getNetNodeUUID(c, m0uuid), s.getNetNodeUUID(c, m1uuid)}
 
 	s.appUUID = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")
 	s.unitUUID, s.unitName = s.createUnit(c, netNodeUUIDs[0], appNames[0])

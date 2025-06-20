@@ -109,8 +109,12 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithPlatform(c *tc.C) {
 
 func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithNonce(c *tc.C) {
 	nonce := ptr("test-nonce")
-	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, PlaceMachineArgs{
+	var (
+		machineNames []machine.Name
+		err          error
+	)
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, machineNames, err = PlaceMachine(ctx, tx, s.st, PlaceMachineArgs{
 			Directive: deployment.Placement{
 				Type: deployment.PlacementTypeUnset,
 			},
@@ -120,7 +124,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithNonce(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.checkNonceForMachine(c, machine.Name("0"), nonce)
+	s.checkNonceForMachine(c, machineNames[0], nonce)
 }
 
 func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingArchitecture(c *tc.C) {
