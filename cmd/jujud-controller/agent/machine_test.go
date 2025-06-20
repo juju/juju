@@ -227,7 +227,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *tc.C) {
 func (s *MachineSuite) TestRunStop(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
 	done := make(chan error)
@@ -282,7 +282,7 @@ func (s *MachineSuite) setAgentVersion(c *tc.C, vers string) {
 
 func (s *MachineSuite) TestUpgradeRequest(c *tc.C) {
 	c.Skip("SetModelAgentVersion needs to be implemented a domain.")
-	m, _, currentTools := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
+	m, _, currentTools := s.primeAgent(c)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
 	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools, stubUpgrader{})
@@ -292,7 +292,7 @@ func (s *MachineSuite) TestUpgradeRequest(c *tc.C) {
 func (s *MachineSuite) TestNoUpgradeRequired(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
-	m, _, _ := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
 	done := make(chan error)
@@ -303,27 +303,27 @@ func (s *MachineSuite) TestNoUpgradeRequired(c *tc.C) {
 		c.Fatalf("timeout waiting for upgrade check")
 	}
 	defer a.Stop() // in case of failure
-	s.waitStopped(c, state.JobManageModel, a, done)
+	s.waitStopped(c, a, done)
 	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), tc.IsTrue)
 }
 
 func (s *MachineSuite) TestAgentSetsToolsVersionManageModel(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
-	s.assertAgentSetsToolsVersion(c, state.JobManageModel)
+	s.assertAgentSetsToolsVersion(c)
 }
 
 func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
-	s.assertAgentSetsToolsVersion(c, state.JobHostUnits)
+	s.assertAgentSetsToolsVersion(c)
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
 	go func() { c.Check(a.Run(nil), tc.ErrorIsNil) }()
@@ -366,7 +366,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *tc.C) {
 	s.PatchValue(&diskmanager.NewWorker, newWorker)
 
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
 	go func() { c.Check(a.Run(nil), tc.ErrorIsNil) }()
@@ -383,7 +383,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *tc.C) {
 	})
 
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
 	go func() { c.Check(a.Run(nil), tc.ErrorIsNil) }()
@@ -405,7 +405,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *tc.C) {
 func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c)
 
 	started := newSignal()
 	newWorker := func(config storageprovisioner.Config) (worker.Worker, error) {
@@ -426,7 +426,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *tc.C) {
 
 func (s *MachineSuite) TestCertificateDNSUpdated(c *tc.C) {
 	c.Skip("this should be an integration test and a unit test not this flaky thing")
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
+	m, _, _ := s.primeAgent(c)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
 	s.testCertificateDNSUpdated(c, a)
@@ -434,7 +434,7 @@ func (s *MachineSuite) TestCertificateDNSUpdated(c *tc.C) {
 
 func (s *MachineSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *tc.C) {
 	c.Skip("this should be an integration test and a unit test not this flaky thing")
-	m, agentConfig, _ := s.primeAgent(c, state.JobManageModel)
+	m, agentConfig, _ := s.primeAgent(c)
 
 	// Write out config with an invalid private key. This should
 	// cause the agent to rewrite the cert and key.
@@ -504,7 +504,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *tc.C) {
 	for _, expectedIgnoreValue := range []bool{true, false} {
 		ignoreAddressCh := s.setupIgnoreAddresses(c, expectedIgnoreValue)
 
-		m, _, _ := s.primeAgent(c, state.JobHostUnits)
+		m, _, _ := s.primeAgent(c)
 		ctrl, a := s.newAgent(c, m)
 		defer ctrl.Finish()
 		defer a.Stop()
@@ -521,7 +521,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *tc.C) {
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for the machiner to start")
 		}
-		s.waitStopped(c, state.JobHostUnits, a, doneCh)
+		s.waitStopped(c, a, doneCh)
 	}
 }
 
@@ -531,12 +531,11 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *tc.C) {
 	ignoreAddressCh := s.setupIgnoreAddresses(c, true)
 
 	st := s.ControllerModel(c).State()
-	parent, err := st.AddMachine(state.UbuntuBase("20.04"), state.JobHostUnits)
+	parent, err := st.AddMachine(state.UbuntuBase("20.04"))
 	c.Assert(err, tc.ErrorIsNil)
 	m, err := st.AddMachineInsideMachine(
 		state.MachineTemplate{
 			Base: state.UbuntuBase("22.04"),
-			Jobs: []state.MachineJob{state.JobHostUnits},
 		},
 		parent.Id(),
 		instance.LXD,
@@ -561,7 +560,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *tc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for the machiner to start")
 	}
-	s.waitStopped(c, state.JobHostUnits, a, doneCh)
+	s.waitStopped(c, a, doneCh)
 }
 
 func (s *MachineSuite) TestMachineWorkers(c *tc.C) {
@@ -573,7 +572,7 @@ func (s *MachineSuite) TestMachineWorkers(c *tc.C) {
 	instrumented := TrackMachines(c, tracker, iaasMachineManifolds)
 	s.PatchValue(&iaasMachineManifolds, instrumented)
 
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
 	go func() { c.Check(a.Run(cmdtesting.Context(c)), tc.ErrorIsNil) }()
@@ -589,7 +588,7 @@ func (s *MachineSuite) TestMachineWorkers(c *tc.C) {
 func (s *MachineSuite) TestReplicasetInitForNewController(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
+	m, _, _ := s.primeAgent(c)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
 
@@ -602,21 +601,9 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *tc.C) {
 	c.Assert(s.fakeEnsureMongo.InitiateCount, tc.Equals, 0)
 }
 
-func (s *MachineSuite) waitStopped(c *tc.C, job state.MachineJob, a *MachineAgent, done chan error) {
+func (s *MachineSuite) waitStopped(c *tc.C, a *MachineAgent, done chan error) {
 	err := a.Stop()
-	if job == state.JobManageModel {
-		// When shutting down, the API server can be shut down before
-		// the other workers that connect to it, so they get an error so
-		// they then die, causing Stop to return an error.  It's not
-		// easy to control the actual error that's received in this
-		// circumstance so we just log it rather than asserting that it
-		// is not nil.
-		if err != nil {
-			c.Logf("error shutting down state manager: %v", err)
-		}
-	} else {
-		c.Assert(err, tc.ErrorIsNil)
-	}
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case err := <-done:
@@ -626,7 +613,7 @@ func (s *MachineSuite) waitStopped(c *tc.C, job state.MachineJob, a *MachineAgen
 	}
 }
 
-func (s *MachineSuite) assertAgentSetsToolsVersion(c *tc.C, job state.MachineJob) {
+func (s *MachineSuite) assertAgentSetsToolsVersion(c *tc.C) {
 	s.PatchValue(&mongo.IsMaster, func(session *mgo.Session, obj mongo.WithAddresses) (bool, error) {
 		addr := obj.Addresses()
 		for _, a := range addr {
@@ -638,7 +625,7 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *tc.C, job state.MachineJob
 	})
 	vers := coretesting.CurrentVersion()
 	vers.Minor--
-	m, _, _ := s.primeAgentVersion(c, vers, job)
+	m, _, _ := s.primeAgentVersion(c, vers)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
 	ctx := cmdtesting.Context(c)

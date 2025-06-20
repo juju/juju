@@ -137,7 +137,6 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 
 	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("22.04"),
-		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{
 			{
 				Volume:     state.VolumeParams{Pool: "", Size: 1},
@@ -158,7 +157,6 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("667"), nil)
 	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("22.04"),
-		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{
 			{
 				Volume:     state.VolumeParams{Pool: "three", Size: 1},

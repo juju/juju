@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	jujujujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 )
 
 type bootstrapSuite struct {
@@ -199,7 +198,6 @@ func (s *bootstrapSuite) TestInitializeState(c *tc.C) {
 			StateInitializationParams: stateInitParams,
 			MongoDialOpts:             mongotest.DialOpts(),
 			BootstrapMachineAddresses: initialAddrs,
-			BootstrapMachineJobs:      []coremodel.MachineJob{coremodel.JobManageModel},
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   registry,
 			BootstrapDqlite: getBootstrapDqliteWithDummyCloudTypeWithAssertions(c,
@@ -233,7 +231,6 @@ func (s *bootstrapSuite) TestInitializeState(c *tc.C) {
 	m, err := st.Machine("0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(m.Id(), tc.Equals, "0")
-	c.Check(m.Jobs(), tc.DeepEquals, []state.MachineJob{state.JobManageModel})
 
 	base, err := corebase.ParseBase(m.Base().OS, m.Base().Channel)
 	c.Assert(err, tc.ErrorIsNil)
@@ -363,7 +360,6 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *tc.C) {
 			AdminUser:                 adminUser,
 			StateInitializationParams: args,
 			MongoDialOpts:             mongotest.DialOpts(),
-			BootstrapMachineJobs:      []coremodel.MachineJob{coremodel.JobManageModel},
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
 			BootstrapDqlite:           getBootstrapDqliteWithDummyCloudTypeWithAssertions(c),
@@ -397,31 +393,6 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *tc.C) {
 		_ = st.Close()
 	}
 	c.Assert(err, tc.ErrorIs, errors.AlreadyExists)
-}
-
-func (s *bootstrapSuite) TestMachineJobFromParams(c *tc.C) {
-	var tests = []struct {
-		name coremodel.MachineJob
-		want state.MachineJob
-		err  string
-	}{{
-		name: coremodel.JobHostUnits,
-		want: state.JobHostUnits,
-	}, {
-		name: coremodel.JobManageModel,
-		want: state.JobManageModel,
-	}, {
-		name: "invalid",
-		want: -1,
-		err:  `invalid machine job "invalid"`,
-	}}
-	for _, test := range tests {
-		got, err := agentbootstrap.MachineJobFromParams(test.name)
-		if err != nil {
-			c.Check(err, tc.ErrorMatches, test.err)
-		}
-		c.Check(got, tc.Equals, test.want)
-	}
 }
 
 func (s *bootstrapSuite) assertCanLogInAsAdmin(c *tc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, password string) {

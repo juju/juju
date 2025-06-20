@@ -351,7 +351,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			AdminUser:                 adminTag,
 			StateInitializationParams: args,
 			BootstrapMachineAddresses: addrs,
-			BootstrapMachineJobs:      agentConfig.Jobs(),
 			SharedSecret:              info.SharedSecret,
 			StorageProviderRegistry:   provider.NewStorageProviderRegistry(env),
 			MongoDialOpts:             dialOpts,

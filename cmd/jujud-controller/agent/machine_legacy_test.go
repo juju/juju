@@ -46,7 +46,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"github.com/juju/utils/v4/exec"
 	"github.com/juju/utils/v4/symlink"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -149,7 +148,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.assertJob(c, state.JobManageModel, nil, func(conf agent.Config, _ *MachineAgent) {
+	s.assertJob(c, nil, func(conf agent.Config, _ *MachineAgent) {
 		logPath := filepath.Join(conf.LogDir(), "audit.log")
 
 		makeAPIRequest := func(doRequest func(*apiclient.Client)) {
@@ -238,7 +237,7 @@ func (s *MachineLegacySuite) TestHostedModelWorkers(c *tc.C) {
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, s.DefaultModelUUID.String(),
 		append(alwaysModelWorkers, aliveModelWorkers...))
-	s.assertJob(c, state.JobManageModel, nil, func(agent.Config, *MachineAgent) {
+	s.assertJob(c, nil, func(agent.Config, *MachineAgent) {
 		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
 	})
 }
@@ -270,7 +269,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *t
 		set.NewStrings(requireValidCredentialModelWorkers...))
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, s.DefaultModelUUID.String(), remainingWorkers.SortedValues())
-	s.assertJob(c, state.JobManageModel, nil, func(agent.Config, *MachineAgent) {
+	s.assertJob(c, nil, func(agent.Config, *MachineAgent) {
 		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
 	})
 }
@@ -326,7 +325,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *t
 		set.NewStrings(requireValidCredentialModelWorkers...))
 	matcher := agenttest.NewWorkerMatcher(c, tracker, s.DefaultModelUUID.String(), remainingWorkers.SortedValues())
 
-	s.assertJob(c, state.JobManageModel, nil, func(agent.Config, *MachineAgent) {
+	s.assertJob(c, nil, func(agent.Config, *MachineAgent) {
 		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
 	})
 }
@@ -372,7 +371,7 @@ func (s *MachineLegacySuite) TestMigratingModelWorkers(c *tc.C) {
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, s.DefaultModelUUID.String(),
 		append(alwaysModelWorkers, migratingModelWorkers...))
-	s.assertJob(c, state.JobManageModel, nil, func(agent.Config, *MachineAgent) {
+	s.assertJob(c, nil, func(agent.Config, *MachineAgent) {
 		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
 	})
 }
@@ -384,7 +383,7 @@ func (s *MachineLegacySuite) TestDyingModelCleanedUp(c *tc.C) {
 	defer closer()
 
 	timeout := time.After(ReallyLongWait)
-	s.assertJob(c, state.JobManageModel, nil,
+	s.assertJob(c, nil,
 		func(agent.Config, *MachineAgent) {
 			m, err := st.Model()
 			c.Assert(err, tc.ErrorIsNil)
@@ -411,7 +410,7 @@ func (s *MachineLegacySuite) TestDyingModelCleanedUp(c *tc.C) {
 }
 
 func (s *MachineLegacySuite) TestMachineAgentSymlinks(c *tc.C) {
-	stm, _, _ := s.primeAgent(c, state.JobManageModel)
+	stm, _, _ := s.primeAgent(c)
 	ctrl, a := s.newAgent(c, stm)
 	defer ctrl.Finish()
 	defer a.Stop()
@@ -423,11 +422,11 @@ func (s *MachineLegacySuite) TestMachineAgentSymlinks(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil, tc.Commentf(link))
 	}
 
-	s.waitStopped(c, state.JobManageModel, a, done)
+	s.waitStopped(c, a, done)
 }
 
 func (s *MachineLegacySuite) TestMachineAgentSymlinkJujuExecExists(c *tc.C) {
-	stm, _, _ := s.primeAgent(c, state.JobManageModel)
+	stm, _, _ := s.primeAgent(c)
 	ctrl, a := s.newAgent(c, stm)
 	defer ctrl.Finish()
 	defer a.Stop()
@@ -451,13 +450,13 @@ func (s *MachineLegacySuite) TestMachineAgentSymlinkJujuExecExists(c *tc.C) {
 		c.Assert(linkTarget, tc.Not(tc.Equals), "/nowhere/special", tc.Commentf(link))
 	}
 
-	s.waitStopped(c, state.JobManageModel, a, done)
+	s.waitStopped(c, a, done)
 }
 
 func (s *MachineLegacySuite) TestManageModelServesAPI(c *tc.C) {
 	c.Skip("This test relies on pubsub to notify all workers that the apiserver details has changed. This needs to be an integration test, not a unit test.")
 
-	s.assertJob(c, state.JobManageModel, nil, func(conf agent.Config, a *MachineAgent) {
+	s.assertJob(c, nil, func(conf agent.Config, a *MachineAgent) {
 		apiInfo, ok := conf.APIInfo()
 		c.Assert(ok, tc.IsTrue)
 		st, err := api.Open(c.Context(), apiInfo, fastDialOpts)
@@ -481,7 +480,7 @@ func (s *MachineLegacySuite) TestControllerModelWorkers(c *tc.C) {
 	expectedWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, expectedWorkers)
-	s.assertJob(c, state.JobManageModel, nil,
+	s.assertJob(c, nil,
 		func(agent.Config, *MachineAgent) {
 			agenttest.WaitMatch(c, matcher.Check, longerWait)
 		},
@@ -500,43 +499,34 @@ func (s *MachineLegacySuite) TestModelWorkersRespectSingularResponsibilityFlag(c
 	s.PatchValue(&iaasModelManifolds, instrumented)
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, s.ControllerModelUUID(), alwaysModelWorkers)
-	s.assertJob(c, state.JobManageModel, nil, func(agent.Config, *MachineAgent) {
+	s.assertJob(c, nil, func(agent.Config, *MachineAgent) {
 		agenttest.WaitMatch(c, matcher.Check, longerWait)
 	})
 }
 
 func (s *MachineLegacySuite) assertJob(
 	c *tc.C,
-	job state.MachineJob,
 	preCheck func(),
 	postCheck func(agent.Config, *MachineAgent),
 ) {
-	paramsJob := job.ToParams()
-	if !paramsJob.NeedsState() {
-		c.Fatalf("%v does not use state", paramsJob)
-	}
-	s.assertAgentOpensState(c, job, preCheck, postCheck)
+	s.assertAgentOpensState(c, preCheck, postCheck)
 }
 
 // assertAgentOpensState asserts that a machine agent started with the
 // given job. The agent's configuration and the agent's state.State are
 // then passed to the test function for further checking.
 func (s *MachineLegacySuite) assertAgentOpensState(
-	c *tc.C, job state.MachineJob,
+	c *tc.C,
 	preCheck func(),
 	postCheck func(agent.Config, *MachineAgent),
 ) {
-	stm, conf, _ := s.primeAgent(c, job)
+	stm, conf, _ := s.primeAgent(c)
 	ctrl, a := s.newAgent(c, stm)
 	defer ctrl.Finish()
 	defer a.Stop()
 
 	if preCheck != nil {
 		preCheck()
-	} else if job == state.JobManageModel {
-		s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
-			Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
-		}).AnyTimes().Return(&exec.ExecResponse{Code: 0}, nil)
 	}
 
 	logger.Debugf(context.TODO(), "new agent %#v", a)
@@ -548,7 +538,7 @@ func (s *MachineLegacySuite) assertAgentOpensState(
 	if postCheck != nil {
 		postCheck(conf, a)
 	}
-	s.waitStopped(c, job, a, done)
+	s.waitStopped(c, a, done)
 }
 
 func (s *MachineLegacySuite) waitForOpenState(c *tc.C, a *MachineAgent) chan error {
@@ -593,21 +583,9 @@ func (s *MachineLegacySuite) setupNewModel(c *tc.C) (newSt *state.State, closer 
 	}
 }
 
-func (s *MachineLegacySuite) waitStopped(c *tc.C, job state.MachineJob, a *MachineAgent, done chan error) {
+func (s *MachineLegacySuite) waitStopped(c *tc.C, a *MachineAgent, done chan error) {
 	err := a.Stop()
-	if job == state.JobManageModel {
-		// When shutting down, the API server can be shut down before
-		// the other workers that connect to it, so they get an error so
-		// they then die, causing Stop to return an error.  It's not
-		// easy to control the actual error that's received in this
-		// circumstance so we just log it rather than asserting that it
-		// is not nil.
-		if err != nil {
-			c.Logf("error shutting down state manager: %v", err)
-		}
-	} else {
-		c.Assert(err, tc.ErrorIsNil)
-	}
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case err := <-done:

@@ -83,10 +83,9 @@ func (s *upgraderSuite) SetUpTest(c *tc.C) {
 	var err error
 	// The first machine created is the only one allowed to
 	// JobManageModel
-	s.apiMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits,
-		state.JobManageModel)
+	s.apiMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"))
 	c.Assert(err, tc.ErrorIsNil)
-	s.rawMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.rawMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The default auth is as the machine agent

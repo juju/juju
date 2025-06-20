@@ -27,15 +27,6 @@ import (
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
-func isController(mdoc *machineDoc) bool {
-	for _, j := range mdoc.Jobs {
-		if j == JobManageModel {
-			return true
-		}
-	}
-	return false
-}
-
 var errControllerNotAllowed = errors.New("controller jobs specified but not allowed")
 
 func (st *State) getVotingControllerCount() (int, error) {
@@ -249,11 +240,7 @@ func (st *State) enableHAIntentionOps(
 	for i := 0; i < intent.newCount; i++ {
 		placement, cons := getPlacementConstraints()
 		template := MachineTemplate{
-			Base: base,
-			Jobs: []MachineJob{
-				JobHostUnits,
-				JobManageModel,
-			},
+			Base:        base,
 			Constraints: cons,
 			Placement:   placement,
 		}
@@ -273,9 +260,7 @@ func (st *State) enableHAIntentionOps(
 		if err != nil {
 			return nil, ControllersChanges{}, nil, errors.Trace(err)
 		}
-		if isController(mdoc) {
-			controllerIds = append(controllerIds, mdoc.Id)
-		}
+		controllerIds = append(controllerIds, mdoc.Id)
 		ops = append(ops, addOps...)
 		change.Added = append(change.Added, mdoc.Id)
 		if controllerApp != nil {
@@ -375,9 +360,6 @@ func (st *State) enableHAIntentions(controllerIds []string, placement []string) 
 			if err != nil {
 				return nil, errors.Annotatef(err, "can't find machine for placement directive %q", s)
 			}
-			if m.IsManager() {
-				return nil, errors.Errorf("machine for placement directive %q is already a controller", s)
-			}
 			intent.convert = append(intent.convert, m)
 			continue
 		}
@@ -401,13 +383,6 @@ func (st *State) enableHAIntentions(controllerIds []string, placement []string) 
 
 func convertControllerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
-		C:  machinesC,
-		Id: m.doc.DocID,
-		Update: bson.D{
-			{"$addToSet", bson.D{{"jobs", JobManageModel}}},
-		},
-		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-	}, {
 		C:  controllersC,
 		Id: modelGlobalKey,
 		Update: bson.D{
@@ -440,12 +415,6 @@ func (st *State) getControllerNodeDoc(id string) (*controllerNodeDoc, error) {
 
 func (st *State) removeControllerReferenceOps(cid string, controllerIds []string) []txn.Op {
 	return []txn.Op{{
-		C:  machinesC,
-		Id: st.docID(cid),
-		Update: bson.D{
-			{"$pull", bson.D{{"jobs", JobManageModel}}},
-		},
-	}, {
 		C:      controllersC,
 		Id:     modelGlobalKey,
 		Assert: bson.D{{"controller-ids", controllerIds}},

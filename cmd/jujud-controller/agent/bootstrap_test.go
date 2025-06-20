@@ -339,23 +339,6 @@ func uint64p(v uint64) *uint64 {
 	return &v
 }
 
-func (s *BootstrapSuite) TestDefaultMachineJobs(c *tc.C) {
-	expectedJobs := []state.MachineJob{
-		state.JobManageModel,
-		state.JobHostUnits,
-	}
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, tc.ErrorIsNil)
-	err = cmd.Run(cmdtesting.Context(c))
-	c.Assert(err, tc.ErrorIsNil)
-
-	st, closer := s.getSystemState(c)
-	defer closer()
-	m, err := st.Machine("0")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(m.Jobs(), tc.DeepEquals, expectedJobs)
-}
-
 func (s *BootstrapSuite) TestInitialPassword(c *tc.C) {
 	machineConf, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, tc.ErrorIsNil)

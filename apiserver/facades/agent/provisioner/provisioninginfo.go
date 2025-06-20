@@ -25,6 +25,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	cloudimagemetadataerrors "github.com/juju/juju/domain/cloudimagemetadata/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs"
@@ -187,13 +188,20 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		return result, errors.Errorf("cannot get controller configuration: %w", err)
 	}
 
-	isController := false
-	jobs := m.Jobs()
-	result.Jobs = make([]model.MachineJob, len(jobs))
-	for i, job := range jobs {
-		result.Jobs[i] = job.ToParams()
-		isController = isController || result.Jobs[i].NeedsState()
+	isController, err := api.machineService.IsMachineController(ctx, machineName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return result, apiservererrors.ServerError(jujuerrors.NotFoundf("machine %q", machineName))
+	} else if err != nil {
+		return result, errors.Errorf("checking if machine %q is a controller: %w", machineName, err)
 	}
+
+	// Every machine can host units, we just need to check if it is a controller
+	// to determine if it can host models.
+	jobs := []model.MachineJob{model.JobHostUnits}
+	if isController {
+		jobs = append(jobs, model.JobManageModel)
+	}
+	result.Jobs = jobs
 
 	if result.Tags, err = api.machineTags(ctx, unitNames, machineName, isController, modelConfig, modelInfo); err != nil {
 		return result, errors.Capture(err)

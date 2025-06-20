@@ -28,12 +28,6 @@ type MachineTemplate struct {
 	// an instance for the machine.
 	Constraints constraints.Value
 
-	// Jobs holds the jobs to run on the machine's instance.
-	// A machine must have at least one job to do.
-	// JobManageModel can only be part of the jobs
-	// when the first (bootstrap) machine is added.
-	Jobs []MachineJob
-
 	// Addresses holds the addresses to be associated with the
 	// new machine.
 	//
@@ -133,11 +127,10 @@ func (st *State) AddMachineInsideMachine(
 // AddMachine adds a machine with the given series and jobs.
 // It is deprecated and around for testing purposes only.
 func (st *State) AddMachine(
-	base Base, jobs ...MachineJob,
+	base Base,
 ) (*Machine, error) {
 	ms, err := st.AddMachines(MachineTemplate{
 		Base: base,
-		Jobs: jobs,
 	})
 	if err != nil {
 		return nil, err
@@ -170,9 +163,6 @@ func (st *State) AddMachines(
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
 			return nil, errors.Trace(err)
-		}
-		if isController(mdoc) {
-			controllerIds = append(controllerIds, mdoc.Id)
 		}
 		ms = append(ms, newMachine(st, mdoc))
 		ops = append(ops, addOps...)
@@ -239,21 +229,6 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowController boo
 		}
 	}
 
-	if len(p.Jobs) == 0 {
-		return tmpl, errors.New("no jobs specified")
-	}
-	jset := make(map[MachineJob]bool)
-	for _, j := range p.Jobs {
-		if jset[j] {
-			return MachineTemplate{}, errors.Errorf("duplicate job: %s", j)
-		}
-		jset[j] = true
-	}
-	if jset[JobManageModel] {
-		if !allowController {
-			return tmpl, errControllerNotAllowed
-		}
-	}
 	return p, nil
 }
 
@@ -279,9 +254,6 @@ func (st *State) addMachineOps(
 
 	prereqOps = append(prereqOps, assertModelActiveOp(st.ModelUUID()))
 	prereqOps = append(prereqOps, insertNewContainerRefOp(st, mdoc.Id))
-	if isController(mdoc) {
-		prereqOps = append(prereqOps, addControllerNodeOp(st, mdoc.Id, false))
-	}
 
 	return mdoc, append(prereqOps, machineOp), nil
 }
@@ -432,7 +404,6 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 		Id:                      id,
 		ModelUUID:               st.ModelUUID(),
 		Base:                    base,
-		Jobs:                    template.Jobs,
 		Clean:                   !template.Dirty,
 		Principals:              template.principals,
 		Life:                    Alive,
