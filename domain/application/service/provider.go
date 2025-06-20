@@ -70,7 +70,6 @@ type ProviderService struct {
 func NewProviderService(
 	st State,
 	leaderEnsurer leadership.Ensurer,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider],
@@ -83,7 +82,6 @@ func NewProviderService(
 		Service: NewService(
 			st,
 			leaderEnsurer,
-			storageRegistryGetter,
 			charmStore,
 			statusHistory,
 			clock,

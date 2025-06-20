@@ -19,8 +19,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
-	coreobjectstore "github.com/juju/juju/core/objectstore"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -37,8 +35,6 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -158,9 +154,6 @@ func (s *baseSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *ap
 	return applicationservice.NewWatchableService(
 		applicationstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domaintesting.NoopLeaderEnsurer(),
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return provider.CommonStorageProviders()
-		}),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		nil,
 		providerGetter,
