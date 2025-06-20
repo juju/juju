@@ -35,26 +35,31 @@ type (
 	Providers []string
 )
 
-// These consts are used to specify nil filter terms.
-var (
-	NilNames     = Names(nil)
-	NilProviders = Providers(nil)
-)
+func deduplicateNamesOrProviders[T ~[]string](namesOrProviders T) T {
+	if len(namesOrProviders) == 0 {
+		return nil
+	}
+	// Ensure uniqueness and no empty values.
+	result := set.NewStrings()
+	for _, v := range namesOrProviders {
+		if v != "" {
+			result.Add(v)
+		}
+	}
+	if result.IsEmpty() {
+		return nil
+	}
+	return T(result.Values())
+}
 
 // Values returns the unique values of the Names.
 func (n Names) Values() []string {
-	if n == nil {
-		return nil
-	}
-	return set.NewStrings(n...).Values()
+	return deduplicateNamesOrProviders(n)
 }
 
 // Values returns the unique values of the Providers.
 func (p Providers) Values() []string {
-	if p == nil {
-		return nil
-	}
-	return set.NewStrings(p...).Values()
+	return deduplicateNamesOrProviders(p)
 }
 
 // BuiltInStoragePools returns the built in providers common to all.
