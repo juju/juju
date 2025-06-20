@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/domain/relation"
 	statusservice "github.com/juju/juju/domain/status/service"
@@ -188,12 +189,8 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		}
 	}
 	// These may be empty when machines have not finished deployment.
-	subnetInfos, err := c.networkService.GetAllSubnets(ctx)
-	if err != nil {
-		return noStatus, internalerrors.Errorf("could not fetch subnets: %w", err)
-	}
-	if context.ipAddresses, context.spaces, context.linkLayerDevices, err =
-		fetchNetworkInterfaces(c.stateAccessor, subnetInfos, context.spaceInfos); err != nil {
+	if context.ipAddresses, context.linkLayerDevices, context.spaces, err = fetchNetworkInterfaces(ctx,
+		c.networkService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch IP addresses and link layer devices: %w", err)
 	}
 	if context.relations, context.relationsByID, err = fetchRelations(ctx, c.relationService, c.statusService); err != nil {
@@ -406,13 +403,13 @@ type statusContext struct {
 	controllerNodes map[string]state.ControllerNode
 
 	// ipAddresses: machine id -> list of ip.addresses
-	ipAddresses map[string][]*state.Address
+	ipAddresses map[coremachine.Name][]domainnetwork.NetAddr
 
 	// spaces: machine id -> deviceName -> list of spaceNames
-	spaces map[string]map[string]set.Strings
+	spaces map[coremachine.Name]map[string]set.Strings
 
 	// linkLayerDevices: machine id -> list of linkLayerDevices
-	linkLayerDevices map[string][]*state.LinkLayerDevice
+	linkLayerDevices map[coremachine.Name][]domainnetwork.NetInterface
 
 	// allOpenPortRanges: all open port ranges in the model, grouped by unit name.
 	allOpenPortRanges port.UnitGroupedPortRanges
@@ -495,86 +492,51 @@ func fetchControllerNodes(st Backend) (map[string]state.ControllerNode, error) {
 	return v, nil
 }
 
-// fetchNetworkInterfaces returns maps from machine id to ip.addresses, machine
-// id to a map of interface names from space names, and machine id to
-// linklayerdevices.
-//
-// All are required to determine a machine's network interfaces configuration,
-// so we want all or none.
-func fetchNetworkInterfaces(st Backend, subnetInfos network.SubnetInfos, spaceInfos network.SpaceInfos) (map[string][]*state.Address,
-	map[string]map[string]set.Strings, map[string][]*state.LinkLayerDevice, error) {
-	ipAddresses := make(map[string][]*state.Address)
-	spacesPerMachine := make(map[string]map[string]set.Strings)
-	subnetsByCIDR := make(map[string]network.SubnetInfo)
-	for _, subnet := range subnetInfos {
-		subnetsByCIDR[subnet.CIDR] = subnet
+func fetchNetworkInterfaces(
+	ctx context.Context,
+	networkService NetworkService,
+) (
+	map[coremachine.Name][]domainnetwork.NetAddr,
+	map[coremachine.Name][]domainnetwork.NetInterface,
+	map[coremachine.Name]map[string]set.Strings,
+	error,
+) {
+	devices, err := networkService.GetAllDevicesByMachineNames(ctx)
+	if err != nil {
+		return nil, nil, nil, internalerrors.Errorf("fetching devices: %w", err)
 	}
 
-	// For every machine, track what devices have addresses so we can filter linklayerdevices later
-	devicesWithAddresses := make(map[string]set.Strings)
-	ipAddrs, err := st.AllIPAddresses()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	for _, ipAddr := range ipAddrs {
-		if ipAddr.LoopbackConfigMethod() {
-			continue
-		}
-		machineID := ipAddr.MachineID()
-		ipAddresses[machineID] = append(ipAddresses[machineID], ipAddr)
-		if subnet, ok := subnetsByCIDR[ipAddr.SubnetCIDR()]; ok {
-			spaceName := network.AlphaSpaceName
-			spaceInfo := spaceInfos.GetByID(subnet.SpaceID)
-			if spaceInfo != nil {
-				spaceName = spaceInfo.Name
+	// Remove loopback addresses
+	devices = transform.Map(devices, func(k coremachine.Name, v []domainnetwork.NetInterface) (coremachine.
+		Name,
+		[]domainnetwork.NetInterface) {
+		var filtered []domainnetwork.NetInterface
+		for _, dev := range v {
+			var nonLoopBack []domainnetwork.NetAddr
+			for _, addr := range dev.Addrs {
+				if addr.ConfigType == network.ConfigLoopback {
+					continue
+				}
+				nonLoopBack = append(nonLoopBack, addr)
 			}
-			if spaceName != "" {
-				devices, ok := spacesPerMachine[machineID]
-				if !ok {
-					devices = make(map[string]set.Strings)
-					spacesPerMachine[machineID] = devices
-				}
-				deviceName := ipAddr.DeviceName()
-				spacesSet, ok := devices[deviceName]
-				if !ok {
-					spacesSet = make(set.Strings)
-					devices[deviceName] = spacesSet
-				}
-				spacesSet.Add(spaceName.String())
+			if len(nonLoopBack) > 0 {
+				dev.Addrs = nonLoopBack
+				filtered = append(filtered, dev)
 			}
 		}
-		deviceSet, ok := devicesWithAddresses[machineID]
-		if ok {
-			deviceSet.Add(ipAddr.DeviceName())
-		} else {
-			devicesWithAddresses[machineID] = set.NewStrings(ipAddr.DeviceName())
-		}
-	}
+		return k, filtered
+	})
 
-	linkLayerDevices := make(map[string][]*state.LinkLayerDevice)
-	llDevs, err := st.AllLinkLayerDevices()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	for _, llDev := range llDevs {
-		if llDev.IsLoopbackDevice() {
-			continue
+	ipAddresses := transform.Map(devices, func(k coremachine.Name,
+		v []domainnetwork.NetInterface) (coremachine.Name, []domainnetwork.NetAddr) {
+		var allAddresses []domainnetwork.NetAddr
+		for _, dev := range v {
+			allAddresses = append(allAddresses, dev.Addrs...)
 		}
-		machineID := llDev.MachineID()
-		machineDevs, ok := devicesWithAddresses[machineID]
-		if !ok {
-			// This machine ID doesn't seem to have any devices with IP Addresses
-			continue
-		}
-		if !machineDevs.Contains(llDev.Name()) {
-			// this device did not have any IP Addresses
-			continue
-		}
-		// This device had an IP Address, so include it in the list of devices for this machine
-		linkLayerDevices[machineID] = append(linkLayerDevices[machineID], llDev)
-	}
+		return k, allAddresses
+	})
 
-	return ipAddresses, spacesPerMachine, linkLayerDevices, nil
+	return ipAddresses, devices, nil, nil
 }
 
 // fetchAllApplicationsAndUnits returns a map from application name to application,
@@ -754,9 +716,6 @@ func (c *statusContext) makeMachineStatus(
 	appStatusInfo applicationStatusInfo,
 ) (status params.MachineStatus) {
 	machineID := machine.Id()
-	ipAddresses := c.ipAddresses[machineID]
-	spaces := c.spaces[machineID]
-	linkLayerDevices := c.linkLayerDevices[machineID]
 
 	var err error
 	status.Id = machineID
@@ -810,62 +769,35 @@ func (c *statusContext) makeMachineStatus(
 		}
 		status.DNSName = addr.Value
 		status.Hostname = machine.Hostname()
-		mAddrs := machine.Addresses()
-		if len(mAddrs) == 0 {
-			logger.Debugf(ctx, "no IP addresses fetched for machine %q", instid)
-			// At least give it the newly created DNSName address, if it exists.
-			if addr.Value != "" {
-				mAddrs = append(mAddrs, addr)
-			}
-		}
-		for _, mAddr := range mAddrs {
+		for _, mAddr := range c.ipAddresses[coremachine.Name(machineID)] {
 			switch mAddr.Scope {
 			case network.ScopeMachineLocal, network.ScopeLinkLocal:
 				continue
 			}
-			status.IPAddresses = append(status.IPAddresses, mAddr.Value)
+			status.IPAddresses = append(status.IPAddresses, mAddr.AddressValue)
 		}
-		status.NetworkInterfaces = make(map[string]params.NetworkInterface, len(linkLayerDevices))
-		for _, llDev := range linkLayerDevices {
-			device := llDev.Name()
-			ips := []string{}
-			gw := []string{}
-			ns := []string{}
-			sp := make(set.Strings)
-			for _, ipAddress := range ipAddresses {
-				if ipAddress.DeviceName() != device {
-					continue
-				}
-				ips = append(ips, ipAddress.Value())
-				// We don't expect to find more than one
-				// ipAddress on a device with a list of
-				// nameservers, but append in any case.
-				if len(ipAddress.DNSServers()) > 0 {
-					ns = append(ns, ipAddress.DNSServers()...)
-				}
-				// There should only be one gateway per device
-				// (per machine, in fact, as we don't store
-				// metrics). If we find more than one we should
-				// show them all.
-				if ipAddress.GatewayAddress() != "" {
-					gw = append(gw, ipAddress.GatewayAddress())
-				}
-				// There should only be one space per address,
-				// but it's technically possible to have more
-				// than one address on an interface. If we find
-				// that happens, we need to show all spaces, to
-				// be safe.
-				sp = spaces[device]
-			}
-			status.NetworkInterfaces[device] = params.NetworkInterface{
-				IPAddresses:    ips,
-				MACAddress:     llDev.MACAddress(),
-				Gateway:        strings.Join(gw, " "),
-				DNSNameservers: ns,
-				Space:          strings.Join(sp.Values(), " "),
-				IsUp:           llDev.IsUp(),
+		if len(status.IPAddresses) == 0 {
+			logger.Debugf(ctx, "no IP addresses fetched for machine %q", instid)
+			// At least give it the newly created DNSName address, if it exists.
+			if addr.Value != "" {
+				status.IPAddresses = append(status.IPAddresses, addr.Value)
 			}
 		}
+
+		linkLayerDevices := c.linkLayerDevices[coremachine.Name(machineID)]
+		status.NetworkInterfaces = transform.SliceToMap(linkLayerDevices, func(llDev domainnetwork.NetInterface) (string, params.NetworkInterface) {
+			spaces := set.NewStrings()
+			for _, addr := range llDev.Addrs {
+				spaces.Add(addr.Space)
+			}
+			return llDev.Name, params.NetworkInterface{
+				IPAddresses:    transform.Slice(llDev.Addrs, func(net domainnetwork.NetAddr) string { return net.AddressValue }),
+				MACAddress:     unptr(llDev.MACAddress),
+				Gateway:        unptr(llDev.GatewayAddress),
+				DNSNameservers: llDev.DNSAddresses,
+				Space:          strings.Join(spaces.Values(), " "),
+				IsUp:           llDev.IsEnabled}
+		})
 		logger.Tracef(ctx, "NetworkInterfaces: %+v", status.NetworkInterfaces)
 	} else {
 		status.InstanceId = "pending"
@@ -1415,4 +1347,13 @@ func encodeOSType(ostype deployment.OSType) (string, error) {
 	default:
 		return "", internalerrors.Errorf("unknown os type %q", ostype)
 	}
+}
+
+// unptr dereferences a pointer of type T and returns its value.
+// Returns the zero value of T if the pointer is nil.
+func unptr[T any](ptr *T) (v T) {
+	if ptr == nil {
+		return
+	}
+	return *ptr
 }

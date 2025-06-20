@@ -257,3 +257,161 @@ func (s *netConfigSuite) TestSetProviderNetConfig(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+// TestGetAllDevicesByMachineNamesMultipleMachinesWithDevices validates fetching
+// devices for multiple machines with linked devices.
+// It ensures devices are correctly mapped to machine names using mocked
+// storage layer behavior.
+func (s *netConfigSuite) TestGetAllDevicesByMachineNamesMultipleMachinesWithDevices(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	eth01 := network.NetInterface{Name: "eth0", MACAddress: ptr("00:11:22:33:44:55")}
+	eth02 := network.NetInterface{Name: "eth0", MACAddress: ptr("aa:bb:cc:dd:ee:ff")}
+	eth1 := network.NetInterface{Name: "eth1", MACAddress: ptr("00:11:22:33:44:66")}
+
+	// Mock AllMachinesAndNetNodes to return a map of machine names to node UUIDs
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(map[string]string{
+		"machine-0": "node-uuid-1",
+		"machine-1": "node-uuid-2",
+	}, nil)
+
+	// Mock GetAllLinkLayerDevicesByNetNodeUUIDs to return devices for each node UUID
+	s.st.EXPECT().GetAllLinkLayerDevicesByNetNodeUUIDs(gomock.Any()).Return(map[string][]network.NetInterface{
+		"node-uuid-1": {eth01, eth02},
+		"node-uuid-2": {eth1},
+	}, nil)
+
+	// Act
+	result, err := s.service(c).GetAllDevicesByMachineNames(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 2)
+	c.Assert(result["machine-0"], tc.SameContents, []network.NetInterface{eth01, eth02})
+	c.Assert(result["machine-1"], tc.SameContents, []network.NetInterface{eth1})
+}
+
+// TestGetAllDevicesByMachineNamesEmptyResult verifies that the method handles
+// an empty result scenario correctly.
+// It tests the case where AllMachinesAndNetNodes and
+// GetAllLinkLayerDevicesByNetNodeUUIDs return empty results.
+// Ensures no errors occur and the output is an empty map.
+func (s *netConfigSuite) TestGetAllDevicesByMachineNamesEmptyResult(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	// Mock AllMachinesAndNetNodes to return an empty map
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(map[string]string{}, nil)
+
+	// Mock GetAllLinkLayerDevicesByNetNodeUUIDs to return an empty map
+	s.st.EXPECT().GetAllLinkLayerDevicesByNetNodeUUIDs(gomock.Any()).Return(map[string][]network.NetInterface{}, nil)
+
+	// Act
+	result, err := s.service(c).GetAllDevicesByMachineNames(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 0)
+}
+
+// TestGetAllDevicesByMachineNamesMachinesWithNoDevices tests retrieving devices
+// for machines when one machine has no associated devices.
+// It validates behavior when machines are mapped but one has an empty device
+// list, ensuring correctness of the returned data structure.
+func (s *netConfigSuite) TestGetAllDevicesByMachineNamesMachinesWithNoDevices(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	eth0 := network.NetInterface{Name: "eth0", MACAddress: ptr("00:11:22:33:44:55")}
+	// Mock AllMachinesAndNetNodes to return a map with machines
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(map[string]string{
+		"machine-0": "node-uuid-1",
+		"machine-1": "node-uuid-2",
+	}, nil)
+
+	// Mock GetAllLinkLayerDevicesByNetNodeUUIDs to return devices for only one node
+	s.st.EXPECT().GetAllLinkLayerDevicesByNetNodeUUIDs(gomock.Any()).Return(map[string][]network.NetInterface{
+		"node-uuid-1": {eth0},
+		// No devices for node-uuid-2
+	}, nil)
+
+	// Act
+	result, err := s.service(c).GetAllDevicesByMachineNames(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 2)
+	c.Assert(result["machine-0"], tc.SameContents, []network.NetInterface{eth0})
+	c.Assert(result["machine-1"], tc.HasLen, 0) // Empty slice for machine-1
+}
+
+// TestGetAllDevicesByMachineNamesGetDevicesError validates error handling when
+// GetAllLinkLayerDevicesByNetNodeUUIDs fails.
+func (s *netConfigSuite) TestGetAllDevicesByMachineNamesGetDevicesError(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	// Mock GetAllLinkLayerDevicesByNetNodeUUIDs to return an error
+	s.st.EXPECT().GetAllLinkLayerDevicesByNetNodeUUIDs(gomock.Any()).Return(nil, errors.New("database connection failed"))
+
+	// Act
+	result, err := s.service(c).GetAllDevicesByMachineNames(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "retrieving devices by node UUIDs: database connection failed")
+	c.Assert(result, tc.IsNil)
+}
+
+// TestGetAllDevicesByMachineNamesGetMachinesError verifies the behavior when
+// retrieving machine names to UUIDs fails.
+func (s *netConfigSuite) TestGetAllDevicesByMachineNamesGetMachinesError(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	// Mock GetAllLinkLayerDevicesByNetNodeUUIDs to succeed
+	s.st.EXPECT().GetAllLinkLayerDevicesByNetNodeUUIDs(gomock.Any()).Return(map[string][]network.NetInterface{}, nil)
+
+	// Mock AllMachinesAndNetNodes to return an error
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nil, errors.New("database query failed"))
+
+	// Act
+	result, err := s.service(c).GetAllDevicesByMachineNames(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "retrieving machine names to UUIDs: database query failed")
+	c.Assert(result, tc.IsNil)
+}
+
+// TestGetAllDevicesByMachineNamesNodeUUIDNotFound validates the behavior when
+// node UUIDs are not found for the given machines.
+func (s *netConfigSuite) TestGetAllDevicesByMachineNamesNodeUUIDNotFound(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	// Mock AllMachinesAndNetNodes to return a map with machines
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(map[string]string{
+		"machine-0": "node-uuid-1",
+		"machine-1": "node-uuid-2",
+	}, nil)
+
+	// Mock GetAllLinkLayerDevicesByNetNodeUUIDs to return devices for a different node UUID
+	s.st.EXPECT().GetAllLinkLayerDevicesByNetNodeUUIDs(gomock.Any()).Return(map[string][]network.NetInterface{
+		"node-uuid-3": {
+			{Name: "eth0", MACAddress: ptr("00:11:22:33:44:55")},
+		},
+	}, nil)
+
+	// Act
+	result, err := s.service(c).GetAllDevicesByMachineNames(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 2)
+	c.Assert(result["machine-0"], tc.HasLen, 0) // Empty slice for machine-0
+	c.Assert(result["machine-1"], tc.HasLen, 0) // Empty slice for machine-1
+}
+
+func ptr[T any](v T) *T {
+	return &v
+}
