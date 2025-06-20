@@ -115,8 +115,11 @@ type Config struct {
 	// should only be used for testing.
 	WatchMachineNotify func(tag names.MachineTag)
 	// FlushModelNotify is called when the Firewaller flushes it's model.
-	// This should only be used for testing
+	// This should only be used for testing.
 	FlushModelNotify func()
+	// SkipFlushModelNotify is called when the Firewaller skips flushing it's model.
+	// This should only be used for testing.
+	SkipFlushModelNotify func()
 }
 
 // Validate returns an error if cfg cannot drive a Worker.
@@ -189,8 +192,9 @@ type Firewaller struct {
 	cloudCallContextFunc common.CloudCallContextFunc
 
 	// Only used for testing
-	watchMachineNotify func(tag names.MachineTag)
-	flushModelNotify   func()
+	watchMachineNotify   func(tag names.MachineTag)
+	flushModelNotify     func()
+	skipFlushModelNotify func()
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -235,6 +239,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		cloudCallContextFunc: common.NewCloudCallContextFunc(cfg.CredentialAPI),
 		watchMachineNotify:   cfg.WatchMachineNotify,
 		flushModelNotify:     cfg.FlushModelNotify,
+		skipFlushModelNotify: cfg.SkipFlushModelNotify,
 	}
 
 	switch cfg.Mode {
@@ -255,6 +260,10 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	return fw, nil
+}
+
+func (fw *Firewaller) NeedsToFlushModel() bool {
+	return fw.needsToFlushModel
 }
 
 func (fw *Firewaller) setUp() error {
@@ -1108,6 +1117,9 @@ func (fw *Firewaller) flushModel() error {
 	// Model specific artefacts shouldn't be created until the model contains at least one machine.
 	if len(fw.machineds) == 0 {
 		fw.needsToFlushModel = true
+		if fw.skipFlushModelNotify != nil {
+			fw.skipFlushModelNotify()
+		}
 		fw.logger.Debugf("skipping flushing model because there are no machines for this model")
 		return nil
 	}
