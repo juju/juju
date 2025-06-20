@@ -90,9 +90,9 @@ func IsQualifiedModelName(name string) bool {
 	return strings.ContainsRune(name, '/')
 }
 
-// SplitModelName splits a qualified model name into the model and namespace
+// SplitFullyQualifiedModelName splits a qualified model name into the model and namespace
 // name components.
-func SplitModelName(name string) (string, string, error) {
+func SplitFullyQualifiedModelName(name string) (string, string, error) {
 	i := strings.IndexRune(name, '/')
 	if i < 0 {
 		return "", "", errors.NotValidf("unqualified model name %q", name)

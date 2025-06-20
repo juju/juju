@@ -231,7 +231,9 @@ func (c *replCommand) getPrompt() (prompt string, err error) {
 	if userName != "" {
 		controllerName = userName + "@" + controllerName
 		if jujuclient.IsQualifiedModelName(modelName) {
-			baseModelName, qualifier, _ := jujuclient.SplitModelName(modelName)
+			baseModelName, qualifier, _ := jujuclient.SplitFullyQualifiedModelName(modelName)
+			// If the logged in username matches the model qualifier,
+			// we can mask out the qualifier in the display prompt.
 			if model.QualifierFromUserTag(names.NewUserTag(userName)).String() == qualifier {
 				modelName = baseModelName
 			}

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/jujuclient"
@@ -139,7 +140,7 @@ func (c *accessCommand) Init(args []string) error {
 		maybeModelName := arg
 		if jujuclient.IsQualifiedModelName(maybeModelName) {
 			var err error
-			maybeModelName, _, err = jujuclient.SplitModelName(maybeModelName)
+			maybeModelName, _, err = jujuclient.SplitFullyQualifiedModelName(maybeModelName)
 			if err != nil {
 				return errors.Annotatef(err, "validating model name %q", maybeModelName)
 			}
@@ -248,7 +249,7 @@ func (c *grantCommand) Run(ctx *cmd.Context) error {
 		return c.runForModel(ctx)
 	}
 	if len(c.OfferURLs) > 0 {
-		if err := setUnsetUsers(c, c.OfferURLs); err != nil {
+		if err := setUnsetQualifiers(c, c.OfferURLs); err != nil {
 			return errors.Trace(err)
 		}
 		return c.runForOffers(ctx)
@@ -367,7 +368,7 @@ func (c *revokeCommand) Run(ctx *cmd.Context) error {
 		return c.runForModel(ctx)
 	}
 	if len(c.OfferURLs) > 0 {
-		if err := setUnsetUsers(c, c.OfferURLs); err != nil {
+		if err := setUnsetQualifiers(c, c.OfferURLs); err != nil {
 			return errors.Trace(err)
 		}
 		return c.runForOffers(ctx)
@@ -403,9 +404,9 @@ type accountDetailsGetter interface {
 	CurrentAccountDetails() (*jujuclient.AccountDetails, error)
 }
 
-// setUnsetUsers sets any empty user entries in the given offer URLs
+// setUnsetQualifiers sets any empty qualifier entries in the given offer URLs
 // to the currently logged in user.
-func setUnsetUsers(c accountDetailsGetter, offerURLs []*crossmodel.OfferURL) error {
+func setUnsetQualifiers(c accountDetailsGetter, offerURLs []*crossmodel.OfferURL) error {
 	var currentAccountDetails *jujuclient.AccountDetails
 	for _, url := range offerURLs {
 		if url.ModelQualifier != "" {
@@ -418,7 +419,8 @@ func setUnsetUsers(c accountDetailsGetter, offerURLs []*crossmodel.OfferURL) err
 				return errors.Trace(err)
 			}
 		}
-		url.ModelQualifier = currentAccountDetails.User
+		// The qualifier is derived from the username.
+		url.ModelQualifier = model.QualifierFromUserTag(names.NewUserTag(currentAccountDetails.User)).String()
 	}
 	return nil
 }

@@ -160,7 +160,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	unqualifiedModelName, qualifier, err := jujuclient.SplitModelName(modelName)
+	unqualifiedModelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(modelName)
 	if err != nil {
 		return errors.Trace(err)
 	}

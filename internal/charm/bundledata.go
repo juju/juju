@@ -552,6 +552,8 @@ var (
 	validOfferRegexp       = regexp.MustCompile(`(/?((?P<qualifier>[^/]+)/)?(?P<model>[^.]*)(\.(?P<application>[^:]*(:.*)?))?)?`)
 )
 
+// removeURLSource removes the source controller
+// from an offer URL if the URL specifies it.
 func removeURLSource(urlStr string) string {
 	parts := strings.Split(urlStr, ":")
 	switch len(parts) {

@@ -68,6 +68,10 @@ type ModelCommand interface {
 	// It may be a model name, or a full or partial model UUID.
 	ModelIdentifier() (string, error)
 
+	// ModelNameWithQualifier returns the target model name
+	// and qualifier.
+	ModelNameWithQualifier() (string, string, error)
+
 	// ModelType returns the type of the model.
 	ModelType(context.Context) (model.ModelType, error)
 
@@ -210,6 +214,27 @@ func (c *ModelCommandBase) ModelIdentifier() (string, error) {
 		return "", errors.Trace(err)
 	}
 	return c._modelIdentifier, nil
+}
+
+// ModelNameWithQualifier returns the current model name
+// with its qualifier if it has one.
+func (c *ModelCommandBase) ModelNameWithQualifier() (string, string, error) {
+	modelIdent, err := c.ModelIdentifier()
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	currentModel, _, err := c.modelFromStore(c._controllerName, modelIdent)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	if !jujuclient.IsQualifiedModelName(currentModel) {
+		return currentModel, "", nil
+	}
+	modelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(currentModel)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	return modelName, qualifier, nil
 }
 
 // ModelType implements the ModelCommand interface.

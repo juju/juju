@@ -18,6 +18,7 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("MigrationMaster", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newMigrationMasterFacadeV4(stdCtx, ctx)
 	}, reflect.TypeOf((*APIV4)(nil)))
+	// v5 handles requests with a model qualifier instead of a model owner.
 	registry.MustRegister("MigrationMaster", 5, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newMigrationMasterFacade(stdCtx, ctx)
 	}, reflect.TypeOf((*API)(nil)))

@@ -113,7 +113,7 @@ func (c *whoAmICommand) Run(ctx *cmd.Context) error {
 	}
 	// Only qualify model name if there is a current model.
 	if modelName != "" {
-		if unqualifiedModelName, qualifier, err := jujuclient.SplitModelName(modelName); err == nil {
+		if unqualifiedModelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(modelName); err == nil {
 			user := names.NewUserTag(userDetails.User)
 			modelName = common.OwnerQualifiedModelName(unqualifiedModelName, qualifier, user)
 		}

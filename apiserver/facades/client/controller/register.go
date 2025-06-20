@@ -24,6 +24,7 @@ func Register(registry facade.FacadeRegistry) {
 		}
 		return api, nil
 	}, reflect.TypeOf((*ControllerAPIV12)(nil)))
+	// v13 handles requests with a model qualifier instead of a model owner.
 	registry.MustRegisterForMultiModel("Controller", 13, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		api, err := makeControllerAPI(stdCtx, ctx)
 		if err != nil {

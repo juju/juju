@@ -167,7 +167,7 @@ func (c *offerCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	unqualifiedModelName, qualifier, err := jujuclient.SplitModelName(c.QualifiedModelName)
+	unqualifiedModelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(c.QualifiedModelName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -209,7 +209,7 @@ func (c *offerCommand) parseEndpoints(controllerName, arg string) error {
 		}
 	} else if modelNameArg != "" {
 		c.QualifiedModelName = modelNameArg
-		modelName, _, err = jujuclient.SplitModelName(modelNameArg)
+		modelName, _, err = jujuclient.SplitFullyQualifiedModelName(modelNameArg)
 		if err != nil {
 			return errors.Trace(err)
 		}
