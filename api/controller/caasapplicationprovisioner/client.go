@@ -17,7 +17,6 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
@@ -140,7 +139,7 @@ type ProvisioningInfo struct {
 	APIAddresses         []string
 	CACert               string
 	Tags                 map[string]string
-	Constraints          constraints.Value
+	Constraints          params.Value
 	CharmConstraints     params.CharmValue
 	Filesystems          []storage.KubernetesFilesystemParams
 	Devices              []devices.KubernetesDeviceParams

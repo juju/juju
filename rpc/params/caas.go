@@ -7,7 +7,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/docker"
@@ -123,6 +122,12 @@ type Value struct {
 	ImageID *string `json:"image-id,omitempty" yaml:"image-id,omitempty"`
 }
 
+// HasRootDiskSource returns true if the constraints.Value specifies a
+// source for its root disk.
+func (v *Value) HasRootDiskSource() bool {
+	return v.RootDiskSource != nil && *v.RootDiskSource != ""
+}
+
 // CharmValue defines the memory resource constraints for Kubernetes-based workloads.
 type CharmValue struct {
 	MemRequest uint64
@@ -135,7 +140,7 @@ type CAASApplicationProvisioningInfo struct {
 	Version              version.Number               `json:"version"`
 	APIAddresses         []string                     `json:"api-addresses"`
 	CACert               string                       `json:"ca-cert"`
-	Constraints          constraints.Value            `json:"constraints"`
+	Constraints          Value                        `json:"constraints"`
 	CharmConstraints     CharmValue                   `json:"charmconstraints"`
 	Tags                 map[string]string            `json:"tags,omitempty"`
 	Filesystems          []KubernetesFilesystemParams `json:"filesystems,omitempty"`

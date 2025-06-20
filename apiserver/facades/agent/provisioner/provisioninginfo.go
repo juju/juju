@@ -35,7 +35,6 @@ import (
 // ProvisioningInfo returns the provisioning information for each given machine entity.
 // It supports all positive space constraints.
 func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResults, error) {
-	logger.Infof("alvin provisioningInfo apiserver called")
 	result := params.ProvisioningInfoResults{
 		Results: make([]params.ProvisioningInfoResult, len(args.Entities)),
 	}
@@ -63,7 +62,6 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
 			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, allSpaceInfos)
-			logger.Infof("alvin provisioning info charmconstraints for machine %s: %+v", tag.Id(), result.Results[i].Result.CharmConstraints)
 		}
 
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -126,10 +124,28 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 		EndpointBindings: endpointBindings,
 	}
 
-	var err error
-	if result.Constraints, err = m.Constraints(); err != nil {
+	machineCons, err := m.Constraints()
+	if err != nil {
 		return result, errors.Trace(err)
 	}
+	cons := params.Value{
+		Arch:             machineCons.Arch,
+		Container:        machineCons.Container,
+		CpuCores:         machineCons.CpuCores,
+		CpuPower:         machineCons.CpuPower,
+		Mem:              machineCons.Mem,
+		RootDisk:         machineCons.RootDisk,
+		RootDiskSource:   machineCons.RootDiskSource,
+		Tags:             machineCons.Tags,
+		InstanceRole:     machineCons.InstanceRole,
+		InstanceType:     machineCons.InstanceType,
+		Spaces:           machineCons.Spaces,
+		VirtType:         machineCons.VirtType,
+		Zones:            machineCons.Zones,
+		AllocatePublicIP: machineCons.AllocatePublicIP,
+		ImageID:          machineCons.ImageID,
+	}
+	result.Constraints = cons
 
 	// Hardcode charm mem constraints to 64Mi, limit to 256Mi.
 	result.CharmConstraints = params.CharmValue{

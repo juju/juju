@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -194,6 +195,25 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		containers[k] = container
 	}
 
+	paramCons := provisionInfo.Constraints
+	cons := constraints.Value{
+		Arch:             paramCons.Arch,
+		Container:        paramCons.Container,
+		CpuCores:         paramCons.CpuCores,
+		CpuPower:         paramCons.CpuPower,
+		Mem:              paramCons.Mem,
+		RootDisk:         paramCons.RootDisk,
+		RootDiskSource:   paramCons.RootDiskSource,
+		Tags:             paramCons.Tags,
+		InstanceRole:     paramCons.InstanceRole,
+		InstanceType:     paramCons.InstanceType,
+		Spaces:           paramCons.Spaces,
+		VirtType:         paramCons.VirtType,
+		Zones:            paramCons.Zones,
+		AllocatePublicIP: paramCons.AllocatePublicIP,
+		ImageID:          paramCons.ImageID,
+	}
+
 	// TODO(sidecar): container.Mounts[*].Path <= consolidate? => provisionInfo.Filesystems[*].Attachment.Path
 	config := caas.ApplicationConfig{
 		IsPrivateImageRepo:   provisionInfo.ImageDetails.IsPrivate(),
@@ -203,7 +223,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		ControllerAddresses:  strings.Join(provisionInfo.APIAddresses, ","),
 		ControllerCertBundle: provisionInfo.CACert,
 		ResourceTags:         provisionInfo.Tags,
-		Constraints:          provisionInfo.Constraints,
+		Constraints:          cons,
 		CharmConstraints:     provisionInfo.CharmConstraints,
 		Filesystems:          provisionInfo.Filesystems,
 		Devices:              provisionInfo.Devices,

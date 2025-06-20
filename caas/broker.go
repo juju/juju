@@ -146,10 +146,6 @@ type ServiceParams struct {
 	// the workload containers.
 	Constraints constraints.Value
 
-	// CharmConstraints is a set of constraints on
-	// the charm container.
-	CharmsConstraints constraints.Value
-
 	// Filesystems is a set of parameters for filesystems that should be created.
 	Filesystems []storage.KubernetesFilesystemParams
 

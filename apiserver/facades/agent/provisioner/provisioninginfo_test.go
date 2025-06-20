@@ -47,6 +47,24 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 2000, Pool: "static-pool"}},
 		},
 	}
+	machineCons := template.Constraints
+	paramCons := params.Value{
+		Arch:             machineCons.Arch,
+		Container:        machineCons.Container,
+		CpuCores:         machineCons.CpuCores,
+		CpuPower:         machineCons.CpuPower,
+		Mem:              machineCons.Mem,
+		RootDisk:         machineCons.RootDisk,
+		RootDiskSource:   machineCons.RootDiskSource,
+		Tags:             machineCons.Tags,
+		InstanceRole:     machineCons.InstanceRole,
+		InstanceType:     machineCons.InstanceType,
+		Spaces:           machineCons.Spaces,
+		VirtType:         machineCons.VirtType,
+		Zones:            machineCons.Zones,
+		AllocatePublicIP: machineCons.AllocatePublicIP,
+		ImageID:          machineCons.ImageID,
+	}
 	placementMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -78,7 +96,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 			{Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
 				Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
-				Constraints:      template.Constraints,
+				Constraints:      paramCons,
 				Placement:        template.Placement,
 				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
@@ -172,6 +190,24 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 		Constraints: cons,
 		Placement:   "valid",
 	}
+	machineCons := template.Constraints
+	paramCons := params.Value{
+		Arch:             machineCons.Arch,
+		Container:        machineCons.Container,
+		CpuCores:         machineCons.CpuCores,
+		CpuPower:         machineCons.CpuPower,
+		Mem:              machineCons.Mem,
+		RootDisk:         machineCons.RootDisk,
+		RootDiskSource:   machineCons.RootDiskSource,
+		Tags:             machineCons.Tags,
+		InstanceRole:     machineCons.InstanceRole,
+		InstanceType:     machineCons.InstanceType,
+		Spaces:           machineCons.Spaces,
+		VirtType:         machineCons.VirtType,
+		Zones:            machineCons.Zones,
+		AllocatePublicIP: machineCons.AllocatePublicIP,
+		ImageID:          machineCons.ImageID,
+	}
 	placementMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -187,7 +223,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 	expected := &params.ProvisioningInfo{
 		ControllerConfig: s.ControllerConfig,
 		Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
-		Constraints:      template.Constraints,
+		Constraints:      paramCons,
 		Placement:        template.Placement,
 		Jobs:             []model.MachineJob{model.JobHostUnits},
 		Tags: map[string]string{
@@ -208,8 +244,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 			},
 		},
 		CharmConstraints: params.CharmValue{
-			MemRequest: uintPtr(caas.CharmMemRequestMi),
-			MemLimit:   uintPtr(caas.CharmMemLimitMi),
+			MemRequest: caas.CharmMemRequestMi,
+			MemLimit:   caas.CharmMemLimitMi,
 		},
 	}
 
@@ -604,12 +640,32 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg := s.ControllerConfig
+
+	machineCons := template.Constraints
+	paramCons := params.Value{
+		Arch:             machineCons.Arch,
+		Container:        machineCons.Container,
+		CpuCores:         machineCons.CpuCores,
+		CpuPower:         machineCons.CpuPower,
+		Mem:              machineCons.Mem,
+		RootDisk:         machineCons.RootDisk,
+		RootDiskSource:   machineCons.RootDiskSource,
+		Tags:             machineCons.Tags,
+		InstanceRole:     machineCons.InstanceRole,
+		InstanceType:     machineCons.InstanceType,
+		Spaces:           machineCons.Spaces,
+		VirtType:         machineCons.VirtType,
+		Zones:            machineCons.Zones,
+		AllocatePublicIP: machineCons.AllocatePublicIP,
+		ImageID:          machineCons.ImageID,
+	}
+
 	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
 				Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
-				Constraints:      template.Constraints,
+				Constraints:      paramCons,
 				Placement:        template.Placement,
 				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
