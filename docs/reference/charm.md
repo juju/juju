@@ -5,7 +5,6 @@
 
 ```{toctree}
 :hidden:
-charm/charm-development-best-practices
 charm/charm-maturity
 ```
 
@@ -85,8 +84,6 @@ A **proxy charm** is a {ref}`configurator charm <configurator-charm>` where the 
 Examples:
 
 - [Parca Scrape Target](https://charmhub.io/parca-scrape-target)
-- [Prometheus Scrape Target](https://charmhub.io/prometheus-scrape-target)
-- [Prometheus Scrape Config](https://charmhub.io/prometheus-scrape-config)
 
 (integrator-charm)=
 #### Integrator
@@ -185,7 +182,7 @@ A **Reactive charm** is a charm developed using the [Reactive](https://charmsrea
 
 
 Examples:
-- [Prometheus2](https://charmhub.io/prometheus2) (obsolete; replaced by [Prometheus K8s](charmhub.io/prometheus-k8s))
+- [Prometheus2](https://charmhub.io/prometheus2) (obsolete; replaced by [Prometheus K8s](https://charmhub.io/prometheus-k8s))
 - [Telegraf](https://charmhub.io/telegraf)
 - [Canonical Livepatch](https://charmhub.io/canonical-livepatch) (no longer maintained)
 

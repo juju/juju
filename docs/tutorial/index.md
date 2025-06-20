@@ -206,7 +206,7 @@ Congratulations, your chat service is up and running!
 
 
 
-> See more: {ref}`set-up-your-deployment-environment`, {ref}`manage-juju`, {ref}`manage-clouds`, {ref}`manage-credentials`, {ref}`manage-controllers`, {ref}`manage-models`, {ref}`manage-applications`
+> See more: {ref}`set-things-up`, {ref}`manage-juju`, {ref}`manage-clouds`, {ref}`manage-credentials`, {ref}`manage-controllers`, {ref}`manage-models`, {ref}`manage-applications`
 
 ```{dropdown} Look around
 

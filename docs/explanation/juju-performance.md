@@ -14,7 +14,7 @@ Juju is intuitive. To deploy an application, run `juju deploy`. To configure it,
 
 In Juju, application integration is a first-class citizen: To integrate, run `juju integrate`.  With 160+ intuitive CLI commands, any operation is just one command line away.
 
-> See more: {ref}`list-of-juju-cli-commands`
+> See more: {ref}`List of juju CLI commands <list-of-juju-cli-commands>`
 
 - **Optimizable.**
 

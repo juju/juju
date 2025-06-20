@@ -444,7 +444,7 @@ juju debug-code --at=hook <unit>
 
 > See more: {ref}`command-juju-debug-code`
 
-- Debug a flow: Use [`jhack`](https://snapcraft.io/jhack) (esp. [`jhack sync`](https://github.com/canonical/jhack#sync)), [`rsync`](https://linux.die.net/man/1/rsync), {ref}`command-juju-ssh`.
+- Debug a flow: Use [`jhack`](https://snapcraft.io/jhack) (esp. [`jhack sync`](https://github.com/canonical/jhack#sync)), {manpage}`rsync(1)`, {ref}`command-juju-ssh`.
 
 
 `````{dropdown} Tips

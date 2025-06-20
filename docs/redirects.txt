@@ -1,5 +1,6 @@
 # <old URL> <new URL>
 
+reference/charm/charm-development-best-practices/ reference/charm
 # redirects after updating landing pages
 explanation/performance-with-juju explanation/juju-performance
 reference/juju/juju-architecture explanation/juju-architecture

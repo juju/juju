@@ -602,7 +602,7 @@ Juju, by default, uses the slow-changing 'released' images when provisioning mac
 (model-config-logging-config)=
 ## `logging-config`
 
-`logging-config` is the configuration string to use when configuring Juju agent logging (see [this link](http://godoc.org/github.com/juju/loggo#ParseConfigurationString) for details).
+`logging-config` is the configuration string to use when configuring Juju agent logging (see [this link](https://pkg.go.dev/github.com/juju/loggo#ParseConfigString) for details).
 
 **Type:** string
 

@@ -8,9 +8,9 @@
 *
 ```
 
-> See also: [How to write a unit test](/doc/dev/how-to/write-a-unit-test.md)
+> See also: {ref}`write-a-unit-test`
 
-Unit testing `juju` currently involves the [`gocheck` package]( https://labix.org/gocheck) and the `go test` CLI
+Unit testing `juju` currently involves the [`gocheck` package](https://labix.org/gocheck) and the `go test` CLI
 command.
 
 A typical unit testing package is placed alongside the code package that you want to test (in the same directory) and
@@ -23,10 +23,10 @@ consists of:
   files. In this way, for the tests and only the tests, additional variables and functions can be defined for the
   package and used in the tests.
 
-<!--Even though it's part of the `magic` package rather than the `test` package, we call it `_test` because Juju ignores all files with `_test`. This file acts like a bridge between the two packages. 
+<!--Even though it's part of the `magic` package rather than the `test` package, we call it `_test` because Juju ignores all files with `_test`. This file acts like a bridge between the two packages.
 -->
 
-- Test files of the form `<code filename>_test.go`, which are collections of unit test suites.
+- Test files of the form `<code filename>_test.go`, which are collections of {ref}`unit test suites <unit-test-suite>`.
 
 <!--
 github.com/juju/juju/provider/magic:
@@ -45,8 +45,3 @@ github.com/juju/juju/provider/magic:
 
 -->
 <!-- to provide a checkers and assert methods for the test writers.**-->
-
-> See more:
-> - [Unit test suite](unit-test-suite.md)
-    >     - [Util suite](util-suite)
-> - [Checker](checker.md)

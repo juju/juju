@@ -320,7 +320,7 @@ For an offline (to be more precise, proxy-restricted) deployment:
     - [http://cloud-images.ubuntu.com](http://cloud-images.ubuntu.com/) for base Ubuntu cloud machine images, and [http://archive.ubuntu.com](http://archive.ubuntu.com/) and [http://security.ubuntu.com](http://security.ubuntu.com/) for machine image upgrades;
     - a container image registry:
         - [https://hub.docker.com/](https://hub.docker.com/)
-        - [https://public.ecr.aws/juju](htttps://public.ecr.aws/juju)
+        - [https://gallery.ecr.aws/juju](https://gallery.ecr.aws/juju) (in Juju provide it as "public.ecr.aws")
         - [https://ghcr.io/juju](https://ghcr.io/juju)
 
 
@@ -700,7 +700,7 @@ $ multipass delete --purge my-juju-vm
 
 Uninstall Multipass.
 
-> See more: [Multipass | Uninstall Multipass](https://multipass.run/docs/install-multipass#uninstall)
+> See more: [Multipass | Uninstall Multipass](https://documentation.ubuntu.com/multipass/en/latest/how-to-guides/install-multipass/#uninstall)
 
 `````
 
@@ -741,7 +741,7 @@ multipass delete --purge charm-dev-vm
 
 Then uninstall Multipass.
 
-> See more: [Multipass | Uninstall Multipass](https://multipass.run/docs/install-multipass#uninstall)
+> See more: [Multipass | Uninstall Multipass](https://documentation.ubuntu.com/multipass/en/latest/how-to-guides/install-multipass/#uninstall)
 
 `````
 

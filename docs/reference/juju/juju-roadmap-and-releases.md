@@ -26,7 +26,7 @@ ADD WHEN FIXED.
 -->
 
 <!--TEMPLATE (>= 3.6.7)
-### 🔸 **Juju 3.6.X**  
+### 🔸 **Juju 3.6.X**
 🗓️ <DATE>  <--leave this as TBC until released into stable!
 
 ⚙️ Features:
@@ -1234,7 +1234,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 ### 🔸 **Juju 2.9.17** - 27 Oct 2021
 
-This release introduces [telemetry](https://discourse.charmhub.io/t/telemetry-and-juju/5188) as a configurable option per model.
+This release introduces {ref}`telemetry` as a configurable option per model.
 It also supports [more OCI image registry providers](https://discourse.charmhub.io/t/initial-private-registry-support/5079) for pulling images used for CAAS models.
 
 🛠️ Fixes:

@@ -123,26 +123,30 @@ and vice versa.
 These are initially specified in the environments.yaml file (and then subsequently copied to the
 jenv file when the model is bootstrapped). For images, use "image-metadata-url"; for agent binaries,
 use "agent-metadata-url". The URLs can point to a world readable container/bucket in the cloud,
-an address served by a http server, or even a shared directory accessible by all node instances
+an address served by an HTTP server, or even a shared directory accessible by all node instances
 running in the cloud.
 
-eg assume an Apache http server with base URL https://juju-metadata, providing access to
-information at <base>/images and <base>/tools. The Juju model yaml file could have
+For example, assume an Apache HTTP server with base URL `https://juju-metadata`, providing access to
+information at `<base>/images` and `<base>/tools`. The Juju model yaml file could have
 the following entries (one or both):
 
+```text
 agent-metadata-url: https://juju-metadata/tools
 image-metadata-url: https://juju-metadata/images
+```
 
 The required files in each location is as per the directory layout described earlier.
-For a shared directory, use a URL of the form "file:///sharedpath".
+For a shared directory, use a URL of the form `file:///sharedpath`.
 
 3. Provider specific storage
 
 Providers may allow additional locations to search for metadata and agent binaries. For Openstack, keystone
 endpoints may be created by the cloud administrator. These are defined as follows:
 
+```text
 juju-tools      : the <path_url> value as described above in Tools Metadata Contents
 product-streams : the <path_url> value as described above in Image Metadata Contents
+```
 
 4. Central web location (https://streams.canonical.com/juju)
 
@@ -172,7 +176,7 @@ A summary of the overall workflow is (more detail next):
 - generate image metadata to local directory
 - optionally download agent binaries to local directory/tools
 Then either
-- juju bootstrap --metadata-source <local_directory>
+- juju bootstrap --metadata-source `<local dir>`
 or
 - optionally, copy image metadata to somewhere in the metadata search path
 - optionally, mirror agent binaries to somewhere in the metadata search path
@@ -189,7 +193,7 @@ when several Juju models are to be deployed on a private cloud and the metadata 
 1. Image metadata
 
 Generate image metadata using
-  juju metadata generate-image -d <metadata_dir>
+  juju metadata generate-image -d `<metadata dir>`
 
 As a minimum, the above command needs to know the image id to use and a directory in which to write the files.
 Other required parameters like region, series, architecture etc are taken from the current Juju model (or
@@ -202,10 +206,10 @@ json files are ready to use. These can be uploaded to a location in the Juju met
 
 Examples:
 1. image-metadata-url
- - upload contents of <metadata_dir> to http://somelocation
- - set image-metadata-url to http://somelocation/images
+ - upload contents of `<metadata directory>` to `http://<somelocation>`
+ - set image-metadata-url to `http://<somelocation/images>`
 2. bootstrap option
- - juju bootstrap --metadata-source <metadata_dir>
+ - juju bootstrap --metadata-source `<metadata dir>`
 
 To ensure that the image metadata has been generated and uploaded correctly, use the validation command to
 ensure an image id can be discovered for a given scenario (region series, arch):
@@ -220,19 +224,19 @@ in the model config.
 
 Generally, agent binaries and related metadata are mirrored from https://streams.canonical.com/juju/tools. However,
 it is possible to manually generate metadata for a custom built agent binary tarball using:
-  juju generate-agent-binaries -d <metadata_dir> --stream <stream>
+  juju generate-agent-binaries -d `<metadata dir>` --stream <stream>
 
-where the required agent binary tarballs are first placed in a directory <metadata_dir>/tools/<stream>.
+where the required agent binary tarballs are first placed in a directory `<metadata dir>/tools/<stream>`.
 If unspecified, <stream> defaults to "released".
-Then, the contents of <metadata_dir> can be uploaded to a location in the Juju metadata search path or the
+Then, the contents of `<metadata dir>` can be uploaded to a location in the Juju metadata search path or the
 bootstrap --metadata-source option may be used.
 
 Examples:
 1. agent-metadata-url
- - upload contents of <metadata_dir> to http://somelocation
- - set agent-metadata-url to http://somelocation/tools
+ - upload contents of <metadata dir> to `http://<somelocation>`
+ - set agent-metadata-url to `http://<somelocation>tools`
 2. bootstrap option
- - juju bootstrap --metadata-source <tools_dir>
+ - juju bootstrap --metadata-source `<tools dir>`
 
 Note that image and agent metadata are generally written into the same local directory and the bootstrap
 --metadata-source option will upload both types of metadata.
