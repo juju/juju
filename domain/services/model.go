@@ -226,7 +226,6 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
 		domain.NewLeaseService(s.leaseManager),
 		s.storageRegistry,
-		s.modelUUID,
 		s.modelWatcherFactory("application"),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),

@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -1492,14 +1491,11 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *tc.C) *gomock.Controller 
 		}
 	})
 
-	modelUUID := modeltesting.GenModelUUID(c)
-
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewWatchableService(
 		s.state,
 		domaintesting.NoopLeaderEnsurer(),
 		registry,
-		modelUUID,
 		s.watcherFactory,
 		nil,
 		nil,

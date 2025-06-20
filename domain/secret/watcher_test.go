@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
@@ -973,7 +972,6 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
-		model.UUID(s.ModelUUID()),
 		nil,
 		func(ctx context.Context) (applicationservice.Provider, error) {
 			return serviceProvider{}, nil
