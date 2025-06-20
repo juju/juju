@@ -20,14 +20,11 @@ import (
 	coreusertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/testing"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 // TODO update these tests (moved from apiserver) to test
 // via the public interface, and then get rid of export_test.go.
 type agentAuthenticatorSuite struct {
-	statetesting.StateSuite
-
 	authenticator              *Authenticator
 	entityAuthenticator        *MockEntityAuthenticator
 	agentAuthenticatorGetter   *MockAgentAuthenticatorGetter
@@ -159,7 +156,7 @@ func (s *agentAuthenticatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agentPasswordServiceGetter.EXPECT().GetAgentPasswordServiceForModel(gomock.Any(), gomock.Any()).Return(s.agentPasswordService, nil)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil).AnyTimes()
 
 	s.accessService = NewMockAccessService(ctrl)
 
