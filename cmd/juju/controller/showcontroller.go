@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/pki"
@@ -551,17 +550,4 @@ func (c *showControllerCommand) convertMachinesForShow(
 		details := MachineDetails{InstanceID: instId}
 		nodes[m.Id] = details
 	}
-}
-
-func haStatus(hasVote bool, wantsVote bool, statusStr string) string {
-	if statusStr == string(status.Down) {
-		return "down, lost connection"
-	}
-	if !wantsVote {
-		return ""
-	}
-	if hasVote {
-		return "ha-enabled"
-	}
-	return "ha-pending"
 }

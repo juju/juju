@@ -323,18 +323,3 @@ func (api *MachinerAPI) canModify(tag string, authChecker common.AuthFunc) (name
 	}
 	return mTag, nil
 }
-
-func (api *MachinerAPI) getMachine(tag string, authChecker common.AuthFunc) (*state.Machine, error) {
-	mtag, err := names.ParseMachineTag(tag)
-	if err != nil {
-		return nil, apiservererrors.ErrPerm
-	} else if !authChecker(mtag) {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	entity, err := api.st.FindEntity(mtag)
-	if err != nil {
-		return nil, err
-	}
-	return entity.(*state.Machine), nil
-}
