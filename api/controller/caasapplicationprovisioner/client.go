@@ -136,19 +136,20 @@ func (c *Client) WatchProvisioningInfo(applicationName string) (watcher.NotifyWa
 
 // ProvisioningInfo holds the info needed to provision an operator.
 type ProvisioningInfo struct {
-	Version              version.Number
-	APIAddresses         []string
-	CACert               string
-	Tags                 map[string]string
-	Constraints          constraints.Value
-	Filesystems          []storage.KubernetesFilesystemParams
-	Devices              []devices.KubernetesDeviceParams
-	Base                 corebase.Base
-	ImageDetails         resources.DockerImageDetails
-	CharmModifiedVersion int
-	CharmURL             *charm.URL
-	Trust                bool
-	Scale                int
+	Version                   version.Number
+	APIAddresses              []string
+	CACert                    string
+	Tags                      map[string]string
+	Constraints               constraints.Value
+	Filesystems               []storage.KubernetesFilesystemParams
+	FilesystemUnitAttachments map[string][]storage.KubernetesFilesystemUnitAttachmentParams
+	Devices                   []devices.KubernetesDeviceParams
+	Base                      corebase.Base
+	ImageDetails              resources.DockerImageDetails
+	CharmModifiedVersion      int
+	CharmURL                  *charm.URL
+	Trust                     bool
+	Scale                     int
 }
 
 // ProvisioningInfo returns the info needed to provision an operator for an application.
@@ -186,6 +187,7 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		Trust:                r.Trust,
 		Scale:                r.Scale,
 	}
+
 	for _, fs := range r.Filesystems {
 		f, err := filesystemFromParams(fs)
 		if err != nil {
@@ -193,6 +195,12 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		}
 		info.Filesystems = append(info.Filesystems, *f)
 	}
+
+	fsUnitAttachments, err := filesystemUnitAttachmentsFromParams(r.FilesystemUnitAttachments)
+	if err != nil {
+		return info, errors.Trace(err)
+	}
+	info.FilesystemUnitAttachments = fsUnitAttachments
 
 	for _, device := range r.Devices {
 		info.Devices = append(info.Devices, devices.KubernetesDeviceParams{
@@ -209,7 +217,6 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		}
 		info.CharmURL = charmURL
 	}
-
 	return info, nil
 }
 
@@ -233,6 +240,7 @@ func filesystemFromParams(in params.KubernetesFilesystemParams) (*storage.Kubern
 }
 
 func filesystemAttachmentFromParams(in params.KubernetesFilesystemAttachmentParams) (*storage.KubernetesFilesystemAttachmentParams, error) {
+
 	return &storage.KubernetesFilesystemAttachmentParams{
 		AttachmentParams: storage.AttachmentParams{
 			Provider: storage.ProviderType(in.Provider),
@@ -240,6 +248,29 @@ func filesystemAttachmentFromParams(in params.KubernetesFilesystemAttachmentPara
 		},
 		Path: in.MountPoint,
 	}, nil
+}
+
+func filesystemUnitAttachmentsFromParams(in map[string][]params.KubernetesFilesystemUnitAttachmentParams) (map[string][]storage.KubernetesFilesystemUnitAttachmentParams, error) {
+	k8sFsUnitAttachmentParams := make(map[string][]storage.KubernetesFilesystemUnitAttachmentParams)
+	for storageName, params := range in {
+		for _, p := range params {
+			unitTag, err := names.ParseTag(p.UnitTag)
+			if err != nil {
+				return nil, err
+			}
+			if k8sFsUnitAttachmentParams[storageName] == nil {
+				k8sFsUnitAttachmentParams[storageName] = []storage.KubernetesFilesystemUnitAttachmentParams{}
+			}
+			k8sFsUnitAttachmentParams[storageName] = append(
+				k8sFsUnitAttachmentParams[storageName],
+				storage.KubernetesFilesystemUnitAttachmentParams{
+					UnitTag:  unitTag,
+					VolumeId: p.VolumeId,
+				},
+			)
+		}
+	}
+	return k8sFsUnitAttachmentParams, nil
 }
 
 // SetOperatorStatus updates the provisioning status of an operator.

@@ -3,6 +3,8 @@
 
 package storage
 
+import "github.com/juju/names/v5"
+
 // KubernetesFilesystemParams is a fully specified set of parameters for filesystem creation,
 // derived from one or more of user-specified storage constraints, a
 // storage pool definition, and charm storage metadata.
@@ -56,4 +58,22 @@ type KubernetesFilesystemInfo struct {
 
 	// Size is the size of the filesystem in MiB.
 	Size uint64
+}
+
+type KubernetesFilesystemUnitAttachmentParams struct {
+	UnitTag  names.Tag
+	VolumeId string
+}
+
+type KubernetesVolumeParams struct {
+	StorageName string
+	Size        uint64
+	Provider    ProviderType
+	Attributes  map[string]interface{}
+	Tags        map[string]string
+	Attachment  *KubernetesVolumeAttachmentParams
+}
+
+type KubernetesVolumeAttachmentParams struct {
+	VolumeAttachmentParams
 }

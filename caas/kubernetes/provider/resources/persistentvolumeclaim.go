@@ -134,3 +134,34 @@ func (pvc *PersistentVolumeClaim) ComputeStatus(ctx context.Context, client kube
 	}
 	return string(pvc.Status.Phase), status.Waiting, now, nil
 }
+
+// Validate pvc namespace, annotations, and labels.
+func (pvc *PersistentVolumeClaim) Validate(
+	namespace string,
+	annotations map[string]string,
+	labels map[string]string,
+) error {
+	if pvc.ObjectMeta.Namespace != namespace {
+		return errors.NotValidf(
+			"PVC %q unexpected Namespace: %q, want %q;",
+			pvc.ObjectMeta.Name, pvc.ObjectMeta.Namespace, namespace,
+		)
+	}
+	for key, val := range annotations {
+		if annotation, ok := pvc.ObjectMeta.Annotations[key]; !ok || annotation != val {
+			return errors.NotValidf(
+				"PVC %q unexpected annotation: %q, want %q;",
+				pvc.ObjectMeta.Name, annotation, val,
+			)
+		}
+	}
+	for key, val := range labels {
+		if label, ok := pvc.ObjectMeta.Labels[key]; !ok || label != val {
+			return errors.NotValidf(
+				"PVC %q unexpected label: %q, want %q;",
+				pvc.ObjectMeta.Name, label, val,
+			)
+		}
+	}
+	return nil
+}
