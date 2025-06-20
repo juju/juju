@@ -20,12 +20,14 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/rpc/params"
@@ -39,6 +41,9 @@ type AgentPasswordService interface {
 	SetUnitPassword(context.Context, unit.Name, string) error
 	// SetMachinePassword sets the password hash for the given machine.
 	SetMachinePassword(context.Context, machine.Name, string) error
+	// IsMachineController returns whether the machine is a controller machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	IsMachineController(ctx context.Context, machineName machine.Name) (bool, error)
 }
 
 // ControllerConfigService is the interface that gets ControllerConfig form DB.
@@ -69,23 +74,35 @@ type ApplicationService interface {
 	GetUnitLife(ctx context.Context, name unit.Name) (life.Value, error)
 }
 
-// MachineRebootService is an interface that defines methods for managing machine reboots.
-type MachineRebootService interface {
-	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
+// MachineService is an interface that defines methods for managing machines.
+type MachineService interface {
+	// RequireMachineReboot sets the machine referenced by its UUID as requiring
+	// a reboot.
 	RequireMachineReboot(ctx context.Context, uuid machine.UUID) error
 
-	// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
+	// ClearMachineReboot removes the reboot flag of the machine referenced by
+	// its UUID if a reboot has previously been required.
 	ClearMachineReboot(ctx context.Context, uuid machine.UUID) error
 
-	// IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
+	// IsMachineRebootRequired checks if the machine referenced by its UUID
+	// requires a reboot.
 	IsMachineRebootRequired(ctx context.Context, uuid machine.UUID) (bool, error)
 
-	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
+	// ShouldRebootOrShutdown determines whether a machine should reboot or
+	// shutdown.
 	ShouldRebootOrShutdown(ctx context.Context, uuid machine.UUID) (machine.RebootAction, error)
 
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	// It returns an errors.MachineNotFound if the machine does not exist.
 	GetMachineUUID(ctx context.Context, machineName machine.Name) (machine.UUID, error)
+
+	// GetMachineLife returns the GetMachineLife status of the specified machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	GetMachineLife(ctx context.Context, machineName machine.Name) (life.Value, error)
+
+	// IsMachineController returns whether the machine is a controller machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	IsMachineController(ctx context.Context, machineName machine.Name) (bool, error)
 }
 
 // ExternalControllerService defines the methods that the controller
@@ -120,6 +137,7 @@ type AgentAPI struct {
 	credentialService       CredentialService
 	controllerConfigService ControllerConfigService
 	applicationService      ApplicationService
+	machineService          MachineService
 	st                      *state.State
 	auth                    facade.Authorizer
 	resources               facade.Resources
@@ -133,7 +151,7 @@ func NewAgentAPI(
 	agentPasswordService AgentPasswordService,
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
-	rebootMachineService MachineRebootService,
+	machineService MachineService,
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
 	watcherRegistry facade.WatcherRegistry,
@@ -144,7 +162,7 @@ func NewAgentAPI(
 
 	return &AgentAPI{
 		PasswordChanger:    common.NewPasswordChanger(agentPasswordService, st, getCanChange),
-		RebootFlagClearer:  common.NewRebootFlagClearer(rebootMachineService, getCanChange),
+		RebootFlagClearer:  common.NewRebootFlagClearer(machineService, getCanChange),
 		ModelConfigWatcher: commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
@@ -153,6 +171,7 @@ func NewAgentAPI(
 		),
 		controllerConfigService: controllerConfigService,
 		applicationService:      applicationService,
+		machineService:          machineService,
 		st:                      st,
 		auth:                    auth,
 		resources:               resources,
@@ -178,43 +197,78 @@ func (api *AgentAPI) GetEntities(ctx context.Context, args params.Entities) para
 		}
 		// Handle units using the domain service.
 		// Eventually all entities will be supported via dqlite.
-		if tag.Kind() == names.UnitTagKind {
-			unitName, err := unit.NewName(tag.Id())
-			if err != nil {
-				results.Entities[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			lifeValue, err := api.applicationService.GetUnitLife(ctx, unitName)
-			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = errors.NotFoundf("unit %s", unitName)
-			}
-			results.Entities[i].Life = lifeValue
+		results.Entities[i] = api.getOneEntity(ctx, tag)
+		if err != nil {
 			results.Entities[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		result, err := api.getEntity(tag)
-		result.Error = apiservererrors.ServerError(err)
-		results.Entities[i] = result
 	}
 	return results
 }
 
-func (api *AgentAPI) getEntity(tag names.Tag) (result params.AgentGetEntitiesResult, err error) {
-	entity0, err := api.st.FindEntity(tag)
-	if err != nil {
-		return
+func (api *AgentAPI) getOneEntity(ctx context.Context, tag names.Tag) params.AgentGetEntitiesResult {
+	switch tag.Kind() {
+	case names.UnitTagKind:
+		unitName, err := unit.NewName(tag.Id())
+		if err != nil {
+			return params.AgentGetEntitiesResult{
+				Error: apiservererrors.ServerError(err),
+			}
+		}
+		lifeValue, err := api.applicationService.GetUnitLife(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			err = errors.NotFoundf("unit %s", unitName)
+		}
+
+		return params.AgentGetEntitiesResult{
+			Life:  lifeValue,
+			Error: apiservererrors.ServerError(err),
+		}
+
+	case names.MachineTagKind:
+		machineName := machine.Name(tag.Id())
+
+		lifeValue, err := api.machineService.GetMachineLife(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return params.AgentGetEntitiesResult{
+				Error: apiservererrors.ServerError(errors.NotFoundf("machine %q", machineName)),
+			}
+		} else if err != nil {
+			return params.AgentGetEntitiesResult{
+				Error: apiservererrors.ServerError(err),
+			}
+		}
+
+		isController, err := api.machineService.IsMachineController(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return params.AgentGetEntitiesResult{
+				Error: apiservererrors.ServerError(errors.NotFoundf("machine %q", machineName)),
+			}
+		} else if err != nil {
+			return params.AgentGetEntitiesResult{
+				Error: apiservererrors.ServerError(err),
+			}
+		}
+
+		// All machines can host units, so we just need to work out if it's
+		// a controller machine, then it can host models.
+		jobs := []model.MachineJob{model.JobHostUnits}
+		if isController {
+			jobs = append(jobs, model.JobManageModel)
+		}
+
+		return params.AgentGetEntitiesResult{
+			Life:          lifeValue,
+			Jobs:          jobs,
+			ContainerType: instance.LXD,
+			Error:         apiservererrors.ServerError(err),
+		}
+
+	default:
+		return params.AgentGetEntitiesResult{
+			Error: apiservererrors.ServerError(apiservererrors.NotSupportedError(tag, "entities")),
+		}
 	}
-	entity, ok := entity0.(state.Lifer)
-	if !ok {
-		err = apiservererrors.NotSupportedError(tag, "life cycles")
-		return
-	}
-	result.Life = life.Value(entity.Life().String())
-	if machine, ok := entity.(*state.Machine); ok {
-		result.Jobs = stateJobsToAPIParamsJobs(machine.Jobs())
-		result.ContainerType = machine.ContainerType()
-	}
-	return
 }
 
 func (api *AgentAPI) StateServingInfo(ctx context.Context) (result params.StateServingInfo, err error) {
@@ -263,14 +317,6 @@ func (api *AgentAPI) IsMaster(ctx context.Context) (params.IsMasterResult, error
 	default:
 		return params.IsMasterResult{}, errors.Errorf("authenticated entity is not a Machine")
 	}
-}
-
-func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []model.MachineJob {
-	pjobs := make([]model.MachineJob, len(jobs))
-	for i, job := range jobs {
-		pjobs[i] = model.MachineJob(job.String())
-	}
-	return pjobs
 }
 
 // WatchCredentials watches for changes to the specified credentials.

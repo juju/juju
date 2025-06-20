@@ -73,7 +73,6 @@ type CharmParams struct {
 // MachineParams are for creating a machine.
 type MachineParams struct {
 	Base            state.Base
-	Jobs            []state.MachineJob
 	Password        string
 	Nonce           string
 	Constraints     constraints.Value

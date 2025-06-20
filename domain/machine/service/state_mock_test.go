@@ -671,6 +671,45 @@ func (c *MockStateGetMachineParentUUIDCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// GetMachinePrincipalApplications mocks base method.
+func (m *MockState) GetMachinePrincipalApplications(ctx context.Context, mName machine.Name) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachinePrincipalApplications", ctx, mName)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachinePrincipalApplications indicates an expected call of GetMachinePrincipalApplications.
+func (mr *MockStateMockRecorder) GetMachinePrincipalApplications(ctx, mName any) *MockStateGetMachinePrincipalApplicationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachinePrincipalApplications", reflect.TypeOf((*MockState)(nil).GetMachinePrincipalApplications), ctx, mName)
+	return &MockStateGetMachinePrincipalApplicationsCall{Call: call}
+}
+
+// MockStateGetMachinePrincipalApplicationsCall wrap *gomock.Call
+type MockStateGetMachinePrincipalApplicationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachinePrincipalApplicationsCall) Return(arg0 []string, arg1 error) *MockStateGetMachinePrincipalApplicationsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachinePrincipalApplicationsCall) Do(f func(context.Context, machine.Name) ([]string, error)) *MockStateGetMachinePrincipalApplicationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachinePrincipalApplicationsCall) DoAndReturn(f func(context.Context, machine.Name) ([]string, error)) *MockStateGetMachinePrincipalApplicationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachineStatus mocks base method.
 func (m *MockState) GetMachineStatus(arg0 context.Context, arg1 machine.Name) (status0.StatusInfo[status0.MachineStatusType], error) {
 	m.ctrl.T.Helper()

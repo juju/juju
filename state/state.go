@@ -1342,7 +1342,6 @@ func (st *State) addMachineWithPlacement(
 		// If a container is to be used, create it.
 		template := MachineTemplate{
 			Base:        unit.doc.Base,
-			Jobs:        []MachineJob{JobHostUnits},
 			Dirty:       true,
 			Constraints: cons,
 		}

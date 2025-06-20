@@ -538,7 +538,7 @@ func (s *stateSuite) TestListAllMachineNamesSuccess(c *tc.C) {
 }
 
 func (s *stateSuite) TestIsMachineControllerApplicationController(c *tc.C) {
-	machineName := s.createApplicationWithUnitAndMachine(c, true)
+	machineName := s.createApplicationWithUnitAndMachine(c, true, false)
 
 	isController, err := s.state.IsMachineController(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -546,7 +546,7 @@ func (s *stateSuite) TestIsMachineControllerApplicationController(c *tc.C) {
 }
 
 func (s *stateSuite) TestIsMachineControllerApplicationNonController(c *tc.C) {
-	machineName := s.createApplicationWithUnitAndMachine(c, false)
+	machineName := s.createApplicationWithUnitAndMachine(c, false, false)
 
 	isController, err := s.state.IsMachineController(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -570,7 +570,7 @@ func (s *stateSuite) TestIsMachineControllerNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestIsMachineManuallyProvisioned(c *tc.C) {
-	machineName := s.createApplicationWithUnitAndMachine(c, false)
+	machineName := s.createApplicationWithUnitAndMachine(c, false, false)
 
 	isManual, err := s.state.IsMachineManuallyProvisioned(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -578,7 +578,7 @@ func (s *stateSuite) TestIsMachineManuallyProvisioned(c *tc.C) {
 }
 
 func (s *stateSuite) TestIsMachineManuallyProvisionedManual(c *tc.C) {
-	machineName := s.createApplicationWithUnitAndMachine(c, false)
+	machineName := s.createApplicationWithUnitAndMachine(c, false, false)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -1082,7 +1082,30 @@ func (s *stateSuite) TestGetSupportedContainersTypesNoMachine(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *stateSuite) createApplicationWithUnitAndMachine(c *tc.C, controller bool) machine.Name {
+func (s *stateSuite) TestGetMachinePrincipalApplications(c *tc.C) {
+	s.createApplicationWithUnitAndMachine(c, false, false)
+
+	principalUnits, err := s.state.GetMachinePrincipalApplications(c.Context(), "0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(principalUnits, tc.DeepEquals, []string{"foo"})
+}
+
+func (s *stateSuite) TestGetMachinePrincipalApplicationsSubordinate(c *tc.C) {
+	s.createApplicationWithUnitAndMachine(c, false, true)
+
+	principalUnits, err := s.state.GetMachinePrincipalApplications(c.Context(), "0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(principalUnits, tc.DeepEquals, []string{})
+}
+
+func (s *stateSuite) TestGetMachinePrincipalApplicationsNotFound(c *tc.C) {
+	_, err := s.state.GetMachinePrincipalApplications(c.Context(), "1")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) createApplicationWithUnitAndMachine(c *tc.C, controller, subordinate bool) machine.Name {
 	machineName := machine.Name("0")
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
@@ -1092,6 +1115,13 @@ VALUES (?, 'foo', 0)`, "charm-uuid")
 		if err != nil {
 			return errors.Capture(err)
 		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_metadata (charm_uuid, name, subordinate) 
+VALUES (?, 'foo', ?)`, "charm-uuid", subordinate)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
 VALUES (?,?,?,0,?)`, "app-uuid", "charm-uuid", "foo", network.AlphaSpaceId)
@@ -1112,7 +1142,7 @@ INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uu
 SELECT ?, ?, ?, ?, uuid, charm_uuid
 FROM application
 WHERE uuid = ?
-`, "unit-uuid", "unitName", "0", netNodeUUID, "app-uuid")
+`, "unit-uuid", "foo/0", "0", netNodeUUID, "app-uuid")
 		if err != nil {
 			return err
 		}

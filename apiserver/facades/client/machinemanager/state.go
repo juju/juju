@@ -51,7 +51,6 @@ type Machine interface {
 	Base() state.Base
 	Containers() ([]string, error)
 	Principals() []string
-	IsManager() bool
 	InstanceStatus() (status.StatusInfo, error)
 	SetInstanceStatus(sInfo status.StatusInfo) error
 }

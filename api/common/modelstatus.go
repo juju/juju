@@ -114,11 +114,8 @@ func constructModelStatus(m names.ModelTag, owner names.UserTag, r params.ModelS
 			Id:          mm.Id,
 			InstanceId:  mm.InstanceId,
 			DisplayName: mm.DisplayName,
-			HasVote:     mm.HasVote,
-			WantsVote:   mm.WantsVote,
 			Status:      mm.Status,
 			Message:     mm.Message,
-			HAPrimary:   mm.HAPrimary,
 		}
 	}
 	result.Applications = transform.Slice(r.Applications, func(app params.ModelApplicationInfo) base.Application {

@@ -301,11 +301,6 @@ type ModelMachineInfo struct {
 	DisplayName string           `json:"display-name,omitempty"`
 	Status      string           `json:"status,omitempty"`
 	Message     string           `json:"message,omitempty"`
-	HasVote     bool             `json:"has-vote,omitempty"`
-	WantsVote   bool             `json:"wants-vote,omitempty"`
-	// HAPrimary indicates whether this machine has a primary mongo instance in replicaset and,
-	// thus, can be considered a primary controller machine in HA setup.
-	HAPrimary *bool `json:"ha-primary,omitempty"`
 }
 
 // ModelApplicationInfo holds information about an application in a model.

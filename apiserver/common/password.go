@@ -30,6 +30,10 @@ type AgentPasswordService interface {
 
 	// SetMachinePassword sets the password hash for the given machine.
 	SetMachinePassword(context.Context, coremachine.Name, string) error
+
+	// IsMachineController returns whether the machine is a controller machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	IsMachineController(ctx context.Context, machineName coremachine.Name) (bool, error)
 }
 
 // PasswordChanger implements a common SetPasswords method for use by
@@ -118,18 +122,21 @@ func (pc *PasswordChanger) legacyMachineSetPassword(tag names.Tag, password stri
 		return nil
 	}
 
+	isController, err := pc.agentPasswordService.IsMachineController(context.TODO(), coremachine.Name(tag.Id()))
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return nil
+	} else if err != nil {
+		return internalerrors.Errorf("checking if machine %q is controller: %w", tag.Id(), err)
+	} else if !isController {
+		// If this is not a controller machine, we do not set the mongo
+		// password.
+		return nil
+	}
+
 	entity0, err := pc.st.FindEntity(tag)
 	if err != nil {
 		return err
 	}
-	entity, ok := entity0.(*state.Machine)
-	if !ok {
-		return apiservererrors.NotSupportedError(tag, "authentication")
-	}
-	if !entity.IsManager() {
-		return nil
-	}
-
 	return pc.setMongoPassword(entity0, password)
 }
 
