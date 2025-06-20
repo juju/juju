@@ -54,8 +54,9 @@ type StorageService interface {
 	// ListStoragePools returns all the storage pools.
 	ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error)
 
-	// ListStoragePoolsByNamesAndProviders returns the storage pools matching the cartesian
-	// product of name and provider.
+	// ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
+	// names and providers, including the default storage pools.
+	// If no names and providers are specified, an empty slice is returned without an error.
 	// If no storage pools match the criteria, an empty slice is returned without an error.
 	ListStoragePoolsByNamesAndProviders(
 		ctx context.Context, names domainstorage.Names, providers domainstorage.Providers,

@@ -218,15 +218,15 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProviders(c *tc.
 
 	got, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{"ebs-fast"}, domainstorage.Providers{"ebs"})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.SameContents, []domainstorage.StoragePool{sp})
 }
 
 func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersEmptyArgs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{}, domainstorage.Providers{})
-	c.Assert(err, tc.ErrorMatches, "at least one name and one provider must be specified, got names: .*")
+	result, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{}, domainstorage.Providers{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.IsNil)
 }
 
 func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersInvalidNames(c *tc.C) {

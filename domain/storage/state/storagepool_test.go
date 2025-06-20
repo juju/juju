@@ -14,7 +14,6 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/domain/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
@@ -356,7 +355,6 @@ func (s *storagePoolStateSuite) ensureBuiltInStoragePools(c *tc.C) []domainstora
 	for _, sp := range pools {
 		s.createStoragePoolWithOrigin(c, sp, "built-in")
 	}
-	c.Logf("Created built-in storage pools: %#v", pools)
 	return pools
 }
 
@@ -380,7 +378,7 @@ func (s *storagePoolStateSuite) ensureProviderDefaultStoragePools(c *tc.C) []dom
 		},
 	}
 
-	poolCfgs, err := storage.DefaultStoragePools(registry)
+	poolCfgs, err := domainstorage.DefaultStoragePools(registry)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var pools []domainstorage.StoragePool
@@ -397,7 +395,6 @@ func (s *storagePoolStateSuite) ensureProviderDefaultStoragePools(c *tc.C) []dom
 
 		pools = append(pools, sp)
 	}
-	c.Logf("Created provider default storage pools: %#v", pools)
 	return pools
 }
 
