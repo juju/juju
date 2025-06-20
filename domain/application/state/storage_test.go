@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -50,8 +51,11 @@ type iaasStorageSuite struct {
 	baseStorageSuite
 }
 
+// storageSuite is a suite for testing generic storage related state interfaces.
+// The primary means for testing state funcs not realted to applications
+// themselves.
 type storageSuite struct {
-	baseSuite
+	schematesting.ModelSuite
 }
 
 func TestCaasStorageSuite(t *stdtesting.T) {
@@ -66,123 +70,28 @@ func TestStorageSuite(t *stdtesting.T) {
 	tc.Run(t, &storageSuite{})
 }
 
-// TestCreateApplicationWithResources tests creation of an application with
-// specified resources.
-// It verifies that the charm_resource table is populated, alongside the
-// resource and application_resource table with datas from charm and arguments.
-func (s *applicationStateSuite) TestCreateApplicationWithStorage(c *tc.C) {
-	ctx := c.Context()
-	uuid := uuid.MustNewUUID().String()
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
-			uuid, "fast", "ebs")
-		if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	chStorage := []charm.Storage{{
-		Name: "database",
-		Type: "block",
-	}, {
-		Name: "logs",
-		Type: "filesystem",
-	}, {
-		Name: "cache",
-		Type: "block",
-	}}
-	directives := []application.ApplicationStorageDirectiveArg{
-		{
-			Name:         "database",
-			ProviderType: ptr("ebs"),
-			Size:         10,
-			Count:        2,
-		},
-		{
-			Name:         "logs",
-			ProviderType: ptr("rootfs"),
-			Size:         20,
-			Count:        1,
-		},
-		{
-			Name:         "cache",
-			ProviderType: ptr("fast"),
-			Size:         30,
-			Count:        1,
-		},
-	}
-	c.Assert(err, tc.ErrorIsNil)
-
-	appUUID, _, err := s.state.CreateIAASApplication(ctx, "666", s.addIAASApplicationArgForStorage(c, "666",
-		chStorage, directives), nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	var charmUUID string
-	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, `
-SELECT charm_uuid
-FROM application
-WHERE name=?`, "666").Scan(&charmUUID)
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	var (
-		foundCharmStorage []charm.Storage
-		foundAppStorage   []application.ApplicationStorageDirectiveArg
-	)
-
-	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-SELECT cs.name, csk.kind
-FROM charm_storage cs
-JOIN charm_storage_kind csk ON csk.id=cs.storage_kind_id
-WHERE charm_uuid=?`, charmUUID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		defer func() { _ = rows.Close() }()
-		for rows.Next() {
-			var stor charm.Storage
-			if err := rows.Scan(&stor.Name, &stor.Type); err != nil {
-				return errors.Capture(err)
-			}
-			foundCharmStorage = append(foundCharmStorage, stor)
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-SELECT storage_name, storage_type, size_mib, count
-FROM   application_storage_directive
-WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		defer func() { _ = rows.Close() }()
-		for rows.Next() {
-			var (
-				stor         application.ApplicationStorageDirectiveArg
-				providerType string
-			)
-			if err := rows.Scan(&stor.Name, &providerType, &stor.Size, &stor.Count); err != nil {
-				return errors.Capture(err)
-			}
-			stor.ProviderType = &providerType
-			foundAppStorage = append(foundAppStorage, stor)
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(foundCharmStorage, tc.SameContents, chStorage)
-	c.Check(foundAppStorage, tc.SameContents, directives)
-}
-
 func (s *baseStorageSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+}
+
+// createStoragePoolWithType creates a storage pool with the given provider type
+// for testing purposes. The storage pool name will not be unique between
+// invocations. Return is the uuid of the newly created storage pool.
+func (s *storageSuite) createStoragePoolWithType(
+	c *tc.C, providerType string,
+) domainstorage.StoragePoolUUID {
+	poolUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(
+		"INSERT INTO storage_pool VALUES (?, ?, ?)",
+		poolUUID, "test-pool", providerType,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return poolUUID
 }
 
 type charmStorageArg struct {
@@ -570,6 +479,119 @@ WHERE si.charm_uuid = ?`,
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.SameContents, expected)
 
+}
+
+// TestCreateApplicationWithResources tests creation of an application with
+// specified resources.
+// It verifies that the charm_resource table is populated, alongside the
+// resource and application_resource table with datas from charm and arguments.
+func (s *applicationStateSuite) TestCreateApplicationWithStorage(c *tc.C) {
+	ctx := c.Context()
+	uuid := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
+			uuid, "fast", "ebs")
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	chStorage := []charm.Storage{{
+		Name: "database",
+		Type: "block",
+	}, {
+		Name: "logs",
+		Type: "filesystem",
+	}, {
+		Name: "cache",
+		Type: "block",
+	}}
+	directives := []application.ApplicationStorageDirectiveArg{
+		{
+			Name:         "database",
+			ProviderType: ptr("ebs"),
+			Size:         10,
+			Count:        2,
+		},
+		{
+			Name:         "logs",
+			ProviderType: ptr("rootfs"),
+			Size:         20,
+			Count:        1,
+		},
+		{
+			Name:         "cache",
+			ProviderType: ptr("fast"),
+			Size:         30,
+			Count:        1,
+		},
+	}
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUUID, _, err := s.state.CreateIAASApplication(ctx, "666", s.addIAASApplicationArgForStorage(c, "666",
+		chStorage, directives), nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var charmUUID string
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT charm_uuid
+FROM application
+WHERE name=?`, "666").Scan(&charmUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	var (
+		foundCharmStorage []charm.Storage
+		foundAppStorage   []application.ApplicationStorageDirectiveArg
+	)
+
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT cs.name, csk.kind
+FROM charm_storage cs
+JOIN charm_storage_kind csk ON csk.id=cs.storage_kind_id
+WHERE charm_uuid=?`, charmUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var stor charm.Storage
+			if err := rows.Scan(&stor.Name, &stor.Type); err != nil {
+				return errors.Capture(err)
+			}
+			foundCharmStorage = append(foundCharmStorage, stor)
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT storage_name, storage_type, size_mib, count
+FROM   application_storage_directive
+WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var (
+				stor         application.ApplicationStorageDirectiveArg
+				providerType string
+			)
+			if err := rows.Scan(&stor.Name, &providerType, &stor.Size, &stor.Count); err != nil {
+				return errors.Capture(err)
+			}
+			stor.ProviderType = &providerType
+			foundAppStorage = append(foundAppStorage, stor)
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(foundCharmStorage, tc.SameContents, chStorage)
+	c.Check(foundAppStorage, tc.SameContents, directives)
 }
 
 // TODO(storage) - we need unit machine assignment to be done then this can be on the baseStorageSuite
@@ -1002,4 +1024,31 @@ func (s *iaasStorageSuite) TestAttachStorageVolumeBackedFilesystem(c *tc.C) {
 	//s.assertVolumeAttachment(c, unitUUID, storageUUID, volumeAttachment{
 	//	ReadOnly: true,
 	//})
+}
+
+// TestGetProviderTypeOfPoolNotFound tests that trying to get the provider type
+// for a pool that doesn't exist returns the caller an error satisfying
+// [storageerrors.PoolNotFoundError].
+func (s *storageSuite) TestGetProviderTypeOfPoolNotFound(c *tc.C) {
+	poolUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	st := NewState(
+		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+	)
+
+	_, err = st.GetProviderTypeOfPool(c.Context(), poolUUID)
+	c.Check(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
+}
+
+// TestGetProviderTypeOfPool checks that the provider type of a storage pool
+// is correctly returned.
+func (s *storageSuite) TestGetProviderTypeOfPool(c *tc.C) {
+	poolUUID := s.createStoragePoolWithType(c, "ptype")
+	st := NewState(
+		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+	)
+
+	pType, err := st.GetProviderTypeOfPool(c.Context(), poolUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(pType, tc.Equals, "ptype")
 }
