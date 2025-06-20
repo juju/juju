@@ -55,7 +55,7 @@ func ValidateControllerName(name string) error {
 
 // ValidateModelName validates the given model name.
 func ValidateModelName(name string) error {
-	modelName, _, err := SplitModelName(name)
+	modelName, _, err := SplitFullyQualifiedModelName(name)
 	if err != nil {
 		return errors.Annotatef(err, "validating model name %q", name)
 	}

@@ -7,6 +7,8 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -21,11 +23,26 @@ func Register(registry facade.FacadeRegistry) {
 	// elsewhere. I've talked long and hard to myself about this, but there
 	// is no way around it.
 	registry.MustRegisterForMultiModel("ApplicationOffers", 5, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
-		return makeOffersAPI(ctx)
+		return makeOffersAPIV5(ctx)
 	}, reflect.TypeOf((*OffersAPIv5)(nil)))
+	// v6 handles offer URLs with a model qualifier instead of a username.
+	registry.MustRegisterForMultiModel("ApplicationOffers", 6, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
+		return makeOffersAPI(ctx)
+	}, reflect.TypeOf((*OffersAPI)(nil)))
+}
+
+// makeOffersAPIv5 returns a new application offers OffersAPIv5 facade.
+func makeOffersAPIV5(facadeContext facade.MultiModelContext) (*OffersAPIv5, error) {
+	api, err := makeOffersAPI(facadeContext)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &OffersAPIv5{
+		OffersAPI: api,
+	}, nil
 }
 
 // makeOffersAPI returns a new application offers OffersAPI facade.
-func makeOffersAPI(_ facade.MultiModelContext) (*OffersAPIv5, error) {
+func makeOffersAPI(_ facade.MultiModelContext) (*OffersAPI, error) {
 	return createOffersAPI()
 }

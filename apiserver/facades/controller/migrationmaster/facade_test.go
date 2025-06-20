@@ -181,6 +181,7 @@ func (s *Suite) TestModelInfo(c *tc.C) {
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		UUID:            "model-uuid",
 		Name:            "model-name",
+		Qualifier:       "production",
 		CredentialOwner: usertesting.GenNewName(c, "owner"),
 		AgentVersion:    semversion.MustParse("1.2.3"),
 	}, nil)
@@ -193,7 +194,7 @@ func (s *Suite) TestModelInfo(c *tc.C) {
 
 	c.Check(mod.UUID, tc.Equals, "model-uuid")
 	c.Check(mod.Name, tc.Equals, "model-name")
-	c.Check(mod.OwnerTag, tc.Equals, names.NewUserTag("owner").String())
+	c.Check(mod.Qualifier, tc.Equals, "production")
 	c.Check(mod.AgentVersion, tc.Equals, semversion.MustParse("1.2.3"))
 
 	bytes, err := description.Serialize(modelDescription)

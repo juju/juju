@@ -10,12 +10,14 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/client/applicationoffers"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -51,8 +53,8 @@ the offer is considered to reside in the current model.
 `
 
 const destroyOfferExamples = `
-    juju remove-offer prod.model/hosted-mysql
-    juju remove-offer prod.model/hosted-mysql --force
+    juju remove-offer staging/mymodel.hosted-mysql
+    juju remove-offer staging/mymodel.hosted-mysql --force
     juju remove-offer hosted-mysql
 `
 
@@ -116,21 +118,18 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	store := c.ClientStore()
-	currentModel, err := store.CurrentModel(controllerName)
+	currentModel, err := c.ClientStore().CurrentModel(controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	var invalidOffers []string
 	for i, urlStr := range c.offers {
-		url, err := crossmodel.ParseOfferURL(urlStr)
+		url, err := c.parseOfferURL(controllerName, currentModel, urlStr)
 		if err != nil {
-			url, err = makeURLFromCurrentModel(urlStr, c.offerSource, currentModel)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			c.offers[i] = url.String()
+			return errors.Trace(err)
 		}
+		c.offers[i] = url.String()
 		if c.offerSource == "" {
 			c.offerSource = url.Source
 		}
@@ -168,19 +167,47 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	return block.ProcessBlockedError(err, block.BlockRemove)
 }
 
-func makeURLFromCurrentModel(urlStr, offerSource, currentModel string) (*crossmodel.OfferURL, error) {
+func (c *removeCommand) parseOfferURL(controllerName, currentModel, urlStr string) (*crossmodel.OfferURL, error) {
+	url, err := crossmodel.ParseOfferURL(urlStr)
+	if err == nil {
+		return url, nil
+	}
+	if !names.IsValidApplication(urlStr) {
+		return nil, errors.Trace(err)
+	}
+	store := c.ClientStore()
+	return makeURLFromCurrentModel(store, controllerName, c.offerSource, currentModel, urlStr)
+}
+
+func makeURLFromCurrentModel(
+	store jujuclient.ClientStore, controllerName, offerSource, modelName, offerName string,
+) (*crossmodel.OfferURL, error) {
 	// We may have just been given an offer name.
 	// Try again with the current model as the host model.
-	modelName := currentModel
-	userName := ""
-	if jujuclient.IsQualifiedModelName(currentModel) {
-		baseName, userTag, err := jujuclient.SplitModelName(currentModel)
+	url := &crossmodel.OfferURL{
+		Source:          offerSource,
+		ApplicationName: offerName,
+	}
+	if url.ModelName == "" {
+		if jujuclient.IsQualifiedModelName(modelName) {
+			modelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(modelName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			url.ModelQualifier = qualifier
+			url.ModelName = modelName
+		} else {
+			url.ModelName = modelName
+		}
+	}
+
+	if url.ModelQualifier == "" {
+		accountDetails, err := store.AccountDetails(controllerName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		modelName = baseName
-		userName = userTag.Id()
+		qualifier := model.QualifierFromUserTag(names.NewUserTag(accountDetails.User))
+		url.ModelQualifier = qualifier.String()
 	}
-	derivedUrl := crossmodel.MakeURL(userName, modelName, urlStr, offerSource)
-	return crossmodel.ParseOfferURL(derivedUrl)
+	return url, nil
 }

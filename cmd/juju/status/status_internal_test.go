@@ -3550,7 +3550,7 @@ func (as addRemoteApplication) step(c *tc.C, ctx *ctx) {
 
 type addApplicationOffer struct {
 	name            string
-	owner           string
+	qualifier       string
 	applicationName string
 	endpoints       []string
 }
@@ -4582,7 +4582,7 @@ func (s *StatusSuite) prepareTabularData(c *tc.C) *ctx {
 		setMachineStatus{"3", status.Started, ""},
 		setMachineInstanceStatus{"3", status.Started, "I am number three"},
 
-		addApplicationOffer{name: "hosted-mysql", applicationName: "mysql", owner: "admin", endpoints: []string{"server"}},
+		addApplicationOffer{name: "hosted-mysql", applicationName: "mysql", qualifier: "admin", endpoints: []string{"server"}},
 		addRemoteApplication{name: "remote-wordpress", charm: "wordpress", endpoints: []string{"db"}, isConsumerProxy: true},
 		relateApplications{"remote-wordpress", "mysql", ""},
 		addOfferConnection{sourceModelUUID: coretesting.ModelTag.Id(), name: "hosted-mysql", username: "fred", relationKey: "remote-wordpress:db mysql:server"},

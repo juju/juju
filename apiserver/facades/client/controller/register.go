@@ -18,12 +18,30 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegisterForMultiModel("Controller", 12, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
-		api, err := makeControllerAPI(stdCtx, ctx)
+		api, err := makeControllerAPIV12(stdCtx, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("creating Controller facade v12: %w", err)
 		}
 		return api, nil
+	}, reflect.TypeOf((*ControllerAPIV12)(nil)))
+	// v13 handles requests with a model qualifier instead of a model owner.
+	registry.MustRegisterForMultiModel("Controller", 13, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
+		api, err := makeControllerAPI(stdCtx, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("creating Controller facade v13: %w", err)
+		}
+		return api, nil
 	}, reflect.TypeOf((*ControllerAPI)(nil)))
+}
+
+func makeControllerAPIV12(stdCtx context.Context, ctx facade.MultiModelContext) (*ControllerAPIV12, error) {
+	api, err := makeControllerAPI(stdCtx, ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ControllerAPIV12{
+		ControllerAPI: api,
+	}, nil
 }
 
 // makeControllerAPI creates a new ControllerAPI.

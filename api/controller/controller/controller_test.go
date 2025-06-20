@@ -195,8 +195,8 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 		*out = params.HostedModelConfigsResults{
 			Models: []params.HostedModelConfig{
 				{
-					Name:     "first",
-					OwnerTag: "user-foo@bar",
+					Name:      "first",
+					Qualifier: "prod",
 					Config: map[string]interface{}{
 						"name": "first",
 					},
@@ -205,11 +205,8 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 						Name: "first",
 					},
 				}, {
-					Name:     "second",
-					OwnerTag: "bad-tag",
-				}, {
-					Name:     "third",
-					OwnerTag: "user-foo@bar",
+					Name:      "third",
+					Qualifier: "prod",
 					Config: map[string]interface{}{
 						"name": "third",
 					},
@@ -223,11 +220,11 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 	})
 	client := controller.NewClient(apiCaller)
 	config, err := client.HostedModelConfigs(c.Context())
-	c.Assert(config, tc.HasLen, 3)
+	c.Assert(config, tc.HasLen, 2)
 	c.Assert(err, tc.ErrorIsNil)
 	first := config[0]
 	c.Assert(first.Name, tc.Equals, "first")
-	c.Assert(first.Owner, tc.Equals, names.NewUserTag("foo@bar"))
+	c.Assert(first.Qualifier, tc.Equals, "prod")
 	c.Assert(first.Config, tc.DeepEquals, map[string]interface{}{
 		"name": "first",
 	})
@@ -236,11 +233,8 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 		Name: "first",
 	})
 	second := config[1]
-	c.Assert(second.Name, tc.Equals, "second")
-	c.Assert(second.Error.Error(), tc.Equals, `"bad-tag" is not a valid tag`)
-	third := config[2]
-	c.Assert(third.Name, tc.Equals, "third")
-	c.Assert(third.Error.Error(), tc.Equals, "validating CloudSpec: empty Type not valid")
+	c.Assert(second.Name, tc.Equals, "third")
+	c.Assert(second.Error.Error(), tc.Equals, "validating CloudSpec: empty Type not valid")
 }
 
 func makeInitiateMigrationClient(results params.InitiateMigrationResults) (
@@ -315,7 +309,7 @@ func (s *Suite) TestModelStatus(c *tc.C) {
 			out.Results = []params.ModelStatus{
 				{
 					ModelTag:           coretesting.ModelTag.String(),
-					OwnerTag:           "user-glenda",
+					Qualifier:          "prod",
 					ApplicationCount:   3,
 					HostedMachineCount: 2,
 					Life:               "alive",
@@ -339,7 +333,7 @@ func (s *Suite) TestModelStatus(c *tc.C) {
 		TotalMachineCount:  1,
 		HostedMachineCount: 2,
 		ApplicationCount:   3,
-		Owner:              "glenda",
+		Qualifier:          "prod",
 		Life:               life.Alive,
 		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},
 	})
@@ -448,10 +442,10 @@ func (s *Suite) TestAllModels(c *tc.C) {
 		*(result.(*params.UserModelList)) = params.UserModelList{
 			UserModels: []params.UserModel{{
 				Model: params.Model{
-					Name:     "test",
-					UUID:     coretesting.ModelTag.Id(),
-					Type:     "iaas",
-					OwnerTag: "user-fred",
+					Name:      "test",
+					UUID:      coretesting.ModelTag.Id(),
+					Type:      "iaas",
+					Qualifier: "prod",
 				},
 				LastConnection: &now,
 			}},
@@ -466,7 +460,7 @@ func (s *Suite) TestAllModels(c *tc.C) {
 		Name:           "test",
 		UUID:           coretesting.ModelTag.Id(),
 		Type:           "iaas",
-		Owner:          "fred",
+		Qualifier:      "prod",
 		LastConnection: &now,
 	}})
 }
@@ -501,9 +495,9 @@ func (s *Suite) TestListBlockedModels(c *tc.C) {
 		c.Check(result, tc.FitsTypeOf, &params.ModelBlockInfoList{})
 		*(result.(*params.ModelBlockInfoList)) = params.ModelBlockInfoList{
 			Models: []params.ModelBlockInfo{{
-				Name:     "controller",
-				UUID:     coretesting.ModelTag.Id(),
-				OwnerTag: "user-fred",
+				Name:      "controller",
+				UUID:      coretesting.ModelTag.Id(),
+				Qualifier: "prod",
 				Blocks: []string{
 					"BlockChange",
 					"BlockDestroy",
@@ -518,9 +512,9 @@ func (s *Suite) TestListBlockedModels(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, []params.ModelBlockInfo{
 		{
-			Name:     "controller",
-			UUID:     coretesting.ModelTag.Id(),
-			OwnerTag: "user-fred",
+			Name:      "controller",
+			UUID:      coretesting.ModelTag.Id(),
+			Qualifier: "prod",
 			Blocks: []string{
 				"BlockChange",
 				"BlockDestroy",

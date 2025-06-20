@@ -27,17 +27,17 @@ Adds a remote offer to the model. Relations can be created later using "juju rel
 
 The path to the remote offer is formatted as follows:
 
-    [<controller name>:][<model owner>/]<model name>.<application name>
+    [<controller name>:][<model qualifier>/]<model name>.<application name>
         
 If the controller name is omitted, Juju will use the currently active
-controller. Similarly, if the model owner is omitted, Juju will use the user
+controller. Similarly, if the model qualifier is omitted, Juju will use the user
 that is currently logged in to the controller providing the offer.
 `[1:]
 
 const usageConsumeExamples = `
     juju consume othermodel.mysql
-    juju consume owner/othermodel.mysql
-    juju consume anothercontroller:owner/othermodel.mysql
+    juju consume prod/othermodel.mysql
+    juju consume anothercontroller:prod/othermodel.mysql
 `
 
 // NewConsumeCommand returns a command to add remote offers to
@@ -133,8 +133,8 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 	if url.HasEndpoint() {
 		return errors.Errorf("saas offer %q shouldn't include endpoint", c.remoteApplication)
 	}
-	if url.User == "" {
-		url.User = accountDetails.User
+	if url.ModelQualifier == "" {
+		url.ModelQualifier = accountDetails.User
 		c.remoteApplication = url.Path()
 	}
 	sourceClient, err := c.getSourceAPI(ctx, url)

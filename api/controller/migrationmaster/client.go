@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
@@ -146,10 +147,6 @@ func (c *Client) ModelInfo(ctx context.Context) (migration.ModelInfo, error) {
 	if err != nil {
 		return migration.ModelInfo{}, errors.Trace(err)
 	}
-	owner, err := names.ParseUserTag(info.OwnerTag)
-	if err != nil {
-		return migration.ModelInfo{}, errors.Trace(err)
-	}
 
 	// The model description is marshalled into YAML (description package does
 	// not support JSON) to prevent potential issues with
@@ -166,7 +163,7 @@ func (c *Client) ModelInfo(ctx context.Context) (migration.ModelInfo, error) {
 	return migration.ModelInfo{
 		UUID:                   info.UUID,
 		Name:                   info.Name,
-		Owner:                  owner,
+		Qualifier:              model.Qualifier(info.Qualifier),
 		AgentVersion:           info.AgentVersion,
 		ControllerAgentVersion: info.ControllerAgentVersion,
 		ModelDescription:       modelDescription,

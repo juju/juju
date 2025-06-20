@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
@@ -116,7 +115,7 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *tc.C) {
 	s.addModel("model-1", base.ModelStatus{
 		UUID:               test2UUID,
 		Life:               life.Dying,
-		Owner:              "admin",
+		Qualifier:          "prod",
 		HostedMachineCount: 2,
 		ApplicationCount:   2,
 	})
@@ -135,7 +134,7 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *tc.C) {
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test2UUID,
 		Life:               life.Dying,
-		Owner:              "admin",
+		Qualifier:          "prod",
 		HostedMachineCount: 1,
 	})
 	s.clock.Advance(5 * time.Second)
@@ -164,7 +163,7 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *tc.C) {
 	s.addModel("controller", base.ModelStatus{
 		UUID:               test1UUID,
 		Life:               life.Alive,
-		Owner:              "admin",
+		Qualifier:          "prod",
 		TotalMachineCount:  3,
 		HostedMachineCount: 2,
 	})
@@ -185,7 +184,7 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *tc.C) {
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test1UUID,
 		Life:               life.Dying,
-		Owner:              "admin",
+		Qualifier:          "prod",
 		HostedMachineCount: 1,
 	})
 	s.clock.Advance(5 * time.Second)
@@ -194,7 +193,7 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *tc.C) {
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test1UUID,
 		Life:               life.Dying,
-		Owner:              "admin",
+		Qualifier:          "prod",
 		HostedMachineCount: 0,
 	})
 	s.clock.Advance(5 * time.Second)
@@ -218,7 +217,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *tc.C) {
 	s.addModel("model-1", base.ModelStatus{
 		UUID:               test2UUID,
 		Life:               life.Dying,
-		Owner:              "admin",
+		Qualifier:          "prod",
 		HostedMachineCount: 2,
 		ApplicationCount:   2,
 	})
@@ -240,7 +239,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *tc.C) {
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test2UUID,
 		Life:               life.Dying,
-		Owner:              "admin",
+		Qualifier:          "prod",
 		HostedMachineCount: 1,
 	})
 	s.clock.Advance(5 * time.Second)
@@ -269,7 +268,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutWithNoChange(c *tc.C) {
 	s.addModel("model-1", base.ModelStatus{
 		UUID:               test2UUID,
 		Life:               life.Dying,
-		Owner:              "admin",
+		Qualifier:          "prod",
 		HostedMachineCount: 2,
 		ApplicationCount:   2,
 	})
@@ -318,16 +317,16 @@ func (s *KillSuite) resetAPIModels(c *tc.C) {
 	s.addModel("controller", base.ModelStatus{
 		UUID:              test1UUID,
 		Life:              life.Alive,
-		Owner:             "admin",
+		Qualifier:         "prod",
 		TotalMachineCount: 1,
 	})
 }
 
 func (s *KillSuite) addModel(name string, status base.ModelStatus) {
 	s.api.allModels = append(s.api.allModels, base.UserModel{
-		Name:  name,
-		UUID:  status.UUID,
-		Owner: status.Owner,
+		Name:      name,
+		UUID:      status.UUID,
+		Qualifier: status.Qualifier,
 	})
 	s.api.envStatus[status.UUID] = status
 }
@@ -487,27 +486,25 @@ func (m *mockClock) After(duration time.Duration) <-chan time.Time {
 func (s *KillSuite) TestControllerStatus(c *tc.C) {
 	s.api.allModels = []base.UserModel{
 		{Name: "admin",
-			UUID:  "123",
-			Owner: names.NewUserTag("admin").String(),
+			UUID:      "123",
+			Qualifier: "prod",
 		}, {Name: "env1",
-			UUID:  "456",
-			Owner: names.NewUserTag("bob").String(),
+			UUID:      "456",
+			Qualifier: "staging",
 		}, {Name: "env2",
-			UUID:  "789",
-			Owner: names.NewUserTag("jo").String(),
+			UUID:      "789",
+			Qualifier: "testing",
 		},
 	}
 
 	s.api.envStatus = make(map[string]base.ModelStatus)
 	for _, env := range s.api.allModels {
-		owner, err := names.ParseUserTag(env.Owner)
-		c.Assert(err, tc.ErrorIsNil)
 		s.api.envStatus[env.UUID] = base.ModelStatus{
 			UUID:               env.UUID,
 			Life:               life.Dying,
 			HostedMachineCount: 2,
 			ApplicationCount:   1,
-			Owner:              owner.Id(),
+			Qualifier:          env.Qualifier,
 		}
 	}
 
@@ -519,27 +516,27 @@ func (s *KillSuite) TestControllerStatus(c *tc.C) {
 	c.Assert(environmentStatus.Models, tc.HasLen, 2)
 
 	for i, expected := range []struct {
-		Owner              string
+		Qualifier          string
 		Name               string
 		Life               life.Value
 		HostedMachineCount int
 		ApplicationCount   int
 	}{
 		{
-			Owner:              "bob",
+			Qualifier:          "staging",
 			Name:               "env1",
 			Life:               life.Dying,
 			HostedMachineCount: 2,
 			ApplicationCount:   1,
 		}, {
-			Owner:              "jo",
+			Qualifier:          "testing",
 			Name:               "env2",
 			Life:               life.Dying,
 			HostedMachineCount: 2,
 			ApplicationCount:   1,
 		},
 	} {
-		c.Assert(environmentStatus.Models[i].Owner, tc.Equals, expected.Owner)
+		c.Assert(environmentStatus.Models[i].Qualifier, tc.Equals, expected.Qualifier)
 		c.Assert(environmentStatus.Models[i].Name, tc.Equals, expected.Name)
 		c.Assert(environmentStatus.Models[i].Life, tc.Equals, expected.Life)
 		c.Assert(environmentStatus.Models[i].HostedMachineCount, tc.Equals, expected.HostedMachineCount)
@@ -562,7 +559,7 @@ func (s *KillSuite) TestFmtControllerStatus(c *tc.C) {
 func (s *KillSuite) TestFmtEnvironStatus(c *tc.C) {
 	data := controller.ModelData{
 		"uuid",
-		"owner",
+		"prod",
 		"envname",
 		life.Dying,
 		8,
@@ -574,5 +571,5 @@ func (s *KillSuite) TestFmtEnvironStatus(c *tc.C) {
 	}
 
 	out := controller.FmtModelStatus(data)
-	c.Assert(out, tc.Equals, "\towner/envname (dying), 8 machines, 1 application, 2 volumes, 1 filesystem")
+	c.Assert(out, tc.Equals, "\tprod/envname (dying), 8 machines, 1 application, 2 volumes, 1 filesystem")
 }

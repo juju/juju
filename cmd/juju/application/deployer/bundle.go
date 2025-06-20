@@ -14,6 +14,7 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cmd"
@@ -40,7 +41,7 @@ type deployBundle struct {
 	defaultCharmSchema charm.Schema
 
 	resolver             Resolver
-	newConsumeDetailsAPI func(ctx context.Context, url *charm.OfferURL) (ConsumeDetails, error)
+	newConsumeDetailsAPI func(ctx context.Context, url *crossmodel.OfferURL) (ConsumeDetails, error)
 	deployResources      DeployResourcesFunc
 	charmReader          CharmReader
 
@@ -195,7 +196,7 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 	// the local cache.
 	// If no controller is found within the local cache, an error will be raised
 	// which should ask the user to login.
-	getConsumeDetails := func(url *charm.OfferURL) (ConsumeDetails, error) {
+	getConsumeDetails := func(url *crossmodel.OfferURL) (ConsumeDetails, error) {
 		// Ensure that we have a url source when querying the controller.
 		if url.Source == "" {
 			url.Source = d.controllerName

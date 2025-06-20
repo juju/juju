@@ -29,5 +29,6 @@ func (*importSuite) TestImports(c *tc.C) {
 		"internal/charm/hooks",
 		"internal/charm/resource",
 		"internal/errors",
+		"core/errors",
 	})
 }

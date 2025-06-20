@@ -54,6 +54,11 @@ type ModelExporter interface {
 	ExportModel(context.Context, objectstore.ObjectStore) (description.Model, error)
 }
 
+// ControllerAPIV12 implements the controller APIV12.
+type ControllerAPIV12 struct {
+	*ControllerAPI
+}
+
 // ControllerAPI provides the Controller API.
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
@@ -252,17 +257,12 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 		return result, errors.Trace(err)
 	}
 	for _, model := range models {
-		ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
-		if err != nil {
-			c.logger.Errorf(ctx, "parsing model qualifier %q into user tag, skipping model %q: %v", model.Qualifier, model.UUID, err)
-			continue
-		}
 		userModel := params.UserModel{
 			Model: params.Model{
-				Name:     model.Name,
-				UUID:     model.UUID.String(),
-				Type:     model.ModelType.String(),
-				OwnerTag: ownerTag.String(),
+				Name:      model.Name,
+				Qualifier: model.Qualifier.String(),
+				UUID:      model.UUID.String(),
+				Type:      model.ModelType.String(),
 			},
 		}
 
@@ -318,16 +318,11 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 		for _, block := range blocks {
 			blockTypes.Add(encodeBlockType(block.Type))
 		}
-		ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
-		if err != nil {
-			c.logger.Errorf(ctx, "parsing model qualifier %q into user tag, skipping model %q: %v", model.Qualifier, model.UUID, err)
-			continue
-		}
 		results.Models = append(results.Models, params.ModelBlockInfo{
-			UUID:     model.UUID.String(),
-			Name:     model.Name,
-			OwnerTag: ownerTag.String(),
-			Blocks:   blockTypes.SortedValues(),
+			UUID:      model.UUID.String(),
+			Name:      model.Name,
+			Qualifier: model.Qualifier.String(),
+			Blocks:    blockTypes.SortedValues(),
 		})
 	}
 
@@ -372,15 +367,10 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		if model.UUID == controllerModel.UUID {
 			continue
 		}
-		ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
-		if err != nil {
-			c.logger.Errorf(ctx, "parsing model qualifier %q into user tag, skipping model %q: %v", model.Qualifier, model.UUID, err)
-			continue
-		}
 
 		config := params.HostedModelConfig{
-			Name:     model.Name,
-			OwnerTag: ownerTag.String(),
+			Name:      model.Name,
+			Qualifier: model.Qualifier.String(),
 		}
 		svc, err := c.modelConfigServiceGetter(ctx, model.UUID)
 		if err != nil {
@@ -943,16 +933,11 @@ func makeModelInfo(ctx context.Context, st *state.State,
 		return empty, userList{}, errors.Trace(err)
 	}
 
-	ownerTag, err := coremodel.ApproximateUserTagFromQualifier(model.Qualifier)
-	if err != nil {
-		return empty, userList{}, errors.Trace(err)
-	}
-
 	ul.identityURL = coreConf.IdentityURL()
 	return coremigration.ModelInfo{
 		UUID:                   model.UUID.String(),
 		Name:                   model.Name,
-		Owner:                  ownerTag,
+		Qualifier:              model.Qualifier,
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerModel.AgentVersion,
 		ModelDescription:       description,
@@ -1011,10 +996,10 @@ func (o orderedBlockInfo) Less(i, j int) bool {
 		return false
 	}
 
-	if o[i].OwnerTag < o[j].OwnerTag {
+	if o[i].Qualifier < o[j].Qualifier {
 		return true
 	}
-	if o[i].OwnerTag > o[j].OwnerTag {
+	if o[i].Qualifier > o[j].Qualifier {
 		return false
 	}
 

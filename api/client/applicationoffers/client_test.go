@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/client/applicationoffers"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -106,13 +107,13 @@ func (s *crossmodelMockSuite) TestList(c *tc.C) {
 	defer ctrl.Finish()
 
 	offerName := "hosted-db2"
-	url := fmt.Sprintf("fred/model.%s", offerName)
+	url := fmt.Sprintf("prod/model.%s", offerName)
 	endpoints := []params.RemoteEndpoint{{Name: "endPointA"}}
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := jujucrossmodel.ApplicationOfferFilter{
-		OwnerName:        "fred",
-		ModelName:        "prod",
+		ModelQualifier:   "prod",
+		ModelName:        "model",
 		OfferName:        offerName,
 		Endpoints:        relations,
 		ApplicationName:  "mysql",
@@ -123,8 +124,8 @@ func (s *crossmodelMockSuite) TestList(c *tc.C) {
 
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			OwnerName:       "fred",
-			ModelName:       "prod",
+			ModelQualifier:  "prod",
+			ModelName:       "model",
 			OfferName:       filter.OfferName,
 			ApplicationName: filter.ApplicationName,
 			Endpoints: []params.EndpointFilterAttributes{{
@@ -194,7 +195,7 @@ func (s *crossmodelMockSuite) TestListError(c *tc.C) {
 
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			OwnerName:           filter.OwnerName,
+			ModelQualifier:      filter.ModelQualifier.String(),
 			ModelName:           filter.ModelName,
 			OfferName:           filter.OfferName,
 			ApplicationName:     filter.ApplicationName,
@@ -219,7 +220,7 @@ func (s *crossmodelMockSuite) TestShow(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	url := "fred/model.db2"
+	url := "prod/model.db2"
 
 	desc := "IBM DB2 Express Server Edition is an entry level database system"
 	endpoints := []params.RemoteEndpoint{
@@ -288,7 +289,7 @@ func (s *crossmodelMockSuite) TestShowURLError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	url := "fred/model.db2"
+	url := "prod/model.db2"
 	msg := "facade failure"
 
 	args := params.OfferURLs{OfferURLs: []string{url}, BakeryVersion: bakery.LatestVersion}
@@ -312,7 +313,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	url := "fred/model.db2"
+	url := "prod/model.db2"
 
 	desc := "IBM DB2 Express Server Edition is an entry level database system"
 	endpoints := []params.RemoteEndpoint{
@@ -356,14 +357,14 @@ func (s *crossmodelMockSuite) TestShowFacadeCallError(c *tc.C) {
 	defer ctrl.Finish()
 
 	msg := "facade failure"
-	args := params.OfferURLs{OfferURLs: []string{"fred/model.db2"}, BakeryVersion: bakery.LatestVersion}
+	args := params.OfferURLs{OfferURLs: []string{"prod/model.db2"}, BakeryVersion: bakery.LatestVersion}
 
 	res := new(params.ApplicationOffersResults)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationOffers", args, res).Return(errors.New(msg))
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	found, err := client.ApplicationOffer(c.Context(), "fred/model.db2")
+	found, err := client.ApplicationOffer(c.Context(), "prod/model.db2")
 	c.Assert(errors.Cause(err), tc.ErrorMatches, msg)
 	c.Assert(found, tc.IsNil)
 }
@@ -373,22 +374,22 @@ func (s *crossmodelMockSuite) TestFind(c *tc.C) {
 	defer ctrl.Finish()
 
 	offerName := "hosted-db2"
-	ownerName := "owner"
+	modelQualifier := coremodel.Qualifier("prod")
 	modelName := "model"
-	url := fmt.Sprintf("fred/model.%s", offerName)
+	url := fmt.Sprintf("%s/%s.%s", modelQualifier, modelName, offerName)
 	endpoints := []params.RemoteEndpoint{{Name: "endPointA"}}
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := jujucrossmodel.ApplicationOfferFilter{
-		OwnerName: ownerName,
-		ModelName: modelName,
-		OfferName: offerName,
-		Endpoints: relations,
+		ModelQualifier: modelQualifier,
+		ModelName:      modelName,
+		OfferName:      offerName,
+		Endpoints:      relations,
 	}
 
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			OwnerName:       filter.OwnerName,
+			ModelQualifier:  filter.ModelQualifier.String(),
 			ModelName:       filter.ModelName,
 			OfferName:       filter.OfferName,
 			ApplicationName: filter.ApplicationName,
@@ -449,7 +450,7 @@ func (s *crossmodelMockSuite) TestFindError(c *tc.C) {
 	}
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			OwnerName:       filter.OwnerName,
+			ModelQualifier:  filter.ModelQualifier.String(),
 			ModelName:       filter.ModelName,
 			OfferName:       filter.OfferName,
 			ApplicationName: filter.ApplicationName,

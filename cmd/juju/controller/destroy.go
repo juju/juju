@@ -199,7 +199,7 @@ func (c *destroyCommand) Init(args []string) error {
 // getModelNames gets slice of model names from modelData.
 func getModelNames(data []modelData) []string {
 	return transform.Slice(data, func(f modelData) string {
-		return fmt.Sprintf("%s/%s (%s)", f.Owner, f.Name, f.Life)
+		return fmt.Sprintf("%s/%s (%s)", f.Qualifier, f.Name, f.Life)
 	})
 }
 

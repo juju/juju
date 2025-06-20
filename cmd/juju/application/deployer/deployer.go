@@ -25,6 +25,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -387,7 +388,7 @@ type DeployerDependencies struct {
 	Model                ModelCommand
 	FileSystem           modelcmd.Filesystem
 	CharmReader          CharmReader
-	NewConsumeDetailsAPI func(ctx context.Context, url *charm.OfferURL) (ConsumeDetails, error)
+	NewConsumeDetailsAPI func(ctx context.Context, url *crossmodel.OfferURL) (ConsumeDetails, error)
 	DeployKind           DeployerFactory
 }
 
@@ -417,7 +418,7 @@ type DeployerConfig struct {
 	DryRun               bool
 	FlagSet              *gnuflag.FlagSet
 	Force                bool
-	NewConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
+	NewConsumeDetailsAPI func(url *crossmodel.OfferURL) (ConsumeDetails, error)
 	NumUnits             int
 	PlacementSpec        string
 	Placement            []*instance.Placement
@@ -433,7 +434,7 @@ type factory struct {
 	// DeployerDependencies
 	model                ModelCommand
 	deployResources      DeployResourcesFunc
-	newConsumeDetailsAPI func(ctx context.Context, url *charm.OfferURL) (ConsumeDetails, error)
+	newConsumeDetailsAPI func(ctx context.Context, url *crossmodel.OfferURL) (ConsumeDetails, error)
 	fileSystem           modelcmd.Filesystem
 	charmReader          CharmReader
 

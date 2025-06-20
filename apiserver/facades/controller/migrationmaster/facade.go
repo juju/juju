@@ -34,6 +34,11 @@ type ModelExporter interface {
 	ExportModel(context.Context, objectstore.ObjectStore) (description.Model, error)
 }
 
+// APIV4 implements the API V4.
+type APIV4 struct {
+	*API
+}
+
 // API implements the API required for the model migration
 // master worker.
 type API struct {
@@ -182,7 +187,7 @@ func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error
 	return params.MigrationModelInfo{
 		UUID:             modelInfo.UUID.String(),
 		Name:             modelInfo.Name,
-		OwnerTag:         names.NewUserTag(modelInfo.CredentialOwner.Name()).String(),
+		Qualifier:        modelInfo.Qualifier.String(),
 		AgentVersion:     modelInfo.AgentVersion,
 		ModelDescription: modelDescription,
 	}, nil

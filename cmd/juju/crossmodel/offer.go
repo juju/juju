@@ -167,11 +167,11 @@ func (c *offerCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	unqualifiedModelName, ownerTag, err := jujuclient.SplitModelName(c.QualifiedModelName)
+	unqualifiedModelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(c.QualifiedModelName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	url := jujucrossmodel.MakeURL(ownerTag.Id(), unqualifiedModelName, c.OfferName, "")
+	url := jujucrossmodel.MakeURL(qualifier, unqualifiedModelName, c.OfferName, "")
 	ep := strings.Join(c.Endpoints, ", ")
 	ctx.Infof("Application %q endpoints [%s] available at %q", c.Application, ep, url)
 	return nil
@@ -209,7 +209,7 @@ func (c *offerCommand) parseEndpoints(controllerName, arg string) error {
 		}
 	} else if modelNameArg != "" {
 		c.QualifiedModelName = modelNameArg
-		modelName, _, err = jujuclient.SplitModelName(modelNameArg)
+		modelName, _, err = jujuclient.SplitFullyQualifiedModelName(modelNameArg)
 		if err != nil {
 			return errors.Trace(err)
 		}
