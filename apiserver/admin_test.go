@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	stdtesting "testing"
@@ -43,7 +42,6 @@ import (
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -71,7 +69,8 @@ type baseLoginSuite struct {
 func TestLoginStub(t *stdtesting.T) {
 	t.Skipf(`This suite is missing tests for the following scenarios:
  - Machine login during maintenance
- - Controller machine login during maintenance
+ - Controller agent login
+ - Controller agent login during maintenance
  - Machine login other model
  - Test login from another model whilst controller
  - Test login from another model whilst controller, but machine not provisioned
@@ -298,29 +297,6 @@ func (s *loginSuite) setupManagementSpace(c *tc.C) *network.SpaceInfo {
 	return mgmtSpace
 }
 
-func (s *loginSuite) addController(c *tc.C) (state.ControllerNode, string) {
-	node, err := s.ControllerModel(c).State().AddControllerNode()
-	c.Assert(err, tc.ErrorIsNil)
-	pass, err := password.RandomPassword()
-	c.Assert(err, tc.ErrorIsNil)
-	err = node.SetPassword(pass)
-	c.Assert(err, tc.ErrorIsNil)
-	return node, pass
-}
-
-func (s *loginSuite) TestControllerAgentLogin(c *tc.C) {
-	// The agent login tests also check the management space.
-	mgmtSpace := s.setupManagementSpace(c)
-	info := s.ControllerModelApiInfo()
-
-	node, pass := s.addController(c)
-	info.Tag = node.Tag()
-	info.Password = pass
-	info.Nonce = "fake_nonce"
-
-	s.assertAgentLogin(c, info, mgmtSpace)
-}
-
 func (s *loginSuite) loginHostPorts(
 	c *tc.C, info *api.Info,
 ) (connectedAddr *url.URL, hostPorts []network.MachineHostPorts) {
@@ -330,6 +306,7 @@ func (s *loginSuite) loginHostPorts(
 	return st.Addr(), st.APIHostPorts()
 }
 
+/*
 func (s *loginSuite) assertAgentLogin(c *tc.C, info *api.Info, mgmtSpace *network.SpaceInfo) {
 	st := s.ControllerModel(c).State()
 
@@ -387,6 +364,7 @@ func (s *loginSuite) assertAgentLogin(c *tc.C, info *api.Info, mgmtSpace *networ
 	expectedAPIHostPorts = append(connectedAddrHostPorts, expectedAPIHostPorts...)
 	c.Assert(hostPorts, tc.DeepEquals, expectedAPIHostPorts)
 }
+*/
 
 func (s *loginSuite) TestLoginAddressesForClients(c *tc.C) {
 	mgmtSpace := s.setupManagementSpace(c)
@@ -537,19 +515,6 @@ func (s *loginSuite) testLoginDuringMaintenance(c *tc.C, check func(api.Connecti
 	c.Assert(err, tc.ErrorIsNil)
 
 	check(st)
-}
-
-func (s *loginSuite) TestControllerAgentLoginDuringMaintenance(c *tc.C) {
-	s.WithUpgrading = true
-	info := s.ControllerModelApiInfo()
-
-	node, pass := s.addController(c)
-	info.Tag = node.Tag()
-	info.Password = pass
-
-	st, err := api.Open(c.Context(), info, fastDialOpts)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(st.Close(), tc.ErrorIsNil)
 }
 
 var index uint32

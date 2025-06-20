@@ -380,7 +380,6 @@ func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config
 
 	authenticator, err := stateauthenticator.NewAuthenticator(
 		c.Context(),
-		cfg.StatePool,
 		cfg.ControllerModelUUID,
 		factory.ControllerConfig(),
 		agentPasswordServiceGetter{

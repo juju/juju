@@ -62,10 +62,9 @@ func (f AgentAuthenticatorGetter) Authenticator() EntityAuthenticator {
 }
 
 // AuthenticatorForModel returns an authenticator for the given model.
-func (f AgentAuthenticatorGetter) AuthenticatorForModel(agentPasswordService AgentPasswordService, st *state.State) EntityAuthenticator {
+func (f AgentAuthenticatorGetter) AuthenticatorForModel(agentPasswordService AgentPasswordService) EntityAuthenticator {
 	return agentAuthenticator{
 		agentPasswordService: agentPasswordService,
-		state:                st,
 		logger:               f.logger,
 	}
 }
@@ -142,7 +141,7 @@ func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.
 	// - If the machine is not provisioned, then we consider that the machine
 	//   is not provisioned (the password must match first before undertaking
 	//   the provisioning).
-	// - Any other error, is considered an internal server error.
+	// - Any other error is considered an internal server error.
 
 	valid, err := a.agentPasswordService.MatchesMachinePasswordHashWithNonce(ctx, machineName, credentials, nonce)
 	if errors.Is(err, agentpassworderrors.EmptyPassword) || errors.Is(err, agentpassworderrors.EmptyNonce) {
@@ -171,7 +170,7 @@ func (a *agentAuthenticator) fallbackAuth(ctx context.Context, authParams AuthPa
 	}
 	authenticator, ok := entity.(taggedAuthenticator)
 	if !ok {
-		return nil, errors.Trace(fmt.Errorf("Authenticate fallback: %w", apiservererrors.ErrBadRequest))
+		return nil, errors.Trace(fmt.Errorf("authenticate fallback: %w", apiservererrors.ErrBadRequest))
 	}
 	if !authenticator.PasswordValid(authParams.Credentials) {
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
