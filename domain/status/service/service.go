@@ -13,11 +13,13 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/status"
+	statuserrors "github.com/juju/juju/domain/status/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
@@ -173,6 +175,30 @@ type ModelState interface {
 	// GetApplicationAndUnitModelStatuses returns the application name and unit
 	// count for each model for the model status request.
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
+
+	// GetMachineStatus returns the status of the specified machine.
+	// This method may return the following errors:
+	// - [machineerrors.MachineNotFound] if the machine does not exist.
+	// - [statuserrors.MachineStatusNotFound] if the status is not set.
+	GetMachineStatus(ctx context.Context, machineName string) (status.StatusInfo[status.MachineStatusType], error)
+
+	// SetMachineStatus sets the status of the specified machine.
+	// This method may return the following errors:
+	// - [machineerrors.MachineNotFound] if the machine does not exist.
+	SetMachineStatus(ctx context.Context, machineName string, status status.StatusInfo[status.MachineStatusType]) error
+
+	// GetInstanceStatus returns the cloud specific instance status for the given
+	// machine.
+	// This method may return the following errors:
+	// - [machineerrors.MachineNotFound] if the machine does not exist or;
+	// - [statuserrors.MachineStatusNotFound] if the status is not set.
+	GetInstanceStatus(ctx context.Context, machineName string) (status.StatusInfo[status.InstanceStatusType], error)
+
+	// SetInstanceStatus sets the cloud specific instance status for this
+	// machine.
+	// This method may return the following errors:
+	// - [machineerrors.NotProvisioned] if the machine does not exist.
+	SetInstanceStatus(ctx context.Context, machienName string, status status.StatusInfo[status.InstanceStatusType]) error
 
 	// GetModelStatusInfo returns information about the current model.
 	// The following error types can be expected to be returned:
@@ -592,6 +618,111 @@ func (s *Service) ImportRelationStatus(
 	}
 
 	return s.modelState.ImportRelationStatus(ctx, relationUUID, relationStatus)
+}
+
+// GetInstanceStatus returns the cloud specific instance status for this
+// machine.
+// This method may return the following errors:
+// - [machineerrors.MachineNotFound] if the machine does not exist or;
+// - [statuserrors.MachineStatusNotFound] if the status is not set.
+func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Name) (corestatus.StatusInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return corestatus.StatusInfo{}, errors.Errorf("validating machine name: %w", err)
+	}
+
+	instanceStatus, err := s.modelState.GetInstanceStatus(ctx, machineName.String())
+	if err != nil {
+		return corestatus.StatusInfo{}, errors.Errorf("retrieving instance status for machine %q: %w", machineName, err)
+	}
+
+	return decodeInstanceStatus(instanceStatus)
+}
+
+// SetInstanceStatus sets the cloud specific instance status for this machine.
+// This method may return the following errors:
+// - [machineerrors.NotProvisioned] if the machine instance does not exist.
+// - [statuserrors.InvalidStatus] if the given status is not a known status value.
+func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Name, statusInfo corestatus.StatusInfo) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return errors.Errorf("validating machine name %q: %w", machineName, err)
+	}
+
+	if !statusInfo.Status.KnownInstanceStatus() {
+		return statuserrors.InvalidStatus
+	}
+
+	instanceStatus, err := encodeInstanceStatus(statusInfo)
+	if err != nil {
+		return errors.Errorf("encoding status for machine %q: %w", machineName, err)
+	}
+
+	if err := s.modelState.SetInstanceStatus(ctx, machineName.String(), instanceStatus); err != nil {
+		return errors.Errorf("setting instance status for machine %q: %w", machineName, err)
+	}
+
+	if err := s.statusHistory.RecordStatus(ctx, status.MachineInstanceNamespace.WithID(machineName.String()), statusInfo); err != nil {
+		s.logger.Infof(ctx, "failed recording instance status history: %w", err)
+	}
+
+	return nil
+}
+
+// GetMachineStatus returns the status of the specified machine.
+// This method may return the following errors:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [statuserrors.MachineStatusNotFound] if the status is not set.
+func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name) (corestatus.StatusInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return corestatus.StatusInfo{}, errors.Errorf("validating machine name: %w", err)
+	}
+
+	machineStatus, err := s.modelState.GetMachineStatus(ctx, machineName.String())
+	if err != nil {
+		return corestatus.StatusInfo{}, errors.Errorf("retrieving machine status for machine %q: %w", machineName, err)
+	}
+
+	return decodeMachineStatus(machineStatus)
+}
+
+// SetMachineStatus sets the status of the specified machine.
+// This method may return the following errors:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [statuserrors.InvalidStatus] if the given status is not a known status value.
+func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name, statusInfo corestatus.StatusInfo) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return errors.Errorf("validating machine name %q: %w", machineName, err)
+	}
+
+	if !statusInfo.Status.KnownMachineStatus() {
+		return statuserrors.InvalidStatus
+	}
+
+	machineStatus, err := encodeMachineStatus(statusInfo)
+	if err != nil {
+		return errors.Errorf("encoding status for machine %q: %w", machineName, err)
+	}
+
+	if err := s.modelState.SetMachineStatus(ctx, machineName.String(), machineStatus); err != nil {
+		return errors.Errorf("setting machine status for machine %q: %w", machineName, err)
+	}
+
+	if err := s.statusHistory.RecordStatus(ctx, status.MachineNamespace.WithID(machineName.String()), statusInfo); err != nil {
+		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
+	}
+
+	return nil
 }
 
 // ExportUnitStatuses returns the workload and agent statuses of all the units in

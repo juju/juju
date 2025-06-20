@@ -264,3 +264,31 @@ type modelStatusContext struct {
 	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
 	Migrating               bool   `db:"migrating"`
 }
+
+type machineName struct {
+	Name string `db:"name"`
+}
+
+type machineUUID struct {
+	UUID string `db:"uuid"`
+}
+
+// machineStatus represents the struct to be used for the status.
+type machineStatus struct {
+	Status  string              `db:"status"`
+	Message string              `db:"message"`
+	Data    []byte              `db:"data"`
+	Updated sql.Null[time.Time] `db:"updated_at"`
+}
+
+type setMachineStatus struct {
+	StatusID    int        `db:"status_id"`
+	Message     string     `db:"message"`
+	Data        []byte     `db:"data"`
+	UpdatedAt   *time.Time `db:"updated_at"`
+	MachineUUID string     `db:"machine_uuid"`
+}
+
+type instanceID struct {
+	ID string `db:"instance_id"`
+}

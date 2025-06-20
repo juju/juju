@@ -661,44 +661,6 @@ func (c *MockMachineProvisionerSetInstanceStatusCall) DoAndReturn(f func(context
 	return c
 }
 
-// SetModificationStatus mocks base method.
-func (m *MockMachineProvisioner) SetModificationStatus(arg0 context.Context, arg1 status.Status, arg2 string, arg3 map[string]any) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetModificationStatus", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetModificationStatus indicates an expected call of SetModificationStatus.
-func (mr *MockMachineProvisionerMockRecorder) SetModificationStatus(arg0, arg1, arg2, arg3 any) *MockMachineProvisionerSetModificationStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModificationStatus", reflect.TypeOf((*MockMachineProvisioner)(nil).SetModificationStatus), arg0, arg1, arg2, arg3)
-	return &MockMachineProvisionerSetModificationStatusCall{Call: call}
-}
-
-// MockMachineProvisionerSetModificationStatusCall wrap *gomock.Call
-type MockMachineProvisionerSetModificationStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineProvisionerSetModificationStatusCall) Return(arg0 error) *MockMachineProvisionerSetModificationStatusCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineProvisionerSetModificationStatusCall) Do(f func(context.Context, status.Status, string, map[string]any) error) *MockMachineProvisionerSetModificationStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineProvisionerSetModificationStatusCall) DoAndReturn(f func(context.Context, status.Status, string, map[string]any) error) *MockMachineProvisionerSetModificationStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetPassword mocks base method.
 func (m *MockMachineProvisioner) SetPassword(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()

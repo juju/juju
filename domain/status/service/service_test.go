@@ -1449,6 +1449,161 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesInvalidLXDProfile(c *tc.
 	c.Assert(err, tc.ErrorMatches, `.*decoding LXD profile.*`)
 }
 
+// TestGetMachineStatusSuccess asserts the happy path of the GetMachineStatus.
+func (s *serviceSuite) TestGetMachineStatusSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedStatus := corestatus.StatusInfo{
+		Status: corestatus.Started,
+		Data:   map[string]interface{}{"foo": "bar"},
+	}
+	s.modelState.EXPECT().GetMachineStatus(gomock.Any(), "666").Return(status.StatusInfo[status.MachineStatusType]{
+		Status: status.MachineStatusStarted,
+		Data:   []byte(`{"foo":"bar"}`),
+	}, nil)
+
+	machineStatus, err := s.modelService.
+		GetMachineStatus(c.Context(), "666")
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(machineStatus, tc.DeepEquals, expectedStatus)
+}
+
+// TestGetMachineStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestGetMachineStatusError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.modelState.EXPECT().GetMachineStatus(gomock.Any(), "666").Return(status.StatusInfo[status.MachineStatusType]{}, rErr)
+
+	machineStatus, err := s.modelService.
+		GetMachineStatus(c.Context(), "666")
+	c.Check(err, tc.ErrorIs, rErr)
+	c.Check(machineStatus, tc.DeepEquals, corestatus.StatusInfo{})
+}
+
+// TestSetMachineStatusSuccess asserts the happy path of the SetMachineStatus.
+func (s *serviceSuite) TestSetMachineStatusSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := corestatus.StatusInfo{Status: corestatus.Started}
+	s.modelState.EXPECT().SetMachineStatus(gomock.Any(), "666", status.StatusInfo[status.MachineStatusType]{
+		Status: status.MachineStatusStarted,
+	}).Return(nil)
+
+	err := s.modelService.
+		SetMachineStatus(c.Context(), "666", newStatus)
+	c.Check(err, tc.ErrorIsNil)
+
+	c.Check(s.statusHistory.records, tc.DeepEquals, []statusHistoryRecord{{
+		ns: status.MachineNamespace.WithID("666"),
+		s:  newStatus,
+	}})
+}
+
+// TestSetMachineStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestSetMachineStatusError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := corestatus.StatusInfo{Status: corestatus.Started}
+	rErr := errors.New("boom")
+	s.modelState.EXPECT().SetMachineStatus(gomock.Any(), "666", status.StatusInfo[status.MachineStatusType]{
+		Status: status.MachineStatusStarted,
+	}).Return(rErr)
+
+	err := s.modelService.
+		SetMachineStatus(c.Context(), "666", newStatus)
+	c.Check(err, tc.ErrorIs, rErr)
+}
+
+// TestSetMachineStatusInvalid asserts that an invalid status is passed to the
+// service will result in a InvalidStatus error.
+func (s *serviceSuite) TestSetMachineStatusInvalid(c *tc.C) {
+	err := s.modelService.
+		SetMachineStatus(c.Context(), "666", corestatus.StatusInfo{Status: "invalid"})
+	c.Check(err, tc.ErrorIs, statuserrors.InvalidStatus)
+}
+
+// TestGetInstanceStatusSuccess asserts the happy path of the GetInstanceStatus.
+func (s *serviceSuite) TestGetInstanceStatusSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedStatus := corestatus.StatusInfo{
+		Status: corestatus.Running,
+		Data:   map[string]interface{}{"foo": "bar"},
+	}
+	s.modelState.EXPECT().GetInstanceStatus(gomock.Any(), "666").Return(status.StatusInfo[status.InstanceStatusType]{
+		Status: status.InstanceStatusRunning,
+		Data:   []byte(`{"foo":"bar"}`),
+	}, nil)
+
+	instanceStatus, err := s.modelService.
+		GetInstanceStatus(c.Context(), "666")
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(instanceStatus, tc.DeepEquals, expectedStatus)
+}
+
+// TestGetInstanceStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestGetInstanceStatusError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.modelState.EXPECT().GetInstanceStatus(gomock.Any(), "666").Return(status.StatusInfo[status.InstanceStatusType]{}, rErr)
+
+	instanceStatus, err := s.modelService.
+		GetInstanceStatus(c.Context(), "666")
+	c.Check(err, tc.ErrorIs, rErr)
+	c.Check(instanceStatus, tc.DeepEquals, corestatus.StatusInfo{})
+}
+
+// TestSetInstanceStatusSuccess asserts the happy path of the SetInstanceStatus
+// service.
+func (s *serviceSuite) TestSetInstanceStatusSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := corestatus.StatusInfo{Status: corestatus.Running}
+	s.modelState.EXPECT().SetInstanceStatus(gomock.Any(), "666", status.StatusInfo[status.InstanceStatusType]{
+		Status: status.InstanceStatusRunning,
+	}).Return(nil)
+
+	err := s.modelService.
+		SetInstanceStatus(c.Context(), "666", newStatus)
+	c.Check(err, tc.ErrorIsNil)
+
+	c.Check(s.statusHistory.records, tc.DeepEquals, []statusHistoryRecord{{
+		ns: status.MachineInstanceNamespace.WithID("666"),
+		s:  newStatus,
+	}})
+}
+
+// TestSetInstanceStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestSetInstanceStatusError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	newStatus := corestatus.StatusInfo{Status: corestatus.Running}
+	s.modelState.EXPECT().SetInstanceStatus(gomock.Any(), "666", status.StatusInfo[status.InstanceStatusType]{
+		Status: status.InstanceStatusRunning,
+	}).Return(rErr)
+
+	err := s.modelService.
+		SetInstanceStatus(c.Context(), "666", newStatus)
+	c.Check(err, tc.ErrorIs, rErr)
+}
+
+// TestSetInstanceStatusInvalid asserts that an invalid status is passed to the
+// service will result in a InvalidStatus error.
+func (s *serviceSuite) TestSetInstanceStatusInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.modelService.
+		SetInstanceStatus(c.Context(), "666", corestatus.StatusInfo{Status: "invalid"})
+	c.Check(err, tc.ErrorIs, statuserrors.InvalidStatus)
+}
+
 func (s *serviceSuite) TestExportRelationStatuses(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()

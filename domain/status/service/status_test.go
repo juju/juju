@@ -593,3 +593,134 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsWithError(c *tc.C) {
 		Since:   &s.now,
 	})
 }
+
+func (s *statusSuite) TestEncodeMachineStatus(c *tc.C) {
+	testCases := []struct {
+		input  corestatus.StatusInfo
+		output status.StatusInfo[status.MachineStatusType]
+	}{
+		{
+			input: corestatus.StatusInfo{
+				Status: corestatus.Started,
+			},
+			output: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStarted,
+			},
+		},
+		{
+			input: corestatus.StatusInfo{
+				Status: corestatus.Stopped,
+			},
+			output: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStopped,
+			},
+		},
+		{
+			input: corestatus.StatusInfo{
+				Status: corestatus.Error,
+			},
+			output: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusError,
+			},
+		},
+		{
+			input: corestatus.StatusInfo{
+				Status: corestatus.Pending,
+			},
+			output: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusPending,
+			},
+		},
+		{
+			input: corestatus.StatusInfo{
+				Status: corestatus.Down,
+			},
+			output: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusDown,
+			},
+		},
+		{
+			input: corestatus.StatusInfo{
+				Status: corestatus.Down,
+				Data: map[string]interface{}{
+					"foo": "bar",
+				},
+			},
+			output: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusDown,
+				Data:   []byte(`{"foo":"bar"}`),
+			},
+		},
+	}
+
+	for i, test := range testCases {
+		c.Logf("test %d", i)
+		output, err := encodeMachineStatus(test.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(output, tc.DeepEquals, test.output)
+		result, err := decodeMachineStatus(output)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(result, tc.DeepEquals, test.input)
+	}
+}
+
+func (s *statusSuite) TestEncodeInstanceStatus(c *tc.C) {
+	testCases := []struct {
+		input  corestatus.StatusInfo
+		output status.StatusInfo[status.InstanceStatusType]
+	}{
+		{
+			input: corestatus.StatusInfo{
+				Status: corestatus.Unset,
+			},
+			output: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusUnset,
+			},
+		},
+		{
+			input: corestatus.StatusInfo{
+				Status: corestatus.Running,
+			},
+			output: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusRunning,
+			},
+		},
+		{
+			input: corestatus.StatusInfo{
+				Status: corestatus.Provisioning,
+			},
+			output: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusAllocating,
+			},
+		},
+		{
+			input: corestatus.StatusInfo{
+				Status: corestatus.ProvisioningError,
+			},
+			output: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusProvisioningError,
+			},
+		},
+		{
+			input: corestatus.StatusInfo{
+				Status: corestatus.Running,
+				Data: map[string]interface{}{
+					"foo": "bar",
+				},
+			},
+			output: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusRunning,
+				Data:   []byte(`{"foo":"bar"}`),
+			},
+		},
+	}
+
+	for i, test := range testCases {
+		c.Logf("test %d", i)
+		output, err := encodeInstanceStatus(test.input)
+		c.Assert(err, tc.ErrorIsNil)
+		result, err := decodeInstanceStatus(output)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(result, tc.DeepEquals, test.input)
+	}
+}
