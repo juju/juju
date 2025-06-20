@@ -859,6 +859,9 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	if fw.globalMode {
 		return fw.flushGlobalPorts(toOpen, toClose)
 	}
+
+	// We may have had a call to flushModel() in the past but did not have any machines yet.
+	// Call flushModel() now.
 	if fw.needsToFlushModel {
 		if err := fw.flushModel(); err != nil {
 			return errors.Trace(err)
@@ -1103,6 +1106,9 @@ func (fw *Firewaller) flushModel() error {
 		return nil
 	}
 
+	// We may be in a situation where we have added a model but doesn't have machines yet.
+	// To prevent the firewall worker from infinitely polling the Neutron security group API
+	// we skip flushing a model if we have no machines.
 	if len(fw.machineds) == 0 {
 		fw.needsToFlushModel = true
 		fw.logger.Debugf("skipping flushing model because there are no machines for this model")
@@ -1141,7 +1147,7 @@ func (fw *Firewaller) flushModel() error {
 		fw.flushModelNotify()
 	}
 
-	// reset the flag once we have flushed the model
+	// Reset the flag once we have flushed the model.
 	fw.needsToFlushModel = false
 	return nil
 }
