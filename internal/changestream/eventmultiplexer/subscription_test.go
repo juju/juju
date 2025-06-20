@@ -28,8 +28,8 @@ func TestSubscriptionSuite(t *stdtesting.T) {
 func (s *subscriptionSuite) TestSubscriptionIsDone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	sub := newSubscription(0, func() {})
-	defer workertest.CleanKill(c, sub)
+	sub := newSubscription(0)
+	defer workertest.DirtyKill(c, sub)
 
 	workertest.CleanKill(c, sub)
 
@@ -40,26 +40,11 @@ func (s *subscriptionSuite) TestSubscriptionIsDone(c *tc.C) {
 	}
 }
 
-func (s *subscriptionSuite) TestSubscriptionUnsubscriptionIsCalled(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	var called bool
-	sub := newSubscription(0, func() { called = true })
-	defer workertest.CleanKill(c, sub)
-
-	sub.Unsubscribe()
-	c.Assert(called, tc.IsTrue)
-
-	workertest.CleanKill(c, sub)
-}
-
 func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	sub := newSubscription(0, func() {
-		c.Fatalf("failed if called")
-	})
-	defer workertest.CleanKill(c, sub)
+	sub := newSubscription(0)
+	defer workertest.DirtyKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
 		ctype:   changestreamtesting.Create,
@@ -88,10 +73,8 @@ func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *tc.C) {
 func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithCancelledContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	sub := newSubscription(0, func() {
-		c.Fatalf("failed if called")
-	})
-	defer workertest.CleanKill(c, sub)
+	sub := newSubscription(0)
+	defer workertest.DirtyKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
 		ctype:   changestreamtesting.Create,
@@ -128,8 +111,8 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithCancelledCo
 func (s *subscriptionSuite) TestDispatchTimeoutKillsSubscription(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	sub := newSubscription(0, func() {})
-	defer workertest.CleanKill(c, sub)
+	sub := newSubscription(0)
+	defer workertest.DirtyKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
 		ctype:   changestreamtesting.Create,
@@ -168,10 +151,8 @@ func (s *subscriptionSuite) TestDispatchTimeoutKillsSubscription(c *tc.C) {
 func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	sub := newSubscription(0, func() {
-		c.Fatalf("failed if called")
-	})
-	defer workertest.CleanKill(c, sub)
+	sub := newSubscription(0)
+	defer workertest.DirtyKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
 		ctype:   changestreamtesting.Create,
@@ -183,10 +164,9 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *tc
 	go func() {
 		defer close(syncPoint)
 
-		err := sub.close()
-		c.Assert(err, tc.ErrorIsNil)
+		sub.Kill()
 
-		err = sub.dispatch(c.Context(), changes)
+		err := sub.dispatch(c.Context(), changes)
 		c.Assert(err, tc.ErrorMatches, "tomb: dying")
 	}()
 

@@ -159,7 +159,7 @@ func (s *watcherSuite) expectSourceWithSub() {
 	// We are only testing that the factory produces a functioning worker.
 	// The workers themselves are properly tested at their package sites.
 	s.sub.EXPECT().Changes().Return(changes)
-	s.sub.EXPECT().Unsubscribe()
+	s.sub.EXPECT().Kill()
 	s.sub.EXPECT().Done().Return(done).AnyTimes()
 
 	s.events.EXPECT().Subscribe(gomock.Any()).Return(s.sub, nil)
