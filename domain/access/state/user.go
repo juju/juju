@@ -912,10 +912,6 @@ ORDER BY time DESC LIMIT 1;
 		}
 
 		lastConnection = mll.Time
-		if err != nil {
-			return errors.Errorf("parsing time: %w", err)
-		}
-
 		return nil
 	})
 	if err != nil {
