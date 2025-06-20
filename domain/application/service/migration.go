@@ -15,7 +15,6 @@ import (
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -55,24 +54,21 @@ type MigrationState interface {
 
 // MigrationService provides the API for migrating applications.
 type MigrationService struct {
-	st                    State
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter
-	clock                 clock.Clock
-	logger                logger.Logger
+	st     State
+	clock  clock.Clock
+	logger logger.Logger
 }
 
 // NewMigrationService returns a new service reference wrapping the input state.
 func NewMigrationService(
 	st State,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *MigrationService {
 	return &MigrationService{
-		st:                    st,
-		storageRegistryGetter: storageRegistryGetter,
-		clock:                 clock,
-		logger:                logger,
+		st:     st,
+		clock:  clock,
+		logger: logger,
 	}
 }
 

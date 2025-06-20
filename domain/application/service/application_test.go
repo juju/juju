@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
-	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -41,9 +40,6 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
-	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/testcharms"
 )
@@ -1484,18 +1480,10 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *tc.C) *gomock.Controller 
 	s.charm = NewMockCharm(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
 
-	registry := corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-		return storage.ChainedProviderRegistry{
-			dummystorage.StorageProviders(),
-			provider.CommonStorageProviders(),
-		}
-	})
-
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewWatchableService(
 		s.state,
 		domaintesting.NoopLeaderEnsurer(),
-		registry,
 		s.watcherFactory,
 		nil,
 		nil,
