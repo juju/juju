@@ -1123,7 +1123,7 @@ func (fw *Firewaller) flushModel() error {
 		fw.logger.Debugf("skipping flushing model because there are no machines for this model")
 		return nil
 	}
-	// Reset the flag once we have flushed the model.
+	// Reset the flag because the models are being flushed now.
 	fw.needsToFlushModel = false
 
 	want, err := fw.firewallerApi.ModelFirewallRules()
