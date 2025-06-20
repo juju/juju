@@ -21,7 +21,6 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -69,9 +68,6 @@ func (s *storageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.service = NewService(
 		s.mockState,
 		nil,
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return provider.CommonStorageProviders()
-		}),
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

@@ -48,9 +48,8 @@ func RegisterImport(
 	logger logger.Logger,
 ) {
 	coordinator.Add(&importOperation{
-		registry: registry,
-		clock:    clock,
-		logger:   logger,
+		clock:  clock,
+		logger: logger,
 	})
 }
 
@@ -59,9 +58,8 @@ type importOperation struct {
 
 	service ImportService
 
-	registry corestorage.ModelStorageRegistryGetter
-	clock    clock.Clock
-	logger   logger.Logger
+	clock  clock.Clock
+	logger logger.Logger
 }
 
 // ImportService defines the application service used to import applications
@@ -94,7 +92,6 @@ func (i *importOperation) Name() string {
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewMigrationService(
 		state.NewState(scope.ModelDB(), i.clock, i.logger),
-		i.registry,
 		i.clock,
 		i.logger,
 	)

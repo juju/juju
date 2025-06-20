@@ -13,19 +13,10 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
-<<<<<<< HEAD
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
-=======
->>>>>>> 4a23afafeb (refactor: remove model uuid from application service)
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
-	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -51,8 +42,7 @@ type baseSuite struct {
 	leadership         *MockEnsurer
 	validator          *MockValidator
 
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter
-	clock                 *testclock.Clock
+	clock *testclock.Clock
 
 	service *ProviderService
 }
@@ -82,18 +72,10 @@ func (s *baseSuite) setupMocksWithProvider(
 	s.charmStore = NewMockCharmStore(ctrl)
 	s.validator = NewMockValidator(ctrl)
 
-	s.storageRegistryGetter = corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-		return storage.ChainedProviderRegistry{
-			dummystorage.StorageProviders(),
-			provider.CommonStorageProviders(),
-		}
-	})
-
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewProviderService(
 		s.state,
 		s.leadership,
-		s.storageRegistryGetter,
 		s.agentVersionGetter,
 		func(ctx context.Context) (Provider, error) {
 			if err := providerGetterError(); err != nil {
@@ -135,18 +117,10 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 	s.charmStore = NewMockCharmStore(ctrl)
 	s.validator = NewMockValidator(ctrl)
 
-	s.storageRegistryGetter = corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-		return storage.ChainedProviderRegistry{
-			dummystorage.StorageProviders(),
-			provider.CommonStorageProviders(),
-		}
-	})
-
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewProviderService(
 		s.state,
 		s.leadership,
-		s.storageRegistryGetter,
 		s.agentVersionGetter,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil

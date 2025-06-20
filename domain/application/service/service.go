@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
@@ -75,29 +74,26 @@ type Service struct {
 	logger        logger.Logger
 	clock         clock.Clock
 
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter
-	charmStore            CharmStore
-	statusHistory         StatusHistory
+	charmStore    CharmStore
+	statusHistory StatusHistory
 }
 
 // NewService returns a new service reference wrapping the input state.
 func NewService(
 	st State,
 	leaderEnsurer leadership.Ensurer,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
-		st:                    st,
-		leaderEnsurer:         leaderEnsurer,
-		logger:                logger,
-		clock:                 clock,
-		storageRegistryGetter: storageRegistryGetter,
-		charmStore:            charmStore,
-		statusHistory:         statusHistory,
+		st:            st,
+		leaderEnsurer: leaderEnsurer,
+		logger:        logger,
+		clock:         clock,
+		charmStore:    charmStore,
+		statusHistory: statusHistory,
 	}
 }
 
@@ -228,7 +224,6 @@ type WatchableService struct {
 func NewWatchableService(
 	st State,
 	leaderEnsurer leadership.Ensurer,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	watcherFactory WatcherFactory,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
@@ -242,7 +237,6 @@ func NewWatchableService(
 		ProviderService: NewProviderService(
 			st,
 			leaderEnsurer,
-			storageRegistryGetter,
 			agentVersionGetter,
 			provider,
 			caasProvider,
