@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -69,9 +70,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 					tags.JujuMachine:    "controller-machine-0",
 				},
 				EndpointBindings: make(map[string]string),
-				CharmConstraints: constraints.CharmValue{
-					MemRequest: uintPtr(64),
-					MemLimit:   uintPtr(256),
+				CharmConstraints: params.CharmValue{
+					MemRequest: caas.CharmMemRequestMi,
+					MemLimit:   caas.CharmMemLimitMi,
 				},
 			}},
 			{Result: &params.ProvisioningInfo{
@@ -115,9 +116,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 						Provider:   "static",
 					},
 				}},
-				CharmConstraints: constraints.CharmValue{
-					MemRequest: uintPtr(64),
-					MemLimit:   uintPtr(256),
+				CharmConstraints: params.CharmValue{
+					MemRequest: caas.CharmMemRequestMi,
+					MemLimit:   caas.CharmMemLimitMi,
 				},
 			}},
 		},
@@ -206,9 +207,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 				"space2": {"subnet-1", "subnet-2"},
 			},
 		},
-		CharmConstraints: constraints.CharmValue{
-			MemRequest: uintPtr(64),
-			MemLimit:   uintPtr(256),
+		CharmConstraints: params.CharmValue{
+			MemRequest: uintPtr(caas.CharmMemRequestMi),
+			MemLimit:   uintPtr(caas.CharmMemLimitMi),
 		},
 	}
 
@@ -299,9 +300,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 						"alpha":  {"subnet-alpha"},
 					},
 				},
-				CharmConstraints: constraints.CharmValue{
-					MemRequest: uintPtr(64),
-					MemLimit:   uintPtr(256),
+				CharmConstraints: params.CharmValue{
+					MemRequest: caas.CharmMemRequestMi,
+					MemLimit:   caas.CharmMemLimitMi,
 				},
 			},
 		}},
@@ -574,9 +575,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 					"ubuntu":  network.AlphaSpaceName,
 				},
 				CharmLXDProfiles: []string{pName},
-				CharmConstraints: constraints.CharmValue{
-					MemRequest: uintPtr(64),
-					MemLimit:   uintPtr(256),
+				CharmConstraints: params.CharmValue{
+					MemRequest: caas.CharmMemRequestMi,
+					MemLimit:   caas.CharmMemLimitMi,
 				},
 			},
 		}}}
@@ -634,9 +635,9 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 					},
 				}},
 				EndpointBindings: make(map[string]string),
-				CharmConstraints: constraints.CharmValue{
-					MemRequest: uintPtr(64),
-					MemLimit:   uintPtr(256),
+				CharmConstraints: params.CharmValue{
+					MemRequest: caas.CharmMemRequestMi,
+					MemLimit:   caas.CharmMemLimitMi,
 				},
 			},
 			}},
@@ -773,9 +774,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 					tags.JujuMachine:    "controller-machine-0",
 				},
 				EndpointBindings: make(map[string]string),
-				CharmConstraints: constraints.CharmValue{
-					MemRequest: uintPtr(64),
-					MemLimit:   uintPtr(256),
+				CharmConstraints: params.CharmValue{
+					MemRequest: caas.CharmMemRequestMi,
+					MemLimit:   caas.CharmMemLimitMi,
 				},
 			},
 			},
@@ -785,8 +786,4 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
-}
-
-func uintPtr(i uint64) *uint64 {
-	return &i
 }

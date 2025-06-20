@@ -39,6 +39,7 @@ import (
 	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -359,9 +360,9 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			},
 		},
 		Constraints: cons,
-		CharmConstraints: constraints.CharmValue{
-			MemRequest: uint64Ptr(64),
-			MemLimit:   uint64Ptr(256),
+		CharmConstraints: params.CharmValue{
+			MemRequest: caas.CharmMemRequestMi,
+			MemLimit:   caas.CharmMemLimitMi,
 		},
 		InitialScale: 3,
 		Trust:        trust,
@@ -2722,7 +2723,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 			}
 			ps.Containers[0].Resources.Requests = resourceRequests
 			for i, container := range ps.Containers {
-				if container.Name == "charm" {
+				if container.Name == caas.CharmContainerName {
 					ps.Containers[i].Resources.Requests = charmResourceMemRequest
 					ps.Containers[i].Resources.Limits = charmResourceMemLimit
 				} else {

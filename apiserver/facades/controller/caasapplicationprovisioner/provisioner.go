@@ -28,7 +28,6 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
@@ -324,9 +323,9 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	charmCons := constraints.CharmValue{
-		MemRequest: intPtr(64),
-		MemLimit:   intPtr(256),
+	charmCons := params.CharmValue{
+		MemRequest: caas.CharmMemRequestMi,
+		MemLimit:   caas.CharmMemLimitMi,
 	}
 	resourceTags := tags.ResourceTags(
 		names.NewModelTag(modelConfig.UUID()),

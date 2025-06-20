@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -34,6 +35,7 @@ import (
 // ProvisioningInfo returns the provisioning information for each given machine entity.
 // It supports all positive space constraints.
 func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResults, error) {
+	logger.Infof("alvin provisioningInfo apiserver called")
 	result := params.ProvisioningInfoResults{
 		Results: make([]params.ProvisioningInfoResult, len(args.Entities)),
 	}
@@ -61,6 +63,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
 			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, allSpaceInfos)
+			logger.Infof("alvin provisioning info charmconstraints for machine %s: %+v", tag.Id(), result.Results[i].Result.CharmConstraints)
 		}
 
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -68,7 +71,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 	return result, nil
 }
 
-func intPtr(i uint64) *uint64 {
+func uintPtr(i uint64) *uint64 {
 	return &i
 }
 
@@ -129,9 +132,9 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 	}
 
 	// Hardcode charm mem constraints to 64Mi, limit to 256Mi.
-	result.CharmConstraints = constraints.CharmValue{
-		MemRequest: intPtr(64),
-		MemLimit:   intPtr(256),
+	result.CharmConstraints = params.CharmValue{
+		MemRequest: caas.CharmMemRequestMi,
+		MemLimit:   caas.CharmMemLimitMi,
 	}
 
 	// The root disk source constraint might refer to a storage pool.

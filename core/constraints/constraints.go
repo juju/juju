@@ -39,18 +39,6 @@ const (
 	ImageID          = "image-id"
 )
 
-// CharmValue describes a user's requirements of the hardware on which units
-// of an application will run. Constraints are used to choose an existing machine
-// onto which a unit will be deployed, or to provision a new machine if no
-// existing one satisfies the requirements.
-type CharmValue struct {
-	MemRequest *uint64 `json:"mem-request,omitempty" yaml:"cpu-power,omitempty"`
-
-	// Mem, if not nil, indicates that a machine must have at least that many
-	// megabytes of RAM.
-	MemLimit *uint64 `json:"mem-limit,omitempty" yaml:"mem,omitempty"`
-}
-
 // Value describes a user's requirements of the hardware on which units
 // of an application will run. Constraints are used to choose an existing machine
 // onto which a unit will be deployed, or to provision a new machine if no
