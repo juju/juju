@@ -4,8 +4,6 @@
 package domain
 
 import (
-	"sync"
-
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
@@ -18,11 +16,8 @@ type WatchableDBFactory = func() (changestream.WatchableDB, error)
 
 // WatcherFactory is a factory for creating watchers.
 type WatcherFactory struct {
-	mu sync.Mutex
-
-	getDB       WatchableDBFactory
-	watchableDB changestream.WatchableDB
-	logger      logger.Logger
+	getDB  WatchableDBFactory
+	logger logger.Logger
 }
 
 // NewWatcherFactory returns a new WatcherFactory.
@@ -117,15 +112,10 @@ func (f *WatcherFactory) NewNotifyMapperWatcher(
 }
 
 func (f *WatcherFactory) newBaseWatcher() (*eventsource.BaseWatcher, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if f.watchableDB == nil {
-		var err error
-		if f.watchableDB, err = f.getDB(); err != nil {
-			return nil, errors.Capture(err)
-		}
+	watchableDB, err := f.getDB()
+	if err != nil {
+		return nil, errors.Capture(err)
 	}
 
-	return eventsource.NewBaseWatcher(f.watchableDB, f.logger), nil
+	return eventsource.NewBaseWatcher(watchableDB, f.logger), nil
 }
