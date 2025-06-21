@@ -489,30 +489,6 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_secret_rotation_insert",
 		"trg_log_secret_rotation_update",
 
-		"trg_log_storage_attachment_delete",
-		"trg_log_storage_attachment_insert",
-		"trg_log_storage_attachment_update",
-
-		"trg_log_storage_filesystem_attachment_delete",
-		"trg_log_storage_filesystem_attachment_insert",
-		"trg_log_storage_filesystem_attachment_update",
-
-		"trg_log_storage_filesystem_delete",
-		"trg_log_storage_filesystem_insert",
-		"trg_log_storage_filesystem_update",
-
-		"trg_log_storage_volume_attachment_delete",
-		"trg_log_storage_volume_attachment_insert",
-		"trg_log_storage_volume_attachment_update",
-
-		"trg_log_storage_volume_attachment_plan_delete",
-		"trg_log_storage_volume_attachment_plan_insert",
-		"trg_log_storage_volume_attachment_plan_update",
-
-		"trg_log_storage_volume_delete",
-		"trg_log_storage_volume_insert",
-		"trg_log_storage_volume_update",
-
 		"trg_log_subnet_delete",
 		"trg_log_subnet_insert",
 		"trg_log_subnet_update",

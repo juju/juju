@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/domain/schema/model/triggers"
 )
 
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/storage-triggers.gen.go -package=triggers -tables=block_device,storage_attachment,storage_filesystem,storage_filesystem_attachment,storage_volume,storage_volume_attachment,storage_volume_attachment_plan
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/blockdevice-triggers.gen.go -package=triggers -tables=block_device
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_revision,secret_reference,secret_deleted_value_ref
@@ -36,12 +36,6 @@ const (
 	tableModelConfig tableNamespaceID = iota + reservedCustomNamespaceIDOffset
 	tableModelObjectStoreMetadata
 	tableBlockDeviceMachine
-	tableStorageAttachment
-	tableFileSystem
-	tableFileSystemAttachment
-	tableVolume
-	tableVolumeAttachment
-	tableVolumeAttachmentPlan
 	tableSecretMetadataAutoPrune
 	tableSecretRotation
 	tableSecretRevisionObsolete
@@ -112,12 +106,6 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForBlockDevice("machine_uuid", tableBlockDeviceMachine),
 		triggers.ChangeLogTriggersForModelConfig("key", tableModelConfig),
 		triggers.ChangeLogTriggersForObjectStoreMetadataPath("path", tableModelObjectStoreMetadata),
-		triggers.ChangeLogTriggersForStorageAttachment("storage_instance_uuid", tableStorageAttachment),
-		triggers.ChangeLogTriggersForStorageFilesystem("uuid", tableFileSystem),
-		triggers.ChangeLogTriggersForStorageFilesystemAttachment("uuid", tableFileSystemAttachment),
-		triggers.ChangeLogTriggersForStorageVolume("uuid", tableVolume),
-		triggers.ChangeLogTriggersForStorageVolumeAttachment("uuid", tableVolumeAttachment),
-		triggers.ChangeLogTriggersForStorageVolumeAttachmentPlan("uuid", tableVolumeAttachmentPlan),
 		triggers.ChangeLogTriggersForSecretMetadata("secret_id", tableSecretMetadataAutoPrune),
 		triggers.ChangeLogTriggersForSecretRotation("secret_id", tableSecretRotation),
 		triggers.ChangeLogTriggersForSecretRevisionObsolete("revision_uuid", tableSecretRevisionObsolete),
