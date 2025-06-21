@@ -206,8 +206,9 @@ func (s *firewallerBaseSuite) startInstance(c *gc.C, m *state.Machine) instances
 
 type InstanceModeSuite struct {
 	firewallerBaseSuite
-	watchMachineNotify func(tag names.MachineTag)
-	flushModelNotify   func()
+	watchMachineNotify   func(tag names.MachineTag)
+	flushModelNotify     func()
+	skipFlushModelNotify func()
 }
 
 var _ = gc.Suite(&InstanceModeSuite{})
@@ -242,11 +243,12 @@ func (s *InstanceModeSuite) newFirewallerWithIPV6CIDRSupport(c *gc.C, ipv6CIDRSu
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock:              s.clock,
-		Logger:             loggo.GetLogger("test"),
-		CredentialAPI:      s.credentialsFacade,
-		WatchMachineNotify: s.watchMachineNotify,
-		FlushModelNotify:   s.flushModelNotify,
+		Clock:                s.clock,
+		Logger:               loggo.GetLogger("test"),
+		CredentialAPI:        s.credentialsFacade,
+		WatchMachineNotify:   s.watchMachineNotify,
+		FlushModelNotify:     s.flushModelNotify,
+		SkipFlushModelNotify: s.skipFlushModelNotify,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,11 +270,12 @@ func (s *InstanceModeSuite) newFirewallerWithoutModelFirewaller(c *gc.C) worker.
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock:              s.clock,
-		Logger:             loggo.GetLogger("test"),
-		CredentialAPI:      s.credentialsFacade,
-		WatchMachineNotify: s.watchMachineNotify,
-		FlushModelNotify:   s.flushModelNotify,
+		Clock:                s.clock,
+		Logger:               loggo.GetLogger("test"),
+		CredentialAPI:        s.credentialsFacade,
+		WatchMachineNotify:   s.watchMachineNotify,
+		FlushModelNotify:     s.flushModelNotify,
+		SkipFlushModelNotify: s.skipFlushModelNotify,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -631,13 +634,19 @@ func (s *InstanceModeSuite) TestFlushModelAfterFirstMachineOnly(c *gc.C) {
 	s.flushModelNotify = func() {
 		flush <- struct{}{}
 	}
+	skipFlush := make(chan struct{}, 10)
+	s.skipFlushModelNotify = func() {
+		skipFlush <- struct{}{}
+	}
 
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	fwObj := fw.(*firewaller.Firewaller)
+
+	defer statetesting.AssertKillAndWait(c, fwObj)
 
 	// Initial event from model config watcher
 	select {
-	case <-flush:
+	case <-skipFlush:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for initial event")
 	}
@@ -669,6 +678,133 @@ func (s *InstanceModeSuite) TestFlushModelAfterFirstMachineOnly(c *gc.C) {
 		c.Fatalf("unexpected model flush creating machine")
 	case <-time.After(coretesting.ShortWait):
 	}
+}
+
+func (s *InstanceModeSuite) TestFlushModelShouldNotBeCalledWhenNoMachinesAvailable(c *gc.C) {
+	machinesChan := make(chan []string, 1)
+	machinesChan <- []string{}
+	s.firewaller = &firewallerAPIShim{
+		FirewallerAPI: s.firewaller,
+		newModelMachineWatcher: func() (watcher.StringsWatcher, error) {
+			return watchertest.NewMockStringsWatcher(machinesChan), nil
+		},
+	}
+
+	flush := make(chan struct{}, 10) // buffer to ensure test never blocks
+	s.flushModelNotify = func() {
+		flush <- struct{}{}
+	}
+	skipFlush := make(chan struct{}, 10)
+	s.skipFlushModelNotify = func() {
+		skipFlush <- struct{}{}
+	}
+
+	fw := s.newFirewaller(c)
+	fwObj := fw.(*firewaller.Firewaller)
+
+	defer statetesting.AssertKillAndWait(c, fwObj)
+
+	// Initial event from model config watcher
+	select {
+	case <-skipFlush:
+	case <-flush:
+		c.Fatalf("unexpected model flush when no machines are available")
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for initial event")
+	}
+
+	c.Assert(fwObj.NeedsToFlushModel(), jc.IsTrue)
+}
+
+func (s *InstanceModeSuite) TestFlushMachineInvokesFlushModel(c *gc.C) {
+	machinesChan := make(chan []string, 1)
+	machinesChan <- []string{}
+	s.firewaller = &firewallerAPIShim{
+		FirewallerAPI: s.firewaller,
+		newModelMachineWatcher: func() (watcher.StringsWatcher, error) {
+			return watchertest.NewMockStringsWatcher(machinesChan), nil
+		},
+	}
+	flush := make(chan struct{}, 10) // buffer to ensure test never blocks
+	s.flushModelNotify = func() {
+		flush <- struct{}{}
+	}
+	skipFlush := make(chan struct{}, 10)
+	s.skipFlushModelNotify = func() {
+		skipFlush <- struct{}{}
+	}
+
+	fw := s.newFirewaller(c)
+	fwObj := fw.(*firewaller.Firewaller)
+	defer statetesting.AssertKillAndWait(c, fwObj)
+
+	// Initial event from model config watcher
+	select {
+	case <-skipFlush:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for initial event")
+	}
+
+	m1, err := s.State.AddOneMachine(state.MachineTemplate{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	machinesChan <- []string{m1.Id()}
+
+	select {
+	case <-flush:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for first machine event")
+	}
+
+	firewaller.SetNeedsToFlushModel(fwObj, true)
+	err = firewaller.FlushMachine(fwObj)
+
+	select {
+	case <-flush:
+	case <-skipFlush:
+		c.Fatalf("unexpected skip model flush when needsToFlushModel is true and machines are available")
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for first machine event")
+	}
+}
+
+func (s *InstanceModeSuite) TestFlushMachineShouldNotInvokeFlushModel(c *gc.C) {
+	machinesChan := make(chan []string, 1)
+	machinesChan <- []string{}
+	s.firewaller = &firewallerAPIShim{
+		FirewallerAPI: s.firewaller,
+		newModelMachineWatcher: func() (watcher.StringsWatcher, error) {
+			return watchertest.NewMockStringsWatcher(machinesChan), nil
+		},
+	}
+
+	flush := false
+	s.flushModelNotify = func() {
+		flush = true
+	}
+	skipFlush := make(chan struct{}, 10)
+	s.skipFlushModelNotify = func() {
+		skipFlush <- struct{}{}
+	}
+
+	fw := s.newFirewaller(c)
+	fwObj := fw.(*firewaller.Firewaller)
+	defer statetesting.AssertKillAndWait(c, fwObj)
+
+	// Initial event from model config watcher
+	select {
+	case <-skipFlush:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for initial event")
+	}
+
+	firewaller.SetNeedsToFlushModel(fwObj, false)
+	err := firewaller.FlushMachine(fwObj)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(flush, jc.IsFalse)
 }
 
 func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
