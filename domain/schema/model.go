@@ -30,6 +30,15 @@ var modelSchemaDir embed.FS
 
 const (
 	customNamespaceUnitInsertDelete tableNamespaceID = iota
+	customNamespaceStorageFilesystemLifeMachineProvisioning
+	customNamespaceStorageFilesystemLifeModelProvisioning
+	customNamespaceStorageFilesystemAttachmentLifeMachineProvisioning
+	customNamespaceStorageFilesystemAttachmentLifeModelProvisioning
+	customNamespaceStorageVolumeLifeMachineProvisioning
+	customNamespaceStorageVolumeLifeModelProvisioning
+	customNamespaceStorageVolumeAttachmentLifeMachineProvisioning
+	customNamespaceStorageVolumeAttachmentLifeModelProvisioning
+	customNamespaceStorageVolumeAttachmentPlanLifeMachineProvisioning
 )
 
 const (
@@ -231,6 +240,8 @@ BEGIN
 END;
 `, customNamespaceUnitInsertDelete))
 	})
+
+	patches = append(patches, customModelTriggers()...)
 
 	modelSchema := schema.New()
 	for _, fn := range patches {

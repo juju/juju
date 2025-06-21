@@ -2,11 +2,10 @@ CREATE TABLE storage_pool (
     uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     -- Types are provider sourced, so we do not use a lookup with ID.
-    -- This constitutes "repeating data" and would tend to indicate 
-    -- bad relational design. However we choose that here over the
-    -- burden of:
+    -- This constitutes "repeating data" and would tend to indicate
+    -- bad relational design. However we choose that here over the burden of:
     --   - Knowing every possible type up front to populate a look-up or;
-    --   - Sourcing the lookup from the provider and keeping it updated. 
+    --   - Sourcing the lookup from the provider and keeping it updated.
     type TEXT NOT NULL,
     -- The origin sets to "user" by default for user created pools.
     -- The "built-in" and "provider-default" origins are used
@@ -289,6 +288,7 @@ CREATE TABLE storage_volume (
     uuid TEXT NOT NULL PRIMARY KEY,
     volume_id TEXT NOT NULL,
     life_id INT NOT NULL,
+    provision_scope INT,
     provider_id TEXT,
     size_mib INT,
     hardware_id TEXT,
@@ -329,6 +329,7 @@ CREATE TABLE storage_volume_attachment (
     storage_volume_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
+    provision_scope INT,
     block_device_uuid TEXT,
     read_only BOOLEAN,
     -- TODO: we may change provision_scope_id to NOT NULL in the future.
@@ -385,6 +386,7 @@ CREATE TABLE storage_filesystem (
     uuid TEXT NOT NULL PRIMARY KEY,
     filesystem_id TEXT NOT NULL,
     life_id INT NOT NULL,
+    provision_scope INT,
     provider_id TEXT,
     size_mib INT,
     -- TODO: we may change provision_scope_id to NOT NULL in the future.
@@ -422,6 +424,7 @@ CREATE TABLE storage_filesystem_attachment (
     storage_filesystem_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
+    provision_scope INT,
     mount_point TEXT,
     read_only BOOLEAN,
     -- TODO: we may change provision_scope_id to NOT NULL in the future.
@@ -459,6 +462,7 @@ CREATE TABLE storage_volume_attachment_plan (
     storage_volume_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
+    provision_scope INT,
     device_type_id INT,
     block_device_uuid TEXT,
     CONSTRAINT fk_storage_volume_attachment_plan_vol

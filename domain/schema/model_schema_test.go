@@ -489,6 +489,42 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_secret_rotation_insert",
 		"trg_log_secret_rotation_update",
 
+		"trg_log_storage_filesystem_insert_life_machine_provisioning_on_attachment",
+		"trg_log_storage_filesystem_update_life_machine_provisioning",
+		"trg_log_storage_filesystem_delete_life_machine_provisioning",
+
+		"trg_log_storage_filesystem_insert_life_model_provisioning",
+		"trg_log_storage_filesystem_update_life_model_provisioning",
+		"trg_log_storage_filesystem_delete_life_model_provisioning",
+
+		"trg_log_storage_filesystem_attachment_insert_life_machine_provisioning",
+		"trg_log_storage_filesystem_attachment_update_life_machine_provisioning",
+		"trg_log_storage_filesystem_attachment_delete_life_machine_provisioning",
+
+		"trg_log_storage_filesystem_attachment_insert_life_model_provisioning",
+		"trg_log_storage_filesystem_attachment_update_life_model_provisioning",
+		"trg_log_storage_filesystem_attachment_delete_life_model_provisioning",
+
+		"trg_log_storage_volume_insert_life_machine_provisioning_on_attachment",
+		"trg_log_storage_volume_update_life_machine_provisioning",
+		"trg_log_storage_volume_delete_life_machine_provisioning",
+
+		"trg_log_storage_volume_insert_life_model_provisioning",
+		"trg_log_storage_volume_update_life_model_provisioning",
+		"trg_log_storage_volume_delete_life_model_provisioning",
+
+		"trg_log_storage_volume_attachment_insert_life_machine_provisioning",
+		"trg_log_storage_volume_attachment_update_life_machine_provisioning",
+		"trg_log_storage_volume_attachment_delete_life_machine_provisioning",
+
+		"trg_log_storage_volume_attachment_insert_life_model_provisioning",
+		"trg_log_storage_volume_attachment_update_life_model_provisioning",
+		"trg_log_storage_volume_attachment_delete_life_model_provisioning",
+
+		"trg_log_storage_volume_attachment_plan_insert_life_machine_provisioning",
+		"trg_log_storage_volume_attachment_plan_update_life_machine_provisioning",
+		"trg_log_storage_volume_attachment_plan_delete_life_machine_provisioning",
+
 		"trg_log_subnet_delete",
 		"trg_log_subnet_insert",
 		"trg_log_subnet_update",
