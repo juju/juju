@@ -7001,14 +7001,18 @@
                 "CharmValue": {
                     "type": "object",
                     "properties": {
-                        "mem-limit": {
+                        "MemLimit": {
                             "type": "integer"
                         },
-                        "mem-request": {
+                        "MemRequest": {
                             "type": "integer"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "MemRequest",
+                        "MemLimit"
+                    ]
                 },
                 "CloudImageMetadata": {
                     "type": "object",
