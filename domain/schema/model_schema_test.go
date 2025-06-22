@@ -491,7 +491,7 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 
 		"trg_log_storage_filesystem_insert_life_machine_provisioning_on_attachment",
 		"trg_log_storage_filesystem_update_life_machine_provisioning",
-		"trg_log_storage_filesystem_delete_life_machine_provisioning",
+		"trg_log_storage_filesystem_delete_life_machine_provisioning_last_attachment",
 
 		"trg_log_storage_filesystem_insert_life_model_provisioning",
 		"trg_log_storage_filesystem_update_life_model_provisioning",
@@ -507,7 +507,7 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 
 		"trg_log_storage_volume_insert_life_machine_provisioning_on_attachment",
 		"trg_log_storage_volume_update_life_machine_provisioning",
-		"trg_log_storage_volume_delete_life_machine_provisioning",
+		"trg_log_storage_volume_delete_life_machine_provisioning_last_attachment",
 
 		"trg_log_storage_volume_insert_life_model_provisioning",
 		"trg_log_storage_volume_update_life_model_provisioning",

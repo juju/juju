@@ -155,6 +155,12 @@ END;
 // a net node of a machine. Instead when the first attachment record is made
 // for the storage entity the change event is generated.
 //
+// No change event is generated when the storage entity is deleted. This is
+// because you can't have a net node attached to a storage entity that is being
+// deleted. This would break the RI of the storage tables. Instead we emit the
+// final change event when the last attachment record is deleted. It is the net
+// node of the last attachment record that is emitted as the change value.
+//
 // To be able to use this trigger for a storage entity, the entity table must:
 // - Have a child table with an _attachment suffix.
 // - The child _attachment table must have a net_node_uuid column.
@@ -182,12 +188,12 @@ BEGIN
            %[2]d,
            NEW.net_node_uuid,
            DATETIME('now')
-    FROM  storage_%[1]s s
-    WHERE 1 == (SELECT COUNT(*)
-                FROM   storage_%[1]s_attachment
-                WHERE  storage_%[1]s_uuid = NEW.storage_%[1]s_uuid)
-    AND   s.uuid = NEW.storage_%[1]s_uuid
-    AND   s.provision_scope = 2;
+    FROM   storage_%[1]s s
+    WHERE  1 == (SELECT COUNT(*)
+                 FROM   storage_%[1]s_attachment
+                 WHERE  storage_%[1]s_uuid = NEW.storage_%[1]s_uuid)
+    AND    s.uuid = NEW.storage_%[1]s_uuid
+    AND    s.provision_scope = 2;
 END;
 
 -- update trigger for storage entity.
@@ -208,18 +214,20 @@ END;
 
 -- delete trigger for storage entity. Note the use of the OLD value in the
 -- trigger.
-CREATE TRIGGER trg_log_storage_%[1]s_delete_life_machine_provisioning
-AFTER DELETE ON storage_%[1]s
-FOR EACH ROW
-	WHEN OLD.provision_scope = 2
+CREATE TRIGGER trg_log_storage_%[1]s_delete_life_machine_provisioning_last_attachment
+AFTER DELETE ON storage_%[1]s_attachment FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     SELECT DISTINCT 4,
            			%[2]d,
-           			a.net_node_uuid,
+           			OLD.net_node_uuid,
            			DATETIME('now')
-    FROM storage_%[1]s_attachment a
-    WHERE storage_%[1]s_uuid = NEW.uuid;
+    FROM   storage_%[1]s s
+    WHERE  0 == (SELECT COUNT(*)
+                 FROM   storage_%[1]s_attachment
+                 WHERE  storage_%[1]s_uuid = OLD.storage_%[1]s_uuid)
+    AND    s.uuid = OLD.storage_%[1]s_uuid
+    AND    s.provision_scope = 2;
 END;
 `,
 		storageTable, namespace,
