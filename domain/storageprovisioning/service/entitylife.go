@@ -22,7 +22,7 @@ import (
 // a machine provisioner cares about have had a life change.
 type EntityLifeGetter func(context.Context) (map[string]life.Life, error)
 
-// EntityLifeWatcherMapperFuc provides a watcher mapper that can be used to
+// EntityLifeMapperFuc provides a watcher mapper that can be used to
 // take change events for one concern and translate this into a set of entity
 // life changes. Entity in this case is a storage entity that is associated
 // with the context of the current cocern.
@@ -36,7 +36,7 @@ type EntityLifeGetter func(context.Context) (map[string]life.Life, error)
 // change set.
 //
 // [EntityLifeGetter] provides the latest life values for the concerns entities.
-func EntityLifeWatcherMapperFuc(
+func EntityLifeMapperFuc(
 	ctx context.Context, lifeGetter EntityLifeGetter,
 ) (eventsource.Mapper, error) {
 	knownLife, err := lifeGetter(ctx)
