@@ -136,18 +136,6 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		)
 	}
 
-	machines, err := st.AllMachines()
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-
-	hostedMachineCount := 0
-	for _, m := range machines {
-		if !m.IsManager() {
-			hostedMachineCount++
-		}
-	}
-
 	statusService, err := c.getStatusService(ctx, modelUUID)
 	if err != nil {
 		return status, errors.Trace(err)
@@ -197,7 +185,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		OwnerTag:           badOwnerTag.String(),
 		Life:               "",
 		Type:               modelInfo.Type.String(),
-		HostedMachineCount: hostedMachineCount,
+		HostedMachineCount: len(modelMachines),
 		ApplicationCount:   len(applications),
 		UnitCount:          unitCount,
 		Applications:       modelApplications,

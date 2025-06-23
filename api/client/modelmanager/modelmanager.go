@@ -148,10 +148,7 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 			Id:          m.Id,
 			InstanceId:  m.InstanceId,
 			DisplayName: m.DisplayName,
-			HasVote:     m.HasVote,
-			WantsVote:   m.WantsVote,
 			Status:      m.Status,
-			HAPrimary:   m.HAPrimary,
 		}
 		if m.Hardware != nil {
 			machine.Hardware = &instance.HardwareCharacteristics{

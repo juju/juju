@@ -22,29 +22,6 @@ func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineServic
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerNodes, err := st.ControllerNodes()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	hasVote := make(map[string]bool)
-	wantsVote := make(map[string]bool)
-	for _, n := range controllerNodes {
-		hasVote[n.Id()] = n.HasVote()
-		wantsVote[n.Id()] = n.WantsVote()
-	}
-	var primaryID string
-	primaryHA, err := st.HAPrimaryMachine()
-	if err != nil {
-		// We do not want to return any errors here as they are all
-		// non-fatal for this call since we can still
-		// get machine info even if we could not get HA Primary determined.
-		// Also on some non-HA setups, i.e. where mongo was not run with --replSet,
-		// this call will return an error.
-		logger.Warningf(ctx, "could not determine if there is a primary HA machine: %v", err)
-	}
-	if len(controllerNodes) > 1 {
-		primaryID = primaryHA.Id()
-	}
 
 	for _, m := range machines {
 		if m.Life() != state.Alive {
@@ -62,16 +39,9 @@ func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineServic
 			aStatus = err.Error()
 		}
 		mInfo := params.ModelMachineInfo{
-			Id:        m.Id(),
-			HasVote:   hasVote[m.Id()],
-			WantsVote: wantsVote[m.Id()],
-			Status:    aStatus,
-			Message:   statusMessage,
-		}
-		if primaryID != "" {
-			if isPrimary := primaryID == m.Id(); isPrimary {
-				mInfo.HAPrimary = &isPrimary
-			}
+			Id:      m.Id(),
+			Status:  aStatus,
+			Message: statusMessage,
 		}
 		machineUUID, err := machineService.GetMachineUUID(ctx, machine.Name(m.Id()))
 		if errors.Is(err, machineerrors.MachineNotFound) {

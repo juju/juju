@@ -246,10 +246,10 @@ func (s *serviceSuite) TestSetMachineLifeError(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `setting life status for machine "666": boom`)
 }
 
-// TestSetMachineLifeMachineDontExist asserts that the state layer returns a
+// TestSetMachineLifeMachineDoNotExist asserts that the state layer returns a
 // NotFound Error if a machine is not found with the given machineName, and that
 // error is preserved and passed on to the service layer to be handled there.
-func (s *serviceSuite) TestSetMachineLifeMachineDontExist(c *tc.C) {
+func (s *serviceSuite) TestSetMachineLifeMachineDoNotExist(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().SetMachineLife(gomock.Any(), machine.Name("nonexistent"), life.Alive).Return(coreerrors.NotFound)
@@ -633,7 +633,7 @@ func (s *serviceSuite) TestIsMachineRebootSuccessMachineNeedReboot(c *tc.C) {
 	c.Check(needReboot, tc.Equals, true)
 }
 
-func (s *serviceSuite) TestIsMachineRebootSuccessMachineDontNeedReboot(c *tc.C) {
+func (s *serviceSuite) TestIsMachineRebootSuccessMachineDoNotNeedReboot(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().IsMachineRebootRequired(gomock.Any(), machine.UUID("u-u-i-d")).Return(false, nil)
@@ -972,6 +972,51 @@ func (s *serviceSuite) TestGetSupportedContainersTypesInvalid(c *tc.C) {
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetSupportedContainersTypes(c.Context(), machineUUID)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
+}
+
+func (s *serviceSuite) TestGetSupportedContainersTypesError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+
+	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID).Return([]string{"boo"}, errors.Errorf("boom"))
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetSupportedContainersTypes(c.Context(), machineUUID)
+	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
+}
+
+func (s *serviceSuite) TestGetMachinePrincipalApplications(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("0")
+
+	s.state.EXPECT().GetMachinePrincipalApplications(gomock.Any(), machineName).Return([]string{"foo", "bar"}, nil)
+
+	units, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachinePrincipalApplications(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.DeepEquals, []string{"foo", "bar"})
+}
+
+func (s *serviceSuite) TestGetMachinePrincipalUnitsInvalidMachineUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachinePrincipalApplications(c.Context(), "!!!")
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+}
+
+func (s *serviceSuite) TestGetMachinePrincipalUnitsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("0")
+
+	s.state.EXPECT().GetMachinePrincipalApplications(gomock.Any(), machineName).Return([]string{"foo", "bar"}, errors.Errorf("boom"))
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachinePrincipalApplications(c.Context(), machineName)
+	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 }
 
 func (s *serviceSuite) expectCreateMachineStatusHistory(c *tc.C) {

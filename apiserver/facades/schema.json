@@ -8476,14 +8476,8 @@
                         "display-name": {
                             "type": "string"
                         },
-                        "ha-primary": {
-                            "type": "boolean"
-                        },
                         "hardware": {
                             "$ref": "#/definitions/MachineHardware"
-                        },
-                        "has-vote": {
-                            "type": "boolean"
                         },
                         "id": {
                             "type": "string"
@@ -8496,9 +8490,6 @@
                         },
                         "status": {
                             "type": "string"
-                        },
-                        "wants-vote": {
-                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
@@ -11147,14 +11138,8 @@
                         "display-name": {
                             "type": "string"
                         },
-                        "ha-primary": {
-                            "type": "boolean"
-                        },
                         "hardware": {
                             "$ref": "#/definitions/MachineHardware"
-                        },
-                        "has-vote": {
-                            "type": "boolean"
                         },
                         "id": {
                             "type": "string"
@@ -11167,9 +11152,6 @@
                         },
                         "status": {
                             "type": "string"
-                        },
-                        "wants-vote": {
-                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,

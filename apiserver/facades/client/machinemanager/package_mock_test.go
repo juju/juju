@@ -1223,44 +1223,6 @@ func (c *MockMachineInstanceStatusCall) DoAndReturn(f func() (status.StatusInfo,
 	return c
 }
 
-// IsManager mocks base method.
-func (m *MockMachine) IsManager() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsManager")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsManager indicates an expected call of IsManager.
-func (mr *MockMachineMockRecorder) IsManager() *MockMachineIsManagerCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsManager", reflect.TypeOf((*MockMachine)(nil).IsManager))
-	return &MockMachineIsManagerCall{Call: call}
-}
-
-// MockMachineIsManagerCall wrap *gomock.Call
-type MockMachineIsManagerCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineIsManagerCall) Return(arg0 bool) *MockMachineIsManagerCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineIsManagerCall) Do(f func() bool) *MockMachineIsManagerCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineIsManagerCall) DoAndReturn(f func() bool) *MockMachineIsManagerCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Principals mocks base method.
 func (m *MockMachine) Principals() []string {
 	m.ctrl.T.Helper()
