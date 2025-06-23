@@ -595,12 +595,12 @@ func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *tc.C) {
 	appID := s.createIAASApplication(c, "foo", life.Alive)
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, _, err := machinestate.CreateMachine(c.Context(), tx, s.state, domainmachine.CreateMachineArgs{
+		_, _, _, err := machinestate.CreateMachine(c.Context(), tx, s.state, clock.WallClock, domainmachine.CreateMachineArgs{
 			Platform: deployment.Platform{
 				OSType:       deployment.Ubuntu,
 				Architecture: architecture.ARM64,
 			},
-		}, clock.WallClock)
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
