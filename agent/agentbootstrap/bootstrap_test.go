@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/storage"
@@ -336,19 +335,6 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	err = bootstrap.Initialize(c.Context())
 	c.Assert(err, tc.ErrorIs, errors.AlreadyExists)
-}
-
-func (s *bootstrapSuite) assertCanLogInAsAdmin(c *tc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, password string) {
-	session, err := mongo.DialWithInfo(mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{s.mgoInst.Addr()},
-			CACert: testing.CACert,
-		},
-		Tag:      nil, // admin user
-		Password: password,
-	}, mongotest.DialOpts())
-	c.Assert(err, tc.ErrorIsNil)
-	session.Close()
 }
 
 type fakeProvider struct {

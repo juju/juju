@@ -642,15 +642,6 @@ func (c *controllerNode) Watch() NotifyWatcher {
 	return newEntityWatcher(c.st, controllerNodesC, c.doc.DocID)
 }
 
-func setControllerWantsVoteOp(st *State, id string, wantsVote bool) txn.Op {
-	return txn.Op{
-		C:      controllerNodesC,
-		Id:     st.docID(id),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"wants-vote", wantsVote}}}},
-	}
-}
-
 type controllerReference interface {
 	Id() string
 	Refresh() error

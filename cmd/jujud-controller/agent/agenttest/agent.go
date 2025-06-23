@@ -38,10 +38,6 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 )
 
-type patchingSuite interface {
-	PatchValue(interface{}, interface{})
-}
-
 // AgentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
 	testing.ApiServerSuite

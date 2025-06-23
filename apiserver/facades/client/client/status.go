@@ -699,6 +699,7 @@ func (c *statusContext) makeMachineStatus(
 	} else if isController {
 		jobs = append(jobs, model.JobManageModel)
 	}
+	status.Jobs = jobs
 
 	// Fetch the machine instance status information
 	sInstInfo, err := c.status.MachineInstance(machineID)

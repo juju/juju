@@ -19,7 +19,6 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
@@ -29,8 +28,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/mongo"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
@@ -556,23 +553,6 @@ func controllerAdvanceLifecyleVoteOp() txn.Op {
 			{"wants-vote", bson.M{"$ne": true}},
 		},
 	}
-}
-
-// controllerIDsOp returns an Op to assert that the machine's
-// controllerIDs do not change.
-func (m *Machine) controllerIDsOp() (txn.Op, error) {
-	controllerIds, err := m.st.ControllerIds()
-	if err != nil {
-		return txn.Op{}, errors.Annotatef(err, "reading controller info")
-	}
-	if len(controllerIds) <= 1 {
-		return txn.Op{}, errors.Errorf("controller %s is the only controller", m.Id())
-	}
-	return txn.Op{
-		C:      controllersC,
-		Id:     modelGlobalKey,
-		Assert: bson.D{{"controller-ids", controllerIds}},
-	}, nil
 }
 
 // noContainersOp returns an Op to assert that the machine
@@ -1198,19 +1178,6 @@ func (m *Machine) setAddresses(controllerConfig controller.Config, machineAddres
 		)
 	}
 	return nil
-}
-
-func (st *State) maybeUpdateControllerCharm(controllerConfig controller.Config, publicAddr string) error {
-	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
-	if errors.Is(err, errors.NotFound) {
-		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return controllerApp.UpdateCharmConfig(charm.Settings{
-		"controller-url": api.ControllerAPIURL(publicAddr, controllerConfig.APIPort()),
-	})
 }
 
 func (m *Machine) setAddressesOps(
