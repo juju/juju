@@ -12,7 +12,7 @@ package state
 import (
 	reflect "reflect"
 
-	description "github.com/juju/description/v8"
+	description "github.com/juju/description/v9"
 	txn "github.com/juju/mgo/v3/txn"
 	gomock "go.uber.org/mock/gomock"
 )
