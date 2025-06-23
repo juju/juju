@@ -178,8 +178,7 @@ func (st *State) GetAllLinkLayerDevicesByNetNodeUUIDs(ctx context.Context) (map[
 	})
 
 	return accumulateToMap(llds, func(in getLinkLayerDevice) (string, network.NetInterface, error) {
-		result, err := dmlToNetInterface(in,
-			dnsDomainByDeviceUUID[in.UUID],
+		result, err := in.toNetInterface(dnsDomainByDeviceUUID[in.UUID],
 			dnsAddressesByDeviceUUID[in.UUID],
 			ipAddressByDeviceUUID[in.UUID])
 		return in.NetNodeUUID, result, err
