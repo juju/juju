@@ -194,6 +194,11 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		containers[k] = container
 	}
 
+	charmConstraints := caas.CharmValue{
+		MemRequest: caas.CharmMemRequestMiB,
+		MemLimit:   caas.CharmMemLimitMiB,
+	}
+
 	// TODO(sidecar): container.Mounts[*].Path <= consolidate? => provisionInfo.Filesystems[*].Attachment.Path
 	config := caas.ApplicationConfig{
 		IsPrivateImageRepo:   provisionInfo.ImageDetails.IsPrivate(),
@@ -204,7 +209,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		ControllerCertBundle: provisionInfo.CACert,
 		ResourceTags:         provisionInfo.Tags,
 		Constraints:          provisionInfo.Constraints,
-		CharmConstraints:     provisionInfo.CharmConstraints,
+		CharmConstraints:     charmConstraints,
 		Filesystems:          provisionInfo.Filesystems,
 		Devices:              provisionInfo.Devices,
 		CharmBaseImagePath:   charmBaseImage,

@@ -128,7 +128,7 @@ type ApplicationConfig struct {
 
 	// CharmConstraints is a set of constraints on
 	// the charm container.
-	CharmConstraints constraints.CharmValue
+	CharmConstraints CharmValue
 
 	// Filesystems is a set of parameters for filesystems that should be created.
 	Filesystems []storage.KubernetesFilesystemParams
@@ -183,3 +183,9 @@ const (
 	RunAsSudoer  RunAs = "sudoer"
 	RunAsNonRoot RunAs = "non-root"
 )
+
+// CharmValue defines the memory resource constraints for Kubernetes-based workloads.
+type CharmValue struct {
+	MemRequest uint64
+	MemLimit   uint64
+}

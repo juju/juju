@@ -359,9 +359,9 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			},
 		},
 		Constraints: cons,
-		CharmConstraints: constraints.CharmValue{
-			MemRequest: uint64Ptr(64),
-			MemLimit:   uint64Ptr(256),
+		CharmConstraints: caas.CharmValue{
+			MemRequest: caas.CharmMemRequestMiB,
+			MemLimit:   caas.CharmMemLimitMiB,
 		},
 		InitialScale: 3,
 		Trust:        trust,
@@ -2959,9 +2959,5 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 }
 
 func int64Ptr(a int64) *int64 {
-	return &a
-}
-
-func uint64Ptr(a uint64) *uint64 {
 	return &a
 }

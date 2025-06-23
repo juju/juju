@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/testing"
@@ -40,9 +41,9 @@ func (s *applyConstraintsSuite) TestMemory(c *gc.C) {
 		c.Assert(memLimit, gc.Equals, "256Mi")
 		return errors.New("boom")
 	}
-	charmConstraintVal := constraints.CharmValue{
-		MemRequest: uint64Ptr(64),
-		MemLimit:   uint64Ptr(256),
+	charmConstraintVal := caas.CharmValue{
+		MemRequest: caas.CharmMemRequestMiB,
+		MemLimit:   caas.CharmMemLimitMiB,
 	}
 	err = application.ApplyCharmConstraints(podSpec, "foo", charmConstraintVal, charmConfigureConstraint)
 	c.Assert(err, gc.ErrorMatches, "configuring charm container memory constraint for foo: boom")

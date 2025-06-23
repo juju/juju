@@ -49,7 +49,6 @@ type CAASApplicationProvisioningInfo struct {
 	APIAddresses         []string                     `json:"api-addresses"`
 	CACert               string                       `json:"ca-cert"`
 	Constraints          constraints.Value            `json:"constraints"`
-	CharmConstraints     constraints.CharmValue       `json:"charmconstraints"`
 	Tags                 map[string]string            `json:"tags,omitempty"`
 	Filesystems          []KubernetesFilesystemParams `json:"filesystems,omitempty"`
 	Volumes              []KubernetesVolumeParams     `json:"volumes,omitempty"`
