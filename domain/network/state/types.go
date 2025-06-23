@@ -654,11 +654,11 @@ type getIpAddress struct {
 	ProviderSubnetID *string `db:"provider_subnet_id"`
 	DeviceUUID       string  `db:"device_uuid"`
 	AddressValue     string  `db:"address_value"`
-	SubnetUUID       *string `db:"subnet_uuid"`
 	Type             string  `db:"type"`
 	ConfigType       string  `db:"config_type"`
 	Origin           string  `db:"origin"`
 	Scope            string  `db:"scope"`
+	Space            string  `db:"space"`
 	IsSecondary      bool    `db:"is_secondary"`
 	IsShadow         bool    `db:"is_shadow"`
 }
@@ -667,44 +667,45 @@ type getIpAddress struct {
 // to a corresponding network.NetInterface structure.
 // It maps device types, virtual port types, and initializes fields
 // using provided DNS domains, addresses, and IP data.
-func dmlToNetInterface(in getLinkLayerDevice,
+func (lld getLinkLayerDevice) toNetInterface(
 	dnsDomains, dnsAddresses []string,
 	ipAddresses []getIpAddress) (network.NetInterface, error) {
 	addresses := transform.Slice(ipAddresses, func(addr getIpAddress) network.NetAddr {
-		return dmlToNetAddr(addr, in.Name)
+		return addr.toNetAddr(lld.Name)
 	})
 
 	return network.NetInterface{
-		Name:             in.Name,
-		MTU:              in.MTU,
-		MACAddress:       in.MACAddress,
-		ProviderID:       nilstr[corenetwork.Id](in.ProviderID),
-		Type:             corenetwork.LinkLayerDeviceType(in.DeviceType),
-		VirtualPortType:  corenetwork.VirtualPortType(in.VirtualPortType),
-		IsAutoStart:      in.IsAutoStart,
-		IsEnabled:        in.IsEnabled,
-		ParentDeviceName: in.ParentName,
-		GatewayAddress:   in.GatewayAddress,
-		IsDefaultGateway: in.IsDefaultGateway,
-		VLANTag:          in.VlanTag,
+		Name:             lld.Name,
+		MTU:              lld.MTU,
+		MACAddress:       lld.MACAddress,
+		ProviderID:       nilstr[corenetwork.Id](lld.ProviderID),
+		Type:             corenetwork.LinkLayerDeviceType(lld.DeviceType),
+		VirtualPortType:  corenetwork.VirtualPortType(lld.VirtualPortType),
+		IsAutoStart:      lld.IsAutoStart,
+		IsEnabled:        lld.IsEnabled,
+		ParentDeviceName: lld.ParentName,
+		GatewayAddress:   lld.GatewayAddress,
+		IsDefaultGateway: lld.IsDefaultGateway,
+		VLANTag:          lld.VlanTag,
 		DNSSearchDomains: dnsDomains,
 		DNSAddresses:     dnsAddresses,
 		Addrs:            addresses,
 	}, nil
 }
 
-func dmlToNetAddr(addr getIpAddress, deviceName string) network.NetAddr {
+func (ip getIpAddress) toNetAddr(deviceName string) network.NetAddr {
 	return network.NetAddr{
 		InterfaceName:    deviceName,
-		ProviderID:       nilstr[corenetwork.Id](addr.ProviderID),
-		AddressValue:     addr.AddressValue,
-		ProviderSubnetID: nilstr[corenetwork.Id](addr.ProviderSubnetID),
-		AddressType:      corenetwork.AddressType(addr.Type),
-		ConfigType:       corenetwork.AddressConfigType(addr.ConfigType),
-		Origin:           corenetwork.Origin(addr.Origin),
-		Scope:            corenetwork.Scope(addr.Scope),
-		IsSecondary:      addr.IsSecondary,
-		IsShadow:         addr.IsShadow,
+		ProviderID:       nilstr[corenetwork.Id](ip.ProviderID),
+		AddressValue:     ip.AddressValue,
+		ProviderSubnetID: nilstr[corenetwork.Id](ip.ProviderSubnetID),
+		AddressType:      corenetwork.AddressType(ip.Type),
+		ConfigType:       corenetwork.AddressConfigType(ip.ConfigType),
+		Origin:           corenetwork.Origin(ip.Origin),
+		Scope:            corenetwork.Scope(ip.Scope),
+		IsSecondary:      ip.IsSecondary,
+		IsShadow:         ip.IsShadow,
+		Space:            ip.Space,
 	}
 }
 

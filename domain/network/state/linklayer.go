@@ -178,8 +178,7 @@ func (st *State) GetAllLinkLayerDevicesByNetNodeUUIDs(ctx context.Context) (map[
 	})
 
 	return accumulateToMap(llds, func(in getLinkLayerDevice) (string, network.NetInterface, error) {
-		result, err := dmlToNetInterface(in,
-			dnsDomainByDeviceUUID[in.UUID],
+		result, err := in.toNetInterface(dnsDomainByDeviceUUID[in.UUID],
 			dnsAddressesByDeviceUUID[in.UUID],
 			ipAddressByDeviceUUID[in.UUID])
 		return in.NetNodeUUID, result, err
@@ -294,7 +293,7 @@ SELECT
  ps.provider_id AS &getIpAddress.provider_subnet_id,
  ia.device_uuid AS &getIpAddress.device_uuid,
  ia.address_value AS &getIpAddress.address_value,
- ia.subnet_uuid AS &getIpAddress.subnet_uuid,
+ s.name AS &getIpAddress.space,
  iat.name AS &getIpAddress.type,
  iact.name AS &getIpAddress.config_type,
  iao.name AS &getIpAddress.origin,
@@ -308,6 +307,8 @@ JOIN ip_address_origin AS iao ON ia.origin_id = iao.id
 JOIN ip_address_scope AS ias ON ia.scope_id = ias.id
 LEFT JOIN provider_ip_address AS pia ON ia.uuid = pia.address_uuid
 LEFT JOIN provider_subnet as ps ON ia.subnet_uuid = ps.subnet_uuid
+LEFT JOIN subnet as sub ON ia.subnet_uuid = sub.uuid
+LEFT JOIN space as s ON sub.space_uuid = s.uuid
 `, getIpAddress{})
 	if err != nil {
 		return nil, errors.Errorf("preparing IP address select statement: %w", err)
