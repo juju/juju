@@ -2714,21 +2714,27 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", caas.CharmMemRequestMiB))}
 			charmResourceMemLimit := corev1.ResourceList{
 				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", caas.CharmMemLimitMiB))}
-			resourceRequests := corev1.ResourceList{
+			workloadContainerResourceMemory := application.RoundNumDownToPowerOfTwo(uint64(1024 / (len(ps.Containers) - 1)))
+			workloadResourceRequests := corev1.ResourceList{
+				corev1.ResourceCPU:    k8sresource.MustParse("1000m"),
+				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", workloadContainerResourceMemory)),
+			}
+			workloadResourceLimits := corev1.ResourceList{
 				corev1.ResourceCPU:    k8sresource.MustParse("1000m"),
 				corev1.ResourceMemory: k8sresource.MustParse("1024Mi"),
 			}
-			ps.Containers[0].Resources.Requests = resourceRequests
 			for i, container := range ps.Containers {
-				if container.Name == "charm" {
+				if container.Name == constants.ApplicationCharmContainer {
 					ps.Containers[i].Resources.Requests = charmResourceMemRequest
 					ps.Containers[i].Resources.Limits = charmResourceMemLimit
 				} else {
-					ps.Containers[i].Resources.Limits = resourceRequests
+					ps.Containers[i].Resources.Requests = workloadResourceRequests
+					ps.Containers[i].Resources.Limits = workloadResourceLimits
 				}
 			}
 
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(ss, gc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{

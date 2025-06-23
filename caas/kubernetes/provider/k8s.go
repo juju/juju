@@ -1065,9 +1065,13 @@ func (k *kubernetesClient) ensureService(
 			if len(pod.Containers) == 0 {
 				return nil
 			}
+			resourceQty, err := resource.ParseQuantity(workloadConsVal)
+			if err != nil {
+				return errors.Annotatef(err, "invalid constraint value %q for %q", workloadConsVal, resourceName)
+			}
 			// Just the first container is enough for scheduling purposes.
 			pod.Containers[0].Resources.Requests, err = k8sapplication.MergeConstraint(
-				resourceName, workloadConsVal, pod.Containers[0].Resources.Requests,
+				resourceName, resourceQty, pod.Containers[0].Resources.Requests,
 			)
 			if err != nil {
 				return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, workloadConsVal)

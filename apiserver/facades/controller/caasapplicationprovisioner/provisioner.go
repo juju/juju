@@ -273,10 +273,6 @@ func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProv
 	return result, nil
 }
 
-func intPtr(i uint64) *uint64 {
-	return &i
-}
-
 func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
 	app, err := a.state.Application(appName.Id())
 	if err != nil {

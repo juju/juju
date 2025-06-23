@@ -239,3 +239,46 @@ func (s *applyConstraintsSuite) TestNodeAntiAffinity(c *gc.C) {
 	c.Assert(pod.Affinity.PodAffinity, gc.IsNil)
 	c.Assert(pod.Affinity.PodAntiAffinity, gc.IsNil)
 }
+
+func (s *applyConstraintsSuite) TestRoundNumDownToPowerOfTwo(c *gc.C) {
+
+	tests := []struct {
+		name     string
+		input    uint64
+		expected uint64
+	}{
+		// Basic powers of two
+		{"Zero", 0, 0},
+		{"One", 1, 1},
+		{"Two", 2, 2},
+		{"Four", 4, 4},
+		{"Eight", 8, 8},
+		{"Sixteen", 16, 16},
+		{"ThirtyTwo", 32, 32},
+		{"SixtyFour", 64, 64},
+		{"MaxPowerOfTwo", 1 << 63, 1 << 63},
+
+		// Edge cases just above or below powers of two
+		{"JustBelow4", 3, 2},
+		{"JustAbove4", 5, 4},
+		{"JustBelow256", 255, 128},
+		{"JustAbove256", 257, 256},
+		{"JustBelow1024", 1023, 512},
+		{"JustAbove1024", 1025, 1024},
+
+		// Large values
+		{"MaxUint64", ^uint64(0), 1 << 63},
+		{"HighValueBit62", 1<<62 + 123456, 1 << 62},
+
+		// Random mid range values
+		{"Random45", 45, 32},
+		{"Random123", 123, 64},
+		{"Random999", 999, 512},
+		{"Random2049", 2049, 1024},
+		{"Random60000", 60000, 32768},
+	}
+
+	for _, tt := range tests {
+		c.Assert(application.RoundNumDownToPowerOfTwo(tt.input), gc.Equals, tt.expected)
+	}
+}

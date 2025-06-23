@@ -68,10 +68,6 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 	return result, nil
 }
 
-func intPtr(i uint64) *uint64 {
-	return &i
-}
-
 func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	env environs.Environ,
 	spaceInfos network.SpaceInfos,
