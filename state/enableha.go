@@ -450,41 +450,6 @@ func (st *State) ControllerIds() ([]string, error) {
 	return controllerInfo.ControllerIds, nil
 }
 
-// SafeControllerIds returns the ids of the controller nodes
-// by looking for the newer "controller-ids" attribute but falling
-// back to the legacy "machineids" if needed.
-// This method is only used when preparing for upgrades since 2.6
-// or earlier used "machineids".
-func (st *State) SafeControllerIds() ([]string, error) {
-	session := st.session.Copy()
-	defer session.Close()
-
-	db := session.DB(jujuDB)
-	controllers := db.C(controllersC)
-
-	var info bson.M
-	err := controllers.Find(bson.D{{"_id", modelGlobalKey}}).One(&info)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("controllers document")
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get controllers document")
-	}
-	var ids []interface{}
-	var ok bool
-	if ids, ok = info["controller-ids"].([]interface{}); !ok {
-		ids, ok = info["machineids"].([]interface{})
-	}
-	if !ok {
-		return nil, nil
-	}
-	result := make([]string, len(ids))
-	for i, id := range ids {
-		result[i] = id.(string)
-	}
-	return result, nil
-}
-
 // ControllerNode returns the controller node with the given id.
 func (st *State) ControllerNode(id string) (ControllerNode, error) {
 	cdoc, err := st.getControllerNodeDoc(id)
