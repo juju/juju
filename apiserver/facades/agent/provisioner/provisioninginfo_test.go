@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -47,24 +46,6 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 2000, Pool: "static-pool"}},
 		},
 	}
-	machineCons := template.Constraints
-	paramCons := params.Value{
-		Arch:             machineCons.Arch,
-		Container:        machineCons.Container,
-		CpuCores:         machineCons.CpuCores,
-		CpuPower:         machineCons.CpuPower,
-		Mem:              machineCons.Mem,
-		RootDisk:         machineCons.RootDisk,
-		RootDiskSource:   machineCons.RootDiskSource,
-		Tags:             machineCons.Tags,
-		InstanceRole:     machineCons.InstanceRole,
-		InstanceType:     machineCons.InstanceType,
-		Spaces:           machineCons.Spaces,
-		VirtType:         machineCons.VirtType,
-		Zones:            machineCons.Zones,
-		AllocatePublicIP: machineCons.AllocatePublicIP,
-		ImageID:          machineCons.ImageID,
-	}
 	placementMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -88,15 +69,15 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 					tags.JujuMachine:    "controller-machine-0",
 				},
 				EndpointBindings: make(map[string]string),
-				CharmConstraints: params.CharmValue{
-					MemRequest: caas.CharmMemRequestMi,
-					MemLimit:   caas.CharmMemLimitMi,
+				CharmConstraints: constraints.CharmValue{
+					MemRequest: uintPtr(64),
+					MemLimit:   uintPtr(256),
 				},
 			}},
 			{Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
 				Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
-				Constraints:      paramCons,
+				Constraints:      template.Constraints,
 				Placement:        template.Placement,
 				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
@@ -134,9 +115,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 						Provider:   "static",
 					},
 				}},
-				CharmConstraints: params.CharmValue{
-					MemRequest: caas.CharmMemRequestMi,
-					MemLimit:   caas.CharmMemLimitMi,
+				CharmConstraints: constraints.CharmValue{
+					MemRequest: uintPtr(64),
+					MemLimit:   uintPtr(256),
 				},
 			}},
 		},
@@ -190,24 +171,6 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 		Constraints: cons,
 		Placement:   "valid",
 	}
-	machineCons := template.Constraints
-	paramCons := params.Value{
-		Arch:             machineCons.Arch,
-		Container:        machineCons.Container,
-		CpuCores:         machineCons.CpuCores,
-		CpuPower:         machineCons.CpuPower,
-		Mem:              machineCons.Mem,
-		RootDisk:         machineCons.RootDisk,
-		RootDiskSource:   machineCons.RootDiskSource,
-		Tags:             machineCons.Tags,
-		InstanceRole:     machineCons.InstanceRole,
-		InstanceType:     machineCons.InstanceType,
-		Spaces:           machineCons.Spaces,
-		VirtType:         machineCons.VirtType,
-		Zones:            machineCons.Zones,
-		AllocatePublicIP: machineCons.AllocatePublicIP,
-		ImageID:          machineCons.ImageID,
-	}
 	placementMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -223,7 +186,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 	expected := &params.ProvisioningInfo{
 		ControllerConfig: s.ControllerConfig,
 		Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
-		Constraints:      paramCons,
+		Constraints:      template.Constraints,
 		Placement:        template.Placement,
 		Jobs:             []model.MachineJob{model.JobHostUnits},
 		Tags: map[string]string{
@@ -243,9 +206,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 				"space2": {"subnet-1", "subnet-2"},
 			},
 		},
-		CharmConstraints: params.CharmValue{
-			MemRequest: caas.CharmMemRequestMi,
-			MemLimit:   caas.CharmMemLimitMi,
+		CharmConstraints: constraints.CharmValue{
+			MemRequest: uintPtr(64),
+			MemLimit:   uintPtr(256),
 		},
 	}
 
@@ -336,9 +299,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 						"alpha":  {"subnet-alpha"},
 					},
 				},
-				CharmConstraints: params.CharmValue{
-					MemRequest: caas.CharmMemRequestMi,
-					MemLimit:   caas.CharmMemLimitMi,
+				CharmConstraints: constraints.CharmValue{
+					MemRequest: uintPtr(64),
+					MemLimit:   uintPtr(256),
 				},
 			},
 		}},
@@ -611,9 +574,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 					"ubuntu":  network.AlphaSpaceName,
 				},
 				CharmLXDProfiles: []string{pName},
-				CharmConstraints: params.CharmValue{
-					MemRequest: caas.CharmMemRequestMi,
-					MemLimit:   caas.CharmMemLimitMi,
+				CharmConstraints: constraints.CharmValue{
+					MemRequest: uintPtr(64),
+					MemLimit:   uintPtr(256),
 				},
 			},
 		}}}
@@ -640,32 +603,12 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg := s.ControllerConfig
-
-	machineCons := template.Constraints
-	paramCons := params.Value{
-		Arch:             machineCons.Arch,
-		Container:        machineCons.Container,
-		CpuCores:         machineCons.CpuCores,
-		CpuPower:         machineCons.CpuPower,
-		Mem:              machineCons.Mem,
-		RootDisk:         machineCons.RootDisk,
-		RootDiskSource:   machineCons.RootDiskSource,
-		Tags:             machineCons.Tags,
-		InstanceRole:     machineCons.InstanceRole,
-		InstanceType:     machineCons.InstanceType,
-		Spaces:           machineCons.Spaces,
-		VirtType:         machineCons.VirtType,
-		Zones:            machineCons.Zones,
-		AllocatePublicIP: machineCons.AllocatePublicIP,
-		ImageID:          machineCons.ImageID,
-	}
-
 	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
 				Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
-				Constraints:      paramCons,
+				Constraints:      template.Constraints,
 				Placement:        template.Placement,
 				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
@@ -691,9 +634,9 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 					},
 				}},
 				EndpointBindings: make(map[string]string),
-				CharmConstraints: params.CharmValue{
-					MemRequest: caas.CharmMemRequestMi,
-					MemLimit:   caas.CharmMemLimitMi,
+				CharmConstraints: constraints.CharmValue{
+					MemRequest: uintPtr(64),
+					MemLimit:   uintPtr(256),
 				},
 			},
 			}},
@@ -830,9 +773,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 					tags.JujuMachine:    "controller-machine-0",
 				},
 				EndpointBindings: make(map[string]string),
-				CharmConstraints: params.CharmValue{
-					MemRequest: caas.CharmMemRequestMi,
-					MemLimit:   caas.CharmMemLimitMi,
+				CharmConstraints: constraints.CharmValue{
+					MemRequest: uintPtr(64),
+					MemLimit:   uintPtr(256),
 				},
 			},
 			},
@@ -842,4 +785,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
+}
+
+func uintPtr(i uint64) *uint64 {
+	return &i
 }

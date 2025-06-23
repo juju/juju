@@ -13,10 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/rpc/params"
 )
 
 // ConstraintApplier defines the function type for configuring constraint for a pod.
@@ -115,9 +113,13 @@ func ApplyWorkloadConstraints(pod *core.PodSpec, appName string, cons constraint
 }
 
 // ApplyCharmConstraints applies the specified charm constraints to the pod.
-func ApplyCharmConstraints(pod *core.PodSpec, appName string, cons params.CharmValue, configureCharmConstraint CharmConstraintApplier) error {
-	if err := configureCharmConstraint(pod, core.ResourceMemory, fmt.Sprintf("%dMi", cons.MemRequest), fmt.Sprintf("%dMi", cons.MemLimit)); err != nil {
-		return errors.Annotatef(err, "configuring charm container memory constraint for %s", appName)
+func ApplyCharmConstraints(pod *core.PodSpec, appName string, cons constraints.CharmValue, configureCharmConstraint CharmConstraintApplier) error {
+	limit := cons.MemLimit
+	request := cons.MemRequest
+	if limit != nil || request != nil {
+		if err := configureCharmConstraint(pod, core.ResourceMemory, fmt.Sprintf("%dMi", *request), fmt.Sprintf("%dMi", *limit)); err != nil {
+			return errors.Annotatef(err, "configuring charm container memory constraint for %s", appName)
+		}
 	}
 	return nil
 }
@@ -284,16 +286,16 @@ func configureCharmConstraint(pod *core.PodSpec, resourceName core.ResourceName,
 		return nil
 	}
 	for i, container := range pod.Containers {
-		if container.Name != caas.CharmContainerName {
-			continue
-		}
-		pod.Containers[i].Resources.Requests, err = MergeConstraint(resourceName, requestValue, pod.Containers[i].Resources.Requests)
-		if err != nil {
-			return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, requestValue)
-		}
-		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, limitValue, pod.Containers[i].Resources.Limits)
-		if err != nil {
-			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, limitValue)
+		if container.Name == "charm" {
+			pod.Containers[i].Resources.Requests, err = MergeConstraint(resourceName, requestValue, pod.Containers[i].Resources.Requests)
+			if err != nil {
+				return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, requestValue)
+			}
+			pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, limitValue, pod.Containers[i].Resources.Limits)
+			if err != nil {
+				return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, limitValue)
+			}
+			break
 		}
 	}
 	return nil
@@ -303,14 +305,9 @@ func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceNa
 	if len(pod.Containers) == 0 {
 		return nil
 	}
-	var hasSetMemRequestForFirstWorkloadContainer bool
 	for i, container := range pod.Containers {
-		if container.Name == caas.CharmContainerName {
+		if container.Name == "charm" {
 			continue
-		}
-		if !hasSetMemRequestForFirstWorkloadContainer {
-			hasSetMemRequestForFirstWorkloadContainer = true
-			pod.Containers[i].Resources.Requests, err = MergeConstraint(resourceName, value, pod.Containers[i].Resources.Requests)
 		}
 		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, value, pod.Containers[i].Resources.Limits)
 		if err != nil {

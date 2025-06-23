@@ -28,6 +28,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
@@ -273,6 +274,10 @@ func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProv
 	return result, nil
 }
 
+func intPtr(i uint64) *uint64 {
+	return &i
+}
+
 func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
 	app, err := a.state.Application(appName.Id())
 	if err != nil {
@@ -315,31 +320,13 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	stMergedCons, err := a.state.ResolveConstraints(cons)
+	mergedCons, err := a.state.ResolveConstraints(cons)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	mergedCons := params.Value{
-		Arch:             stMergedCons.Arch,
-		Container:        stMergedCons.Container,
-		CpuCores:         stMergedCons.CpuCores,
-		CpuPower:         stMergedCons.CpuPower,
-		Mem:              stMergedCons.Mem,
-		RootDisk:         stMergedCons.RootDisk,
-		RootDiskSource:   stMergedCons.RootDiskSource,
-		Tags:             stMergedCons.Tags,
-		InstanceRole:     stMergedCons.InstanceRole,
-		InstanceType:     stMergedCons.InstanceType,
-		Spaces:           stMergedCons.Spaces,
-		VirtType:         stMergedCons.VirtType,
-		Zones:            stMergedCons.Zones,
-		AllocatePublicIP: stMergedCons.AllocatePublicIP,
-		ImageID:          stMergedCons.ImageID,
-	}
-
-	charmCons := params.CharmValue{
-		MemRequest: caas.CharmMemRequestMi,
-		MemLimit:   caas.CharmMemLimitMi,
+	charmCons := constraints.CharmValue{
+		MemRequest: intPtr(64),
+		MemLimit:   intPtr(256),
 	}
 	resourceTags := tags.ResourceTags(
 		names.NewModelTag(modelConfig.UUID()),

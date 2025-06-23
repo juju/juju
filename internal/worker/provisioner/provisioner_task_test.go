@@ -1090,30 +1090,11 @@ func (s *ProvisionerTaskSuite) expectProvisioningInfo(machines ...*testMachine) 
 	base, _ := corebase.GetBaseFromSeries(jujuversion.DefaultSupportedLTS())
 
 	piResults := transform.Slice(machines, func(m *testMachine) params.ProvisioningInfoResult {
-		machineCons := constraints.MustParse(m.constraints)
-		paramCons := params.Value{
-			Arch:             machineCons.Arch,
-			Container:        machineCons.Container,
-			CpuCores:         machineCons.CpuCores,
-			CpuPower:         machineCons.CpuPower,
-			Mem:              machineCons.Mem,
-			RootDisk:         machineCons.RootDisk,
-			RootDiskSource:   machineCons.RootDiskSource,
-			Tags:             machineCons.Tags,
-			InstanceRole:     machineCons.InstanceRole,
-			InstanceType:     machineCons.InstanceType,
-			Spaces:           machineCons.Spaces,
-			VirtType:         machineCons.VirtType,
-			Zones:            machineCons.Zones,
-			AllocatePublicIP: machineCons.AllocatePublicIP,
-			ImageID:          machineCons.ImageID,
-		}
-
 		return params.ProvisioningInfoResult{
 			Result: &params.ProvisioningInfo{
 				ControllerConfig:            coretesting.FakeControllerConfig(),
 				Base:                        params.Base{Name: base.OS, Channel: base.Channel.String()},
-				Constraints:                 paramCons,
+				Constraints:                 constraints.MustParse(m.constraints),
 				ProvisioningNetworkTopology: m.topology,
 			},
 			Error: nil,

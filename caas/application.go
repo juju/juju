@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
 
@@ -129,7 +128,7 @@ type ApplicationConfig struct {
 
 	// CharmConstraints is a set of constraints on
 	// the charm container.
-	CharmConstraints params.CharmValue
+	CharmConstraints constraints.CharmValue
 
 	// Filesystems is a set of parameters for filesystems that should be created.
 	Filesystems []storage.KubernetesFilesystemParams

@@ -914,28 +914,9 @@ func (task *provisionerTask) constructStartInstanceParams(
 		}
 	}
 
-	paramCons := provisioningInfo.Constraints
-	cons := constraints.Value{
-		Arch:             paramCons.Arch,
-		Container:        paramCons.Container,
-		CpuCores:         paramCons.CpuCores,
-		CpuPower:         paramCons.CpuPower,
-		Mem:              paramCons.Mem,
-		RootDisk:         paramCons.RootDisk,
-		RootDiskSource:   paramCons.RootDiskSource,
-		Tags:             paramCons.Tags,
-		InstanceRole:     paramCons.InstanceRole,
-		InstanceType:     paramCons.InstanceType,
-		Spaces:           paramCons.Spaces,
-		VirtType:         paramCons.VirtType,
-		Zones:            paramCons.Zones,
-		AllocatePublicIP: paramCons.AllocatePublicIP,
-		ImageID:          paramCons.ImageID,
-	}
-
 	startInstanceParams := environs.StartInstanceParams{
 		ControllerUUID:    controllerUUID,
-		Constraints:       cons,
+		Constraints:       provisioningInfo.Constraints,
 		Tools:             possibleTools,
 		InstanceConfig:    instanceConfig,
 		Placement:         provisioningInfo.Placement,
