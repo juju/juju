@@ -79,7 +79,7 @@ func (s *Service) SetMachineNetConfig(ctx context.Context, mUUID machine.UUID, n
 	s.logger.Debugf(ctx, "setting network config for machine %q: %#v", mUUID, nics)
 
 	if err := mUUID.Validate(); err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("invalid machine UUID: %w", err)
 	}
 
 	if len(nics) == 0 {
