@@ -482,7 +482,7 @@ func findMatchingAddresses(
 	incomings []mergeAddress,
 ) (mergeAddress, bool) {
 	for _, incoming := range incomings {
-		if strings.HasPrefix(incoming.Value, existing.Value) {
+		if strings.HasPrefix(existing.Value, incoming.Value) {
 			return incoming, true
 		}
 	}

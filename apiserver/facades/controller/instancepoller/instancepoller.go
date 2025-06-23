@@ -181,14 +181,15 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 
 		// Treat errors as transient; the purpose of this API
 		// method is to simply update the provider addresses.
-		if err := a.mergeLinkLayer(machine, params.InterfaceInfoFromNetworkConfig(configs)); err != nil {
+		interfaceInfos := params.InterfaceInfoFromNetworkConfig(configs)
+		if err := a.mergeLinkLayer(machine, interfaceInfos); err != nil {
 			a.logger.Errorf(ctx,
 				"link layer device merge attempt for machine %v failed due to error: %v; "+
 					"waiting until next instance-poller run to retry", machine.Id(), err)
 		}
 
 		// Write in dqlite
-		if err := a.setProviderConfigOneMachine(ctx, arg); err != nil {
+		if err := a.setProviderConfigOneMachine(ctx, arg.Tag, interfaceInfos); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -390,58 +391,59 @@ func (a *InstancePollerAPI) AreManuallyProvisioned(ctx context.Context, args par
 
 // setProviderConfigOneMachine sets the provider network configuration for a
 // single machine given its tag and network info.
-func (a *InstancePollerAPI) setProviderConfigOneMachine(ctx context.Context, arg params.ProviderNetworkConfig) error {
-	tag, err := names.ParseMachineTag(arg.Tag)
+func (a *InstancePollerAPI) setProviderConfigOneMachine(
+	ctx context.Context,
+	machineTag string,
+	devs network.InterfaceInfos,
+) error {
+	tag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
-		return internalerrors.Errorf("failed to parse machine tag %q: %w", arg.Tag, err)
+		return internalerrors.Errorf("failed to parse machine tag %q: %w", machineTag, err)
 	}
 	uuid, err := a.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
 	if err != nil {
 		return internalerrors.Errorf("failed to get machine uuid for %q: %w", tag.Id(), err)
 	}
 
-	devices := transform.Slice(arg.Configs, newNetInterface)
+	devices := transform.Slice(devs, newNetInterface)
 	return a.networkService.SetProviderNetConfig(ctx, uuid, devices)
 }
 
-func newNetInterface(cfg params.NetworkConfig) domainnetwork.NetInterface {
+func newNetInterface(device network.InterfaceInfo) domainnetwork.NetInterface {
 	return domainnetwork.NetInterface{
-		Name:             cfg.InterfaceName,
-		MTU:              ptr(int64(cfg.MTU)),
-		MACAddress:       ptr(cfg.MACAddress),
-		ProviderID:       ptr(network.Id(cfg.ProviderId)),
-		Type:             network.LinkLayerDeviceType(cfg.ConfigType),
-		VirtualPortType:  network.VirtualPortType(cfg.VirtualPortType),
-		IsAutoStart:      !cfg.NoAutoStart,
-		IsEnabled:        !cfg.Disabled,
-		ParentDeviceName: cfg.ParentInterfaceName,
-		GatewayAddress:   ptr(cfg.GatewayAddress),
-		IsDefaultGateway: cfg.IsDefaultGateway,
-		VLANTag:          uint64(cfg.VLANTag),
-		DNSSearchDomains: cfg.DNSSearchDomains,
-		DNSAddresses:     cfg.DNSServers,
+		Name:             device.InterfaceName,
+		MTU:              ptr(int64(device.MTU)),
+		MACAddress:       ptr(device.MACAddress),
+		ProviderID:       ptr(device.ProviderId),
+		Type:             network.LinkLayerDeviceType(device.ConfigType),
+		VirtualPortType:  device.VirtualPortType,
+		IsAutoStart:      !device.NoAutoStart,
+		IsEnabled:        !device.Disabled,
+		ParentDeviceName: device.ParentInterfaceName,
+		GatewayAddress:   ptr(device.GatewayAddress.Value),
+		IsDefaultGateway: device.IsDefaultGateway,
+		VLANTag:          uint64(device.VLANTag),
+		DNSSearchDomains: device.DNSSearchDomains,
+		DNSAddresses:     device.DNSServers,
 		Addrs: append(
-			transform.Slice(cfg.Addresses, newNetAddress(cfg.InterfaceName, false)),
-			transform.Slice(cfg.ShadowAddresses, newNetAddress(cfg.InterfaceName, true))...),
+			transform.Slice(device.Addresses, newNetAddress(device, false)),
+			transform.Slice(device.ShadowAddresses, newNetAddress(device, true))...),
 	}
 }
 
-func newNetAddress(interfaceName string, isShadow bool) func(addr params.Address) domainnetwork.NetAddr {
-	return func(addr params.Address) domainnetwork.NetAddr {
-		providerAddr := addr.ProviderAddress()
+func newNetAddress(device network.InterfaceInfo, isShadow bool) func(network.ProviderAddress) domainnetwork.NetAddr {
+	return func(providerAddr network.ProviderAddress) domainnetwork.NetAddr {
 		return domainnetwork.NetAddr{
-			InterfaceName: interfaceName,
-			AddressValue:  addr.Value,
-			AddressType:   network.AddressType(addr.Type),
-			ConfigType:    network.AddressConfigType(addr.ConfigType),
-			Origin:        network.OriginProvider,
-			Scope:         network.Scope(addr.Scope),
-			IsSecondary:   addr.IsSecondary,
-			IsShadow:      isShadow,
-			// TODO gfouillet: I am really suspicious since I didn't see any
-			//   code where those ID are populated.
-			ProviderID:       ptr(providerAddr.ProviderID),
-			ProviderSubnetID: ptr(providerAddr.ProviderSubnetID),
+			InterfaceName:    device.InterfaceName,
+			AddressValue:     providerAddr.Value,
+			AddressType:      providerAddr.Type,
+			ConfigType:       providerAddr.ConfigType,
+			Origin:           network.OriginProvider,
+			Scope:            providerAddr.Scope,
+			IsSecondary:      providerAddr.IsSecondary,
+			IsShadow:         isShadow,
+			ProviderID:       ptr(device.ProviderAddressId),
+			ProviderSubnetID: ptr(device.ProviderSubnetId),
 		}
 	}
 }

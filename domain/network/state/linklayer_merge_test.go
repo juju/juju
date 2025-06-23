@@ -494,7 +494,7 @@ func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesToBeRelinquished(c *
 			Name: "eth0",
 			Addresses: []mergeAddress{
 				{
-					Value:      "192.168.1.1/24",
+					Value:      "192.168.1.1",
 					ProviderID: "provider-ip-1",
 				},
 			},
@@ -536,7 +536,7 @@ func (s *mergeLinkLayerSuite) TestComputeMergeAddressChangesProviderIDUpdated(c 
 			Name: "eth0",
 			Addresses: []mergeAddress{
 				{
-					Value:      "192.168.1.1/24",
+					Value:      "192.168.1.1",
 					ProviderID: "new-provider-ip-1",
 				},
 			},
