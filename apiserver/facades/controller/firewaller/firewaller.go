@@ -112,7 +112,8 @@ func NewStateFirewallerAPI(
 	// WatchModelMachines() is allowed with unrestricted access.
 	machinesWatcher := commonmodel.NewModelMachinesWatcher(
 		st,
-		resources,
+		machineService,
+		watcherRegistry,
 		authorizer,
 	)
 	// InstanceId() is supported for machines.

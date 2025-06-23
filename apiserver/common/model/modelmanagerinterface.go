@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/state"
 )
@@ -70,6 +71,12 @@ type MachineService interface {
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	// WatchModelMachines watches for additions or updates to non-container
+	// machines. It is used by workers that need to factor life value changes,
+	// and so does not factor machine removals, which are considered to be
+	// after their transition to the dead state.
+	// It emits machine names rather than UUIDs.
+	WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
 // StatusService returns the status of a applications, and units and machines.

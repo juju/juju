@@ -411,6 +411,7 @@ func (task *provisionerTask) populateMachineMaps(ctx context.Context, ids []stri
 			return errors.Annotatef(result.Err, "getting machine %v", ids[i])
 		}
 	}
+	task.logger.Tracef(ctx, "provisioner task machine map %v", task.machines)
 	return nil
 }
 
