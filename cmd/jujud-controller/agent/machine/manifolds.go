@@ -96,7 +96,6 @@ import (
 	"github.com/juju/juju/internal/worker/objectstorefacade"
 	"github.com/juju/juju/internal/worker/objectstores3caller"
 	"github.com/juju/juju/internal/worker/objectstoreservices"
-	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/internal/worker/providerservices"
 	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/proxyupdater"
@@ -611,15 +610,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                       internallogger.GetLogger("juju.workers.modelworkermanager"),
 			GetProviderServicesGetter:    modelworkermanager.GetProviderServicesGetter,
 			GetControllerConfig:          modelworkermanager.GetControllerConfig,
-		})),
-
-		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
-			AgentName:            agentName,
-			ClockName:            clockName,
-			StateName:            stateName,
-			DomainServicesName:   domainServicesName,
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			NewWorker:            peergrouper.New,
 		})),
 
 		domainServicesName: workerdomainservices.Manifold(workerdomainservices.ManifoldConfig{
@@ -1327,7 +1317,6 @@ const (
 	objectStoreFacadeName         = "object-store-facade"
 	objectStoreDrainingFlagName   = "object-store-draining-flag"
 	objectStoreDrainerName        = "object-store-drainer"
-	peergrouperName               = "peer-grouper"
 	providerDomainServicesName    = "provider-services"
 	providerTrackerName           = "provider-tracker"
 	proxyConfigUpdater            = "proxy-config-updater"

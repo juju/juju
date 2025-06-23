@@ -50,11 +50,11 @@ import (
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/worker/peergrouper"
+	webscale "github.com/juju/juju/state/mongo"
 )
 
 var (
-	initiateMongoServer = peergrouper.InitiateMongoServer
+	initiateMongoServer = webscale.InitiateMongoServer
 	sshGenerateKey      = ssh.GenerateKey
 	minSocketTimeout    = 1 * time.Minute
 	checkJWKSReachable  = agentbootstrap.CheckJWKSReachable
@@ -483,7 +483,7 @@ func (c *BootstrapCommand) startMongo(ctx context.Context, isCAAS bool, addrs ne
 	}
 	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
-	if err := initiateMongoServer(peergrouper.InitiateMongoParams{
+	if err := initiateMongoServer(webscale.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
 	}); err != nil {

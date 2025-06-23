@@ -585,22 +585,6 @@ func (s *MachineSuite) TestMachineWorkers(c *tc.C) {
 	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait)
 }
 
-func (s *MachineSuite) TestReplicasetInitForNewController(c *tc.C) {
-	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
-
-	m, _, _ := s.primeAgent(c)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-
-	agentConfig := a.CurrentConfig()
-
-	err := a.ensureMongoServer(c.Context(), agentConfig)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(s.fakeEnsureMongo.EnsureCount, tc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.InitiateCount, tc.Equals, 0)
-}
-
 func (s *MachineSuite) waitStopped(c *tc.C, a *MachineAgent, done chan error) {
 	err := a.Stop()
 	c.Assert(err, tc.ErrorIsNil)

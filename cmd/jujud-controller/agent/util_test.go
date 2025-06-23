@@ -27,7 +27,6 @@ import (
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud-controller/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud-controller/agent/mocks"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
@@ -67,7 +66,6 @@ var fastDialOpts = api.DialOpts{
 }
 
 type commonMachineSuite struct {
-	fakeEnsureMongo *agenttest.FakeEnsureMongo
 	AgentSuite
 	// FakeJujuXDGDataHomeSuite is needed only because the
 	// authenticationworker writes to ~/.ssh.
@@ -105,8 +103,6 @@ func (s *commonMachineSuite) SetUpTest(c *tc.C) {
 	// mock out the start method so we can fake install services without sudo
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
-
-	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s, s.DataDir)
 }
 
 func (s *commonMachineSuite) assertChannelActive(c *tc.C, aChannel chan struct{}, intent string) {

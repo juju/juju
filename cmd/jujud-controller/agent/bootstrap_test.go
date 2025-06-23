@@ -6,7 +6,6 @@ package agent
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -23,7 +22,6 @@ import (
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/jujud-controller/agent/agenttest"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	coredatabase "github.com/juju/juju/core/database"
@@ -69,7 +67,6 @@ type BootstrapSuite struct {
 	dataDir          string
 	logDir           string
 	mongoOplogSize   string
-	fakeEnsureMongo  *agenttest.FakeEnsureMongo
 	bootstrapName    string
 	initialModelUUID string
 
@@ -81,6 +78,13 @@ type BootstrapSuite struct {
 
 func TestBootstrapSuite(t *stdtesting.T) {
 	tc.Run(t, &BootstrapSuite{})
+}
+
+func (s *BootstrapSuite) TestStub(c *tc.C) {
+	c.Skipf(`This test suite is missing
+
+  - Test that the initial model and all of the machines are created.
+`)
 }
 
 func (s *BootstrapSuite) SetUpSuite(c *tc.C) {
@@ -113,8 +117,6 @@ func (s *BootstrapSuite) SetUpTest(c *tc.C) {
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
 	s.mongoOplogSize = "1234"
-	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s, s.dataDir)
-	s.PatchValue(&initiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 	s.makeTestModel(c)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
@@ -236,61 +238,6 @@ func (s *BootstrapSuite) TestCheckJWKSReachable(c *tc.C) {
 	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(called, tc.IsTrue)
-}
-
-func (s *BootstrapSuite) TestInitializeModel(c *tc.C) {
-	machConf, cmd, err := s.initBootstrapCommand(c, nil)
-	cmd.DqliteInitializer = s.dqliteInitializerFunc(c,
-		func(ctx context.Context, controller, model coredatabase.TxnRunner) error {
-			modelState := modelstate.NewModelState(func() (coredatabase.TxnRunner, error) {
-				return model, nil
-			}, loggertesting.WrapCheckLog(c))
-
-			data, err := modelState.GetModelConstraints(c.Context())
-			c.Check(err, tc.ErrorIsNil)
-			c.Check(data, tc.DeepEquals, domainconstraints.Constraints{})
-			return nil
-		},
-	)
-
-	c.Assert(err, tc.ErrorIsNil)
-	err = cmd.Run(cmdtesting.Context(c))
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(s.fakeEnsureMongo.MongoDataDir, tc.Equals, s.dataDir)
-	c.Assert(s.fakeEnsureMongo.InitiateCount, tc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.EnsureCount, tc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.OplogSize, tc.Equals, 1234)
-
-	expectInfo, exists := machConf.StateServingInfo()
-	c.Assert(exists, tc.IsTrue)
-	c.Assert(expectInfo.SharedSecret, tc.Equals, "")
-	c.Assert(expectInfo.SystemIdentity, tc.Equals, "")
-
-	servingInfo := s.fakeEnsureMongo.Info
-	c.Assert(len(servingInfo.SharedSecret), tc.Not(tc.Equals), 0)
-	c.Assert(len(servingInfo.SystemIdentity), tc.Not(tc.Equals), 0)
-	servingInfo.SharedSecret = ""
-	servingInfo.SystemIdentity = ""
-	c.Assert(servingInfo, tc.DeepEquals, expectInfo)
-	expectDialAddrs := []string{fmt.Sprintf("localhost:%d", expectInfo.StatePort)}
-	gotDialAddrs := s.fakeEnsureMongo.InitiateParams.DialInfo.Addrs
-	c.Assert(gotDialAddrs, tc.DeepEquals, expectDialAddrs)
-
-	c.Assert(
-		s.fakeEnsureMongo.InitiateParams.MemberHostPort,
-		tc.Matches,
-		fmt.Sprintf("testmodel-0.dns:%d$", expectInfo.StatePort),
-	)
-	c.Assert(s.fakeEnsureMongo.InitiateParams.User, tc.Equals, "")
-	c.Assert(s.fakeEnsureMongo.InitiateParams.Password, tc.Equals, "")
-
-	st, closer := s.getSystemState(c)
-	defer closer()
-	machines, err := st.AllMachines()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(machines, tc.HasLen, 1)
-
 }
 
 func (s *BootstrapSuite) TestInitializeModelInvalidOplogSize(c *tc.C) {
