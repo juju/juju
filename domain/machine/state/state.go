@@ -55,7 +55,7 @@ func (st *State) CreateMachine(ctx context.Context, args domainmachine.CreateMac
 		machineUUID machine.UUID
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		_, machineUUID, machineName, err = CreateMachine(ctx, tx, st, args, st.clock)
+		_, machineUUID, machineName, err = CreateMachine(ctx, tx, st, st.clock, args)
 		return err
 	})
 	if err != nil {
@@ -102,7 +102,7 @@ func (st *State) CreateMachineWithParent(ctx context.Context, args domainmachine
 			return errors.Errorf("parent machine %q not found", parentUUID).Add(machineerrors.MachineNotFound)
 		}
 		// Create the machine.
-		_, machineUUID, machineName, err = CreateMachine(ctx, tx, st, args, st.clock)
+		_, machineUUID, machineName, err = CreateMachine(ctx, tx, st, st.clock, args)
 		if err != nil {
 			return errors.Errorf("creating machine with parent %q: %w", parentUUID, err)
 		}

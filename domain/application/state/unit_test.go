@@ -1045,7 +1045,7 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNodeNoUnits(c *tc.C) {
 				Type: deployment.PlacementTypeUnset,
 			},
 		}
-		netNode, _, err = machinestate.PlaceMachine(ctx, tx, s.state, placeMachineArgs, clock.WallClock)
+		netNode, _, err = machinestate.PlaceMachine(ctx, tx, s.state, clock.WallClock, placeMachineArgs)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

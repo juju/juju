@@ -1163,7 +1163,7 @@ func (st *State) insertIAASUnit(
 		Platform:  args.Platform,
 		Nonce:     args.Nonce,
 	}
-	nodeUUID, machineNames, err := machinestate.PlaceMachine(ctx, tx, st, placeMachineArgs, st.clock)
+	nodeUUID, machineNames, err := machinestate.PlaceMachine(ctx, tx, st, st.clock, placeMachineArgs)
 	if err != nil {
 		return nil, errors.Errorf("getting net node UUID from placement %+v: %w", args.Placement, err)
 	}

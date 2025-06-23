@@ -152,8 +152,9 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 			},
 		},
 	}).Return(m1, nil)
+	// Machine 666.
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), machineservice.CreateMachineArgs{})
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), machineservice.CreateMachineArgs{})
+	// Machine 667.
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), machineservice.CreateMachineArgs{})
 	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("22.04"),

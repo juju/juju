@@ -53,7 +53,6 @@ import (
 	"github.com/juju/juju/internal/worker/singular"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/internal/worker/undertaker"
-	"github.com/juju/juju/internal/worker/unitassigner"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -426,10 +425,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFirewallerFacade:      firewaller.NewFirewallerFacade,
 			NewRemoteRelationsFacade: firewaller.NewRemoteRelationsFacade,
 		})),
-		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.unitassigner"),
-		})),
 		instancePollerName: ifNotMigrating(instancepoller.Manifold(instancepoller.ManifoldConfig{
 			DomainServicesName: domainServicesName,
 			EnvironName:        providerTrackerName,
@@ -616,7 +611,6 @@ const (
 	stateCleanerName             = "state-cleaner"
 	storageProvisionerName       = "storage-provisioner"
 	undertakerName               = "undertaker"
-	unitAssignerName             = "unit-assigner"
 
 	caasFirewallerName             = "caas-firewaller"
 	caasModelOperatorName          = "caas-model-operator"
