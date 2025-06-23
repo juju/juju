@@ -219,6 +219,14 @@ func (a tagKindAuthorizer) Authorize(authInfo authentication.AuthInfo) error {
 	return errors.NotValidf("tag kind %v", tagKind)
 }
 
+type entityWrapper struct {
+	user names.UserTag
+}
+
+func (e entityWrapper) Tag() names.Tag {
+	return e.user
+}
+
 type controllerAuthorizer struct{}
 
 // Authorize is part of the httpcontext.Authorizer interface.
@@ -241,11 +249,8 @@ func (a controllerAdminAuthorizer) Authorize(authInfo authentication.AuthInfo) e
 	}
 
 	has, err := common.HasPermission(
-		func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
-			if entity.String() != userTag.String() {
-				return permission.NoAccess, fmt.Errorf("expected entity %q got %q", userTag.String(), entity.String())
-			}
-			return authInfo.SubjectPermissions(subject)
+		func(user names.UserTag, subject names.Tag) (permission.Access, error) {
+			return authInfo.Delegator.SubjectPermissions(entityWrapper{user}, subject)
 		},
 		userTag, permission.SuperuserAccess, a.controllerTag,
 	)
@@ -274,11 +279,8 @@ func (a modelPermissionAuthorizer) Authorize(authInfo authentication.AuthInfo) e
 		return errors.Errorf("%q is not a valid model", authInfo.ModelTag.Id())
 	}
 	has, err := common.HasPermission(
-		func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
-			if entity.String() != userTag.String() {
-				return permission.NoAccess, fmt.Errorf("expected entity %q got %q", userTag.String(), entity.String())
-			}
-			return authInfo.SubjectPermissions(subject)
+		func(user names.UserTag, subject names.Tag) (permission.Access, error) {
+			return authInfo.Delegator.SubjectPermissions(entityWrapper{user}, subject)
 		},
 		userTag, a.perm, authInfo.ModelTag,
 	)

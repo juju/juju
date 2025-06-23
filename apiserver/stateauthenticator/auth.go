@@ -46,7 +46,7 @@ type Authenticator struct {
 }
 
 type PermissionDelegator struct {
-	State *state.State
+	UserAccessFunc func(subject names.UserTag, target names.Tag) (permission.Access, error)
 }
 
 // NewAuthenticator returns a new Authenticator using the given StatePool.
@@ -136,12 +136,18 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	modelUUID string,
 	authParams authentication.AuthParams,
 ) (authInfo authentication.AuthInfo, err error) {
+	systemState, err := a.statePool.SystemState()
+	if err != nil {
+		return authentication.AuthInfo{}, errors.Trace(err)
+	}
+
 	defer func() {
 		if errors.Is(err, apiservererrors.ErrNoCreds) {
 			err = errors.NewNotSupported(err, "")
 		}
 		if err == nil {
 			authInfo.ModelTag = names.NewModelTag(modelUUID)
+			authInfo.Delegator = &PermissionDelegator{systemState.UserPermission}
 		}
 	}()
 
@@ -165,10 +171,6 @@ func (a *Authenticator) AuthenticateLoginRequest(
 
 	_, isMachineTag := authParams.AuthTag.(names.MachineTag)
 	_, isControllerAgentTag := authParams.AuthTag.(names.ControllerAgentTag)
-	systemState, errS := a.statePool.SystemState()
-	if errS != nil {
-		return authentication.AuthInfo{}, errors.Trace(err)
-	}
 	if (isMachineTag || isControllerAgentTag) && !st.IsController() {
 		// Controller agents are allowed to log into any model.
 		var err2 error
@@ -184,7 +186,6 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	if err != nil {
 		return authentication.AuthInfo{}, errors.NewUnauthorized(err, "")
 	}
-	authInfo.Delegator = &PermissionDelegator{systemState}
 	return authInfo, nil
 }
 
@@ -198,7 +199,7 @@ func (p *PermissionDelegator) SubjectPermissions(
 		return permission.NoAccess, errors.Errorf("%s is not a user", names.ReadableString(e.Tag()))
 	}
 
-	return p.State.UserPermission(userTag, s)
+	return p.UserAccessFunc(userTag, s)
 }
 
 func (p *PermissionDelegator) PermissionError(
@@ -228,8 +229,7 @@ func (a *Authenticator) checkCreds(
 	}
 
 	authInfo := authentication.AuthInfo{
-		Delegator: &PermissionDelegator{st},
-		Entity:    entity,
+		Entity: entity,
 	}
 	type withIsManager interface {
 		IsManager() bool
