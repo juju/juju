@@ -6,9 +6,10 @@ package schema
 import (
 	"testing"
 
+	"github.com/juju/tc"
+
 	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/tc"
 )
 
 // modelStorageSuite is a set of tests for asserting the behaviour of the
@@ -30,7 +31,7 @@ func (s *modelStorageSuite) SetUpTest(c *tc.C) {
 }
 
 // assertChangeEvent asserts that a single change event exists for the provided
-// namespace and changed value. If sucessful the matching change event will be
+// namespace and changed value. If successful the matching change event will be
 // deleted from the database so subsequent calls can be made to this func within
 // a single test.
 func (s *modelStorageSuite) assertChangeEvent(
@@ -126,6 +127,21 @@ WHERE  uuid = ?
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// changeVolumeAttachmentPlanLife is a utility function for updating the life
+// value of a volume attachment plan. This is used to trigger an update trigger
+// for a volume attachment plan.
+func (s *modelStorageSuite) changeVolumeAttachmentPlanLife(
+	c *tc.C, uuid string, life domainlife.Life,
+) {
+	_, err := s.DB().Exec(`
+UPDATE storage_volume_attachment_plan
+SET    life_id = ?
+WHERE  uuid = ?
+`,
+		int(life), uuid)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // deleteFilesystem is a utility function for deleting a filesystem in the
 // model.
 func (s *modelStorageSuite) deleteFilesystem(c *tc.C, uuid string) {
@@ -163,6 +179,17 @@ WHERE  uuid = ?
 func (s *modelStorageSuite) deleteVolumeAttachment(c *tc.C, uuid string) {
 	_, err := s.DB().Exec(`
 DELETE FROM storage_volume_attachment
+WHERE  uuid = ?
+`,
+		uuid)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// deleteVolumeAttachmentPlan is a utility function for deleting a volume
+// attachment plan in the model.
+func (s *modelStorageSuite) deleteVolumeAttachmentPlan(c *tc.C, uuid string) {
+	_, err := s.DB().Exec(`
+DELETE FROM storage_volume_attachment_plan
 WHERE  uuid = ?
 `,
 		uuid)
@@ -924,5 +951,62 @@ func (s *modelStorageSuite) TestDeleteMachineVolumeAttachmentTrigger(c *tc.C) {
 	s.deleteVolumeAttachment(c, vAttUUID)
 	s.assertChangeEvent(
 		c, "storage_volume_attachment_life_machine_provisioning", netnode,
+	)
+}
+
+// TestNewMachineVolumeAttachmentPlanTrigger tests that a new volume
+// attachment plan that is machine provision scoped results in one change event.
+func (s *modelStorageSuite) TestNewMachineVolumeAttachmentPlanTrigger(c *tc.C) {
+	// We prove here that no matter the provision scope of the volume it is
+	// the provision scope of the attachment that matters for the trigger.
+	uuid1, _ := s.newModelVolume(c)
+	uuid2, _ := s.newMachineVolume(c)
+	netnode := s.newNetNode(c)
+
+	s.newMachineVolumeAttachmentPlan(c, uuid1, netnode)
+	s.assertChangeEvent(
+		c, "storage_volume_attachment_plan_life_machine_provisioning", netnode,
+	)
+
+	s.newMachineVolumeAttachmentPlan(c, uuid2, netnode)
+	s.assertChangeEvent(
+		c, "storage_volume_attachment_plan_life_machine_provisioning", netnode,
+	)
+}
+
+// TestUpdateMachineVolumeAttachmentPlanTrigger tests that updating the life of
+// a volume attachment plan that is machine provision scoped results in one
+// change event.
+func (s *modelStorageSuite) TestUpdateMachineVolumeAttachmentPlanTrigger(c *tc.C) {
+	uuid, _ := s.newMachineVolume(c)
+	netnode := s.newNetNode(c)
+
+	vAttUUID := s.newMachineVolumeAttachmentPlan(c, uuid, netnode)
+	// Check and consume the initial insert event.
+	s.assertChangeEvent(
+		c, "storage_volume_attachment_plan_life_machine_provisioning", netnode,
+	)
+
+	s.changeVolumeAttachmentPlanLife(c, vAttUUID, domainlife.Dying)
+	s.assertChangeEvent(
+		c, "storage_volume_attachment_plan_life_machine_provisioning", netnode,
+	)
+}
+
+// TestDeleteMachineVolumeAttachmentPlanTrigger tests that deleting a volume
+// attachment plan that is machine provision scoped results in one change event.
+func (s *modelStorageSuite) TestDeleteMachineVolumeAttachmentPlanTrigger(c *tc.C) {
+	uuid, _ := s.newMachineVolume(c)
+	netnode := s.newNetNode(c)
+
+	vAttUUID := s.newMachineVolumeAttachmentPlan(c, uuid, netnode)
+	// Check and consume the initial insert event.
+	s.assertChangeEvent(
+		c, "storage_volume_attachment_plan_life_machine_provisioning", netnode,
+	)
+
+	s.deleteVolumeAttachmentPlan(c, vAttUUID)
+	s.assertChangeEvent(
+		c, "storage_volume_attachment_plan_life_machine_provisioning", netnode,
 	)
 }
