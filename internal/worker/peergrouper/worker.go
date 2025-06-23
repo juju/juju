@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/worker/v4"
@@ -54,9 +53,6 @@ type ControllerNode interface {
 	Id() string
 	Refresh() error
 	Watch() state.NotifyWatcher
-	WantsVote() bool
-	HasVote() bool
-	SetHasVote(hasVote bool) error
 }
 
 type ControllerHost interface {
@@ -613,11 +609,8 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 			return nil, errors.Trace(err)
 		}
 	}
-	if err := w.updateVoteStatus(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	for _, tracker := range w.controllerTrackers {
-		if tracker.host.Life() != state.Alive && !tracker.node.HasVote() {
+		if tracker.host.Life() != state.Alive {
 			logger.Debugf(context.TODO(), "removing dying controller %s references", tracker.Id())
 			if err := w.config.State.RemoveControllerReference(tracker.node); err != nil {
 				logger.Errorf(context.TODO(), "failed to remove dying controller as a controller after removing its vote: %v", err)
@@ -625,43 +618,6 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 		}
 	}
 	return desired.members, nil
-}
-
-func (w *pgWorker) updateVoteStatus() error {
-	currentMembers, err := w.config.MongoSession.CurrentMembers()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	orphanedNodes := set.NewStrings()
-	for id := range w.controllerTrackers {
-		orphanedNodes.Add(id)
-	}
-	var voting, nonVoting []*controllerTracker
-	for _, m := range currentMembers {
-		node, ok := w.controllerTrackers[m.Tags[jujuNodeKey]]
-		orphanedNodes.Remove(node.Id())
-		if ok {
-			if !node.HasVote() && isVotingMember(&m) {
-				logger.Tracef(context.TODO(), "controller %v is now voting member", node.Id())
-				voting = append(voting, node)
-			} else if node.HasVote() && !isVotingMember(&m) {
-				logger.Tracef(context.TODO(), "controller %v is now non voting member", node.Id())
-				nonVoting = append(nonVoting, node)
-			}
-		}
-	}
-	logger.Debugf(context.TODO(), "controllers that are no longer in replicaset: %v", orphanedNodes.Values())
-	for _, id := range orphanedNodes.Values() {
-		node := w.controllerTrackers[id]
-		nonVoting = append(nonVoting, node)
-	}
-	if err := setHasVote(voting, true); err != nil {
-		return errors.Annotatef(err, "adding voters")
-	}
-	if err := setHasVote(nonVoting, false); err != nil {
-		return errors.Annotatef(err, "removing non-voters")
-	}
-	return nil
 }
 
 const (
@@ -724,18 +680,4 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 		trackers[id] = tracker
 	}
 	return newPeerGroupInfo(trackers, sts.Members, members, w.config.MongoPort)
-}
-
-// setHasVote sets the HasVote status of all the given nodes to hasVote.
-func setHasVote(ms []*controllerTracker, hasVote bool) error {
-	if len(ms) == 0 {
-		return nil
-	}
-	logger.Infof(context.TODO(), "setting HasVote=%v on nodes %v", hasVote, ms)
-	for _, m := range ms {
-		if err := m.node.SetHasVote(hasVote); err != nil {
-			return fmt.Errorf("cannot set voting status of %q to %v: %v", m.Id(), hasVote, err)
-		}
-	}
-	return nil
 }

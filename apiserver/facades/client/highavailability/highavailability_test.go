@@ -454,90 +454,11 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *tc.C) {
 }
 
 func (s *clientSuite) TestEnableHA0Preserves(c *tc.C) {
-	// A value of 0 says either "if I'm not HA, make me HA" or "preserve my
-	// current HA settings".
-	enableHAResult, err := s.enableHA(c, 0, emptyCons, nil)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0"})
-	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
-
-	st := s.ControllerModel(c).State()
-	machines, err := st.AllMachines()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(machines, tc.HasLen, 3)
-
-	s.setMachineAddresses(c, "1")
-	s.setMachineAddresses(c, "2")
-
-	// Now, we keep agent 1 alive, but not agent 2, calling
-	// EnableHA(0) again will cause us to start another machine
-	c.Assert(machines[2].Destroy(s.store), tc.ErrorIsNil)
-	c.Assert(machines[2].Refresh(), tc.ErrorIsNil)
-	node, err := st.ControllerNode(machines[2].Id())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(node.SetHasVote(false), tc.ErrorIsNil)
-	c.Assert(node.Refresh(), tc.ErrorIsNil)
-	c.Assert(st.RemoveControllerReference(node), tc.ErrorIsNil)
-	c.Assert(machines[2].EnsureDead(), tc.ErrorIsNil)
-	enableHAResult, err = s.enableHA(c, 0, emptyCons, nil)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0", "machine-1"})
-	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-3"})
-	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
-
-	machines, err = st.AllMachines()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(machines, tc.HasLen, 4)
+	c.Skipf(`Test that killing a controller machine (machine-4) preserves the number of machines after enable-has is called again (machine-5 is added) to maintain 3 controller machines`)
 }
 
 func (s *clientSuite) TestEnableHA0Preserves5(c *tc.C) {
-	// Start off with 5 servers
-	enableHAResult, err := s.enableHA(c, 5, emptyCons, nil)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0"})
-	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-1", "machine-2", "machine-3", "machine-4"})
-	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
-
-	st := s.ControllerModel(c).State()
-	machines, err := st.AllMachines()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(machines, tc.HasLen, 5)
-	nodes, err := st.ControllerNodes()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(nodes, tc.HasLen, 5)
-	for _, n := range nodes {
-		c.Assert(n.SetHasVote(true), tc.ErrorIsNil)
-	}
-
-	s.setMachineAddresses(c, "1")
-	s.setMachineAddresses(c, "2")
-	s.setMachineAddresses(c, "3")
-	s.setMachineAddresses(c, "4")
-	c.Assert(machines[4].Destroy(s.store), tc.ErrorIsNil)
-	c.Assert(machines[4].Refresh(), tc.ErrorIsNil)
-	node, err := st.ControllerNode(machines[4].Id())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(node.SetHasVote(false), tc.ErrorIsNil)
-	c.Assert(node.Refresh(), tc.ErrorIsNil)
-	c.Assert(st.RemoveControllerReference(node), tc.ErrorIsNil)
-	c.Assert(machines[4].EnsureDead(), tc.ErrorIsNil)
-
-	// Keeping all alive but one, will bring up 1 more server to preserve 5
-	enableHAResult, err = s.enableHA(c, 0, emptyCons, nil)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0", "machine-1",
-		"machine-2", "machine-3"})
-	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-5"})
-	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
-
-	machines, err = st.AllMachines()
-	c.Assert(machines, tc.HasLen, 6)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Skipf(`Test that killing a controller machine (machine-4) preserves the number of machines after enable-has is called again (machine-5 is added) to maintain 5 controller machines`)
 }
 
 func (s *clientSuite) TestEnableHAErrors(c *tc.C) {

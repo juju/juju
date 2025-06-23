@@ -380,13 +380,6 @@ func (s *BootstrapSuite) TestInitialPassword(c *tc.C) {
 	session, err = mongo.DialWithInfo(*machineMongoInfo, mongotest.DialOpts())
 	c.Assert(err, tc.ErrorIsNil)
 	defer session.Close()
-
-	st, closer := s.getSystemState(c)
-	defer closer()
-
-	node, err := st.ControllerNode("0")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(node.HasVote(), tc.IsTrue)
 }
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *tc.C) {

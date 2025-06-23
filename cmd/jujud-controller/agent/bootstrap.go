@@ -51,7 +51,6 @@ import (
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/peergrouper"
-	"github.com/juju/juju/state"
 )
 
 var (
@@ -329,7 +328,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	args.ControllerModelConfig = controllerModelCfg
 
 	// Initialise state, and store any agent config (e.g. password) changes.
-	var controller *state.Controller
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		dialOpts := mongo.DefaultDialOpts()
 
@@ -361,24 +359,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		controller, err = bootstrap.Initialize(ctx)
-		return err
+		return bootstrap.Initialize(ctx)
 	})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = controller.Close() }()
-	st, err := controller.SystemState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// bootstrap nodes always get the vote
-	node, err := st.ControllerNode(agent.BootstrapControllerId)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return node.SetHasVote(true)
+	return nil
 }
 
 func getAddressesForMongo(

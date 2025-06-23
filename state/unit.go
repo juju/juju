@@ -561,12 +561,6 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		}
 		return nil, err
 	}
-	node, err := u.st.ControllerNode(u.doc.MachineId)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, err
-	}
-	haveControllerNode := err == nil
-	hasVote := haveControllerNode && node.HasVote()
 
 	containerCheck := true // whether container conditions allow destroying the host machine
 	containers, err := m.Containers()
@@ -594,8 +588,6 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 	machineCheck := true // whether host machine conditions allow destroy
 	if len(m.doc.Principals) != 1 || m.doc.Principals[0] != u.doc.Name {
 		machineCheck = false
-	} else if hasVote {
-		machineCheck = false
 	}
 
 	// assert that the machine conditions pertaining to host removal conditions
@@ -607,9 +599,7 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 			{{"principals", []string{u.doc.Name}}},
 		}}}
 		controllerNodeAssert = txn.DocMissing
-		if haveControllerNode {
-			controllerNodeAssert = bson.D{{"has-vote", false}}
-		}
+		controllerNodeAssert = bson.D{{"has-vote", false}}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
 			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},

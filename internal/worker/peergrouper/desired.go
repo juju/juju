@@ -340,7 +340,6 @@ func (p *peerGroupChanges) possiblePeerGroupChanges() {
 				// Dead machine already removed from replicaset.
 				continue
 			}
-			logger.Debugf(context.TODO(), "controller %v has died %q, wants vote: %v", id, m.host.Life(), m.WantsVote())
 			if isPrimaryMember(p.info, id) {
 				p.desired.stepDownPrimary = true
 			}
@@ -349,7 +348,7 @@ func (p *peerGroupChanges) possiblePeerGroupChanges() {
 			continue
 		}
 		isVoting := member != nil && isVotingMember(member)
-		wantsVote := m.WantsVote()
+		wantsVote := true
 		switch {
 		case wantsVote && isVoting:
 			logger.Debugf(context.TODO(), "node %q is already voting", id)

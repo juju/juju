@@ -4,7 +4,6 @@
 package peergrouper
 
 import (
-	"fmt"
 	"reflect"
 	"sync"
 
@@ -29,8 +28,6 @@ type controllerTracker struct {
 	// should always be accessed via the getter methods in order to be
 	// protected by the mutex.
 	id        string
-	wantsVote bool
-	hasVote   bool
 	addresses network.SpaceAddresses
 }
 
@@ -41,8 +38,6 @@ func newControllerTracker(node ControllerNode, host ControllerHost, notifyCh cha
 		node:      node,
 		host:      host,
 		addresses: host.Addresses(),
-		wantsVote: node.WantsVote(),
-		hasVote:   node.HasVote(),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "peergrouper",
@@ -72,22 +67,6 @@ func (c *controllerTracker) Id() string {
 	return c.id
 }
 
-// WantsVote returns whether the controller wants to vote (according to
-// state).
-func (c *controllerTracker) WantsVote() bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.wantsVote
-}
-
-// HasVote returns whether the controller has a vote (according to
-// state).
-func (c *controllerTracker) HasVote() bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.hasVote
-}
-
 // Addresses returns the controller addresses from state.
 func (c *controllerTracker) Addresses() network.SpaceAddresses {
 	c.mu.Lock()
@@ -107,16 +86,6 @@ func (c *controllerTracker) GetPotentialMongoHostPorts(port int) network.SpaceHo
 
 func (c *controllerTracker) String() string {
 	return c.Id()
-}
-
-func (c *controllerTracker) GoString() string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	return fmt.Sprintf(
-		"&peergrouper.controller{id: %q, wantsVote: %v, hasVote: %v, addresses: %v}",
-		c.id, c.wantsVote, c.hasVote, c.addresses,
-	)
 }
 
 func (c *controllerTracker) loop() error {
@@ -149,13 +118,6 @@ func (c *controllerTracker) loop() error {
 			if !ok {
 				return nodeWatcher.Err()
 			}
-			changed, err := c.hasNodeChanged()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if changed {
-				notifyCh = c.notifyCh
-			}
 		case notifyCh <- struct{}{}:
 			notifyCh = nil
 		}
@@ -181,34 +143,6 @@ func (c *controllerTracker) hasHostChanged() (bool, error) {
 	changed := false
 	if addrs := c.host.Addresses(); !reflect.DeepEqual(addrs, c.addresses) {
 		c.addresses = addrs
-		changed = true
-	}
-	return changed, nil
-}
-
-func (c *controllerTracker) hasNodeChanged() (bool, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if err := c.node.Refresh(); err != nil {
-		if errors.Is(err, errors.NotFound) {
-			// We want to be robust when the node
-			// state is out of date with respect to the
-			// controller info, so if the node
-			// has been removed, just assume that
-			// no change has happened - the controller
-			// loop will be stopped very soon anyway.
-			return false, nil
-		}
-		return false, errors.Trace(err)
-	}
-	// hasVote doesn't count towards a node change,
-	// but we still want to record the latest value.
-	c.hasVote = c.node.HasVote()
-
-	changed := false
-	if wantsVote := c.node.WantsVote(); wantsVote != c.wantsVote {
-		c.wantsVote = wantsVote
 		changed = true
 	}
 	return changed, nil
