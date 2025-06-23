@@ -14,6 +14,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 )
@@ -309,7 +310,11 @@ func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceNa
 	if len(pod.Containers) == 0 {
 		return nil
 	}
-	for i := range pod.Containers {
+	for i, container := range pod.Containers {
+		if container.Name == constants.ApplicationCharmContainer && resourceName != core.ResourceMemory {
+			// We do not apply constraint on charm container for other types of resources other than memory.
+			continue
+		}
 		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, value, pod.Containers[i].Resources.Limits)
 		if err != nil {
 			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, value)

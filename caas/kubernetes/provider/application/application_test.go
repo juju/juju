@@ -2711,11 +2711,9 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 				"kubernetes.io/arch": "arm64",
 			}
 			charmResourceMemRequest := corev1.ResourceList{
-				corev1.ResourceMemory: k8sresource.MustParse("64Mi"),
-			}
+				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", caas.CharmMemRequestMiB))}
 			charmResourceMemLimit := corev1.ResourceList{
-				corev1.ResourceMemory: k8sresource.MustParse("256Mi"),
-			}
+				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", caas.CharmMemLimitMiB))}
 			resourceRequests := corev1.ResourceList{
 				corev1.ResourceCPU:    k8sresource.MustParse("1000m"),
 				corev1.ResourceMemory: k8sresource.MustParse("1024Mi"),
@@ -2933,13 +2931,19 @@ func (s *applicationSuite) TestPVCNames(c *gc.C) {
 }
 
 func (s *applicationSuite) TestLimits(c *gc.C) {
-	charmLimits := corev1.ResourceList{
-		corev1.ResourceMemory: *k8sresource.NewQuantity(256*1024*1024, k8sresource.BinarySI),
-	}
 
 	workloadLimits := corev1.ResourceList{
 		corev1.ResourceCPU:    *k8sresource.NewMilliQuantity(1000, k8sresource.DecimalSI),
 		corev1.ResourceMemory: *k8sresource.NewQuantity(1024*1024*1024, k8sresource.BinarySI),
+	}
+
+	// charm limits follow user defined workload limits, but only for memory resource
+	charmLimits := corev1.ResourceList{
+		corev1.ResourceMemory: *workloadLimits.Memory(),
+	}
+
+	charmReqs := corev1.ResourceList{
+		corev1.ResourceMemory: *k8sresource.NewQuantity(caas.CharmMemRequestMiB*1024*1024, k8sresource.BinarySI),
 	}
 
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
@@ -2949,10 +2953,12 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			for _, ctr := range ss.Spec.Template.Spec.Containers {
 				if ctr.Name == "charm" {
+					c.Check(ctr.Resources.Requests, gc.DeepEquals, charmReqs)
 					c.Check(ctr.Resources.Limits, gc.DeepEquals, charmLimits)
-				} else {
-					c.Check(ctr.Resources.Limits, gc.DeepEquals, workloadLimits)
+					continue
 				}
+				c.Check(ctr.Resources.Limits, gc.DeepEquals, workloadLimits)
+
 			}
 		},
 	)

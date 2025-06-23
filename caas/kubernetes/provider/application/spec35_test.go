@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -11,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/paths"
 )
@@ -219,11 +221,9 @@ func getPodSpec35() corev1.PodSpec {
 			},
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceMemory: k8sresource.MustParse("64Mi"),
-				},
+					corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", caas.CharmMemRequestMiB))},
 				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: k8sresource.MustParse("256Mi"),
-				},
+					corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", caas.CharmMemLimitMiB))},
 			},
 		}, {
 			Name:            "gitlab",

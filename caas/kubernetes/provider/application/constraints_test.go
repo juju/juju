@@ -5,6 +5,7 @@ package application_test
 
 import (
 	"errors"
+	"fmt"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -37,8 +38,8 @@ func (s *applyConstraintsSuite) TestMemory(c *gc.C) {
 	charmConfigureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, memReq, memLimit string) (err error) {
 		c.Assert(pod, gc.Equals, podSpec)
 		c.Assert(resourceName, gc.Equals, corev1.ResourceName("memory"))
-		c.Assert(memReq, gc.Equals, "64Mi")
-		c.Assert(memLimit, gc.Equals, "256Mi")
+		c.Assert(memReq, gc.Equals, fmt.Sprintf("%dMi", (caas.CharmMemRequestMiB)))
+		c.Assert(memLimit, gc.Equals, fmt.Sprintf("%dMi", (caas.CharmMemLimitMiB)))
 		return errors.New("boom")
 	}
 	charmConstraintVal := caas.CharmValue{
