@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"

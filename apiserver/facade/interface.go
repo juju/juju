@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 	"github.com/juju/names/v6"
 
 	corehttp "github.com/juju/juju/core/http"

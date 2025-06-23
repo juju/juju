@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 

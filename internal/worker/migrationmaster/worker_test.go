@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
