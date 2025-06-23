@@ -77,6 +77,12 @@ type MachineService interface {
 	IsMachineManuallyProvisioned(ctx context.Context, machineName machine.Name) (bool, error)
 	// GetMachineLife returns the lifecycle of the machine.
 	GetMachineLife(ctx context.Context, name machine.Name) (life.Value, error)
+	// WatchModelMachines watches for additions or updates to non-container
+	// machines. It is used by workers that need to factor life value changes,
+	// and so does not factor machine removals, which are considered to be
+	// after their transition to the dead state.
+	// It emits machine names rather than UUIDs.
+	WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
 // ApplicationService provides access to the application service.

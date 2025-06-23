@@ -163,6 +163,45 @@ func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// WatchModelMachines mocks base method.
+func (m *MockMachineService) WatchModelMachines(arg0 context.Context) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchModelMachines", arg0)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchModelMachines indicates an expected call of WatchModelMachines.
+func (mr *MockMachineServiceMockRecorder) WatchModelMachines(arg0 any) *MockMachineServiceWatchModelMachinesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelMachines", reflect.TypeOf((*MockMachineService)(nil).WatchModelMachines), arg0)
+	return &MockMachineServiceWatchModelMachinesCall{Call: call}
+}
+
+// MockMachineServiceWatchModelMachinesCall wrap *gomock.Call
+type MockMachineServiceWatchModelMachinesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceWatchModelMachinesCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockMachineServiceWatchModelMachinesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceWatchModelMachinesCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockMachineServiceWatchModelMachinesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceWatchModelMachinesCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockMachineServiceWatchModelMachinesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockModelConfigService is a mock of ModelConfigService interface.
 type MockModelConfigService struct {
 	ctrl     *gomock.Controller

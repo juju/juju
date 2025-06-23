@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
 	domainnetwork "github.com/juju/juju/domain/network"
 )
 
@@ -61,6 +62,13 @@ type MachineService interface {
 
 	// GetMachineLife returns the lifecycle of the machine.
 	GetMachineLife(context.Context, machine.Name) (life.Value, error)
+
+	// WatchModelMachines watches for additions or updates to non-container
+	// machines. It is used by workers that need to factor life value changes,
+	// and so does not factor machine removals, which are considered to be
+	// after their transition to the dead state.
+	// It emits machine names rather than UUIDs.
+	WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status
