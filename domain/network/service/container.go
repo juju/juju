@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-
 	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/machine"
 	corenetwork "github.com/juju/juju/core/network"
