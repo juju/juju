@@ -145,15 +145,10 @@ func TestEntityLifeMapper(t *testing.T) {
 
 	for _, test := range test {
 		t.Run(test.Name, func(t *testing.T) {
-			seq := slices.Values(
-				append([]map[string]life.Life{test.InitialLife},
-					test.LifeStages...),
-			)
+			seq := slices.Values(test.LifeStages)
 			getter, stop := entityLifeGetter(seq)
 			defer stop()
-
-			mapper, err := EntityLifeMapperFunc(t.Context(), getter)
-			tc.Assert(t, err, tc.ErrorIsNil)
+			mapper := EntityLifeMapperFunc(test.InitialLife, getter)
 
 			for _, expected := range test.Expected {
 				changes, err := mapper(t.Context(), nil)
