@@ -9,9 +9,10 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/juju/tc"
+
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/tc"
 )
 
 // entityLifeGetter is a testing implementation of [EntityLifeGetter] that
