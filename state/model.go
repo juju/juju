@@ -538,28 +538,6 @@ func (m *Model) refresh(uuid string) error {
 	return err
 }
 
-// AllUnits returns all units for a model, for all applications.
-func (st *State) AllUnits() ([]*Unit, error) {
-	coll, closer := st.db().GetCollection(unitsC)
-	defer closer()
-
-	docs := []unitDoc{}
-	err := coll.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get all units for model")
-	}
-
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var units []*Unit
-	for i := range docs {
-		units = append(units, newUnit(st, m.Type(), &docs[i]))
-	}
-	return units, nil
-}
-
 // IsControllerModel returns a boolean indicating whether
 // this model is responsible for running a controller.
 func (m *Model) IsControllerModel() bool {

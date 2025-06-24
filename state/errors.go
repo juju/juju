@@ -14,9 +14,7 @@ var (
 	newProviderIDNotUniqueError     = stateerrors.NewProviderIDNotUniqueError
 	newParentDeviceHasChildrenError = stateerrors.NewParentDeviceHasChildrenError
 
-	IsProviderIDNotUniqueError     = stateerrors.IsProviderIDNotUniqueError
-	IsParentDeviceHasChildrenError = stateerrors.IsParentDeviceHasChildrenError
-	IsNotAlive                     = stateerrors.IsNotAlive
+	IsProviderIDNotUniqueError = stateerrors.IsProviderIDNotUniqueError
 )
 
 var (
