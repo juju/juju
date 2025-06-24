@@ -26,6 +26,7 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	application0 "github.com/juju/juju/domain/application"
 	charm "github.com/juju/juju/domain/application/charm"
+	network0 "github.com/juju/juju/domain/network"
 	relation0 "github.com/juju/juju/domain/relation"
 	resolve "github.com/juju/juju/domain/resolve"
 	charm0 "github.com/juju/juju/internal/charm"
@@ -2790,6 +2791,83 @@ func (c *MockNetworkServiceGetUnitPublicAddressCall) Do(f func(context.Context, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNetworkServiceGetUnitPublicAddressCall) DoAndReturn(f func(context.Context, unit.Name) (network.SpaceAddress, error)) *MockNetworkServiceGetUnitPublicAddressCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitRelationInfos mocks base method.
+func (m *MockNetworkService) GetUnitRelationInfos(arg0 context.Context, arg1 unit.Name, arg2 []string) ([]network0.Info, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitRelationInfos", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]network0.Info)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitRelationInfos indicates an expected call of GetUnitRelationInfos.
+func (mr *MockNetworkServiceMockRecorder) GetUnitRelationInfos(arg0, arg1, arg2 any) *MockNetworkServiceGetUnitRelationInfosCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitRelationInfos", reflect.TypeOf((*MockNetworkService)(nil).GetUnitRelationInfos), arg0, arg1, arg2)
+	return &MockNetworkServiceGetUnitRelationInfosCall{Call: call}
+}
+
+// MockNetworkServiceGetUnitRelationInfosCall wrap *gomock.Call
+type MockNetworkServiceGetUnitRelationInfosCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkServiceGetUnitRelationInfosCall) Return(arg0 []network0.Info, arg1 error) *MockNetworkServiceGetUnitRelationInfosCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkServiceGetUnitRelationInfosCall) Do(f func(context.Context, unit.Name, []string) ([]network0.Info, error)) *MockNetworkServiceGetUnitRelationInfosCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkServiceGetUnitRelationInfosCall) DoAndReturn(f func(context.Context, unit.Name, []string) ([]network0.Info, error)) *MockNetworkServiceGetUnitRelationInfosCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateUnitRelationInfos mocks base method.
+func (m *MockNetworkService) UpdateUnitRelationInfos(arg0 context.Context, arg1 unit.Name) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateUnitRelationInfos", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateUnitRelationInfos indicates an expected call of UpdateUnitRelationInfos.
+func (mr *MockNetworkServiceMockRecorder) UpdateUnitRelationInfos(arg0, arg1 any) *MockNetworkServiceUpdateUnitRelationInfosCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUnitRelationInfos", reflect.TypeOf((*MockNetworkService)(nil).UpdateUnitRelationInfos), arg0, arg1)
+	return &MockNetworkServiceUpdateUnitRelationInfosCall{Call: call}
+}
+
+// MockNetworkServiceUpdateUnitRelationInfosCall wrap *gomock.Call
+type MockNetworkServiceUpdateUnitRelationInfosCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkServiceUpdateUnitRelationInfosCall) Return(arg0 error) *MockNetworkServiceUpdateUnitRelationInfosCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkServiceUpdateUnitRelationInfosCall) Do(f func(context.Context, unit.Name) error) *MockNetworkServiceUpdateUnitRelationInfosCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkServiceUpdateUnitRelationInfosCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockNetworkServiceUpdateUnitRelationInfosCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
