@@ -36,6 +36,7 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/resolve"
@@ -786,6 +787,7 @@ func (s *uniterSuite) TestNetworkInfoFailCanAccess(c *tc.C) {
 		Unit:      "unit-foo-42",
 		Endpoints: []string{"endpoint-0", "endpoint-1"},
 	}
+
 	_, err := s.uniter.NetworkInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
@@ -798,7 +800,9 @@ func (s *uniterSuite) TestNetworkInfoErrorFromDomain(c *tc.C) {
 		Endpoints: []string{"endpoint-0", "endpoint-1"},
 	}
 	boom := internalerrors.New("boom")
-	s.networkService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("foo/42")).Return(network.SpaceAddress{}, boom)
+
+	s.networkService.EXPECT().GetUnitRelationInfos(gomock.Any(), coreunit.Name("foo/42"),
+		args.Endpoints).Return(nil, boom)
 
 	_, err := s.uniter.NetworkInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -816,7 +820,15 @@ func (s *uniterSuite) TestNetworkInfo(c *tc.C) {
 			Value: "192.168.0.1",
 		},
 	}
-	s.networkService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("foo/42")).Return(addr, nil)
+
+	s.networkService.EXPECT().GetUnitRelationInfos(gomock.Any(), coreunit.Name("foo/42"),
+		args.Endpoints).Return([]domainnetwork.Info{{
+		EndpointName:     "endpoint-0",
+		IngressAddresses: []string{addr.Value},
+	}, {
+		EndpointName:     "endpoint-1",
+		IngressAddresses: []string{addr.Value},
+	}}, nil)
 
 	result, err := s.uniter.NetworkInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1654,9 +1666,14 @@ func (s *uniterRelationSuite) TestEnterScope(c *tc.C) {
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
 	addr := "x.x.x.x"
 	unitName := coreunit.Name(s.wordpressUnitTag.Id())
-	s.expectUnitPublicAddress(unitName, addr)
 	settings := map[string]string{"ingress-address": addr}
 	s.expectEnterScope(relUUID, unitName, settings, nil)
+
+	s.networkService.EXPECT().GetUnitRelationInfos(gomock.Any(), unitName,
+		[]string{"mysql"}).Return([]domainnetwork.Info{{
+		EndpointName:     "mysql",
+		IngressAddresses: []string{addr},
+	}}, nil)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -1681,10 +1698,14 @@ func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
 	addr := "x.x.x.x"
 	unitName := coreunit.Name(s.wordpressUnitTag.Id())
-	s.expectUnitPublicAddress(unitName, addr)
 	settings := map[string]string{"ingress-address": addr}
 	s.expectEnterScope(relUUID, unitName, settings,
 		relationerrors.PotentialRelationUnitNotValid)
+	s.networkService.EXPECT().GetUnitRelationInfos(gomock.Any(), unitName,
+		[]string{"mysql"}).Return([]domainnetwork.Info{{
+		EndpointName:     "mysql",
+		IngressAddresses: []string{addr},
+	}}, nil)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{

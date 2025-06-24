@@ -37,6 +37,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
@@ -1519,17 +1520,42 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		return internalerrors.Capture(err)
 	}
 
-	addr, err := u.networkService.GetUnitPublicAddress(ctx, unitName)
+	var endpoint string
+	for _, epIdentifier := range relKey.EndpointIdentifiers() {
+		if strings.HasPrefix(unitName.String(), epIdentifier.ApplicationName) {
+			endpoint = epIdentifier.EndpointName
+			break
+		}
+	}
+	if endpoint == "" {
+		u.logger.Errorf(ctx, "could not find endpoint for unit %s in the relation %+v", unitName, relKey)
+		return apiservererrors.ErrPerm
+	}
+
+	infos, err := u.networkService.GetUnitRelationInfos(ctx, unitName, []string{endpoint})
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return errors.NotFoundf("unit %q", unitTag.Id())
 	} else if err != nil {
 		return internalerrors.Capture(err)
 	}
-
+	if len(infos) != 1 {
+		// Should not happens, unless the interface contract for
+		// GetUnitRelationInfos is broken. This implies that providing
+		// one endpoint to GetUnitRelationInfos will yield exactly one info
+		return errors.NotValidf("expected 1 NetworkInfo for unit %q on endpoint %q, got %d", unitName, endpoint,
+			len(infos))
+	}
+	ingressAddresses := infos[0].IngressAddresses
+	egressSubnets := infos[0].EgressSubnets
 	settings := map[string]string{}
-	// ingress-address is the preferred settings attribute name as it more accurately
-	// reflects the purpose of the attribute value. We'll deprecate private-address.
-	settings["ingress-address"] = addr.String()
+	if len(ingressAddresses) > 0 {
+		// ingress-address is the preferred settings attribute name as it more accurately
+		// reflects the purpose of the attribute value. We'll deprecate private-address.
+		settings["ingress-address"] = ingressAddresses[0]
+	}
+	if len(egressSubnets) > 0 {
+		settings["egress-subnets"] = strings.Join(egressSubnets, ",")
+	}
 
 	err = u.relationService.EnterScope(
 		ctx,
@@ -2161,7 +2187,7 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	addr, err := u.networkService.GetUnitPublicAddress(ctx, coreunit.Name(unitTag.Id()))
+	infos, err := u.networkService.GetUnitRelationInfos(ctx, coreunit.Name(unitTag.Id()), args.Endpoints)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return params.NetworkInfoResults{}, errors.NotFoundf("unit %q", unitTag.Id())
 	} else if err != nil {
@@ -2171,9 +2197,25 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 	results := params.NetworkInfoResults{
 		Results: make(map[string]params.NetworkInfoResult),
 	}
-	for _, binding := range args.Endpoints {
-		results.Results[binding] = params.NetworkInfoResult{
-			IngressAddresses: []string{addr.String()},
+
+	for _, info := range infos {
+		results.Results[info.EndpointName] = params.NetworkInfoResult{
+			Info: transform.Slice(info.DeviceInfos, func(dev domainnetork.DeviceInfo) params.NetworkInfo {
+				return params.NetworkInfo{
+					MACAddress:    dev.MACAddress,
+					InterfaceName: dev.Name,
+					Addresses: transform.Slice(dev.Addresses, func(addr domainnetork.AddressInfo) params.
+						InterfaceAddress {
+						return params.InterfaceAddress{
+							Hostname: addr.Hostname,
+							Address:  addr.Value,
+							CIDR:     addr.CIDR,
+						}
+					}),
+				}
+			}),
+			EgressSubnets:    info.EgressSubnets,
+			IngressAddresses: info.IngressAddresses,
 		}
 	}
 	return results, nil
@@ -2581,9 +2623,30 @@ func (u *UniterAPI) CloudAPIVersion(ctx context.Context) (params.StringResult, e
 // UpdateNetworkInfo refreshes the network settings for a unit's bound
 // endpoints.
 func (u *UniterAPI) UpdateNetworkInfo(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
-	// TODO hmlanigan 2025-04-09
-	// Implement with the link layer devices domain.
-	return params.ErrorResults{}, nil
+	canAccess, err := u.accessUnit(ctx)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	res := make([]params.ErrorResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		unitTag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			res[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if !canAccess(unitTag) {
+			res[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		if err = u.networkService.UpdateUnitRelationInfos(ctx, coreunit.Name(unitTag.Id())); err != nil {
+			res[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+
+	return params.ErrorResults{Results: res}, nil
 }
 
 // CommitHookChanges batches together all required API calls for applying
@@ -2631,8 +2694,10 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 	var modelOps []state.ModelOperation
 
 	if changes.UpdateNetworkInfo {
-		// TODO hmlanigan 2025-04-09
-		// Implement with the link layer devices domain.
+		err := u.networkService.UpdateUnitRelationInfos(ctx, coreunit.Name(unitTag.Id()))
+		if err != nil {
+			return internalerrors.Errorf("updating network info: %w", err)
+		}
 	}
 
 	for _, rus := range changes.RelationUnitSettings {

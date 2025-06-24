@@ -94,3 +94,53 @@ const (
 	NonVirtualPortType VirtualPortType = iota
 	OpenVswitchVirtualPortType
 )
+
+// Info represents network relationship details for a specific endpoint.
+type Info struct {
+
+	// EndpointName specifies the name of the network endpoint associated with
+	// the current Info instance.
+	EndpointName string
+
+	// DeviceInfos is a collection of device-specific information
+	// associated with an endpoint.
+	DeviceInfos []DeviceInfo
+
+	// IngressAddresses represents the list of ingress addresses
+	// associated with a network endpoint.
+	IngressAddresses []string
+
+	// EgressSubnets specifies a list of subnets used for outgoing network
+	// traffic from the endpoint.
+	EgressSubnets []string
+}
+
+// DeviceInfo represents information about a network device.
+type DeviceInfo struct {
+	// Name specifies the network device's human-readable name or identifier.
+	Name string
+
+	// MACAddress specifies the hardware MAC address of a network
+	// interface (e.g., "aa:bb:cc:dd:ee:ff").
+	MACAddress string
+
+	// Addresses specifies a list of network addresses and related information
+	// associated with the device.
+	Addresses []AddressInfo
+}
+
+// AddressInfo represents network address details.
+type AddressInfo struct {
+
+	// Hostname defines the DNS-resolvable name of the network address,
+	// typically used for identifying a device or service.
+	Hostname string
+
+	// Value represents a string value, often used to specify network-related
+	// information or data.
+	Value string
+
+	// CIDR specifies the subnet in CIDR notation, indicating the network
+	// portion of the associated IP address.
+	CIDR string
+}
