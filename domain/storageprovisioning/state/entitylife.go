@@ -32,7 +32,6 @@ type EntityLifeGetter func(context.Context) (map[string]life.Life, error)
 // initial life will take place. This makes the resultant query safe across go
 // routines.
 func EntityLifeInitialQuery(
-	ctx context.Context,
 	initialLife map[string]life.Life,
 ) eventsource.NamespaceQuery {
 	s := slices.AppendSeq(
@@ -109,7 +108,7 @@ func MakeEntityLifePrerequisites(
 		)
 	}
 
-	namespaceQuery := EntityLifeInitialQuery(ctx, initialLife)
+	namespaceQuery := EntityLifeInitialQuery(initialLife)
 	mapper := EntityLifeMapperFunc(initialLife, lifeGetter)
 	return namespaceQuery, mapper, nil
 }

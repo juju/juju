@@ -32,7 +32,32 @@ func entityLifeGetter(
 	}, stop
 }
 
-// TestEntityLifeMapper
+// TestEntityLifeInitialQuery tests that the [EntityLifeInitialQuery] correctly
+// returns the initial id values from the provided initial life map.
+func TestEntityLifeInitialQuery(t *testing.T) {
+	initialLife := map[string]life.Life{
+		"l1": life.Alive,
+		"l2": life.Dead,
+	}
+
+	query := EntityLifeInitialQuery(initialLife)
+	vals, err := query(t.Context(), nil)
+	tc.Check(t, err, tc.ErrorIsNil)
+	tc.Check(t, vals, tc.SameContents, []string{"l1", "l2"})
+}
+
+// TestEntityLifeInitialQueryEmpty tests that the [EntityLifeInitialQuery]
+// correctly returns an empty slice when the initial life map is empty.
+func TestEntityLifeInitialQueryEmpty(t *testing.T) {
+	query := EntityLifeInitialQuery(nil)
+	vals, err := query(t.Context(), nil)
+	tc.Check(t, err, tc.ErrorIsNil)
+	tc.Check(t, vals, tc.HasLen, 0)
+}
+
+// TestEntityLifeMapper is a test of tests for making sure that the
+// [EntityLifeMapperFunc] correctly handles changes in values over time. i.e the
+// caller is correctly notified of the right ids when change has occured.
 func TestEntityLifeMapper(t *testing.T) {
 	test := []struct {
 		Name        string
@@ -157,4 +182,31 @@ func TestEntityLifeMapper(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMakeEntityLifePrerequisties(t *testing.T) {
+	lifeGetter, stop := entityLifeGetter(slices.Values([]map[string]life.Life{
+		{
+			"l1": life.Alive,
+			"l2": life.Dying,
+			"l8": life.Alive,
+		},
+		{
+			"l1": life.Alive,
+			"l8": life.Dying,
+			"l9": life.Alive,
+		},
+	}))
+	defer stop()
+
+	initQuery, mapper, err := MakeEntityLifePrerequisites(t.Context(), lifeGetter)
+	tc.Check(t, err, tc.ErrorIsNil)
+
+	initVals, err := initQuery(t.Context(), nil)
+	tc.Check(t, err, tc.ErrorIsNil)
+	tc.Check(t, initVals, tc.SameContents, []string{"l1", "l2", "l8"})
+
+	changes, err := mapper(t.Context(), nil)
+	tc.Check(t, err, tc.ErrorIsNil)
+	tc.Check(t, changes, tc.SameContents, []string{"l2", "l8", "l9"})
 }
