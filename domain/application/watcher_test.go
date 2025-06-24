@@ -1041,9 +1041,12 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	}
 	svc := s.setupService(c, factory)
 	st := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
-	machineSvc := machineservice.NewService(
+	machineSvc := machineservice.NewProviderService(
 		machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		func(ctx context.Context) (machineservice.Provider, error) {
+			return machineservice.NewNoopProvider(), nil
+		},
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -1112,9 +1115,12 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 	}
 	svc := s.setupService(c, factory)
 	st := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
-	machineSvc := machineservice.NewService(
+	machineSvc := machineservice.NewProviderService(
 		machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		func(ctx context.Context) (machineservice.Provider, error) {
+			return machineservice.NewNoopProvider(), nil
+		},
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
