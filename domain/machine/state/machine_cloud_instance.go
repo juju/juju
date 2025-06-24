@@ -222,7 +222,7 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 		}
 
 		if strings.HasPrefix(instanceID.String(), domainmachine.ManualInstancePrefix) {
-			if err := st.insertManualMachine(ctx, tx, mUUID, instanceID); err != nil {
+			if err := st.insertManualMachine(ctx, tx, mUUID); err != nil {
 				return errors.Errorf("inserting manual machine for machine %q: %w", mUUID, err)
 			}
 		}
@@ -257,7 +257,6 @@ func (st *State) insertManualMachine(
 	ctx context.Context,
 	tx *sqlair.TX,
 	mUUID string,
-	instanceID instance.Id,
 ) error {
 	setManualStmt, err := st.Prepare(`
 INSERT INTO machine_manual (machine_uuid)

@@ -31,7 +31,7 @@ func (s *mapperSuite) TestUuidToNameMapper(c *tc.C) {
 	uuid0 := testing.GenUUID(c)
 	uuid1 := testing.GenUUID(c)
 
-	in := []machine.UUID{uuid0, uuid1}
+	in := []string{uuid0.String(), uuid1.String()}
 	out := map[machine.UUID]machine.Name{
 		uuid0: machine.Name("0"),
 		uuid1: machine.Name("1"),
@@ -76,7 +76,7 @@ func (s *mapperSuite) getService() *WatchableService {
 	}
 }
 
-func (s *mapperSuite) expectGetNamesForUUIDs(in []machine.UUID, out map[machine.UUID]machine.Name) {
+func (s *mapperSuite) expectGetNamesForUUIDs(in []string, out map[machine.UUID]machine.Name) {
 	s.state.EXPECT().GetNamesForUUIDs(gomock.Any(), in).Return(out, nil)
 }
 

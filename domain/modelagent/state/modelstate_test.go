@@ -65,12 +65,13 @@ func (s *modelStateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
+	machineUUID := coremachinetesting.GenUUID(c)
 	machineName, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
+		MachineUUID: machineUUID,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	return machine.UUID("deadbeef"), machineName
+	return machineUUID, machineName
 }
 
 // addMachineWithBase adds a new machine to the model using the provided base.

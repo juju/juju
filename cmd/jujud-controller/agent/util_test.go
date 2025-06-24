@@ -202,8 +202,7 @@ func (s *commonMachineSuite) configureMachine(c *tc.C, machineId string, vers se
 	// Double write to machine domain.
 	machineService := s.ControllerDomainServices(c).Machine()
 	machineUUID, machineName, err := machineService.CreateMachine(c.Context(), machineservice.CreateMachineArgs{
-		InstanceID: inst.Id().String(),
-		Nonce:      ptr("nonce"),
+		Nonce: ptr("nonce"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	err = machineService.SetMachineCloudInstance(c.Context(), machineUUID, inst.Id(), "", "nonce", nil)

@@ -42,14 +42,16 @@ func (s *migrationStateSuite) TestCreateMachine(c *tc.C) {
 	c.Check(machines, tc.HasLen, 0)
 }
 
-func (s *migrationStateSuite) TestCreateMachineAfterProvisioned(c *tc.C) {
+func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNonce(c *tc.C) {
 	_, err := s.state.CreateMachine(c.Context(), machine.CreateMachineArgs{
 		MachineUUID: "deadbeef",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeeef", "foo", "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", "foo", "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
+
+	s.DumpTable(c, "machine", "machine_cloud_instance")
 
 	err = s.TxnRunner().StdTxn(c.Context(), func(c context.Context, tx *sql.Tx) error {
 		tx.ExecContext(c, `UPDATE machine SET password_hash = 'ssssh!' WHERE uuid = 'deadbeef'`)
@@ -63,7 +65,7 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisioned(c *tc.C) {
 	c.Check(machines, tc.DeepEquals, []machine.ExportMachine{
 		{
 			Name:  coremachine.Name("0"),
-			UUID:  "deadbeeef",
+			UUID:  "deadbeef",
 			Nonce: "nonce",
 		},
 	})
@@ -75,7 +77,7 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNoNonce(c *tc.C) 
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeeef", "foo", "", "", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", "foo", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	machines, err := s.state.GetMachinesForExport(c.Context())
@@ -84,7 +86,7 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNoNonce(c *tc.C) 
 	c.Check(machines, tc.DeepEquals, []machine.ExportMachine{
 		{
 			Name:  coremachine.Name("0"),
-			UUID:  "deadbeeef",
+			UUID:  "deadbeef",
 			Nonce: "",
 		},
 	})

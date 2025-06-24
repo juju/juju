@@ -141,7 +141,7 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 		&instanceData.VirtType,
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(instanceData.MachineUUID, tc.Equals, machineUUID)
+	c.Check(instanceData.MachineUUID, tc.Equals, machineUUID.String())
 	c.Check(instanceData.InstanceID, tc.DeepEquals, sql.Null[string]{V: "1", Valid: true})
 	c.Check(instanceData.DisplayName, tc.DeepEquals, sql.Null[string]{V: "one", Valid: true})
 	c.Check(*instanceData.Arch, tc.Equals, "arm64")
