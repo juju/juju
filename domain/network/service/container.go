@@ -7,10 +7,12 @@ import (
 	"context"
 	"fmt"
 	"hash/crc32"
+	"slices"
 	"strings"
 
 	"github.com/juju/collections/set"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/machine"
 	corenetwork "github.com/juju/juju/core/network"
@@ -62,7 +64,7 @@ func (s *Service) DevicesToBridge(
 		return nil, errors.Errorf("invalid guest machine UUID: %w", err)
 	}
 
-	spaces, err := s.spaceReqsForMachine(ctx, guestUUID)
+	spaces, err := s.spaceRequirementsForMachine(ctx, guestUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -85,11 +87,13 @@ func (s *Service) DevicesToBridge(
 	return toBridge, errors.Capture(err)
 }
 
-// spacesForMachine returns UUID-to-name for the *positive*
+// spaceRequirementsForMachine returns UUID-to-name for the *positive*
 // space requirements of the machine with the input UUID.
 // If the positive and negative space constraints are in conflict,
 // an error is returned.
-func (s *Service) spaceReqsForMachine(ctx context.Context, machineUUID machine.UUID) ([]internal.SpaceName, error) {
+func (s *Service) spaceRequirementsForMachine(
+	ctx context.Context, machineUUID machine.UUID,
+) ([]internal.SpaceName, error) {
 	positive, negative, err := s.st.GetMachineSpaceConstraints(ctx, machineUUID.String())
 	if err != nil {
 		return nil, errors.Errorf("retrieving positive space constraints for machine %q: %w", machineUUID, err)
@@ -100,28 +104,24 @@ func (s *Service) spaceReqsForMachine(ctx context.Context, machineUUID machine.U
 		return nil, errors.Errorf("retrieving app bindings for machine %q: %w", machineUUID, err)
 	}
 
+	posUUIDs := transform.SliceToMap(positive, func(s internal.SpaceName) (string, struct{}) {
+		return s.UUID, struct{}{}
+	})
+
 	// Create a unique list of all positive space requirements.
 	for _, boundSpace := range bound {
-		var dup bool
-		for _, posSpace := range positive {
-			if boundSpace.UUID == posSpace.UUID {
-				dup = true
-				break
-			}
-		}
-		if !dup {
+		if _, ok := posUUIDs[boundSpace.UUID]; !ok {
 			positive = append(positive, boundSpace)
+			posUUIDs[boundSpace.UUID] = struct{}{}
 		}
 	}
 
 	// Check for conflicts between positive and negative space constraints.
-	for _, posSpace := range positive {
-		for _, negSpace := range negative {
-			if posSpace.UUID == negSpace.UUID {
-				return nil, errors.Errorf(
-					"%q is both a positive and negative space requirement for machine %q", negSpace.Name, machineUUID,
-				).Add(domainerrors.SpaceRequirementConflict)
-			}
+	for _, negSpace := range negative {
+		if _, ok := posUUIDs[negSpace.UUID]; ok {
+			return nil, errors.Errorf(
+				"%q is both a positive and negative space requirement for machine %q", negSpace.Name, machineUUID,
+			).Add(domainerrors.SpaceRequirementConflict)
 		}
 	}
 
@@ -157,7 +157,6 @@ func (s *Service) devicesToBridge(
 	spacesLeftToSatisfy := set.NewStrings(spaceUUIDs...)
 	var toBridge []network.DeviceToBridge
 
-nextSpace:
 	for spaceUUID, spaceNics := range nics {
 		if !spacesLeftToSatisfy.Contains(spaceUUID) {
 			continue
@@ -167,20 +166,15 @@ nextSpace:
 
 		// Check all bridges first.
 		// If any of these satisfy the space requirement, no action is required.
-		for _, nic := range spaceNics {
-			if nic.Type != corenetwork.BridgeDevice {
-				continue
-			}
-
-			// The default LXD bridge can only satisfy a space requirement
-			// if the container networking method is "local".
-			if netMethod != containermanager.NetworkingMethodLocal.String() &&
-				nic.Name == internalNetwork.DefaultLXDBridge {
-				continue
-			}
-
+		// The default LXD bridge can only satisfy a space requirement if the
+		// container networking method is "local".
+		if slices.ContainsFunc(spaceNics, func(nic network.NetInterface) bool {
+			return nic.Type == corenetwork.BridgeDevice &&
+				(netMethod == containermanager.NetworkingMethodLocal.String() ||
+					nic.Name != internalNetwork.DefaultLXDBridge)
+		}) {
 			spacesLeftToSatisfy.Remove(spaceUUID)
-			continue nextSpace
+			continue
 		}
 
 		// Next, check other interfaces to see if bridging
@@ -200,7 +194,7 @@ nextSpace:
 				})
 
 				spacesLeftToSatisfy.Remove(spaceUUID)
-				continue nextSpace
+				break
 			}
 		}
 	}
