@@ -5,6 +5,7 @@
 package reboot_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/clock"
@@ -143,7 +144,9 @@ func (s *rebootSuite) SetUpTest(c *tc.C) {
 			loggertesting.WrapCheckLog(c),
 		),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
-		nil,
+		func(ctx context.Context) (service.Provider, error) {
+			return service.NewNoopProvider(), nil
+		},
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),

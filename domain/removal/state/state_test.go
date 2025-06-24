@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domaintesting "github.com/juju/juju/domain/testing"
+	"github.com/juju/juju/environs"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -144,10 +145,10 @@ func (s *baseSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *ap
 	}
 
 	providerGetter := func(ctx context.Context) (applicationservice.Provider, error) {
-		return nil, coreerrors.NotSupported
+		return appProvider{}, nil
 	}
 	caasProviderGetter := func(ctx context.Context) (applicationservice.CAASProvider, error) {
-		return caasProvider{}, nil
+		return appProvider{}, nil
 	}
 
 	return applicationservice.NewWatchableService(
@@ -432,11 +433,20 @@ func (s *stubCharm) Version() string {
 	return ""
 }
 
-type caasProvider struct {
+type appProvider struct {
+	applicationservice.Provider
 	applicationservice.CAASProvider
 }
 
-func (caasProvider) Application(string, caas.DeploymentType) caas.Application {
+func (appProvider) PrecheckInstance(ctx context.Context, args environs.PrecheckInstanceParams) error {
+	return nil
+}
+
+func (appProvider) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
+	return constraints.NewValidator(), nil
+}
+
+func (appProvider) Application(string, caas.DeploymentType) caas.Application {
 	return &caasApplication{}
 }
 

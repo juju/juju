@@ -5,6 +5,8 @@ package providertracker
 
 import (
 	"context"
+	"fmt"
+	"runtime/debug"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
@@ -98,9 +100,11 @@ func ProviderRunner[T any](providerFactory ProviderFactory, namespace string) fu
 		if err != nil {
 			return zero, errors.Capture(err)
 		}
+		fmt.Println(">>>>", p, zero)
 		if v, ok := p.(T); ok {
 			return v, nil
 		}
+		debug.PrintStack()
 		return zero, errors.Errorf("provider type %T %w", zero, coreerrors.NotSupported)
 	}
 }

@@ -5,6 +5,7 @@ package domainservices
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -326,6 +327,7 @@ type NoopProviderFactory struct{}
 
 // ProviderForModel returns a not supported error.
 func (NoopProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
+	fmt.Println("HERE")
 	return nil, errors.NotSupportedf("provider")
 }
 

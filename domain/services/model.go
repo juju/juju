@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"path/filepath"
 
@@ -198,6 +199,8 @@ func (s *ModelServices) Config() *modelconfigservice.WatchableService {
 // Machine returns the model's machine service.
 func (s *ModelServices) Machine() *machineservice.WatchableService {
 	logger := s.logger.Child("machine")
+
+	fmt.Println(">>>", s.providerFactory, fmt.Sprintf("%T", s.providerFactory))
 
 	return machineservice.NewWatchableService(
 		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),

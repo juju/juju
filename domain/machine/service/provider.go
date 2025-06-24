@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
@@ -156,9 +157,6 @@ type noopProvider struct {
 // PrecheckInstance is a no-op implementation of the environs.InstancePrechecker
 // interface. It does not perform any pre-checks on the instance.
 func (p *noopProvider) PrecheckInstance(ctx context.Context, params environs.PrecheckInstanceParams) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
 	return nil
 }
 
@@ -166,8 +164,5 @@ func (p *noopProvider) PrecheckInstance(ctx context.Context, params environs.Pre
 // environs.ConstraintsValidator interface. It returns a new constraints
 // validator without any specific constraints or vocabulary.
 func (p *noopProvider) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
 	return constraints.NewValidator(), nil
 }

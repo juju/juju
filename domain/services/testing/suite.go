@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/lease"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/semversion"
 	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
@@ -35,6 +37,9 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	backendbootstrap "github.com/juju/juju/domain/secretbackend/bootstrap"
 	domainservices "github.com/juju/juju/domain/services"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/errors"
@@ -459,7 +464,7 @@ type stubProviderFactory struct{}
 // as the Worker continues to run. If the worker is not a singular worker,
 // then an error will be returned.
 func (stubProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
-	return nil, errors.New("suite missing provider factory").Add(coreerrors.NotSupported)
+	return stubProvider{}, nil
 }
 
 // EphemeralProviderFromConfig returns an ephemeral provider for a given
@@ -467,4 +472,64 @@ func (stubProviderFactory) ProviderForModel(ctx context.Context, namespace strin
 // discarded.
 func (stubProviderFactory) EphemeralProviderFromConfig(ctx context.Context, config providertracker.EphemeralProviderConfig) (providertracker.Provider, error) {
 	return nil, errors.New("suite missing provider factory").Add(coreerrors.NotSupported)
+}
+
+type stubProvider struct{}
+
+// AdoptResources implements providertracker.Provider.
+func (s stubProvider) AdoptResources(ctx context.Context, controllerUUID string, fromVersion semversion.Number) error {
+	return nil
+}
+
+func (stubProvider) PrecheckInstance(ctx context.Context, params environs.PrecheckInstanceParams) error {
+	return nil
+}
+
+func (stubProvider) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
+	return constraints.NewValidator(), nil
+}
+
+// AdoptResources is a stub implementation to satisfy the providertracker.Provider interface.
+func (stubProvider) InstanceTypes(context.Context, constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+	return instances.InstanceTypesWithCostMetadata{}, nil
+}
+
+// Bootstrap implements providertracker.Provider.
+func (s stubProvider) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	return nil, nil
+}
+
+// Config implements providertracker.Provider.
+func (s stubProvider) Config() *config.Config {
+	return nil
+}
+
+// Destroy implements providertracker.Provider.
+func (s stubProvider) Destroy(ctx context.Context) error {
+	return nil
+}
+
+// DestroyController implements providertracker.Provider.
+func (s stubProvider) DestroyController(ctx context.Context, controllerUUID string) error {
+	return nil
+}
+
+// PrepareForBootstrap implements providertracker.Provider.
+func (s stubProvider) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
+	return nil
+}
+
+// SetConfig implements providertracker.Provider.
+func (s stubProvider) SetConfig(ctx context.Context, cfg *config.Config) error {
+	return nil
+}
+
+// StorageProvider implements providertracker.Provider.
+func (s stubProvider) StorageProvider(storage.ProviderType) (storage.Provider, error) {
+	return nil, nil
+}
+
+// StorageProviderTypes implements providertracker.Provider.
+func (s stubProvider) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return nil, nil
 }

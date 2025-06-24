@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
 	domaintesting "github.com/juju/juju/domain/testing"
+	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -179,5 +180,9 @@ type serviceProvider struct {
 }
 
 func (serviceProvider) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
-	return nil, nil
+	return constraints.NewValidator(), nil
+}
+
+func (serviceProvider) PrecheckInstance(ctx context.Context, params environs.PrecheckInstanceParams) error {
+	return nil
 }
