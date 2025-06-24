@@ -51,20 +51,3 @@ func resetSequence(mb modelBackend, name string) error {
 	}
 	return nil
 }
-
-// Sequences returns the model's sequence names and their next values.
-func (st *State) Sequences() (map[string]int, error) {
-	sequences, closer := st.db().GetCollection(sequenceC)
-	defer closer()
-
-	var docs []sequenceDoc
-	if err := sequences.Find(nil).All(&docs); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	result := make(map[string]int)
-	for _, doc := range docs {
-		result[doc.Name] = doc.Counter
-	}
-	return result, nil
-}

@@ -32,7 +32,6 @@ import (
 )
 
 type modelconfigSuite struct {
-	backend                       *mockBackend
 	authorizer                    *facademocks.MockAuthorizer
 	mockModelAgentService         *MockModelAgentService
 	mockModelConfigService        *MockModelConfigService
@@ -78,7 +77,6 @@ func (s *modelconfigSuite) getAPI(c *tc.C) *ModelConfigAPI {
 		s.authorizer,
 		s.controllerUUID,
 		s.modelUUID,
-		s.backend,
 		s.mockModelAgentService,
 		s.mockBlockCommandService,
 		s.mockModelConfigService,
@@ -654,11 +652,4 @@ func (s *modelconfigSuite) TestSetModelSecretBackend(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
-}
-
-type mockBackend struct {
-}
-
-func (m *mockBackend) Sequences() (map[string]int, error) {
-	return nil, nil
 }
