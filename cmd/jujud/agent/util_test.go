@@ -17,7 +17,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
@@ -26,26 +25,19 @@ import (
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/mocks"
 	"github.com/juju/juju/core/blockdevice"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/internal/provider/dummy"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/authenticationworker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
-	"github.com/juju/juju/internal/worker/dbaccessor/testing"
 	"github.com/juju/juju/internal/worker/diskmanager"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/state"
-)
-
-const (
-	initialMachinePassword = "machine-password-1234567890"
 )
 
 type commonMachineSuite struct {
@@ -173,40 +165,10 @@ func NewTestMachineAgentFactory(
 	}
 }
 
-// newAgent returns a new MachineAgent instance
-func (s *commonMachineSuite) newAgent(c *tc.C, m *state.Machine) (*gomock.Controller, *MachineAgent) {
-	ctrl := gomock.NewController(c)
-	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
-
-	agentConf := agentconf.NewAgentConf(s.DataDir)
-	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
-	logger := s.newBufferedLogWriter()
-	newDBWorkerFunc := func(context.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
-		return testing.NewTrackedDB(s.TxnRunnerFactory()), nil
-	}
-	machineAgentFactory := NewTestMachineAgentFactory(c, agentConf, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner)
-	machineAgent, err := machineAgentFactory(m.Tag(), false)
-	c.Assert(err, tc.ErrorIsNil)
-	return ctrl, machineAgent
-}
-
 func (s *commonMachineSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
 	logger := logsender.NewBufferedLogWriter(1024)
 	s.AddCleanup(func(*tc.C) { logger.Close() })
 	return logger
-}
-
-func (s *commonMachineSuite) setFakeMachineAddresses(c *tc.C, machine *state.Machine, instanceId instance.Id) {
-	controllerConfig := coretesting.FakeControllerConfig()
-
-	addrs := network.NewSpaceAddresses("0.1.2.3")
-	err := machine.SetProviderAddresses(controllerConfig, addrs...)
-	c.Assert(err, tc.ErrorIsNil)
-	// Set the addresses in the environ instance as well so that if the instance poller
-	// runs it won't overwrite them.
-	insts, err := s.Environ.Instances(c.Context(), []instance.Id{instanceId})
-	c.Assert(err, tc.ErrorIsNil)
-	dummy.SetInstanceAddresses(insts[0], network.NewMachineAddresses([]string{"0.1.2.3"}).AsProviderAddresses())
 }
 
 type mockLoopDeviceManager struct {
