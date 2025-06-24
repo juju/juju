@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
 )
 
 type baseModel interface {
@@ -27,9 +26,7 @@ type baseModel interface {
 // Model exposes the methods needed for an EnvironConfigGetter.
 type Model interface {
 	baseModel
-	ModelTag() names.ModelTag
 	ControllerUUID() string
-	Type() state.ModelType
 }
 
 // ModelConfigService is an interface that provides access to the

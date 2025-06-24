@@ -1,8 +1,0 @@
-[
-    {
-        "c": "accounts",
-        "d": "doc-id",
-        "a": {"balance": 0},
-        "u": {"$set": {"balance": 100}}
-    }
-]
