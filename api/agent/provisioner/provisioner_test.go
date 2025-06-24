@@ -17,7 +17,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
