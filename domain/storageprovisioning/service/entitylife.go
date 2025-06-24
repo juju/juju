@@ -58,7 +58,7 @@ func EntityLifeMapperFunc(
 
 		changes := []string(nil)
 		for k, v := range latestLife {
-			if v != knownLife[k] {
+			if l, has := knownLife[k]; !has || v != l {
 				changes = append(changes, k)
 			}
 			delete(knownLife, k)
