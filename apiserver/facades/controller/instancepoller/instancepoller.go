@@ -190,8 +190,9 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 
 		// Write in dqlite
 		if err := a.setProviderConfigOneMachine(ctx, arg.Tag, interfaceInfos); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
+			a.logger.Errorf(ctx,
+				"link layer device merge attempt for machine %v failed due to error: %v; "+
+					"waiting until next instance-poller run to retry", machine.Id(), err)
 		}
 	}
 
