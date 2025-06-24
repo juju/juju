@@ -54,7 +54,6 @@ type MachineRef interface {
 	Clean() bool
 	ContainerType() instance.ContainerType
 	Base() Base
-	Jobs() []MachineJob
 	AddPrincipal(string)
 	FileSystems() []string
 }
@@ -562,12 +561,6 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		}
 		return nil, err
 	}
-	node, err := u.st.ControllerNode(u.doc.MachineId)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, err
-	}
-	haveControllerNode := err == nil
-	hasVote := haveControllerNode && node.HasVote()
 
 	containerCheck := true // whether container conditions allow destroying the host machine
 	containers, err := m.Containers()
@@ -592,39 +585,22 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		})
 	}
 
-	isController := m.IsManager()
 	machineCheck := true // whether host machine conditions allow destroy
 	if len(m.doc.Principals) != 1 || m.doc.Principals[0] != u.doc.Name {
-		machineCheck = false
-	} else if isController {
-		// Check that the machine does not have any responsibilities that
-		// prevent a lifecycle change.
-		machineCheck = false
-	} else if hasVote {
 		machineCheck = false
 	}
 
 	// assert that the machine conditions pertaining to host removal conditions
 	// remain the same throughout the transaction.
 	var machineAssert bson.D
-	var controllerNodeAssert interface{}
 	if machineCheck {
 		machineAssert = bson.D{{"$and", []bson.D{
 			{{"principals", []string{u.doc.Name}}},
-			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 		}}}
-		controllerNodeAssert = txn.DocMissing
-		if haveControllerNode {
-			controllerNodeAssert = bson.D{{"has-vote", false}}
-		}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
 			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
-			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 		}}}
-		if isController {
-			controllerNodeAssert = txn.DocExists
-		}
 	}
 
 	// If removal conditions satisfied by machine & container docs, we can
@@ -646,13 +622,6 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		Assert: machineAssert,
 		Update: machineUpdate,
 	})
-	if controllerNodeAssert != nil {
-		ops = append(ops, txn.Op{
-			C:      controllerNodesC,
-			Id:     m.st.docID(m.Id()),
-			Assert: controllerNodeAssert,
-		})
-	}
 
 	return append(ops, cleanupOps...), nil
 }
@@ -1071,10 +1040,7 @@ func (u *Unit) assignToMachineOps(
 			{{"machineid", m.Id()}},
 		},
 	}}...)
-	massert := append(isAliveDoc, bson.D{{
-		// The machine must be able to accept a unit.
-		"jobs", bson.M{"$in": []MachineJob{JobHostUnits}},
-	}}...)
+	massert := isAliveDoc
 	if unused {
 		massert = append(massert, bson.D{{"clean", bson.D{{"$ne", false}}}}...)
 	}
@@ -1112,16 +1078,6 @@ func validateUnitMachineAssignment(
 	}
 	if !base.compatibleWith(m.Base()) {
 		return fmt.Errorf("base does not match: unit has %q, machine has %q", base.DisplayString(), m.Base().DisplayString())
-	}
-	canHost := false
-	for _, j := range m.Jobs() {
-		if j == JobHostUnits {
-			canHost = true
-			break
-		}
-	}
-	if !canHost {
-		return fmt.Errorf("machine %q cannot host units", m)
 	}
 	sb, err := NewStorageBackend(st)
 	if err != nil {
@@ -1308,7 +1264,6 @@ func (u *Unit) assignToNewMachineOps(
 		// The new parent machine is clean and only hosts units,
 		// regardless of its child.
 		parentParams := template
-		parentParams.Jobs = []MachineJob{JobHostUnits}
 		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(template, parentParams, containerType)
 	default:
 		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType)
@@ -1423,7 +1378,6 @@ func (u *Unit) assignToNewMachine(placement string) error {
 		template := MachineTemplate{
 			Base:                  u.doc.Base,
 			Constraints:           *cons,
-			Jobs:                  []MachineJob{JobHostUnits},
 			Placement:             placement,
 			Dirty:                 placement != "",
 			Volumes:               storageParams.volumes,

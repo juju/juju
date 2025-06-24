@@ -40,10 +40,10 @@ func (s *commonSuite) SetUpTest(c *tc.C) {
 	st := s.ControllerModel(c).State()
 
 	var err error
-	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.machine1, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine1, err = st.AddMachine(state.UbuntuBase("12.10"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,

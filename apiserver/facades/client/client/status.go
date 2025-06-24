@@ -5,6 +5,7 @@ package client
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"strings"
 	"time"
@@ -172,21 +173,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	}
 	if err = context.fetchAllOpenPortRanges(ctx, c.portService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch open port ranges: %w", err)
-	}
-	if context.controllerNodes, err = fetchControllerNodes(c.stateAccessor); err != nil {
-		return noStatus, internalerrors.Errorf("could not fetch controller nodes: %w", err)
-	}
-	if len(context.controllerNodes) > 1 {
-		if primaryHAMachine, err := c.stateAccessor.HAPrimaryMachine(); err != nil {
-			// We do not want to return any errors here as they are all
-			// non-fatal for this call since we can still
-			// get FullStatus including machine info even if we could not get HA Primary determined.
-			// Also on some non-HA setups, i.e. where mongo was not run with --replSet,
-			// this call will return an error.
-			logger.Warningf(ctx, "could not determine if there is a primary HA machine: %v", err)
-		} else {
-			context.primaryHAMachine = &primaryHAMachine
-		}
 	}
 	// These may be empty when machines have not finished deployment.
 	if context.ipAddresses, context.linkLayerDevices, context.spaces, err = fetchNetworkInterfaces(ctx,
@@ -399,9 +385,6 @@ type statusContext struct {
 	allMachines        map[string]*state.Machine
 	machineConstraints *state.MachineConstraints
 
-	// controllerNodes: node id -> controller node
-	controllerNodes map[string]state.ControllerNode
-
 	// ipAddresses: machine id -> list of ip.addresses
 	ipAddresses map[coremachine.Name][]domainnetwork.NetAddr
 
@@ -427,8 +410,6 @@ type statusContext struct {
 
 	// Information about all spaces.
 	spaceInfos network.SpaceInfos
-
-	primaryHAMachine *names.MachineTag
 
 	// Optional storage info.
 	storageInstances []state.StorageInstance
@@ -477,19 +458,6 @@ func (c *statusContext) fetchAllOpenPortRanges(ctx context.Context, portService 
 	var err error
 	c.allOpenPortRanges, err = portService.GetAllOpenedPorts(ctx)
 	return err
-}
-
-// fetchControllerNodes returns a map from node id to controller node.
-func fetchControllerNodes(st Backend) (map[string]state.ControllerNode, error) {
-	v := make(map[string]state.ControllerNode)
-	nodes, err := st.ControllerNodes()
-	if err != nil {
-		return nil, err
-	}
-	for _, n := range nodes {
-		v[n.Id()] = n
-	}
-	return v, nil
 }
 
 func fetchNetworkInterfaces(
@@ -724,17 +692,14 @@ func (c *statusContext) makeMachineStatus(
 
 	mBase := machine.Base()
 	status.Base = params.Base{Name: mBase.OS, Channel: mBase.Channel}
-	status.Jobs = paramsJobsFromJobs(machine.Jobs())
-	node, wantsVote := c.controllerNodes[machineID]
-	status.WantsVote = wantsVote
-	if wantsVote {
-		status.HasVote = node.HasVote()
+
+	jobs := []model.MachineJob{model.JobHostUnits}
+	if isController, err := machineService.IsMachineController(ctx, coremachine.Name(machineID)); err != nil && !stderrors.Is(err, machineerrors.MachineNotFound) {
+		logger.Errorf(ctx, "error checking if machine %q is controller: %v", machineID, err)
+	} else if isController {
+		jobs = append(jobs, model.JobManageModel)
 	}
-	if c.primaryHAMachine != nil {
-		if isPrimary := c.primaryHAMachine.Id() == machineID; isPrimary {
-			status.PrimaryControllerMachine = &isPrimary
-		}
-	}
+	status.Jobs = jobs
 
 	// Fetch the machine instance status information
 	sInstInfo, err := c.status.MachineInstance(machineID)
@@ -881,15 +846,6 @@ func (c *statusContext) isSubordinate(ep *relation.Endpoint) bool {
 
 func isSubordinate(ep *relation.Endpoint, application statusservice.Application) bool {
 	return ep.Scope == charm.ScopeContainer && application.Subordinate
-}
-
-// paramsJobsFromJobs converts state jobs to params jobs.
-func paramsJobsFromJobs(jobs []state.MachineJob) []model.MachineJob {
-	paramsJobs := make([]model.MachineJob, len(jobs))
-	for i, machineJob := range jobs {
-		paramsJobs[i] = machineJob.ToParams()
-	}
-	return paramsJobs
 }
 
 func (c *statusContext) processApplications(ctx context.Context) map[string]params.ApplicationStatus {

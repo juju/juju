@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package peergrouper
+package mongo
 
 import (
 	"context"
@@ -14,8 +14,14 @@ import (
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/agent"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 )
+
+var logger = internallogger.GetLogger("juju.state.mongo")
+
+// jujuNodeKey is the key for the tag where we save a member's node id.
+const jujuNodeKey = "juju-machine-id"
 
 // InitiateMongoParams holds parameters for the MaybeInitiateMongo call.
 type InitiateMongoParams struct {

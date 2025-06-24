@@ -19,19 +19,15 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/mongo"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
@@ -42,48 +38,6 @@ import (
 type Machine struct {
 	st  *State
 	doc machineDoc
-}
-
-// MachineJob values define responsibilities that machines may be
-// expected to fulfil.
-type MachineJob int
-
-const (
-	_ MachineJob = iota
-	JobHostUnits
-	JobManageModel
-)
-
-var (
-	jobNames = map[MachineJob]model.MachineJob{
-		JobHostUnits:   model.JobHostUnits,
-		JobManageModel: model.JobManageModel,
-	}
-	jobMigrationValue = map[MachineJob]string{
-		JobHostUnits:   "host-units",
-		JobManageModel: "api-server",
-	}
-)
-
-// ToParams returns the job as model.MachineJob.
-func (job MachineJob) ToParams() model.MachineJob {
-	if jujuJob, ok := jobNames[job]; ok {
-		return jujuJob
-	}
-	return model.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
-}
-
-// MigrationValue converts the state job into a useful human readable
-// string for model migration.
-func (job MachineJob) MigrationValue() string {
-	if value, ok := jobMigrationValue[job]; ok {
-		return value
-	}
-	return "unknown"
-}
-
-func (job MachineJob) String() string {
-	return string(job.ToParams())
 }
 
 // machineDoc represents the internal state of a machine in MongoDB.
@@ -97,7 +51,6 @@ type machineDoc struct {
 	Principals     []string
 	Life           Life
 	Tools          *tools.Tools `bson:",omitempty"`
-	Jobs           []MachineJob
 	PasswordHash   string
 	Clean          bool
 	ForceDestroyed bool `bson:"force-destroyed"`
@@ -277,16 +230,6 @@ func (m *Machine) Life() Life {
 	return m.doc.Life
 }
 
-// Jobs returns the responsibilities that must be fulfilled by m's agent.
-func (m *Machine) Jobs() []MachineJob {
-	return m.doc.Jobs
-}
-
-// IsManager returns true if the machine has JobManageModel.
-func (m *Machine) IsManager() bool {
-	return isController(&m.doc)
-}
-
 // AgentTools returns the tools that the agent is currently running.
 // It returns an error that satisfies errors.IsNotFound if the tools
 // have not yet been set.
@@ -343,9 +286,6 @@ func (m *Machine) setAgentVersionOps(v semversion.Binary) ([]txn.Op, *tools.Tool
 // should use to communicate with the controllers.  Previous passwords
 // are invalidated.
 func (m *Machine) SetMongoPassword(password string) error {
-	if !m.IsManager() {
-		return errors.NotSupportedf("setting mongo password for non-controller machine %v", m)
-	}
 	return mongo.SetAdminMongoPassword(m.st.session, m.Tag().String(), password)
 }
 
@@ -403,43 +343,8 @@ func (m *Machine) ForceDestroy(maxWait time.Duration) error {
 }
 
 func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
-	if m.IsManager() {
-		controllerIds, err := m.st.ControllerIds()
-		if err != nil {
-			return nil, errors.Annotatef(err, "reading controller info")
-		}
-		if len(controllerIds) <= 1 {
-			return nil, errors.Errorf("controller %s is the only controller", m.Id())
-		}
-		return []txn.Op{
-			{
-				C:  machinesC,
-				Id: m.doc.DocID,
-				Assert: bson.D{
-					{"life", Alive},
-					advanceLifecycleUnitAsserts(m.doc.Principals),
-				},
-				// To prevent race conditions, we remove the ability for new
-				// units to be deployed to the machine.
-				Update: bson.D{{"$pull", bson.D{{"jobs", JobHostUnits}}}},
-			},
-			{
-				C:      controllersC,
-				Id:     modelGlobalKey,
-				Assert: bson.D{{"controller-ids", controllerIds}},
-			},
-			setControllerWantsVoteOp(m.st, m.Id(), false),
-			newCleanupOp(cleanupEvacuateMachine, m.doc.Id),
-		}, nil
-	} else {
-		// Make sure the machine doesn't become a manager while we're destroying it
-		return []txn.Op{{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-		}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, maxWait),
-		}, nil
-	}
+	// Make sure the machine doesn't become a manager while we're destroying it
+	return []txn.Op{newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, maxWait)}, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -534,11 +439,6 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 		} else if err != nil {
 			return nil, err
 		}
-		node, err := m.st.ControllerNode(m.doc.Id)
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return nil, err
-		}
-		hasVote := err == nil && node.HasVote()
 
 		// Check that the life change is sane, and collect the assertions
 		// necessary to determine that it remains so.
@@ -555,11 +455,6 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 			if m.doc.Life == Dead {
 				return nil, jujutxn.ErrNoOperations
 			}
-			if hasVote || m.IsManager() {
-				return nil, stateerrors.NewIsControllerMemberError(m.Id(), hasVote)
-			}
-			asserts = append(asserts, bson.DocElem{
-				Name: "jobs", Value: bson.D{{Name: "$nin", Value: []MachineJob{JobManageModel}}}})
 			asserts = append(asserts, notDeadDoc...)
 			ops = append(ops, controllerAdvanceLifecyleVoteOp())
 		default:
@@ -574,18 +469,6 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 		// destroy a machine with units as it will be a lie.
 		if life == Dying {
 			canDie := true
-			if isController(&m.doc) || hasVote {
-				// If we're responsible for managing the model, make sure we ask to drop our vote
-				ops[0].Update = bson.D{
-					{"$set", bson.D{{"life", life}}},
-				}
-				controllerOp, err := m.controllerIDsOp()
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				ops = append(ops, controllerOp)
-				ops = append(ops, setControllerWantsVoteOp(m.st, m.doc.Id, false))
-			}
 
 			var principalUnitNames []string
 			for _, principalUnit := range m.doc.Principals {
@@ -631,9 +514,6 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 				return nil, err
 			}
 			ops = append(ops, m.noContainersOp())
-			if isController(&m.doc) {
-				return nil, errors.Errorf("machine %s is still responsible for being a controller", m.Id())
-			}
 			// A machine may not become Dead until it has no more
 			// attachments to detachable storage.
 			storageAsserts, err := m.assertNoPersistentStorage()
@@ -673,23 +553,6 @@ func controllerAdvanceLifecyleVoteOp() txn.Op {
 			{"wants-vote", bson.M{"$ne": true}},
 		},
 	}
-}
-
-// controllerIDsOp returns an Op to assert that the machine's
-// controllerIDs do not change.
-func (m *Machine) controllerIDsOp() (txn.Op, error) {
-	controllerIds, err := m.st.ControllerIds()
-	if err != nil {
-		return txn.Op{}, errors.Annotatef(err, "reading controller info")
-	}
-	if len(controllerIds) <= 1 {
-		return txn.Op{}, errors.Errorf("controller %s is the only controller", m.Id())
-	}
-	return txn.Op{
-		C:      controllersC,
-		Id:     modelGlobalKey,
-		Assert: bson.D{{"controller-ids", controllerIds}},
-	}, nil
 }
 
 // noContainersOp returns an Op to assert that the machine
@@ -1313,26 +1176,8 @@ func (m *Machine) setAddresses(controllerConfig controller.Config, machineAddres
 			"machine %q preferred public address changed from %q to %q",
 			m.Id(), oldPublic, newPublic.networkAddress(),
 		)
-		if isController(&m.doc) {
-			if err := m.st.maybeUpdateControllerCharm(controllerConfig, m.doc.PreferredPublicAddress.Value); err != nil {
-				return errors.Trace(err)
-			}
-		}
 	}
 	return nil
-}
-
-func (st *State) maybeUpdateControllerCharm(controllerConfig controller.Config, publicAddr string) error {
-	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
-	if errors.Is(err, errors.NotFound) {
-		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return controllerApp.UpdateCharmConfig(charm.Settings{
-		"controller-url": api.ControllerAPIURL(publicAddr, controllerConfig.APIPort()),
-	})
 }
 
 func (m *Machine) setAddressesOps(

@@ -327,16 +327,11 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 		return nil, errors.Trace(err)
 	}
 
-	jobs, err := common.StateJobs(p.Jobs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	template := state.MachineTemplate{
 		Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
 		Constraints:             p.Constraints,
 		Volumes:                 volumes,
 		InstanceId:              p.InstanceId,
-		Jobs:                    jobs,
 		HardwareCharacteristics: p.HardwareCharacteristics,
 		Addresses:               sAddrs,
 		Placement:               placementDirective,

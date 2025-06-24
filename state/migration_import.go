@@ -314,10 +314,6 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 	for j, c := range supported {
 		supportedContainers[j] = instance.ContainerType(c)
 	}
-	jobs, err := i.makeMachineJobs(m.Jobs())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	agentTools, err := i.makeTools(m.Tools())
 	if err != nil {
@@ -338,7 +334,6 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		Principals:               nil, // Set during unit import.
 		Life:                     Alive,
 		Tools:                    agentTools,
-		Jobs:                     jobs,
 		PasswordHash:             m.PasswordHash(),
 		Clean:                    !i.machineHasUnits(m.Id()),
 		Volumes:                  i.machineVolumes(m.Id()),
@@ -388,24 +383,6 @@ func (i *importer) machineFilesystems(machineId string) []string {
 		}
 	}
 	return result
-}
-
-func (i *importer) makeMachineJobs(jobs []string) ([]MachineJob, error) {
-	// At time of writing, there are three valid jobs. If any jobs gets
-	// deprecated or changed in the future, older models that specify those
-	// jobs need to be handled here.
-	result := make([]MachineJob, 0, len(jobs))
-	for _, job := range jobs {
-		switch job {
-		case "host-units":
-			result = append(result, JobHostUnits)
-		case "api-server":
-			result = append(result, JobManageModel)
-		default:
-			return nil, errors.Errorf("unknown machine job: %q", job)
-		}
-	}
-	return result, nil
 }
 
 func (i *importer) makeTools(t description.AgentTools) (*tools.Tools, error) {

@@ -88,6 +88,9 @@ type MachineService interface {
 	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
 	// AppliedLXDProfiles returns the names of the LXD profiles on the machine.
 	AppliedLXDProfileNames(ctx context.Context, machineUUID machine.UUID) ([]string, error)
+	// IsMachineController returns true if the machine if the machine is the
+	// controller machine.
+	IsMachineController(ctx context.Context, machineName machine.Name) (bool, error)
 }
 
 // ModelInfoService provides access to information about the model.

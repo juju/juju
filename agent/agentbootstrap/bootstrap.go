@@ -103,10 +103,6 @@ type AgentBootstrap struct {
 	// BootstrapMachineAddresses holds the bootstrap machine's addresses.
 	bootstrapMachineAddresses corenetwork.ProviderAddresses
 
-	// BootstrapMachineJobs holds the jobs that the bootstrap machine
-	// agent will run.
-	bootstrapMachineJobs []coremodel.MachineJob
-
 	// SharedSecret is the Mongo replica set shared secret (keyfile).
 	sharedSecret string
 
@@ -126,7 +122,7 @@ type AgentBootstrapArgs struct {
 	AgentConfig               agent.ConfigSetter
 	BootstrapEnviron          environs.BootstrapEnviron
 	BootstrapMachineAddresses corenetwork.ProviderAddresses
-	BootstrapMachineJobs      []coremodel.MachineJob
+	//BootstrapMachineJobs      []coremodel.MachineJob
 	MongoDialOpts             mongo.DialOpts
 	SharedSecret              string
 	StateInitializationParams instancecfg.StateInitializationParams
@@ -183,7 +179,6 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		bootstrapDqlite:           args.BootstrapDqlite,
 		bootstrapEnviron:          args.BootstrapEnviron,
 		bootstrapMachineAddresses: args.BootstrapMachineAddresses,
-		bootstrapMachineJobs:      args.BootstrapMachineJobs,
 		logger:                    args.Logger,
 		mongoDialOpts:             args.MongoDialOpts,
 		provider:                  args.Provider,
@@ -196,21 +191,21 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 // Initialize returns the newly initialized state and bootstrap machine.
 // If it fails, the state may well be irredeemably compromised.
 // TODO (stickupkid): Split this function into testable smaller functions.
-func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, resultErr error) {
+func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	agentConfig := b.agentConfig
 	if agentConfig.Tag().Id() != agent.BootstrapControllerId || !coreagent.IsAllowedControllerTag(agentConfig.Tag().Kind()) {
-		return nil, errors.Errorf("InitializeState not called with bootstrap controller's configuration")
+		return errors.Errorf("InitializeState not called with bootstrap controller's configuration")
 	}
 	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
-		return nil, errors.Errorf("state serving information not available")
+		return errors.Errorf("state serving information not available")
 	}
 
 	// N.B. no users are set up when we're initializing the state,
 	// so don't use any tag or password when opening it.
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
-		return nil, errors.Errorf("state info not available")
+		return errors.Errorf("state info not available")
 	}
 	info.Tag = nil
 	info.Password = agentConfig.OldPassword()
@@ -220,12 +215,12 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 	// Add the controller model cloud and credential to the database.
 	cloudCred, cloudCredTag, err := b.getCloudCredential()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting cloud credentials from args")
+		return errors.Annotate(err, "getting cloud credentials from args")
 	}
 
 	controllerUUID, err := uuid.UUIDFromString(stateParams.ControllerConfig.ControllerUUID())
 	if err != nil {
-		return nil, fmt.Errorf("parsing controller uuid %q: %w", stateParams.ControllerConfig.ControllerUUID(), err)
+		return fmt.Errorf("parsing controller uuid %q: %w", stateParams.ControllerConfig.ControllerUUID(), err)
 	}
 
 	controllerModelUUID := coremodel.UUID(
@@ -273,7 +268,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		agentVersion = jujuversion.Current
 	}
 	if agentVersion.Major != jujuversion.Current.Major || agentVersion.Minor != jujuversion.Current.Minor {
-		return nil, fmt.Errorf("%w %q during bootstrap", modelerrors.AgentVersionNotSupported, agentVersion)
+		return fmt.Errorf("%w %q during bootstrap", modelerrors.AgentVersionNotSupported, agentVersion)
 	}
 
 	// localModelRecordOP defines the bootstrap operation that should be run
@@ -328,12 +323,12 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		b.logger,
 		databaseBootstrapOptions...,
 	); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	session, err := b.initMongo(info.Info, b.mongoDialOpts, info.Password)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to initialize mongo")
+		return errors.Annotate(err, "failed to initialize mongo")
 	}
 	defer session.Close()
 
@@ -361,13 +356,11 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		NewPolicy:                 b.stateNewPolicy,
 	})
 	if err != nil {
-		return nil, errors.Errorf("failed to initialize state: %v", err)
+		return errors.Errorf("failed to initialize state: %v", err)
 	}
 	b.logger.Debugf(context.TODO(), "connected to initial state")
 	defer func() {
-		if resultErr != nil {
-			_ = ctrl.Close()
-		}
+		_ = ctrl.Close()
 	}()
 	servingInfo.SharedSecret = b.sharedSecret
 	b.agentConfig.SetStateServingInfo(servingInfo)
@@ -377,11 +370,11 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 
 	st, err := ctrl.SystemState()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	if err := st.SetStateServingInfo(servingInfo); err != nil {
-		return nil, errors.Errorf("cannot set state serving info: %v", err)
+		return errors.Errorf("cannot set state serving info: %v", err)
 	}
 
 	cloudSpec, err := environscloudspec.MakeCloudSpec(
@@ -390,13 +383,13 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		stateParams.ControllerCloudCredential,
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	cloudSpec.IsControllerCloud = true
 
 	provider, err := b.provider(cloudSpec.Type)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting environ provider")
+		return errors.Annotate(err, "getting environ provider")
 	}
 
 	// Create a new password. It is used down below to set the mongo password,
@@ -404,31 +397,31 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 	// controller node's initial API password.
 	newPassword, err := password.RandomPassword()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var controllerNode bootstrapController
 	if isCAAS {
 		controllerNodeCAAS, err := b.initBootstrapNode(st)
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot initialize bootstrap controller")
+			return errors.Annotate(err, "cannot initialize bootstrap controller")
 		}
 		if err := b.initControllerCloudService(ctx, cloudSpec, provider, st); err != nil {
-			return nil, errors.Annotate(err, "cannot initialize cloud service")
+			return errors.Annotate(err, "cannot initialize cloud service")
 		}
 		if err := controllerNodeCAAS.SetPassword(newPassword); err != nil {
-			return nil, err
+			return err
 		}
 		controllerNode = controllerNodeCAAS
 	} else {
 		if controllerNode, err = b.initBootstrapMachine(st, filteredBootstrapMachineAddresses); err != nil {
-			return nil, errors.Annotate(err, "cannot initialize bootstrap machine")
+			return errors.Annotate(err, "cannot initialize bootstrap machine")
 		}
 	}
 
 	// Sanity check.
 	if controllerNode.Id() != agent.BootstrapControllerId {
-		return nil, errors.Errorf("bootstrap controller expected id 0, got %q", controllerNode.Id())
+		return errors.Errorf("bootstrap controller expected id 0, got %q", controllerNode.Id())
 	}
 
 	// Read the machine agent's password and change it to
@@ -436,11 +429,11 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 	// via the API connection).
 	b.logger.Debugf(context.TODO(), "create new random password for controller %v", controllerNode.Id())
 	if err := controllerNode.SetMongoPassword(newPassword); err != nil {
-		return nil, err
+		return err
 	}
 	b.agentConfig.SetPassword(newPassword)
 
-	return ctrl, nil
+	return nil
 }
 
 func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCredentialTag, error) {
@@ -507,14 +500,6 @@ func (b *AgentBootstrap) initBootstrapMachine(
 	stateParams := b.stateInitializationParams
 	b.logger.Infof(context.TODO(), "initialising bootstrap machine with config: %+v", stateParams)
 
-	jobs := make([]state.MachineJob, len(b.bootstrapMachineJobs))
-	for i, job := range b.bootstrapMachineJobs {
-		machineJob, err := machineJobFromParams(job)
-		if err != nil {
-			return nil, errors.Errorf("invalid bootstrap machine job %q: %v", job, err)
-		}
-		jobs[i] = machineJob
-	}
 	var hardware instance.HardwareCharacteristics
 	if stateParams.BootstrapMachineHardwareCharacteristics != nil {
 		hardware = *stateParams.BootstrapMachineHardwareCharacteristics
@@ -532,7 +517,6 @@ func (b *AgentBootstrap) initBootstrapMachine(
 			Constraints:             stateParams.BootstrapMachineConstraints,
 			InstanceId:              stateParams.BootstrapMachineInstanceId,
 			HardwareCharacteristics: hardware,
-			Jobs:                    jobs,
 			DisplayName:             stateParams.BootstrapMachineDisplayName,
 		},
 	)
@@ -608,18 +592,4 @@ func (b *AgentBootstrap) initBootstrapNode(
 		return nil, errors.Annotate(err, "cannot create bootstrap controller in state")
 	}
 	return node, nil
-}
-
-// machineJobFromParams returns the job corresponding to model.MachineJob.
-// TODO(dfc) this function should live in apiserver/params, move there once
-// state does not depend on apiserver/params
-func machineJobFromParams(job coremodel.MachineJob) (state.MachineJob, error) {
-	switch job {
-	case coremodel.JobHostUnits:
-		return state.JobHostUnits, nil
-	case coremodel.JobManageModel:
-		return state.JobManageModel, nil
-	default:
-		return -1, errors.Errorf("invalid machine job %q", job)
-	}
 }

@@ -27,7 +27,6 @@ import (
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud-controller/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud-controller/agent/mocks"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
@@ -67,7 +66,6 @@ var fastDialOpts = api.DialOpts{
 }
 
 type commonMachineSuite struct {
-	fakeEnsureMongo *agenttest.FakeEnsureMongo
 	AgentSuite
 	// FakeJujuXDGDataHomeSuite is needed only because the
 	// authenticationworker writes to ~/.ssh.
@@ -105,8 +103,6 @@ func (s *commonMachineSuite) SetUpTest(c *tc.C) {
 	// mock out the start method so we can fake install services without sudo
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
-
-	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s, s.DataDir)
 }
 
 func (s *commonMachineSuite) assertChannelActive(c *tc.C, aChannel chan struct{}, intent string) {
@@ -158,11 +154,11 @@ func (s *commonMachineSuite) TearDownSuite(c *tc.C) {
 // primeAgent adds a new Machine to run the given jobs, and sets up the
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
-func (s *commonMachineSuite) primeAgent(c *tc.C, jobs ...state.MachineJob) (
+func (s *commonMachineSuite) primeAgent(c *tc.C) (
 	m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools,
 ) {
 	vers := coretesting.CurrentVersion()
-	return s.primeAgentVersion(c, vers, jobs...)
+	return s.primeAgentVersion(c, vers)
 }
 
 // TODO(wallyworld) - we need the dqlite model database to be available.
@@ -183,8 +179,8 @@ func (s *commonMachineSuite) primeAgent(c *tc.C, jobs ...state.MachineJob) (
 
 // primeAgentVersion is similar to primeAgent, but permits the
 // caller to specify the version.Binary to prime with.
-func (s *commonMachineSuite) primeAgentVersion(c *tc.C, vers semversion.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
-	m, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), jobs...)
+func (s *commonMachineSuite) primeAgentVersion(c *tc.C, vers semversion.Binary) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
+	m, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"))
 	c.Assert(err, tc.ErrorIsNil)
 	// TODO(wallyworld) - we need the dqlite model database to be available.
 	// s.createMachine(c, m.Id())
@@ -223,17 +219,7 @@ func (s *commonMachineSuite) configureMachine(c *tc.C, machineId string, vers se
 	c.Assert(err, tc.ErrorIsNil)
 
 	tag := m.Tag()
-	if m.IsManager() {
-		err = m.SetMongoPassword(initialMachinePassword)
-		c.Assert(err, tc.ErrorIsNil)
-		agentConfig, tools = s.PrimeStateAgentVersion(c, tag, initialMachinePassword, vers)
-		info, ok := agentConfig.StateServingInfo()
-		c.Assert(ok, tc.IsTrue)
-		err = s.ControllerModel(c).State().SetStateServingInfo(info)
-		c.Assert(err, tc.ErrorIsNil)
-	} else {
-		agentConfig, tools = s.PrimeAgentVersion(c, tag, initialMachinePassword, vers)
-	}
+	agentConfig, tools = s.PrimeAgentVersion(c, tag, initialMachinePassword, vers)
 	err = agentConfig.Write()
 	c.Assert(err, tc.ErrorIsNil)
 	return m, agentConfig, tools

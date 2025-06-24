@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/agent/agentbootstrap"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -32,7 +31,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/storage"
@@ -40,7 +38,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	jujujujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 )
 
 type bootstrapSuite struct {
@@ -199,7 +196,6 @@ func (s *bootstrapSuite) TestInitializeState(c *tc.C) {
 			StateInitializationParams: stateInitParams,
 			MongoDialOpts:             mongotest.DialOpts(),
 			BootstrapMachineAddresses: initialAddrs,
-			BootstrapMachineJobs:      []coremodel.MachineJob{coremodel.JobManageModel},
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   registry,
 			BootstrapDqlite: getBootstrapDqliteWithDummyCloudTypeWithAssertions(c,
@@ -215,61 +211,8 @@ func (s *bootstrapSuite) TestInitializeState(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	ctlr, err := bootstrap.Initialize(c.Context())
+	err = bootstrap.Initialize(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	defer func() { _ = ctlr.Close() }()
-
-	st, err := ctlr.SystemState()
-	c.Assert(err, tc.ErrorIsNil)
-	err = cfg.Write()
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Check that initial admin user has been set up correctly.
-	modelTag := names.NewModelTag(controllerModelUUID.String())
-	controllerTag := names.NewControllerTag(controllerCfg.ControllerUUID())
-	s.assertCanLogInAsAdmin(c, modelTag, controllerTag, testing.DefaultMongoPassword)
-
-	// Check that the bootstrap machine looks correct.
-	m, err := st.Machine("0")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(m.Id(), tc.Equals, "0")
-	c.Check(m.Jobs(), tc.DeepEquals, []state.MachineJob{state.JobManageModel})
-
-	base, err := corebase.ParseBase(m.Base().OS, m.Base().Channel)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(m.Base().String(), tc.Equals, base.String())
-
-	gotBootstrapConstraints, err := m.Constraints()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(gotBootstrapConstraints, tc.DeepEquals, expectBootstrapConstraints)
-
-	// Check that the state serving info is initialised correctly.
-	stateServingInfo, err := st.StateServingInfo()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(stateServingInfo, tc.DeepEquals, controller.StateServingInfo{
-		APIPort:        1234,
-		StatePort:      s.mgoInst.Port(),
-		Cert:           testing.ServerCert,
-		PrivateKey:     testing.ServerKey,
-		CAPrivateKey:   testing.CAKey,
-		SharedSecret:   "abc123",
-		SystemIdentity: "def456",
-	})
-
-	// Check that the machine agent's config has been written
-	// and that we can use it to connect to mongo.
-	machine0 := names.NewMachineTag("0")
-	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, machine0))
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(newCfg.Tag(), tc.Equals, machine0)
-
-	info, ok := cfg.MongoInfo()
-	c.Assert(ok, tc.IsTrue)
-	c.Check(info.Password, tc.Not(tc.Equals), testing.DefaultMongoPassword)
-
-	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
-	c.Assert(err, tc.ErrorIsNil)
-	session.Close()
 }
 
 func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *tc.C) {
@@ -305,7 +248,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = bootstrap.Initialize(c.Context())
+	err = bootstrap.Initialize(c.Context())
 
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, tc.ErrorMatches, "state serving information not available")
@@ -363,7 +306,6 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *tc.C) {
 			AdminUser:                 adminUser,
 			StateInitializationParams: args,
 			MongoDialOpts:             mongotest.DialOpts(),
-			BootstrapMachineJobs:      []coremodel.MachineJob{coremodel.JobManageModel},
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
 			BootstrapDqlite:           getBootstrapDqliteWithDummyCloudTypeWithAssertions(c),
@@ -374,9 +316,8 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	st, err := bootstrap.Initialize(c.Context())
+	err = bootstrap.Initialize(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	_ = st.Close()
 
 	bootstrap, err = agentbootstrap.NewAgentBootstrap(
 		agentbootstrap.AgentBootstrapArgs{
@@ -392,49 +333,8 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	st, err = bootstrap.Initialize(c.Context())
-	if err == nil {
-		_ = st.Close()
-	}
+	err = bootstrap.Initialize(c.Context())
 	c.Assert(err, tc.ErrorIs, errors.AlreadyExists)
-}
-
-func (s *bootstrapSuite) TestMachineJobFromParams(c *tc.C) {
-	var tests = []struct {
-		name coremodel.MachineJob
-		want state.MachineJob
-		err  string
-	}{{
-		name: coremodel.JobHostUnits,
-		want: state.JobHostUnits,
-	}, {
-		name: coremodel.JobManageModel,
-		want: state.JobManageModel,
-	}, {
-		name: "invalid",
-		want: -1,
-		err:  `invalid machine job "invalid"`,
-	}}
-	for _, test := range tests {
-		got, err := agentbootstrap.MachineJobFromParams(test.name)
-		if err != nil {
-			c.Check(err, tc.ErrorMatches, test.err)
-		}
-		c.Check(got, tc.Equals, test.want)
-	}
-}
-
-func (s *bootstrapSuite) assertCanLogInAsAdmin(c *tc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, password string) {
-	session, err := mongo.DialWithInfo(mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{s.mgoInst.Addr()},
-			CACert: testing.CACert,
-		},
-		Tag:      nil, // admin user
-		Password: password,
-	}, mongotest.DialOpts())
-	c.Assert(err, tc.ErrorIsNil)
-	session.Close()
 }
 
 type fakeProvider struct {

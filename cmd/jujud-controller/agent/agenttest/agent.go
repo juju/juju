@@ -4,19 +4,15 @@
 package agenttest
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/juju/clock"
-	"github.com/juju/mgo/v3"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
-	"github.com/juju/replicaset/v3"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/controller"
 	coredatabase "github.com/juju/juju/core/database"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -36,74 +32,11 @@ import (
 	"github.com/juju/juju/internal/mongo/mongotest"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 )
-
-type patchingSuite interface {
-	PatchValue(interface{}, interface{})
-}
-
-// InstallFakeEnsureMongo creates a new FakeEnsureMongo, patching
-// out replicaset.CurrentConfig and cmdutil.EnsureMongoServerInstalled/Started.
-func InstallFakeEnsureMongo(suite patchingSuite, dataDir string) *FakeEnsureMongo {
-	f := &FakeEnsureMongo{}
-	suite.PatchValue(&mongo.CurrentReplicasetConfig, f.CurrentConfig)
-	suite.PatchValue(&cmdutil.EnsureMongoServerInstalled, f.EnsureMongo)
-	ensureParams := cmdutil.NewEnsureMongoParams
-	suite.PatchValue(&cmdutil.NewEnsureMongoParams, func(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
-		params, err := ensureParams(agentConfig)
-		if err == nil {
-			params.MongoDataDir = dataDir
-		}
-		return params, err
-	})
-	return f
-}
-
-// FakeEnsureMongo provides test fakes for the functions used to
-// initialise MongoDB.
-type FakeEnsureMongo struct {
-	EnsureCount    int
-	InitiateCount  int
-	MongoDataDir   string
-	OplogSize      int
-	Info           controller.StateServingInfo
-	InitiateParams peergrouper.InitiateMongoParams
-	Err            error
-}
-
-func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*replicaset.Config, error) {
-	// Return a dummy replicaset config that's good enough to
-	// indicate that the replicaset is initiated.
-	return &replicaset.Config{
-		Members: []replicaset.Member{{}},
-	}, nil
-}
-
-func (f *FakeEnsureMongo) EnsureMongo(_ context.Context, args mongo.EnsureServerParams) error {
-	f.EnsureCount++
-	f.MongoDataDir, f.OplogSize = args.MongoDataDir, args.OplogSize
-	f.Info = controller.StateServingInfo{
-		APIPort:        args.APIPort,
-		StatePort:      args.StatePort,
-		Cert:           args.Cert,
-		PrivateKey:     args.PrivateKey,
-		CAPrivateKey:   args.CAPrivateKey,
-		SharedSecret:   args.SharedSecret,
-		SystemIdentity: args.SystemIdentity,
-	}
-	return f.Err
-}
-
-func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error {
-	f.InitiateCount++
-	f.InitiateParams = p
-	return nil
-}
 
 // AgentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {

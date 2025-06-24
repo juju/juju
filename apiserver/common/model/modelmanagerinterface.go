@@ -51,8 +51,6 @@ type ModelManagerBackend interface {
 
 type ControllerNode interface {
 	Id() string
-	HasVote() bool
-	WantsVote() bool
 }
 
 type Machine interface {
