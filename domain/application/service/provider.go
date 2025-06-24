@@ -30,25 +30,36 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 )
 
+// Provider defines the interface for interacting with the underlying model
+// provider.
+type Provider interface {
+	environs.ConstraintsChecker
+	environs.InstancePrechecker
+}
+
+// CAASProvider defines the interface for interacting with the
+// underlying provider for CAAS applications.
+type CAASProvider interface {
+	environs.SupportedFeatureEnumerator
+	Application(string, caas.DeploymentType) caas.Application
+}
+
 // ProviderService defines a service for interacting with the underlying
 // model state.
 type ProviderService struct {
 	*Service
 
-	modelID            coremodel.UUID
-	agentVersionGetter AgentVersionGetter
-	provider           providertracker.ProviderGetter[Provider]
-	// This provider is separated from [provider] because the
-	// [SupportedFeatureProvider] interface is only satisfied by the
-	// k8s provider.
-	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider]
-	caasApplicationProvider  providertracker.ProviderGetter[CAASApplicationProvider]
+	modelID                 coremodel.UUID
+	agentVersionGetter      AgentVersionGetter
+	provider                providertracker.ProviderGetter[Provider]
+	caasApplicationProvider providertracker.ProviderGetter[CAASProvider]
 }
 
 // NewProviderService returns a new Service for interacting with a models state.
@@ -59,8 +70,7 @@ func NewProviderService(
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
-	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
-	caasApplicationProvider providertracker.ProviderGetter[CAASApplicationProvider],
+	caasApplicationProvider providertracker.ProviderGetter[CAASProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -76,11 +86,10 @@ func NewProviderService(
 			clock,
 			logger,
 		),
-		modelID:                  modelID,
-		agentVersionGetter:       agentVersionGetter,
-		provider:                 provider,
-		supportedFeatureProvider: supportedFeatureProvider,
-		caasApplicationProvider:  caasApplicationProvider,
+		modelID:                 modelID,
+		agentVersionGetter:      agentVersionGetter,
+		provider:                provider,
+		caasApplicationProvider: caasApplicationProvider,
 	}
 }
 
@@ -390,7 +399,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 		Version:     &agentVersion,
 	})
 
-	supportedFeatureProvider, err := s.supportedFeatureProvider(ctx)
+	supportedFeatureProvider, err := s.caasApplicationProvider(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return fs, nil
 	} else if err != nil {

@@ -13,6 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestorage "github.com/juju/juju/core/storage"
@@ -26,6 +27,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go -source=./service.go
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination provider_mock_test.go -source=./provider.go
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination service_mock_test.go github.com/juju/juju/domain/application/service CharmStore,StatusHistory
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination internal_charm_mock_test.go github.com/juju/juju/internal/charm Charm
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination constraints_mock_test.go github.com/juju/juju/core/constraints Validator
@@ -37,15 +39,14 @@ type baseSuite struct {
 
 	modelID model.UUID
 
-	state                     *MockState
-	charm                     *MockCharm
-	charmStore                *MockCharmStore
-	agentVersionGetter        *MockAgentVersionGetter
-	provider                  *MockProvider
-	supportedFeaturesProvider *MockSupportedFeatureProvider
-	caasApplicationProvider   *MockCAASApplicationProvider
-	leadership                *MockEnsurer
-	validator                 *MockValidator
+	state              *MockState
+	charm              *MockCharm
+	charmStore         *MockCharmStore
+	agentVersionGetter *MockAgentVersionGetter
+	provider           *MockProvider
+	caasProvider       *MockCAASProvider
+	leadership         *MockEnsurer
+	validator          *MockValidator
 
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	clock                 *testclock.Clock
@@ -53,11 +54,18 @@ type baseSuite struct {
 	service *ProviderService
 }
 
+func noProviderError() error {
+	return nil
+}
+
+func providerNotSupported() error {
+	return coreerrors.NotSupported
+}
+
 func (s *baseSuite) setupMocksWithProvider(
 	c *tc.C,
-	providerGetter func(ctx context.Context) (Provider, error),
-	supportFeaturesProviderGetter func(ctx context.Context) (SupportedFeatureProvider, error),
-	supportCAASApplicationProviderGetter func(ctx context.Context) (CAASApplicationProvider, error),
+	providerGetterError func() error,
+	caasProviderGetterError func() error,
 ) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -65,8 +73,7 @@ func (s *baseSuite) setupMocksWithProvider(
 
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
-	s.supportedFeaturesProvider = NewMockSupportedFeatureProvider(ctrl)
-	s.caasApplicationProvider = NewMockCAASApplicationProvider(ctrl)
+	s.caasProvider = NewMockCAASProvider(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
@@ -88,9 +95,18 @@ func (s *baseSuite) setupMocksWithProvider(
 		s.storageRegistryGetter,
 		s.modelID,
 		s.agentVersionGetter,
-		providerGetter,
-		supportFeaturesProviderGetter,
-		supportCAASApplicationProviderGetter,
+		func(ctx context.Context) (Provider, error) {
+			if err := providerGetterError(); err != nil {
+				return nil, err
+			}
+			return s.provider, nil
+		},
+		func(ctx context.Context) (CAASProvider, error) {
+			if err := caasProviderGetterError(); err != nil {
+				return nil, err
+			}
+			return s.caasProvider, nil
+		},
 		s.charmStore,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		s.clock,
@@ -114,7 +130,7 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
-	s.supportedFeaturesProvider = NewMockSupportedFeatureProvider(ctrl)
+	s.caasProvider = NewMockCAASProvider(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
@@ -139,11 +155,8 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
 		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
+		func(ctx context.Context) (CAASProvider, error) {
+			return s.caasProvider, nil
 		},
 		s.charmStore,
 		fn(ctrl),

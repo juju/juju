@@ -136,10 +136,7 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 		func(ctx context.Context) (applicationservice.Provider, error) {
 			return serviceProvider{}, nil
 		},
-		func(ctx context.Context) (applicationservice.SupportedFeatureProvider, error) {
-			return serviceProvider{}, nil
-		},
-		func(ctx context.Context) (applicationservice.CAASApplicationProvider, error) {
+		func(ctx context.Context) (applicationservice.CAASProvider, error) {
 			return serviceProvider{}, nil
 		},
 		nil,
@@ -178,8 +175,7 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 
 type serviceProvider struct {
 	applicationservice.Provider
-	applicationservice.SupportedFeatureProvider
-	applicationservice.CAASApplicationProvider
+	applicationservice.CAASProvider
 }
 
 func (serviceProvider) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {

@@ -1284,7 +1284,7 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *tc.C) {
 	agentVersion := semversion.MustParse("4.0.0")
 	s.agentVersionGetter.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(agentVersion, nil)
 
-	s.supportedFeaturesProvider.EXPECT().SupportedFeatures().Return(assumes.FeatureSet{}, nil)
+	s.caasProvider.EXPECT().SupportedFeatures().Return(assumes.FeatureSet{}, nil)
 
 	features, err := s.service.GetSupportedFeatures(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1299,13 +1299,7 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
-		return s.provider, coreerrors.NotSupported
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, coreerrors.NotSupported
-	}, func(ctx context.Context) (CAASApplicationProvider, error) {
-		return s.caasApplicationProvider, coreerrors.NotSupported
-	})
+	ctrl := s.setupMocksWithProvider(c, providerNotSupported, providerNotSupported)
 	defer ctrl.Finish()
 
 	agentVersion := semversion.MustParse("4.0.0")
@@ -1338,13 +1332,7 @@ func (s *providerServiceSuite) TestSetApplicationConstraintsInvalidAppID(c *tc.C
 }
 
 func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
-		return s.provider, coreerrors.NotSupported
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, coreerrors.NotSupported
-	}, func(ctx context.Context) (CAASApplicationProvider, error) {
-		return s.caasApplicationProvider, coreerrors.NotSupported
-	})
+	ctrl := s.setupMocksWithProvider(c, providerNotSupported, providerNotSupported)
 	defer ctrl.Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -1356,16 +1344,7 @@ func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -1377,16 +1356,7 @@ func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestSetConstraintsValidateError(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -1400,16 +1370,7 @@ func (s *providerServiceSuite) TestSetConstraintsValidateError(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -1425,16 +1386,7 @@ func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	defer s.setupMocks(c).Finish()
@@ -1451,16 +1403,7 @@ func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -1496,16 +1439,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -1566,16 +1500,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -1629,16 +1554,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -1679,16 +1595,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddIAASUnitsInvalidName(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	_, err := s.service.AddIAASUnits(c.Context(), "!!!", AddIAASUnitArg{})
@@ -1696,16 +1603,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidName(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddIAASUnitsNoUnits(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	units, err := s.service.AddIAASUnits(c.Context(), "foo")
@@ -1714,16 +1612,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsNoUnits(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -1735,16 +1624,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -1787,16 +1667,7 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNilValidat
 }
 
 func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsConstraintsNotFound(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)

@@ -978,10 +978,7 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 		func(ctx context.Context) (applicationservice.Provider, error) {
 			return serviceProvider{}, nil
 		},
-		func(ctx context.Context) (applicationservice.SupportedFeatureProvider, error) {
-			return serviceProvider{}, nil
-		},
-		func(ctx context.Context) (applicationservice.CAASApplicationProvider, error) {
+		func(ctx context.Context) (applicationservice.CAASProvider, error) {
 			return serviceProvider{}, nil
 		},
 		nil,

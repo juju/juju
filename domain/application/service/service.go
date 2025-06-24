@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 
-	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/changestream"
@@ -39,7 +38,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
@@ -163,24 +161,6 @@ type AgentVersionGetter interface {
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 }
 
-// Provider defines the interface for interacting with the underlying model
-// provider.
-type Provider interface {
-	environs.ConstraintsChecker
-}
-
-// SupportedFeatureProvider defines the interface for interacting with the
-// a model provider that satisfies the SupportedFeatureEnumerator interface.
-type SupportedFeatureProvider interface {
-	environs.SupportedFeatureEnumerator
-}
-
-// CAASApplicationProvider contains methods from the caas.Broker interface
-// used by the application provider service.
-type CAASApplicationProvider interface {
-	Application(string, caas.DeploymentType) caas.Application
-}
-
 // WatcherFactory instances return watchers for a given namespace and UUID.
 type WatcherFactory interface {
 	// NewUUIDsWatcher returns a watcher that emits the UUIDs for changes to the
@@ -247,8 +227,7 @@ func NewWatchableService(
 	watcherFactory WatcherFactory,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
-	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
-	caasApplicationProvider providertracker.ProviderGetter[CAASApplicationProvider],
+	caasProvider providertracker.ProviderGetter[CAASProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -262,8 +241,7 @@ func NewWatchableService(
 			modelID,
 			agentVersionGetter,
 			provider,
-			supportedFeatureProvider,
-			caasApplicationProvider,
+			caasProvider,
 			charmStore,
 			statusHistory,
 			clock,

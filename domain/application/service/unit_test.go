@@ -80,16 +80,7 @@ func (m registerArgMatcher) String() string {
 }
 
 func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	app := NewMockApplication(ctrl)
@@ -101,7 +92,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 			Volume: caas.VolumeInfo{VolumeId: "vol-666"},
 		}},
 	}}, nil)
-	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 
 	arg := application.RegisterCAASUnitArg{
 		UnitName:                  "foo/666",
@@ -136,21 +127,12 @@ func (s *unitServiceSuite) TestRegisterCAASUnitMissingProviderID(c *tc.C) {
 }
 
 func (s *unitServiceSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	app := NewMockApplication(ctrl)
 	app.EXPECT().Units().Return([]caas.Unit{}, nil)
-	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 
 	p := application.RegisterCAASUnitParams{
 		ApplicationName: "foo",

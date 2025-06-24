@@ -143,14 +143,11 @@ func (s *baseSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *ap
 		return s.ModelTxnRunner(), nil
 	}
 
-	notSupportedProviderGetter := func(ctx context.Context) (applicationservice.Provider, error) {
+	providerGetter := func(ctx context.Context) (applicationservice.Provider, error) {
 		return nil, coreerrors.NotSupported
 	}
-	notSupportedFeatureProviderGetter := func(ctx context.Context) (applicationservice.SupportedFeatureProvider, error) {
-		return nil, coreerrors.NotSupported
-	}
-	notSupportedCAASApplicationproviderGetter := func(ctx context.Context) (applicationservice.CAASApplicationProvider, error) {
-		return caasApplicationProvider{}, nil
+	caasProviderGetter := func(ctx context.Context) (applicationservice.CAASProvider, error) {
+		return caasProvider{}, nil
 	}
 
 	return applicationservice.NewWatchableService(
@@ -161,8 +158,10 @@ func (s *baseSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *ap
 		}),
 		"",
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
-		nil, notSupportedProviderGetter,
-		notSupportedFeatureProviderGetter, notSupportedCAASApplicationproviderGetter, nil,
+		nil,
+		providerGetter,
+		caasProviderGetter,
+		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
@@ -433,9 +432,11 @@ func (s *stubCharm) Version() string {
 	return ""
 }
 
-type caasApplicationProvider struct{}
+type caasProvider struct {
+	applicationservice.CAASProvider
+}
 
-func (caasApplicationProvider) Application(string, caas.DeploymentType) caas.Application {
+func (caasProvider) Application(string, caas.DeploymentType) caas.Application {
 	return &caasApplication{}
 }
 

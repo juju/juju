@@ -14,12 +14,9 @@ import (
 	reflect "reflect"
 
 	set "github.com/juju/collections/set"
-	caas "github.com/juju/juju/caas"
 	application "github.com/juju/juju/core/application"
-	assumes "github.com/juju/juju/core/assumes"
 	changestream "github.com/juju/juju/core/changestream"
 	charm "github.com/juju/juju/core/charm"
-	constraints "github.com/juju/juju/core/constraints"
 	devices "github.com/juju/juju/core/devices"
 	machine "github.com/juju/juju/core/machine"
 	model "github.com/juju/juju/core/model"
@@ -32,7 +29,7 @@ import (
 	application0 "github.com/juju/juju/domain/application"
 	architecture "github.com/juju/juju/domain/application/architecture"
 	charm0 "github.com/juju/juju/domain/application/charm"
-	constraints0 "github.com/juju/juju/domain/constraints"
+	constraints "github.com/juju/juju/domain/constraints"
 	life "github.com/juju/juju/domain/life"
 	storage0 "github.com/juju/juju/domain/storage"
 	storage1 "github.com/juju/juju/internal/storage"
@@ -928,10 +925,10 @@ func (c *MockStateGetApplicationConfigWithDefaultsCall) DoAndReturn(f func(conte
 }
 
 // GetApplicationConstraints mocks base method.
-func (m *MockState) GetApplicationConstraints(ctx context.Context, appID application.ID) (constraints0.Constraints, error) {
+func (m *MockState) GetApplicationConstraints(ctx context.Context, appID application.ID) (constraints.Constraints, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationConstraints", ctx, appID)
-	ret0, _ := ret[0].(constraints0.Constraints)
+	ret0, _ := ret[0].(constraints.Constraints)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -949,19 +946,19 @@ type MockStateGetApplicationConstraintsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationConstraintsCall) Return(arg0 constraints0.Constraints, arg1 error) *MockStateGetApplicationConstraintsCall {
+func (c *MockStateGetApplicationConstraintsCall) Return(arg0 constraints.Constraints, arg1 error) *MockStateGetApplicationConstraintsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationConstraintsCall) Do(f func(context.Context, application.ID) (constraints0.Constraints, error)) *MockStateGetApplicationConstraintsCall {
+func (c *MockStateGetApplicationConstraintsCall) Do(f func(context.Context, application.ID) (constraints.Constraints, error)) *MockStateGetApplicationConstraintsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationConstraintsCall) DoAndReturn(f func(context.Context, application.ID) (constraints0.Constraints, error)) *MockStateGetApplicationConstraintsCall {
+func (c *MockStateGetApplicationConstraintsCall) DoAndReturn(f func(context.Context, application.ID) (constraints.Constraints, error)) *MockStateGetApplicationConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2577,10 +2574,10 @@ func (c *MockStateGetMachineNetNodeUUIDFromNameCall) DoAndReturn(f func(context.
 }
 
 // GetModelConstraints mocks base method.
-func (m *MockState) GetModelConstraints(arg0 context.Context) (constraints0.Constraints, error) {
+func (m *MockState) GetModelConstraints(arg0 context.Context) (constraints.Constraints, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelConstraints", arg0)
-	ret0, _ := ret[0].(constraints0.Constraints)
+	ret0, _ := ret[0].(constraints.Constraints)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2598,19 +2595,19 @@ type MockStateGetModelConstraintsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetModelConstraintsCall) Return(arg0 constraints0.Constraints, arg1 error) *MockStateGetModelConstraintsCall {
+func (c *MockStateGetModelConstraintsCall) Return(arg0 constraints.Constraints, arg1 error) *MockStateGetModelConstraintsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelConstraintsCall) Do(f func(context.Context) (constraints0.Constraints, error)) *MockStateGetModelConstraintsCall {
+func (c *MockStateGetModelConstraintsCall) Do(f func(context.Context) (constraints.Constraints, error)) *MockStateGetModelConstraintsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelConstraintsCall) DoAndReturn(f func(context.Context) (constraints0.Constraints, error)) *MockStateGetModelConstraintsCall {
+func (c *MockStateGetModelConstraintsCall) DoAndReturn(f func(context.Context) (constraints.Constraints, error)) *MockStateGetModelConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -4488,7 +4485,7 @@ func (c *MockStateSetApplicationCharmCall) DoAndReturn(f func(context.Context, a
 }
 
 // SetApplicationConstraints mocks base method.
-func (m *MockState) SetApplicationConstraints(ctx context.Context, appID application.ID, cons constraints0.Constraints) error {
+func (m *MockState) SetApplicationConstraints(ctx context.Context, appID application.ID, cons constraints.Constraints) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetApplicationConstraints", ctx, appID, cons)
 	ret0, _ := ret[0].(error)
@@ -4514,13 +4511,13 @@ func (c *MockStateSetApplicationConstraintsCall) Return(arg0 error) *MockStateSe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetApplicationConstraintsCall) Do(f func(context.Context, application.ID, constraints0.Constraints) error) *MockStateSetApplicationConstraintsCall {
+func (c *MockStateSetApplicationConstraintsCall) Do(f func(context.Context, application.ID, constraints.Constraints) error) *MockStateSetApplicationConstraintsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetApplicationConstraintsCall) DoAndReturn(f func(context.Context, application.ID, constraints0.Constraints) error) *MockStateSetApplicationConstraintsCall {
+func (c *MockStateSetApplicationConstraintsCall) DoAndReturn(f func(context.Context, application.ID, constraints.Constraints) error) *MockStateSetApplicationConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -4718,7 +4715,7 @@ func (c *MockStateSetDesiredApplicationScaleCall) DoAndReturn(f func(context.Con
 }
 
 // SetUnitConstraints mocks base method.
-func (m *MockState) SetUnitConstraints(arg0 context.Context, arg1 unit.UUID, arg2 constraints0.Constraints) error {
+func (m *MockState) SetUnitConstraints(arg0 context.Context, arg1 unit.UUID, arg2 constraints.Constraints) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitConstraints", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -4744,13 +4741,13 @@ func (c *MockStateSetUnitConstraintsCall) Return(arg0 error) *MockStateSetUnitCo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetUnitConstraintsCall) Do(f func(context.Context, unit.UUID, constraints0.Constraints) error) *MockStateSetUnitConstraintsCall {
+func (c *MockStateSetUnitConstraintsCall) Do(f func(context.Context, unit.UUID, constraints.Constraints) error) *MockStateSetUnitConstraintsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetUnitConstraintsCall) DoAndReturn(f func(context.Context, unit.UUID, constraints0.Constraints) error) *MockStateSetUnitConstraintsCall {
+func (c *MockStateSetUnitConstraintsCall) DoAndReturn(f func(context.Context, unit.UUID, constraints.Constraints) error) *MockStateSetUnitConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -5311,191 +5308,6 @@ func (c *MockAgentVersionGetterGetModelTargetAgentVersionCall) Do(f func(context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockAgentVersionGetterGetModelTargetAgentVersionCall) DoAndReturn(f func(context.Context) (semversion.Number, error)) *MockAgentVersionGetterGetModelTargetAgentVersionCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// MockProvider is a mock of Provider interface.
-type MockProvider struct {
-	ctrl     *gomock.Controller
-	recorder *MockProviderMockRecorder
-}
-
-// MockProviderMockRecorder is the mock recorder for MockProvider.
-type MockProviderMockRecorder struct {
-	mock *MockProvider
-}
-
-// NewMockProvider creates a new mock instance.
-func NewMockProvider(ctrl *gomock.Controller) *MockProvider {
-	mock := &MockProvider{ctrl: ctrl}
-	mock.recorder = &MockProviderMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
-	return m.recorder
-}
-
-// ConstraintsValidator mocks base method.
-func (m *MockProvider) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConstraintsValidator", ctx)
-	ret0, _ := ret[0].(constraints.Validator)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ConstraintsValidator indicates an expected call of ConstraintsValidator.
-func (mr *MockProviderMockRecorder) ConstraintsValidator(ctx any) *MockProviderConstraintsValidatorCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsValidator", reflect.TypeOf((*MockProvider)(nil).ConstraintsValidator), ctx)
-	return &MockProviderConstraintsValidatorCall{Call: call}
-}
-
-// MockProviderConstraintsValidatorCall wrap *gomock.Call
-type MockProviderConstraintsValidatorCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockProviderConstraintsValidatorCall) Return(arg0 constraints.Validator, arg1 error) *MockProviderConstraintsValidatorCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockProviderConstraintsValidatorCall) Do(f func(context.Context) (constraints.Validator, error)) *MockProviderConstraintsValidatorCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderConstraintsValidatorCall) DoAndReturn(f func(context.Context) (constraints.Validator, error)) *MockProviderConstraintsValidatorCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// MockSupportedFeatureProvider is a mock of SupportedFeatureProvider interface.
-type MockSupportedFeatureProvider struct {
-	ctrl     *gomock.Controller
-	recorder *MockSupportedFeatureProviderMockRecorder
-}
-
-// MockSupportedFeatureProviderMockRecorder is the mock recorder for MockSupportedFeatureProvider.
-type MockSupportedFeatureProviderMockRecorder struct {
-	mock *MockSupportedFeatureProvider
-}
-
-// NewMockSupportedFeatureProvider creates a new mock instance.
-func NewMockSupportedFeatureProvider(ctrl *gomock.Controller) *MockSupportedFeatureProvider {
-	mock := &MockSupportedFeatureProvider{ctrl: ctrl}
-	mock.recorder = &MockSupportedFeatureProviderMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockSupportedFeatureProvider) EXPECT() *MockSupportedFeatureProviderMockRecorder {
-	return m.recorder
-}
-
-// SupportedFeatures mocks base method.
-func (m *MockSupportedFeatureProvider) SupportedFeatures() (assumes.FeatureSet, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SupportedFeatures")
-	ret0, _ := ret[0].(assumes.FeatureSet)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SupportedFeatures indicates an expected call of SupportedFeatures.
-func (mr *MockSupportedFeatureProviderMockRecorder) SupportedFeatures() *MockSupportedFeatureProviderSupportedFeaturesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportedFeatures", reflect.TypeOf((*MockSupportedFeatureProvider)(nil).SupportedFeatures))
-	return &MockSupportedFeatureProviderSupportedFeaturesCall{Call: call}
-}
-
-// MockSupportedFeatureProviderSupportedFeaturesCall wrap *gomock.Call
-type MockSupportedFeatureProviderSupportedFeaturesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSupportedFeatureProviderSupportedFeaturesCall) Return(arg0 assumes.FeatureSet, arg1 error) *MockSupportedFeatureProviderSupportedFeaturesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSupportedFeatureProviderSupportedFeaturesCall) Do(f func() (assumes.FeatureSet, error)) *MockSupportedFeatureProviderSupportedFeaturesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSupportedFeatureProviderSupportedFeaturesCall) DoAndReturn(f func() (assumes.FeatureSet, error)) *MockSupportedFeatureProviderSupportedFeaturesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// MockCAASApplicationProvider is a mock of CAASApplicationProvider interface.
-type MockCAASApplicationProvider struct {
-	ctrl     *gomock.Controller
-	recorder *MockCAASApplicationProviderMockRecorder
-}
-
-// MockCAASApplicationProviderMockRecorder is the mock recorder for MockCAASApplicationProvider.
-type MockCAASApplicationProviderMockRecorder struct {
-	mock *MockCAASApplicationProvider
-}
-
-// NewMockCAASApplicationProvider creates a new mock instance.
-func NewMockCAASApplicationProvider(ctrl *gomock.Controller) *MockCAASApplicationProvider {
-	mock := &MockCAASApplicationProvider{ctrl: ctrl}
-	mock.recorder = &MockCAASApplicationProviderMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockCAASApplicationProvider) EXPECT() *MockCAASApplicationProviderMockRecorder {
-	return m.recorder
-}
-
-// Application mocks base method.
-func (m *MockCAASApplicationProvider) Application(arg0 string, arg1 caas.DeploymentType) caas.Application {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Application", arg0, arg1)
-	ret0, _ := ret[0].(caas.Application)
-	return ret0
-}
-
-// Application indicates an expected call of Application.
-func (mr *MockCAASApplicationProviderMockRecorder) Application(arg0, arg1 any) *MockCAASApplicationProviderApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockCAASApplicationProvider)(nil).Application), arg0, arg1)
-	return &MockCAASApplicationProviderApplicationCall{Call: call}
-}
-
-// MockCAASApplicationProviderApplicationCall wrap *gomock.Call
-type MockCAASApplicationProviderApplicationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCAASApplicationProviderApplicationCall) Return(arg0 caas.Application) *MockCAASApplicationProviderApplicationCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCAASApplicationProviderApplicationCall) Do(f func(string, caas.DeploymentType) caas.Application) *MockCAASApplicationProviderApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASApplicationProviderApplicationCall) DoAndReturn(f func(string, caas.DeploymentType) caas.Application) *MockCAASApplicationProviderApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
