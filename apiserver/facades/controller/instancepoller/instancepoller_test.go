@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
@@ -129,18 +130,6 @@ func (s *InstancePollerSuite) SetUpTest(c *tc.C) {
 			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
 			{Error: apiservertesting.ServerError(`"42" is not a valid tag`)},
 		}}
-}
-
-func (s *InstancePollerSuite) TestStub(c *tc.C) {
-	c.Skip(`This suite is missing tests for the following scenarios:
-- Updating a machine-sourced address should change its origin to "provider".
-- An unseen provider-sourced address should change its origin to "machine".
-- Incoming network config with 2 different devices having the same provider ID should error.
-- A bridge and an ethernet device, both with the same MAC address;
-  SetProviderNetworkConfig is called with a device match the MAC address (no name);
-  Only the ethernet has the provider ID set against it.
-  ".
-`)
 }
 
 func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresController(c *tc.C) {
@@ -618,6 +607,41 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil)
+	s.machineService.EXPECT().GetMachineUUID(c.Context(), machine.Name("1")).Return("machine-uuid", nil)
+	s.networkService.EXPECT().SetProviderNetConfig(c.Context(), machine.UUID("machine-uuid"),
+		[]domainnetwork.NetInterface{{
+			IsAutoStart: true,
+			IsEnabled:   true,
+			Addrs: []domainnetwork.NetAddr{
+				{
+					AddressValue: "10.0.0.42",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				{
+					AddressValue: "10.73.37.110",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				{
+					AddressValue: "10.73.37.111",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				{
+					AddressValue: "192.168.0.1",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				// Shadows
+				{
+					AddressValue: "1.1.1.42",
+					Scope:        "public",
+					Origin:       "provider",
+					IsShadow:     true,
+				},
+			}},
+		}).Return(nil)
 
 	results, err := s.api.SetProviderNetworkConfig(c.Context(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
@@ -717,6 +741,36 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectDefaultSpaces()
+	s.machineService.EXPECT().GetMachineUUID(c.Context(), machine.Name("1")).Return("machine-uuid", nil)
+	s.networkService.EXPECT().SetProviderNetConfig(c.Context(), machine.UUID("machine-uuid"),
+		[]domainnetwork.NetInterface{{
+			IsAutoStart: true,
+			IsEnabled:   true,
+			Addrs: []domainnetwork.NetAddr{
+				{
+					AddressValue: "10.0.0.42",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				{
+					AddressValue: "10.73.37.111",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				{
+					AddressValue: "192.168.0.1",
+					Scope:        "local-cloud",
+					Origin:       "provider",
+				},
+				// Shadow
+				{
+					AddressValue: "1.1.1.42",
+					Scope:        "public",
+					Origin:       "provider",
+					IsShadow:     true,
+				},
+			}},
+		}).Return(nil)
 
 	s.st.SetMachineInfo(c, machineInfo{
 		id:             "1",

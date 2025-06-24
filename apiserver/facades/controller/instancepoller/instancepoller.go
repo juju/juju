@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -19,6 +20,8 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -178,12 +181,21 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 
 		// Treat errors as transient; the purpose of this API
 		// method is to simply update the provider addresses.
-		if err := a.mergeLinkLayer(machine, params.InterfaceInfoFromNetworkConfig(configs)); err != nil {
+		interfaceInfos := params.InterfaceInfoFromNetworkConfig(configs)
+		if err := a.mergeLinkLayer(machine, interfaceInfos); err != nil {
+			a.logger.Errorf(ctx,
+				"link layer device merge attempt for machine %v failed due to error: %v; "+
+					"waiting until next instance-poller run to retry", machine.Id(), err)
+		}
+
+		// Write in dqlite
+		if err := a.setProviderConfigOneMachine(ctx, arg.Tag, interfaceInfos); err != nil {
 			a.logger.Errorf(ctx,
 				"link layer device merge attempt for machine %v failed due to error: %v; "+
 					"waiting until next instance-poller run to retry", machine.Id(), err)
 		}
 	}
+
 	return result, nil
 }
 
@@ -376,4 +388,71 @@ func (a *InstancePollerAPI) AreManuallyProvisioned(ctx context.Context, args par
 		result.Results[i].Result = manual
 	}
 	return result, nil
+}
+
+// setProviderConfigOneMachine sets the provider network configuration for a
+// single machine given its tag and network info.
+func (a *InstancePollerAPI) setProviderConfigOneMachine(
+	ctx context.Context,
+	machineTag string,
+	devs network.InterfaceInfos,
+) error {
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return internalerrors.Errorf("failed to parse machine tag %q: %w", machineTag, err)
+	}
+	uuid, err := a.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+	if err != nil {
+		return internalerrors.Errorf("failed to get machine uuid for %q: %w", tag.Id(), err)
+	}
+
+	devices := transform.Slice(devs, newNetInterface)
+	return a.networkService.SetProviderNetConfig(ctx, uuid, devices)
+}
+
+func newNetInterface(device network.InterfaceInfo) domainnetwork.NetInterface {
+	return domainnetwork.NetInterface{
+		Name:             device.InterfaceName,
+		MTU:              ptr(int64(device.MTU)),
+		MACAddress:       ptr(device.MACAddress),
+		ProviderID:       ptr(device.ProviderId),
+		Type:             network.LinkLayerDeviceType(device.ConfigType),
+		VirtualPortType:  device.VirtualPortType,
+		IsAutoStart:      !device.NoAutoStart,
+		IsEnabled:        !device.Disabled,
+		ParentDeviceName: device.ParentInterfaceName,
+		GatewayAddress:   ptr(device.GatewayAddress.Value),
+		IsDefaultGateway: device.IsDefaultGateway,
+		VLANTag:          uint64(device.VLANTag),
+		DNSSearchDomains: device.DNSSearchDomains,
+		DNSAddresses:     device.DNSServers,
+		Addrs: append(
+			transform.Slice(device.Addresses, newNetAddress(device, false)),
+			transform.Slice(device.ShadowAddresses, newNetAddress(device, true))...),
+	}
+}
+
+func newNetAddress(device network.InterfaceInfo, isShadow bool) func(network.ProviderAddress) domainnetwork.NetAddr {
+	return func(providerAddr network.ProviderAddress) domainnetwork.NetAddr {
+		return domainnetwork.NetAddr{
+			InterfaceName:    device.InterfaceName,
+			AddressValue:     providerAddr.Value,
+			AddressType:      providerAddr.Type,
+			ConfigType:       providerAddr.ConfigType,
+			Origin:           network.OriginProvider,
+			Scope:            providerAddr.Scope,
+			IsSecondary:      providerAddr.IsSecondary,
+			IsShadow:         isShadow,
+			ProviderID:       ptr(device.ProviderAddressId),
+			ProviderSubnetID: ptr(device.ProviderSubnetId),
+		}
+	}
+}
+
+func ptr[T comparable](f T) *T {
+	var zero T
+	if f == zero {
+		return nil
+	}
+	return &f
 }
