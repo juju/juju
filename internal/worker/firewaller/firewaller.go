@@ -290,7 +290,6 @@ func (fw *Firewaller) loop() error {
 		case <-fw.catacomb.Dying():
 			return fw.catacomb.ErrDying()
 		case <-ensureModelFirewalls:
-			//log.Println("[loop][ensureModelFirewalls] got an ensure model firewall change here")
 			err := fw.flushModel()
 			if errors.Is(err, errors.NotFound) {
 				ensureModelFirewalls = fw.clk.After(time.Second)
@@ -298,7 +297,6 @@ func (fw *Firewaller) loop() error {
 				return err
 			} else {
 				ensureModelFirewalls = nil
-				//log.Println("[loop][ensureModelFirewalls] setting ensureModelFirewalls to nil")
 			}
 		case _, ok := <-modelFirewallChanges:
 			if !ok {
@@ -819,11 +817,11 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	}()
 	// We may have received a notification to flushModel() in the past but did not have any machines yet.
 	// Call flushModel() now.
-	//if fw.needsToFlushModel {
-	//	if err := fw.flushModel(); err != nil {
-	//		return errors.Trace(err)
-	//	}
-	//}
+	if fw.needsToFlushModel {
+		if err := fw.flushModel(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 
 	want, err := fw.gatherIngressRules(machined)
 	if err != nil {
@@ -1068,22 +1066,20 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose firewall.IngressRules) 
 }
 
 func (fw *Firewaller) flushModel() error {
-	//log.Println("[flushModel] inside flush model")
 	if fw.environModelFirewaller == nil {
 		return nil
 	}
-
 	// Model specific artefacts shouldn't be created until the model contains at least one machine.
-	//if len(fw.machineds) == 0 {
-	//	fw.needsToFlushModel = true
-	//	if fw.skipFlushModelNotify != nil {
-	//		fw.skipFlushModelNotify()
-	//	}
-	//	fw.logger.Debugf("skipping flushing model because there are no machines for this model")
-	//	return nil
-	//}
+	if len(fw.machineds) == 0 {
+		fw.needsToFlushModel = true
+		if fw.skipFlushModelNotify != nil {
+			fw.skipFlushModelNotify()
+		}
+		fw.logger.Debugf("skipping flushing model because there are no machines for this model")
+		return nil
+	}
 	// Reset the flag because the models are being flushed now.
-	//fw.needsToFlushModel = false
+	fw.needsToFlushModel = false
 
 	want, err := fw.firewallerApi.ModelFirewallRules()
 	if err != nil {
