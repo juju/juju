@@ -88,7 +88,6 @@ func ImportPrecheck(
 	ctx context.Context,
 	model description.Model,
 ) error {
-
 	err := checkForCharmsWithNoManifest(model)
 	if err != nil {
 		return internalerrors.Errorf("checking model for charms without manifest.yaml: %w", err)

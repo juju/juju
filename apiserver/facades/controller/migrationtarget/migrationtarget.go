@@ -292,14 +292,16 @@ with an earlier version of the target controller and try again.
 	if err := migration.TargetPrecheck(
 		ctx,
 		backend,
-		migration.PoolShim(api.pool), coremigration.ModelInfo{
+		migration.PoolShim(api.pool),
+		coremigration.ModelInfo{
 			UUID:                   model.UUID,
 			Name:                   model.Name,
 			Qualifier:              coremodel.Qualifier(model.Qualifier),
 			AgentVersion:           model.AgentVersion,
 			ControllerAgentVersion: model.ControllerAgentVersion,
 			ModelDescription:       modelDescription,
-		}, api.upgradeService,
+		},
+		api.upgradeService,
 		api.applicationService,
 		api.relationService,
 		api.statusService,

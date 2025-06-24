@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 
@@ -259,14 +258,10 @@ AND       m.nonce = $validatePasswordHashWithNonce.nonce;
 			return errors.Errorf("setting password hash: %w", err)
 		}
 
-		fmt.Println("???>> result:", result)
-
 		// We've not found any rows, so the password does not match.
 		if result.MachineCount == 0 {
 			return nil
 		}
-
-		fmt.Println(">>> result:", result)
 
 		// If the machine count is greater than 0, then we can assume the
 		// password matches, but we also need to check the instance count.
