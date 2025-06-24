@@ -16,7 +16,7 @@ import (
 // instanceData represents the struct to be inserted into the instance_data
 // table.
 type instanceData struct {
-	MachineUUID          machine.UUID     `db:"machine_uuid"`
+	MachineUUID          string           `db:"machine_uuid"`
 	InstanceID           sql.Null[string] `db:"instance_id"`
 	DisplayName          sql.Null[string] `db:"display_name"`
 	Arch                 *string          `db:"arch"`
@@ -32,26 +32,26 @@ type instanceData struct {
 // instanceDataResult represents the struct used to retrieve rows when joining
 // the machine_cloud_instance table with the availability_zone table.
 type instanceDataResult struct {
-	MachineUUID      machine.UUID `db:"machine_uuid"`
-	InstanceID       string       `db:"instance_id"`
-	Arch             *string      `db:"arch"`
-	Mem              *uint64      `db:"mem"`
-	RootDisk         *uint64      `db:"root_disk"`
-	RootDiskSource   *string      `db:"root_disk_source"`
-	CPUCores         *uint64      `db:"cpu_cores"`
-	CPUPower         *uint64      `db:"cpu_power"`
-	AvailabilityZone *string      `db:"availability_zone_name"`
-	VirtType         *string      `db:"virt_type"`
+	MachineUUID      string  `db:"machine_uuid"`
+	InstanceID       string  `db:"instance_id"`
+	Arch             *string `db:"arch"`
+	Mem              *uint64 `db:"mem"`
+	RootDisk         *uint64 `db:"root_disk"`
+	RootDiskSource   *string `db:"root_disk_source"`
+	CPUCores         *uint64 `db:"cpu_cores"`
+	CPUPower         *uint64 `db:"cpu_power"`
+	AvailabilityZone *string `db:"availability_zone_name"`
+	VirtType         *string `db:"virt_type"`
 }
 
 // instanceTag represents the struct to be inserted into the instance_tag
 // table.
 type instanceTag struct {
-	MachineUUID machine.UUID `db:"machine_uuid"`
-	Tag         string       `db:"tag"`
+	MachineUUID string `db:"machine_uuid"`
+	Tag         string `db:"tag"`
 }
 
-func tagsFromHardwareCharacteristics(machineUUID machine.UUID, hc *instance.HardwareCharacteristics) []instanceTag {
+func tagsFromHardwareCharacteristics(machineUUID string, hc *instance.HardwareCharacteristics) []instanceTag {
 	if hc == nil || hc.Tags == nil {
 		return nil
 	}
@@ -81,8 +81,8 @@ func (d *instanceDataResult) toHardwareCharacteristics() *instance.HardwareChara
 // machineLife represents the struct to be used for the life_id column within
 // the sqlair statements in the machine domain.
 type machineLife struct {
-	UUID   machine.UUID `db:"uuid"`
-	LifeID life.Life    `db:"life_id"`
+	UUID   string    `db:"uuid"`
+	LifeID life.Life `db:"life_id"`
 }
 
 // instanceID represents the struct to be used for the instance_id column within
@@ -106,11 +106,11 @@ type setStatusInfo struct {
 }
 
 type setMachineStatus struct {
-	StatusID    int          `db:"status_id"`
-	Message     string       `db:"message"`
-	Data        []byte       `db:"data"`
-	Updated     *time.Time   `db:"updated_at"`
-	MachineUUID machine.UUID `db:"machine_uuid"`
+	StatusID    int        `db:"status_id"`
+	Message     string     `db:"message"`
+	Data        []byte     `db:"data"`
+	Updated     *time.Time `db:"updated_at"`
+	MachineUUID string     `db:"machine_uuid"`
 }
 
 type availabilityZoneName struct {
@@ -127,11 +127,11 @@ type machineMarkForRemoval struct {
 }
 
 type machineUUID struct {
-	UUID machine.UUID `db:"uuid"`
+	UUID string `db:"uuid"`
 }
 
 type machineInstanceUUID struct {
-	MachineUUID machine.UUID `db:"machine_uuid"`
+	MachineUUID string `db:"machine_uuid"`
 }
 
 type count struct {
@@ -143,8 +143,8 @@ type keepInstance struct {
 }
 
 type machineParent struct {
-	MachineUUID machine.UUID `db:"machine_uuid"`
-	ParentUUID  machine.UUID `db:"parent_uuid"`
+	MachineUUID string `db:"machine_uuid"`
+	ParentUUID  string `db:"parent_uuid"`
 }
 
 // uuidSliceTransform is a function that is used to transform a slice of
@@ -162,14 +162,14 @@ func (s machineName) nameSliceTransform() machine.Name {
 // lxdProfile represents the struct to be used for the sqlair statements on the
 // lxd_profile table.
 type lxdProfile struct {
-	MachineUUID machine.UUID `db:"machine_uuid"`
-	Name        string       `db:"name"`
-	Index       int          `db:"array_index"`
+	MachineUUID string `db:"machine_uuid"`
+	Name        string `db:"name"`
+	Index       int    `db:"array_index"`
 }
 
 type machineNonce struct {
-	MachineUUID machine.UUID `db:"machine_uuid"`
-	Nonce       string       `db:"nonce"`
+	MachineUUID string `db:"machine_uuid"`
+	Nonce       string `db:"nonce"`
 }
 
 type machineInstance struct {
@@ -187,7 +187,7 @@ type createMachine struct {
 }
 
 type machinePlatformUUID struct {
-	MachineUUID    machine.UUID     `db:"machine_uuid"`
+	MachineUUID    string           `db:"machine_uuid"`
 	OSID           sql.Null[int64]  `db:"os_id"`
 	Channel        sql.Null[string] `db:"channel"`
 	ArchitectureID int              `db:"architecture_id"`
@@ -208,9 +208,9 @@ type machineNameWithMachineUUID struct {
 }
 
 type machinePlacement struct {
-	MachineUUID machine.UUID `db:"machine_uuid"`
-	ScopeID     int          `db:"scope_id"`
-	Directive   string       `db:"directive"`
+	MachineUUID string `db:"machine_uuid"`
+	ScopeID     int    `db:"scope_id"`
+	Directive   string `db:"directive"`
 }
 
 type exportMachine struct {
@@ -230,22 +230,32 @@ type containerType struct {
 }
 
 type machineContainerType struct {
-	MachineUUID     machine.UUID `db:"machine_uuid"`
-	ContainerTypeID int          `db:"container_type_id"`
+	MachineUUID     string `db:"machine_uuid"`
+	ContainerTypeID int    `db:"container_type_id"`
 }
 
 type appName struct {
 	Name string `db:"name"`
 }
 
-type PlaceMachineArgs struct {
-	Directive deployment.Placement
-	Platform  deployment.Platform
-	Nonce     *string
-}
-
 type insertMachineAndNetNodeArgs struct {
 	machineName string
+	machineUUID string
 	platform    deployment.Platform
 	nonce       *string
+}
+
+type insertChildMachineForContainerPlacementArgs struct {
+	machineUUID string
+	parentUUID  string
+	parentName  string
+	scope       string
+	platform    deployment.Platform
+	nonce       *string
+}
+
+type acquireParentMachineForContainerArgs struct {
+	directive string
+	platform  deployment.Platform
+	nonce     *string
 }

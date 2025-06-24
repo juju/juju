@@ -55,8 +55,13 @@ func (e *ModelMachinesWatcher) WatchModelMachines(ctx context.Context) (params.S
 	if err != nil {
 		return result, errors.Capture(err)
 	}
-	result.StringsWatcherId, _, err = internal.EnsureRegisterWatcher[[]string](ctx, e.watcherRegistry, watcher)
-	return result, err
+	watcherId, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, e.watcherRegistry, watcher)
+	if err != nil {
+		return params.StringsWatchResult{}, err
+	}
+	result.StringsWatcherId = watcherId
+	result.Changes = changes
+	return result, nil
 }
 
 // WatchModelMachineStartTimes watches the non-container machines in the model

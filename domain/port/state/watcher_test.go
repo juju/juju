@@ -49,13 +49,17 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
-	m0uuid, _, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err = machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid0",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	m1uuid, _, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err = machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid1",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	machineUUIDs = []string{string(m0uuid), string(m1uuid)}
-	netNodeUUIDs = []string{s.getNetNodeUUID(c, m0uuid), s.getNetNodeUUID(c, m1uuid)}
+	machineUUIDs = []string{"uuid0", "uuid1"}
+	netNodeUUIDs = []string{s.getNetNodeUUID(c, machineUUIDs[0]), s.getNetNodeUUID(c, machineUUIDs[1])}
 
 	s.appUUIDs[0] = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")
 	s.appUUIDs[1] = s.createApplicationWithRelations(c, appNames[1], "ep0", "ep1", "ep2")

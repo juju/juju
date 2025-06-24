@@ -20,9 +20,14 @@ type ExportMachine struct {
 
 // CreateMachineArgs contains arguments for creating a machine.
 type CreateMachineArgs struct {
-	// Platform is the platform to use for the machine.
-	Platform deployment.Platform
+	MachineUUID machine.UUID
+	Platform    deployment.Platform
+	Nonce       *string
+}
 
-	// Nonce is the provided nonce for the machine.
-	Nonce *string
+// PlaceMachineArgs contains arguments for placing a machine.
+type PlaceMachineArgs struct {
+	Directive deployment.Placement
+	Platform  deployment.Platform
+	Nonce     *string
 }

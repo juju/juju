@@ -61,7 +61,9 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *stateSuite) TestCreateMachine(c *tc.C) {
-	machineUUID, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	var (
 		obtainedMachineName string
@@ -86,13 +88,13 @@ func (s *stateSuite) TestCreateMachine(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceStatusInfo.Status, tc.Equals, status.InstanceStatusPending)
 
-	containerTypes, err := s.state.GetSupportedContainersTypes(c.Context(), machineUUID)
+	containerTypes, err := s.state.GetSupportedContainersTypes(c.Context(), "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(containerTypes, tc.DeepEquals, []string{"lxd"})
 }
 
 func (s *stateSuite) TestCreateMachineWithNonce(c *tc.C) {
-	_, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
 		Nonce: ptr("nonce-123"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -126,11 +128,13 @@ func (s *stateSuite) TestCreateMachineWithNonce(c *tc.C) {
 // CreateMachineWithParent at the state layer.
 func (s *stateSuite) TestCreateMachineWithParentSuccess(c *tc.C) {
 	// Create the parent first.
-	parentUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "parent-uuid",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create the machine with the created parent.
-	_, mName, err := s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{}, parentUUID)
+	mName, err := s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{}, "parent-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Make sure the newly created machine with parent has been created.
@@ -145,7 +149,7 @@ FROM    machine
 WHERE   parent.parent_uuid = ?
 	`
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, parentStmt, parentUUID).Scan(&obtainedMachineName)
+		err := tx.QueryRowContext(ctx, parentStmt, "parent-uuid").Scan(&obtainedMachineName)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -158,7 +162,7 @@ WHERE   parent.parent_uuid = ?
 // TestCreateMachineWithParentNotFound asserts that a NotFound error is returned
 // when the parent machine is not found.
 func (s *stateSuite) TestCreateMachineWithParentNotFound(c *tc.C) {
-	_, _, err := s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{}, "unknown-parent-uuid")
+	_, err := s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{}, "unknown-parent-uuid")
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
@@ -167,19 +171,23 @@ func (s *stateSuite) TestCreateMachineWithParentNotFound(c *tc.C) {
 // machine.
 func (s *stateSuite) TestCreateMachineWithGrandParentNotAllowed(c *tc.C) {
 	// Create the parent machine first.
-	grandParentUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "grand-parent-uuid",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	// Create the machine with the created parent.
-	parentUUID, _, err := s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{}, grandParentUUID)
+	_, err = s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "parent-uuid",
+	}, "grand-parent-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	// This fails.
-	_, _, err = s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{}, parentUUID)
+	_, err = s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{}, "parent-uuid")
 	c.Assert(err, tc.ErrorIs, machineerrors.GrandParentNotSupported)
 }
 
 // TestDeleteMachine asserts the happy path of DeleteMachine at the state layer.
 func (s *stateSuite) TestDeleteMachine(c *tc.C) {
-	_, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	bd := blockdevice.BlockDevice{
@@ -219,7 +227,9 @@ func (s *stateSuite) insertBlockDevice(c *tc.C, bd blockdevice.BlockDevice, bloc
 // TestDeleteMachineStatus asserts that DeleteMachine at the state layer removes
 // any machine status and status data when deleting a machine.
 func (s *stateSuite) TestDeleteMachineStatus(c *tc.C) {
-	machineUUID, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	bd := blockdevice.BlockDevice{
@@ -249,7 +259,7 @@ func (s *stateSuite) TestDeleteMachineStatus(c *tc.C) {
 
 	var status int
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM machine_status WHERE machine_uuid=?", machineUUID).Scan(&status)
+		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM machine_status WHERE machine_uuid=?", "deadbeef").Scan(&status)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -286,7 +296,9 @@ VALUES (?, ?)
 // TestGetMachineLifeSuccess asserts the happy path of GetMachineLife at the
 // state layer.
 func (s *stateSuite) TestGetMachineLifeSuccess(c *tc.C) {
-	_, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedLife, err := s.state.GetMachineLife(c.Context(), machineName)
@@ -303,10 +315,10 @@ func (s *stateSuite) TestGetMachineLifeNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestListAllMachines(c *tc.C) {
-	_, mn0, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	mn0, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, mn1, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	mn1, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	machines, err := s.state.AllMachineNames(c.Context())
@@ -323,7 +335,9 @@ func (s *stateSuite) TestListAllMachines(c *tc.C) {
 // TestGetMachineStatusSuccess asserts the happy path of GetMachineStatus at the
 // state layer.
 func (s *stateSuite) TestGetMachineStatusSuccess(c *tc.C) {
-	machineUUID, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Add a status value for this machine into the
@@ -335,7 +349,7 @@ UPDATE machine_status
 SET status_id='1', 
 	message='started', 
 	updated_at='2024-07-12 12:00:00'
-WHERE machine_uuid=?`, machineUUID)
+WHERE machine_uuid=?`, "deadbeef")
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -352,7 +366,9 @@ WHERE machine_uuid=?`, machineUUID)
 // TestGetMachineStatusWithData asserts the happy path of GetMachineStatus at
 // the state layer.
 func (s *stateSuite) TestGetMachineStatusSuccessWithData(c *tc.C) {
-	machineUUID, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Add a status value for this machine into the
@@ -365,7 +381,7 @@ SET status_id='1',
 	message='started', 
 	data='{"key":"data"}',
 	updated_at='2024-07-12 12:00:00'
-WHERE machine_uuid=?`, machineUUID)
+WHERE machine_uuid=?`, "deadbeef")
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -390,7 +406,9 @@ func (s *stateSuite) TestGetMachineStatusNotFoundError(c *tc.C) {
 // TestGetMachineStatusPendingOnCreateMachine asserts that a Pending status is
 // returned when creating a machine.
 func (s *stateSuite) TestGetMachineStatusPendingOnCreateMachine(c *tc.C) {
-	_, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), machineName)
@@ -401,11 +419,13 @@ func (s *stateSuite) TestGetMachineStatusPendingOnCreateMachine(c *tc.C) {
 // TestGetMachineStatusNotSetError asserts that a Pending status is
 // returned when creating a machine.
 func (s *stateSuite) TestGetMachineStatusNotSetError(c *tc.C) {
-	machineUUID, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "DELETE FROM machine_status WHERE machine_uuid=?", machineUUID)
+		_, err := tx.ExecContext(ctx, "DELETE FROM machine_status WHERE machine_uuid=?", "deadbeef")
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -417,7 +437,10 @@ func (s *stateSuite) TestGetMachineStatusNotSetError(c *tc.C) {
 // TestSetMachineStatusSuccess asserts the happy path of SetMachineStatus at the
 // state layer.
 func (s *stateSuite) TestSetMachineStatusSuccess(c *tc.C) {
-	_, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectedStatus := status.StatusInfo[status.MachineStatusType]{
@@ -436,7 +459,9 @@ func (s *stateSuite) TestSetMachineStatusSuccess(c *tc.C) {
 // TestSetMachineStatusSuccessWithData asserts the happy path of
 // SetMachineStatus at the state layer.
 func (s *stateSuite) TestSetMachineStatusSuccessWithData(c *tc.C) {
-	_, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectedStatus := status.StatusInfo[status.MachineStatusType]{
@@ -466,7 +491,9 @@ func (s *stateSuite) TestSetMachineStatusNotFoundError(c *tc.C) {
 // TestSetMachineLifeSuccess asserts the happy path of SetMachineLife at the
 // state layer.
 func (s *stateSuite) TestSetMachineLifeSuccess(c *tc.C) {
-	_, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert the life status is initially Alive
@@ -502,9 +529,9 @@ func (s *stateSuite) TestListAllMachinesEmpty(c *tc.C) {
 // TestListAllMachineNamesSuccess asserts the happy path of AllMachineNames at
 // the state layer.
 func (s *stateSuite) TestListAllMachineNamesSuccess(c *tc.C) {
-	_, mn0, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	mn0, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
-	_, mn1, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	mn1, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	machines, err := s.state.AllMachineNames(c.Context())
@@ -530,7 +557,9 @@ func (s *stateSuite) TestIsMachineControllerApplicationNonController(c *tc.C) {
 }
 
 func (s *stateSuite) TestIsMachineControllerFailure(c *tc.C) {
-	_, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	isController, err := s.state.IsMachineController(c.Context(), machineName)
@@ -579,17 +608,21 @@ func (s *stateSuite) TestIsMachineManuallyProvisionedNotFound(c *tc.C) {
 // GetMachineParentUUID at the state layer.
 func (s *stateSuite) TestGetMachineParentUUIDSuccess(c *tc.C) {
 	// Create the parent machine first.
-	parentUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "parent-uuid",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create the machine with the created parent.
-	machineUUID, _, err := s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{}, parentUUID)
+	_, err = s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "child-uuid",
+	}, "parent-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the parent UUID of the machine.
-	obtainedParentUUID, err := s.state.GetMachineParentUUID(c.Context(), machineUUID)
+	obtainedParentUUID, err := s.state.GetMachineParentUUID(c.Context(), "child-uuid")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedParentUUID, tc.Equals, parentUUID)
+	c.Assert(obtainedParentUUID, tc.Equals, "parent-uuid")
 }
 
 // TestGetMachineParentUUIDNotFound asserts that a NotFound error is returned
@@ -602,17 +635,21 @@ func (s *stateSuite) TestGetMachineParentUUIDNotFound(c *tc.C) {
 // TestGetMachineParentUUIDNoParent asserts that a NotFound error is returned
 // when the machine has no parent.
 func (s *stateSuite) TestGetMachineParentUUIDNoParent(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.GetMachineParentUUID(c.Context(), machineUUID)
+	_, err = s.state.GetMachineParentUUID(c.Context(), "deadbeef")
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineHasNoParent)
 }
 
 // TestMarkMachineForRemovalSuccess asserts the happy path of
 // MarkMachineForRemoval at the state layer.
 func (s *stateSuite) TestMarkMachineForRemovalSuccess(c *tc.C) {
-	machineUUID, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.MarkMachineForRemoval(c.Context(), machineName)
@@ -620,16 +657,18 @@ func (s *stateSuite) TestMarkMachineForRemovalSuccess(c *tc.C) {
 
 	var obtainedMachineUUID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, "SELECT machine_uuid FROM machine_removals WHERE machine_uuid=?", machineUUID).Scan(&obtainedMachineUUID)
+		return tx.QueryRowContext(ctx, "SELECT machine_uuid FROM machine_removals WHERE machine_uuid=?", "deadbeef").Scan(&obtainedMachineUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedMachineUUID, tc.Equals, machineUUID.String())
+	c.Assert(obtainedMachineUUID, tc.Equals, "deadbeef")
 }
 
 // TestMarkMachineForRemovalSuccessIdempotent asserts that marking a machine for
 // removal multiple times is idempotent.
 func (s *stateSuite) TestMarkMachineForRemovalSuccessIdempotent(c *tc.C) {
-	machineUUID, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.MarkMachineForRemoval(c.Context(), machineName)
@@ -641,7 +680,7 @@ func (s *stateSuite) TestMarkMachineForRemovalSuccessIdempotent(c *tc.C) {
 	machines, err := s.state.GetAllMachineRemovals(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machines, tc.HasLen, 1)
-	c.Assert(machines[0], tc.Equals, machineUUID)
+	c.Assert(machines[0], tc.Equals, "deadbeef")
 }
 
 // TestMarkMachineForRemovalNotFound asserts that a NotFound error is returned
@@ -656,7 +695,9 @@ func (s *stateSuite) TestMarkMachineForRemovalNotFound(c *tc.C) {
 // TestGetAllMachineRemovalsSuccess asserts the happy path of
 // GetAllMachineRemovals at the state layer.
 func (s *stateSuite) TestGetAllMachineRemovalsSuccess(c *tc.C) {
-	machineUUID, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.MarkMachineForRemoval(c.Context(), machineName)
@@ -665,7 +706,7 @@ func (s *stateSuite) TestGetAllMachineRemovalsSuccess(c *tc.C) {
 	machines, err := s.state.GetAllMachineRemovals(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machines, tc.HasLen, 1)
-	c.Assert(machines[0], tc.Equals, machineUUID)
+	c.Assert(machines[0], tc.Equals, "deadbeef")
 }
 
 // TestGetAllMachineRemovalsEmpty asserts that GetAllMachineRemovals returns an
@@ -679,13 +720,16 @@ func (s *stateSuite) TestGetAllMachineRemovalsEmpty(c *tc.C) {
 // TestGetSomeMachineRemovals asserts the happy path of GetAllMachineRemovals at
 // the state layer for a subset of machines.
 func (s *stateSuite) TestGetSomeMachineRemovals(c *tc.C) {
-	uuid0, name0, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	name0, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid0",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, _, err = s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
-	c.Assert(err, tc.ErrorIsNil)
-
-	uuid2, name2, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	name2, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid2",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.MarkMachineForRemoval(c.Context(), name0)
@@ -697,8 +741,8 @@ func (s *stateSuite) TestGetSomeMachineRemovals(c *tc.C) {
 	machines, err := s.state.GetAllMachineRemovals(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machines, tc.HasLen, 2)
-	c.Assert(machines[0], tc.Equals, uuid0)
-	c.Assert(machines[1], tc.Equals, uuid2)
+	c.Assert(machines[0], tc.Equals, "uuid0")
+	c.Assert(machines[1], tc.Equals, "uuid2")
 }
 
 // TestGetMachineUUIDNotFound asserts that a NotFound error is returned
@@ -710,16 +754,18 @@ func (s *stateSuite) TestGetMachineUUIDNotFound(c *tc.C) {
 
 // TestGetMachineUUID asserts that the uuid is returned from a machine name
 func (s *stateSuite) TestGetMachineUUID(c *tc.C) {
-	machineUUID, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	name, err := s.state.GetMachineUUID(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(name, tc.Equals, machineUUID)
+	c.Assert(name, tc.Equals, "deadbeef")
 }
 
 func (s *stateSuite) TestKeepInstance(c *tc.C) {
-	_, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	isController, err := s.state.ShouldKeepInstance(c.Context(), machineName)
@@ -747,7 +793,7 @@ func (s *stateSuite) TestKeepInstanceNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetKeepInstance(c *tc.C) {
-	_, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.SetKeepInstance(c.Context(), machineName, true)
 	c.Assert(err, tc.ErrorIsNil)
@@ -772,17 +818,19 @@ func (s *stateSuite) TestSetKeepInstanceNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetAppliedLXDProfileNames(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), machineUUID, instance.Id("123"), "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetAppliedLXDProfileNames(c.Context(), machineUUID, []string{"profile1", "profile2"})
+	err = s.state.SetAppliedLXDProfileNames(c.Context(), "deadbeef", []string{"profile1", "profile2"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the profile names are in the machine_lxd_profile table.
 	var profiles []string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT name FROM machine_lxd_profile WHERE machine_uuid = ?", machineUUID)
+		rows, err := tx.QueryContext(ctx, "SELECT name FROM machine_lxd_profile WHERE machine_uuid = ?", "deadbeef")
 		if err != nil {
 			return err
 		}
@@ -804,27 +852,29 @@ func (s *stateSuite) TestSetAppliedLXDProfileNames(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetLXDProfilesPartial(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), machineUUID, instance.Id("123"), "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Insert a single lxd profile.
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO machine_lxd_profile VALUES
-(?, "profile2", 0)`, machineUUID)
+(?, "profile2", 0)`, "deadbeef")
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetAppliedLXDProfileNames(c.Context(), machineUUID, []string{"profile1", "profile2"})
+	err = s.state.SetAppliedLXDProfileNames(c.Context(), "deadbeef", []string{"profile1", "profile2"})
 	// This shouldn't fail, but add the missing profile to the table.
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the profile names are in the machine_lxd_profile table.
 	var profiles []string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT name FROM machine_lxd_profile WHERE machine_uuid = ?", machineUUID)
+		rows, err := tx.QueryContext(ctx, "SELECT name FROM machine_lxd_profile WHERE machine_uuid = ?", "deadbeef")
 		if err != nil {
 			return err
 		}
@@ -846,36 +896,38 @@ func (s *stateSuite) TestSetLXDProfilesPartial(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetLXDProfilesOverwriteAll(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), machineUUID, instance.Id("123"), "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Insert 3 lxd profiles.
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO machine_lxd_profile VALUES
-(?, "profile1", 0)`, machineUUID)
+(?, "profile1", 0)`, "deadbeef")
 		if err != nil {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `INSERT INTO machine_lxd_profile VALUES
-(?, "profile2", 1)`, machineUUID)
+(?, "profile2", 1)`, "deadbeef")
 		if err != nil {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `INSERT INTO machine_lxd_profile VALUES
-(?, "profile3", 2)`, machineUUID)
+(?, "profile3", 2)`, "deadbeef")
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetAppliedLXDProfileNames(c.Context(), machineUUID, []string{"profile1", "profile4"})
+	err = s.state.SetAppliedLXDProfileNames(c.Context(), "deadbeef", []string{"profile1", "profile4"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the profile names are in the machine_lxd_profile table.
 	var profiles []string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT name FROM machine_lxd_profile WHERE machine_uuid = ?", machineUUID)
+		rows, err := tx.QueryContext(ctx, "SELECT name FROM machine_lxd_profile WHERE machine_uuid = ?", "deadbeef")
 		if err != nil {
 			return err
 		}
@@ -897,14 +949,16 @@ func (s *stateSuite) TestSetLXDProfilesOverwriteAll(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetLXDProfilesSameOrder(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), machineUUID, instance.Id("123"), "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetAppliedLXDProfileNames(c.Context(), machineUUID, []string{"profile3", "profile1", "profile2"})
+	err = s.state.SetAppliedLXDProfileNames(c.Context(), "deadbeef", []string{"profile3", "profile1", "profile2"})
 	c.Assert(err, tc.ErrorIsNil)
 
-	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), machineUUID)
+	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(profiles, tc.DeepEquals, []string{"profile3", "profile1", "profile2"})
 }
@@ -915,83 +969,99 @@ func (s *stateSuite) TestSetLXDProfilesNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetLXDProfilesNotProvisioned(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetAppliedLXDProfileNames(c.Context(), machineUUID, []string{"profile3", "profile1", "profile2"})
+	err = s.state.SetAppliedLXDProfileNames(c.Context(), "deadbeef", []string{"profile3", "profile1", "profile2"})
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 
 func (s *stateSuite) TestSetLXDProfilesEmpty(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), machineUUID, instance.Id("123"), "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetAppliedLXDProfileNames(c.Context(), machineUUID, []string{})
+	err = s.state.SetAppliedLXDProfileNames(c.Context(), "deadbeef", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), machineUUID)
+	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(profiles, tc.HasLen, 0)
 }
 
 func (s *stateSuite) TestAppliedLXDProfileNames(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), machineUUID, instance.Id("123"), "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Insert 2 lxd profiles.
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO machine_lxd_profile VALUES
-(?, "profile1", 0)`, machineUUID)
+(?, "profile1", 0)`, "deadbeef")
 		if err != nil {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `INSERT INTO machine_lxd_profile VALUES
-(?, "profile2", 1)`, machineUUID)
+(?, "profile2", 1)`, "deadbeef")
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), machineUUID)
+	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(profiles, tc.DeepEquals, []string{"profile1", "profile2"})
 }
 
 func (s *stateSuite) TestAppliedLXDProfileNamesNotProvisioned(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), machineUUID)
+	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), "deadbeef")
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 	c.Check(profiles, tc.HasLen, 0)
 }
 
 func (s *stateSuite) TestAppliedLXDProfileNamesNoErrorEmpty(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), machineUUID, instance.Id("123"), "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), machineUUID)
+	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(profiles, tc.HasLen, 0)
 }
 
 func (s *stateSuite) TestGetNamesForUUIDs(c *tc.C) {
 	// Arrange
-	uuid0, mn0, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	mn0, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid0",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	uuid1, mn1, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	mn1, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid1",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	uuid2, mn2, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	mn2, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid2",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	expected := map[machine.UUID]machine.Name{
-		uuid0: mn0,
-		uuid1: mn1,
-		uuid2: mn2,
+		machine.UUID("uuid0"): mn0,
+		machine.UUID("uuid1"): mn1,
+		machine.UUID("uuid2"): mn2,
 	}
 
 	// Act
-	obtained, err := s.state.GetNamesForUUIDs(c.Context(), []machine.UUID{uuid0, uuid1, uuid2})
+	obtained, err := s.state.GetNamesForUUIDs(c.Context(), []string{"uuid0", "uuid1", "uuid2"})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1000,7 +1070,7 @@ func (s *stateSuite) TestGetNamesForUUIDs(c *tc.C) {
 
 func (s *stateSuite) TestGetNamesForUUIDsNotFound(c *tc.C) {
 	// Act
-	_, err := s.state.GetNamesForUUIDs(c.Context(), []machine.UUID{"deadbeef"})
+	_, err := s.state.GetNamesForUUIDs(c.Context(), []string{"deadbeef"})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
@@ -1011,14 +1081,16 @@ func (s *stateSuite) TestGetAllProvisionedMachineInstanceID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machineInstances, tc.HasLen, 0)
 
-	machineUUID, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	machineInstances, err = s.state.GetAllProvisionedMachineInstanceID(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machineInstances, tc.HasLen, 0)
 
-	err = s.state.SetMachineCloudInstance(c.Context(), machineUUID, instance.Id("123"), "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	machineInstances, err = s.state.GetAllProvisionedMachineInstanceID(c.Context())
@@ -1029,14 +1101,18 @@ func (s *stateSuite) TestGetAllProvisionedMachineInstanceID(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetAllProvisionedMachineInstanceIDContainer(c *tc.C) {
-	parentUUID, parentName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	parentName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "parent-uuid",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	machineUUID, _, err := s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{}, parentUUID)
+	_, err = s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "child-uuid",
+	}, "parent-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetMachineCloudInstance(c.Context(), machineUUID, instance.Id("123"), "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "child-uuid", instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), parentUUID, instance.Id("124"), "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "parent-uuid", instance.Id("124"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	machineInstances, err := s.state.GetAllProvisionedMachineInstanceID(c.Context())
@@ -1047,10 +1123,12 @@ func (s *stateSuite) TestGetAllProvisionedMachineInstanceIDContainer(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetMachineHostname(c *tc.C) {
-	mUUID, mName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	mName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetMachineHostname(c.Context(), mUUID, "my-hostname")
+	err = s.state.SetMachineHostname(c.Context(), "deadbeef", "my-hostname")
 	c.Assert(err, tc.ErrorIsNil)
 
 	var hostname string
@@ -1062,10 +1140,12 @@ func (s *stateSuite) TestSetMachineHostname(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetMachineHostnameEmpty(c *tc.C) {
-	mUUID, mName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	mName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetMachineHostname(c.Context(), mUUID, "")
+	err = s.state.SetMachineHostname(c.Context(), "deadbeef", "")
 	c.Assert(err, tc.ErrorIsNil)
 
 	var hostname *string
@@ -1082,10 +1162,12 @@ func (s *stateSuite) TestSetMachineHostnameNoMachine(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetSupportedContainersTypes(c *tc.C) {
-	mUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	containerTypes, err := s.state.GetSupportedContainersTypes(c.Context(), mUUID)
+	containerTypes, err := s.state.GetSupportedContainersTypes(c.Context(), "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(containerTypes, tc.DeepEquals, []string{"lxd"})

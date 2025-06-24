@@ -69,19 +69,23 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	m0uuid, _, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err = machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid0",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	m1uuid, _, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err = machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid1",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	machineUUIDs = []string{string(m0uuid), string(m1uuid)}
-	netNodeUUIDs = []string{s.getNetNodeUUID(c, m0uuid), s.getNetNodeUUID(c, m1uuid)}
+	machineUUIDs = []string{"uuid0", "uuid1"}
+	netNodeUUIDs = []string{s.getNetNodeUUID(c, "uuid0"), s.getNetNodeUUID(c, "uuid1")}
 
 	s.appUUID = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")
 	s.unitUUID, s.unitName = s.createUnit(c, netNodeUUIDs[0], appNames[0])
 }
 
-func (s *baseSuite) getNetNodeUUID(c *tc.C, mUUID machine.UUID) string {
+func (s *baseSuite) getNetNodeUUID(c *tc.C, mUUID string) string {
 	var netNodeUUID string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM machine WHERE uuid = ?", mUUID).Scan(&netNodeUUID)

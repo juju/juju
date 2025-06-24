@@ -25,7 +25,7 @@ func (st *State) RequireMachineReboot(ctx context.Context, uuid machine.UUID) er
 	if err != nil {
 		return errors.Capture(err)
 	}
-	machineUUIDParam := machineUUID{uuid}
+	machineUUIDParam := machineUUID{uuid.String()}
 	setRebootFlag := `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ($machineUUID.uuid)`
 	setRebootFlagStmt, err := sqlair.Prepare(setRebootFlag, machineUUIDParam)
 	if err != nil {
@@ -57,7 +57,7 @@ func (st *State) ClearMachineReboot(ctx context.Context, uuid machine.UUID) erro
 	if err != nil {
 		return errors.Capture(err)
 	}
-	machineUUIDParam := machineUUID{uuid}
+	machineUUIDParam := machineUUID{uuid.String()}
 	unsetRebootFlag := `DELETE FROM machine_requires_reboot WHERE machine_uuid = $machineUUID.uuid`
 	unsetRebootFlagStmt, err := sqlair.Prepare(unsetRebootFlag, machineUUIDParam)
 	if err != nil {
@@ -84,7 +84,7 @@ func (st *State) IsMachineRebootRequired(ctx context.Context, uuid machine.UUID)
 	}
 
 	var isRebootRequired bool
-	machineUUIDParam := machineUUID{uuid}
+	machineUUIDParam := machineUUID{uuid.String()}
 	isRebootFlag := `SELECT machine_uuid as &machineUUID.uuid  FROM machine_requires_reboot WHERE machine_uuid = $machineUUID.uuid`
 	isRebootFlagStmt, err := sqlair.Prepare(isRebootFlag, machineUUIDParam)
 	if err != nil {
@@ -128,7 +128,7 @@ func (st *State) ShouldRebootOrShutdown(ctx context.Context, uuid machine.UUID) 
 	}
 
 	// Prepare query to get parent UUID
-	machineUUIDParam := machineUUID{uuid}
+	machineUUIDParam := machineUUID{uuid.String()}
 	getParentQuery := `SELECT machine_parent.parent_uuid as &machineUUID.uuid  FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
 	getParentStmt, err := sqlair.Prepare(getParentQuery, machineUUIDParam)
 	if err != nil {

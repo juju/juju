@@ -14,8 +14,7 @@ import (
 	reflect "reflect"
 
 	instance "github.com/juju/juju/core/instance"
-	machine "github.com/juju/juju/core/machine"
-	machine0 "github.com/juju/juju/domain/machine"
+	machine "github.com/juju/juju/domain/machine"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -81,7 +80,7 @@ func (c *MockMigrationStateCreateMachineCall) DoAndReturn(f func(context.Context
 }
 
 // GetHardwareCharacteristics mocks base method.
-func (m *MockMigrationState) GetHardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
+func (m *MockMigrationState) GetHardwareCharacteristics(arg0 context.Context, arg1 string) (*instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetHardwareCharacteristics", arg0, arg1)
 	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
@@ -108,19 +107,19 @@ func (c *MockMigrationStateGetHardwareCharacteristicsCall) Return(arg0 *instance
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMigrationStateGetHardwareCharacteristicsCall) Do(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockMigrationStateGetHardwareCharacteristicsCall {
+func (c *MockMigrationStateGetHardwareCharacteristicsCall) Do(f func(context.Context, string) (*instance.HardwareCharacteristics, error)) *MockMigrationStateGetHardwareCharacteristicsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMigrationStateGetHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockMigrationStateGetHardwareCharacteristicsCall {
+func (c *MockMigrationStateGetHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, string) (*instance.HardwareCharacteristics, error)) *MockMigrationStateGetHardwareCharacteristicsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetInstanceID mocks base method.
-func (m *MockMigrationState) GetInstanceID(arg0 context.Context, arg1 machine.UUID) (string, error) {
+func (m *MockMigrationState) GetInstanceID(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetInstanceID", arg0, arg1)
 	ret0, _ := ret[0].(string)
@@ -147,22 +146,22 @@ func (c *MockMigrationStateGetInstanceIDCall) Return(arg0 string, arg1 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMigrationStateGetInstanceIDCall) Do(f func(context.Context, machine.UUID) (string, error)) *MockMigrationStateGetInstanceIDCall {
+func (c *MockMigrationStateGetInstanceIDCall) Do(f func(context.Context, string) (string, error)) *MockMigrationStateGetInstanceIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMigrationStateGetInstanceIDCall) DoAndReturn(f func(context.Context, machine.UUID) (string, error)) *MockMigrationStateGetInstanceIDCall {
+func (c *MockMigrationStateGetInstanceIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockMigrationStateGetInstanceIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetMachinesForExport mocks base method.
-func (m *MockMigrationState) GetMachinesForExport(ctx context.Context) ([]machine0.ExportMachine, error) {
+func (m *MockMigrationState) GetMachinesForExport(ctx context.Context) ([]machine.ExportMachine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachinesForExport", ctx)
-	ret0, _ := ret[0].([]machine0.ExportMachine)
+	ret0, _ := ret[0].([]machine.ExportMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -180,19 +179,19 @@ type MockMigrationStateGetMachinesForExportCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMigrationStateGetMachinesForExportCall) Return(arg0 []machine0.ExportMachine, arg1 error) *MockMigrationStateGetMachinesForExportCall {
+func (c *MockMigrationStateGetMachinesForExportCall) Return(arg0 []machine.ExportMachine, arg1 error) *MockMigrationStateGetMachinesForExportCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMigrationStateGetMachinesForExportCall) Do(f func(context.Context) ([]machine0.ExportMachine, error)) *MockMigrationStateGetMachinesForExportCall {
+func (c *MockMigrationStateGetMachinesForExportCall) Do(f func(context.Context) ([]machine.ExportMachine, error)) *MockMigrationStateGetMachinesForExportCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMigrationStateGetMachinesForExportCall) DoAndReturn(f func(context.Context) ([]machine0.ExportMachine, error)) *MockMigrationStateGetMachinesForExportCall {
+func (c *MockMigrationStateGetMachinesForExportCall) DoAndReturn(f func(context.Context) ([]machine.ExportMachine, error)) *MockMigrationStateGetMachinesForExportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
