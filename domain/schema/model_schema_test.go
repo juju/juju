@@ -247,6 +247,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"storage_volume_status",
 		"storage_volume_status_value",
 		"unit_storage_directive",
+		"storage_provision_scope",
 
 		// Secret
 		"secret_rotate_policy",
