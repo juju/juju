@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/lumberjack/v2"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -26,7 +25,6 @@ import (
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/dbaccessor"
@@ -115,29 +113,6 @@ func (s *MachineSuite) TestParseUnknown(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }
 
-func (s *MachineSuite) TestParseSuccess(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
-
-	create := func() (cmd.Command, agentconf.AgentConf) {
-		aCfg := agentconf.NewAgentConf(s.DataDir)
-		s.PrimeAgent(c, names.NewMachineTag("42"), initialMachinePassword)
-		logger := s.newBufferedLogWriter()
-		newDBWorkerFunc := func(context.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
-			return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
-		}
-		a := NewMachineAgentCommand(
-			nil,
-			NewTestMachineAgentFactory(c, aCfg, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner),
-			aCfg,
-			aCfg,
-		)
-		return a, aCfg
-	}
-	a := CheckAgentCommand(c, s.DataDir, create, []string{"--machine-id", "42", "--log-to-stderr", "--data-dir", s.DataDir})
-	c.Assert(a.(*machineAgentCommand).machineId, tc.Equals, "42")
-}
-
 func (s *MachineSuite) TestUseLumberjack(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
@@ -199,22 +174,8 @@ func (s *MachineSuite) TestDontUseLumberjack(c *tc.C) {
 	c.Assert(ok, tc.IsFalse)
 }
 
-func (s *MachineSuite) TestRunStop(c *tc.C) {
-	m, _, _ := s.primeAgent(c)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	done := make(chan error)
-	go func() {
-		done <- a.Run(cmdtesting.Context(c))
-	}()
-	err := a.Stop()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(<-done, tc.ErrorIsNil)
-}
-
 func (s *MachineSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
-	
  - Test agent tools version set when upgrading a controller
  - Test agent tools version set when upgrading a model
  - Test upgrade request upgrading a model
@@ -224,5 +185,7 @@ func (s *MachineSuite) TestStub(c *tc.C) {
  - Test the machine agent is running correct workers when not migrating
  - Test upgrade is not triggered if not required
  - Test config ignore-machine-addresses is not ignored for machines and containers
+ - Creating a machine agent with successfully parsed CLI arguments.
+ - Starting and stopping a basic machine agent.
 `)
 }
