@@ -38,7 +38,6 @@ type ModelConfigAPI struct {
 	modelUUID      coremodel.UUID
 
 	modelAgentService         ModelAgentService
-	backend                   Backend
 	modelConfigService        ModelConfigService
 	modelSecretBackendService ModelSecretBackendService
 	modelSericve              ModelService
@@ -54,7 +53,6 @@ func NewModelConfigAPI(
 	authorizer facade.Authorizer,
 	controllerUUID string,
 	modelUUID coremodel.UUID,
-	backend Backend,
 	modelAgentService ModelAgentService,
 	blockCommandService common.BlockCommandService,
 	modelConfigService ModelConfigService,
@@ -71,7 +69,6 @@ func NewModelConfigAPI(
 		modelUUID:      modelUUID,
 
 		modelAgentService:         modelAgentService,
-		backend:                   backend,
 		modelConfigService:        modelConfigService,
 		modelSecretBackendService: modelSecretBackendService,
 		modelSericve:              modelSericve,
@@ -369,12 +366,11 @@ func (c *ModelConfigAPI) Sequences(ctx context.Context) (params.ModelSequencesRe
 		return result, errors.Trace(err)
 	}
 
-	values, err := c.backend.Sequences()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
+	// TODO (manadart 2025-06-24): This is used for exporting bundles.
+	// It may:
+	// - Have no legitimate use under Dqlite.
+	// - Be redundant if we do not carry bundle export forward.
 
-	result.Sequences = values
 	return result, nil
 }
 
