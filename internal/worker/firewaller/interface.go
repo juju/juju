@@ -4,10 +4,10 @@
 package firewaller
 
 import (
+	"io"
+
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
-
-	"io"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller/firewaller"

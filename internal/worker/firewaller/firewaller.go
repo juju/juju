@@ -5,7 +5,6 @@ package firewaller
 
 import (
 	stdcontext "context"
-	//"log"
 	"sort"
 	"time"
 
