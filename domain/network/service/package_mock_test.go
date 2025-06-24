@@ -433,18 +433,18 @@ func (c *MockStateGetAllSubnetsCall) DoAndReturn(f func(context.Context) (networ
 }
 
 // GetContainerNetworkingMethod mocks base method.
-func (m *MockState) GetContainerNetworkingMethod() (string, error) {
+func (m *MockState) GetContainerNetworkingMethod(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerNetworkingMethod")
+	ret := m.ctrl.Call(m, "GetContainerNetworkingMethod", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetContainerNetworkingMethod indicates an expected call of GetContainerNetworkingMethod.
-func (mr *MockStateMockRecorder) GetContainerNetworkingMethod() *MockStateGetContainerNetworkingMethodCall {
+func (mr *MockStateMockRecorder) GetContainerNetworkingMethod(arg0 any) *MockStateGetContainerNetworkingMethodCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerNetworkingMethod", reflect.TypeOf((*MockState)(nil).GetContainerNetworkingMethod))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerNetworkingMethod", reflect.TypeOf((*MockState)(nil).GetContainerNetworkingMethod), arg0)
 	return &MockStateGetContainerNetworkingMethodCall{Call: call}
 }
 
@@ -460,13 +460,13 @@ func (c *MockStateGetContainerNetworkingMethodCall) Return(arg0 string, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetContainerNetworkingMethodCall) Do(f func() (string, error)) *MockStateGetContainerNetworkingMethodCall {
+func (c *MockStateGetContainerNetworkingMethodCall) Do(f func(context.Context) (string, error)) *MockStateGetContainerNetworkingMethodCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetContainerNetworkingMethodCall) DoAndReturn(f func() (string, error)) *MockStateGetContainerNetworkingMethodCall {
+func (c *MockStateGetContainerNetworkingMethodCall) DoAndReturn(f func(context.Context) (string, error)) *MockStateGetContainerNetworkingMethodCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

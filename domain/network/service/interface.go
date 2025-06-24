@@ -53,6 +53,9 @@ type State interface {
 	NetConfigState
 	ContainerState
 	NetConfigMigrationState
+
+	// GetMachineNetNodeUUID returns the net node UUID for the input machine UUID.
+	GetMachineNetNodeUUID(ctx context.Context, machineUUID string) (string, error)
 }
 
 // SpaceState describes persistence layer methods for the space (sub-) domain.
@@ -115,8 +118,6 @@ type SubnetState interface {
 // NetConfigState describes persistence layer methods for
 // working with link-layer devices and IP addresses.
 type NetConfigState interface {
-	// GetMachineNetNodeUUID returns the net node UUID for the input machine UUID.
-	GetMachineNetNodeUUID(ctx context.Context, machineUUID string) (string, error)
 	// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit.
 	// The addresses are taken by unioning the net node UUIDs of the cloud service
 	// (if any) and the net node UUIDs of the unit, where each net node has an

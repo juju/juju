@@ -22,6 +22,8 @@ import (
 	internalNetwork "github.com/juju/juju/internal/network"
 )
 
+// ContainerState describes methods for determining and
+// satisfying container networking requirements.
 type ContainerState interface {
 	// GetMachineSpaceConstraints retrieves the positive and negative
 	// space constraints for the machine with the input UUID.
@@ -39,7 +41,7 @@ type ContainerState interface {
 
 	// GetContainerNetworkingMethod returns the model's configured value
 	// for container-networking-method.
-	GetContainerNetworkingMethod() (string, error)
+	GetContainerNetworkingMethod(ctx context.Context) (string, error)
 }
 
 // DevicesToBridge accepts the UUID of a host machine and a guest container/VM.
@@ -147,19 +149,21 @@ func (s *Service) nicsInSpaces(
 func (s *Service) devicesToBridge(
 	ctx context.Context, mUUID machine.UUID, spaceUUIDs []string, nics map[string][]network.NetInterface,
 ) ([]network.DeviceToBridge, error) {
-	netMethod, err := s.st.GetContainerNetworkingMethod()
+	netMethod, err := s.st.GetContainerNetworkingMethod(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	spacesLeftToSatisfy := set.NewStrings(spaceUUIDs...)
-	var devices []network.DeviceToBridge
+	var toBridge []network.DeviceToBridge
 
 nextSpace:
 	for spaceUUID, spaceNics := range nics {
 		if !spacesLeftToSatisfy.Contains(spaceUUID) {
 			continue
 		}
+
+		s.logger.Debugf(ctx, "looking for devices in space %q", spaceUUID)
 
 		// Check all bridges first.
 		// If any of these satisfy the space requirement, no action is required.
@@ -176,7 +180,7 @@ nextSpace:
 			}
 
 			spacesLeftToSatisfy.Remove(spaceUUID)
-			break nextSpace
+			continue nextSpace
 		}
 
 		// Next, check other interfaces to see if bridging
@@ -189,25 +193,25 @@ nextSpace:
 			}
 
 			if s.isValidBridgeCandidate(ctx, nic, nics) {
-				devices = append(devices, network.DeviceToBridge{
+				toBridge = append(toBridge, network.DeviceToBridge{
 					DeviceName: nic.Name,
 					BridgeName: bridgeNameForDevice(nic.Name),
 					MACAddress: *nic.MACAddress,
 				})
 
 				spacesLeftToSatisfy.Remove(spaceUUID)
-				break nextSpace
+				continue nextSpace
 			}
 		}
 	}
 
 	if spacesLeftToSatisfy.Size() != 0 {
 		return nil, errors.Errorf(
-			"host %q has no available device in space(s) %s", mUUID, spacesLeftToSatisfy,
+			"host %q has no available device in space(s) %v", mUUID, spacesLeftToSatisfy.SortedValues(),
 		).Add(domainerrors.SpaceRequirementsUnsatisfiable)
 	}
 
-	return devices, nil
+	return toBridge, nil
 }
 
 func (s *Service) isValidBridgeCandidate(
