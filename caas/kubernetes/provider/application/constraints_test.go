@@ -240,45 +240,74 @@ func (s *applyConstraintsSuite) TestNodeAntiAffinity(c *gc.C) {
 	c.Assert(pod.Affinity.PodAntiAffinity, gc.IsNil)
 }
 
-func (s *applyConstraintsSuite) TestRoundNumDownToPowerOfTwo(c *gc.C) {
-
+func (s *applyConstraintsSuite) TestDivideAndSpread(c *gc.C) {
 	tests := []struct {
 		name     string
-		input    uint64
-		expected uint64
+		total    uint64
+		parts    int
+		expected []uint64
 	}{
-		// Basic powers of two
-		{"Zero", 0, 0},
-		{"One", 1, 1},
-		{"Two", 2, 2},
-		{"Four", 4, 4},
-		{"Eight", 8, 8},
-		{"Sixteen", 16, 16},
-		{"ThirtyTwo", 32, 32},
-		{"SixtyFour", 64, 64},
-		{"MaxPowerOfTwo", 1 << 63, 1 << 63},
-
-		// Edge cases just above or below powers of two
-		{"JustBelow4", 3, 2},
-		{"JustAbove4", 5, 4},
-		{"JustBelow256", 255, 128},
-		{"JustAbove256", 257, 256},
-		{"JustBelow1024", 1023, 512},
-		{"JustAbove1024", 1025, 1024},
-
-		// Large values
-		{"MaxUint64", ^uint64(0), 1 << 63},
-		{"HighValueBit62", 1<<62 + 123456, 1 << 62},
-
-		// Random mid range values
-		{"Random45", 45, 32},
-		{"Random123", 123, 64},
-		{"Random999", 999, 512},
-		{"Random2049", 2049, 1024},
-		{"Random60000", 60000, 32768},
+		{
+			name:     "Evenly divisible",
+			total:    10,
+			parts:    2,
+			expected: []uint64{5, 5},
+		},
+		{
+			name:     "Remainder distributed to front",
+			total:    10,
+			parts:    3,
+			expected: []uint64{4, 3, 3},
+		},
+		{
+			name:     "Remainder distributed to multiple fronts",
+			total:    10,
+			parts:    4,
+			expected: []uint64{3, 3, 2, 2},
+		},
+		{
+			name:     "More parts than total",
+			total:    3,
+			parts:    5,
+			expected: []uint64{1, 1, 1, 0, 0},
+		},
+		{
+			name:     "Zero total",
+			total:    0,
+			parts:    3,
+			expected: []uint64{0, 0, 0},
+		},
+		{
+			name:     "Single part",
+			total:    10,
+			parts:    1,
+			expected: []uint64{10},
+		},
+		{
+			name:     "Total equals parts",
+			total:    10,
+			parts:    10,
+			expected: []uint64{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+		},
+		{
+			name:     "Zero parts (edge case)",
+			total:    10,
+			parts:    0,
+			expected: nil,
+		},
 	}
 
 	for _, tt := range tests {
-		c.Assert(application.RoundNumDownToPowerOfTwo(tt.input), gc.Equals, tt.expected)
+		obtained := application.DivideAndSpread(tt.total, tt.parts)
+		c.Assert(obtained, gc.DeepEquals, tt.expected)
+
+		//  sum must match total (when parts > 0)
+		if tt.parts > 0 && obtained != nil {
+			sum := uint64(0)
+			for _, v := range obtained {
+				sum += v
+			}
+			c.Assert(sum, gc.Equals, tt.total)
+		}
 	}
 }

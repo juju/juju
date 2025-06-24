@@ -2714,14 +2714,26 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", caas.CharmMemRequestMiB))}
 			charmResourceMemLimit := corev1.ResourceList{
 				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", caas.CharmMemLimitMiB))}
-			workloadContainerResourceMemory := application.RoundNumDownToPowerOfTwo(uint64(1024 / (len(ps.Containers) - 1)))
+
+			totalCPU := uint64(1000)
+			totalMem := uint64(1024)
+			numOfWorkloadContainers := len(ps.Containers) - 1
+			workloadContainerResourceCPU := application.DivideAndSpread(totalCPU, numOfWorkloadContainers)
+			workloadContainerResourceMemories := application.DivideAndSpread(totalMem, numOfWorkloadContainers)
+
+			// ensure that the resources are evenly distributed when it is possible to do so
+			c.Assert(len(workloadContainerResourceCPU), jc.GreaterThan, 0)
+			c.Assert(len(workloadContainerResourceMemories), jc.GreaterThan, 0)
+			c.Assert(totalCPU%uint64(len(workloadContainerResourceCPU)), gc.Equals, uint64(0))
+			c.Assert(totalMem%uint64(len(workloadContainerResourceMemories)), gc.Equals, uint64(0))
 			workloadResourceRequests := corev1.ResourceList{
-				corev1.ResourceCPU:    k8sresource.MustParse("1000m"),
-				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", workloadContainerResourceMemory)),
+				corev1.ResourceCPU:    k8sresource.MustParse(fmt.Sprintf("%dm", workloadContainerResourceCPU[0])),
+				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", workloadContainerResourceMemories[0])),
 			}
+
 			workloadResourceLimits := corev1.ResourceList{
-				corev1.ResourceCPU:    k8sresource.MustParse("1000m"),
-				corev1.ResourceMemory: k8sresource.MustParse("1024Mi"),
+				corev1.ResourceCPU:    k8sresource.MustParse(fmt.Sprintf("%dm", totalCPU)),
+				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", totalMem)),
 			}
 			for i, container := range ps.Containers {
 				if container.Name == constants.ApplicationCharmContainer {
@@ -2958,13 +2970,45 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			for _, ctr := range ss.Spec.Template.Spec.Containers {
-				if ctr.Name == "charm" {
+				if ctr.Name == constants.ApplicationCharmContainer {
 					c.Check(ctr.Resources.Requests, gc.DeepEquals, charmReqs)
 					c.Check(ctr.Resources.Limits, gc.DeepEquals, charmLimits)
 					continue
 				}
 				c.Check(ctr.Resources.Limits, gc.DeepEquals, workloadLimits)
+			}
+		},
+	)
+}
 
+func (s *applicationSuite) TestRq(c *gc.C) {
+
+	workloadLimits := corev1.ResourceList{
+		corev1.ResourceCPU:    *k8sresource.NewMilliQuantity(1000, k8sresource.DecimalSI),
+		corev1.ResourceMemory: *k8sresource.NewQuantity(1024*1024*1024, k8sresource.BinarySI),
+	}
+
+	// charm limits follow user defined workload limits, but only for memory resource
+	charmLimits := corev1.ResourceList{
+		corev1.ResourceMemory: *workloadLimits.Memory(),
+	}
+
+	charmReqs := corev1.ResourceList{
+		corev1.ResourceMemory: *k8sresource.NewQuantity(caas.CharmMemRequestMiB*1024*1024, k8sresource.BinarySI),
+	}
+
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(
+		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			c.Assert(err, jc.ErrorIsNil)
+			for _, ctr := range ss.Spec.Template.Spec.Containers {
+				if ctr.Name == constants.ApplicationCharmContainer {
+					c.Check(ctr.Resources.Requests, gc.DeepEquals, charmReqs)
+					c.Check(ctr.Resources.Limits, gc.DeepEquals, charmLimits)
+					continue
+				}
+				c.Check(ctr.Resources.Limits, gc.DeepEquals, workloadLimits)
 			}
 		},
 	)

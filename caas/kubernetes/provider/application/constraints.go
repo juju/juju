@@ -313,13 +313,21 @@ func configureCharmConstraint(pod *core.PodSpec, resourceName core.ResourceName,
 	return nil
 }
 
-func RoundNumDownToPowerOfTwo(num uint64) uint64 {
-	if num == 0 {
-		return 0
+func DivideAndSpread(total uint64, parts int) []uint64 {
+	if parts <= 0 {
+		return nil
 	}
-	var result uint64 = 1
-	for result<<1 <= num {
-		result <<= 1
+
+	result := make([]uint64, parts)
+	quotient := total / uint64(parts)
+	remainder := total % uint64(parts)
+
+	for i := 0; i < parts; i++ {
+		if uint64(i) < remainder {
+			result[i] = quotient + 1
+		} else {
+			result[i] = quotient
+		}
 	}
 	return result
 }
@@ -334,21 +342,27 @@ func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceNa
 		return errors.Annotatef(err, "invalid constraint value %q for %q", value, resourceName)
 	}
 
-	isMemoryResource := resourceName == core.ResourceMemory
+	// contains resource request of each workload container
+	var individualRequestResourceNums []uint64
+	var unitSuffix string
 
-	// each workload container
-	requestResourceQty := limitResourceQty
-	if isMemoryResource && len(pod.Containers) > 1 {
-		individualRequestResourceNum := uint64(requestResourceQty.Value()/(1024*1024)) / uint64(len(pod.Containers)-1) // We only consider workload containers, not the charm container.
-		individualRequestResourceNum = RoundNumDownToPowerOfTwo(individualRequestResourceNum)
-
-		individualRequestResourceNumVal := fmt.Sprintf("%dMi", individualRequestResourceNum)
-		individualRequestResourceQty, err := resource.ParseQuantity(individualRequestResourceNumVal)
-		if err != nil {
-			return errors.Annotatef(err, "invalid individual container constraint value %q for %q", individualRequestResourceNumVal, resourceName)
+	if len(pod.Containers) > 1 {
+		var totalRequestResourceNum uint64
+		switch resourceName {
+		case core.ResourceMemory:
+			totalRequestResourceNum = uint64(limitResourceQty.Value() / (1024 * 1024))
+			unitSuffix = "Mi"
+		case core.ResourceCPU:
+			totalRequestResourceNum = uint64(limitResourceQty.MilliValue())
+			unitSuffix = "m"
+		default:
+			return errors.NotSupportedf("converting resource value for %q", resourceName)
 		}
-		requestResourceQty = individualRequestResourceQty
+		individualRequestResourceNums = DivideAndSpread(totalRequestResourceNum, len(pod.Containers)-1) // We only consider workload containers, not the charm container.
 	}
+
+	isMemoryResource := resourceName == core.ResourceMemory
+	individualRequestResourceNumsIndex := 0
 
 	for i, container := range pod.Containers {
 		isCharmContainer := container.Name == constants.ApplicationCharmContainer
@@ -363,12 +377,23 @@ func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceNa
 			continue
 		}
 
-		if pod.Containers[i].Resources.Requests, err = MergeConstraint(resourceName, requestResourceQty, pod.Containers[i].Resources.Requests); err != nil {
-			return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, value)
+		if individualRequestResourceNumsIndex < len(individualRequestResourceNums) {
+			individualRequestResourceNum := individualRequestResourceNums[individualRequestResourceNumsIndex]
+			individualRequestResourceNumVal := fmt.Sprintf("%d%s", individualRequestResourceNum, unitSuffix)
+			individualRequestResourceQty, err := resource.ParseQuantity(individualRequestResourceNumVal)
+			if err != nil {
+				return errors.Annotatef(err, "invalid individual container constraint value %q for %q", individualRequestResourceNumVal, resourceName)
+			}
+			if pod.Containers[i].Resources.Requests, err = MergeConstraint(resourceName, individualRequestResourceQty, pod.Containers[i].Resources.Requests); err != nil {
+				return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, value)
+			}
+			individualRequestResourceNumsIndex++
 		}
+
 		if pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, limitResourceQty, pod.Containers[i].Resources.Limits); err != nil {
 			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, value)
 		}
+
 	}
 	return nil
 }
