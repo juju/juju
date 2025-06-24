@@ -1094,9 +1094,9 @@ func (s *serviceSuite) TestWatchActivatedModelsMapper(c *tc.C) {
 	}))
 }
 
-// TestGetModelByNameAndOwnerSuccess verifies that GetModelByNameAndOwner successfully
-// returns the model associated with the specified owner and model name.
-func (s *serviceSuite) TestGetModelByNameAndOwnerSuccess(c *tc.C) {
+// TestGetModelByNameAndQualifierSuccess verifies that GetModelByNameAndQualifier successfully
+// returns the model associated with the specified qualifier and model name.
+func (s *serviceSuite) TestGetModelByNameAndQualifierSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(
@@ -1123,20 +1123,20 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerSuccess(c *tc.C) {
 		},
 		Life: life.Alive,
 	}
-	s.mockState.EXPECT().GetModelByName(gomock.Any(), "test-user", modelName).Return(
+	s.mockState.EXPECT().GetModelByName(gomock.Any(), "prod", modelName).Return(
 		model,
 		nil,
 	)
 
-	svcModel, err := svc.GetModelByNameAndOwner(c.Context(), modelName, ownerUserName)
+	svcModel, err := svc.GetModelByNameAndQualifier(c.Context(), modelName, "prod")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(model, tc.Equals, svcModel)
 }
 
-// TestGetModelByNameAndOwnerInvalidUsername verifies that
-// GetModelByNameAndOwner returns a [accesserrors.UserNameNotValid] error when
-// the provided owner username is invalid.
-func (s *serviceSuite) TestGetModelByNameAndOwnerInvalidUsername(c *tc.C) {
+// TestGetModelByNameAndQualifierInvalidQualifier verifies that
+// GetModelByNameAndQualifier returns a [coreerrors.NotValid] error when
+// the provided qualifier is invalid.
+func (s *serviceSuite) TestGetModelByNameAndQualifierInvalidQualifier(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(
@@ -1146,16 +1146,15 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerInvalidUsername(c *tc.C) {
 	)
 
 	modelName := "test"
-	ownerUserName := user.Name{}
 
-	_, err := svc.GetModelByNameAndOwner(c.Context(), modelName, ownerUserName)
-	c.Assert(err, tc.ErrorIs, accesserrors.UserNameNotValid)
+	_, err := svc.GetModelByNameAndQualifier(c.Context(), modelName, "")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-// TestGetModelByNameAndOwnerNotFound verifies that GetModelByNameAndOwner
+// TestGetModelByNameAndQualifierNotFound verifies that GetModelByNameAndQualifier
 // returns a [modelerrors.NotFound] error
-// when no model exists for the given owner and model name.
-func (s *serviceSuite) TestGetModelByNameAndOwnerNotFound(c *tc.C) {
+// when no model exists for the given qualifier and model name.
+func (s *serviceSuite) TestGetModelByNameAndQualifierNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(
@@ -1165,13 +1164,12 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerNotFound(c *tc.C) {
 	)
 
 	modelName := "test"
-	ownerUserName := usertesting.GenNewName(c, "test-user")
-	s.mockState.EXPECT().GetModelByName(gomock.Any(), "test-user", modelName).Return(
+	s.mockState.EXPECT().GetModelByName(gomock.Any(), "prod", modelName).Return(
 		coremodel.Model{},
 		modelerrors.NotFound,
 	)
 
-	_, err := svc.GetModelByNameAndOwner(c.Context(), modelName, ownerUserName)
+	_, err := svc.GetModelByNameAndQualifier(c.Context(), modelName, "prod")
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 

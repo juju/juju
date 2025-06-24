@@ -15,7 +15,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v6"
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/juju/juju/api"
@@ -443,8 +442,7 @@ func (c *CommandBase) SetControllerModels(store jujuclient.ClientStore, controll
 	modelsToStore := make(map[string]jujuclient.ModelDetails, len(models))
 	for _, model := range models {
 		modelDetails := jujuclient.ModelDetails{ModelUUID: model.UUID, ModelType: model.Type}
-		owner := names.NewUserTag(model.Owner)
-		modelName := jujuclient.JoinOwnerModelName(owner, model.Name)
+		modelName := jujuclient.QualifyModelName(model.Qualifier.String(), model.Name)
 		modelsToStore[modelName] = modelDetails
 	}
 	if err := store.SetModels(controllerName, modelsToStore); err != nil {

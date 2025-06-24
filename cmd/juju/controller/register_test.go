@@ -46,8 +46,8 @@ type RegisterSuite struct {
 
 const noModelsText = `
 There are no models available. You can add models with
-"juju add-model", or you can ask an administrator or owner
-of a model to grant access to that model with "juju grant".
+"juju add-model", or you can ask an administrator of a
+model to grant access to that model with "juju grant".
 `
 
 func TestRegisterSuite(t *stdtesting.T) {
@@ -110,10 +110,10 @@ func (s *RegisterSuite) TestRegisterWithProxy(c *tc.C) {
 func (s *RegisterSuite) TestRegisterOneModel(c *tc.C) {
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
-			Name:  "theoneandonly",
-			Owner: "carol",
-			UUID:  mockControllerUUID,
-			Type:  model.IAAS,
+			Name:      "theoneandonly",
+			Qualifier: "prod",
+			UUID:      mockControllerUUID,
+			Type:      model.IAAS,
 		}}, nil
 	}
 	prompter := cmdtesting.NewSeqPrompter(c, "»", `
@@ -126,12 +126,12 @@ Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "controller-name".
 
-Current model set to "carol/theoneandonly".
+Current model set to "prod/theoneandonly".
 `[1:])
 	s.testRegisterSuccess(c, prompter, "", false, false)
 	c.Assert(
 		s.store.Models["controller-name"].CurrentModel,
-		tc.Equals, "carol/theoneandonly",
+		tc.Equals, "prod/theoneandonly",
 	)
 	prompter.CheckDone()
 }
@@ -139,15 +139,15 @@ Current model set to "carol/theoneandonly".
 func (s *RegisterSuite) TestRegisterMultipleModels(c *tc.C) {
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
-			Name:  "model1",
-			Owner: "bob",
-			UUID:  mockControllerUUID,
-			Type:  model.IAAS,
+			Name:      "model1",
+			Qualifier: "prod",
+			UUID:      mockControllerUUID,
+			Type:      model.IAAS,
 		}, {
-			Name:  "model2",
-			Owner: "bob",
-			UUID:  "eeeeeeee-12e9-11e4-8a70-b2227cce2b55",
-			Type:  model.IAAS,
+			Name:      "model2",
+			Qualifier: "prod",
+			UUID:      "eeeeeeee-12e9-11e4-8a70-b2227cce2b55",
+			Type:      model.IAAS,
 		}}, nil
 	}
 	prompter := cmdtesting.NewSeqPrompter(c, "»", `
@@ -162,8 +162,8 @@ Welcome, bob. You are now logged into "controller-name".
 
 There are 2 models available. Use "juju switch" to select
 one of them:
-  - juju switch model1
-  - juju switch model2
+  - juju switch prod/model1
+  - juju switch prod/model2
 `[1:])
 	defer prompter.CheckDone()
 	s.testRegisterSuccess(c, prompter, "", false, false)
@@ -343,10 +343,10 @@ func (s *RegisterSuite) TestControllerUUIDExists(c *tc.C) {
 
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
-			Name:  "model-name",
-			Owner: "bob",
-			UUID:  mockControllerUUID,
-			Type:  model.IAAS,
+			Name:      "model-name",
+			Qualifier: "prod",
+			UUID:      mockControllerUUID,
+			Type:      model.IAAS,
 		}}, nil
 	}
 
@@ -435,10 +435,10 @@ func (s *RegisterSuite) TestProposedControllerNameExists(c *tc.C) {
 
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
-			Name:  "model-name",
-			Owner: "bob",
-			UUID:  mockControllerUUID,
-			Type:  model.IAAS,
+			Name:      "model-name",
+			Qualifier: "prod",
+			UUID:      mockControllerUUID,
+			Type:      model.IAAS,
 		}}, nil
 	}
 
@@ -454,7 +454,7 @@ Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "other-name".
 
-Current model set to "bob/model-name".
+Current model set to "prod/model-name".
 `[1:])
 	defer prompter.CheckDone()
 	s.testRegisterSuccess(c, prompter, "other-name", false, false)
@@ -491,10 +491,10 @@ func (s *RegisterSuite) TestControllerUUIDExistsReplace(c *tc.C) {
 
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
-			Name:  "model-name",
-			Owner: "bob",
-			UUID:  mockControllerUUID,
-			Type:  model.IAAS,
+			Name:      "model-name",
+			Qualifier: "prod",
+			UUID:      mockControllerUUID,
+			Type:      model.IAAS,
 		}}, nil
 	}
 
@@ -511,7 +511,7 @@ Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "controller-name".
 
-Current model set to "bob/model-name".
+Current model set to "prod/model-name".
 `[1:])
 	s.testRegisterSuccess(c, prompter, "controller-name", false, true)
 	prompter.CheckDone()
@@ -528,10 +528,10 @@ func (s *RegisterSuite) TestControllerUUIDExistsRenameNotAllowed(c *tc.C) {
 
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
-			Name:  "model-name",
-			Owner: "bob",
-			UUID:  mockControllerUUID,
-			Type:  model.IAAS,
+			Name:      "model-name",
+			Qualifier: "prod",
+			UUID:      mockControllerUUID,
+			Type:      model.IAAS,
 		}}, nil
 	}
 

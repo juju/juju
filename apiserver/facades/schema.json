@@ -3237,7 +3237,7 @@
     {
         "Name": "ApplicationOffers",
         "Description": "",
-        "Version": 5,
+        "Version": 6,
         "Schema": {
             "type": "object",
             "properties": {
@@ -3825,16 +3825,16 @@
                         "model-name": {
                             "type": "string"
                         },
-                        "offer-name": {
+                        "model-qualifier": {
                             "type": "string"
                         },
-                        "owner-name": {
+                        "offer-name": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "owner-name",
+                        "model-qualifier",
                         "model-name",
                         "offer-name",
                         "application-name",
@@ -7707,7 +7707,7 @@
     {
         "Name": "Controller",
         "Description": "",
-        "Version": 12,
+        "Version": 13,
         "Schema": {
             "type": "object",
             "properties": {
@@ -8212,14 +8212,14 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner": {
+                        "qualifier": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "name",
-                        "owner"
+                        "qualifier"
                     ]
                 },
                 "HostedModelConfigsResults": {
@@ -8377,7 +8377,7 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "type": {
@@ -8390,9 +8390,9 @@
                     "additionalProperties": false,
                     "required": [
                         "name",
+                        "qualifier",
                         "uuid",
-                        "type",
-                        "owner-tag"
+                        "type"
                     ]
                 },
                 "ModelApplicationInfo": {
@@ -8422,15 +8422,15 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "qualifier": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "name",
                         "model-uuid",
-                        "owner-tag",
+                        "name",
+                        "qualifier",
                         "blocks"
                     ]
                 },
@@ -8533,7 +8533,7 @@
                         "model-tag": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "type": {
@@ -8552,12 +8552,12 @@
                     "additionalProperties": false,
                     "required": [
                         "model-tag",
+                        "qualifier",
                         "life",
                         "type",
                         "hosted-machine-count",
                         "application-count",
-                        "unit-count",
-                        "owner-tag"
+                        "unit-count"
                     ]
                 },
                 "ModelStatusResults": {
@@ -10414,7 +10414,7 @@
     {
         "Name": "ModelManager",
         "Description": "",
-        "Version": 10,
+        "Version": 11,
         "Schema": {
             "type": "object",
             "properties": {
@@ -10833,7 +10833,7 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "type": {
@@ -10846,9 +10846,9 @@
                     "additionalProperties": false,
                     "required": [
                         "name",
+                        "qualifier",
                         "uuid",
-                        "type",
-                        "owner-tag"
+                        "type"
                     ]
                 },
                 "ModelApplicationInfo": {
@@ -10884,7 +10884,7 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "region": {
@@ -10894,7 +10894,7 @@
                     "additionalProperties": false,
                     "required": [
                         "name",
-                        "owner-tag"
+                        "qualifier"
                     ]
                 },
                 "ModelDefaultValues": {
@@ -11055,10 +11055,10 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "provider-type": {
                             "type": "string"
                         },
-                        "provider-type": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "secret-backends": {
@@ -11097,7 +11097,7 @@
                         "controller-uuid",
                         "is-controller",
                         "cloud-tag",
-                        "owner-tag",
+                        "qualifier",
                         "life",
                         "users",
                         "machines",
@@ -11216,7 +11216,7 @@
                         "model-tag": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "type": {
@@ -11235,12 +11235,12 @@
                     "additionalProperties": false,
                     "required": [
                         "model-tag",
+                        "qualifier",
                         "life",
                         "type",
                         "hosted-machine-count",
                         "application-count",
-                        "unit-count",
-                        "owner-tag"
+                        "unit-count"
                     ]
                 },
                 "ModelStatusResults": {
@@ -11313,10 +11313,10 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "provider-type": {
                             "type": "string"
                         },
-                        "provider-type": {
+                        "qualifier": {
                             "type": "string"
                         },
                         "status": {
@@ -11335,12 +11335,12 @@
                     "additionalProperties": false,
                     "required": [
                         "name",
+                        "qualifier",
                         "uuid",
                         "type",
                         "controller-uuid",
                         "is-controller",
                         "cloud-tag",
-                        "owner-tag",
                         "life",
                         "user-access",
                         "last-connection",

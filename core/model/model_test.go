@@ -117,12 +117,6 @@ func (*ModelSuite) TestQualifierValidate(c *tc.C) {
 	}
 }
 
-func (*ModelSuite) TestUserTagFromQualifier(c *tc.C) {
-	tag, err := ApproximateUserTagFromQualifier("prod")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(tag.String(), tc.Equals, "user-prod")
-}
-
 func (*ModelSuite) TestQualifierFromUserTag(c *tc.C) {
 	tests := []struct {
 		username  string

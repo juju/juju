@@ -280,19 +280,17 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *tc.C) {
 
 func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	owner := names.NewUserTag("owner")
-	userTag := names.NewUserTag("user")
 
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]model.Model{
 			{
 				Name:      "first",
-				Qualifier: model.QualifierFromUserTag(owner),
+				Qualifier: "prod",
 				UUID:      modeltesting.GenModelUUID(c),
 			},
 			{
 				Name:      "second",
-				Qualifier: model.QualifierFromUserTag(userTag),
+				Qualifier: "staging",
 				UUID:      modeltesting.GenModelUUID(c),
 			},
 		}, nil,
@@ -300,7 +298,7 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 	s.mockModelService.EXPECT().ControllerModel(gomock.Any()).Return(
 		model.Model{
 			Name:      "controller",
-			Qualifier: model.QualifierFromUserTag(owner),
+			Qualifier: "prod",
 			UUID:      s.ControllerModelUUID,
 		}, nil,
 	)
@@ -312,9 +310,9 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 	two := results.Models[1]
 
 	c.Assert(one.Name, tc.Equals, "first")
-	c.Assert(one.OwnerTag, tc.Equals, owner.String())
+	c.Assert(one.Qualifier, tc.Equals, "prod")
 	c.Assert(two.Name, tc.Equals, "second")
-	c.Assert(two.OwnerTag, tc.Equals, userTag.String())
+	c.Assert(two.Qualifier, tc.Equals, "staging")
 }
 
 func (s *controllerSuite) makeCloudSpec(c *tc.C, pSpec *params.CloudSpec) environscloudspec.CloudSpec {
@@ -382,7 +380,7 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 		{
 			UUID:      s.DomainServicesSuite.DefaultModelUUID,
 			Name:      "test",
-			Qualifier: model.QualifierFromUserTag(s.Owner),
+			Qualifier: "prod",
 			ModelType: model.IAAS,
 		},
 	}
@@ -395,9 +393,9 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 
 	c.Assert(list.Models, tc.DeepEquals, []params.ModelBlockInfo{
 		{
-			Name:     "test",
-			UUID:     s.DomainServicesSuite.DefaultModelUUID.String(),
-			OwnerTag: s.Owner.String(),
+			UUID:      s.DomainServicesSuite.DefaultModelUUID.String(),
+			Name:      "test",
+			Qualifier: "prod",
 			Blocks: []string{
 				"BlockChange",
 				"BlockDestroy",
@@ -720,11 +718,12 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *tc.C) {
 	controller.SetPrecheckResult(s, errors.New("boom"))
 
 	m, err := st.Model()
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			Qualifier: model.QualifierFromUserTag(m.Owner()),
+			Qualifier: model.Qualifier(m.Owner().Id()),
 		}, nil,
 	)
 
@@ -1246,28 +1245,26 @@ func (s *accessSuite) TestGetControllerAccessPermissions(c *tc.C) {
 func (s *accessSuite) TestAllModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	testAdmin := names.NewUserTag("test-admin")
-	admin := names.NewUserTag("foobar")
-	remoteUserTag := names.NewUserTag("user").WithDomain("remote")
 
 	models := []model.Model{
 		{
 			Name:      "controller",
-			Qualifier: model.QualifierFromUserTag(admin),
+			Qualifier: "admin",
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "no-access",
-			Qualifier: model.QualifierFromUserTag(remoteUserTag),
+			Qualifier: "user@remote",
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "owned",
-			Qualifier: model.QualifierFromUserTag(admin),
+			Qualifier: "admin",
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "user",
-			Qualifier: model.QualifierFromUserTag(remoteUserTag),
+			Qualifier: "user@remote",
 			ModelType: model.IAAS,
 		},
 	}
@@ -1284,12 +1281,10 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	for i, userModel := range response.UserModels {
-		c.Assert(userModel.Type, tc.DeepEquals, model.IAAS.String())
-		c.Assert(models[i].Name, tc.DeepEquals, userModel.Name)
-		tag, err := model.ApproximateUserTagFromQualifier(models[i].Qualifier)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(tag.String(), tc.DeepEquals, userModel.OwnerTag)
-		c.Assert(models[i].ModelType.String(), tc.DeepEquals, userModel.Type)
+		c.Assert(userModel.Type, tc.Equals, model.IAAS.String())
+		c.Assert(models[i].Name, tc.Equals, userModel.Name)
+		c.Assert(models[i].Qualifier.String(), tc.Equals, userModel.Qualifier)
+		c.Assert(models[i].ModelType.String(), tc.Equals, userModel.Type)
 	}
 }
 

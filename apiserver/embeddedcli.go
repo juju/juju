@@ -273,7 +273,7 @@ func runCLICommands(ctx context.Context, controllerConfigService ControllerConfi
 	}
 	store.CurrentControllerName = controllerName
 
-	qualifiedModelName := jujuclient.JoinOwnerModelName(names.NewUserTag(m.CredentialOwner.Name()), m.Name)
+	qualifiedModelName := jujuclient.QualifyModelName(names.NewUserTag(m.CredentialOwner.Name()).Id(), m.Name)
 	store.Models[controllerName] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
 			qualifiedModelName: {

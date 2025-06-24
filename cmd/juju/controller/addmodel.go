@@ -22,6 +22,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cmd"
@@ -150,7 +151,8 @@ func (c *addModelCommand) Init(args []string) error {
 type AddModelAPI interface {
 	CreateModel(
 		ctx context.Context,
-		name, owner, cloudName, cloudRegion string,
+		name string, qualifier coremodel.Qualifier,
+		cloudName, cloudRegion string,
 		cloudCredential names.CloudCredentialTag,
 		config map[string]interface{},
 	) (base.ModelInfo, error)
@@ -187,14 +189,14 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	modelOwner := accountDetails.User
+	modelCreator := accountDetails.User
 	if c.Owner != "" {
 		if !names.IsValidUser(c.Owner) {
 			return errors.Errorf("%q is not a valid user name", c.Owner)
 		}
-		modelOwner = names.NewUserTag(c.Owner).Id()
+		modelCreator = names.NewUserTag(c.Owner).Id()
 	}
-	forUserSuffix := fmt.Sprintf(" for user '%s'", names.NewUserTag(modelOwner).Name())
+	forUserSuffix := fmt.Sprintf(" for user '%s'", names.NewUserTag(modelCreator).Name())
 
 	attrs, err := c.getConfigValues(ctx)
 	if err != nil {
@@ -221,10 +223,10 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	// Find a local credential to use with the new model.
 	// If credential was found on the controller, it will be nil in return.
 	credential, credentialTag, credentialRegion, err := c.findCredential(ctx, cloudClient, &findCredentialParams{
-		cloudTag:    cloudTag,
-		cloudRegion: cloudRegion,
-		cloud:       cloud,
-		modelOwner:  modelOwner,
+		cloudTag:     cloudTag,
+		cloudRegion:  cloudRegion,
+		cloud:        cloud,
+		modelCreator: modelCreator,
 	})
 	if err != nil {
 		logger.Errorf(context.TODO(), "%v", err)
@@ -251,7 +253,9 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	}
 
 	addModelClient := c.newAddModelAPI(root)
-	model, err := addModelClient.CreateModel(ctx, c.Name, modelOwner, cloudTag.Id(), cloudRegion, credentialTag, attrs)
+	// At the moment, the model qualifier is set to the user who creates the model.
+	qualifier := coremodel.QualifierFromUserTag(names.NewUserTag(modelCreator))
+	model, err := addModelClient.CreateModel(ctx, c.Name, qualifier, cloudTag.Id(), cloudRegion, credentialTag, attrs)
 	if err != nil {
 		if strings.HasPrefix(errors.Cause(err).Error(), "getting credential") {
 			err = errors.NewNotFound(nil,
@@ -276,7 +280,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		ModelUUID: model.UUID,
 		ModelType: model.Type,
 	}
-	if modelOwner == accountDetails.User {
+	if modelCreator == accountDetails.User {
 		if err := store.UpdateModel(controllerName, c.Name, details); err != nil {
 			return errors.Trace(err)
 		}
@@ -308,7 +312,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		}
 		tag := names.NewCloudCredentialTag(model.CloudCredential)
 		credentialName := tag.Name()
-		if tag.Owner().Id() != modelOwner {
+		if tag.Owner().Id() != modelCreator {
 			credentialName = fmt.Sprintf("%s/%s", tag.Owner().Id(), credentialName)
 		}
 		messageFormat += " with credential '%s'"
@@ -468,10 +472,10 @@ and then run the add-model command again with the --credential option.`[1:],
 )
 
 type findCredentialParams struct {
-	cloudTag    names.CloudTag
-	cloud       jujucloud.Cloud
-	cloudRegion string
-	modelOwner  string
+	cloudTag     names.CloudTag
+	cloud        jujucloud.Cloud
+	cloudRegion  string
+	modelCreator string
 }
 
 // findCredential finds a suitable credential to use for the new model.
@@ -499,8 +503,8 @@ func (c *addModelCommand) findUnspecifiedCredential(ctx *cmd.Context, cloudClien
 	}
 
 	// No credential has been specified, so see if there is one already on the controller we can use.
-	modelOwnerTag := names.NewUserTag(p.modelOwner)
-	credentialTags, err := cloudClient.UserCredentials(ctx, modelOwnerTag, p.cloudTag)
+	credOwnerTag := names.NewUserTag(p.modelCreator)
+	credentialTags, err := cloudClient.UserCredentials(ctx, credOwnerTag, p.cloudTag)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
@@ -533,7 +537,7 @@ func (c *addModelCommand) findUnspecifiedCredential(ctx *cmd.Context, cloudClien
 	}
 	// We've got a local credential to use.
 	credentialTag, err = common.ResolveCloudCredentialTag(
-		modelOwnerTag, p.cloudTag, credentialName,
+		credOwnerTag, p.cloudTag, credentialName,
 	)
 	if err != nil {
 		return fail(errors.Trace(err))
@@ -552,9 +556,9 @@ func (c *addModelCommand) findSpecifiedCredential(ctx *cmd.Context, cloudClient 
 	}
 	if credential != nil {
 		// We found a local credential with the specified name.
-		modelOwnerTag := names.NewUserTag(p.modelOwner)
+		credOwnerTag := names.NewUserTag(p.modelCreator)
 		credentialTag, err := common.ResolveCloudCredentialTag(
-			modelOwnerTag, p.cloudTag, credentialName,
+			credOwnerTag, p.cloudTag, credentialName,
 		)
 		if err != nil {
 			return fail(errors.Trace(err))
@@ -563,13 +567,13 @@ func (c *addModelCommand) findSpecifiedCredential(ctx *cmd.Context, cloudClient 
 	}
 
 	// There was no local credential with that name, check the controller
-	modelOwnerTag := names.NewUserTag(p.modelOwner)
-	credentialTags, err := cloudClient.UserCredentials(ctx, modelOwnerTag, p.cloudTag)
+	credOwnerTag := names.NewUserTag(p.modelCreator)
+	credentialTags, err := cloudClient.UserCredentials(ctx, credOwnerTag, p.cloudTag)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
 	credentialTag, err := common.ResolveCloudCredentialTag(
-		modelOwnerTag, p.cloudTag, c.CredentialName,
+		credOwnerTag, p.cloudTag, c.CredentialName,
 	)
 	if err != nil {
 		return fail(errors.Trace(err))

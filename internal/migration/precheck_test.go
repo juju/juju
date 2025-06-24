@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coremachine "github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -638,7 +639,7 @@ func TestTargetPrecheckSuite(t *stdtesting.T) {
 func (s *TargetPrecheckSuite) SetUpTest(c *tc.C) {
 	s.modelInfo = coremigration.ModelInfo{
 		UUID:         modelUUID,
-		Owner:        modelOwner,
+		Qualifier:    model.Qualifier(modelOwner.Id()),
 		Name:         modelName,
 		AgentVersion: backendVersion,
 	}

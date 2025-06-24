@@ -70,7 +70,7 @@ func (c *Client) ListOffers(ctx context.Context, filters ...crossmodel.Applicati
 	var paramsFilter params.OfferFilters
 	for _, f := range filters {
 		filterTerm := params.OfferFilter{
-			OwnerName:           f.OwnerName,
+			ModelQualifier:      f.ModelQualifier.String(),
 			ModelName:           f.ModelName,
 			OfferName:           f.OfferName,
 			ApplicationName:     f.ApplicationName,
@@ -242,9 +242,9 @@ func (c *Client) FindApplicationOffers(ctx context.Context, filters ...crossmode
 	var paramsFilter params.OfferFilters
 	for _, f := range filters {
 		filterTerm := params.OfferFilter{
-			OfferName: f.OfferName,
-			ModelName: f.ModelName,
-			OwnerName: f.OwnerName,
+			OfferName:      f.OfferName,
+			ModelName:      f.ModelName,
+			ModelQualifier: f.ModelQualifier.String(),
 		}
 		filterTerm.Endpoints = make([]params.EndpointFilterAttributes, len(f.Endpoints))
 		for i, ep := range f.Endpoints {

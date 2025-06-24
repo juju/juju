@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -26,21 +27,15 @@ func (s QualifyingClientStore) QualifiedModelName(controllerName, modelName stri
 	if modelName == "" {
 		return "", nil
 	}
-	if !jujuclient.IsQualifiedModelName(modelName) {
-		details, err := s.ClientStore.AccountDetails(controllerName)
-		if err != nil {
-			return "", errors.Annotate(err, "getting account details for qualifying model name")
-		}
-		owner := names.NewUserTag(details.User)
-		modelName = jujuclient.JoinOwnerModelName(owner, modelName)
-	} else {
-		unqualifiedModelName, owner, err := jujuclient.SplitModelName(modelName)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		owner = names.NewUserTag(owner.Id())
-		modelName = jujuclient.JoinOwnerModelName(owner, unqualifiedModelName)
+	if jujuclient.IsQualifiedModelName(modelName) {
+		return modelName, nil
 	}
+	details, err := s.ClientStore.AccountDetails(controllerName)
+	if err != nil {
+		return "", errors.Annotate(err, "getting account details for qualifying model name")
+	}
+	user := names.NewUserTag(details.User)
+	modelName = jujuclient.QualifyModelName(coremodel.QualifierFromUserTag(user).String(), modelName)
 	return modelName, nil
 }
 

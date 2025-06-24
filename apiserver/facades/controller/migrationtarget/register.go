@@ -17,13 +17,33 @@ import (
 func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(registry facade.FacadeRegistry) {
 	return func(registry facade.FacadeRegistry) {
 		registry.MustRegisterForMultiModel("MigrationTarget", 4, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
-			api, err := makeFacade(stdCtx, ctx, requiredMigrationFacadeVersions)
+			api, err := makeFacadeV4(stdCtx, ctx, requiredMigrationFacadeVersions)
 			if err != nil {
 				return nil, errors.Errorf("making migration target version 4: %w", err)
 			}
 			return api, nil
+		}, reflect.TypeOf((*APIV4)(nil)))
+		// v5 handles requests with a model qualifier instead of a model owner.
+		registry.MustRegisterForMultiModel("MigrationTarget", 5, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
+			api, err := makeFacade(stdCtx, ctx, requiredMigrationFacadeVersions)
+			if err != nil {
+				return nil, errors.Errorf("making migration target version 5: %w", err)
+			}
+			return api, nil
 		}, reflect.TypeOf((*API)(nil)))
 	}
+}
+
+func makeFacadeV4(
+	stdCtx context.Context,
+	ctx facade.MultiModelContext,
+	facadeVersions facades.FacadeVersions,
+) (*APIV4, error) {
+	api, err := makeFacade(stdCtx, ctx, facadeVersions)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return &APIV4{API: api}, err
 }
 
 // makeFacade is responsible for constructing a new migration target facade and

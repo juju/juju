@@ -61,11 +61,11 @@ func (s *ShowCommandSuite) SetUpTest(c *tc.C) {
 	s.fake = fakeModelShowClient{
 		info: params.ModelInfo{
 			Name:           "mymodel",
+			Qualifier:      "production",
 			UUID:           testing.ModelTag.Id(),
 			Type:           "iaas",
 			ControllerUUID: "1ca2293b-fdb9-4299-97d6-55583bb39364",
 			IsController:   false,
-			OwnerTag:       "user-admin",
 			CloudTag:       "cloud-some-cloud",
 			CloudRegion:    "some-region",
 			ProviderType:   "openstack",
@@ -85,14 +85,13 @@ func (s *ShowCommandSuite) SetUpTest(c *tc.C) {
 
 	s.expectedOutput = attrs{
 		"mymodel": attrs{
-			"name":            "admin/mymodel",
+			"name":            "production/mymodel",
 			"short-name":      "mymodel",
 			"model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			"model-type":      "iaas",
 			"controller-uuid": "1ca2293b-fdb9-4299-97d6-55583bb39364",
 			"controller-name": "testing",
 			"is-controller":   false,
-			"owner":           "admin",
 			"cloud":           "some-cloud",
 			"region":          "some-region",
 			"type":            "openstack",
@@ -246,14 +245,13 @@ func (s *ShowCommandSuite) TestShowBasicIncompleteModelsYaml(c *tc.C) {
 	}
 	s.expectedDisplay = `
 basic-model:
-  name: owner/basic-model
+  name: prod/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -266,14 +264,13 @@ func (s *ShowCommandSuite) TestShowBasicIncompleteModelsJson(c *tc.C) {
 		{Result: createBasicModelInfo()},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
-		"{\"name\":\"owner/basic-model\"," +
+		"{\"name\":\"prod/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
 		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"}}\n"
@@ -286,14 +283,13 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusIncompleteModelsYaml(c *tc.C) 
 	}
 	s.expectedDisplay = `
 basic-model:
-  name: owner/basic-model
+  name: prod/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -308,14 +304,13 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusIncompleteModelsJson(c *tc.C) 
 		{Result: createBasicModelInfoWithStatus()},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
-		"{\"name\":\"owner/basic-model\"," +
+		"{\"name\":\"prod/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
 		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"," +
@@ -332,14 +327,13 @@ func (s *ShowCommandSuite) TestShowBasicWithMigrationIncompleteModelsYaml(c *tc.
 	}
 	s.expectedDisplay = `
 basic-model:
-  name: owner/basic-model
+  name: prod/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -357,14 +351,13 @@ func (s *ShowCommandSuite) TestShowBasicWithMigrationIncompleteModelsJson(c *tc.
 		{Result: basicAndMigrationStatusInfo},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
-		"{\"name\":\"owner/basic-model\"," +
+		"{\"name\":\"prod/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
 		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"," +
@@ -380,14 +373,13 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusAndMigrationIncompleteModelsYa
 	}
 	s.expectedDisplay = `
 basic-model:
-  name: owner/basic-model
+  name: prod/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -406,14 +398,13 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusAndMigrationIncompleteModelsJs
 		{Result: basicAndStatusAndMigrationInfo},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
-		"{\"name\":\"owner/basic-model\"," +
+		"{\"name\":\"prod/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
 		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"," +
@@ -430,14 +421,13 @@ func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsYaml(c *tc.C
 	}
 	s.expectedDisplay = `
 basic-model:
-  name: owner/basic-model
+  name: prod/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
   cloud: altostratus
   region: mid-level
   type: aws
@@ -453,14 +443,13 @@ func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsJson(c *tc.C
 		{Result: basicAndProviderTypeInfo},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
-		"{\"name\":\"owner/basic-model\"," +
+		"{\"name\":\"prod/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
 		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"type\":\"aws\"," +
@@ -480,14 +469,13 @@ func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsYaml(c *tc.C) {
 	}
 	s.expectedDisplay = `
 basic-model:
-  name: owner/basic-model
+  name: prod/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -512,14 +500,13 @@ func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsJson(c *tc.C) {
 		{Result: basicAndUsersInfo},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
-		"{\"name\":\"owner/basic-model\"," +
+		"{\"name\":\"prod/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
 		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"," +
@@ -537,14 +524,13 @@ func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsYaml(c *tc.C
 	}
 	s.expectedDisplay = `
 basic-model:
-  name: owner/basic-model
+  name: prod/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -566,14 +552,13 @@ func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsJson(c *tc.C
 		{Result: basicAndMachinesInfo},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
-		"{\"name\":\"owner/basic-model\"," +
+		"{\"name\":\"prod/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
 		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"," +
@@ -583,14 +568,13 @@ func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsJson(c *tc.C
 
 func (s *ShowCommandSuite) TestShowModelWithAgentVersionInJson(c *tc.C) {
 	s.expectedDisplay = "{\"basic-model\":" +
-		"{\"name\":\"owner/basic-model\"," +
+		"{\"name\":\"prod/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
 		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"," +
@@ -601,14 +585,13 @@ func (s *ShowCommandSuite) TestShowModelWithAgentVersionInJson(c *tc.C) {
 func (s *ShowCommandSuite) TestShowModelWithAgentVersionInYaml(c *tc.C) {
 	s.expectedDisplay = `
 basic-model:
-  name: owner/basic-model
+  name: prod/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -666,7 +649,7 @@ func createBasicModelInfo() *params.ModelInfo {
 		ControllerUUID: testing.ControllerTag.Id(),
 		IsController:   false,
 		Type:           "iaas",
-		OwnerTag:       names.NewUserTag("owner").String(),
+		Qualifier:      "prod",
 		Life:           life.Dead,
 		CloudTag:       names.NewCloudTag("altostratus").String(),
 		CloudRegion:    "mid-level",

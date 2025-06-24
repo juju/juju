@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v6"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/errors"
@@ -57,7 +58,7 @@ type SerializedModel struct {
 // ModelInfo is used to report basic details about a model.
 type ModelInfo struct {
 	UUID                   string
-	Owner                  names.UserTag
+	Qualifier              model.Qualifier
 	Name                   string
 	AgentVersion           semversion.Number
 	ControllerAgentVersion semversion.Number
@@ -77,8 +78,8 @@ func (i *ModelInfo) Validate() error {
 	if i.UUID == "" {
 		return errors.Errorf("empty UUID %w", coreerrors.NotValid)
 	}
-	if i.Owner.Name() == "" {
-		return errors.Errorf("empty Owner %w", coreerrors.NotValid)
+	if err := i.Qualifier.Validate(); err != nil {
+		return errors.Capture(err)
 	}
 	if i.Name == "" {
 		return errors.Errorf("empty Name %w", coreerrors.NotValid)
