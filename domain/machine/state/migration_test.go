@@ -34,7 +34,7 @@ func (s *migrationStateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *migrationStateSuite) TestCreateMachine(c *tc.C) {
-	_, _, err := s.state.CreateMachine(c.Context(), machine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), machine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	machines, err := s.state.GetMachinesForExport(c.Context())
@@ -43,10 +43,12 @@ func (s *migrationStateSuite) TestCreateMachine(c *tc.C) {
 }
 
 func (s *migrationStateSuite) TestCreateMachineAfterProvisioned(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), machine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), machine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetMachineCloudInstance(c.Context(), machineUUID, "foo", "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeeef", "foo", "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(c.Context(), func(c context.Context, tx *sql.Tx) error {
@@ -61,17 +63,19 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisioned(c *tc.C) {
 	c.Check(machines, tc.DeepEquals, []machine.ExportMachine{
 		{
 			Name:  coremachine.Name("0"),
-			UUID:  machineUUID,
+			UUID:  "deadbeeef",
 			Nonce: "nonce",
 		},
 	})
 }
 
 func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNoNonce(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), machine.CreateMachineArgs{})
+	_, err := s.state.CreateMachine(c.Context(), machine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetMachineCloudInstance(c.Context(), machineUUID, "foo", "", "", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeeef", "foo", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	machines, err := s.state.GetMachinesForExport(c.Context())
@@ -80,7 +84,7 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNoNonce(c *tc.C) 
 	c.Check(machines, tc.DeepEquals, []machine.ExportMachine{
 		{
 			Name:  coremachine.Name("0"),
-			UUID:  machineUUID,
+			UUID:  "deadbeeef",
 			Nonce: "",
 		},
 	})

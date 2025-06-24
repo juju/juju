@@ -65,10 +65,12 @@ func (s *modelStateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	machineUUID, machineName, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	return machineUUID, machineName
+	return machine.UUID("deadbeef"), machineName
 }
 
 // addMachineWithBase adds a new machine to the model using the provided base.
@@ -565,7 +567,9 @@ func (s *modelStateSuite) TestMachineSetRunningAgentBinaryVersionMachineDead(c *
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	machineUUID, machineName, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineName, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = machineSt.SetMachineLife(c.Context(), machineName, life.Dead)
@@ -574,7 +578,7 @@ func (s *modelStateSuite) TestMachineSetRunningAgentBinaryVersionMachineDead(c *
 	st := NewState(s.TxnRunnerFactory())
 	err = st.SetMachineRunningAgentBinaryVersion(
 		c.Context(),
-		machineUUID.String(),
+		"deadbeef",
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
 			Arch:   corearch.Arch("noexist"),

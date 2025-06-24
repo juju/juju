@@ -20,7 +20,7 @@ func (s *Service) GetInstanceID(ctx context.Context, machineUUID machine.UUID) (
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	instanceId, err := s.st.GetInstanceID(ctx, machineUUID)
+	instanceId, err := s.st.GetInstanceID(ctx, machineUUID.String())
 	if err != nil {
 		return "", errors.Errorf("retrieving cloud instance id for machine %q: %w", machineUUID, err)
 	}
@@ -55,7 +55,7 @@ func (s *Service) GetInstanceIDAndName(ctx context.Context, machineUUID machine.
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	instanceID, instanceName, err := s.st.GetInstanceIDAndName(ctx, machineUUID)
+	instanceID, instanceName, err := s.st.GetInstanceIDAndName(ctx, machineUUID.String())
 	if err != nil {
 		return "", "", errors.Errorf("retrieving cloud instance name for machine %q: %w", machineUUID, err)
 	}
@@ -67,7 +67,7 @@ func (s *Service) AvailabilityZone(ctx context.Context, machineUUID machine.UUID
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	az, err := s.st.AvailabilityZone(ctx, machineUUID)
+	az, err := s.st.AvailabilityZone(ctx, machineUUID.String())
 	if err != nil {
 		return az, errors.Errorf("retrieving availability zone for machine %q: %w", machineUUID, err)
 	}
@@ -80,7 +80,7 @@ func (s *Service) GetHardwareCharacteristics(ctx context.Context, machineUUID ma
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	hc, err := s.st.GetHardwareCharacteristics(ctx, machineUUID)
+	hc, err := s.st.GetHardwareCharacteristics(ctx, machineUUID.String())
 	if err != nil {
 		return hc, errors.Errorf("retrieving hardware characteristics for machine %q: %w", machineUUID, err)
 	}
@@ -99,7 +99,7 @@ func (s *Service) SetMachineCloudInstance(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := s.st.SetMachineCloudInstance(ctx, machineUUID, instanceID, displayName, nonce, hardwareCharacteristics); err != nil {
+	if err := s.st.SetMachineCloudInstance(ctx, machineUUID.String(), instanceID, displayName, nonce, hardwareCharacteristics); err != nil {
 		return errors.Errorf("setting machine cloud instance for machine %q: %w", machineUUID, err)
 	}
 	return nil
@@ -112,7 +112,7 @@ func (s *Service) DeleteMachineCloudInstance(ctx context.Context, machineUUID ma
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := s.st.DeleteMachineCloudInstance(ctx, machineUUID); err != nil {
+	if err := s.st.DeleteMachineCloudInstance(ctx, machineUUID.String()); err != nil {
 		return errors.Errorf("deleting machine cloud instance for machine %q: %w", machineUUID, err)
 	}
 	return nil

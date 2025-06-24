@@ -76,15 +76,17 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 	db := s.DB()
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	machineUUID0, _, err := machineState.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err := machineState.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid0",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	// Add a reference AZ.
-	_, err = db.ExecContext(c.Context(), fmt.Sprintf("INSERT INTO availability_zone VALUES(%q, 'az-1')", machineUUID0))
+	_, err = db.ExecContext(c.Context(), fmt.Sprintf("INSERT INTO availability_zone VALUES(%q, 'az-1')", "uuid0"))
 	c.Assert(err, tc.ErrorIsNil)
 	arch := "arm64"
 	err = machineState.SetMachineCloudInstance(
 		c.Context(),
-		machineUUID0,
+		"uuid0",
 		instance.Id("instance-0"),
 		"",
 		"nonce",
@@ -93,11 +95,13 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	machineUUID1, _, err := machineState.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err = machineState.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid1",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	err = machineState.SetMachineCloudInstance(
 		c.Context(),
-		machineUUID1,
+		"uuid1",
 		instance.Id("instance-1"),
 		"",
 		"nonce",

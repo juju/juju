@@ -19,14 +19,14 @@ import (
 func (s *stateSuite) TestGetHardwareCharacteristicsWithNoData(c *tc.C) {
 	machineUUID := coremachinetesting.GenUUID(c)
 
-	_, err := s.state.GetHardwareCharacteristics(c.Context(), machineUUID)
+	_, err := s.state.GetHardwareCharacteristics(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 
 func (s *stateSuite) TestGetHardwareCharacteristics(c *tc.C) {
 	machineUUID, _ := s.ensureInstance(c)
 
-	hc, err := s.state.GetHardwareCharacteristics(c.Context(), machineUUID)
+	hc, err := s.state.GetHardwareCharacteristics(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*hc.Arch, tc.Equals, "arm64")
 	c.Check(*hc.Mem, tc.Equals, uint64(1024))
@@ -40,12 +40,15 @@ func (s *stateSuite) TestGetHardwareCharacteristics(c *tc.C) {
 
 func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *tc.C) {
 	// Create a reference machine.
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineUUID := coremachinetesting.GenUUID(c)
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: machineUUID,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetMachineCloudInstance(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 		instance.Id("123"),
 		"",
 		"nonce",
@@ -62,7 +65,7 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *tc
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	hc, err := s.state.GetHardwareCharacteristics(c.Context(), machineUUID)
+	hc, err := s.state.GetHardwareCharacteristics(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*hc.Arch, tc.Equals, "arm64")
 	c.Check(*hc.Mem, tc.Equals, uint64(1024))
@@ -77,14 +80,14 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *tc
 func (s *stateSuite) TestAvailabilityZoneWithNoMachine(c *tc.C) {
 	machineUUID := coremachinetesting.GenUUID(c)
 
-	_, err := s.state.AvailabilityZone(c.Context(), machineUUID)
+	_, err := s.state.AvailabilityZone(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, machineerrors.AvailabilityZoneNotFound)
 }
 
 func (s *stateSuite) TestAvailabilityZone(c *tc.C) {
 	machineUUID, _ := s.ensureInstance(c)
 
-	az, err := s.state.AvailabilityZone(c.Context(), machineUUID)
+	az, err := s.state.AvailabilityZone(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(az, tc.Equals, "az-1")
 }
@@ -93,7 +96,10 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineUUID := coremachinetesting.GenUUID(c)
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: machineUUID,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	// Add a reference AZ.
 	_, err = db.ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
@@ -101,7 +107,7 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 
 	err = s.state.SetMachineCloudInstance(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 		instance.Id("1"),
 		"one",
 		"nonce",
@@ -169,12 +175,15 @@ func (s *stateSuite) TestSetInstanceDataEmptyInstanceID(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineUUID := coremachinetesting.GenUUID(c)
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: machineUUID,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetMachineCloudInstance(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 		instance.Id(""),
 		"one",
 		"nonce",
@@ -196,12 +205,15 @@ func (s *stateSuite) TestSetInstanceDataEmptyDisplayName(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineUUID := coremachinetesting.GenUUID(c)
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: machineUUID,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetMachineCloudInstance(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 		instance.Id("1"),
 		"",
 		"nonce",
@@ -224,12 +236,15 @@ func (s *stateSuite) TestSetInstanceDataEmptyUniqueIndex(c *tc.C) {
 	// violate the unique index on the machine_cloud_instance table.
 	for range 10 {
 		// Create a reference machine.
-		machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+		machineUUID := coremachinetesting.GenUUID(c)
+		_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+			MachineUUID: machineUUID,
+		})
 		c.Assert(err, tc.ErrorIsNil)
 
 		err = s.state.SetMachineCloudInstance(
 			c.Context(),
-			machineUUID,
+			machineUUID.String(),
 			instance.Id(""),
 			"",
 			"nonce",
@@ -241,12 +256,15 @@ func (s *stateSuite) TestSetInstanceDataEmptyUniqueIndex(c *tc.C) {
 
 func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *tc.C) {
 	// Create a reference machine.
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineUUID := coremachinetesting.GenUUID(c)
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: machineUUID,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetMachineCloudInstance(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 		instance.Id("1"),
 		"one",
 		"nonce",
@@ -259,7 +277,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *tc.C) {
 	// Must fail when we try to add again.
 	err = s.state.SetMachineCloudInstance(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 		instance.Id("1"),
 		"one",
 		"nonce",
@@ -278,7 +296,7 @@ func (s *stateSuite) TestDeleteInstanceData(c *tc.C) {
 
 	machineUUID, _ := s.ensureInstance(c)
 
-	err := s.state.DeleteMachineCloudInstance(c.Context(), machineUUID)
+	err := s.state.DeleteMachineCloudInstance(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that all rows've been deleted.
@@ -312,7 +330,7 @@ func (s *stateSuite) TestDeleteInstanceDataWithStatus(c *tc.C) {
 		Since:   ptr(time.Now().UTC()),
 	})
 
-	err := s.state.DeleteMachineCloudInstance(c.Context(), machineUUID)
+	err := s.state.DeleteMachineCloudInstance(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that all rows've been deleted from the status tables.
@@ -326,33 +344,39 @@ func (s *stateSuite) TestDeleteInstanceDataWithStatus(c *tc.C) {
 func (s *stateSuite) TestInstanceIdSuccess(c *tc.C) {
 	machineUUID, _ := s.ensureInstance(c)
 
-	instanceId, err := s.state.GetInstanceID(c.Context(), machineUUID)
+	instanceId, err := s.state.GetInstanceID(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceId, tc.Equals, "123")
 }
 
 func (s *stateSuite) TestInstanceIdError(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineUUID := coremachinetesting.GenUUID(c)
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: machineUUID,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.GetInstanceID(c.Context(), machineUUID)
+	_, err = s.state.GetInstanceID(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 
 func (s *stateSuite) TestInstanceNameSuccess(c *tc.C) {
 	machineUUID, _ := s.ensureInstance(c)
 
-	instanceID, displayName, err := s.state.GetInstanceIDAndName(c.Context(), machineUUID)
+	instanceID, displayName, err := s.state.GetInstanceIDAndName(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instanceID, tc.Equals, "123")
 	c.Assert(displayName, tc.Equals, "one-two-three")
 }
 
 func (s *stateSuite) TestInstanceNameError(c *tc.C) {
-	machineUUID, _, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineUUID := coremachinetesting.GenUUID(c)
+	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: machineUUID,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, _, err = s.state.GetInstanceIDAndName(c.Context(), machineUUID)
+	_, _, err = s.state.GetInstanceIDAndName(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 
@@ -455,7 +479,7 @@ func (s *stateSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 		Status:  status.InstanceStatusRunning,
 		Message: "running",
 	}
-	err := s.state.SetInstanceStatus(c.Context(), machineUUID, expectedStatus)
+	err := s.state.SetInstanceStatus(c.Context(), machineUUID.String(), expectedStatus)
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), machineName)
@@ -475,7 +499,7 @@ func (s *stateSuite) TestSetInstanceStatusSuccessWithData(c *tc.C) {
 		Data:    []byte(`{"key": "data"}`),
 		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
 	}
-	err := s.state.SetInstanceStatus(c.Context(), machineUUID, expectedStatus)
+	err := s.state.SetInstanceStatus(c.Context(), machineUUID.String(), expectedStatus)
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), machineName)
@@ -498,7 +522,10 @@ func (s *stateSuite) ensureInstance(c *tc.C) (machine.UUID, machine.Name) {
 	db := s.DB()
 
 	// Create a reference machine.
-	machineUUID, machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	machineUUID := coremachinetesting.GenUUID(c)
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: machineUUID,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	// Add a reference AZ.
 	_, err = db.ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
@@ -506,7 +533,7 @@ func (s *stateSuite) ensureInstance(c *tc.C) (machine.UUID, machine.Name) {
 
 	err = s.state.SetMachineCloudInstance(
 		c.Context(),
-		machineUUID,
+		machineUUID.String(),
 		instance.Id("123"),
 		"one-two-three",
 		"nonce",

@@ -87,13 +87,17 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
-	m0uuid, _, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err = machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid0",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	m1uuid, _, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	_, err = machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid1",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	machineUUIDs = []string{string(m0uuid), string(m1uuid)}
-	netNodeUUIDs = []string{s.getNetNodeUUID(c, m0uuid), s.getNetNodeUUID(c, m1uuid)}
+	machineUUIDs = []string{"uuid0", "uuid1"}
+	netNodeUUIDs = []string{s.getNetNodeUUID(c, "uuid0"), s.getNetNodeUUID(c, "uuid1")}
 }
 
 func (s *watcherSuite) getNetNodeUUID(c *tc.C, mUUID machine.UUID) string {

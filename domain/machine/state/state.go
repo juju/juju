@@ -44,25 +44,24 @@ func NewState(factory coredb.TxnRunnerFactory, clock clock.Clock, logger logger.
 
 // CreateMachine creates or updates the specified machine.
 // Adds a row to machine table, as well as a row to the net_node table.
-func (st *State) CreateMachine(ctx context.Context, args domainmachine.CreateMachineArgs) (machine.UUID, machine.Name, error) {
+func (st *State) CreateMachine(ctx context.Context, args domainmachine.CreateMachineArgs) (machine.Name, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	var (
 		machineName machine.Name
-		machineUUID machine.UUID
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		_, machineUUID, machineName, err = CreateMachine(ctx, tx, st, st.clock, args)
+		_, machineName, err = CreateMachine(ctx, tx, st, st.clock, args)
 		return err
 	})
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	return machineUUID, machineName, nil
+	return machineName, nil
 }
 
 // CreateMachineWithParent creates or updates the specified machine with a
@@ -72,10 +71,10 @@ func (st *State) CreateMachine(ctx context.Context, args domainmachine.CreateMac
 // It returns a MachineNotFound error if the parent machine does not exist.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
-func (st *State) CreateMachineWithParent(ctx context.Context, args domainmachine.CreateMachineArgs, parentUUID machine.UUID) (machine.UUID, machine.Name, error) {
+func (st *State) CreateMachineWithParent(ctx context.Context, args domainmachine.CreateMachineArgs, parentUUID string) (machine.Name, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	parentIdent := machineUUID{UUID: parentUUID}
@@ -84,12 +83,11 @@ func (st *State) CreateMachineWithParent(ctx context.Context, args domainmachine
 		count{},
 		parentIdent)
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	var (
 		machineName machine.Name
-		machineUUID machine.UUID
 		parentCount count
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -102,21 +100,21 @@ func (st *State) CreateMachineWithParent(ctx context.Context, args domainmachine
 			return errors.Errorf("parent machine %q not found", parentUUID).Add(machineerrors.MachineNotFound)
 		}
 		// Create the machine.
-		_, machineUUID, machineName, err = CreateMachine(ctx, tx, st, st.clock, args)
+		_, machineName, err = CreateMachine(ctx, tx, st, st.clock, args)
 		if err != nil {
 			return errors.Errorf("creating machine with parent %q: %w", parentUUID, err)
 		}
 		// Associate a parent machine if parentName is provided.
-		return st.createParentMachineLink(ctx, tx, machineUUID, parentUUID)
+		return st.createParentMachineLink(ctx, tx, args.MachineUUID.String(), parentUUID)
 	})
 	if err != nil {
-		return "", "", errors.Errorf("creating machine with parent %q: %w", parentUUID, err)
+		return "", errors.Errorf("creating machine with parent %q: %w", parentUUID, err)
 	}
 
-	return machineUUID, machineName, nil
+	return machineName, nil
 }
 
-func (st *State) createParentMachineLink(ctx context.Context, tx *sqlair.TX, mUUID, parentUUID machine.UUID) error {
+func (st *State) createParentMachineLink(ctx context.Context, tx *sqlair.TX, mUUID, parentUUID string) error {
 	// Prepare query for associating/verifying parent machine.
 	associateParentParam := machineParent{
 		MachineUUID: mUUID,
@@ -207,7 +205,7 @@ DELETE FROM net_node WHERE uuid IN
 		}
 
 		// Remove block devices for the machine.
-		if err := blockdevice.RemoveMachineBlockDevices(ctx, tx, machineUUIDParam.UUID.String()); err != nil {
+		if err := blockdevice.RemoveMachineBlockDevices(ctx, tx, machineUUIDParam.UUID); err != nil {
 			return errors.Errorf("deleting block devices for machine %q: %w", mName, err)
 		}
 
@@ -304,7 +302,7 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (life.L
 // - [coreerrors.NotSupported] if the architecture is not known to the database.
 func (st *State) SetRunningAgentBinaryVersion(
 	ctx context.Context,
-	machineUUID machine.UUID,
+	machineUUID string,
 	version coreagentbinary.Version,
 ) error {
 	db, err := st.DB()
@@ -326,9 +324,9 @@ SELECT id AS &ArchitectureMap.id FROM architecture WHERE name = $ArchitectureMap
 	}
 
 	type MachineAgentVersion struct {
-		MachineUUID    machine.UUID `db:"machine_uuid"`
-		Version        string       `db:"version"`
-		ArchitectureID int          `db:"architecture_id"`
+		MachineUUID    string `db:"machine_uuid"`
+		Version        string `db:"version"`
+		ArchitectureID int    `db:"architecture_id"`
 	}
 	machineAgentVersion := MachineAgentVersion{
 		MachineUUID: machineUUID,
@@ -384,7 +382,7 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 func (st *State) checkMachineNotDead(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid machine.UUID,
+	uuid string,
 ) error {
 	machineLife := machineLife{UUID: uuid}
 	stmt, err := st.Prepare(`
@@ -588,7 +586,7 @@ func (st *State) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 // GetMachineParentUUID returns the parent UUID of the specified machine.
 // It returns a MachineNotFound if the machine does not exist.
 // It returns a MachineHasNoParent if the machine has no parent.
-func (st *State) GetMachineParentUUID(ctx context.Context, uuid machine.UUID) (machine.UUID, error) {
+func (st *State) GetMachineParentUUID(ctx context.Context, uuid string) (machine.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -633,7 +631,7 @@ FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
 			return errors.Errorf("querying parent UUID for machine %q: %w", uuid, err)
 		}
 
-		parentUUID = parentUUIDParam.ParentUUID
+		parentUUID = machine.UUID(parentUUIDParam.ParentUUID)
 
 		return nil
 	})
@@ -759,9 +757,9 @@ func (st *State) GetMachineUUID(ctx context.Context, name machine.Name) (machine
 		return nil
 	})
 	if err != nil {
-		return uuid.UUID, errors.Errorf("getting UUID for machine %q: %w", name, err)
+		return machine.UUID(uuid.UUID), errors.Errorf("getting UUID for machine %q: %w", name, err)
 	}
-	return uuid.UUID, nil
+	return machine.UUID(uuid.UUID), nil
 }
 
 // ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
@@ -849,7 +847,7 @@ WHERE  name = $machineName.name`
 }
 
 // AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
-func (st *State) AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID) ([]string, error) {
+func (st *State) AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -911,7 +909,7 @@ ORDER BY array_index ASC`, lxdProfileQuery)
 // of profiles for the given machine without any checks.
 // [machineerrors.MachineNotFound] will be returned if the machine does not
 // exist.
-func (st *State) SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID, profileNames []string) error {
+func (st *State) SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error {
 	if len(profileNames) == 0 {
 		return nil
 	}
@@ -1041,7 +1039,7 @@ VALUES      ($lxdProfile.*)`, lxdProfile{})
 // on the given machine UUIDs.
 // [machineerrors.MachineNotFound] will be returned if the machine does not
 // exist.
-func (st *State) GetNamesForUUIDs(ctx context.Context, machineUUIDs []machine.UUID) (map[machine.UUID]machine.Name, error) {
+func (st *State) GetNamesForUUIDs(ctx context.Context, machineUUIDs []string) (map[machine.UUID]machine.Name, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Errorf("cannot get database find names for machines %q: %w", machineUUIDs, err)
@@ -1060,7 +1058,7 @@ WHERE  machine.uuid IN ($uuids[:])`, nameAndUUID{}, uuids{})
 
 	var namesAndUUIDs []nameAndUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, uuids(machineUUIDs)).GetAll(&namesAndUUIDs)
+		err = tx.Query(ctx, stmt, machineUUIDs).GetAll(&namesAndUUIDs)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		} else if errors.Is(err, sqlair.ErrNoRows) {
@@ -1127,7 +1125,7 @@ AND       (
 
 // SetMachineHostname sets the hostname for the given machine.
 // Also updates the agent_started_at timestamp.
-func (st *State) SetMachineHostname(ctx context.Context, mUUID machine.UUID, hostname string) error {
+func (st *State) SetMachineHostname(ctx context.Context, mUUID string, hostname string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -1179,7 +1177,7 @@ WHERE  uuid = $machineUUID.uuid`
 
 // GetSupportedContainersTypes returns the supported container types for the
 // given machine.
-func (st *State) GetSupportedContainersTypes(ctx context.Context, mUUID machine.UUID) ([]string, error) {
+func (st *State) GetSupportedContainersTypes(ctx context.Context, mUUID string) ([]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)

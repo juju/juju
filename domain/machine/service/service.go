@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/juju/clock"
 
@@ -23,6 +24,7 @@ import (
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State describes retrieval and persistence methods for machines.
@@ -30,14 +32,14 @@ type State interface {
 	// CreateMachine persists the input machine entity.
 	// It returns a MachineAlreadyExists error if a machine with the same name
 	// already exists.
-	CreateMachine(context.Context, domainmachine.CreateMachineArgs) (machine.UUID, machine.Name, error)
+	CreateMachine(context.Context, domainmachine.CreateMachineArgs) (machine.Name, error)
 
 	// CreateMachineWithparent persists the input machine entity, associating it
 	// with the parent machine.
 	// It returns a MachineAlreadyExists error if a machine with the same name
 	// already exists.
 	// It returns a MachineNotFound error if the parent machine does not exist.
-	CreateMachineWithParent(context.Context, domainmachine.CreateMachineArgs, machine.UUID) (machine.UUID, machine.Name, error)
+	CreateMachineWithParent(context.Context, domainmachine.CreateMachineArgs, string) (machine.Name, error)
 
 	// DeleteMachine deletes the input machine entity.
 	DeleteMachine(context.Context, machine.Name) error
@@ -67,31 +69,51 @@ type State interface {
 	AllMachineNames(context.Context) ([]machine.Name, error)
 
 	// GetInstanceID returns the cloud specific instance id for this machine.
-	GetInstanceID(context.Context, machine.UUID) (string, error)
+	GetInstanceID(context.Context, string) (string, error)
 
 	// GetInstanceIDAndName returns the cloud specific instance ID and display name
 	// for this machine.
-	GetInstanceIDAndName(ctx context.Context, mUUID machine.UUID) (string, string, error)
+	GetInstanceIDAndName(ctx context.Context, mUUID string) (string, string, error)
+
+	// GetInstanceStatus returns the cloud specific instance status for this
+	// machine.
+	// It returns MachineNotFound if the machine does not exist.
+	// It returns a StatusNotSet if the instance status is not set.
+	GetInstanceStatus(context.Context, machine.Name) (domainstatus.StatusInfo[domainstatus.InstanceStatusType], error)
+
+	// SetInstanceStatus sets the cloud specific instance status for this
+	// machine.
+	// It returns MachineNotFound if the machine does not exist.
+	SetInstanceStatus(context.Context, string, domainstatus.StatusInfo[domainstatus.InstanceStatusType]) error
+
+	// GetMachineStatus returns the status of the specified machine.
+	// It returns MachineNotFound if the machine does not exist.
+	// It returns a StatusNotSet if the status is not set.
+	GetMachineStatus(context.Context, machine.Name) (domainstatus.StatusInfo[domainstatus.MachineStatusType], error)
+
+	// SetMachineStatus sets the status of the specified machine.
+	// It returns MachineNotFound if the machine does not exist.
+	SetMachineStatus(context.Context, machine.Name, domainstatus.StatusInfo[domainstatus.MachineStatusType]) error
 
 	// GetHardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
-	GetHardwareCharacteristics(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(context.Context, string) (*instance.HardwareCharacteristics, error)
 
 	// AvailabilityZone returns the availability zone for the specified machine.
-	AvailabilityZone(context.Context, machine.UUID) (string, error)
+	AvailabilityZone(context.Context, string) (string, error)
 
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
-	SetMachineCloudInstance(context.Context, machine.UUID, instance.Id, string, string, *instance.HardwareCharacteristics) error
+	SetMachineCloudInstance(context.Context, string, instance.Id, string, string, *instance.HardwareCharacteristics) error
 
 	// SetRunningAgentBinaryVersion sets the running agent version for the
 	// machine. A MachineNotFound error will be returned if the machine does not
 	// exist.
-	SetRunningAgentBinaryVersion(context.Context, machine.UUID, coreagentbinary.Version) error
+	SetRunningAgentBinaryVersion(context.Context, string, coreagentbinary.Version) error
 
 	// DeleteMachineCloudInstance removes an entry in the machine cloud instance
 	// table along with the instance tags and the link to a lxd profile if any.
-	DeleteMachineCloudInstance(context.Context, machine.UUID) error
+	DeleteMachineCloudInstance(context.Context, string) error
 
 	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
@@ -125,7 +147,7 @@ type State interface {
 	// GetMachineParentUUID returns the parent UUID of the specified machine.
 	// It returns a MachineNotFound if the machine does not exist.
 	// It returns a MachineHasNoParent if the machine has no parent.
-	GetMachineParentUUID(ctx context.Context, machineUUID machine.UUID) (machine.UUID, error)
+	GetMachineParentUUID(ctx context.Context, machineUUID string) (machine.UUID, error)
 
 	// ShouldRebootOrShutdown determines whether a machine should reboot or
 	// shutdown
@@ -144,12 +166,12 @@ type State interface {
 
 	// AppliedLXDProfileNames returns the names of the LXD profiles on the
 	// machine.
-	AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID) ([]string, error)
+	AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error)
 
 	// SetAppliedLXDProfileNames sets the list of LXD profile names to the
 	// lxd_profile table for the given machine. This method will overwrite the
 	// list of profiles for the given machine without any checks.
-	SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID, profileNames []string) error
+	SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error
 
 	// NamespaceForWatchMachineCloudInstance returns the namespace for watching
 	// machine cloud instance changes.
@@ -175,7 +197,7 @@ type State interface {
 	// on the given machine UUIDs.
 	// [machineerrors.MachineNotFound] will be returned if the machine does not
 	// exist.
-	GetNamesForUUIDs(ctx context.Context, machineUUIDs []machine.UUID) (map[machine.UUID]machine.Name, error)
+	GetNamesForUUIDs(ctx context.Context, machineUUIDs []string) (map[machine.UUID]machine.Name, error)
 
 	// GetMachineArchesForApplication returns a map of machine names to their
 	// instance IDs. This will ignore non-provisioned machines or container
@@ -184,11 +206,11 @@ type State interface {
 
 	// SetMachineHostname sets the hostname for the given machine.
 	// Also updates the agent_started_at timestamp.
-	SetMachineHostname(ctx context.Context, mUUID machine.UUID, hostname string) error
+	SetMachineHostname(ctx context.Context, mUUID string, hostname string) error
 
 	// GetSupportedContainersTypes returns the supported container types for the
 	// given machine.
-	GetSupportedContainersTypes(ctx context.Context, mUUID machine.UUID) ([]string, error)
+	GetSupportedContainersTypes(ctx context.Context, mUUID string) ([]string, error)
 
 	// GetMachinePrincipalApplications returns the names of the principal
 	// (non-subordinate) applications for the specified machine.
@@ -227,12 +249,16 @@ func (s *Service) CreateMachine(ctx context.Context, args CreateMachineArgs) (ma
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	stateArgs, err := s.makeCreateMachineArgs(args)
+	machineUUID, err := machine.NewUUID()
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
 
-	machineUUID, machineName, err := s.st.CreateMachine(ctx, stateArgs)
+	stateArgs, err := s.makeCreateMachineArgs(args, machineUUID)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	machineName, err := s.st.CreateMachine(ctx, stateArgs)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -253,14 +279,21 @@ func (s *Service) CreateMachineWithParent(ctx context.Context, args CreateMachin
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Get the parent UUID.
+	machineUUID, err := machine.NewUUID()
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
 	parentUUID, err := s.st.GetMachineUUID(ctx, parentName)
 	if err != nil {
 		return "", "", errors.Errorf("getting parent UUID for machine %q: %w", parentName, err)
 	}
 
-	// Create the machine.
-	machineUUID, machineName, err := s.st.CreateMachineWithParent(ctx, domainmachine.CreateMachineArgs{}, parentUUID)
+	stateArgs, err := s.makeCreateMachineArgs(args, machineUUID)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	machineName, err := s.st.CreateMachineWithParent(ctx, stateArgs, parentUUID.String())
 	if err != nil {
 		return "", "", errors.Errorf("creating machine with parent %q: %w", parentName, err)
 	}
@@ -272,9 +305,10 @@ func (s *Service) CreateMachineWithParent(ctx context.Context, args CreateMachin
 	return machineUUID, machineName, nil
 }
 
-func (s *Service) makeCreateMachineArgs(args CreateMachineArgs) (domainmachine.CreateMachineArgs, error) {
+func (s *Service) makeCreateMachineArgs(args CreateMachineArgs, machineUUID machine.UUID) (domainmachine.CreateMachineArgs, error) {
 	return domainmachine.CreateMachineArgs{
-		Nonce: args.Nonce,
+		Nonce:       args.Nonce,
+		MachineUUID: machineUUID,
 	}, nil
 }
 
@@ -350,6 +384,112 @@ func (s *Service) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 		return nil, errors.Errorf("retrieving all machines: %w", err)
 	}
 	return machines, nil
+}
+
+// GetInstanceStatus returns the cloud specific instance status for this
+// machine.
+// It returns MachineNotFound if the machine does not exist.
+// It returns a StatusNotSet if the instance status is not set.
+// Idempotent.
+func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Name) (status.StatusInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	instanceStatus, err := s.st.GetInstanceStatus(ctx, machineName)
+	if err != nil {
+		return status.StatusInfo{}, errors.Errorf("retrieving instance status for machine %q: %w", machineName, err)
+	}
+
+	return decodeInstanceStatus(instanceStatus)
+}
+
+// SetInstanceStatus sets the cloud specific instance status for this machine.
+// It returns MachineNotFound if the machine does not exist. It returns
+// InvalidStatus if the given status is not a known status value.
+func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Name, statusInfo status.StatusInfo) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return errors.Errorf("validating machine name %q: %w", machineName, err)
+	}
+
+	if !statusInfo.Status.KnownInstanceStatus() {
+		return machineerrors.InvalidStatus
+	}
+
+	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	if err != nil {
+		return errors.Errorf("getting machine uuid for %q: %w", machineName, err)
+	}
+
+	instanceStatus, err := encodeInstanceStatus(statusInfo)
+	if err != nil {
+		return errors.Errorf("encoding status for machine %q: %w", machineName, err)
+	}
+
+	if err := s.st.SetInstanceStatus(ctx, machineUUID.String(), instanceStatus); err != nil {
+		return errors.Errorf("setting instance status for machine %q: %w", machineName, err)
+	}
+
+	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineInstanceNamespace.WithID(machineName.String()), statusInfo); err != nil {
+		s.logger.Infof(ctx, "failed recording instance status history: %w", err)
+	}
+
+	return nil
+}
+
+// GetMachineStatus returns the status of the specified machine. It returns
+// MachineNotFound if the machine does not exist. It returns a StatusNotSet if
+// the status is not set. Idempotent.
+func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name) (status.StatusInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	machineStatus, err := s.st.GetMachineStatus(ctx, machineName)
+	if err != nil {
+		return status.StatusInfo{}, errors.Errorf("retrieving machine status for machine %q: %w", machineName, err)
+	}
+
+	var data map[string]any
+	if len(machineStatus.Data) > 0 {
+		if err := json.Unmarshal(machineStatus.Data, &data); err != nil {
+			return status.StatusInfo{}, errors.Errorf("unmarshalling machine data for machine %q: %w", machineName, err)
+		}
+	}
+
+	return decodeMachineStatus(machineStatus)
+}
+
+// SetMachineStatus sets the status of the specified machine. It returns
+// MachineNotFound if the machine does not exist. It returns InvalidStatus if
+// the given status is not a known status value.
+func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name, statusInfo status.StatusInfo) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return errors.Errorf("validating machine name %q: %w", machineName, err)
+	}
+
+	if !statusInfo.Status.KnownMachineStatus() {
+		return machineerrors.InvalidStatus
+	}
+
+	machineStatus, err := encodeMachineStatus(statusInfo)
+	if err != nil {
+		return errors.Errorf("encoding status for machine %q: %w", machineName, err)
+	}
+
+	if err := s.st.SetMachineStatus(ctx, machineName, machineStatus); err != nil {
+		return errors.Errorf("setting machine status for machine %q: %w", machineName, err)
+	}
+
+	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineNamespace.WithID(machineName.String()), statusInfo); err != nil {
+		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
+	}
+
+	return nil
 }
 
 // IsMachineController returns whether the machine is a controller machine.
@@ -443,7 +583,7 @@ func (s *Service) GetMachineParentUUID(ctx context.Context, machineUUID machine.
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	parentUUID, err := s.st.GetMachineParentUUID(ctx, machineUUID)
+	parentUUID, err := s.st.GetMachineParentUUID(ctx, machineUUID.String())
 	if err != nil {
 		return "", errors.Errorf("retrieving parent UUID for machine %q: %w", machineUUID, err)
 	}
@@ -501,7 +641,7 @@ func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	profiles, err := s.st.AppliedLXDProfileNames(ctx, mUUID)
+	profiles, err := s.st.AppliedLXDProfileNames(ctx, mUUID.String())
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -517,7 +657,7 @@ func (s *Service) SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.U
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return errors.Capture(s.st.SetAppliedLXDProfileNames(ctx, mUUID, profileNames))
+	return errors.Capture(s.st.SetAppliedLXDProfileNames(ctx, mUUID.String(), profileNames))
 }
 
 // GetMachineArchesForApplication returns a list of architectures which are
@@ -559,7 +699,7 @@ func (s *Service) SetMachineHostname(ctx context.Context, mUUID machine.UUID, ho
 		return errors.Errorf("validating machine UUID %q: %w", mUUID, err)
 	}
 
-	if err := s.st.SetMachineHostname(ctx, mUUID, hostname); err != nil {
+	if err := s.st.SetMachineHostname(ctx, mUUID.String(), hostname); err != nil {
 		return errors.Errorf("setting hostname for machine with UUID %q: %w", mUUID, err)
 	}
 	return nil
@@ -578,7 +718,7 @@ func (s *Service) GetSupportedContainersTypes(ctx context.Context, mUUID machine
 	}
 
 	var results []instance.ContainerType
-	containerTypes, err := s.st.GetSupportedContainersTypes(ctx, mUUID)
+	containerTypes, err := s.st.GetSupportedContainersTypes(ctx, mUUID.String())
 	if err != nil {
 		return nil, errors.Errorf("getting supported container types for machine with UUID %q: %w", mUUID, err)
 	}
