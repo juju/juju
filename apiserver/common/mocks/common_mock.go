@@ -21,7 +21,6 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	life "github.com/juju/juju/core/life"
 	machine "github.com/juju/juju/core/machine"
-	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
 	semversion "github.com/juju/juju/core/semversion"
 	status "github.com/juju/juju/core/status"
@@ -220,45 +219,6 @@ func NewMockControllerConfigState(ctrl *gomock.Controller) *MockControllerConfig
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerConfigState) EXPECT() *MockControllerConfigStateMockRecorder {
 	return m.recorder
-}
-
-// APIHostPortsForAgents mocks base method.
-func (m *MockControllerConfigState) APIHostPortsForAgents(arg0 controller.Config) ([]network.SpaceHostPorts, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIHostPortsForAgents", arg0)
-	ret0, _ := ret[0].([]network.SpaceHostPorts)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// APIHostPortsForAgents indicates an expected call of APIHostPortsForAgents.
-func (mr *MockControllerConfigStateMockRecorder) APIHostPortsForAgents(arg0 any) *MockControllerConfigStateAPIHostPortsForAgentsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForAgents", reflect.TypeOf((*MockControllerConfigState)(nil).APIHostPortsForAgents), arg0)
-	return &MockControllerConfigStateAPIHostPortsForAgentsCall{Call: call}
-}
-
-// MockControllerConfigStateAPIHostPortsForAgentsCall wrap *gomock.Call
-type MockControllerConfigStateAPIHostPortsForAgentsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockControllerConfigStateAPIHostPortsForAgentsCall) Return(arg0 []network.SpaceHostPorts, arg1 error) *MockControllerConfigStateAPIHostPortsForAgentsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockControllerConfigStateAPIHostPortsForAgentsCall) Do(f func(controller.Config) ([]network.SpaceHostPorts, error)) *MockControllerConfigStateAPIHostPortsForAgentsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerConfigStateAPIHostPortsForAgentsCall) DoAndReturn(f func(controller.Config) ([]network.SpaceHostPorts, error)) *MockControllerConfigStateAPIHostPortsForAgentsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // CompletedMigrationForModel mocks base method.
@@ -587,18 +547,18 @@ func (m *MockToolsURLGetter) EXPECT() *MockToolsURLGetterMockRecorder {
 }
 
 // ToolsURLs mocks base method.
-func (m *MockToolsURLGetter) ToolsURLs(arg0 context.Context, arg1 controller.Config, arg2 semversion.Binary) ([]string, error) {
+func (m *MockToolsURLGetter) ToolsURLs(arg0 context.Context, arg1 semversion.Binary) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ToolsURLs", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ToolsURLs", arg0, arg1)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ToolsURLs indicates an expected call of ToolsURLs.
-func (mr *MockToolsURLGetterMockRecorder) ToolsURLs(arg0, arg1, arg2 any) *MockToolsURLGetterToolsURLsCall {
+func (mr *MockToolsURLGetterMockRecorder) ToolsURLs(arg0, arg1 any) *MockToolsURLGetterToolsURLsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolsURLs", reflect.TypeOf((*MockToolsURLGetter)(nil).ToolsURLs), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolsURLs", reflect.TypeOf((*MockToolsURLGetter)(nil).ToolsURLs), arg0, arg1)
 	return &MockToolsURLGetterToolsURLsCall{Call: call}
 }
 
@@ -614,13 +574,13 @@ func (c *MockToolsURLGetterToolsURLsCall) Return(arg0 []string, arg1 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockToolsURLGetterToolsURLsCall) Do(f func(context.Context, controller.Config, semversion.Binary) ([]string, error)) *MockToolsURLGetterToolsURLsCall {
+func (c *MockToolsURLGetterToolsURLsCall) Do(f func(context.Context, semversion.Binary) ([]string, error)) *MockToolsURLGetterToolsURLsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockToolsURLGetterToolsURLsCall) DoAndReturn(f func(context.Context, controller.Config, semversion.Binary) ([]string, error)) *MockToolsURLGetterToolsURLsCall {
+func (c *MockToolsURLGetterToolsURLsCall) DoAndReturn(f func(context.Context, semversion.Binary) ([]string, error)) *MockToolsURLGetterToolsURLsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -648,41 +608,41 @@ func (m *MockAPIHostPortsForAgentsGetter) EXPECT() *MockAPIHostPortsForAgentsGet
 	return m.recorder
 }
 
-// APIHostPortsForAgents mocks base method.
-func (m *MockAPIHostPortsForAgentsGetter) APIHostPortsForAgents(arg0 controller.Config) ([]network.SpaceHostPorts, error) {
+// GetAllAPIAddressesForAgentsInPreferredOrder mocks base method.
+func (m *MockAPIHostPortsForAgentsGetter) GetAllAPIAddressesForAgentsInPreferredOrder(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIHostPortsForAgents", arg0)
-	ret0, _ := ret[0].([]network.SpaceHostPorts)
+	ret := m.ctrl.Call(m, "GetAllAPIAddressesForAgentsInPreferredOrder", arg0)
+	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// APIHostPortsForAgents indicates an expected call of APIHostPortsForAgents.
-func (mr *MockAPIHostPortsForAgentsGetterMockRecorder) APIHostPortsForAgents(arg0 any) *MockAPIHostPortsForAgentsGetterAPIHostPortsForAgentsCall {
+// GetAllAPIAddressesForAgentsInPreferredOrder indicates an expected call of GetAllAPIAddressesForAgentsInPreferredOrder.
+func (mr *MockAPIHostPortsForAgentsGetterMockRecorder) GetAllAPIAddressesForAgentsInPreferredOrder(arg0 any) *MockAPIHostPortsForAgentsGetterGetAllAPIAddressesForAgentsInPreferredOrderCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForAgents", reflect.TypeOf((*MockAPIHostPortsForAgentsGetter)(nil).APIHostPortsForAgents), arg0)
-	return &MockAPIHostPortsForAgentsGetterAPIHostPortsForAgentsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAPIAddressesForAgentsInPreferredOrder", reflect.TypeOf((*MockAPIHostPortsForAgentsGetter)(nil).GetAllAPIAddressesForAgentsInPreferredOrder), arg0)
+	return &MockAPIHostPortsForAgentsGetterGetAllAPIAddressesForAgentsInPreferredOrderCall{Call: call}
 }
 
-// MockAPIHostPortsForAgentsGetterAPIHostPortsForAgentsCall wrap *gomock.Call
-type MockAPIHostPortsForAgentsGetterAPIHostPortsForAgentsCall struct {
+// MockAPIHostPortsForAgentsGetterGetAllAPIAddressesForAgentsInPreferredOrderCall wrap *gomock.Call
+type MockAPIHostPortsForAgentsGetterGetAllAPIAddressesForAgentsInPreferredOrderCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAPIHostPortsForAgentsGetterAPIHostPortsForAgentsCall) Return(arg0 []network.SpaceHostPorts, arg1 error) *MockAPIHostPortsForAgentsGetterAPIHostPortsForAgentsCall {
+func (c *MockAPIHostPortsForAgentsGetterGetAllAPIAddressesForAgentsInPreferredOrderCall) Return(arg0 []string, arg1 error) *MockAPIHostPortsForAgentsGetterGetAllAPIAddressesForAgentsInPreferredOrderCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPIHostPortsForAgentsGetterAPIHostPortsForAgentsCall) Do(f func(controller.Config) ([]network.SpaceHostPorts, error)) *MockAPIHostPortsForAgentsGetterAPIHostPortsForAgentsCall {
+func (c *MockAPIHostPortsForAgentsGetterGetAllAPIAddressesForAgentsInPreferredOrderCall) Do(f func(context.Context) ([]string, error)) *MockAPIHostPortsForAgentsGetterGetAllAPIAddressesForAgentsInPreferredOrderCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPIHostPortsForAgentsGetterAPIHostPortsForAgentsCall) DoAndReturn(f func(controller.Config) ([]network.SpaceHostPorts, error)) *MockAPIHostPortsForAgentsGetterAPIHostPortsForAgentsCall {
+func (c *MockAPIHostPortsForAgentsGetterGetAllAPIAddressesForAgentsInPreferredOrderCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockAPIHostPortsForAgentsGetterGetAllAPIAddressesForAgentsInPreferredOrderCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

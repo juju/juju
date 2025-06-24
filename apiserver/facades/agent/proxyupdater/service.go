@@ -6,20 +6,16 @@ package proxyupdater
 import (
 	"context"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 )
 
-// ControllerConfigService represents a way to get controller config.
-type ControllerConfigService interface {
-	// ControllerConfig returns the config values for the controller.
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
 // ControllerNodeService defines the methods on the controller node service
 // that are needed the proxy updater API.
 type ControllerNodeService interface {
+	// GetAllNoProxyAPIAddressesForAgents returns a sorted, comma separated string
+	// of agent API addresses suitable for no proxy settings.
+	GetAllNoProxyAPIAddressesForAgents(ctx context.Context) (string, error)
 	// WatchControllerAPIAddresses returns a watcher that observes changes to the
 	// controller ip addresses.
 	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)

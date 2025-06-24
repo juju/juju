@@ -11,8 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -25,6 +23,12 @@ type APIAddressAccessor interface {
 	// ID, and the values are slices of strings representing the API addresses
 	// for each controller node.
 	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+
+	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
+	// addresses available for agents ordered to prefer local-cloud scoped
+	// addresses and IPv4 over IPv6 for each machine.
+	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
+
 	// WatchControllerAPIAddresses returns a watcher that observes changes to the
 	// controller ip addresses.
 	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
@@ -98,43 +102,12 @@ func (a *APIAddresser) WatchAPIHostPorts(ctx context.Context) (params.NotifyWatc
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
-//
-// Note:
-// The slice of addresses is not prioritized for cloud local addresses
-// at this time.
 func (a *APIAddresser) APIAddresses(ctx context.Context) (params.StringsResult, error) {
-	// TODO: 2025-Jun-04 hml
-	// Update to prioritize network.ScopeMatchCloudLocal addresses
-	// only.
-	srvs, err := a.apiAddressAccessor.GetAllAPIAddressesForAgents(ctx)
+	addrs, err := a.apiAddressAccessor.GetAllAPIAddressesForAgentsInPreferredOrder(ctx)
 	if err != nil {
 		return params.StringsResult{}, err
 	}
-
-	result := make([]string, 0, len(srvs))
-	for _, addrs := range srvs {
-		result = append(result, addrs...)
-	}
-
-	return params.StringsResult{Result: result}, nil
-}
-
-// TODO - 2025-Jun-04 hml
-// Convert this method over to using the ControllerNode domain.
-// Previously used by APIAddresses too.
-func apiAddresses(controllerConfig controller.Config, getter APIHostPortsForAgentsGetter) ([]string, error) {
-	apiHostPorts, err := getter.APIHostPortsForAgents(controllerConfig)
-	if err != nil {
-		return nil, err
-	}
-	var addrs = make([]string, 0, len(apiHostPorts))
-	for _, hostPorts := range apiHostPorts {
-		ordered := hostPorts.HostPorts().PrioritizedForScope(network.ScopeMatchCloudLocal)
-		for _, addr := range ordered {
-			if addr != "" {
-				addrs = append(addrs, addr)
-			}
-		}
-	}
-	return addrs, nil
+	return params.StringsResult{
+		Result: addrs,
+	}, nil
 }

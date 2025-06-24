@@ -10,10 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/controller"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/state"
@@ -29,12 +27,6 @@ type CAASApplicationProvisionerState interface {
 	Resources(objectstore.ObjectStore) Resources
 	Unit(string) (Unit, error)
 	IsController() bool
-}
-
-// CAASApplicationControllerState provides the subset of controller state
-// required by the CAAS operator provisioner facade.
-type CAASApplicationControllerState interface {
-	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 }
 
 type Model interface {

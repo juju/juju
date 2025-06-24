@@ -112,17 +112,17 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 		return s.resourceOpener, nil
 	}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st,
+		s.st,
 		s.resources, newResourceOpener,
 		s.authorizer,
 		s.storage,
 		s.storagePoolGetter,
 		caasapplicationprovisioner.Services{
+			ApplicationService:      s.applicationService,
 			ControllerConfigService: s.controllerConfigService,
 			ControllerNodeService:   s.controllerNodeService,
 			ModelConfigService:      s.modelConfigService,
 			ModelInfoService:        s.modelInfoService,
-			ApplicationService:      s.applicationService,
 			StatusService:           s.statusService,
 		},
 		s.leadershipRevoker,
@@ -135,11 +135,10 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 	s.api = api
 
 	c.Cleanup(func() {
-		s.controllerNodeService = nil
+		s.applicationService = nil
 		s.controllerNodeService = nil
 		s.modelConfigService = nil
 		s.modelInfoService = nil
-		s.applicationService = nil
 		s.statusService = nil
 		s.leadershipRevoker = nil
 		s.resourceOpener = nil
@@ -155,7 +154,7 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *tc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st,
+		s.st,
 		s.resources, nil,
 		s.authorizer,
 		s.storage,
@@ -193,6 +192,8 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(s.fakeModelConfig())
+	addrs := []string{"10.0.0.1:1"}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(addrs, nil)
 
 	modelInfo := model.ModelInfo{
 		UUID: model.UUID(coretesting.ModelTag.Id()),

@@ -23,7 +23,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
@@ -48,14 +47,9 @@ type AddMachineManagerSuite struct {
 	store         *MockObjectStore
 	cloudService  *commonmocks.MockCloudService
 
-	controllerConfigService *MockControllerConfigService
-	machineService          *MockMachineService
-	applicationService      *MockApplicationService
-	networkService          *MockNetworkService
-	keyUpdaterService       *MockKeyUpdaterService
-	blockCommandService     *MockBlockCommandService
-	agentBinaryService      *MockAgentBinaryService
-	agentPasswordService    *MockAgentPasswordService
+	machineService      *MockMachineService
+	networkService      *MockNetworkService
+	blockCommandService *MockBlockCommandService
 }
 
 func TestAddMachineManagerSuite(t *testing.T) {
@@ -76,25 +70,16 @@ func (s *AddMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 
 	s.storageAccess = NewMockStorageInterface(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
-	s.applicationService = NewMockApplicationService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
-	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 
 	s.blockCommandService = NewMockBlockCommandService(ctrl)
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
-	s.agentBinaryService = NewMockAgentBinaryService(ctrl)
-	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 
 	s.api = NewMachineManagerAPI(
 		s.modelUUID,
-		s.controllerConfigService,
 		s.st,
-		s.cloudService,
-		s.machineService,
-		s.applicationService,
 		s.store,
 		nil,
 		s.storageAccess,
@@ -105,13 +90,24 @@ func (s *AddMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 		common.NewResources(),
 		nil,
 		loggertesting.WrapCheckLog(c),
-		s.networkService,
-		s.keyUpdaterService,
-		nil,
-		s.blockCommandService,
-		s.agentBinaryService,
-		s.agentPasswordService,
+		Services{
+			BlockCommandService: s.blockCommandService,
+			CloudService:        s.cloudService,
+			MachineService:      s.machineService,
+			NetworkService:      s.networkService,
+		},
 	)
+
+	c.Cleanup(func() {
+		s.blockCommandService = nil
+		s.cloudService = nil
+		s.machineService = nil
+		s.api = nil
+		s.pool = nil
+		s.st = nil
+		s.storageAccess = nil
+		s.networkService = nil
+	})
 
 	return ctrl
 }
@@ -201,18 +197,12 @@ type DestroyMachineManagerSuite struct {
 	storageAccess *MockStorageInterface
 	leadership    *MockLeadership
 	store         *MockObjectStore
-	cloudService  *commonmocks.MockCloudService
 	api           *MachineManagerAPI
 	modelUUID     coremodel.UUID
 
-	controllerConfigService *MockControllerConfigService
-	machineService          *MockMachineService
-	applicationService      *MockApplicationService
-	networkService          *MockNetworkService
-	keyUpdaterService       *MockKeyUpdaterService
-	blockCommandService     *MockBlockCommandService
-	agentBinaryService      *MockAgentBinaryService
-	agentPasswordService    *MockAgentPasswordService
+	machineService      *MockMachineService
+	applicationService  *MockApplicationService
+	blockCommandService *MockBlockCommandService
 }
 
 func TestDestroyMachineManagerSuite(t *testing.T) {
@@ -230,32 +220,22 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.st = NewMockBackend(ctrl)
 
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
-	s.networkService = NewMockNetworkService(ctrl)
-	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 
 	s.storageAccess = NewMockStorageInterface(ctrl)
 	s.storageAccess.EXPECT().VolumeAccess().Return(nil).AnyTimes()
 	s.storageAccess.EXPECT().FilesystemAccess().Return(nil).AnyTimes()
 
-	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.leadership = NewMockLeadership(ctrl)
 
 	s.blockCommandService = NewMockBlockCommandService(ctrl)
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
-	s.agentBinaryService = NewMockAgentBinaryService(ctrl)
-	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 
 	s.api = NewMachineManagerAPI(
 		s.modelUUID,
-		s.controllerConfigService,
 		s.st,
-		s.cloudService,
-		s.machineService,
-		s.applicationService,
 		s.store,
 		nil,
 		s.storageAccess,
@@ -266,13 +246,22 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 		nil,
 		s.leadership,
 		loggertesting.WrapCheckLog(c),
-		s.networkService,
-		s.keyUpdaterService,
-		nil,
-		s.blockCommandService,
-		s.agentBinaryService,
-		s.agentPasswordService,
+		Services{
+			ApplicationService:  s.applicationService,
+			BlockCommandService: s.blockCommandService,
+			MachineService:      s.machineService,
+		},
 	)
+
+	c.Cleanup(func() {
+		s.blockCommandService = nil
+		s.machineService = nil
+		s.api = nil
+		s.st = nil
+		s.storageAccess = nil
+		s.leadership = nil
+		s.api = nil
+	})
 
 	return ctrl
 }
@@ -728,9 +717,8 @@ type ProvisioningMachineManagerSuite struct {
 	modelUUID    coremodel.UUID
 
 	controllerConfigService *MockControllerConfigService
+	controllerNodeService   *MockControllerNodeService
 	machineService          *MockMachineService
-	applicationService      *MockApplicationService
-	networkService          *MockNetworkService
 	keyUpdaterService       *MockKeyUpdaterService
 	modelConfigService      *MockModelConfigService
 	bootstrapEnviron        *MockBootstrapEnviron
@@ -742,6 +730,7 @@ type ProvisioningMachineManagerSuite struct {
 func TestProvisioningMachineManagerSuite(t *testing.T) {
 	tc.Run(t, &ProvisioningMachineManagerSuite{})
 }
+
 func (s *ProvisioningMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 }
@@ -758,14 +747,13 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
+	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
-	s.applicationService = NewMockApplicationService(ctrl)
 
 	s.pool = NewMockPool(ctrl)
 	s.pool.EXPECT().SystemState().Return(s.ctrlSt, nil).AnyTimes()
 
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
-	s.networkService = NewMockNetworkService(ctrl)
 	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.bootstrapEnviron = NewMockBootstrapEnviron(ctrl)
@@ -780,11 +768,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 
 	s.api = NewMachineManagerAPI(
 		s.modelUUID,
-		s.controllerConfigService,
 		s.st,
-		s.cloudService,
-		s.machineService,
-		s.applicationService,
 		s.store,
 		nil,
 		nil,
@@ -795,13 +779,32 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 		common.NewResources(),
 		nil,
 		loggertesting.WrapCheckLog(c),
-		s.networkService,
-		s.keyUpdaterService,
-		s.modelConfigService,
-		s.blockCommandService,
-		s.agentBinaryService,
-		s.agentPasswordService,
+		Services{
+			AgentBinaryService:      s.agentBinaryService,
+			AgentPasswordService:    s.agentPasswordService,
+			BlockCommandService:     s.blockCommandService,
+			CloudService:            s.cloudService,
+			ControllerConfigService: s.controllerConfigService,
+			ControllerNodeService:   s.controllerNodeService,
+			KeyUpdaterService:       s.keyUpdaterService,
+			MachineService:          s.machineService,
+			ModelConfigService:      s.modelConfigService,
+		},
 	)
+
+	c.Cleanup(func() {
+		s.blockCommandService = nil
+		s.cloudService = nil
+		s.controllerConfigService = nil
+		s.controllerNodeService = nil
+		s.keyUpdaterService = nil
+		s.machineService = nil
+		s.modelConfigService = nil
+		s.api = nil
+		s.pool = nil
+		s.ctrlSt = nil
+		s.st = nil
+	})
 	return ctrl
 }
 
@@ -848,10 +851,10 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *tc.C) {
 	storageCloser := s.expectProvisioningStorageCloser(ctrl)
 	s.st.EXPECT().ToolsStorage(gomock.Any()).Return(storageCloser, nil)
 
-	s.ctrlSt.EXPECT().APIHostPortsForAgents(gomock.Any()).Return([]network.SpaceHostPorts{{{
-		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
-		NetPort:      1,
-	}}}, nil).Times(2)
+	addrs := []string{"0.2.4.6:1"}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(addrs, nil).AnyTimes()
+	addrs2 := map[string][]string{"one": {"0.2.4.6:1"}}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs2, nil).MinTimes(1)
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
 		gomock.Any(), coremachine.Name("0"),
 	).Return([]string{
@@ -916,10 +919,10 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 	storageCloser := s.expectProvisioningStorageCloser(ctrl)
 	s.st.EXPECT().ToolsStorage(gomock.Any()).Return(storageCloser, nil)
 
-	s.ctrlSt.EXPECT().APIHostPortsForAgents(gomock.Any()).Return([]network.SpaceHostPorts{{{
-		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
-		NetPort:      1,
-	}}}, nil).Times(2)
+	addrs := []string{"0.2.4.6:1"}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(addrs, nil).MinTimes(1)
+	addrs2 := map[string][]string{"one": {"0.2.4.6:1"}}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs2, nil).MinTimes(1)
 
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
 		gomock.Any(), coremachine.Name("0"),

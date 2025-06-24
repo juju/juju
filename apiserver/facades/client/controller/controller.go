@@ -104,6 +104,7 @@ func NewControllerAPI(
 	resources facade.Resources,
 	logger corelogger.Logger,
 	controllerConfigService ControllerConfigService,
+	controllerNodeService ControllerNodeService,
 	externalControllerService common.ExternalControllerService,
 	credentialService CredentialService,
 	upgradeService UpgradeService,
@@ -141,6 +142,7 @@ func NewControllerAPI(
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
 			controllerConfigService,
+			controllerNodeService,
 			externalControllerService,
 		),
 		ModelStatusAPI: commonmodel.NewModelStatusAPI(

@@ -51,6 +51,14 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// ControllerNodeService represents a way to get controller api addresses.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
+	// addresses available for agents ordered to prefer local-cloud scoped
+	// addresses and IPv4 over IPv6 for each machine.
+	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
+}
+
 // CloudService provides access to clouds.
 type CloudService interface {
 	// Cloud returns the named cloud.
@@ -150,6 +158,7 @@ func NewAgentAPI(
 	st *state.State,
 	agentPasswordService AgentPasswordService,
 	controllerConfigService ControllerConfigService,
+	controllerNodeService ControllerNodeService,
 	externalControllerService ExternalControllerService,
 	machineService MachineService,
 	modelConfigService ModelConfigService,
@@ -167,6 +176,7 @@ func NewAgentAPI(
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
 			controllerConfigService,
+			controllerNodeService,
 			externalControllerService,
 		),
 		controllerConfigService: controllerConfigService,

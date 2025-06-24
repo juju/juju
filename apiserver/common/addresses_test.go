@@ -30,11 +30,8 @@ func TestApiAddresserSuite(t *testing.T) {
 func (s *apiAddresserSuite) TestAPIAddresses(c *tc.C) {
 	defer s.setupMock(c).Finish()
 	// Arrange
-	res := map[string][]string{
-		"one": {"apiaddresses:1"},
-		"two": {"apiaddresses:2"},
-	}
-	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(res, nil)
+	res := []string{"10.2.3.43:1", "10.4.7.178:2"}
+	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(res, nil)
 	addresser := s.getAddresser()
 
 	// Act
@@ -42,11 +39,7 @@ func (s *apiAddresserSuite) TestAPIAddresses(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Result, tc.SameContents, []string{"apiaddresses:1", "apiaddresses:2"})
-}
-
-func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *tc.C) {
-	c.Skip("Rewrite test when APIAddresses are ordered")
+	c.Assert(result.Result, tc.SameContents, []string{"10.2.3.43:1", "10.4.7.178:2"})
 }
 
 func (s *apiAddresserSuite) TestAPIHostPorts(c *tc.C) {

@@ -6,15 +6,12 @@ package proxyupdater
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/rpc/params"
@@ -31,14 +28,7 @@ var _ ProxyUpdaterV2 = (*API)(nil)
 // newFacadeBase provides the signature required for facade registration
 // and creates a v2 facade.
 func newFacadeBase(ctx facade.ModelContext) (*API, error) {
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return NewAPIV2(
-		systemState,
-		ctx.DomainServices().ControllerConfig(),
 		ctx.DomainServices().ControllerNode(),
 		ctx.DomainServices().Config(),
 		ctx.Auth(),
@@ -48,24 +38,14 @@ func newFacadeBase(ctx facade.ModelContext) (*API, error) {
 
 // API provides the ProxyUpdater version 2 facade.
 type API struct {
-	controller              ControllerBackend
-	controllerConfigService ControllerConfigService
-	controllerNodeService   ControllerNodeService
-	modelConfigService      ModelConfigService
-	authorizer              facade.Authorizer
-	watcherRegistry         facade.WatcherRegistry
-}
-
-// ControllerBackend defines the controller state methods this facade needs,
-// so they can be mocked for testing.
-type ControllerBackend interface {
-	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
+	controllerNodeService ControllerNodeService
+	modelConfigService    ModelConfigService
+	authorizer            facade.Authorizer
+	watcherRegistry       facade.WatcherRegistry
 }
 
 // NewAPIV2 creates a new server-side API facade with the given Backing.
 func NewAPIV2(
-	controller ControllerBackend,
-	controllerConfigService ControllerConfigService,
 	controllerNodeService ControllerNodeService,
 	modelConfigService ModelConfigService,
 	authorizer facade.Authorizer,
@@ -75,12 +55,10 @@ func NewAPIV2(
 		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
-		controller:              controller,
-		controllerConfigService: controllerConfigService,
-		controllerNodeService:   controllerNodeService,
-		modelConfigService:      modelConfigService,
-		authorizer:              authorizer,
-		watcherRegistry:         watcherRegistry,
+		controllerNodeService: controllerNodeService,
+		modelConfigService:    modelConfigService,
+		authorizer:            authorizer,
+		watcherRegistry:       watcherRegistry,
 	}, nil
 }
 
@@ -181,13 +159,7 @@ func (api *API) proxyConfig(ctx context.Context) params.ProxyConfigResult {
 		return result
 	}
 
-	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result
-	}
-
-	apiHostPorts, err := api.controller.APIHostPortsForAgents(controllerConfig)
+	proxyAddressPorts, err := api.controllerNodeService.GetAllNoProxyAPIAddressesForAgents(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -197,9 +169,9 @@ func (api *API) proxyConfig(ctx context.Context) params.ProxyConfigResult {
 	legacyProxySettings := config.LegacyProxySettings()
 
 	if jujuProxySettings.HasProxySet() {
-		jujuProxySettings.AutoNoProxy = network.APIHostPortsToNoProxyString(apiHostPorts)
+		jujuProxySettings.AutoNoProxy = proxyAddressPorts
 	} else {
-		legacyProxySettings.AutoNoProxy = network.APIHostPortsToNoProxyString(apiHostPorts)
+		legacyProxySettings.AutoNoProxy = proxyAddressPorts
 	}
 	result.JujuProxySettings = toParams(jujuProxySettings)
 	result.LegacyProxySettings = toParams(legacyProxySettings)

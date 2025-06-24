@@ -7,8 +7,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
-
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -31,20 +29,15 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 
 	domainServices := ctx.DomainServices()
 
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	applicationService := domainServices.Application()
 
 	return NewFacade(
 		resources,
 		authorizer,
-		systemState,
 		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
 		domainServices.ControllerConfig(),
+		domainServices.ControllerNode(),
 		applicationService,
 		domainServices.Agent(),
 		ctx.Logger().Child("caasapplication"),

@@ -23,11 +23,11 @@ import (
 )
 
 type Services struct {
+	ApplicationService      ApplicationService
 	ControllerConfigService ControllerConfigService
 	ControllerNodeService   ControllerNodeService
 	ModelConfigService      ModelConfigService
 	ModelInfoService        ModelInfoService
-	ApplicationService      ApplicationService
 	StatusService           StatusService
 }
 
@@ -40,9 +40,12 @@ type ControllerConfigService interface {
 	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 }
 
-// ControllerNodeService defines the methods on the controller node service
-// that are needed the caas application provisioner API.
+// ControllerNodeService represents a way to get controller api addresses.
 type ControllerNodeService interface {
+	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
+	// addresses available for agents ordered to prefer local-cloud scoped
+	// addresses and IPv4 over IPv6 for each machine.
+	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
 	// WatchControllerAPIAddresses returns a watcher that observes changes to the
 	// controller ip addresses.
 	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)

@@ -423,6 +423,45 @@ func (c *MockControllerNodeServiceGetAllAPIAddressesForAgentsCall) DoAndReturn(f
 	return c
 }
 
+// GetAllAPIAddressesForAgentsInPreferredOrder mocks base method.
+func (m *MockControllerNodeService) GetAllAPIAddressesForAgentsInPreferredOrder(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllAPIAddressesForAgentsInPreferredOrder", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllAPIAddressesForAgentsInPreferredOrder indicates an expected call of GetAllAPIAddressesForAgentsInPreferredOrder.
+func (mr *MockControllerNodeServiceMockRecorder) GetAllAPIAddressesForAgentsInPreferredOrder(arg0 any) *MockControllerNodeServiceGetAllAPIAddressesForAgentsInPreferredOrderCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAPIAddressesForAgentsInPreferredOrder", reflect.TypeOf((*MockControllerNodeService)(nil).GetAllAPIAddressesForAgentsInPreferredOrder), arg0)
+	return &MockControllerNodeServiceGetAllAPIAddressesForAgentsInPreferredOrderCall{Call: call}
+}
+
+// MockControllerNodeServiceGetAllAPIAddressesForAgentsInPreferredOrderCall wrap *gomock.Call
+type MockControllerNodeServiceGetAllAPIAddressesForAgentsInPreferredOrderCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerNodeServiceGetAllAPIAddressesForAgentsInPreferredOrderCall) Return(arg0 []string, arg1 error) *MockControllerNodeServiceGetAllAPIAddressesForAgentsInPreferredOrderCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerNodeServiceGetAllAPIAddressesForAgentsInPreferredOrderCall) Do(f func(context.Context) ([]string, error)) *MockControllerNodeServiceGetAllAPIAddressesForAgentsInPreferredOrderCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerNodeServiceGetAllAPIAddressesForAgentsInPreferredOrderCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockControllerNodeServiceGetAllAPIAddressesForAgentsInPreferredOrderCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatchControllerAPIAddresses mocks base method.
 func (m *MockControllerNodeService) WatchControllerAPIAddresses(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
