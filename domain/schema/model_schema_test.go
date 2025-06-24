@@ -238,6 +238,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"storage_pool_attribute",
 		"storage_pool",
 		"storage_pool_origin",
+		"storage_provision_scope",
 		"storage_unit_owner",
 		"storage_volume_attachment_plan_attr",
 		"storage_volume_attachment_plan",
@@ -247,7 +248,6 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"storage_volume_status",
 		"storage_volume_status_value",
 		"unit_storage_directive",
-		"storage_provision_scope",
 
 		// Secret
 		"secret_rotate_policy",

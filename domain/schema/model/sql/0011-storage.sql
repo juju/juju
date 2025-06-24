@@ -461,9 +461,6 @@ CREATE TABLE storage_volume_attachment_plan (
     life_id INT NOT NULL,
     device_type_id INT,
     block_device_uuid TEXT,
-    -- TODO: we may change provision_scope_id to NOT NULL in the future.
-    -- We leave it nullable for now to avoid too much code churn.
-    provision_scope_id INT,
     CONSTRAINT fk_storage_volume_attachment_plan_vol
     FOREIGN KEY (storage_volume_uuid)
     REFERENCES storage_volume (uuid),
@@ -478,10 +475,7 @@ CREATE TABLE storage_volume_attachment_plan (
     REFERENCES storage_volume_device_type (id),
     CONSTRAINT fk_storage_volume_attachment_plan_block
     FOREIGN KEY (block_device_uuid)
-    REFERENCES block_device (uuid),
-    CONSTRAINT fk_storage_volume_attachment_plan_provision_scope_id
-    FOREIGN KEY (provision_scope_id)
-    REFERENCES storage_provision_scope (id)
+    REFERENCES block_device (uuid)
 );
 
 CREATE TABLE storage_volume_attachment_plan_attr (
