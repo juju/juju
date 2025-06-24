@@ -29,10 +29,12 @@ import (
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	domainlife "github.com/juju/juju/domain/life"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/schema/testing"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secretstate "github.com/juju/juju/domain/secret/state"
 	domaintesting "github.com/juju/juju/domain/testing"
+	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -734,6 +736,10 @@ func (s *serviceSuite) createSecrets(c *tc.C, appUUID coreapplication.ID, unitNa
 type serviceProvider struct {
 	service.Provider
 	service.CAASProvider
+}
+
+func (serviceProvider) PrecheckInstance(ctx context.Context, args environs.PrecheckInstanceParams) error {
+	return machineservice.NewNoopProvider().PrecheckInstance(ctx, args)
 }
 
 func (serviceProvider) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {

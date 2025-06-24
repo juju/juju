@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/assumes"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
@@ -111,6 +113,11 @@ func (s *ProviderService) CreateIAASApplication(
 	appName, appArg, unitArgs, err := s.makeIAASApplicationArg(ctx, name, charm, origin, args, units...)
 	if err != nil {
 		return "", errors.Errorf("preparing IAAS application args: %w", err)
+	}
+
+	// Precheck any instances that are being created.
+	if err := s.precheckInstances(ctx, appArg.Platform, unitArgs); err != nil {
+		return "", errors.Errorf("prechecking instances: %w", err)
 	}
 
 	appID, machineNames, err := s.st.CreateIAASApplication(ctx, appName, appArg, unitArgs)
@@ -379,6 +386,58 @@ func makeCreateApplicationArgs(
 	}, nil
 }
 
+func (s *ProviderService) precheckInstances(
+	ctx context.Context,
+	platform deployment.Platform,
+	unitArgs []application.AddIAASUnitArg,
+) error {
+	provider, err := s.provider(ctx)
+	if err != nil {
+		return errors.Errorf("getting provider: %w", err)
+	}
+
+	base, err := encodeApplicationBase(platform)
+	if err != nil {
+		return errors.Errorf("encoding application base: %w", err)
+	}
+
+	for _, unitArg := range unitArgs {
+		if err := provider.PrecheckInstance(ctx, environs.PrecheckInstanceParams{
+			Base:        base,
+			Placement:   encodeUnitPlacement(unitArg.Placement),
+			Constraints: constraints.EncodeConstraints(unitArg.Constraints),
+		}); err != nil {
+			return errors.Errorf("pre-checking instances: %w", err)
+		}
+	}
+	return nil
+}
+
+func encodeApplicationBase(platform deployment.Platform) (corebase.Base, error) {
+	var osName string
+	switch platform.OSType {
+	case deployment.Ubuntu:
+		osName = "ubuntu"
+	default:
+		return corebase.Base{}, errors.Errorf("unsupported OS type %q", platform.OSType)
+	}
+
+	return corebase.Base{
+		OS:      osName,
+		Channel: corebase.Channel{Track: platform.Channel},
+	}, nil
+}
+
+func encodeUnitPlacement(placement deployment.Placement) string {
+	// We only support provider placements, so if the placement type is not
+	// a provider, we return an empty string.
+	if placement.Type != deployment.PlacementTypeProvider {
+		return ""
+	}
+
+	return placement.Directive
+}
+
 // GetSupportedFeatures returns the set of features that the model makes
 // available for charms to use.
 // If the agent version cannot be found, an error satisfying
@@ -479,6 +538,11 @@ func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, unit
 		return nil, errors.Errorf("getting application %q constraints: %w", appName, err)
 	}
 
+	origin, err := s.st.GetApplicationCharmOrigin(ctx, appUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting application %q platform: %w", appName, err)
+	}
+
 	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -487,6 +551,10 @@ func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, unit
 	args, err := s.makeIAASUnitArgs(units, constraints.DecodeConstraints(cons))
 	if err != nil {
 		return nil, errors.Errorf("making IAAS unit args: %w", err)
+	}
+
+	if err := s.precheckInstances(ctx, origin.Platform, args); err != nil {
+		return nil, errors.Errorf("pre-checking instances: %w", err)
 	}
 
 	unitNames, machineNames, err := s.st.AddIAASUnits(ctx, appUUID, args...)

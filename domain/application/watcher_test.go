@@ -1611,7 +1611,7 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 	}
 
 	providerGetter := func(ctx context.Context) (service.Provider, error) {
-		return nil, coreerrors.NotSupported
+		return machineservice.NewNoopProvider(), nil
 	}
 	caasProviderGetter := func(ctx context.Context) (service.CAASProvider, error) {
 		return nil, coreerrors.NotSupported

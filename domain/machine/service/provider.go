@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
@@ -159,4 +160,14 @@ func (p *noopProvider) PrecheckInstance(ctx context.Context, params environs.Pre
 	defer span.End()
 
 	return nil
+}
+
+// ConstraintsValidator is a no-op implementation of the
+// environs.ConstraintsValidator interface. It returns a new constraints
+// validator without any specific constraints or vocabulary.
+func (p *noopProvider) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return constraints.NewValidator(), nil
 }
