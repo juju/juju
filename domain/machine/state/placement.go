@@ -542,6 +542,7 @@ func acquireParentMachineForContainer(
 	}
 
 	insertMachineAndNetNodeArgs := insertMachineAndNetNodeArgs{
+		machineUUID: machineUUID.String(),
 		machineName: machineName.String(),
 		platform:    args.platform,
 		nonce:       args.nonce,

@@ -74,7 +74,7 @@ func (s *stateSuite) TestRequireMachineRebootSeveralMachine(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Call the function under test
-	err = s.state.RequireMachineReboot(c.Context(), "uuid")
+	err = s.state.RequireMachineReboot(c.Context(), "uuid1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify: Check which machine needs reboot

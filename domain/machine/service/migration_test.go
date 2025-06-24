@@ -78,7 +78,7 @@ func (s *migrationServiceSuite) TestGetMachines(c *tc.C) {
 func (s *migrationServiceSuite) TestGetInstanceID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetInstanceID(gomock.Any(), coremachine.UUID("abc")).Return("efg", nil)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), "abc").Return("efg", nil)
 
 	instanceID, err := s.service.GetInstanceID(c.Context(), coremachine.UUID("abc"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -92,7 +92,7 @@ func (s *migrationServiceSuite) TestGetHardwareCharacteristics(c *tc.C) {
 		Mem: ptr[uint64](1024),
 	}
 
-	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), coremachine.UUID("abc")).Return(hwc, nil)
+	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), "abc").Return(hwc, nil)
 
 	result, err := s.service.GetHardwareCharacteristics(c.Context(), coremachine.UUID("abc"))
 	c.Assert(err, tc.ErrorIsNil)

@@ -310,10 +310,14 @@ func (s *stateSuite) TestGetMachineLifeNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestListAllMachines(c *tc.C) {
-	mn0, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	mn0, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid0",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	mn1, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	mn1, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid1",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	machines, err := s.state.AllMachineNames(c.Context())
@@ -366,9 +370,13 @@ func (s *stateSuite) TestListAllMachinesEmpty(c *tc.C) {
 // TestListAllMachineNamesSuccess asserts the happy path of AllMachineNames at
 // the state layer.
 func (s *stateSuite) TestListAllMachineNamesSuccess(c *tc.C) {
-	mn0, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	mn0, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid0",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	mn1, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
+	mn1, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid1",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	machines, err := s.state.AllMachineNames(c.Context())
@@ -459,7 +467,7 @@ func (s *stateSuite) TestGetMachineParentUUIDSuccess(c *tc.C) {
 	// Get the parent UUID of the machine.
 	obtainedParentUUID, err := s.state.GetMachineParentUUID(c.Context(), "child-uuid")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedParentUUID, tc.Equals, "parent-uuid")
+	c.Assert(obtainedParentUUID.String(), tc.Equals, "parent-uuid")
 }
 
 // TestGetMachineParentUUIDNotFound asserts that a NotFound error is returned
@@ -517,7 +525,7 @@ func (s *stateSuite) TestMarkMachineForRemovalSuccessIdempotent(c *tc.C) {
 	machines, err := s.state.GetAllMachineRemovals(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machines, tc.HasLen, 1)
-	c.Assert(machines[0], tc.Equals, "deadbeef")
+	c.Assert(machines[0].String(), tc.Equals, "deadbeef")
 }
 
 // TestMarkMachineForRemovalNotFound asserts that a NotFound error is returned
@@ -543,7 +551,7 @@ func (s *stateSuite) TestGetAllMachineRemovalsSuccess(c *tc.C) {
 	machines, err := s.state.GetAllMachineRemovals(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machines, tc.HasLen, 1)
-	c.Assert(machines[0], tc.Equals, "deadbeef")
+	c.Assert(machines[0].String(), tc.Equals, "deadbeef")
 }
 
 // TestGetAllMachineRemovalsEmpty asserts that GetAllMachineRemovals returns an
@@ -578,8 +586,8 @@ func (s *stateSuite) TestGetSomeMachineRemovals(c *tc.C) {
 	machines, err := s.state.GetAllMachineRemovals(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machines, tc.HasLen, 2)
-	c.Assert(machines[0], tc.Equals, "uuid0")
-	c.Assert(machines[1], tc.Equals, "uuid2")
+	c.Assert(machines[0].String(), tc.Equals, "uuid0")
+	c.Assert(machines[1].String(), tc.Equals, "uuid2")
 }
 
 // TestGetMachineUUIDNotFound asserts that a NotFound error is returned
@@ -596,9 +604,9 @@ func (s *stateSuite) TestGetMachineUUID(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	name, err := s.state.GetMachineUUID(c.Context(), machineName)
+	uuid, err := s.state.GetMachineUUID(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(name, tc.Equals, "deadbeef")
+	c.Assert(uuid.String(), tc.Equals, "deadbeef")
 }
 
 func (s *stateSuite) TestKeepInstance(c *tc.C) {

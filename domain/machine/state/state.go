@@ -1046,19 +1046,20 @@ func (st *State) GetNamesForUUIDs(ctx context.Context, machineUUIDs []string) (m
 	}
 
 	type nameAndUUID availabilityZoneName
-	type uuids []machine.UUID
+	type mUUIDs []string
+	uuids := mUUIDs(machineUUIDs)
 
 	stmt, err := st.Prepare(`
 SELECT &nameAndUUID.*
 FROM   machine
-WHERE  machine.uuid IN ($uuids[:])`, nameAndUUID{}, uuids{})
+WHERE  machine.uuid IN ($mUUIDs[:])`, nameAndUUID{}, uuids)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var namesAndUUIDs []nameAndUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, machineUUIDs).GetAll(&namesAndUUIDs)
+		err = tx.Query(ctx, stmt, uuids).GetAll(&namesAndUUIDs)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		} else if errors.Is(err, sqlair.ErrNoRows) {

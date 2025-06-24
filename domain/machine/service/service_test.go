@@ -47,14 +47,19 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *serviceSuite) TestCreateMachineSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CreateMachine(gomock.Any(), domainmachine.CreateMachineArgs{}).Return(machine.Name("name"), nil)
+	var expectedUUID machine.UUID
+	s.state.EXPECT().CreateMachine(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, args domainmachine.CreateMachineArgs) (machine.Name, error) {
+			expectedUUID = args.MachineUUID
+			return machine.Name("name"), nil
+		})
 
 	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
 	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
 	createArgs := CreateMachineArgs{}
 	obtainedUUID, obtainedName, err := svc.CreateMachine(c.Context(), createArgs)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedUUID, tc.Equals, machine.UUID("uuid"))
+	c.Check(obtainedUUID, tc.Equals, expectedUUID)
 	c.Check(obtainedName, tc.Equals, machine.Name("name"))
 }
 
@@ -64,7 +69,7 @@ func (s *serviceSuite) TestCreateMachineError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().CreateMachine(gomock.Any(), domainmachine.CreateMachineArgs{}).
+	s.state.EXPECT().CreateMachine(gomock.Any(), gomock.Any()).
 		Return(machine.Name(""), rErr)
 
 	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
@@ -79,9 +84,13 @@ func (s *serviceSuite) TestCreateMachineError(c *tc.C) {
 func (s *serviceSuite) TestCreateMachineSuccessWithNonce(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CreateMachine(gomock.Any(), domainmachine.CreateMachineArgs{
-		Nonce: ptr("nonce-ense"),
-	}).Return(machine.Name("name"), nil)
+	var expectedUUID machine.UUID
+	s.state.EXPECT().CreateMachine(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, args domainmachine.CreateMachineArgs) (machine.Name, error) {
+			expectedUUID = args.MachineUUID
+			c.Check(*args.Nonce, tc.Equals, "nonce-ense")
+			return machine.Name("name"), nil
+		})
 
 	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
 	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
@@ -90,7 +99,7 @@ func (s *serviceSuite) TestCreateMachineSuccessWithNonce(c *tc.C) {
 	}
 	obtainedUUID, obtainedName, err := svc.CreateMachine(c.Context(), createArgs)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedUUID, tc.Equals, machine.UUID("uuid"))
+	c.Check(obtainedUUID, tc.Equals, expectedUUID)
 	c.Check(obtainedName, tc.Equals, machine.Name("name"))
 }
 
@@ -101,7 +110,7 @@ func (s *serviceSuite) TestCreateMachineSuccessWithNonce(c *tc.C) {
 func (s *serviceSuite) TestCreateMachineAlreadyExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CreateMachine(gomock.Any(), domainmachine.CreateMachineArgs{}).
+	s.state.EXPECT().CreateMachine(gomock.Any(), gomock.Any()).
 		Return(machine.Name(""), machineerrors.MachineAlreadyExists)
 
 	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
@@ -116,7 +125,7 @@ func (s *serviceSuite) TestCreateMachineWithParentSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("parent-name")).Return(machine.UUID("uuid"), nil)
-	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), domainmachine.CreateMachineArgs{}, machine.UUID("uuid")).Return(machine.Name("name"), nil)
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), gomock.Any(), "uuid").Return(machine.Name("name"), nil)
 
 	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
 
@@ -132,7 +141,7 @@ func (s *serviceSuite) TestCreateMachineWithParentError(c *tc.C) {
 
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("parent-name")).Return(machine.UUID("uuid"), nil)
 	rErr := errors.New("boom")
-	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), domainmachine.CreateMachineArgs{}, machine.UUID("uuid")).Return(machine.Name(""), rErr)
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), gomock.Any(), "uuid").Return(machine.Name(""), rErr)
 
 	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
 	_, _, err := svc.CreateMachineWithParent(c.Context(), CreateMachineArgs{}, machine.Name("parent-name"))
@@ -311,7 +320,7 @@ func (s *serviceSuite) TestListAllMachinesError(c *tc.C) {
 func (s *serviceSuite) TestInstanceIdSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d")).Return("123", nil)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), "deadbeef-0bad-400d-8000-4b1d0d06f00d").Return("123", nil)
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
@@ -325,7 +334,7 @@ func (s *serviceSuite) TestInstanceIdError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d")).Return("", rErr)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), "deadbeef-0bad-400d-8000-4b1d0d06f00d").Return("", rErr)
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
@@ -340,7 +349,7 @@ func (s *serviceSuite) TestInstanceIdError(c *tc.C) {
 func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d")).Return("", machineerrors.NotProvisioned)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), "deadbeef-0bad-400d-8000-4b1d0d06f00d").Return("", machineerrors.NotProvisioned)
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
@@ -348,6 +357,7 @@ func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *tc.C) {
 	c.Check(instanceId, tc.Equals, instance.UnknownId)
 }
 
+<<<<<<< HEAD
 func (s *serviceSuite) TestGetInstanceIDByMachineNameSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -381,6 +391,147 @@ func (s *serviceSuite) TestGetInstanceIDByMachineNameNotProvisioned(c *tc.C) {
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceIDByMachineName(c.Context(), machine.Name("666"))
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
+=======
+// TestGetMachineStatusSuccess asserts the happy path of the GetMachineStatus.
+func (s *serviceSuite) TestGetMachineStatusSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedStatus := status.StatusInfo{Status: status.Started}
+	s.state.EXPECT().GetMachineStatus(gomock.Any(), machine.Name("666")).Return(domainstatus.StatusInfo[domainstatus.MachineStatusType]{
+		Status: domainstatus.MachineStatusStarted,
+	}, nil)
+
+	machineStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineStatus(c.Context(), "666")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(machineStatus, tc.DeepEquals, expectedStatus)
+}
+
+// TestGetMachineStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestGetMachineStatusError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().GetMachineStatus(gomock.Any(), machine.Name("666")).Return(domainstatus.StatusInfo[domainstatus.MachineStatusType]{}, rErr)
+
+	machineStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineStatus(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, rErr)
+	c.Check(machineStatus, tc.DeepEquals, status.StatusInfo{})
+}
+
+// TestSetMachineStatusSuccess asserts the happy path of the SetMachineStatus.
+func (s *serviceSuite) TestSetMachineStatusSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := status.StatusInfo{Status: status.Started}
+	s.state.EXPECT().SetMachineStatus(gomock.Any(), machine.Name("666"), domainstatus.StatusInfo[domainstatus.MachineStatusType]{
+		Status: domainstatus.MachineStatusStarted,
+	}).Return(nil)
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineNamespace.WithID("666"), newStatus).Return(nil)
+
+	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		SetMachineStatus(c.Context(), "666", newStatus)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestSetMachineStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestSetMachineStatusError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := status.StatusInfo{Status: status.Started}
+	rErr := errors.New("boom")
+	s.state.EXPECT().SetMachineStatus(gomock.Any(), machine.Name("666"), domainstatus.StatusInfo[domainstatus.MachineStatusType]{
+		Status: domainstatus.MachineStatusStarted,
+	}).Return(rErr)
+
+	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		SetMachineStatus(c.Context(), "666", newStatus)
+	c.Assert(err, tc.ErrorIs, rErr)
+}
+
+// TestSetMachineStatusInvalid asserts that an invalid status is passed to the
+// service will result in a InvalidStatus error.
+func (s *serviceSuite) TestSetMachineStatusInvalid(c *tc.C) {
+	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		SetMachineStatus(c.Context(), "666", status.StatusInfo{Status: "invalid"})
+	c.Assert(err, tc.ErrorIs, machineerrors.InvalidStatus)
+}
+
+// TestGetInstanceStatusSuccess asserts the happy path of the GetInstanceStatus.
+func (s *serviceSuite) TestGetInstanceStatusSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedStatus := status.StatusInfo{Status: status.Running}
+	s.state.EXPECT().GetInstanceStatus(gomock.Any(), machine.Name("666")).Return(domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
+		Status: domainstatus.InstanceStatusRunning,
+	}, nil)
+
+	instanceStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetInstanceStatus(c.Context(), "666")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(instanceStatus, tc.DeepEquals, expectedStatus)
+}
+
+// TestGetInstanceStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestGetInstanceStatusError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().GetInstanceStatus(gomock.Any(), machine.Name("666")).Return(domainstatus.StatusInfo[domainstatus.InstanceStatusType]{}, rErr)
+
+	instanceStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetInstanceStatus(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, rErr)
+	c.Check(instanceStatus, tc.DeepEquals, status.StatusInfo{})
+}
+
+// TestSetInstanceStatusSuccess asserts the happy path of the SetInstanceStatus
+// service.
+func (s *serviceSuite) TestSetInstanceStatusSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := status.StatusInfo{Status: status.Running}
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d"), nil)
+	s.state.EXPECT().SetInstanceStatus(gomock.Any(), "deadbeef-0bad-400d-8000-4b1d0d06f00d", domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
+		Status: domainstatus.InstanceStatusRunning,
+	}).Return(nil)
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineInstanceNamespace.WithID("666"), newStatus).Return(nil)
+
+	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		SetInstanceStatus(c.Context(), "666", newStatus)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestSetInstanceStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestSetInstanceStatusError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	newStatus := status.StatusInfo{Status: status.Running}
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d"), nil)
+	s.state.EXPECT().SetInstanceStatus(gomock.Any(), "deadbeef-0bad-400d-8000-4b1d0d06f00d", domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
+		Status: domainstatus.InstanceStatusRunning,
+	}).Return(rErr)
+
+	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		SetInstanceStatus(c.Context(), "666", newStatus)
+	c.Assert(err, tc.ErrorIs, rErr)
+}
+
+// TestSetInstanceStatusInvalid asserts that an invalid status is passed to the
+// service will result in a InvalidStatus error.
+func (s *serviceSuite) TestSetInstanceStatusInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		SetInstanceStatus(c.Context(), "666", status.StatusInfo{Status: "invalid"})
+	c.Assert(err, tc.ErrorIs, machineerrors.InvalidStatus)
+>>>>>>> 556e0782b2 (fix: fix all tests using machine UUID as argument)
 }
 
 // TestIsMachineControllerSuccess asserts the happy path of the
@@ -556,7 +707,7 @@ func (s *serviceSuite) TestIsMachineRebootError(c *tc.C) {
 func (s *serviceSuite) TestGetMachineParentUUIDSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), machine.UUID("666")).Return("123", nil)
+	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("123", nil)
 
 	parentUUID, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineParentUUID(c.Context(), machine.UUID("666"))
@@ -570,7 +721,7 @@ func (s *serviceSuite) TestGetMachineParentUUIDError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), machine.UUID("666")).Return("", rErr)
+	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("", rErr)
 
 	parentUUID, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineParentUUID(c.Context(), machine.UUID("666"))
@@ -584,7 +735,7 @@ func (s *serviceSuite) TestGetMachineParentUUIDError(c *tc.C) {
 func (s *serviceSuite) TestGetMachineParentUUIDNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), machine.UUID("666")).Return("", coreerrors.NotFound)
+	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("", coreerrors.NotFound)
 
 	parentUUID, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineParentUUID(c.Context(), machine.UUID("666"))
@@ -599,7 +750,7 @@ func (s *serviceSuite) TestGetMachineParentUUIDNotFound(c *tc.C) {
 func (s *serviceSuite) TestGetMachineParentUUIDMachineHasNoParent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), machine.UUID("666")).Return("", machineerrors.MachineHasNoParent)
+	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("", machineerrors.MachineHasNoParent)
 
 	parentUUID, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineParentUUID(c.Context(), "666")
@@ -756,7 +907,7 @@ func (s *serviceSuite) TestGetMachineUUIDNotFound(c *tc.C) {
 func (s *serviceSuite) TestLXDProfilesSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().AppliedLXDProfileNames(gomock.Any(), machine.UUID("666")).Return([]string{"profile1", "profile2"}, nil)
+	s.state.EXPECT().AppliedLXDProfileNames(gomock.Any(), "666").Return([]string{"profile1", "profile2"}, nil)
 
 	profiles, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		AppliedLXDProfileNames(c.Context(), "666")
@@ -768,7 +919,7 @@ func (s *serviceSuite) TestLXDProfilesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().AppliedLXDProfileNames(gomock.Any(), machine.UUID("666")).Return(nil, rErr)
+	s.state.EXPECT().AppliedLXDProfileNames(gomock.Any(), "666").Return(nil, rErr)
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		AppliedLXDProfileNames(c.Context(), "666")
@@ -778,7 +929,7 @@ func (s *serviceSuite) TestLXDProfilesError(c *tc.C) {
 func (s *serviceSuite) TestSetLXDProfilesSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), machine.UUID("666"), []string{"profile1", "profile2"}).Return(nil)
+	s.state.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), "666", []string{"profile1", "profile2"}).Return(nil)
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetAppliedLXDProfileNames(c.Context(), machine.UUID("666"), []string{"profile1", "profile2"})
@@ -789,7 +940,7 @@ func (s *serviceSuite) TestSetLXDProfilesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), machine.UUID("666"), []string{"profile1", "profile2"}).Return(rErr)
+	s.state.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), "666", []string{"profile1", "profile2"}).Return(rErr)
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetAppliedLXDProfileNames(c.Context(), "666", []string{"profile1", "profile2"})
@@ -827,7 +978,7 @@ func (s *serviceSuite) TestSetMachineHostname(c *tc.C) {
 
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.state.EXPECT().SetMachineHostname(gomock.Any(), machineUUID, "new-hostname").Return(nil)
+	s.state.EXPECT().SetMachineHostname(gomock.Any(), machineUUID.String(), "new-hostname").Return(nil)
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetMachineHostname(c.Context(), machineUUID, "new-hostname")
@@ -847,7 +998,7 @@ func (s *serviceSuite) TestGetSupportedContainersTypes(c *tc.C) {
 
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID).Return([]string{"lxd"}, nil)
+	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID.String()).Return([]string{"lxd"}, nil)
 
 	containerTypes, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetSupportedContainersTypes(c.Context(), machineUUID)
@@ -860,7 +1011,7 @@ func (s *serviceSuite) TestGetSupportedContainersTypesInvalid(c *tc.C) {
 
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID).Return([]string{"boo"}, nil)
+	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID.String()).Return([]string{"boo"}, nil)
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetSupportedContainersTypes(c.Context(), machineUUID)
@@ -872,7 +1023,7 @@ func (s *serviceSuite) TestGetSupportedContainersTypesError(c *tc.C) {
 
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID).Return([]string{"boo"}, errors.Errorf("boom"))
+	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID.String()).Return([]string{"boo"}, errors.Errorf("boom"))
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetSupportedContainersTypes(c.Context(), machineUUID)
@@ -911,19 +1062,3 @@ func (s *serviceSuite) TestGetMachinePrincipalUnitsError(c *tc.C) {
 		GetMachinePrincipalApplications(c.Context(), machineName)
 	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 }
-<<<<<<< HEAD
-=======
-
-func (s *serviceSuite) expectCreateMachineStatusHistory(c *tc.C, machineName machine.Name) {
-	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineNamespace.WithID(machineName.String()), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
-			c.Check(si.Status, tc.Equals, status.Pending)
-			return nil
-		})
-	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineInstanceNamespace.WithID(machineName.String()), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
-			c.Check(si.Status, tc.Equals, status.Pending)
-			return nil
-		})
-}
->>>>>>> 28b7b8789f (fix: update tests with new machine creation signature)
