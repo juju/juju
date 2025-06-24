@@ -57,7 +57,7 @@ func TestEntityLifeInitialQueryEmpty(t *testing.T) {
 
 // TestEntityLifeMapper is a test of tests for making sure that the
 // [EntityLifeMapperFunc] correctly handles changes in values over time. i.e the
-// caller is correctly notified of the right ids when change has occured.
+// caller is correctly notified of the right ids when change has occurred.
 func TestEntityLifeMapper(t *testing.T) {
 	test := []struct {
 		Name        string
