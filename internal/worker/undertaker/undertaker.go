@@ -391,9 +391,15 @@ func (u *Undertaker) environ() (environs.CloudDestroyer, error) {
 		return nil, errors.Annotatef(err, "retrieving cloud spec for model %q (%s)", modelConfig.Name(), modelConfig.UUID())
 	}
 
+	modelInfo, err := u.config.Facade.ModelInfo()
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving model info")
+	}
+
 	environ, err := u.config.NewCloudDestroyerFunc(context.TODO(), environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: modelConfig,
+		ControllerUUID: modelInfo.Result.ControllerUUID,
+		Cloud:          cloudSpec,
+		Config:         modelConfig,
 	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating environ for model %q (%s)", modelConfig.Name(), modelConfig.UUID())
