@@ -27,19 +27,19 @@ import (
 // ContainerState describes methods for determining and
 // satisfying container networking requirements.
 type ContainerState interface {
-	// GetMachineSpaceConstraints retrieves the positive and negative
+	// GetMachineSpaceConstraints returns the positive and negative
 	// space constraints for the machine with the input UUID.
 	GetMachineSpaceConstraints(
 		ctx context.Context, machineUUID string,
 	) ([]internal.SpaceName, []internal.SpaceName, error)
 
-	// GetMachineAppBindings retrieves the bound spaces for applications
+	// GetMachineAppBindings returns the bound spaces for applications
 	// with units assigned to the machine with the input UUID.
 	GetMachineAppBindings(ctx context.Context, machineUUID string) ([]internal.SpaceName, error)
 
-	// NICsInSpaces retrieves the link-layer devices on the machine with the
-	// input net node UUID that are connected the input spaces.
-	NICsInSpaces(ctx context.Context, netNode string, spaces []string) (map[string][]network.NetInterface, error)
+	// NICsInSpaces returns the link-layer devices on the machine with the
+	// input net node UUID, indexed by the spaces that they are in.
+	NICsInSpaces(ctx context.Context, netNode string) (map[string][]network.NetInterface, error)
 
 	// GetContainerNetworkingMethod returns the model's configured value
 	// for container-networking-method.
@@ -78,7 +78,7 @@ func (s *Service) DevicesToBridge(
 
 	s.logger.Infof(ctx, "machine %q needs spaces %v", guestUUID, spaceNames)
 
-	nics, err := s.nicsInSpaces(ctx, hostUUID, spaceUUIDs)
+	nics, err := s.nicsInSpaces(ctx, hostUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -128,19 +128,17 @@ func (s *Service) spaceRequirementsForMachine(
 	return positive, nil
 }
 
-// nicsInSpaces returns a map of space UUID to network devices in that space for
-// the machine identified by the input UUID and the list of input space UUIDs.
-func (s *Service) nicsInSpaces(
-	ctx context.Context, mUUID machine.UUID, spaceUUIDs []string,
-) (map[string][]network.NetInterface, error) {
+// nicsInSpaces returns a map of space UUID to network devices in
+// that space for the machine identified by the input UUID.
+func (s *Service) nicsInSpaces(ctx context.Context, mUUID machine.UUID) (map[string][]network.NetInterface, error) {
 	nodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, mUUID.String())
 	if err != nil {
 		return nil, errors.Errorf("retrieving net node for machine %q: %w", mUUID, err)
 	}
 
-	nics, err := s.st.NICsInSpaces(ctx, nodeUUID, spaceUUIDs)
+	nics, err := s.st.NICsInSpaces(ctx, nodeUUID)
 	if err != nil {
-		return nil, errors.Errorf("retrieving NICs for machine %q in spaces %v: %w", mUUID, spaceUUIDs, err)
+		return nil, errors.Errorf("retrieving NICs for machine %q: %w", mUUID, err)
 	}
 
 	return nics, nil
@@ -158,6 +156,9 @@ func (s *Service) devicesToBridge(
 	var toBridge []network.DeviceToBridge
 
 	for spaceUUID, spaceNics := range nics {
+		// We retrieved all the machine's NICs in order to locate parents if
+		// required, so only consider those that can satisfy the determined
+		// requirements.
 		if !spacesLeftToSatisfy.Contains(spaceUUID) {
 			continue
 		}

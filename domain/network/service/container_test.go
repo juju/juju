@@ -78,7 +78,7 @@ func (s *containerSuite) TestDevicesToBridgeSpaceReqsSatisfied(c *tc.C) {
 	exp.GetMachineAppBindings(c.Context(), s.guestUUID.String()).Return(nil, nil)
 	exp.GetMachineNetNodeUUID(c.Context(), s.hostUUID.String()).Return(s.nodeUUID, nil)
 	// A bridge in the space means that connectivity is satisfied.
-	exp.NICsInSpaces(c.Context(), s.nodeUUID, []string{spaceUUID}).Return(map[string][]network.NetInterface{
+	exp.NICsInSpaces(c.Context(), s.nodeUUID).Return(map[string][]network.NetInterface{
 		spaceUUID: {{
 			Name: "br-not-default-lxd",
 			Type: corenetwork.BridgeDevice,
@@ -108,7 +108,7 @@ func (s *containerSuite) TestDevicesToBridgeSpaceReqsUnsatisfiable(c *tc.C) {
 	exp.GetMachineNetNodeUUID(c.Context(), s.hostUUID.String()).Return(s.nodeUUID, nil)
 	// No devices in the space means the host can't
 	// accommodate the guest space requirements.
-	exp.NICsInSpaces(c.Context(), s.nodeUUID, []string{spaceUUID}).Return(nil, nil)
+	exp.NICsInSpaces(c.Context(), s.nodeUUID).Return(nil, nil)
 	exp.GetContainerNetworkingMethod(c.Context()).Return(containermanager.NetworkingMethodProvider.String(), nil)
 
 	_, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
@@ -131,8 +131,15 @@ func (s *containerSuite) TestDevicesToBridgeDeviceSatisfiesSpaces(c *tc.C) {
 	exp.GetMachineAppBindings(c.Context(), s.guestUUID.String()).Return(nil, nil)
 	exp.GetMachineNetNodeUUID(c.Context(), s.hostUUID.String()).Return(s.nodeUUID, nil)
 	// An ethernet device in the space can be bridged to satisfy the guest's
-	// requirements. Loopback devices are not considered.
-	exp.NICsInSpaces(c.Context(), s.nodeUUID, []string{spaceUUID}).Return(map[string][]network.NetInterface{
+	// requirements. Loopback devices are not considered, nor are devices
+	// not connected to the space(s) we need.
+	exp.NICsInSpaces(c.Context(), s.nodeUUID).Return(map[string][]network.NetInterface{
+		"another-space-uuid": {
+			{
+				Name: "br-not-default-lxd",
+				Type: corenetwork.BridgeDevice,
+			},
+		},
 		spaceUUID: {
 			{
 				Name: "lo",
@@ -186,7 +193,7 @@ func (s *containerSuite) TestDevicesToBridgeMultipleReqsMultipleDevsSatisfySpace
 	exp.GetMachineNetNodeUUID(c.Context(), s.hostUUID.String()).Return(s.nodeUUID, nil)
 	// An ethernet device in the space can be bridged to satisfy one space
 	// requirement and an existing bridge satisfies the other.
-	exp.NICsInSpaces(c.Context(), s.nodeUUID, []string{spaceOne, spaceTwo}).Return(map[string][]network.NetInterface{
+	exp.NICsInSpaces(c.Context(), s.nodeUUID).Return(map[string][]network.NetInterface{
 		spaceOne: {{
 			Name:       "eth0",
 			Type:       corenetwork.EthernetDevice,
@@ -227,7 +234,7 @@ func (s *containerSuite) TestDevicesToBridgeLocalBridgeReqsUnsatisfiable(c *tc.C
 	exp.GetMachineNetNodeUUID(c.Context(), s.hostUUID.String()).Return(s.nodeUUID, nil)
 	// The default LXD bridge cannot satisfy space requirements when the
 	// container networking method is "provider".
-	exp.NICsInSpaces(c.Context(), s.nodeUUID, []string{spaceUUID}).Return(map[string][]network.NetInterface{
+	exp.NICsInSpaces(c.Context(), s.nodeUUID).Return(map[string][]network.NetInterface{
 		spaceUUID: {{
 			Name: internalnetwork.DefaultLXDBridge,
 			Type: corenetwork.BridgeDevice,

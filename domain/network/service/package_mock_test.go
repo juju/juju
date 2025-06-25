@@ -983,18 +983,18 @@ func (c *MockStateMergeLinkLayerDeviceCall) DoAndReturn(f func(context.Context, 
 }
 
 // NICsInSpaces mocks base method.
-func (m *MockState) NICsInSpaces(arg0 context.Context, arg1 string, arg2 []string) (map[string][]network0.NetInterface, error) {
+func (m *MockState) NICsInSpaces(arg0 context.Context, arg1 string) (map[string][]network0.NetInterface, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NICsInSpaces", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "NICsInSpaces", arg0, arg1)
 	ret0, _ := ret[0].(map[string][]network0.NetInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NICsInSpaces indicates an expected call of NICsInSpaces.
-func (mr *MockStateMockRecorder) NICsInSpaces(arg0, arg1, arg2 any) *MockStateNICsInSpacesCall {
+func (mr *MockStateMockRecorder) NICsInSpaces(arg0, arg1 any) *MockStateNICsInSpacesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NICsInSpaces", reflect.TypeOf((*MockState)(nil).NICsInSpaces), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NICsInSpaces", reflect.TypeOf((*MockState)(nil).NICsInSpaces), arg0, arg1)
 	return &MockStateNICsInSpacesCall{Call: call}
 }
 
@@ -1010,13 +1010,13 @@ func (c *MockStateNICsInSpacesCall) Return(arg0 map[string][]network0.NetInterfa
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateNICsInSpacesCall) Do(f func(context.Context, string, []string) (map[string][]network0.NetInterface, error)) *MockStateNICsInSpacesCall {
+func (c *MockStateNICsInSpacesCall) Do(f func(context.Context, string) (map[string][]network0.NetInterface, error)) *MockStateNICsInSpacesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateNICsInSpacesCall) DoAndReturn(f func(context.Context, string, []string) (map[string][]network0.NetInterface, error)) *MockStateNICsInSpacesCall {
+func (c *MockStateNICsInSpacesCall) DoAndReturn(f func(context.Context, string) (map[string][]network0.NetInterface, error)) *MockStateNICsInSpacesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

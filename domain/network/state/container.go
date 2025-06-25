@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// GetMachineSpaceConstraints retrieves the positive and negative
+// GetMachineSpaceConstraints returns the positive and negative
 // space constraints for the machine with the input UUID.
 func (st *State) GetMachineSpaceConstraints(
 	ctx context.Context, machineUUID string,
@@ -19,17 +19,15 @@ func (st *State) GetMachineSpaceConstraints(
 	return nil, nil, errors.Errorf("implement me")
 }
 
-// GetMachineAppBindings retrieves the bound spaces for applications
+// GetMachineAppBindings returns the bound spaces for applications
 // with units assigned to the machine with the input UUID.
 func (st *State) GetMachineAppBindings(ctx context.Context, machineUUID string) ([]internal.SpaceName, error) {
 	return nil, errors.Errorf("implement me")
 }
 
-// NICsInSpaces retrieves the link-layer devices on the machine with the
-// input net node UUID that are connected the input spaces.
-func (st *State) NICsInSpaces(
-	ctx context.Context, netNode string, spaces []string,
-) (map[string][]network.NetInterface, error) {
+// NICsInSpaces returns the link-layer devices on the machine with the
+// input net node UUID, indexed by the spaces that they are in.
+func (st *State) NICsInSpaces(ctx context.Context, netNode string) (map[string][]network.NetInterface, error) {
 	return nil, errors.Errorf("implement me")
 }
 
