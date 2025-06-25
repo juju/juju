@@ -21,6 +21,11 @@ import (
 	"github.com/juju/juju/internal/http"
 )
 
+// MongoPassword is the password used whilst we're getting rid of mongo.
+// This is a temporary measure to allow us to connect to mongo
+// without having to set up a password in the mongo configuration.
+const MongoPassword = "deadbeef"
+
 // SocketTimeout should be long enough that even a slow mongo server
 // will respond in that length of time, and must also be long enough
 // to allow for completion of heavyweight queries.
@@ -109,9 +114,6 @@ type MongoInfo struct {
 	// Tag holds the name of the entity that is connecting.
 	// It should be nil when connecting as an administrator.
 	Tag names.Tag
-
-	// Password holds the password for the connecting entity.
-	Password string
 }
 
 // DialInfo returns information on how to dial
@@ -215,12 +217,12 @@ func DialWithInfo(info MongoInfo, opts DialOpts) (*mgo.Session, error) {
 			return nil, errors.Annotate(err, "PostDial failed")
 		}
 	}
-	if info.Tag != nil || info.Password != "" {
+	if info.Tag != nil {
 		user := AdminUser
 		if info.Tag != nil {
 			user = info.Tag.String()
 		}
-		if err := Login(session, user, info.Password); err != nil {
+		if err := Login(session, user); err != nil {
 			session.Close()
 			return nil, errors.Trace(err)
 		}
@@ -229,9 +231,9 @@ func DialWithInfo(info MongoInfo, opts DialOpts) (*mgo.Session, error) {
 }
 
 // Login logs in to the mongodb admin database.
-func Login(session *mgo.Session, user, password string) error {
+func Login(session *mgo.Session, user string) error {
 	admin := session.DB("admin")
-	if err := admin.Login(user, password); err != nil {
+	if err := admin.Login(user, MongoPassword); err != nil {
 		return MaybeUnauthorizedf(err, "cannot log in to admin database as %q", user)
 	}
 	return nil

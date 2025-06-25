@@ -68,7 +68,6 @@ type ProviderFunc func(string) (environs.EnvironProvider, error)
 
 type bootstrapController interface {
 	Id() string
-	SetMongoPassword(password string) error
 }
 
 type bootstrapControllerCAAS interface {
@@ -205,7 +204,11 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Errorf("state info not available")
 	}
 	info.Tag = nil
-	info.Password = agentConfig.OldPassword()
+
+	apiDetails, found := agentConfig.APIInfo()
+	if !found {
+		return errors.Errorf("API information not available")
+	}
 
 	stateParams := b.stateInitializationParams
 
@@ -228,7 +231,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	// and a function to insert it into the database.
 	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(
 		user.NameFromTag(b.adminUser),
-		auth.NewPassword(info.Password),
+		auth.NewPassword(apiDetails.Password),
 		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
 			Target: permission.ID{
@@ -323,7 +326,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	session, err := b.initMongo(info.Info, b.mongoDialOpts, info.Password)
+	session, err := b.initMongo(info.Info, b.mongoDialOpts)
 	if err != nil {
 		return errors.Annotate(err, "failed to initialize mongo")
 	}
@@ -349,7 +352,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		ControllerInheritedConfig: stateParams.ControllerInheritedConfig,
 		RegionInheritedConfig:     stateParams.RegionInheritedConfig,
 		MongoSession:              session,
-		AdminPassword:             info.Password,
 		NewPolicy:                 b.stateNewPolicy,
 	})
 	if err != nil {
@@ -444,16 +446,17 @@ func (b *AgentBootstrap) getEnviron(
 
 // initMongo dials the initial MongoDB connection, setting a
 // password for the admin user, and returning the session.
-func (b *AgentBootstrap) initMongo(info mongo.Info, dialOpts mongo.DialOpts, password string) (*mgo.Session, error) {
+func (b *AgentBootstrap) initMongo(info mongo.Info, dialOpts mongo.DialOpts) (*mgo.Session, error) {
 	session, err := mongo.DialWithInfo(mongo.MongoInfo{Info: info}, dialOpts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := mongo.SetAdminMongoPassword(session, mongo.AdminUser, password); err != nil {
+	b.logger.Warningf(context.TODO(), "**forcing mongo password to 'deadbeef'**")
+	if err := mongo.SetAdminMongoPassword(session, mongo.AdminUser, mongo.MongoPassword); err != nil {
 		session.Close()
 		return nil, errors.Trace(err)
 	}
-	if err := mongo.Login(session, mongo.AdminUser, password); err != nil {
+	if err := mongo.Login(session, mongo.AdminUser); err != nil {
 		session.Close()
 		return nil, errors.Trace(err)
 	}
