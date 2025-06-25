@@ -27,20 +27,6 @@ const DefaultLXDBridge = "lxdbr0"
 // DefaultDockerBridge is the bridge that is set up by Docker.
 const DefaultDockerBridge = "docker0"
 
-// DeviceToBridge gives the information about a particular device that
-// should be bridged.
-type DeviceToBridge struct {
-	// DeviceName is the name of the device on the machine that should
-	// be bridged.
-	DeviceName string
-
-	// BridgeName is the name of the bridge that we want created.
-	BridgeName string
-
-	// MACAddress is the MAC address of the device to be bridged
-	MACAddress string
-}
-
 // AddressesForInterfaceName returns the addresses in string form for the
 // given interface name. It's exported to facilitate cross-package testing.
 var AddressesForInterfaceName = func(name string) ([]string, error) {

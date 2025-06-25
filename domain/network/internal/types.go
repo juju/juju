@@ -23,3 +23,11 @@ type ImportLinkLayerDevice struct {
 	Type             corenetwork.LinkLayerDeviceType
 	VirtualPortType  corenetwork.VirtualPortType
 }
+
+// SpaceName represents a space's name and its unique identifier.
+type SpaceName struct {
+	// UUID is the unique identifier for the space.
+	UUID string
+	// Name is the human-readable name of the space.
+	Name string
+}

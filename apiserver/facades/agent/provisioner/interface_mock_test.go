@@ -16,7 +16,7 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
-	network0 "github.com/juju/juju/internal/network"
+	network0 "github.com/juju/juju/domain/network"
 	containerizer "github.com/juju/juju/internal/network/containerizer"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v6"

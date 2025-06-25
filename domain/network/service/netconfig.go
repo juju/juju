@@ -55,6 +55,9 @@ func (s *Service) SetProviderNetConfig(
 	machineUUID machine.UUID,
 	incoming []network.NetInterface,
 ) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := machineUUID.Validate(); err != nil {
 		return errors.Errorf("invalid machine UUID: %w", err)
 	}
@@ -70,10 +73,13 @@ func (s *Service) SetProviderNetConfig(
 // SetMachineNetConfig updates the detected network configuration for
 // the machine with the input UUID.
 func (s *Service) SetMachineNetConfig(ctx context.Context, mUUID machine.UUID, nics []network.NetInterface) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	s.logger.Debugf(ctx, "setting network config for machine %q: %#v", mUUID, nics)
 
 	if err := mUUID.Validate(); err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("invalid machine UUID: %w", err)
 	}
 
 	if len(nics) == 0 {
