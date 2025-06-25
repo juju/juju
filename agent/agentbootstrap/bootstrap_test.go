@@ -86,7 +86,7 @@ func getModelConstraintAssertion(c *tc.C, cons constraints.Value) database.Boots
 
 		expectedConsVal := domainconstraints.DecodeConstraints(cons)
 		data, err := modelState.GetModelConstraints(c.Context())
-		c.Check(err, tc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(data, tc.DeepEquals, expectedConsVal)
 		return nil
 	}

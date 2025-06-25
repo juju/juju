@@ -196,11 +196,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	}
 	info.Tag = nil
 
-	apiDetails, found := agentConfig.APIInfo()
-	if !found {
-		return errors.Errorf("API information not available")
-	}
-
 	stateParams := b.stateInitializationParams
 
 	// Add the controller model cloud and credential to the database.
@@ -222,7 +217,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	// and a function to insert it into the database.
 	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(
 		user.NameFromTag(b.adminUser),
-		auth.NewPassword(apiDetails.Password),
+		auth.NewPassword(agentConfig.OldPassword()),
 		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
 			Target: permission.ID{
