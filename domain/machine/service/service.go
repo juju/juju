@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/juju/clock"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/life"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
@@ -69,26 +67,6 @@ type State interface {
 	// GetInstanceIDAndName returns the cloud specific instance ID and display name
 	// for this machine.
 	GetInstanceIDAndName(ctx context.Context, mUUID machine.UUID) (string, string, error)
-
-	// GetInstanceStatus returns the cloud specific instance status for this
-	// machine.
-	// It returns MachineNotFound if the machine does not exist.
-	// It returns a StatusNotSet if the instance status is not set.
-	GetInstanceStatus(context.Context, machine.Name) (domainstatus.StatusInfo[domainstatus.InstanceStatusType], error)
-
-	// SetInstanceStatus sets the cloud specific instance status for this
-	// machine.
-	// It returns MachineNotFound if the machine does not exist.
-	SetInstanceStatus(context.Context, machine.UUID, domainstatus.StatusInfo[domainstatus.InstanceStatusType]) error
-
-	// GetMachineStatus returns the status of the specified machine.
-	// It returns MachineNotFound if the machine does not exist.
-	// It returns a StatusNotSet if the status is not set.
-	GetMachineStatus(context.Context, machine.Name) (domainstatus.StatusInfo[domainstatus.MachineStatusType], error)
-
-	// SetMachineStatus sets the status of the specified machine.
-	// It returns MachineNotFound if the machine does not exist.
-	SetMachineStatus(context.Context, machine.Name, domainstatus.StatusInfo[domainstatus.MachineStatusType]) error
 
 	// GetHardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
@@ -288,112 +266,6 @@ func (s *Service) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 		return nil, errors.Errorf("retrieving all machines: %w", err)
 	}
 	return machines, nil
-}
-
-// GetInstanceStatus returns the cloud specific instance status for this
-// machine.
-// It returns MachineNotFound if the machine does not exist.
-// It returns a StatusNotSet if the instance status is not set.
-// Idempotent.
-func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Name) (status.StatusInfo, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	instanceStatus, err := s.st.GetInstanceStatus(ctx, machineName)
-	if err != nil {
-		return status.StatusInfo{}, errors.Errorf("retrieving instance status for machine %q: %w", machineName, err)
-	}
-
-	return decodeInstanceStatus(instanceStatus)
-}
-
-// SetInstanceStatus sets the cloud specific instance status for this machine.
-// It returns MachineNotFound if the machine does not exist. It returns
-// InvalidStatus if the given status is not a known status value.
-func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Name, statusInfo status.StatusInfo) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := machineName.Validate(); err != nil {
-		return errors.Errorf("validating machine name %q: %w", machineName, err)
-	}
-
-	if !statusInfo.Status.KnownInstanceStatus() {
-		return machineerrors.InvalidStatus
-	}
-
-	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
-	if err != nil {
-		return errors.Errorf("getting machine uuid for %q: %w", machineName, err)
-	}
-
-	instanceStatus, err := encodeInstanceStatus(statusInfo)
-	if err != nil {
-		return errors.Errorf("encoding status for machine %q: %w", machineName, err)
-	}
-
-	if err := s.st.SetInstanceStatus(ctx, machineUUID, instanceStatus); err != nil {
-		return errors.Errorf("setting instance status for machine %q: %w", machineName, err)
-	}
-
-	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineInstanceNamespace.WithID(machineName.String()), statusInfo); err != nil {
-		s.logger.Infof(ctx, "failed recording instance status history: %w", err)
-	}
-
-	return nil
-}
-
-// GetMachineStatus returns the status of the specified machine. It returns
-// MachineNotFound if the machine does not exist. It returns a StatusNotSet if
-// the status is not set. Idempotent.
-func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name) (status.StatusInfo, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	machineStatus, err := s.st.GetMachineStatus(ctx, machineName)
-	if err != nil {
-		return status.StatusInfo{}, errors.Errorf("retrieving machine status for machine %q: %w", machineName, err)
-	}
-
-	var data map[string]any
-	if len(machineStatus.Data) > 0 {
-		if err := json.Unmarshal(machineStatus.Data, &data); err != nil {
-			return status.StatusInfo{}, errors.Errorf("unmarshalling machine data for machine %q: %w", machineName, err)
-		}
-	}
-
-	return decodeMachineStatus(machineStatus)
-}
-
-// SetMachineStatus sets the status of the specified machine. It returns
-// MachineNotFound if the machine does not exist. It returns InvalidStatus if
-// the given status is not a known status value.
-func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name, statusInfo status.StatusInfo) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := machineName.Validate(); err != nil {
-		return errors.Errorf("validating machine name %q: %w", machineName, err)
-	}
-
-	if !statusInfo.Status.KnownMachineStatus() {
-		return machineerrors.InvalidStatus
-	}
-
-	machineStatus, err := encodeMachineStatus(statusInfo)
-	if err != nil {
-		return errors.Errorf("encoding status for machine %q: %w", machineName, err)
-	}
-
-	if err := s.st.SetMachineStatus(ctx, machineName, machineStatus); err != nil {
-		return errors.Errorf("setting machine status for machine %q: %w", machineName, err)
-	}
-
-	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineNamespace.WithID(machineName.String()), statusInfo); err != nil {
-		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
-	}
-
-	return nil
 }
 
 // IsMachineController returns whether the machine is a controller machine.

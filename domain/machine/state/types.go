@@ -97,14 +97,6 @@ type instanceIDAndDisplayName struct {
 	Name string `db:"display_name"`
 }
 
-// machineStatus represents the struct to be used for the status.
-type machineStatus struct {
-	Status  string       `db:"status"`
-	Message string       `db:"message"`
-	Data    []byte       `db:"data"`
-	Updated sql.NullTime `db:"updated_at"`
-}
-
 type setStatusInfo struct {
 	StatusID int        `db:"status_id"`
 	Message  string     `db:"message"`

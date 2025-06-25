@@ -345,12 +345,6 @@ func insertMachineInstanceStatus(
 	statusQuery := `
 INSERT INTO machine_cloud_instance_status (*)
 VALUES ($setMachineStatus.*)
-  ON CONFLICT (machine_uuid)
-  DO UPDATE SET 
-    status_id = excluded.status_id, 
-    message = excluded.message, 
-    updated_at = excluded.updated_at,
-    data = excluded.data;
 `
 	statusQueryStmt, err := preparer.Prepare(statusQuery, machineStatus)
 	if err != nil {

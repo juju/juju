@@ -55,10 +55,6 @@ type MachineProvisioner interface {
 	// Status returns the status of the machine.
 	Status(ctx context.Context) (status.Status, string, error)
 
-	// SetModificationStatus sets the status of the machine changes whilst it's
-	// running. Example of this could be LXD profiles being applied.
-	SetModificationStatus(ctx context.Context, status status.Status, message string, data map[string]interface{}) error
-
 	// EnsureDead sets the machine lifecycle to Dead if it is Alive or
 	// Dying. It does nothing otherwise.
 	EnsureDead(ctx context.Context) error
@@ -242,21 +238,6 @@ func (m *Machine) Status(ctx context.Context) (status.Status, string, error) {
 	}
 	// TODO(perrito666) add status validation.
 	return status.Status(result.Status), result.Info, nil
-}
-
-// SetModificationStatus implements MachineProvisioner.SetModificationStatus.
-func (m *Machine) SetModificationStatus(ctx context.Context, status status.Status, info string, data map[string]interface{}) error {
-	var result params.ErrorResults
-	args := params.SetStatus{
-		Entities: []params.EntityStatusArgs{
-			{Tag: m.tag.String(), Status: status.String(), Info: info, Data: data},
-		},
-	}
-	err := m.st.facade.FacadeCall(ctx, "SetModificationStatus", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
 }
 
 // EnsureDead implements MachineProvisioner.EnsureDead.

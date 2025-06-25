@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -411,87 +410,6 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (life.L
 	return lifeResult, nil
 }
 
-// GetMachineStatus returns the status of the specified machine.
-// It returns MachineNotFound if the machine does not exist.
-// It returns a StatusNotSet if the status is not set.
-// Idempotent.
-func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (status.StatusInfo[status.MachineStatusType], error) {
-	db, err := st.DB()
-	if err != nil {
-		return status.StatusInfo[status.MachineStatusType]{}, errors.Capture(err)
-	}
-
-	nameIdent := machineName{Name: mName}
-
-	var uuid machineUUID
-	uuidQuery := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name;`
-	uuidQueryStmt, err := st.Prepare(uuidQuery, nameIdent, uuid)
-	if err != nil {
-		return status.StatusInfo[status.MachineStatusType]{}, errors.Capture(err)
-	}
-
-	var mStatus machineStatus
-	statusQuery := `
-SELECT &machineStatus.*
-FROM v_machine_status AS st
-WHERE st.machine_uuid = $machineUUID.uuid;
-`
-	statusCombinedQueryStmt, err := st.Prepare(statusQuery, uuid, mStatus)
-	if err != nil {
-		return status.StatusInfo[status.MachineStatusType]{}, errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Query for the machine uuid
-		err := tx.Query(ctx, uuidQueryStmt, nameIdent).Get(&uuid)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("getting machine status for %q: %w", mName, machineerrors.MachineNotFound)
-		} else if err != nil {
-			return errors.Errorf("querying uuid for machine %q: %w", mName, err)
-		}
-
-		// Query for the machine cloud instance status and status data combined
-		err = tx.Query(ctx, statusCombinedQueryStmt, uuid).Get(&mStatus)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("machine: %q: %w", mName, machineerrors.StatusNotSet)
-		} else if err != nil {
-			return errors.Errorf("querying machine status for machine %q: %w", mName, err)
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return status.StatusInfo[status.MachineStatusType]{}, errors.Capture(err)
-	}
-
-	// Convert the internal status id from the (machine_status_value table)
-	// into the core status.Status type.
-	machineStatus, err := status.DecodeMachineStatus(mStatus.Status)
-	if err != nil {
-		return status.StatusInfo[status.MachineStatusType]{}, errors.Errorf("decoding machine status for machine %q: %w", mName, err)
-	}
-
-	var since time.Time
-	if mStatus.Updated.Valid {
-		since = mStatus.Updated.Time
-	} else {
-		since = st.clock.Now()
-	}
-
-	var data []byte
-	if len(mStatus.Data) > 0 {
-		data = mStatus.Data
-	}
-
-	return status.StatusInfo[status.MachineStatusType]{
-		Status:  machineStatus,
-		Message: mStatus.Message,
-		Since:   &since,
-		Data:    data,
-	}, nil
-}
-
 // SetRunningAgentBinaryVersion sets the running agent binary version for the
 // provided machine uuid. Any previously set values for this machine uuid will
 // be overwritten by this call.
@@ -607,32 +525,6 @@ SELECT &machineLife.* FROM machine WHERE uuid = $machineLife.uuid
 	}
 
 	return nil
-}
-
-// SetMachineStatus sets the status of the specified machine.
-// It returns MachineNotFound if the machine does not exist.
-func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newStatus status.StatusInfo[status.MachineStatusType]) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	statusID, err := status.EncodeMachineStatus(newStatus.Status)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare the new status to be set.
-	status := setStatusInfo{
-		StatusID: statusID,
-		Message:  newStatus.Message,
-		Data:     newStatus.Data,
-		Updated:  newStatus.Since,
-	}
-
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.insertMachineStatus(ctx, tx, mName, status)
-	})
 }
 
 // SetMachineLife sets the life status of the specified machine.
@@ -1535,12 +1427,6 @@ func (st *State) insertMachineStatus(ctx context.Context, tx *sqlair.TX, mName m
 	statusQuery := `
 INSERT INTO machine_status (*)
 VALUES ($setMachineStatus.*)
-  ON CONFLICT (machine_uuid)
-  DO UPDATE SET
-  	status_id = excluded.status_id,
-	message = excluded.message,
-	updated_at = excluded.updated_at,
-	data = excluded.data;
 `
 	statusQueryStmt, err := st.Prepare(statusQuery, setMachineStatus{})
 	if err != nil {

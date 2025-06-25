@@ -15,10 +15,8 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -236,147 +234,6 @@ func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *tc.C) {
 		GetInstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 	c.Check(instanceId, tc.Equals, instance.UnknownId)
-}
-
-// TestGetMachineStatusSuccess asserts the happy path of the GetMachineStatus.
-func (s *serviceSuite) TestGetMachineStatusSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	expectedStatus := status.StatusInfo{Status: status.Started}
-	s.state.EXPECT().GetMachineStatus(gomock.Any(), machine.Name("666")).Return(domainstatus.StatusInfo[domainstatus.MachineStatusType]{
-		Status: domainstatus.MachineStatusStarted,
-	}, nil)
-
-	machineStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetMachineStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(machineStatus, tc.DeepEquals, expectedStatus)
-}
-
-// TestGetMachineStatusError asserts that an error coming from the state layer
-// is preserved, passed over to the service layer to be maintained there.
-func (s *serviceSuite) TestGetMachineStatusError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	rErr := errors.New("boom")
-	s.state.EXPECT().GetMachineStatus(gomock.Any(), machine.Name("666")).Return(domainstatus.StatusInfo[domainstatus.MachineStatusType]{}, rErr)
-
-	machineStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetMachineStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIs, rErr)
-	c.Check(machineStatus, tc.DeepEquals, status.StatusInfo{})
-}
-
-// TestSetMachineStatusSuccess asserts the happy path of the SetMachineStatus.
-func (s *serviceSuite) TestSetMachineStatusSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	newStatus := status.StatusInfo{Status: status.Started}
-	s.state.EXPECT().SetMachineStatus(gomock.Any(), machine.Name("666"), domainstatus.StatusInfo[domainstatus.MachineStatusType]{
-		Status: domainstatus.MachineStatusStarted,
-	}).Return(nil)
-	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineNamespace.WithID("666"), newStatus).Return(nil)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		SetMachineStatus(c.Context(), "666", newStatus)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// TestSetMachineStatusError asserts that an error coming from the state layer
-// is preserved, passed over to the service layer to be maintained there.
-func (s *serviceSuite) TestSetMachineStatusError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	newStatus := status.StatusInfo{Status: status.Started}
-	rErr := errors.New("boom")
-	s.state.EXPECT().SetMachineStatus(gomock.Any(), machine.Name("666"), domainstatus.StatusInfo[domainstatus.MachineStatusType]{
-		Status: domainstatus.MachineStatusStarted,
-	}).Return(rErr)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		SetMachineStatus(c.Context(), "666", newStatus)
-	c.Assert(err, tc.ErrorIs, rErr)
-}
-
-// TestSetMachineStatusInvalid asserts that an invalid status is passed to the
-// service will result in a InvalidStatus error.
-func (s *serviceSuite) TestSetMachineStatusInvalid(c *tc.C) {
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		SetMachineStatus(c.Context(), "666", status.StatusInfo{Status: "invalid"})
-	c.Assert(err, tc.ErrorIs, machineerrors.InvalidStatus)
-}
-
-// TestGetInstanceStatusSuccess asserts the happy path of the GetInstanceStatus.
-func (s *serviceSuite) TestGetInstanceStatusSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	expectedStatus := status.StatusInfo{Status: status.Running}
-	s.state.EXPECT().GetInstanceStatus(gomock.Any(), machine.Name("666")).Return(domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
-		Status: domainstatus.InstanceStatusRunning,
-	}, nil)
-
-	instanceStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(instanceStatus, tc.DeepEquals, expectedStatus)
-}
-
-// TestGetInstanceStatusError asserts that an error coming from the state layer
-// is preserved, passed over to the service layer to be maintained there.
-func (s *serviceSuite) TestGetInstanceStatusError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	rErr := errors.New("boom")
-	s.state.EXPECT().GetInstanceStatus(gomock.Any(), machine.Name("666")).Return(domainstatus.StatusInfo[domainstatus.InstanceStatusType]{}, rErr)
-
-	instanceStatus, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIs, rErr)
-	c.Check(instanceStatus, tc.DeepEquals, status.StatusInfo{})
-}
-
-// TestSetInstanceStatusSuccess asserts the happy path of the SetInstanceStatus
-// service.
-func (s *serviceSuite) TestSetInstanceStatusSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	newStatus := status.StatusInfo{Status: status.Running}
-	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d"), nil)
-	s.state.EXPECT().SetInstanceStatus(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d"), domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
-		Status: domainstatus.InstanceStatusRunning,
-	}).Return(nil)
-	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineInstanceNamespace.WithID("666"), newStatus).Return(nil)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		SetInstanceStatus(c.Context(), "666", newStatus)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// TestSetInstanceStatusError asserts that an error coming from the state layer
-// is preserved, passed over to the service layer to be maintained there.
-func (s *serviceSuite) TestSetInstanceStatusError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	rErr := errors.New("boom")
-	newStatus := status.StatusInfo{Status: status.Running}
-	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d"), nil)
-	s.state.EXPECT().SetInstanceStatus(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d"), domainstatus.StatusInfo[domainstatus.InstanceStatusType]{
-		Status: domainstatus.InstanceStatusRunning,
-	}).Return(rErr)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		SetInstanceStatus(c.Context(), "666", newStatus)
-	c.Assert(err, tc.ErrorIs, rErr)
-}
-
-// TestSetInstanceStatusInvalid asserts that an invalid status is passed to the
-// service will result in a InvalidStatus error.
-func (s *serviceSuite) TestSetInstanceStatusInvalid(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		SetInstanceStatus(c.Context(), "666", status.StatusInfo{Status: "invalid"})
-	c.Assert(err, tc.ErrorIs, machineerrors.InvalidStatus)
 }
 
 // TestIsMachineControllerSuccess asserts the happy path of the

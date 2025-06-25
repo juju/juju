@@ -4,10 +4,8 @@
 package state
 
 import (
-	"context"
 	"database/sql"
 	"strconv"
-	"time"
 
 	"github.com/juju/tc"
 
@@ -15,7 +13,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/domain/status"
 )
 
 func (s *stateSuite) TestGetHardwareCharacteristicsWithNoData(c *tc.C) {
@@ -332,32 +329,6 @@ func (s *stateSuite) TestDeleteInstanceData(c *tc.C) {
 	c.Check(rows.Next(), tc.IsFalse)
 }
 
-// TestDeleteInstanceDataWithStatus asserts that DeleteMachineCloudInstance at
-// the state layer removes any instance status and status data when deleting an
-// instance.
-func (s *stateSuite) TestDeleteInstanceDataWithStatus(c *tc.C) {
-	db := s.DB()
-
-	machineUUID := s.ensureInstance(c, "42")
-
-	// Add a status with data for this instance
-	s.state.SetInstanceStatus(c.Context(), "42", status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusAllocating,
-		Message: "running",
-		Data:    []byte(`{"key":"data"}`),
-		Since:   ptr(time.Now().UTC()),
-	})
-
-	err := s.state.DeleteMachineCloudInstance(c.Context(), machineUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Check that all rows've been deleted from the status tables.
-	var status int
-	err = db.QueryRowContext(c.Context(), "SELECT count(*) FROM machine_cloud_instance_status WHERE machine_uuid=?", "123").Scan(&status)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(status, tc.Equals, 0)
-}
-
 func (s *stateSuite) TestInstanceIdSuccess(c *tc.C) {
 	machineUUID := s.ensureInstance(c, "666")
 
@@ -388,140 +359,6 @@ func (s *stateSuite) TestInstanceNameError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = s.state.GetInstanceIDAndName(c.Context(), "666")
-	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
-}
-
-// TestGetInstanceStatusSuccess asserts the happy path of InstanceStatus at the
-// state layer.
-func (s *stateSuite) TestGetInstanceStatusSuccess(c *tc.C) {
-	machineUUID := s.ensureInstance(c, "666")
-
-	// Add a status value for this machine into the
-	// machine_cloud_instance_status table using the machineUUID and the status
-	// value 3 for "running" (from machine_cloud_instance_status_value table).
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(c.Context(), `
-UPDATE machine_cloud_instance_status
-SET status_id='3', 
-	message='running', 
-	updated_at='2024-07-12 12:00:00'
-WHERE machine_uuid=?`, machineUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIsNil)
-	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusRunning,
-		Message: "running",
-		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
-	}
-	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
-}
-
-// TestGetInstanceStatusSuccessWithData asserts the happy path of InstanceStatus
-// at the state layer.
-func (s *stateSuite) TestGetInstanceStatusSuccessWithData(c *tc.C) {
-	machineUUID := s.ensureInstance(c, "666")
-
-	// Add a status value for this machine into the
-	// machine_cloud_instance_status table using the machineUUID and the status
-	// value 2 for "running" (from machine_cloud_instance_status_value table).
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(c.Context(), `
-UPDATE machine_cloud_instance_status
-SET status_id='3', 
-	message='running', 
-	data='{"key": "data"}',
-	updated_at='2024-07-12 12:00:00'
-WHERE machine_uuid=?`, machineUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIsNil)
-	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusRunning,
-		Message: "running",
-		Data:    []byte(`{"key": "data"}`),
-		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
-	}
-	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
-}
-
-// TestGetInstanceStatusNotFoundError asserts that GetInstanceStatus returns a
-// NotFound error when the given machine cannot be found.
-func (s *stateSuite) TestGetInstanceStatusNotFoundError(c *tc.C) {
-	_, err := s.state.GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-// TestGetInstanceStatusStatusNotSetError asserts that GetInstanceStatus returns
-// a StatusNotSet error when a status value cannot be found for the given
-// machine.
-func (s *stateSuite) TestGetInstanceStatusStatusNotSetError(c *tc.C) {
-	machineUUID := s.ensureInstance(c, "666")
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(c.Context(), `
-DELETE FROM machine_cloud_instance_status
-WHERE machine_uuid=?`, machineUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Don't add a status value for this instance into the
-	// machine_cloud_instance_status table.
-	_, err = s.state.GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIs, machineerrors.StatusNotSet)
-}
-
-// TestSetInstanceStatusSuccess asserts the happy path of SetInstanceStatus at
-// the state layer.
-func (s *stateSuite) TestSetInstanceStatusSuccess(c *tc.C) {
-	machineUUID := s.ensureInstance(c, "666")
-
-	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusRunning,
-		Message: "running",
-	}
-	err := s.state.SetInstanceStatus(c.Context(), machineUUID, expectedStatus)
-	c.Assert(err, tc.ErrorIsNil)
-
-	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedStatus.Status, tc.Equals, expectedStatus.Status)
-	c.Assert(obtainedStatus.Message, tc.Equals, expectedStatus.Message)
-}
-
-// TestSetInstanceStatusSuccessWithData asserts the happy path of
-// SetInstanceStatus at the state layer.
-func (s *stateSuite) TestSetInstanceStatusSuccessWithData(c *tc.C) {
-	machineUUID := s.ensureInstance(c, "666")
-
-	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusRunning,
-		Message: "running",
-		Data:    []byte(`{"key": "data"}`),
-		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
-	}
-	err := s.state.SetInstanceStatus(c.Context(), machineUUID, expectedStatus)
-	c.Assert(err, tc.ErrorIsNil)
-
-	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
-}
-
-// TestSetInstanceStatusError asserts that SetInstanceStatus returns a
-// NotProvisioned error when the given machine instance cannot be found.
-func (s *stateSuite) TestSetInstanceStatusError(c *tc.C) {
-	err := s.state.SetInstanceStatus(c.Context(), "666", status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusRunning,
-		Message: "running",
-	})
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 

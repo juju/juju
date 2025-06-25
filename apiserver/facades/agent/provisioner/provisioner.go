@@ -1409,50 +1409,13 @@ func (api *ProvisionerAPI) SetInstanceStatus(ctx context.Context, args params.Se
 // the instance to be placed into a error state. This modification status
 // serves the purpose of highlighting that to the operator.
 // Only machine tags are accepted.
+//
+// Deprecated: this facade was used for LXD profiles, which have been removed.
+// Drop this facade on the next facade version bump.
 func (api *ProvisionerAPI) SetModificationStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	result := params.ErrorResults{
+	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	canAccess, err := api.getAuthFunc(ctx)
-	if err != nil {
-		api.logger.Errorf(ctx, "failed to get an authorisation function: %v", err)
-		return result, errors.Trace(err)
-	}
-	for i, arg := range args.Entities {
-		err = api.setOneModificationStatus(ctx, canAccess, arg)
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-func (api *ProvisionerAPI) setOneModificationStatus(ctx context.Context, canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
-	api.logger.Tracef(ctx, "SetModificationStatus called with: %#v", arg)
-	mTag, err := names.ParseMachineTag(arg.Tag)
-	if err != nil {
-		return apiservererrors.ErrPerm
-	}
-	machine, err := api.getMachine(canAccess, mTag)
-	if err != nil {
-		api.logger.Debugf(ctx, "SetModificationStatus unable to get machine %q", mTag)
-		return err
-	}
-
-	// We can use the controller timestamp to get now.
-	since, err := api.st.ControllerTimestamp()
-	if err != nil {
-		return err
-	}
-	s := status.StatusInfo{
-		Status:  status.Status(arg.Status),
-		Message: arg.Info,
-		Data:    arg.Data,
-		Since:   since,
-	}
-	if err = machine.SetModificationStatus(s); err != nil {
-		api.logger.Debugf(ctx, "failed to SetModificationStatus for %q: %v", mTag, err)
-		return err
-	}
-	return nil
+	}, nil
 }
 
 // MarkMachinesForRemoval indicates that the specified machines are
