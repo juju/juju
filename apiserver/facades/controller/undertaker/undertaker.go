@@ -123,15 +123,13 @@ func (u *UndertakerAPI) ProcessDyingModel(ctx context.Context) error {
 }
 
 // RemoveModel removes any records of this model from Juju.
-func (u *UndertakerAPI) RemoveModel(ctx context.Context) error {
-	if err := u.removeModelSecrets(ctx); err != nil {
-		return errors.Annotate(err, "removing model secrets")
-	}
+func (u *UndertakerAPI) RemoveModel(_ context.Context) error {
 	return u.st.RemoveDyingModel()
 }
 
+// RemoveModelSecrets removes any secrets associated with the model.
 // TODO(secret): all these logic should be moved to secret service.
-func (u *UndertakerAPI) removeModelSecrets(ctx context.Context) error {
+func (u *UndertakerAPI) RemoveModelSecrets(ctx context.Context) error {
 	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)

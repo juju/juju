@@ -52,8 +52,9 @@ func prepare(ctx *cmd.Context, controllerName string, store jujuclient.ClientSto
 	// we'll do about simplestreams.MetadataValidator yet. Probably
 	// move it to the EnvironProvider interface.
 	return environs.New(ctx, environs.OpenParams{
-		Cloud:  *spec,
-		Config: cfg,
+		ControllerUUID: bootstrapConfig.ControllerConfig.ControllerUUID(),
+		Cloud:          *spec,
+		Config:         cfg,
 	}, environs.NoopCredentialInvalidator())
 }
 

@@ -223,6 +223,8 @@ The following keys are available:
     logging-config:
       type: string
       description: The configuration string to use when configuring Juju agent logging
+        (see [this link](https://pkg.go.dev/github.com/juju/loggo#ParseConfigString) for
+        details)
     lxd-snap-channel:
       type: string
       description: The channel to use when installing LXD from a snap (cosmic and later)

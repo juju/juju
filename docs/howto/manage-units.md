@@ -91,7 +91,7 @@ mattermost-k8s/0*  active    idle   10.1.179.151  8065/TCP
 postgresql-k8s/0*  active    idle   10.1.179.149  5432/TCP  Pod configured
 ```
 
-> See more: {ref}`command-juju-status`, [Unit status](https://juju.is/docs/juju/status#heading--unit-status)
+> See more: {ref}`command-juju-status`, {ref}`unit-status`
 
 
 ## Set the meter status on a unit

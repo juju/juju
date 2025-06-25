@@ -159,6 +159,7 @@ func (api *API) MigrationStatus(ctx context.Context) (params.MasterMigrationStat
 				AuthTag:       target.AuthTag.String(),
 				Password:      target.Password,
 				Macaroons:     string(macsJSON),
+				Token:         target.Token,
 			},
 		},
 		MigrationId:      mig.Id(),
