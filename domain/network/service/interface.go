@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	domainnetwork "github.com/juju/juju/domain/network"
-	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/environs"
 )
 
@@ -52,7 +51,7 @@ type State interface {
 	SubnetState
 	NetConfigState
 	ContainerState
-	NetConfigMigrationState
+	MigrationState
 
 	// GetMachineNetNodeUUID returns the net node UUID for the input machine UUID.
 	GetMachineNetNodeUUID(ctx context.Context, machineUUID string) (string, error)
@@ -128,44 +127,29 @@ type NetConfigState interface {
 	// The following errors may be returned:
 	// - [uniterrors.UnitNotFound] if the unit does not exist
 	GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
+
 	// GetUnitAddresses returns the addresses of the specified unit.
 	//
 	// The following errors may be returned:
 	// - [uniterrors.UnitNotFound] if the unit does not exist
 	GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
+
 	// GetUnitUUIDByName returns the UUID for the named unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
 	// exist.
 	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
+
 	// SetMachineNetConfig updates the network configuration for the machine with
 	// the input net node UUID.
 	SetMachineNetConfig(ctx context.Context, nodeUUID string, nics []domainnetwork.NetInterface) error
+
 	// GetAllLinkLayerDevicesByNetNodeUUIDs retrieves all link-layer devices
 	// grouped by net node UUIDs from the persistence layer.
 	// It returns a map where keys are machine UUIDs and values are
 	// corresponding network interfaces or an error if retrieval fails.
 	GetAllLinkLayerDevicesByNetNodeUUIDs(ctx context.Context) (map[string][]domainnetwork.NetInterface, error)
-}
-
-// NetConfigMigrationState describes methods required
-// for migrating machine network configuration.
-type NetConfigMigrationState interface {
-	// AllMachinesAndNetNodes returns all machine names mapped to their
-	// net mode UUIDs in the model.
-	AllMachinesAndNetNodes(ctx context.Context) (map[string]string, error)
-
-	// DeleteImportedLinkLayerDevices deletes all data added via the ImportLinkLayerDevices
-	// method.
-	DeleteImportedLinkLayerDevices(ctx context.Context) error
-
-	// ImportLinkLayerDevices adds link layer devices into the model as part
-	// of the migration import process.
-	ImportLinkLayerDevices(ctx context.Context, input []internal.ImportLinkLayerDevice) error
 
 	// MergeLinkLayerDevice merges the existing link layer devices with the
 	// incoming ones.
-	MergeLinkLayerDevice(
-		ctx context.Context,
-		machineUUID string, incoming []domainnetwork.NetInterface,
-	) error
+	MergeLinkLayerDevice(ctx context.Context, machineUUID string, incoming []domainnetwork.NetInterface) error
 }
