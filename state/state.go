@@ -1419,15 +1419,6 @@ func (st *State) AssignUnit(
 	return errors.Trace(u.assignToNewMachine(""))
 }
 
-// SetAdminMongoPassword sets the administrative password
-// to access the state. If the password is non-empty,
-// all subsequent attempts to access the state must
-// be authorized; otherwise no authorization is required.
-func (st *State) SetAdminMongoPassword(password string) error {
-	err := mongo.SetAdminMongoPassword(st.session, mongo.AdminUser, password)
-	return errors.Trace(err)
-}
-
 func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {
 	key := st.networkEntityGlobalKey(globalKey, providerId)
 	return txn.Op{

@@ -20,6 +20,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
+	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	"github.com/juju/juju/state/binarystorage"
 )
 
@@ -106,7 +107,7 @@ func PopulateAgentBinary(
 		agentTools.Size,
 		agentTools.SHA256,
 	)
-	if err != nil {
+	if err != nil && !errors.Is(err, agentbinaryerrors.AlreadyExists) {
 		return nil, errors.Trace(err)
 	}
 

@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -94,18 +93,6 @@ type ControllerCharmDeployer interface {
 
 	// CompleteCAASProcess is called when the bootstrap process is complete.
 	CompleteCAASProcess(context.Context) error
-}
-
-// Machine is the interface that is used to get information about a machine.
-type Machine interface {
-	Base() state.Base
-	PublicAddress() (network.SpaceAddress, error)
-}
-
-// MachineGetter is the interface that is used to get information about a
-// machine.
-type MachineGetter interface {
-	Machine(string) (Machine, error)
 }
 
 // HTTPClient is the interface that is used to make HTTP requests.
