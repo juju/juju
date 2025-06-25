@@ -258,4 +258,5 @@ func (s *containerSuite) setupServiceAndMachines(c *tc.C) {
 	s.nodeUUID = "net-node-uuid"
 
 	s.svc = NewService(s.st, loggertesting.WrapCheckLog(c))
+	c.Cleanup(func() { s.svc = nil })
 }
