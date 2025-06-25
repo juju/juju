@@ -289,7 +289,6 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 	deployer, err := NewIAASDeployer(IAASDeployerConfig{
 		BaseDeployerConfig: cfg,
 		ApplicationService: s.iaasApplicationService,
-		MachineGetter:      s.machineGetter,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 

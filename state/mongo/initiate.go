@@ -48,7 +48,6 @@ func InitiateMongoServer(p InitiateMongoParams) error {
 		return nil
 	}
 	p.DialInfo.Direct = true
-	p.DialInfo.Password = mongo.MongoPassword
 
 	// Initiate may fail while mongo is initialising, so we retry until
 	// we successfully populate the replicaset config.

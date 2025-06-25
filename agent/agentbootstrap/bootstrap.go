@@ -437,15 +437,6 @@ func (b *AgentBootstrap) initMongo(info mongo.Info, dialOpts mongo.DialOpts) (*m
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	b.logger.Warningf(context.TODO(), "**forcing mongo password to 'deadbeef'**")
-	if err := mongo.SetAdminMongoPassword(session, mongo.AdminUser, mongo.MongoPassword); err != nil {
-		session.Close()
-		return nil, errors.Trace(err)
-	}
-	if err := mongo.Login(session, mongo.AdminUser); err != nil {
-		session.Close()
-		return nil, errors.Trace(err)
-	}
 	return session, nil
 }
 
