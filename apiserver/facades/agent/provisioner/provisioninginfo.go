@@ -91,7 +91,6 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving machine constraints")
 	}
-
 	machineSpaces, err := api.machineSpaces(cons, spaceInfos, endpointBindings)
 	if err != nil {
 		return nil, errors.Trace(err)

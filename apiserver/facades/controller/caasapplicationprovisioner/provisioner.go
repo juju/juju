@@ -319,7 +319,6 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	resourceTags := tags.ResourceTags(
 		names.NewModelTag(modelConfig.UUID()),
 		names.NewControllerTag(cfg.ControllerUUID()),

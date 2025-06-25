@@ -623,10 +623,6 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 			"tag": "tag-value",
 		},
 		Constraints: constraints.MustParse("mem=1G"),
-		CharmConstraints: caas.CharmValue{
-			MemRequest: caas.CharmMemRequestMiB,
-			MemLimit:   caas.CharmMemLimitMiB,
-		},
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "data",
 			Size:        100,

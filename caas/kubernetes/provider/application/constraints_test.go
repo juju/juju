@@ -5,14 +5,12 @@ package application_test
 
 import (
 	"errors"
-	"fmt"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/testing"
@@ -26,36 +24,22 @@ var _ = gc.Suite(&applyConstraintsSuite{})
 
 func (s *applyConstraintsSuite) TestMemory(c *gc.C) {
 	podSpec := &corev1.PodSpec{}
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
 		c.Assert(pod, gc.Equals, podSpec)
 		c.Assert(resourceName, gc.Equals, corev1.ResourceName("memory"))
-		c.Assert(value, gc.Equals, "4096Mi")
+		c.Assert(value, gc.Equals, uint64(4096))
 		return errors.New("boom")
 	}
 	err := application.ApplyWorkloadConstraints(podSpec, "foo", constraints.MustParse("mem=4G"), configureConstraint)
 	c.Assert(err, gc.ErrorMatches, "configuring workload container memory constraint for foo: boom")
-
-	charmConfigureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, memReq, memLimit string) (err error) {
-		c.Assert(pod, gc.Equals, podSpec)
-		c.Assert(resourceName, gc.Equals, corev1.ResourceName("memory"))
-		c.Assert(memReq, gc.Equals, fmt.Sprintf("%dMi", (caas.CharmMemRequestMiB)))
-		c.Assert(memLimit, gc.Equals, fmt.Sprintf("%dMi", (caas.CharmMemLimitMiB)))
-		return errors.New("boom")
-	}
-	charmConstraintVal := caas.CharmValue{
-		MemRequest: caas.CharmMemRequestMiB,
-		MemLimit:   caas.CharmMemLimitMiB,
-	}
-	err = application.ApplyCharmConstraints(podSpec, "foo", charmConstraintVal, charmConfigureConstraint)
-	c.Assert(err, gc.ErrorMatches, "configuring charm container memory constraint for foo: boom")
 }
 
 func (s *applyConstraintsSuite) TestCPU(c *gc.C) {
 	pod := &corev1.PodSpec{}
-	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
 		c.Assert(got, gc.Equals, pod)
 		c.Assert(resourceName, gc.Equals, corev1.ResourceName("cpu"))
-		c.Assert(value, gc.Equals, "2m")
+		c.Assert(value, gc.Equals, uint64(2))
 		return errors.New("boom")
 	}
 	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("cpu-power=2"), configureConstraint)
@@ -63,7 +47,7 @@ func (s *applyConstraintsSuite) TestCPU(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestArch(c *gc.C) {
-	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -73,7 +57,7 @@ func (s *applyConstraintsSuite) TestArch(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestPodAffinityJustTopologyKey(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -90,7 +74,7 @@ func (s *applyConstraintsSuite) TestPodAffinityJustTopologyKey(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestAffinityPod(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -117,7 +101,7 @@ func (s *applyConstraintsSuite) TestAffinityPod(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestPodAffinityAll(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -143,7 +127,7 @@ func (s *applyConstraintsSuite) TestPodAffinityAll(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestAntiPodAffinityJustTopologyKey(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -160,7 +144,7 @@ func (s *applyConstraintsSuite) TestAntiPodAffinityJustTopologyKey(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestAntiPodAffinity(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -187,7 +171,7 @@ func (s *applyConstraintsSuite) TestAntiPodAffinity(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestAntiPodAffinityAll(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -215,7 +199,7 @@ func (s *applyConstraintsSuite) TestAntiPodAffinityAll(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestNodeAntiAffinity(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -238,76 +222,4 @@ func (s *applyConstraintsSuite) TestNodeAntiAffinity(c *gc.C) {
 	})
 	c.Assert(pod.Affinity.PodAffinity, gc.IsNil)
 	c.Assert(pod.Affinity.PodAntiAffinity, gc.IsNil)
-}
-
-func (s *applyConstraintsSuite) TestDivideAndSpread(c *gc.C) {
-	tests := []struct {
-		name     string
-		total    uint64
-		parts    int
-		expected []uint64
-	}{
-		{
-			name:     "Evenly divisible",
-			total:    10,
-			parts:    2,
-			expected: []uint64{5, 5},
-		},
-		{
-			name:     "Remainder distributed to front",
-			total:    10,
-			parts:    3,
-			expected: []uint64{4, 3, 3},
-		},
-		{
-			name:     "Remainder distributed to multiple fronts",
-			total:    10,
-			parts:    4,
-			expected: []uint64{3, 3, 2, 2},
-		},
-		{
-			name:     "More parts than total",
-			total:    3,
-			parts:    5,
-			expected: []uint64{1, 1, 1, 0, 0},
-		},
-		{
-			name:     "Zero total",
-			total:    0,
-			parts:    3,
-			expected: []uint64{0, 0, 0},
-		},
-		{
-			name:     "Single part",
-			total:    10,
-			parts:    1,
-			expected: []uint64{10},
-		},
-		{
-			name:     "Total equals parts",
-			total:    10,
-			parts:    10,
-			expected: []uint64{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-		},
-		{
-			name:     "Zero parts (edge case)",
-			total:    10,
-			parts:    0,
-			expected: nil,
-		},
-	}
-
-	for _, tt := range tests {
-		obtained := application.DivideAndSpread(tt.total, tt.parts)
-		c.Assert(obtained, gc.DeepEquals, tt.expected)
-
-		//  sum must match total (when parts > 0)
-		if tt.parts > 0 && obtained != nil {
-			sum := uint64(0)
-			for _, v := range obtained {
-				sum += v
-			}
-			c.Assert(sum, gc.Equals, tt.total)
-		}
-	}
 }

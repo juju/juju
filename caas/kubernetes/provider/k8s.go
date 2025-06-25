@@ -1061,11 +1061,22 @@ func (k *kubernetesClient) ensureService(
 	}
 	if err := k8sapplication.ApplyWorkloadConstraints(
 		&workloadSpec.Pod.PodSpec, appName, params.Constraints,
-		func(pod *core.PodSpec, resourceName core.ResourceName, workloadConsVal string) error {
+		func(pod *core.PodSpec, resourceName core.ResourceName, workloadConsVal uint64) error {
 			if len(pod.Containers) == 0 {
 				return nil
 			}
-			resourceQty, err := resource.ParseQuantity(workloadConsVal)
+			var unitSuffix string
+			switch resourceName {
+			case core.ResourceMemory:
+				unitSuffix = "Mi"
+			case core.ResourceCPU:
+				unitSuffix = "m"
+			default:
+				return errors.NotSupportedf("converting resource value for %q", resourceName)
+			}
+
+			workloadConsValStr := fmt.Sprintf("%d%s", workloadConsVal, unitSuffix)
+			resourceQty, err := resource.ParseQuantity(workloadConsValStr)
 			if err != nil {
 				return errors.Annotatef(err, "invalid constraint value %q for %q", workloadConsVal, resourceName)
 			}
@@ -1074,7 +1085,7 @@ func (k *kubernetesClient) ensureService(
 				resourceName, resourceQty, pod.Containers[0].Resources.Requests,
 			)
 			if err != nil {
-				return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, workloadConsVal)
+				return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, workloadConsValStr)
 			}
 			return nil
 		},

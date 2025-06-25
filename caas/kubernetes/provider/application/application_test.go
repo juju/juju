@@ -358,11 +358,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 				}(),
 			},
 		},
-		Constraints: cons,
-		CharmConstraints: caas.CharmValue{
-			MemRequest: caas.CharmMemRequestMiB,
-			MemLimit:   caas.CharmMemLimitMiB,
-		},
+		Constraints:  cons,
 		InitialScale: 3,
 		Trust:        trust,
 		CharmUser: func() caas.RunAs {
@@ -2711,30 +2707,18 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 				"kubernetes.io/arch": "arm64",
 			}
 			charmResourceMemRequest := corev1.ResourceList{
-				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", caas.CharmMemRequestMiB))}
+				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", constants.CharmMemRequestMiB))}
 			charmResourceMemLimit := corev1.ResourceList{
-				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", caas.CharmMemLimitMiB))}
-
-			totalCPU := uint64(1000)
-			totalMem := uint64(1024)
-			numOfWorkloadContainers := len(ps.Containers) - 1
-			workloadContainerResourceCPU := application.DivideAndSpread(totalCPU, numOfWorkloadContainers)
-			workloadContainerResourceMemories := application.DivideAndSpread(totalMem, numOfWorkloadContainers)
-
-			// ensure that the resources are evenly distributed when it is possible to do so
-			c.Assert(len(workloadContainerResourceCPU), jc.GreaterThan, 0)
-			c.Assert(len(workloadContainerResourceMemories), jc.GreaterThan, 0)
-			c.Assert(totalCPU%uint64(len(workloadContainerResourceCPU)), gc.Equals, uint64(0))
-			c.Assert(totalMem%uint64(len(workloadContainerResourceMemories)), gc.Equals, uint64(0))
+				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", constants.CharmMemLimitMiB))}
 			workloadResourceRequests := corev1.ResourceList{
-				corev1.ResourceCPU:    k8sresource.MustParse(fmt.Sprintf("%dm", workloadContainerResourceCPU[0])),
-				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", workloadContainerResourceMemories[0])),
+				corev1.ResourceCPU:    k8sresource.MustParse("500m"),
+				corev1.ResourceMemory: k8sresource.MustParse("512Mi"),
+			}
+			workloadResourceLimits := corev1.ResourceList{
+				corev1.ResourceCPU:    k8sresource.MustParse("1000m"),
+				corev1.ResourceMemory: k8sresource.MustParse("1024Mi"),
 			}
 
-			workloadResourceLimits := corev1.ResourceList{
-				corev1.ResourceCPU:    k8sresource.MustParse(fmt.Sprintf("%dm", totalCPU)),
-				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", totalMem)),
-			}
 			for i, container := range ps.Containers {
 				if container.Name == constants.ApplicationCharmContainer {
 					ps.Containers[i].Resources.Requests = charmResourceMemRequest
@@ -2746,7 +2730,6 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 			}
 
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
-
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(ss, gc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2949,7 +2932,6 @@ func (s *applicationSuite) TestPVCNames(c *gc.C) {
 }
 
 func (s *applicationSuite) TestLimits(c *gc.C) {
-
 	workloadLimits := corev1.ResourceList{
 		corev1.ResourceCPU:    *k8sresource.NewMilliQuantity(1000, k8sresource.DecimalSI),
 		corev1.ResourceMemory: *k8sresource.NewQuantity(1024*1024*1024, k8sresource.BinarySI),
@@ -2960,10 +2942,6 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 		corev1.ResourceMemory: *workloadLimits.Memory(),
 	}
 
-	charmReqs := corev1.ResourceList{
-		corev1.ResourceMemory: *k8sresource.NewQuantity(caas.CharmMemRequestMiB*1024*1024, k8sresource.BinarySI),
-	}
-
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
@@ -2971,7 +2949,6 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			for _, ctr := range ss.Spec.Template.Spec.Containers {
 				if ctr.Name == constants.ApplicationCharmContainer {
-					c.Check(ctr.Resources.Requests, gc.DeepEquals, charmReqs)
 					c.Check(ctr.Resources.Limits, gc.DeepEquals, charmLimits)
 					continue
 				}
@@ -2981,34 +2958,28 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 	)
 }
 
-func (s *applicationSuite) TestRq(c *gc.C) {
-
-	workloadLimits := corev1.ResourceList{
-		corev1.ResourceCPU:    *k8sresource.NewMilliQuantity(1000, k8sresource.DecimalSI),
-		corev1.ResourceMemory: *k8sresource.NewQuantity(1024*1024*1024, k8sresource.BinarySI),
-	}
-
-	// charm limits follow user defined workload limits, but only for memory resource
-	charmLimits := corev1.ResourceList{
-		corev1.ResourceMemory: *workloadLimits.Memory(),
-	}
-
-	charmReqs := corev1.ResourceList{
-		corev1.ResourceMemory: *k8sresource.NewQuantity(caas.CharmMemRequestMiB*1024*1024, k8sresource.BinarySI),
-	}
-
+func (s *applicationSuite) TestRequests(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+
+			charmReqs := corev1.ResourceList{
+				corev1.ResourceMemory: *k8sresource.NewQuantity(int64(constants.CharmMemRequestMiB)*1024*1024, k8sresource.BinarySI),
+			}
 			c.Assert(err, jc.ErrorIsNil)
 			for _, ctr := range ss.Spec.Template.Spec.Containers {
 				if ctr.Name == constants.ApplicationCharmContainer {
 					c.Check(ctr.Resources.Requests, gc.DeepEquals, charmReqs)
-					c.Check(ctr.Resources.Limits, gc.DeepEquals, charmLimits)
 					continue
 				}
-				c.Check(ctr.Resources.Limits, gc.DeepEquals, workloadLimits)
+
+				workloadReq := corev1.ResourceList{
+					corev1.ResourceCPU:    *k8sresource.NewMilliQuantity(500, k8sresource.DecimalSI),
+					corev1.ResourceMemory: *k8sresource.NewQuantity(512*1024*1024, k8sresource.BinarySI),
+				}
+				c.Check(ctr.Resources.Requests.Cpu().Equal(*workloadReq.Cpu()), jc.IsTrue)
+				c.Check(ctr.Resources.Requests.Memory().Equal(*workloadReq.Memory()), jc.IsTrue)
 			}
 		},
 	)

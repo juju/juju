@@ -19,11 +19,10 @@ import (
 	"github.com/juju/juju/core/constraints"
 )
 
-// ConstraintApplier defines the function type for configuring constraint for a pod.
-type ConstraintApplier func(pod *core.PodSpec, resourceName core.ResourceName, value string) error
-
-// CharmConstraintApplier defines the function type for configuring charm constraint for a pod.
-type CharmConstraintApplier func(pod *core.PodSpec, resourceName core.ResourceName, requestValue string, limitValue string) error
+// ConstraintApplier defines a function type that applies a resource constraint
+// (e.g., memory or CPU) with the given value to the specified resource name
+// in the provided PodSpec.
+type ConstraintApplier func(pod *core.PodSpec, resourceName core.ResourceName, value uint64) error
 
 // ApplyWorkloadConstraints applies the specified constraints to the pod.
 func ApplyWorkloadConstraints(pod *core.PodSpec, appName string, cons constraints.Value, configureConstraint ConstraintApplier) error {
@@ -31,12 +30,12 @@ func ApplyWorkloadConstraints(pod *core.PodSpec, appName string, cons constraint
 	// For now we only do resource requests, one container is sufficient for
 	// scheduling purposes.
 	if mem := cons.Mem; mem != nil {
-		if err := configureConstraint(pod, core.ResourceMemory, fmt.Sprintf("%dMi", *mem)); err != nil {
+		if err := configureConstraint(pod, core.ResourceMemory, *mem); err != nil {
 			return errors.Annotatef(err, "configuring workload container memory constraint for %s", appName)
 		}
 	}
 	if cpu := cons.CpuPower; cpu != nil {
-		if err := configureConstraint(pod, core.ResourceCPU, fmt.Sprintf("%dm", *cpu)); err != nil {
+		if err := configureConstraint(pod, core.ResourceCPU, *cpu); err != nil {
 			return errors.Annotatef(err, "configuring workload container cpu constraint for %s", appName)
 		}
 	}
@@ -115,12 +114,47 @@ func ApplyWorkloadConstraints(pod *core.PodSpec, appName string, cons constraint
 }
 
 // ApplyCharmConstraints applies the specified charm constraints to the pod.
-func ApplyCharmConstraints(pod *core.PodSpec, appName string, cons caas.CharmValue, configureCharmConstraint CharmConstraintApplier) error {
-	limit := cons.MemLimit
-	request := cons.MemRequest
-	if err := configureCharmConstraint(pod, core.ResourceMemory, fmt.Sprintf("%dMi", request), fmt.Sprintf("%dMi", limit)); err != nil {
-		return errors.Annotatef(err, "configuring charm container memory constraint for %s", appName)
+func ApplyCharmConstraints(pod *core.PodSpec, appName string,
+	charmContainerResourceRequirements caas.CharmContainerResourceRequirements) error {
+
+	if len(pod.Containers) == 0 {
+		return nil
 	}
+
+	requestValue := fmt.Sprintf("%dMi", charmContainerResourceRequirements.MemRequest)
+	limitValue := fmt.Sprintf("%dMi", charmContainerResourceRequirements.MemLimit)
+
+	requestResourceQty, err := resource.ParseQuantity(requestValue)
+	if err != nil {
+		return errors.Annotatef(err, "invalid constraint value %q for %q", requestValue, core.ResourceMemory)
+	}
+	limitResourceQty, err := resource.ParseQuantity(limitValue)
+	if err != nil {
+		return errors.Annotatef(err, "invalid constraint value %q for %q", requestValue, core.ResourceMemory)
+	}
+
+	charmContainerIndex := -1
+
+	for i, container := range pod.Containers {
+		if container.Name == constants.ApplicationCharmContainer {
+			charmContainerIndex = i
+			break
+		}
+	}
+
+	// If the charm container is not found, we do not apply the constraints.
+	if charmContainerIndex == -1 {
+		return nil
+	}
+
+	if pod.Containers[charmContainerIndex].Resources.Requests, err = MergeConstraint(core.ResourceMemory, requestResourceQty, pod.Containers[charmContainerIndex].Resources.Requests); err != nil {
+		return errors.Annotatef(err, "merging request constraint %s=%s", core.ResourceMemory, requestValue)
+	}
+
+	if pod.Containers[charmContainerIndex].Resources.Limits, err = MergeConstraint(core.ResourceMemory, limitResourceQty, pod.Containers[charmContainerIndex].Resources.Limits); err != nil {
+		return errors.Annotatef(err, "merging limit constraint %s=%s", core.ResourceMemory, limitValue)
+	}
+
 	return nil
 }
 
@@ -281,48 +315,20 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 	return nil
 }
 
-func configureCharmConstraint(pod *core.PodSpec, resourceName core.ResourceName, requestValue, limitValue string) (err error) {
-	if len(pod.Containers) == 0 {
-		return nil
-	}
-	requestResourceQty, err := resource.ParseQuantity(requestValue)
-	if err != nil {
-		return errors.Annotatef(err, "invalid constraint value %q for %q", requestValue, resourceName)
-	}
-	limitResourceQty, err := resource.ParseQuantity(limitValue)
-	if err != nil {
-		return errors.Annotatef(err, "invalid constraint value %q for %q", requestValue, resourceName)
-	}
-	for i, container := range pod.Containers {
-		if container.Name != constants.ApplicationCharmContainer {
-			continue
-		}
-
-		if pod.Containers[i].Resources.Requests, err = MergeConstraint(resourceName, requestResourceQty, pod.Containers[i].Resources.Requests); err != nil {
-			return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, requestValue)
-		}
-		// If limits on charm containers are already set by user, we don't override them.
-		if pod.Containers[i].Resources.Limits != nil {
-			break
-		}
-		if pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, limitResourceQty, pod.Containers[i].Resources.Limits); err != nil {
-			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, limitValue)
-		}
-		break
-	}
-	return nil
-}
-
-func DivideAndSpread(total uint64, parts int) []uint64 {
-	if parts <= 0 {
+// divideAndSpreadContainerResource evenly distributes the total resource across a given number of containers.
+// It returns a slice of len(containers), where each element represents the distributed value
+// allocated to that container. Any remainder is distributed one-by-one starting from the lowest index.
+// e.g., [4,4,3] for totalResource = 11, numContainers = 3
+func divideAndSpreadContainerResource(totalResource uint64, numContainers int) []uint64 {
+	if numContainers <= 0 {
 		return nil
 	}
 
-	result := make([]uint64, parts)
-	quotient := total / uint64(parts)
-	remainder := total % uint64(parts)
+	result := make([]uint64, numContainers)
+	quotient := totalResource / uint64(numContainers)
+	remainder := totalResource % uint64(numContainers)
 
-	for i := 0; i < parts; i++ {
+	for i := 0; i < numContainers; i++ {
 		if uint64(i) < remainder {
 			result[i] = quotient + 1
 		} else {
@@ -333,47 +339,41 @@ func DivideAndSpread(total uint64, parts int) []uint64 {
 }
 
 // configureWorkloadConstraint configures the workload container constraints and the limits for the charm container.
-func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceName, value string) (err error) {
+func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceName, value uint64) (err error) {
 	if len(pod.Containers) == 0 {
 		return nil
 	}
-	limitResourceQty, err := resource.ParseQuantity(value)
-	if err != nil {
-		return errors.Annotatef(err, "invalid constraint value %q for %q", value, resourceName)
-	}
 
-	// contains resource request of each workload container
-	var individualRequestResourceNums []uint64
-	var unitSuffix string
+	var (
+		// contains resource request of each workload container
+		individualRequestResourceNums []uint64
+		unitSuffix                    string
+	)
 
 	if len(pod.Containers) > 1 {
 		var totalRequestResourceNum uint64
 		switch resourceName {
 		case core.ResourceMemory:
-			totalRequestResourceNum = uint64(limitResourceQty.Value() / (1024 * 1024))
+			totalRequestResourceNum = value
 			unitSuffix = "Mi"
 		case core.ResourceCPU:
-			totalRequestResourceNum = uint64(limitResourceQty.MilliValue())
+			totalRequestResourceNum = value
 			unitSuffix = "m"
 		default:
 			return errors.NotSupportedf("converting resource value for %q", resourceName)
 		}
-		individualRequestResourceNums = DivideAndSpread(totalRequestResourceNum, len(pod.Containers)-1) // We only consider workload containers, not the charm container.
+		individualRequestResourceNums = divideAndSpreadContainerResource(totalRequestResourceNum, len(pod.Containers)-1) // We only consider workload containers, not the charm container.
 	}
 
-	isMemoryResource := resourceName == core.ResourceMemory
+	limitResourceQty, err := resource.ParseQuantity(fmt.Sprintf("%d%s", value, unitSuffix))
+	if err != nil {
+		return errors.Annotatef(err, "parsing constraint value %q for %q", value, resourceName)
+	}
 	individualRequestResourceNumsIndex := 0
 
 	for i, container := range pod.Containers {
 		isCharmContainer := container.Name == constants.ApplicationCharmContainer
-
 		if isCharmContainer {
-			if !isMemoryResource {
-				continue
-			}
-			if pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, limitResourceQty, pod.Containers[i].Resources.Limits); err != nil {
-				return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, value)
-			}
 			continue
 		}
 
@@ -385,13 +385,13 @@ func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceNa
 				return errors.Annotatef(err, "invalid individual container constraint value %q for %q", individualRequestResourceNumVal, resourceName)
 			}
 			if pod.Containers[i].Resources.Requests, err = MergeConstraint(resourceName, individualRequestResourceQty, pod.Containers[i].Resources.Requests); err != nil {
-				return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, value)
+				return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, fmt.Sprintf("%d%s", individualRequestResourceNum, unitSuffix))
 			}
 			individualRequestResourceNumsIndex++
 		}
 
 		if pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, limitResourceQty, pod.Containers[i].Resources.Limits); err != nil {
-			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, value)
+			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, fmt.Sprintf("%d%s", value, unitSuffix))
 		}
 
 	}

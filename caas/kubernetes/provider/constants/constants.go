@@ -81,6 +81,13 @@ const (
 	JujuFSGroupID = 170
 )
 
+const (
+	// CharmMemRequestMiB is the charm container's memory request value in MiB.
+	CharmMemRequestMiB = uint64(64)
+	// CharmMemLimitMiB is the charm container's memory limit value in MiB.
+	CharmMemLimitMiB = uint64(1024)
+)
+
 // DefaultPropagationPolicy returns the default propagation policy.
 func DefaultPropagationPolicy() *metav1.DeletionPropagation {
 	v := metav1.DeletePropagationForeground

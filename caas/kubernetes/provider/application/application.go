@@ -1794,7 +1794,15 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		return nil, errors.Annotate(err, "processing workload container constraints")
 	}
 
-	if err := ApplyCharmConstraints(spec, a.name, config.CharmConstraints, configureCharmConstraint); err != nil {
+	charmConstraints := caas.CharmContainerResourceRequirements{
+		MemRequest: constants.CharmMemRequestMiB,
+		MemLimit:   constants.CharmMemLimitMiB,
+	}
+	if config.Constraints.Mem != nil {
+		charmConstraints.MemLimit = *config.Constraints.Mem
+	}
+
+	if err := ApplyCharmConstraints(spec, a.name, charmConstraints); err != nil {
 		return nil, errors.Annotate(err, "processing charm container constraints")
 	}
 
