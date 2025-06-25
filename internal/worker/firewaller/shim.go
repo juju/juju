@@ -40,7 +40,10 @@ func (s *firewallerShim) Machine(tag names.MachineTag) (Machine, error) {
 
 func (s *firewallerShim) Unit(tag names.UnitTag) (Unit, error) {
 	u, err := s.Client.Unit(tag)
-	return &unitShim{u}, err
+	if err != nil {
+		return nil, err
+	}
+	return &unitShim{u}, nil
 }
 
 type unitShim struct {

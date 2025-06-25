@@ -5,7 +5,6 @@ package firewaller
 
 import (
 	stdcontext "context"
-	"log"
 	"sort"
 	"time"
 
@@ -63,12 +62,9 @@ type Config struct {
 	// FlushModelNotify is called when the Firewaller flushes it's model.
 	// This should only be used for testing.
 	FlushModelNotify func()
-	// FlushMMachineNotify is called when the Firewaller flushes a machine.
-	// This should only be used for testing
-	FlushMachineNotify func(string)
-	// SkipFlushModelNotify is called when the Firewaller skips flushing it's model.
+	// FlushMachineNotify is called when the Firewaller flushes a machine.
 	// This should only be used for testing.
-	SkipFlushModelNotify func()
+	FlushMachineNotify func(names.MachineTag)
 }
 
 // Validate returns an error if cfg cannot drive a Worker.
@@ -141,10 +137,9 @@ type Firewaller struct {
 	cloudCallContextFunc common.CloudCallContextFunc
 
 	// Only used for testing
-	watchMachineNotify   func(tag names.MachineTag)
-	flushModelNotify     func()
-	flushMachineNotify   func(string)
-	skipFlushModelNotify func()
+	watchMachineNotify func(tag names.MachineTag)
+	flushModelNotify   func()
+	flushMachineNotify func(tag names.MachineTag)
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -190,7 +185,6 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		watchMachineNotify:   cfg.WatchMachineNotify,
 		flushModelNotify:     cfg.FlushModelNotify,
 		flushMachineNotify:   cfg.FlushMachineNotify,
-		skipFlushModelNotify: cfg.SkipFlushModelNotify,
 	}
 
 	switch cfg.Mode {
@@ -211,10 +205,6 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	return fw, nil
-}
-
-func (fw *Firewaller) NeedsToFlushModel() bool {
-	return fw.needsToFlushModel
 }
 
 func (fw *Firewaller) setUp() error {
@@ -299,7 +289,6 @@ func (fw *Firewaller) loop() error {
 				ensureModelFirewalls = nil
 			}
 		case _, ok := <-modelFirewallChanges:
-			log.Println("[loop][modelFirewallChanges] gonna call ensureModelFirewalls")
 			if !ok {
 				return errors.New("model config watcher closed")
 			}
@@ -307,7 +296,6 @@ func (fw *Firewaller) loop() error {
 				ensureModelFirewalls = fw.clk.After(0)
 			}
 		case change, ok := <-fw.machinesWatcher.Changes():
-			log.Println("[loop][machinesWatcher]")
 			if !ok {
 				return errors.New("machines watcher closed")
 			}
@@ -331,12 +319,10 @@ func (fw *Firewaller) loop() error {
 			// After first machine exists, make sure to trigger the model firewall flush.
 			if len(change) > 0 && !modelGroupInitiallyConfigured {
 				modelGroupInitiallyConfigured = true
-				log.Println("[loop][machinesWatcher] gonna call ensureModelFirewalls")
 				if ensureModelFirewalls == nil {
 					ensureModelFirewalls = fw.clk.After(0)
 				}
 			}
-			log.Printf("[loop][machinesWatcher] machinesd are: %+v\n", fw.machineds)
 		case change, ok := <-portsChange:
 			if !ok {
 				return errors.New("ports watcher closed")
@@ -497,7 +483,6 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 		}
 		fw.machineds[tag] = machined
 		d := &unitsChange{machined, change}
-		log.Printf("gonna call unites changed: %+v\n", d)
 		err = fw.unitsChanged(d)
 		if err != nil {
 			delete(fw.machineds, tag)
@@ -816,10 +801,9 @@ func (fw *Firewaller) flushUnits(unitds []*unitData) error {
 
 // flushMachine opens and closes ports for the passed machine.
 func (fw *Firewaller) flushMachine(machined *machineData) error {
-	log.Println("in flush machine!")
 	defer func() {
 		if fw.flushMachineNotify != nil {
-			fw.flushMachineNotify(machined.tag.Id())
+			fw.flushMachineNotify(machined.tag)
 		}
 	}()
 	// We may have received a notification to flushModel() in the past but did not have any machines yet.
@@ -1073,17 +1057,12 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose firewall.IngressRules) 
 }
 
 func (fw *Firewaller) flushModel() error {
-	log.Println("[firewaller][flushModel]")
 	if fw.environModelFirewaller == nil {
 		return nil
 	}
 	// Model specific artefacts shouldn't be created until the model contains at least one machine.
 	if len(fw.machineds) == 0 {
-		log.Println("skipped flush model...")
 		fw.needsToFlushModel = true
-		if fw.skipFlushModelNotify != nil {
-			fw.skipFlushModelNotify()
-		}
 		fw.logger.Debugf("skipping flushing model because there are no machines for this model")
 		return nil
 	}
@@ -1200,7 +1179,6 @@ func (fw *Firewaller) machineLifeChanged(tag names.MachineTag) error {
 		return fw.forgetMachine(machined)
 	}
 	if !known && !dead {
-		log.Println("gonna call startMachine")
 		err := fw.startMachine(tag)
 		if err != nil {
 			return err
