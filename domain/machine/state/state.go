@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
 

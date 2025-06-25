@@ -61,6 +61,8 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *stateSuite) TestCreateMachine(c *tc.C) {
+	statusState := statusstate.NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
 	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
 		MachineUUID: "deadbeef",
 	})
@@ -80,11 +82,11 @@ func (s *stateSuite) TestCreateMachine(c *tc.C) {
 	c.Check(obtainedMachineName, tc.Equals, machineName.String())
 	c.Check(nonce.Valid, tc.IsFalse)
 
-	machineStatusInfo, err := s.state.GetMachineStatus(c.Context(), machineName)
+	machineStatusInfo, err := statusState.GetMachineStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(machineStatusInfo.Status, tc.Equals, status.MachineStatusPending)
 
-	instanceStatusInfo, err := s.state.GetInstanceStatus(c.Context(), machineName)
+	instanceStatusInfo, err := statusState.GetInstanceStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceStatusInfo.Status, tc.Equals, status.InstanceStatusPending)
 
@@ -94,6 +96,8 @@ func (s *stateSuite) TestCreateMachine(c *tc.C) {
 }
 
 func (s *stateSuite) TestCreateMachineWithNonce(c *tc.C) {
+	statusState := statusstate.NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
 	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
 		Nonce: ptr("nonce-123"),
 	})
@@ -115,11 +119,11 @@ func (s *stateSuite) TestCreateMachineWithNonce(c *tc.C) {
 	c.Assert(nonce.Valid, tc.IsTrue)
 	c.Check(nonce.V, tc.Equals, "nonce-123")
 
-	machineStatusInfo, err := s.state.GetMachineStatus(c.Context(), machineName)
+	machineStatusInfo, err := statusState.GetMachineStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(machineStatusInfo.Status, tc.Equals, status.MachineStatusPending)
 
-	instanceStatusInfo, err := s.state.GetInstanceStatus(c.Context(), machineName)
+	instanceStatusInfo, err := statusState.GetInstanceStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceStatusInfo.Status, tc.Equals, status.InstanceStatusPending)
 }
@@ -221,56 +225,7 @@ func (s *stateSuite) TestDeleteMachine(c *tc.C) {
 	c.Assert(machineCount, tc.Equals, 0)
 }
 
-<<<<<<< HEAD
-func (s *stateSuite) insertBlockDevice(c *tc.C, bd blockdevice.BlockDevice, blockDeviceUUID, machineId string) {
-=======
-// TestDeleteMachineStatus asserts that DeleteMachine at the state layer removes
-// any machine status and status data when deleting a machine.
-func (s *stateSuite) TestDeleteMachineStatus(c *tc.C) {
-	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	bd := blockdevice.BlockDevice{
-		DeviceName:     "name-666",
-		Label:          "label-666",
-		UUID:           "device-666",
-		HardwareId:     "hardware-666",
-		WWN:            "wwn-666",
-		BusAddress:     "bus-666",
-		SizeMiB:        666,
-		FilesystemType: "btrfs",
-		InUse:          true,
-		MountPoint:     "mount-666",
-		SerialId:       "serial-666",
-	}
-	bdUUID := uuid.MustNewUUID().String()
-	s.insertBlockDevice(c, bd, bdUUID, string(machineName))
-
-	s.state.SetMachineStatus(c.Context(), "666", status.StatusInfo[status.MachineStatusType]{
-		Status:  status.MachineStatusStarted,
-		Message: "started",
-		Data:    []byte(`{"key": "data"}`),
-	})
-
-	err = s.state.DeleteMachine(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-
-	var status int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM machine_status WHERE machine_uuid=?", "deadbeef").Scan(&status)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(status, tc.Equals, 0)
-}
-
 func (s *stateSuite) insertBlockDevice(c *tc.C, bd blockdevice.BlockDevice, blockDeviceUUID, machineName string) {
->>>>>>> 28b7b8789f (fix: update tests with new machine creation signature)
 	db := s.DB()
 
 	inUse := 0
@@ -334,164 +289,6 @@ func (s *stateSuite) TestListAllMachines(c *tc.C) {
 	})
 }
 
-<<<<<<< HEAD
-=======
-// TestGetMachineStatusSuccess asserts the happy path of GetMachineStatus at the
-// state layer.
-func (s *stateSuite) TestGetMachineStatusSuccess(c *tc.C) {
-	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Add a status value for this machine into the
-	// machine_status table using the machineUUID and the status
-	// value 2 for "running" (from machine_cloud_instance_status_value table).
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(c.Context(), `
-UPDATE machine_status
-SET status_id='1', 
-	message='started', 
-	updated_at='2024-07-12 12:00:00'
-WHERE machine_uuid=?`, "deadbeef")
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedStatus, tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
-		Status:  status.MachineStatusStarted,
-		Message: "started",
-		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
-	})
-}
-
-// TestGetMachineStatusWithData asserts the happy path of GetMachineStatus at
-// the state layer.
-func (s *stateSuite) TestGetMachineStatusSuccessWithData(c *tc.C) {
-	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Add a status value for this machine into the
-	// machine_status table using the machineUUID and the status
-	// value 2 for "running" (from machine_cloud_instance_status_value table).
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(c.Context(), `
-UPDATE machine_status
-SET status_id='1', 
-	message='started', 
-	data='{"key":"data"}',
-	updated_at='2024-07-12 12:00:00'
-WHERE machine_uuid=?`, "deadbeef")
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedStatus, tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
-		Status:  status.MachineStatusStarted,
-		Message: "started",
-		Data:    []byte(`{"key":"data"}`),
-		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
-	})
-}
-
-// TestGetMachineStatusNotFoundError asserts that a NotFound error is returned
-// when the machine is not found.
-func (s *stateSuite) TestGetMachineStatusNotFoundError(c *tc.C) {
-	_, err := s.state.GetMachineStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-// TestGetMachineStatusPendingOnCreateMachine asserts that a Pending status is
-// returned when creating a machine.
-func (s *stateSuite) TestGetMachineStatusPendingOnCreateMachine(c *tc.C) {
-	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedStatus.Status, tc.Equals, status.MachineStatusPending)
-}
-
-// TestGetMachineStatusNotSetError asserts that a Pending status is
-// returned when creating a machine.
-func (s *stateSuite) TestGetMachineStatusNotSetError(c *tc.C) {
-	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "DELETE FROM machine_status WHERE machine_uuid=?", "deadbeef")
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.state.GetMachineStatus(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIs, machineerrors.StatusNotSet)
-}
-
-// TestSetMachineStatusSuccess asserts the happy path of SetMachineStatus at the
-// state layer.
-func (s *stateSuite) TestSetMachineStatusSuccess(c *tc.C) {
-
-	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	expectedStatus := status.StatusInfo[status.MachineStatusType]{
-		Status:  status.MachineStatusStarted,
-		Message: "started",
-		Since:   ptr(time.Now().UTC()),
-	}
-	err = s.state.SetMachineStatus(c.Context(), machineName, expectedStatus)
-	c.Assert(err, tc.ErrorIsNil)
-
-	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
-}
-
-// TestSetMachineStatusSuccessWithData asserts the happy path of
-// SetMachineStatus at the state layer.
-func (s *stateSuite) TestSetMachineStatusSuccessWithData(c *tc.C) {
-	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	expectedStatus := status.StatusInfo[status.MachineStatusType]{
-		Status:  status.MachineStatusStarted,
-		Message: "started",
-		Data:    []byte(`{"key": "data"}`),
-		Since:   ptr(time.Now().UTC()),
-	}
-	err = s.state.SetMachineStatus(c.Context(), machineName, expectedStatus)
-	c.Assert(err, tc.ErrorIsNil)
-
-	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
-}
-
-// TestSetMachineStatusNotFoundError asserts that a NotFound error is returned
-// when the machine is not found.
-func (s *stateSuite) TestSetMachineStatusNotFoundError(c *tc.C) {
-	err := s.state.SetMachineStatus(c.Context(), "666", status.StatusInfo[status.MachineStatusType]{
-		Status: status.MachineStatusStarted,
-	})
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
->>>>>>> 28b7b8789f (fix: update tests with new machine creation signature)
 // TestSetMachineLifeSuccess asserts the happy path of SetMachineLife at the
 // state layer.
 func (s *stateSuite) TestSetMachineLifeSuccess(c *tc.C) {

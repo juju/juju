@@ -13,15 +13,15 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/machine"
+	domainmachine "github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/internal/errors"
 )
 
 // MigrationState defines the state interface for migration operations.
 type MigrationState interface {
-	// CreateMachine persists the input machine entity.
-	// It returns a MachineAlreadyExists error if a machine with the same name
-	// already exists.
-	CreateMachine(context.Context, coremachine.Name, string, coremachine.UUID, *string) error
+	// CreateMachine creates or updates the specified machine.
+	// Adds a row to machine table, as well as a row to the net_node table.
+	CreateMachine(ctx context.Context, args domainmachine.CreateMachineArgs) (coremachine.Name, error)
 
 	// GetMachinesForExport returns all machines in the model for export.
 	GetMachinesForExport(ctx context.Context) ([]machine.ExportMachine, error)
@@ -32,7 +32,7 @@ type MigrationState interface {
 
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
-	SetMachineCloudInstance(context.Context, coremachine.UUID, instance.Id, string, string, *instance.HardwareCharacteristics) error
+	SetMachineCloudInstance(context.Context, string, instance.Id, string, string, *instance.HardwareCharacteristics) error
 
 	// GetInstanceID returns the cloud specific instance id for this machine.
 	GetInstanceID(context.Context, string) (string, error)
