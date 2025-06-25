@@ -13,6 +13,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -30,6 +31,10 @@ type AgentPasswordService interface {
 
 	// SetMachinePassword sets the password hash for the given machine.
 	SetMachinePassword(context.Context, coremachine.Name, string) error
+
+	// SetControllerNodePassword sets the password hash for the given
+	// controller node.
+	SetControllerNodePassword(context.Context, string, string) error
 
 	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
@@ -106,6 +111,16 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 
 		// TODO (stickupkid): This should be removed once we delete mongo.
 		return pc.legacyMachineSetPassword(tag, password)
+
+	case names.ControllerAgentTagKind:
+		controllerTag := tag.(names.ControllerAgentTag)
+		controllerName := controllerTag.Id()
+		if err := pc.agentPasswordService.SetControllerNodePassword(ctx, controllerName, password); errors.Is(err, controllernodeerrors.NotFound) {
+			return errors.NotFoundf("controller node %q", controllerName)
+		} else if err != nil {
+			return internalerrors.Errorf("setting password for %q: %w", tag, err)
+		}
+		return nil
 
 	// TODO: Handle the following password setting:
 	//  - model

@@ -21,11 +21,9 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
@@ -48,7 +46,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
-	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/password"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage"
@@ -365,9 +362,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	servingInfo.SharedSecret = b.sharedSecret
 	b.agentConfig.SetStateServingInfo(servingInfo)
 
-	// Filter out any LXC or LXD bridge addresses from the machine addresses.
-	filteredBootstrapMachineAddresses := network.FilterBridgeAddresses(ctx, b.bootstrapMachineAddresses)
-
 	st, err := ctrl.SystemState()
 	if err != nil {
 		return errors.Trace(err)
@@ -392,37 +386,19 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Annotate(err, "getting environ provider")
 	}
 
-	var controllerNode bootstrapController
 	if isCAAS {
 		if err := b.initControllerCloudService(ctx, cloudSpec, provider, st); err != nil {
 			return errors.Annotate(err, "cannot initialize cloud service")
 		}
-	} else {
-		if controllerNode, err = b.initBootstrapMachine(st, filteredBootstrapMachineAddresses); err != nil {
-			return errors.Annotate(err, "cannot initialize bootstrap machine")
-		}
 	}
 
-	// Sanity check.
-	if controllerNode.Id() != agent.BootstrapControllerId {
-		return errors.Errorf("bootstrap controller expected id 0, got %q", controllerNode.Id())
-	}
-
-	// Create a new password. It is used down below to set the mongo password,
-	// the agent's initial API password in agent config and on CAAS, the
-	// controller node's initial API password.
+	// Create a new password. It is used down below to set  the agent's initial
+	// API password in agent config.
 	newPassword, err := password.RandomPassword()
 	if err != nil {
 		return err
 	}
 
-	// Read the machine agent's password and change it to
-	// a new password (other agents will change their password
-	// via the API connection).
-	b.logger.Debugf(ctx, "create new random password for controller %v", controllerNode.Id())
-	if err := controllerNode.SetMongoPassword(newPassword); err != nil {
-		return err
-	}
 	b.agentConfig.SetPassword(newPassword)
 
 	return nil
@@ -482,40 +458,6 @@ func (b *AgentBootstrap) initMongo(info mongo.Info, dialOpts mongo.DialOpts, pas
 		return nil, errors.Trace(err)
 	}
 	return session, nil
-}
-
-// initBootstrapMachine initializes the initial bootstrap machine in state.
-func (b *AgentBootstrap) initBootstrapMachine(
-	st *state.State,
-	bootstrapMachineAddresses corenetwork.ProviderAddresses,
-) (bootstrapController, error) {
-	stateParams := b.stateInitializationParams
-	b.logger.Infof(context.TODO(), "initialising bootstrap machine with config: %+v", stateParams)
-
-	var hardware instance.HardwareCharacteristics
-	if stateParams.BootstrapMachineHardwareCharacteristics != nil {
-		hardware = *stateParams.BootstrapMachineHardwareCharacteristics
-	}
-
-	base, err := coreos.HostBase()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// TODO: move this call to the bootstrap worker
-	m, err := st.AddOneMachine(
-		state.MachineTemplate{
-			Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
-			Constraints:             stateParams.BootstrapMachineConstraints,
-			InstanceId:              stateParams.BootstrapMachineInstanceId,
-			HardwareCharacteristics: hardware,
-			DisplayName:             stateParams.BootstrapMachineDisplayName,
-		},
-	)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")
-	}
-	return m, nil
 }
 
 // initControllerCloudService creates cloud service for controller service.

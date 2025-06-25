@@ -41,6 +41,9 @@ type AgentPasswordService interface {
 	SetUnitPassword(context.Context, unit.Name, string) error
 	// SetMachinePassword sets the password hash for the given machine.
 	SetMachinePassword(context.Context, machine.Name, string) error
+	// SetControllerNodePassword sets the password hash for the given
+	// controller node.
+	SetControllerNodePassword(context.Context, string, string) error
 	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
 	IsMachineController(ctx context.Context, machineName machine.Name) (bool, error)
@@ -208,10 +211,6 @@ func (api *AgentAPI) GetEntities(ctx context.Context, args params.Entities) para
 		// Handle units using the domain service.
 		// Eventually all entities will be supported via dqlite.
 		results.Entities[i] = api.getOneEntity(ctx, tag)
-		if err != nil {
-			results.Entities[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
 	}
 	return results
 }
