@@ -231,28 +231,6 @@ func (s *firewallerBaseSuite) ensureMocksWithoutMachine(ctrl *gomock.Controller)
 	})
 }
 
-func (s *firewallerBaseSuite) ensureMocksForMachineCreation() {
-	s.firewaller.EXPECT().ModelFirewallRules().AnyTimes().DoAndReturn(func() (firewall.IngressRules, error) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		return s.modelIngressRules, nil
-	})
-
-	s.envModelFirewaller.EXPECT().ModelIngressRules(gomock.Any()).AnyTimes().DoAndReturn(func(arg0 context.ProviderCallContext) (firewall.IngressRules, error) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		return s.envModelPorts, nil
-	})
-
-	s.envModelFirewaller.EXPECT().OpenModelPorts(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(func(_ context.ProviderCallContext, rules firewall.IngressRules) error {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		add, _ := s.envModelPorts.Diff(rules)
-		s.envModelPorts = append(s.envModelPorts, add...)
-		return nil
-	})
-}
-
 // assertIngressRules retrieves the ingress rules from the provided instance
 // and compares them to the expected value.
 func (s *firewallerBaseSuite) assertIngressRules(c *gc.C, machineId string,
