@@ -74,9 +74,13 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		"controller",
 		"controller_config",
 
+		// Password hash algorithm for controller nodes
+		"password_hash_algorithm",
+
 		// Controller nodes
 		"controller_node",
 		"controller_node_agent_version",
+		"controller_node_password",
 
 		// Controller API addresses
 		"controller_api_address",
