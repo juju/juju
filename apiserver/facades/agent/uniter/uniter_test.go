@@ -815,27 +815,23 @@ func (s *uniterSuite) TestNetworkInfo(c *tc.C) {
 		Unit:      "unit-foo-42",
 		Endpoints: []string{"endpoint-0", "endpoint-1"},
 	}
-	addr := network.SpaceAddress{
-		MachineAddress: network.MachineAddress{
-			Value: "192.168.0.1",
-		},
-	}
+	addr := "192.168.0.1"
 
 	s.networkService.EXPECT().GetUnitRelationInfos(gomock.Any(), coreunit.Name("foo/42"),
 		args.Endpoints).Return([]domainnetwork.Info{{
 		EndpointName:     "endpoint-0",
-		IngressAddresses: []string{addr.Value},
+		IngressAddresses: []string{addr},
 	}, {
 		EndpointName:     "endpoint-1",
-		IngressAddresses: []string{addr.Value},
+		IngressAddresses: []string{addr},
 	}}, nil)
 
 	result, err := s.uniter.NetworkInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
-			"endpoint-0": {IngressAddresses: []string{addr.Value}},
-			"endpoint-1": {IngressAddresses: []string{addr.Value}},
+			"endpoint-0": {IngressAddresses: []string{addr}},
+			"endpoint-1": {IngressAddresses: []string{addr}},
 		},
 	})
 }
@@ -1959,14 +1955,6 @@ func (s *uniterRelationSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *uniterRelationSuite) expectGetRelationUUIDByKey(key corerelation.Key, relUUID corerelation.UUID, err error) {
 	s.relationService.EXPECT().GetRelationUUIDByKey(gomock.Any(), key).Return(relUUID, err)
-}
-
-func (s *uniterRelationSuite) expectUnitPublicAddress(unitName coreunit.Name, addr string) {
-	s.networkService.EXPECT().GetUnitPublicAddress(gomock.Any(), unitName).Return(network.SpaceAddress{
-		MachineAddress: network.MachineAddress{
-			Value: addr,
-		},
-	}, nil)
 }
 
 func (s *uniterRelationSuite) expectGetRelationDetails(c *tc.C, relUUID corerelation.UUID, relID int, relTag names.RelationTag) {
