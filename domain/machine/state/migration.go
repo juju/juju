@@ -10,6 +10,7 @@ import (
 
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -56,4 +57,36 @@ WHERE mci.instance_id IS NOT NULL AND mci.instance_id != '';`
 		}
 	}
 	return result, nil
+}
+
+// InsertMigratingMachine inserts a machine which is taken from the description
+// model during migration into the machine table.
+//
+// The following errors may be returned:
+// - [machineerrors.MachineAlreadyExists] if a machine with the same name
+// already exists.
+func (st *State) InsertMigratingMachine(ctx context.Context, machineName string, args machine.CreateMachineArgs) error {
+	db, err := st.DB()
+	if err != nil {
+		return err
+	}
+
+	insertMachineArgs := insertMachineAndNetNodeArgs{
+		machineName: machineName,
+		machineUUID: args.MachineUUID.String(),
+		platform:    args.Platform,
+		nonce:       args.Nonce,
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		existingMachineUUID, err := getMachineUUIDFromName(ctx, tx, st, coremachine.Name(machineName))
+		if err != nil {
+			return err
+		}
+		if existingMachineUUID != "" {
+			return errors.Errorf("machine %q already exists", machineName).Add(machineerrors.MachineAlreadyExists)
+		}
+		_, err = insertMachineAndNetNode(ctx, tx, st, st.clock, insertMachineArgs)
+		return err
+	})
+	return errors.Capture(err)
 }

@@ -14,8 +14,7 @@ import (
 	reflect "reflect"
 
 	instance "github.com/juju/juju/core/instance"
-	machine "github.com/juju/juju/core/machine"
-	machine0 "github.com/juju/juju/domain/machine"
+	machine "github.com/juju/juju/domain/machine"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -40,44 +39,6 @@ func NewMockMigrationState(ctrl *gomock.Controller) *MockMigrationState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMigrationState) EXPECT() *MockMigrationStateMockRecorder {
 	return m.recorder
-}
-
-// CreateMachine mocks base method.
-func (m *MockMigrationState) CreateMachine(arg0 context.Context, arg1 machine.Name, arg2 string, arg3 machine.UUID, arg4 *string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CreateMachine indicates an expected call of CreateMachine.
-func (mr *MockMigrationStateMockRecorder) CreateMachine(arg0, arg1, arg2, arg3, arg4 any) *MockMigrationStateCreateMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachine", reflect.TypeOf((*MockMigrationState)(nil).CreateMachine), arg0, arg1, arg2, arg3, arg4)
-	return &MockMigrationStateCreateMachineCall{Call: call}
-}
-
-// MockMigrationStateCreateMachineCall wrap *gomock.Call
-type MockMigrationStateCreateMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMigrationStateCreateMachineCall) Return(arg0 error) *MockMigrationStateCreateMachineCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMigrationStateCreateMachineCall) Do(f func(context.Context, machine.Name, string, machine.UUID, *string) error) *MockMigrationStateCreateMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMigrationStateCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name, string, machine.UUID, *string) error) *MockMigrationStateCreateMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // GetHardwareCharacteristics mocks base method.
@@ -159,10 +120,10 @@ func (c *MockMigrationStateGetInstanceIDCall) DoAndReturn(f func(context.Context
 }
 
 // GetMachinesForExport mocks base method.
-func (m *MockMigrationState) GetMachinesForExport(ctx context.Context) ([]machine0.ExportMachine, error) {
+func (m *MockMigrationState) GetMachinesForExport(ctx context.Context) ([]machine.ExportMachine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachinesForExport", ctx)
-	ret0, _ := ret[0].([]machine0.ExportMachine)
+	ret0, _ := ret[0].([]machine.ExportMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -180,25 +141,63 @@ type MockMigrationStateGetMachinesForExportCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMigrationStateGetMachinesForExportCall) Return(arg0 []machine0.ExportMachine, arg1 error) *MockMigrationStateGetMachinesForExportCall {
+func (c *MockMigrationStateGetMachinesForExportCall) Return(arg0 []machine.ExportMachine, arg1 error) *MockMigrationStateGetMachinesForExportCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMigrationStateGetMachinesForExportCall) Do(f func(context.Context) ([]machine0.ExportMachine, error)) *MockMigrationStateGetMachinesForExportCall {
+func (c *MockMigrationStateGetMachinesForExportCall) Do(f func(context.Context) ([]machine.ExportMachine, error)) *MockMigrationStateGetMachinesForExportCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMigrationStateGetMachinesForExportCall) DoAndReturn(f func(context.Context) ([]machine0.ExportMachine, error)) *MockMigrationStateGetMachinesForExportCall {
+func (c *MockMigrationStateGetMachinesForExportCall) DoAndReturn(f func(context.Context) ([]machine.ExportMachine, error)) *MockMigrationStateGetMachinesForExportCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InsertMigratingMachine mocks base method.
+func (m *MockMigrationState) InsertMigratingMachine(ctx context.Context, machineName string, args machine.CreateMachineArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InsertMigratingMachine", ctx, machineName, args)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// InsertMigratingMachine indicates an expected call of InsertMigratingMachine.
+func (mr *MockMigrationStateMockRecorder) InsertMigratingMachine(ctx, machineName, args any) *MockMigrationStateInsertMigratingMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertMigratingMachine", reflect.TypeOf((*MockMigrationState)(nil).InsertMigratingMachine), ctx, machineName, args)
+	return &MockMigrationStateInsertMigratingMachineCall{Call: call}
+}
+
+// MockMigrationStateInsertMigratingMachineCall wrap *gomock.Call
+type MockMigrationStateInsertMigratingMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMigrationStateInsertMigratingMachineCall) Return(arg0 error) *MockMigrationStateInsertMigratingMachineCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMigrationStateInsertMigratingMachineCall) Do(f func(context.Context, string, machine.CreateMachineArgs) error) *MockMigrationStateInsertMigratingMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMigrationStateInsertMigratingMachineCall) DoAndReturn(f func(context.Context, string, machine.CreateMachineArgs) error) *MockMigrationStateInsertMigratingMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetMachineCloudInstance mocks base method.
-func (m *MockMigrationState) SetMachineCloudInstance(arg0 context.Context, arg1 machine.UUID, arg2 instance.Id, arg3, arg4 string, arg5 *instance.HardwareCharacteristics) error {
+func (m *MockMigrationState) SetMachineCloudInstance(arg0 context.Context, arg1 string, arg2 instance.Id, arg3, arg4 string, arg5 *instance.HardwareCharacteristics) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetMachineCloudInstance", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
@@ -224,13 +223,13 @@ func (c *MockMigrationStateSetMachineCloudInstanceCall) Return(arg0 error) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMigrationStateSetMachineCloudInstanceCall) Do(f func(context.Context, machine.UUID, instance.Id, string, string, *instance.HardwareCharacteristics) error) *MockMigrationStateSetMachineCloudInstanceCall {
+func (c *MockMigrationStateSetMachineCloudInstanceCall) Do(f func(context.Context, string, instance.Id, string, string, *instance.HardwareCharacteristics) error) *MockMigrationStateSetMachineCloudInstanceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMigrationStateSetMachineCloudInstanceCall) DoAndReturn(f func(context.Context, machine.UUID, instance.Id, string, string, *instance.HardwareCharacteristics) error) *MockMigrationStateSetMachineCloudInstanceCall {
+func (c *MockMigrationStateSetMachineCloudInstanceCall) DoAndReturn(f func(context.Context, string, instance.Id, string, string, *instance.HardwareCharacteristics) error) *MockMigrationStateSetMachineCloudInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

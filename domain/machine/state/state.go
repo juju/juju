@@ -1315,48 +1315,6 @@ func (*State) InitialWatchStatement() (string, string) {
 	return "machine", "SELECT name FROM machine"
 }
 
-func (st *State) insertMachineStatus(ctx context.Context, tx *sqlair.TX, mName machine.Name, status setStatusInfo) error {
-	nameIdent := machineName{Name: mName}
-
-	var mUUID machineUUID
-	queryMachine := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name;`
-	queryMachineStmt, err := st.Prepare(queryMachine, nameIdent, mUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare query for setting machine status
-	statusQuery := `
-INSERT INTO machine_status (*)
-VALUES ($setMachineStatus.*)
-`
-	statusQueryStmt, err := st.Prepare(statusQuery, setMachineStatus{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Query for the machine uuid.
-	if err := tx.Query(ctx, queryMachineStmt, nameIdent).Get(&mUUID); errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
-	} else if err != nil {
-		return errors.Errorf("querying uuid for machine %q: %w", mName, err)
-	}
-
-	// Query for setting the machine status.
-	err = tx.Query(ctx, statusQueryStmt, setMachineStatus{
-		MachineUUID: mUUID.UUID,
-		StatusID:    status.StatusID,
-		Message:     status.Message,
-		Data:        status.Data,
-		Updated:     status.Updated,
-	}).Run()
-	if err != nil {
-		return errors.Errorf("setting machine status for machine %q: %w", mName, err)
-	}
-
-	return nil
-}
-
 func encodeLife(v life.Life) (int64, error) {
 	// Encode the life status as an int64.
 	// This is a simple mapping, but can be extended if needed.

@@ -22,7 +22,6 @@ import (
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // State describes retrieval and persistence methods for machines.
@@ -218,21 +217,6 @@ func NewService(st State, statusHistory StatusHistory, clock clock.Clock, logger
 		clock:         clock,
 		logger:        logger,
 	}
-}
-
-func (s *Service) recordCreateMachineStatusHistory(ctx context.Context, machineName machine.Name) error {
-	info := status.StatusInfo{
-		Status: status.Pending,
-		Since:  ptr(s.clock.Now()),
-	}
-
-	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineNamespace.WithID(machineName.String()), info); err != nil {
-		return errors.Errorf("recording machine status history: %w", err)
-	}
-	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineInstanceNamespace.WithID(machineName.String()), info); err != nil {
-		return errors.Errorf("recording instance status history: %w", err)
-	}
-	return nil
 }
 
 // DeleteMachine deletes the specified machine.
@@ -563,16 +547,12 @@ func recordCreateMachineStatusHistory(ctx context.Context, statusHistory StatusH
 }
 
 // createUUIDs generates a new UUID for the machine and the net-node.
-func createUUIDs() (string, machine.UUID, error) {
-	nodeUUID, err := uuid.NewUUID()
-	if err != nil {
-		return "", "", errors.Errorf("generating net-node UUID: %w", err)
-	}
+func createUUIDs() (machine.UUID, error) {
 	machineUUID, err := machine.NewUUID()
 	if err != nil {
-		return "", "", errors.Errorf("generating machine UUID: %w", err)
+		return "", errors.Errorf("generating machine UUID: %w", err)
 	}
-	return nodeUUID.String(), machineUUID, nil
+	return machineUUID, nil
 }
 
 func ptr[T any](v T) *T {
