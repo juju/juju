@@ -83,6 +83,7 @@ func (u *UndertakerAPI) ModelInfo() (params.UndertakerModelInfoResult, error) {
 		Life:           life.Value(model.Life().String()),
 		ForceDestroyed: model.ForceDestroyed(),
 		DestroyTimeout: model.DestroyTimeout(),
+		ControllerUUID: u.st.ControllerUUID(),
 	}
 
 	return result, nil
