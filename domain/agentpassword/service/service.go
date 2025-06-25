@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
@@ -15,8 +16,8 @@ import (
 	internalpassword "github.com/juju/juju/internal/password"
 )
 
-// State gets and sets the state of the service.
-type State interface {
+// ModelState gets and sets the state of the service.
+type ModelState interface {
 	// GetUnitUUID returns the UUID of the unit with the given name.
 	GetUnitUUID(context.Context, unit.Name) (unit.UUID, error)
 
@@ -42,15 +43,27 @@ type State interface {
 	IsMachineController(context.Context, machine.Name) (bool, error)
 }
 
+// ControllerState gets and sets the state of the controller node service.
+type ControllerState interface {
+	// SetControllerNodePasswordHash sets the password hash for the given
+	// controller node.
+	SetControllerNodePasswordHash(context.Context, string, agentpassword.PasswordHash) error
+	// MatchesControllerNodePasswordHash checks if the password is valid or not
+	// against the password hash stored in the database for the controller node.
+	MatchesControllerNodePasswordHash(context.Context, string, agentpassword.PasswordHash) (bool, error)
+}
+
 // Service provides the means for interacting with the passwords in a model.
 type Service struct {
-	st State
+	modelState      ModelState
+	controllerState ControllerState
 }
 
 // NewService returns a new Service.
-func NewService(st State) *Service {
+func NewService(modelState ModelState, controllerState ControllerState) *Service {
 	return &Service{
-		st: st,
+		modelState:      modelState,
+		controllerState: controllerState,
 	}
 }
 
@@ -67,12 +80,12 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, passw
 		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
-	unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
+	unitUUID, err := s.modelState.GetUnitUUID(ctx, unitName)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	return s.st.SetUnitPasswordHash(ctx, unitUUID, hashPassword(password))
+	return s.modelState.SetUnitPasswordHash(ctx, unitUUID, hashPassword(password))
 }
 
 // MatchesUnitPasswordHash checks if the password is valid or not against the
@@ -92,16 +105,17 @@ func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Nam
 		return false, errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
-	unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
+	unitUUID, err := s.modelState.GetUnitUUID(ctx, unitName)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	return s.st.MatchesUnitPasswordHash(ctx, unitUUID, hashPassword(password))
+	return s.modelState.MatchesUnitPasswordHash(ctx, unitUUID, hashPassword(password))
 }
 
-// SetMachinePassword sets the password for the given machine. If the machine does not
-// exist, an error satisfying [passworderrors.UnitNotFound] is returned.
+// SetMachinePassword sets the password for the given machine. If the machine
+// does not exist, an error satisfying [passworderrors.MachineNotFound] is
+// returned.
 func (s *Service) SetMachinePassword(ctx context.Context, machineName machine.Name, password string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -113,12 +127,12 @@ func (s *Service) SetMachinePassword(ctx context.Context, machineName machine.Na
 		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
-	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	machineUUID, err := s.modelState.GetMachineUUID(ctx, machineName)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	return s.st.SetMachinePasswordHash(ctx, machineUUID, hashPassword(password))
+	return s.modelState.SetMachinePasswordHash(ctx, machineUUID, hashPassword(password))
 }
 
 // MatchesMachinePasswordHashWithNonce checks if the password with a nonce is
@@ -142,12 +156,12 @@ func (s *Service) MatchesMachinePasswordHashWithNonce(ctx context.Context, machi
 		return false, passworderrors.EmptyNonce
 	}
 
-	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	machineUUID, err := s.modelState.GetMachineUUID(ctx, machineName)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	return s.st.MatchesMachinePasswordHashWithNonce(ctx, machineUUID, hashPassword(password), nonce)
+	return s.modelState.MatchesMachinePasswordHashWithNonce(ctx, machineUUID, hashPassword(password), nonce)
 }
 
 // IsMachineController returns whether the machine is a controller machine.
@@ -156,11 +170,46 @@ func (s *Service) IsMachineController(ctx context.Context, machineName machine.N
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	isController, err := s.st.IsMachineController(ctx, machineName)
+	isController, err := s.modelState.IsMachineController(ctx, machineName)
 	if err != nil {
 		return false, errors.Errorf("checking if machine %q is a controller: %w", machineName, err)
 	}
 	return isController, nil
+}
+
+// SetControllerNodePassword sets the password for the given controller node.
+func (s *Service) SetControllerNodePassword(ctx context.Context, id string, password string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if id == "" {
+		return errors.Errorf("controller node ID %w", coreerrors.NotValid)
+	}
+	if len(password) < internalpassword.MinAgentPasswordLength {
+		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+	}
+
+	return s.controllerState.SetControllerNodePasswordHash(ctx, id, hashPassword(password))
+}
+
+// MatchesControllerNodePasswordHash checks if the password is
+// valid or not against the password hash stored in the database.
+func (s *Service) MatchesControllerNodePasswordHash(ctx context.Context, id, password string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if id == "" {
+		return false, errors.Errorf("controller node ID %w", coreerrors.NotValid)
+	}
+
+	// An empty password is never valid.
+	if password == "" {
+		return false, passworderrors.EmptyPassword
+	} else if len(password) < internalpassword.MinAgentPasswordLength {
+		return false, errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+	}
+
+	return s.controllerState.MatchesControllerNodePasswordHash(ctx, id, hashPassword(password))
 }
 
 func hashPassword(p string) agentpassword.PasswordHash {

@@ -485,7 +485,8 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 // current model.
 func (s *ModelServices) AgentPassword() *agentpasswordservice.Service {
 	return agentpasswordservice.NewService(
-		agentpasswordstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		agentpasswordstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		agentpasswordstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 
