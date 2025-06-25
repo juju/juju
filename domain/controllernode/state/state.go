@@ -520,6 +520,45 @@ FROM controller_api_address
 	return result, nil
 }
 
+// GetAllCloudLocalAPIAddresses returns a string slice of api
+// addresses available for clients. The list only contains cloud
+// local addresses. The returned strings are IP address only without
+// port numbers.
+func (st *State) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &controllerAPIAddressStr.*
+FROM   controller_api_address
+WHERE  scope = "local-cloud"
+`, controllerAPIAddressStr{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []controllerAPIAddressStr
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt).GetAll(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return controllernodeerrors.EmptyAPIAddresses
+		} else if err != nil {
+			return errors.Errorf("getting all cloud local api addresses for controller nodes: %w", err)
+		}
+		return err
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	returnStrings := make([]string, 0, len(result))
+	for i := range result {
+		returnStrings = append(returnStrings, result[i].Address)
+	}
+	return returnStrings, nil
+}
+
 // GetAPIAddressesForAgents returns the list of API address strings including
 // port for the provided controller node that are available for agents.
 func (st *State) GetAPIAddressesForAgents(ctx context.Context, ctrlID string) ([]string, error) {
