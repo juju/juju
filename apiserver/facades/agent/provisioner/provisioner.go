@@ -580,45 +580,11 @@ func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.En
 		}
 
 		machineName := coremachine.Name(tag.Id())
-		isController, err := api.machineService.IsMachineController(ctx, machineName)
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %q", machineName))
-			continue
-		} else if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
 
-		// If the machine is a controller, return controller instances.
-		// Otherwise, return instances with services in common with the machine
-		// being provisioned.
-		if isController {
-			result.Results[i].Result, err = api.controllerInstances(ctx)
-		} else {
-			result.Results[i].Result, err = api.commonServiceInstances(ctx, machineName)
-		}
+		result.Results[i].Result, err = api.commonServiceInstances(ctx, machineName)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-// controllerInstances returns all environ manager instances.
-func (api *ProvisionerAPI) controllerInstances(ctx context.Context) ([]instance.Id, error) {
-	controllerIds, err := api.st.ControllerIds()
-	if err != nil {
-		return nil, err
-	}
-	instances := make([]instance.Id, 0, len(controllerIds))
-	for _, id := range controllerIds {
-		instanceId, err := api.getInstanceID(ctx, id)
-		if errors.Is(err, machineerrors.NotProvisioned) {
-			continue
-		} else if err != nil {
-			return nil, err
-		}
-		instances = append(instances, instanceId)
-	}
-	return instances, nil
 }
 
 // commonServiceInstances returns instances with
@@ -687,37 +653,10 @@ func (api *ProvisionerAPI) DistributionGroupByMachineId(ctx context.Context, arg
 		}
 
 		machineName := coremachine.Name(tag.Id())
-		isController, err := api.machineService.IsMachineController(ctx, machineName)
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %q", machineName))
-			continue
-		} else if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// If the machine is a controller, return controller instances.
-		// Otherwise, return instances with services in common with the machine
-		// being provisioned.
-		if isController {
-			result.Results[i].Result, err = controllerMachineIds(api.st, machineName)
-		} else {
-			result.Results[i].Result, err = api.commonApplicationMachineId(ctx, api.st, machineName)
-		}
+		result.Results[i].Result, err = api.commonApplicationMachineId(ctx, api.st, machineName)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-// controllerMachineIds returns a slice of all other environ manager machine.Ids.
-func controllerMachineIds(st *state.State, mName coremachine.Name) ([]string, error) {
-	ids, err := st.ControllerIds()
-	if err != nil {
-		return nil, err
-	}
-	result := set.NewStrings(ids...)
-	result.Remove(mName.String())
-	return result.SortedValues(), nil
 }
 
 // commonApplicationMachineId returns a slice of machine.Ids with

@@ -126,6 +126,44 @@ func (c *MockModelContextClockCall) DoAndReturn(f func() clock.Clock) *MockModel
 	return c
 }
 
+// ControllerModelUUID mocks base method.
+func (m *MockModelContext) ControllerModelUUID() model.UUID {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerModelUUID")
+	ret0, _ := ret[0].(model.UUID)
+	return ret0
+}
+
+// ControllerModelUUID indicates an expected call of ControllerModelUUID.
+func (mr *MockModelContextMockRecorder) ControllerModelUUID() *MockModelContextControllerModelUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerModelUUID", reflect.TypeOf((*MockModelContext)(nil).ControllerModelUUID))
+	return &MockModelContextControllerModelUUIDCall{Call: call}
+}
+
+// MockModelContextControllerModelUUIDCall wrap *gomock.Call
+type MockModelContextControllerModelUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelContextControllerModelUUIDCall) Return(arg0 model.UUID) *MockModelContextControllerModelUUIDCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelContextControllerModelUUIDCall) Do(f func() model.UUID) *MockModelContextControllerModelUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelContextControllerModelUUIDCall) DoAndReturn(f func() model.UUID) *MockModelContextControllerModelUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ControllerObjectStore mocks base method.
 func (m *MockModelContext) ControllerObjectStore() objectstore.ObjectStore {
 	m.ctrl.T.Helper()
@@ -387,6 +425,44 @@ func (c *MockModelContextIDCall) Do(f func() string) *MockModelContextIDCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelContextIDCall) DoAndReturn(f func() string) *MockModelContextIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsControllerModelScoped mocks base method.
+func (m *MockModelContext) IsControllerModelScoped() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsControllerModelScoped")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsControllerModelScoped indicates an expected call of IsControllerModelScoped.
+func (mr *MockModelContextMockRecorder) IsControllerModelScoped() *MockModelContextIsControllerModelScopedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerModelScoped", reflect.TypeOf((*MockModelContext)(nil).IsControllerModelScoped))
+	return &MockModelContextIsControllerModelScopedCall{Call: call}
+}
+
+// MockModelContextIsControllerModelScopedCall wrap *gomock.Call
+type MockModelContextIsControllerModelScopedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelContextIsControllerModelScopedCall) Return(arg0 bool) *MockModelContextIsControllerModelScopedCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelContextIsControllerModelScopedCall) Do(f func() bool) *MockModelContextIsControllerModelScopedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelContextIsControllerModelScopedCall) DoAndReturn(f func() bool) *MockModelContextIsControllerModelScopedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

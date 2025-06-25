@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -55,7 +56,8 @@ func newHighAvailabilityAPI(stdCtx context.Context, ctx facade.ModelContext) (*H
 	// For adding additional controller units, we don't need a storage registry.
 	applicationService := domainServices.Application()
 	return &HighAvailabilityAPI{
-		st:                      ctx.State(),
+		controllerTag:           names.NewControllerTag(ctx.ControllerUUID()),
+		isControllerModel:       ctx.IsControllerModelScoped(),
 		nodeService:             domainServices.ControllerNode(),
 		machineService:          domainServices.Machine(),
 		applicationService:      applicationService,

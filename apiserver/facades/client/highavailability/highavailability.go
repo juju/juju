@@ -18,13 +18,10 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -80,7 +77,8 @@ type BlockCommandService interface {
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
-	st                      *state.State
+	controllerTag           names.ControllerTag
+	isControllerModel       bool
 	nodeService             NodeService
 	machineService          MachineService
 	applicationService      ApplicationService
@@ -103,7 +101,7 @@ func (api *HighAvailabilityAPI) EnableHA(
 ) (params.ControllersChangeResults, error) {
 	results := params.ControllersChangeResults{}
 
-	err := api.authorizer.HasPermission(ctx, permission.SuperuserAccess, api.st.ControllerTag())
+	err := api.authorizer.HasPermission(ctx, permission.SuperuserAccess, api.controllerTag)
 	if err != nil {
 		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -125,9 +123,7 @@ func (api *HighAvailabilityAPI) EnableHA(
 func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.ControllersSpec) (
 	params.ControllersChanges, error,
 ) {
-	st := api.st
-
-	if !st.IsController() {
+	if !api.isControllerModel {
 		return params.ControllersChanges{}, errors.New("unsupported with workload models")
 	}
 	// Check if changes are allowed and the command may proceed.
@@ -136,98 +132,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 
-	controllerIds, err := st.ControllerIds()
-	if err != nil {
-		return params.ControllersChanges{}, err
-	}
-
-	referenceMachine, err := getReferenceController(ctx, st, controllerIds, api.logger)
-	if err != nil {
-		return params.ControllersChanges{}, errors.Trace(err)
-	}
-	// If there were no supplied constraints, use the original bootstrap
-	// constraints.
-	if constraints.IsEmpty(&spec.Constraints) {
-		if constraints.IsEmpty(&spec.Constraints) {
-			cons, err := referenceMachine.Constraints()
-			if err != nil {
-				return params.ControllersChanges{}, errors.Trace(err)
-			}
-			spec.Constraints = cons
-		}
-	}
-
-	// Retrieve the controller configuration and merge any implied space
-	// constraints into the spec constraints.
-	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return params.ControllersChanges{}, errors.Annotate(err, "retrieving controller config")
-	}
-	if err = validateCurrentControllers(st, cfg, controllerIds); err != nil {
-		return params.ControllersChanges{}, errors.Trace(err)
-	}
-	// Check if the object store is backed by filesystem storage.
-	if cfg.ObjectStoreType() == objectstore.FileBackend {
-		return params.ControllersChanges{}, errors.NewNotSupported(nil, "cannot enable-ha with filesystem backed object store")
-	}
-
-	spec.Constraints.Spaces = cfg.AsSpaceConstraints(spec.Constraints.Spaces)
-
-	if err = validatePlacementForSpaces(ctx, st, api.networkService, spec.Constraints.Spaces, spec.Placement); err != nil {
-		return params.ControllersChanges{}, errors.Trace(err)
-	}
-
-	// Might be nicer to pass the spec itself to this method.
-	changes, addedUnits, err := st.EnableHA(spec.NumControllers, spec.Constraints, referenceMachine.Base(), spec.Placement)
-	if err != nil {
-		return params.ControllersChanges{}, err
-	}
-
-	// TODO (manadart 2023-06-12): This is the lightest touch to represent the
-	// control plane in Dqlite. It expected to change significantly when
-	// Mongo concerns are removed altogether.
-	err = api.nodeService.CurateNodes(ctx, append(changes.Added, changes.Converted...), changes.Removed)
-	if err != nil {
-		return params.ControllersChanges{}, err
-	}
-
-	// Add the dqlite records for new machines.
-	for _, m := range changes.Added {
-		if _, err := api.machineService.CreateMachine(ctx, machine.Name(m), nil); err != nil {
-			return params.ControllersChanges{}, err
-		}
-	}
-	if len(addedUnits) > 0 {
-		addUnitArgs := make([]applicationservice.AddIAASUnitArg, len(addedUnits))
-		for i := range addedUnits {
-			// Try and get the placement for this unit. If it doesn't exist,
-			// then the default behaviour is to create a new machine for the
-			// unit.
-			var placement *instance.Placement
-			if i < len(spec.Placement) {
-				var err error
-				placement, err = instance.ParsePlacement(spec.Placement[i])
-				if err != nil {
-					return params.ControllersChanges{}, errors.Annotate(err, "parsing placement")
-				}
-			}
-
-			addUnitArgs[i] = applicationservice.AddIAASUnitArg{
-				AddUnitArg: applicationservice.AddUnitArg{
-					Placement: placement,
-				},
-			}
-		}
-		if _, err := api.applicationService.AddIAASUnits(
-			ctx,
-			application.ControllerApplicationName,
-			addUnitArgs...,
-		); err != nil {
-			return params.ControllersChanges{}, err
-		}
-	}
-
-	return controllersChanges(changes), nil
+	return params.ControllersChanges{}, nil
 }
 
 // getReferenceController looks up the ideal controller to use as a reference for Constraints and Release
@@ -364,16 +269,6 @@ func validatePlacementForSpaces(ctx context.Context, st *state.State, networkSer
 	return nil
 }
 
-// controllersChanges generates a new params instance from the state instance.
-func controllersChanges(change state.ControllersChanges) params.ControllersChanges {
-	return params.ControllersChanges{
-		Added:      machineIdsToTags(change.Added...),
-		Maintained: machineIdsToTags(change.Maintained...),
-		Removed:    machineIdsToTags(change.Removed...),
-		Converted:  machineIdsToTags(change.Converted...),
-	}
-}
-
 // machineIdsToTags returns a slice of machine tag strings created from the
 // input machine IDs.
 func machineIdsToTags(ids ...string) []string {
@@ -393,56 +288,10 @@ func (api *HighAvailabilityAPI) ControllerDetails(
 ) (params.ControllerDetailsResults, error) {
 	results := params.ControllerDetailsResults{}
 
-	err := api.authorizer.HasPermission(ctx, permission.LoginAccess, api.st.ControllerTag())
+	err := api.authorizer.HasPermission(ctx, permission.LoginAccess, api.controllerTag)
 	if err != nil {
 		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
-	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return results, apiservererrors.ServerError(err)
-	}
-	apiPort := cfg.APIPort()
-
-	nodes, err := api.st.ControllerNodes()
-	if err != nil {
-		return results, apiservererrors.ServerError(err)
-	}
-
-	for _, n := range nodes {
-		m, err := api.st.Machine(n.Id())
-		if err != nil {
-			return results, apiservererrors.ServerError(err)
-		}
-		addr, err := m.PublicAddress()
-		if err != nil {
-			// Usually this indicates that no addresses have been set on the
-			// machine yet.
-			addr = network.SpaceAddress{}
-		}
-		mAddrs := m.Addresses()
-		if len(mAddrs) == 0 {
-			// At least give it the newly created DNSName address, if it exists.
-			if addr.Value != "" {
-				mAddrs = append(mAddrs, addr)
-			}
-		}
-		hp := make(network.HostPorts, len(mAddrs))
-		for i, addr := range mAddrs {
-			hp[i] = network.MachineHostPort{
-				MachineAddress: addr.MachineAddress,
-				NetPort:        network.NetPort(apiPort),
-			}
-		}
-		hp = hp.FilterUnusable().Unique()
-		results.Results = append(results.Results, params.ControllerDetails{
-			ControllerId: m.Id(),
-			APIAddresses: hp.Strings(),
-		})
-		// Sort for testing.
-		sort.Slice(results.Results, func(i, j int) bool {
-			return results.Results[i].ControllerId < results.Results[j].ControllerId
-		})
-	}
 	return results, nil
 }

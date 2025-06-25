@@ -127,15 +127,6 @@ type ModelContext interface {
 	// is closed.
 	WatcherRegistry() WatcherRegistry
 
-	// State returns, /sigh, a *State. As yet, there is no way
-	// around this; in the not-too-distant future, we hope, its
-	// capabilities will migrate towards access via Resources.
-	State() *state.State
-
-	// StatePool returns the state pool used by the apiserver to minimise the
-	// creation of the expensive *State instances.
-	StatePool() *state.StatePool
-
 	// ID returns a string that should almost always be "", unless
 	// this is a watcher facade, in which case it exists in lieu of
 	// actual arguments in the Next() call, and is used as a key
@@ -146,10 +137,20 @@ type ModelContext interface {
 	// ControllerUUID returns the controller's unique identifier.
 	ControllerUUID() string
 
+	// ControllerModelUUID returns the controller's model unique identifier.
+	// This is the model that the controller is running in, which may be
+	// different from the model that the facade is running in.
+	ControllerModelUUID() model.UUID
+
 	// ModelUUID returns the model's unique identifier. All facade requests
 	// are in the scope of a model. There are some exceptions to the rule, but
 	// they are exceptions that prove the rule.
 	ModelUUID() model.UUID
+
+	// IsControllerModelScoped returns true if the context is scoped to the
+	// controller model. Is the controller model uuid and then model uuid
+	// are the same.
+	IsControllerModelScoped() bool
 
 	// RequestRecorder defines a metrics collector for outbound requests.
 	RequestRecorder() RequestRecorder
@@ -173,6 +174,17 @@ type ModelContext interface {
 
 	// Clock returns a instance of the clock.
 	Clock() clock.Clock
+
+	// State returns, /sigh, a *State. As yet, there is no way
+	// around this; in the not-too-distant future, we hope, its
+	// capabilities will migrate towards access via Resources.
+	// Deprecated: This is being removed.
+	State() *state.State
+
+	// StatePool returns the state pool used by the apiserver to minimise the
+	// creation of the expensive *State instances.
+	// Deprecated: This is being removed.
+	StatePool() *state.StatePool
 }
 
 // ModelExporter defines a interface for exporting models.
