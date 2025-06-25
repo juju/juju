@@ -1041,11 +1041,6 @@ func (ctx *facadeContext) ObjectStoreForModel(stdCtx context.Context, modelUUID 
 	return ctx.r.objectStoreGetter.GetObjectStore(stdCtx, modelUUID)
 }
 
-// ControllerModelUUID returns the UUID of the controller model.
-func (ctx *facadeContext) ControllerModelUUID() model.UUID {
-	return ctx.r.shared.controllerModelUUID
-}
-
 // DescribeFacades returns the list of available Facades and their Versions
 func DescribeFacades(registry *facade.Registry) []params.FacadeVersions {
 	facades := registry.List()

@@ -97,7 +97,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.SetMachineProvisioned = nil
+	cfg.AgentFinalizer = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
@@ -131,7 +131,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		RequiresBootstrap: func(context.Context, FlagService) (bool, error) {
 			return false, nil
 		},
-		SetMachineProvisioned: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, c agent.Config) error {
+		AgentFinalizer: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, c agent.Config) error {
 			return nil
 		},
 	}

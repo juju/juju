@@ -282,9 +282,6 @@ func newMachineStorageIdsWatcher(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	watcher, ok := w.(corewatcher.StringsWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
@@ -341,9 +338,6 @@ func newEntitiesWatcher(_ context.Context, context facade.ModelContext) (facade.
 		return nil, apiservererrors.ErrPerm
 	}
 	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
