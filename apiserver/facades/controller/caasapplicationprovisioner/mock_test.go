@@ -58,16 +58,6 @@ func (st *mockState) ApplyOperation(op state.ModelOperation) error {
 	return nil
 }
 
-func (st *mockState) Unit(unit string) (caasapplicationprovisioner.Unit, error) {
-	st.MethodCall(st, "Unit")
-	return &mockUnit{}, nil
-}
-
-func (st *mockState) WatchApplications() state.StringsWatcher {
-	st.MethodCall(st, "WatchApplications")
-	return st.applicationWatcher
-}
-
 func (st *mockState) APIHostPortsForAgents(controllerConfig controller.Config) ([]network.SpaceHostPorts, error) {
 	st.MethodCall(st, "APIHostPortsForAgents", controllerConfig)
 	return []network.SpaceHostPorts{
@@ -187,60 +177,12 @@ type mockApplication struct {
 	state.Authenticator
 	life                 state.Life
 	tag                  names.Tag
-	password             string
-	base                 state.Base
 	charmURL             string
 	units                []*mockUnit
-	constraints          constraints.Value
 	storageConstraints   map[string]state.StorageConstraints
 	charmModifiedVersion int
 	config               coreconfig.ConfigAttributes
-	unitsWatcher         *watchertest.MockStringsWatcher
 	watcher              *watchertest.MockNotifyWatcher
-}
-
-func (a *mockApplication) Tag() names.Tag {
-	a.MethodCall(a, "Tag")
-	return a.tag
-}
-
-func (a *mockApplication) SetPassword(password string) error {
-	a.MethodCall(a, "SetPassword", password)
-	if err := a.NextErr(); err != nil {
-		return err
-	}
-	a.password = password
-	return nil
-}
-
-func (a *mockApplication) Life() state.Life {
-	a.MethodCall(a, "Life")
-	return a.life
-}
-
-func (a *mockApplication) AllUnits() ([]caasapplicationprovisioner.Unit, error) {
-	a.MethodCall(a, "AllUnits")
-	if err := a.NextErr(); err != nil {
-		return nil, err
-	}
-	units := []caasapplicationprovisioner.Unit(nil)
-	for _, u := range a.units {
-		units = append(units, u)
-	}
-	return units, nil
-}
-
-func (a *mockApplication) Constraints() (constraints.Value, error) {
-	a.MethodCall(a, "Constraints")
-	if err := a.NextErr(); err != nil {
-		return constraints.Value{}, err
-	}
-	return a.constraints, nil
-}
-
-func (a *mockApplication) UpdateUnits(unitsOp *state.UpdateUnitsOperation) error {
-	a.MethodCall(a, "UpdateUnits", unitsOp)
-	return a.NextErr()
 }
 
 func (a *mockApplication) StorageConstraints() (map[string]state.StorageConstraints, error) {
@@ -249,47 +191,6 @@ func (a *mockApplication) StorageConstraints() (map[string]state.StorageConstrai
 		return nil, err
 	}
 	return a.storageConstraints, nil
-}
-
-func (a *mockApplication) Name() string {
-	a.MethodCall(a, "Name")
-	return a.tag.Id()
-}
-
-func (a *mockApplication) Base() state.Base {
-	a.MethodCall(a, "Base")
-	return a.base
-}
-
-func (a *mockApplication) CharmModifiedVersion() int {
-	a.MethodCall(a, "CharmModifiedVersion")
-	return a.charmModifiedVersion
-}
-
-func (a *mockApplication) CharmURL() (curl *string, force bool) {
-	a.MethodCall(a, "CharmURL")
-	cURL := a.charmURL
-	return &cURL, false
-}
-
-func (a *mockApplication) ApplicationConfig() (coreconfig.ConfigAttributes, error) {
-	a.MethodCall(a, "ApplicationConfig")
-	return a.config, a.NextErr()
-}
-
-func (a *mockApplication) ClearResources() error {
-	a.MethodCall(a, "ClearResources")
-	return a.NextErr()
-}
-
-func (a *mockApplication) WatchUnits() state.StringsWatcher {
-	a.MethodCall(a, "WatchUnits")
-	return a.unitsWatcher
-}
-
-func (a *mockApplication) Watch() state.NotifyWatcher {
-	a.MethodCall(a, "Watch")
-	return a.watcher
 }
 
 type mockWatcher struct {

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	corebase "github.com/juju/juju/core/base"
@@ -257,12 +256,6 @@ func (c *Client) UpdateUnits(ctx context.Context, arg params.UpdateApplicationUn
 	return firstResult.Info, params.TranslateWellKnownError(firstResult.Error)
 }
 
-// WatchApplication returns a NotifyWatcher that notifies of
-// changes to the application in the current model.
-func (c *Client) WatchApplication(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
-	return common.Watch(ctx, c.facade, "Watch", names.NewApplicationTag(appName))
-}
-
 // ClearApplicationResources clears the flag which indicates an
 // application still has resources in the cluster.
 func (c *Client) ClearApplicationResources(ctx context.Context, appName string) error {
@@ -278,32 +271,6 @@ func (c *Client) ClearApplicationResources(ctx context.Context, appName string) 
 		return nil
 	}
 	return params.TranslateWellKnownError(result.Results[0].Error)
-}
-
-// WatchUnits returns a StringsWatcher that notifies of
-// changes to the lifecycles of units of the specified
-// application in the current model.
-func (c *Client) WatchUnits(ctx context.Context, application string) (watcher.StringsWatcher, error) {
-	if !names.IsValidApplication(application) {
-		return nil, errors.NotValidf("application name %q", application)
-	}
-	tag := names.NewApplicationTag(application)
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
-	}
-
-	var results params.StringsWatchResults
-	if err := c.facade.FacadeCall(ctx, "WatchUnits", args, &results); err != nil {
-		return nil, err
-	}
-	if n := len(results.Results); n != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", n)
-	}
-	if err := results.Results[0].Error; err != nil {
-		return nil, errors.Trace(err)
-	}
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), results.Results[0])
-	return w, nil
 }
 
 // RemoveUnit removes the specified unit from the current model.

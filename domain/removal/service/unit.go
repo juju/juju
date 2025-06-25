@@ -125,7 +125,7 @@ func (s *Service) RemoveUnit(
 // MarkUnitAsDead marks the unit as dead. It will not remove the unit as
 // that is a separate operation. This will advance the unit's life to dead
 // and will not allow it to be transitioned back to alive.
-// Returns an error if the unit does not exist or if it is already dead.
+// Returns an error if the unit does not exist.
 func (s *Service) MarkUnitAsDead(ctx context.Context, unitUUID unit.UUID) error {
 	exists, err := s.st.UnitExists(ctx, unitUUID.String())
 	if err != nil {

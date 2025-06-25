@@ -45,7 +45,6 @@ type CAASProvisionerFacade interface {
 	ApplicationCharmInfo(context.Context, string) (*charmscommon.CharmInfo, error)
 	ApplicationOCIResources(ctx context.Context, appName string) (map[string]resource.DockerImageDetails, error)
 	UpdateUnits(ctx context.Context, arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
-	WatchApplication(ctx context.Context, appName string) (watcher.NotifyWatcher, error)
 	ClearApplicationResources(ctx context.Context, appName string) error
 	RemoveUnit(ctx context.Context, unitName string) error
 	WatchProvisioningInfo(context.Context, string) (watcher.NotifyWatcher, error)
