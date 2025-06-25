@@ -74,6 +74,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 
 		// Model
 		"model",
+		"model_agent",
 		"agent_stream",
 		"agent_version",
 
