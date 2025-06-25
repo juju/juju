@@ -199,10 +199,10 @@ func (c *MockStateGetAllAPIAddressesForAgentsCall) DoAndReturn(f func(context.Co
 }
 
 // GetAllAPIAddressesWithScopeForAgents mocks base method.
-func (m *MockState) GetAllAPIAddressesWithScopeForAgents(arg0 context.Context) (map[string]controllernode.APIAddresses, error) {
+func (m *MockState) GetAllAPIAddressesWithScopeForAgents(arg0 context.Context) ([]controllernode.APIAddresses, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllAPIAddressesWithScopeForAgents", arg0)
-	ret0, _ := ret[0].(map[string]controllernode.APIAddresses)
+	ret0, _ := ret[0].([]controllernode.APIAddresses)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -220,28 +220,28 @@ type MockStateGetAllAPIAddressesWithScopeForAgentsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllAPIAddressesWithScopeForAgentsCall) Return(arg0 map[string]controllernode.APIAddresses, arg1 error) *MockStateGetAllAPIAddressesWithScopeForAgentsCall {
+func (c *MockStateGetAllAPIAddressesWithScopeForAgentsCall) Return(arg0 []controllernode.APIAddresses, arg1 error) *MockStateGetAllAPIAddressesWithScopeForAgentsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllAPIAddressesWithScopeForAgentsCall) Do(f func(context.Context) (map[string]controllernode.APIAddresses, error)) *MockStateGetAllAPIAddressesWithScopeForAgentsCall {
+func (c *MockStateGetAllAPIAddressesWithScopeForAgentsCall) Do(f func(context.Context) ([]controllernode.APIAddresses, error)) *MockStateGetAllAPIAddressesWithScopeForAgentsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllAPIAddressesWithScopeForAgentsCall) DoAndReturn(f func(context.Context) (map[string]controllernode.APIAddresses, error)) *MockStateGetAllAPIAddressesWithScopeForAgentsCall {
+func (c *MockStateGetAllAPIAddressesWithScopeForAgentsCall) DoAndReturn(f func(context.Context) ([]controllernode.APIAddresses, error)) *MockStateGetAllAPIAddressesWithScopeForAgentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetAllAPIAddressesWithScopeForClients mocks base method.
-func (m *MockState) GetAllAPIAddressesWithScopeForClients(arg0 context.Context) (map[string]controllernode.APIAddresses, error) {
+func (m *MockState) GetAllAPIAddressesWithScopeForClients(arg0 context.Context) ([]controllernode.APIAddresses, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllAPIAddressesWithScopeForClients", arg0)
-	ret0, _ := ret[0].(map[string]controllernode.APIAddresses)
+	ret0, _ := ret[0].([]controllernode.APIAddresses)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -259,19 +259,19 @@ type MockStateGetAllAPIAddressesWithScopeForClientsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllAPIAddressesWithScopeForClientsCall) Return(arg0 map[string]controllernode.APIAddresses, arg1 error) *MockStateGetAllAPIAddressesWithScopeForClientsCall {
+func (c *MockStateGetAllAPIAddressesWithScopeForClientsCall) Return(arg0 []controllernode.APIAddresses, arg1 error) *MockStateGetAllAPIAddressesWithScopeForClientsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllAPIAddressesWithScopeForClientsCall) Do(f func(context.Context) (map[string]controllernode.APIAddresses, error)) *MockStateGetAllAPIAddressesWithScopeForClientsCall {
+func (c *MockStateGetAllAPIAddressesWithScopeForClientsCall) Do(f func(context.Context) ([]controllernode.APIAddresses, error)) *MockStateGetAllAPIAddressesWithScopeForClientsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllAPIAddressesWithScopeForClientsCall) DoAndReturn(f func(context.Context) (map[string]controllernode.APIAddresses, error)) *MockStateGetAllAPIAddressesWithScopeForClientsCall {
+func (c *MockStateGetAllAPIAddressesWithScopeForClientsCall) DoAndReturn(f func(context.Context) ([]controllernode.APIAddresses, error)) *MockStateGetAllAPIAddressesWithScopeForClientsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

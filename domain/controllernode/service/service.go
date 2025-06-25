@@ -84,11 +84,11 @@ type State interface {
 
 	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
 	// agents, divided by controller node.
-	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error)
+	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) ([]controllernode.APIAddresses, error)
 
-	// GetAllAPIAddressesWithScopeForClientss returns all APIAddresses available for
+	// GetAllAPIAddressesWithScopeForClients returns all APIAddresses available for
 	// clients, divided by controller node.
-	GetAllAPIAddressesWithScopeForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error)
+	GetAllAPIAddressesWithScopeForClients(ctx context.Context) ([]controllernode.APIAddresses, error)
 }
 
 // Service provides the API for working with controller nodes.
