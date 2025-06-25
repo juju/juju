@@ -50,7 +50,9 @@ func NewProviderService(
 	}
 }
 
-// CreateMachine creates the specified machine.
+// CreateMachine creates the specified machine. The nonce is an optional
+// parameter and is used only used during bootstrapping to ensure that
+// the machine is created with a unique name.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
 func (s *ProviderService) CreateMachine(ctx context.Context, machineName machine.Name, nonce *string) (machine.UUID, error) {
@@ -65,7 +67,7 @@ func (s *ProviderService) CreateMachine(ctx context.Context, machineName machine
 		return "", errors.Errorf("prechecking instance for machine %q: %w", machineName, err)
 	}
 
-	// Make a new UUIDs for the net-node and the machine.
+	// Make new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
 	// the state layer we don't keep regenerating.
 	nodeUUID, machineUUID, err := createUUIDs()
@@ -101,7 +103,7 @@ func (s *ProviderService) CreateMachineWithParent(ctx context.Context, machineNa
 		return "", errors.Errorf("prechecking instance for machine %q: %w", machineName, err)
 	}
 
-	// Make a new UUIDs for the net-node and the machine.
+	// Make new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
 	// the state layer we don't keep regenerating.
 	nodeUUID, machineUUID, err := createUUIDs()

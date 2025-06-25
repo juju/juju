@@ -68,7 +68,7 @@ func (s *MigrationService) CreateMachine(ctx context.Context, machineName corema
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Make a new UUIDs for the net-node and the machine.
+	// Make new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
 	// the state layer we don't keep regenerating.
 	nodeUUID, machineUUID, err := createUUIDs()
