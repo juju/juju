@@ -768,7 +768,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"state-config-watcher",
-		"state",
 		"storage-registry",
 		"trace",
 		"upgrade-check-flag",

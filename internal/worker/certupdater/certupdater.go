@@ -5,15 +5,17 @@ package certupdater
 
 import (
 	"context"
+	"net"
 	"reflect"
 
-	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/controller"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/pki"
 )
 
@@ -28,40 +30,42 @@ type ControllerConfigGetter interface {
 // that server's machines addresses in state, and write a new certificate to the
 // agent's config file.
 type CertificateUpdater struct {
-	addressWatcher   AddressWatcher
-	authority        pki.Authority
-	hostPortsGetter  APIHostPortsGetter
-	addresses        network.SpaceAddresses
-	ctrlConfigGetter ControllerConfigGetter
-	logger           logger.Logger
+	authority             pki.Authority
+	controllerNodeService ControllerNodeService
+	addresses             []string
+	logger                logger.Logger
 }
 
-// AddressWatcher is an interface that is provided to NewCertificateUpdater
-// which can be used to watch for machine address changes.
-type AddressWatcher interface {
-	WatchAddresses() watcher.NotifyWatcher
-	Addresses() (addresses network.SpaceAddresses)
-}
-
-// StateServingInfoGetter is an interface that is provided to NewCertificateUpdater
-// whose StateServingInfo method will be invoked to get state serving info.
-type StateServingInfoGetter interface {
-	StateServingInfo() (controller.StateServingInfo, bool)
-}
-
-// APIHostPortsGetter is an interface that is provided to NewCertificateUpdater.
-// It returns all known API addresses.
-type APIHostPortsGetter interface {
-	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
+// ControllerNodeService returns all known API addresses.
+type ControllerNodeService interface {
+	// GetAllCloudLocalAPIAddresses returns a string slice of api
+	// addresses available for clients. The list list only contains cloud
+	// local addresses. The returned strings are IP address only without
+	// port numbers.
+	GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error)
+	// WatchControllerAPIAddresses returns a watcher that observes changes to the
+	// controller api addresses.
+	WatchControllerAPIAddresses(ctx context.Context) (watcher.NotifyWatcher, error)
 }
 
 // Config holds the configuration for the certificate updater worker.
 type Config struct {
-	AddressWatcher         AddressWatcher
-	Authority              pki.Authority
-	APIHostPortsGetter     APIHostPortsGetter
-	ControllerConfigGetter ControllerConfigGetter
-	Logger                 logger.Logger
+	Authority             pki.Authority
+	ControllerNodeService ControllerNodeService
+	Logger                logger.Logger
+}
+
+func (c *Config) Validate() error {
+	if c.Authority == nil {
+		return errors.New("nil Authority").Add(coreerrors.NotValid)
+	}
+	if c.ControllerNodeService == nil {
+		return errors.New("nil ControllerNodeService").Add(coreerrors.NotValid)
+	}
+	if c.Logger == nil {
+		return errors.New("nil Logger").Add(coreerrors.NotValid)
+	}
+	return nil
 }
 
 // NewCertificateUpdater returns a worker.Worker that watches for changes to
@@ -70,44 +74,33 @@ type Config struct {
 func NewCertificateUpdater(config Config) (worker.Worker, error) {
 	return watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: &CertificateUpdater{
-			addressWatcher:   config.AddressWatcher,
-			authority:        config.Authority,
-			hostPortsGetter:  config.APIHostPortsGetter,
-			ctrlConfigGetter: config.ControllerConfigGetter,
-			logger:           config.Logger,
+			authority:             config.Authority,
+			controllerNodeService: config.ControllerNodeService,
+			logger:                config.Logger,
 		},
 	})
 }
 
 // SetUp is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
-	cfg, err := c.ctrlConfigGetter.ControllerConfig(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving controller config")
-	}
 	// Populate certificate SAN with any addresses we know about now.
-	apiHostPorts, err := c.hostPortsGetter.APIHostPortsForClients(cfg)
+	initialSANAddresses, err := c.controllerNodeService.GetAllCloudLocalAPIAddresses(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "retrieving initial server addresses")
-	}
-	var initialSANAddresses network.SpaceAddresses
-	for _, server := range apiHostPorts {
-		for _, nhp := range server {
-			if nhp.Scope != network.ScopeCloudLocal {
-				continue
-			}
-			initialSANAddresses = append(initialSANAddresses, nhp.SpaceAddress)
-		}
+		return nil, errors.Errorf("retrieving initial server addresses: %w", err)
 	}
 	if err := c.updateCertificate(ctx, initialSANAddresses); err != nil {
-		return nil, errors.Annotate(err, "setting initial certificate SAN list")
+		return nil, errors.Errorf("setting initial certificate SAN list: %w", err)
 	}
-	return c.addressWatcher.WatchAddresses(), nil
+	return c.controllerNodeService.WatchControllerAPIAddresses(ctx)
 }
 
 // Handle is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) Handle(ctx context.Context) error {
-	addresses := c.addressWatcher.Addresses()
+	addresses, err := c.controllerNodeService.GetAllCloudLocalAPIAddresses(ctx)
+	if err != nil {
+		return errors.Errorf("retrieving cloud local api addresses: %w", err)
+	}
+
 	if reflect.DeepEqual(addresses, c.addresses) {
 		// Sometimes the watcher will tell us things have changed, when they
 		// haven't as far as we can tell.
@@ -117,44 +110,39 @@ func (c *CertificateUpdater) Handle(ctx context.Context) error {
 	return c.updateCertificate(ctx, addresses)
 }
 
-func (c *CertificateUpdater) updateCertificate(ctx context.Context, addresses network.SpaceAddresses) error {
+func (c *CertificateUpdater) updateCertificate(ctx context.Context, addresses []string) error {
 	c.logger.Debugf(ctx, "new machine addresses: %#v", addresses)
 	c.addresses = addresses
 
-	request := c.authority.LeafRequestForGroup(pki.ControllerIPLeafGroup)
+	if len(addresses) == 0 {
+		return nil
+	}
 
+	request := c.authority.LeafRequestForGroup(pki.ControllerIPLeafGroup)
 	for _, addr := range addresses {
-		if addr.Value == "localhost" {
+		if addr == "localhost" {
 			continue
 		}
-
-		switch addr.Type {
+		switch network.DeriveAddressType(addr) {
 		case network.HostName:
-			request.AddDNSNames(addr.Value)
-		case network.IPv4Address:
-			ip := addr.IP()
+			request.AddDNSNames(addr)
+		case network.IPv4Address, network.IPv6Address:
+			ip := net.ParseIP(addr)
 			if ip == nil {
 				return errors.Errorf(
-					"value %s is not a valid ip address", addr.Value)
-			}
-			request.AddIPAddresses(ip)
-		case network.IPv6Address:
-			ip := addr.IP()
-			if ip == nil {
-				return errors.Errorf(
-					"value %s is not a valid ip address", addr.Value)
+					"value %q is not a valid ip address", addr)
 			}
 			request.AddIPAddresses(ip)
 		default:
 			c.logger.Warningf(ctx,
-				"unsupported space address type %s for controller certificate",
-				addr.Type)
+				"unsupported address %q for controller certificate",
+				addr)
 		}
-
 	}
 
 	if _, err := request.Commit(); err != nil {
-		return errors.Annotate(err, "generating default controller ip certificate")
+		c.logger.Debugf(ctx, "commit error: %w", err)
+		return errors.Errorf("generating default controller ip certificate: %w", err)
 	}
 	return nil
 }
