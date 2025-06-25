@@ -6,9 +6,9 @@
 A **log** is a computer-generated record about entities, activities, usage patterns, etc., within a system. In Juju, logs are produced by {ref}`jujud` and keep track of machine and unit agents, models, controllers, etc.
 
 
-<!--ALREADY COVERED IN https://discourse.charmhub.io/t/list-of-model-configuration-keys/7068#heading--logging-config 
+<!--ALREADY COVERED IN https://discourse.charmhub.io/t/list-of-model-configuration-keys/7068#heading--logging-config
 - [Log verbosity levels](#heading--log-verbosity-levels)
-- [Log labels](#heading--log-labels)	 
+- [Log labels](#heading--log-labels)
 -->
 
 ## Juju agent logs - machines
@@ -17,12 +17,12 @@ In machine deployments, Juju agent logs are organised into a number of files. Th
 
 ### Agent log files
 
-Agent log files (e.g., `/var/log/juju/unit-controller-0.log` ) contain the logs for the machine and unit {ref}`agents <agent>`. 
+Agent log files (e.g., `/var/log/juju/unit-controller-0.log` ) contain the logs for the machine and unit {ref}`agents <agent>`.
 
 
 ### Model log files
 
-Model log files (e.g., `/var/log/juju/models/admin-test-3850c8.log`) contain the logs for all the [workers](https://juju.is/docs/dev/worker) on a {ref}`model <model>`. 
+Model log files (e.g., `/var/log/juju/models/admin-test-3850c8.log`) contain the logs for all the [workers](https://juju.is/docs/dev/worker) on a {ref}`model <model>`.
 
 
 ### The audit log file
@@ -33,7 +33,7 @@ The audit log file (`/var/log/juju/audit.log`) logs all the client commands and 
 -   *Request:* A single API method.
 -  *ResponseErrors:* Errors resulting from an API method
 
-The audit log file can be found only on controller machines. 
+The audit log file can be found only on controller machines.
 
 
 ### The logsink log file
@@ -50,10 +50,11 @@ In a controller high availability scenario, `logsink.log` is not guaranteed to c
 
 ```
 
+(the-machine-lock-log-file)=
 ### The machine-lock log file
 
 
-The machine-lock log file (`machine-lock.log`) contains logs for the machine lock. The file is only written written after the lock has been released and its purpose is to give more visibility to who has been holding the machine lock. 
+The machine-lock log file (`machine-lock.log`) contains logs for the machine lock. The file is only written written after the lock has been released and its purpose is to give more visibility to who has been holding the machine lock.
 
 The machine lock is a file lock that synchronises hook execution on Juju machines. (A machine will only ever run one {ref}`hook <hook>` at a time.) The lock is used to serialize a number of activities of the agents on the machines started by Juju, as follows:
 
@@ -68,7 +69,7 @@ The machine lock is a file lock that synchronises hook execution on Juju machine
 
 <a href="#heading--log-verbosity-levels"><h2 id="heading--log-verbosity-levels">Log verbosity levels</h2></a>
 
-Juju logs can be filtered (e.g., in the output of `juju debug-log`) by their level of verbosity. 
+Juju logs can be filtered (e.g., in the output of `juju debug-log`) by their level of verbosity.
 
 In decreasing order of severity, these levels are:
 
@@ -85,7 +86,7 @@ Selecting a certain log level will output the logs with that level as well as th
 
 <a href="#heading--log-labels"><h2 id="heading--log-labels">Log labels</h2></a>
 
-Juju logs can be filtered (e.g., in the output of `juju debug-log`) by their topic, or 'label'. 
+Juju logs can be filtered (e.g., in the output of `juju debug-log`) by their topic, or 'label'.
 
 The currently supported labels are:
 
@@ -104,7 +105,7 @@ The currently supported labels are:
 
 ## Juju agent logs - Kubernetes
 
-In Kubernetes deployments, logs are written directly to `stdout` of the container and can be retrieved with native Kubernetes methods: `kubectl logs <pod-name> -n <model-name>` . 
+In Kubernetes deployments, logs are written directly to `stdout` of the container and can be retrieved with native Kubernetes methods: `kubectl logs <pod-name> -n <model-name>` .
 
-By default, it will fetch the logs from the main container `charm` container. When fetching logs from other containers, use additional `-c` flag to specify the container, i.e. `kubectl logs -c <container-name> <pod-name> -n <model-name>` . 
+By default, it will fetch the logs from the main container `charm` container. When fetching logs from other containers, use additional `-c` flag to specify the container, i.e. `kubectl logs -c <container-name> <pod-name> -n <model-name>` .
 

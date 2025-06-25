@@ -119,6 +119,7 @@ func (c *Client) MigrationStatus(ctx context.Context) (migration.MigrationStatus
 			AuthTag:       authTag,
 			Password:      target.Password,
 			Macaroons:     macs,
+			Token:         target.Token,
 		},
 	}, nil
 }

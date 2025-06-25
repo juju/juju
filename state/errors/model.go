@@ -26,6 +26,11 @@ const (
 	// storage, without specifying how the storage should be removed
 	// (destroyed or released).
 	PersistentStorageError = errors.ConstError("model contains persistent storage")
+
+	// StorageNotReleasableError indicates that an attempt was made to destroy
+	// a model specifying that storage should be released but that some
+	// storage does not support that.
+	StorageNotReleasableError = errors.ConstError("storage cannot be released")
 )
 
 func NewHasHostedModelsError(i int) error {
