@@ -131,36 +131,27 @@ func (w WatcherC[T]) AssertNChanges(n int) {
 // Check asserts that the watcher sends the expected changes. The assertion
 // function is called repeatedly until it returns true, or the test times out.
 func (w *WatcherC[T]) Check(assertion WatcherAssert[T]) {
-	var received []T
-	for a := testing.LongAttempt.Start(); a.Next(); {
-		select {
-		case actual, ok := <-w.Watcher.Changes():
-			w.c.Logf("WatcherC Watcher.Changes() => %# v", actual)
-			if !ok {
-				wait := make(chan error)
-				go func() {
-					wait <- w.Watcher.Wait()
-				}()
-				select {
-				case <-w.c.Context().Done():
-					w.c.Fatalf("watcher never stopped")
-				case err := <-wait:
-					w.c.Fatalf("watcher killed with err: %q", err.Error())
-				}
-			}
-
-			received = append(received, actual)
-			w.c.Logf("received %+v", received)
-			if assertion(w.c, received) {
-				return
-			}
-		case <-w.c.Context().Done():
-			if len(received) == 0 {
-				w.c.Fatalf("watcher did not send change")
-			} else {
-				w.c.Fatalf("watcher did not send expected changes")
+	select {
+	case received, ok := <-w.Watcher.Changes():
+		w.c.Logf("WatcherC Watcher.Changes() => %# v", received)
+		if !ok {
+			wait := make(chan error)
+			go func() {
+				wait <- w.Watcher.Wait()
+			}()
+			select {
+			case <-w.c.Context().Done():
+				w.c.Fatalf("watcher never stopped")
+			case err := <-wait:
+				w.c.Fatalf("watcher killed with err: %q", err.Error())
 			}
 		}
+
+		if !assertion(w.c, []T{received}) {
+			w.c.Fatalf("watcher received events %+v which did not pass assertion", received)
+		}
+	case <-w.c.Context().Done():
+		w.c.Fatalf("watcher did not send expected changes")
 	}
 }
 
