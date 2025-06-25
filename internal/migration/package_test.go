@@ -46,6 +46,14 @@ func (s *precheckBaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.statusService = NewMockStatusService(ctrl)
 	s.agentService = NewMockModelAgentService(ctrl)
 
+	c.Cleanup(func() {
+		s.upgradeService = nil
+		s.applicationService = nil
+		s.relationService = nil
+		s.statusService = nil
+		s.agentService = nil
+	})
+
 	return ctrl
 }
 

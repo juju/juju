@@ -682,14 +682,16 @@ func encodeInstanceStatusType(s corestatus.Status) (status.InstanceStatusType, e
 	switch s {
 	case corestatus.Unset:
 		return status.InstanceStatusUnset, nil
-	case corestatus.Running:
-		return status.InstanceStatusRunning, nil
+	case corestatus.Pending:
+		return status.InstanceStatusPending, nil
 	case corestatus.Provisioning:
 		return status.InstanceStatusAllocating, nil
+	case corestatus.Running:
+		return status.InstanceStatusRunning, nil
 	case corestatus.ProvisioningError:
 		return status.InstanceStatusProvisioningError, nil
 	default:
-		return -1, errors.Errorf("unknown machine status %q", s)
+		return -1, errors.Errorf("unknown instance status %q", s)
 	}
 }
 
@@ -699,14 +701,16 @@ func decodeInstanceStatusType(s status.InstanceStatusType) (corestatus.Status, e
 	switch s {
 	case status.InstanceStatusUnset:
 		return corestatus.Unset, nil
-	case status.InstanceStatusRunning:
-		return corestatus.Running, nil
+	case status.InstanceStatusPending:
+		return corestatus.Pending, nil
 	case status.InstanceStatusAllocating:
 		return corestatus.Provisioning, nil
+	case status.InstanceStatusRunning:
+		return corestatus.Running, nil
 	case status.InstanceStatusProvisioningError:
 		return corestatus.ProvisioningError, nil
 	default:
-		return corestatus.Unset, errors.Errorf("unknown machine status %d", s)
+		return corestatus.Unset, errors.Errorf("unknown instance status %d", s)
 	}
 }
 

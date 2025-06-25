@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -48,6 +49,7 @@ type MachineManagerAPI struct {
 	leadership      Leadership
 	store           objectstore.ObjectStore
 	controllerStore objectstore.ObjectStore
+	clock           clock.Clock
 
 	agentBinaryService      AgentBinaryService
 	agentPasswordService    AgentPasswordService
@@ -57,6 +59,7 @@ type MachineManagerAPI struct {
 	controllerNodeService   ControllerNodeService
 	keyUpdaterService       KeyUpdaterService
 	machineService          MachineService
+	statusService           StatusService
 	modelConfigService      ModelConfigService
 	networkService          NetworkService
 
@@ -74,6 +77,7 @@ func NewMachineManagerAPI(
 	resources facade.Resources,
 	leadership Leadership,
 	logger corelogger.Logger,
+	clock clock.Clock,
 	services Services,
 ) *MachineManagerAPI {
 	api := &MachineManagerAPI{
@@ -87,6 +91,7 @@ func NewMachineManagerAPI(
 		resources:       resources,
 		leadership:      leadership,
 		storageAccess:   storageAccess,
+		clock:           clock,
 		logger:          logger,
 
 		agentBinaryService:      services.AgentBinaryService,
@@ -97,6 +102,7 @@ func NewMachineManagerAPI(
 		cloudService:            services.CloudService,
 		keyUpdaterService:       services.KeyUpdaterService,
 		machineService:          services.MachineService,
+		statusService:           services.StatusService,
 		modelConfigService:      services.ModelConfigService,
 		networkService:          services.NetworkService,
 	}
@@ -361,18 +367,22 @@ func (mm *MachineManagerAPI) RetryProvisioning(ctx context.Context, p params.Ret
 		if !p.All && !wanted.Contains(m.Id()) {
 			continue
 		}
-		if err := mm.maybeUpdateInstanceStatus(p.All, m, map[string]interface{}{"transient": true}); err != nil {
+		machineName := coremachine.Name(m.Id())
+		if err := mm.maybeUpdateInstanceStatus(ctx, p.All, machineName, map[string]interface{}{"transient": true}); err != nil {
 			result.Results = append(result.Results, params.ErrorResult{Error: apiservererrors.ServerError(err)})
 		}
 	}
 	return result, nil
 }
 
-func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(all bool, m Machine, data map[string]interface{}) error {
-	existingStatusInfo, err := m.InstanceStatus()
-	if err != nil {
+func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(ctx context.Context, all bool, machineName coremachine.Name, data map[string]interface{}) error {
+	existingStatusInfo, err := mm.statusService.GetInstanceStatus(ctx, machineName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return errors.NotFoundf("machine %q", machineName)
+	} else if err != nil {
 		return err
 	}
+
 	newData := existingStatusInfo.Data
 	if newData == nil {
 		newData = data
@@ -384,20 +394,25 @@ func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(all bool, m Machine, data
 	if len(newData) > 0 && existingStatusInfo.Status != status.Error && existingStatusInfo.Status != status.ProvisioningError {
 		// If a specifc machine has been asked for and it's not in error, that's a problem.
 		if !all {
-			return fmt.Errorf("machine %s is not in an error state (%v)", m.Id(), existingStatusInfo.Status)
+			return fmt.Errorf("machine %s is not in an error state (%v)", machineName, existingStatusInfo.Status)
 		}
 		// Otherwise just skip it.
 		return nil
 	}
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	now := time.Now()
+	now := mm.clock.Now()
 	sInfo := status.StatusInfo{
 		Status:  existingStatusInfo.Status,
 		Message: existingStatusInfo.Message,
 		Data:    newData,
 		Since:   &now,
 	}
-	return m.SetInstanceStatus(sInfo)
+	err = mm.statusService.SetInstanceStatus(ctx, machineName, sInfo)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return errors.NotFoundf("machine %q", machineName)
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.

@@ -25,6 +25,7 @@ import (
 
 type machineSuite struct {
 	machineService *MockMachineService
+	statusService  *MockStatusService
 }
 
 func TestMachineSuite(t *testing.T) {
@@ -34,6 +35,13 @@ func TestMachineSuite(t *testing.T) {
 func (s *machineSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.machineService = NewMockMachineService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
+
+	c.Cleanup(func() {
+		s.machineService = nil
+		s.statusService = nil
+	})
+
 	return ctrl
 }
 
@@ -58,19 +66,23 @@ func (s *machineSuite) TestMachineHardwareInfo(c *tc.C) {
 			"3": {life: state.Dying},
 		},
 	}
+
+	s.statusService.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.StatusInfo{}, nil)
+
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
 	s.machineService.EXPECT().GetInstanceIDAndName(gomock.Any(), machine.UUID("uuid-1")).Return("123", "one-two-three", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-2", nil)
 	s.machineService.EXPECT().GetInstanceIDAndName(gomock.Any(), machine.UUID("uuid-2")).Return("456", "four-five-six", nil)
 	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), machine.UUID("uuid-1")).Return(hw, nil)
 	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), machine.UUID("uuid-2")).Return(&instance.HardwareCharacteristics{}, nil)
-	info, err := model.ModelMachineInfo(c.Context(), &st, s.machineService)
+	info, err := model.ModelMachineInfo(c.Context(), &st, s.machineService, s.statusService)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, []params.ModelMachineInfo{
 		{
 			Id:          "1",
 			InstanceId:  "123",
 			DisplayName: "one-two-three",
+			Status:      "unknown",
 			Hardware: &params.MachineHardware{
 				Arch:     &amd64,
 				Mem:      &gig,
@@ -81,6 +93,7 @@ func (s *machineSuite) TestMachineHardwareInfo(c *tc.C) {
 			Id:          "2",
 			InstanceId:  "456",
 			DisplayName: "four-five-six",
+			Status:      "unknown",
 		},
 	})
 }
@@ -104,10 +117,13 @@ func (s *machineSuite) TestMachineMachineNotFound(c *tc.C) {
 			},
 		},
 	}
+
+	s.statusService.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.StatusInfo{}, nil)
+
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
 	s.machineService.EXPECT().GetInstanceIDAndName(gomock.Any(), machine.UUID("uuid-1")).Return("123", "one-two-three", nil)
 	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), machine.UUID("uuid-1")).Return(hw, machineerrors.MachineNotFound)
-	_, err := model.ModelMachineInfo(c.Context(), &st, s.machineService)
+	_, err := model.ModelMachineInfo(c.Context(), &st, s.machineService, s.statusService)
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
@@ -130,8 +146,9 @@ func (s *machineSuite) TestMachineHardwareInfoMachineNotFound(c *tc.C) {
 			},
 		},
 	}
+	s.statusService.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.StatusInfo{}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", machineerrors.MachineNotFound)
-	_, err := model.ModelMachineInfo(c.Context(), &st, s.machineService)
+	_, err := model.ModelMachineInfo(c.Context(), &st, s.machineService, s.statusService)
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
@@ -143,13 +160,11 @@ func (s *machineSuite) TestMachineInstanceInfo(c *tc.C) {
 			"1": {
 				id:     "1",
 				instId: "123",
-				status: status.Down,
 			},
 			"2": {
 				id:          "2",
 				instId:      "456",
 				displayName: "four-five-six",
-				status:      status.Allocating,
 			},
 		},
 		controllerNodes: map[string]*mockControllerNode{
@@ -165,25 +180,39 @@ func (s *machineSuite) TestMachineInstanceInfo(c *tc.C) {
 			},
 		},
 	}
+
+	s.statusService.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.StatusInfo{
+		"1": {
+			Status:  status.Down,
+			Message: "it's down",
+		},
+		"2": {
+			Status:  status.Allocating,
+			Message: "it's allocating",
+		},
+	}, nil)
+
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
 	s.machineService.EXPECT().GetInstanceIDAndName(gomock.Any(), machine.UUID("uuid-1")).Return("123", "", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-2", nil)
 	s.machineService.EXPECT().GetInstanceIDAndName(gomock.Any(), machine.UUID("uuid-2")).Return("456", "four-five-six", nil)
 	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), machine.UUID("uuid-1")).Return(&instance.HardwareCharacteristics{}, nil)
 	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), machine.UUID("uuid-2")).Return(&instance.HardwareCharacteristics{}, nil)
-	info, err := model.ModelMachineInfo(c.Context(), &st, s.machineService)
+	info, err := model.ModelMachineInfo(c.Context(), &st, s.machineService, s.statusService)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, []params.ModelMachineInfo{
 		{
 			Id:         "1",
 			InstanceId: "123",
 			Status:     "down",
+			Message:    "it's down",
 		},
 		{
 			Id:          "2",
 			InstanceId:  "456",
 			DisplayName: "four-five-six",
 			Status:      "allocating",
+			Message:     "it's allocating",
 		},
 	})
 }
@@ -197,7 +226,6 @@ func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *tc.C) {
 				id:          "1",
 				instId:      "123",
 				displayName: "",
-				status:      status.Down,
 			},
 		},
 		controllerNodes: map[string]*mockControllerNode{
@@ -208,17 +236,20 @@ func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *tc.C) {
 			},
 		},
 	}
+
+	s.statusService.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.StatusInfo{}, nil)
+
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
 	s.machineService.EXPECT().GetInstanceIDAndName(gomock.Any(), machine.UUID("uuid-1")).Return("123", "", nil)
 	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), machine.UUID("uuid-1")).Return(&instance.HardwareCharacteristics{}, nil)
-	info, err := model.ModelMachineInfo(c.Context(), &st, s.machineService)
+	info, err := model.ModelMachineInfo(c.Context(), &st, s.machineService, s.statusService)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, []params.ModelMachineInfo{
 		{
 			Id:          "1",
 			InstanceId:  "123",
 			DisplayName: "",
-			Status:      "down",
+			Status:      "unknown",
 		},
 	})
 }
@@ -232,7 +263,6 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *tc.C) {
 				id:          "1",
 				instId:      "123",
 				displayName: "snowflake",
-				status:      status.Down,
 			},
 		},
 		controllerNodes: map[string]*mockControllerNode{
@@ -243,17 +273,20 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *tc.C) {
 			},
 		},
 	}
+
+	s.statusService.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.StatusInfo{}, nil)
+
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
 	s.machineService.EXPECT().GetInstanceIDAndName(gomock.Any(), machine.UUID("uuid-1")).Return("123", "snowflake", nil)
 	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), machine.UUID("uuid-1")).Return(&instance.HardwareCharacteristics{}, nil)
-	info, err := model.ModelMachineInfo(c.Context(), &st, s.machineService)
+	info, err := model.ModelMachineInfo(c.Context(), &st, s.machineService, s.statusService)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, []params.ModelMachineInfo{
 		{
 			Id:          "1",
 			InstanceId:  "123",
 			DisplayName: "snowflake",
-			Status:      "down",
+			Status:      "unknown",
 		},
 	})
 }
@@ -267,7 +300,6 @@ func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *tc.C) {
 				id:          "1",
 				instId:      "123",
 				displayName: "snowflake",
-				status:      status.Down,
 			},
 		},
 		controllerNodes: map[string]*mockControllerNode{
@@ -286,17 +318,20 @@ func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *tc.C) {
 			return names.NewMachineTag("1"), nil
 		},
 	}
+
+	s.statusService.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.StatusInfo{}, nil)
+
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
 	s.machineService.EXPECT().GetInstanceIDAndName(gomock.Any(), machine.UUID("uuid-1")).Return("123", "snowflake", nil)
 	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), machine.UUID("uuid-1")).Return(&instance.HardwareCharacteristics{}, nil)
-	info, err := model.ModelMachineInfo(c.Context(), &st, s.machineService)
+	info, err := model.ModelMachineInfo(c.Context(), &st, s.machineService, s.statusService)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, []params.ModelMachineInfo{
 		{
 			Id:          "1",
 			InstanceId:  "123",
 			DisplayName: "snowflake",
-			Status:      "down",
+			Status:      "unknown",
 		},
 	})
 }
@@ -362,8 +397,6 @@ type fakeMachine struct {
 	hw                 *instance.HardwareCharacteristics
 	instId             instance.Id
 	displayName        string
-	status             status.Status
-	statusErr          error
 	destroyErr         error
 	forceDestroyErr    error
 	forceDestroyCalled bool
@@ -385,12 +418,6 @@ func (m *fakeMachine) InstanceId() (instance.Id, error) {
 func (m *fakeMachine) InstanceNames() (instance.Id, string, error) {
 	instId, err := m.InstanceId()
 	return instId, m.displayName, err
-}
-
-func (m *fakeMachine) Status() (status.StatusInfo, error) {
-	return status.StatusInfo{
-		Status: m.status,
-	}, m.statusErr
 }
 
 func (m *fakeMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {

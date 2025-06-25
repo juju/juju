@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -25,10 +27,13 @@ import (
 type machinerSuite struct {
 	commonSuite
 
+	clock clock.Clock
+
 	machiner           *machine.MachinerAPI
 	networkService     *MockNetworkService
 	machineService     *MockMachineService
 	applicationService *MockApplicationService
+	statusService      *MockStatusService
 	watcherRegistry    *MockWatcherRegistry
 }
 
@@ -39,10 +44,22 @@ func TestMachinerSuite(t *testing.T) {
 func (s *machinerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.clock = testclock.NewClock(time.Now())
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
+
+	c.Cleanup(func() {
+		s.clock = nil
+		s.watcherRegistry = nil
+		s.networkService = nil
+		s.machineService = nil
+		s.applicationService = nil
+		s.statusService = nil
+	})
+
 	return ctrl
 }
 
@@ -52,13 +69,14 @@ func (s *machinerSuite) makeAPI(c *tc.C) {
 	machiner, err := machine.NewMachinerAPIForState(
 		c.Context(),
 		st,
-		clock.WallClock,
+		s.clock,
 		s.ControllerDomainServices(c).ControllerConfig(),
 		s.ControllerDomainServices(c).ControllerNode(),
 		s.ControllerDomainServices(c).ModelInfo(),
 		s.networkService,
 		s.applicationService,
 		s.machineService,
+		s.statusService,
 		s.watcherRegistry,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
@@ -83,6 +101,7 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *tc.C) {
 		s.networkService,
 		s.applicationService,
 		s.machineService,
+		s.statusService,
 		s.watcherRegistry,
 		anAuthorizer,
 		loggertesting.WrapCheckLog(c),
@@ -96,49 +115,62 @@ func (s *machinerSuite) TestSetStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
-	now := time.Now()
-
-	sInfo := status.StatusInfo{
-		Status:  status.Started,
-		Message: "blah",
+	now := s.clock.Now()
+	s.statusService.EXPECT().SetMachineStatus(gomock.Any(), coremachine.Name("1"), status.StatusInfo{
+		Status:  status.Error,
+		Message: "not really",
 		Since:   &now,
-	}
-	err := s.machine0.SetStatus(sInfo)
-	c.Assert(err, tc.ErrorIsNil)
-	sInfo = status.StatusInfo{
-		Status:  status.Stopped,
-		Message: "foo",
-		Since:   &now,
-	}
-	err = s.machine1.SetStatus(sInfo)
-	c.Assert(err, tc.ErrorIsNil)
+	})
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: "machine-1", Status: status.Error.String(), Info: "not really"},
-			{Tag: "machine-0", Status: status.Stopped.String(), Info: "foobar"},
-			{Tag: "machine-42", Status: status.Started.String(), Info: "blah"},
 		}}
 	result, err := s.machiner.SetStatus(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.IsNil)
+}
 
-	// Verify machine 0 - no change.
-	statusInfo, err := s.machine0.Status()
+func (s *machinerSuite) TestSetStatusMachineNotFound(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.makeAPI(c)
+
+	now := s.clock.Now()
+	s.statusService.EXPECT().SetMachineStatus(gomock.Any(), coremachine.Name("1"), status.StatusInfo{
+		Status:  status.Error,
+		Message: "not really",
+		Since:   &now,
+	}).Return(machineerrors.MachineNotFound)
+
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{Tag: "machine-1", Status: status.Error.String(), Info: "not really"},
+		}}
+	result, err := s.machiner.SetStatus(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(statusInfo.Status, tc.Equals, status.Started)
-	c.Assert(statusInfo.Message, tc.Equals, "blah")
-	// ...machine 1 is fine though.
-	statusInfo, err = s.machine1.Status()
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *machinerSuite) TestSetStatusInvalidTags(c *tc.C) {
+	result, err := s.machiner.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{
+		{Tag: "application-unknown"},
+		{Tag: "invalid-tag"},
+		{Tag: "unit-missing-1"},
+		{Tag: ""},
+		{Tag: "42"},
+	}})
+
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(statusInfo.Status, tc.Equals, status.Error)
-	c.Assert(statusInfo.Message, tc.Equals, "not really")
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+	}})
 }
 
 func (s *machinerSuite) TestLife(c *tc.C) {

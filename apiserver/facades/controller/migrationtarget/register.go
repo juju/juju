@@ -82,6 +82,7 @@ func makeFacade(
 		domainServices.ControllerConfig(),
 		domainServices.ExternalController(),
 		domainServices.Upgrade(),
+		domainServices.Status(),
 		modelAgentServiceGetter,
 		modelMigrationServiceGetter,
 		facadeVersions,

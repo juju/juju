@@ -18,7 +18,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
@@ -58,6 +57,8 @@ func SourcePrecheck(
 	modelStatusService, err := statusServiceGetter(ctx, modelUUID)
 	if err != nil {
 		return errors.Trace(err)
+	} else if modelStatusService == nil {
+		return errors.Errorf("status service for model %q not found", modelUUID)
 	}
 	modelModelAgentService, err := modelAgentServiceGetter(ctx, modelUUID)
 	if err != nil {
@@ -96,12 +97,16 @@ func SourcePrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	controllerStatusService, err := statusServiceGetter(ctx, controllerModelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	controllerModelAgentService, err := modelAgentServiceGetter(ctx, controllerModelUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	controllerCtx := newPrecheckController(controllerBackend, controllerUpgradeService, controllerModelAgentService)
+	controllerCtx := newPrecheckController(controllerBackend, controllerUpgradeService, controllerStatusService, controllerModelAgentService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Annotate(err, "controller")
 	}
@@ -136,6 +141,7 @@ func TargetPrecheck(
 	pool Pool,
 	modelInfo coremigration.ModelInfo,
 	upgradeService UpgradeService,
+	statusService StatusService,
 	modelAgentService ModelAgentService,
 ) error {
 	if err := modelInfo.Validate(); err != nil {
@@ -170,7 +176,7 @@ func TargetPrecheck(
 			modelInfo.ControllerAgentVersion, controllerVersion)
 	}
 
-	controllerCtx := newPrecheckController(backend, upgradeService, modelAgentService)
+	controllerCtx := newPrecheckController(backend, upgradeService, statusService, modelAgentService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -209,6 +215,7 @@ func TargetPrecheck(
 
 type precheckContext struct {
 	backend           PrecheckBackend
+	statusService     StatusService
 	modelAgentService ModelAgentService
 }
 
@@ -232,22 +239,13 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 		)
 	}
 
+	if err := c.statusService.CheckMachineStatusesReadyForMigration(ctx); err != nil {
+		return internalerrors.Errorf("pre-checking machine statuses for migration: %w", err)
+	}
+
 	for _, machine := range machines {
 		if machine.Life() != state.Alive {
 			return errors.Errorf("machine %s is %s", machine.Id(), machine.Life())
-		}
-
-		if statusInfo, err := machine.InstanceStatus(); err != nil {
-			return errors.Annotatef(err, "retrieving machine %s instance status", machine.Id())
-		} else if !status.IsInstancePresent(statusInfo) {
-			return newStatusError("machine %s not running", machine.Id(), statusInfo.Status)
-		}
-
-		if statusInfo, err := machine.Status(); err != nil {
-			return errors.Annotatef(err, "retrieving machine %s status", machine.Id())
-		} else if !status.IsMachinePresent(statusInfo) {
-			return newStatusError("machine %s agent not functioning at this time",
-				machine.Id(), statusInfo.Status)
 		}
 
 		// TODO(gfouillet): Restore this once machine fully migrated to dqlite
@@ -268,11 +266,13 @@ type precheckController struct {
 func newPrecheckController(
 	backend PrecheckBackend,
 	upgradeService UpgradeService,
+	statusService StatusService,
 	modelAgentService ModelAgentService,
 ) *precheckController {
 	return &precheckController{
 		precheckContext: precheckContext{
 			backend:           backend,
+			statusService:     statusService,
 			modelAgentService: modelAgentService,
 		},
 		upgradeService: upgradeService,
@@ -302,7 +302,6 @@ type precheckModel struct {
 	credentialService  CredentialService
 	applicationService ApplicationService
 	relationService    RelationService
-	statusService      StatusService
 }
 
 func newPrecheckModel(
@@ -316,10 +315,10 @@ func newPrecheckModel(
 	return &precheckModel{
 		precheckContext: precheckContext{
 			backend:           backend,
+			statusService:     statusService,
 			modelAgentService: modelAgentService,
 		},
 		applicationService: applicationService,
-		statusService:      statusService,
 		credentialService:  credentialService,
 		relationService:    relationService,
 	}
@@ -451,14 +450,6 @@ func checkNoFanConfig(modelConfig map[string]interface{}) error {
 		return errors.Errorf("fan networking not supported, remove container-networking-method %q from migrating model config", modelConfig[config.ContainerNetworkingMethodKey])
 	}
 	return nil
-}
-
-func newStatusError(format, id string, s status.Status) error {
-	msg := fmt.Sprintf(format, id)
-	if s != status.Empty {
-		msg += fmt.Sprintf(" (%s)", s)
-	}
-	return errors.New(msg)
 }
 
 func controllerVersionCompatible(sourceVersion, targetVersion semversion.Number) bool {

@@ -54,17 +54,20 @@ type ApplicationService interface {
 // service.
 type StatusService interface {
 	// GetAllRelationStatuses returns all the relation statuses of the given model.
-	GetAllRelationStatuses(ctx context.Context) (map[relation.UUID]status.StatusInfo, error)
+	GetAllRelationStatuses(context.Context) (map[relation.UUID]status.StatusInfo, error)
 
 	// GetApplicationAndUnitStatuses returns the application statuses of all the
 	// applications in the model, indexed by application name.
-	GetApplicationAndUnitStatuses(ctx context.Context) (map[string]statusservice.Application, error)
+	GetApplicationAndUnitStatuses(context.Context) (map[string]statusservice.Application, error)
 
 	// GetStatusHistory returns the status history based on the request.
-	GetStatusHistory(ctx context.Context, request statusservice.StatusHistoryRequest) ([]status.DetailedStatus, error)
+	GetStatusHistory(context.Context, statusservice.StatusHistoryRequest) ([]status.DetailedStatus, error)
 
 	// GetModelStatus returns the current status of the model.
-	GetModelStatus(ctx context.Context) (status.StatusInfo, error)
+	GetModelStatus(context.Context) (status.StatusInfo, error)
+
+	// GetMachineStatus returns the status of the specified machine.
+	GetMachineStatus(context.Context, machine.Name) (status.StatusInfo, error)
 }
 
 // BlockDeviceService instances can fetch block devices for a machine.

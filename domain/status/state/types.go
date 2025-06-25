@@ -273,8 +273,15 @@ type machineUUID struct {
 	UUID string `db:"uuid"`
 }
 
-// machineStatus represents the struct to be used for the status.
 type machineStatus struct {
+	Status  string              `db:"status"`
+	Message string              `db:"message"`
+	Data    []byte              `db:"data"`
+	Updated sql.Null[time.Time] `db:"updated_at"`
+}
+
+type machineNameStatus struct {
+	Name    string              `db:"name"`
 	Status  string              `db:"status"`
 	Message string              `db:"message"`
 	Data    []byte              `db:"data"`

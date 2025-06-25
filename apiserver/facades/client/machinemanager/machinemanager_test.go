@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -90,6 +92,7 @@ func (s *AddMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 		common.NewResources(),
 		nil,
 		loggertesting.WrapCheckLog(c),
+		clock.WallClock,
 		Services{
 			BlockCommandService: s.blockCommandService,
 			CloudService:        s.cloudService,
@@ -246,6 +249,7 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 		nil,
 		s.leadership,
 		loggertesting.WrapCheckLog(c),
+		clock.WallClock,
 		Services{
 			ApplicationService:  s.applicationService,
 			BlockCommandService: s.blockCommandService,
@@ -712,6 +716,7 @@ type ProvisioningMachineManagerSuite struct {
 	ctrlSt       *MockControllerBackend
 	pool         *MockPool
 	store        *MockObjectStore
+	clock        clock.Clock
 	cloudService *commonmocks.MockCloudService
 	api          *MachineManagerAPI
 	modelUUID    coremodel.UUID
@@ -719,6 +724,7 @@ type ProvisioningMachineManagerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	controllerNodeService   *MockControllerNodeService
 	machineService          *MockMachineService
+	statusService           *MockStatusService
 	keyUpdaterService       *MockKeyUpdaterService
 	modelConfigService      *MockModelConfigService
 	bootstrapEnviron        *MockBootstrapEnviron
@@ -749,6 +755,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
 
 	s.pool = NewMockPool(ctrl)
 	s.pool.EXPECT().SystemState().Return(s.ctrlSt, nil).AnyTimes()
@@ -758,6 +765,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.bootstrapEnviron = NewMockBootstrapEnviron(ctrl)
 	s.store = NewMockObjectStore(ctrl)
+	s.clock = testclock.NewClock(time.Now())
 
 	s.blockCommandService = NewMockBlockCommandService(ctrl)
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
@@ -779,6 +787,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 		common.NewResources(),
 		nil,
 		loggertesting.WrapCheckLog(c),
+		s.clock,
 		Services{
 			AgentBinaryService:      s.agentBinaryService,
 			AgentPasswordService:    s.agentPasswordService,
@@ -788,6 +797,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 			ControllerNodeService:   s.controllerNodeService,
 			KeyUpdaterService:       s.keyUpdaterService,
 			MachineService:          s.machineService,
+			StatusService:           s.statusService,
 			ModelConfigService:      s.modelConfigService,
 		},
 	)
@@ -937,41 +947,24 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 	c.Assert(result.Script, tc.Not(tc.Contains), "apt-get upgrade")
 }
 
-type statusMatcher struct {
-	c        *tc.C
-	expected status.StatusInfo
-}
-
-func (m statusMatcher) Matches(x interface{}) bool {
-	obtained, ok := x.(status.StatusInfo)
-	m.c.Assert(ok, tc.IsTrue)
-	if !ok {
-		return false
-	}
-
-	m.c.Assert(obtained.Since, tc.NotNil)
-	obtained.Since = nil
-	m.c.Assert(obtained, tc.DeepEquals, m.expected)
-	return true
-}
-
-func (m statusMatcher) String() string {
-	return "Match the status.StatusInfo value"
-}
-
 func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	now := s.clock.Now()
+
 	machine0 := NewMockMachine(ctrl)
-	machine0.EXPECT().Id().Return("0")
-	machine0.EXPECT().InstanceStatus().Return(status.StatusInfo{Status: "provisioning error"}, nil)
-	machine0.EXPECT().SetInstanceStatus(statusMatcher{c: c, expected: status.StatusInfo{
+	machine0.EXPECT().Id().Return("0").MinTimes(1)
+	machine1 := NewMockMachine(ctrl)
+	machine1.EXPECT().Id().Return("1").MinTimes(1)
+
+	s.statusService.EXPECT().GetInstanceStatus(gomock.Any(), coremachine.Name("0")).Return(status.StatusInfo{Status: status.ProvisioningError}, nil)
+	s.statusService.EXPECT().SetInstanceStatus(gomock.Any(), coremachine.Name("0"), status.StatusInfo{
 		Status: status.ProvisioningError,
 		Data:   map[string]interface{}{"transient": true},
-	}}).Return(nil)
-	machine1 := NewMockMachine(ctrl)
-	machine1.EXPECT().Id().Return("1")
+		Since:  &now,
+	}).Return(nil)
+
 	s.st.EXPECT().AllMachines().Return([]Machine{machine0, machine1}, nil)
 
 	results, err := s.api.RetryProvisioning(c.Context(), params.RetryProvisioningArgs{
@@ -985,15 +978,22 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	now := s.clock.Now()
+
 	machine0 := NewMockMachine(ctrl)
-	machine0.EXPECT().InstanceStatus().Return(status.StatusInfo{Status: "provisioning error"}, nil)
-	machine0.EXPECT().SetInstanceStatus(statusMatcher{c: c, expected: status.StatusInfo{
+	machine0.EXPECT().Id().Return("0").MinTimes(1)
+	machine1 := NewMockMachine(ctrl)
+	machine1.EXPECT().Id().Return("1").MinTimes(1)
+	s.st.EXPECT().AllMachines().Return([]Machine{machine0, machine1}, nil)
+
+	s.statusService.EXPECT().GetInstanceStatus(gomock.Any(), coremachine.Name("0")).Return(status.StatusInfo{Status: status.ProvisioningError}, nil)
+	s.statusService.EXPECT().SetInstanceStatus(gomock.Any(), coremachine.Name("0"), status.StatusInfo{
 		Status: status.ProvisioningError,
 		Data:   map[string]interface{}{"transient": true},
-	}}).Return(nil)
-	machine1 := NewMockMachine(ctrl)
-	machine1.EXPECT().InstanceStatus().Return(status.StatusInfo{Status: "pending"}, nil)
-	s.st.EXPECT().AllMachines().Return([]Machine{machine0, machine1}, nil)
+		Since:  &now,
+	}).Return(nil)
+
+	s.statusService.EXPECT().GetInstanceStatus(gomock.Any(), coremachine.Name("1")).Return(status.StatusInfo{Status: status.Pending}, nil)
 
 	results, err := s.api.RetryProvisioning(c.Context(), params.RetryProvisioningArgs{
 		All: true,

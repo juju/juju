@@ -43,6 +43,7 @@ type InstancePollerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	networkService          *MockNetworkService
 	machineService          *MockMachineService
+	statusService           *MockStatusService
 
 	machineEntities     params.Entities
 	machineErrorResults params.ErrorResults
@@ -62,6 +63,15 @@ func (s *InstancePollerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
+
+	c.Cleanup(func() {
+		s.controllerConfigService = nil
+		s.networkService = nil
+		s.machineService = nil
+		s.statusService = nil
+	})
+
 	return ctrl
 }
 
@@ -71,6 +81,7 @@ func (s *InstancePollerSuite) setupAPI(c *tc.C) (err error) {
 		nil,
 		s.networkService,
 		s.machineService,
+		s.statusService,
 		nil,
 		s.resources,
 		s.authoriser,
@@ -353,77 +364,66 @@ func (s *InstancePollerSuite) TestStatusSuccess(c *tc.C) {
 	err := s.setupAPI(c)
 	c.Assert(err, tc.ErrorIsNil)
 
-	now := time.Now()
-	s1 := status.StatusInfo{
-		Status:  status.Error,
-		Message: "not really",
-		Data: map[string]interface{}{
-			"price": 4.2,
-			"bool":  false,
-			"bar":   []string{"a", "b"},
-		},
-		Since: &now,
-	}
-	s2 := status.StatusInfo{}
-	s.st.SetMachineInfo(c, machineInfo{id: "1", status: s1})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", status: s2})
+	now := s.clock.Now()
 
-	result, err := s.api.Status(c.Context(), s.mixedEntities)
+	s.statusService.EXPECT().GetMachineStatus(gomock.Any(), machine.Name("1")).Return(status.StatusInfo{
+		Status:  status.Active,
+		Message: "blah",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	}, nil)
+
+	result, err := s.api.Status(c.Context(), params.Entities{Entities: []params.Entity{{
+		Tag: "machine-1",
+	}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StatusResults{
-		Results: []params.StatusResult{
-			{
-				Status: status.Error.String(),
-				Info:   s1.Message,
-				Data:   s1.Data,
-				Since:  s1.Since,
-			},
-			{Status: "", Info: "", Data: nil, Since: nil},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
-			{Error: apiservertesting.ServerError(`"42" is not a valid tag`)},
+		Results: []params.StatusResult{{
+			Status: status.Active.String(),
+			Info:   "blah",
+			Data:   map[string]interface{}{"foo": "bar"},
+			Since:  &now,
 		}},
-	)
-
-	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckCall(c, 1, "Status")
-	s.st.CheckFindEntityCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "Status")
-	s.st.CheckFindEntityCall(c, 4, "42")
+	})
 }
 
-func (s *InstancePollerSuite) TestStatusFailure(c *tc.C) {
+func (s *InstancePollerSuite) TestStatusNotFound(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.st.SetErrors(
-		errors.New("pow!"),                   // m1 := FindEntity("1"); Status not called
-		nil,                                  // m2 := FindEntity("2")
-		errors.New("FAIL"),                   // m2.Status()
-		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
-	)
-	s.st.SetMachineInfo(c, machineInfo{id: "1"})
-	s.st.SetMachineInfo(c, machineInfo{id: "2"})
+	s.statusService.EXPECT().GetMachineStatus(gomock.Any(), machine.Name("1")).Return(status.StatusInfo{}, machineerrors.MachineNotFound)
 
-	result, err := s.api.Status(c.Context(), s.machineEntities)
+	result, err := s.api.Status(c.Context(), params.Entities{Entities: []params.Entity{{
+		Tag: "machine-1",
+	}}})
+
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.StatusResults{
-		Results: []params.StatusResult{
-			{Error: apiservertesting.ServerError("pow!")},
-			{Error: apiservertesting.ServerError("FAIL")},
-			{Error: apiservertesting.NotProvisionedError("42")},
-		}},
-	)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
 
-	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckFindEntityCall(c, 1, "2")
-	s.st.CheckCall(c, 2, "Status")
-	s.st.CheckFindEntityCall(c, 3, "3")
+func (s *InstancePollerSuite) TestStatusInvalidTags(c *tc.C) {
+	err := s.setupAPI(c)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := s.api.Status(c.Context(), params.Entities{Entities: []params.Entity{
+		{Tag: "application-unknown"},
+		{Tag: "invalid-tag"},
+		{Tag: "unit-missing-1"},
+		{Tag: ""},
+		{Tag: "42"},
+	}})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StatusResults{Results: []params.StatusResult{
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+	}})
 }
 
 func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *tc.C) {
@@ -432,61 +432,61 @@ func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *tc.C) {
 	err := s.setupAPI(c)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
+	now := s.clock.Now()
 
-	result, err := s.api.InstanceStatus(c.Context(), s.mixedEntities)
+	s.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machine.Name("1")).Return(status.StatusInfo{
+		Status:  status.Active,
+		Message: "blah",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	}, nil)
+
+	result, err := s.api.InstanceStatus(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "machine-1"}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StatusResults{
-		Results: []params.StatusResult{
-			{Status: "foo"},
-			{Status: ""},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ServerError(`"application-unknown" is not a valid machine tag`)},
-			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},
-			{Error: apiservertesting.ServerError(`"unit-missing-1" is not a valid machine tag`)},
-			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
-			{Error: apiservertesting.ServerError(`"42" is not a valid tag`)},
-		},
-	},
-	)
-
-	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckCall(c, 1, "InstanceStatus")
-	s.st.CheckMachineCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "InstanceStatus")
-	s.st.CheckMachineCall(c, 4, "42")
+		Results: []params.StatusResult{{
+			Status: status.Active.String(),
+			Info:   "blah",
+			Data:   map[string]interface{}{"foo": "bar"},
+			Since:  &now,
+		}},
+	})
 }
 
-func (s *InstancePollerSuite) TestInstanceStatusFailure(c *tc.C) {
+func (s *InstancePollerSuite) TestInstanceStatusNotFound(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.st.SetErrors(
-		errors.New("pow!"),                   // m1 := FindEntity("1")
-		nil,                                  // m2 := FindEntity("2")
-		errors.New("FAIL"),                   // m2.InstanceStatus()
-		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
-	)
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
+	s.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machine.Name("1")).Return(status.StatusInfo{}, machineerrors.MachineNotFound)
 
-	result, err := s.api.InstanceStatus(c.Context(), s.machineEntities)
+	result, err := s.api.InstanceStatus(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "machine-1"}}})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.StatusResults{
-		Results: []params.StatusResult{
-			{Error: apiservertesting.ServerError("pow!")},
-			{Error: apiservertesting.ServerError("FAIL")},
-			{Error: apiservertesting.NotProvisionedError("42")},
-		}},
-	)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
 
-	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckMachineCall(c, 1, "2")
-	s.st.CheckCall(c, 2, "InstanceStatus")
-	s.st.CheckMachineCall(c, 3, "3")
+func (s *InstancePollerSuite) TestInstanceStatusInvalidTags(c *tc.C) {
+	err := s.setupAPI(c)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := s.api.InstanceStatus(c.Context(), params.Entities{Entities: []params.Entity{
+		{Tag: "application-unknown"},
+		{Tag: "invalid-tag"},
+		{Tag: "unit-missing-1"},
+		{Tag: ""},
+		{Tag: "42"},
+	}})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StatusResults{Results: []params.StatusResult{
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+	}})
 }
 
 func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *tc.C) {
@@ -495,79 +495,108 @@ func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 	err := s.setupAPI(c)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
+	now := s.clock.Now()
+
+	s.statusService.EXPECT().SetInstanceStatus(gomock.Any(), machine.Name("1"), status.StatusInfo{
+		Status:  status.Active,
+		Message: "blah",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	}).Return(nil)
 
 	result, err := s.api.SetInstanceStatus(c.Context(), params.SetStatus{
-		Entities: []params.EntityStatusArgs{
-			{Tag: "machine-1", Status: ""},
-			{Tag: "machine-2", Status: "new status"},
-			{Tag: "machine-42", Status: ""},
-			{Tag: "application-unknown", Status: ""},
-			{Tag: "invalid-tag", Status: ""},
-			{Tag: "unit-missing-1", Status: ""},
-			{Tag: "", Status: ""},
-			{Tag: "42", Status: ""},
-		}},
+		Entities: []params.EntityStatusArgs{{
+			Tag:    "machine-1",
+			Status: status.Active.String(),
+			Info:   "blah",
+			Data:   map[string]interface{}{"foo": "bar"},
+		}}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, s.mixedErrorResults)
-
-	now := s.clock.Now()
-	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckCall(c, 1, "SetInstanceStatus", status.StatusInfo{Status: "", Since: &now})
-	s.st.CheckMachineCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "SetInstanceStatus", status.StatusInfo{Status: "new status", Since: &now})
-	s.st.CheckMachineCall(c, 4, "42")
-
-	// Ensure machines were updated.
-	machine, err := s.st.Machine("1")
-	c.Assert(err, tc.ErrorIsNil)
-	// TODO (perrito666) there should not be an empty StatusInfo here,
-	// this is certainly a smell.
-	setStatus, err := machine.InstanceStatus()
-	c.Assert(err, tc.ErrorIsNil)
-	setStatus.Since = nil
-	c.Assert(setStatus, tc.DeepEquals, status.StatusInfo{})
-
-	machine, err = s.st.Machine("2")
-	c.Assert(err, tc.ErrorIsNil)
-	setStatus, err = machine.InstanceStatus()
-	c.Assert(err, tc.ErrorIsNil)
-	setStatus.Since = nil
-	c.Assert(setStatus, tc.DeepEquals, status.StatusInfo{Status: "new status"})
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}}})
 }
 
-func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *tc.C) {
+func (s *InstancePollerSuite) TestSetInstanceStatusToError(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.st.SetErrors(
-		errors.New("pow!"),                   // m1 := FindEntity("1")
-		nil,                                  // m2 := FindEntity("2")
-		errors.New("FAIL"),                   // m2.SetInstanceStatus()
-		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
-	)
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
+	now := s.clock.Now()
+
+	s.statusService.EXPECT().SetInstanceStatus(gomock.Any(), machine.Name("0"), status.StatusInfo{
+		Status:  status.ProvisioningError,
+		Message: "blah",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	}).Return(nil)
+	s.statusService.EXPECT().SetMachineStatus(gomock.Any(), machine.Name("0"), status.StatusInfo{
+		Status:  status.Error,
+		Message: "blah",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	}).Return(nil)
 
 	result, err := s.api.SetInstanceStatus(c.Context(), params.SetStatus{
-		Entities: []params.EntityStatusArgs{
-			{Tag: "machine-1", Status: "new"},
-			{Tag: "machine-2", Status: "invalid"},
-			{Tag: "machine-3", Status: ""},
-		}},
+		Entities: []params.EntityStatusArgs{{
+			Tag:    "machine-0",
+			Status: status.ProvisioningError.String(),
+			Info:   "blah",
+			Data:   map[string]interface{}{"foo": "bar"},
+		}}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, s.machineErrorResults)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}}})
+}
 
-	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckMachineCall(c, 1, "2")
+func (s *InstancePollerSuite) TestSetInstanceStatusMachineNotFound(c *tc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, tc.ErrorIsNil)
+
 	now := s.clock.Now()
-	s.st.CheckCall(c, 2, "SetInstanceStatus", status.StatusInfo{Status: "invalid", Since: &now})
-	s.st.CheckMachineCall(c, 3, "3")
+
+	s.statusService.EXPECT().SetInstanceStatus(gomock.Any(), machine.Name("1"), status.StatusInfo{
+		Status:  status.Active,
+		Message: "blah",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	}).Return(machineerrors.MachineNotFound)
+
+	result, err := s.api.SetInstanceStatus(c.Context(), params.SetStatus{
+		Entities: []params.EntityStatusArgs{{
+			Tag:    "machine-1",
+			Status: status.Active.String(),
+			Info:   "blah",
+			Data:   map[string]interface{}{"foo": "bar"},
+		}}},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *InstancePollerSuite) TestSetInstanceStatusInvalidTags(c *tc.C) {
+	err := s.setupAPI(c)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := s.api.SetInstanceStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{
+		{Tag: "application-unknown"},
+		{Tag: "invalid-tag"},
+		{Tag: "unit-missing-1"},
+		{Tag: ""},
+		{Tag: "42"},
+	}})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+		{Error: apiservertesting.ErrUnauthorized},
+	}})
 }
 
 func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *tc.C) {

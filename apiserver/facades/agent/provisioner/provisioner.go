@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -47,8 +48,6 @@ import (
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
 	*common.ControllerConfigAPI
-	*common.StatusSetter
-	*common.StatusGetter
 	*common.DeadEnsurer
 	*common.PasswordChanger
 	*common.LifeGetter
@@ -68,6 +67,7 @@ type ProvisionerAPI struct {
 	modelConfigService        ModelConfigService
 	modelInfoService          ModelInfoService
 	machineService            MachineService
+	statusService             StatusService
 	applicationService        ApplicationService
 	resources                 facade.Resources
 	authorizer                facade.Authorizer
@@ -78,6 +78,7 @@ type ProvisionerAPI struct {
 	getCanModify              common.GetAuthFunc
 	toolsFinder               common.ToolsFinder
 	logger                    logger.Logger
+	clock                     clock.Clock
 
 	// Hold on to the controller UUID, as we'll reuse it for a lot of
 	// calls.
@@ -138,6 +139,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	agentBinaryService := domainServices.AgentBinary()
 	applicationService := domainServices.Application()
 	machineService := domainServices.Machine()
+	statusService := domainServices.Status()
 	modelInfoService := domainServices.ModelInfo()
 	cloudService := domainServices.Cloud()
 	credentialService := domainServices.Credential()
@@ -191,8 +193,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	resources := ctx.Resources()
 
 	api := &ProvisionerAPI{
-		StatusSetter:         common.NewStatusSetter(st, getAuthFunc, ctx.Clock()),
-		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
 		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc, machineService),
 		PasswordChanger:      common.NewPasswordChanger(agentPasswordService, st, getAuthFunc),
 		LifeGetter:           common.NewLifeGetter(applicationService, machineService, st, getAuthFunc, ctx.Logger()),
@@ -215,6 +215,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		modelConfigService:        modelConfigService,
 		modelInfoService:          modelInfoService,
 		machineService:            machineService,
+		statusService:             statusService,
 		applicationService:        applicationService,
 		resources:                 resources,
 		authorizer:                authorizer,
@@ -225,6 +226,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		getCanModify:              getCanModify,
 		controllerUUID:            ctx.ControllerUUID(),
 		logger:                    ctx.Logger().Child("provisioner"),
+		clock:                     ctx.Clock(),
 	}
 	if isCaasModel {
 		return api, nil
@@ -478,11 +480,13 @@ func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx context.Context) (par
 			// status to Started yet.
 			continue
 		}
-		var result params.StatusResult
-		statusInfo, err := machine.InstanceStatus()
+		machineName := coremachine.Name(machine.Tag().Id())
+		statusInfo, err := api.statusService.GetInstanceStatus(ctx, machineName)
 		if err != nil {
 			continue
 		}
+
+		var result params.StatusResult
 		result.Status = statusInfo.Status.String()
 		result.Info = statusInfo.Message
 		result.Data = statusInfo.Data
@@ -1313,6 +1317,85 @@ func (api *ProvisionerAPI) GetContainerProfileInfo(ctx context.Context, args par
 	return c.result, nil
 }
 
+// Status returns the status of the specified machine.
+func (api *ProvisionerAPI) Status(ctx context.Context, args params.Entities) (params.StatusResults, error) {
+	results := params.StatusResults{
+		Results: make([]params.StatusResult, len(args.Entities)),
+	}
+	canAccess, err := api.getAuthFunc(ctx)
+	if err != nil {
+		return results, err
+	}
+	for i, entity := range args.Entities {
+		mTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canAccess(mTag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		machineName := coremachine.Name(mTag.Id())
+
+		statusInfo, err := api.statusService.GetMachineStatus(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		results.Results[i] = params.StatusResult{
+			Status: statusInfo.Status.String(),
+			Info:   statusInfo.Message,
+			Data:   statusInfo.Data,
+			Since:  statusInfo.Since,
+		}
+	}
+	return results, nil
+}
+
+// SetStatus sets the status of the specified machine.
+func (api *ProvisionerAPI) SetStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	canModify, err := api.getAuthFunc(ctx)
+	if err != nil {
+		return results, err
+	}
+	now := api.clock.Now()
+	for i, entity := range args.Entities {
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canModify(machineTag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		machineName := coremachine.Name(machineTag.Id())
+
+		err = api.statusService.SetMachineStatus(ctx, machineName, status.StatusInfo{
+			Status:  status.Status(entity.Status),
+			Message: entity.Info,
+			Data:    entity.Data,
+			Since:   &now,
+		})
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return results, nil
+}
+
 // InstanceStatus returns the instance status for each given entity.
 // Only machine tags are accepted.
 func (api *ProvisionerAPI) InstanceStatus(ctx context.Context, args params.Entities) (params.StatusResults, error) {
@@ -1327,20 +1410,30 @@ func (api *ProvisionerAPI) InstanceStatus(ctx context.Context, args params.Entit
 	for i, arg := range args.Entities {
 		mTag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			api.logger.Warningf(ctx, "InstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := api.getMachine(canAccess, mTag)
-		if err == nil {
-			var statusInfo status.StatusInfo
-			statusInfo, err = machine.InstanceStatus()
-			result.Results[i].Status = statusInfo.Status.String()
-			result.Results[i].Info = statusInfo.Message
-			result.Results[i].Data = statusInfo.Data
-			result.Results[i].Since = statusInfo.Since
+		if !canAccess(mTag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		machineName := coremachine.Name(mTag.Id())
+
+		statusInfo, err := api.statusService.GetInstanceStatus(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result.Results[i] = params.StatusResult{
+			Status: statusInfo.Status.String(),
+			Info:   statusInfo.Message,
+			Data:   statusInfo.Data,
+			Since:  statusInfo.Since,
+		}
 	}
 	return result, nil
 }
@@ -1348,37 +1441,35 @@ func (api *ProvisionerAPI) InstanceStatus(ctx context.Context, args params.Entit
 func (api *ProvisionerAPI) setOneInstanceStatus(ctx context.Context, canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
-		api.logger.Warningf(ctx, "SetInstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
 		return apiservererrors.ErrPerm
 	}
-	machine, err := api.getMachine(canAccess, mTag)
-	if err != nil {
-		return errors.Trace(err)
+	if !canAccess(mTag) {
+		return apiservererrors.ErrPerm
 	}
-	// We can use the controller timestamp to get now.
-	since, err := api.st.ControllerTimestamp()
-	if err != nil {
-		return err
-	}
+
+	machineName := coremachine.Name(mTag.Id())
+	since := api.clock.Now()
 	s := status.StatusInfo{
 		Status:  status.Status(arg.Status),
 		Message: arg.Info,
 		Data:    arg.Data,
-		Since:   since,
+		Since:   &since,
 	}
 
-	// TODO(jam): 2017-01-29 These two status should be set in a single
-	//	transaction, not in two separate transactions. Otherwise you can see
-	//	one toggle, but not the other.
-	if err = machine.SetInstanceStatus(s); err != nil {
-		api.logger.Debugf(ctx, "failed to SetInstanceStatus for %q: %v", mTag, err)
-		return err
+	err = api.statusService.SetInstanceStatus(ctx, machineName, s)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return errors.NotFoundf("machine %q", machineName)
+	} else if err != nil {
+		return errors.Trace(err)
 	}
-	if status.Status(arg.Status) == status.ProvisioningError ||
-		status.Status(arg.Status) == status.Error {
+
+	if arg.Status == status.ProvisioningError.String() || arg.Status == status.Error.String() {
 		s.Status = status.Error
-		if err = machine.SetStatus(s); err != nil {
-			return err
+		err := api.statusService.SetMachineStatus(ctx, machineName, s)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return errors.NotFoundf("machine %q", machineName)
+		} else if err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -1392,7 +1483,6 @@ func (api *ProvisionerAPI) SetInstanceStatus(ctx context.Context, args params.Se
 	}
 	canAccess, err := api.getAuthFunc(ctx)
 	if err != nil {
-		api.logger.Errorf(ctx, "failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {

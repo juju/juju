@@ -2004,6 +2004,40 @@ func (s *modelStateSuite) TestGetMachineStatusPendingOnCreateMachine(c *tc.C) {
 	c.Check(obtainedStatus.Status, tc.Equals, status.MachineStatusPending)
 }
 
+func (s *modelStateSuite) TestGetAllMachineStatuses(c *tc.C) {
+	// Arrange: 2 machine with statuses
+	s.createMachine(c, "666")
+	s.createMachine(c, "777")
+
+	s.state.SetMachineStatus(c.Context(), "666", status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusStarted,
+		Message: "it's started",
+		Data:    []byte(`{"foo": "bar"}`),
+	})
+	s.state.SetMachineStatus(c.Context(), "777", status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusPending,
+		Message: "it's pending",
+		Data:    []byte(`{"bar": "foo"}`),
+	})
+
+	// Act
+	statuses, err := s.state.GetAllMachineStatuses(c.Context())
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses, tc.HasLen, 2)
+	c.Check(statuses["666"], tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusStarted,
+		Message: "it's started",
+		Data:    []byte(`{"foo": "bar"}`),
+	})
+	c.Check(statuses["777"], tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusPending,
+		Message: "it's pending",
+		Data:    []byte(`{"bar": "foo"}`),
+	})
+}
+
 // TestGetMachineMachineStatusNotFoundError asserts that a Pending status is
 // returned when creating a machine.
 func (s *modelStateSuite) TestGetMachineMachineStatusNotFoundError(c *tc.C) {
@@ -2017,6 +2051,12 @@ func (s *modelStateSuite) TestGetMachineMachineStatusNotFoundError(c *tc.C) {
 
 	_, err = s.state.GetMachineStatus(c.Context(), "666")
 	c.Assert(err, tc.ErrorIs, statuserrors.MachineStatusNotFound)
+}
+
+func (s *modelStateSuite) TestGetAllMachineStatusesEmptyModel(c *tc.C) {
+	statuses, err := s.state.GetAllMachineStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses, tc.HasLen, 0)
 }
 
 // TestSetMachineStatusSuccess asserts the happy path of SetMachineStatus at the
@@ -2150,6 +2190,46 @@ WHERE machine_uuid=?`, machineUUID)
 	// machine_cloud_instance_status table.
 	_, err = s.state.GetInstanceStatus(c.Context(), "666")
 	c.Assert(err, tc.ErrorIs, statuserrors.MachineStatusNotFound)
+}
+
+func (s *modelStateSuite) TestGetAllInstanceStatusesEmptyModel(c *tc.C) {
+	statuses, err := s.state.GetAllInstanceStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses, tc.HasLen, 0)
+}
+
+func (s *modelStateSuite) TestGetAllInstanceStatuses(c *tc.C) {
+	// Arrange: 2 machine with statuses
+	s.createMachine(c, "666")
+	s.createMachine(c, "777")
+
+	s.state.SetInstanceStatus(c.Context(), "666", status.StatusInfo[status.InstanceStatusType]{
+		Status:  status.InstanceStatusRunning,
+		Message: "it's running",
+		Data:    []byte(`{"foo": "bar"}`),
+	})
+	s.state.SetInstanceStatus(c.Context(), "777", status.StatusInfo[status.InstanceStatusType]{
+		Status:  status.InstanceStatusPending,
+		Message: "it's pending",
+		Data:    []byte(`{"bar": "foo"}`),
+	})
+
+	// Act
+	statuses, err := s.state.GetAllInstanceStatuses(c.Context())
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statuses, tc.HasLen, 2)
+	c.Assert(statuses["666"], tc.DeepEquals, status.StatusInfo[status.InstanceStatusType]{
+		Status:  status.InstanceStatusRunning,
+		Message: "it's running",
+		Data:    []byte(`{"foo": "bar"}`),
+	})
+	c.Assert(statuses["777"], tc.DeepEquals, status.StatusInfo[status.InstanceStatusType]{
+		Status:  status.InstanceStatusPending,
+		Message: "it's pending",
+		Data:    []byte(`{"bar": "foo"}`),
+	})
 }
 
 // TestSetInstanceStatusSuccess asserts the happy path of SetInstanceStatus at
@@ -2290,14 +2370,15 @@ func (s *modelStateSuite) addRelationToApplication(c *tc.C, appUUID coreapplicat
 func (s *modelStateSuite) createMachine(c *tc.C, name coremachine.Name) coremachine.UUID {
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	mUUID := machinetesting.GenUUID(c)
-	err := machineState.CreateMachine(c.Context(), name, "", mUUID, nil)
+	netNodeUUID := uuid.MustNewUUID().String()
+	err := machineState.CreateMachine(c.Context(), name, netNodeUUID, mUUID, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = machineState.SetMachineCloudInstance(
 		c.Context(),
 		mUUID,
-		instance.Id("123"),
-		"one-two-three",
+		instance.Id(name.String()),
+		name.String(),
 		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch:           ptr("arm64"),

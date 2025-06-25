@@ -182,6 +182,10 @@ type ModelState interface {
 	// - [statuserrors.MachineStatusNotFound] if the status is not set.
 	GetMachineStatus(ctx context.Context, machineName string) (status.StatusInfo[status.MachineStatusType], error)
 
+	// GetAllMachineStatuses returns all the machine statuses for the model, indexed
+	// by machine name.
+	GetAllMachineStatuses(context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error)
+
 	// SetMachineStatus sets the status of the specified machine.
 	// This method may return the following errors:
 	// - [machineerrors.MachineNotFound] if the machine does not exist.
@@ -193,6 +197,10 @@ type ModelState interface {
 	// - [machineerrors.MachineNotFound] if the machine does not exist or;
 	// - [statuserrors.MachineStatusNotFound] if the status is not set.
 	GetInstanceStatus(ctx context.Context, machineName string) (status.StatusInfo[status.InstanceStatusType], error)
+
+	// GetAllInstanceStatuses returns all the instance statuses for the model, indexed
+	// by machine name.
+	GetAllInstanceStatuses(context.Context) (map[string]status.StatusInfo[status.InstanceStatusType], error)
 
 	// SetInstanceStatus sets the cloud specific instance status for this
 	// machine.
@@ -689,8 +697,32 @@ func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Errorf("retrieving machine status for machine %q: %w", machineName, err)
 	}
-
 	return decodeMachineStatus(machineStatus)
+}
+
+// GetAllMachineStatuses returns all the machine statuses for the model, indexed
+// by machine name.
+func (s *Service) GetAllMachineStatuses(ctx context.Context) (map[machine.Name]corestatus.StatusInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	machineStatuses, err := s.modelState.GetAllMachineStatuses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[machine.Name]corestatus.StatusInfo, len(machineStatuses))
+	for name, status := range machineStatuses {
+		machineName := machine.Name(name)
+		if err := machineName.Validate(); err != nil {
+			return nil, errors.Errorf("validating returned machine name %q: %w", name, err)
+		}
+		result[machineName], err = decodeMachineStatus(status)
+		if err != nil {
+			return nil, errors.Errorf("decoding machine status for machine %q: %w", machineName, err)
+		}
+	}
+	return result, nil
 }
 
 // SetMachineStatus sets the status of the specified machine.
@@ -725,7 +757,60 @@ func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name
 	return nil
 }
 
-// ExportUnitStatuses returns the workload and agent statuses of all the units in
+// CheckMachineStatusesReadyForMigration returns an error if the statuses of any
+// machines in the model indicate they cannot be migrated.
+func (s *Service) CheckMachineStatusesReadyForMigration(ctx context.Context) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	machineStatuses, err := s.modelState.GetAllMachineStatuses(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	instanceStatuses, err := s.modelState.GetAllInstanceStatuses(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if len(machineStatuses) != len(instanceStatuses) {
+		return errors.Errorf("some machines have unset statuses")
+	}
+
+	var failedChecks []string
+	for machineName, mStatus := range machineStatuses {
+		iStatus, ok := instanceStatuses[machineName]
+		if !ok {
+			return errors.Errorf("some machines have unset statuses")
+		}
+
+		machineStatus, err := decodeMachineStatus(mStatus)
+		if err != nil {
+			return errors.Errorf("decoding machine status for machine %q: %w", machineName, err)
+		}
+		instanceStatus, err := decodeInstanceStatus(iStatus)
+		if err != nil {
+			return errors.Errorf("decoding instance status for machine %q: %w", machineName, err)
+		}
+
+		if !corestatus.IsMachinePresent(machineStatus) {
+			failedChecks = append(failedChecks,
+				fmt.Sprintf("- machine %q status is not started", machineName))
+		}
+		if !corestatus.IsInstancePresent(instanceStatus) {
+			failedChecks = append(failedChecks,
+				fmt.Sprintf("- machine %q instance status is not running", machineName))
+		}
+	}
+
+	if len(failedChecks) > 0 {
+		return errors.Errorf(
+			"model machines(s) are not ready for migration:\n%s", strings.Join(failedChecks, "\n"))
+	}
+	return nil
+}
+
+// ExportUnitStatuses workload and agent statuses of all the units in
 // in the model, indexed by unit name.
 //
 // TODO(jack-w-shaw): Export the container statuses too.

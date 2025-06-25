@@ -10,6 +10,10 @@ const (
 	// operated on is considered dead.
 	MachineIsDead = errors.ConstError("machine is dead")
 
+	// MachineNotAlive describes an error that occurs when the machine being
+	// operated on is considered not alive.
+	MachineNotAlive = errors.ConstError("machine is not alive")
+
 	// MachineNotFound describes an error that occurs when the machine being
 	// operated on does not exist.
 	MachineNotFound = errors.ConstError("machine not found")

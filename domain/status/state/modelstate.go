@@ -1814,7 +1814,6 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 	if mStatus.Updated.Valid {
 		since = &mStatus.Updated.V
 	}
-
 	var data []byte
 	if len(mStatus.Data) > 0 {
 		data = mStatus.Data
@@ -1826,6 +1825,60 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 		Since:   since,
 		Data:    data,
 	}, nil
+}
+
+// GetAllMachineStatuses returns all the machine statuses for the model, indexed
+// by machine name.
+func (st *ModelState) GetAllMachineStatuses(ctx context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &machineNameStatus.*
+FROM v_machine_status AS ms
+JOIN machine AS m ON ms.machine_uuid = m.uuid
+	`, machineNameStatus{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var res []machineNameStatus
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&res)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string]status.StatusInfo[status.MachineStatusType])
+	for _, mStatus := range res {
+		// Convert the internal status id from the (machine_status_value table)
+		// into the core status.Status type.
+		machineStatus, err := status.DecodeMachineStatus(mStatus.Status)
+		if err != nil {
+			return nil, errors.Errorf("decoding machine status for machine %q: %w", mStatus.Name, err)
+		}
+		var since *time.Time
+		if mStatus.Updated.Valid {
+			since = &mStatus.Updated.V
+		}
+		var data []byte
+		if len(mStatus.Data) > 0 {
+			data = mStatus.Data
+		}
+		result[mStatus.Name] = status.StatusInfo[status.MachineStatusType]{
+			Status:  machineStatus,
+			Message: mStatus.Message,
+			Since:   since,
+			Data:    data,
+		}
+	}
+	return result, nil
 }
 
 // SetMachineStatus sets the status of the specified machine.
@@ -1952,13 +2005,68 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 	if mStatus.Updated.Valid {
 		since = &mStatus.Updated.V
 	}
-
+	var data []byte
+	if len(mStatus.Data) > 0 {
+		data = mStatus.Data
+	}
 	return status.StatusInfo[status.InstanceStatusType]{
 		Status:  machineStatus,
 		Message: mStatus.Message,
 		Since:   since,
-		Data:    mStatus.Data,
+		Data:    data,
 	}, nil
+}
+
+// GetAllInstanceStatuses returns all the instance statuses for the model, indexed
+// by machine name.
+func (st *ModelState) GetAllInstanceStatuses(ctx context.Context) (map[string]status.StatusInfo[status.InstanceStatusType], error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &machineNameStatus.*
+FROM v_machine_cloud_instance_status AS ms
+JOIN machine AS m ON ms.machine_uuid = m.uuid
+	`, machineNameStatus{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var res []machineNameStatus
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&res)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string]status.StatusInfo[status.InstanceStatusType])
+	for _, mStatus := range res {
+		machineStatus, err := status.DecodeCloudInstanceStatus(mStatus.Status)
+		if err != nil {
+			return nil, errors.Errorf("decoding cloud instance status for machine %q: %w", mStatus.Name, err)
+		}
+		var since *time.Time
+		if mStatus.Updated.Valid {
+			since = &mStatus.Updated.V
+		}
+		var data []byte
+		if len(mStatus.Data) > 0 {
+			data = mStatus.Data
+		}
+		result[mStatus.Name] = status.StatusInfo[status.InstanceStatusType]{
+			Status:  machineStatus,
+			Message: mStatus.Message,
+			Since:   since,
+			Data:    data,
+		}
+	}
+	return result, nil
 }
 
 // SetInstanceStatus sets the cloud specific instance status for this

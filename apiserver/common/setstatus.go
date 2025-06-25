@@ -48,6 +48,10 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, entityStatus status.Status
 	// Use UnitStatusSetter for setting unit status.
 	case *state.Unit:
 		return apiservererrors.ErrPerm
+	// Use domain methods for setting machine status.
+	case *state.Machine:
+		return apiservererrors.ErrPerm
+
 	case status.StatusSetter:
 		sInfo := status.StatusInfo{
 			Status:  entityStatus,

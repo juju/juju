@@ -75,6 +75,7 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		CloudService:            domainServices.Cloud(),
 		KeyUpdaterService:       domainServices.KeyUpdater(),
 		MachineService:          domainServices.Machine(),
+		StatusService:           domainServices.Status(),
 		ModelConfigService:      domainServices.Config(),
 		NetworkService:          domainServices.Network(),
 	}
@@ -93,6 +94,7 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		ctx.Resources(),
 		leadership,
 		logger,
+		ctx.Clock(),
 		services,
 	), nil
 }

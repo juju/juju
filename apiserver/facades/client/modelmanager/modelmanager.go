@@ -939,7 +939,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			return params.ModelInfo{}, errors.Trace(err)
 		}
 		// TODO: remove mongo state from the commonmodel.ModelMachineInfo.
-		if modelInfo.Machines, err = commonmodel.ModelMachineInfo(ctx, st, modelDomainServices.Machine()); err != nil {
+		if modelInfo.Machines, err = commonmodel.ModelMachineInfo(ctx, st, modelDomainServices.Machine(), modelDomainServices.Status()); err != nil {
 			return params.ModelInfo{}, err
 		}
 

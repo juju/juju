@@ -13,6 +13,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/cloudimagemetadata"
@@ -107,6 +108,23 @@ type MachineService interface {
 	// GetMachinePrincipalApplications returns the names of the principal
 	// (non-subordinate) units for the specified machine.
 	GetMachinePrincipalApplications(ctx context.Context, mName coremachine.Name) ([]string, error)
+}
+
+// StatusService defines the methods that the facade assumes from the Status
+// service.
+type StatusService interface {
+	// GetInstanceStatus returns the cloud specific instance status for this
+	// machine.
+	GetInstanceStatus(context.Context, coremachine.Name) (status.StatusInfo, error)
+
+	// SetInstanceStatus sets the cloud specific instance status for this machine.
+	SetInstanceStatus(context.Context, coremachine.Name, status.StatusInfo) error
+
+	// GetMachineStatus returns the status of the specified machine.
+	GetMachineStatus(context.Context, coremachine.Name) (status.StatusInfo, error)
+
+	// SetMachineStatus sets the status of the specified machine.
+	SetMachineStatus(context.Context, coremachine.Name, status.StatusInfo) error
 }
 
 // StoragePoolGetter instances get a storage pool by name.
