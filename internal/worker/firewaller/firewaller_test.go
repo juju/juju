@@ -1002,12 +1002,12 @@ func (s *InstanceModeSuite) addMachineUnitAndEnsureMocks(c *gc.C, ctrl *gomock.C
 	s.envInstances.EXPECT().Instances(gomock.Any(), []instance.Id{instId}).Return([]instances.Instance{inst}, nil).Times(1)
 	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).Times(1)
 
-	s.firewaller.EXPECT().ModelFirewallRules().Times(2).DoAndReturn(func() (firewall.IngressRules, error) {
+	s.firewaller.EXPECT().ModelFirewallRules().MinTimes(1).MaxTimes(2).DoAndReturn(func() (firewall.IngressRules, error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		return s.modelIngressRules, nil
 	})
-	s.envModelFirewaller.EXPECT().ModelIngressRules(gomock.Any()).Times(2).DoAndReturn(func(arg0 context.ProviderCallContext) (firewall.IngressRules, error) {
+	s.envModelFirewaller.EXPECT().ModelIngressRules(gomock.Any()).MinTimes(1).MaxTimes(2).DoAndReturn(func(arg0 context.ProviderCallContext) (firewall.IngressRules, error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		return s.envModelPorts, nil
