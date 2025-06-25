@@ -1343,7 +1343,7 @@ func (s *InstanceModeSuite) TestShouldSkipFlushModelWhenNoMachines(c *gc.C) {
 	s.ensureMocksWithoutMachine(ctrl)
 
 	fw := s.newFirewaller(c)
-	defer workertest.CleanKill(c, fw)
+	workertest.CleanKill(c, fw)
 }
 
 func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
