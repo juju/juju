@@ -332,7 +332,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	}
 	defer session.Close()
 
-	b.logger.Debugf(context.TODO(), "initializing address %v", info.Addrs)
+	b.logger.Debugf(ctx, "initializing address %v", info.Addrs)
 
 	ctrl, err := state.Initialize(state.InitializeParams{
 		SSHServerHostKey: stateParams.SSHServerHostKey,
@@ -358,7 +358,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	if err != nil {
 		return errors.Errorf("failed to initialize state: %v", err)
 	}
-	b.logger.Debugf(context.TODO(), "connected to initial state")
+	b.logger.Debugf(ctx, "connected to initial state")
 	defer func() {
 		_ = ctrl.Close()
 	}()
@@ -392,27 +392,11 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Annotate(err, "getting environ provider")
 	}
 
-	// Create a new password. It is used down below to set the mongo password,
-	// the agent's initial API password in agent config and on CAAS, the
-	// controller node's initial API password.
-	newPassword, err := password.RandomPassword()
-	if err != nil {
-		return err
-	}
-
 	var controllerNode bootstrapController
 	if isCAAS {
-		controllerNodeCAAS, err := b.initBootstrapNode(st)
-		if err != nil {
-			return errors.Annotate(err, "cannot initialize bootstrap controller")
-		}
 		if err := b.initControllerCloudService(ctx, cloudSpec, provider, st); err != nil {
 			return errors.Annotate(err, "cannot initialize cloud service")
 		}
-		if err := controllerNodeCAAS.SetPassword(newPassword); err != nil {
-			return err
-		}
-		controllerNode = controllerNodeCAAS
 	} else {
 		if controllerNode, err = b.initBootstrapMachine(st, filteredBootstrapMachineAddresses); err != nil {
 			return errors.Annotate(err, "cannot initialize bootstrap machine")
@@ -424,10 +408,18 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Errorf("bootstrap controller expected id 0, got %q", controllerNode.Id())
 	}
 
+	// Create a new password. It is used down below to set the mongo password,
+	// the agent's initial API password in agent config and on CAAS, the
+	// controller node's initial API password.
+	newPassword, err := password.RandomPassword()
+	if err != nil {
+		return err
+	}
+
 	// Read the machine agent's password and change it to
 	// a new password (other agents will change their password
 	// via the API connection).
-	b.logger.Debugf(context.TODO(), "create new random password for controller %v", controllerNode.Id())
+	b.logger.Debugf(ctx, "create new random password for controller %v", controllerNode.Id())
 	if err := controllerNode.SetMongoPassword(newPassword); err != nil {
 		return err
 	}
@@ -557,13 +549,13 @@ func (b *AgentBootstrap) initControllerCloudService(
 	addrs := b.getAlphaSpaceAddresses(svc.Addresses)
 
 	svcId := controllerUUID
-	b.logger.Infof(context.TODO(), "creating cloud service for k8s controller %q", svcId)
+	b.logger.Infof(ctx, "creating cloud service for k8s controller %q", svcId)
 	cloudSvc, err := st.SaveCloudService(state.SaveCloudServiceArgs{
 		Id:         svcId,
 		ProviderId: svc.Id,
 		Addresses:  addrs,
 	})
-	b.logger.Debugf(context.TODO(), "created cloud service %v for controller", cloudSvc)
+	b.logger.Debugf(ctx, "created cloud service %v for controller", cloudSvc)
 	return errors.Trace(err)
 }
 
@@ -579,17 +571,4 @@ func (b *AgentBootstrap) getAlphaSpaceAddresses(providerAddresses corenetwork.Pr
 		}
 	}
 	return sas
-}
-
-// initBootstrapNode initializes the initial caas bootstrap controller in state.
-func (b *AgentBootstrap) initBootstrapNode(
-	st *state.State,
-) (bootstrapControllerCAAS, error) {
-	b.logger.Debugf(context.TODO(), "initialising bootstrap node for with config: %+v", b.stateInitializationParams)
-
-	node, err := st.AddControllerNode()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create bootstrap controller in state")
-	}
-	return node, nil
 }

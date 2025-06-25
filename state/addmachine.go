@@ -158,7 +158,6 @@ func (st *State) AddMachines(
 	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
 	var ops []txn.Op
-	var controllerIds []string
 	for _, template := range templates {
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
@@ -167,11 +166,6 @@ func (st *State) AddMachines(
 		ms = append(ms, newMachine(st, mdoc))
 		ops = append(ops, addOps...)
 	}
-	ssOps, err := st.maintainControllersOps(controllerIds, true)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, ssOps...)
 	ops = append(ops, assertModelActiveOp(st.ModelUUID()))
 	if err := st.db().RunTransaction(ops); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {

@@ -750,6 +750,17 @@ func (ctx *facadeContext) ControllerUUID() string {
 	return ctx.r.shared.controllerUUID
 }
 
+// ControllerModelUUID returns the controller model unique identifier.
+func (ctx *facadeContext) ControllerModelUUID() model.UUID {
+	return ctx.r.shared.controllerModelUUID
+}
+
+// IsControllerModelScoped returns whether the context is scoped to the
+// controller model.
+func (ctx *facadeContext) IsControllerModelScoped() bool {
+	return ctx.ModelUUID() == ctx.ControllerModelUUID()
+}
+
 // ModelUUID returns the model unique identifier.
 func (ctx *facadeContext) ModelUUID() model.UUID {
 	return ctx.r.modelUUID

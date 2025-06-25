@@ -30,7 +30,6 @@ type ModelManagerBackend interface {
 	Model() (Model, error)
 	GetBackend(string) (ModelManagerBackend, func() bool, error)
 
-	ControllerNodes() ([]ControllerNode, error)
 	ModelTag() names.ModelTag
 	AllMachines() (machines []Machine, err error)
 	AllFilesystems() ([]state.Filesystem, error)
@@ -39,7 +38,6 @@ type ModelManagerBackend interface {
 	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 
 	Close() error
-	HAPrimaryMachine() (names.MachineTag, error)
 }
 
 type ControllerNode interface {
@@ -206,18 +204,6 @@ func (st modelManagerStateShim) GetModel(modelUUID string) (Model, func() bool, 
 // Model implements ModelManagerBackend.
 func (st modelManagerStateShim) Model() (Model, error) {
 	return modelShim{Model: st.model}, nil
-}
-
-func (st modelManagerStateShim) ControllerNodes() ([]ControllerNode, error) {
-	nodes, err := st.State.ControllerNodes()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make([]ControllerNode, len(nodes))
-	for i, n := range nodes {
-		result[i] = n
-	}
-	return result, nil
 }
 
 var _ Model = (*modelShim)(nil)

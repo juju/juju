@@ -727,7 +727,6 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 
-	ops = append(ops, removeControllerNodeOp(m.st, m.Id()))
 	ops = append(ops, linkLayerDevicesOps...)
 	ops = append(ops, devicesAddressesOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)

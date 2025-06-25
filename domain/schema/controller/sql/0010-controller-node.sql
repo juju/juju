@@ -38,3 +38,15 @@ CREATE TABLE controller_api_address (
     REFERENCES controller_node (controller_id),
     PRIMARY KEY (controller_id, address)
 );
+
+CREATE TABLE controller_node_password (
+    controller_id TEXT NOT NULL PRIMARY KEY,
+    password_hash_algorithm_id TEXT,
+    password_hash TEXT,
+    CONSTRAINT fk_controller_node_password_controller
+    FOREIGN KEY (controller_id)
+    REFERENCES controller_node (controller_id),
+    CONSTRAINT fk_controller_node_password_hash_algorithm
+    FOREIGN KEY (password_hash_algorithm_id)
+    REFERENCES password_hash_algorithm (id)
+);

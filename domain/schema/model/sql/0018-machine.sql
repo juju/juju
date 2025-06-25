@@ -15,7 +15,10 @@ CREATE TABLE machine (
     REFERENCES net_node (uuid),
     CONSTRAINT fk_machine_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id)
+    REFERENCES life (id),
+    CONSTRAINT fk_machine_password_hash_algorithm
+    FOREIGN KEY (password_hash_algorithm_id)
+    REFERENCES password_hash_algorithm (id)
 );
 
 CREATE UNIQUE INDEX idx_machine_name

@@ -597,8 +597,6 @@ func (st *State) getMachineDoc(id string) (*machineDoc, error) {
 func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	id := tag.Id()
 	switch tag := tag.(type) {
-	case names.ControllerAgentTag:
-		return st.ControllerNode(id)
 	case names.MachineTag:
 		return st.Machine(id)
 	case names.UnitTag:

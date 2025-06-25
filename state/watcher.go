@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -1735,81 +1734,6 @@ func (w *actionNotificationWatcher) mergeIds(changes *[]string, updates map[inte
 	return mergeIds(changes, updates, func(id string) (string, error) {
 		return actionNotificationIdToActionId(id), nil
 	})
-}
-
-// WatchControllerStatusChanges starts and returns a StringsWatcher that
-// notifies when the status of a controller node changes.
-// TODO(cherylj) Add unit tests for this, as per bug 1543408.
-func (st *State) WatchControllerStatusChanges() StringsWatcher {
-	return newCollectionWatcher(st, colWCfg{
-		col:    statusesC,
-		filter: makeControllerIdFilter(st),
-	})
-}
-
-func makeControllerIdFilter(st *State) func(interface{}) bool {
-	initialNodes, err := st.ControllerNodes()
-	if err != nil {
-		logger.Debugf(context.TODO(), "unable to get controller nodes: %v", err)
-		return nil
-	}
-
-	filter := controllerIdFilter{
-		st:        st,
-		lastNodes: make([]string, len(initialNodes)),
-	}
-	for i, n := range initialNodes {
-		filter.lastNodes[i] = n.Id()
-	}
-	return filter.match
-}
-
-// controllerIdFilter is a stateful watcher filter function - if it
-// can't get the current controller nodes it uses the
-// last nodes retrieved. Since this is called from multiple
-// goroutines getting/updating lastNodes is protected by a mutex.
-type controllerIdFilter struct {
-	mu        sync.Mutex
-	st        *State
-	lastNodes []string
-}
-
-func (f *controllerIdFilter) nodeIds() []string {
-	var result []string
-	nodes, err := f.st.ControllerNodes()
-	f.mu.Lock()
-	if err != nil {
-		// Most likely, things will be killed and
-		// restarted if we hit this error.  Just use
-		// the machine list we knew about last time.
-		logger.Debugf(context.TODO(), "unable to get controller info: %v", err)
-		result = f.lastNodes
-	} else {
-		ids := make([]string, len(nodes))
-		for i, n := range nodes {
-			ids[i] = n.Id()
-		}
-		f.lastNodes = ids
-		result = ids
-	}
-	f.mu.Unlock()
-	return result
-}
-
-func (f *controllerIdFilter) match(key interface{}) bool {
-	switch key.(type) {
-	case string:
-		nodeIds := f.nodeIds()
-		for _, id := range nodeIds {
-			if strings.HasSuffix(key.(string), fmt.Sprintf("m#%s", id)) {
-				return true
-			}
-			// TODO(HA) - add k8s controller filter when we do k8s HA
-		}
-	default:
-		watchLogger.Errorf(context.TODO(), "key is not type string, got %T", key)
-	}
-	return false
 }
 
 // WatchForMigration returns a notify watcher which reports when
