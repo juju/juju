@@ -185,7 +185,7 @@ func (s *firewallerBaseSuite) ensureMocks(c *gc.C, ctrl *gomock.Controller) {
 	})
 }
 
-func (s *firewallerBaseSuite) ensureMocksWithoutMachine(c *gc.C, ctrl *gomock.Controller) {
+func (s *firewallerBaseSuite) ensureMocksWithoutMachine(ctrl *gomock.Controller) {
 	if s.firewaller != nil {
 		return
 	}
@@ -651,7 +651,7 @@ func (s *InstanceModeSuite) TestShouldFlushModelWhenFlushingMachine(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		firewall.NewIngressRule(network.MustParsePortRange("17070"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 	}
-	s.ensureMocksWithoutMachine(c, ctrl)
+	s.ensureMocksWithoutMachine(ctrl)
 
 	fw := s.newFirewaller(c)
 	defer workertest.CleanKill(c, fw)
@@ -1340,7 +1340,7 @@ func (s *InstanceModeSuite) TestShouldSkipFlushModelWhenNoMachines(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.ensureMocksWithoutMachine(c, ctrl)
+	s.ensureMocksWithoutMachine(ctrl)
 
 	fw := s.newFirewaller(c)
 	defer workertest.CleanKill(c, fw)
