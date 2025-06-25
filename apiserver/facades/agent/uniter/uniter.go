@@ -1539,9 +1539,10 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		return internalerrors.Capture(err)
 	}
 	if len(infos) != 1 {
-		// Should not happens, unless the interface contract for
-		// GetUnitRelationInfos is broken. This implies that providing
-		// one endpoint to GetUnitRelationInfos will yield exactly one info
+		// Should not happen unless the interface contract for
+		// GetUnitRelationInfos is broken.
+		// If not broken, providing exactly one endpoint as a parameter for
+		// GetUnitRelationInfos should return exactly one info.
 		return errors.NotValidf("expected 1 NetworkInfo for unit %q on endpoint %q, got %d", unitName, endpoint,
 			len(infos))
 	}
