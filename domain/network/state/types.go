@@ -768,6 +768,14 @@ type spaceAddress struct {
 	SubnetCIDR sql.NullString `db:"cidr"`
 }
 
+// spaceConstraint represents a row from the constraint_space table
+// joined with the space table to get the space's UUID.
+type spaceConstraint struct {
+	SpaceUUID string `db:"uuid"`
+	SpaceName string `db:"space"`
+	Exclude   bool   `db:"exclude"`
+}
+
 func nilstr[T ~string](s *string) *T {
 	var res *T
 	if s != nil {

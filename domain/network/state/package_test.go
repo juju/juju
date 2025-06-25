@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/juju/juju/core/machine"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -61,10 +62,11 @@ func (s *linkLayerBaseSuite) addNetNode(c *tc.C) string {
 	return netNodeUUID
 }
 
-func (s *linkLayerBaseSuite) addMachine(c *tc.C, name, netNodeUUID string) {
-	machineUUID := machinetesting.GenUUID(c).String()
+func (s *linkLayerBaseSuite) addMachine(c *tc.C, name, netNodeUUID string) machine.UUID {
+	machineUUID := machinetesting.GenUUID(c)
 	s.query(c, "INSERT INTO machine (uuid, net_node_uuid, name, life_id) VALUES (?, ?, ? ,?)",
-		machineUUID, netNodeUUID, name, 0)
+		machineUUID.String(), netNodeUUID, name, 0)
+	return machineUUID
 }
 
 func (s *linkLayerBaseSuite) addSpace(c *tc.C) string {
