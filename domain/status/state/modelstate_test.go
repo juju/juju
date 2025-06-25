@@ -33,6 +33,7 @@ import (
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -2413,11 +2414,10 @@ func (s *modelStateSuite) TestSetInstanceStatusNotFound(c *tc.C) {
 // found.
 func (s *modelStateSuite) TestSetInstanceStatusMachineNotProvisioned(c *tc.C) {
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	mUUID := machinetesting.GenUUID(c)
-	err := machineState.CreateMachine(c.Context(), "666", "", mUUID, nil)
+	mName, err := machineState.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetInstanceStatus(c.Context(), "666", status.StatusInfo[status.InstanceStatusType]{
+	err = s.state.SetInstanceStatus(c.Context(), mName.String(), status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusRunning,
 		Message: "running",
 	})
@@ -2499,15 +2499,16 @@ func (s *modelStateSuite) addRelationToApplication(c *tc.C, appUUID coreapplicat
 func (s *modelStateSuite) createMachine(c *tc.C, name coremachine.Name) coremachine.UUID {
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	mUUID := machinetesting.GenUUID(c)
-	netNodeUUID := uuid.MustNewUUID().String()
-	err := machineState.CreateMachine(c.Context(), name, netNodeUUID, mUUID, nil)
+	_, err := machineState.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: mUUID,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = machineState.SetMachineCloudInstance(
 		c.Context(),
-		mUUID,
-		instance.Id(name.String()),
-		name.String(),
+		mUUID.String(),
+		instance.Id("123"),
+		"one-two-three",
 		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch:           ptr("arm64"),

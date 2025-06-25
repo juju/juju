@@ -60,6 +60,8 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *stateSuite) TestCreateMachine(c *tc.C) {
+	statusState := statusstate.NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
 	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
 		MachineUUID: "deadbeef",
 	})
@@ -79,11 +81,11 @@ func (s *stateSuite) TestCreateMachine(c *tc.C) {
 	c.Check(obtainedMachineName, tc.Equals, machineName.String())
 	c.Check(nonce.Valid, tc.IsFalse)
 
-	machineStatusInfo, err := s.state.GetMachineStatus(c.Context(), machineName)
+	machineStatusInfo, err := statusState.GetMachineStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(machineStatusInfo.Status, tc.Equals, status.MachineStatusPending)
 
-	instanceStatusInfo, err := s.state.GetInstanceStatus(c.Context(), machineName)
+	instanceStatusInfo, err := statusState.GetInstanceStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceStatusInfo.Status, tc.Equals, status.InstanceStatusPending)
 
@@ -93,6 +95,8 @@ func (s *stateSuite) TestCreateMachine(c *tc.C) {
 }
 
 func (s *stateSuite) TestCreateMachineWithNonce(c *tc.C) {
+	statusState := statusstate.NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
 	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
 		Nonce: ptr("nonce-123"),
 	})
@@ -114,11 +118,11 @@ func (s *stateSuite) TestCreateMachineWithNonce(c *tc.C) {
 	c.Assert(nonce.Valid, tc.IsTrue)
 	c.Check(nonce.V, tc.Equals, "nonce-123")
 
-	machineStatusInfo, err := s.state.GetMachineStatus(c.Context(), machineName)
+	machineStatusInfo, err := statusState.GetMachineStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(machineStatusInfo.Status, tc.Equals, status.MachineStatusPending)
 
-	instanceStatusInfo, err := s.state.GetInstanceStatus(c.Context(), machineName)
+	instanceStatusInfo, err := statusState.GetInstanceStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceStatusInfo.Status, tc.Equals, status.InstanceStatusPending)
 }

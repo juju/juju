@@ -14,7 +14,8 @@ import (
 	reflect "reflect"
 
 	instance "github.com/juju/juju/core/instance"
-	machine "github.com/juju/juju/domain/machine"
+	machine "github.com/juju/juju/core/machine"
+	machine0 "github.com/juju/juju/domain/machine"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -158,10 +159,10 @@ func (c *MockMigrationStateGetInstanceIDCall) DoAndReturn(f func(context.Context
 }
 
 // GetMachinesForExport mocks base method.
-func (m *MockMigrationState) GetMachinesForExport(ctx context.Context) ([]machine.ExportMachine, error) {
+func (m *MockMigrationState) GetMachinesForExport(ctx context.Context) ([]machine0.ExportMachine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachinesForExport", ctx)
-	ret0, _ := ret[0].([]machine.ExportMachine)
+	ret0, _ := ret[0].([]machine0.ExportMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -179,19 +180,19 @@ type MockMigrationStateGetMachinesForExportCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMigrationStateGetMachinesForExportCall) Return(arg0 []machine.ExportMachine, arg1 error) *MockMigrationStateGetMachinesForExportCall {
+func (c *MockMigrationStateGetMachinesForExportCall) Return(arg0 []machine0.ExportMachine, arg1 error) *MockMigrationStateGetMachinesForExportCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMigrationStateGetMachinesForExportCall) Do(f func(context.Context) ([]machine.ExportMachine, error)) *MockMigrationStateGetMachinesForExportCall {
+func (c *MockMigrationStateGetMachinesForExportCall) Do(f func(context.Context) ([]machine0.ExportMachine, error)) *MockMigrationStateGetMachinesForExportCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMigrationStateGetMachinesForExportCall) DoAndReturn(f func(context.Context) ([]machine.ExportMachine, error)) *MockMigrationStateGetMachinesForExportCall {
+func (c *MockMigrationStateGetMachinesForExportCall) DoAndReturn(f func(context.Context) ([]machine0.ExportMachine, error)) *MockMigrationStateGetMachinesForExportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

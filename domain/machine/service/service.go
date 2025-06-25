@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/juju/clock"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
@@ -30,8 +28,6 @@ import (
 // State describes retrieval and persistence methods for machines.
 type State interface {
 	// CreateMachine persists the input machine entity.
-	// It returns a MachineAlreadyExists error if a machine with the same name
-	// already exists.
 	CreateMachine(context.Context, domainmachine.CreateMachineArgs) (machine.Name, error)
 
 	// CreateMachineWithparent persists the input machine entity, associating it
@@ -74,26 +70,6 @@ type State interface {
 	// GetInstanceIDAndName returns the cloud specific instance ID and display name
 	// for this machine.
 	GetInstanceIDAndName(ctx context.Context, mUUID string) (string, string, error)
-
-	// GetInstanceStatus returns the cloud specific instance status for this
-	// machine.
-	// It returns MachineNotFound if the machine does not exist.
-	// It returns a StatusNotSet if the instance status is not set.
-	GetInstanceStatus(context.Context, machine.Name) (domainstatus.StatusInfo[domainstatus.InstanceStatusType], error)
-
-	// SetInstanceStatus sets the cloud specific instance status for this
-	// machine.
-	// It returns MachineNotFound if the machine does not exist.
-	SetInstanceStatus(context.Context, string, domainstatus.StatusInfo[domainstatus.InstanceStatusType]) error
-
-	// GetMachineStatus returns the status of the specified machine.
-	// It returns MachineNotFound if the machine does not exist.
-	// It returns a StatusNotSet if the status is not set.
-	GetMachineStatus(context.Context, machine.Name) (domainstatus.StatusInfo[domainstatus.MachineStatusType], error)
-
-	// SetMachineStatus sets the status of the specified machine.
-	// It returns MachineNotFound if the machine does not exist.
-	SetMachineStatus(context.Context, machine.Name, domainstatus.StatusInfo[domainstatus.MachineStatusType]) error
 
 	// GetHardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
@@ -244,74 +220,6 @@ func NewService(st State, statusHistory StatusHistory, clock clock.Clock, logger
 	}
 }
 
-// CreateMachine creates the specified machine.
-func (s *Service) CreateMachine(ctx context.Context, args CreateMachineArgs) (machine.UUID, machine.Name, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	machineUUID, err := machine.NewUUID()
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-
-	stateArgs, err := s.makeCreateMachineArgs(args, machineUUID)
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-	machineName, err := s.st.CreateMachine(ctx, stateArgs)
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-
-	if err := s.recordCreateMachineStatusHistory(ctx, machineName); err != nil {
-		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
-	}
-
-	return machineUUID, machineName, nil
-}
-
-// CreateMachineWithParent creates the specified machine with the specified
-// parent.
-// It returns a MachineAlreadyExists error if a machine with the same name
-// already exists.
-// It returns a MachineNotFound error if the parent machine does not exist.
-func (s *Service) CreateMachineWithParent(ctx context.Context, args CreateMachineArgs, parentName machine.Name) (machine.UUID, machine.Name, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	machineUUID, err := machine.NewUUID()
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-
-	parentUUID, err := s.st.GetMachineUUID(ctx, parentName)
-	if err != nil {
-		return "", "", errors.Errorf("getting parent UUID for machine %q: %w", parentName, err)
-	}
-
-	stateArgs, err := s.makeCreateMachineArgs(args, machineUUID)
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-	machineName, err := s.st.CreateMachineWithParent(ctx, stateArgs, parentUUID.String())
-	if err != nil {
-		return "", "", errors.Errorf("creating machine with parent %q: %w", parentName, err)
-	}
-
-	if err := s.recordCreateMachineStatusHistory(ctx, machineName); err != nil {
-		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
-	}
-
-	return machineUUID, machineName, nil
-}
-
-func (s *Service) makeCreateMachineArgs(args CreateMachineArgs, machineUUID machine.UUID) (domainmachine.CreateMachineArgs, error) {
-	return domainmachine.CreateMachineArgs{
-		Nonce:       args.Nonce,
-		MachineUUID: machineUUID,
-	}, nil
-}
-
 func (s *Service) recordCreateMachineStatusHistory(ctx context.Context, machineName machine.Name) error {
 	info := status.StatusInfo{
 		Status: status.Pending,
@@ -384,112 +292,6 @@ func (s *Service) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 		return nil, errors.Errorf("retrieving all machines: %w", err)
 	}
 	return machines, nil
-}
-
-// GetInstanceStatus returns the cloud specific instance status for this
-// machine.
-// It returns MachineNotFound if the machine does not exist.
-// It returns a StatusNotSet if the instance status is not set.
-// Idempotent.
-func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Name) (status.StatusInfo, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	instanceStatus, err := s.st.GetInstanceStatus(ctx, machineName)
-	if err != nil {
-		return status.StatusInfo{}, errors.Errorf("retrieving instance status for machine %q: %w", machineName, err)
-	}
-
-	return decodeInstanceStatus(instanceStatus)
-}
-
-// SetInstanceStatus sets the cloud specific instance status for this machine.
-// It returns MachineNotFound if the machine does not exist. It returns
-// InvalidStatus if the given status is not a known status value.
-func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Name, statusInfo status.StatusInfo) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := machineName.Validate(); err != nil {
-		return errors.Errorf("validating machine name %q: %w", machineName, err)
-	}
-
-	if !statusInfo.Status.KnownInstanceStatus() {
-		return machineerrors.InvalidStatus
-	}
-
-	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
-	if err != nil {
-		return errors.Errorf("getting machine uuid for %q: %w", machineName, err)
-	}
-
-	instanceStatus, err := encodeInstanceStatus(statusInfo)
-	if err != nil {
-		return errors.Errorf("encoding status for machine %q: %w", machineName, err)
-	}
-
-	if err := s.st.SetInstanceStatus(ctx, machineUUID.String(), instanceStatus); err != nil {
-		return errors.Errorf("setting instance status for machine %q: %w", machineName, err)
-	}
-
-	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineInstanceNamespace.WithID(machineName.String()), statusInfo); err != nil {
-		s.logger.Infof(ctx, "failed recording instance status history: %w", err)
-	}
-
-	return nil
-}
-
-// GetMachineStatus returns the status of the specified machine. It returns
-// MachineNotFound if the machine does not exist. It returns a StatusNotSet if
-// the status is not set. Idempotent.
-func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name) (status.StatusInfo, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	machineStatus, err := s.st.GetMachineStatus(ctx, machineName)
-	if err != nil {
-		return status.StatusInfo{}, errors.Errorf("retrieving machine status for machine %q: %w", machineName, err)
-	}
-
-	var data map[string]any
-	if len(machineStatus.Data) > 0 {
-		if err := json.Unmarshal(machineStatus.Data, &data); err != nil {
-			return status.StatusInfo{}, errors.Errorf("unmarshalling machine data for machine %q: %w", machineName, err)
-		}
-	}
-
-	return decodeMachineStatus(machineStatus)
-}
-
-// SetMachineStatus sets the status of the specified machine. It returns
-// MachineNotFound if the machine does not exist. It returns InvalidStatus if
-// the given status is not a known status value.
-func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name, statusInfo status.StatusInfo) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := machineName.Validate(); err != nil {
-		return errors.Errorf("validating machine name %q: %w", machineName, err)
-	}
-
-	if !statusInfo.Status.KnownMachineStatus() {
-		return machineerrors.InvalidStatus
-	}
-
-	machineStatus, err := encodeMachineStatus(statusInfo)
-	if err != nil {
-		return errors.Errorf("encoding status for machine %q: %w", machineName, err)
-	}
-
-	if err := s.st.SetMachineStatus(ctx, machineName, machineStatus); err != nil {
-		return errors.Errorf("setting machine status for machine %q: %w", machineName, err)
-	}
-
-	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineNamespace.WithID(machineName.String()), statusInfo); err != nil {
-		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
-	}
-
-	return nil
 }
 
 // IsMachineController returns whether the machine is a controller machine.
