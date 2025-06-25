@@ -42,24 +42,25 @@ type APIV4 struct {
 // API implements the API required for the model migration
 // master worker.
 type API struct {
-	modelExporter           ModelExporter
-	controllerState         ControllerState
-	backend                 Backend
-	precheckBackend         migration.PrecheckBackend
-	pool                    migration.Pool
-	authorizer              facade.Authorizer
-	resources               facade.Resources
-	leadership              leadership.Reader
-	credentialService       CredentialService
-	upgradeService          UpgradeService
-	controllerConfigService ControllerConfigService
-	modelAgentService       ModelAgentService
-	modelInfoService        ModelInfoService
-	modelService            ModelService
-	applicationService      ApplicationService
-	relationService         RelationService
-	statusService           StatusService
-	store                   objectstore.ObjectStore
+	modelExporter            ModelExporter
+	controllerState          ControllerState
+	backend                  Backend
+	precheckBackend          migration.PrecheckBackend
+	pool                     migration.Pool
+	authorizer               facade.Authorizer
+	resources                facade.Resources
+	leadership               leadership.Reader
+	credentialServiceGetter  func(context.Context, coremodel.UUID) (CredentialService, error)
+	upgradeServiceGetter     func(context.Context, coremodel.UUID) (UpgradeService, error)
+	applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error)
+	relationServiceGetter    func(context.Context, coremodel.UUID) (RelationService, error)
+	statusServiceGetter      func(context.Context, coremodel.UUID) (StatusService, error)
+	modelAgentServiceGetter  func(context.Context, coremodel.UUID) (ModelAgentService, error)
+	controllerConfigService  ControllerConfigService
+	modelInfoService         ModelInfoService
+	modelService             ModelService
+	store                    objectstore.ObjectStore
+	controllerModelUUID      coremodel.UUID
 }
 
 // NewAPI creates a new API server endpoint for the model migration
@@ -69,44 +70,46 @@ func NewAPI(
 	backend Backend,
 	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
+	controllerModelUUID coremodel.UUID,
 	precheckBackend migration.PrecheckBackend,
 	pool migration.Pool,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	leadership leadership.Reader,
-	credentialService CredentialService,
+	credentialServiceGetter func(context.Context, coremodel.UUID) (CredentialService, error),
+	upgradeServiceGetter func(context.Context, coremodel.UUID) (UpgradeService, error),
+	applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error),
+	relationServiceGetter func(context.Context, coremodel.UUID) (RelationService, error),
+	statusServiceGetter func(context.Context, coremodel.UUID) (StatusService, error),
+	modelAgentServiceGetter func(context.Context, coremodel.UUID) (ModelAgentService, error),
 	controllerConfigService ControllerConfigService,
 	modelInfoService ModelInfoService,
 	modelService ModelService,
-	applicationService ApplicationService,
-	relationService RelationService,
-	statusService StatusService,
-	upgradeService UpgradeService,
-	modelAgentService ModelAgentService,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &API{
-		controllerState:         controllerState,
-		backend:                 backend,
-		modelExporter:           modelExporter,
-		store:                   store,
-		precheckBackend:         precheckBackend,
-		pool:                    pool,
-		authorizer:              authorizer,
-		resources:               resources,
-		leadership:              leadership,
-		credentialService:       credentialService,
-		controllerConfigService: controllerConfigService,
-		modelInfoService:        modelInfoService,
-		modelService:            modelService,
-		applicationService:      applicationService,
-		relationService:         relationService,
-		statusService:           statusService,
-		upgradeService:          upgradeService,
-		modelAgentService:       modelAgentService,
+		controllerState:          controllerState,
+		backend:                  backend,
+		modelExporter:            modelExporter,
+		store:                    store,
+		controllerModelUUID:      controllerModelUUID,
+		precheckBackend:          precheckBackend,
+		pool:                     pool,
+		authorizer:               authorizer,
+		resources:                resources,
+		leadership:               leadership,
+		credentialServiceGetter:  credentialServiceGetter,
+		upgradeServiceGetter:     upgradeServiceGetter,
+		applicationServiceGetter: applicationServiceGetter,
+		relationServiceGetter:    relationServiceGetter,
+		statusServiceGetter:      statusServiceGetter,
+		modelAgentServiceGetter:  modelAgentServiceGetter,
+		controllerConfigService:  controllerConfigService,
+		modelInfoService:         modelInfoService,
+		modelService:             modelService,
 	}, nil
 }
 
@@ -246,20 +249,41 @@ func (api *API) SetPhase(ctx context.Context, args params.SetMigrationPhaseArgs)
 func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
 	// Check the model exists, this can be moved into the migration service
 	// code, but for now keep it here.
-	_, err := api.modelInfoService.GetModelInfo(ctx)
+	model, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return errors.Annotate(err, "retrieving model info")
+	}
+
+	credentialServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.CredentialService, error) {
+		return api.credentialServiceGetter(ctx, modelUUID)
+	}
+	upgradeServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.UpgradeService, error) {
+		return api.upgradeServiceGetter(ctx, modelUUID)
+	}
+	applicationServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.ApplicationService, error) {
+		return api.applicationServiceGetter(ctx, modelUUID)
+	}
+	relationServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.RelationService, error) {
+		return api.relationServiceGetter(ctx, modelUUID)
+	}
+	statusServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.StatusService, error) {
+		return api.statusServiceGetter(ctx, modelUUID)
+	}
+	modelAgentServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.ModelAgentService, error) {
+		return api.modelAgentServiceGetter(ctx, modelUUID)
 	}
 
 	return migration.SourcePrecheck(
 		ctx,
 		api.precheckBackend,
-		api.credentialService,
-		api.upgradeService,
-		api.applicationService,
-		api.relationService,
-		api.statusService,
-		api.modelAgentService,
+		model.UUID,
+		api.controllerModelUUID,
+		credentialServiceGetterShim,
+		upgradeServiceGetterShim,
+		applicationServiceGetterShim,
+		relationServiceGetterShim,
+		statusServiceGetterShim,
+		modelAgentServiceGetterShim,
 	)
 }
 

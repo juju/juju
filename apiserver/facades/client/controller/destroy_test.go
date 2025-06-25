@@ -118,6 +118,20 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		domainServices = ctx.DomainServices()
 	)
 
+	credentialServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (controller.CredentialService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Credential(), nil
+	}
+	upgradeServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (controller.UpgradeService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Upgrade(), nil
+	}
 	modelAgentServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (controller.ModelAgentService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
@@ -185,13 +199,13 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
-		domainServices.Credential(),
-		domainServices.Upgrade(),
 		domainServices.Access(),
 		machineServiceGetter,
 		s.mockModelService,
 		s.mockModelInfoService,
 		domainServices.BlockCommand(),
+		credentialServiceGetter,
+		upgradeServiceGetter,
 		applicationServiceGetter,
 		relationServiceGetter,
 		statusServiceGetter,
@@ -204,6 +218,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
 		ctx.ObjectStore(),
+		ctx.ControllerModelUUID(),
 		ctx.ControllerUUID(),
 	)
 	c.Assert(err, tc.ErrorIsNil)

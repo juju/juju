@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/testing"
 )
 
 // MultiModelContext implements facade.MultiModelContext in the simplest
@@ -32,4 +33,9 @@ func (c MultiModelContext) DomainServicesForModel(ctx context.Context, uuid mode
 // ObjectStoreForModel returns the object store for a given model uuid.
 func (c MultiModelContext) ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error) {
 	return c.ObjectStoreForModel_, nil
+}
+
+// ControllerModelUUID returns the UUID of the controller model.
+func (c MultiModelContext) ControllerModelUUID() model.UUID {
+	return model.UUID(testing.ControllerModelTag.Id())
 }

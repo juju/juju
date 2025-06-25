@@ -347,7 +347,7 @@ FROM   machine
 
 // GetMachinesNotAtTargetAgentVersion returns the list of machines where
 // their agent version is not the same as the models target agent version or
-// who have no agent version reproted at all. If no machines exist that match
+// who have no agent version reported at all. If no machines exist that match
 // this criteria an empty slice is returned.
 func (st *State) GetMachinesNotAtTargetAgentVersion(
 	ctx context.Context,

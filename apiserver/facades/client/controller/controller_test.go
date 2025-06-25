@@ -170,6 +170,20 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		domainServices = ctx.DomainServices()
 	)
 
+	credentialServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.CredentialService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Credential(), nil
+	}
+	upgradeServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.UpgradeService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Upgrade(), nil
+	}
 	modelAgentServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.ModelAgentService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
@@ -237,13 +251,13 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
-		domainServices.Credential(),
-		domainServices.Upgrade(),
 		domainServices.Access(),
 		machineServiceGetter,
 		s.mockModelService,
 		domainServices.ModelInfo(),
 		domainServices.BlockCommand(),
+		credentialServiceGetter,
+		upgradeServiceGetter,
 		applicationServiceGetter,
 		relationServiceGetter,
 		statusServiceGetter,
@@ -256,6 +270,7 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
 		ctx.ObjectStore(),
+		ctx.ControllerModelUUID(),
 		ctx.ControllerUUID(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1108,9 +1123,10 @@ type accessSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	accessService  *mocks.MockControllerAccessService
-	modelService   *mocks.MockModelService
-	controllerUUID string
+	accessService       *mocks.MockControllerAccessService
+	modelService        *mocks.MockModelService
+	controllerUUID      string
+	controllerModelUUID model.UUID
 }
 
 func TestAccessSuite(t *stdtesting.T) {
@@ -1136,6 +1152,7 @@ func (s *accessSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.controllerUUID = modeltesting.GenModelUUID(c).String()
+	s.controllerModelUUID = modeltesting.GenModelUUID(c)
 }
 
 func (s *accessSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -1157,8 +1174,6 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		nil,
-		nil,
-		nil,
 		s.accessService,
 		nil,
 		s.modelService,
@@ -1174,6 +1189,9 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		nil,
+		nil,
+		nil,
+		s.controllerModelUUID,
 		s.controllerUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)

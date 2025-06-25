@@ -72,6 +72,9 @@ type MultiModelContext interface {
 
 	// ObjectStoreForModel returns the object store for a given model uuid.
 	ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error)
+
+	// ControllerModelUUID returns the UUID of the controller model.
+	ControllerModelUUID() model.UUID
 }
 
 // ModelContext exposes useful capabilities to a Facade for a given model.

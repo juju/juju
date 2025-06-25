@@ -4,6 +4,7 @@
 package migrationmaster_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -53,12 +55,13 @@ type Suite struct {
 	modelService            *mocks.MockModelService
 	upgradeService          *mocks.MockUpgradeService
 
-	controllerUUID string
-	modelUUID      string
-	model          description.Model
-	resources      *common.Resources
-	authorizer     apiservertesting.FakeAuthorizer
-	cloudSpec      environscloudspec.CloudSpec
+	controllerModelUUID model.UUID
+	controllerUUID      string
+	modelUUID           string
+	model               description.Model
+	resources           *common.Resources
+	authorizer          apiservertesting.FakeAuthorizer
+	cloudSpec           environscloudspec.CloudSpec
 }
 
 func TestSuite(t *testing.T) {
@@ -68,6 +71,7 @@ func TestSuite(t *testing.T) {
 func (s *Suite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
+	s.controllerModelUUID = modeltesting.GenModelUUID(c)
 	s.controllerUUID = uuid.MustNewUUID().String()
 	s.modelUUID = uuid.MustNewUUID().String()
 
@@ -609,20 +613,33 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		s.backend,
 		s.modelExporter,
 		s.store,
+		s.controllerModelUUID,
 		s.precheckBackend,
 		nil, // pool
 		s.resources,
 		s.authorizer,
 		stubLeadership{},
-		s.credentialService,
+		func(context.Context, model.UUID) (migrationmaster.CredentialService, error) {
+			return s.credentialService, nil
+		},
+		func(context.Context, model.UUID) (migrationmaster.UpgradeService, error) {
+			return s.upgradeService, nil
+		},
+		func(context.Context, model.UUID) (migrationmaster.ApplicationService, error) {
+			return s.applicationService, nil
+		},
+		func(context.Context, model.UUID) (migrationmaster.RelationService, error) {
+			return s.relationService, nil
+		},
+		func(context.Context, model.UUID) (migrationmaster.StatusService, error) {
+			return s.statusService, nil
+		},
+		func(context.Context, model.UUID) (migrationmaster.ModelAgentService, error) {
+			return s.agentService, nil
+		},
 		s.controllerConfigService,
 		s.modelInfoService,
 		s.modelService,
-		s.applicationService,
-		s.relationService,
-		s.statusService,
-		s.upgradeService,
-		s.agentService,
 	)
 }
 

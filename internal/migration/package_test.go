@@ -32,16 +32,9 @@ type precheckBaseSuite struct {
 	agentService       *MockModelAgentService
 }
 
-func (s *precheckBaseSuite) checkRebootRequired(c *tc.C, runPrecheck precheckRunner) {
-	err := runPrecheck(c, newBackendWithRebootingMachine(), &fakeCredentialService{}, s.upgradeService,
-		s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err, tc.ErrorMatches, "machine 0 is scheduled to reboot")
-}
-
 func (s *precheckBaseSuite) setupMocksWithDefaultAgentVersion(c *tc.C) *gomock.Controller {
 	ctrl := s.setupMocks(c)
 	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse("2.9.32"), nil).AnyTimes()
-	s.expectAgentTargetVersions(c)
 	return ctrl
 }
 
@@ -101,15 +94,4 @@ func (s *precheckBaseSuite) expectIsUpgradeError(err error) {
 
 func (s *precheckBaseSuite) expectAgentVersion() {
 	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse(backendVersion.String()), nil).AnyTimes()
-}
-
-// expectAgentTargetVersions a hack utility function to help support
-// the transition of prechecks to mocks and Dqlite. This function will take
-// an established backend and setup gomock expects for machines and units to
-// have their agent version information read.
-func (s *precheckBaseSuite) expectAgentTargetVersions(c *tc.C) {
-	s.agentService.EXPECT().GetMachinesNotAtTargetAgentVersion(gomock.Any()).
-		Return(nil, nil).AnyTimes()
-	s.agentService.EXPECT().GetUnitsNotAtTargetAgentVersion(gomock.Any()).
-		Return(nil, nil).AnyTimes()
 }

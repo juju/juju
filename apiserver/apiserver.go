@@ -397,11 +397,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	// The auth context for authenticating access to application offers.
-	if err != nil {
-		return nil, fmt.Errorf("creating offer auth context: %w", err)
-	}
-
 	ready := make(chan struct{})
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "apiserver",

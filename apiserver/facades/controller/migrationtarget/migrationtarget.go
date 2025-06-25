@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/facades"
-	"github.com/juju/juju/core/logger"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/modelmigration"
-	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
@@ -59,34 +58,6 @@ type ExternalControllerService interface {
 type ControllerConfigService interface {
 	// ControllerConfig returns the controller config.
 	ControllerConfig(context.Context) (controller.Config, error)
-}
-
-// ApplicationService provides access to the application service.
-type ApplicationService interface {
-	// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
-	// in the model are alive, returning an error if any are not.
-	CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error
-
-	// GetUnitNamesForApplication returns a slice of the unit names for the given application
-	GetUnitNamesForApplication(ctx context.Context, appName string) ([]unit.Name, error)
-}
-
-// RelationService provides access to the relation service.
-type RelationService interface {
-	// GetAllRelationDetails return RelationDetailResults for all relations
-	// for the current model.
-	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
-
-	// RelationUnitInScopeByID returns a boolean to indicate whether the given
-	// unit is in scopen of a given relation
-	RelationUnitInScopeByID(ctx context.Context, relationID int, unitName unit.Name) (bool,
-		error)
-}
-
-type StatusService interface {
-	// CheckUnitStatusesReadyForMigration returns true is the statuses of all units
-	// in the model indicate they can be migrated.
-	CheckUnitStatusesReadyForMigration(context.Context) error
 }
 
 // ModelManagerService describes the method needed to update model metadata.
@@ -158,9 +129,6 @@ type API struct {
 	modelImporter  ModelImporter
 	upgradeService UpgradeService
 
-	applicationService          ApplicationService
-	relationService             RelationService
-	statusService               StatusService
 	controllerConfigService     ControllerConfigService
 	externalControllerService   ExternalControllerService
 	modelAgentServiceGetter     ModelAgentServiceGetter
@@ -181,9 +149,6 @@ func NewAPI(
 	authorizer facade.Authorizer,
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
-	applicationService ApplicationService,
-	relationService RelationService,
-	statusService StatusService,
 	upgradeService UpgradeService,
 	modelAgentServiceGetter ModelAgentServiceGetter,
 	modelMigrationServiceGetter ModelMigrationServiceGetter,
@@ -196,9 +161,6 @@ func NewAPI(
 		pool:                            ctx.StatePool(),
 		controllerConfigService:         controllerConfigService,
 		externalControllerService:       externalControllerService,
-		applicationService:              applicationService,
-		relationService:                 relationService,
-		statusService:                   statusService,
 		upgradeService:                  upgradeService,
 		modelAgentServiceGetter:         modelAgentServiceGetter,
 		modelMigrationServiceGetter:     modelMigrationServiceGetter,
@@ -221,50 +183,43 @@ func checkAuth(ctx context.Context, authorizer facade.Authorizer, st *state.Stat
 // Prechecks ensure that the target controller is ready to accept a
 // model migration.
 func (api *API) Prechecks(ctx context.Context, model params.MigrationModelInfo) error {
-	var modelDescription description.Model
-	if serialized := model.ModelDescription; len(serialized) > 0 {
-		var err error
-		modelDescription, err = description.Deserialize(model.ModelDescription)
-		if err != nil {
-			return errors.Errorf(
-				"cannot deserialize model %q description during prechecks: %w",
-				model.UUID,
-				err,
-			)
-		}
+
+	modelDescription, err := description.Deserialize(model.ModelDescription)
+	if err != nil {
+		return errors.Errorf(
+			"cannot deserialize model %q description during prechecks: %w",
+			model.UUID,
+			err,
+		)
 	}
 
-	// If there are no required migration facade versions, then we
-	// don't need to check anything.
-	if len(api.requiredMigrationFacadeVersions) > 0 {
-		// Ensure that when attempting to migrate a model, the source
-		// controller has the required facades for the migration.
-		sourceFacadeVersions := facades.FacadeVersions{}
-		for name, versions := range model.FacadeVersions {
-			sourceFacadeVersions[name] = versions
+	// Ensure that when attempting to migrate a model, the source
+	// controller has the required facades for the migration.
+	sourceFacadeVersions := facades.FacadeVersions{}
+	for name, versions := range model.FacadeVersions {
+		sourceFacadeVersions[name] = versions
+	}
+	if !facades.CompleteIntersection(api.requiredMigrationFacadeVersions, sourceFacadeVersions) {
+		majorMinor := fmt.Sprintf("%d.%d",
+			model.ControllerAgentVersion.Major,
+			model.ControllerAgentVersion.Minor,
+		)
+
+		// If the patch is zero, then we don't need to mention it.
+		var patchMessage string
+		if model.ControllerAgentVersion.Patch > 0 {
+			patchMessage = fmt.Sprintf(", that is greater than %s.%d", majorMinor, model.ControllerAgentVersion.Patch)
 		}
-		if !facades.CompleteIntersection(api.requiredMigrationFacadeVersions, sourceFacadeVersions) {
-			majorMinor := fmt.Sprintf("%d.%d",
-				model.ControllerAgentVersion.Major,
-				model.ControllerAgentVersion.Minor,
-			)
 
-			// If the patch is zero, then we don't need to mention it.
-			var patchMessage string
-			if model.ControllerAgentVersion.Patch > 0 {
-				patchMessage = fmt.Sprintf(", that is greater than %s.%d", majorMinor, model.ControllerAgentVersion.Patch)
-			}
-
-			return errors.Errorf(`
+		return errors.Errorf(`
 Source controller does not support required facades for performing migration.
 Upgrade the controller to a newer version of %s%s or migrate to a controller
 with an earlier version of the target controller and try again.
 
 `[1:], majorMinor, patchMessage)
-		}
 	}
 
-	err := migration.ImportPrecheck(ctx, modelDescription)
+	err = migration.ImportDescriptionPrecheck(ctx, modelDescription)
 	if err != nil {
 		return fmt.Errorf("migration import prechecks: %w", err)
 	}
@@ -277,6 +232,7 @@ with an earlier version of the target controller and try again.
 			err,
 		)
 	}
+
 	// NOTE (thumper): it isn't clear to me why api.state would be different
 	// from the controllerState as I had thought that the Precheck call was
 	// on the controller model, in which case it should be the same as the
@@ -289,6 +245,7 @@ with an earlier version of the target controller and try again.
 	if err != nil {
 		return errors.Errorf("cannot create prechecks backend: %w", err)
 	}
+
 	if err := migration.TargetPrecheck(
 		ctx,
 		backend,
@@ -302,9 +259,6 @@ with an earlier version of the target controller and try again.
 			ModelDescription:       modelDescription,
 		},
 		api.upgradeService,
-		api.applicationService,
-		api.relationService,
-		api.statusService,
 		modelAgentService,
 	); err != nil {
 		return errors.Errorf("migration target prechecks failed: %w", err)
@@ -471,8 +425,8 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 	return lastTimestamp, nil
 }
 
-func unmarshalLine(line []byte) (logger.LogRecord, error) {
-	var logRecord logger.LogRecord
+func unmarshalLine(line []byte) (corelogger.LogRecord, error) {
+	var logRecord corelogger.LogRecord
 	if err := json.Unmarshal(line, &logRecord); err != nil {
 		return logRecord, errors.Errorf("cannot unmarshal log line %q: %w", line, err)
 	}
