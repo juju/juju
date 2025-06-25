@@ -33,16 +33,38 @@ import (
 func SourcePrecheck(
 	ctx context.Context,
 	backend PrecheckBackend,
-	credentialService CredentialService,
-	upgradeService UpgradeService,
-	applicationService ApplicationService,
-	relationService RelationService,
-	statusService StatusService,
-	modelAgentService ModelAgentService,
+	modelUUID coremodel.UUID,
+	controllerModelUUID coremodel.UUID,
+	credentialServiceGetter func(context.Context, coremodel.UUID) (CredentialService, error),
+	upgradeServiceGetter func(context.Context, coremodel.UUID) (UpgradeService, error),
+	applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error),
+	relationServiceGetter func(context.Context, coremodel.UUID) (RelationService, error),
+	statusServiceGetter func(context.Context, coremodel.UUID) (StatusService, error),
+	modelAgentServiceGetter func(context.Context, coremodel.UUID) (ModelAgentService, error),
 ) error {
-	c := newPrecheckSource(backend, credentialService, upgradeService, applicationService, relationService,
-		statusService,
-		modelAgentService)
+
+	modelCredentialService, err := credentialServiceGetter(ctx, modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelApplicationService, err := applicationServiceGetter(ctx, modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelRelationService, err := relationServiceGetter(ctx, modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelStatusService, err := statusServiceGetter(ctx, modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelModelAgentService, err := modelAgentServiceGetter(ctx, modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	c := newPrecheckModel(backend, modelCredentialService, modelApplicationService, modelRelationService, modelStatusService, modelModelAgentService)
 	if err := c.checkModel(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -51,12 +73,7 @@ func SourcePrecheck(
 		return errors.Trace(err)
 	}
 
-	if err := statusService.CheckUnitStatusesReadyForMigration(ctx); err != nil {
-		return errors.Trace(err)
-	}
-
-	err := c.checkApplications(ctx)
-	if err != nil {
+	if err := c.checkApplications(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -75,16 +92,26 @@ func SourcePrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerCtx := newPrecheckTarget(controllerBackend, upgradeService, applicationService, relationService, statusService, modelAgentService)
+	controllerUpgradeService, err := upgradeServiceGetter(ctx, controllerModelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	controllerModelAgentService, err := modelAgentServiceGetter(ctx, controllerModelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	controllerCtx := newPrecheckController(controllerBackend, controllerUpgradeService, controllerModelAgentService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Annotate(err, "controller")
 	}
 	return nil
 }
 
-// ImportPrecheck checks the data being imported to make sure preconditions for
-// importing are met.
-func ImportPrecheck(
+// ImportDescriptionPrecheck checks the data being imported to make sure
+// preconditions for importing are met. This performs static checks on the
+// received model description, without requiring a connection to state.
+func ImportDescriptionPrecheck(
 	ctx context.Context,
 	model description.Model,
 ) error {
@@ -92,6 +119,11 @@ func ImportPrecheck(
 	if err != nil {
 		return internalerrors.Errorf("checking model for charms without manifest.yaml: %w", err)
 	}
+
+	if err := checkNoFanConfig(model.Config()); err != nil {
+		return internalerrors.Errorf("checking model config for fan config: %w", err)
+	}
+
 	return nil
 }
 
@@ -104,9 +136,6 @@ func TargetPrecheck(
 	pool Pool,
 	modelInfo coremigration.ModelInfo,
 	upgradeService UpgradeService,
-	applicationService ApplicationService,
-	relationService RelationService,
-	statusService StatusService,
 	modelAgentService ModelAgentService,
 ) error {
 	if err := modelInfo.Validate(); err != nil {
@@ -141,15 +170,9 @@ func TargetPrecheck(
 			modelInfo.ControllerAgentVersion, controllerVersion)
 	}
 
-	controllerCtx := newPrecheckTarget(backend, upgradeService, applicationService, relationService, statusService, modelAgentService)
+	controllerCtx := newPrecheckController(backend, upgradeService, modelAgentService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Trace(err)
-	}
-
-	if modelInfo.ModelDescription != nil {
-		if err := checkNoFanConfig(modelInfo.ModelDescription.Config()); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	// Check for conflicts with existing models
@@ -184,55 +207,9 @@ func TargetPrecheck(
 	return nil
 }
 
-type precheckTarget struct {
-	precheckContext
-}
-
-func newPrecheckTarget(
-	backend PrecheckBackend,
-	upgradeService UpgradeService,
-	applicationService ApplicationService,
-	relationService RelationService,
-	statusService StatusService,
-	modelAgentService ModelAgentService,
-) *precheckTarget {
-	return &precheckTarget{
-		precheckContext: precheckContext{
-			backend:            backend,
-			upgradeService:     upgradeService,
-			applicationService: applicationService,
-			relationService:    relationService,
-			statusService:      statusService,
-			modelAgentService:  modelAgentService,
-		},
-	}
-}
-
 type precheckContext struct {
-	backend            PrecheckBackend
-	upgradeService     UpgradeService
-	applicationService ApplicationService
-	relationService    RelationService
-	statusService      StatusService
-	modelAgentService  ModelAgentService
-}
-
-func (c *precheckContext) checkController(ctx context.Context) error {
-	model, err := c.backend.Model()
-	if err != nil {
-		return errors.Annotate(err, "retrieving model")
-	}
-	if model.Life() != state.Alive {
-		return errors.Errorf("model is %s", model.Life())
-	}
-
-	if upgrading, err := c.upgradeService.IsUpgrading(ctx); err != nil {
-		return errors.Annotate(err, "checking for upgrades")
-	} else if upgrading {
-		return errors.New("upgrade in progress")
-	}
-
-	return errors.Trace(c.checkMachines(ctx))
+	backend           PrecheckBackend
+	modelAgentService ModelAgentService
 }
 
 func (c *precheckContext) checkMachines(ctx context.Context) error {
@@ -283,7 +260,72 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 	return nil
 }
 
-func (c *precheckContext) checkApplications(ctx context.Context) error {
+type precheckController struct {
+	precheckContext
+	upgradeService UpgradeService
+}
+
+func newPrecheckController(
+	backend PrecheckBackend,
+	upgradeService UpgradeService,
+	modelAgentService ModelAgentService,
+) *precheckController {
+	return &precheckController{
+		precheckContext: precheckContext{
+			backend:           backend,
+			modelAgentService: modelAgentService,
+		},
+		upgradeService: upgradeService,
+	}
+}
+
+func (c *precheckController) checkController(ctx context.Context) error {
+	model, err := c.backend.Model()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model")
+	}
+	if model.Life() != state.Alive {
+		return errors.Errorf("model is %s", model.Life())
+	}
+
+	if upgrading, err := c.upgradeService.IsUpgrading(ctx); err != nil {
+		return errors.Annotate(err, "checking for upgrades")
+	} else if upgrading {
+		return errors.New("upgrade in progress")
+	}
+
+	return errors.Trace(c.checkMachines(ctx))
+}
+
+type precheckModel struct {
+	precheckContext
+	credentialService  CredentialService
+	applicationService ApplicationService
+	relationService    RelationService
+	statusService      StatusService
+}
+
+func newPrecheckModel(
+	backend PrecheckBackend,
+	credentialService CredentialService,
+	applicationService ApplicationService,
+	relationService RelationService,
+	statusService StatusService,
+	modelAgentService ModelAgentService,
+) *precheckModel {
+	return &precheckModel{
+		precheckContext: precheckContext{
+			backend:           backend,
+			modelAgentService: modelAgentService,
+		},
+		applicationService: applicationService,
+		statusService:      statusService,
+		credentialService:  credentialService,
+		relationService:    relationService,
+	}
+}
+
+func (c *precheckModel) checkApplications(ctx context.Context) error {
 	// We check all units in the model for every application. This checks to see
 	// that there agent versions are what we expect.
 	agentLaggingUnits, err := c.modelAgentService.GetUnitsNotAtTargetAgentVersion(ctx)
@@ -299,8 +341,11 @@ func (c *precheckContext) checkApplications(ctx context.Context) error {
 		)
 	}
 
-	err = c.applicationService.CheckAllApplicationsAndUnitsAreAlive(ctx)
-	if err != nil {
+	if err := c.statusService.CheckUnitStatusesReadyForMigration(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := c.applicationService.CheckAllApplicationsAndUnitsAreAlive(ctx); err != nil {
 		return internalerrors.Errorf("pre-checking applications for migration: %w", err)
 	}
 
@@ -311,7 +356,7 @@ func (c *precheckContext) checkApplications(ctx context.Context) error {
 
 // checkRelations verify that all units involved in a relation are actually in
 // scope and valid.
-func (c *precheckContext) checkRelations(ctx context.Context) error {
+func (c *precheckModel) checkRelations(ctx context.Context) error {
 	// TODO(gfouillet): Handle crossmodel relation
 	//  This code doesn't rely on future crossmodel domain, but similar check
 	//  would be required on remote units.
@@ -354,34 +399,7 @@ func (c *precheckContext) checkRelations(ctx context.Context) error {
 	return nil
 }
 
-type precheckSource struct {
-	precheckContext
-	credentialService CredentialService
-}
-
-func newPrecheckSource(
-	backend PrecheckBackend,
-	credentialService CredentialService,
-	upgradeService UpgradeService,
-	applicationService ApplicationService,
-	relationService RelationService,
-	statusService StatusService,
-	modelAgentService ModelAgentService,
-) *precheckSource {
-	return &precheckSource{
-		precheckContext: precheckContext{
-			backend:            backend,
-			upgradeService:     upgradeService,
-			applicationService: applicationService,
-			relationService:    relationService,
-			statusService:      statusService,
-			modelAgentService:  modelAgentService,
-		},
-		credentialService: credentialService,
-	}
-}
-
-func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
+func (ctx *precheckModel) checkModel(stdCtx context.Context) error {
 	model, err := ctx.backend.Model()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model")

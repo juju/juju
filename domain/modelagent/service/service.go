@@ -252,10 +252,10 @@ func DefaultAgentBinaryFinder() AgentBinaryFinder {
 func (s *Service) GetMachinesNotAtTargetAgentVersion(
 	ctx context.Context,
 ) ([]machine.Name, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.GetMachinesNotAtTargetAgentVersion(context.Background())
+	return s.st.GetMachinesNotAtTargetAgentVersion(ctx)
 }
 
 // GetMachineReportedAgentVersion returns the agent binary version that was last

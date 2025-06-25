@@ -54,6 +54,20 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		domainServices = ctx.DomainServices()
 	)
 
+	credentialServiceGetter := func(c context.Context, modelUUID model.UUID) (CredentialService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Credential(), nil
+	}
+	upgradeServiceGetter := func(c context.Context, modelUUID model.UUID) (UpgradeService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Upgrade(), nil
+	}
 	modelAgentServiceGetter := func(c context.Context, modelUUID model.UUID) (ModelAgentService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
@@ -121,13 +135,13 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
-		domainServices.Credential(),
-		domainServices.Upgrade(),
 		domainServices.Access(),
 		machineServiceGetter,
 		domainServices.Model(),
 		domainServices.ModelInfo(),
 		domainServices.BlockCommand(),
+		credentialServiceGetter,
+		upgradeServiceGetter,
 		applicationServiceGetter,
 		relationServiceGetter,
 		statusServiceGetter,
@@ -140,6 +154,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
 		ctx.ObjectStore(),
+		ctx.ControllerModelUUID(),
 		ctx.ControllerUUID(),
 	)
 }

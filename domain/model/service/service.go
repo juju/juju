@@ -436,7 +436,14 @@ func (s *Service) ImportModel(
 func (s *Service) ControllerModel(ctx context.Context) (coremodel.Model, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	return s.st.GetControllerModel(ctx)
+	model, err := s.st.GetControllerModel(ctx)
+	if err != nil {
+		return coremodel.Model{}, errors.Errorf("getting controller model: %w", err)
+	}
+	if err := model.UUID.Validate(); err != nil {
+		return coremodel.Model{}, errors.Errorf("validating controller model uuid: %w", err)
+	}
+	return model, nil
 }
 
 // GetControllerModelUUID returns the model uuid for the controller model.

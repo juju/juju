@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -18,21 +19,25 @@ type patcher interface {
 }
 
 func SetPrecheckResult(p patcher, err error) {
-	p.PatchValue(&runMigrationPrechecks, func(ctx context.Context,
+	p.PatchValue(&runMigrationPrechecks, func(
+		ctx context.Context,
+		logger logger.Logger,
 		st, ctlrSt *state.State,
 		targetInfo *coremigration.TargetInfo,
 		controllerConfigService ControllerConfigService,
-		credentialService CredentialService,
-		modelAgentService ModelAgentService,
+		credentialServiceGetter func(context.Context, coremodel.UUID) (CredentialService, error),
+		modelAgentServiceGetter func(context.Context, coremodel.UUID) (ModelAgentService, error),
 		modelConfigService ModelConfigService,
-		upgradeService UpgradeService,
+		upgradeServiceGetter func(context.Context, coremodel.UUID) (UpgradeService, error),
 		modelService ModelService,
-		applicationService ApplicationService,
-		relationService RelationService,
-		statusService StatusService,
+		applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error),
+		relationServiceGetter func(context.Context, coremodel.UUID) (RelationService, error),
+		statusServiceGetter func(context.Context, coremodel.UUID) (StatusService, error),
 		modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 		store objectstore.ObjectStore,
-		model coremodel.Model) error {
+		model coremodel.Model,
+		controllerModelUUID coremodel.UUID,
+	) error {
 		return err
 	})
 }

@@ -999,6 +999,9 @@ func (ctx *facadeContext) controllerDB() (changestream.WatchableDB, error) {
 // facade context. It is expected that users of the facade context will use the
 // higher level abstractions.
 func (ctx *facadeContext) modelDB(modelUUID model.UUID) (changestream.WatchableDB, error) {
+	if err := modelUUID.Validate(); err != nil {
+		return nil, errors.Annotate(err, "validating model uuid")
+	}
 	db, err := ctx.r.shared.dbGetter.GetWatchableDB(modelUUID.String())
 	return db, errors.Trace(err)
 }
@@ -1025,6 +1028,11 @@ func (ctx *facadeContext) DomainServicesForModel(c context.Context, uuid model.U
 // ObjectStoreForModel returns the object store for a given model uuid.
 func (ctx *facadeContext) ObjectStoreForModel(stdCtx context.Context, modelUUID string) (objectstore.ObjectStore, error) {
 	return ctx.r.objectStoreGetter.GetObjectStore(stdCtx, modelUUID)
+}
+
+// ControllerModelUUID returns the UUID of the controller model.
+func (ctx *facadeContext) ControllerModelUUID() model.UUID {
+	return ctx.r.shared.controllerModelUUID
 }
 
 // DescribeFacades returns the list of available Facades and their Versions
