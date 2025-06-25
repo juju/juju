@@ -622,6 +622,46 @@ var selectInternalAddressesTests = []selectInternalAddressesTest{
 		matcher:  network.ScopeMatchCloudLocal,
 		expected: nil,
 	},
+	{
+		about: "IPv4 cloud-local addresses if no public addresses are found",
+		addresses: []network.SpaceAddress{
+			network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopeCloudLocal)),
+			//network.NewSpaceAddress("fc00::42", network.WithScope(network.ScopePublic)),
+			network.NewSpaceAddress("169.254.1.1", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("192.168.1.37", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
+		},
+		matcher: network.ScopeMatchPublic,
+		expected: []network.SpaceAddress{
+			network.NewSpaceAddress("169.254.1.1", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("192.168.1.37", network.WithScope(network.ScopeCloudLocal)),
+		},
+	},
+	{
+		about: "IPv6 public addresses takes precedence over IPv4 local-cloud",
+		addresses: []network.SpaceAddress{
+			network.NewSpaceAddress("fc00::42", network.WithScope(network.ScopePublic)),
+			network.NewSpaceAddress("169.254.1.1", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
+		},
+		matcher: network.ScopeMatchPublic,
+		expected: []network.SpaceAddress{
+			network.NewSpaceAddress("fc00::42", network.WithScope(network.ScopePublic)),
+		},
+	},
+	{
+		about: "Both IPv4 and IPv6 local-cloud if no public addresses are found",
+		addresses: []network.SpaceAddress{
+			network.NewSpaceAddress("fc00::42", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("169.254.1.1", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
+		},
+		matcher: network.ScopeMatchAllPublic,
+		expected: []network.SpaceAddress{
+			network.NewSpaceAddress("fc00::42", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("169.254.1.1", network.WithScope(network.ScopeCloudLocal)),
+		},
+	},
 }
 
 func (s *AddressSuite) TestSelectInternalAddresses(c *tc.C) {

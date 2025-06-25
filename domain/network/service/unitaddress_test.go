@@ -120,7 +120,7 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddress(c *tc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
+				Value:      "10.0.0.1/24",
 				ConfigType: network.ConfigStatic,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeMachineLocal,
@@ -129,7 +129,7 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddress(c *tc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.2",
+				Value:      "54.32.1.2/24",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
@@ -138,7 +138,7 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddress(c *tc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.3",
+				Value:      "54.32.1.3/24",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeCloudLocal,
@@ -327,6 +327,15 @@ func (s *unitAddressSuite) TestGetPublicAddresses(c *tc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
+				Value:      "fd42:13c3:1760:6d89:216:3eff:fec7:fd68/64",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv6Address,
+				Scope:      network.ScopePublic,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
 				Value:      "54.32.1.2",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
@@ -350,7 +359,7 @@ func (s *unitAddressSuite) TestGetPublicAddresses(c *tc.C) {
 	addrs, err := s.service(c).GetUnitPublicAddresses(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 	// The two public addresses should be returned.
-	c.Check(addrs, tc.DeepEquals, unitAddresses[0:2])
+	c.Check(addrs, tc.DeepEquals, unitAddresses[0:3])
 }
 
 func (s *unitAddressSuite) TestGetPublicAddressesCloudLocal(c *tc.C) {
