@@ -99,16 +99,55 @@ func EntityLifeMapperFunc(
 // consistent.
 func MakeEntityLifePrerequisites(
 	ctx context.Context,
+	initialQuery eventsource.Query[map[string]life.Life],
 	lifeGetter EntityLifeGetter,
 ) (eventsource.NamespaceQuery, eventsource.Mapper, error) {
-	initialLife, err := lifeGetter(ctx)
-	if err != nil {
-		return nil, nil, errors.Errorf(
-			"getting initial entity life state from life getter: %w", err,
-		)
+	initial := make(chan map[string]life.Life, 1)
+	namespaceQuery := func(ctx context.Context, db database.TxnRunner) ([]string, error) {
+		defer close(initial)
+		namesWithLife, err := initialQuery(ctx, db)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		select {
+		case initial <- namesWithLife:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		return slices.Collect(maps.Keys(namesWithLife)), nil
 	}
 
-	namespaceQuery := EntityLifeInitialQuery(initialLife)
-	mapper := EntityLifeMapperFunc(initialLife, lifeGetter)
+	var haveInitialKnownLife bool
+	var knownLife map[string]life.Life
+	mapper := func(
+		ctx context.Context, _ []changestream.ChangeEvent,
+	) ([]string, error) {
+		if !haveInitialKnownLife {
+			select {
+			case knownLife = <-initial:
+			default:
+			}
+			haveInitialKnownLife = true
+		}
+
+		latestLife, err := lifeGetter(ctx)
+		if err != nil {
+			return nil, errors.Errorf(
+				"getting latest storage entity life values: %w", err,
+			)
+		}
+
+		changes := []string(nil)
+		for k, v := range latestLife {
+			if l, has := knownLife[k]; !has || v != l {
+				changes = append(changes, k)
+			}
+			delete(knownLife, k)
+		}
+		changes = slices.AppendSeq(changes, maps.Keys(knownLife))
+		knownLife = latestLife
+		return changes, nil
+	}
+
 	return namespaceQuery, mapper, nil
 }
