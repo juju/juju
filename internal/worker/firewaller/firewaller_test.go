@@ -5,6 +5,7 @@ package firewaller_test
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"sync"
 	"time"
@@ -93,11 +94,6 @@ type firewallerBaseSuite struct {
 func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.modelFlushed = make(chan bool, 5)
-	s.machineFlushed = make(chan string, 5)
-	s.watchingMachine = make(chan names.MachineTag, 5)
-	s.skippedModelFlush = make(chan bool, 5)
-
 	s.withIpv6 = true
 	s.withModelFirewaller = true
 	s.createWithMachine = true
@@ -182,6 +178,23 @@ func (s *firewallerBaseSuite) ensureMocks(c *gc.C, ctrl *gomock.Controller) {
 		}
 		s.modelFwRulesCh <- struct{}{}
 	}
+
+	s.AddCleanup(func(_ *gc.C) {
+		s.firewaller = nil
+		s.envFirewaller = nil
+		s.envModelFirewaller = nil
+		s.envInstances = nil
+		s.remoteRelations = nil
+		s.credentialsFacade = nil
+		s.crossmodelFirewaller = nil
+
+		s.machinesCh = nil
+		s.applicationsCh = nil
+		s.openedPortsCh = nil
+		s.remoteRelCh = nil
+		s.subnetsCh = nil
+		s.modelFwRulesCh = nil
+	})
 }
 
 // assertIngressRules retrieves the ingress rules from the provided instance
@@ -361,6 +374,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, ctrl *gomock.Controller, app *moc
 
 func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) worker.Worker {
 	s.modelFlushed = make(chan bool, 1)
+	s.skippedModelFlush = make(chan bool, 1)
 	s.machineFlushed = make(chan string, 1)
 	s.watchingMachine = make(chan names.MachineTag, 1)
 
@@ -608,9 +622,10 @@ func (s *InstanceModeSuite) TestShouldFlushModelWhenFlushingMachine(c *gc.C) {
 
 	s.waitForSkippingModelFlush(c)
 
-	m := s.addMachineAndEnsureMocks(ctrl)
+	m := s.addMachineAndEnsureMocks(c, ctrl)
 
 	s.waitForMachine(c, m.Tag().Id())
+	s.waitForMachineFlush(c)
 	s.waitForModelFlush(c)
 }
 
@@ -890,15 +905,88 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
 	s.waitForMachine(c, m.Tag().Id())
 }
 
-func (s *InstanceModeSuite) addMachineAndEnsureMocks(ctrl *gomock.Controller) *mocks.MockMachine {
-	m, _ := s.addMachine(ctrl)
+func (s *InstanceModeSuite) addMachineAndEnsureMocks(c *gc.C, ctrl *gomock.Controller) *mocks.MockMachine {
+	//m, _ := s.addMachine(ctrl)
+
+	log.Println("addMachineAndEnsureMocks 1")
+
+	id := strconv.Itoa(s.nextMachineId)
+	s.nextMachineId++
+
+	m := mocks.NewMockMachine(ctrl)
+	tag := names.NewMachineTag(id)
+	s.firewaller.EXPECT().Machine(tag).Return(m, nil).MinTimes(1)
+	m.EXPECT().Tag().Return(tag).AnyTimes()
+	m.EXPECT().Life().DoAndReturn(func() life.Value {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if s.deadMachines.Contains(id) {
+			return life.Dead
+		}
+		return life.Alive
+	}).AnyTimes()
+	m.EXPECT().IsManual().Return(false, nil).MinTimes(1)
+
+	//var unitsCh chan []string
+
+	app := s.addApplication(ctrl, "wordpress", false)
+
+	log.Println("addMachineAndEnsureMocks 2")
+
+	unitId := s.nextUnitId[app.Name()]
+	s.nextUnitId[app.Name()] = unitId + 1
+	unitTag := names.NewUnitTag(fmt.Sprintf("%s/%d", app.Name(), unitId))
+
+	u := mocks.NewMockUnit(ctrl)
+	s.firewaller.EXPECT().Unit(unitTag).Return(u, nil).AnyTimes()
+	u.EXPECT().Life().Return(life.Alive)
+	u.EXPECT().Tag().Return(unitTag).AnyTimes()
+	u.EXPECT().Application().Return(app, nil).AnyTimes()
+	u.EXPECT().AssignedMachine().Return(m.Tag(), nil).AnyTimes()
+
+	log.Println("addMachineAndEnsureMocks 3")
+
+	// Add the unit to the machine.
+	m.EXPECT().OpenedMachinePortRanges().DoAndReturn(func() (map[names.UnitTag]network.GroupedPortRanges, map[names.UnitTag]network.GroupedPortRanges, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		c.Logf("get OpenedMachinePortRanges for %q: %v", m.Tag().Id(), s.unitPortRanges.ByUnitEndpoint())
+		opened := map[names.UnitTag]network.GroupedPortRanges{}
+		if r, ok := s.unitPortRanges.ByUnitEndpoint()[unitTag.Id()]; ok {
+			opened[unitTag] = r
+		}
+		return nil, opened, nil
+	}).AnyTimes()
+
+	log.Println("addMachineAndEnsureMocks 4")
+
+	//unitsCh <- []string{unitTag.Id()}
+
+	log.Println("addMachineAndEnsureMocks 5")
+
+	// Added machine watches units.
+	unitsCh := make(chan []string, 5)
+	unitWatch := watchertest.NewMockStringsWatcher(unitsCh)
+	m.EXPECT().WatchUnits().Return(unitWatch, nil).AnyTimes()
+	// Initial event.
+	unitsCh <- []string{unitTag.Id()}
+
+	// Add a machine.
+	s.machinesCh <- []string{tag.Id()}
+
+	log.Println("addMachineAndEnsureMocks 6")
+
 	instId := instance.Id("inst-" + m.Tag().Id())
 	m.EXPECT().InstanceId().Return(instId, nil).AnyTimes()
 
 	inst := mocks.NewMockEnvironInstance(ctrl)
 	s.envInstances.EXPECT().Instances(gomock.Any(), []instance.Id{instId}).Return([]instances.Instance{inst}, nil).AnyTimes()
 	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).AnyTimes()
+
+	log.Println("addMachineAndEnsureMocks 7")
 	s.ensureMocksForMachineCreation()
+
+	log.Println("addMachineAndEnsureMocks 8")
 	return m
 }
 
@@ -1219,18 +1307,25 @@ func (s *InstanceModeSuite) TestShouldSkipFlushModelWhenNoMachines(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	log.Println("hi 1")
+
 	s.modelIngressRules = firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		firewall.NewIngressRule(network.MustParsePortRange("17070"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 	}
 	s.createWithMachine = false
+	log.Println("hi 2")
 
 	s.ensureMocks(c, ctrl)
 
+	log.Println("hi 3")
+
 	fw := s.newFirewaller(c, ctrl)
+	log.Println("hi 4")
 	defer workertest.CleanKill(c, fw)
 
 	s.waitForSkippingModelFlush(c)
+	log.Println("hi 1")
 }
 
 func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
