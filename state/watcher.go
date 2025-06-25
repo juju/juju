@@ -871,12 +871,6 @@ func (st *State) WatchForUnitAssignment() StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{col: assignUnitC})
 }
 
-// WatchAPIHostPortsForClients returns a NotifyWatcher that notifies
-// when the set of API addresses changes.
-func (st *State) WatchAPIHostPortsForClients() NotifyWatcher {
-	return newEntityWatcher(st, controllersC, apiHostPortsKey)
-}
-
 // WatchStorageAttachment returns a watcher for observing changes
 // to a storage attachment.
 func (sb *storageBackend) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) NotifyWatcher {
