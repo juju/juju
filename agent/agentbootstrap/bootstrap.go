@@ -66,15 +66,6 @@ type DqliteInitializerFunc func(
 // ProviderFunc is a function that returns an EnvironProvider.
 type ProviderFunc func(string) (environs.EnvironProvider, error)
 
-type bootstrapController interface {
-	Id() string
-}
-
-type bootstrapControllerCAAS interface {
-	state.Authenticator
-	bootstrapController
-}
-
 // CheckJWKSReachable checks if the given JWKS URL is reachable.
 func CheckJWKSReachable(url string) error {
 	ctx, cancelF := context.WithTimeout(context.TODO(), 30*time.Second)
