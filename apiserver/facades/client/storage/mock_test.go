@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
@@ -52,14 +51,6 @@ type mockStorageAccessor struct {
 	attachStorage                       func(names.StorageTag, names.UnitTag) error
 	detachStorage                       func(names.StorageTag, names.UnitTag, bool) error
 	addExistingFilesystem               func(state.FilesystemInfo, *state.VolumeInfo, string) (names.StorageTag, error)
-}
-
-func (st *mockStorageAccessor) VolumeAccess() storage.StorageVolume {
-	return st
-}
-
-func (st *mockStorageAccessor) FilesystemAccess() storage.StorageFile {
-	return st
 }
 
 func (st *mockStorageAccessor) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
