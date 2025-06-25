@@ -34,14 +34,13 @@ type InitiateMongoParams struct {
 
 	// User holds the user to log as in to the mongo server.
 	// If it is empty, no login will take place.
-	User     string
-	Password string
+	User string
 }
 
 // InitiateMongoServer checks for an existing mongo configuration.
 // If no existing configuration is found one is created using Initiate.
 func InitiateMongoServer(p InitiateMongoParams) error {
-	logger.Debugf(context.TODO(), "Initiating mongo replicaset; dialInfo %#v; memberHostport %q; user %q; password %q", p.DialInfo, p.MemberHostPort, p.User, p.Password)
+	logger.Debugf(context.TODO(), "Initiating mongo replicaset; dialInfo %#v; memberHostport %q; user %q", p.DialInfo, p.MemberHostPort, p.User)
 	defer logger.Infof(context.TODO(), "finished InitiateMongoServer")
 
 	if len(p.DialInfo.Addrs) > 1 {
@@ -49,6 +48,7 @@ func InitiateMongoServer(p InitiateMongoParams) error {
 		return nil
 	}
 	p.DialInfo.Direct = true
+	p.DialInfo.Password = mongo.MongoPassword
 
 	// Initiate may fail while mongo is initialising, so we retry until
 	// we successfully populate the replicaset config.

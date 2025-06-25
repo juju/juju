@@ -63,7 +63,6 @@ func (s *AgentSuite) SetUpTest(c *tc.C) {
 
 func mongoInfo() *mongo.MongoInfo {
 	info := statetesting.NewMongoInfo()
-	info.Password = testing.AdminSecret
 	return info
 }
 

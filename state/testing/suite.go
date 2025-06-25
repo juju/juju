@@ -35,7 +35,6 @@ type StateSuite struct {
 	State                     *state.State
 	Model                     *state.Model
 	Owner                     names.UserTag
-	AdminPassword             string
 	Factory                   *factory.Factory
 	InitialConfig             *config.Config
 	ControllerConfig          map[string]interface{}
@@ -72,10 +71,8 @@ func (s *StateSuite) SetUpTest(c *tc.C) {
 		s.Clock = testclock.NewDilatedWallClock(100 * time.Millisecond)
 	}
 
-	s.AdminPassword = "admin-secret"
 	s.Controller = InitializeWithArgs(c, InitializeArgs{
 		Owner:                     s.Owner,
-		AdminPassword:             s.AdminPassword,
 		InitialConfig:             s.InitialConfig,
 		ControllerConfig:          s.ControllerConfig,
 		ControllerInheritedConfig: s.ControllerInheritedConfig,

@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/mongo"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -280,13 +279,6 @@ func (m *Machine) setAgentVersionOps(v semversion.Binary) ([]txn.Op, *tools.Tool
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
 	return ops, tools, nil
-}
-
-// SetMongoPassword sets the password the agent responsible for the machine
-// should use to communicate with the controllers.  Previous passwords
-// are invalidated.
-func (m *Machine) SetMongoPassword(password string) error {
-	return mongo.SetAdminMongoPassword(m.st.session, m.Tag().String(), password)
 }
 
 func (m *Machine) setPasswordHashOps(passwordHash string) ([]txn.Op, error) {
