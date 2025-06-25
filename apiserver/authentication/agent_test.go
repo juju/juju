@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -34,8 +35,7 @@ func TestAgentAuthenticatorSuite(t *testing.T) {
 
 func (s *agentAuthenticatorSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
-- Valid machine login.
-- Invalid login for machine not provisioned.
+
 - Login for invalid relation entity.
 `)
 }
@@ -231,6 +231,82 @@ func (s *agentAuthenticatorSuite) TestMachineLoginMachineError(c *tc.C) {
 	s.agentPasswordService.EXPECT().MatchesMachinePasswordHashWithNonce(gomock.Any(), machine.Name("0"), "", "").Return(false, errors.Errorf("boom"))
 
 	authTag := names.NewMachineTag("0")
+
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+		AuthTag:     authTag,
+		Credentials: "",
+	})
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *agentAuthenticatorSuite) TestControllerNodeLogin(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesControllerNodePasswordHash(gomock.Any(), "0", "password").Return(true, nil)
+
+	authTag := names.NewControllerAgentTag("0")
+
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	entity, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+		AuthTag:     authTag,
+		Credentials: "password",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entity.Tag(), tc.DeepEquals, authTag)
+}
+
+func (s *agentAuthenticatorSuite) TestControllerNodeLoginEmptyCredentials(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesControllerNodePasswordHash(gomock.Any(), "0", "").Return(false, agentpassworderrors.EmptyPassword)
+
+	authTag := names.NewControllerAgentTag("0")
+
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+		AuthTag:     authTag,
+		Credentials: "",
+	})
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrBadRequest)
+}
+
+func (s *agentAuthenticatorSuite) TestControllerNodeLoginInvalidCredentials(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesControllerNodePasswordHash(gomock.Any(), "0", "").Return(false, agentpassworderrors.InvalidPassword)
+
+	authTag := names.NewControllerAgentTag("0")
+
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+		AuthTag:     authTag,
+		Credentials: "",
+	})
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
+}
+
+func (s *agentAuthenticatorSuite) TestControllerNodeLoginControllerNodeNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesControllerNodePasswordHash(gomock.Any(), "0", "").Return(false, controllernodeerrors.NotFound)
+
+	authTag := names.NewControllerAgentTag("0")
+
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+		AuthTag:     authTag,
+		Credentials: "",
+	})
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
+}
+
+func (s *agentAuthenticatorSuite) TestControllerNodeLoginControllerNodeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesControllerNodePasswordHash(gomock.Any(), "0", "").Return(false, errors.Errorf("boom"))
+
+	authTag := names.NewControllerAgentTag("0")
 
 	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
