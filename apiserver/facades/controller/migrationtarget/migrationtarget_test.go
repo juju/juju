@@ -48,6 +48,7 @@ type Suite struct {
 	domainServicesGetter      *MockDomainServicesGetter
 	externalControllerService *MockExternalControllerService
 	upgradeService            *MockUpgradeService
+	statusService             *MockStatusService
 	modelImporter             *MockModelImporter
 	objectStoreGetter         *MockModelObjectStoreGetter
 	modelMigrationService     *MockModelMigrationService
@@ -429,6 +430,7 @@ func (s *Suite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	s.upgradeService = NewMockUpgradeService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
 
 	s.objectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
 	s.modelImporter = NewMockModelImporter(ctrl)
@@ -465,6 +467,7 @@ func (s *Suite) newAPI(versions facades.FacadeVersions, logDir string) (*migrati
 		s.controllerConfigService,
 		s.externalControllerService,
 		s.upgradeService,
+		s.statusService,
 		s.agentServiceGetter,
 		s.migrationServiceGetter,
 		versions,

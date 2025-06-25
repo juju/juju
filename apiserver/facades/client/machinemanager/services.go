@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/environs"
@@ -32,6 +33,7 @@ type Services struct {
 	ControllerNodeService   ControllerNodeService
 	KeyUpdaterService       KeyUpdaterService
 	MachineService          MachineService
+	StatusService           StatusService
 	ModelConfigService      ModelConfigService
 	NetworkService          NetworkService
 }
@@ -100,26 +102,44 @@ type Authorizer interface {
 type MachineService interface {
 	// CreateMachine creates a machine with the given name.
 	CreateMachine(context.Context, coremachine.Name, *string) (coremachine.UUID, error)
+
 	// DeleteMachine deletes a machine with the given name.
 	DeleteMachine(context.Context, coremachine.Name) error
+
 	// GetBootstrapEnviron returns the bootstrap environ.
 	GetBootstrapEnviron(context.Context) (environs.BootstrapEnviron, error)
+
 	// GetInstanceTypesFetcher returns the instance types fetcher.
 	GetInstanceTypesFetcher(context.Context) (environs.InstanceTypesFetcher, error)
+
 	// ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
 	// the corresponding cloud instance to be stopped.
 	// It returns a NotFound if the given machine doesn't exist.
-	ShouldKeepInstance(ctx context.Context, machineName coremachine.Name) (bool, error)
+	ShouldKeepInstance(context.Context, coremachine.Name) (bool, error)
+
 	// SetKeepInstance sets whether the machine cloud instance will be retained
 	// when the machine is removed from Juju. This is only relevant if an instance
 	// exists.
 	// It returns a NotFound if the given machine doesn't exist.
 	SetKeepInstance(ctx context.Context, machineName coremachine.Name, keep bool) error
+
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name coremachine.Name) (coremachine.UUID, error)
+	GetMachineUUID(context.Context, coremachine.Name) (coremachine.UUID, error)
+
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	GetHardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(context.Context, coremachine.UUID) (*instance.HardwareCharacteristics, error)
+}
+
+// StatusService defines the methods that the facade assumes from the Status
+// service.
+type StatusService interface {
+	// GetInstanceStatus returns the cloud specific instance status for this
+	// machine.
+	GetInstanceStatus(context.Context, coremachine.Name) (status.StatusInfo, error)
+
+	// SetInstanceStatus sets the cloud specific instance status for this machine.
+	SetInstanceStatus(context.Context, coremachine.Name, status.StatusInfo) error
 }
 
 // ApplicationService is the interface that is used to interact with

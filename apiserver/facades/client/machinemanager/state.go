@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )
@@ -48,8 +47,6 @@ type Machine interface {
 	Base() state.Base
 	Containers() ([]string, error)
 	Principals() []string
-	InstanceStatus() (status.StatusInfo, error)
-	SetInstanceStatus(sInfo status.StatusInfo) error
 }
 
 type stateShim struct {

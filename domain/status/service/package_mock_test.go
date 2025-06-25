@@ -160,6 +160,84 @@ func (c *MockModelStateGetAllFullUnitStatusesForApplicationCall) DoAndReturn(f f
 	return c
 }
 
+// GetAllInstanceStatuses mocks base method.
+func (m *MockModelState) GetAllInstanceStatuses(arg0 context.Context) (map[string]status.StatusInfo[status.InstanceStatusType], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllInstanceStatuses", arg0)
+	ret0, _ := ret[0].(map[string]status.StatusInfo[status.InstanceStatusType])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllInstanceStatuses indicates an expected call of GetAllInstanceStatuses.
+func (mr *MockModelStateMockRecorder) GetAllInstanceStatuses(arg0 any) *MockModelStateGetAllInstanceStatusesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllInstanceStatuses", reflect.TypeOf((*MockModelState)(nil).GetAllInstanceStatuses), arg0)
+	return &MockModelStateGetAllInstanceStatusesCall{Call: call}
+}
+
+// MockModelStateGetAllInstanceStatusesCall wrap *gomock.Call
+type MockModelStateGetAllInstanceStatusesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetAllInstanceStatusesCall) Return(arg0 map[string]status.StatusInfo[status.InstanceStatusType], arg1 error) *MockModelStateGetAllInstanceStatusesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetAllInstanceStatusesCall) Do(f func(context.Context) (map[string]status.StatusInfo[status.InstanceStatusType], error)) *MockModelStateGetAllInstanceStatusesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetAllInstanceStatusesCall) DoAndReturn(f func(context.Context) (map[string]status.StatusInfo[status.InstanceStatusType], error)) *MockModelStateGetAllInstanceStatusesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetAllMachineStatuses mocks base method.
+func (m *MockModelState) GetAllMachineStatuses(arg0 context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllMachineStatuses", arg0)
+	ret0, _ := ret[0].(map[string]status.StatusInfo[status.MachineStatusType])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllMachineStatuses indicates an expected call of GetAllMachineStatuses.
+func (mr *MockModelStateMockRecorder) GetAllMachineStatuses(arg0 any) *MockModelStateGetAllMachineStatusesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllMachineStatuses", reflect.TypeOf((*MockModelState)(nil).GetAllMachineStatuses), arg0)
+	return &MockModelStateGetAllMachineStatusesCall{Call: call}
+}
+
+// MockModelStateGetAllMachineStatusesCall wrap *gomock.Call
+type MockModelStateGetAllMachineStatusesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetAllMachineStatusesCall) Return(arg0 map[string]status.StatusInfo[status.MachineStatusType], arg1 error) *MockModelStateGetAllMachineStatusesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetAllMachineStatusesCall) Do(f func(context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error)) *MockModelStateGetAllMachineStatusesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetAllMachineStatusesCall) DoAndReturn(f func(context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error)) *MockModelStateGetAllMachineStatusesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllRelationStatuses mocks base method.
 func (m *MockModelState) GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error) {
 	m.ctrl.T.Helper()

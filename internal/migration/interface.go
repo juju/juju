@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/tools"
@@ -69,6 +68,10 @@ type StatusService interface {
 	// CheckUnitStatusesReadyForMigration returns true is the statuses of all units
 	// in the model indicate they can be migrated.
 	CheckUnitStatusesReadyForMigration(context.Context) error
+
+	// CheckMachineStatusesReadyForMigration returns an error if the statuses of any
+	// machines in the model indicate they cannot be migrated.
+	CheckMachineStatusesReadyForMigration(context.Context) error
 }
 
 // ControllerConfigService describes the method needed to get the
@@ -101,8 +104,6 @@ type PrecheckMachine interface {
 	Id() string
 	AgentTools() (*tools.Tools, error)
 	Life() state.Life
-	Status() (status.StatusInfo, error)
-	InstanceStatus() (status.StatusInfo, error)
 	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
 	// ShouldRebootOrShutdown() (state.RebootAction, error)
 }

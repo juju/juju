@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/status"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -17,8 +18,13 @@ import (
 
 // ModelMachineInfo returns information about machine hardware for
 // alive top level machines (not containers).
-func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineService MachineService) (machineInfo []params.ModelMachineInfo, _ error) {
+func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineService MachineService, statusService StatusService) (machineInfo []params.ModelMachineInfo, _ error) {
 	machines, err := st.AllMachines()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	machineStatuses, err := statusService.GetAllMachineStatuses(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -27,17 +33,18 @@ func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineServic
 		if m.Life() != state.Alive {
 			continue
 		}
+		machineName := machine.Name(m.Id())
+
 		var aStatus string
-		// This is suboptimal as if there are many machines,
-		// we are making many calls into the DB for each machine.
 		var statusMessage string
-		statusInfo, err := m.Status()
-		if err == nil {
-			aStatus = string(statusInfo.Status)
-			statusMessage = statusInfo.Message
+		machineStatus, ok := machineStatuses[machineName]
+		if ok {
+			aStatus = string(machineStatus.Status)
+			statusMessage = machineStatus.Message
 		} else {
-			aStatus = err.Error()
+			aStatus = string(status.Unknown)
 		}
+
 		mInfo := params.ModelMachineInfo{
 			Id:      m.Id(),
 			Status:  aStatus,

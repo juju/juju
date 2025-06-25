@@ -117,6 +117,18 @@ type UpgradeService interface {
 	IsUpgrading(context.Context) (bool, error)
 }
 
+// StatusService defines the methods that the facade assumes from the Status
+// service.
+type StatusService interface {
+	// CheckUnitStatusesReadyForMigration returns true is the statuses of all units
+	// in the model indicate they can be migrated.
+	CheckUnitStatusesReadyForMigration(context.Context) error
+
+	// CheckMachineStatusesReadyForMigration returns an error if the statuses of any
+	// machines in the model indicate they cannot be migrated.
+	CheckMachineStatusesReadyForMigration(context.Context) error
+}
+
 // APIV4 implements the APIV4.
 type APIV4 struct {
 	*API
@@ -128,6 +140,7 @@ type API struct {
 	state          *state.State
 	modelImporter  ModelImporter
 	upgradeService UpgradeService
+	statusService  StatusService
 
 	controllerConfigService     ControllerConfigService
 	externalControllerService   ExternalControllerService
@@ -150,6 +163,7 @@ func NewAPI(
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
 	upgradeService UpgradeService,
+	statusService StatusService,
 	modelAgentServiceGetter ModelAgentServiceGetter,
 	modelMigrationServiceGetter ModelMigrationServiceGetter,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
@@ -162,6 +176,7 @@ func NewAPI(
 		controllerConfigService:         controllerConfigService,
 		externalControllerService:       externalControllerService,
 		upgradeService:                  upgradeService,
+		statusService:                   statusService,
 		modelAgentServiceGetter:         modelAgentServiceGetter,
 		modelMigrationServiceGetter:     modelMigrationServiceGetter,
 		authorizer:                      authorizer,
@@ -183,7 +198,6 @@ func checkAuth(ctx context.Context, authorizer facade.Authorizer, st *state.Stat
 // Prechecks ensure that the target controller is ready to accept a
 // model migration.
 func (api *API) Prechecks(ctx context.Context, model params.MigrationModelInfo) error {
-
 	modelDescription, err := description.Deserialize(model.ModelDescription)
 	if err != nil {
 		return errors.Errorf(
@@ -259,6 +273,7 @@ with an earlier version of the target controller and try again.
 			ModelDescription:       modelDescription,
 		},
 		api.upgradeService,
+		api.statusService,
 		modelAgentService,
 	); err != nil {
 		return errors.Errorf("migration target prechecks failed: %w", err)

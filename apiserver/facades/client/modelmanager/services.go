@@ -314,6 +314,10 @@ type StatusService interface {
 	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model no
 	// longer exists.
 	GetModelStatus(ctx context.Context) (corestatus.StatusInfo, error)
+
+	// GetAllMachineStatuses returns all the machine statuses for the model, indexed
+	// by machine name.
+	GetAllMachineStatuses(context.Context) (map[machine.Name]corestatus.StatusInfo, error)
 }
 
 // SecretBackendService is an interface for interacting with secret backend service.

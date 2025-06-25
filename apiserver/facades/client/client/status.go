@@ -143,6 +143,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	context := statusContext{
 		applicationService: c.applicationService,
 		statusService:      c.statusService,
+		machineService:     c.machineService,
 	}
 
 	var err error
@@ -246,7 +247,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 
 	return params.FullStatus{
 		Model:               modelStatus,
-		Machines:            context.processMachines(ctx, c.machineService),
+		Machines:            context.processMachines(ctx),
 		Applications:        context.processApplications(ctx),
 		Offers:              context.processOffers(),
 		Relations:           context.processRelations(ctx),
@@ -371,6 +372,7 @@ func (s relationStatus) RelatedEndpoints(applicationName string) ([]relation.End
 type statusContext struct {
 	applicationService ApplicationService
 	statusService      StatusService
+	machineService     MachineService
 
 	providerType string
 	model        model.ModelInfo
@@ -646,7 +648,7 @@ func fetchRelations(ctx context.Context, relationService RelationService,
 	return out, outById, nil
 }
 
-func (c *statusContext) processMachines(ctx context.Context, machineService MachineService) map[string]params.MachineStatus {
+func (c *statusContext) processMachines(ctx context.Context) map[string]params.MachineStatus {
 	machinesMap := make(map[string]params.MachineStatus)
 	aCache := make(map[string]params.MachineStatus)
 	for id, machines := range c.machines {
@@ -657,7 +659,7 @@ func (c *statusContext) processMachines(ctx context.Context, machineService Mach
 
 		// Element 0 is assumed to be the top-level machine.
 		tlMachine := machines[0]
-		hostStatus := c.makeMachineStatus(ctx, tlMachine, machineService, c.allAppsUnitsCharmBindings)
+		hostStatus := c.makeMachineStatus(ctx, tlMachine, c.allAppsUnitsCharmBindings)
 		machinesMap[id] = hostStatus
 		aCache[id] = hostStatus
 
@@ -669,7 +671,7 @@ func (c *statusContext) processMachines(ctx context.Context, machineService Mach
 				continue
 			}
 
-			aStatus := c.makeMachineStatus(ctx, machine, machineService, c.allAppsUnitsCharmBindings)
+			aStatus := c.makeMachineStatus(ctx, machine, c.allAppsUnitsCharmBindings)
 			parent.Containers[machine.Id()] = aStatus
 			aCache[machine.Id()] = aStatus
 		}
@@ -680,7 +682,6 @@ func (c *statusContext) processMachines(ctx context.Context, machineService Mach
 func (c *statusContext) makeMachineStatus(
 	ctx context.Context,
 	machine *state.Machine,
-	machineService MachineService,
 	appStatusInfo applicationStatusInfo,
 ) (status params.MachineStatus) {
 	machineID := machine.Id()
@@ -694,7 +695,7 @@ func (c *statusContext) makeMachineStatus(
 	status.Base = params.Base{Name: mBase.OS, Channel: mBase.Channel}
 
 	jobs := []model.MachineJob{model.JobHostUnits}
-	if isController, err := machineService.IsMachineController(ctx, coremachine.Name(machineID)); err != nil && !stderrors.Is(err, machineerrors.MachineNotFound) {
+	if isController, err := c.machineService.IsMachineController(ctx, coremachine.Name(machineID)); err != nil && !stderrors.Is(err, machineerrors.MachineNotFound) {
 		logger.Errorf(ctx, "error checking if machine %q is controller: %v", machineID, err)
 	} else if isController {
 		jobs = append(jobs, model.JobManageModel)
@@ -713,11 +714,11 @@ func (c *statusContext) makeMachineStatus(
 		instid      instance.Id
 		displayName string
 	)
-	machineUUID, err := machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
+	machineUUID, err := c.machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
 	if err != nil {
 		logger.Debugf(ctx, "error retrieving uuid for machine: %q, %w", machineID, err)
 	} else {
-		instid, displayName, err = machineService.GetInstanceIDAndName(ctx, machineUUID)
+		instid, displayName, err = c.machineService.GetInstanceIDAndName(ctx, machineUUID)
 		if err != nil && !internalerrors.Is(err, machineerrors.NotProvisioned) {
 			logger.Debugf(ctx, "error retrieving instance ID and display name for machine: %q, %w", machineID, err)
 		}
@@ -771,7 +772,7 @@ func (c *statusContext) makeMachineStatus(
 	constraints := c.machineConstraints.Machine(machineID)
 	status.Constraints = constraints.String()
 
-	hc, err := machineService.GetHardwareCharacteristics(ctx, machineUUID)
+	hc, err := c.machineService.GetHardwareCharacteristics(ctx, machineUUID)
 	if internalerrors.Is(err, machineerrors.NotProvisioned) {
 		logger.Debugf(ctx, "can't retrieve hardware characteristics of machine %q: not provisioned", machineUUID)
 	}
@@ -783,7 +784,7 @@ func (c *statusContext) makeMachineStatus(
 	status.Containers = make(map[string]params.MachineStatus)
 
 	lxdProfiles := make(map[string]params.LXDProfile)
-	charmProfiles, err := machineService.AppliedLXDProfileNames(ctx, machineUUID)
+	charmProfiles, err := c.machineService.AppliedLXDProfileNames(ctx, machineUUID)
 	if internalerrors.Is(err, machineerrors.NotProvisioned) {
 		logger.Debugf(ctx, "can't retrieve lxd profiles for machine %q: not provisioned", machineUUID)
 	}
@@ -1246,13 +1247,17 @@ func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo
 
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
-func (c *statusContext) processMachine(ctx context.Context, machine *state.Machine) (out params.DetailedStatus) {
-	statusInfo, err := machine.Status()
+func (c *statusContext) processMachine(ctx context.Context, m *state.Machine) (out params.DetailedStatus) {
+	machineName := coremachine.Name(m.Id())
+	statusInfo, err := c.statusService.GetMachineStatus(ctx, machineName)
+	if internalerrors.Is(err, machineerrors.MachineNotFound) {
+		err = internalerrors.Errorf("machine %q not found", machineName).Add(errors.NotFound)
+	}
 	populateStatusFromStatusInfoAndErr(&out, statusInfo, err)
 
-	out.Life = processLife(machine)
+	out.Life = processLife(m)
 
-	if t, err := machine.AgentTools(); err == nil {
+	if t, err := m.AgentTools(); err == nil {
 		out.Version = t.Version.Number.String()
 	}
 	return

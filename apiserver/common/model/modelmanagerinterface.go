@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/status"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
 )
 
 // ModelManagerBackend defines methods provided by a state
@@ -27,8 +26,6 @@ import (
 // All the interface methods are defined directly on state.State
 // and are reproduced here for use in tests.
 type ModelManagerBackend interface {
-	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
-
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)
 	GetBackend(string) (ModelManagerBackend, func() bool, error)
@@ -41,8 +38,6 @@ type ModelManagerBackend interface {
 	Export(store objectstore.ObjectStore) (description.Model, error)
 	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 
-	MigrationMode() (state.MigrationMode, error)
-	LatestMigration() (state.ModelMigration, error)
 	Close() error
 	HAPrimaryMachine() (names.MachineTag, error)
 }
@@ -53,7 +48,6 @@ type ControllerNode interface {
 
 type Machine interface {
 	Id() string
-	Status() (status.StatusInfo, error)
 	ContainerType() instance.ContainerType
 	Life() state.Life
 	ForceDestroy(time.Duration) error
@@ -91,6 +85,10 @@ type StatusService interface {
 	// The following error types can be expected to be returned:
 	// - [modelerrors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(context.Context) (domainstatus.ModelStatusInfo, error)
+
+	// GetAllMachineStatuses returns all the machine statuses for the model, indexed
+	// by machine name.
+	GetAllMachineStatuses(context.Context) (map[machine.Name]status.StatusInfo, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

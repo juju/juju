@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	domainnetwork "github.com/juju/juju/domain/network"
 )
@@ -38,22 +39,45 @@ type MachineService interface {
 	// EnsureDeadMachine sets the provided machine's life status to Dead.
 	// No error is returned if the provided machine doesn't exist, just nothing
 	// gets updated.
-	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
+	EnsureDeadMachine(context.Context, machine.Name) error
+
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
+	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
+
 	// GetInstanceID returns the cloud specific instance id for this machine.
-	GetInstanceID(ctx context.Context, mUUID machine.UUID) (instance.Id, error)
+	GetInstanceID(context.Context, machine.UUID) (instance.Id, error)
+
 	// GetInstanceIDAndName returns the cloud specific instance ID and display
 	// name for this machine.
-	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+	GetInstanceIDAndName(context.Context, machine.UUID) (instance.Id, string, error)
+
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)
+
 	// IsMachineManuallyProvisioned returns whether the machine is a manual
 	// machine.
-	IsMachineManuallyProvisioned(ctx context.Context, machineName machine.Name) (bool, error)
+	IsMachineManuallyProvisioned(context.Context, machine.Name) (bool, error)
+
 	// GetMachineLife returns the lifecycle of the machine.
-	GetMachineLife(ctx context.Context, machineUUID machine.Name) (life.Value, error)
+	GetMachineLife(context.Context, machine.Name) (life.Value, error)
+}
+
+// StatusService defines the methods that the facade assumes from the Status
+// service.
+type StatusService interface {
+	// GetInstanceStatus returns the cloud specific instance status for this
+	// machine.
+	GetInstanceStatus(context.Context, machine.Name) (status.StatusInfo, error)
+
+	// SetInstanceStatus sets the cloud specific instance status for this machine.
+	SetInstanceStatus(context.Context, machine.Name, status.StatusInfo) error
+
+	// GetMachineStatus returns the status of the specified machine.
+	GetMachineStatus(context.Context, machine.Name) (status.StatusInfo, error)
+
+	// SetMachineStatus sets the status of the specified machine.
+	SetMachineStatus(context.Context, machine.Name, status.StatusInfo) error
 }
 
 // ApplicationService defines the methods that the facade assumes from the Application

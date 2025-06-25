@@ -14,6 +14,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
@@ -114,14 +115,24 @@ type StatusService interface {
 	// CheckUnitStatusesReadyForMigration returns true is the statuses of all units
 	// in the model indicate they can be migrated.
 	CheckUnitStatusesReadyForMigration(context.Context) error
+
+	// CheckMachineStatusesReadyForMigration returns an error if the statuses of any
+	// machines in the model indicate they cannot be migrated.
+	CheckMachineStatusesReadyForMigration(context.Context) error
+
 	// GetApplicationAndUnitModelStatuses returns the application name and unit
 	// count for each model for the model status request.
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
+
 	// GetModelStatusInfo returns information about the current model for the
 	// purpose of reporting its status.
 	// The following error types can be expected to be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(context.Context) (domainstatus.ModelStatusInfo, error)
+
+	// GetAllMachineStatuses returns all the machine statuses for the model, indexed
+	// by machine name.
+	GetAllMachineStatuses(context.Context) (map[machine.Name]status.StatusInfo, error)
 }
 
 // ProxyService provides access to the proxy service.

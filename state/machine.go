@@ -779,31 +779,6 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
-// InstanceStatus returns the provider specific instance status for this machine,
-// or a NotProvisionedError if instance is not yet provisioned.
-func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
-	machineStatus, err := getStatus(m.st.db(), m.globalInstanceKey(), "instance")
-	if err != nil {
-		logger.Warningf(context.TODO(), "error when retrieving instance status for machine: %s, %v", m.Id(), err)
-		return status.StatusInfo{}, err
-	}
-	return machineStatus, nil
-}
-
-// SetInstanceStatus sets the provider specific instance status for a machine.
-func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
-	return setStatus(m.st.db(), setStatusParams{
-		badge:      "instance",
-		statusKind: m.InstanceKind(),
-		statusId:   m.doc.Id,
-		globalKey:  m.globalInstanceKey(),
-		status:     sInfo.Status,
-		message:    sInfo.Message,
-		rawData:    sInfo.Data,
-		updated:    timeOrNow(sInfo.Since, m.st.clock()),
-	})
-}
-
 // ApplicationNames returns the names of applications
 // represented by units running on the machine.
 func (m *Machine) ApplicationNames() ([]string, error) {
@@ -1249,7 +1224,7 @@ func (m *Machine) setConstraintsOps(cons constraints.Value) ([]txn.Op, error) {
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (status.StatusInfo, error) {
+func (m *Machine) status() (status.StatusInfo, error) {
 	mStatus, err := getStatus(m.st.db(), m.globalKey(), "machine")
 	if err != nil {
 		return mStatus, err
@@ -1258,7 +1233,7 @@ func (m *Machine) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
+func (m *Machine) setStatus(statusInfo status.StatusInfo) error {
 	switch statusInfo.Status {
 	case status.Started, status.Stopped:
 	case status.Error:
@@ -1396,7 +1371,7 @@ func (m *Machine) markInvalidContainers() error {
 			}
 			// There should never be a circumstance where an unsupported container is started.
 			// Nonetheless, we check and log an error if such a situation arises.
-			statusInfo, err := container.Status()
+			statusInfo, err := container.status()
 			if err != nil {
 				logger.Errorf(context.TODO(), "finding status of container %v to mark as invalid: %v", containerId, err)
 				continue
@@ -1410,7 +1385,7 @@ func (m *Machine) markInvalidContainers() error {
 					Data:    map[string]interface{}{"type": containerType},
 					Since:   &now,
 				}
-				_ = container.SetStatus(s)
+				_ = container.setStatus(s)
 			} else {
 				logger.Errorf(context.TODO(), "unsupported container %v has unexpected status %v", containerId, statusInfo.Status)
 			}

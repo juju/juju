@@ -118,13 +118,13 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 
 	modelUUID := coremodel.UUID(modelTag.Id())
 
-	// TODO: update model DB drop detection logic. Currently, statusServiceGetter.GetModelStatusInfo does not
+	// TODO: update model DB drop detection logic. Currently, statusService.GetModelStatusInfo does not
 	// return NotFound because model data is read from the cache within the same DB connection.
-	statusServiceGetter, err := c.getStatusService(ctx, modelUUID)
+	statusService, err := c.getStatusService(ctx, modelUUID)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	modelInfo, err := statusServiceGetter.GetModelStatusInfo(ctx)
+	modelInfo, err := statusService.GetModelStatusInfo(ctx)
 	switch {
 	case errors.Is(err, modelerrors.NotFound):
 		return status, internalerrors.Errorf(
@@ -136,10 +136,6 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		)
 	}
 
-	statusService, err := c.getStatusService(ctx, modelUUID)
-	if err != nil {
-		return status, errors.Trace(err)
-	}
 	applications, err := statusService.GetApplicationAndUnitModelStatuses(ctx)
 	if err != nil {
 		return status, errors.Trace(err)
@@ -158,7 +154,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	modelMachines, err := ModelMachineInfo(ctx, st, machineService)
+	modelMachines, err := ModelMachineInfo(ctx, st, machineService, statusService)
 	if err != nil {
 		return status, errors.Trace(err)
 	}

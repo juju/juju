@@ -437,6 +437,44 @@ func (m *MockStatusService) EXPECT() *MockStatusServiceMockRecorder {
 	return m.recorder
 }
 
+// CheckMachineStatusesReadyForMigration mocks base method.
+func (m *MockStatusService) CheckMachineStatusesReadyForMigration(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckMachineStatusesReadyForMigration", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckMachineStatusesReadyForMigration indicates an expected call of CheckMachineStatusesReadyForMigration.
+func (mr *MockStatusServiceMockRecorder) CheckMachineStatusesReadyForMigration(arg0 any) *MockStatusServiceCheckMachineStatusesReadyForMigrationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckMachineStatusesReadyForMigration", reflect.TypeOf((*MockStatusService)(nil).CheckMachineStatusesReadyForMigration), arg0)
+	return &MockStatusServiceCheckMachineStatusesReadyForMigrationCall{Call: call}
+}
+
+// MockStatusServiceCheckMachineStatusesReadyForMigrationCall wrap *gomock.Call
+type MockStatusServiceCheckMachineStatusesReadyForMigrationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStatusServiceCheckMachineStatusesReadyForMigrationCall) Return(arg0 error) *MockStatusServiceCheckMachineStatusesReadyForMigrationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStatusServiceCheckMachineStatusesReadyForMigrationCall) Do(f func(context.Context) error) *MockStatusServiceCheckMachineStatusesReadyForMigrationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStatusServiceCheckMachineStatusesReadyForMigrationCall) DoAndReturn(f func(context.Context) error) *MockStatusServiceCheckMachineStatusesReadyForMigrationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CheckUnitStatusesReadyForMigration mocks base method.
 func (m *MockStatusService) CheckUnitStatusesReadyForMigration(arg0 context.Context) error {
 	m.ctrl.T.Helper()

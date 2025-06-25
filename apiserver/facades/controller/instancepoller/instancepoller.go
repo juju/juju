@@ -31,11 +31,11 @@ type InstancePollerAPI struct {
 	*common.LifeGetter
 	*commonmodel.ModelMachinesWatcher
 	*common.InstanceIdGetter
-	*common.StatusGetter
 
 	st                      StateInterface
 	networkService          NetworkService
 	machineService          MachineService
+	statusService           StatusService
 	accessMachine           common.GetAuthFunc
 	controllerConfigService ControllerConfigService
 	clock                   clock.Clock
@@ -49,6 +49,7 @@ func NewInstancePollerAPI(
 	applicationService ApplicationService,
 	networkService NetworkService,
 	machineService MachineService,
+	statusService StatusService,
 	m *state.Model,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -83,19 +84,14 @@ func NewInstancePollerAPI(
 		machineService,
 		accessMachine,
 	)
-	// Status() is supported for machines.
-	statusGetter := common.NewStatusGetter(
-		sti,
-		accessMachine,
-	)
 
 	return &InstancePollerAPI{
 		LifeGetter:              lifeGetter,
 		ModelMachinesWatcher:    machinesWatcher,
 		InstanceIdGetter:        instanceIdGetter,
-		StatusGetter:            statusGetter,
 		networkService:          networkService,
 		machineService:          machineService,
+		statusService:           statusService,
 		st:                      sti,
 		accessMachine:           accessMachine,
 		controllerConfigService: controllerConfigService,
@@ -295,6 +291,46 @@ func spaceInfoForAddress(
 	return spaceInfos.InferSpaceFromAddress(addr)
 }
 
+// Status returns the status of the specified machine.
+func (s *InstancePollerAPI) Status(ctx context.Context, args params.Entities) (params.StatusResults, error) {
+	results := params.StatusResults{
+		Results: make([]params.StatusResult, len(args.Entities)),
+	}
+	canAccess, err := s.accessMachine(ctx)
+	if err != nil {
+		return results, err
+	}
+	for i, arg := range args.Entities {
+		mTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canAccess(mTag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		machineName := machine.Name(mTag.Id())
+
+		statusInfo, err := s.statusService.GetMachineStatus(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		results.Results[i] = params.StatusResult{
+			Status: statusInfo.Status.String(),
+			Info:   statusInfo.Message,
+			Data:   statusInfo.Data,
+			Since:  statusInfo.Since,
+		}
+	}
+	return results, nil
+}
+
 // InstanceStatus returns the instance status for each given entity.
 // Only machine tags are accepted.
 func (a *InstancePollerAPI) InstanceStatus(ctx context.Context, args params.Entities) (params.StatusResults, error) {
@@ -306,18 +342,28 @@ func (a *InstancePollerAPI) InstanceStatus(ctx context.Context, args params.Enti
 		return result, err
 	}
 	for i, arg := range args.Entities {
-		machine, err := a.getOneMachine(arg.Tag, canAccess)
-		if err == nil {
-			var statusInfo status.StatusInfo
-			statusInfo, err = machine.InstanceStatus()
-			if err == nil {
-				result.Results[i].Status = statusInfo.Status.String()
-				result.Results[i].Info = statusInfo.Message
-				result.Results[i].Data = statusInfo.Data
-				result.Results[i].Since = statusInfo.Since
-			}
+		machineTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		if !canAccess(machineTag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		machineName := machine.Name(machineTag.Id())
+		statusInfo, err := a.statusService.GetInstanceStatus(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Status = statusInfo.Status.String()
+		result.Results[i].Info = statusInfo.Message
+		result.Results[i].Data = statusInfo.Data
+		result.Results[i].Since = statusInfo.Since
 	}
 	return result, nil
 }
@@ -332,25 +378,44 @@ func (a *InstancePollerAPI) SetInstanceStatus(ctx context.Context, args params.S
 	if err != nil {
 		return result, err
 	}
+	now := a.clock.Now()
 	for i, arg := range args.Entities {
-		machine, err := a.getOneMachine(arg.Tag, canAccess)
-		if err == nil {
-			now := a.clock.Now()
-			s := status.StatusInfo{
-				Status:  status.Status(arg.Status),
-				Message: arg.Info,
-				Data:    arg.Data,
-				Since:   &now,
-			}
-			err = machine.SetInstanceStatus(s)
-			if status.Status(arg.Status) == status.ProvisioningError {
-				s.Status = status.Error
-				if err == nil {
-					err = machine.SetStatus(s)
-				}
+		machineTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canAccess(machineTag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		machineName := machine.Name(machineTag.Id())
+
+		s := status.StatusInfo{
+			Status:  status.Status(arg.Status),
+			Message: arg.Info,
+			Data:    arg.Data,
+			Since:   &now,
+		}
+		err = a.statusService.SetInstanceStatus(ctx, machineName, s)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if arg.Status == status.ProvisioningError.String() || arg.Status == status.Error.String() {
+			s.Status = status.Error
+			err := a.statusService.SetMachineStatus(ctx, machineName, s)
+			if errors.Is(err, machineerrors.MachineNotFound) {
+				result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+				continue
+			} else if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
 			}
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }

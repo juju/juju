@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -97,6 +98,13 @@ type ApplicationService interface {
 	GetApplicationLifeByName(ctx context.Context, appName string) (life.Value, error)
 }
 
+// StatusService defines the methods that the facade assumes from the Status
+// service.
+type StatusService interface {
+	// SetMachineStatus sets the status of the specified machine.
+	SetMachineStatus(context.Context, machine.Name, status.StatusInfo) error
+}
+
 // ModelInfoService is the interface that is used to ask questions about the
 // current model.
 type ModelInfoService interface {
@@ -107,7 +115,6 @@ type ModelInfoService interface {
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
 	*common.LifeGetter
-	*common.StatusSetter
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 	*common.APIAddresser
@@ -115,11 +122,13 @@ type MachinerAPI struct {
 
 	networkService          NetworkService
 	machineService          MachineService
+	statusService           StatusService
 	st                      *state.State
 	controllerConfigService ControllerConfigService
 	auth                    facade.Authorizer
 	getCanModify            common.GetAuthFunc
 	getCanRead              common.GetAuthFunc
+	clock                   clock.Clock
 }
 
 // MachinerAPIv5 stubs out the Jobs() and SetMachineAddresses() methods.
@@ -138,6 +147,7 @@ func NewMachinerAPIForState(
 	networkService NetworkService,
 	applicationService ApplicationService,
 	machineService MachineService,
+	statusService StatusService,
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	logger logger.Logger,
@@ -157,18 +167,19 @@ func NewMachinerAPIForState(
 
 	return &MachinerAPI{
 		LifeGetter:              common.NewLifeGetter(applicationService, machineService, st, getCanAccess, logger),
-		StatusSetter:            common.NewStatusSetter(st, getCanAccess, clock),
 		DeadEnsurer:             common.NewDeadEnsurer(st, getCanAccess, machineService),
 		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, watcherRegistry, getCanAccess),
 		APIAddresser:            common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		NetworkConfigAPI:        netConfigAPI,
 		networkService:          networkService,
 		machineService:          machineService,
+		statusService:           statusService,
 		st:                      st,
 		controllerConfigService: controllerConfigService,
 		auth:                    authorizer,
 		getCanModify:            getCanAccess,
 		getCanRead:              getCanAccess,
+		clock:                   clock,
 	}, nil
 }
 
@@ -203,6 +214,45 @@ func (api *MachinerAPI) SetObservedNetworkConfig(ctx context.Context, args param
 		return apiservererrors.ServerError(err)
 	}
 	return nil
+}
+
+// SetStatus sets the status of the specified machine.
+func (api *MachinerAPI) SetStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	canModify, err := api.getCanModify(ctx)
+	if err != nil {
+		return results, err
+	}
+	now := api.clock.Now()
+	for i, entity := range args.Entities {
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canModify(machineTag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		machineName := machine.Name(machineTag.Id())
+
+		err = api.statusService.SetMachineStatus(ctx, machineName, status.StatusInfo{
+			Status:  status.Status(entity.Status),
+			Message: entity.Info,
+			Data:    entity.Data,
+			Since:   &now,
+		})
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return results, nil
 }
 
 // SetMachineAddresses is not supported in MachinerAPI at version 5.

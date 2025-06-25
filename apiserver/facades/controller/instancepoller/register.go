@@ -34,6 +34,7 @@ func newFacade(ctx facade.ModelContext) (*InstancePollerAPI, error) {
 		domainServices.Application(),
 		domainServices.Network(),
 		domainServices.Machine(),
+		domainServices.Status(),
 		m,
 		ctx.Resources(),
 		ctx.Auth(),
