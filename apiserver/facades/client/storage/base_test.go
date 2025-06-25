@@ -88,12 +88,12 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerUUID = uuid.MustNewUUID().String()
 	s.modelUUID = modeltesting.GenModelUUID(c)
 	s.api = storage.NewStorageAPI(
-		s.controllerUUID, s.modelUUID, coremodel.IAAS,
+		s.controllerUUID, s.modelUUID,
 		s.storageAccessor, s.blockDeviceGetter,
 		s.storageService, s.applicationService, s.storageRegistryGetter,
 		s.authorizer, s.blockCommandService)
 	s.apiCaas = storage.NewStorageAPI(
-		s.controllerUUID, s.modelUUID, coremodel.CAAS,
+		s.controllerUUID, s.modelUUID,
 		s.storageAccessor, s.blockDeviceGetter,
 		s.storageService, s.applicationService, s.storageRegistryGetter,
 		s.authorizer, s.blockCommandService)

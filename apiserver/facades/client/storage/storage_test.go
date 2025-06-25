@@ -16,7 +16,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facadestorage "github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/blockcommand"
@@ -736,7 +735,7 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *tc.C) {
 	controllerUUID := uuid.MustNewUUID().String()
 	modelUUID := modeltesting.GenModelUUID(c)
 	s.api = facadestorage.NewStorageAPI(
-		controllerUUID, modelUUID, coremodel.IAAS,
+		controllerUUID, modelUUID,
 		s.storageAccessor, nil, s.storageService,
 		s.applicationService, s.storageRegistryGetter,
 		s.authorizer, s.blockCommandService)
@@ -755,7 +754,7 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *tc.C) {
 	controllerUUID := uuid.MustNewUUID().String()
 	modelUUID := modeltesting.GenModelUUID(c)
 	s.api = facadestorage.NewStorageAPI(
-		controllerUUID, modelUUID, coremodel.IAAS,
+		controllerUUID, modelUUID,
 		s.storageAccessor, nil, s.storageService,
 		s.applicationService, s.storageRegistryGetter,
 		s.authorizer, s.blockCommandService)

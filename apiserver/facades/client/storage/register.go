@@ -28,11 +28,6 @@ func newStorageAPI(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPI
 		return nil, errors.Annotate(err, "getting backend")
 	}
 
-	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting model info")
-	}
-
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -42,7 +37,6 @@ func newStorageAPI(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPI
 	return NewStorageAPI(
 		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
-		modelInfo.Type,
 		storageAccessor,
 		domainServices.BlockDevice(),
 		storageService,

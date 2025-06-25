@@ -24,7 +24,6 @@ import (
 	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/environs/tags"
 	internalerrors "github.com/juju/juju/internal/errors"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -103,13 +102,11 @@ type StorageAPI struct {
 
 	controllerUUID string
 	modelUUID      coremodel.UUID
-	modelType      coremodel.ModelType
 }
 
 func NewStorageAPI(
 	controllerUUID string,
 	modelUUID coremodel.UUID,
-	modelType coremodel.ModelType,
 	storageAccess storageAccess,
 	blockDeviceGetter blockDeviceGetter,
 	storageService StorageService,
@@ -121,7 +118,6 @@ func NewStorageAPI(
 	return &StorageAPI{
 		controllerUUID:        controllerUUID,
 		modelUUID:             modelUUID,
-		modelType:             modelType,
 		storageAccess:         storageAccess,
 		blockDeviceGetter:     blockDeviceGetter,
 		storageService:        storageService,
@@ -241,7 +237,7 @@ func (a *StorageAPI) ListPools(
 		Results: make([]params.StoragePoolsResult, len(filters.Filters)),
 	}
 	for i, filter := range filters.Filters {
-		pools, err := a.listPools(ctx, a.ensureStoragePoolFilter(filter))
+		pools, err := a.listPools(ctx, filter)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -249,13 +245,6 @@ func (a *StorageAPI) ListPools(
 		results.Results[i].Result = pools
 	}
 	return results, nil
-}
-
-func (a *StorageAPI) ensureStoragePoolFilter(filter params.StoragePoolFilter) params.StoragePoolFilter {
-	if a.modelType == coremodel.CAAS {
-		filter.Providers = append(filter.Providers, k8sconstants.CAASProviderType)
-	}
-	return filter
 }
 
 func (a *StorageAPI) listPools(ctx context.Context, filter params.StoragePoolFilter) ([]params.StoragePool, error) {

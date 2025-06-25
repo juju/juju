@@ -11,7 +11,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	apiserverstorage "github.com/juju/juju/apiserver/facades/client/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
@@ -28,14 +27,6 @@ func TestPoolSuite(t *testing.T) {
 const (
 	tstName = "testpool"
 )
-
-func (s *poolSuite) TestEnsureStoragePoolFilter(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	filter := params.StoragePoolFilter{}
-	c.Assert(filter.Providers, tc.HasLen, 0)
-	c.Assert(apiserverstorage.EnsureStoragePoolFilter(s.apiCaas, filter).Providers, tc.DeepEquals, []string{"kubernetes"})
-}
 
 func (s *poolSuite) TestListByNames(c *tc.C) {
 	defer s.setupMocks(c).Finish()
