@@ -16,13 +16,11 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainstatus "github.com/juju/juju/domain/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/uuid"
@@ -214,12 +212,6 @@ type StatusHistory interface {
 	RecordStatus(context.Context, statushistory.Namespace, status.StatusInfo) error
 }
 
-// Provider represents an underlying cloud provider.
-type Provider interface {
-	environs.BootstrapEnviron
-	environs.InstanceTypesFetcher
-}
-
 // Service provides the API for working with machines.
 type Service struct {
 	st State
@@ -237,90 +229,6 @@ func NewService(st State, statusHistory StatusHistory, clock clock.Clock, logger
 		clock:         clock,
 		logger:        logger,
 	}
-}
-
-// CreateMachine creates the specified machine.
-// It returns a MachineAlreadyExists error if a machine with the same name
-// already exists.
-func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name, nonce *string) (machine.UUID, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	// Make a new UUIDs for the net-node and the machine.
-	// We want to do this in the service layer so that if retries are invoked at
-	// the state layer we don't keep regenerating.
-	nodeUUID, machineUUID, err := createUUIDs()
-	if err != nil {
-		return "", errors.Errorf("creating machine %q: %w", machineName, err)
-	}
-
-	err = s.st.CreateMachine(ctx, machineName, nodeUUID, machineUUID, nonce)
-	if err != nil {
-		return machineUUID, errors.Errorf("creating machine %q: %w", machineName, err)
-	}
-
-	if err := s.recordCreateMachineStatusHistory(ctx, machineName); err != nil {
-		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
-	}
-
-	return machineUUID, nil
-}
-
-// CreateMachineWithParent creates the specified machine with the specified
-// parent.
-// It returns a MachineAlreadyExists error if a machine with the same name
-// already exists.
-// It returns a MachineNotFound error if the parent machine does not exist.
-func (s *Service) CreateMachineWithParent(ctx context.Context, machineName, parentName machine.Name) (machine.UUID, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	// Make a new UUIDs for the net-node and the machine.
-	// We want to do this in the service layer so that if retries are invoked at
-	// the state layer we don't keep regenerating.
-	nodeUUID, machineUUID, err := createUUIDs()
-	if err != nil {
-		return "", errors.Errorf("creating machine %q with parent %q: %w", machineName, parentName, err)
-	}
-
-	err = s.st.CreateMachineWithParent(ctx, machineName, parentName, nodeUUID, machineUUID)
-	if err != nil {
-		return machineUUID, errors.Errorf("creating machine %q with parent %q: %w", machineName, parentName, err)
-	}
-
-	if err := s.recordCreateMachineStatusHistory(ctx, machineName); err != nil {
-		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
-	}
-
-	return machineUUID, nil
-}
-
-func (s *Service) recordCreateMachineStatusHistory(ctx context.Context, machineName machine.Name) error {
-	info := status.StatusInfo{
-		Status: status.Pending,
-		Since:  ptr(s.clock.Now()),
-	}
-
-	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineNamespace.WithID(machineName.String()), info); err != nil {
-		return errors.Errorf("recording machine status history: %w", err)
-	}
-	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineInstanceNamespace.WithID(machineName.String()), info); err != nil {
-		return errors.Errorf("recording instance status history: %w", err)
-	}
-	return nil
-}
-
-// createUUIDs generates a new UUID for the machine and the net-node.
-func createUUIDs() (string, machine.UUID, error) {
-	nodeUUID, err := uuid.NewUUID()
-	if err != nil {
-		return "", "", errors.Errorf("generating net-node UUID: %w", err)
-	}
-	machineUUID, err := machine.NewUUID()
-	if err != nil {
-		return "", "", errors.Errorf("generating machine UUID: %w", err)
-	}
-	return nodeUUID.String(), machineUUID, nil
 }
 
 // DeleteMachine deletes the specified machine.
@@ -741,36 +649,32 @@ func (s *Service) GetMachinePrincipalApplications(ctx context.Context, mName mac
 	return s.st.GetMachinePrincipalApplications(ctx, mName)
 }
 
-// ProviderService provides the API for working with machines using the
-// underlying provider.
-type ProviderService struct {
-	Service
+func recordCreateMachineStatusHistory(ctx context.Context, statusHistory StatusHistory, machineName machine.Name, clock clock.Clock) error {
+	info := status.StatusInfo{
+		Status: status.Pending,
+		Since:  ptr(clock.Now()),
+	}
 
-	providerGetter providertracker.ProviderGetter[Provider]
+	if err := statusHistory.RecordStatus(ctx, domainstatus.MachineNamespace.WithID(machineName.String()), info); err != nil {
+		return errors.Errorf("recording machine status history: %w", err)
+	}
+	if err := statusHistory.RecordStatus(ctx, domainstatus.MachineInstanceNamespace.WithID(machineName.String()), info); err != nil {
+		return errors.Errorf("recording instance status history: %w", err)
+	}
+	return nil
 }
 
-// GetBootstrapEnviron returns the bootstrap environ.
-func (s *ProviderService) GetBootstrapEnviron(ctx context.Context) (environs.BootstrapEnviron, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	provider, err := s.providerGetter(ctx)
+// createUUIDs generates a new UUID for the machine and the net-node.
+func createUUIDs() (string, machine.UUID, error) {
+	nodeUUID, err := uuid.NewUUID()
 	if err != nil {
-		return nil, errors.Capture(err)
+		return "", "", errors.Errorf("generating net-node UUID: %w", err)
 	}
-	return provider, nil
-}
-
-// GetInstanceTypesFetcher returns the instance types fetcher.
-func (s *ProviderService) GetInstanceTypesFetcher(ctx context.Context) (environs.InstanceTypesFetcher, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	provider, err := s.providerGetter(ctx)
+	machineUUID, err := machine.NewUUID()
 	if err != nil {
-		return nil, errors.Capture(err)
+		return "", "", errors.Errorf("generating machine UUID: %w", err)
 	}
-	return provider, nil
+	return nodeUUID.String(), machineUUID, nil
 }
 
 func ptr[T any](v T) *T {

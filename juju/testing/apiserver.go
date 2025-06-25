@@ -50,7 +50,6 @@ import (
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	servicefactorytesting "github.com/juju/juju/domain/services/testing"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cmd"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	internallease "github.com/juju/juju/internal/lease"
@@ -148,11 +147,6 @@ type ApiServerSuite struct {
 
 	// ControllerUUID is the unique identifier for the controller.
 	ControllerUUID string
-
-	// InstancePrechecker is used to validate instance creation.
-	//
-	// Deprecated: This will be removed in the future.
-	InstancePrechecker func(*tc.C, *state.State) environs.InstancePrechecker
 
 	objectStoresMutex sync.Mutex
 	objectStores      []objectstore.ObjectStore

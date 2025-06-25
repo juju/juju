@@ -1041,9 +1041,12 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	}
 	svc := s.setupService(c, factory)
 	st := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
-	machineSvc := machineservice.NewService(
+	machineSvc := machineservice.NewProviderService(
 		machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		func(ctx context.Context) (machineservice.Provider, error) {
+			return machineservice.NewNoopProvider(), nil
+		},
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -1112,9 +1115,12 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 	}
 	svc := s.setupService(c, factory)
 	st := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
-	machineSvc := machineservice.NewService(
+	machineSvc := machineservice.NewProviderService(
 		machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		func(ctx context.Context) (machineservice.Provider, error) {
+			return machineservice.NewNoopProvider(), nil
+		},
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -1604,13 +1610,10 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 		return s.ModelTxnRunner(), nil
 	}
 
-	notSupportedProviderGetter := func(ctx context.Context) (service.Provider, error) {
-		return nil, coreerrors.NotSupported
+	providerGetter := func(ctx context.Context) (service.Provider, error) {
+		return machineservice.NewNoopProvider(), nil
 	}
-	notSupportedFeatureProviderGetter := func(ctx context.Context) (service.SupportedFeatureProvider, error) {
-		return nil, coreerrors.NotSupported
-	}
-	notSupportedCAASApplicationproviderGetter := func(ctx context.Context) (service.CAASApplicationProvider, error) {
+	caasProviderGetter := func(ctx context.Context) (service.CAASProvider, error) {
 		return nil, coreerrors.NotSupported
 	}
 
@@ -1622,8 +1625,10 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 		}),
 		"",
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
-		nil, notSupportedProviderGetter,
-		notSupportedFeatureProviderGetter, notSupportedCAASApplicationproviderGetter, nil,
+		nil,
+		providerGetter,
+		caasProviderGetter,
+		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),

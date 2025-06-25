@@ -38,6 +38,7 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *importSuite) newImportOperation(c *tc.C) *importOperation {
 	return &importOperation{
 		service: s.service,
+		clock:   clock.WallClock,
 		logger:  loggertesting.WrapCheckLog(c),
 	}
 }

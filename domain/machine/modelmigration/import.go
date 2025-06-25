@@ -57,7 +57,7 @@ func (i *importOperation) Name() string {
 }
 
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.service = service.NewService(
+	i.service = service.NewMigrationService(
 		state.NewState(scope.ModelDB(), i.clock, i.logger),
 		domain.NewStatusHistory(i.logger, i.clock),
 		i.clock,
@@ -76,30 +76,32 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 		// Import the machine's cloud instance.
 		cloudInstance := m.Instance()
-		if cloudInstance != nil {
-			hardwareCharacteristics := &instance.HardwareCharacteristics{
-				Arch:             nilZeroPtr(cloudInstance.Architecture()),
-				Mem:              nilZeroPtr(cloudInstance.Memory()),
-				RootDisk:         nilZeroPtr(cloudInstance.RootDisk()),
-				RootDiskSource:   nilZeroPtr(cloudInstance.RootDiskSource()),
-				CpuCores:         nilZeroPtr(cloudInstance.CpuCores()),
-				CpuPower:         nilZeroPtr(cloudInstance.CpuPower()),
-				AvailabilityZone: nilZeroPtr(cloudInstance.AvailabilityZone()),
-				VirtType:         nilZeroPtr(cloudInstance.VirtType()),
-			}
-			if tags := cloudInstance.Tags(); len(tags) != 0 {
-				hardwareCharacteristics.Tags = &tags
-			}
-			if err := i.service.SetMachineCloudInstance(
-				ctx,
-				machineUUID,
-				instance.Id(cloudInstance.InstanceId()),
-				cloudInstance.DisplayName(),
-				m.Nonce(),
-				hardwareCharacteristics,
-			); err != nil {
-				return errors.Errorf("importing machine cloud instance %q: %w", m.Id(), err)
-			}
+		if cloudInstance == nil {
+			continue
+		}
+
+		hardwareCharacteristics := &instance.HardwareCharacteristics{
+			Arch:             nilZeroPtr(cloudInstance.Architecture()),
+			Mem:              nilZeroPtr(cloudInstance.Memory()),
+			RootDisk:         nilZeroPtr(cloudInstance.RootDisk()),
+			RootDiskSource:   nilZeroPtr(cloudInstance.RootDiskSource()),
+			CpuCores:         nilZeroPtr(cloudInstance.CpuCores()),
+			CpuPower:         nilZeroPtr(cloudInstance.CpuPower()),
+			AvailabilityZone: nilZeroPtr(cloudInstance.AvailabilityZone()),
+			VirtType:         nilZeroPtr(cloudInstance.VirtType()),
+		}
+		if tags := cloudInstance.Tags(); len(tags) != 0 {
+			hardwareCharacteristics.Tags = &tags
+		}
+		if err := i.service.SetMachineCloudInstance(
+			ctx,
+			machineUUID,
+			instance.Id(cloudInstance.InstanceId()),
+			cloudInstance.DisplayName(),
+			m.Nonce(),
+			hardwareCharacteristics,
+		); err != nil {
+			return errors.Errorf("importing machine cloud instance %q: %w", m.Id(), err)
 		}
 	}
 	return nil

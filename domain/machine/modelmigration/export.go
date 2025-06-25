@@ -15,6 +15,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/machine/service"
@@ -61,6 +62,7 @@ func (e *exportOperation) Name() string {
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.service = service.NewMigrationService(
 		state.NewState(scope.ModelDB(), e.clock, e.logger),
+		domain.NewStatusHistory(e.logger, e.clock),
 		e.clock,
 		e.logger,
 	)

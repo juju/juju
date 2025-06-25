@@ -42,6 +42,44 @@ func (m *MockMigrationState) EXPECT() *MockMigrationStateMockRecorder {
 	return m.recorder
 }
 
+// CreateMachine mocks base method.
+func (m *MockMigrationState) CreateMachine(arg0 context.Context, arg1 machine.Name, arg2 string, arg3 machine.UUID, arg4 *string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateMachine indicates an expected call of CreateMachine.
+func (mr *MockMigrationStateMockRecorder) CreateMachine(arg0, arg1, arg2, arg3, arg4 any) *MockMigrationStateCreateMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachine", reflect.TypeOf((*MockMigrationState)(nil).CreateMachine), arg0, arg1, arg2, arg3, arg4)
+	return &MockMigrationStateCreateMachineCall{Call: call}
+}
+
+// MockMigrationStateCreateMachineCall wrap *gomock.Call
+type MockMigrationStateCreateMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMigrationStateCreateMachineCall) Return(arg0 error) *MockMigrationStateCreateMachineCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMigrationStateCreateMachineCall) Do(f func(context.Context, machine.Name, string, machine.UUID, *string) error) *MockMigrationStateCreateMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMigrationStateCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name, string, machine.UUID, *string) error) *MockMigrationStateCreateMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetHardwareCharacteristics mocks base method.
 func (m *MockMigrationState) GetHardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()
@@ -155,6 +193,44 @@ func (c *MockMigrationStateGetMachinesForExportCall) Do(f func(context.Context) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMigrationStateGetMachinesForExportCall) DoAndReturn(f func(context.Context) ([]machine0.ExportMachine, error)) *MockMigrationStateGetMachinesForExportCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetMachineCloudInstance mocks base method.
+func (m *MockMigrationState) SetMachineCloudInstance(arg0 context.Context, arg1 machine.UUID, arg2 instance.Id, arg3, arg4 string, arg5 *instance.HardwareCharacteristics) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetMachineCloudInstance", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMachineCloudInstance indicates an expected call of SetMachineCloudInstance.
+func (mr *MockMigrationStateMockRecorder) SetMachineCloudInstance(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockMigrationStateSetMachineCloudInstanceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineCloudInstance", reflect.TypeOf((*MockMigrationState)(nil).SetMachineCloudInstance), arg0, arg1, arg2, arg3, arg4, arg5)
+	return &MockMigrationStateSetMachineCloudInstanceCall{Call: call}
+}
+
+// MockMigrationStateSetMachineCloudInstanceCall wrap *gomock.Call
+type MockMigrationStateSetMachineCloudInstanceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMigrationStateSetMachineCloudInstanceCall) Return(arg0 error) *MockMigrationStateSetMachineCloudInstanceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMigrationStateSetMachineCloudInstanceCall) Do(f func(context.Context, machine.UUID, instance.Id, string, string, *instance.HardwareCharacteristics) error) *MockMigrationStateSetMachineCloudInstanceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMigrationStateSetMachineCloudInstanceCall) DoAndReturn(f func(context.Context, machine.UUID, instance.Id, string, string, *instance.HardwareCharacteristics) error) *MockMigrationStateSetMachineCloudInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
