@@ -24,7 +24,7 @@ SPHINX_PORT     ?= 8000
 
 .PHONY: sp-full-help sp-spellcheck-install sp-pa11y-install sp-install sp-run sp-html \
         sp-epub sp-serve sp-clean sp-clean-doc sp-spelling sp-spellcheck sp-linkcheck \
-        sp-allmetrics sp-pa11y sp-pdf-prep-force sp-pdf-prep sp-pdf Makefile.sp sp-vale sp-bash sp-excalidraw-install
+        sp-allmetrics sp-pa11y sp-pdf-prep-force sp-pdf-prep sp-pdf Makefile.sp sp-vale sp-bash sp-excalidraw-install sp-convert-excalidraw-to-svg
 
 sp-full-help: $(VENVDIR)
 	@. $(VENV); $(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
@@ -75,9 +75,12 @@ sp-excalidraw-install:
 		npm install --prefix $(SPHINXDIR) excalidraw-brute-export-cli; \
 	}
 
+sp-convert-excalidraw-to-svg: sp-excalidraw-install
+	bash scripts/convert-excalidraw-to-svg-recursively.sh
+
 sp-install: $(VENVDIR)
 
-sp-run: sp-install
+sp-run: sp-install sp-convert-excalidraw-to-svg
 	. $(VENV); $(VENVDIR)/bin/sphinx-autobuild -b dirhtml "$(SOURCEDIR)" --host $(SPHINX_HOST) --port $(SPHINX_PORT) "$(BUILDDIR)" $(SPHINXOPTS)
 
 # Doesn't depend on $(BUILDDIR) to rebuild properly at every run.
