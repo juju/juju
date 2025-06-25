@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/filenotifywatcher"
 )
 
@@ -91,7 +92,7 @@ func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
 		},
 		// ShouldRestart is used to determine if the worker should be
 		// restarted. We only want to restart the worker if the error is not
-		// ErrDBDead and ErrDBNotFound.
+		// ErrDBDead, ErrDBNotFound or NotValid.
 		// The ErrDBNotFound error can be returned if the namespace doesn't
 		// exist and so can not be retrieved. When this happens, we do not
 		// want to restart the worker and instead return the error to the
@@ -99,9 +100,28 @@ func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
 		// The caller can retry if they want, but internally to the
 		// changestream, the worker is dead.
 		ShouldRestart: func(err error) bool {
-			return !(errors.Is(err, coredatabase.ErrDBDead) || errors.Is(err, coredatabase.ErrDBNotFound))
+			// This can occur if the database namespace is not valid.
+			if errors.Is(err, errors.NotValid) {
+				return false
+			}
+
+			// The database is not found, we do not want to restart the
+			// worker in this case.
+			if errors.Is(err, coredatabase.ErrDBNotFound) {
+				return false
+			}
+
+			// If the database is dead, then we should collapse the whole change
+			// stream worker, but this got here first, so we just want to
+			// prevent additional noise.
+			if errors.Is(err, coredatabase.ErrDBDead) {
+				return false
+			}
+
+			return true
 		},
-		Clock: cfg.Clock,
+		Clock:  cfg.Clock,
+		Logger: internalworker.WrapLogger(cfg.Logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -139,6 +139,23 @@ func (s *workerSuite) TestEventSource(c *tc.C) {
 	close(done)
 }
 
+func (s *workerSuite) TestEventSourceEmptyNamespace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	s.dbGetter.EXPECT().GetDB("").Return(s.TxnRunner(), errors.NotValid)
+
+	w := s.newWorker(c, 1)
+	defer workertest.CleanKill(c, w)
+
+	stream, ok := w.(changestream.WatchableDBGetter)
+	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement ChangeStream"))
+
+	_, err := stream.GetWatchableDB("")
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
+}
+
 func (s *workerSuite) TestEventSourceCalledTwice(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
