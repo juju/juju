@@ -40,7 +40,7 @@ func (s *Service) GetUnitRelationInfos(
 	return transform.Slice(endpointNames, func(endpoint string) network.Info {
 		return network.Info{
 			EndpointName:     endpoint,
-			IngressAddresses: []string{addr.String()},
+			IngressAddresses: []string{addr.IP().String()},
 		}
 	}), nil
 }
