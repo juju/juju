@@ -1,9 +1,6 @@
 package state
 
 import (
-	coreunit "github.com/juju/juju/core/unit"
-	coreunittesting "github.com/juju/juju/core/unit/testing"
-	"github.com/juju/juju/internal/charm"
 	"testing"
 
 	"github.com/juju/tc"
@@ -12,7 +9,11 @@ import (
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	corecharm "github.com/juju/juju/core/charm"
 	corecharmtesting "github.com/juju/juju/core/charm/testing"
-	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
+	coreunittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain/network"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -86,7 +87,7 @@ func (s *containerSuite) TestGetMachineAppBindings(c *tc.C) {
 	mUUID := s.addMachine(c, "0", nUUID)
 	_ = s.addUnit(c, "app1/0", appUUID, cUUID, nUUID)
 
-	dUUID := s.addLinkLayerDevice(c, nUUID, "eth0", "mac-address", network.EthernetDevice)
+	dUUID := s.addLinkLayerDevice(c, nUUID, "eth0", "mac-address", corenetwork.EthernetDevice)
 	addrUUID := s.addIPAddress(c, dUUID, nUUID, "192.168.10.10/24")
 
 	ctx := c.Context()
@@ -101,6 +102,60 @@ func (s *containerSuite) TestGetMachineAppBindings(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(bound, tc.HasLen, 1)
 	c.Check(bound[0].UUID, tc.Equals, spUUID)
+}
+
+func (s *containerSuite) TestNICsInSpaces(c *tc.C) {
+	db := s.DB()
+
+	// Arrange. Add a device in 2 spaces, and another in none.
+	spUUID1 := s.addSpace(c)
+	subUUID1 := s.addSubnet(c, "192.168.10.0/24", spUUID1)
+
+	spUUID2 := s.addSpace(c)
+	subUUID2 := s.addSubnet(c, "192.168.20.0/24", spUUID2)
+
+	nUUID := s.addNetNode(c)
+	eth := "eth0"
+	bond := "bond0"
+	ethMAC := "eth-mac-address"
+	bondMAC := "bond-mac-address"
+	dUUID1 := s.addLinkLayerDevice(c, nUUID, eth, ethMAC, corenetwork.EthernetDevice)
+	_ = s.addLinkLayerDevice(c, nUUID, bond, bondMAC, corenetwork.BondDevice)
+
+	addrUUID1 := s.addIPAddress(c, dUUID1, nUUID, "192.168.10.10/24")
+	addrUUID2 := s.addIPAddress(c, dUUID1, nUUID, "192.168.20.20/24")
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "UPDATE ip_address SET subnet_uuid = ? WHERE uuid = ?", subUUID1, addrUUID1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, "UPDATE ip_address SET subnet_uuid = ? WHERE uuid = ?", subUUID2, addrUUID2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act.
+	nics, err := s.state.NICsInSpaces(ctx, nUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nics, tc.DeepEquals, map[string][]network.NetInterface{
+		spUUID1: {{
+			Name:       eth,
+			MACAddress: &ethMAC,
+			Type:       corenetwork.EthernetDevice,
+		}},
+		spUUID2: {{
+			Name:       eth,
+			MACAddress: &ethMAC,
+			Type:       corenetwork.EthernetDevice,
+		}},
+		"": {{
+			Name:       bond,
+			MACAddress: &bondMAC,
+			Type:       corenetwork.BondDevice,
+		}},
+	})
+
 }
 
 // addCharm inserts a new charm into the database and returns the UUID.
@@ -133,7 +188,7 @@ func (s *containerSuite) addApplication(c *tc.C, charmUUID corecharm.ID, appName
 	s.query(c, `
 INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) 
 VALUES (?, ?, ?, ?, ?)
-`, appUUID, appName, 0 /* alive */, charmUUID.String(), network.AlphaSpaceId)
+`, appUUID, appName, 0 /* alive */, charmUUID.String(), corenetwork.AlphaSpaceId)
 	return appUUID
 }
 

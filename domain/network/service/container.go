@@ -39,7 +39,7 @@ type ContainerState interface {
 
 	// NICsInSpaces returns the link-layer devices on the machine with the
 	// input net node UUID, indexed by the spaces that they are in.
-	NICsInSpaces(ctx context.Context, netNode string) (map[string][]network.NetInterface, error)
+	NICsInSpaces(ctx context.Context, nodeUUID string) (map[string][]network.NetInterface, error)
 
 	// GetContainerNetworkingMethod returns the model's configured value
 	// for container-networking-method.

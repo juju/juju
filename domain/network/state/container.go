@@ -5,9 +5,11 @@ package state
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/canonical/sqlair"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
@@ -126,8 +128,84 @@ AND    s.name IS NOT NULL`
 
 // NICsInSpaces returns the link-layer devices on the machine with the
 // input net node UUID, indexed by the spaces that they are in.
-func (st *State) NICsInSpaces(ctx context.Context, netNode string) (map[string][]network.NetInterface, error) {
-	return nil, errors.Errorf("implement me")
+func (st *State) NICsInSpaces(ctx context.Context, nodeUUID string) (map[string][]network.NetInterface, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// This is esoteric enough to make re-use unlikely.
+	type deviceInSpace struct {
+		DeviceName string         `db:"device_name"`
+		Type       string         `db:"type_name"`
+		MACAddress sql.NullString `db:"mac_address"`
+		ParentName sql.NullString `db:"parent_name"`
+		SpaceUUID  sql.NullString `db:"space_uuid"`
+	}
+
+	mUUID := entityUUID{UUID: nodeUUID}
+
+	qry := `
+SELECT DISTINCT 
+       d.name AS &deviceInSpace.device_name, 
+       t.name AS &deviceInSpace.type_name, 
+       pd.name AS &deviceInSpace.parent_name, 
+       (s.space_uuid, d.mac_address) AS (&deviceInSpace.*)
+FROM   link_layer_device d
+	   JOIN link_layer_device_type t on d.device_type_id = t.id	
+       LEFT JOIN ip_address a on d.uuid = a.device_uuid
+       LEFT JOIN subnet s on a.subnet_uuid = s.uuid
+	   LEFT JOIN link_layer_device_parent p ON d.uuid = p.device_uuid
+       LEFT JOIN link_layer_device pd ON p.parent_uuid = pd.uuid
+WHERE  d.net_node_uuid = $entityUUID.uuid`
+
+	stmt, err := st.Prepare(qry, mUUID, deviceInSpace{})
+	if err != nil {
+		return nil, errors.Errorf("preparing NICs in spaces statement: %w", err)
+	}
+
+	var nics []deviceInSpace
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, mUUID).GetAll(&nics); err != nil {
+			if !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("querying NICs in spaces: %w", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	nicsInSpaces := make(map[string][]network.NetInterface)
+	for _, spaceNic := range nics {
+		nic := network.NetInterface{
+			Name: spaceNic.DeviceName,
+			Type: corenetwork.LinkLayerDeviceType(spaceNic.Type),
+		}
+
+		if spaceNic.MACAddress.Valid {
+			nic.MACAddress = &spaceNic.MACAddress.String
+		}
+
+		if spaceNic.ParentName.Valid {
+			nic.ParentDeviceName = spaceNic.ParentName.String
+		}
+
+		// This ensures that NICs without addresses are not in any space.
+		var spaceUUID string
+		if spaceNic.SpaceUUID.Valid {
+			spaceUUID = spaceNic.SpaceUUID.String
+		}
+
+		if spaceNics, ok := nicsInSpaces[spaceUUID]; !ok {
+			nicsInSpaces[spaceUUID] = []network.NetInterface{nic}
+		} else {
+			nicsInSpaces[spaceUUID] = append(spaceNics, nic)
+		}
+	}
+
+	return nicsInSpaces, nil
 }
 
 // GetContainerNetworkingMethod returns the model's configured value
