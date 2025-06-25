@@ -140,7 +140,7 @@ func (s *providerServiceSuite) TestCreateMachineError(c *tc.C) {
 	createArgs := CreateMachineArgs{}
 	_, _, err := s.service.CreateMachine(c.Context(), createArgs)
 	c.Assert(err, tc.ErrorIs, rErr)
-	c.Check(err, tc.ErrorMatches, `creating machine "666": boom`)
+	c.Check(err, tc.ErrorMatches, `boom`)
 }
 
 // TestCreateMachineWithParentSuccess asserts the happy path of the
@@ -184,7 +184,7 @@ func (s *providerServiceSuite) TestCreateMachineWithParentParentNotFound(c *tc.C
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("parent-name")).Return(machine.UUID(""), machineerrors.MachineNotFound)
 
 	_, _, err := s.service.CreateMachineWithParent(c.Context(), CreateMachineArgs{}, machine.Name("parent-name"))
-	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 func (s *providerServiceSuite) expectCreateMachineStatusHistory(c *tc.C, machineName machine.Name) {

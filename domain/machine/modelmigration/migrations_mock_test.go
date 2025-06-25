@@ -102,79 +102,79 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 	return m.recorder
 }
 
-// ImportMachine mocks base method.
-func (m *MockImportService) ImportMachine(arg0 context.Context) (machine.UUID, error) {
+// CreateMachine mocks base method.
+func (m *MockImportService) CreateMachine(arg0 context.Context, arg1 machine.Name, arg2 *string) (machine.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportMachine", arg0)
+	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1, arg2)
 	ret0, _ := ret[0].(machine.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ImportMachine indicates an expected call of ImportMachine.
-func (mr *MockImportServiceMockRecorder) ImportMachine(arg0 any) *MockImportServiceImportMachineCall {
+// CreateMachine indicates an expected call of CreateMachine.
+func (mr *MockImportServiceMockRecorder) CreateMachine(arg0, arg1, arg2 any) *MockImportServiceCreateMachineCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportMachine", reflect.TypeOf((*MockImportService)(nil).ImportMachine), arg0)
-	return &MockImportServiceImportMachineCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachine", reflect.TypeOf((*MockImportService)(nil).CreateMachine), arg0, arg1, arg2)
+	return &MockImportServiceCreateMachineCall{Call: call}
 }
 
-// MockImportServiceImportMachineCall wrap *gomock.Call
-type MockImportServiceImportMachineCall struct {
+// MockImportServiceCreateMachineCall wrap *gomock.Call
+type MockImportServiceCreateMachineCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockImportServiceImportMachineCall) Return(arg0 machine.UUID, arg1 error) *MockImportServiceImportMachineCall {
+func (c *MockImportServiceCreateMachineCall) Return(arg0 machine.UUID, arg1 error) *MockImportServiceCreateMachineCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceImportMachineCall) Do(f func(context.Context) (machine.UUID, error)) *MockImportServiceImportMachineCall {
+func (c *MockImportServiceCreateMachineCall) Do(f func(context.Context, machine.Name, *string) (machine.UUID, error)) *MockImportServiceCreateMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceImportMachineCall) DoAndReturn(f func(context.Context) (machine.UUID, error)) *MockImportServiceImportMachineCall {
+func (c *MockImportServiceCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name, *string) (machine.UUID, error)) *MockImportServiceCreateMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// ImportMachineCloudInstance mocks base method.
-func (m *MockImportService) ImportMachineCloudInstance(arg0 context.Context, arg1 machine.UUID, arg2 instance.Id, arg3, arg4 string, arg5 *instance.HardwareCharacteristics) error {
+// SetMachineCloudInstance mocks base method.
+func (m *MockImportService) SetMachineCloudInstance(arg0 context.Context, arg1 machine.UUID, arg2 instance.Id, arg3, arg4 string, arg5 *instance.HardwareCharacteristics) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportMachineCloudInstance", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "SetMachineCloudInstance", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ImportMachineCloudInstance indicates an expected call of ImportMachineCloudInstance.
-func (mr *MockImportServiceMockRecorder) ImportMachineCloudInstance(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockImportServiceImportMachineCloudInstanceCall {
+// SetMachineCloudInstance indicates an expected call of SetMachineCloudInstance.
+func (mr *MockImportServiceMockRecorder) SetMachineCloudInstance(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockImportServiceSetMachineCloudInstanceCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportMachineCloudInstance", reflect.TypeOf((*MockImportService)(nil).ImportMachineCloudInstance), arg0, arg1, arg2, arg3, arg4, arg5)
-	return &MockImportServiceImportMachineCloudInstanceCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineCloudInstance", reflect.TypeOf((*MockImportService)(nil).SetMachineCloudInstance), arg0, arg1, arg2, arg3, arg4, arg5)
+	return &MockImportServiceSetMachineCloudInstanceCall{Call: call}
 }
 
-// MockImportServiceImportMachineCloudInstanceCall wrap *gomock.Call
-type MockImportServiceImportMachineCloudInstanceCall struct {
+// MockImportServiceSetMachineCloudInstanceCall wrap *gomock.Call
+type MockImportServiceSetMachineCloudInstanceCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockImportServiceImportMachineCloudInstanceCall) Return(arg0 error) *MockImportServiceImportMachineCloudInstanceCall {
+func (c *MockImportServiceSetMachineCloudInstanceCall) Return(arg0 error) *MockImportServiceSetMachineCloudInstanceCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceImportMachineCloudInstanceCall) Do(f func(context.Context, machine.UUID, instance.Id, string, string, *instance.HardwareCharacteristics) error) *MockImportServiceImportMachineCloudInstanceCall {
+func (c *MockImportServiceSetMachineCloudInstanceCall) Do(f func(context.Context, machine.UUID, instance.Id, string, string, *instance.HardwareCharacteristics) error) *MockImportServiceSetMachineCloudInstanceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceImportMachineCloudInstanceCall) DoAndReturn(f func(context.Context, machine.UUID, instance.Id, string, string, *instance.HardwareCharacteristics) error) *MockImportServiceImportMachineCloudInstanceCall {
+func (c *MockImportServiceSetMachineCloudInstanceCall) DoAndReturn(f func(context.Context, machine.UUID, instance.Id, string, string, *instance.HardwareCharacteristics) error) *MockImportServiceSetMachineCloudInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

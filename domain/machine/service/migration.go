@@ -13,15 +13,18 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/machine"
-	domainmachine "github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/internal/errors"
 )
 
 // MigrationState defines the state interface for migration operations.
 type MigrationState interface {
-	// CreateMachine creates or updates the specified machine.
-	// Adds a row to machine table, as well as a row to the net_node table.
-	CreateMachine(ctx context.Context, args domainmachine.CreateMachineArgs) (coremachine.Name, error)
+	// InsertMigratingMachine inserts a machine which is taken from the description
+	// model during migration into the machine table.
+	//
+	// The following errors may be returned:
+	// - [machineerrors.MachineAlreadyExists] if a machine with the same name
+	// already exists.
+	InsertMigratingMachine(ctx context.Context, machineName string, args machine.CreateMachineArgs) error
 
 	// GetMachinesForExport returns all machines in the model for export.
 	GetMachinesForExport(ctx context.Context) ([]machine.ExportMachine, error)
@@ -71,11 +74,14 @@ func (s *MigrationService) CreateMachine(ctx context.Context, machineName corema
 	// Make new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
 	// the state layer we don't keep regenerating.
-	nodeUUID, machineUUID, err := createUUIDs()
+	machineUUID, err := createUUIDs()
 	if err != nil {
 		return "", errors.Errorf("creating machine %q: %w", machineName, err)
 	}
-	err = s.st.CreateMachine(ctx, machineName, nodeUUID, machineUUID, nonce)
+	err = s.st.InsertMigratingMachine(ctx, machineName.String(), machine.CreateMachineArgs{
+		MachineUUID: machineUUID,
+		Nonce:       nonce,
+	})
 	if err != nil {
 		return machineUUID, errors.Errorf("creating machine %q: %w", machineName, err)
 	}
@@ -134,7 +140,7 @@ func (s *MigrationService) SetMachineCloudInstance(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := s.st.SetMachineCloudInstance(ctx, machineUUID, instanceID, displayName, nonce, hardwareCharacteristics); err != nil {
+	if err := s.st.SetMachineCloudInstance(ctx, machineUUID.String(), instanceID, displayName, nonce, hardwareCharacteristics); err != nil {
 		return errors.Errorf("setting machine cloud instance for machine %q: %w", machineUUID, err)
 	}
 	return nil

@@ -13,6 +13,7 @@ import (
 
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -90,4 +91,16 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNoNonce(c *tc.C) 
 			Nonce: "",
 		},
 	})
+}
+
+func (s *migrationStateSuite) TestInsertImportingMachineAlreadyExists(c *tc.C) {
+	machineName, err := s.state.CreateMachine(c.Context(), machine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.InsertMigratingMachine(c.Context(), machineName.String(), machine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineAlreadyExists)
 }

@@ -226,7 +226,3 @@ func (FakeAgentConfig) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 func (FakeAgentConfig) CheckArgs([]string) error { return nil }
-
-func ptr[T any](v T) *T {
-	return &v
-}
