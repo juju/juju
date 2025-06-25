@@ -71,7 +71,57 @@ WHERE  m.machine_uuid = $entityUUID.uuid`
 // GetMachineAppBindings returns the bound spaces for applications
 // with units assigned to the machine with the input UUID.
 func (st *State) GetMachineAppBindings(ctx context.Context, machineUUID string) ([]internal.SpaceName, error) {
-	return nil, errors.Errorf("implement me")
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	mUUID := entityUUID{UUID: machineUUID}
+
+	qry := `
+WITH all_bound AS (
+    SELECT application_uuid, space_uuid
+    FROM   application_endpoint
+	UNION  
+    SELECT application_uuid, space_uuid
+    FROM   application_extra_endpoint
+)
+SELECT DISTINCT 
+       s.uuid AS &spaceConstraint.uuid,
+       s.name AS &spaceConstraint.space
+FROM   machine m
+	   JOIN unit u ON m.net_node_uuid = u.net_node_uuid
+       JOIN all_bound b ON u.application_uuid = b.application_uuid
+	   JOIN space s ON b.space_uuid = s.uuid
+WHERE  m.uuid = $entityUUID.uuid
+AND    s.name IS NOT NULL`
+
+	stmt, err := st.Prepare(qry, mUUID, spaceConstraint{})
+	if err != nil {
+		return nil, errors.Errorf("preparing machine app bindings statement: %w", err)
+	}
+
+	var cons []spaceConstraint
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, mUUID).GetAll(&cons); err != nil {
+			if !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("querying machine app bindings: %w", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	bound := make([]internal.SpaceName, len(cons))
+	for i, con := range cons {
+		bound[i] = internal.SpaceName{
+			UUID: con.SpaceUUID,
+			Name: con.SpaceName,
+		}
+	}
+	return bound, nil
 }
 
 // NICsInSpaces returns the link-layer devices on the machine with the

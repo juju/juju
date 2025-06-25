@@ -768,8 +768,8 @@ type spaceAddress struct {
 	SubnetCIDR sql.NullString `db:"cidr"`
 }
 
-// spaceConstraint represents a row from the constraint_space table
-// joined with the space table to get the space's UUID.
+// spaceConstraint represents a space name/UUID pair and its
+// role as a constraint (whether included or excluded).
 type spaceConstraint struct {
 	SpaceUUID string `db:"uuid"`
 	SpaceName string `db:"space"`
