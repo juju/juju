@@ -188,7 +188,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ControllerMetadataService:  metadataService,
 				ModelMetadataServiceGetter: modelMetadataServiceGetter{servicesGetter: objectStoreServicesGetter},
 				ModelClaimGetter:           modelClaimGetter{manager: leaseManager},
-				AllowDraining:              AllowDraining(controllerConfig, config.IsBootstrapController(dataDir)),
 			})
 			return w, errors.Trace(err)
 		},
@@ -331,10 +330,4 @@ func GetMetadataService(getter dependency.Getter, name string) (MetadataService,
 			factory: factory,
 		}
 	})
-}
-
-// AllowDraining returns true if the worker should allow draining. This
-// currently is only true for the bootstrap controller.
-func AllowDraining(config controller.Config, isBootstrapController bool) bool {
-	return config.ObjectStoreType() == coreobjectstore.S3Backend && isBootstrapController
 }

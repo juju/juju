@@ -6,6 +6,7 @@ package objectstoredrainer
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/fortress"
 )
 
@@ -31,6 +33,7 @@ type ObjectStoreService interface {
 type Config struct {
 	Guard              fortress.Guard
 	ObjectStoreService ObjectStoreService
+	Clock              clock.Clock
 	Logger             logger.Logger
 }
 
@@ -55,14 +58,30 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "objectstoredrainer",
+		IsFatal: func(err error) bool {
+			return false
+		},
+		Clock:  config.Clock,
+		Logger: internalworker.WrapLogger(config.Logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &Worker{
 		config: config,
+		runner: runner,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "objectstoredrainer",
 		Site: &w.catacomb,
 		Work: w.loop,
+		Init: []worker.Worker{
+			runner,
+		},
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -77,6 +96,8 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
+
+	runner *worker.Runner
 }
 
 // Kill kills the worker. It will cause the worker to stop if it is
