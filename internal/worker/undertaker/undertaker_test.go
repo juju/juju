@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
@@ -343,6 +344,7 @@ var _ = gc.Suite(&UndertakerSuite{})
 func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+	controllerUuid := utils.MustNewUUID().String()
 
 	facade := NewMockFacade(ctrl)
 	facade.EXPECT().SetStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -364,6 +366,7 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 			Result: params.UndertakerModelInfo{
 				Life:           life.Dying,
 				ForceDestroyed: false,
+				ControllerUUID: controllerUuid,
 			},
 		}, nil),
 		facade.EXPECT().ProcessDyingModel().Return(nil),
@@ -375,6 +378,14 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 			Result: params.UndertakerModelInfo{
 				Life:           life.Dying,
 				ForceDestroyed: true, // changed from false to true to cause worker to exit.
+				ControllerUUID: controllerUuid,
+			},
+		}, nil),
+		facade.EXPECT().ModelInfo().Return(params.UndertakerModelInfoResult{
+			Result: params.UndertakerModelInfo{
+				Life:           life.Dying,
+				ForceDestroyed: true,
+				ControllerUUID: controllerUuid,
 			},
 		}, nil),
 	)
