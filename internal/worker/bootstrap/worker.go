@@ -69,7 +69,7 @@ type WorkerConfig struct {
 	AgentBinaryUploader        AgentBinaryBootstrapFunc
 	ControllerCharmDeployer    ControllerCharmDeployerFunc
 	PopulateControllerCharm    PopulateControllerCharmFunc
-	SetMachineProvisioned      SetMachineProvisionedFunc
+	AgentFinalizer             AgentFinalizerFunc
 	CharmhubHTTPClient         HTTPClient
 	UnitPassword               string
 	ServiceManagerGetter       ServiceManagerGetterFunc
@@ -145,8 +145,8 @@ func (c *WorkerConfig) Validate() error {
 	if c.CharmhubHTTPClient == nil {
 		return errors.NotValidf("nil CharmhubHTTPClient")
 	}
-	if c.SetMachineProvisioned == nil {
-		return errors.NotValidf("nil SetMachineProvisioned")
+	if c.AgentFinalizer == nil {
+		return errors.NotValidf("nil AgentFinalizer")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -275,9 +275,10 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	// Set the bootstrap machine as provisioned.
-	if err := w.cfg.SetMachineProvisioned(ctx, w.cfg.AgentPasswordService, w.cfg.MachineService, bootstrapParams, agentConfig); err != nil {
-		return errors.Annotatef(err, "setting machine as provisioned")
+	// Finialize the agent by either setting the machine as provisioned
+	// or by setting the controller node password.
+	if err := w.cfg.AgentFinalizer(ctx, w.cfg.AgentPasswordService, w.cfg.MachineService, bootstrapParams, agentConfig); err != nil {
+		return errors.Annotatef(err, "finalizing agent")
 	}
 
 	// Convert the provider addresses that we got from the bootstrap instance
