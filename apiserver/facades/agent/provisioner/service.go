@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -109,6 +110,10 @@ type MachineService interface {
 	// GetMachinePrincipalApplications returns the names of the principal
 	// (non-subordinate) units for the specified machine.
 	GetMachinePrincipalApplications(ctx context.Context, mName coremachine.Name) ([]string, error)
+
+	// WatchMachineContainerLife returns a watcher that observes machine container
+	// life changes.
+	WatchMachineContainerLife(ctx context.Context, parentMachineName coremachine.Name) (watcher.StringsWatcher, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status

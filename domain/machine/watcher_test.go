@@ -286,8 +286,58 @@ func (s *watcherSuite) TestWatchMachineLife(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
-// TestWatchMachineContainerLife tests the functionality of watching machine
-// lifecycle changes.
+func (s *watcherSuite) TestWatchMachineContainerLifeInit(c *tc.C) {
+	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	var changes []string
+	select {
+	case changes = <-watcher.Changes():
+	case <-c.Context().Done():
+		c.Fatalf("watcher did not emit initial changes: %v", c.Context().Err())
+	}
+
+	c.Assert(changes, tc.HasLen, 0)
+}
+
+func (s *watcherSuite) TestWatchMachineContainerLifeInitMachine(c *tc.C) {
+	_, err := s.svc.CreateMachine(c.Context(), "1", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	var changes []string
+	select {
+	case changes = <-watcher.Changes():
+	case <-c.Context().Done():
+		c.Fatalf("watcher did not emit initial changes: %v", c.Context().Err())
+	}
+
+	c.Assert(changes, tc.HasLen, 0)
+}
+
+func (s *watcherSuite) TestWatchMachineContainerLifeInitMachineContainer(c *tc.C) {
+	_, err := s.svc.CreateMachine(c.Context(), "1", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.svc.CreateMachineWithParent(c.Context(), "1", "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	var changes []string
+	select {
+	case changes = <-watcher.Changes():
+	case <-c.Context().Done():
+		c.Fatalf("watcher did not emit initial changes: %v", c.Context().Err())
+	}
+
+	c.Assert(changes, tc.HasLen, 1)
+	c.Assert(changes[0], tc.Equals, "1/lxd/1")
+}
+
 func (s *watcherSuite) TestWatchMachineContainerLife(c *tc.C) {
 	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
@@ -297,32 +347,32 @@ func (s *watcherSuite) TestWatchMachineContainerLife(c *tc.C) {
 	harness.AddTest(func(c *tc.C) {
 		_, err := s.svc.CreateMachine(c.Context(), "0", nil)
 		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[struct{}]) {
+	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	harness.AddTest(func(c *tc.C) {
 		_, err := s.svc.CreateMachineWithParent(c.Context(), "1", "0")
 		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[struct{}]) {
+	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	harness.AddTest(func(c *tc.C) {
 		_, err := s.svc.CreateMachine(c.Context(), "1", nil)
 		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[struct{}]) {
+	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	harness.AddTest(func(c *tc.C) {
 		_, err := s.svc.CreateMachineWithParent(c.Context(), "1", "1")
 		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[struct{}]) {
+	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertChange()
 	})
 
-	harness.Run(c, struct{}{})
+	harness.Run(c, []string(nil))
 }
 
 func ptr[T any](u T) *T {

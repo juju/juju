@@ -162,6 +162,10 @@ type State interface {
 	// tracking machine lifecycle events in the model.
 	NamespaceForMachineLife() string
 
+	// InitialMachineContainerLifeStatement returns the table and the initial
+	// watch statement for watching life changes of container machines.
+	InitialMachineContainerLifeStatement() (string, string, func(string) string)
+
 	// GetNamesForUUIDs returns a map of machine UUIDs to machine Names based
 	// on the given machine UUIDs.
 	// [machineerrors.MachineNotFound] will be returned if the machine does not

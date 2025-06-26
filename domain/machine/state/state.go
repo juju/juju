@@ -1391,6 +1391,14 @@ func (*State) InitialWatchModelMachinesStatement() (string, string) {
 	return "machine", "SELECT name FROM machine WHERE name NOT LIKE '%/%'"
 }
 
+// InitialMachineContainerLifeStatement returns the table and the initial watch
+// statement for watching life changes of container machines.
+func (*State) InitialMachineContainerLifeStatement() (string, string, func(string) string) {
+	return "machine_insert_delete", "SELECT name FROM machine WHERE name LIKE ?", func(prefix string) string {
+		return prefix + "%"
+	}
+}
+
 // InitialWatchStatement returns the table and the initial watch statement
 // for the machines.
 func (*State) InitialWatchStatement() (string, string) {

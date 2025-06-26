@@ -783,6 +783,46 @@ func (c *MockStateGetSupportedContainersTypesCall) DoAndReturn(f func(context.Co
 	return c
 }
 
+// InitialMachineContainerLifeStatement mocks base method.
+func (m *MockState) InitialMachineContainerLifeStatement() (string, string, func(string) string) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialMachineContainerLifeStatement")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(func(string) string)
+	return ret0, ret1, ret2
+}
+
+// InitialMachineContainerLifeStatement indicates an expected call of InitialMachineContainerLifeStatement.
+func (mr *MockStateMockRecorder) InitialMachineContainerLifeStatement() *MockStateInitialMachineContainerLifeStatementCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialMachineContainerLifeStatement", reflect.TypeOf((*MockState)(nil).InitialMachineContainerLifeStatement))
+	return &MockStateInitialMachineContainerLifeStatementCall{Call: call}
+}
+
+// MockStateInitialMachineContainerLifeStatementCall wrap *gomock.Call
+type MockStateInitialMachineContainerLifeStatementCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialMachineContainerLifeStatementCall) Return(arg0, arg1 string, arg2 func(string) string) *MockStateInitialMachineContainerLifeStatementCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialMachineContainerLifeStatementCall) Do(f func() (string, string, func(string) string)) *MockStateInitialMachineContainerLifeStatementCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialMachineContainerLifeStatementCall) DoAndReturn(f func() (string, string, func(string) string)) *MockStateInitialMachineContainerLifeStatementCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchModelMachinesStatement mocks base method.
 func (m *MockState) InitialWatchModelMachinesStatement() (string, string) {
 	m.ctrl.T.Helper()

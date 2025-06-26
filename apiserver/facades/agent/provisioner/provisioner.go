@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
@@ -76,6 +77,7 @@ type ProvisionerAPI struct {
 	getAuthFunc               common.GetAuthFunc
 	getCanModify              common.GetAuthFunc
 	toolsFinder               common.ToolsFinder
+	watcherRegistry           facade.WatcherRegistry
 	logger                    logger.Logger
 	clock                     clock.Clock
 
@@ -217,6 +219,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		getAuthFunc:               getAuthFunc,
 		getCanModify:              getCanModify,
 		controllerUUID:            ctx.ControllerUUID(),
+		watcherRegistry:           watcherRegistry,
 		logger:                    ctx.Logger().Child("provisioner"),
 		clock:                     ctx.Clock(),
 	}
@@ -279,24 +282,33 @@ func (api *ProvisionerAPI) watchOneMachineContainers(ctx context.Context, arg pa
 	if !canAccess(tag) {
 		return nothing, apiservererrors.ErrPerm
 	}
-	machine, err := api.st.Machine(tag.Id())
-	if err != nil {
-		return nothing, err
-	}
-	var watch state.StringsWatcher
+
+	// If we're watching all the machine containers, ensure that the container
+	// type is supported. It should be noted, that as of today, we only support
+	// LXD.
 	if arg.ContainerType != "" {
-		watch = machine.WatchContainers(instance.ContainerType(arg.ContainerType))
-	} else {
-		watch = machine.WatchAllContainers()
+		if _, err := instance.ParseContainerType(arg.ContainerType); err != nil {
+			return nothing, apiservererrors.ServerError(
+				errors.NotSupportedf("container type %q is not supported", arg.ContainerType),
+			)
+		}
 	}
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: api.resources.Register(watch),
-			Changes:          changes,
-		}, nil
+
+	watcher, err := api.machineService.WatchMachineContainerLife(ctx, coremachine.Name(tag.Id()))
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return nothing, apiservererrors.ServerError(errors.NotFoundf("machine %q", tag.Id()))
+	} else if err != nil {
+		return nothing, apiservererrors.ServerError(err)
 	}
-	return nothing, watcher.EnsureErr(watch)
+
+	watcherID, changes, err := internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, watcher)
+	if err != nil {
+		return nothing, apiservererrors.ServerError(errors.Annotatef(err, "registering watcher for machine %q", tag.Id()))
+	}
+	return params.StringsWatchResult{
+		StringsWatcherId: watcherID,
+		Changes:          changes,
+	}, nil
 }
 
 // WatchContainers starts a StringsWatcher to watch containers deployed to

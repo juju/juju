@@ -21,6 +21,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	status "github.com/juju/juju/core/status"
 	unit "github.com/juju/juju/core/unit"
+	watcher "github.com/juju/juju/core/watcher"
 	charm "github.com/juju/juju/domain/application/charm"
 	charm0 "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
@@ -955,6 +956,45 @@ func (c *MockMachineServiceShouldKeepInstanceCall) Do(f func(context.Context, ma
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceShouldKeepInstanceCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockMachineServiceShouldKeepInstanceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchMachineContainerLife mocks base method.
+func (m *MockMachineService) WatchMachineContainerLife(arg0 context.Context, arg1 machine.Name) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchMachineContainerLife", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchMachineContainerLife indicates an expected call of WatchMachineContainerLife.
+func (mr *MockMachineServiceMockRecorder) WatchMachineContainerLife(arg0, arg1 any) *MockMachineServiceWatchMachineContainerLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachineContainerLife", reflect.TypeOf((*MockMachineService)(nil).WatchMachineContainerLife), arg0, arg1)
+	return &MockMachineServiceWatchMachineContainerLifeCall{Call: call}
+}
+
+// MockMachineServiceWatchMachineContainerLifeCall wrap *gomock.Call
+type MockMachineServiceWatchMachineContainerLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceWatchMachineContainerLifeCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockMachineServiceWatchMachineContainerLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceWatchMachineContainerLifeCall) Do(f func(context.Context, machine.Name) (watcher.Watcher[[]string], error)) *MockMachineServiceWatchMachineContainerLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceWatchMachineContainerLifeCall) DoAndReturn(f func(context.Context, machine.Name) (watcher.Watcher[[]string], error)) *MockMachineServiceWatchMachineContainerLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
