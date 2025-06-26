@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -289,6 +290,9 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 	deployer, err := NewIAASDeployer(IAASDeployerConfig{
 		BaseDeployerConfig: cfg,
 		ApplicationService: s.iaasApplicationService,
+		HostBaseFn: func() (corebase.Base, error) {
+			return corebase.MakeDefaultBase("ubuntu", "22.04"), nil
+		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -304,7 +308,6 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 			Channel:      "22.04",
 		},
 	}
-	address := "10.0.0.1"
 	err = deployer.AddIAASControllerApplication(c.Context(), DeployCharmInfo{
 		URL:    charm.MustParseURL(curl),
 		Charm:  s.charm,
@@ -316,7 +319,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		},
 		ArchivePath:     "path",
 		ObjectStoreUUID: "1234",
-	}, address)
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 

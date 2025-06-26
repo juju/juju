@@ -178,17 +178,17 @@ func (m *MockControllerCharmDeployer) EXPECT() *MockControllerCharmDeployerMockR
 }
 
 // AddCAASControllerApplication mocks base method.
-func (m *MockControllerCharmDeployer) AddCAASControllerApplication(arg0 context.Context, arg1 DeployCharmInfo, arg2 string) error {
+func (m *MockControllerCharmDeployer) AddCAASControllerApplication(arg0 context.Context, arg1 DeployCharmInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddCAASControllerApplication", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddCAASControllerApplication", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddCAASControllerApplication indicates an expected call of AddCAASControllerApplication.
-func (mr *MockControllerCharmDeployerMockRecorder) AddCAASControllerApplication(arg0, arg1, arg2 any) *MockControllerCharmDeployerAddCAASControllerApplicationCall {
+func (mr *MockControllerCharmDeployerMockRecorder) AddCAASControllerApplication(arg0, arg1 any) *MockControllerCharmDeployerAddCAASControllerApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCAASControllerApplication", reflect.TypeOf((*MockControllerCharmDeployer)(nil).AddCAASControllerApplication), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCAASControllerApplication", reflect.TypeOf((*MockControllerCharmDeployer)(nil).AddCAASControllerApplication), arg0, arg1)
 	return &MockControllerCharmDeployerAddCAASControllerApplicationCall{Call: call}
 }
 
@@ -204,29 +204,29 @@ func (c *MockControllerCharmDeployerAddCAASControllerApplicationCall) Return(arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerCharmDeployerAddCAASControllerApplicationCall) Do(f func(context.Context, DeployCharmInfo, string) error) *MockControllerCharmDeployerAddCAASControllerApplicationCall {
+func (c *MockControllerCharmDeployerAddCAASControllerApplicationCall) Do(f func(context.Context, DeployCharmInfo) error) *MockControllerCharmDeployerAddCAASControllerApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerCharmDeployerAddCAASControllerApplicationCall) DoAndReturn(f func(context.Context, DeployCharmInfo, string) error) *MockControllerCharmDeployerAddCAASControllerApplicationCall {
+func (c *MockControllerCharmDeployerAddCAASControllerApplicationCall) DoAndReturn(f func(context.Context, DeployCharmInfo) error) *MockControllerCharmDeployerAddCAASControllerApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddIAASControllerApplication mocks base method.
-func (m *MockControllerCharmDeployer) AddIAASControllerApplication(arg0 context.Context, arg1 DeployCharmInfo, arg2 string) error {
+func (m *MockControllerCharmDeployer) AddIAASControllerApplication(arg0 context.Context, arg1 DeployCharmInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddIAASControllerApplication", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddIAASControllerApplication", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddIAASControllerApplication indicates an expected call of AddIAASControllerApplication.
-func (mr *MockControllerCharmDeployerMockRecorder) AddIAASControllerApplication(arg0, arg1, arg2 any) *MockControllerCharmDeployerAddIAASControllerApplicationCall {
+func (mr *MockControllerCharmDeployerMockRecorder) AddIAASControllerApplication(arg0, arg1 any) *MockControllerCharmDeployerAddIAASControllerApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddIAASControllerApplication", reflect.TypeOf((*MockControllerCharmDeployer)(nil).AddIAASControllerApplication), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddIAASControllerApplication", reflect.TypeOf((*MockControllerCharmDeployer)(nil).AddIAASControllerApplication), arg0, arg1)
 	return &MockControllerCharmDeployerAddIAASControllerApplicationCall{Call: call}
 }
 
@@ -242,13 +242,13 @@ func (c *MockControllerCharmDeployerAddIAASControllerApplicationCall) Return(arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerCharmDeployerAddIAASControllerApplicationCall) Do(f func(context.Context, DeployCharmInfo, string) error) *MockControllerCharmDeployerAddIAASControllerApplicationCall {
+func (c *MockControllerCharmDeployerAddIAASControllerApplicationCall) Do(f func(context.Context, DeployCharmInfo) error) *MockControllerCharmDeployerAddIAASControllerApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerCharmDeployerAddIAASControllerApplicationCall) DoAndReturn(f func(context.Context, DeployCharmInfo, string) error) *MockControllerCharmDeployerAddIAASControllerApplicationCall {
+func (c *MockControllerCharmDeployerAddIAASControllerApplicationCall) DoAndReturn(f func(context.Context, DeployCharmInfo) error) *MockControllerCharmDeployerAddIAASControllerApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -287,45 +287,6 @@ func (c *MockControllerCharmDeployerCompleteCAASProcessCall) Do(f func(context.C
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockControllerCharmDeployerCompleteCAASProcessCall) DoAndReturn(f func(context.Context) error) *MockControllerCharmDeployerCompleteCAASProcessCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ControllerAddress mocks base method.
-func (m *MockControllerCharmDeployer) ControllerAddress(arg0 context.Context) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerAddress", arg0)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerAddress indicates an expected call of ControllerAddress.
-func (mr *MockControllerCharmDeployerMockRecorder) ControllerAddress(arg0 any) *MockControllerCharmDeployerControllerAddressCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerAddress", reflect.TypeOf((*MockControllerCharmDeployer)(nil).ControllerAddress), arg0)
-	return &MockControllerCharmDeployerControllerAddressCall{Call: call}
-}
-
-// MockControllerCharmDeployerControllerAddressCall wrap *gomock.Call
-type MockControllerCharmDeployerControllerAddressCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockControllerCharmDeployerControllerAddressCall) Return(arg0 string, arg1 error) *MockControllerCharmDeployerControllerAddressCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockControllerCharmDeployerControllerAddressCall) Do(f func(context.Context) (string, error)) *MockControllerCharmDeployerControllerAddressCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerCharmDeployerControllerAddressCall) DoAndReturn(f func(context.Context) (string, error)) *MockControllerCharmDeployerControllerAddressCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

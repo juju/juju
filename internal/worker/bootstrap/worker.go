@@ -267,7 +267,7 @@ func (w *bootstrapWorker) loop() error {
 	// Deploy the controller charm after calling reload spaces or
 	// no subnets will be available for the ip address table with
 	// kubernetes.
-	if err := w.seedControllerCharm(ctx, dataDir, bootstrapParams); err != nil {
+	if err := w.seedControllerCharm(ctx, dataDir, bootstrapParams, bootstrapAddresses); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -523,7 +523,12 @@ func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (
 	return cleanup, nil
 }
 
-func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir string, bootstrapArgs instancecfg.StateInitializationParams) error {
+func (w *bootstrapWorker) seedControllerCharm(
+	ctx context.Context,
+	dataDir string,
+	bootstrapArgs instancecfg.StateInitializationParams,
+	bootstrapAddresses network.ProviderAddresses,
+) error {
 	controllerConfig, err := w.cfg.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -548,6 +553,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 		ControllerConfig:            controllerConfig,
 		DataDir:                     dataDir,
 		BootstrapMachineConstraints: bootstrapArgs.BootstrapMachineConstraints,
+		BootstrapAddresses:          bootstrapAddresses,
 		ControllerCharmName:         bootstrapArgs.ControllerCharmPath,
 		ControllerCharmChannel:      bootstrapArgs.ControllerCharmChannel,
 		CharmhubHTTPClient:          w.cfg.CharmhubHTTPClient,

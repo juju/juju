@@ -29,34 +29,14 @@ func (s *deployerIAASSuite) TestValidate(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	cfg = s.newConfig(c)
+	cfg.ApplicationService = nil
 	err = cfg.Validate()
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
-}
 
-func (s *deployerIAASSuite) TestControllerAddress(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	deployer := s.newDeployer(c)
-	address, err := deployer.ControllerAddress(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(address, tc.Equals, "10.0.0.1")
-}
-
-func (s *deployerIAASSuite) TestControllerAddressWithNoAddress(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	deployer := s.newDeployer(c)
-	address, err := deployer.ControllerAddress(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(address, tc.Equals, "")
-}
-
-func (s *deployerIAASSuite) TestControllerAddressWithErr(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	deployer := s.newDeployer(c)
-	_, err := deployer.ControllerAddress(c.Context())
-	c.Assert(err, tc.ErrorMatches, "boom")
+	cfg = s.newConfig(c)
+	cfg.HostBaseFn = nil
+	err = cfg.Validate()
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *deployerIAASSuite) TestControllerCharmBase(c *tc.C) {
@@ -84,5 +64,8 @@ func (s *deployerIAASSuite) newConfig(c *tc.C) IAASDeployerConfig {
 	return IAASDeployerConfig{
 		BaseDeployerConfig: s.baseSuite.newConfig(c),
 		ApplicationService: s.iaasApplicationService,
+		HostBaseFn: func() (corebase.Base, error) {
+			return corebase.MakeDefaultBase("ubuntu", "22.04"), nil
+		},
 	}
 }

@@ -19,6 +19,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/charmdownloader"
@@ -91,6 +92,7 @@ type ControllerCharmDeployerConfig struct {
 	ObjectStore                 objectstore.ObjectStore
 	ControllerConfig            controller.Config
 	DataDir                     string
+	BootstrapAddresses          network.ProviderAddresses
 	BootstrapMachineConstraints constraints.Value
 	ControllerCharmName         string
 	ControllerCharmChannel      charm.Channel
@@ -162,6 +164,7 @@ func IAASControllerCharmUploader(ctx context.Context, cfg ControllerCharmDeploye
 	return bootstrap.NewIAASDeployer(bootstrap.IAASDeployerConfig{
 		BaseDeployerConfig: makeBaseDeployerConfig(cfg),
 		ApplicationService: cfg.ApplicationService,
+		HostBaseFn:         coreos.HostBase,
 	})
 }
 
@@ -173,6 +176,7 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 		AgentPasswordService: cfg.AgentPasswordService,
 		ModelConfigService:   cfg.ModelConfigService,
 		Constraints:          cfg.BootstrapMachineConstraints,
+		BootstrapAddresses:   cfg.BootstrapAddresses,
 		ControllerConfig:     cfg.ControllerConfig,
 		Channel:              cfg.ControllerCharmChannel,
 		CharmhubHTTPClient:   cfg.CharmhubHTTPClient,
