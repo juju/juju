@@ -46,12 +46,13 @@ func NewState(factory coredb.TxnRunnerFactory, clock clock.Clock, logger logger.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
 func (st *State) CreateMachine(ctx context.Context, machineName machine.Name, nodeUUID string, machineUUID machine.UUID, nonce *string) error {
-	return st.createMachine(ctx, createMachineArgs{
+	_, err := st.createMachine(ctx, createMachineArgs{
 		name:        machineName,
 		netNodeUUID: nodeUUID,
 		machineUUID: machineUUID,
 		nonce:       nonce,
 	})
+	return err
 }
 
 // CreateMachineWithParent creates or updates the specified machine with a
@@ -61,12 +62,11 @@ func (st *State) CreateMachine(ctx context.Context, machineName machine.Name, no
 // It returns a MachineNotFound error if the parent machine does not exist.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
-func (st *State) CreateMachineWithParent(ctx context.Context, machineName, parentName machine.Name, nodeUUID string, machineUUID machine.UUID) error {
+func (st *State) CreateMachineWithParent(ctx context.Context, machineName machine.Name, nodeUUID string, machineUUID machine.UUID) (bool, error) {
 	return st.createMachine(ctx, createMachineArgs{
 		name:        machineName,
 		netNodeUUID: nodeUUID,
 		machineUUID: machineUUID,
-		parentName:  parentName,
 	})
 }
 
@@ -75,10 +75,10 @@ func (st *State) CreateMachineWithParent(ctx context.Context, machineName, paren
 // It returns the uuid of the created machine.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
-func (st *State) createMachine(ctx context.Context, args createMachineArgs) error {
+func (st *State) createMachine(ctx context.Context, args createMachineArgs) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Capture(err)
+		return false, errors.Capture(err)
 	}
 
 	mName := args.name
@@ -93,7 +93,7 @@ FROM  machine AS m
 WHERE name = $machineName.name;
 `, machineNameParam, machineExistsUUIDout)
 	if err != nil {
-		return errors.Capture(err)
+		return false, errors.Capture(err)
 	}
 
 	var nonce sql.Null[string]
@@ -106,7 +106,7 @@ WHERE name = $machineName.name;
 
 	lifeID, err := encodeLife(life.Alive)
 	if err != nil {
-		return errors.Capture(err)
+		return false, errors.Capture(err)
 	}
 
 	// Prepare query for creating machine row.
@@ -123,27 +123,28 @@ VALUES ($createMachine.*)
 `
 	createMachineStmt, err := st.Prepare(createMachineQuery, createParams)
 	if err != nil {
-		return errors.Capture(err)
+		return false, errors.Capture(err)
 	}
 
 	// Prepare query for creating net node row.
 	createNodeQuery := `INSERT INTO net_node (uuid) VALUES ($createMachine.net_node_uuid)`
 	createNodeStmt, err := st.Prepare(createNodeQuery, createParams)
 	if err != nil {
-		return errors.Capture(err)
+		return false, errors.Capture(err)
 	}
 
 	now := st.clock.Now()
 
 	instanceStatusInfo, err := status.EncodeCloudInstanceStatus(status.InstanceStatusPending)
 	if err != nil {
-		return errors.Capture(err)
+		return false, errors.Capture(err)
 	}
 	machineStatusInfo, err := status.EncodeMachineStatus(status.MachineStatusPending)
 	if err != nil {
-		return errors.Capture(err)
+		return false, errors.Capture(err)
 	}
 
+	var createdParent bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine uuid. If the machine already exists, return a
 		// MachineAlreadyExists error.
@@ -190,37 +191,30 @@ VALUES ($createMachine.*)
 
 		// If the parent name is empty, we don't need to associate a parent
 		// machine.
-		if args.parentName == "" {
+		if !args.name.IsContainer() {
 			return nil
 		}
 
 		// Associate a parent machine if parentName is provided.
 		if err := st.createParentMachineLink(ctx, tx, args); err != nil {
-			return errors.Errorf("creating parent machine %q for machine %q: %w", args.parentName, mName, err)
+			return errors.Errorf("creating parent machine for machine %q: %w", mName, err)
 		}
+
+		createdParent = true
 
 		return nil
 	})
 	if err != nil {
-		return errors.Errorf("inserting machine %q: %w", mName, err)
+		return false, errors.Errorf("inserting machine %q: %w", mName, err)
 	}
-	return nil
+	return createdParent, nil
 }
 
 func (st *State) createParentMachineLink(ctx context.Context, tx *sqlair.TX, args createMachineArgs) error {
-	mName := args.name
+	mName := args.name.Parent()
 
 	// Prepare query for associating/verifying parent machine.
-	parentNameParam := machineName{Name: args.parentName}
-	associateParentParam := machineParent{MachineUUID: args.machineUUID}
-	associateParentQuery := `
-INSERT INTO machine_parent (machine_uuid, parent_uuid)
-VALUES ($machineParent.machine_uuid, $machineParent.parent_uuid)
-`
-	associateParentStmt, err := st.Prepare(associateParentQuery, associateParentParam)
-	if err != nil {
-		return errors.Capture(err)
-	}
+	parentNameParam := machineName{Name: mName}
 
 	var machineUUIDout machineUUID
 	machineUUIDStmt, err := st.Prepare(`
@@ -232,43 +226,27 @@ WHERE  name = $machineName.name;
 		return errors.Capture(err)
 	}
 
-	// Prepare query for verifying there's no grandparent.
-	var outputMachineParent machineParent
-	var inputParentMachineUUID machineUUID
-
-	parentQuery := `
-SELECT mp.parent_uuid AS &machineParent.parent_uuid
-FROM   machine_parent AS mp
-WHERE  machine_uuid = $machineUUID.uuid`
-	parentQueryStmt, err := st.Prepare(parentQuery, outputMachineParent, inputParentMachineUUID)
+	associateParentParam := machineParent{MachineUUID: args.machineUUID}
+	associateParentQuery := `
+INSERT INTO machine_parent (machine_uuid, parent_uuid)
+VALUES ($machineParent.machine_uuid, $machineParent.parent_uuid)
+`
+	associateParentStmt, err := st.Prepare(associateParentQuery, associateParentParam)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	// Query for the parent uuid.
 	if err := tx.Query(ctx, machineUUIDStmt, parentNameParam).Get(&machineUUIDout); errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("parent machine %q for %q: %w", args.parentName, mName, machineerrors.MachineNotFound)
+		return errors.Errorf("parent machine %q: %w", mName, machineerrors.MachineNotFound)
 	} else if err != nil {
-		return errors.Errorf("querying parent machine %q for machine %q: %w", args.parentName, mName, err)
-	}
-
-	// Protect against grand-parenting.
-	machineParentUUID := machineUUID{
-		UUID: machineUUIDout.UUID,
-	}
-
-	var machineParent machineParent
-	if err := tx.Query(ctx, parentQueryStmt, machineParentUUID).Get(&machineParent); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("querying for grandparent UUID for machine %q: %w", mName, err)
-	} else if err == nil {
-		// No error means we found a grandparent.
-		return errors.Errorf("machine %q", mName).Add(machineerrors.GrandParentNotSupported)
+		return errors.Errorf("querying parent machine %q: %w", mName, err)
 	}
 
 	// Run query to associate parent machine.
 	associateParentParam.ParentUUID = machineUUIDout.UUID
 	if err := tx.Query(ctx, associateParentStmt, associateParentParam).Run(); err != nil {
-		return errors.Errorf("associating parent machine %q for machine %q: %w", args.parentName, mName, err)
+		return errors.Errorf("associating parent machine %q: %w", mName, err)
 	}
 
 	return nil

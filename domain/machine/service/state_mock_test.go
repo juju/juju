@@ -239,17 +239,18 @@ func (c *MockStateCreateMachineCall) DoAndReturn(f func(context.Context, machine
 }
 
 // CreateMachineWithParent mocks base method.
-func (m *MockState) CreateMachineWithParent(arg0 context.Context, arg1, arg2 machine.Name, arg3 string, arg4 machine.UUID) error {
+func (m *MockState) CreateMachineWithParent(arg0 context.Context, arg1 machine.Name, arg2 string, arg3 machine.UUID) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateMachineWithParent", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "CreateMachineWithParent", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateMachineWithParent indicates an expected call of CreateMachineWithParent.
-func (mr *MockStateMockRecorder) CreateMachineWithParent(arg0, arg1, arg2, arg3, arg4 any) *MockStateCreateMachineWithParentCall {
+func (mr *MockStateMockRecorder) CreateMachineWithParent(arg0, arg1, arg2, arg3 any) *MockStateCreateMachineWithParentCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachineWithParent", reflect.TypeOf((*MockState)(nil).CreateMachineWithParent), arg0, arg1, arg2, arg3, arg4)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachineWithParent", reflect.TypeOf((*MockState)(nil).CreateMachineWithParent), arg0, arg1, arg2, arg3)
 	return &MockStateCreateMachineWithParentCall{Call: call}
 }
 
@@ -259,19 +260,19 @@ type MockStateCreateMachineWithParentCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCreateMachineWithParentCall) Return(arg0 error) *MockStateCreateMachineWithParentCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockStateCreateMachineWithParentCall) Return(arg0 bool, arg1 error) *MockStateCreateMachineWithParentCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateMachineWithParentCall) Do(f func(context.Context, machine.Name, machine.Name, string, machine.UUID) error) *MockStateCreateMachineWithParentCall {
+func (c *MockStateCreateMachineWithParentCall) Do(f func(context.Context, machine.Name, string, machine.UUID) (bool, error)) *MockStateCreateMachineWithParentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateMachineWithParentCall) DoAndReturn(f func(context.Context, machine.Name, machine.Name, string, machine.UUID) error) *MockStateCreateMachineWithParentCall {
+func (c *MockStateCreateMachineWithParentCall) DoAndReturn(f func(context.Context, machine.Name, string, machine.UUID) (bool, error)) *MockStateCreateMachineWithParentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
