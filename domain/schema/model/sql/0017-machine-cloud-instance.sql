@@ -72,10 +72,10 @@ CREATE TABLE machine_cloud_instance_status (
     message TEXT,
     data TEXT,
     updated_at DATETIME,
-    CONSTRAINT fk_machine_constraint_instance
+    CONSTRAINT fk_machine_instance_status_machine
     FOREIGN KEY (machine_uuid)
     REFERENCES machine_cloud_instance (machine_uuid),
-    CONSTRAINT fk_machine_constraint_status
+    CONSTRAINT fk_machine_instance_status_id
     FOREIGN KEY (status_id)
     REFERENCES machine_cloud_instance_status_value (id)
 );
