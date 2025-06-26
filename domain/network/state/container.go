@@ -32,7 +32,7 @@ SELECT (space, exclude) AS (&spaceConstraint.*),
        s.uuid AS &spaceConstraint.uuid
 FROM   constraint_space cs
        JOIN machine_constraint m ON cs.constraint_uuid = m.constraint_uuid
-	   JOIN space s ON cs.space = s.name	
+       JOIN space s ON cs.space = s.name	
 WHERE  m.machine_uuid = $entityUUID.uuid`
 
 	stmt, err := st.Prepare(qry, mUUID, spaceConstraint{})
@@ -66,7 +66,6 @@ WHERE  m.machine_uuid = $entityUUID.uuid`
 		}
 		pos = append(pos, sn)
 	}
-
 	return pos, neg, nil
 }
 
@@ -84,7 +83,7 @@ func (st *State) GetMachineAppBindings(ctx context.Context, machineUUID string) 
 WITH all_bound AS (
     SELECT application_uuid, space_uuid
     FROM   application_endpoint
-	UNION  
+    UNION  
     SELECT application_uuid, space_uuid
     FROM   application_extra_endpoint
 )
@@ -92,9 +91,9 @@ SELECT DISTINCT
        s.uuid AS &spaceConstraint.uuid,
        s.name AS &spaceConstraint.space
 FROM   machine m
-	   JOIN unit u ON m.net_node_uuid = u.net_node_uuid
+       JOIN unit u ON m.net_node_uuid = u.net_node_uuid
        JOIN all_bound b ON u.application_uuid = b.application_uuid
-	   JOIN space s ON b.space_uuid = s.uuid
+       JOIN space s ON b.space_uuid = s.uuid
 WHERE  m.uuid = $entityUUID.uuid
 AND    s.name IS NOT NULL`
 
@@ -152,10 +151,10 @@ SELECT DISTINCT
        pd.name AS &deviceInSpace.parent_name, 
        (s.space_uuid, d.mac_address) AS (&deviceInSpace.*)
 FROM   link_layer_device d
-	   JOIN link_layer_device_type t on d.device_type_id = t.id	
+       JOIN link_layer_device_type t on d.device_type_id = t.id	
        LEFT JOIN ip_address a on d.uuid = a.device_uuid
        LEFT JOIN subnet s on a.subnet_uuid = s.uuid
-	   LEFT JOIN link_layer_device_parent p ON d.uuid = p.device_uuid
+       LEFT JOIN link_layer_device_parent p ON d.uuid = p.device_uuid
        LEFT JOIN link_layer_device pd ON p.parent_uuid = pd.uuid
 WHERE  d.net_node_uuid = $entityUUID.uuid`
 
@@ -204,12 +203,34 @@ WHERE  d.net_node_uuid = $entityUUID.uuid`
 			nicsInSpaces[spaceUUID] = append(spaceNics, nic)
 		}
 	}
-
 	return nicsInSpaces, nil
 }
 
 // GetContainerNetworkingMethod returns the model's configured value
 // for container-networking-method.
 func (st *State) GetContainerNetworkingMethod(ctx context.Context) (string, error) {
-	return "", errors.Errorf("implement me")
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	type cVal struct {
+		Value string `db:"value"`
+	}
+	var conf cVal
+
+	stmt, err := st.Prepare(`SELECT &cVal.* FROM model_config WHERE "key" = 'container-networking-method'`, conf)
+	if err != nil {
+		return "", errors.Errorf("preparing model config statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt).Get(&conf); err != nil {
+			if !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("querying model config: %w", err)
+			}
+		}
+		return nil
+	})
+	return conf.Value, errors.Capture(err)
 }

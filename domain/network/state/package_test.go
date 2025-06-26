@@ -7,11 +7,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/juju/juju/core/machine"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	corenetwork "github.com/juju/juju/core/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"

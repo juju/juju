@@ -1,3 +1,6 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
@@ -156,6 +159,19 @@ func (s *containerSuite) TestNICsInSpaces(c *tc.C) {
 		}},
 	})
 
+}
+
+func (s *containerSuite) TestGetContainerNetworkingMethod(c *tc.C) {
+	db := s.DB()
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO model_config VALUES ('container-networking-method', 'provider')")
+	c.Assert(err, tc.ErrorIsNil)
+
+	conf, err := s.state.GetContainerNetworkingMethod(ctx)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conf, tc.Equals, "provider")
 }
 
 // addCharm inserts a new charm into the database and returns the UUID.
