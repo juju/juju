@@ -405,6 +405,49 @@ func (s *ipAddressesStateSuite) TestAllSpacesReturnsDefaultSpace(c *gc.C) {
 	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{network.AlphaSpaceId})
 }
 
+func (s *ipAddressesStateSuite) TestAllSpacesHandlesLoopbackAddresses(c *gc.C) {
+	// Add a loopback device with both true loopback and custom addresses
+	loDevice := s.addNamedDevice(c, "lo")
+	addressArgs := []state.LinkLayerDeviceAddress{
+		{
+			DeviceName:   "lo",
+			ConfigMethod: network.ConfigLoopback,
+			CIDRAddress:  "127.0.0.1/8", // True loopback address - should be skipped
+		},
+		{
+			DeviceName:   "lo",
+			ConfigMethod: network.ConfigLoopback,
+			CIDRAddress:  "::1/128", // IPv6 loopback address - should be skipped
+		},
+		{
+			DeviceName:   "lo",
+			ConfigMethod: network.ConfigLoopback,
+			CIDRAddress:  "10.20.0.5/16", // Custom address on loopback interface - should be included
+		},
+	}
+	err := s.machine.SetDevicesAddresses(addressArgs...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a space for the custom address
+	space, err := s.State.AddSpace("public", "public-space", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	resetSubnet(c, s.State, network.SubnetInfo{
+		CIDR:    "10.20.0.0/16",
+		SpaceID: space.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that only the space for the custom address is detected
+	spaces, err := s.machine.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{space.Id()})
+
+	// Verify the loopback device has the expected addresses
+	addresses, err := loDevice.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, gc.HasLen, 3)
+}
+
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesDoesNothingWithEmptyArgs(c *gc.C) {
 	err := s.machine.SetDevicesAddresses() // takes varargs, which includes none.
 	c.Assert(err, jc.ErrorIsNil)
