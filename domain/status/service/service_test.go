@@ -34,10 +34,11 @@ import (
 )
 
 type serviceSuite struct {
-	state         *MockState
-	statusHistory *statusHistoryRecorder
+	controllerState *MockControllerState
+	modelState      *MockModelState
+	statusHistory   *statusHistoryRecorder
 
-	service *Service
+	modelService *Service
 }
 
 func TestServiceSuite(t *testing.T) {
@@ -57,10 +58,10 @@ func (s *serviceSuite) TestGetAllRelationStatuses(c *tc.C) {
 			Status: status.RelationStatusTypeBroken,
 		}},
 	}
-	s.state.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(stateRelationStatus, nil)
+	s.modelState.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(stateRelationStatus, nil)
 
 	// Act
-	details, err := s.service.GetAllRelationStatuses(c.Context())
+	details, err := s.modelService.GetAllRelationStatuses(c.Context())
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -77,10 +78,10 @@ func (s *serviceSuite) TestGetAllRelationStatusesError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("state error")
-	s.state.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(nil, expectedError)
+	s.modelState.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(nil, expectedError)
 
 	// Act
-	_, err := s.service.GetAllRelationStatuses(c.Context())
+	_, err := s.modelService.GetAllRelationStatuses(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, expectedError)
@@ -91,6 +92,8 @@ func (s *serviceSuite) TestImportRelationStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationID := 1
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	s.modelState.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return(relationUUID, nil)
 	sts := corestatus.StatusInfo{
 		Status:  corestatus.Broken,
 		Message: "message",
@@ -102,10 +105,10 @@ func (s *serviceSuite) TestImportRelationStatus(c *tc.C) {
 		Message: sts.Message,
 		Since:   sts.Since,
 	}
-	s.state.EXPECT().ImportRelationStatus(gomock.Any(), relationID, expectedStatus).Return(nil)
+	s.modelState.EXPECT().ImportRelationStatus(gomock.Any(), relationUUID, expectedStatus).Return(nil)
 
 	// Act
-	err := s.service.ImportRelationStatus(c.Context(), relationID, sts)
+	err := s.modelService.ImportRelationStatus(c.Context(), relationID, sts)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -116,6 +119,8 @@ func (s *serviceSuite) TestImportRelationServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationID := 1
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	s.modelState.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return(relationUUID, nil)
 	boom := errors.New("boom")
 	sts := corestatus.StatusInfo{
 		Status: corestatus.Broken,
@@ -123,10 +128,10 @@ func (s *serviceSuite) TestImportRelationServiceError(c *tc.C) {
 	expectedStatus := status.StatusInfo[status.RelationStatusType]{
 		Status: status.RelationStatusTypeBroken,
 	}
-	s.state.EXPECT().ImportRelationStatus(gomock.Any(), relationID, expectedStatus).Return(boom)
+	s.modelState.EXPECT().ImportRelationStatus(gomock.Any(), relationUUID, expectedStatus).Return(boom)
 
 	// Act
-	err := s.service.ImportRelationStatus(c.Context(), relationID, sts)
+	err := s.modelService.ImportRelationStatus(c.Context(), relationID, sts)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, boom)
@@ -138,15 +143,15 @@ func (s *serviceSuite) TestSetApplicationStatus(c *tc.C) {
 	now := time.Now()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(applicationUUID, nil)
-	s.state.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, status.StatusInfo[status.WorkloadStatusType]{
+	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(applicationUUID, nil)
+	s.modelState.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	})
 
-	err := s.service.SetApplicationStatus(c.Context(), "gitlab", corestatus.StatusInfo{
+	err := s.modelService.SetApplicationStatus(c.Context(), "gitlab", corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]any{"foo": "bar"},
@@ -168,9 +173,9 @@ func (s *serviceSuite) TestSetApplicationStatus(c *tc.C) {
 func (s *serviceSuite) TestSetApplicationStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return("", statuserrors.ApplicationNotFound)
+	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return("", statuserrors.ApplicationNotFound)
 
-	err := s.service.SetApplicationStatus(c.Context(), "gitlab", corestatus.StatusInfo{
+	err := s.modelService.SetApplicationStatus(c.Context(), "gitlab", corestatus.StatusInfo{
 		Status: corestatus.Active,
 	})
 	c.Assert(err, tc.ErrorIs, statuserrors.ApplicationNotFound)
@@ -179,12 +184,12 @@ func (s *serviceSuite) TestSetApplicationStatusNotFound(c *tc.C) {
 func (s *serviceSuite) TestSetApplicationStatusInvalidStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.SetApplicationStatus(c.Context(), "gitlab", corestatus.StatusInfo{
+	err := s.modelService.SetApplicationStatus(c.Context(), "gitlab", corestatus.StatusInfo{
 		Status: corestatus.Status("invalid"),
 	})
 	c.Assert(err, tc.ErrorMatches, `.*unknown workload status "invalid"`)
 
-	err = s.service.SetApplicationStatus(c.Context(), "gitlab", corestatus.StatusInfo{
+	err = s.modelService.SetApplicationStatus(c.Context(), "gitlab", corestatus.StatusInfo{
 		Status: corestatus.Allocating,
 	})
 	c.Assert(err, tc.ErrorMatches, `.*unknown workload status "allocating"`)
@@ -193,9 +198,9 @@ func (s *serviceSuite) TestSetApplicationStatusInvalidStatus(c *tc.C) {
 func (s *serviceSuite) TestGetApplicationDisplayStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return("", statuserrors.ApplicationNotFound)
+	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return("", statuserrors.ApplicationNotFound)
 
-	_, err := s.service.GetApplicationDisplayStatus(c.Context(), "gitlab")
+	_, err := s.modelService.GetApplicationDisplayStatus(c.Context(), "gitlab")
 	c.Assert(err, tc.ErrorIs, statuserrors.ApplicationNotFound)
 }
 
@@ -205,8 +210,8 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusApplicationStatusSet(c *tc
 	now := time.Now()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
-	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
+	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
 		status.StatusInfo[status.WorkloadStatusType]{
 			Status:  status.WorkloadStatusActive,
 			Message: "doink",
@@ -214,7 +219,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusApplicationStatusSet(c *tc
 			Since:   &now,
 		}, nil)
 
-	obtained, err := s.service.GetApplicationDisplayStatus(c.Context(), "foo")
+	obtained, err := s.modelService.GetApplicationDisplayStatus(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
@@ -228,15 +233,15 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoUnits(c *
 	defer s.setupMocks(c).Finish()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
-	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
+	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
 		status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusUnset,
 		}, nil)
 
-	s.state.EXPECT().GetAllFullUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(nil, nil)
+	s.modelState.EXPECT().GetAllFullUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(nil, nil)
 
-	obtained, err := s.service.GetApplicationDisplayStatus(c.Context(), "foo")
+	obtained, err := s.modelService.GetApplicationDisplayStatus(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Unknown,
@@ -249,13 +254,13 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoContainer
 	now := time.Now()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
-	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
+	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
 		status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusUnset,
 		}, nil)
 
-	s.state.EXPECT().GetAllFullUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
+	s.modelState.EXPECT().GetAllFullUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
 		status.FullUnitStatuses{
 			"unit-1": {
 				WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
@@ -284,7 +289,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoContainer
 		},
 		nil)
 
-	obtained, err := s.service.GetApplicationDisplayStatus(c.Context(), "foo")
+	obtained, err := s.modelService.GetApplicationDisplayStatus(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
@@ -300,15 +305,15 @@ func (s *serviceSuite) TestSetWorkloadUnitStatus(c *tc.C) {
 	now := time.Now()
 
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, status.StatusInfo[status.WorkloadStatusType]{
+	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.modelState.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	})
 
-	err := s.service.SetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
+	err := s.modelService.SetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]any{"foo": "bar"},
@@ -330,12 +335,12 @@ func (s *serviceSuite) TestSetWorkloadUnitStatus(c *tc.C) {
 func (s *serviceSuite) TestSetWorkloadUnitStatusInvalidStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.SetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
+	err := s.modelService.SetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status: corestatus.Status("invalid"),
 	})
 	c.Assert(err, tc.ErrorMatches, `.*unknown workload status "invalid"`)
 
-	err = s.service.SetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
+	err = s.modelService.SetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status: corestatus.Allocating,
 	})
 	c.Assert(err, tc.ErrorMatches, `.*unknown workload status "allocating"`)
@@ -347,7 +352,7 @@ func (s *serviceSuite) TestGetUnitWorkloadStatusesForApplication(c *tc.C) {
 	now := time.Now()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
-	s.state.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appUUID).Return(
+	s.modelState.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appUUID).Return(
 		map[coreunit.Name]status.UnitStatusInfo[status.WorkloadStatusType]{
 			"unit-1": {
 				StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
@@ -370,7 +375,7 @@ func (s *serviceSuite) TestGetUnitWorkloadStatusesForApplication(c *tc.C) {
 		}, nil,
 	)
 
-	obtained, err := s.service.GetUnitWorkloadStatusesForApplication(c.Context(), appUUID)
+	obtained, err := s.modelService.GetUnitWorkloadStatusesForApplication(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained, tc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
 		"unit-1": {
@@ -388,14 +393,55 @@ func (s *serviceSuite) TestGetUnitWorkloadStatusesForApplication(c *tc.C) {
 	})
 }
 
+func (s *serviceSuite) TestGetUnitAgentStatusesForApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	s.modelState.EXPECT().GetUnitAgentStatusesForApplication(gomock.Any(), appUUID).Return(
+		status.UnitAgentStatuses{
+			"unit-1": status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusAllocating,
+				Message: "doink",
+				Data:    []byte(`{"foo":"bar"}`),
+				Since:   &now,
+			},
+			"unit-2": status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusError,
+				Message: "boink",
+				Data:    []byte(`{"foo":"baz"}`),
+				Since:   &now,
+			},
+		}, nil,
+	)
+
+	obtained, err := s.modelService.GetUnitAgentStatusesForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
+		"unit-1": {
+			Status:  corestatus.Allocating,
+			Message: "doink",
+			Data:    map[string]any{"foo": "bar"},
+			Since:   &now,
+		},
+		"unit-2": {
+			Status:  corestatus.Error,
+			Message: "boink",
+			Data:    map[string]any{"foo": "baz"},
+			Since:   &now,
+		},
+	})
+}
+
 func (s *serviceSuite) TestGetUnitDisplayAndAgentStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
 
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
+	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.modelState.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
 		status.UnitStatusInfo[status.UnitAgentStatusType]{
 			StatusInfo: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusAllocating,
@@ -405,7 +451,7 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatus(c *tc.C) {
 			},
 			Present: true,
 		}, nil)
-	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
+	s.modelState.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
 		status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  status.WorkloadStatusActive,
@@ -416,11 +462,11 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatus(c *tc.C) {
 			Present: true,
 		}, nil)
 
-	s.state.EXPECT().GetUnitK8sPodStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.K8sPodStatusType]{
+	s.modelState.EXPECT().GetUnitK8sPodStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.K8sPodStatusType]{
 		Status: status.K8sPodStatusUnset,
 	}, nil)
 
-	agent, workload, err := s.service.GetUnitDisplayAndAgentStatus(c.Context(), coreunit.Name("foo/666"))
+	agent, workload, err := s.modelService.GetUnitDisplayAndAgentStatus(c.Context(), coreunit.Name("foo/666"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(agent, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Allocating,
@@ -442,8 +488,8 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithAllocatingPresence(c 
 	now := time.Now()
 
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
+	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.modelState.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
 		status.UnitStatusInfo[status.UnitAgentStatusType]{
 			StatusInfo: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusAllocating,
@@ -453,7 +499,7 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithAllocatingPresence(c 
 			},
 			Present: false,
 		}, nil)
-	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
+	s.modelState.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
 		status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  status.WorkloadStatusActive,
@@ -464,11 +510,11 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithAllocatingPresence(c 
 			Present: true,
 		}, nil)
 
-	s.state.EXPECT().GetUnitK8sPodStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.K8sPodStatusType]{
+	s.modelState.EXPECT().GetUnitK8sPodStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.K8sPodStatusType]{
 		Status: status.K8sPodStatusUnset,
 	}, nil)
 
-	agent, workload, err := s.service.GetUnitDisplayAndAgentStatus(c.Context(), coreunit.Name("foo/666"))
+	agent, workload, err := s.modelService.GetUnitDisplayAndAgentStatus(c.Context(), coreunit.Name("foo/666"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(agent, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Allocating,
@@ -490,8 +536,8 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithNoPresence(c *tc.C) {
 	now := time.Now()
 
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
+	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.modelState.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
 		status.UnitStatusInfo[status.UnitAgentStatusType]{
 			StatusInfo: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusIdle,
@@ -501,7 +547,7 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithNoPresence(c *tc.C) {
 			},
 			Present: false,
 		}, nil)
-	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
+	s.modelState.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
 		status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  status.WorkloadStatusActive,
@@ -512,11 +558,11 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithNoPresence(c *tc.C) {
 			Present: false,
 		}, nil)
 
-	s.state.EXPECT().GetUnitK8sPodStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.K8sPodStatusType]{
+	s.modelState.EXPECT().GetUnitK8sPodStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.K8sPodStatusType]{
 		Status: status.K8sPodStatusUnset,
 	}, nil)
 
-	agent, workload, err := s.service.GetUnitDisplayAndAgentStatus(c.Context(), coreunit.Name("foo/666"))
+	agent, workload, err := s.modelService.GetUnitDisplayAndAgentStatus(c.Context(), coreunit.Name("foo/666"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(agent, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Lost,
@@ -536,8 +582,8 @@ func (s *serviceSuite) TestGetUnitWorkloadStatus(c *tc.C) {
 	now := time.Now()
 
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
+	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.modelState.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
 		status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  status.WorkloadStatusActive,
@@ -548,7 +594,7 @@ func (s *serviceSuite) TestGetUnitWorkloadStatus(c *tc.C) {
 			Present: true,
 		}, nil)
 
-	obtained, err := s.service.GetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"))
+	obtained, err := s.modelService.GetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
@@ -561,7 +607,7 @@ func (s *serviceSuite) TestGetUnitWorkloadStatus(c *tc.C) {
 func (s *serviceSuite) TestGetUnitWorkloadStatusUnitInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetUnitWorkloadStatus(c.Context(), coreunit.Name("!!!"))
+	_, err := s.modelService.GetUnitWorkloadStatus(c.Context(), coreunit.Name("!!!"))
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
@@ -569,9 +615,9 @@ func (s *serviceSuite) TestGetUnitWorkloadStatusUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, statuserrors.UnitNotFound)
+	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, statuserrors.UnitNotFound)
 
-	_, err := s.service.GetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"))
+	_, err := s.modelService.GetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"))
 	c.Assert(err, tc.ErrorIs, statuserrors.UnitNotFound)
 }
 
@@ -579,10 +625,10 @@ func (s *serviceSuite) TestGetUnitWorkloadStatusUnitInvalidWorkloadStatus(c *tc.
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("boom"))
+	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.modelState.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("boom"))
 
-	_, err := s.service.GetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"))
+	_, err := s.modelService.GetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"))
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -592,15 +638,15 @@ func (s *serviceSuite) TestSetUnitWorkloadStatus(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	now := time.Now()
 
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, status.StatusInfo[status.WorkloadStatusType]{
+	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.modelState.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	})
 
-	err := s.service.SetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
+	err := s.modelService.SetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]any{"foo": "bar"},
@@ -614,7 +660,7 @@ func (s *serviceSuite) TestSetUnitWorkloadStatusInvalidName(c *tc.C) {
 
 	now := time.Now()
 
-	err := s.service.SetUnitWorkloadStatus(c.Context(), coreunit.Name("!!!"), corestatus.StatusInfo{
+	err := s.modelService.SetUnitWorkloadStatus(c.Context(), coreunit.Name("!!!"), corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]any{"foo": "bar"},
@@ -629,9 +675,9 @@ func (s *serviceSuite) TestSetUnitWorkloadStatusUnitFound(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	now := time.Now()
 
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, statuserrors.UnitNotFound)
+	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, statuserrors.UnitNotFound)
 
-	err := s.service.SetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
+	err := s.modelService.SetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]any{"foo": "bar"},
@@ -646,15 +692,15 @@ func (s *serviceSuite) TestSetUnitWorkloadStatusInvalidStatus(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	now := time.Now()
 
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, status.StatusInfo[status.WorkloadStatusType]{
+	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.modelState.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	}).Return(errors.New("boom"))
 
-	err := s.service.SetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
+	err := s.modelService.SetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]any{"foo": "bar"},
@@ -669,15 +715,15 @@ func (s *serviceSuite) TestSetUnitAgentStatus(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	now := time.Now()
 
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, status.StatusInfo[status.UnitAgentStatusType]{
+	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.modelState.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, status.StatusInfo[status.UnitAgentStatusType]{
 		Status:  status.UnitAgentStatusIdle,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	})
 
-	err := s.service.SetUnitAgentStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
+	err := s.modelService.SetUnitAgentStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Idle,
 		Message: "doink",
 		Data:    map[string]any{"foo": "bar"},
@@ -691,7 +737,7 @@ func (s *serviceSuite) TestSetUnitAgentStatusErrorWithNoMessage(c *tc.C) {
 
 	now := time.Now()
 
-	err := s.service.SetUnitAgentStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
+	err := s.modelService.SetUnitAgentStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Error,
 		Message: "",
 		Data:    map[string]any{"foo": "bar"},
@@ -705,7 +751,7 @@ func (s *serviceSuite) TestSetUnitAgentStatusLost(c *tc.C) {
 
 	now := time.Now()
 
-	err := s.service.SetUnitAgentStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
+	err := s.modelService.SetUnitAgentStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Lost,
 		Message: "are you lost?",
 		Data:    map[string]any{"foo": "bar"},
@@ -719,7 +765,7 @@ func (s *serviceSuite) TestSetUnitAgentStatusAllocating(c *tc.C) {
 
 	now := time.Now()
 
-	err := s.service.SetUnitAgentStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
+	err := s.modelService.SetUnitAgentStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Allocating,
 		Message: "help me help you",
 		Data:    map[string]any{"foo": "bar"},
@@ -733,7 +779,7 @@ func (s *serviceSuite) TestSetUnitAgentStatusInvalidName(c *tc.C) {
 
 	now := time.Now()
 
-	err := s.service.SetUnitAgentStatus(c.Context(), coreunit.Name("!!!"), corestatus.StatusInfo{
+	err := s.modelService.SetUnitAgentStatus(c.Context(), coreunit.Name("!!!"), corestatus.StatusInfo{
 		Status:  corestatus.Idle,
 		Message: "doink",
 		Data:    map[string]any{"foo": "bar"},
@@ -748,9 +794,9 @@ func (s *serviceSuite) TestSetUnitAgentStatusUnitFound(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	now := time.Now()
 
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, statuserrors.UnitNotFound)
+	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, statuserrors.UnitNotFound)
 
-	err := s.service.SetUnitAgentStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
+	err := s.modelService.SetUnitAgentStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Idle,
 		Message: "doink",
 		Data:    map[string]any{"foo": "bar"},
@@ -765,15 +811,15 @@ func (s *serviceSuite) TestSetUnitAgentStatusInvalidStatus(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	now := time.Now()
 
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, status.StatusInfo[status.UnitAgentStatusType]{
+	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.modelState.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, status.StatusInfo[status.UnitAgentStatusType]{
 		Status:  status.UnitAgentStatusIdle,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	}).Return(errors.New("boom"))
 
-	err := s.service.SetUnitAgentStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
+	err := s.modelService.SetUnitAgentStatus(c.Context(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Idle,
 		Message: "doink",
 		Data:    map[string]any{"foo": "bar"},
@@ -785,41 +831,41 @@ func (s *serviceSuite) TestSetUnitAgentStatusInvalidStatus(c *tc.C) {
 func (s *serviceSuite) TestSetUnitPresence(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().SetUnitPresence(gomock.Any(), coreunit.Name("foo/666"))
+	s.modelState.EXPECT().SetUnitPresence(gomock.Any(), coreunit.Name("foo/666"))
 
-	err := s.service.SetUnitPresence(c.Context(), coreunit.Name("foo/666"))
+	err := s.modelService.SetUnitPresence(c.Context(), coreunit.Name("foo/666"))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestSetUnitPresenceInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.SetUnitPresence(c.Context(), coreunit.Name("!!!"))
+	err := s.modelService.SetUnitPresence(c.Context(), coreunit.Name("!!!"))
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
 func (s *serviceSuite) TestDeleteUnitPresence(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().DeleteUnitPresence(gomock.Any(), coreunit.Name("foo/666"))
+	s.modelState.EXPECT().DeleteUnitPresence(gomock.Any(), coreunit.Name("foo/666"))
 
-	err := s.service.DeleteUnitPresence(c.Context(), coreunit.Name("foo/666"))
+	err := s.modelService.DeleteUnitPresence(c.Context(), coreunit.Name("foo/666"))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestDeleteUnitPresenceInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.DeleteUnitPresence(c.Context(), coreunit.Name("!!!"))
+	err := s.modelService.DeleteUnitPresence(c.Context(), coreunit.Name("!!!"))
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
 func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationEmptyModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(status.UnitWorkloadAgentStatuses{}, nil)
+	s.modelState.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(status.UnitWorkloadAgentStatuses{}, nil)
 
-	err := s.service.CheckUnitStatusesReadyForMigration(c.Context())
+	err := s.modelService.CheckUnitStatusesReadyForMigration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -861,9 +907,9 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigration(c *tc.C) {
 			Present: true,
 		},
 	}
-	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
+	s.modelState.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
 
-	err := s.service.CheckUnitStatusesReadyForMigration(c.Context())
+	err := s.modelService.CheckUnitStatusesReadyForMigration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -903,9 +949,9 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyPresence(c 
 			},
 		},
 	}
-	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
+	s.modelState.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
 
-	err := s.service.CheckUnitStatusesReadyForMigration(c.Context())
+	err := s.modelService.CheckUnitStatusesReadyForMigration(c.Context())
 	c.Assert(err, tc.ErrorMatches, `(?m).*
 - unit "foo/66\d" is not logged into the controller
 - unit "foo/66\d" is not logged into the controller`)
@@ -949,9 +995,9 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyAgentStatus
 			Present: true,
 		},
 	}
-	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
+	s.modelState.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
 
-	err := s.service.CheckUnitStatusesReadyForMigration(c.Context())
+	err := s.modelService.CheckUnitStatusesReadyForMigration(c.Context())
 	c.Assert(err, tc.ErrorMatches, `(?m).*
 - unit "foo/66\d" agent not idle or executing
 - unit "foo/66\d" agent not idle or executing`)
@@ -995,9 +1041,9 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkload(c 
 			Present: true,
 		},
 	}
-	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
+	s.modelState.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
 
-	err := s.service.CheckUnitStatusesReadyForMigration(c.Context())
+	err := s.modelService.CheckUnitStatusesReadyForMigration(c.Context())
 	c.Assert(err, tc.ErrorMatches, `(?m).*
 - unit "foo/66\d" workload not active or viable
 - unit "foo/66\d" workload not active or viable`)
@@ -1052,9 +1098,9 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkloadMes
 			Present: true,
 		},
 	}
-	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
+	s.modelState.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
 
-	err := s.service.CheckUnitStatusesReadyForMigration(c.Context())
+	err := s.modelService.CheckUnitStatusesReadyForMigration(c.Context())
 	c.Assert(err, tc.ErrorMatches, `(?m).*
 - unit "foo/66\d" workload not active or viable
 - unit "foo/66\d" workload not active or viable`)
@@ -1063,9 +1109,9 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkloadMes
 func (s *serviceSuite) TestExportUnitStatusesEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(status.UnitWorkloadAgentStatuses{}, nil)
+	s.modelState.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(status.UnitWorkloadAgentStatuses{}, nil)
 
-	workloadStatuses, agentStatuses, err := s.service.ExportUnitStatuses(c.Context())
+	workloadStatuses, agentStatuses, err := s.modelService.ExportUnitStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(workloadStatuses, tc.HasLen, 0)
 	c.Check(agentStatuses, tc.HasLen, 0)
@@ -1107,9 +1153,9 @@ func (s *serviceSuite) TestExportUnitStatuses(c *tc.C) {
 			},
 		},
 	}
-	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
+	s.modelState.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
 
-	workloadStatuses, agentStatuses, err := s.service.ExportUnitStatuses(c.Context())
+	workloadStatuses, agentStatuses, err := s.modelService.ExportUnitStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(workloadStatuses, tc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
 		"foo/66": {
@@ -1144,9 +1190,9 @@ func (s *serviceSuite) TestExportUnitStatuses(c *tc.C) {
 func (s *serviceSuite) TestExportApplicationStatusesEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetAllApplicationStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.WorkloadStatusType]{}, nil)
+	s.modelState.EXPECT().GetAllApplicationStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.WorkloadStatusType]{}, nil)
 
-	statuses, err := s.service.ExportApplicationStatuses(c.Context())
+	statuses, err := s.modelService.ExportApplicationStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(statuses, tc.HasLen, 0)
 }
@@ -1170,9 +1216,9 @@ func (s *serviceSuite) TestExportApplicationStatuses(c *tc.C) {
 			Since:   &now,
 		},
 	}
-	s.state.EXPECT().GetAllApplicationStatuses(gomock.Any()).Return(statuses, nil)
+	s.modelState.EXPECT().GetAllApplicationStatuses(gomock.Any()).Return(statuses, nil)
 
-	exported, err := s.service.ExportApplicationStatuses(c.Context())
+	exported, err := s.modelService.ExportApplicationStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exported, tc.DeepEquals, map[string]corestatus.StatusInfo{
 		"foo": {
@@ -1193,11 +1239,11 @@ func (s *serviceSuite) TestExportApplicationStatuses(c *tc.C) {
 func (s *serviceSuite) TestGetApplicationAndUnitStatusesNoApps(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(
+	s.modelState.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(
 		map[string]status.Application{}, nil,
 	)
 
-	statuses, err := s.service.GetApplicationAndUnitStatuses(c.Context())
+	statuses, err := s.modelService.GetApplicationAndUnitStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(statuses, tc.DeepEquals, map[string]Application{})
 }
@@ -1205,11 +1251,11 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesNoApps(c *tc.C) {
 func (s *serviceSuite) TestGetApplicationAndUnitStatusesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(
+	s.modelState.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(
 		map[string]status.Application{}, errors.Errorf("boom"),
 	)
 
-	_, err := s.service.GetApplicationAndUnitStatuses(c.Context())
+	_, err := s.modelService.GetApplicationAndUnitStatuses(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -1218,7 +1264,7 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
-	s.state.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(
+	s.modelState.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(
 		map[string]status.Application{
 			"foo": {
 				ID:   "deadbeef",
@@ -1293,7 +1339,7 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 		}, nil,
 	)
 
-	statuses, err := s.service.GetApplicationAndUnitStatuses(c.Context())
+	statuses, err := s.modelService.GetApplicationAndUnitStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(statuses, tc.DeepEquals, map[string]Application{
 		"foo": {
@@ -1371,13 +1417,13 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 func (s *serviceSuite) TestGetApplicationAndUnitModelStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationAndUnitModelStatuses(gomock.Any()).Return(
+	s.modelState.EXPECT().GetApplicationAndUnitModelStatuses(gomock.Any()).Return(
 		map[string]int{
 			"foo": 2,
 		}, nil,
 	)
 
-	statuses, err := s.service.GetApplicationAndUnitModelStatuses(c.Context())
+	statuses, err := s.modelService.GetApplicationAndUnitModelStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(statuses, tc.DeepEquals, map[string]int{
 		"foo": 2,
@@ -1387,7 +1433,7 @@ func (s *serviceSuite) TestGetApplicationAndUnitModelStatuses(c *tc.C) {
 func (s *serviceSuite) TestGetApplicationAndUnitStatusesInvalidLXDProfile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(
+	s.modelState.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(
 		map[string]status.Application{
 			"foo": {
 				ID: "deadbeef",
@@ -1399,8 +1445,322 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesInvalidLXDProfile(c *tc.
 		}, nil,
 	)
 
-	_, err := s.service.GetApplicationAndUnitStatuses(c.Context())
+	_, err := s.modelService.GetApplicationAndUnitStatuses(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*decoding LXD profile.*`)
+}
+
+// TestGetMachineStatusSuccess asserts the happy path of the GetMachineStatus.
+func (s *serviceSuite) TestGetMachineStatusSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedStatus := corestatus.StatusInfo{
+		Status: corestatus.Started,
+		Data:   map[string]interface{}{"foo": "bar"},
+	}
+	s.modelState.EXPECT().GetMachineStatus(gomock.Any(), "666").Return(status.StatusInfo[status.MachineStatusType]{
+		Status: status.MachineStatusStarted,
+		Data:   []byte(`{"foo":"bar"}`),
+	}, nil)
+
+	machineStatus, err := s.modelService.
+		GetMachineStatus(c.Context(), "666")
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(machineStatus, tc.DeepEquals, expectedStatus)
+}
+
+// TestGetMachineStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestGetMachineStatusError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.modelState.EXPECT().GetMachineStatus(gomock.Any(), "666").Return(status.StatusInfo[status.MachineStatusType]{}, rErr)
+
+	machineStatus, err := s.modelService.
+		GetMachineStatus(c.Context(), "666")
+	c.Check(err, tc.ErrorIs, rErr)
+	c.Check(machineStatus, tc.DeepEquals, corestatus.StatusInfo{})
+}
+
+func (s *serviceSuite) TestGetAllMachineStatuses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedStatuses := map[machine.Name]corestatus.StatusInfo{
+		"666": {
+			Status: corestatus.Started,
+			Data: map[string]interface{}{
+				"foo": "bar",
+			},
+		},
+		"777": {
+			Status: corestatus.Pending,
+			Data: map[string]interface{}{
+				"foo": "baz",
+			},
+		},
+		"888": {
+			Status: corestatus.Stopped,
+			Data: map[string]interface{}{
+				"foo": "qux",
+			},
+		},
+	}
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.MachineStatusType]{
+		"666": {
+			Status: status.MachineStatusStarted,
+			Data:   []byte(`{"foo": "bar"}`),
+		},
+		"777": {
+			Status: status.MachineStatusPending,
+			Data:   []byte(`{"foo": "baz"}`),
+		},
+		"888": {
+			Status: status.MachineStatusStopped,
+			Data:   []byte(`{"foo": "qux"}`),
+		},
+	}, nil)
+
+	statuses, err := s.modelService.GetAllMachineStatuses(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(statuses, tc.DeepEquals, expectedStatuses)
+}
+
+// TestSetMachineStatusSuccess asserts the happy path of the SetMachineStatus.
+func (s *serviceSuite) TestSetMachineStatusSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := corestatus.StatusInfo{Status: corestatus.Started}
+	s.modelState.EXPECT().SetMachineStatus(gomock.Any(), "666", status.StatusInfo[status.MachineStatusType]{
+		Status: status.MachineStatusStarted,
+	}).Return(nil)
+
+	err := s.modelService.
+		SetMachineStatus(c.Context(), "666", newStatus)
+	c.Check(err, tc.ErrorIsNil)
+
+	c.Check(s.statusHistory.records, tc.DeepEquals, []statusHistoryRecord{{
+		ns: status.MachineNamespace.WithID("666"),
+		s:  newStatus,
+	}})
+}
+
+// TestSetMachineStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestSetMachineStatusError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := corestatus.StatusInfo{Status: corestatus.Started}
+	rErr := errors.New("boom")
+	s.modelState.EXPECT().SetMachineStatus(gomock.Any(), "666", status.StatusInfo[status.MachineStatusType]{
+		Status: status.MachineStatusStarted,
+	}).Return(rErr)
+
+	err := s.modelService.
+		SetMachineStatus(c.Context(), "666", newStatus)
+	c.Check(err, tc.ErrorIs, rErr)
+}
+
+// TestSetMachineStatusInvalid asserts that an invalid status is passed to the
+// service will result in a InvalidStatus error.
+func (s *serviceSuite) TestSetMachineStatusInvalid(c *tc.C) {
+	err := s.modelService.
+		SetMachineStatus(c.Context(), "666", corestatus.StatusInfo{Status: "invalid"})
+	c.Check(err, tc.ErrorIs, statuserrors.InvalidStatus)
+}
+
+// TestGetInstanceStatusSuccess asserts the happy path of the GetInstanceStatus.
+func (s *serviceSuite) TestGetInstanceStatusSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedStatus := corestatus.StatusInfo{
+		Status: corestatus.Running,
+		Data:   map[string]interface{}{"foo": "bar"},
+	}
+	s.modelState.EXPECT().GetInstanceStatus(gomock.Any(), "666").Return(status.StatusInfo[status.InstanceStatusType]{
+		Status: status.InstanceStatusRunning,
+		Data:   []byte(`{"foo":"bar"}`),
+	}, nil)
+
+	instanceStatus, err := s.modelService.
+		GetInstanceStatus(c.Context(), "666")
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(instanceStatus, tc.DeepEquals, expectedStatus)
+}
+
+// TestGetInstanceStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestGetInstanceStatusError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.modelState.EXPECT().GetInstanceStatus(gomock.Any(), "666").Return(status.StatusInfo[status.InstanceStatusType]{}, rErr)
+
+	instanceStatus, err := s.modelService.
+		GetInstanceStatus(c.Context(), "666")
+	c.Check(err, tc.ErrorIs, rErr)
+	c.Check(instanceStatus, tc.DeepEquals, corestatus.StatusInfo{})
+}
+
+// TestSetInstanceStatusSuccess asserts the happy path of the SetInstanceStatus
+// service.
+func (s *serviceSuite) TestSetInstanceStatusSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := corestatus.StatusInfo{Status: corestatus.Running}
+	s.modelState.EXPECT().SetInstanceStatus(gomock.Any(), "666", status.StatusInfo[status.InstanceStatusType]{
+		Status: status.InstanceStatusRunning,
+	}).Return(nil)
+
+	err := s.modelService.
+		SetInstanceStatus(c.Context(), "666", newStatus)
+	c.Check(err, tc.ErrorIsNil)
+
+	c.Check(s.statusHistory.records, tc.DeepEquals, []statusHistoryRecord{{
+		ns: status.MachineInstanceNamespace.WithID("666"),
+		s:  newStatus,
+	}})
+}
+
+// TestSetInstanceStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestSetInstanceStatusError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	newStatus := corestatus.StatusInfo{Status: corestatus.Running}
+	s.modelState.EXPECT().SetInstanceStatus(gomock.Any(), "666", status.StatusInfo[status.InstanceStatusType]{
+		Status: status.InstanceStatusRunning,
+	}).Return(rErr)
+
+	err := s.modelService.
+		SetInstanceStatus(c.Context(), "666", newStatus)
+	c.Check(err, tc.ErrorIs, rErr)
+}
+
+// TestSetInstanceStatusInvalid asserts that an invalid status is passed to the
+// service will result in a InvalidStatus error.
+func (s *serviceSuite) TestSetInstanceStatusInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.modelService.
+		SetInstanceStatus(c.Context(), "666", corestatus.StatusInfo{Status: "invalid"})
+	c.Check(err, tc.ErrorIs, statuserrors.InvalidStatus)
+}
+
+func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationEmptyModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.MachineStatusType]{}, nil)
+	s.modelState.EXPECT().GetAllInstanceStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.InstanceStatusType]{}, nil)
+
+	err := s.modelService.CheckMachineStatusesReadyForMigration(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.MachineStatusType]{
+		"666": {
+			Status: status.MachineStatusStarted,
+		},
+		"777": {
+			Status: status.MachineStatusStarted,
+		},
+	}, nil)
+
+	s.modelState.EXPECT().GetAllInstanceStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.InstanceStatusType]{
+		"666": {
+			Status: status.InstanceStatusRunning,
+		},
+		"777": {
+			Status: status.InstanceStatusRunning,
+		},
+	}, nil)
+
+	err := s.modelService.CheckMachineStatusesReadyForMigration(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationMissingInstanceStatus(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.MachineStatusType]{
+		"666": {
+			Status: status.MachineStatusStarted,
+		},
+		"777": {
+			Status: status.MachineStatusStarted,
+		},
+	}, nil)
+
+	s.modelState.EXPECT().GetAllInstanceStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.InstanceStatusType]{
+		"666": {
+			Status: status.InstanceStatusRunning,
+		},
+	}, nil)
+
+	err := s.modelService.CheckMachineStatusesReadyForMigration(c.Context())
+	c.Check(err, tc.ErrorMatches, "some machines have unset statuses")
+}
+
+func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationStatusMismatch(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.MachineStatusType]{
+		"666": {
+			Status: status.MachineStatusStarted,
+		},
+		"777": {
+			Status: status.MachineStatusStarted,
+		},
+	}, nil)
+
+	s.modelState.EXPECT().GetAllInstanceStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.InstanceStatusType]{
+		"666": {
+			Status: status.InstanceStatusRunning,
+		},
+		"888": {
+			Status: status.InstanceStatusRunning,
+		},
+	}, nil)
+
+	err := s.modelService.CheckMachineStatusesReadyForMigration(c.Context())
+	c.Check(err, tc.ErrorMatches, "some machines have unset statuses")
+}
+
+func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationBadMachineStatuses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.MachineStatusType]{
+		"650": {
+			Status: status.MachineStatusStarted,
+		},
+		"667": {
+			Status: status.MachineStatusError,
+		},
+		"668": {
+			Status: status.MachineStatusPending,
+		},
+	}, nil)
+	s.modelState.EXPECT().GetAllInstanceStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.InstanceStatusType]{
+		"650": {
+			Status: status.InstanceStatusRunning,
+		},
+		"667": {
+			Status: status.InstanceStatusAllocating,
+		},
+		"668": {
+			Status: status.InstanceStatusProvisioningError,
+		},
+	}, nil)
+
+	err := s.modelService.CheckMachineStatusesReadyForMigration(c.Context())
+	c.Check(err, tc.ErrorMatches, `(?m).*
+- machine "66\d" status is not started
+- machine "66\d" instance status is not running
+- machine "66\d" status is not started
+- machine "66\d" instance status is not running`)
 }
 
 func (s *serviceSuite) TestExportRelationStatuses(c *tc.C) {
@@ -1412,10 +1772,10 @@ func (s *serviceSuite) TestExportRelationStatuses(c *tc.C) {
 			Status: status.RelationStatusTypeBroken,
 		}},
 	}
-	s.state.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(stateRelationStatus, nil)
+	s.modelState.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(stateRelationStatus, nil)
 
 	// Act
-	details, err := s.service.ExportRelationStatuses(c.Context())
+	details, err := s.modelService.ExportRelationStatuses(c.Context())
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -1432,10 +1792,10 @@ func (s *serviceSuite) TestExportRelationStatusesError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("state error")
-	s.state.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(nil, expectedError)
+	s.modelState.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(nil, expectedError)
 
 	// Act
-	_, err := s.service.ExportRelationStatuses(c.Context())
+	_, err := s.modelService.ExportRelationStatuses(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, expectedError)
@@ -1448,9 +1808,9 @@ func (s *serviceSuite) TestGetModelInfo(c *tc.C) {
 		Type: model.IAAS,
 	}
 
-	s.state.EXPECT().GetModelStatusInfo(gomock.Any()).Return(modelStatusInfo, nil)
+	s.modelState.EXPECT().GetModelStatusInfo(gomock.Any()).Return(modelStatusInfo, nil)
 
-	modelStatusInfo, err := s.service.GetModelStatusInfo(c.Context())
+	modelStatusInfo, err := s.modelService.GetModelStatusInfo(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(modelStatusInfo, tc.DeepEquals, modelStatusInfo)
 }
@@ -1458,21 +1818,107 @@ func (s *serviceSuite) TestGetModelInfo(c *tc.C) {
 func (s *serviceSuite) TestGetModelInfoNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetModelStatusInfo(gomock.Any()).Return(status.ModelStatusInfo{}, modelerrors.NotFound)
+	s.modelState.EXPECT().GetModelStatusInfo(gomock.Any()).Return(status.ModelStatusInfo{}, modelerrors.NotFound)
 
-	_, err := s.service.GetModelStatusInfo(c.Context())
+	_, err := s.modelService.GetModelStatusInfo(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *serviceSuite) TestGetStatusSuspended(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelStatusContext := status.ModelStatusContext{
+		IsDestroying:                 false,
+		IsMigrating:                  false,
+		HasInvalidCloudCredential:    true,
+		InvalidCloudCredentialReason: "invalid cloud credential reason",
+	}
+
+	s.controllerState.EXPECT().GetModelStatusContext(gomock.Any()).Return(modelStatusContext, nil)
+
+	modelStatus, err := s.modelService.GetModelStatus(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelStatus.Status, tc.Equals, corestatus.Suspended)
+	c.Assert(modelStatus.Message, tc.Equals, "suspended since cloud credential is not valid")
+	c.Assert(modelStatus.Data, tc.DeepEquals, map[string]interface{}{"reason": modelStatusContext.InvalidCloudCredentialReason})
+
+}
+
+func (s *serviceSuite) TestGetStatusDestroying(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelStatusContext := status.ModelStatusContext{
+		IsDestroying:                 true,
+		IsMigrating:                  false,
+		HasInvalidCloudCredential:    false,
+		InvalidCloudCredentialReason: "",
+	}
+
+	s.controllerState.EXPECT().GetModelStatusContext(gomock.Any()).Return(modelStatusContext, nil)
+
+	modelStatus, err := s.modelService.GetModelStatus(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelStatus.Status, tc.Equals, corestatus.Destroying)
+	c.Assert(modelStatus.Message, tc.Equals, "")
+	c.Assert(modelStatus.Data, tc.IsNil)
+}
+
+func (s *serviceSuite) TestGetStatusMigrating(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelStatusContext := status.ModelStatusContext{
+		IsDestroying:                 false,
+		IsMigrating:                  true,
+		HasInvalidCloudCredential:    false,
+		InvalidCloudCredentialReason: "",
+	}
+
+	s.controllerState.EXPECT().GetModelStatusContext(gomock.Any()).Return(modelStatusContext, nil)
+
+	modelStatus, err := s.modelService.GetModelStatus(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelStatus.Status, tc.Equals, corestatus.Busy)
+	c.Assert(modelStatus.Message, tc.Equals, "the model is being migrated")
+	c.Assert(modelStatus.Data, tc.IsNil)
+}
+
+func (s *serviceSuite) TestGetStatusAvailable(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelStatusContext := status.ModelStatusContext{
+		IsDestroying:                 false,
+		IsMigrating:                  false,
+		HasInvalidCloudCredential:    false,
+		InvalidCloudCredentialReason: "",
+	}
+
+	s.controllerState.EXPECT().GetModelStatusContext(gomock.Any()).Return(modelStatusContext, nil)
+
+	modelStatus, err := s.modelService.GetModelStatus(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelStatus.Status, tc.Equals, corestatus.Available)
+	c.Assert(modelStatus.Message, tc.Equals, "")
+	c.Assert(modelStatus.Data, tc.IsNil)
+}
+func (s *serviceSuite) TestGetStatusNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetModelStatusContext(gomock.Any()).Return(status.ModelStatusContext{}, modelerrors.NotFound)
+
+	_, err := s.modelService.GetModelStatus(c.Context())
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.state = NewMockState(ctrl)
+	s.controllerState = NewMockControllerState(ctrl)
+	s.modelState = NewMockModelState(ctrl)
 	s.statusHistory = &statusHistoryRecorder{}
 
-	s.service = NewService(
-		s.state,
-		model.UUID("test-model"),
+	s.modelService = NewService(
+		s.modelState,
+		s.controllerState,
 		s.statusHistory,
 		func() (StatusHistoryReader, error) {
 			return nil, errors.Errorf("status history reader not available")
@@ -1480,6 +1926,12 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
+
+	c.Cleanup(func() {
+		s.modelState = nil
+		s.statusHistory = nil
+		s.modelService = nil
+	})
 
 	return ctrl
 }

@@ -37,6 +37,7 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 	svc := service.NewWatchableService(
 		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log),
 		domain.NewWatcherFactory(factory, log),
+		nil,
 		clock.WallClock,
 		log,
 	)

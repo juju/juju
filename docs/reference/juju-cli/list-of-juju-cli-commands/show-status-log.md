@@ -18,7 +18,7 @@ Output past statuses for the specified entity.
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-n` | 0 | Returns the last N logs (cannot be combined with --days or --date) |
 | `-o`, `--output` |  | Specify an output file |
-| `--type` | unit | Type of statuses to be displayed [application&#x7c;container&#x7c;juju-container&#x7c;juju-machine&#x7c;juju-unit&#x7c;machine&#x7c;model&#x7c;saas&#x7c;unit&#x7c;workload] |
+| `--type` | unit | Type of statuses to be displayed [application&#x7c;container&#x7c;filesystem&#x7c;juju-container&#x7c;juju-machine&#x7c;juju-unit&#x7c;machine&#x7c;model&#x7c;saas&#x7c;unit&#x7c;volume&#x7c;workload] |
 | `--utc` | false | Display time as UTC in RFC3339 format |
 
 ## Examples
@@ -60,6 +60,7 @@ The statuses are available for the following types.
 -type supports:
     application:  statuses for the specified application
     container:  statuses from the agent that is managing containers
+    filesystem:  statuses from the specified filesystem
     juju-container:  statuses from the containers only and not their host machines
     juju-machine:  status of the agent that is managing a machine
     juju-unit:  statuses from the agent that is managing a unit
@@ -67,6 +68,7 @@ The statuses are available for the following types.
     model:  statuses for the model itself
     saas:  statuses for the specified SAAS application
     unit:  statuses for specified unit and its workload
+    volume:  statuses from the specified volume
     workload:  statuses for unit's workload
 
  and sorted by time of occurrence.

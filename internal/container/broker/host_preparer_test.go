@@ -14,9 +14,9 @@ import (
 	"github.com/juju/tc"
 
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/container/broker"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -79,8 +79,6 @@ func (s *hostPreparerSuite) acquireStubLock(_ string, _ <-chan struct{}) (func()
 type stubBridger struct {
 	*testhelpers.Stub
 }
-
-var _ network.Bridger = (*stubBridger)(nil)
 
 func (br *stubBridger) Bridge(devices []network.DeviceToBridge) error {
 	br.Stub.MethodCall(br, "Bridge", devices)

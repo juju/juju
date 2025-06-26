@@ -20,8 +20,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogMaxBackups:                 schema.ForceInt(),
 	AuditLogExcludeMethods:             schema.String(),
 	APIPort:                            schema.ForceInt(),
-	APIPortOpenDelay:                   schema.TimeDurationString(),
-	ControllerAPIPort:                  schema.ForceInt(),
 	ControllerName:                     schema.NonEmptyString(ControllerName),
 	StatePort:                          schema.ForceInt(),
 	LoginTokenRefreshURL:               schema.String(),
@@ -74,8 +72,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AgentRateLimitMax:                  schema.Omit,
 	AgentRateLimitRate:                 schema.Omit,
 	APIPort:                            DefaultAPIPort,
-	APIPortOpenDelay:                   DefaultAPIPortOpenDelay,
-	ControllerAPIPort:                  schema.Omit,
 	ControllerName:                     schema.Omit,
 	AuditingEnabled:                    DefaultAuditingEnabled,
 	AuditLogCaptureArgs:                DefaultAuditLogCaptureArgs,
@@ -173,21 +169,6 @@ var ConfigSchema = configschema.Fields{
 	APIPort: {
 		Type:        configschema.Tint,
 		Description: "The port used for api connections",
-	},
-	APIPortOpenDelay: {
-		Type: configschema.Tstring,
-		Description: `The duration that the controller will wait
-between when the controller has been deemed to be ready to open
-the api-port and when the api-port is actually opened
-(only used when a controller-api-port value is set).`,
-	},
-	ControllerAPIPort: {
-		Type: configschema.Tint,
-		Description: `An optional port that may be set for controllers
-that have a very heavy load. If this port is set, this port is used by
-the controllers to talk to each other - used for the local API connection
-as well as the pubsub forwarders, and the raft workers. If this value is
-set, the api-port isn't opened until the controllers have started properly.`,
 	},
 	ControllerName: {
 		Type:        configschema.Tstring,

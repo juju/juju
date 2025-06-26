@@ -71,7 +71,7 @@ type applicationDetails struct {
 	Name      string             `db:"name"`
 	CharmUUID corecharm.ID       `db:"charm_uuid"`
 	LifeID    life.Life          `db:"life_id"`
-	SpaceUUID string             `db:"space_uuid"`
+	SpaceUUID network.SpaceUUID  `db:"space_uuid"`
 }
 
 type applicationScale struct {
@@ -198,6 +198,7 @@ type ipAddress struct {
 	AddressUUID  string `db:"uuid"`
 	Value        string `db:"address_value"`
 	NetNodeUUID  string `db:"net_node_uuid"`
+	SubnetUUID   string `db:"subnet_uuid"`
 	ConfigTypeID int    `db:"config_type_id"`
 	TypeID       int    `db:"type_id"`
 	OriginID     int    `db:"origin_id"`
@@ -206,13 +207,19 @@ type ipAddress struct {
 }
 
 type spaceAddress struct {
-	Value        string         `db:"address_value"`
-	ConfigTypeID int            `db:"config_type_id"`
-	TypeID       int            `db:"type_id"`
-	OriginID     int            `db:"origin_id"`
-	ScopeID      int            `db:"scope_id"`
-	DeviceID     string         `db:"device_uuid"`
-	SpaceUUID    sql.NullString `db:"space_uuid"`
+	Value        string                      `db:"address_value"`
+	ConfigTypeID int                         `db:"config_type_id"`
+	TypeID       int                         `db:"type_id"`
+	OriginID     int                         `db:"origin_id"`
+	ScopeID      int                         `db:"scope_id"`
+	DeviceID     string                      `db:"device_uuid"`
+	SpaceUUID    sql.Null[network.SpaceUUID] `db:"space_uuid"`
+	SubnetCIDR   sql.NullString              `db:"cidr"`
+}
+
+type subnet struct {
+	UUID string `db:"uuid"`
+	CIDR string `db:"cidr"`
 }
 
 // These structs represent the persistent charm schema in the database.
@@ -269,28 +276,28 @@ type charmNameAndArchitecture struct {
 }
 
 type charmState struct {
-	ReferenceName   string         `db:"reference_name"`
-	Revision        int            `db:"revision"`
-	ArchivePath     string         `db:"archive_path"`
-	ObjectStoreUUID sql.NullString `db:"object_store_uuid"`
-	Available       bool           `db:"available"`
-	SourceID        int            `db:"source_id"`
-	ArchitectureID  sql.NullInt64  `db:"architecture_id"`
-	Version         string         `db:"version"`
+	ReferenceName   string          `db:"reference_name"`
+	Revision        int             `db:"revision"`
+	ArchivePath     string          `db:"archive_path"`
+	ObjectStoreUUID sql.NullString  `db:"object_store_uuid"`
+	Available       bool            `db:"available"`
+	SourceID        int             `db:"source_id"`
+	ArchitectureID  sql.Null[int64] `db:"architecture_id"`
+	Version         string          `db:"version"`
 }
 
 // setCharmState is used to set the charm.
 type setCharmState struct {
-	UUID            string         `db:"uuid"`
-	ReferenceName   string         `db:"reference_name"`
-	Revision        int            `db:"revision"`
-	ArchivePath     string         `db:"archive_path"`
-	ObjectStoreUUID sql.NullString `db:"object_store_uuid"`
-	Available       bool           `db:"available"`
-	SourceID        int            `db:"source_id"`
-	ArchitectureID  sql.NullInt64  `db:"architecture_id"`
-	Version         string         `db:"version"`
-	LXDProfile      []byte         `db:"lxd_profile"`
+	UUID            string          `db:"uuid"`
+	ReferenceName   string          `db:"reference_name"`
+	Revision        int             `db:"revision"`
+	ArchivePath     string          `db:"archive_path"`
+	ObjectStoreUUID sql.NullString  `db:"object_store_uuid"`
+	Available       bool            `db:"available"`
+	SourceID        int             `db:"source_id"`
+	ArchitectureID  sql.Null[int64] `db:"architecture_id"`
+	Version         string          `db:"version"`
+	LXDProfile      []byte          `db:"lxd_profile"`
 }
 
 // resolveCharmState is used to resolve the charm state. This will make the
@@ -658,10 +665,10 @@ type countResult struct {
 // charmLocator is used to get the locator of a charm. The locator is purely
 // to reconstruct the charm URL.
 type charmLocator struct {
-	ReferenceName  string        `db:"reference_name"`
-	Revision       int           `db:"revision"`
-	SourceID       int           `db:"source_id"`
-	ArchitectureID sql.NullInt64 `db:"architecture_id"`
+	ReferenceName  string          `db:"reference_name"`
+	Revision       int             `db:"revision"`
+	SourceID       int             `db:"source_id"`
+	ArchitectureID sql.Null[int64] `db:"architecture_id"`
 }
 
 type applicationCharmDownloadInfo struct {
@@ -707,18 +714,18 @@ type linkResourceApplication struct {
 }
 
 type revisionUpdaterApplication struct {
-	UUID                   string        `db:"uuid"`
-	Name                   string        `db:"name"`
-	ReferenceName          string        `db:"reference_name"`
-	Revision               int           `db:"revision"`
-	CharmArchitectureID    sql.NullInt64 `db:"charm_architecture_id"`
-	ChannelTrack           string        `db:"channel_track"`
-	ChannelRisk            string        `db:"channel_risk"`
-	ChannelBranch          string        `db:"channel_branch"`
-	PlatformOSID           sql.NullInt64 `db:"platform_os_id"`
-	PlatformChannel        string        `db:"platform_channel"`
-	PlatformArchitectureID sql.NullInt64 `db:"platform_architecture_id"`
-	CharmhubIdentifier     string        `db:"charmhub_identifier"`
+	UUID                   string          `db:"uuid"`
+	Name                   string          `db:"name"`
+	ReferenceName          string          `db:"reference_name"`
+	Revision               int             `db:"revision"`
+	CharmArchitectureID    sql.Null[int64] `db:"charm_architecture_id"`
+	ChannelTrack           string          `db:"channel_track"`
+	ChannelRisk            string          `db:"channel_risk"`
+	ChannelBranch          string          `db:"channel_branch"`
+	PlatformOSID           sql.Null[int64] `db:"platform_os_id"`
+	PlatformChannel        string          `db:"platform_channel"`
+	PlatformArchitectureID sql.Null[int64] `db:"platform_architecture_id"`
+	CharmhubIdentifier     string          `db:"charmhub_identifier"`
 }
 
 type revisionUpdaterApplicationNumUnits struct {
@@ -765,23 +772,23 @@ type applicationStatus struct {
 // constraint table with the constraint_space, constraint_tag and
 // constraint_zone.
 type applicationConstraint struct {
-	ApplicationUUID  string         `db:"application_uuid"`
-	Arch             sql.NullString `db:"arch"`
-	CPUCores         sql.NullInt64  `db:"cpu_cores"`
-	CPUPower         sql.NullInt64  `db:"cpu_power"`
-	Mem              sql.NullInt64  `db:"mem"`
-	RootDisk         sql.NullInt64  `db:"root_disk"`
-	RootDiskSource   sql.NullString `db:"root_disk_source"`
-	InstanceRole     sql.NullString `db:"instance_role"`
-	InstanceType     sql.NullString `db:"instance_type"`
-	ContainerType    sql.NullString `db:"container_type"`
-	VirtType         sql.NullString `db:"virt_type"`
-	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
-	ImageID          sql.NullString `db:"image_id"`
-	SpaceName        sql.NullString `db:"space_name"`
-	SpaceExclude     sql.NullBool   `db:"space_exclude"`
-	Tag              sql.NullString `db:"tag"`
-	Zone             sql.NullString `db:"zone"`
+	ApplicationUUID  string          `db:"application_uuid"`
+	Arch             sql.NullString  `db:"arch"`
+	CPUCores         sql.Null[int64] `db:"cpu_cores"`
+	CPUPower         sql.Null[int64] `db:"cpu_power"`
+	Mem              sql.Null[int64] `db:"mem"`
+	RootDisk         sql.Null[int64] `db:"root_disk"`
+	RootDiskSource   sql.NullString  `db:"root_disk_source"`
+	InstanceRole     sql.NullString  `db:"instance_role"`
+	InstanceType     sql.NullString  `db:"instance_type"`
+	ContainerType    sql.NullString  `db:"container_type"`
+	VirtType         sql.NullString  `db:"virt_type"`
+	AllocatePublicIP sql.NullBool    `db:"allocate_public_ip"`
+	ImageID          sql.NullString  `db:"image_id"`
+	SpaceName        sql.NullString  `db:"space_name"`
+	SpaceExclude     sql.NullBool    `db:"space_exclude"`
+	Tag              sql.NullString  `db:"tag"`
+	Zone             sql.NullString  `db:"zone"`
 }
 
 type applicationConstraints []applicationConstraint
@@ -861,6 +868,11 @@ type setDefaultSpace struct {
 	Space network.SpaceName  `db:"space"`
 }
 
+type applicationSpaceUUID struct {
+	ApplicationName string `db:"name"`
+	SpaceUUID       string `db:"space_uuid"`
+}
+
 type applicationUUID struct {
 	ApplicationUUID string `db:"application_uuid"`
 }
@@ -874,11 +886,10 @@ type constraintUUID struct {
 }
 
 type space struct {
-	UUID string            `db:"uuid"`
-	Name network.SpaceName `db:"name"`
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
 }
 
-// These structs are only needed to check existence before adding constraints.
 type spaceName struct {
 	Name string `db:"name"`
 }
@@ -1004,18 +1015,18 @@ type setUnitConstraint struct {
 
 // dbConstraint represents a single row within the v_model_constraint view.
 type dbConstraint struct {
-	Arch             sql.NullString `db:"arch"`
-	CPUCores         sql.NullInt64  `db:"cpu_cores"`
-	CPUPower         sql.NullInt64  `db:"cpu_power"`
-	Mem              sql.NullInt64  `db:"mem"`
-	RootDisk         sql.NullInt64  `db:"root_disk"`
-	RootDiskSource   sql.NullString `db:"root_disk_source"`
-	InstanceRole     sql.NullString `db:"instance_role"`
-	InstanceType     sql.NullString `db:"instance_type"`
-	ContainerType    sql.NullString `db:"container_type"`
-	VirtType         sql.NullString `db:"virt_type"`
-	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
-	ImageID          sql.NullString `db:"image_id"`
+	Arch             sql.NullString  `db:"arch"`
+	CPUCores         sql.Null[int64] `db:"cpu_cores"`
+	CPUPower         sql.Null[int64] `db:"cpu_power"`
+	Mem              sql.Null[int64] `db:"mem"`
+	RootDisk         sql.Null[int64] `db:"root_disk"`
+	RootDiskSource   sql.NullString  `db:"root_disk_source"`
+	InstanceRole     sql.NullString  `db:"instance_role"`
+	InstanceType     sql.NullString  `db:"instance_type"`
+	ContainerType    sql.NullString  `db:"container_type"`
+	VirtType         sql.NullString  `db:"virt_type"`
+	AllocatePublicIP sql.NullBool    `db:"allocate_public_ip"`
+	ImageID          sql.NullString  `db:"image_id"`
 }
 
 func (c dbConstraint) toValue(
@@ -1028,16 +1039,16 @@ func (c dbConstraint) toValue(
 		rval.Arch = &c.Arch.String
 	}
 	if c.CPUCores.Valid {
-		rval.CpuCores = ptr(uint64(c.CPUCores.Int64))
+		rval.CpuCores = ptr(uint64(c.CPUCores.V))
 	}
 	if c.CPUPower.Valid {
-		rval.CpuPower = ptr(uint64(c.CPUPower.Int64))
+		rval.CpuPower = ptr(uint64(c.CPUPower.V))
 	}
 	if c.Mem.Valid {
-		rval.Mem = ptr(uint64(c.Mem.Int64))
+		rval.Mem = ptr(uint64(c.Mem.V))
 	}
 	if c.RootDisk.Valid {
-		rval.RootDisk = ptr(uint64(c.RootDisk.Int64))
+		rval.RootDisk = ptr(uint64(c.RootDisk.V))
 	}
 	if c.RootDiskSource.Valid {
 		rval.RootDiskSource = &c.RootDiskSource.String
@@ -1126,20 +1137,20 @@ type dbUUID struct {
 }
 
 type applicationPlatformAndChannel struct {
-	PlatformOSID           sql.NullInt64  `db:"platform_os_id"`
-	PlatformChannel        string         `db:"platform_channel"`
-	PlatformArchitectureID sql.NullInt64  `db:"platform_architecture_id"`
-	ChannelTrack           string         `db:"channel_track"`
-	ChannelRisk            sql.NullString `db:"channel_risk"`
-	ChannelBranch          string         `db:"channel_branch"`
+	PlatformOSID           sql.Null[int64] `db:"platform_os_id"`
+	PlatformChannel        string          `db:"platform_channel"`
+	PlatformArchitectureID sql.Null[int64] `db:"platform_architecture_id"`
+	ChannelTrack           string          `db:"channel_track"`
+	ChannelRisk            sql.NullString  `db:"channel_risk"`
+	ChannelBranch          string          `db:"channel_branch"`
 }
 
 type applicationOrigin struct {
-	ReferenceName      string         `db:"reference_name"`
-	SourceID           int            `db:"source_id"`
-	Revision           sql.NullInt64  `db:"revision"`
-	CharmhubIdentifier sql.NullString `db:"charmhub_identifier"`
-	Hash               sql.NullString `db:"hash"`
+	ReferenceName      string          `db:"reference_name"`
+	SourceID           int             `db:"source_id"`
+	Revision           sql.Null[int64] `db:"revision"`
+	CharmhubIdentifier sql.NullString  `db:"charmhub_identifier"`
+	Hash               sql.NullString  `db:"hash"`
 }
 
 type exportApplication struct {
@@ -1153,9 +1164,9 @@ type exportApplication struct {
 	CharmReferenceName   string             `db:"reference_name"`
 	CharmSourceID        int                `db:"source_id"`
 	CharmRevision        int                `db:"revision"`
-	CharmArchitectureID  sql.NullInt64      `db:"architecture_id"`
+	CharmArchitectureID  sql.Null[int64]    `db:"architecture_id"`
 	K8sServiceProviderID sql.NullString     `db:"k8s_provider_id"`
-	EndpointBindings     map[string]string
+	EndpointBindings     map[string]network.SpaceUUID
 }
 
 // peerEndpoint represents a structure for defining a peer application endpoint
@@ -1222,21 +1233,9 @@ type setDeviceConstraintAttribute struct {
 	AttributeValue       string `db:"value"`
 }
 
-type createMachine struct {
-	MachineUUID coremachine.UUID `db:"uuid"`
-	NetNodeUUID string           `db:"net_node_uuid"`
-	Name        coremachine.Name `db:"name"`
-	LifeID      life.Life        `db:"life_id"`
-}
-
 type machineNameWithNetNode struct {
 	Name        coremachine.Name `db:"name"`
 	NetNodeUUID string           `db:"net_node_uuid"`
-}
-
-type machineNameWithMachineUUID struct {
-	Name coremachine.Name `db:"name"`
-	UUID coremachine.UUID `db:"uuid"`
 }
 
 type netNodeUUID struct {
@@ -1247,20 +1246,15 @@ type unitNetNodeUUID struct {
 	NetNodeUUID string `db:"net_node_uuid"`
 }
 
-type machinePlacement struct {
-	MachineUUID coremachine.UUID `db:"machine_uuid"`
-	ScopeID     int              `db:"scope_id"`
-	Directive   string           `db:"directive"`
+type applicationEndpointBinding struct {
+	ApplicationName string           `db:"application_name"`
+	EndpointName    string           `db:"endpoint_name"`
+	SpaceUUID       sql.Null[string] `db:"space_uuid"`
 }
 
-type machineParent struct {
-	ParentUUID  coremachine.UUID `db:"parent_uuid"`
-	MachineUUID coremachine.UUID `db:"machine_uuid"`
-}
-
-type getApplicationEndpoint struct {
-	SpaceUUID    sql.Null[string] `db:"space_uuid"`
-	EndpointName string           `db:"name"`
+type endpointBinding struct {
+	SpaceUUID    sql.Null[network.SpaceUUID] `db:"space_uuid"`
+	EndpointName string                      `db:"name"`
 }
 
 type unitWorkloadVersion struct {
@@ -1297,26 +1291,12 @@ type getCharmUpgradeOnError struct {
 	Name                string `db:"name"`
 }
 
-type setStatusInfo struct {
-	StatusID int        `db:"status_id"`
-	Message  string     `db:"message"`
-	Data     []byte     `db:"data"`
-	Updated  *time.Time `db:"updated_at"`
-}
-
-type setMachineStatus struct {
-	StatusID    int              `db:"status_id"`
-	Message     string           `db:"message"`
-	Data        []byte           `db:"data"`
-	Updated     *time.Time       `db:"updated_at"`
-	MachineUUID coremachine.UUID `db:"machine_uuid"`
-}
-
-type machineInstanceUUID struct {
-	MachineUUID coremachine.UUID `db:"machine_uuid"`
-}
-
 type getUnitMachine struct {
 	UnitName    coreunit.Name    `db:"unit_name"`
 	UnitMachine coremachine.Name `db:"machine_name"`
+}
+
+type controllerApplication struct {
+	ApplicationID coreapplication.ID `db:"application_uuid"`
+	IsController  bool               `db:"is_controller"`
 }

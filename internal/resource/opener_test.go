@@ -23,13 +23,15 @@ import (
 	coretesting "github.com/juju/juju/core/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	domainapplication "github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/deployment"
 	domainresource "github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
-	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/resource/charmhub"
-	"github.com/juju/juju/state"
 )
 
 type OpenerSuite struct {
@@ -43,14 +45,11 @@ type OpenerSuite struct {
 	resourceSize         int64
 	resourceReader       io.ReadCloser
 	resourceRevision     int
-	charmURL             *charm.URL
-	charmOrigin          state.CharmOrigin
+	charmLocator         applicationcharm.CharmLocator
+	charmOrigin          domainapplication.CharmOrigin
 	resourceClient       *MockResourceClient
 	resourceClientGetter *MockResourceClientGetter
 	resourceService      *MockResourceService
-	state                *MockDeprecatedState
-	stateApplication     *MockDeprecatedStateApplication
-	stateUnit            *MockDeprecatedStateUnit
 	applicationService   *MockApplicationService
 	limiter              *MockResourceDownloadLock
 
@@ -230,10 +229,6 @@ func (s *OpenerSuite) setupMocks(c *tc.C, includeUnit bool) *gomock.Controller {
 	s.resourceClientGetter = NewMockResourceClientGetter(ctrl)
 	s.limiter = NewMockResourceDownloadLock(ctrl)
 
-	s.state = NewMockDeprecatedState(ctrl)
-	s.stateUnit = NewMockDeprecatedStateUnit(ctrl)
-	s.stateApplication = NewMockDeprecatedStateApplication(ctrl)
-
 	s.resourceService = NewMockResourceService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 
@@ -245,16 +240,18 @@ func (s *OpenerSuite) setupMocks(c *tc.C, includeUnit bool) *gomock.Controller {
 	c.Assert(err, tc.ErrorIsNil)
 	s.resourceReader = io.NopCloser(strings.NewReader(s.resourceContent))
 
-	s.charmURL, _ = charm.ParseURL("postgresql")
+	s.charmLocator = applicationcharm.CharmLocator{
+		Name:   "postgresql",
+		Source: applicationcharm.CharmHubSource,
+	}
 	rev := 0
-	s.charmOrigin = state.CharmOrigin{
+	s.charmOrigin = domainapplication.CharmOrigin{
 		Source:   "charm-hub",
-		Type:     "charm",
-		Revision: &rev,
-		Channel:  &state.Channel{Risk: "stable"},
-		Platform: &state.Platform{
-			Architecture: "amd64",
-			OS:           "ubuntu",
+		Revision: rev,
+		Channel:  &deployment.Channel{Risk: "stable"},
+		Platform: deployment.Platform{
+			Architecture: architecture.AMD64,
+			OSType:       deployment.Ubuntu,
 			Channel:      "20.04/stable",
 		},
 	}
@@ -455,13 +452,15 @@ func (s *OpenerSuite) expectNewUnitResourceOpener(c *tc.C) {
 		s.unitName,
 	).Return(s.unitUUID, nil)
 
-	// State calls in NewResourceOpenerForUnit.
-	s.state.EXPECT().Unit(s.unitName.String()).Return(s.stateUnit, nil)
-	s.stateUnit.EXPECT().ApplicationName().Return(s.appName)
-	s.state.EXPECT().Application(s.appName).Return(s.stateApplication, nil)
-	s.stateUnit.EXPECT().CharmURL().Return(ptr(s.charmURL.String()))
-	s.state.EXPECT().ModelUUID().Return("uuid")
-	s.stateApplication.EXPECT().CharmOrigin().Return(&s.charmOrigin)
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(
+		gomock.Any(),
+		s.appName,
+	).Return(s.charmLocator, nil)
+
+	s.applicationService.EXPECT().GetApplicationCharmOrigin(
+		gomock.Any(),
+		s.appName,
+	).Return(s.charmOrigin, nil)
 }
 
 func (s *OpenerSuite) newUnitResourceOpener(
@@ -481,8 +480,8 @@ func (s *OpenerSuite) newUnitResourceOpener(
 
 	opener, err := newResourceOpenerForUnit(
 		c.Context(),
-		s.state,
 		ResourceOpenerArgs{
+			ModelUUID:            "uuid",
 			ResourceService:      s.resourceService,
 			ApplicationService:   s.applicationService,
 			CharmhubClientGetter: s.resourceClientGetter,
@@ -503,17 +502,18 @@ func (s *OpenerSuite) newApplicationResourceOpener(c *tc.C) coreresource.Opener 
 		s.appName,
 	).Return(s.appID, nil)
 
-	// State calls in NewResourceOpenerForApplication.
-	s.state.EXPECT().Application(s.appName).Return(s.stateApplication, nil)
-	s.stateApplication.EXPECT().CharmURL().Return(
-		ptr(s.charmURL.String()),
-		false,
-	)
-	s.state.EXPECT().ModelUUID().Return("uuid")
-	s.stateApplication.EXPECT().CharmOrigin().Return(&s.charmOrigin)
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(
+		gomock.Any(),
+		s.appName,
+	).Return(s.charmLocator, nil)
+
+	s.applicationService.EXPECT().GetApplicationCharmOrigin(
+		gomock.Any(),
+		s.appName,
+	).Return(s.charmOrigin, nil)
+
 	opener, err := newResourceOpenerForApplication(
 		c.Context(),
-		s.state,
 		ResourceOpenerArgs{
 			ResourceService:      s.resourceService,
 			ApplicationService:   s.applicationService,
@@ -532,8 +532,4 @@ func newResourceRetryClientForTest(
 	client := charmhub.NewRetryClient(cl, testing.WrapCheckLog(c))
 	client.RetryArgs.Delay = time.Millisecond
 	return client
-}
-
-func ptr(s string) *string {
-	return &s
 }

@@ -4,7 +4,6 @@
 package state
 
 import (
-	"fmt"
 	"reflect"
 	"sort"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/internal/mongo/utils"
@@ -90,12 +88,6 @@ func (s *Settings) Keys() []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-// Get returns the value of key and whether it was found.
-func (s *Settings) Get(key string) (value interface{}, found bool) {
-	value, found = s.core[key]
-	return
 }
 
 // Map returns all keys and values of the node.
@@ -215,29 +207,6 @@ func (s *Settings) Write() (settings.ItemChanges, error) {
 	return changes, nil
 }
 
-// WriteOperation returns a ModelOperation to persist all mutations to a
-// Settings instance.
-func (s *Settings) WriteOperation() ModelOperation {
-	return modelOperationFunc{
-		buildFn: func(_ int) ([]txn.Op, error) {
-			_, ops := s.settingsUpdateOps()
-			if len(ops) == 0 {
-				return nil, jujutxn.ErrNoOperations
-			}
-
-			return ops, nil
-		},
-		doneFn: func(err error) error {
-			if err != nil {
-				return err
-			}
-
-			s.disk = copyMap(s.core, nil)
-			return nil
-		},
-	}
-}
-
 // Read (re)reads the node data into c.
 func (s *Settings) Read() error {
 	doc, err := readSettingsDoc(s.db, s.collection, s.key)
@@ -268,24 +237,6 @@ func readSettingsDoc(db Database, collection, key string) (*settingsDoc, error) 
 	return &doc, err
 }
 
-// applyChanges modifies the live settings
-// based on the input collection of changes.
-func (s *Settings) applyChanges(changes settings.ItemChanges) {
-	for _, ch := range changes {
-		switch {
-		case ch.IsAddition(), ch.IsModification():
-			s.Set(ch.Key, ch.NewValue)
-		case ch.IsDeletion():
-			s.Delete(ch.Key)
-		}
-	}
-}
-
-// ReadSettings returns the settings for the given key.
-func (st *State) ReadSettings(collection, key string) (*Settings, error) {
-	return readSettings(st.db(), collection, key)
-}
-
 // readSettings returns the Settings for key.
 func readSettings(db Database, collection, key string) (*Settings, error) {
 	s := newSettings(db, collection, key)
@@ -294,8 +245,6 @@ func readSettings(db Database, collection, key string) (*Settings, error) {
 	}
 	return s, nil
 }
-
-var errSettingsExist = errors.New("cannot overwrite existing settings")
 
 func createSettingsOp(collection, key string, values map[string]interface{}) txn.Op {
 	newValues := utils.EscapeKeys(values)
@@ -309,32 +258,6 @@ func createSettingsOp(collection, key string, values map[string]interface{}) txn
 	}
 }
 
-// createSettings writes an initial config node.
-func createSettings(db Database, collection, key string, values map[string]interface{}) (*Settings, error) {
-	s := newSettings(db, collection, key)
-	s.core = copyMap(values, nil)
-	ops := []txn.Op{createSettingsOp(collection, key, values)}
-	err := s.db.RunTransaction(ops)
-	if err == txn.ErrAborted {
-		return nil, errSettingsExist
-	}
-	if err != nil {
-		return nil, fmt.Errorf("cannot create settings: %v", err)
-	}
-	return s, nil
-}
-
-// removeSettings removes the Settings for key.
-func removeSettings(db Database, collection, key string) error {
-	err := db.RunTransaction([]txn.Op{removeSettingsOp(collection, key)})
-	if err == txn.ErrAborted {
-		return errors.NotFoundf("settings")
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 func removeSettingsOp(collection, key string) txn.Op {
 	return txn.Op{
 		C:      collection,
@@ -342,39 +265,6 @@ func removeSettingsOp(collection, key string) txn.Op {
 		Assert: txn.DocExists,
 		Remove: true,
 	}
-}
-
-// replaceSettings replaces the settings values for key.
-func replaceSettings(db Database, collection, key string, values map[string]interface{}) error {
-	op, _, err := replaceSettingsOp(db, collection, key, values)
-	if err != nil {
-		return errors.Annotatef(err, "settings %q", key)
-	}
-	err = db.RunTransaction([]txn.Op{op})
-	if err == txn.ErrAborted {
-		return errors.NotFoundf("settings")
-	}
-	if err != nil {
-		return fmt.Errorf("cannot replace settings: %v", err)
-	}
-	return nil
-}
-
-// listSettings returns all the settings with the specified key prefix.
-func listSettings(backend modelBackend, collection, keyPrefix string) (map[string]map[string]interface{}, error) {
-	col, closer := backend.db().GetRawCollection(collection)
-	defer closer()
-
-	var matchingSettings []settingsDoc
-	findExpr := fmt.Sprintf("^%s.*$", backend.docID(keyPrefix))
-	if err := col.Find(bson.D{{"_id", bson.D{{"$regex", findExpr}}}}).All(&matchingSettings); err != nil {
-		return nil, err
-	}
-	result := make(map[string]map[string]interface{})
-	for i := range matchingSettings {
-		result[backend.localID(matchingSettings[i].DocID)] = matchingSettings[i].Settings
-	}
-	return result, nil
 }
 
 // replaceSettingsOp returns a txn.Op that deletes the document's contents and
@@ -459,78 +349,4 @@ func subDocReplacer(subDoc string) func(string) string {
 	return func(key string) string {
 		return subDoc + "." + key
 	}
-}
-
-// StateSettings is used to expose various settings APIs outside of the state package.
-type StateSettings struct {
-	backend    modelBackend
-	collection string
-}
-
-// NewSettings returns a new StateSettings reference for working with settings
-// in the current database.
-func (st *State) NewSettings() *StateSettings {
-	return &StateSettings{st, settingsC}
-}
-
-// NewStateSettings creates a StateSettings from a modelBackend (e.g. State).
-// TODO (manadart 2020-01-21): Usage of this method should be phased out in
-// favour of NewSettings, above.
-// That method facilitates state mocks and shims for testing in external
-// packages in a way that this method can not, because the package-private
-// modelBackend is inaccessible to them.
-func NewStateSettings(backend modelBackend) *StateSettings {
-	return &StateSettings{backend, settingsC}
-}
-
-// CreateSettings exposes createSettings on state for use outside the state package.
-func (s *StateSettings) CreateSettings(key string, settings map[string]interface{}) error {
-	_, err := createSettings(s.backend.db(), s.collection, key, settings)
-	return err
-}
-
-// ReadSettings exposes readSettings on state for use outside the state package.
-func (s *StateSettings) ReadSettings(key string) (map[string]interface{}, error) {
-	if s, err := readSettings(s.backend.db(), s.collection, key); err != nil {
-		return nil, err
-	} else {
-		return s.Map(), nil
-	}
-}
-
-// RemoveSettings exposes removeSettings on state for use outside the state package.
-func (s *StateSettings) RemoveSettings(key string) error {
-	return removeSettings(s.backend.db(), s.collection, key)
-}
-
-// ReplaceSettings exposes replaceSettings on state for use outside the state package.
-func (s *StateSettings) ReplaceSettings(key string, settings map[string]interface{}) error {
-	return replaceSettings(s.backend.db(), s.collection, key, settings)
-}
-
-// ListSettings exposes listSettings on state for use outside the state package.
-func (s *StateSettings) ListSettings(keyPrefix string) (map[string]map[string]interface{}, error) {
-	return listSettings(s.backend, s.collection, keyPrefix)
-}
-
-// DeltaOps returns the operations required to modify the settings document
-// identified by the input key, with the the input settings changes.
-func (s *StateSettings) DeltaOps(key string, delta settings.ItemChanges) ([]txn.Op, error) {
-	cfg, err := readSettings(s.backend.db(), s.collection, key)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cfg.applyChanges(delta)
-	_, updates := cfg.settingsUpdateOps()
-
-	var ops []txn.Op
-	if len(updates) > 0 {
-		// Assert that the settings document has not changed underneath us
-		// in addition to appending the field changes.
-		ops = append(ops, cfg.assertUnchangedOp())
-		ops = append(ops, updates...)
-	}
-
-	return ops, nil
 }

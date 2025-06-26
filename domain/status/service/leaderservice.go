@@ -31,7 +31,8 @@ type LeadershipService struct {
 // NewLeadershipService returns a new leadership service reference wrapping the
 // input state.
 func NewLeadershipService(
-	st State,
+	modelState ModelState,
+	controllerState ControllerState,
 	leaderEnsurer leadership.Ensurer,
 	modelUUID model.UUID,
 	statusHistory StatusHistory,
@@ -41,8 +42,8 @@ func NewLeadershipService(
 ) *LeadershipService {
 	return &LeadershipService{
 		Service: NewService(
-			st,
-			modelUUID,
+			modelState,
+			controllerState,
 			statusHistory,
 			statusHistoryReaderFn,
 			clock,
@@ -52,9 +53,9 @@ func NewLeadershipService(
 	}
 }
 
-// SetApplicationStatusForUnitLeader sets the application status using the
+// SetApplicationStatusForUnitLeader validates and sets the application status using the
 // leader unit of the application. If the specified unit is not the leader of
-// it's application and error satisfying [statuserrors.UnitNotLeader] is
+// its application and error satisfying [statuserrors.UnitNotLeader] is
 // returned. If the unit is not found, an error satisfying
 // [statuserrors.UnitNotFound] is returned.
 func (s *LeadershipService) SetApplicationStatusForUnitLeader(
@@ -69,7 +70,7 @@ func (s *LeadershipService) SetApplicationStatusForUnitLeader(
 		return errors.Errorf("unit name: %w", err)
 	}
 
-	// This will implicitly verify that the status is valid.
+	// This will also verify that the status is valid.
 	encodedStatus, err := encodeWorkloadStatus(status)
 	if err != nil {
 		return errors.Errorf("encoding workload status: %w", err)
@@ -79,13 +80,13 @@ func (s *LeadershipService) SetApplicationStatusForUnitLeader(
 	// is because we're doing a reverse lookup from the unit to the application.
 	// We can't return the application not found, as we're not looking up the
 	// application directly.
-	appID, appName, err := s.st.GetApplicationIDAndNameByUnitName(ctx, unitName)
+	appID, appName, err := s.modelState.GetApplicationIDAndNameByUnitName(ctx, unitName)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-		return s.st.SetApplicationStatus(ctx, appID, encodedStatus)
+		return s.modelState.SetApplicationStatus(ctx, appID, encodedStatus)
 	})
 	if errors.Is(err, corelease.ErrNotHeld) {
 		return statuserrors.UnitNotLeader
@@ -117,7 +118,7 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 	}
 
 	appName := unitName.Application()
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appID, err := s.modelState.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return corestatus.StatusInfo{}, nil, errors.Errorf("getting application id: %w", err)
 	}
@@ -126,11 +127,11 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 	var fullUnitStatuses status.FullUnitStatuses
 	err = s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
 		var err error
-		applicationStatus, err = s.st.GetApplicationStatus(ctx, appID)
+		applicationStatus, err = s.modelState.GetApplicationStatus(ctx, appID)
 		if err != nil {
 			return errors.Errorf("getting application status: %w", err)
 		}
-		fullUnitStatuses, err = s.st.GetAllFullUnitStatusesForApplication(ctx, appID)
+		fullUnitStatuses, err = s.modelState.GetAllFullUnitStatusesForApplication(ctx, appID)
 		if err != nil {
 			return errors.Errorf("getting unit workload and container statuses")
 		}
@@ -195,7 +196,7 @@ func (s *LeadershipService) SetRelationStatus(
 			return errors.Errorf("encoding relation status: %w", err)
 		}
 
-		return s.st.SetRelationStatus(ctx, relationUUID, relationStatus)
+		return s.modelState.SetRelationStatus(ctx, relationUUID, relationStatus)
 	}); err != nil {
 		return errors.Capture(err)
 	}

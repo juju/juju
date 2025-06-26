@@ -164,12 +164,12 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 
 	c.Assert(config.NewModelWorker, tc.NotNil)
 	modelConfig := modelworkermanager.NewModelConfig{
-		Authority:    s.authority,
-		ModelName:    "test",
-		ModelOwner:   "owner",
-		ModelUUID:    "foo",
-		ModelType:    coremodel.IAAS,
-		ModelMetrics: dummyMetricSink{},
+		Authority:      s.authority,
+		ModelName:      "test",
+		ModelQualifier: "qualifier",
+		ModelUUID:      "foo",
+		ModelType:      coremodel.IAAS,
+		ModelMetrics:   dummyMetricSink{},
 	}
 	mw, err := config.NewModelWorker(modelConfig)
 	c.Assert(err, tc.ErrorIsNil)

@@ -51,8 +51,8 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-VALUES (?, ?, "test", "iaas", "fluffy", "ec2")
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, "test", "prod", "iaas", "fluffy", "ec2")
 		`, s.ModelUUID(), coretesting.ControllerTag.Id())
 		return err
 	})
@@ -978,10 +978,7 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 		func(ctx context.Context) (applicationservice.Provider, error) {
 			return serviceProvider{}, nil
 		},
-		func(ctx context.Context) (applicationservice.SupportedFeatureProvider, error) {
-			return serviceProvider{}, nil
-		},
-		func(ctx context.Context) (applicationservice.CAASApplicationProvider, error) {
+		func(ctx context.Context) (applicationservice.CAASProvider, error) {
 			return serviceProvider{}, nil
 		},
 		nil,
@@ -1010,7 +1007,7 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 				DownloadSize:       1000,
 			},
 		},
-		applicationservice.AddUnitArg{},
+		applicationservice.AddIAASUnitArg{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 }

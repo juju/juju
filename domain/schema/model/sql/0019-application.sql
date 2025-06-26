@@ -21,6 +21,20 @@ CREATE TABLE application (
 CREATE UNIQUE INDEX idx_application_name
 ON application (name);
 
+-- This table is only used to track whether a application is a controller or
+-- not. It should be sparse and only contain a single row for the controller
+-- application.
+CREATE TABLE application_controller (
+    application_uuid TEXT NOT NULL PRIMARY KEY,
+    CONSTRAINT fk_application_controller_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid)
+);
+
+-- A unique constraint over a constant index ensures only 1 entry matching the 
+-- condition can exist.
+CREATE UNIQUE INDEX idx_singleton_application_controller ON application_controller ((1));
+
 CREATE TABLE application_workload_version (
     application_uuid TEXT NOT NULL PRIMARY KEY,
     version TEXT NOT NULL,

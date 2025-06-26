@@ -12,6 +12,7 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
@@ -278,6 +279,12 @@ func (st *State) NamespaceForWatchControllerNodes() string {
 	return "controller_node"
 }
 
+// NamespaceForWatchControllerAPIAddresses returns the namespace for watching
+// controller api addresses.
+func (st *State) NamespaceForWatchControllerAPIAddresses() string {
+	return "controller_api_address"
+}
+
 // SetAPIAddresses sets the addresses for the provided controller node. It
 // replaces any existing addresses and stores them in the api_controller_address
 // table, with the format "host:port" as a string, as well as the is_agent flag
@@ -424,6 +431,18 @@ func (st *State) GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]
 		return nil, errors.Capture(err)
 	}
 
+	var result []controllerAPIAddress
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result, err = st.getAllAPIAddressesForAgents(ctx, tx)
+		return err
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return decodeAllAPIAddresses(result), nil
+}
+
+func (st *State) getAllAPIAddressesForAgents(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
 	stmt, err := st.Prepare(`
 SELECT &controllerAPIAddress.* 
 FROM controller_api_address
@@ -434,23 +453,37 @@ WHERE is_agent = true
 	}
 
 	var result []controllerAPIAddress
+	err = tx.Query(ctx, stmt).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, controllernodeerrors.EmptyAPIAddresses
+	} else if err != nil {
+		return nil, errors.Errorf("getting all api addresses for controller nodes: %w", err)
+	}
+	return result, nil
+}
+
+// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
+// agents.
+func (st *State) GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []controllerAPIAddress
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).GetAll(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return controllernodeerrors.EmptyAPIAddresses
-		} else if err != nil {
-			return errors.Errorf("getting all api addresses for controller nodes: %w", err)
-		}
-		return nil
+		result, err = st.getAllAPIAddressesForAgents(ctx, tx)
+		return err
 	}); err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	return decodeAllAPIAddresses(result), nil
+	return decodeAllScopedAPIAddresses(result), nil
+
 }
 
-// GetAPIAddressesForAgents returns the list of API addresses for the provided
-// controller node that are available for agents.
+// GetAPIAddressesForAgents returns the list of API address strings including
+// port for the provided controller node that are available for agents.
 func (st *State) GetAPIAddressesForAgents(ctx context.Context, ctrlID string) ([]string, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -577,6 +610,26 @@ func decodeAllAPIAddresses(addrs []controllerAPIAddress) map[string][]string {
 	return result
 }
 
+func decodeAllScopedAPIAddresses(addrs []controllerAPIAddress) map[string]controllernode.APIAddresses {
+	result := make(map[string]controllernode.APIAddresses, 0)
+	for _, addr := range addrs {
+		if addr.Address == "" {
+			continue
+		}
+		controllerID := addr.ControllerID
+		if _, ok := result[controllerID]; !ok {
+			result[controllerID] = controllernode.APIAddresses{}
+		}
+		controllernodeAddr := controllernode.APIAddress{
+			Address: addr.Address,
+			IsAgent: addr.IsAgent,
+			Scope:   network.Scope(addr.Scope),
+		}
+		result[controllerID] = append(result[controllerID], controllernodeAddr)
+	}
+	return result
+}
+
 func decodeAPIAddresses(addrs []controllerAPIAddressStr) []string {
 	result := make([]string, 0, len(addrs))
 	for _, addr := range addrs {
@@ -592,6 +645,7 @@ func encodeAPIAddresses(controllerID string, addrs []controllernode.APIAddress) 
 			ControllerID: controllerID,
 			Address:      addr.Address,
 			IsAgent:      addr.IsAgent,
+			Scope:        string(addr.Scope),
 		})
 	}
 	return result

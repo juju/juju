@@ -19,18 +19,11 @@ import (
 	"github.com/juju/juju/core/logger"
 )
 
-// Hub is a pubsub hub used for internal messaging.
-type Hub interface {
-	Publish(topic string, data interface{}) func()
-	Subscribe(topic string, handler func(string, interface{})) func()
-}
-
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 	Clock         clock.Clock
-	Hub           Hub
 	Logger        logger.Logger
 
 	UnitEngineConfig func() dependency.EngineConfig
@@ -75,7 +68,7 @@ func (config ManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCall
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	shim := &facadeShim{deployerFacade}
+	shim := &facadeShim{st: deployerFacade}
 	w, err := NewDeployer(shim, config.Logger, context)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start unit agent deployer worker")

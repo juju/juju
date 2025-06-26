@@ -7,7 +7,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
@@ -35,7 +34,8 @@ func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrade
 	auth := ctx.Auth()
 
 	if !auth.AuthMachineAgent() &&
-		!auth.AuthUnitAgent() {
+		!auth.AuthUnitAgent() &&
+		!auth.AuthModelAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 
@@ -69,19 +69,13 @@ func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrade
 		), nil
 	}
 
-	ctrlSt, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	controllerConfigGetter := domainServices.ControllerConfig()
 	getCanReadWrite := func(ctx context.Context) (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
 	}
 
-	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), ctrlSt)
+	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), domainServices.ControllerNode())
 	toolsFinder := common.NewToolsFinder(
-		controllerConfigGetter, st, urlGetter, ctx.ControllerObjectStore(),
+		st, urlGetter, ctx.ControllerObjectStore(),
 		domainServices.AgentBinary(),
 	)
 	toolsGetter := common.NewToolsGetter(domainServices.Agent(), st, urlGetter, toolsFinder, getCanReadWrite)
@@ -94,5 +88,6 @@ func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrade
 		ctx.WatcherRegistry(),
 		domainServices.ControllerNode(),
 		domainServices.Agent(),
+		domainServices.Machine(),
 	), nil
 }

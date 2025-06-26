@@ -47,8 +47,8 @@ func (s *watcherSuite) TestWatchUnitResolveModeNotFound(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
-	u1 := application.AddUnitArg{}
-	u2 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
+	u2 := application.AddIAASUnitArg{}
 	s.createApplication(c, "foo", u1, u2)
 
 	svc := s.setupService(c)
@@ -115,9 +115,9 @@ func (s *watcherSuite) setupService(c *tc.C) *service.WatchableService {
 	)
 }
 
-func (s *watcherSuite) createApplication(c *tc.C, name string, units ...application.AddUnitArg) []coreunit.UUID {
+func (s *watcherSuite) createApplication(c *tc.C, name string, units ...application.AddIAASUnitArg) []coreunit.UUID {
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	statusSt := statusstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	statusSt := statusstate.NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
 		Channel:      "22.04/stable",

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
@@ -44,9 +43,12 @@ type ModelService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	// GetApplicationLife returns the life value of the application with the
-	// given name.
-	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+	// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
+	// in the model are alive, returning an error if any are not.
+	CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error
+
+	// GetUnitNamesForApplication returns a slice of the unit names for the given application
+	GetUnitNamesForApplication(ctx context.Context, appName string) ([]unit.Name, error)
 }
 
 // RelationService provides access to the relation service.
@@ -65,6 +67,10 @@ type StatusService interface {
 	// CheckUnitStatusesReadyForMigration returns true is the statuses of all units
 	// in the model indicate they can be migrated.
 	CheckUnitStatusesReadyForMigration(context.Context) error
+
+	// CheckMachineStatusesReadyForMigration returns an error if the statuses of any
+	// machines in the model indicate they cannot be migrated.
+	CheckMachineStatusesReadyForMigration(context.Context) error
 }
 
 // ModelAgentService provides access to the Juju agent version for the model.

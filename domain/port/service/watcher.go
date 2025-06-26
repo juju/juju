@@ -116,7 +116,7 @@ func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, a
 // the endpoint.
 func (s *WatchableService) endpointToMachineMapper(
 	ctx context.Context, events []changestream.ChangeEvent,
-) ([]changestream.ChangeEvent, error) {
+) ([]string, error) {
 	if len(events) == 0 {
 		return nil, nil
 	}
@@ -147,18 +147,14 @@ func (s *WatchableService) endpointToMachineMapper(
 		reference[id] = machineNames[0]
 	}
 
-	result := make([]changestream.ChangeEvent, len(indexes))
+	result := make([]string, len(indexes))
 	for i, event := range indexes {
 		name, ok := reference[event.id]
 		if !ok {
 			return nil, errors.Errorf("no machine found for unit %q", event.id)
 		}
 
-		result[i] = maskedChangeEvent{
-			ChangeEvent: event.event,
-			namespace:   "machine",
-			machineName: name.String(),
-		}
+		result[i] = name.String()
 	}
 
 	return result, nil
@@ -175,7 +171,7 @@ type indexed struct {
 func (s *WatchableService) filterForApplication(applicationUUID coreapplication.ID) eventsource.Mapper {
 	return func(
 		ctx context.Context, events []changestream.ChangeEvent,
-	) ([]changestream.ChangeEvent, error) {
+	) ([]string, error) {
 		unitUUIDs, err := transform.SliceOrErr(events, func(e changestream.ChangeEvent) (unit.UUID, error) {
 			return unit.ParseID(e.Changed())
 		})
@@ -187,33 +183,12 @@ func (s *WatchableService) filterForApplication(applicationUUID coreapplication.
 		if err != nil {
 			return nil, err
 		}
-		results := make([]changestream.ChangeEvent, 0, len(events))
+		var results []string
 		for _, event := range events {
 			if unitUUIDsForApplication.Contains(event.Changed()) {
-				results = append(results, event)
+				results = append(results, event.Changed())
 			}
 		}
 		return results, nil
 	}
-}
-
-// maskedChangeEvent implements changestream.ChangeEvent and allows the
-// substituting of events in an implementation of eventsource.Mapper.
-type maskedChangeEvent struct {
-	changestream.ChangeEvent
-	namespace   string
-	machineName string
-}
-
-// Namespace returns the namespace of the change. This is normally the
-// table name.
-func (e maskedChangeEvent) Namespace() string {
-	return e.namespace
-}
-
-// Changed returns the changed value of event. This logically can be
-// the primary key of the row that was changed or the field of the change
-// that was changed.
-func (e maskedChangeEvent) Changed() string {
-	return e.machineName
 }

@@ -24,7 +24,7 @@ func TestBindingsMockSuite(t *testing.T) {
 func (s *bindingsMockSuite) TestMapBindingsWithSpaceNames(c *tc.C) {
 	infos := s.expectedSpaceInfos()
 
-	initial := map[string]string{
+	initial := map[string]network.SpaceUUID{
 		"db":      "2",
 		"testing": "3",
 		"empty":   network.AlphaSpaceId,
@@ -36,13 +36,13 @@ func (s *bindingsMockSuite) TestMapBindingsWithSpaceNames(c *tc.C) {
 	expected := map[string]string{
 		"db":      "two",
 		"testing": "three",
-		"empty":   network.AlphaSpaceName,
+		"empty":   network.AlphaSpaceName.String(),
 	}
 	c.Check(withSpaceNames, tc.DeepEquals, expected)
 }
 
 func (s *bindingsMockSuite) TestMapBindingsWithSpaceNamesWithNoLookup(c *tc.C) {
-	initial := map[string]string{
+	initial := map[string]network.SpaceUUID{
 		"db":      "2",
 		"testing": "3",
 		"empty":   network.AlphaSpaceId,
@@ -53,7 +53,7 @@ func (s *bindingsMockSuite) TestMapBindingsWithSpaceNamesWithNoLookup(c *tc.C) {
 }
 
 func (s *bindingsMockSuite) TestMapBindingsWithSpaceNamesWithNoBindings(c *tc.C) {
-	initial := map[string]string{}
+	initial := map[string]network.SpaceUUID{}
 
 	withSpaceNames, err := network.MapBindingsWithSpaceNames(initial, make(network.SpaceInfos, 0))
 	c.Assert(err, tc.ErrorIsNil)
@@ -61,7 +61,7 @@ func (s *bindingsMockSuite) TestMapBindingsWithSpaceNamesWithNoBindings(c *tc.C)
 }
 
 func (s *bindingsMockSuite) TestMapBindingsWithSpaceNamesWithEmptyBindings(c *tc.C) {
-	initial := map[string]string{
+	initial := map[string]network.SpaceUUID{
 		"db":      "2",
 		"testing": "3",
 		"empty":   network.AlphaSpaceId,

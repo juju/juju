@@ -15,8 +15,6 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	caasfirewallerapi "github.com/juju/juju/api/controller/caasfirewaller"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
@@ -40,7 +38,6 @@ import (
 	"github.com/juju/juju/internal/worker/credentialvalidator"
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/fortress"
-	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancepoller"
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/machineundertaker"
@@ -440,14 +437,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     machineundertaker.NewWorker,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.machineundertaker"),
 		})),
-		instanceMutaterName: ifNotMigrating(instancemutater.ModelManifold(instancemutater.ModelManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			EnvironName:   providerTrackerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.instancemutater.environ"),
-			NewClient:     instancemutater.NewClient,
-			NewWorker:     instancemutater.NewEnvironWorker,
-		})),
 	}
 
 	result := commonManifolds(config)
@@ -477,16 +466,12 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
-				APICallerName:      apiCallerName,
 				BrokerName:         providerTrackerName,
 				DomainServicesName: domainServicesName,
 				ControllerUUID:     agentConfig.Controller().Id(),
 				ModelUUID:          agentConfig.Model().Id(),
-				NewClient: func(caller base.APICaller) caasfirewaller.Client {
-					return caasfirewallerapi.NewClient(caller)
-				},
-				NewWorker: caasfirewaller.NewWorker,
-				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
+				NewWorker:          caasfirewaller.NewWorker,
+				Logger:             config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
 			},
 		)),
 
@@ -509,11 +494,12 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		caasApplicationProvisionerName: ifNotMigrating(caasapplicationprovisioner.Manifold(
 			caasapplicationprovisioner.ManifoldConfig{
-				APICallerName: apiCallerName,
-				BrokerName:    providerTrackerName,
-				ClockName:     clockName,
-				NewWorker:     caasapplicationprovisioner.NewProvisionerWorker,
-				Logger:        config.LoggingContext.GetLogger("juju.worker.caasapplicationprovisioner"),
+				APICallerName:      apiCallerName,
+				DomainServicesName: domainServicesName,
+				BrokerName:         providerTrackerName,
+				ClockName:          clockName,
+				NewWorker:          caasapplicationprovisioner.NewProvisionerWorker,
+				Logger:             config.LoggingContext.GetLogger("juju.worker.caasapplicationprovisioner"),
 			},
 		)),
 		caasStorageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
@@ -624,7 +610,6 @@ const (
 	domainServicesName           = "domain-services"
 	firewallerName               = "firewaller"
 	httpClientName               = "http-client"
-	instanceMutaterName          = "instance-mutater"
 	instancePollerName           = "instance-poller"
 	leaseManagerName             = "lease-manager"
 	loggingConfigUpdaterName     = "logging-config-updater"

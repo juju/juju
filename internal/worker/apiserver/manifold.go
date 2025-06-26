@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -85,7 +84,6 @@ type ManifoldConfig struct {
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
-	Hub                               *pubsub.StructuredHub
 	GetControllerConfigService        GetControllerConfigServiceFunc
 	GetModelService                   GetModelServiceFunc
 
@@ -148,9 +146,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.JWTParserName == "" {
 		return errors.NotValidf("empty JWTParserName")
-	}
-	if config.Hub == nil {
-		return errors.NotValidf("nil Hub")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -321,7 +316,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		LeaseManager:                      leaseManager,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 		UpgradeComplete:                   upgradeLock.IsUnlocked,
-		Hub:                               config.Hub,
 		LocalMacaroonAuthenticator:        macaroonAuthenticator,
 		JWTParser:                         jwtParser,
 		GetAuditConfig:                    getAuditConfig,

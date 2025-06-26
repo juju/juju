@@ -42,10 +42,10 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 }
 
 // AddSpace mocks base method.
-func (m *MockImportService) AddSpace(arg0 context.Context, arg1 network.SpaceInfo) (network.Id, error) {
+func (m *MockImportService) AddSpace(arg0 context.Context, arg1 network.SpaceInfo) (network.SpaceUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1)
-	ret0, _ := ret[0].(network.Id)
+	ret0, _ := ret[0].(network.SpaceUUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,19 +63,19 @@ type MockImportServiceAddSpaceCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockImportServiceAddSpaceCall) Return(arg0 network.Id, arg1 error) *MockImportServiceAddSpaceCall {
+func (c *MockImportServiceAddSpaceCall) Return(arg0 network.SpaceUUID, arg1 error) *MockImportServiceAddSpaceCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceAddSpaceCall) Do(f func(context.Context, network.SpaceInfo) (network.Id, error)) *MockImportServiceAddSpaceCall {
+func (c *MockImportServiceAddSpaceCall) Do(f func(context.Context, network.SpaceInfo) (network.SpaceUUID, error)) *MockImportServiceAddSpaceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceAddSpaceCall) DoAndReturn(f func(context.Context, network.SpaceInfo) (network.Id, error)) *MockImportServiceAddSpaceCall {
+func (c *MockImportServiceAddSpaceCall) DoAndReturn(f func(context.Context, network.SpaceInfo) (network.SpaceUUID, error)) *MockImportServiceAddSpaceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -120,7 +120,7 @@ func (c *MockImportServiceAddSubnetCall) DoAndReturn(f func(context.Context, net
 }
 
 // Space mocks base method.
-func (m *MockImportService) Space(arg0 context.Context, arg1 string) (*network.SpaceInfo, error) {
+func (m *MockImportService) Space(arg0 context.Context, arg1 network.SpaceUUID) (*network.SpaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Space", arg0, arg1)
 	ret0, _ := ret[0].(*network.SpaceInfo)
@@ -147,13 +147,13 @@ func (c *MockImportServiceSpaceCall) Return(arg0 *network.SpaceInfo, arg1 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceSpaceCall) Do(f func(context.Context, string) (*network.SpaceInfo, error)) *MockImportServiceSpaceCall {
+func (c *MockImportServiceSpaceCall) Do(f func(context.Context, network.SpaceUUID) (*network.SpaceInfo, error)) *MockImportServiceSpaceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceSpaceCall) DoAndReturn(f func(context.Context, string) (*network.SpaceInfo, error)) *MockImportServiceSpaceCall {
+func (c *MockImportServiceSpaceCall) DoAndReturn(f func(context.Context, network.SpaceUUID) (*network.SpaceInfo, error)) *MockImportServiceSpaceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

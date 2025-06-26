@@ -6,6 +6,7 @@ package eventsource
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
@@ -46,25 +47,27 @@ func (w *BaseWatcher) Wait() error {
 // of change events. This allows modification or dropping of events if
 // necessary. When zero events returned, no change will be emitted.
 // The inverse is also possible, allowing fake events to be added to the stream.
-type Mapper func(context.Context, []changestream.ChangeEvent) ([]changestream.ChangeEvent, error)
+type Mapper func(context.Context, []changestream.ChangeEvent) ([]string, error)
 
 // defaultMapper is the default mapper used by the watchers.
 // It will always return the same change events, allowing all events to be sent.
 func defaultMapper(
 	_ context.Context, events []changestream.ChangeEvent,
-) ([]changestream.ChangeEvent, error) {
-	return events, nil
+) ([]string, error) {
+	return transform.Slice(events, func(c changestream.ChangeEvent) string {
+		return c.Changed()
+	}), nil
 }
 
 // FilterEvents drops events that do not match the filter.
 func FilterEvents(filter func(changestream.ChangeEvent) bool) Mapper {
 	return func(
 		_ context.Context, events []changestream.ChangeEvent,
-	) ([]changestream.ChangeEvent, error) {
-		var filtered []changestream.ChangeEvent
+	) ([]string, error) {
+		var filtered []string
 		for _, event := range events {
 			if filter(event) {
-				filtered = append(filtered, event)
+				filtered = append(filtered, event.Changed())
 			}
 		}
 		return filtered, nil

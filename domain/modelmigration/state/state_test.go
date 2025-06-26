@@ -47,6 +47,7 @@ func (s *migrationSuite) SetUpTest(c *tc.C) {
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",
+		Qualifier:       "prod",
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",
 		CloudType:       "ec2",
@@ -73,7 +74,7 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 	db := s.DB()
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	err := machineState.CreateMachine(c.Context(), "666", "0", "deadbeef")
+	err := machineState.CreateMachine(c.Context(), "666", "0", "deadbeef", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	// Add a reference AZ.
 	_, err = db.ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef', 'az-1')")
@@ -84,18 +85,20 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 		"deadbeef",
 		instance.Id("instance-0"),
 		"",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch: &arch,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineState.CreateMachine(c.Context(), "667", "1", "deadbeef-2")
+	err = machineState.CreateMachine(c.Context(), "667", "1", "deadbeef-2", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = machineState.SetMachineCloudInstance(
 		c.Context(),
 		"deadbeef-2",
 		instance.Id("instance-1"),
 		"",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch: &arch,
 		},

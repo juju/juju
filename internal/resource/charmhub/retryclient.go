@@ -69,7 +69,7 @@ func (client ResourceRetryClient) GetResource(ctx context.Context, req ResourceR
 	stChannel := req.CharmID.Origin.Channel
 	if stChannel != nil {
 		// Empty string is valid for CharmStore charms.
-		channel, err := charm.MakeChannel(stChannel.Track, stChannel.Risk, stChannel.Branch)
+		channel, err := charm.MakeChannel(stChannel.Track, string(stChannel.Risk), stChannel.Branch)
 		if err != nil {
 			return data, errors.Trace(err)
 		}
@@ -80,7 +80,7 @@ func (client ResourceRetryClient) GetResource(ctx context.Context, req ResourceR
 	args.NotifyFunc = func(err error, i int) {
 		// Remember the error we're hiding and then retry!
 		client.logger.Warningf(ctx, "attempt %d/%d to download resource %q from charm store [%scharm (%v), resource revision (%v)] failed with error (will retry): %v",
-			i, client.RetryArgs.Attempts, req.Name, channelStr, req.CharmID.URL, req.Revision, err)
+			i, client.RetryArgs.Attempts, req.Name, channelStr, req.CharmID.Origin.Name, req.Revision, err)
 		client.logger.Tracef(ctx, "resource get error stack: %v", errors.ErrorStack(err))
 		lastErr = err
 	}

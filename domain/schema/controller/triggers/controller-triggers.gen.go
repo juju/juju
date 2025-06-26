@@ -9,6 +9,44 @@ import (
 )
 
 
+// ChangeLogTriggersForControllerApiAddress generates the triggers for the
+// controller_api_address table.
+func ChangeLogTriggersForControllerApiAddress(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ControllerApiAddress
+INSERT INTO change_log_namespace VALUES (%[2]d, 'controller_api_address', 'ControllerApiAddress changes based on %[1]s');
+
+-- insert trigger for ControllerApiAddress
+CREATE TRIGGER trg_log_controller_api_address_insert
+AFTER INSERT ON controller_api_address FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+END;
+
+-- update trigger for ControllerApiAddress
+CREATE TRIGGER trg_log_controller_api_address_update
+AFTER UPDATE ON controller_api_address FOR EACH ROW
+WHEN 
+	NEW.controller_id != OLD.controller_id OR
+	NEW.address != OLD.address OR
+	(NEW.is_agent != OLD.is_agent OR (NEW.is_agent IS NOT NULL AND OLD.is_agent IS NULL) OR (NEW.is_agent IS NULL AND OLD.is_agent IS NOT NULL)) OR
+	NEW.scope != OLD.scope 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;
+-- delete trigger for ControllerApiAddress
+CREATE TRIGGER trg_log_controller_api_address_delete
+AFTER DELETE ON controller_api_address FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;`, columnName, namespaceID))
+	}
+}
+
 // ChangeLogTriggersForControllerConfig generates the triggers for the
 // controller_config table.
 func ChangeLogTriggersForControllerConfig(columnName string, namespaceID int) func() schema.Patch {

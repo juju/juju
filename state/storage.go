@@ -18,6 +18,7 @@ import (
 	"github.com/juju/names/v6"
 	jujutxn "github.com/juju/txn/v3"
 
+	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -93,13 +94,11 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 		return nil, errors.Trace(err)
 	}
 	sb := &storageBackend{
-		mb:              st,
-		settings:        NewStateSettings(st),
-		modelType:       m.Type(),
-		application:     st.Application,
-		allApplications: st.AllApplications,
-		unit:            st.Unit,
-		machine:         st.Machine,
+		mb:          st,
+		modelType:   m.Type(),
+		application: st.Application,
+		unit:        st.Unit,
+		machine:     st.Machine,
 	}
 	sb.registryInit = func() {
 		sb.storagePoolGetter, sb.spRegistryErr = st.storageServices()
@@ -125,19 +124,17 @@ func NewStorageConfigBackend(
 // StoragePoolGetter instances get a storage pool by name.
 type StoragePoolGetter interface {
 	GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error)
-	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }
 
 // storageBackend exposes storage-specific state utilities.
 type storageBackend struct {
-	mb              modelBackend
-	application     func(string) (*Application, error)
-	allApplications func() ([]*Application, error)
-	unit            func(string) (*Unit, error)
-	machine         func(string) (*Machine, error)
+	mb          modelBackend
+	application func(string) (*Application, error)
+	unit        func(string) (*Unit, error)
+	machine     func(string) (*Machine, error)
 
 	modelType ModelType
-	settings  *StateSettings
 
 	storagePoolGetter StoragePoolGetter
 	spRegistryErr     error
@@ -482,10 +479,10 @@ func checkStoragePoolReleasable(im *storageBackend, pool string) error {
 		return errors.Trace(err)
 	}
 	if !aProvider.Releasable() {
-		return errors.Errorf(
+		return errors.WithType(errors.Errorf(
 			"storage provider %q does not support releasing storage",
 			providerType,
-		)
+		), stateerrors.StorageNotReleasableError)
 	}
 	return nil
 }
@@ -611,7 +608,7 @@ func validateRemoveOwnerStorageInstanceOps(si *storageInstance) ([]txn.Op, error
 		if app.Life() != Alive {
 			return nil, nil
 		}
-		ch, _, err := app.Charm()
+		ch, _, err := app.charm()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -629,7 +626,7 @@ func validateRemoveOwnerStorageInstanceOps(si *storageInstance) ([]txn.Op, error
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if u.Life() != Alive {
+		if u.life() != Alive {
 			return nil, nil
 		}
 		ch, err := u.charm()
@@ -1020,14 +1017,14 @@ func (sb *storageConfigBackend) AttachStorage(storage names.StorageTag, unit nam
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if u.Life() != Alive {
+		if u.life() != Alive {
 			return nil, errors.New("unit not alive")
 		}
 		ch, err := u.charm()
 		if err != nil {
 			return nil, errors.Annotate(err, "getting charm")
 		}
-		ops, err := sb.attachStorageOps(u.st, si, u.unitTag(), u.Base().OS, ch.Meta(), u)
+		ops, err := sb.attachStorageOps(u.st, si, u.unitTag(), u.base().OS, ch.Meta(), u)
 		if errors.Is(err, errors.AlreadyExists) {
 			return nil, jujutxn.ErrNoOperations
 		}
@@ -1253,7 +1250,7 @@ func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.Uni
 
 		processAttachments := true
 		var hostTag names.Tag = unit
-		if u.ShouldBeAssigned() {
+		if u.shouldBeAssigned() {
 			machineId, err := u.AssignedMachineId()
 			if errors.Is(err, errors.NotAssigned) {
 				// The unit is not assigned to a machine, therefore
@@ -1892,7 +1889,7 @@ func validateStoragePool(
 	return nil
 }
 
-func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderType, storage.Provider, map[string]interface{}, error) {
+func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderType, storage.Provider, map[string]any, error) {
 	storageService, err := sb.storageServices()
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
@@ -1918,12 +1915,19 @@ func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderT
 	} else if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
-	providerType := pool.Provider()
+	providerType := storage.ProviderType(pool.Provider)
 	aProvider, err := registry.StorageProvider(providerType)
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
-	return providerType, aProvider, pool.Attrs(), nil
+	var attrs map[string]any
+	if len(pool.Attrs) > 0 {
+		attrs = make(map[string]any, len(pool.Attrs))
+		for k, v := range pool.Attrs {
+			attrs[k] = v
+		}
+	}
+	return providerType, aProvider, attrs, nil
 }
 
 // ErrNoDefaultStoragePool is returned when a storage pool is required but none
@@ -2063,7 +2067,7 @@ func (sb *storageConfigBackend) addStorageForUnitOps(
 	storageName string,
 	cons StorageConstraints,
 ) ([]names.StorageTag, []txn.Op, error) {
-	if u.Life() != Alive {
+	if u.life() != Alive {
 		return nil, nil, unitNotAliveErr
 	}
 
@@ -2084,7 +2088,7 @@ func (sb *storageConfigBackend) addStorageForUnitOps(
 	if cons.Pool == "" || cons.Size == 0 {
 		// Either pool or size, or both, were not specified. Take the
 		// values from the unit's recorded storage constraints.
-		allCons, err := u.StorageConstraints()
+		allCons, err := u.storageConstraints()
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -2180,7 +2184,7 @@ func (sb *storageConfigBackend) addUnitStorageOps(
 		u.Tag(),
 		charmMeta,
 		map[string]StorageConstraints{storageName: cons},
-		u.Base().OS,
+		u.base().OS,
 		u,
 	)
 	if err != nil {

@@ -20,9 +20,9 @@ Find offered application endpoints.
 
     juju find-offers
     juju find-offers mycontroller:
-    juju find-offers fred/prod
+    juju find-offers staging/mymodel
     juju find-offers --interface mysql
-    juju find-offers --url fred/prod.db2
+    juju find-offers --url staging/mymodel.db2
     juju find-offers --offer db2
    
 

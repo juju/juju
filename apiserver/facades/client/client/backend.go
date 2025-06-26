@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
 
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/state"
 )
@@ -18,11 +17,9 @@ import (
 // Backend contains the state.State methods used in this package,
 // allowing stubs to be created for testing.
 type Backend interface {
-	AllRemoteApplications() ([]commoncrossmodel.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)
 	AllIPAddresses() ([]*state.Address, error)
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
-	AllEndpointBindings() (map[string]*state.Bindings, error)
 	AllStatus() (*state.AllStatus, error)
 	ControllerNodes() ([]state.ControllerNode, error)
 	ControllerTimestamp() (*time.Time, error)
@@ -35,15 +32,8 @@ type MongoSession interface {
 	CurrentStatus() (*replicaset.Status, error)
 }
 
-// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
-// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	cmrBackend commoncrossmodel.Backend
-}
-
-func (s *stateShim) AllRemoteApplications() ([]commoncrossmodel.RemoteApplication, error) {
-	return s.cmrBackend.AllRemoteApplications()
 }
 
 func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {

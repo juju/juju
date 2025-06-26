@@ -123,10 +123,8 @@ type ModelCreateArgs struct {
 	// Name is the name for the new model.
 	Name string `json:"name"`
 
-	// OwnerTag represents the user that will own the new model.
-	// The OwnerTag must be a valid user tag.  If the user tag represents
-	// a local user, that user must exist.
-	OwnerTag string `json:"owner-tag"`
+	// Qualifier disambiguates the name of the model.
+	Qualifier string `json:"qualifier"`
 
 	// Config defines the model config, which includes the name of the
 	// model. A model UUID is allocated by the API server during the
@@ -155,10 +153,10 @@ type ModelCreateArgs struct {
 // Model holds the result of an API call returning a name and UUID
 // for a model and the tag of the server in which it is running.
 type Model struct {
-	Name     string `json:"name"`
-	UUID     string `json:"uuid"`
-	Type     string `json:"type"`
-	OwnerTag string `json:"owner-tag"`
+	Name      string `json:"name"`
+	Qualifier string `json:"qualifier"`
+	UUID      string `json:"uuid"`
+	Type      string `json:"type"`
 }
 
 // UserModel holds information about a model and the last

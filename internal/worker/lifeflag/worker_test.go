@@ -11,7 +11,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 
-	apilifeflag "github.com/juju/juju/api/controller/lifeflag"
+	apilifeflag "github.com/juju/juju/api/agent/lifeflag"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lifeflag"

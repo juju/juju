@@ -161,32 +161,6 @@ func (s *WatchableService) machineToCareForReboot(ctx context.Context, uuid mach
 	return []machine.UUID{uuid, parentUUID}, nil
 }
 
-// changeEventShim implements changestream.ChangeEvent and allows the
-// substituting of events in an implementation of eventsource.Mapper.
-type changeEventShim struct {
-	changeType changestream.ChangeType
-	namespace  string
-	changed    string
-}
-
-// Type returns the type of change (create, update, delete).
-func (e changeEventShim) Type() changestream.ChangeType {
-	return e.changeType
-}
-
-// Namespace returns the namespace of the change. This is normally the
-// table name.
-func (e changeEventShim) Namespace() string {
-	return e.namespace
-}
-
-// Changed returns the changed value of event. This logically can be
-// the primary key of the row that was changed or the field of the change
-// that was changed.
-func (e changeEventShim) Changed() string {
-	return e.changed
-}
-
 // uuidToNameMapper is an eventsource.Mapper that converts a slice of
 // changestream.ChangeEvent containing machine UUIDs to another slice of
 // events with the machine names that correspond to the UUIDs.
@@ -195,15 +169,11 @@ func (e changeEventShim) Changed() string {
 func (s *WatchableService) uuidToNameMapper(filter func(string, machine.Name) bool) eventsource.Mapper {
 	return func(
 		ctx context.Context, events []changestream.ChangeEvent,
-	) ([]changestream.ChangeEvent, error) {
+	) ([]string, error) {
 		// Generate a slice of UUIDs and placeholders for our query
 		// and index the events by those UUIDs.
-		machineUUIDs := make([]string, 0, len(events))
-		placeHolders := make([]string, 0, len(events))
-		eventsByUUID := transform.SliceToMap(events, func(e changestream.ChangeEvent) (string, changestream.ChangeEvent) {
-			machineUUIDs = append(machineUUIDs, e.Changed())
-			placeHolders = append(placeHolders, "?")
-			return e.Changed(), e
+		machineUUIDs := transform.Slice(events, func(e changestream.ChangeEvent) string {
+			return e.Changed()
 		})
 
 		uuidsToName, err := s.st.GetNamesForUUIDs(ctx, machineUUIDs)
@@ -211,22 +181,16 @@ func (s *WatchableService) uuidToNameMapper(filter func(string, machine.Name) bo
 			return nil, errors.Capture(err)
 		}
 
-		newEvents := make([]changestream.ChangeEvent, 0, len(events))
-
+		var changes []string
 		for uuid, name := range uuidsToName {
 			if filter != nil && filter(uuid, name) {
 				continue
 			}
 
-			e := eventsByUUID[uuid]
-			newEvents = append(newEvents, changeEventShim{
-				changeType: e.Type(),
-				namespace:  e.Namespace(),
-				changed:    name.String(),
-			})
+			changes = append(changes, name.String())
 		}
 
-		return newEvents, nil
+		return changes, nil
 	}
 }
 

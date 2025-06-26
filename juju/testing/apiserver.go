@@ -50,7 +50,6 @@ import (
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	servicefactorytesting "github.com/juju/juju/domain/services/testing"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cmd"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	internallease "github.com/juju/juju/internal/lease"
@@ -60,9 +59,7 @@ import (
 	"github.com/juju/juju/internal/mongo/mongotest"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
-	"github.com/juju/juju/internal/password"
 	_ "github.com/juju/juju/internal/provider/dummy"
-	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -150,11 +147,6 @@ type ApiServerSuite struct {
 
 	// ControllerUUID is the unique identifier for the controller.
 	ControllerUUID string
-
-	// InstancePrechecker is used to validate instance creation.
-	//
-	// Deprecated: This will be removed in the future.
-	InstancePrechecker func(*tc.C, *state.State) environs.InstancePrechecker
 
 	objectStoresMutex sync.Mutex
 	objectStores      []objectstore.ObjectStore
@@ -382,7 +374,6 @@ func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config
 
 	authenticator, err := stateauthenticator.NewAuthenticator(
 		c.Context(),
-		cfg.StatePool,
 		cfg.ControllerModelUUID,
 		factory.ControllerConfig(),
 		agentPasswordServiceGetter{
@@ -553,27 +544,6 @@ func (s *ApiServerSuite) OpenModelAPI(c *tc.C, modelUUID string) api.Connection 
 	return s.openAPIAs(c, AdminUser, AdminSecret, "", modelUUID)
 }
 
-// OpenAPIAsNewMachine creates a new machine entry that lives in system state,
-// and then uses that to open the API. The returned api.Connection should not be
-// closed by the caller as a cleanup function has been registered to do that.
-// The machine will run the supplied jobs; if none are given, JobHostUnits is assumed.
-func (s *ApiServerSuite) OpenAPIAsNewMachine(c *tc.C, jobs ...state.MachineJob) (api.Connection, *state.Machine) {
-	if len(jobs) == 0 {
-		jobs = []state.MachineJob{state.JobHostUnits}
-	}
-
-	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), jobs...)
-	c.Assert(err, tc.ErrorIsNil)
-	password, err := password.RandomPassword()
-	c.Assert(err, tc.ErrorIsNil)
-	err = machine.SetPassword(password)
-	c.Assert(err, tc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
-	c.Assert(err, tc.ErrorIsNil)
-	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce", s.ControllerModelUUID()), machine
-}
-
 // StatePool returns the server's state pool.
 func (s *ApiServerSuite) StatePool() *state.StatePool {
 	return s.controller.StatePool()
@@ -689,14 +659,11 @@ func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig 
 	if testclock == nil {
 		testclock = clock.WallClock
 	}
-	fakeOrigin := names.NewMachineTag("0")
-	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
 		Clock:                      testclock,
 		Tag:                        names.NewMachineTag("0"),
 		LogDir:                     c.MkDir(),
 		DataDir:                    c.MkDir(),
-		Hub:                        hub,
 		LeaseManager:               apitesting.StubLeaseManager{},
 		NewObserver:                func() observer.Observer { return &fakeobserver.Instance{} },
 		MetricsCollector:           apiserver.NewMetricsCollector(),

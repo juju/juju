@@ -18,7 +18,6 @@ type Backend interface {
 	WatchForMigration() state.NotifyWatcher
 	LatestMigration() (state.ModelMigration, error)
 	RemoveExportingModelDocs() error
-	AllLocalRelatedModels() ([]string, error)
 }
 
 // ControllerState defines the state functionality for controller model.

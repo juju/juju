@@ -207,6 +207,45 @@ func (c *MockControllerStateGetUserModelSummaryCall) DoAndReturn(f func(context.
 	return c
 }
 
+// HasValidCredential mocks base method.
+func (m *MockControllerState) HasValidCredential(arg0 context.Context, arg1 model.UUID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasValidCredential", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasValidCredential indicates an expected call of HasValidCredential.
+func (mr *MockControllerStateMockRecorder) HasValidCredential(arg0, arg1 any) *MockControllerStateHasValidCredentialCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasValidCredential", reflect.TypeOf((*MockControllerState)(nil).HasValidCredential), arg0, arg1)
+	return &MockControllerStateHasValidCredentialCall{Call: call}
+}
+
+// MockControllerStateHasValidCredentialCall wrap *gomock.Call
+type MockControllerStateHasValidCredentialCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateHasValidCredentialCall) Return(arg0 bool, arg1 error) *MockControllerStateHasValidCredentialCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateHasValidCredentialCall) Do(f func(context.Context, model.UUID) (bool, error)) *MockControllerStateHasValidCredentialCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateHasValidCredentialCall) DoAndReturn(f func(context.Context, model.UUID) (bool, error)) *MockControllerStateHasValidCredentialCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockEnvironVersionProvider is a mock of EnvironVersionProvider interface.
 type MockEnvironVersionProvider struct {
 	ctrl     *gomock.Controller
@@ -1189,7 +1228,7 @@ func (c *MockStateGetModelCall) DoAndReturn(f func(context.Context, model.UUID) 
 }
 
 // GetModelByName mocks base method.
-func (m *MockState) GetModelByName(arg0 context.Context, arg1 user.Name, arg2 string) (model.Model, error) {
+func (m *MockState) GetModelByName(arg0 context.Context, arg1, arg2 string) (model.Model, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelByName", arg0, arg1, arg2)
 	ret0, _ := ret[0].(model.Model)
@@ -1216,13 +1255,13 @@ func (c *MockStateGetModelByNameCall) Return(arg0 model.Model, arg1 error) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelByNameCall) Do(f func(context.Context, user.Name, string) (model.Model, error)) *MockStateGetModelByNameCall {
+func (c *MockStateGetModelByNameCall) Do(f func(context.Context, string, string) (model.Model, error)) *MockStateGetModelByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelByNameCall) DoAndReturn(f func(context.Context, user.Name, string) (model.Model, error)) *MockStateGetModelByNameCall {
+func (c *MockStateGetModelByNameCall) DoAndReturn(f func(context.Context, string, string) (model.Model, error)) *MockStateGetModelByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

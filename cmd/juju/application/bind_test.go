@@ -55,7 +55,7 @@ func (s *BindSuite) SetUpTest(c *tc.C) {
 	s.applicationClient = mockApplicationBindClient{}
 	s.spacesClient = mockSpacesClient{
 		spaceList: []params.Space{
-			{Id: "0", Name: network.AlphaSpaceName},
+			{Id: "0", Name: network.AlphaSpaceName.String()},
 			{Id: "1", Name: "sp1"},
 			{Id: "4", Name: "sp4"},
 			{Id: "5", Name: "testing"},
@@ -101,7 +101,7 @@ func (s *BindSuite) TestBind(c *tc.C) {
 	s.setupAPIConnection()
 	s.applicationClient.getResults = &params.ApplicationGetResults{
 		EndpointBindings: map[string]string{
-			"ep1": network.AlphaSpaceName,
+			"ep1": network.AlphaSpaceName.String(),
 			"ep2": "sp2",
 		},
 	}
@@ -134,7 +134,7 @@ func (s *BindSuite) TestBindUnknownEndpoint(c *tc.C) {
 	s.setupAPIConnection()
 	s.applicationClient.getResults = &params.ApplicationGetResults{
 		EndpointBindings: map[string]string{
-			"ep1": network.AlphaSpaceName,
+			"ep1": network.AlphaSpaceName.String(),
 			"ep2": "sp2",
 		},
 	}

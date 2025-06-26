@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -57,15 +56,16 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 			ResolveService:          domainServices.Resolve(),
 			StatusService:           domainServices.Status(),
 			ControllerConfigService: domainServices.ControllerConfig(),
+			ControllerNodeService:   domainServices.ControllerNode(),
 			MachineService:          domainServices.Machine(),
 			ModelConfigService:      domainServices.Config(),
 			ModelInfoService:        domainServices.ModelInfo(),
+			ModelProviderService:    domainServices.ModelProvider(),
 			NetworkService:          domainServices.Network(),
 			PortService:             domainServices.Port(),
 			RelationService:         domainServices.Relation(),
 			SecretService:           domainServices.Secret(),
 			UnitStateService:        domainServices.UnitState(),
-			ModelProviderService:    domainServices.ModelProvider(),
 		},
 	)
 }
@@ -108,14 +108,19 @@ func newUniterAPIWithServices(
 		return nil, errors.Trace(err)
 	}
 	storageAPI, err := newStorageAPI(
-		stateShim{st}, storageAccessor, context.DomainServices().BlockDevice(), resources, accessUnit)
+		storageAccessor,
+		context.DomainServices().BlockDevice(),
+		context.DomainServices().Application(),
+		resources,
+		accessUnit,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	modelConfigWatcher := commonmodel.NewModelConfigWatcher(
 		services.ModelConfigService,
-		context.WatcherRegistry(),
+		watcherRegistry,
 	)
 	logger := context.Logger().Child("uniter")
 
@@ -131,7 +136,7 @@ func newUniterAPIWithServices(
 	extLXDProfile := NewExternalLXDProfileAPI(
 		st,
 		services.MachineService,
-		context.WatcherRegistry(),
+		watcherRegistry,
 		authorizer,
 		accessUnit,
 		logger,
@@ -146,13 +151,8 @@ func newUniterAPIWithServices(
 		aClock,
 	)
 
-	systemState, err := context.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return &UniterAPI{
-		APIAddresser:       common.NewAPIAddresser(systemState, resources),
+		APIAddresser:       common.NewAPIAddresser(services.ControllerNodeService, watcherRegistry),
 		ModelConfigWatcher: modelConfigWatcher,
 		RebootRequester:    common.NewRebootRequester(services.MachineService, accessMachine),
 		UnitStateAPI:       unitState,
@@ -184,13 +184,11 @@ func newUniterAPIWithServices(
 		machineService:          services.MachineService,
 		modelConfigService:      services.ModelConfigService,
 		modelInfoService:        services.ModelInfoService,
+		modelProviderService:    services.ModelProviderService,
 		networkService:          services.NetworkService,
 		portService:             services.PortService,
 		relationService:         services.RelationService,
 		secretService:           services.SecretService,
 		unitStateService:        services.UnitStateService,
-		modelProviderService:    services.ModelProviderService,
-
-		cmrBackend: commoncrossmodel.GetBackend(st),
 	}, nil
 }

@@ -5,13 +5,13 @@
 
 Starting with Juju `3.1.0`, you can also manage secret backends in a number of ways.
 
-
+(configure-a-secret-backend)=
 ## Configure a secret backend
 
 To configure a secret backend, create a configuration YAML file with configurations supported by your chosen backend type. Below we create a minimal configuration file  for a backend type `vault`, so we name the file `vault_config.yaml` and specify the API `endpoint` and the access `token`.
 
 ```{important}
-Currently this is possible only for `vault`. 
+Currently this is possible only for `vault`.
 ```
 
 ```{caution}
@@ -39,11 +39,10 @@ token-rotate=7d
 ```
 -->
 
-## Add a secret backend to a model
+(add-a-secret-backend)=
+## Add a secret backend
 
-
-
-To add a secret backend to a model, run the `add-secret-backend` command followed by your desired name and type for the backend, type as well as any relevant options:
+Once you've configured a secret backend, to add it to a model, run the `add-secret-backend` command followed by your desired name and type for the backend, type as well as any relevant options:
 
 ```text
 juju add-secret-backend myvault vault token-rotate=10m --config /path/to/cfg.yaml
@@ -64,7 +63,7 @@ juju secret-backends
 
 ```text
 Backend           Type        Secrets  Message
-internal          controller      134  
+internal          controller      134
 foo-local         kubernetes       30
 bar-local         kubernetes       30
 myvault           vault            20  sealed
@@ -145,7 +144,7 @@ To view details about a particular secret, use the `show-secret-backend` command
 juju show-secret-backend myvault
 ```
 
-By passing various options you can also specify a controller, an output format, an output file, or whether to reveal sensitive information. 
+By passing various options you can also specify a controller, an output format, an output file, or whether to reveal sensitive information.
 
 > See more: {ref}`command-juju-show-secret-backend`
 

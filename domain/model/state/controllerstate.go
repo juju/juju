@@ -197,13 +197,15 @@ func Create(
 		)
 	}
 
-	// Add permissions for the model owner to be an admin of the newly created
+	// Add permissions for the model admins to be an admin of the newly created
 	// model.
-	if err := addAdminPermissions(ctx, preparer, tx, modelID, input.Owner); err != nil {
-		return errors.Errorf(
-			"adding admin permissions to model %q with id %q for owner %q: %w",
-			input.Name, modelID, input.Owner, err,
-		)
+	for _, u := range input.AdminUsers {
+		if err := addAdminPermissions(ctx, preparer, tx, modelID, u); err != nil {
+			return errors.Errorf(
+				"adding admin permissions to model %q with id %q for user %q: %w",
+				input.Name, modelID, u, err,
+			)
+		}
 	}
 
 	// Sets the secret backend to be used for the newly created model.
@@ -241,12 +243,12 @@ func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (coremodel.Mo
 	})
 }
 
-// GetModelByName returns the model found for the given username and model name
+// GetModelByName returns the model found for the given qualifier and model name
 // for which there can only be one. Should no model be found for the provided
 // search criteria an error satisfying [modelerrors.NotFound] will be returned.
 func (s *State) GetModelByName(
 	ctx context.Context,
-	username user.Name,
+	modelQualifier string,
 	modelName string,
 ) (coremodel.Model, error) {
 	db, err := s.DB()
@@ -255,16 +257,16 @@ func (s *State) GetModelByName(
 	}
 
 	dbNames := dbNames{
-		ModelName: modelName,
-		OwnerName: username.Name(),
+		ModelName:      modelName,
+		ModelQualifier: modelQualifier,
 	}
 
 	var model dbModel
 	stmt, err := s.Prepare(`
 SELECT &dbModel.*
-FROM v_model
-WHERE name = $dbNames.name
-AND owner_name = $dbNames.owner_name
+FROM   v_model
+WHERE  name = $dbNames.name
+AND    qualifier = $dbNames.qualifier
 `, model, dbNames)
 	if err != nil {
 		return coremodel.Model{}, errors.Capture(err)
@@ -273,15 +275,15 @@ AND owner_name = $dbNames.owner_name
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, dbNames).Get(&model); errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"%w for user %q and name %q",
+				"%w for name %s/%s",
 				modelerrors.NotFound,
-				username,
+				modelQualifier,
 				modelName,
 			)
 		} else if err != nil {
 			return errors.Errorf(
-				"cannot find model for user %q and name %q: %w",
-				username,
+				"cannot find model for name %s/%s: %w",
+				modelQualifier,
 				modelName,
 				err,
 			)
@@ -318,7 +320,7 @@ SELECT &dbModelState.* FROM v_model_state WHERE uuid = $dbModelUUID.uuid
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, modelUUIDVal).Get(&modelState)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.New("model does not exist").Add(modelerrors.NotFound)
+			return errors.Errorf("model %q does not exist", modelUUIDVal.UUID).Add(modelerrors.NotFound)
 		}
 		return err
 	})
@@ -460,6 +462,7 @@ WHERE uuid = $dbModel.uuid
 	info := coremodel.ModelInfo{
 		UUID:           coremodel.UUID(model.UUID),
 		Name:           model.Name,
+		Qualifier:      coremodel.Qualifier(model.Qualifier),
 		Type:           coremodel.ModelType(model.ModelType),
 		Cloud:          model.CloudName,
 		CloudType:      model.CloudType,
@@ -662,27 +665,29 @@ func createModel(
 		return errors.Errorf("getting cloud %q uuid: %w", input.Cloud, err)
 	}
 
-	ownerUUID := dbUserUUID{UUID: input.Owner.String()}
-	userStmt, err := preparer.Prepare(`
+	for _, u := range input.AdminUsers {
+		creatorUUID := dbUserUUID{UUID: u.String()}
+		userStmt, err := preparer.Prepare(`
 		SELECT &dbUserUUID.uuid
 		FROM user
 		WHERE uuid = $dbUserUUID.uuid
 		AND removed = false
-	`, ownerUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, userStmt, ownerUUID).Get(&ownerUUID)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("%w for model owner %q", accesserrors.UserNotFound, input.Owner)
-	} else if err != nil {
-		return errors.Errorf("getting user uuid for setting model %q owner: %w", input.Name, err)
+	`, creatorUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, userStmt, creatorUUID).Get(&creatorUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("%w for model creator %q", accesserrors.UserNotFound, u)
+		} else if err != nil {
+			return errors.Errorf("getting user uuid for setting model %q creator: %w", input.Name, err)
+		}
 	}
 
-	// If a model with this name/owner was previously created, clean it up
+	// If a model with this qualifier/name was previously created, clean it up
 	// before creating the new model.
-	if err := cleanupBrokenModel(ctx, preparer, tx, input.Name, input.Owner); err != nil {
-		return errors.Errorf("deleting broken model with name %q and owner %q: %w", input.Name, input.Owner, err)
+	if err := cleanupBrokenModel(ctx, preparer, tx, input.Qualifier, input.Name); err != nil {
+		return errors.Errorf("deleting broken model with name %s/%s: %w", input.Qualifier, input.Name, err)
 	}
 
 	model := dbInitialModel{
@@ -691,7 +696,7 @@ func createModel(
 		ModelType: modelType.String(),
 		LifeID:    int(life.Alive),
 		Name:      input.Name,
-		OwnerUUID: input.Owner.String(),
+		Qualifier: input.Qualifier.String(),
 	}
 
 	stmt, err := preparer.Prepare(`
@@ -700,13 +705,13 @@ func createModel(
 		            model_type_id,
 		            life_id,
 		            name,
-		            owner_uuid)
+		            qualifier)
 		SELECT  $dbInitialModel.uuid,
 				$dbInitialModel.cloud_uuid,
 				model_type.id,
 				$dbInitialModel.life_id,
 				$dbInitialModel.name,
-				$dbInitialModel.owner_uuid
+				$dbInitialModel.qualifier
 		FROM model_type
 		WHERE model_type.type = $dbInitialModel.model_type
 		`, model)
@@ -719,7 +724,7 @@ func createModel(
 	if jujudb.IsErrConstraintPrimaryKey(err) {
 		return errors.Errorf("%w for id %q", modelerrors.AlreadyExists, modelUUID)
 	} else if jujudb.IsErrConstraintUnique(err) {
-		return errors.Errorf("%w for name %q and owner %q", modelerrors.AlreadyExists, input.Name, input.Owner)
+		return errors.Errorf("%w for name %s/%s", modelerrors.AlreadyExists, input.Qualifier, input.Name)
 	} else if err != nil {
 		return errors.Errorf("setting model %q information: %w", modelUUID, err)
 	}
@@ -1061,7 +1066,7 @@ WHERE  uuid IN (SELECT grant_on
 	return modelUUIDs, nil
 }
 
-// ListModelsForUser returns a slice of models owned or accessible by the user
+// ListModelsForUser returns a slice of models accessible by the user
 // specified by the user id. If No user or models are found an empty slice is
 // returned.
 func (s *State) ListModelsForUser(
@@ -1078,8 +1083,7 @@ func (s *State) ListModelsForUser(
 	modelStmt, err := s.Prepare(`
 SELECT &dbModel.*
 FROM   v_model
-WHERE  owner_uuid = $dbUUID.uuid
-OR     uuid IN (SELECT grant_on
+WHERE  uuid IN (SELECT grant_on
                 FROM   permission
                 WHERE  grant_to = $dbUUID.uuid
                 AND    access_type_id IN (0, 1, 3))
@@ -1184,7 +1188,7 @@ func (s *State) GetModelSummary(
 	}
 
 	q := `
-SELECT (m.owner_name, ms.destroying, ms.cloud_credential_invalid,
+SELECT (ms.destroying, ms.cloud_credential_invalid,
         ms.cloud_credential_invalid_reason, ms.migrating,
         life) AS (&dbModelSummary.*)
 FROM   v_model_state ms
@@ -1224,17 +1228,8 @@ WHERE  ms.uuid = $dbModelUUID.uuid
 		return model.ModelSummary{}, errors.Capture(err)
 	}
 
-	ownerName, err := user.NewName(modelSummaryVals.OwnerName)
-	if err != nil {
-		return model.ModelSummary{}, errors.Errorf(
-			"parsing model %q owner username %q: %w",
-			modelUUID, modelSummaryVals.OwnerName, err,
-		)
-	}
-
 	return model.ModelSummary{
-		Life:      corelife.Value(modelSummaryVals.Life),
-		OwnerName: ownerName,
+		Life: corelife.Value(modelSummaryVals.Life),
 		State: model.ModelState{
 			Destroying:                   modelSummaryVals.Destroying,
 			HasInvalidCloudCredential:    modelSummaryVals.CredentialInvalid,
@@ -1295,7 +1290,7 @@ func (s *State) GetUserModelSummary(
 
 	q := `
 SELECT    (p.access_type, mll.time, ms.destroying, ms.cloud_credential_invalid,
-           ms.cloud_credential_invalid_reason, ms.migrating, m.owner_name,
+           ms.cloud_credential_invalid_reason, ms.migrating,
            m.life) AS (&dbUserModelSummary.*)
 FROM      v_user_auth u
 JOIN      v_permission p ON p.grant_to = u.uuid
@@ -1354,18 +1349,9 @@ AND       ms.uuid = $dbModelUUID.uuid
 		return model.UserModelSummary{}, errors.Capture(err)
 	}
 
-	ownerName, err := user.NewName(userModelSummaryVals.OwnerName)
-	if err != nil {
-		return model.UserModelSummary{}, errors.Errorf(
-			"parsing model %q owner username %q: %w",
-			modelUUID, userModelSummaryVals.OwnerName, err,
-		)
-	}
-
 	return model.UserModelSummary{
 		ModelSummary: model.ModelSummary{
-			Life:      corelife.Value(userModelSummaryVals.Life),
-			OwnerName: ownerName,
+			Life: corelife.Value(userModelSummaryVals.Life),
 			State: model.ModelState{
 				Destroying:                   userModelSummaryVals.Destroying,
 				Migrating:                    userModelSummaryVals.Migrating,
@@ -1571,32 +1557,33 @@ func cleanupBrokenModel(
 	ctx context.Context,
 	preparer domain.Preparer,
 	tx *sqlair.TX,
-	modelName string, modelOwner user.UUID,
+	modelQualifier coremodel.Qualifier,
+	modelName string,
 ) error {
 	var uuid = dbUUID{}
-	nameAndOwner := dbModelNameAndOwner{
+	nameAndQualifier := dbModelNameAndQualifier{
 		Name:      modelName,
-		OwnerUUID: modelOwner.String(),
+		Qualifier: modelQualifier.String(),
 	}
 	// Find the UUID for the broken model
 	findBrokenModelStmt, err := preparer.Prepare(`
 SELECT &dbUUID.uuid FROM model
-WHERE name = $dbModelNameAndOwner.name
-AND owner_uuid = $dbModelNameAndOwner.owner_uuid
-AND activated = false
-`, uuid, nameAndOwner)
+WHERE  name = $dbModelNameAndQualifier.name
+AND    qualifier = $dbModelNameAndQualifier.qualifier
+AND    activated = false
+`, uuid, nameAndQualifier)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, findBrokenModelStmt, nameAndOwner).Get(&uuid)
+	err = tx.Query(ctx, findBrokenModelStmt, nameAndQualifier).Get(&uuid)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		// Model doesn't exist so nothing to cleanup.
 		return nil
 	}
 	if err != nil {
-		return errors.Errorf("finding broken model for name %q and owner %q: %w",
-			modelName, modelOwner, err,
+		return errors.Errorf("finding broken model for %s/%s: %w",
+			modelQualifier, modelName, err,
 		)
 	}
 
@@ -2123,4 +2110,39 @@ WHERE uuid = $dbModelLife.uuid;
 	}
 
 	return life.Life, nil
+}
+
+// HasValidCredential returns true if the model has a valid credential.
+// The following errors may be returned:
+// - [modelerrors.NotFound] when the model no longer exists.
+func (st *State) HasValidCredential(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	invalidCredentialStatus := dbModelCredentialInvalidStatus{}
+	uuid := dbModelUUID{UUID: modelUUID.String()}
+	stmt, err := st.Prepare(`
+SELECT &dbModelCredentialInvalidStatus.*
+FROM v_model_state 
+WHERE uuid = $dbModelUUID.uuid;`,
+		invalidCredentialStatus, uuid)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, uuid).Get(&invalidCredentialStatus)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("model %q does not exist", uuid.UUID).Add(modelerrors.NotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return !invalidCredentialStatus.CredentialInvalid, nil
 }

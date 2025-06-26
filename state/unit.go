@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -55,7 +54,6 @@ type MachineRef interface {
 	Clean() bool
 	ContainerType() instance.ContainerType
 	Base() Base
-	Jobs() []MachineJob
 	AddPrincipal(string)
 	FileSystems() []string
 }
@@ -97,9 +95,9 @@ func newUnit(st *State, modelType ModelType, udoc *unitDoc) *Unit {
 	return unit
 }
 
-// ShouldBeAssigned returns whether the unit should be assigned to a machine.
+// shouldBeAssigned returns whether the unit should be assigned to a machine.
 // IAAS models require units to be assigned.
-func (u *Unit) ShouldBeAssigned() bool {
+func (u *Unit) shouldBeAssigned() bool {
 	return !u.isCaas()
 }
 
@@ -107,34 +105,18 @@ func (u *Unit) isCaas() bool {
 	return u.modelType == ModelTypeCAAS
 }
 
-// Application returns the application.
-func (u *Unit) Application() (*Application, error) {
+// application returns the application.
+func (u *Unit) application() (*Application, error) {
 	return u.st.Application(u.doc.Application)
 }
 
-// ConfigSettings returns the complete set of application charm config settings
-// available to the unit. Unset values will be replaced with the default
-// value for the associated option, and may thus be nil when no default is
-// specified.
-func (u *Unit) ConfigSettings() (charm.Settings, error) {
-	if u.doc.CharmURL == nil {
-		return nil, fmt.Errorf("unit's charm URL must be set before retrieving config")
-	}
-
-	s, err := charmSettingsWithDefaults(u.st, u.doc.CharmURL, u.doc.Application)
-	if err != nil {
-		return nil, errors.Annotatef(err, "charm config for unit %q", u.Name())
-	}
-	return s, nil
-}
-
-// ApplicationName returns the application name.
-func (u *Unit) ApplicationName() string {
+// applicationName returns the application name.
+func (u *Unit) applicationName() string {
 	return u.doc.Application
 }
 
-// Base returns the deployed charm's base.
-func (u *Unit) Base() Base {
+// base returns the deployed charm's base.
+func (u *Unit) base() Base {
 	return u.doc.Base
 }
 
@@ -143,8 +125,8 @@ func (u *Unit) String() string {
 	return u.doc.Name
 }
 
-// Name returns the unit name.
-func (u *Unit) Name() string {
+// name returns the unit name.
+func (u *Unit) name() string {
 	return u.doc.Name
 }
 
@@ -169,41 +151,9 @@ func (u *Unit) globalCloudContainerKey() string {
 	return globalCloudContainerKey(u.doc.Name)
 }
 
-// Life returns whether the unit is Alive, Dying or Dead.
-func (u *Unit) Life() Life {
+// life returns whether the unit is Alive, Dying or Dead.
+func (u *Unit) life() Life {
 	return u.doc.Life
-}
-
-// AgentTools returns the tools that the agent is currently running.
-// It an error that satisfies errors.IsNotFound if the tools have not
-// yet been set.
-func (u *Unit) AgentTools() (*tools.Tools, error) {
-	if u.doc.Tools == nil {
-		return nil, errors.NotFoundf("agent binaries for unit %q", u)
-	}
-	result := *u.doc.Tools
-	return &result, nil
-}
-
-// SetAgentVersion sets the version of juju that the agent is
-// currently running.
-func (u *Unit) SetAgentVersion(v semversion.Binary) (err error) {
-	defer errors.DeferredAnnotatef(&err, "setting agent version for unit %q", u)
-	if err = checkVersionValidity(v); err != nil {
-		return err
-	}
-	versionedTool := &tools.Tools{Version: v}
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"tools", versionedTool}}}},
-	}}
-	if err := u.st.db().RunTransaction(ops); err != nil {
-		return onAbort(err, stateerrors.ErrDead)
-	}
-	u.doc.Tools = versionedTool
-	return nil
 }
 
 // UpdateOperation returns a model operation that will update a unit.
@@ -245,7 +195,7 @@ func (op *UpdateUnitOperation) Build(_ int) ([]txn.Op, error) {
 		newProviderId != "" &&
 		containerInfo.ProviderId != newProviderId {
 		logger.Debugf(context.TODO(), "unit %q has provider id %q which changed to %q",
-			op.unit.Name(), containerInfo.ProviderId, newProviderId)
+			op.unit.name(), containerInfo.ProviderId, newProviderId)
 	}
 
 	if op.props.ProviderId != nil {
@@ -335,7 +285,7 @@ func (op *UpdateUnitOperation) Build(_ int) ([]txn.Op, error) {
 // Done is part of the ModelOperation interface.
 func (op *UpdateUnitOperation) Done(err error) error {
 	if err != nil {
-		return errors.Annotatef(err, "updating unit %q", op.unit.Name())
+		return errors.Annotatef(err, "updating unit %q", op.unit.name())
 	}
 	return nil
 }
@@ -349,7 +299,7 @@ func (op *UpdateUnitOperation) Done(err error) error {
 func (u *Unit) Destroy(store objectstore.ObjectStore) error {
 	_, errs, err := u.DestroyWithForce(store, false, time.Duration(0))
 	if len(errs) != 0 {
-		logger.Warningf(context.TODO(), "operational errors destroying unit %v: %v", u.Name(), errs)
+		logger.Warningf(context.TODO(), "operational errors destroying unit %v: %v", u.name(), errs)
 	}
 	return err
 }
@@ -358,7 +308,7 @@ func (u *Unit) Destroy(store objectstore.ObjectStore) error {
 func (u *Unit) DestroyMaybeRemove(store objectstore.ObjectStore) (bool, error) {
 	removed, errs, err := u.DestroyWithForce(store, false, time.Duration(0))
 	if len(errs) != 0 {
-		logger.Warningf(context.TODO(), "operational errors destroying unit %v: %v", u.Name(), errs)
+		logger.Warningf(context.TODO(), "operational errors destroying unit %v: %v", u.name(), errs)
 	}
 	return removed, err
 }
@@ -413,7 +363,7 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		return nil, errors.New("no object store provided")
 	}
 	if attempt > 0 {
-		if err := op.unit.Refresh(); errors.Is(err, errors.NotFound) {
+		if err := op.unit.refresh(); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -430,7 +380,7 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		return ops, nil
 	default:
 		if op.Force {
-			logger.Warningf(context.TODO(), "forcing unit destruction for %v despite error %v", op.unit.Name(), err)
+			logger.Warningf(context.TODO(), "forcing unit destruction for %v despite error %v", op.unit.name(), err)
 			return ops, nil
 		}
 		return nil, err
@@ -512,7 +462,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		// If we are forcing, we care about the errors as we want report them to the user.
 		// But we also want operations to power through the removal.
 		if dyingErr != nil {
-			op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.Name(), dyingErr))
+			op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.name(), dyingErr))
 		}
 		ops := []txn.Op{setDyingOp, cleanupOp}
 		return ops, nil
@@ -526,7 +476,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	// See if the unit agent has started running.
 	// If so then we can't set directly to dead.
 	isAssigned := op.unit.doc.MachineId != ""
-	shouldBeAssigned := op.unit.ShouldBeAssigned()
+	shouldBeAssigned := op.unit.shouldBeAssigned()
 	agentStatusDocId := op.unit.globalAgentKey()
 	agentStatusInfo, agentErr := getStatus(op.unit.st.db(), agentStatusDocId, "agent")
 	if errors.Is(agentErr, errors.NotFound) {
@@ -539,27 +489,8 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 
 	// This has to be a function since we want to delay the evaluation of the value,
 	// in case agent erred out.
-	isReady := func() (bool, error) {
-		// IAAS models need the unit to be assigned.
-		if shouldBeAssigned {
-			return isAssigned && agentStatusInfo.Status != status.Allocating, nil
-		}
-		// For CAAS models, check to see if the unit agent has started (the
-		// presence of the unitstates row indicates this).
-		unitState, err := op.unit.State()
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		return unitState.Modified(), nil
-	}
 	if agentErr == nil {
-		ready, err := isReady()
-		if op.FatalError(err) {
-			return nil, errors.Trace(err)
-		}
-		if ready {
-			return setDyingOps(agentErr)
-		}
+		return setDyingOps(agentErr)
 	}
 	switch agentStatusInfo.Status {
 	case status.Error, status.Allocating:
@@ -630,12 +561,6 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		}
 		return nil, err
 	}
-	node, err := u.st.ControllerNode(u.doc.MachineId)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, err
-	}
-	haveControllerNode := err == nil
-	hasVote := haveControllerNode && node.HasVote()
 
 	containerCheck := true // whether container conditions allow destroying the host machine
 	containers, err := m.Containers()
@@ -660,39 +585,22 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		})
 	}
 
-	isController := m.IsManager()
 	machineCheck := true // whether host machine conditions allow destroy
 	if len(m.doc.Principals) != 1 || m.doc.Principals[0] != u.doc.Name {
-		machineCheck = false
-	} else if isController {
-		// Check that the machine does not have any responsibilities that
-		// prevent a lifecycle change.
-		machineCheck = false
-	} else if hasVote {
 		machineCheck = false
 	}
 
 	// assert that the machine conditions pertaining to host removal conditions
 	// remain the same throughout the transaction.
 	var machineAssert bson.D
-	var controllerNodeAssert interface{}
 	if machineCheck {
 		machineAssert = bson.D{{"$and", []bson.D{
 			{{"principals", []string{u.doc.Name}}},
-			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 		}}}
-		controllerNodeAssert = txn.DocMissing
-		if haveControllerNode {
-			controllerNodeAssert = bson.D{{"has-vote", false}}
-		}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
 			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
-			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 		}}}
-		if isController {
-			controllerNodeAssert = txn.DocExists
-		}
 	}
 
 	// If removal conditions satisfied by machine & container docs, we can
@@ -714,13 +622,6 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		Assert: machineAssert,
 		Update: machineUpdate,
 	})
-	if controllerNodeAssert != nil {
-		ops = append(ops, txn.Op{
-			C:      controllerNodesC,
-			Id:     m.st.docID(m.Id()),
-			Assert: controllerNodeAssert,
-		})
-	}
 
 	return append(ops, cleanupOps...), nil
 }
@@ -789,7 +690,7 @@ func (u *Unit) EnsureDead() (err error) {
 	} else if !notDead {
 		return nil
 	}
-	if err := u.Refresh(); errors.Is(err, errors.NotFound) {
+	if err := u.refresh(); errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return err
@@ -827,7 +728,7 @@ func (op *RemoveUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		return nil, errors.New("no object store provided")
 	}
 	if attempt > 0 {
-		if err := op.unit.Refresh(); errors.Is(err, errors.NotFound) {
+		if err := op.unit.refresh(); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -844,7 +745,7 @@ func (op *RemoveUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		return ops, nil
 	default:
 		if op.Force {
-			logger.Warningf(context.TODO(), "forcing unit removal for %v despite error %v", op.unit.Name(), err)
+			logger.Warningf(context.TODO(), "forcing unit removal for %v despite error %v", op.unit.name(), err)
 			return ops, nil
 		}
 		return nil, err
@@ -899,23 +800,17 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 	return append(ops, unitRemoveOps...), nil
 }
 
-// IsPrincipal returns whether the unit is deployed in its own container,
+// isPrincipal returns whether the unit is deployed in its own container,
 // and can therefore have subordinate applications deployed alongside it.
-func (u *Unit) IsPrincipal() bool {
+func (u *Unit) isPrincipal() bool {
 	return u.doc.Principal == ""
 }
 
-// SubordinateNames returns the names of any subordinate units.
-func (u *Unit) SubordinateNames() []string {
+// subordinateNames returns the names of any subordinate units.
+func (u *Unit) subordinateNames() []string {
 	subNames := make([]string, len(u.doc.Subordinates))
 	copy(subNames, u.doc.Subordinates)
 	return subNames
-}
-
-// PrincipalName returns the name of the unit's principal.
-// If the unit is not a subordinate, false is returned.
-func (u *Unit) PrincipalName() (string, bool) {
-	return u.doc.Principal, u.doc.Principal != ""
 }
 
 // machine returns the unit's machine.
@@ -946,134 +841,10 @@ func (u *Unit) noAssignedMachineOp() txn.Op {
 	}
 }
 
-// PublicAddress returns the public address of the unit.
-func (u *Unit) PublicAddress() (network.SpaceAddress, error) {
-	if !u.ShouldBeAssigned() {
-		return u.scopedAddress("public")
-	}
-	m, err := u.machine()
-	if err != nil {
-		unitLogger.Tracef(context.TODO(), "%v", err)
-		return network.SpaceAddress{}, errors.Trace(err)
-	}
-	return m.PublicAddress()
-}
-
-// PrivateAddress returns the private address of the unit.
-func (u *Unit) PrivateAddress() (network.SpaceAddress, error) {
-	if !u.ShouldBeAssigned() {
-		addr, err := u.scopedAddress("private")
-		if network.IsNoAddressError(err) {
-			return u.containerAddress()
-		}
-		return addr, errors.Trace(err)
-	}
-	m, err := u.machine()
-	if err != nil {
-		unitLogger.Tracef(context.TODO(), "%v", err)
-		return network.SpaceAddress{}, errors.Trace(err)
-	}
-	return m.PrivateAddress()
-}
-
-// AllAddresses returns the public and private addresses
-// plus the container address of the unit (if known).
-// Only relevant for CAAS models - will return an empty
-// slice for IAAS models.
-func (u *Unit) AllAddresses() (addrs network.SpaceAddresses, _ error) {
-	if u.ShouldBeAssigned() {
-		return addrs, nil
-	}
-
-	// First the addresses of the service.
-	serviceAddrs, err := u.serviceAddresses()
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-	if err == nil {
-		addrs = append(addrs, serviceAddrs...)
-	}
-
-	// Then the container address.
-	containerAddr, err := u.containerAddress()
-	if network.IsNoAddressError(err) {
-		return addrs, nil
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	addrs = append(addrs, containerAddr)
-	return addrs, nil
-}
-
-// serviceAddresses returns the addresses of the service
-// managing the pods in which the unit workload is running.
-func (u *Unit) serviceAddresses() (network.SpaceAddresses, error) {
-	app, err := u.Application()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	serviceInfo, err := app.ServiceInfo()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return serviceInfo.Addresses(), nil
-}
-
-// containerAddress returns the address of the pod's container.
-func (u *Unit) containerAddress() (network.SpaceAddress, error) {
-	containerInfo, err := u.cloudContainer()
-	if errors.Is(err, errors.NotFound) {
-		return network.SpaceAddress{}, network.NoAddressError("container")
-	}
-	if err != nil {
-		return network.SpaceAddress{}, errors.Trace(err)
-	}
-	addr := containerInfo.Address
-	if addr == nil {
-		return network.SpaceAddress{}, network.NoAddressError("container")
-	}
-	return addr.networkAddress(), nil
-}
-
-func (u *Unit) scopedAddress(scope string) (network.SpaceAddress, error) {
-	addresses, err := u.AllAddresses()
-	if err != nil {
-		return network.SpaceAddress{}, errors.Trace(err)
-	}
-	if len(addresses) == 0 {
-		return network.SpaceAddress{}, network.NoAddressError(scope)
-	}
-	getStrictPublicAddr := func(addresses network.SpaceAddresses) (network.SpaceAddress, bool) {
-		addr, ok := addresses.OneMatchingScope(network.ScopeMatchPublic)
-		return addr, ok && addr.Scope == network.ScopePublic
-	}
-
-	getInternalAddr := func(addresses network.SpaceAddresses) (network.SpaceAddress, bool) {
-		return addresses.OneMatchingScope(network.ScopeMatchCloudLocal)
-	}
-
-	var addrMatch func(network.SpaceAddresses) (network.SpaceAddress, bool)
-	switch scope {
-	case "public":
-		addrMatch = getStrictPublicAddr
-	case "private":
-		addrMatch = getInternalAddr
-	default:
-		return network.SpaceAddress{}, errors.NotValidf("address scope %q", scope)
-	}
-
-	addr, found := addrMatch(addresses)
-	if !found {
-		return network.SpaceAddress{}, network.NoAddressError(scope)
-	}
-	return addr, nil
-}
-
-// Refresh refreshes the contents of the Unit from the underlying
+// refresh refreshes the contents of the Unit from the underlying
 // state. It an error that satisfies errors.IsNotFound if the unit has
 // been removed.
-func (u *Unit) Refresh() error {
+func (u *Unit) refresh() error {
 	units, closer := u.st.db().GetCollection(unitsC)
 	defer closer()
 
@@ -1087,73 +858,12 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
-// ContainerStatus returns the container status for a unit.
-func (u *Unit) ContainerStatus() (status.StatusInfo, error) {
-	return getStatus(u.st.db(), u.globalCloudContainerKey(), "cloud container")
-}
-
-// CharmURL returns the charm URL this unit is currently using.
-func (u *Unit) CharmURL() *string {
-	return u.doc.CharmURL
-}
-
-// SetCharmURL marks the unit as currently using the supplied charm URL.
-// No checks are performed on the supplied URL, and it is assumed to be
-// properly stored in dqlite.
-func (u *Unit) SetCharmURL(curl string) error {
-	if curl == "" {
-		return errors.Errorf("cannot set empty charm url")
-	}
-
-	db, dbCloser := u.st.newDB()
-	defer dbCloser()
-	units, uCloser := db.GetCollection(unitsC)
-	defer uCloser()
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			// NOTE: We're explicitly allowing SetCharmURL to succeed
-			// when the unit is Dying, because application/charm upgrades
-			// should still be allowed to apply to dying units, so
-			// that bugs in departed/broken hooks can be addressed at
-			// runtime.
-			if notDead, err := isNotDeadWithSession(units, u.doc.DocID); err != nil {
-				return nil, errors.Trace(err)
-			} else if !notDead {
-				return nil, stateerrors.ErrDead
-			}
-		}
-		sel := bson.D{{"_id", u.doc.DocID}, {"charmurl", curl}}
-		if count, err := units.Find(sel).Count(); err != nil {
-			return nil, errors.Trace(err)
-		} else if count == 1 {
-			// Already set
-			return nil, jujutxn.ErrNoOperations
-		}
-
-		// Set the new charm URL.
-		differentCharm := bson.D{{"charmurl", bson.D{{"$ne", curl}}}}
-
-		return []txn.Op{{
-			C:      unitsC,
-			Id:     u.doc.DocID,
-			Assert: append(notDeadDoc, differentCharm...),
-			Update: bson.D{{"$set", bson.D{{"charmurl", curl}}}},
-		}}, nil
-	}
-	err := u.st.db().Run(buildTxn)
-	if err == nil {
-		u.doc.CharmURL = &curl
-	}
-	return err
-}
-
 // charm returns the charm for the unit, or the application if the unit's charm
 // has not been set yet.
 func (u *Unit) charm() (CharmRefFull, error) {
-	cURL := u.CharmURL()
+	cURL := u.doc.CharmURL
 	if cURL == nil {
-		app, err := u.Application()
+		app, err := u.application()
 		if err != nil {
 			return nil, err
 		}
@@ -1161,7 +871,7 @@ func (u *Unit) charm() (CharmRefFull, error) {
 	}
 
 	if cURL == nil {
-		return nil, errors.Errorf("missing charm URL for %q", u.Name())
+		return nil, errors.Errorf("missing charm URL for %q", u.name())
 	}
 
 	var ch CharmRefFull
@@ -1175,7 +885,7 @@ func (u *Unit) charm() (CharmRefFull, error) {
 		},
 		Clock: u.st.clock(),
 		NotifyFunc: func(err error, attempt int) {
-			logger.Warningf(context.TODO(), "error getting charm for unit %q. Retrying (attempt %d): %v", u.Name(), attempt, err)
+			logger.Warningf(context.TODO(), "error getting charm for unit %q. Retrying (attempt %d): %v", u.name(), attempt, err)
 		},
 	})
 
@@ -1192,7 +902,7 @@ func (u *Unit) assertCharmOps(ch CharmRefFull) []txn.Op {
 		Assert: bson.D{{"charmurl", u.doc.CharmURL}},
 	}}
 	if u.doc.CharmURL != nil {
-		appName := u.ApplicationName()
+		appName := u.applicationName()
 		ops = append(ops, txn.Op{
 			C:      applicationsC,
 			Id:     appName,
@@ -1212,7 +922,7 @@ func (u *Unit) Tag() names.Tag {
 // unitTag returns a names.UnitTag representing this Unit, unless the
 // unit Name is invalid, in which case it will panic
 func (u *Unit) unitTag() names.UnitTag {
-	return names.NewUnitTag(u.Name())
+	return names.NewUnitTag(u.name())
 }
 
 func unitNotAssignedError(u *Unit) error {
@@ -1237,13 +947,16 @@ var (
 // assignToMachine is the internal version of AssignToMachine.
 func (u *Unit) assignToMachine(
 	m MachineRef,
-	unused bool,
 ) (err error) {
+	defer assignContextf(&err, u.name(), fmt.Sprintf("machine %s", m))
+	if u.doc.Principal != "" {
+		return fmt.Errorf("unit is a subordinate")
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		u, m := u, m // don't change outer vars
 		if attempt > 0 {
 			var err error
-			u, err = u.st.Unit(u.Name())
+			u, err = u.st.Unit(u.name())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1252,7 +965,7 @@ func (u *Unit) assignToMachine(
 				return nil, errors.Trace(err)
 			}
 		}
-		return u.assignToMachineOps(m, unused)
+		return u.assignToMachineOps(m, false)
 	}
 	if err := u.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
@@ -1272,7 +985,7 @@ func (u *Unit) assignToMachineOps(
 	m MachineRef,
 	unused bool,
 ) ([]txn.Op, error) {
-	if u.Life() != Alive {
+	if u.life() != Alive {
 		return nil, unitNotAliveErr
 	}
 	if u.doc.MachineId != "" {
@@ -1327,10 +1040,7 @@ func (u *Unit) assignToMachineOps(
 			{{"machineid", m.Id()}},
 		},
 	}}...)
-	massert := append(isAliveDoc, bson.D{{
-		// The machine must be able to accept a unit.
-		"jobs", bson.M{"$in": []MachineJob{JobHostUnits}},
-	}}...)
+	massert := isAliveDoc
 	if unused {
 		massert = append(massert, bson.D{{"clean", bson.D{{"$ne", false}}}}...)
 	}
@@ -1368,16 +1078,6 @@ func validateUnitMachineAssignment(
 	}
 	if !base.compatibleWith(m.Base()) {
 		return fmt.Errorf("base does not match: unit has %q, machine has %q", base.DisplayString(), m.Base().DisplayString())
-	}
-	canHost := false
-	for _, j := range m.Jobs() {
-		if j == JobHostUnits {
-			canHost = true
-			break
-		}
-	}
-	if !canHost {
-		return fmt.Errorf("machine %q cannot host units", m)
 	}
 	sb, err := NewStorageBackend(st)
 	if err != nil {
@@ -1531,28 +1231,6 @@ func assignContextf(err *error, unitName string, target string) {
 	}
 }
 
-// AssignToMachine assigns this unit to a given machine.
-func (u *Unit) AssignToMachine(
-	m *Machine,
-) (err error) {
-	defer assignContextf(&err, u.Name(), fmt.Sprintf("machine %s", m))
-	if u.doc.Principal != "" {
-		return fmt.Errorf("unit is a subordinate")
-	}
-	return u.assignToMachine(m, false)
-}
-
-// AssignToMachine assigns this unit to a given machine.
-func (u *Unit) AssignToMachineRef(
-	m MachineRef,
-) (err error) {
-	defer assignContextf(&err, u.Name(), fmt.Sprintf("machine %s", m))
-	if u.doc.Principal != "" {
-		return fmt.Errorf("unit is a subordinate")
-	}
-	return u.assignToMachine(m, false)
-}
-
 // assignToNewMachineOps returns txn.Ops to assign the unit to a machine
 // created according to the supplied params, with the supplied constraints.
 func (u *Unit) assignToNewMachineOps(
@@ -1561,7 +1239,7 @@ func (u *Unit) assignToNewMachineOps(
 	containerType instance.ContainerType,
 ) (*Machine, []txn.Op, error) {
 
-	if u.Life() != Alive {
+	if u.life() != Alive {
 		return nil, nil, unitNotAliveErr
 	}
 	if u.doc.MachineId != "" {
@@ -1586,7 +1264,6 @@ func (u *Unit) assignToNewMachineOps(
 		// The new parent machine is clean and only hosts units,
 		// regardless of its child.
 		parentParams := template
-		parentParams.Jobs = []MachineJob{JobHostUnits}
 		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(template, parentParams, containerType)
 	default:
 		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType)
@@ -1642,8 +1319,8 @@ func (u *Unit) assignToNewMachineOps(
 	return &Machine{u.st, *mdoc}, ops, nil
 }
 
-// Constraints returns the unit's deployment constraints.
-func (u *Unit) Constraints() (*constraints.Value, error) {
+// constraints returns the unit's deployment constraints.
+func (u *Unit) constraints() (*constraints.Value, error) {
 	cons, err := readConstraints(u.st, u.globalAgentKey())
 	if errors.Is(err, errors.NotFound) {
 		// Lack of constraints indicates lack of unit.
@@ -1652,7 +1329,7 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 		return nil, err
 	}
 	if !cons.HasArch() && !cons.HasInstanceType() {
-		app, err := u.Application()
+		app, err := u.application()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1669,14 +1346,6 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 	return &cons, nil
 }
 
-// AssignToNewMachine assigns the unit to a new machine, with constraints
-// determined according to the application and model constraints at the
-// time of unit creation.
-func (u *Unit) AssignToNewMachine() (err error) {
-	defer assignContextf(&err, u.Name(), "new machine")
-	return u.assignToNewMachine("")
-}
-
 // assignToNewMachine assigns the unit to a new machine with the
 // optional placement directive, with constraints determined according
 // to the application and model constraints at the time of unit creation.
@@ -1689,12 +1358,12 @@ func (u *Unit) assignToNewMachine(placement string) error {
 		var err error
 		u := u // don't change outer var
 		if attempt > 0 {
-			u, err = u.st.Unit(u.Name())
+			u, err = u.st.Unit(u.name())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
-		cons, err := u.Constraints()
+		cons, err := u.constraints()
 		if err != nil {
 			return nil, err
 		}
@@ -1709,7 +1378,6 @@ func (u *Unit) assignToNewMachine(placement string) error {
 		template := MachineTemplate{
 			Base:                  u.doc.Base,
 			Constraints:           *cons,
-			Jobs:                  []MachineJob{JobHostUnits},
 			Placement:             placement,
 			Dirty:                 placement != "",
 			Volumes:               storageParams.volumes,
@@ -1787,7 +1455,7 @@ func unitStorageParams(u *Unit) (*storageParams, error) {
 		}
 		storageInstances = append(storageInstances, storage)
 	}
-	return storageParamsForUnit(sb, storageInstances, u.unitTag(), u.Base(), ch.Meta())
+	return storageParamsForUnit(sb, storageInstances, u.unitTag(), u.base(), ch.Meta())
 }
 
 func storageParamsForUnit(
@@ -1960,33 +1628,6 @@ var hasNoContainersTerm = bson.DocElem{
 		{{"children", bson.D{{"$exists", false}}}},
 	}}
 
-// UnassignFromMachine removes the assignment between this unit and the
-// machine it's assigned to.
-func (u *Unit) UnassignFromMachine() (err error) {
-	// TODO check local machine id and add an assert that the
-	// machine id is as expected.
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"machineid", ""}}}},
-	}}
-	if u.doc.MachineId != "" {
-		ops = append(ops, txn.Op{
-			C:      machinesC,
-			Id:     u.st.docID(u.doc.MachineId),
-			Assert: txn.DocExists,
-			Update: bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}},
-		})
-	}
-	err = u.st.db().RunTransaction(ops)
-	if err != nil {
-		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, errors.NotFoundf("machine")))
-	}
-	u.doc.MachineId = ""
-	return nil
-}
-
 // ActionSpecsByName is a map of action names to their respective ActionSpec.
 type ActionSpecsByName map[string]charm.ActionSpec
 
@@ -2006,7 +1647,7 @@ func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{},
 		}
 		spec, ok = specs[name]
 		if !ok {
-			return nil, false, "", errors.Errorf("action %q not defined on unit %q", name, u.Name())
+			return nil, false, "", errors.Errorf("action %q not defined on unit %q", name, u.name())
 		}
 	}
 	// Reject bad payloads before attempting to insert defaults.
@@ -2082,8 +1723,8 @@ func (u *Unit) RunningActions() ([]Action, error) {
 	return u.st.matchingActionsRunning(u)
 }
 
-// StorageConstraints returns the unit's storage constraints.
-func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
+// storageConstraints returns the unit's storage constraints.
+func (u *Unit) storageConstraints() (map[string]StorageConstraints, error) {
 	if u.doc.CharmURL == nil {
 		app, err := u.st.Application(u.doc.Application)
 		if err != nil {

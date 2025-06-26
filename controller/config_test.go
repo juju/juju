@@ -16,6 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
@@ -162,33 +163,6 @@ var newConfigTests = []struct {
 		controller.AuditLogExcludeMethods: "Dap.Kings,ReadOnlyMethods,Sharon Jones",
 	},
 	expectError: `invalid audit log exclude methods: should be a list of "Facade.Method" names \(or "ReadOnlyMethods"\), got "Sharon Jones" at position 3`,
-}, {
-	about: "negative controller-api-port",
-	config: controller.Config{
-		controller.ControllerAPIPort: -5,
-	},
-	expectError: `non-positive integer for controller-api-port not valid`,
-}, {
-	about: "controller-api-port matching api-port",
-	config: controller.Config{
-		controller.APIPort:           12345,
-		controller.ControllerAPIPort: 12345,
-	},
-	expectError: `controller-api-port matching api-port not valid`,
-}, {
-	about: "controller-api-port matching state-port",
-	config: controller.Config{
-		controller.APIPort:           12345,
-		controller.StatePort:         54321,
-		controller.ControllerAPIPort: 54321,
-	},
-	expectError: `controller-api-port matching state-port not valid`,
-}, {
-	about: "api-port-open-delay not a duration",
-	config: controller.Config{
-		controller.APIPortOpenDelay: "15",
-	},
-	expectError: `api-port-open-delay: conversion to duration: time: missing unit in duration "15"`,
 }, {
 	about: "txn-prune-sleep-time not a duration",
 	config: controller.Config{
@@ -455,13 +429,6 @@ var newConfigTests = []struct {
 		controller.SSHServerPort: 17075,
 	},
 	expectError: `ssh-server-port matching state-port not valid`,
-}, {
-	about: "SSH port equals controller api port",
-	config: controller.Config{
-		controller.ControllerAPIPort: 17078,
-		controller.SSHServerPort:     17078,
-	},
-	expectError: `ssh-server-port matching controller-api-port not valid`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *tc.C) {
@@ -474,12 +441,6 @@ func (s *ConfigSuite) TestNewConfig(c *tc.C) {
 			c.Check(err, tc.ErrorIsNil)
 		}
 	}
-}
-
-func (s *ConfigSuite) TestAPIPortDefaults(c *tc.C) {
-	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.APIPortOpenDelay(), tc.Equals, 2*time.Second)
 }
 
 func (s *ConfigSuite) TestResourceDownloadLimits(c *tc.C) {
@@ -562,8 +523,8 @@ func (s *ConfigSuite) TestPublicDNSAddressConfigValue(c *tc.C) {
 }
 
 func (s *ConfigSuite) TestNetworkSpaceConfigValues(c *tc.C) {
-	haSpace := "space1"
-	managementSpace := "space2"
+	haSpace := network.SpaceName("space1")
+	managementSpace := network.SpaceName("space2")
 
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
@@ -585,8 +546,8 @@ func (s *ConfigSuite) TestNetworkSpaceConfigDefaults(c *tc.C) {
 		map[string]interface{}{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.JujuHASpace(), tc.Equals, "")
-	c.Assert(cfg.JujuManagementSpace(), tc.Equals, "")
+	c.Check(cfg.JujuHASpace(), tc.Equals, network.SpaceName(""))
+	c.Check(cfg.JujuManagementSpace(), tc.Equals, network.SpaceName(""))
 }
 
 func (s *ConfigSuite) TestAuditLogDefaults(c *tc.C) {

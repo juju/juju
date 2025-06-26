@@ -182,13 +182,13 @@ func (s *ConfigSuite) TestSettingKey(c *tc.C) {
 
 func (s *ConfigSuite) TestSettingDuration(c *tc.C) {
 	var api fakeControllerAPI
-	context, err := s.runWithAPI(c, &api, "api-port-open-delay=100ms")
+	context, err := s.runWithAPI(c, &api, "query-tracing-threshold=100ms")
 	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals, "")
 
-	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"api-port-open-delay": "100ms"})
+	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"query-tracing-threshold": "100ms"})
 }
 
 func (s *ConfigSuite) TestSettingFromFile(c *tc.C) {

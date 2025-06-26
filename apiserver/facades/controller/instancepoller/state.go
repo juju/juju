@@ -7,7 +7,6 @@ import (
 	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -18,14 +17,9 @@ type StateMachine interface {
 
 	ProviderAddresses() network.SpaceAddresses
 	SetProviderAddresses(controller.Config, ...network.SpaceAddress) error
-	InstanceStatus() (status.StatusInfo, error)
-	SetInstanceStatus(status.StatusInfo) error
-	SetStatus(status.StatusInfo) error
 	String() string
 	Refresh() error
 	Life() state.Life
-	Status() (status.StatusInfo, error)
-	IsManual() (bool, error)
 }
 
 type StateInterface interface {

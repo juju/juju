@@ -34,20 +34,38 @@ type Services struct {
 	ResolveService          ResolveService
 	StatusService           StatusService
 	ControllerConfigService ControllerConfigService
+	ControllerNodeService   ControllerNodeService
 	MachineService          MachineService
 	ModelConfigService      ModelConfigService
 	ModelInfoService        ModelInfoService
-	NetworkService          NetworkService
+	ModelProviderService    ModelProviderService
 	PortService             PortService
+	NetworkService          NetworkService
 	RelationService         RelationService
 	SecretService           SecretService
 	UnitStateService        UnitStateService
-	ModelProviderService    ModelProviderService
 }
 
 // ControllerConfigService provides the controller configuration for the model.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ControllerNodeService defines the methods on the controller node service
+// that are needed by APIAddresser used by the uniter API.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+	// addresses that are available for agents. The map is keyed by controller
+	// ID, and the values are slices of strings representing the API addresses
+	// for each controller node.
+	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
+	// addresses available for agents ordered to prefer local-cloud scoped
+	// addresses and IPv4 over IPv6 for each machine.
+	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
+	// WatchControllerAPIAddresses returns a watcher that observes changes to the
+	// controller ip addresses.
+	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // ModelConfigService is used by the provisioner facade to get model config.
@@ -78,8 +96,8 @@ type ModelProviderService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	// GetApplicationLife looks up the life of the specified application.
-	GetApplicationLife(ctx context.Context, unitName string) (life.Value, error)
+	// GetApplicationLifeByName looks up the life of the specified application.
+	GetApplicationLifeByName(ctx context.Context, name string) (life.Value, error)
 
 	// GetUnitLife looks up the life of the specified unit.
 	GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.Value, error)
@@ -90,15 +108,20 @@ type ApplicationService interface {
 	// GetUnitPrincipal returns the unit's principal unit if it exists
 	GetUnitPrincipal(ctx context.Context, unitName coreunit.Name) (coreunit.Name, bool, error)
 
-	// GetUnitMachineName gets the name of the unit's machine. If the unit's
-	// machine cannot be found [applicationerrors.UnitMachineNotAssigned] is
-	// returned.
+	// GetUnitMachineName gets the name of the unit's machine.
+	//
+	// The following errors may be returned:
+	//   - [applicationerrors.UnitMachineNotAssigned] if the unit does not have a
+	//     machine assigned.
 	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (coremachine.Name, error)
 
 	// GetUnitMachineUUID gets the uuid of the unit's machine. If the unit's
 	// machine cannot be found [applicationerrors.UnitMachineNotAssigned] is
 	// returned.
 	GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name) (coremachine.UUID, error)
+
+	// GetUnitNamesForApplication returns a slice of the unit names for the given application
+	GetUnitNamesForApplication(ctx context.Context, appName string) ([]coreunit.Name, error)
 
 	// EnsureUnitDead is called by the unit agent just before it terminates.
 	EnsureUnitDead(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error
@@ -196,6 +219,17 @@ type ApplicationService interface {
 	// error state.
 	ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error)
 
+	// WatchUnitActions watches for all updates to actions for the specified unit,
+	// emitting action ids.
+	//
+	// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
+	// will be returned.
+	WatchUnitActions(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error)
+}
+
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
 	// GetUnitPublicAddress returns the public address for the specified unit.
 	// For k8s provider, it will return the first public address of the cloud
 	// service if any, the first public address of the cloud container otherwise.
@@ -303,46 +337,44 @@ type PortService interface {
 	GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID) (network.GroupedPortRanges, error)
 }
 
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	// SpaceByName returns a space from state that matches the input name.
-	// An error is returned that satisfied errors.NotFound if the space was not found
-	// or an error static any problems fetching the given space.
-	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
-	// GetAllSubnets returns all the subnets for the model.
-	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
-}
-
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
-	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
+	// RequireMachineReboot sets the machine referenced by its UUID as requiring
+	// a reboot.
 	RequireMachineReboot(ctx context.Context, uuid coremachine.UUID) error
 
-	// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
+	// ClearMachineReboot removes the reboot flag of the machine referenced by
+	// its UUID if a reboot has previously been required.
 	ClearMachineReboot(ctx context.Context, uuid coremachine.UUID) error
 
-	// IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
+	// IsMachineRebootRequired checks if the machine referenced by its UUID
+	// requires a reboot.
 	IsMachineRebootRequired(ctx context.Context, uuid coremachine.UUID) (bool, error)
 
-	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
+	// ShouldRebootOrShutdown determines whether a machine should reboot or
+	// shutdown
 	ShouldRebootOrShutdown(ctx context.Context, uuid coremachine.UUID) (coremachine.RebootAction, error)
 
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	// It returns an errors.MachineNotFound if the machine does not exist.
 	GetMachineUUID(ctx context.Context, machineName coremachine.Name) (coremachine.UUID, error)
 
-	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
+	// AppliedLXDProfileNames returns the names of the LXD profiles on the
+	// machine.
 	AppliedLXDProfileNames(ctx context.Context, mUUID coremachine.UUID) ([]string, error)
 
 	// WatchMachineCloudInstances returns a StringsWatcher that is subscribed to
 	// the changes in the machine_cloud_instance table in the model.
 	WatchLXDProfiles(ctx context.Context, machineUUID coremachine.UUID) (watcher.NotifyWatcher, error)
 
-	// AvailabilityZone returns the hardware characteristics of the
-	// specified machine.
+	// AvailabilityZone returns the hardware characteristics of the specified
+	// machine.
 	AvailabilityZone(ctx context.Context, machineUUID coremachine.UUID) (string, error)
+
+	// IsMachineManuallyProvisioned returns whether the machine is a manual
+	// machine.
+	IsMachineManuallyProvisioned(ctx context.Context, machineName coremachine.Name) (bool, error)
 }
 
 // RelationService defines the methods that the facade assumes from the

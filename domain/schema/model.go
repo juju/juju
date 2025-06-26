@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/domain/schema/model/triggers"
 )
 
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/storage-triggers.gen.go -package=triggers -tables=block_device,storage_attachment,storage_filesystem,storage_filesystem_attachment,storage_volume,storage_volume_attachment,storage_volume_attachment_plan
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/blockdevice-triggers.gen.go -package=triggers -tables=block_device
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_revision,secret_reference,secret_deleted_value_ref
@@ -20,7 +20,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-cloud-instance-triggers.gen.go -package=triggers -tables=machine_cloud_instance
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-requires-reboot-triggers.gen.go -package=triggers -tables=machine_requires_reboot
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,application_setting,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,relation_status,application_endpoint
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
@@ -30,18 +30,21 @@ var modelSchemaDir embed.FS
 
 const (
 	customNamespaceUnitInsertDelete tableNamespaceID = iota
+	customNamespaceStorageFilesystemLifeMachineProvisioning
+	customNamespaceStorageFilesystemLifeModelProvisioning
+	customNamespaceStorageFilesystemAttachmentLifeMachineProvisioning
+	customNamespaceStorageFilesystemAttachmentLifeModelProvisioning
+	customNamespaceStorageVolumeLifeMachineProvisioning
+	customNamespaceStorageVolumeLifeModelProvisioning
+	customNamespaceStorageVolumeAttachmentLifeMachineProvisioning
+	customNamespaceStorageVolumeAttachmentLifeModelProvisioning
+	customNamespaceStorageVolumeAttachmentPlanLifeMachineProvisioning
 )
 
 const (
 	tableModelConfig tableNamespaceID = iota + reservedCustomNamespaceIDOffset
 	tableModelObjectStoreMetadata
 	tableBlockDeviceMachine
-	tableStorageAttachment
-	tableFileSystem
-	tableFileSystemAttachment
-	tableVolume
-	tableVolumeAttachment
-	tableVolumeAttachmentPlan
 	tableSecretMetadataAutoPrune
 	tableSecretRotation
 	tableSecretRevisionObsolete
@@ -65,6 +68,7 @@ const (
 	tableApplication
 	tableRemoval
 	tableApplicationConfigHash
+	tableApplicationSetting
 	tableAgentVersion
 	tableRelationApplicationSettingsHash
 	tableRelationUnitSettingsHash
@@ -111,12 +115,6 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForBlockDevice("machine_uuid", tableBlockDeviceMachine),
 		triggers.ChangeLogTriggersForModelConfig("key", tableModelConfig),
 		triggers.ChangeLogTriggersForObjectStoreMetadataPath("path", tableModelObjectStoreMetadata),
-		triggers.ChangeLogTriggersForStorageAttachment("storage_instance_uuid", tableStorageAttachment),
-		triggers.ChangeLogTriggersForStorageFilesystem("uuid", tableFileSystem),
-		triggers.ChangeLogTriggersForStorageFilesystemAttachment("uuid", tableFileSystemAttachment),
-		triggers.ChangeLogTriggersForStorageVolume("uuid", tableVolume),
-		triggers.ChangeLogTriggersForStorageVolumeAttachment("uuid", tableVolumeAttachment),
-		triggers.ChangeLogTriggersForStorageVolumeAttachmentPlan("uuid", tableVolumeAttachmentPlan),
 		triggers.ChangeLogTriggersForSecretMetadata("secret_id", tableSecretMetadataAutoPrune),
 		triggers.ChangeLogTriggersForSecretRotation("secret_id", tableSecretRotation),
 		triggers.ChangeLogTriggersForSecretRevisionObsolete("revision_uuid", tableSecretRevisionObsolete),
@@ -142,6 +140,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForApplication("uuid", tableApplication),
 		triggers.ChangeLogTriggersForRemoval("uuid", tableRemoval),
 		triggers.ChangeLogTriggersForApplicationConfigHash("application_uuid", tableApplicationConfigHash),
+		triggers.ChangeLogTriggersForApplicationSetting("application_uuid", tableApplicationSetting),
 		triggers.ChangeLogTriggersForRelationApplicationSettingsHash("relation_endpoint_uuid",
 			tableRelationApplicationSettingsHash),
 		triggers.ChangeLogTriggersForRelationUnitSettingsHash("relation_unit_uuid",
@@ -158,6 +157,8 @@ func ModelDDL() *schema.Schema {
 	// Generic triggers.
 	patches = append(patches,
 		triggersForImmutableTable("model", "", "model table is immutable, only insertions are allowed"),
+		// The "built-in" storage pools are immutable, it can only be inserted once.
+		triggersForImmutableTable("storage_pool", "OLD.origin_id = 2", "built-in storage_pools are immutable, only insertions are allowed"),
 
 		// The charm is unmodifiable.
 		// There is a lot of assumptions in the code that the charm is immutable
@@ -177,6 +178,9 @@ func ModelDDL() *schema.Schema {
 		triggersForUnmodifiableTable("charm_storage", "charm_storage table is unmodifiable, only insertions and deletions are allowed"),
 		triggersForUnmodifiableTable("charm_term", "charm_term table is unmodifiable, only insertions and deletions are allowed"),
 
+		// Machine controller is unmodifiable.
+		triggersForUnmodifiableTable("application_controller", "application_controller table is unmodifiable, only insertions and deletions are allowed"),
+
 		// Secret permissions do not allow subject or scope to be updated.
 		triggerGuardForTable("secret_permission",
 			"OLD.subject_type_id <> NEW.subject_type_id OR OLD.scope_uuid <> NEW.scope_uuid OR OLD.scope_type_id <> NEW.scope_type_id",
@@ -186,6 +190,13 @@ func ModelDDL() *schema.Schema {
 		triggerGuardForTable("sequence",
 			"OLD.namespace = NEW.namespace AND NEW.value <= OLD.value",
 			"sequence number must monotonically increase",
+		),
+
+		// Storage pool origin cannot be changed.
+		triggerGuardForTable(
+			"storage_pool",
+			"OLD.origin_id <> NEW.origin_id",
+			"storage pool origin cannot be changed",
 		),
 	)
 
@@ -229,6 +240,8 @@ BEGIN
 END;
 `, customNamespaceUnitInsertDelete))
 	})
+
+	patches = append(patches, customModelTriggers()...)
 
 	modelSchema := schema.New()
 	for _, fn := range patches {

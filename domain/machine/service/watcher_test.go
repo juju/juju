@@ -59,18 +59,7 @@ func (s *mapperSuite) TestUuidToNameMapper(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(changesOut, tc.SameContents, []changestream.ChangeEvent{
-		changeEventShim{
-			changeType: 1,
-			namespace:  "machine",
-			changed:    "0",
-		},
-		changeEventShim{
-			changeType: 2,
-			namespace:  "machine",
-			changed:    "1",
-		},
-	})
+	c.Check(changesOut, tc.SameContents, []string{"0", "1"})
 }
 
 func (s *mapperSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -89,4 +78,30 @@ func (s *mapperSuite) getService() *WatchableService {
 
 func (s *mapperSuite) expectGetNamesForUUIDs(in []string, out map[string]machine.Name) {
 	s.state.EXPECT().GetNamesForUUIDs(gomock.Any(), in).Return(out, nil)
+}
+
+// changeEventShim implements changestream.ChangeEvent and allows the
+// substituting of events in an implementation of eventsource.Mapper.
+type changeEventShim struct {
+	changeType changestream.ChangeType
+	namespace  string
+	changed    string
+}
+
+// Type returns the type of change (create, update, delete).
+func (e changeEventShim) Type() changestream.ChangeType {
+	return e.changeType
+}
+
+// Namespace returns the namespace of the change. This is normally the
+// table name.
+func (e changeEventShim) Namespace() string {
+	return e.namespace
+}
+
+// Changed returns the changed value of event. This logically can be
+// the primary key of the row that was changed or the field of the change
+// that was changed.
+func (e changeEventShim) Changed() string {
+	return e.changed
 }

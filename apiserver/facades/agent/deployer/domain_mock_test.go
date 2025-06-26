@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
-	leadership "github.com/juju/juju/core/leadership"
 	life "github.com/juju/juju/core/life"
 	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
@@ -107,44 +106,6 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
-// EnsureUnitDead mocks base method.
-func (m *MockApplicationService) EnsureUnitDead(arg0 context.Context, arg1 unit.Name, arg2 leadership.Revoker) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureUnitDead", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// EnsureUnitDead indicates an expected call of EnsureUnitDead.
-func (mr *MockApplicationServiceMockRecorder) EnsureUnitDead(arg0, arg1, arg2 any) *MockApplicationServiceEnsureUnitDeadCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUnitDead", reflect.TypeOf((*MockApplicationService)(nil).EnsureUnitDead), arg0, arg1, arg2)
-	return &MockApplicationServiceEnsureUnitDeadCall{Call: call}
-}
-
-// MockApplicationServiceEnsureUnitDeadCall wrap *gomock.Call
-type MockApplicationServiceEnsureUnitDeadCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceEnsureUnitDeadCall) Return(arg0 error) *MockApplicationServiceEnsureUnitDeadCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceEnsureUnitDeadCall) Do(f func(context.Context, unit.Name, leadership.Revoker) error) *MockApplicationServiceEnsureUnitDeadCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceEnsureUnitDeadCall) DoAndReturn(f func(context.Context, unit.Name, leadership.Revoker) error) *MockApplicationServiceEnsureUnitDeadCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetUnitLife mocks base method.
 func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Value, error) {
 	m.ctrl.T.Helper()
@@ -184,40 +145,80 @@ func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
-// RemoveUnit mocks base method.
-func (m *MockApplicationService) RemoveUnit(arg0 context.Context, arg1 unit.Name, arg2 leadership.Revoker) error {
+// GetUnitNamesOnMachine mocks base method.
+func (m *MockApplicationService) GetUnitNamesOnMachine(arg0 context.Context, arg1 machine.Name) ([]unit.Name, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveUnit", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "GetUnitNamesOnMachine", arg0, arg1)
+	ret0, _ := ret[0].([]unit.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// RemoveUnit indicates an expected call of RemoveUnit.
-func (mr *MockApplicationServiceMockRecorder) RemoveUnit(arg0, arg1, arg2 any) *MockApplicationServiceRemoveUnitCall {
+// GetUnitNamesOnMachine indicates an expected call of GetUnitNamesOnMachine.
+func (mr *MockApplicationServiceMockRecorder) GetUnitNamesOnMachine(arg0, arg1 any) *MockApplicationServiceGetUnitNamesOnMachineCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUnit", reflect.TypeOf((*MockApplicationService)(nil).RemoveUnit), arg0, arg1, arg2)
-	return &MockApplicationServiceRemoveUnitCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitNamesOnMachine", reflect.TypeOf((*MockApplicationService)(nil).GetUnitNamesOnMachine), arg0, arg1)
+	return &MockApplicationServiceGetUnitNamesOnMachineCall{Call: call}
 }
 
-// MockApplicationServiceRemoveUnitCall wrap *gomock.Call
-type MockApplicationServiceRemoveUnitCall struct {
+// MockApplicationServiceGetUnitNamesOnMachineCall wrap *gomock.Call
+type MockApplicationServiceGetUnitNamesOnMachineCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceRemoveUnitCall) Return(arg0 error) *MockApplicationServiceRemoveUnitCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockApplicationServiceGetUnitNamesOnMachineCall) Return(arg0 []unit.Name, arg1 error) *MockApplicationServiceGetUnitNamesOnMachineCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceRemoveUnitCall) Do(f func(context.Context, unit.Name, leadership.Revoker) error) *MockApplicationServiceRemoveUnitCall {
+func (c *MockApplicationServiceGetUnitNamesOnMachineCall) Do(f func(context.Context, machine.Name) ([]unit.Name, error)) *MockApplicationServiceGetUnitNamesOnMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceRemoveUnitCall) DoAndReturn(f func(context.Context, unit.Name, leadership.Revoker) error) *MockApplicationServiceRemoveUnitCall {
+func (c *MockApplicationServiceGetUnitNamesOnMachineCall) DoAndReturn(f func(context.Context, machine.Name) ([]unit.Name, error)) *MockApplicationServiceGetUnitNamesOnMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitUUID mocks base method.
+func (m *MockApplicationService) GetUnitUUID(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitUUID", arg0, arg1)
+	ret0, _ := ret[0].(unit.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitUUID indicates an expected call of GetUnitUUID.
+func (mr *MockApplicationServiceMockRecorder) GetUnitUUID(arg0, arg1 any) *MockApplicationServiceGetUnitUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUID", reflect.TypeOf((*MockApplicationService)(nil).GetUnitUUID), arg0, arg1)
+	return &MockApplicationServiceGetUnitUUIDCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitUUIDCall wrap *gomock.Call
+type MockApplicationServiceGetUnitUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitUUIDCall) Return(arg0 unit.UUID, arg1 error) *MockApplicationServiceGetUnitUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitUUIDCall) Do(f func(context.Context, unit.Name) (unit.UUID, error)) *MockApplicationServiceGetUnitUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitUUIDCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockApplicationServiceGetUnitUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -282,6 +283,83 @@ func NewMockAgentPasswordService(ctrl *gomock.Controller) *MockAgentPasswordServ
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAgentPasswordService) EXPECT() *MockAgentPasswordServiceMockRecorder {
 	return m.recorder
+}
+
+// IsMachineController mocks base method.
+func (m *MockAgentPasswordService) IsMachineController(arg0 context.Context, arg1 machine.Name) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsMachineController", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsMachineController indicates an expected call of IsMachineController.
+func (mr *MockAgentPasswordServiceMockRecorder) IsMachineController(arg0, arg1 any) *MockAgentPasswordServiceIsMachineControllerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMachineController", reflect.TypeOf((*MockAgentPasswordService)(nil).IsMachineController), arg0, arg1)
+	return &MockAgentPasswordServiceIsMachineControllerCall{Call: call}
+}
+
+// MockAgentPasswordServiceIsMachineControllerCall wrap *gomock.Call
+type MockAgentPasswordServiceIsMachineControllerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAgentPasswordServiceIsMachineControllerCall) Return(arg0 bool, arg1 error) *MockAgentPasswordServiceIsMachineControllerCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAgentPasswordServiceIsMachineControllerCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockAgentPasswordServiceIsMachineControllerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAgentPasswordServiceIsMachineControllerCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockAgentPasswordServiceIsMachineControllerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetMachinePassword mocks base method.
+func (m *MockAgentPasswordService) SetMachinePassword(arg0 context.Context, arg1 machine.Name, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetMachinePassword", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMachinePassword indicates an expected call of SetMachinePassword.
+func (mr *MockAgentPasswordServiceMockRecorder) SetMachinePassword(arg0, arg1, arg2 any) *MockAgentPasswordServiceSetMachinePasswordCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachinePassword", reflect.TypeOf((*MockAgentPasswordService)(nil).SetMachinePassword), arg0, arg1, arg2)
+	return &MockAgentPasswordServiceSetMachinePasswordCall{Call: call}
+}
+
+// MockAgentPasswordServiceSetMachinePasswordCall wrap *gomock.Call
+type MockAgentPasswordServiceSetMachinePasswordCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAgentPasswordServiceSetMachinePasswordCall) Return(arg0 error) *MockAgentPasswordServiceSetMachinePasswordCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAgentPasswordServiceSetMachinePasswordCall) Do(f func(context.Context, machine.Name, string) error) *MockAgentPasswordServiceSetMachinePasswordCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAgentPasswordServiceSetMachinePasswordCall) DoAndReturn(f func(context.Context, machine.Name, string) error) *MockAgentPasswordServiceSetMachinePasswordCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // SetUnitPassword mocks base method.

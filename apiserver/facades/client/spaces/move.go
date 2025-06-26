@@ -34,7 +34,7 @@ func (api *API) MoveSubnets(ctx context.Context, args params.MoveSubnetsParams) 
 			results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
-		spaceName := spaceTag.Id()
+		spaceName := network.SpaceName(spaceTag.Id())
 
 		subnets, err := api.getSubnets(ctx, toSpaceParams.SubnetTags)
 		if err != nil {
@@ -83,7 +83,7 @@ func (api *API) getSubnets(ctx context.Context, tags []string) (network.SubnetIn
 
 // updateSubnet updates the space in each subnet of the provided list of
 // subnets.
-func (api *API) updateSubnets(ctx context.Context, spaceName string, subnets network.SubnetInfos) error {
+func (api *API) updateSubnets(ctx context.Context, spaceName network.SpaceName, subnets network.SubnetInfos) error {
 	space, err := api.networkService.SpaceByName(ctx, spaceName)
 	if err != nil {
 		return errors.Trace(err)
@@ -100,7 +100,7 @@ func (api *API) updateSubnets(ctx context.Context, spaceName string, subnets net
 // determine the validity of constraints and endpoint bindings resulting from
 // a relocation of subnets.
 // An error is returned if validity is violated and force is passed as false.
-func (api *API) ensureSubnetsCanBeMoved(ctx context.Context, subnets network.SubnetInfos, spaceName string, force bool) error {
+func (api *API) ensureSubnetsCanBeMoved(ctx context.Context, subnets network.SubnetInfos, spaceName network.SpaceName, force bool) error {
 	allSpaces, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -114,13 +114,13 @@ func (api *API) ensureSubnetsCanBeMoved(ctx context.Context, subnets network.Sub
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(api.ensureEndpointBindingsIntegrity(ctx, affected, allSpaces))
+	return errors.Trace(api.ensureEndpointBindingsIntegrity(ctx, affected))
 }
 
 // getAffectedNetworks interrogates machines connected to moving subnets.
 // From these it generates lists of common unit/subnet-topologies,
 // grouped by application.
-func (api *API) getAffectedNetworks(ctx context.Context, subnets network.SubnetInfos, spaceName string, allSpaces network.SpaceInfos, force bool) (*affectedNetworks, error) {
+func (api *API) getAffectedNetworks(ctx context.Context, subnets network.SubnetInfos, spaceName network.SpaceName, allSpaces network.SpaceInfos, force bool) (*affectedNetworks, error) {
 	movingSubnetIDs := network.MakeIDSet()
 	for _, subnet := range subnets {
 		movingSubnetIDs.Add(subnet.ID)
@@ -177,8 +177,8 @@ func (api *API) ensureSpaceConstraintIntegrity(ctx context.Context, affected *af
 	return errors.Trace(affected.ensureConstraintIntegrity(ctx, spaceConsByApp))
 }
 
-func (api *API) ensureEndpointBindingsIntegrity(ctx context.Context, affected *affectedNetworks, allSpaces network.SpaceInfos) error {
-	allBindings, err := api.backing.AllEndpointBindings()
+func (api *API) ensureEndpointBindingsIntegrity(ctx context.Context, affected *affectedNetworks) error {
+	allBindings, err := api.applicationService.GetAllEndpointBindings(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -191,7 +191,7 @@ func paramsFromMovedSubnet(subnets network.SubnetInfos) []params.MovedSubnet {
 	for i, v := range subnets {
 		results[i] = params.MovedSubnet{
 			SubnetTag:   names.NewSubnetTag(v.ID.String()).String(),
-			OldSpaceTag: names.NewSpaceTag(v.SpaceName).String(),
+			OldSpaceTag: names.NewSpaceTag(v.SpaceName.String()).String(),
 			CIDR:        v.CIDR,
 		}
 	}

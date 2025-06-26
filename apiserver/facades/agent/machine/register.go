@@ -7,8 +7,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -29,23 +27,21 @@ func Register(registry facade.FacadeRegistry) {
 
 // newMachinerAPI creates a new instance of the Machiner API.
 func newMachinerAPI(stdCtx context.Context, ctx facade.ModelContext) (*MachinerAPI, error) {
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	domainServices := ctx.DomainServices()
 	return NewMachinerAPIForState(
 		stdCtx,
-		systemState,
 		ctx.State(),
 		ctx.Clock(),
 		domainServices.ControllerConfig(),
+		domainServices.ControllerNode(),
 		domainServices.ModelInfo(),
 		domainServices.Network(),
+		domainServices.Application(),
 		domainServices.Machine(),
+		domainServices.Status(),
 		ctx.WatcherRegistry(),
-		ctx.Resources(),
 		ctx.Auth(),
+		ctx.Logger(),
 	)
 }
 

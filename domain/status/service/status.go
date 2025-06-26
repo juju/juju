@@ -496,6 +496,18 @@ func decodeUnitWorkloadStatuses(statuses status.UnitWorkloadStatuses) (map[unit.
 	return ret, nil
 }
 
+func decodeUnitAgentStatusesWithoutPresence(statuses status.UnitAgentStatuses) (map[unit.Name]corestatus.StatusInfo, error) {
+	ret := make(map[unit.Name]corestatus.StatusInfo, len(statuses))
+	for unitName, status := range statuses {
+		info, err := decodeUnitAgentStatus(status, true)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		ret[unitName] = info
+	}
+	return ret, nil
+}
+
 // selectWorkloadOrK8sPodStatus determines which of the two statuses to use
 // when displaying unit status. It is used in CAAS models where the status of
 // the unit could be overridden by the status of the container.
@@ -578,4 +590,172 @@ func applicationDisplayStatusFromUnits(
 		}
 	}
 	return result, nil
+}
+
+// encodeMachineStatusType converts a core status to a db unit workload
+// status id.
+func encodeMachineStatusType(s corestatus.Status) (status.MachineStatusType, error) {
+	switch s {
+	case corestatus.Started:
+		return status.MachineStatusStarted, nil
+	case corestatus.Stopped:
+		return status.MachineStatusStopped, nil
+	case corestatus.Error:
+		return status.MachineStatusError, nil
+	case corestatus.Pending:
+		return status.MachineStatusPending, nil
+	case corestatus.Down:
+		return status.MachineStatusDown, nil
+	default:
+		return -1, errors.Errorf("unknown machine status %q", s)
+	}
+}
+
+// decodeMachineStatusType converts a db unit workload status id to a core
+// status.
+func decodeMachineStatusType(s status.MachineStatusType) (corestatus.Status, error) {
+	switch s {
+	case status.MachineStatusStarted:
+		return corestatus.Started, nil
+	case status.MachineStatusStopped:
+		return corestatus.Stopped, nil
+	case status.MachineStatusError:
+		return corestatus.Error, nil
+	case status.MachineStatusPending:
+		return corestatus.Pending, nil
+	case status.MachineStatusDown:
+		return corestatus.Down, nil
+	default:
+		return corestatus.Unset, errors.Errorf("unknown machine status %d", s)
+	}
+}
+
+// encodeMachineStatus converts a core status info to a db status info.
+func encodeMachineStatus(s corestatus.StatusInfo) (status.StatusInfo[status.MachineStatusType], error) {
+	statusType, err := encodeMachineStatusType(s.Status)
+	if err != nil {
+		return status.StatusInfo[status.MachineStatusType]{}, err
+	}
+
+	var bytes []byte
+	if len(s.Data) > 0 {
+		var err error
+		bytes, err = json.Marshal(s.Data)
+		if err != nil {
+			return status.StatusInfo[status.MachineStatusType]{}, errors.Errorf("marshalling status data: %w", err)
+		}
+	}
+
+	return status.StatusInfo[status.MachineStatusType]{
+		Status:  statusType,
+		Message: s.Message,
+		Data:    bytes,
+		Since:   s.Since,
+	}, nil
+}
+
+// decodeMachineStatus converts a db status info into a core status info.
+func decodeMachineStatus(s status.StatusInfo[status.MachineStatusType]) (corestatus.StatusInfo, error) {
+	statusType, err := decodeMachineStatusType(s.Status)
+	if err != nil {
+		return corestatus.StatusInfo{}, err
+	}
+
+	var data map[string]interface{}
+	if len(s.Data) > 0 {
+		if err := json.Unmarshal(s.Data, &data); err != nil {
+			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
+		}
+	}
+
+	return corestatus.StatusInfo{
+		Status:  statusType,
+		Message: s.Message,
+		Data:    data,
+		Since:   s.Since,
+	}, nil
+}
+
+// encodeInstanceStatusType converts a core status to a db unit workload
+// status id.
+func encodeInstanceStatusType(s corestatus.Status) (status.InstanceStatusType, error) {
+	switch s {
+	case corestatus.Unset:
+		return status.InstanceStatusUnset, nil
+	case corestatus.Pending:
+		return status.InstanceStatusPending, nil
+	case corestatus.Provisioning:
+		return status.InstanceStatusAllocating, nil
+	case corestatus.Running:
+		return status.InstanceStatusRunning, nil
+	case corestatus.ProvisioningError:
+		return status.InstanceStatusProvisioningError, nil
+	default:
+		return -1, errors.Errorf("unknown instance status %q", s)
+	}
+}
+
+// decodeInstanceStatusType converts a db unit workload status id to a core
+// status.
+func decodeInstanceStatusType(s status.InstanceStatusType) (corestatus.Status, error) {
+	switch s {
+	case status.InstanceStatusUnset:
+		return corestatus.Unset, nil
+	case status.InstanceStatusPending:
+		return corestatus.Pending, nil
+	case status.InstanceStatusAllocating:
+		return corestatus.Provisioning, nil
+	case status.InstanceStatusRunning:
+		return corestatus.Running, nil
+	case status.InstanceStatusProvisioningError:
+		return corestatus.ProvisioningError, nil
+	default:
+		return corestatus.Unset, errors.Errorf("unknown instance status %d", s)
+	}
+}
+
+// encodeInstanceStatus converts a core status info to a db status info.
+func encodeInstanceStatus(s corestatus.StatusInfo) (status.StatusInfo[status.InstanceStatusType], error) {
+	statusType, err := encodeInstanceStatusType(s.Status)
+	if err != nil {
+		return status.StatusInfo[status.InstanceStatusType]{}, err
+	}
+
+	var bytes []byte
+	if len(s.Data) > 0 {
+		var err error
+		bytes, err = json.Marshal(s.Data)
+		if err != nil {
+			return status.StatusInfo[status.InstanceStatusType]{}, errors.Errorf("marshalling status data: %w", err)
+		}
+	}
+
+	return status.StatusInfo[status.InstanceStatusType]{
+		Status:  statusType,
+		Message: s.Message,
+		Data:    bytes,
+		Since:   s.Since,
+	}, nil
+}
+
+// decodeInstanceStatus converts a db status info into a core status info.
+func decodeInstanceStatus(s status.StatusInfo[status.InstanceStatusType]) (corestatus.StatusInfo, error) {
+	statusType, err := decodeInstanceStatusType(s.Status)
+	if err != nil {
+		return corestatus.StatusInfo{}, err
+	}
+
+	var data map[string]interface{}
+	if len(s.Data) > 0 {
+		if err := json.Unmarshal(s.Data, &data); err != nil {
+			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
+		}
+	}
+
+	return corestatus.StatusInfo{
+		Status:  statusType,
+		Message: s.Message,
+		Data:    data,
+		Since:   s.Since,
+	}, nil
 }

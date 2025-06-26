@@ -17,7 +17,9 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -94,7 +96,7 @@ func (s *applicationEndpointStateSuite) TestUpdateDefaultSpace(c *tc.C) {
 	// Assert: Shouldn't have any relation endpoint, but default should be updated
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.getApplicationDefaultSpace(c), tc.Equals, "beta")
+	c.Check(s.getApplicationDefaultSpace(c), tc.Equals, network.SpaceName("beta"))
 	c.Check(s.fetchApplicationEndpoints(c), tc.DeepEquals, []applicationEndpoint{})
 }
 
@@ -616,7 +618,7 @@ func (s *applicationEndpointStateSuite) TestMergeApplicationEndpointBindingsUpda
 
 	// Assert: the application's default space is updated
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.getApplicationDefaultSpace(c), tc.Equals, "beta")
+	c.Assert(s.getApplicationDefaultSpace(c), tc.Equals, network.SpaceName("beta"))
 }
 
 func (s *applicationEndpointStateSuite) TestMergeApplicationEndpointBindingsApplicationNotFound(c *tc.C) {
@@ -625,6 +627,129 @@ func (s *applicationEndpointStateSuite) TestMergeApplicationEndpointBindingsAppl
 
 	// Assert: default space not updated.
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationEndpointStateSuite) TestGetAllEndpointBindingsFreshModel(c *tc.C) {
+	// Act:
+	bindings, err := s.state.GetAllEndpointBindings(c.Context())
+
+	// Assert: Only the pre-made application should be returned.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bindings, tc.DeepEquals, map[string]map[string]string{
+		"foo": {
+			"": network.AlphaSpaceName.String(),
+		},
+	})
+}
+
+func (s *applicationEndpointStateSuite) TestGetAllEndpointBindingsDefault(c *tc.C) {
+	// Arrange:
+	// - create two applications
+	//   - by default, they gain 3 endpoints (juju-info, endpoint & misc) & an
+	//     extra binding (extra)
+
+	s.createIAASApplication(c, "fii", life.Alive)
+	app1rel1Name := "juju-info"
+	app1rel2Name := "endpoint"
+	app1rel3Name := "misc"
+
+	app1Extra1Name := "extra"
+
+	s.createIAASApplication(c, "bar", life.Alive)
+	app2rel1Name := "juju-info"
+	app2rel2Name := "endpoint"
+	app2rel3Name := "misc"
+
+	app2Extra1Name := "extra"
+
+	// Act:
+	allEndpointBindings, err := s.state.GetAllEndpointBindings(c.Context())
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(allEndpointBindings, tc.DeepEquals, map[string]map[string]string{
+		"foo": {
+			"": network.AlphaSpaceName.String(),
+		},
+		"fii": {
+			"":             network.AlphaSpaceName.String(),
+			app1rel1Name:   network.AlphaSpaceName.String(),
+			app1rel2Name:   network.AlphaSpaceName.String(),
+			app1rel3Name:   network.AlphaSpaceName.String(),
+			app1Extra1Name: network.AlphaSpaceName.String(),
+		},
+		"bar": {
+			"":             network.AlphaSpaceName.String(),
+			app2rel1Name:   network.AlphaSpaceName.String(),
+			app2rel2Name:   network.AlphaSpaceName.String(),
+			app2rel3Name:   network.AlphaSpaceName.String(),
+			app2Extra1Name: network.AlphaSpaceName.String(),
+		},
+	})
+}
+
+func (s *applicationEndpointStateSuite) TestGetAllEndpointBindings(c *tc.C) {
+	// Arrange:
+	// - add some spaces
+	// - create two applications
+	//   - by default, they gain 3 endpoints (juju-info, endpoint & misc) & an
+	//     extra binding (extra)
+	// - bind some of the endpoints to new spaces
+
+	beta := s.addSpaceReturningName(c, "beta")
+	gamma := s.addSpaceReturningName(c, "gamma")
+	delta := s.addSpaceReturningName(c, "delta")
+
+	app1UUID := s.createIAASApplication(c, "fii", life.Alive)
+	app1rel1Name := "juju-info"
+	app1rel2Name := "endpoint"
+	app1rel3Name := "misc"
+
+	app1Extra1Name := "extra"
+
+	app2UUID := s.createIAASApplication(c, "bar", life.Alive)
+	app2rel1Name := "juju-info"
+	app2rel2Name := "endpoint"
+	app2rel3Name := "misc"
+
+	app2Extra1Name := "extra"
+
+	err := s.state.MergeApplicationEndpointBindings(c.Context(), app1UUID, map[string]network.SpaceName{
+		app1rel2Name:   beta,
+		app1rel3Name:   gamma,
+		app1Extra1Name: delta,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.MergeApplicationEndpointBindings(c.Context(), app2UUID, map[string]network.SpaceName{
+		app2rel2Name: beta,
+		app2rel3Name: delta,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act:
+	allEndpointBindings, err := s.state.GetAllEndpointBindings(c.Context())
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(allEndpointBindings, tc.DeepEquals, map[string]map[string]string{
+		"foo": {
+			"": network.AlphaSpaceName.String(),
+		},
+		"fii": {
+			"":             network.AlphaSpaceName.String(),
+			app1rel1Name:   network.AlphaSpaceName.String(),
+			app1rel2Name:   beta.String(),
+			app1rel3Name:   gamma.String(),
+			app1Extra1Name: delta.String(),
+		},
+		"bar": {
+			"":             network.AlphaSpaceName.String(),
+			app2rel1Name:   network.AlphaSpaceName.String(),
+			app2rel2Name:   beta.String(),
+			app2rel3Name:   delta.String(),
+			app2Extra1Name: network.AlphaSpaceName.String(),
+		},
+	})
 }
 
 func (s *applicationEndpointStateSuite) TestGetEndpointBindings(c *tc.C) {
@@ -657,7 +782,7 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindings(c *tc.C) {
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(bindings, tc.DeepEquals, map[string]string{
+	c.Assert(bindings, tc.DeepEquals, map[string]network.SpaceUUID{
 		relationName1: spaceUUID1,
 		relationName2: spaceUUID2,
 		extraName1:    spaceUUID3,
@@ -684,7 +809,7 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindingsReturnsUnset(c *t
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(bindings, tc.DeepEquals, map[string]string{
+	c.Assert(bindings, tc.DeepEquals, map[string]network.SpaceUUID{
 		"":            network.AlphaSpaceId,
 		relationName1: network.AlphaSpaceId,
 		extraName1:    network.AlphaSpaceId,
@@ -746,7 +871,75 @@ func (s *applicationEndpointStateSuite) TestGetApplicationEndpointNamesApplicati
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationEndpointStateSuite) addApplicationEndpoint(c *tc.C, spaceUUID, relationUUID string) string {
+func (s *applicationEndpointStateSuite) TestGetApplicationsBoundToSpaceDefaultBindings(c *tc.C) {
+	// Arrange:
+	// - some extra applications
+	// - an extra space
+	s.createIAASApplication(c, "fee", life.Alive)
+	s.createIAASApplication(c, "bar", life.Alive)
+	s.createCAASApplication(c, "baz", life.Alive)
+
+	// Arrange: create some endpoints
+	betaUUID := s.addSpace(c, "beta")
+
+	// Act: Get the applications bound to the spaces
+	alphaApps, err := s.state.GetApplicationsBoundToSpace(c.Context(), network.AlphaSpaceId.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	betaApps, err := s.state.GetApplicationsBoundToSpace(c.Context(), betaUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: all apps are only bound to alpha
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(alphaApps, tc.SameContents, []string{"fee", "bar", "baz"})
+	c.Assert(betaApps, tc.SameContents, []string{})
+}
+
+func (s *applicationEndpointStateSuite) TestGetApplicationsBoundToSpace(c *tc.C) {
+	// Arrange:
+	// - some extra applications
+	// - some extra spaces
+	// - merge some bindings
+	//   - all fee endpoint are bound to beta, and extra are bound to gamma
+	//   - a single endpoint on bar is bound to gamma
+	feeUUID := s.createIAASApplication(c, "fee", life.Alive)
+	barUUID := s.createIAASApplication(c, "bar", life.Alive)
+	s.createCAASApplication(c, "baz", life.Alive)
+
+	betaUUID := s.addSpace(c, "beta")
+	gammaUUID := s.addSpace(c, "gamma")
+
+	err := s.state.MergeApplicationEndpointBindings(c.Context(), feeUUID, map[string]network.SpaceName{
+		"juju-info": network.SpaceName("beta"),
+		"endpoint":  network.SpaceName("beta"),
+		"misc":      network.SpaceName("beta"),
+		"extra":     network.SpaceName("gamma"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.MergeApplicationEndpointBindings(c.Context(), barUUID, map[string]network.SpaceName{
+		"endpoint": network.SpaceName("gamma"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act:
+	alphaApps, err := s.state.GetApplicationsBoundToSpace(c.Context(), network.AlphaSpaceId.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	betaApps, err := s.state.GetApplicationsBoundToSpace(c.Context(), betaUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	gammaApps, err := s.state.GetApplicationsBoundToSpace(c.Context(), gammaUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: all apps are only bound to alpha
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(alphaApps, tc.SameContents, []string{"bar", "baz"})
+	c.Assert(betaApps, tc.SameContents, []string{"fee"})
+	c.Assert(gammaApps, tc.SameContents, []string{"fee", "bar"})
+}
+
+func (s *applicationEndpointStateSuite) addApplicationEndpoint(c *tc.C, spaceUUID network.SpaceUUID, relationUUID string) string {
 	endpointUUID := uuid.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -758,7 +951,7 @@ VALUES (?,?,?,?)`, endpointUUID, s.appID, spaceUUID, relationUUID)
 	return endpointUUID
 }
 
-func (s *applicationEndpointStateSuite) addApplicationExtraEndpoint(c *tc.C, spaceUUID, extraEndpointUUID string) {
+func (s *applicationEndpointStateSuite) addApplicationExtraEndpoint(c *tc.C, spaceUUID network.SpaceUUID, extraEndpointUUID string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO application_extra_endpoint (application_uuid, space_uuid, charm_extra_binding_uuid)
@@ -878,8 +1071,8 @@ func (s *applicationEndpointStateSuite) addSpaceReturningName(c *tc.C, name stri
 
 // addSpace ensures a space with the given name exists in the database,
 // creating it if necessary, and returns its name.
-func (s *applicationEndpointStateSuite) addSpace(c *tc.C, name string) string {
-	spaceUUID := uuid.MustNewUUID().String()
+func (s *applicationEndpointStateSuite) addSpace(c *tc.C, name string) network.SpaceUUID {
+	spaceUUID := networktesting.GenSpaceUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO space (uuid, name)
@@ -890,7 +1083,7 @@ VALUES (?, ?)`, spaceUUID, name)
 	return spaceUUID
 }
 
-func (s *applicationEndpointStateSuite) setApplicationDefaultSpace(c *tc.C, spaceUUID string) {
+func (s *applicationEndpointStateSuite) setApplicationDefaultSpace(c *tc.C, spaceUUID network.SpaceUUID) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 UPDATE application
@@ -930,8 +1123,8 @@ VALUES (?,?,?)`, bindingUUID, s.charmUUID, name)
 	return bindingUUID
 }
 
-func (s *applicationEndpointStateSuite) getApplicationDefaultSpace(c *tc.C) string {
-	var spaceName string
+func (s *applicationEndpointStateSuite) getApplicationDefaultSpace(c *tc.C) network.SpaceName {
+	var spaceName network.SpaceName
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT s.name

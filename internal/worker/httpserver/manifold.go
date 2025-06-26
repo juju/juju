@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -30,7 +29,6 @@ import (
 // in a dependency.Engine.
 type ManifoldConfig struct {
 	AuthorityName      string
-	HubName            string
 	MuxName            string
 	StateName          string
 	DomainServicesName string
@@ -57,9 +55,6 @@ type ManifoldConfig struct {
 func (config ManifoldConfig) Validate() error {
 	if config.AuthorityName == "" {
 		return errors.NotValidf("empty AuthorityName")
-	}
-	if config.HubName == "" {
-		return errors.NotValidf("empty HubName")
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
@@ -110,7 +105,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AuthorityName,
-			config.HubName,
 			config.StateName,
 			config.DomainServicesName,
 			config.MuxName,
@@ -128,11 +122,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	var authority pki.Authority
 	if err := getter.Get(config.AuthorityName, &authority); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var hub *pubsub.StructuredHub
-	if err := getter.Get(config.HubName, &hub); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -177,15 +166,12 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		AgentName:            config.AgentName,
 		Clock:                config.Clock,
 		PrometheusRegisterer: config.PrometheusRegisterer,
-		Hub:                  hub,
 		TLSConfig:            tlsConfig,
 		Mux:                  mux,
 		MuxShutdownWait:      config.MuxShutdownWait,
 		LogDir:               config.LogDir,
 		Logger:               config.Logger,
 		APIPort:              controllerConfig.APIPort(),
-		APIPortOpenDelay:     controllerConfig.APIPortOpenDelay(),
-		ControllerAPIPort:    controllerConfig.ControllerAPIPort(),
 	})
 	if err != nil {
 		_ = stTracker.Done()

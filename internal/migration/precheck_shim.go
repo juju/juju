@@ -49,19 +49,6 @@ func (s *precheckShim) AllMachines() ([]PrecheckMachine, error) {
 	return out, nil
 }
 
-// AllApplications implements PrecheckBackend.
-func (s *precheckShim) AllApplications() ([]PrecheckApplication, error) {
-	apps, err := s.State.AllApplications()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	out := make([]PrecheckApplication, len(apps))
-	for i, app := range apps {
-		out[i] = &precheckAppShim{app}
-	}
-	return out, nil
-}
-
 // ControllerBackend implements PrecheckBackend.
 func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
 	return PrecheckShim(s.controllerState, s.controllerState)
@@ -94,22 +81,4 @@ type modelShim struct {
 
 func (m modelShim) MigrationMode() (state.MigrationMode, error) {
 	return m.State().MigrationMode()
-}
-
-// precheckAppShim implements PrecheckApplication.
-type precheckAppShim struct {
-	*state.Application
-}
-
-// AllUnits implements PrecheckApplication.
-func (s *precheckAppShim) AllUnits() ([]PrecheckUnit, error) {
-	units, err := s.Application.AllUnits()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	out := make([]PrecheckUnit, len(units))
-	for i, unit := range units {
-		out[i] = unit
-	}
-	return out, nil
 }

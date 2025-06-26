@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -56,7 +56,6 @@ func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *testhelpers.
 func (s *ClientSuite) TestPrechecks(c *tc.C) {
 	client, stub := s.getClientAndStub()
 
-	ownerTag := names.NewUserTag("owner")
 	vers := semversion.MustParse("1.2.3")
 	controllerVers := semversion.MustParse("1.2.5")
 	modelDescription := description.NewModel(description.ModelArgs{})
@@ -66,7 +65,7 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 
 	err = client.Prechecks(c.Context(), coremigration.ModelInfo{
 		UUID:                   "uuid",
-		Owner:                  ownerTag,
+		Qualifier:              "prod",
 		Name:                   "name",
 		AgentVersion:           vers,
 		ControllerAgentVersion: controllerVers,
@@ -77,7 +76,7 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 	expectedArg := params.MigrationModelInfo{
 		UUID:                   "uuid",
 		Name:                   "name",
-		OwnerTag:               ownerTag.String(),
+		Qualifier:              "prod",
 		AgentVersion:           vers,
 		ControllerAgentVersion: controllerVers,
 		ModelDescription:       bytes,

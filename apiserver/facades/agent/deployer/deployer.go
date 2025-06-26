@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -23,6 +24,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -35,6 +37,11 @@ import (
 type AgentPasswordService interface {
 	// SetUnitPassword sets the password hash for the given unit.
 	SetUnitPassword(context.Context, coreunit.Name, string) error
+	// SetMachinePassword sets the password hash for the given machine.
+	SetMachinePassword(context.Context, machine.Name, string) error
+	// IsMachineController returns whether the machine is a controller machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	IsMachineController(ctx context.Context, machineName machine.Name) (bool, error)
 }
 
 // ControllerConfigGetter is the interface that the facade needs to get controller config.
@@ -44,17 +51,48 @@ type ControllerConfigGetter interface {
 
 // ApplicationService removes a unit from the dqlite database.
 type ApplicationService interface {
+	// GetUnitLife looks up the life of the specified unit.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	GetUnitLife(context.Context, coreunit.Name) (life.Value, error)
-	EnsureUnitDead(context.Context, coreunit.Name, leadership.Revoker) error
-	RemoveUnit(context.Context, coreunit.Name, leadership.Revoker) error
 
 	// WatchUnitAddRemoveOnMachine returns a watcher that observes changes to
 	// the units on a specified machine, emitting the names of the units. That
 	// is, we emit unit names only when a unit is created or deleted on the
 	// specified machine.
+	//
 	// The following errors may be returned:
 	// - [applicationerrors.MachineNotFound] if the machine does not exist
 	WatchUnitAddRemoveOnMachine(context.Context, machine.Name) (watcher.StringsWatcher, error)
+
+	// GetUnitUUID returns the UUID for the named unit.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	GetUnitUUID(context.Context, coreunit.Name) (coreunit.UUID, error)
+
+	// GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
+	// The following errors may be returned:
+	// - [applicationerrors.MachineNotFound] if the machine does not exist
+	GetUnitNamesOnMachine(context.Context, machine.Name) ([]coreunit.Name, error)
+}
+
+// ControllerNodeService defines the methods on the controller node service
+// that are needed by APIAddresser used by the deployer API.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+	// addresses that are available for agents. The map is keyed by controller
+	// ID, and the values are slices of strings representing the API addresses
+	// for each controller node.
+	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
+	// addresses available for agents ordered to prefer local-cloud scoped
+	// addresses and IPv4 over IPv6 for each machine.
+	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
+	// WatchControllerAPIAddresses returns a watcher that observes changes to the
+	// controller ip addresses.
+	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
 }
 
 type StatusService interface {
@@ -65,6 +103,19 @@ type StatusService interface {
 	// SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	SetUnitWorkloadStatus(context.Context, coreunit.Name, corestatus.StatusInfo) error
+}
+
+// RemovalService defines operations for removing juju entities.
+type RemovalService interface {
+	// RemoveUnit checks if a unit with the input name exists.
+	// If it does, the unit is guaranteed after this call to be:
+	// - No longer alive.
+	// - Removed or scheduled to be removed with the input force qualification.
+	// The input wait duration is the time that we will give for the normal
+	// life-cycle advancement and removal to finish before forcefully removing the
+	// unit. This duration is ignored if the force argument is false.
+	// The UUID for the scheduled removal job is returned.
+	RemoveUnit(ctx context.Context, unitUUID coreunit.UUID, force bool, wait time.Duration) (removal.UUID, error)
 }
 
 // DeployerAPI provides access to the Deployer API facade.
@@ -78,11 +129,11 @@ type DeployerAPI struct {
 
 	controllerConfigGetter ControllerConfigGetter
 	applicationService     ApplicationService
+	removalService         RemovalService
 	leadershipRevoker      leadership.Revoker
 
 	store           objectstore.ObjectStore
 	st              *state.State
-	resources       facade.Resources
 	authorizer      facade.Authorizer
 	getCanWatch     common.GetAuthFunc
 	watcherRegistry facade.WatcherRegistry
@@ -93,31 +144,31 @@ func NewDeployerAPI(
 	agentPasswordService AgentPasswordService,
 	controllerConfigGetter ControllerConfigGetter,
 	applicationService ApplicationService,
+	controllerNodeService ControllerNodeService,
 	statusService StatusService,
+	removalService RemovalService,
 	authorizer facade.Authorizer,
 	st *state.State,
 	store objectstore.ObjectStore,
-	resources facade.Resources,
 	leadershipRevoker leadership.Revoker,
 	watcherRegistry facade.WatcherRegistry,
-	systemState *state.State,
 	clock clock.Clock,
 ) (*DeployerAPI, error) {
-	getAuthFunc := func(context.Context) (common.AuthFunc, error) {
+	getAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		// Get all units of the machine and cache them.
-		thisMachineTag := authorizer.GetAuthTag()
-		units, err := getAllUnits(st, thisMachineTag)
+		thisMachineName := machine.Name(authorizer.GetAuthTag().Id())
+		unitNames, err := applicationService.GetUnitNamesOnMachine(ctx, thisMachineName)
 		if err != nil {
 			return nil, err
 		}
+		unitNameIndex := make(map[string]struct{}, len(unitNames))
+		for _, unitName := range unitNames {
+			unitNameIndex[unitName.String()] = struct{}{}
+		}
 		// Then we just check if the unit is already known.
 		return func(tag names.Tag) bool {
-			for _, unit := range units {
-				// TODO (thumper): remove the names.Tag conversion when gccgo
-				// implements concrete-type-to-interface comparison correctly.
-				if names.Tag(names.NewUnitTag(unit)) == tag {
-					return true
-				}
+			if _, ok := unitNameIndex[tag.Id()]; ok {
+				return true
 			}
 			return false
 		}, nil
@@ -132,16 +183,16 @@ func NewDeployerAPI(
 
 	return &DeployerAPI{
 		PasswordChanger:        common.NewPasswordChanger(agentPasswordService, st, getAuthFunc),
-		APIAddresser:           common.NewAPIAddresser(systemState, resources),
+		APIAddresser:           common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		unitStatusSetter:       common.NewUnitStatusSetter(statusService, clock, getAuthFunc),
 		controllerConfigGetter: controllerConfigGetter,
 		applicationService:     applicationService,
+		removalService:         removalService,
 		leadershipRevoker:      leadershipRevoker,
 		canRead:                auth,
 		canWrite:               auth,
 		store:                  store,
 		st:                     st,
-		resources:              resources,
 		authorizer:             authorizer,
 		getCanWatch:            getCanWatch,
 		watcherRegistry:        watcherRegistry,
@@ -222,26 +273,6 @@ func (d *DeployerAPI) ModelUUID() params.StringResult {
 	return params.StringResult{Result: d.st.ModelUUID()}
 }
 
-// APIHostPorts returns the API server addresses.
-func (d *DeployerAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := d.controllerConfigGetter.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return d.APIAddresser.APIHostPorts(ctx, controllerConfig)
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-func (d *DeployerAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := d.controllerConfigGetter.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return d.APIAddresser.APIAddresses(ctx, controllerConfig)
-}
-
 // Life returns the life of the specified units.
 func (d *DeployerAPI) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
 	result := params.LifeResults{
@@ -275,24 +306,8 @@ func (d *DeployerAPI) Life(ctx context.Context, args params.Entities) (params.Li
 	return result, nil
 }
 
-// getAllUnits returns a list of all principal and subordinate units
-// assigned to the given machine.
-func getAllUnits(st *state.State, tag names.Tag) ([]string, error) {
-	machine, err := st.Machine(tag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Start a watcher on machine's units, read the initial event and stop it.
-	watch := machine.WatchUnits()
-	defer func() { _ = watch.Stop() }()
-	if units, ok := <-watch.Changes(); ok {
-		return units, nil
-	}
-	return nil, errors.Errorf("cannot obtain units of machine %q: %v", tag, watch.Err())
-}
-
-// Remove removes every given unit from state, calling EnsureDead
-// first, then Remove.
+// Remove removes every given unit from the application domain, this is ensured
+// by the removal domain.
 func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -312,55 +327,17 @@ func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.
 			continue
 		}
 
-		// TODO(units) - remove me.
-		// Dual write to state.
-		// We need to set the unit life to Dead in state **first**
-		// because the life watcher is currently looking at state
-		// not dqlite.
-		unit, err := d.st.Unit(tag.Id())
-		if err != nil {
-			if errors.Is(err, errors.NotFound) {
-				err = apiservererrors.ErrPerm
-			}
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if unit.Life() == state.Alive {
-			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("cannot remove unit %q: still alive", tag.Id()))
-			continue
-		}
-		if err := unit.EnsureDead(); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		unitName, err := coreunit.NewName(tag.Id())
+		unitUUID, err := d.applicationService.GetUnitUUID(ctx, coreunit.Name(tag.Id()))
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		// Given the way dual write works, we need this for now.
-		if err = d.applicationService.EnsureUnitDead(ctx, unitName, d.leadershipRevoker); err != nil {
-			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = errors.NotFoundf("unit %s", unitName)
-			}
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		// This is the call we will keep once mongo is removed.
-		// We will need to remove the alive check.
-		if err = d.applicationService.RemoveUnit(ctx, unitName, d.leadershipRevoker); err != nil {
-			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = errors.NotFoundf("unit %s", unitName)
-			}
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
 
-		// TODO(units) - remove me.
-		if err := unit.Remove(d.store); err != nil {
+		_, err = d.removalService.RemoveUnit(ctx, unitUUID, false, 0)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", tag.Id()))
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
 		}
 	}
 	return result, nil

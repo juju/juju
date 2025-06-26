@@ -5,6 +5,7 @@ package client
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"strings"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/internal/charms"
@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/domain/relation"
 	statusservice "github.com/juju/juju/domain/status/service"
@@ -142,6 +143,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	context := statusContext{
 		applicationService: c.applicationService,
 		statusService:      c.statusService,
+		machineService:     c.machineService,
 	}
 
 	var err error
@@ -157,12 +159,8 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		return noStatus, internalerrors.Errorf("could not load model status values: %w", err)
 	}
 	if context.allAppsUnitsCharmBindings, err =
-		fetchAllApplicationsAndUnits(ctx, c.statusService, c.applicationService, c.stateAccessor, context.spaceInfos); err != nil {
+		fetchAllApplicationsAndUnits(ctx, c.statusService, c.applicationService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch applications and units: %w", err)
-	}
-	if context.consumerRemoteApplications, err =
-		fetchConsumerRemoteApplications(c.stateAccessor); err != nil {
-		return noStatus, internalerrors.Errorf("could not fetch remote applications: %w", err)
 	}
 	// Only admins can see offer details.
 	if err := c.checkIsAdmin(ctx); err == nil {
@@ -177,28 +175,9 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	if err = context.fetchAllOpenPortRanges(ctx, c.portService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch open port ranges: %w", err)
 	}
-	if context.controllerNodes, err = fetchControllerNodes(c.stateAccessor); err != nil {
-		return noStatus, internalerrors.Errorf("could not fetch controller nodes: %w", err)
-	}
-	if len(context.controllerNodes) > 1 {
-		if primaryHAMachine, err := c.stateAccessor.HAPrimaryMachine(); err != nil {
-			// We do not want to return any errors here as they are all
-			// non-fatal for this call since we can still
-			// get FullStatus including machine info even if we could not get HA Primary determined.
-			// Also on some non-HA setups, i.e. where mongo was not run with --replSet,
-			// this call will return an error.
-			logger.Warningf(ctx, "could not determine if there is a primary HA machine: %v", err)
-		} else {
-			context.primaryHAMachine = &primaryHAMachine
-		}
-	}
 	// These may be empty when machines have not finished deployment.
-	subnetInfos, err := c.networkService.GetAllSubnets(ctx)
-	if err != nil {
-		return noStatus, internalerrors.Errorf("could not fetch subnets: %w", err)
-	}
-	if context.ipAddresses, context.spaces, context.linkLayerDevices, err =
-		fetchNetworkInterfaces(c.stateAccessor, subnetInfos, context.spaceInfos); err != nil {
+	if context.ipAddresses, context.linkLayerDevices, context.spaces, err = fetchNetworkInterfaces(ctx,
+		c.networkService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch IP addresses and link layer devices: %w", err)
 	}
 	if context.relations, context.relationsByID, err = fetchRelations(ctx, c.relationService, c.statusService); err != nil {
@@ -235,7 +214,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 
 	if logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef(ctx, "Applications: %v", context.allAppsUnitsCharmBindings.applications)
-		logger.Tracef(ctx, "Remote applications: %v", context.consumerRemoteApplications)
 		logger.Tracef(ctx, "Offers: %v", context.offers)
 		logger.Tracef(ctx, "Leaders", context.leaders)
 		logger.Tracef(ctx, "Relations: %v", context.relations)
@@ -269,9 +247,8 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 
 	return params.FullStatus{
 		Model:               modelStatus,
-		Machines:            context.processMachines(ctx, c.machineService),
+		Machines:            context.processMachines(ctx),
 		Applications:        context.processApplications(ctx),
-		RemoteApplications:  context.processRemoteApplications(),
 		Offers:              context.processOffers(),
 		Relations:           context.processRelations(ctx),
 		ControllerTimestamp: context.controllerTimestamp,
@@ -308,7 +285,7 @@ func (c *Client) modelStatus(ctx context.Context) (params.ModelStatusInfo, error
 	// 	info.AvailableVersion = latestVersion.String()
 	// }
 
-	aStatus, err := c.modelInfoService.GetStatus(ctx)
+	aStatus, err := c.statusService.GetModelStatus(ctx)
 	if internalerrors.Is(err, domainmodelerrors.NotFound) {
 		// This should never happen but just in case.
 		return params.ModelStatusInfo{}, internalerrors.Errorf("model status for %q: %w", modelInfo.Name, errors.NotFound)
@@ -320,7 +297,7 @@ func (c *Client) modelStatus(ctx context.Context) (params.ModelStatusInfo, error
 	info.ModelStatus = params.DetailedStatus{
 		Status: aStatus.Status.String(),
 		Info:   aStatus.Message,
-		Since:  &aStatus.Since,
+		Since:  aStatus.Since,
 	}
 
 	return info, nil
@@ -334,7 +311,7 @@ type applicationStatusInfo struct {
 	applicationCharmURL map[string]string
 
 	// endpointBindings: application name -> endpoint -> space
-	endpointBindings map[string]map[string]string
+	endpointBindings map[string]map[string]network.SpaceName
 
 	// latestCharms: charm locator (without revision) -> charm locator
 	latestCharms map[applicationcharm.CharmLocator]applicationcharm.CharmLocator
@@ -395,6 +372,7 @@ func (s relationStatus) RelatedEndpoints(applicationName string) ([]relation.End
 type statusContext struct {
 	applicationService ApplicationService
 	statusService      StatusService
+	machineService     MachineService
 
 	providerType string
 	model        model.ModelInfo
@@ -409,20 +387,14 @@ type statusContext struct {
 	allMachines        map[string]*state.Machine
 	machineConstraints *state.MachineConstraints
 
-	// controllerNodes: node id -> controller node
-	controllerNodes map[string]state.ControllerNode
-
 	// ipAddresses: machine id -> list of ip.addresses
-	ipAddresses map[string][]*state.Address
+	ipAddresses map[coremachine.Name][]domainnetwork.NetAddr
 
 	// spaces: machine id -> deviceName -> list of spaceNames
-	spaces map[string]map[string]set.Strings
+	spaces map[coremachine.Name]map[string]set.Strings
 
 	// linkLayerDevices: machine id -> list of linkLayerDevices
-	linkLayerDevices map[string][]*state.LinkLayerDevice
-
-	// remote applications: application name -> application
-	consumerRemoteApplications map[string]commoncrossmodel.RemoteApplication
+	linkLayerDevices map[coremachine.Name][]domainnetwork.NetInterface
 
 	// allOpenPortRanges: all open port ranges in the model, grouped by unit name.
 	allOpenPortRanges port.UnitGroupedPortRanges
@@ -440,8 +412,6 @@ type statusContext struct {
 
 	// Information about all spaces.
 	spaceInfos network.SpaceInfos
-
-	primaryHAMachine *names.MachineTag
 
 	// Optional storage info.
 	storageInstances []state.StorageInstance
@@ -492,104 +462,56 @@ func (c *statusContext) fetchAllOpenPortRanges(ctx context.Context, portService 
 	return err
 }
 
-// fetchControllerNodes returns a map from node id to controller node.
-func fetchControllerNodes(st Backend) (map[string]state.ControllerNode, error) {
-	v := make(map[string]state.ControllerNode)
-	nodes, err := st.ControllerNodes()
+func fetchNetworkInterfaces(
+	ctx context.Context,
+	networkService NetworkService,
+) (
+	map[coremachine.Name][]domainnetwork.NetAddr,
+	map[coremachine.Name][]domainnetwork.NetInterface,
+	map[coremachine.Name]map[string]set.Strings,
+	error,
+) {
+	devices, err := networkService.GetAllDevicesByMachineNames(ctx)
 	if err != nil {
-		return nil, err
-	}
-	for _, n := range nodes {
-		v[n.Id()] = n
-	}
-	return v, nil
-}
-
-// fetchNetworkInterfaces returns maps from machine id to ip.addresses, machine
-// id to a map of interface names from space names, and machine id to
-// linklayerdevices.
-//
-// All are required to determine a machine's network interfaces configuration,
-// so we want all or none.
-func fetchNetworkInterfaces(st Backend, subnetInfos network.SubnetInfos, spaceInfos network.SpaceInfos) (map[string][]*state.Address,
-	map[string]map[string]set.Strings, map[string][]*state.LinkLayerDevice, error) {
-	ipAddresses := make(map[string][]*state.Address)
-	spacesPerMachine := make(map[string]map[string]set.Strings)
-	subnetsByCIDR := make(map[string]network.SubnetInfo)
-	for _, subnet := range subnetInfos {
-		subnetsByCIDR[subnet.CIDR] = subnet
+		return nil, nil, nil, internalerrors.Errorf("fetching devices: %w", err)
 	}
 
-	// For every machine, track what devices have addresses so we can filter linklayerdevices later
-	devicesWithAddresses := make(map[string]set.Strings)
-	ipAddrs, err := st.AllIPAddresses()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	for _, ipAddr := range ipAddrs {
-		if ipAddr.LoopbackConfigMethod() {
-			continue
-		}
-		machineID := ipAddr.MachineID()
-		ipAddresses[machineID] = append(ipAddresses[machineID], ipAddr)
-		if subnet, ok := subnetsByCIDR[ipAddr.SubnetCIDR()]; ok {
-			spaceName := network.AlphaSpaceName
-			spaceInfo := spaceInfos.GetByID(subnet.SpaceID)
-			if spaceInfo != nil {
-				spaceName = string(spaceInfo.Name)
+	// Remove loopback addresses
+	devices = transform.Map(devices, func(k coremachine.Name, v []domainnetwork.NetInterface) (coremachine.
+		Name,
+		[]domainnetwork.NetInterface) {
+		var filtered []domainnetwork.NetInterface
+		for _, dev := range v {
+			var nonLoopBack []domainnetwork.NetAddr
+			for _, addr := range dev.Addrs {
+				if addr.ConfigType == network.ConfigLoopback {
+					continue
+				}
+				nonLoopBack = append(nonLoopBack, addr)
 			}
-			if spaceName != "" {
-				devices, ok := spacesPerMachine[machineID]
-				if !ok {
-					devices = make(map[string]set.Strings)
-					spacesPerMachine[machineID] = devices
-				}
-				deviceName := ipAddr.DeviceName()
-				spacesSet, ok := devices[deviceName]
-				if !ok {
-					spacesSet = make(set.Strings)
-					devices[deviceName] = spacesSet
-				}
-				spacesSet.Add(spaceName)
+			if len(nonLoopBack) > 0 {
+				dev.Addrs = nonLoopBack
+				filtered = append(filtered, dev)
 			}
 		}
-		deviceSet, ok := devicesWithAddresses[machineID]
-		if ok {
-			deviceSet.Add(ipAddr.DeviceName())
-		} else {
-			devicesWithAddresses[machineID] = set.NewStrings(ipAddr.DeviceName())
-		}
-	}
+		return k, filtered
+	})
 
-	linkLayerDevices := make(map[string][]*state.LinkLayerDevice)
-	llDevs, err := st.AllLinkLayerDevices()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	for _, llDev := range llDevs {
-		if llDev.IsLoopbackDevice() {
-			continue
+	ipAddresses := transform.Map(devices, func(k coremachine.Name,
+		v []domainnetwork.NetInterface) (coremachine.Name, []domainnetwork.NetAddr) {
+		var allAddresses []domainnetwork.NetAddr
+		for _, dev := range v {
+			allAddresses = append(allAddresses, dev.Addrs...)
 		}
-		machineID := llDev.MachineID()
-		machineDevs, ok := devicesWithAddresses[machineID]
-		if !ok {
-			// This machine ID doesn't seem to have any devices with IP Addresses
-			continue
-		}
-		if !machineDevs.Contains(llDev.Name()) {
-			// this device did not have any IP Addresses
-			continue
-		}
-		// This device had an IP Address, so include it in the list of devices for this machine
-		linkLayerDevices[machineID] = append(linkLayerDevices[machineID], llDev)
-	}
+		return k, allAddresses
+	})
 
-	return ipAddresses, spacesPerMachine, linkLayerDevices, nil
+	return ipAddresses, devices, nil, nil
 }
 
 // fetchAllApplicationsAndUnits returns a map from application name to application,
 // a map from application name to unit name to unit, and a map from base charm URL to latest URL.
-func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusService, applicationService ApplicationService, st Backend, spaceInfos network.SpaceInfos) (applicationStatusInfo, error) {
+func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusService, applicationService ApplicationService) (applicationStatusInfo, error) {
 	var (
 		apps         = make(map[string]statusservice.Application)
 		appCharmURL  = make(map[string]string)
@@ -601,24 +523,19 @@ func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusServi
 		return applicationStatusInfo{}, err
 	}
 
-	endpointBindings, err := st.AllEndpointBindings()
+	allBindingsByApp, err := applicationService.GetAllEndpointBindings(ctx)
 	if err != nil {
 		return applicationStatusInfo{}, err
 	}
-	allBindingsByApp := make(map[string]map[string]string)
-	for app, bindings := range endpointBindings {
-		// If the only binding is the default, and it's set to the
-		// default space, no need to print.
-		bindingMap, err := bindings.MapWithSpaceNames(spaceInfos)
-		if err != nil {
-			return applicationStatusInfo{}, err
-		}
-		if len(bindingMap) == 1 {
-			if v, ok := bindingMap[""]; ok && v == network.AlphaSpaceName {
-				continue
+
+	// If the only binding is the default, and it's set to the
+	// default space, no need to print.
+	for app, bindings := range allBindingsByApp {
+		if len(bindings) == 1 {
+			if v, ok := bindings[""]; ok && v == network.AlphaSpaceName {
+				delete(allBindingsByApp, app)
 			}
 		}
-		allBindingsByApp[app] = bindingMap
 	}
 
 	lxdProfiles := make(map[string]*charm.LXDProfile)
@@ -661,22 +578,6 @@ func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusServi
 		latestCharms:     latestCharms,
 		lxdProfiles:      lxdProfiles,
 	}, nil
-}
-
-// fetchConsumerRemoteApplications returns a map from application name to remote application.
-func fetchConsumerRemoteApplications(st Backend) (map[string]commoncrossmodel.RemoteApplication, error) {
-	appMap := make(map[string]commoncrossmodel.RemoteApplication)
-	applications, err := st.AllRemoteApplications()
-	if err != nil {
-		return nil, err
-	}
-	for _, a := range applications {
-		if _, ok := a.URL(); !ok {
-			continue
-		}
-		appMap[a.Name()] = a
-	}
-	return appMap, nil
 }
 
 // fetchRelations returns a map of all relations keyed by application name,
@@ -747,7 +648,7 @@ func fetchRelations(ctx context.Context, relationService RelationService,
 	return out, outById, nil
 }
 
-func (c *statusContext) processMachines(ctx context.Context, machineService MachineService) map[string]params.MachineStatus {
+func (c *statusContext) processMachines(ctx context.Context) map[string]params.MachineStatus {
 	machinesMap := make(map[string]params.MachineStatus)
 	aCache := make(map[string]params.MachineStatus)
 	for id, machines := range c.machines {
@@ -758,7 +659,7 @@ func (c *statusContext) processMachines(ctx context.Context, machineService Mach
 
 		// Element 0 is assumed to be the top-level machine.
 		tlMachine := machines[0]
-		hostStatus := c.makeMachineStatus(ctx, tlMachine, machineService, c.allAppsUnitsCharmBindings)
+		hostStatus := c.makeMachineStatus(ctx, tlMachine, c.allAppsUnitsCharmBindings)
 		machinesMap[id] = hostStatus
 		aCache[id] = hostStatus
 
@@ -770,7 +671,7 @@ func (c *statusContext) processMachines(ctx context.Context, machineService Mach
 				continue
 			}
 
-			aStatus := c.makeMachineStatus(ctx, machine, machineService, c.allAppsUnitsCharmBindings)
+			aStatus := c.makeMachineStatus(ctx, machine, c.allAppsUnitsCharmBindings)
 			parent.Containers[machine.Id()] = aStatus
 			aCache[machine.Id()] = aStatus
 		}
@@ -781,13 +682,9 @@ func (c *statusContext) processMachines(ctx context.Context, machineService Mach
 func (c *statusContext) makeMachineStatus(
 	ctx context.Context,
 	machine *state.Machine,
-	machineService MachineService,
 	appStatusInfo applicationStatusInfo,
 ) (status params.MachineStatus) {
 	machineID := machine.Id()
-	ipAddresses := c.ipAddresses[machineID]
-	spaces := c.spaces[machineID]
-	linkLayerDevices := c.linkLayerDevices[machineID]
 
 	var err error
 	status.Id = machineID
@@ -796,17 +693,14 @@ func (c *statusContext) makeMachineStatus(
 
 	mBase := machine.Base()
 	status.Base = params.Base{Name: mBase.OS, Channel: mBase.Channel}
-	status.Jobs = paramsJobsFromJobs(machine.Jobs())
-	node, wantsVote := c.controllerNodes[machineID]
-	status.WantsVote = wantsVote
-	if wantsVote {
-		status.HasVote = node.HasVote()
+
+	jobs := []model.MachineJob{model.JobHostUnits}
+	if isController, err := c.machineService.IsMachineController(ctx, coremachine.Name(machineID)); err != nil && !stderrors.Is(err, machineerrors.MachineNotFound) {
+		logger.Errorf(ctx, "error checking if machine %q is controller: %v", machineID, err)
+	} else if isController {
+		jobs = append(jobs, model.JobManageModel)
 	}
-	if c.primaryHAMachine != nil {
-		if isPrimary := c.primaryHAMachine.Id() == machineID; isPrimary {
-			status.PrimaryControllerMachine = &isPrimary
-		}
-	}
+	status.Jobs = jobs
 
 	// Fetch the machine instance status information
 	sInstInfo, err := c.status.MachineInstance(machineID)
@@ -820,11 +714,11 @@ func (c *statusContext) makeMachineStatus(
 		instid      instance.Id
 		displayName string
 	)
-	machineUUID, err := machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
+	machineUUID, err := c.machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
 	if err != nil {
 		logger.Debugf(ctx, "error retrieving uuid for machine: %q, %w", machineID, err)
 	} else {
-		instid, displayName, err = machineService.InstanceIDAndName(ctx, machineUUID)
+		instid, displayName, err = c.machineService.GetInstanceIDAndName(ctx, machineUUID)
 		if err != nil && !internalerrors.Is(err, machineerrors.NotProvisioned) {
 			logger.Debugf(ctx, "error retrieving instance ID and display name for machine: %q, %w", machineID, err)
 		}
@@ -841,62 +735,35 @@ func (c *statusContext) makeMachineStatus(
 		}
 		status.DNSName = addr.Value
 		status.Hostname = machine.Hostname()
-		mAddrs := machine.Addresses()
-		if len(mAddrs) == 0 {
-			logger.Debugf(ctx, "no IP addresses fetched for machine %q", instid)
-			// At least give it the newly created DNSName address, if it exists.
-			if addr.Value != "" {
-				mAddrs = append(mAddrs, addr)
-			}
-		}
-		for _, mAddr := range mAddrs {
+		for _, mAddr := range c.ipAddresses[coremachine.Name(machineID)] {
 			switch mAddr.Scope {
 			case network.ScopeMachineLocal, network.ScopeLinkLocal:
 				continue
 			}
-			status.IPAddresses = append(status.IPAddresses, mAddr.Value)
+			status.IPAddresses = append(status.IPAddresses, mAddr.AddressValue)
 		}
-		status.NetworkInterfaces = make(map[string]params.NetworkInterface, len(linkLayerDevices))
-		for _, llDev := range linkLayerDevices {
-			device := llDev.Name()
-			ips := []string{}
-			gw := []string{}
-			ns := []string{}
-			sp := make(set.Strings)
-			for _, ipAddress := range ipAddresses {
-				if ipAddress.DeviceName() != device {
-					continue
-				}
-				ips = append(ips, ipAddress.Value())
-				// We don't expect to find more than one
-				// ipAddress on a device with a list of
-				// nameservers, but append in any case.
-				if len(ipAddress.DNSServers()) > 0 {
-					ns = append(ns, ipAddress.DNSServers()...)
-				}
-				// There should only be one gateway per device
-				// (per machine, in fact, as we don't store
-				// metrics). If we find more than one we should
-				// show them all.
-				if ipAddress.GatewayAddress() != "" {
-					gw = append(gw, ipAddress.GatewayAddress())
-				}
-				// There should only be one space per address,
-				// but it's technically possible to have more
-				// than one address on an interface. If we find
-				// that happens, we need to show all spaces, to
-				// be safe.
-				sp = spaces[device]
-			}
-			status.NetworkInterfaces[device] = params.NetworkInterface{
-				IPAddresses:    ips,
-				MACAddress:     llDev.MACAddress(),
-				Gateway:        strings.Join(gw, " "),
-				DNSNameservers: ns,
-				Space:          strings.Join(sp.Values(), " "),
-				IsUp:           llDev.IsUp(),
+		if len(status.IPAddresses) == 0 {
+			logger.Debugf(ctx, "no IP addresses fetched for machine %q", instid)
+			// At least give it the newly created DNSName address, if it exists.
+			if addr.Value != "" {
+				status.IPAddresses = append(status.IPAddresses, addr.Value)
 			}
 		}
+
+		linkLayerDevices := c.linkLayerDevices[coremachine.Name(machineID)]
+		status.NetworkInterfaces = transform.SliceToMap(linkLayerDevices, func(llDev domainnetwork.NetInterface) (string, params.NetworkInterface) {
+			spaces := set.NewStrings()
+			for _, addr := range llDev.Addrs {
+				spaces.Add(addr.Space)
+			}
+			return llDev.Name, params.NetworkInterface{
+				IPAddresses:    transform.Slice(llDev.Addrs, func(net domainnetwork.NetAddr) string { return net.AddressValue }),
+				MACAddress:     unptr(llDev.MACAddress),
+				Gateway:        unptr(llDev.GatewayAddress),
+				DNSNameservers: llDev.DNSAddresses,
+				Space:          strings.Join(spaces.Values(), " "),
+				IsUp:           llDev.IsEnabled}
+		})
 		logger.Tracef(ctx, "NetworkInterfaces: %+v", status.NetworkInterfaces)
 	} else {
 		status.InstanceId = "pending"
@@ -905,7 +772,7 @@ func (c *statusContext) makeMachineStatus(
 	constraints := c.machineConstraints.Machine(machineID)
 	status.Constraints = constraints.String()
 
-	hc, err := machineService.HardwareCharacteristics(ctx, machineUUID)
+	hc, err := c.machineService.GetHardwareCharacteristics(ctx, machineUUID)
 	if internalerrors.Is(err, machineerrors.NotProvisioned) {
 		logger.Debugf(ctx, "can't retrieve hardware characteristics of machine %q: not provisioned", machineUUID)
 	}
@@ -917,7 +784,7 @@ func (c *statusContext) makeMachineStatus(
 	status.Containers = make(map[string]params.MachineStatus)
 
 	lxdProfiles := make(map[string]params.LXDProfile)
-	charmProfiles, err := machineService.AppliedLXDProfileNames(ctx, machineUUID)
+	charmProfiles, err := c.machineService.AppliedLXDProfileNames(ctx, machineUUID)
 	if internalerrors.Is(err, machineerrors.NotProvisioned) {
 		logger.Debugf(ctx, "can't retrieve lxd profiles for machine %q: not provisioned", machineUUID)
 	}
@@ -980,15 +847,6 @@ func (c *statusContext) isSubordinate(ep *relation.Endpoint) bool {
 
 func isSubordinate(ep *relation.Endpoint, application statusservice.Application) bool {
 	return ep.Scope == charm.ScopeContainer && application.Subordinate
-}
-
-// paramsJobsFromJobs converts state jobs to params jobs.
-func paramsJobsFromJobs(jobs []state.MachineJob) []model.MachineJob {
-	paramsJobs := make([]model.MachineJob, len(jobs))
-	for i, machineJob := range jobs {
-		paramsJobs[i] = machineJob.ToParams()
-	}
-	return paramsJobs
 }
 
 func (c *statusContext) processApplications(ctx context.Context) map[string]params.ApplicationStatus {
@@ -1080,7 +938,10 @@ func (c *statusContext) processApplication(ctx context.Context, name string, app
 		processedStatus.WorkloadVersion = *application.WorkloadVersion
 	}
 
-	processedStatus.EndpointBindings = c.allAppsUnitsCharmBindings.endpointBindings[name]
+	processedStatus.EndpointBindings = transform.Map(
+		c.allAppsUnitsCharmBindings.endpointBindings[name],
+		func(k string, v network.SpaceName) (string, string) { return k, v.String() },
+	)
 
 	// IAAS applications have all the information they need in the application
 	// status. CAAS applications have some additional information.
@@ -1117,12 +978,12 @@ func (c *statusContext) mapExposedEndpointsFromDomain(
 		if len(exposeDetails.ExposeToSpaceIDs) != 0 {
 			spaceNames := make([]string, len(exposeDetails.ExposeToSpaceIDs))
 			for i, spaceID := range exposeDetails.ExposeToSpaceIDs.Values() {
-				sp := c.spaceInfos.GetByID(spaceID)
+				sp := c.spaceInfos.GetByID(network.SpaceUUID(spaceID))
 				if sp == nil {
 					return nil, internalerrors.Errorf("space with ID %q: %w", spaceID, errors.NotFound)
 				}
 
-				spaceNames[i] = string(sp.Name)
+				spaceNames[i] = sp.Name.String()
 			}
 			mappedParam.ExposeToSpaces = spaceNames
 		}
@@ -1131,17 +992,6 @@ func (c *statusContext) mapExposedEndpointsFromDomain(
 	}
 
 	return res, nil
-}
-
-func (c *statusContext) processRemoteApplications() map[string]params.RemoteApplicationStatus {
-	applicationsMap := make(map[string]params.RemoteApplicationStatus)
-	for _, app := range c.consumerRemoteApplications {
-		applicationsMap[app.Name()] = params.RemoteApplicationStatus{
-			Err: apiservererrors.ServerError(internalerrors.Errorf("cross model relations are disabled until "+
-				"backend functionality is moved to domain: %w", errors.NotImplemented)),
-		}
-	}
-	return applicationsMap
 }
 
 type offerStatus struct {
@@ -1397,13 +1247,17 @@ func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo
 
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
-func (c *statusContext) processMachine(ctx context.Context, machine *state.Machine) (out params.DetailedStatus) {
-	statusInfo, err := machine.Status()
+func (c *statusContext) processMachine(ctx context.Context, m *state.Machine) (out params.DetailedStatus) {
+	machineName := coremachine.Name(m.Id())
+	statusInfo, err := c.statusService.GetMachineStatus(ctx, machineName)
+	if internalerrors.Is(err, machineerrors.MachineNotFound) {
+		err = internalerrors.Errorf("machine %q not found", machineName).Add(errors.NotFound)
+	}
 	populateStatusFromStatusInfoAndErr(&out, statusInfo, err)
 
-	out.Life = processLife(machine)
+	out.Life = processLife(m)
 
-	if t, err := machine.AgentTools(); err == nil {
+	if t, err := m.AgentTools(); err == nil {
 		out.Version = t.Version.Number.String()
 	}
 	return
@@ -1454,4 +1308,13 @@ func encodeOSType(ostype deployment.OSType) (string, error) {
 	default:
 		return "", internalerrors.Errorf("unknown os type %q", ostype)
 	}
+}
+
+// unptr dereferences a pointer of type T and returns its value.
+// Returns the zero value of T if the pointer is nil.
+func unptr[T any](ptr *T) (v T) {
+	if ptr == nil {
+		return
+	}
+	return *ptr
 }

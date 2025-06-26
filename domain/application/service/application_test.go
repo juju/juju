@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -24,6 +25,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -85,6 +87,50 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationID(c *tc.C) {
 		Source:       applicationcharm.LocalSource,
 		Architecture: architecture.AMD64,
 	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationName(gomock.Any(), id).Return("foo", nil)
+
+	name, err := s.service.GetApplicationName(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, "foo")
+}
+
+func (s *applicationServiceSuite) TestGetApplicationNameNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationName(gomock.Any(), id).Return("", applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.GetApplicationName(c.Context(), id)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationIDByName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, nil)
+
+	obtainedID, err := s.service.GetApplicationIDByName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedID, tc.Equals, id)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.GetApplicationIDByName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationServiceSuite) TestGetCharmLocatorByApplicationName(c *tc.C) {
@@ -535,18 +581,21 @@ func (s *applicationServiceSuite) TestGetApplicationTrustSetting(c *tc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationTrustSetting(gomock.Any(), appUUID).Return(true, nil)
 
-	results, err := s.service.GetApplicationTrustSetting(c.Context(), appUUID)
+	results, err := s.service.GetApplicationTrustSetting(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.IsTrue)
 }
 
-func (s *applicationServiceSuite) TestGetApplicationTrustSettingInvalidApplicationID(c *tc.C) {
+func (s *applicationServiceSuite) TestGetApplicationTrustSettingNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetApplicationTrustSetting(c.Context(), "!!!")
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.GetApplicationTrustSetting(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationCharmOrigin(c *tc.C) {
@@ -1033,14 +1082,37 @@ func (s *applicationServiceSuite) TestDecodeRisk(c *tc.C) {
 	}
 }
 
+func (s *applicationServiceSuite) TestGetAllEndpointBindings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(map[string]map[string]string{
+		"foo": {"bar": "baz"},
+		"bar": {"baz": "qux"},
+	}, nil)
+
+	result, err := s.service.GetAllEndpointBindings(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, map[string]map[string]network.SpaceName{
+		"foo": {"bar": "baz"},
+		"bar": {"baz": "qux"},
+	})
+}
+
+func (s *applicationServiceSuite) TestGetAllEndpointBindingsErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(nil, errors.Errorf("boom"))
+
+	_, err := s.service.GetAllEndpointBindings(c.Context())
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 func (s *applicationServiceSuite) TestGetApplicationEndpointBindingsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
 
-	s.state.EXPECT().GetApplicationEndpointBindings(gomock.Any(), appID).Return(nil, applicationerrors.ApplicationNotFound)
-
-	_, err := s.service.GetApplicationEndpointBindings(c.Context(), appID)
+	_, err := s.service.GetApplicationEndpointBindings(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1049,15 +1121,37 @@ func (s *applicationServiceSuite) TestGetApplicationEndpointBindings(c *tc.C) {
 
 	appID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationEndpointBindings(gomock.Any(), appID).Return(map[string]string{
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
+	s.state.EXPECT().GetApplicationEndpointBindings(gomock.Any(), appID).Return(map[string]network.SpaceUUID{
 		"foo": "bar",
 	}, nil)
 
-	result, err := s.service.GetApplicationEndpointBindings(c.Context(), appID)
+	result, err := s.service.GetApplicationEndpointBindings(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.DeepEquals, map[string]string{
+	c.Check(result, tc.DeepEquals, map[string]network.SpaceUUID{
 		"foo": "bar",
 	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationsBoundToSpace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	s.state.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), spaceUUID.String()).Return([]string{"foo", "bar"}, nil)
+
+	apps, err := s.service.GetApplicationsBoundToSpace(c.Context(), spaceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(apps, tc.SameContents, []string{"foo", "bar"})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationsBoundToSpaceErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	s.state.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), spaceUUID.String()).Return(nil, errors.Errorf("boom"))
+
+	_, err := s.service.GetApplicationsBoundToSpace(c.Context(), spaceUUID)
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *applicationServiceSuite) TestGetApplicationEndpointNames(c *tc.C) {
@@ -1167,6 +1261,22 @@ func (s *applicationServiceSuite) TestGetDeviceConstraints(c *tc.C) {
 	})
 }
 
+func (s *applicationServiceSuite) TestIsControllerApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().IsControllerApplication(gomock.Any(), id).Return(false, nil)
+	isController, err := s.service.IsControllerApplication(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isController, tc.IsFalse)
+
+	s.state.EXPECT().IsControllerApplication(gomock.Any(), id).Return(true, nil)
+	isController, err = s.service.IsControllerApplication(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isController, tc.IsTrue)
+}
+
 type applicationWatcherServiceSuite struct {
 	testhelpers.IsolationSuite
 
@@ -1181,6 +1291,7 @@ type applicationWatcherServiceSuite struct {
 func TestApplicationWatcherServiceSuite(t *testing.T) {
 	tc.Run(t, &applicationWatcherServiceSuite{})
 }
+
 func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapper(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1202,7 +1313,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 
 	result, err := s.service.watchApplicationsWithPendingCharmsMapper(c.Context(), changes)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.DeepEquals, changes)
+	c.Check(result, tc.DeepEquals, []string{appID.String()})
 }
 
 func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapperInvalidID(c *tc.C) {
@@ -1257,7 +1368,9 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 
 	result, err := s.service.watchApplicationsWithPendingCharmsMapper(c.Context(), changes)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.DeepEquals, changes)
+	c.Check(result, tc.DeepEquals, transform.Slice(changes, func(change changestream.ChangeEvent) string {
+		return change.Changed()
+	}))
 }
 
 func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapperDropped(c *tc.C) {
@@ -1286,13 +1399,13 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	// the pending sequence.
 
 	var dropped []coreapplication.ID
-	var expected []changestream.ChangeEvent
+	var expected []string
 	for i, appID := range appIDs {
 		if rand.IntN(2) == 0 {
 			continue
 		}
 		dropped = append(dropped, appID)
-		expected = append(expected, changes[i])
+		expected = append(expected, changes[i].Changed())
 	}
 
 	s.state.EXPECT().GetApplicationsWithPendingCharmsFromUUIDs(gomock.Any(), appIDs).Return(dropped, nil)
@@ -1328,13 +1441,13 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	// the pending sequence.
 
 	var dropped []coreapplication.ID
-	var expected []changestream.ChangeEvent
+	var expected []string
 	for i, appID := range appIDs {
 		if rand.IntN(2) == 0 {
 			continue
 		}
 		dropped = append(dropped, appID)
-		expected = append(expected, changes[i])
+		expected = append(expected, changes[i].Changed())
 	}
 
 	// Shuffle them to replicate out of order return.
@@ -1375,7 +1488,6 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *tc.C) *gomock.Controller 
 		registry,
 		modelUUID,
 		s.watcherFactory,
-		nil,
 		nil,
 		nil,
 		nil,

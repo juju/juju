@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
-	machine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
@@ -75,7 +74,6 @@ func (s *workerSuite) TestKilled(c *tc.C) {
 	s.expectAgentConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
-	s.expectSetMachineCloudInstance()
 	s.expectSetAPIHostPorts()
 	s.expectStateServingInfo()
 	s.expectReloadSpaces()
@@ -86,6 +84,29 @@ func (s *workerSuite) TestKilled(c *tc.C) {
 
 	s.ensureStartup(c)
 	s.ensureFinished(c)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestReloadSpacesBeforeControllerCharm(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.ensureBootstrapParams(c)
+
+	s.expectGateUnlock()
+	s.expectUser(c)
+	s.expectAuthorizedKeys()
+	s.expectControllerConfig()
+	s.expectAgentConfig()
+	s.expectObjectStoreGetter(2)
+	s.expectBootstrapFlagSet()
+	s.expectSetAPIHostPorts()
+	s.expectStateServingInfo()
+	controllerCharmDeployerFunc := s.expectReloadSpacesWithFunc(c)
+	s.expectInitialiseBakeryConfig(nil)
+
+	w := s.newWorkerWithFunc(c, controllerCharmDeployerFunc)
+	defer workertest.DirtyKill(c, w)
 
 	workertest.CleanKill(c, w)
 }
@@ -313,6 +334,13 @@ func (s *workerSuite) TestSeedStoragePools(c *tc.C) {
 }
 
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
+	return s.newWorkerWithFunc(c,
+		func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
+			return nil, nil
+		})
+}
+
+func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc ControllerCharmDeployerFunc) worker.Worker {
 	w, err := newWorker(WorkerConfig{
 		Logger:                     s.logger,
 		Agent:                      s.agent,
@@ -342,11 +370,12 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
 			return func() {}, nil
 		},
-		ControllerCharmDeployer: func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
-			return nil, nil
-		},
+		ControllerCharmDeployer: controllerCharmDeployerFunc,
 		BootstrapAddressFinder: func(context.Context, instance.Id) (network.ProviderAddresses, error) {
 			return nil, nil
+		},
+		SetMachineProvisioned: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, c agent.Config) error {
+			return nil
 		},
 		Clock: clock.WallClock,
 	}, s.states)
@@ -410,13 +439,24 @@ func (s *workerSuite) expectStateServingInfo() {
 	}, true)
 }
 
-func (s *workerSuite) expectSetMachineCloudInstance() {
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(agent.BootstrapControllerId)).Return("deadbeef", nil)
-	s.machineService.EXPECT().SetMachineCloudInstance(gomock.Any(), machine.UUID("deadbeef"), instance.Id("i-deadbeef"), "", nil)
-}
-
 func (s *workerSuite) expectReloadSpaces() {
 	s.networkService.EXPECT().ReloadSpaces(gomock.Any())
+}
+
+func (s *workerSuite) expectReloadSpacesWithFunc(c *tc.C) ControllerCharmDeployerFunc {
+	seedControllerCharm := false
+	h := func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
+		seedControllerCharm = true
+		return nil, nil
+	}
+
+	s.networkService.EXPECT().ReloadSpaces(gomock.Any()).DoAndReturn(
+		func(ctx context.Context) error {
+			c.Check(seedControllerCharm, tc.IsFalse, tc.Commentf("seedControllerCharm called before ReloadSpaces, kubernetes bootstrap will fail"))
+			return nil
+		},
+	)
+	return h
 }
 
 func (s *workerSuite) expectInitialiseBakeryConfig(err error) {
@@ -432,15 +472,16 @@ func (s *workerSuite) expectBootstrapFlagSet() {
 }
 
 func (s *workerSuite) expectSetAPIHostPorts() {
+	spaceName := network.SpaceName("mgmt-space")
 	mgmtSpace := &network.SpaceInfo{
-		Name: network.SpaceName("mgmt-space"),
+		Name: spaceName,
 		Subnets: []network.SubnetInfo{
 			{
 				CIDR: "10.0.0.0/24",
 			},
 		},
 	}
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), "mgmt-space").Return(mgmtSpace, nil)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(mgmtSpace, nil)
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), "0", gomock.Any(), mgmtSpace)
 
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())

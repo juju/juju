@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v6"
 
 	corelogger "github.com/juju/juju/core/logger"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/rpc/params"
 )
@@ -21,7 +22,7 @@ type PrepareAPI interface {
 	// HostChangesForContainer returns the list of bridges to be created on the
 	// host machine, and the time to sleep after creating the bridges before
 	// bringing them up.
-	HostChangesForContainer(context.Context, names.MachineTag) ([]network.DeviceToBridge, error)
+	HostChangesForContainer(context.Context, names.MachineTag) ([]domainnetwork.DeviceToBridge, error)
 	// SetHostMachineNetworkConfig allows us to report back the host machine's
 	// current networking config. This is called after we've created new
 	// bridges to inform the Controller what the current networking interfaces

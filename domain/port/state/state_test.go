@@ -59,17 +59,17 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	err = machineSt.CreateMachine(c.Context(), "0", netNodeUUIDs[0], machine.UUID(machineUUIDs[0]))
+	err = machineSt.CreateMachine(c.Context(), "0", netNodeUUIDs[0], machine.UUID(machineUUIDs[0]), nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineSt.CreateMachine(c.Context(), "1", netNodeUUIDs[1], machine.UUID(machineUUIDs[1]))
+	err = machineSt.CreateMachine(c.Context(), "1", netNodeUUIDs[1], machine.UUID(machineUUIDs[1]), nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.appUUID = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")
@@ -129,10 +129,12 @@ func (s *baseSuite) createUnit(c *tc.C, netNodeUUID, appName string) (coreunit.U
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddUnitArg{
-		Placement: deployment.Placement{
-			Type:      deployment.PlacementTypeMachine,
-			Directive: machineName.String(),
+	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddIAASUnitArg{
+		AddUnitArg: application.AddUnitArg{
+			Placement: deployment.Placement{
+				Type:      deployment.PlacementTypeMachine,
+				Directive: machineName.String(),
+			},
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)

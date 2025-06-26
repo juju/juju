@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -52,7 +51,6 @@ type ManifoldSuite struct {
 	authenticator           *mockAuthenticator
 	clock                   *testclock.Clock
 	getter                  dependency.Getter
-	hub                     pubsub.StructuredHub
 	leaseManager            *lease.Manager
 	metricsCollector        *coreapiserver.Collector
 	mux                     *apiserverhttp.Mux
@@ -120,7 +118,6 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 		JWTParserName:                     "jwt-parser",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
-		Hub:                               &s.hub,
 		GetControllerConfigService: func(getter dependency.Getter, name string) (apiserver.ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
@@ -245,7 +242,6 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		StatePool:                  &s.state.pool,
 		LeaseManager:               s.leaseManager,
 		MetricsCollector:           s.metricsCollector,
-		Hub:                        &s.hub,
 		LogSink:                    s.logSink,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
 		DBGetter:                   s.dbGetter,

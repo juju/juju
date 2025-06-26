@@ -15,6 +15,7 @@ import (
 
 	cloud "github.com/juju/juju/cloud"
 	credential "github.com/juju/juju/core/credential"
+	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	gomock "go.uber.org/mock/gomock"
@@ -142,6 +143,83 @@ func NewMockAgentPasswordService(ctrl *gomock.Controller) *MockAgentPasswordServ
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAgentPasswordService) EXPECT() *MockAgentPasswordServiceMockRecorder {
 	return m.recorder
+}
+
+// IsMachineController mocks base method.
+func (m *MockAgentPasswordService) IsMachineController(arg0 context.Context, arg1 machine.Name) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsMachineController", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsMachineController indicates an expected call of IsMachineController.
+func (mr *MockAgentPasswordServiceMockRecorder) IsMachineController(arg0, arg1 any) *MockAgentPasswordServiceIsMachineControllerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMachineController", reflect.TypeOf((*MockAgentPasswordService)(nil).IsMachineController), arg0, arg1)
+	return &MockAgentPasswordServiceIsMachineControllerCall{Call: call}
+}
+
+// MockAgentPasswordServiceIsMachineControllerCall wrap *gomock.Call
+type MockAgentPasswordServiceIsMachineControllerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAgentPasswordServiceIsMachineControllerCall) Return(arg0 bool, arg1 error) *MockAgentPasswordServiceIsMachineControllerCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAgentPasswordServiceIsMachineControllerCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockAgentPasswordServiceIsMachineControllerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAgentPasswordServiceIsMachineControllerCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockAgentPasswordServiceIsMachineControllerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetMachinePassword mocks base method.
+func (m *MockAgentPasswordService) SetMachinePassword(arg0 context.Context, arg1 machine.Name, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetMachinePassword", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMachinePassword indicates an expected call of SetMachinePassword.
+func (mr *MockAgentPasswordServiceMockRecorder) SetMachinePassword(arg0, arg1, arg2 any) *MockAgentPasswordServiceSetMachinePasswordCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachinePassword", reflect.TypeOf((*MockAgentPasswordService)(nil).SetMachinePassword), arg0, arg1, arg2)
+	return &MockAgentPasswordServiceSetMachinePasswordCall{Call: call}
+}
+
+// MockAgentPasswordServiceSetMachinePasswordCall wrap *gomock.Call
+type MockAgentPasswordServiceSetMachinePasswordCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAgentPasswordServiceSetMachinePasswordCall) Return(arg0 error) *MockAgentPasswordServiceSetMachinePasswordCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAgentPasswordServiceSetMachinePasswordCall) Do(f func(context.Context, machine.Name, string) error) *MockAgentPasswordServiceSetMachinePasswordCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAgentPasswordServiceSetMachinePasswordCall) DoAndReturn(f func(context.Context, machine.Name, string) error) *MockAgentPasswordServiceSetMachinePasswordCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // SetUnitPassword mocks base method.

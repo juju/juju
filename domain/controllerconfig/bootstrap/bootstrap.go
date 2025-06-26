@@ -11,12 +11,14 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	jujuversion "github.com/juju/juju/core/version"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
 // InsertInitialControllerConfig inserts the initial controller configuration
-// into the database.
+// into the database. As part of this bootstrap operation the controllers uuid,
+// model uuid and controller version are set.
 func InsertInitialControllerConfig(cfg jujucontroller.Config, controllerModelUUID coremodel.UUID) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		values, err := jujucontroller.EncodeToString(cfg)
@@ -48,10 +50,11 @@ func InsertInitialControllerConfig(cfg jujucontroller.Config, controllerModelUUI
 		}
 
 		controllerData := dbController{
-			UUID:      values[jujucontroller.ControllerUUIDKey],
-			ModelUUID: controllerModelUUID.String(),
+			UUID:          values[jujucontroller.ControllerUUIDKey],
+			ModelUUID:     controllerModelUUID.String(),
+			TargetVersion: jujuversion.Current.String(),
 		}
-		controllerStmt, err := sqlair.Prepare(`INSERT INTO controller (uuid, model_uuid) VALUES ($dbController.*)`, controllerData)
+		controllerStmt, err := sqlair.Prepare(`INSERT INTO controller (*) VALUES ($dbController.*)`, controllerData)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -98,4 +101,7 @@ type dbController struct {
 	UUID string `db:"uuid"`
 	// ModelUUID is the uuid of the model this controller is in.
 	ModelUUID string `db:"model_uuid"`
+	// TargetVersion is the binary version controllers in this cluster should be
+	// running.
+	TargetVersion string `db:"target_version"`
 }

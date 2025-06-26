@@ -5,6 +5,7 @@ package status
 
 import (
 	"github.com/juju/juju/core/storage"
+	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -72,6 +73,35 @@ func DecodeStorageFilesystemStatus(s int) (StorageFilesystemStatusType, error) {
 	}
 }
 
+// FilesystemStatusTransitionValid returns the error
+// [statuserror.FilesystemStatusTransitionNotValid] if the transition from the
+// current status to the new status is not valid.
+func FilesystemStatusTransitionValid(
+	current StorageFilesystemStatusType,
+	isProvisioned bool,
+	new StatusInfo[StorageFilesystemStatusType],
+) error {
+	if current == new.Status {
+		return nil
+	}
+	validTransition := true
+	switch new.Status {
+	case StorageFilesystemStatusTypePending:
+		// If a filesystem is not yet provisioned, we allow its status
+		// to be set back to pending (when a retry is to occur).
+		validTransition = !isProvisioned
+	default:
+		// Anything else is ok.
+	}
+	if !validTransition {
+		return errors.Errorf(
+			"cannot set status %q when filesystem has status %q: %w",
+			new.Status, current, statuserrors.FilesystemStatusTransitionNotValid,
+		)
+	}
+	return nil
+}
+
 // StorageVolumeStatusType represents the status of a volume
 // as recorded in the storage_volume_status_value lookup table.
 type StorageVolumeStatusType int
@@ -134,4 +164,33 @@ func DecodeStorageVolumeStatus(s int) (StorageVolumeStatusType, error) {
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
+}
+
+// VolumeStatusTransitionValid returns the error
+// [statuserror.VolumeStatusTransitionNotValid] if the transition from the
+// current status to the new status is not valid.
+func VolumeStatusTransitionValid(
+	current StorageVolumeStatusType,
+	isProvisioned bool,
+	new StatusInfo[StorageVolumeStatusType],
+) error {
+	if current == new.Status {
+		return nil
+	}
+	validTransition := true
+	switch new.Status {
+	case StorageVolumeStatusTypePending:
+		// If a volume is not yet provisioned, we allow its status
+		// to be set back to pending (when a retry is to occur).
+		validTransition = !isProvisioned
+	default:
+		// Anything else is ok.
+	}
+	if !validTransition {
+		return errors.Errorf(
+			"cannot set status %q when volume has status %q: %w",
+			new.Status, current, statuserrors.VolumeStatusTransitionNotValid,
+		)
+	}
+	return nil
 }

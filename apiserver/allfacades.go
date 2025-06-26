@@ -66,11 +66,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
 	"github.com/juju/juju/apiserver/facades/controller/agenttools"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
-	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
-	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
@@ -79,7 +77,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
-	"github.com/juju/juju/apiserver/facades/controller/lifeflag"
 	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
@@ -178,11 +175,9 @@ func AllFacades() *facade.Registry {
 	caasagent.Register(registry)
 	caasapplication.Register(registry)
 	caasapplicationprovisioner.Register(registry)
-	caasfirewaller.Register(registry)
 	caasmodeloperator.Register(registry)
 	caasmodelconfigmanager.Register(registry)
 	caasoperatorupgrader.Register(registry)
-	caasunitprovisioner.Register(registry)
 
 	controller.Register(registry)
 	crossmodelrelations.Register(registry)
@@ -203,7 +198,6 @@ func AllFacades() *facade.Registry {
 	keymanager.Register(registry)
 	keyupdater.Register(registry)
 	leadership.Register(registry)
-	lifeflag.Register(registry)
 	loggerapi.Register(registry)
 	machineactions.Register(registry)
 	machinemanager.Register(registry)

@@ -23,11 +23,6 @@ func Register(registry facade.FacadeRegistry) {
 // context.
 func newAPIFromContext(stdCtx context.Context, ctx facade.ModelContext) (*API, error) {
 	authorizer := ctx.Auth()
-	resources := ctx.Resources()
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	domainServices := ctx.DomainServices()
 	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
@@ -35,13 +30,15 @@ func newAPIFromContext(stdCtx context.Context, ctx facade.ModelContext) (*API, e
 		return nil, errors.Trace(err)
 	}
 
-	return NewAPI(authorizer, resources,
-		systemState,
+	return NewAPI(
+		authorizer,
 		ctx.State(),
 		domainServices.AgentPassword(),
 		domainServices.ControllerConfig(),
+		domainServices.ControllerNode(),
 		domainServices.Config(),
 		ctx.Logger().Child("caasmodeloperator"),
 		modelInfo.UUID,
+		ctx.WatcherRegistry(),
 	)
 }

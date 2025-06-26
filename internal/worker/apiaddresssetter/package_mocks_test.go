@@ -145,45 +145,6 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
-// GetUnitPublicAddresses mocks base method.
-func (m *MockApplicationService) GetUnitPublicAddresses(arg0 context.Context, arg1 unit.Name) (network.SpaceAddresses, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitPublicAddresses", arg0, arg1)
-	ret0, _ := ret[0].(network.SpaceAddresses)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUnitPublicAddresses indicates an expected call of GetUnitPublicAddresses.
-func (mr *MockApplicationServiceMockRecorder) GetUnitPublicAddresses(arg0, arg1 any) *MockApplicationServiceGetUnitPublicAddressesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitPublicAddresses", reflect.TypeOf((*MockApplicationService)(nil).GetUnitPublicAddresses), arg0, arg1)
-	return &MockApplicationServiceGetUnitPublicAddressesCall{Call: call}
-}
-
-// MockApplicationServiceGetUnitPublicAddressesCall wrap *gomock.Call
-type MockApplicationServiceGetUnitPublicAddressesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetUnitPublicAddressesCall) Return(arg0 network.SpaceAddresses, arg1 error) *MockApplicationServiceGetUnitPublicAddressesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetUnitPublicAddressesCall) Do(f func(context.Context, unit.Name) (network.SpaceAddresses, error)) *MockApplicationServiceGetUnitPublicAddressesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetUnitPublicAddressesCall) DoAndReturn(f func(context.Context, unit.Name) (network.SpaceAddresses, error)) *MockApplicationServiceGetUnitPublicAddressesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // WatchUnitAddresses mocks base method.
 func (m *MockApplicationService) WatchUnitAddresses(arg0 context.Context, arg1 unit.Name) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
@@ -385,8 +346,47 @@ func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 	return m.recorder
 }
 
+// GetUnitPublicAddresses mocks base method.
+func (m *MockNetworkService) GetUnitPublicAddresses(arg0 context.Context, arg1 unit.Name) (network.SpaceAddresses, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitPublicAddresses", arg0, arg1)
+	ret0, _ := ret[0].(network.SpaceAddresses)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitPublicAddresses indicates an expected call of GetUnitPublicAddresses.
+func (mr *MockNetworkServiceMockRecorder) GetUnitPublicAddresses(arg0, arg1 any) *MockNetworkServiceGetUnitPublicAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitPublicAddresses", reflect.TypeOf((*MockNetworkService)(nil).GetUnitPublicAddresses), arg0, arg1)
+	return &MockNetworkServiceGetUnitPublicAddressesCall{Call: call}
+}
+
+// MockNetworkServiceGetUnitPublicAddressesCall wrap *gomock.Call
+type MockNetworkServiceGetUnitPublicAddressesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkServiceGetUnitPublicAddressesCall) Return(arg0 network.SpaceAddresses, arg1 error) *MockNetworkServiceGetUnitPublicAddressesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkServiceGetUnitPublicAddressesCall) Do(f func(context.Context, unit.Name) (network.SpaceAddresses, error)) *MockNetworkServiceGetUnitPublicAddressesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkServiceGetUnitPublicAddressesCall) DoAndReturn(f func(context.Context, unit.Name) (network.SpaceAddresses, error)) *MockNetworkServiceGetUnitPublicAddressesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SpaceByName mocks base method.
-func (m *MockNetworkService) SpaceByName(arg0 context.Context, arg1 string) (*network.SpaceInfo, error) {
+func (m *MockNetworkService) SpaceByName(arg0 context.Context, arg1 network.SpaceName) (*network.SpaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SpaceByName", arg0, arg1)
 	ret0, _ := ret[0].(*network.SpaceInfo)
@@ -413,13 +413,13 @@ func (c *MockNetworkServiceSpaceByNameCall) Return(arg0 *network.SpaceInfo, arg1
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkServiceSpaceByNameCall) Do(f func(context.Context, string) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
+func (c *MockNetworkServiceSpaceByNameCall) Do(f func(context.Context, network.SpaceName) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkServiceSpaceByNameCall) DoAndReturn(f func(context.Context, string) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
+func (c *MockNetworkServiceSpaceByNameCall) DoAndReturn(f func(context.Context, network.SpaceName) (*network.SpaceInfo, error)) *MockNetworkServiceSpaceByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

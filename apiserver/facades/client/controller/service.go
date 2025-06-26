@@ -10,16 +10,15 @@ import (
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
-	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/relation"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs/cloudspec"
@@ -34,6 +33,14 @@ type ControllerConfigService interface {
 	// UpdateControllerConfig updates the controller config and has an optional
 	// list of config keys to remove.
 	UpdateControllerConfig(context.Context, corecontroller.Config, []string) error
+}
+
+// ControllerNodeService represents a way to get controller api addresses.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
+	// addresses available for agents ordered to prefer local-cloud scoped
+	// addresses and IPv4 over IPv6 for each machine.
+	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
 }
 
 // UpgradeService provides a subset of the upgrade domain service methods.
@@ -72,21 +79,24 @@ type ModelService interface {
 
 // ModelInfoService defines domain service methods for managing a model.
 type ModelInfoService interface {
-	// GetStatus returns the current status of the model. The following error
-	// types can be expected to be returned:
-	//  - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does not exist.
-	GetStatus(context.Context) (domainmodel.StatusInfo, error)
 	// IsControllerModel returns true if the model is the controller model.
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] When the model does not exist.
 	IsControllerModel(context.Context) (bool, error)
+	// HasValidCredential returns true if the model has a valid credential.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model no longer exists.
+	HasValidCredential(context.Context) (bool, error)
 }
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	// GetApplicationLife returns the life value of the application with the
-	// given name.
-	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+	// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
+	// in the model are alive, returning an error if any are not.
+	CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error
+
+	// GetUnitNamesForApplication returns a slice of the unit names for the given application
+	GetUnitNamesForApplication(ctx context.Context, appName string) ([]unit.Name, error)
 }
 
 // RelationService provides access to the relation service.
@@ -105,14 +115,24 @@ type StatusService interface {
 	// CheckUnitStatusesReadyForMigration returns true is the statuses of all units
 	// in the model indicate they can be migrated.
 	CheckUnitStatusesReadyForMigration(context.Context) error
+
+	// CheckMachineStatusesReadyForMigration returns an error if the statuses of any
+	// machines in the model indicate they cannot be migrated.
+	CheckMachineStatusesReadyForMigration(context.Context) error
+
 	// GetApplicationAndUnitModelStatuses returns the application name and unit
 	// count for each model for the model status request.
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
+
 	// GetModelStatusInfo returns information about the current model for the
 	// purpose of reporting its status.
 	// The following error types can be expected to be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(context.Context) (domainstatus.ModelStatusInfo, error)
+
+	// GetAllMachineStatuses returns all the machine statuses for the model, indexed
+	// by machine name.
+	GetAllMachineStatuses(context.Context) (map[machine.Name]status.StatusInfo, error)
 }
 
 // ProxyService provides access to the proxy service.

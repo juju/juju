@@ -6,7 +6,6 @@ package caasmodeloperator
 import (
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
 )
 
@@ -14,10 +13,4 @@ import (
 // model operator provisioner.
 type CAASModelOperatorState interface {
 	FindEntity(tag names.Tag) (state.Entity, error)
-}
-
-// CAASModelOperatorState provides the subset of controller state required by the
-// model operator provisioner.
-type CAASControllerState interface {
-	common.APIAddressAccessor
 }

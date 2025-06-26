@@ -97,3 +97,6 @@ func (constSubscription) Unsubscribe() {}
 func (constSubscription) Done() <-chan struct{} {
 	return make(<-chan struct{})
 }
+
+func (constSubscription) Kill()       {}
+func (constSubscription) Wait() error { return nil }

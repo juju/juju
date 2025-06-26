@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/juju/collections/transform"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
@@ -101,7 +100,7 @@ func (w *NamespaceWatcher) loop() error {
 	if err != nil {
 		return errors.Errorf("subscribing to namespaces: %w", err)
 	}
-	defer subscription.Unsubscribe()
+	defer subscription.Kill()
 
 	changes, err := w.initialQuery(ctx, w.watchableDB)
 	if err != nil {
@@ -145,7 +144,7 @@ func (w *NamespaceWatcher) loop() error {
 			}
 
 			// We have changes. Tick over to dispatch mode.
-			changes = transform.Slice(changed, func(c changestream.ChangeEvent) string { return c.Changed() })
+			changes = changed
 			in = nil
 			out = w.out
 		case out <- changes:

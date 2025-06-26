@@ -6,7 +6,6 @@ package dummy_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -117,7 +116,7 @@ func (s *suite) TestSupportsSpaces(c *tc.C) {
 	c.Assert(isEnabled, tc.IsTrue)
 	ok, err = e.SupportsSpaces()
 	c.Assert(ok, tc.IsFalse)
-	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// And finally turn it on again.
 	isEnabled = dummy.SetSupportsSpaces(true)

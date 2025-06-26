@@ -207,7 +207,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnitsAndStorageInvalidC
 	ctx := c.Context()
 
 	_, _, err := s.state.CreateIAASApplication(ctx, "foo", s.addIAASApplicationArgForStorage(c, "foo",
-		chStorage, addStorageArgs), []application.AddUnitArg{{}})
+		chStorage, addStorageArgs), []application.AddIAASUnitArg{{}})
 	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidStorageCount)
 }
 
@@ -314,8 +314,10 @@ func (s *baseStorageSuite) TestGetStorageUUIDByIDNotFound(c *tc.C) {
 func (s *baseStorageSuite) createUnitWithCharm(c *tc.C, stor ...charmStorageArg) (coreunit.UUID, string) {
 	ctx := c.Context()
 
-	u1 := application.InsertUnitArg{
-		UnitName: "foo/666",
+	u1 := application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/666",
+		},
 	}
 	s.createIAASApplication(c, "foo", life.Alive, u1)
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), u1.UnitName)
@@ -358,7 +360,7 @@ VALUES (?, ?)`, *ownerUUID, storageUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.storageInstCount = s.storageInstCount + 1
+	s.storageInstCount++
 	return storageUUID
 }
 
@@ -459,7 +461,7 @@ VALUES (?, ?)`, storageUUID, filesystemUUID)
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	s.filesystemCount = s.filesystemCount + 1
+	s.filesystemCount++
 }
 
 type volumeAttachmentArg struct {
@@ -762,8 +764,8 @@ func (s *caasStorageSuite) SetUpTest(c *tc.C) {
 	modelUUID := testing.GenModelUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "caas", "test-model", "microk8s")
+			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "prod", "caas", "test-model", "microk8s")
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
@@ -994,8 +996,8 @@ func (s *iaasStorageSuite) SetUpTest(c *tc.C) {
 	modelUUID := testing.GenModelUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})

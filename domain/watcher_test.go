@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
@@ -123,8 +124,10 @@ func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *tc.C) {
 
 	w, err := factory.NewNamespaceMapperWatcher(
 		eventsource.InitialNamespaceChanges("SELECT uuid from some_namespace"),
-		func(ctx context.Context, ce []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-			return ce, nil
+		func(ctx context.Context, ce []changestream.ChangeEvent) ([]string, error) {
+			return transform.Slice(ce, func(c changestream.ChangeEvent) string {
+				return c.Changed()
+			}), nil
 		},
 		eventsource.NamespaceFilter("some_namespace", changestream.All),
 	)
@@ -156,7 +159,7 @@ func (s *watcherSuite) expectSourceWithSub() {
 	// We are only testing that the factory produces a functioning worker.
 	// The workers themselves are properly tested at their package sites.
 	s.sub.EXPECT().Changes().Return(changes)
-	s.sub.EXPECT().Unsubscribe()
+	s.sub.EXPECT().Kill()
 	s.sub.EXPECT().Done().Return(done).AnyTimes()
 
 	s.events.EXPECT().Subscribe(gomock.Any()).Return(s.sub, nil)

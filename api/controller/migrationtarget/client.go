@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"gopkg.in/httprequest.v1"
@@ -79,7 +79,7 @@ func (c *Client) Prechecks(ctx context.Context, model coremigration.ModelInfo) e
 	args := params.MigrationModelInfo{
 		UUID:                   model.UUID,
 		Name:                   model.Name,
-		OwnerTag:               model.Owner.String(),
+		Qualifier:              model.Qualifier.String(),
 		AgentVersion:           model.AgentVersion,
 		ControllerAgentVersion: model.ControllerAgentVersion,
 		FacadeVersions:         versions,

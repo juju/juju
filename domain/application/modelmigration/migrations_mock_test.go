@@ -49,10 +49,10 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 }
 
 // GetSpaceUUIDByName mocks base method.
-func (m *MockImportService) GetSpaceUUIDByName(arg0 context.Context, arg1 string) (network.Id, error) {
+func (m *MockImportService) GetSpaceUUIDByName(arg0 context.Context, arg1 string) (network.SpaceUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSpaceUUIDByName", arg0, arg1)
-	ret0, _ := ret[0].(network.Id)
+	ret0, _ := ret[0].(network.SpaceUUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -70,19 +70,19 @@ type MockImportServiceGetSpaceUUIDByNameCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockImportServiceGetSpaceUUIDByNameCall) Return(arg0 network.Id, arg1 error) *MockImportServiceGetSpaceUUIDByNameCall {
+func (c *MockImportServiceGetSpaceUUIDByNameCall) Return(arg0 network.SpaceUUID, arg1 error) *MockImportServiceGetSpaceUUIDByNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceGetSpaceUUIDByNameCall) Do(f func(context.Context, string) (network.Id, error)) *MockImportServiceGetSpaceUUIDByNameCall {
+func (c *MockImportServiceGetSpaceUUIDByNameCall) Do(f func(context.Context, string) (network.SpaceUUID, error)) *MockImportServiceGetSpaceUUIDByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceGetSpaceUUIDByNameCall) DoAndReturn(f func(context.Context, string) (network.Id, error)) *MockImportServiceGetSpaceUUIDByNameCall {
+func (c *MockImportServiceGetSpaceUUIDByNameCall) DoAndReturn(f func(context.Context, string) (network.SpaceUUID, error)) *MockImportServiceGetSpaceUUIDByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -4,12 +4,32 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
+
+// WatchUnitActions watches for all updates to actions for the specified unit,
+// emitting action ids.
+//
+// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
+// will be returned.
+func (s *WatchableService) WatchUnitActions(
+	ctx context.Context, unitName coreunit.Name,
+) (watcher.StringsWatcher, error) {
+	_, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// TODO: implement this watcher and consider moving to an actions domain.
+	return watcher.TODO[[]string](), nil
+}
 
 func decodeActions(actions charm.Actions) (internalcharm.Actions, error) {
 	if len(actions.Actions) == 0 {

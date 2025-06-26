@@ -68,14 +68,13 @@ func (st *Client) StateServingInfo(ctx context.Context) (controller.StateServing
 		return controller.StateServingInfo{}, errors.Trace(err)
 	}
 	return controller.StateServingInfo{
-		APIPort:           results.APIPort,
-		ControllerAPIPort: results.ControllerAPIPort,
-		StatePort:         results.StatePort,
-		Cert:              results.Cert,
-		PrivateKey:        results.PrivateKey,
-		CAPrivateKey:      results.CAPrivateKey,
-		SharedSecret:      results.SharedSecret,
-		SystemIdentity:    results.SystemIdentity,
+		APIPort:        results.APIPort,
+		StatePort:      results.StatePort,
+		Cert:           results.Cert,
+		PrivateKey:     results.PrivateKey,
+		CAPrivateKey:   results.CAPrivateKey,
+		SharedSecret:   results.SharedSecret,
+		SystemIdentity: results.SystemIdentity,
 	}, nil
 }
 
@@ -116,11 +115,11 @@ func (m *Entity) Jobs() []model.MachineJob {
 }
 
 // IsController returns true of the tag is for a controller (machine or agent).
-// TODO(controlleragent) - this method is needed while IAAS controllers are still machines.
 func IsController(ctx context.Context, caller base.APICaller, tag names.Tag) (bool, error) {
 	if tag.Kind() == names.ControllerAgentTagKind {
 		return true, nil
 	}
+
 	apiSt, err := NewClient(caller)
 	if err != nil {
 		return false, errors.Trace(err)

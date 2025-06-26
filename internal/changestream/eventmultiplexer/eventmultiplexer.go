@@ -23,12 +23,10 @@ type ChangeSet = []changestream.ChangeEvent
 
 // Stream represents a way to get change events as set of terms.
 type Stream interface {
-	// Terms returns a channel for a given namespace (database) that returns
-	// a set of terms. The notion of terms are a set of changes that can be
-	// run one at a time asynchronously. Allowing changes within a given
-	// term to be signaled of a change independently from one another.
-	// Once a change within a term has been completed, only at that point
-	// is another change processed, until all changes are exhausted.
+	// Terms returns a channel from which terms for a given
+	// namespace (database) will be received.
+	// A term contains all records from the change_log table
+	// since the last received term.
 	Terms() <-chan changestream.Term
 
 	// Dying returns a channel that is closed when the stream is dying.
@@ -59,8 +57,7 @@ type reportRequest struct {
 // implementation, all subscriptions and changes are serialized in the main
 // loop. Dispatching is randomized to ensure that subscriptions don't depend on
 // ordering. The subscriptions can be associated with different subscription
-// options, which provide filtering when dispatching. Unsubscribing is provided
-// per subscription, which is done asynchronously.
+// options, which provide filtering when dispatching.
 type EventMultiplexer struct {
 	catacomb catacomb.Catacomb
 	stream   Stream
@@ -74,10 +71,9 @@ type EventMultiplexer struct {
 	subscriptionsCount uint64
 	dispatchErrorCount int
 
-	// (un)subscription related channels to serialize adding and removing
-	// subscriptions. This allows the queue to be lock less.
-	subscriptionCh   chan requestSubscription
-	unsubscriptionCh chan uint64
+	// subscriptionCh is a channel used to request new subscriptions.
+	// This is used to sync subscription additions into the loop.
+	subscriptionCh chan requestSubscription
 
 	reportsCh chan reportRequest
 }
@@ -95,8 +91,7 @@ func New(stream Stream, clock clock.Clock, metrics MetricsCollector, logger logg
 		subscriptionsCount: 0,
 		dispatchErrorCount: 0,
 
-		subscriptionCh:   make(chan requestSubscription),
-		unsubscriptionCh: make(chan uint64),
+		subscriptionCh: make(chan requestSubscription),
 
 		reportsCh: make(chan reportRequest),
 	}
@@ -143,8 +138,8 @@ func (e *EventMultiplexer) Wait() error {
 	return e.catacomb.Wait()
 }
 
-// Report returns a map of the current state of the event queue. This is
-// used by the engine report.
+// Report returns the current state of the event queue.
+// This is used by the engine report.
 func (e *EventMultiplexer) Report() map[string]any {
 	ctx, cancel := e.scopedContext()
 	defer cancel()
@@ -159,7 +154,7 @@ func (e *EventMultiplexer) Report() map[string]any {
 	case <-e.stream.Dying():
 		return nil
 
-	// We can't block the engine report, so we timeout after a second.
+	// We can't block the engine report, so we time out after a second.
 	// This can happen if we're in the middle of a dispatch and the term
 	// channel is blocked.
 	case <-e.clock.After(time.Second):
@@ -178,48 +173,36 @@ func (e *EventMultiplexer) Report() map[string]any {
 	}
 }
 
-func (e *EventMultiplexer) unsubscribe(subscriptionID uint64) {
-	select {
-	case <-e.catacomb.Dying():
-		return
-	case <-e.stream.Dying():
-		return
-	case e.unsubscriptionCh <- subscriptionID:
-	}
-
-	// Decrease number of subscriptions metric.
-	e.metrics.SubscriptionsDec()
-}
-
 func (e *EventMultiplexer) loop() error {
 	ctx, cancel := e.scopedContext()
 	defer cancel()
 
 	defer func() {
 		for _, sub := range e.subscriptions {
-			sub.close()
+			sub.Kill()
 		}
 		e.subscriptions = nil
 		e.subscriptionsByNS = nil
+		e.subscriptionsAll = nil
 	}()
 
 	for {
+		e.cleanupDeadSubscriptions(ctx)
+
 		select {
-		// If the catacomb is dying, then we should exit.
 		case <-e.catacomb.Dying():
 			return e.catacomb.ErrDying()
 
-		// If the underlying stream is dying, then we should also exit.
 		case <-e.stream.Dying():
-			e.logger.Debugf(ctx, "change stream is dying, waiting for catacomb to die")
+			e.logger.Infof(ctx, "change stream is dying, waiting for catacomb to die")
 
 			<-e.catacomb.Dying()
 			return e.catacomb.ErrDying()
 
 		case term, ok := <-e.stream.Terms():
 			// If the stream is closed, we expect that a new worker will come
-			// again using the change stream worker infrastructure. In this case
-			// just ignore and close out.
+			// again using the change stream worker infrastructure.
+			// Just exit the loop.
 			if !ok {
 				e.logger.Infof(ctx, "change stream term channel is closed")
 				return nil
@@ -254,20 +237,14 @@ func (e *EventMultiplexer) loop() error {
 			}
 			e.metrics.DispatchDurationObserve(e.clock.Now().Sub(begin).Seconds(), err != nil)
 
-			// We should guarantee that the change set is not empty, so we
-			// can force false here.
+			// We should guarantee that the change set is not empty,
+			// so we can force false here.
 			term.Done(false, e.catacomb.Dying())
 
 		case request := <-e.subscriptionCh:
-			// Get a new subscription count without using any mutexes.
-			subID := atomic.AddUint64(&e.subscriptionsCount, 1)
-
-			e.metrics.SubscriptionsInc()
-
-			sub := newSubscription(subID, func() { e.unsubscribe(subID) })
+			sub := newSubscription(atomic.AddUint64(&e.subscriptionsCount, 1))
 
 			if err := e.catacomb.Add(sub); err != nil {
-				e.metrics.SubscriptionsDec()
 				sub.Kill()
 
 				if errors.Is(err, e.catacomb.ErrDying()) {
@@ -277,23 +254,23 @@ func (e *EventMultiplexer) loop() error {
 				select {
 				case <-e.catacomb.Dying():
 					return e.catacomb.ErrDying()
-				case request.result <- requestSubscriptionResult{
-					err: err,
-				}:
+				case request.result <- requestSubscriptionResult{err: err}:
 					continue
 				}
 			}
 
+			e.metrics.SubscriptionsInc()
+
 			// Create a new subscription and assign a unique ID to it.
 			e.subscriptions[sub.id] = sub
 
-			// No options were supplied, just add it to the all bucket, so
-			// they'll be included in every dispatch.
+			// No options were supplied, just add it to the all-subs bucket,
+			// so they'll be included in every dispatch.
 			if len(request.opts) == 0 {
 				e.subscriptionsAll[sub.id] = struct{}{}
 			} else {
-				// Register filters to route changes matching the subscription criteria to
-				// the newly created subscription.
+				// Register filters to route changes matching the subscription
+				// criteria to the newly created subscription.
 				for _, opt := range request.opts {
 					namespace := opt.Namespace()
 					e.subscriptionsByNS[namespace] = append(e.subscriptionsByNS[namespace], &eventFilter{
@@ -308,45 +285,7 @@ func (e *EventMultiplexer) loop() error {
 			select {
 			case <-e.catacomb.Dying():
 				return e.catacomb.ErrDying()
-			case request.result <- requestSubscriptionResult{
-				sub: sub,
-			}:
-				continue
-			}
-
-		case subscriptionID := <-e.unsubscriptionCh:
-			sub, found := e.subscriptions[subscriptionID]
-			if !found {
-				continue
-			}
-
-			for topic := range sub.topics {
-				var updatedFilters []*eventFilter
-				for _, filter := range e.subscriptionsByNS[topic] {
-					if filter.subscriptionID == subscriptionID {
-						continue
-					}
-					updatedFilters = append(updatedFilters, filter)
-				}
-
-				// If we don't have any more filters for this topic, remove it
-				// otherwise we'll keep iterating over it.
-				if len(updatedFilters) == 0 {
-					delete(e.subscriptionsByNS, topic)
-					continue
-				}
-
-				e.subscriptionsByNS[topic] = updatedFilters
-			}
-
-			delete(e.subscriptions, subscriptionID)
-			delete(e.subscriptionsAll, subscriptionID)
-
-			// If the subscription errors out on a close, we don't want that
-			// to bring down the entire multiplexer. Instead, just log it out
-			// and continue.
-			if err := sub.close(); err != nil {
-				e.logger.Infof(ctx, "error closing subscription: %v", err)
+			case request.result <- requestSubscriptionResult{sub: sub}:
 			}
 
 		case r := <-e.reportsCh:
@@ -420,13 +359,51 @@ func (e *EventMultiplexer) dispatchSet(changeSet map[*subscription]ChangeSet) er
 
 		grp.Go(func() error {
 			// Pass the context of the catacomb with the deadline to the
-			// subscription. This allows the subscription to be cancelled
-			// if the catacomb is dying or if the deadline is reached.
+			// subscription. This allows the subscription to be cancelled if the
+			// catacomb is dying or if the deadline is reached.
+			// If the subscription has been killed or did not dequeue in time,
+			// mark it bad. It will be removed at the top of the next loop.
 			return sub.dispatch(ctx, changes)
 		})
 	}
 
 	return grp.Wait()
+}
+
+func (e *EventMultiplexer) cleanupDeadSubscriptions(ctx context.Context) {
+	for id, sub := range e.subscriptions {
+		select {
+		case <-sub.Done():
+			e.logger.Debugf(ctx, "removing dead subscription %d", id)
+			e.unsubscribe(id, sub)
+		default:
+		}
+	}
+}
+
+func (e *EventMultiplexer) unsubscribe(subID uint64, sub *subscription) {
+	for topic := range sub.topics {
+		var updatedFilters []*eventFilter
+		for _, filter := range e.subscriptionsByNS[topic] {
+			if filter.subscriptionID == subID {
+				continue
+			}
+			updatedFilters = append(updatedFilters, filter)
+		}
+
+		// If we don't have any more filters for this topic,
+		// remove it so we don't keep iterating over it.
+		if len(updatedFilters) == 0 {
+			delete(e.subscriptionsByNS, topic)
+			continue
+		}
+		e.subscriptionsByNS[topic] = updatedFilters
+	}
+
+	delete(e.subscriptions, subID)
+	delete(e.subscriptionsAll, subID)
+
+	e.metrics.SubscriptionsDec()
 }
 
 func (e *EventMultiplexer) scopedContext() (context.Context, context.CancelFunc) {

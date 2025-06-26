@@ -6,7 +6,6 @@ package apiserver
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"reflect"
 	"sync"
 	"time"
@@ -187,36 +186,6 @@ func newAPIHandler(
 		serverHost:            serverHost,
 	}
 
-	// Facades involved with managing application offers need the auth context
-	// to mint and validate macaroons.
-	offerAccessEndpoint := &url.URL{
-		Scheme: "https",
-		Host:   serverHost,
-		Path:   localOfferAccessLocationPath,
-	}
-
-	contollerConfigService := domainServices.ControllerConfig()
-	controllerConfig, err := contollerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "unable to get controller config")
-	}
-	loginTokenRefreshURL := controllerConfig.LoginTokenRefreshURL()
-	if loginTokenRefreshURL != "" {
-		offerAccessEndpoint, err = url.Parse(loginTokenRefreshURL)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	offerAuthCtxt, err := srv.offerAuthCtxt.WithDischargeURL(ctx, offerAccessEndpoint.String())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := r.resources.RegisterNamed(
-		"offerAccessAuthContext",
-		common.NewValueResource(offerAuthCtxt),
-	); err != nil {
-		return nil, errors.Trace(err)
-	}
 	return r, nil
 }
 
@@ -333,11 +302,7 @@ func (r *apiHandler) AuthOwner(tag names.Tag) bool {
 // AuthController returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
 func (r *apiHandler) AuthController() bool {
-	type hasIsManager interface {
-		IsManager() bool
-	}
-	m, ok := r.authInfo.Entity.(hasIsManager)
-	return ok && m.IsManager()
+	return r.authInfo.Controller
 }
 
 // AuthClient returns whether the authenticated entity is a client
@@ -1034,6 +999,9 @@ func (ctx *facadeContext) controllerDB() (changestream.WatchableDB, error) {
 // facade context. It is expected that users of the facade context will use the
 // higher level abstractions.
 func (ctx *facadeContext) modelDB(modelUUID model.UUID) (changestream.WatchableDB, error) {
+	if err := modelUUID.Validate(); err != nil {
+		return nil, errors.Annotate(err, "validating model uuid")
+	}
 	db, err := ctx.r.shared.dbGetter.GetWatchableDB(modelUUID.String())
 	return db, errors.Trace(err)
 }
@@ -1060,6 +1028,11 @@ func (ctx *facadeContext) DomainServicesForModel(c context.Context, uuid model.U
 // ObjectStoreForModel returns the object store for a given model uuid.
 func (ctx *facadeContext) ObjectStoreForModel(stdCtx context.Context, modelUUID string) (objectstore.ObjectStore, error) {
 	return ctx.r.objectStoreGetter.GetObjectStore(stdCtx, modelUUID)
+}
+
+// ControllerModelUUID returns the UUID of the controller model.
+func (ctx *facadeContext) ControllerModelUUID() model.UUID {
+	return ctx.r.shared.controllerModelUUID
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

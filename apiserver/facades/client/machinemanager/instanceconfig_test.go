@@ -16,7 +16,6 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -32,10 +31,12 @@ type machineConfigSuite struct {
 	cloudService *commonmocks.MockCloudService
 
 	controllerConfigService *MockControllerConfigService
+	controllerNodeService   *MockControllerNodeService
 	keyUpdaterService       *MockKeyUpdaterService
 	modelConfigService      *MockModelConfigService
 	machineService          *MockMachineService
 	bootstrapEnviron        *MockBootstrapEnviron
+	agentPasswordService    *MockAgentPasswordService
 }
 
 func TestMachineConfigSuite(t *testing.T) {
@@ -45,6 +46,7 @@ func TestMachineConfigSuite(t *testing.T) {
 func (s *machineConfigSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 
 	s.ctrlSt = NewMockControllerBackend(ctrl)
 	s.st = NewMockInstanceConfigBackend(ctrl)
@@ -54,6 +56,20 @@ func (s *machineConfigSuite) setup(c *tc.C) *gomock.Controller {
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.bootstrapEnviron = NewMockBootstrapEnviron(ctrl)
+	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
+
+	c.Cleanup(func() {
+		s.controllerNodeService = nil
+		s.controllerConfigService = nil
+		s.ctrlSt = nil
+		s.st = nil
+		s.cloudService = nil
+		s.store = nil
+		s.keyUpdaterService = nil
+		s.modelConfigService = nil
+		s.machineService = nil
+		s.bootstrapEnviron = nil
+	})
 
 	return ctrl
 }
@@ -76,11 +92,13 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 	machine0 := NewMockMachine(ctrl)
 	machine0.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "20.04/stable"}).AnyTimes()
 	machine0.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
-	hc := instance.MustParseHardware("mem=4G arch=amd64")
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&hc, nil)
-	machine0.EXPECT().SetPassword(gomock.Any()).Return(nil)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
+
+	hc := instance.MustParseHardware("mem=4G arch=amd64")
+
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
+	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&hc, nil)
+	s.agentPasswordService.EXPECT().SetMachinePassword(gomock.Any(), coremachine.Name("0"), gomock.Any()).Return(nil)
 
 	storageCloser := NewMockStorageCloser(ctrl)
 	storageCloser.EXPECT().AllMetadata().Return([]binarystorage.Metadata{{
@@ -89,10 +107,10 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 	storageCloser.EXPECT().Close().Return(nil)
 	s.st.EXPECT().ToolsStorage(gomock.Any()).Return(storageCloser, nil)
 
-	s.ctrlSt.EXPECT().APIHostPortsForAgents(gomock.Any()).Return([]network.SpaceHostPorts{{{
-		SpaceAddress: network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
-		NetPort:      1,
-	}}}, nil).MinTimes(1)
+	addrs := []string{"1.2.3.4:1"}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(addrs, nil).MinTimes(1)
+	addrs2 := map[string][]string{"one": {"1.2.3.4:1"}}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs2, nil).MinTimes(1)
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
@@ -103,11 +121,13 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 
 	services := InstanceConfigServices{
 		ControllerConfigService: s.controllerConfigService,
+		ControllerNodeService:   s.controllerNodeService,
 		CloudService:            s.cloudService,
 		ObjectStore:             s.store,
 		KeyUpdaterService:       s.keyUpdaterService,
 		ModelConfigService:      s.modelConfigService,
 		MachineService:          s.machineService,
+		AgentPasswordService:    s.agentPasswordService,
 	}
 
 	modelID := modeltesting.GenModelUUID(c)

@@ -21,4 +21,14 @@ const (
 	// AvailabilityZoneNotFound is returned when an availability zone is
 	// not found.
 	AvailabilityZoneNotFound = errors.ConstError("availability zone not found")
+
+	// SpaceRequirementConflict indicates that negative space constraints for a
+	// machine are not satisfiable due to intersection with either its positive
+	// space constraints or the app endpoint bindings of units assigned to it.
+	SpaceRequirementConflict = errors.ConstError("space requirement conflict")
+
+	// SpaceRequirementsUnsatisfiable indicates that the space requirements for
+	// a container or VM cannot be satisfied by the host it was requested to be
+	// provisioned on.
+	SpaceRequirementsUnsatisfiable = errors.ConstError("space requirements unsatisfiable")
 )

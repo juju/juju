@@ -17,6 +17,6 @@ Pebble notices are supported in Juju starting with version 3.4. Juju polls each 
 
 Each notice has a *type* and *key*, the combination of which uniquely identifies it. A notice's count of occurrences is incremented every time a notice with that type and key combination occurs.
 
-Currently, the only notice type is "custom". These are custom notices recorded by a user of Pebble; in future, other notice types may be recorded by Pebble itself. When a custom notice occurs, Juju fires a [`PebbleCustomNoticeEvent`](https://ops.readthedocs.io/en/latest/#ops.PebbleCustomNoticeEvent) event whose [`workload`](https://ops.readthedocs.io/en/latest/#ops.WorkloadEvent.workload) attribute is set to the relevant container.
+Currently, the only notice type is "custom". These are custom notices recorded by a user of Pebble; in future, other notice types may be recorded by Pebble itself. When a custom notice occurs, Juju fires a [`PebbleCustomNoticeEvent`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.PebbleCustomNoticeEvent) event whose [`workload`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.WorkloadEvent.workload) attribute is set to the relevant container.
 
 Custom notices allow the workload to wake up the charm when something interesting happens with the workload, for example, when a PostgreSQL backup process finishes, or some kind of alert occurs.

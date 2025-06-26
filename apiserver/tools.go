@@ -373,7 +373,7 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 		md.Size,
 		metadata.SHA256,
 	)
-	if err != nil {
+	if err != nil && !errors.Is(err, agentbinaryerrors.AlreadyExists) {
 		logger.Errorf(r.Context(), "replicating downloaded agent binary into model store: %v", err)
 	}
 

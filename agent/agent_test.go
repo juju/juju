@@ -301,14 +301,13 @@ func (*suite) TestNewAgentConfig(c *tc.C) {
 
 func stateServingInfo() controller.StateServingInfo {
 	return controller.StateServingInfo{
-		Cert:              "cert",
-		PrivateKey:        "key",
-		CAPrivateKey:      "ca key",
-		StatePort:         69,
-		APIPort:           47,
-		ControllerAPIPort: 52,
-		SharedSecret:      "shared",
-		SystemIdentity:    "identity",
+		Cert:           "cert",
+		PrivateKey:     "key",
+		CAPrivateKey:   "ca key",
+		StatePort:      69,
+		APIPort:        47,
+		SharedSecret:   "shared",
+		SystemIdentity: "identity",
 	}
 }
 
@@ -418,14 +417,13 @@ func (*suite) TestStateServingInfo(c *tc.C) {
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(gotInfo, tc.DeepEquals, servingInfo)
 	newInfo := controller.StateServingInfo{
-		APIPort:           147,
-		ControllerAPIPort: 148,
-		StatePort:         169,
-		Cert:              "new cert",
-		PrivateKey:        "new key",
-		CAPrivateKey:      "new ca key",
-		SharedSecret:      "new shared",
-		SystemIdentity:    "new identity",
+		APIPort:        147,
+		StatePort:      169,
+		Cert:           "new cert",
+		PrivateKey:     "new key",
+		CAPrivateKey:   "new ca key",
+		SharedSecret:   "new shared",
+		SystemIdentity: "new identity",
 	}
 	conf.SetStateServingInfo(newInfo)
 	gotInfo, ok = conf.StateServingInfo()
@@ -494,18 +492,6 @@ func (*suite) TestAPIInfoServesLocalhostWhenServingInfoPresent(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
 	c.Assert(ok, tc.IsTrue)
-	c.Check(apiinfo.Addrs, tc.SameContents, []string{"localhost:52", "foo.example:1235"})
-}
-
-func (*suite) TestAPIInfoServesStandardAPIPortWhenControllerAPIPortNotSet(c *tc.C) {
-	attrParams := attributeParams
-	attrParams.APIAddresses = []string{"foo.example:1235"}
-	servingInfo := stateServingInfo()
-	servingInfo.ControllerAPIPort = 0
-	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, tc.ErrorIsNil)
-	apiinfo, ok := conf.APIInfo()
-	c.Assert(ok, tc.IsTrue)
 	c.Check(apiinfo.Addrs, tc.SameContents, []string{"localhost:47", "foo.example:1235"})
 }
 
@@ -566,12 +552,11 @@ func (*suite) TestAPIInfoDoesNotAddLocalhostWhenNoServingInfo(c *tc.C) {
 func (*suite) TestSetPassword(c *tc.C) {
 	attrParams := attributeParams
 	servingInfo := stateServingInfo()
-	servingInfo.ControllerAPIPort = 1235
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectAPIInfo := &api.Info{
-		Addrs:    attrParams.APIAddresses,
+		Addrs:    append([]string{"localhost:47"}, attrParams.APIAddresses...),
 		CACert:   attrParams.CACert,
 		Tag:      attrParams.Tag,
 		Password: "",
@@ -581,6 +566,7 @@ func (*suite) TestSetPassword(c *tc.C) {
 	apiInfo, ok := conf.APIInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(apiInfo, tc.DeepEquals, expectAPIInfo)
+
 	addr := fmt.Sprintf("localhost:%d", servingInfo.StatePort)
 	expectStateInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
@@ -602,6 +588,7 @@ func (*suite) TestSetPassword(c *tc.C) {
 	apiInfo, ok = conf.APIInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(apiInfo, tc.DeepEquals, expectAPIInfo)
+
 	info, ok = conf.MongoInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(info, tc.DeepEquals, expectStateInfo)

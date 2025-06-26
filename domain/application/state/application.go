@@ -14,6 +14,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
@@ -99,7 +100,7 @@ func (st *State) CreateIAASApplication(
 	ctx context.Context,
 	name string,
 	args application.AddIAASApplicationArg,
-	units []application.AddUnitArg,
+	units []application.AddIAASUnitArg,
 ) (coreapplication.ID, []coremachine.Name, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -298,6 +299,9 @@ func (st *State) insertApplication(
 	); err != nil {
 		return errors.Errorf("inserting or resolving resources for application %q: %w", name, err)
 	}
+	if err := st.insertApplicationController(ctx, tx, appDetails, args.IsController); err != nil {
+		return errors.Errorf("inserting controller for application %q: %w", name, err)
+	}
 	if err := st.insertApplicationStorage(ctx, tx, appDetails, args.Storage); err != nil {
 		return errors.Errorf("inserting storage for application %q: %w", name, err)
 	}
@@ -339,28 +343,52 @@ func (st *State) insertApplication(
 	return nil
 }
 
+func (st *State) insertApplicationController(
+	ctx context.Context, tx *sqlair.TX,
+	appDetails applicationDetails,
+	isController bool,
+) error {
+	if !isController {
+		return nil
+	}
+
+	stmt, err := st.Prepare(`
+INSERT INTO application_controller (application_uuid)
+VALUES ($applicationDetails.uuid)
+`, appDetails)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return tx.Query(ctx, stmt, appDetails).Run()
+}
+
 func (st *State) insertIAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
 	args application.AddIAASApplicationArg,
-	units []application.AddUnitArg,
+	units []application.AddIAASUnitArg,
 ) ([]coremachine.Name, error) {
-	insertUnits := make([]application.InsertUnitArg, len(units))
+	insertUnits := make([]application.InsertIAASUnitArg, len(units))
 	for i, unit := range units {
 		unitName, err := st.newUnitName(ctx, tx, appUUID)
 		if err != nil {
 			return nil, errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 		}
-		insertUnits[i] = application.InsertUnitArg{
-			UnitName:        unitName,
-			Constraints:     unit.Constraints,
-			Placement:       unit.Placement,
-			Storage:         args.Storage,
-			StoragePoolKind: args.StoragePoolKind,
-			UnitStatusArg: application.UnitStatusArg{
-				AgentStatus:    unit.UnitStatusArg.AgentStatus,
-				WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
+		insertUnits[i] = application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName:        unitName,
+				Constraints:     unit.Constraints,
+				Placement:       unit.Placement,
+				Storage:         args.Storage,
+				StoragePoolKind: args.StoragePoolKind,
+				UnitStatusArg: application.UnitStatusArg{
+					AgentStatus:    unit.UnitStatusArg.AgentStatus,
+					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
+				},
 			},
+			Platform: args.Platform,
+			Nonce:    unit.Nonce,
 		}
 	}
 
@@ -632,10 +660,10 @@ SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
 
 // GetStoragePoolByName returns the storage pool with the specified name, returning an error
 // satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
-func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error) {
+func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error) {
 	db, err := st.DB()
 	if err != nil {
-		return domainstorage.StoragePoolDetails{}, errors.Capture(err)
+		return domainstorage.StoragePool{}, errors.Capture(err)
 	}
 	return storagestate.GetStoragePoolByName(ctx, db, name)
 }
@@ -730,7 +758,85 @@ WHERE application_uuid = $applicationScale.application_uuid
 // GetApplicationLife looks up the life of the specified application, returning
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
-func (st *State) GetApplicationLife(ctx context.Context, appName string) (coreapplication.ID, life.Life, error) {
+func (st *State) GetApplicationLife(ctx context.Context, appUUID coreapplication.ID) (life.Life, error) {
+	ident := applicationID{ID: appUUID}
+	db, err := st.DB()
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &lifeID.* FROM application
+WHERE uuid = $applicationID.uuid
+`, lifeID{}, ident)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	var life lifeID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).Get(&life)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("application %s not found", appUUID).Add(applicationerrors.ApplicationNotFound)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+	return life.LifeID, nil
+}
+
+// IsControllerApplication returns true when the application is the controller.
+func (st *State) IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+	appExistsQuery := `
+SELECT &applicationID.*
+FROM application
+WHERE uuid = $applicationID.uuid;
+`
+	appExistsStmt, err := st.Prepare(appExistsQuery, ident)
+	if err != nil {
+		return false, errors.Errorf("preparing query for application %q: %w", ident.ID, err)
+	}
+
+	controllerApp := controllerApplication{
+		ApplicationID: appID,
+	}
+	stmt, err := st.Prepare(`
+SELECT TRUE AS &controllerApplication.is_controller
+FROM application_controller
+WHERE application_uuid = $controllerApplication.application_uuid
+`, controllerApp)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, appExistsStmt, ident).Get(&ident)
+		if errors.Is(err, sql.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return errors.Errorf("checking application %q exists: %w", ident.ID, err)
+		}
+		err = tx.Query(ctx, stmt, controllerApp).Get(&controllerApp)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	return controllerApp.IsController, errors.Capture(err)
+}
+
+// GetApplicationLifeByName looks up the life of the specified application, returning
+// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+// application is not found.
+func (st *State) GetApplicationLifeByName(ctx context.Context, appName string) (coreapplication.ID, life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", -1, errors.Capture(err)
@@ -745,6 +851,61 @@ func (st *State) GetApplicationLife(ctx context.Context, appName string) (coreap
 		return nil
 	})
 	return app.UUID, app.LifeID, errors.Capture(err)
+}
+
+// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
+// in the model are alive, returning an error if any are not.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotAlive] if any applications are not alive.
+// - [applicationerrors.UnitNotAlive] if any units are not alive.
+func (st *State) CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	checkApplicationsStmt, err := st.Prepare(`
+SELECT &applicationName.*
+FROM application
+WHERE life_id != 0
+`, applicationName{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	checkUnitsStmt, err := st.Prepare(`
+SELECT &unitName.*
+FROM unit
+WHERE life_id != 0
+`, unitName{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var deadApps []applicationName
+		err := tx.Query(ctx, checkApplicationsStmt).GetAll(&deadApps)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		} else if err == nil {
+			names := transform.Slice(deadApps, func(app applicationName) string { return app.Name })
+			return errors.Errorf("application(s) %q are not alive", strings.Join(names, ", ")).Add(applicationerrors.ApplicationNotAlive)
+		}
+
+		var deadUnits []unitName
+		err = tx.Query(ctx, checkUnitsStmt).GetAll(&deadUnits)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		} else if err == nil {
+			names := transform.Slice(deadUnits, func(unit unitName) string { return unit.Name.String() })
+			return errors.Errorf("unit(s) %q are not alive", strings.Join(names, ", ")).Add(applicationerrors.UnitNotAlive)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("checking apps and units are alive: %w", err)
+	}
+	return nil
 }
 
 func (st *State) getApplicationDetails(ctx context.Context, tx *sqlair.TX, appName string) (applicationDetails, error) {
@@ -1132,10 +1293,58 @@ WHERE device_uuid IN (
 	return nil
 }
 
+// addressTypeForUnspecifiedCIDR returns the address type based on the provided
+// unspecified CIDR. These unspecified CIDRs are in the placeholder subnets
+// for kubernetes until they can be filled in with actual data. When that happens,
+// this approach will need to be revisited.
+func addressTypeForUnspecifiedCIDR(cidr string) network.AddressType {
+	switch cidr {
+	case "0.0.0.0/0":
+		return network.IPv4Address
+	case "::/0":
+		return network.IPv6Address
+	default:
+		return ""
+	}
+}
+
+func (st *State) k8sSubnetUUIDsByAddressType(ctx context.Context, tx *sqlair.TX) (map[network.AddressType]string, error) {
+	result := make(map[network.AddressType]string)
+	subnetStmt, err := st.Prepare(`
+ SELECT &subnet.*
+ FROM subnet
+ `, subnet{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var subnets []subnet
+	if err = tx.Query(ctx, subnetStmt).GetAll(&subnets); err != nil {
+		return nil, errors.Errorf("getting subnet uuid: %w", err)
+	}
+	// Note: Today there are only two k8s subnets, which are a placeholders.
+	// Finding the subnet for the ip address will be more complex
+	// in the future.
+	if len(subnets) != 2 {
+		return nil, errors.Errorf("expected 2 subnet uuid, got %d", len(subnets))
+	}
+
+	for _, subnet := range subnets {
+		addrType := addressTypeForUnspecifiedCIDR(subnet.CIDR)
+		result[addrType] = subnet.UUID
+	}
+	return result, nil
+}
+
 func (st *State) insertCloudServiceAddresses(
 	ctx context.Context, tx *sqlair.TX, linkLayerDeviceUUID string, netNodeUUID string, addresses network.ProviderAddresses) error {
 	if len(addresses) == 0 {
 		return nil
+	}
+
+	subnetUUIDs, err := st.k8sSubnetUUIDsByAddressType(ctx, tx)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	ipAddresses := make([]ipAddress, len(addresses))
@@ -1145,10 +1354,18 @@ func (st *State) insertCloudServiceAddresses(
 		if err != nil {
 			return errors.Capture(err)
 		}
+		subnetUUID, ok := subnetUUIDs[address.AddressType()]
+		if !ok {
+			// Note: This is a programming error. Today the K8S subnets are
+			// placeholders which should always be created when a model is
+			// added.
+			return errors.Errorf("subnet for address type %q not found", address.AddressType())
+		}
 		ipAddresses[i] = ipAddress{
 			AddressUUID:  addrUUID.String(),
 			Value:        address.Value,
 			NetNodeUUID:  netNodeUUID,
+			SubnetUUID:   subnetUUID,
 			ConfigTypeID: int(ipaddress.MarshallConfigType(address.ConfigType)),
 			TypeID:       int(ipaddress.MarshallAddressType(address.AddressType())),
 			OriginID:     int(ipaddress.MarshallOrigin(network.OriginProvider)),
@@ -1165,8 +1382,10 @@ VALUES ($ipAddress.*);
 		return errors.Capture(err)
 	}
 
-	if err = tx.Query(ctx, insertAddressStmt, ipAddresses).Run(); err != nil {
-		return errors.Capture(err)
+	for _, ipAddress := range ipAddresses {
+		if err = tx.Query(ctx, insertAddressStmt, ipAddress).Run(); err != nil {
+			return errors.Capture(err)
+		}
 	}
 	return nil
 }
@@ -1236,6 +1455,28 @@ WHERE a.name = $applicationName.name
 		return hashes, nil
 	}
 	return "application_config_hash", queryFunc
+}
+
+// InitialWatchStatementApplications returns the initial namespace
+// query for applications events, as well as the watcher namespace to watch.
+func (st *State) InitialWatchStatementApplications() (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		stmt, err := st.Prepare(`
+SELECT &applicationID.* FROM application
+`, applicationID{})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		var result []applicationID
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			return tx.Query(ctx, stmt).GetAll(&result)
+		})
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return nil, errors.Errorf("querying for initial watch statement: %w", err)
+		}
+		return transform.Slice(result, func(a applicationID) string { return a.ID.String() }), nil
+	}
+	return "application", queryFunc
 }
 
 // GetNetNodeUUIDByUnitName returns the net node UUID for the named unit or the
@@ -1319,7 +1560,7 @@ func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.I
 
 	var (
 		spaceAddresses   []spaceAddress
-		endpointBindings map[string]string
+		endpointBindings map[string]network.SpaceUUID
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
@@ -1377,7 +1618,7 @@ WHERE     nn.uuid = $netNodeUUID.uuid;
 // closure to the watcher, but this would have required to create new service
 // layer structs that match exactly the ones in state, which is not a desirable
 // pattern.
-func (st *State) hashAddressesAndEndpoints(addresses []spaceAddress, endpointBindings map[string]string) (string, error) {
+func (st *State) hashAddressesAndEndpoints(addresses []spaceAddress, endpointBindings map[string]network.SpaceUUID) (string, error) {
 	if len(addresses) == 0 && len(endpointBindings) == 0 {
 		return "", nil
 	}
@@ -1425,7 +1666,7 @@ func (st *State) hashAddress(writer io.Writer, address spaceAddress) error {
 	}
 	spaceUUID := network.AlphaSpaceId
 	if address.SpaceUUID.Valid {
-		spaceUUID = address.SpaceUUID.String
+		spaceUUID = address.SpaceUUID.V
 	}
 	if _, err := writer.Write([]byte(spaceUUID)); err != nil {
 		return errors.Errorf("hashing space uuid %q: %w", spaceUUID, err)
@@ -1567,6 +1808,19 @@ func (st *State) SetApplicationCharm(ctx context.Context, id coreapplication.ID,
 		}
 
 		//TODO(storage) - update charm and storage directive for app
+
+		err = st.updateDefaultSpace(ctx, tx, id, params.EndpointBindings)
+		if err != nil {
+			return errors.Errorf("updating default space: %w", err)
+		}
+		err = st.updateApplicationEndpointBindings(ctx, tx, updateApplicationEndpointsParams{
+			appID:    id,
+			bindings: params.EndpointBindings,
+		})
+		if err != nil {
+			return errors.Capture(err)
+		}
+
 		return nil
 	}); err != nil {
 		return errors.Capture(err)
@@ -2303,9 +2557,30 @@ WHERE uuid = $applicationID.uuid;
 	return ident.UUID, charmConfig, nil
 }
 
+// GetApplicationName returns the name of the specified application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
+func (st *State) GetApplicationName(ctx context.Context, appID coreapplication.ID) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var name string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		name, err = st.getApplicationName(ctx, tx, appID)
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return name, nil
+}
+
 // GetApplicationIDByName returns the application ID for the named application.
-// If no application is found, an error satisfying
-// [applicationerrors.ApplicationNotFound] is returned.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
 func (st *State) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -2504,7 +2779,7 @@ WHERE application_uuid = $applicationID.uuid;
 
 	var revision = -1
 	if appOrigin.Revision.Valid {
-		revision = int(appOrigin.Revision.Int64)
+		revision = int(appOrigin.Revision.V)
 	}
 
 	var hash string
@@ -2594,7 +2869,7 @@ func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplic
 
 	selectConstraintUUIDQuery := `
 SELECT &constraintUUID.*
-FROM application_constraint 
+FROM application_constraint
 WHERE application_uuid = $applicationUUID.application_uuid
 `
 	selectConstraintUUIDStmt, err := st.Prepare(selectConstraintUUIDQuery, constraintUUID{}, applicationUUID{})
@@ -2633,7 +2908,7 @@ WHERE application_uuid = $applicationUUID.application_uuid
 	}
 
 	insertConstraintsQuery := `
-INSERT INTO "constraint"(*) 
+INSERT INTO "constraint"(*)
 VALUES ($setConstraint.*)
 ON CONFLICT (uuid) DO UPDATE SET
     arch = excluded.arch,
@@ -2905,6 +3180,12 @@ func (*State) NamespaceForWatchApplicationConfig() string {
 	return "application_config_hash"
 }
 
+// NamesapceForWatchApplicationSetting returns the namespace string identifier
+// for application setting changes.
+func (*State) NamespaceForWatchApplicationSetting() string {
+	return "application_setting"
+}
+
 // NamespaceForWatchApplicationScale returns the namespace identifier
 // for application scale change watchers.
 func (*State) NamespaceForWatchApplicationScale() string {
@@ -2959,19 +3240,19 @@ func decodeConstraints(cons applicationConstraints) constraints.Constraints {
 			res.Arch = &row.Arch.String
 		}
 		if row.CPUCores.Valid {
-			cpuCores := uint64(row.CPUCores.Int64)
+			cpuCores := uint64(row.CPUCores.V)
 			res.CpuCores = &cpuCores
 		}
 		if row.CPUPower.Valid {
-			cpuPower := uint64(row.CPUPower.Int64)
+			cpuPower := uint64(row.CPUPower.V)
 			res.CpuPower = &cpuPower
 		}
 		if row.Mem.Valid {
-			mem := uint64(row.Mem.Int64)
+			mem := uint64(row.Mem.V)
 			res.Mem = &mem
 		}
 		if row.RootDisk.Valid {
-			rootDisk := uint64(row.RootDisk.Int64)
+			rootDisk := uint64(row.RootDisk.V)
 			res.RootDisk = &rootDisk
 		}
 		if row.RootDiskSource.Valid {
@@ -3051,35 +3332,6 @@ func encodeConstraints(constraintUUID string, cons constraints.Constraints, cont
 		res.ContainerTypeID = &containerTypeID
 	}
 	return res
-}
-
-func encodeIpAddresses(addresses []spaceAddress) network.SpaceAddresses {
-	res := make(network.SpaceAddresses, len(addresses))
-	for i, addr := range addresses {
-		res[i] = encodeIpAddress(addr)
-	}
-	return res
-}
-
-func encodeIpAddress(address spaceAddress) network.SpaceAddress {
-	spaceUUID := network.AlphaSpaceId
-	if address.SpaceUUID.Valid {
-		spaceUUID = address.SpaceUUID.String
-	}
-	return network.SpaceAddress{
-		SpaceID: spaceUUID,
-		Origin:  ipaddress.UnMarshallOrigin(ipaddress.Origin(address.OriginID)),
-		// TODO(nvinuesa): The subnet CIDR is not inserted. This should be
-		// done when migrating machines to dqlite and rework the
-		// MachineAddress modelling so it takes a subnet UUID instead of a
-		// CIDR.
-		MachineAddress: network.MachineAddress{
-			Value:      address.Value,
-			Type:       ipaddress.UnMarshallAddressType(ipaddress.AddressType(address.TypeID)),
-			Scope:      ipaddress.UnMarshallScope(ipaddress.Scope(address.ScopeID)),
-			ConfigType: ipaddress.UnMarshallConfigType(ipaddress.ConfigType(address.ConfigTypeID)),
-		},
-	}
 }
 
 // lookupApplication looks up the application by name and returns the
@@ -3340,12 +3592,12 @@ func decodeRisk(risk string) (deployment.ChannelRisk, error) {
 	}
 }
 
-func decodeOSType(osType sql.NullInt64) (deployment.OSType, error) {
+func decodeOSType(osType sql.Null[int64]) (deployment.OSType, error) {
 	if !osType.Valid {
 		return 0, errors.Errorf("os type is null")
 	}
 
-	switch osType.Int64 {
+	switch osType.V {
 	case 0:
 		return deployment.Ubuntu, nil
 	default:
@@ -3376,7 +3628,7 @@ func hashConfigAndSettings(config []applicationConfig, settings applicationSetti
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func decodePlatform(channel string, os, arch sql.NullInt64) (deployment.Platform, error) {
+func decodePlatform(channel string, os, arch sql.Null[int64]) (deployment.Platform, error) {
 	osType, err := decodeOSType(os)
 	if err != nil {
 		return deployment.Platform{}, errors.Errorf("decoding os type: %w", err)

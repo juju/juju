@@ -2047,14 +2047,11 @@ func (s *serviceSuite) TestWatchObsoleteMapperSendObsoleteRevisionAndRemovedURIs
 	c.Assert(result, tc.HasLen, 3)
 	revisionChange3 := result[0]
 	revisionChange1 := result[1]
-	c.Assert(revisionChange3.Namespace(), tc.Equals, "secret_revision_obsolete")
-	c.Assert(revisionChange3.Changed(), tc.Equals, ownedURI.ID+"/3")
-	c.Assert(revisionChange1.Namespace(), tc.Equals, "secret_revision_obsolete")
-	c.Assert(revisionChange1.Changed(), tc.Equals, ownedURI.ID+"/1")
+	c.Assert(revisionChange3, tc.Equals, ownedURI.ID+"/3")
+	c.Assert(revisionChange1, tc.Equals, ownedURI.ID+"/1")
 
 	secretChange := result[2]
-	c.Assert(secretChange.Namespace(), tc.Equals, "secret_metadata")
-	c.Assert(secretChange.Changed(), tc.Equals, removedOwnedURI.ID)
+	c.Assert(secretChange, tc.Equals, removedOwnedURI.ID)
 }
 
 // TestWatchObsoleteMapperSendObsoleteRevisions tests the behavior of the mapper function
@@ -2106,12 +2103,9 @@ func (s *serviceSuite) TestWatchObsoleteMapperSendObsoleteRevisions(c *tc.C) {
 	revisionChange3 := result[0]
 	revisionChange2 := result[1]
 	revisionChange1 := result[2]
-	c.Assert(revisionChange3.Namespace(), tc.Equals, "secret_revision_obsolete")
-	c.Assert(revisionChange3.Changed(), tc.Equals, ownedURI.ID+"/3")
-	c.Assert(revisionChange2.Namespace(), tc.Equals, "secret_revision_obsolete")
-	c.Assert(revisionChange2.Changed(), tc.Equals, ownedURI.ID+"/2")
-	c.Assert(revisionChange1.Namespace(), tc.Equals, "secret_revision_obsolete")
-	c.Assert(revisionChange1.Changed(), tc.Equals, ownedURI.ID+"/1")
+	c.Assert(revisionChange3, tc.Equals, ownedURI.ID+"/3")
+	c.Assert(revisionChange2, tc.Equals, ownedURI.ID+"/2")
+	c.Assert(revisionChange1, tc.Equals, ownedURI.ID+"/1")
 }
 
 // TestWatchObsoleteMapperSendRemovedURIs tests the behavior of the mapper function
@@ -2171,10 +2165,8 @@ func (s *serviceSuite) TestWatchObsoleteMapperSendRemovedURIs(c *tc.C) {
 	c.Assert(result, tc.HasLen, 2)
 	secretChange2 := result[0]
 	secretChange1 := result[1]
-	c.Assert(secretChange2.Namespace(), tc.Equals, "secret_metadata")
-	c.Assert(secretChange2.Changed(), tc.Equals, removedOwnedURI2.ID)
-	c.Assert(secretChange1.Namespace(), tc.Equals, "secret_metadata")
-	c.Assert(secretChange1.Changed(), tc.Equals, removedOwnedURI1.ID)
+	c.Assert(secretChange2, tc.Equals, removedOwnedURI2.ID)
+	c.Assert(secretChange1, tc.Equals, removedOwnedURI1.ID)
 }
 
 func (s *serviceSuite) TestWatchObsolete(c *tc.C) {

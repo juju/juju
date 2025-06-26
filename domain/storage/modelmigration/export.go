@@ -6,8 +6,7 @@ package modelmigration
 import (
 	"context"
 
-	"github.com/juju/collections/set"
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
@@ -16,7 +15,6 @@ import (
 	"github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/domain/storage/state"
 	"github.com/juju/juju/internal/errors"
-	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 // RegisterExport registers the export operations with the given coordinator.
@@ -30,7 +28,7 @@ func RegisterExport(coordinator Coordinator, storageRegistryGetter corestorage.M
 // ExportService provides a subset of the storage domain
 // service methods needed for storage pool export.
 type ExportService interface {
-	AllStoragePools(ctx context.Context) ([]*internalstorage.Config, error)
+	ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainstorage.StoragePool, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -57,30 +55,26 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the export, adding the storage pools to the model.
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
-	poolConfigs, err := e.service.AllStoragePools(ctx)
+	pools, err := e.service.ListStoragePoolsWithoutBuiltins(ctx)
 	if err != nil {
 		return errors.Errorf("listing pools: %w", err)
 	}
-
-	builtIn, err := domainstorage.BuiltInStoragePools()
-	if err != nil {
-		return errors.Capture(err)
-	}
-	builtInNames := set.Strings{}
-	for _, p := range builtIn {
-		builtInNames.Add(p.Name)
-	}
-
-	for _, cfg := range poolConfigs {
-		// We don't want to export built in providers, eg loop, rootfs, tmpfs.
-		if builtInNames.Contains(cfg.Name()) {
-			continue
-		}
-		model.AddStoragePool(description.StoragePoolArgs{
-			Name:       cfg.Name(),
-			Provider:   string(cfg.Provider()),
-			Attributes: cfg.Attrs(),
-		})
+	for _, pool := range pools {
+		model.AddStoragePool(storagePoolToArgs(pool))
 	}
 	return nil
+}
+
+func storagePoolToArgs(pool domainstorage.StoragePool) description.StoragePoolArgs {
+	args := description.StoragePoolArgs{
+		Name:     pool.Name,
+		Provider: pool.Provider,
+	}
+	if len(pool.Attrs) > 0 {
+		args.Attributes = make(map[string]any, len(pool.Attrs))
+		for k, v := range pool.Attrs {
+			args.Attributes[k] = v
+		}
+	}
+	return args
 }

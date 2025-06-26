@@ -15,8 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -24,26 +26,26 @@ import (
 
 // StorageAPI provides access to the Storage API facade.
 type StorageAPI struct {
-	backend            backend
 	storage            storageAccess
 	blockDeviceService blockDeviceService
+	applicationService ApplicationService
 	resources          facade.Resources
 	accessUnit         common.GetAuthFunc
 }
 
 // newStorageAPI creates a new server-side Storage API facade.
 func newStorageAPI(
-	backend backend,
 	storage storageAccess,
 	blockDeviceService blockDeviceService,
+	applicationService ApplicationService,
 	resources facade.Resources,
 	accessUnit common.GetAuthFunc,
 ) (*StorageAPI, error) {
 
 	return &StorageAPI{
-		backend:            backend,
 		storage:            storage,
 		blockDeviceService: blockDeviceService,
+		applicationService: applicationService,
 		resources:          resources,
 		accessUnit:         accessUnit,
 	}, nil
@@ -182,17 +184,17 @@ func (s *StorageAPI) getOneStateStorageAttachment(canAccess common.AuthFunc, id 
 }
 
 func (s *StorageAPI) fromStateStorageAttachment(ctx context.Context, stateStorageAttachment state.StorageAttachment) (params.StorageAttachment, error) {
+	// hostTag is the tag either of the unit (this is the case in K8s), or the
+	// machine if the unit is assigned.
 	var hostTag names.Tag
 	hostTag = stateStorageAttachment.Unit()
-	u, err := s.backend.Unit(hostTag.Id())
-	if err != nil {
+	// If the unit is not assigned, we keep the hostTag as initially defined
+	// (i.e. the unit tag).
+	machineName, err := s.applicationService.GetUnitMachineName(ctx, unit.Name(hostTag.Id()))
+	if err != nil && !errors.Is(err, applicationerrors.UnitMachineNotAssigned) {
 		return params.StorageAttachment{}, err
-	}
-	if u.ShouldBeAssigned() {
-		hostTag, err = unitAssignedMachine(s.backend, stateStorageAttachment.Unit())
-		if err != nil {
-			return params.StorageAttachment{}, err
-		}
+	} else if err == nil {
+		hostTag = names.NewMachineTag(machineName.String())
 	}
 
 	info, err := storagecommon.StorageAttachmentInfo(ctx,
@@ -292,18 +294,19 @@ func (s *StorageAPI) watchOneStorageAttachment(ctx context.Context, id params.St
 		return nothing, err
 	}
 
+	// hostTag is the tag either of the unit (this is the case in K8s), or the
+	// machine if the unit is assigned.
 	var hostTag names.Tag
 	hostTag = unitTag
-	u, err := s.backend.Unit(unitTag.Id())
-	if err != nil {
-		return nothing, err
+	// If the unit is not assigned, we keep the hostTag as initially defined
+	// (i.e. the unit tag).
+	machineName, err := s.applicationService.GetUnitMachineName(ctx, unit.Name(hostTag.Id()))
+	if err != nil && !errors.Is(err, applicationerrors.UnitMachineNotAssigned) {
+		return params.NotifyWatchResult{}, err
+	} else if err == nil {
+		hostTag = names.NewMachineTag(machineName.String())
 	}
-	if u.ShouldBeAssigned() {
-		hostTag, err = unitAssignedMachine(s.backend, unitTag)
-		if err != nil {
-			return nothing, err
-		}
-	}
+
 	watch, err := watchStorageAttachment(ctx,
 		s.storage, s.storage.VolumeAccess(), s.storage.FilesystemAccess(), s.blockDeviceService, storageTag, hostTag, unitTag)
 	if err != nil {

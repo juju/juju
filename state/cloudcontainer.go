@@ -87,7 +87,7 @@ func (u *Unit) cloudContainer() (*cloudContainerDoc, error) {
 	var doc cloudContainerDoc
 	err := coll.FindId(u.globalKey()).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("cloud container for unit %v", u.Name())
+		return nil, errors.NotFoundf("cloud container for unit %v", u.name())
 	}
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 
-	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/changestream"
@@ -39,7 +38,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
@@ -163,24 +161,6 @@ type AgentVersionGetter interface {
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 }
 
-// Provider defines the interface for interacting with the underlying model
-// provider.
-type Provider interface {
-	environs.ConstraintsChecker
-}
-
-// SupportedFeatureProvider defines the interface for interacting with the
-// a model provider that satisfies the SupportedFeatureEnumerator interface.
-type SupportedFeatureProvider interface {
-	environs.SupportedFeatureEnumerator
-}
-
-// CAASApplicationProvider contains methods from the caas.Broker interface
-// used by the application provider service.
-type CAASApplicationProvider interface {
-	Application(string, caas.DeploymentType) caas.Application
-}
-
 // WatcherFactory instances return watchers for a given namespace and UUID.
 type WatcherFactory interface {
 	// NewUUIDsWatcher returns a watcher that emits the UUIDs for changes to the
@@ -207,6 +187,15 @@ type WatcherFactory interface {
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
+
+	// NewNamespaceWatcher returns a new watcher that filters changes from the input
+	// base watcher's db/queue. Change-log events will be emitted only if the filter
+	// accepts them, and dispatching the notifications via the Changes channel. A
+	// filter option is required, though additional filter options can be provided.
+	NewNamespaceWatcher(
+		initialQuery eventsource.NamespaceQuery,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
 
 	// NewNamespaceMapperWatcher returns a new watcher that receives changes
 	// from the input base watcher's db/queue. Change-log events will be emitted
@@ -238,8 +227,7 @@ func NewWatchableService(
 	watcherFactory WatcherFactory,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
-	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
-	caasApplicationProvider providertracker.ProviderGetter[CAASApplicationProvider],
+	caasProvider providertracker.ProviderGetter[CAASProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -253,8 +241,7 @@ func NewWatchableService(
 			modelID,
 			agentVersionGetter,
 			provider,
-			supportedFeatureProvider,
-			caasApplicationProvider,
+			caasProvider,
 			charmStore,
 			statusHistory,
 			clock,
@@ -293,7 +280,27 @@ func (s *WatchableService) WatchApplicationUnitLife(ctx context.Context, appName
 	)
 }
 
+// WatchUnitLife returns a watcher that observes the changes to life of one unit.
+func (s *WatchableService) WatchUnitLife(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error) {
+	unitUUID, err := s.GetUnitUUID(ctx, unitName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	// TODO: Only watch the unit's life by implementing a custom trigger. Also
+	// update WatchApplicationUnitLife to use this new custom change event.
+	table, _ := s.st.InitialWatchStatementUnitLife(unitName.Application())
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			table,
+			changestream.All,
+			eventsource.EqualsPredicate(unitUUID.String()),
+		),
+	)
+}
+
 // WatchApplicationScale returns a watcher that observes changes to an application's scale.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -308,7 +315,7 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 	currentScale := scaleState.Scale
 
 	mask := changestream.Changed
-	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 		ctx, span := trace.Start(ctx, trace.NameFromFunc())
 		defer span.End()
 
@@ -320,7 +327,9 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 		// Only dispatch if the scale has changed.
 		if newScale != currentScale {
 			currentScale = newScale
-			return changes, nil
+			return transform.Slice(changes, func(c changestream.ChangeEvent) string {
+				return c.Changed()
+			}), nil
 		}
 		return nil, nil
 	}
@@ -343,7 +352,7 @@ func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Contex
 	table, query := s.st.InitialWatchStatementApplicationsWithPendingCharms()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		query,
-		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 			return s.watchApplicationsWithPendingCharmsMapper(ctx, changes)
 		},
 		eventsource.NamespaceFilter(table, changestream.Changed),
@@ -352,7 +361,7 @@ func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Contex
 
 // watchApplicationsWithPendingCharmsMapper removes any applications that do not
 // have pending charms.
-func (s *WatchableService) watchApplicationsWithPendingCharmsMapper(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+func (s *WatchableService) watchApplicationsWithPendingCharmsMapper(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 	// Preserve the ordering of the changes, as this is a strings watcher
 	// and we want to return the changes in the order they were received.
 
@@ -404,12 +413,9 @@ func (s *WatchableService) watchApplicationsWithPendingCharmsMapper(ctx context.
 	})
 
 	// Grab the changes in the order they were received.
-	var results []changestream.ChangeEvent
-	for _, result := range indexed {
-		results = append(results, result.change)
-	}
-
-	return results, nil
+	return transform.Slice(indexed, func(c indexedChanged) string {
+		return c.change.Changed()
+	}), nil
 }
 
 type indexedChanged struct {
@@ -504,7 +510,7 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 
 			return initialResults, nil
 		},
-		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 			ctx, span := trace.Start(ctx, trace.NameFromFunc())
 			defer span.End()
 
@@ -529,13 +535,31 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 			// There can be only one.
 			// Select the last change event, which will be naturally ordered
 			// by the grouping of the query (CREATE, UPDATE, DELETE).
-			change := changes[len(changes)-1]
-
-			return []changestream.ChangeEvent{
-				newMaskedChangeIDEvent(change, sha256),
-			}, nil
+			return []string{sha256}, nil
 		},
 		eventsource.NamespaceFilter(table, changestream.All),
+	)
+}
+
+// WatchApplicationSettings watches for changes to the specified application's
+// settings.
+// This functions returns the following errors:
+// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+func (s *WatchableService) WatchApplicationSettings(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	uuid, err := s.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return nil, errors.Errorf("getting ID of application %s: %w", appName, err)
+	}
+
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchApplicationSetting(),
+			changestream.All,
+			eventsource.EqualsPredicate(uuid.String()),
+		),
 	)
 }
 
@@ -583,7 +607,7 @@ func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName 
 
 			return initialResults, nil
 		},
-		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 			ctx, span := trace.Start(ctx, trace.NameFromFunc())
 			defer span.End()
 
@@ -608,11 +632,7 @@ func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName 
 			// There can be only one.
 			// Select the last change event, which will be naturally ordered
 			// by the grouping of the query (CREATE, UPDATE, DELETE).
-			change := changes[len(changes)-1]
-
-			return []changestream.ChangeEvent{
-				newMaskedChangeIDEvent(change, currentHash),
-			}, nil
+			return []string{currentHash}, nil
 		},
 		eventsource.NamespaceFilter(ipAddressTable, changestream.All),
 		eventsource.NamespaceFilter(appEndpointTable, changestream.All),
@@ -632,7 +652,7 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 
 	unitNamesOnMachineCache := map[coreunit.Name]struct{}{}
 
-	newUnitNamespace, query := s.st.InitialWatchStatementUnitInsertDeleteOnNetNode(desiredNetNodeUUID)
+	unitAddRemoveNamespace, query := s.st.InitialWatchStatementUnitInsertDeleteOnNetNode(desiredNetNodeUUID)
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
 			initialResults, err := query(ctx, txn)
@@ -644,13 +664,13 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 			}
 			return initialResults, nil
 		},
-		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 			// If there are no changes, return no changes.
 			if len(changes) == 0 {
 				return nil, nil
 			}
 
-			filteredChanges := make([]changestream.ChangeEvent, 0, len(changes))
+			filteredChanges := make([]string, 0, len(changes))
 			for _, change := range changes {
 				unitName, err := coreunit.NewName(change.Changed())
 				if err != nil {
@@ -662,7 +682,7 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 					// be a delete event.
 
 					if _, ok := unitNamesOnMachineCache[unitName]; ok {
-						filteredChanges = append(filteredChanges, change)
+						filteredChanges = append(filteredChanges, change.Changed())
 						delete(unitNamesOnMachineCache, unitName)
 					}
 					continue
@@ -670,14 +690,24 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 					return nil, errors.Capture(err)
 				}
 				if netNodeUUID == desiredNetNodeUUID {
-					filteredChanges = append(filteredChanges, change)
+					filteredChanges = append(filteredChanges, change.Changed())
 					unitNamesOnMachineCache[unitName] = struct{}{}
 				}
 			}
 
 			return filteredChanges, nil
 		},
-		eventsource.NamespaceFilter(newUnitNamespace, changestream.All),
+		eventsource.NamespaceFilter(unitAddRemoveNamespace, changestream.All),
+	)
+}
+
+// WatchApplication returns a watcher that emits application uuids when
+// applications are added or removed.
+func (s *WatchableService) WatchApplications(ctx context.Context) (watcher.StringsWatcher, error) {
+	applicationNamespace, query := s.st.InitialWatchStatementApplications()
+	return s.watcherFactory.NewNamespaceWatcher(
+		query,
+		eventsource.NamespaceFilter(applicationNamespace, changestream.All),
 	)
 }
 
@@ -688,7 +718,7 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 // changed.
 //
 // If the application does not exist an error satisfying
-// [applicationerrors.NotFound] will be returned.
+// [applicationerrors.ApplicationNotFound] will be returned.
 func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -732,7 +762,7 @@ func (s *WatchableService) WatchUnitAddresses(ctx context.Context, unitName core
 	)
 }
 
-// WatchUnitForUniterChanged watches for some specific changes to the unit with
+// WatchUnitForLegacyUniter watches for some specific changes to the unit with
 // the given name. The watcher will emit a notification when there is a change to
 // the unit's inherent properties, it's subordinates or it's resolved mode.
 //
@@ -773,22 +803,6 @@ func (s *WatchableService) WatchUnitForLegacyUniter(ctx context.Context, unitNam
 			eventsource.EqualsPredicate(uuid.String()),
 		),
 	)
-}
-
-type maskedChangeIDEvent struct {
-	changestream.ChangeEvent
-	id string
-}
-
-func newMaskedChangeIDEvent(change changestream.ChangeEvent, id string) changestream.ChangeEvent {
-	return maskedChangeIDEvent{
-		ChangeEvent: change,
-		id:          id,
-	}
-}
-
-func (m maskedChangeIDEvent) Changed() string {
-	return m.id
 }
 
 // isValidApplicationName returns whether name is a valid application name.

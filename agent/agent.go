@@ -161,8 +161,6 @@ const (
 	MongoOplogSize    = "MONGO_OPLOG_SIZE"
 	NUMACtlPreference = "NUMA_CTL_PREFERENCE"
 
-	MgoStatsEnabled = "MGO_STATS_ENABLED"
-
 	// LoggingOverride will set the logging for this agent to the value
 	// specified. Model configuration will be ignored and this value takes
 	// precidence for the agent.
@@ -356,9 +354,6 @@ type configSetterOnly interface {
 	// SetStateServingInfo sets the information needed
 	// to run a controller
 	SetStateServingInfo(info controller.StateServingInfo)
-
-	// SetControllerAPIPort sets the controller API port in the config.
-	SetControllerAPIPort(port int)
 
 	// SetJujuDBSnapChannel sets the channel for installing mongo snaps
 	// when bootstrapping focal or later.
@@ -826,12 +821,6 @@ func (c *configInternal) SetStateServingInfo(info controller.StateServingInfo) {
 	}
 }
 
-func (c *configInternal) SetControllerAPIPort(port int) {
-	if c.servingInfo != nil {
-		c.servingInfo.ControllerAPIPort = port
-	}
-}
-
 func (c *configInternal) APIAddresses() ([]string, error) {
 	if c.apiDetails == nil {
 		return []string{}, errors.New("No apidetails in config")
@@ -1029,16 +1018,10 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 	// For controllers, we return only localhost - we should not connect
 	// to other controllers if we can talk locally.
 	if isController {
-		port := servingInfo.APIPort
-		// If the controller has been configured with a controller api port,
-		// we return that instead of the normal api port.
-		if servingInfo.ControllerAPIPort != 0 {
-			port = servingInfo.ControllerAPIPort
-		}
 		// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4
 		// loopback, and when/if this changes localhost should resolve
 		// to IPv6 loopback in any case (lp:1644009). Review.
-		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
+		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(servingInfo.APIPort))
 
 		// TODO (manadart 2023-03-27): This is a temporary change from using
 		// *only* the localhost address, to fix an issue where we can get the

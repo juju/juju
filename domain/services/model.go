@@ -230,8 +230,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		s.modelWatcherFactory("application"),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
-		providertracker.ProviderRunner[applicationservice.SupportedFeatureProvider](s.providerFactory, s.modelUUID.String()),
-		providertracker.ProviderRunner[applicationservice.CAASApplicationProvider](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[applicationservice.CAASProvider](s.providerFactory, s.modelUUID.String()),
 		charmstore.NewCharmStore(s.modelObjectStoreGetter, logger.Child("charmstore")),
 		domain.NewStatusHistory(logger, s.clock),
 		s.clock,
@@ -243,7 +242,8 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 func (s *ModelServices) Status() *statusservice.LeadershipService {
 	logger := s.logger.Child("status")
 	return statusservice.NewLeadershipService(
-		statusstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
+		statusstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
+		statusstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB), s.modelUUID),
 		domain.NewLeaseService(s.leaseManager),
 		s.modelUUID,
 		domain.NewStatusHistory(logger, s.clock),
@@ -475,6 +475,7 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 	return removalservice.NewWatchableService(
 		removalstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		s.modelWatcherFactory("removal"),
+		domain.NewLeaseService(s.leaseManager),
 		s.clock,
 		log,
 	)

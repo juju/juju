@@ -19,19 +19,15 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/mongo"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
@@ -44,52 +40,6 @@ type Machine struct {
 	doc machineDoc
 }
 
-// MachineJob values define responsibilities that machines may be
-// expected to fulfil.
-type MachineJob int
-
-const (
-	_ MachineJob = iota
-	JobHostUnits
-	JobManageModel
-)
-
-var (
-	jobNames = map[MachineJob]model.MachineJob{
-		JobHostUnits:   model.JobHostUnits,
-		JobManageModel: model.JobManageModel,
-	}
-	jobMigrationValue = map[MachineJob]string{
-		JobHostUnits:   "host-units",
-		JobManageModel: "api-server",
-	}
-)
-
-// ToParams returns the job as model.MachineJob.
-func (job MachineJob) ToParams() model.MachineJob {
-	if jujuJob, ok := jobNames[job]; ok {
-		return jujuJob
-	}
-	return model.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
-}
-
-// MigrationValue converts the state job into a useful human readable
-// string for model migration.
-func (job MachineJob) MigrationValue() string {
-	if value, ok := jobMigrationValue[job]; ok {
-		return value
-	}
-	return "unknown"
-}
-
-func (job MachineJob) String() string {
-	return string(job.ToParams())
-}
-
-// manualMachinePrefix signals as prefix of Nonce that a machine is
-// manually provisioned.
-const manualMachinePrefix = "manual:"
-
 // machineDoc represents the internal state of a machine in MongoDB.
 // Note the correspondence with MachineInfo in apiserver/juju.
 type machineDoc struct {
@@ -97,12 +47,10 @@ type machineDoc struct {
 	Id             string `bson:"machineid"`
 	ModelUUID      string `bson:"model-uuid"`
 	Base           Base   `bson:"base"`
-	Nonce          string
 	ContainerType  string
 	Principals     []string
 	Life           Life
 	Tools          *tools.Tools `bson:",omitempty"`
-	Jobs           []MachineJob
 	PasswordHash   string
 	Clean          bool
 	ForceDestroyed bool `bson:"force-destroyed"`
@@ -282,26 +230,6 @@ func (m *Machine) Life() Life {
 	return m.doc.Life
 }
 
-// Jobs returns the responsibilities that must be fulfilled by m's agent.
-func (m *Machine) Jobs() []MachineJob {
-	return m.doc.Jobs
-}
-
-// IsManager returns true if the machine has JobManageModel.
-func (m *Machine) IsManager() bool {
-	return isController(&m.doc)
-}
-
-// IsManual returns true if the machine was manually provisioned.
-func (m *Machine) IsManual() (bool, error) {
-	// If the controller was bootstrapped with a manual cloud,
-	// this method will not return the correct answer to IsManual.
-	// Doing so requires model config which has been moved to a
-	// domains. This will be corrected once the machine domain is
-	// completed.
-	return strings.HasPrefix(m.doc.Nonce, manualMachinePrefix), nil
-}
-
 // AgentTools returns the tools that the agent is currently running.
 // It returns an error that satisfies errors.IsNotFound if the tools
 // have not yet been set.
@@ -358,25 +286,7 @@ func (m *Machine) setAgentVersionOps(v semversion.Binary) ([]txn.Op, *tools.Tool
 // should use to communicate with the controllers.  Previous passwords
 // are invalidated.
 func (m *Machine) SetMongoPassword(password string) error {
-	if !m.IsManager() {
-		return errors.NotSupportedf("setting mongo password for non-controller machine %v", m)
-	}
 	return mongo.SetAdminMongoPassword(m.st.session, m.Tag().String(), password)
-}
-
-// SetPassword sets the password for the machine's agent.
-func (m *Machine) SetPassword(password string) error {
-	if len(password) < internalpassword.MinAgentPasswordLength {
-		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
-	}
-	passwordHash := internalpassword.AgentPasswordHash(password)
-	op := m.UpdateOperation()
-	op.PasswordHash = &passwordHash
-	if err := m.st.ApplyOperation(op); err != nil {
-		return errors.Trace(err)
-	}
-	m.doc.PasswordHash = passwordHash
-	return nil
 }
 
 func (m *Machine) setPasswordHashOps(passwordHash string) ([]txn.Op, error) {
@@ -433,43 +343,8 @@ func (m *Machine) ForceDestroy(maxWait time.Duration) error {
 }
 
 func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
-	if m.IsManager() {
-		controllerIds, err := m.st.ControllerIds()
-		if err != nil {
-			return nil, errors.Annotatef(err, "reading controller info")
-		}
-		if len(controllerIds) <= 1 {
-			return nil, errors.Errorf("controller %s is the only controller", m.Id())
-		}
-		return []txn.Op{
-			{
-				C:  machinesC,
-				Id: m.doc.DocID,
-				Assert: bson.D{
-					{"life", Alive},
-					advanceLifecycleUnitAsserts(m.doc.Principals),
-				},
-				// To prevent race conditions, we remove the ability for new
-				// units to be deployed to the machine.
-				Update: bson.D{{"$pull", bson.D{{"jobs", JobHostUnits}}}},
-			},
-			{
-				C:      controllersC,
-				Id:     modelGlobalKey,
-				Assert: bson.D{{"controller-ids", controllerIds}},
-			},
-			setControllerWantsVoteOp(m.st, m.Id(), false),
-			newCleanupOp(cleanupEvacuateMachine, m.doc.Id),
-		}, nil
-	} else {
-		// Make sure the machine doesn't become a manager while we're destroying it
-		return []txn.Op{{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-		}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, maxWait),
-		}, nil
-	}
+	// Make sure the machine doesn't become a manager while we're destroying it
+	return []txn.Op{newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, maxWait)}, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -564,11 +439,6 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 		} else if err != nil {
 			return nil, err
 		}
-		node, err := m.st.ControllerNode(m.doc.Id)
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return nil, err
-		}
-		hasVote := err == nil && node.HasVote()
 
 		// Check that the life change is sane, and collect the assertions
 		// necessary to determine that it remains so.
@@ -585,11 +455,6 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 			if m.doc.Life == Dead {
 				return nil, jujutxn.ErrNoOperations
 			}
-			if hasVote || m.IsManager() {
-				return nil, stateerrors.NewIsControllerMemberError(m.Id(), hasVote)
-			}
-			asserts = append(asserts, bson.DocElem{
-				Name: "jobs", Value: bson.D{{Name: "$nin", Value: []MachineJob{JobManageModel}}}})
 			asserts = append(asserts, notDeadDoc...)
 			ops = append(ops, controllerAdvanceLifecyleVoteOp())
 		default:
@@ -604,18 +469,6 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 		// destroy a machine with units as it will be a lie.
 		if life == Dying {
 			canDie := true
-			if isController(&m.doc) || hasVote {
-				// If we're responsible for managing the model, make sure we ask to drop our vote
-				ops[0].Update = bson.D{
-					{"$set", bson.D{{"life", life}}},
-				}
-				controllerOp, err := m.controllerIDsOp()
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				ops = append(ops, controllerOp)
-				ops = append(ops, setControllerWantsVoteOp(m.st, m.doc.Id, false))
-			}
 
 			var principalUnitNames []string
 			for _, principalUnit := range m.doc.Principals {
@@ -661,9 +514,6 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 				return nil, err
 			}
 			ops = append(ops, m.noContainersOp())
-			if isController(&m.doc) {
-				return nil, errors.Errorf("machine %s is still responsible for being a controller", m.Id())
-			}
 			// A machine may not become Dead until it has no more
 			// attachments to detachable storage.
 			storageAsserts, err := m.assertNoPersistentStorage()
@@ -705,23 +555,6 @@ func controllerAdvanceLifecyleVoteOp() txn.Op {
 	}
 }
 
-// controllerIDsOp returns an Op to assert that the machine's
-// controllerIDs do not change.
-func (m *Machine) controllerIDsOp() (txn.Op, error) {
-	controllerIds, err := m.st.ControllerIds()
-	if err != nil {
-		return txn.Op{}, errors.Annotatef(err, "reading controller info")
-	}
-	if len(controllerIds) <= 1 {
-		return txn.Op{}, errors.Errorf("controller %s is the only controller", m.Id())
-	}
-	return txn.Op{
-		C:      controllersC,
-		Id:     modelGlobalKey,
-		Assert: bson.D{{"controller-ids", controllerIds}},
-	}, nil
-}
-
 // noContainersOp returns an Op to assert that the machine
 // has no containers.
 func (m *Machine) noContainersOp() txn.Op {
@@ -743,11 +576,11 @@ func (m *Machine) assessCanDieUnit(principalUnit string) (bool, error) {
 	if err != nil {
 		return false, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
 	}
-	app, err := u.Application()
+	app, err := u.application()
 	if err != nil {
 		return false, errors.Annotatef(err, "reading machine %s principal unit application %v", m, u.doc.Application)
 	}
-	if u.Life() == Alive && app.Life() == Alive {
+	if u.life() == Alive && app.Life() == Alive {
 		canDie = false
 	}
 	return canDie, nil
@@ -946,74 +779,22 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
-// InstanceStatus returns the provider specific instance status for this machine,
-// or a NotProvisionedError if instance is not yet provisioned.
-func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
-	machineStatus, err := getStatus(m.st.db(), m.globalInstanceKey(), "instance")
-	if err != nil {
-		logger.Warningf(context.TODO(), "error when retrieving instance status for machine: %s, %v", m.Id(), err)
-		return status.StatusInfo{}, err
-	}
-	return machineStatus, nil
-}
-
-// SetInstanceStatus sets the provider specific instance status for a machine.
-func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
-	return setStatus(m.st.db(), setStatusParams{
-		badge:      "instance",
-		statusKind: m.InstanceKind(),
-		statusId:   m.doc.Id,
-		globalKey:  m.globalInstanceKey(),
-		status:     sInfo.Status,
-		message:    sInfo.Message,
-		rawData:    sInfo.Data,
-		updated:    timeOrNow(sInfo.Since, m.st.clock()),
-	})
-}
-
-// ModificationStatus returns the provider specific modification status for
-// this machine or NotProvisionedError if instance is not yet provisioned.
-func (m *Machine) ModificationStatus() (status.StatusInfo, error) {
-	machineStatus, err := getStatus(m.st.db(), m.globalModificationKey(), "modification")
-	if err != nil {
-		logger.Warningf(context.TODO(), "error when retrieving instance status for machine: %s, %v", m.Id(), err)
-		return status.StatusInfo{}, err
-	}
-	return machineStatus, nil
-}
-
-// SetModificationStatus sets the provider specific modification status
-// for a machine. Allowing the propagation of status messages to the
-// operator.
-func (m *Machine) SetModificationStatus(sInfo status.StatusInfo) (err error) {
-	return setStatus(m.st.db(), setStatusParams{
-		badge:      "modification",
-		statusKind: m.ModificationKind(),
-		statusId:   m.doc.Id,
-		globalKey:  m.globalModificationKey(),
-		status:     sInfo.Status,
-		message:    sInfo.Message,
-		rawData:    sInfo.Data,
-		updated:    timeOrNow(sInfo.Since, m.st.clock()),
-	})
-}
-
 // ApplicationNames returns the names of applications
 // represented by units running on the machine.
 func (m *Machine) ApplicationNames() ([]string, error) {
-	units, err := m.Units()
+	units, err := m.units()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	apps := set.NewStrings()
 	for _, unit := range units {
-		apps.Add(unit.ApplicationName())
+		apps.Add(unit.applicationName())
 	}
 	return apps.SortedValues(), nil
 }
 
-// Units returns all the units that have been assigned to the machine.
-func (m *Machine) Units() (units []*Unit, err error) {
+// units returns all the units that have been assigned to the machine.
+func (m *Machine) units() (units []*Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get units assigned to machine %v", m)
 	unitsCollection, closer := m.st.db().GetCollection(unitsC)
 	defer closer()
@@ -1031,52 +812,6 @@ func (m *Machine) Units() (units []*Unit, err error) {
 		units = append(units, newUnit(m.st, model.Type(), &pudoc))
 	}
 	return units, nil
-}
-
-// SetProvisioned stores the machine's provider-specific details in the
-// database. These details are used to infer that the machine has
-// been provisioned.
-//
-// When provisioning an instance, a nonce should be created and passed
-// when starting it, before adding the machine to the state. This means
-// that if the provisioner crashes (or its connection to the state is
-// lost) after starting the instance, we can be sure that only a single
-// instance will be able to act for that machine.
-//
-// Once set, the instance id cannot be changed. A non-empty instance id
-// will be detected as a provisioned machine.
-func (m *Machine) SetProvisioned(
-	id instance.Id,
-	displayName string,
-	nonce string,
-	characteristics *instance.HardwareCharacteristics,
-) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set instance data for machine %q", m)
-
-	if id == "" || nonce == "" {
-		return fmt.Errorf("instance id and nonce cannot be empty")
-	}
-
-	ops := []txn.Op{
-		{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: append(notDeadDoc, bson.DocElem{Name: "nonce", Value: ""}),
-			Update: bson.D{{"$set", bson.D{{"nonce", nonce}}}},
-		},
-	}
-
-	if err = m.st.db().RunTransaction(ops); err == nil {
-		m.doc.Nonce = nonce
-		return nil
-	} else if err != txn.ErrAborted {
-		return err
-	} else if aliveOrDying, err := isNotDead(m.st, machinesC, m.doc.DocID); err != nil {
-		return err
-	} else if !aliveOrDying {
-		return errDeadOrGone
-	}
-	return fmt.Errorf("already set")
 }
 
 // SetInstanceInfo is used to provision a machine and in one step sets its
@@ -1127,7 +862,7 @@ func (m *Machine) SetInstanceInfo(
 		}
 	}
 
-	return errors.Trace(m.SetProvisioned(id, displayName, nonce, characteristics))
+	return nil
 }
 
 // Addresses returns any hostnames and ips associated with a machine,
@@ -1389,26 +1124,8 @@ func (m *Machine) setAddresses(controllerConfig controller.Config, machineAddres
 			"machine %q preferred public address changed from %q to %q",
 			m.Id(), oldPublic, newPublic.networkAddress(),
 		)
-		if isController(&m.doc) {
-			if err := m.st.maybeUpdateControllerCharm(controllerConfig, m.doc.PreferredPublicAddress.Value); err != nil {
-				return errors.Trace(err)
-			}
-		}
 	}
 	return nil
-}
-
-func (st *State) maybeUpdateControllerCharm(controllerConfig controller.Config, publicAddr string) error {
-	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
-	if errors.Is(err, errors.NotFound) {
-		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return controllerApp.UpdateCharmConfig(charm.Settings{
-		"controller-url": api.ControllerAPIURL(publicAddr, controllerConfig.APIPort()),
-	})
 }
 
 func (m *Machine) setAddressesOps(
@@ -1450,11 +1167,6 @@ func (m *Machine) setAddressesOps(
 	ops = append(ops, setPrivateAddressOps...)
 	ops = append(ops, setPublicAddressOps...)
 	return ops, machineStateAddresses, providerStateAddresses, newPrivate, newPublic, nil
-}
-
-// CheckProvisioned returns true if the machine was provisioned with the given nonce.
-func (m *Machine) CheckProvisioned(nonce string) bool {
-	return nonce == m.doc.Nonce && nonce != ""
 }
 
 // String returns a unique description of this machine.
@@ -1512,7 +1224,7 @@ func (m *Machine) setConstraintsOps(cons constraints.Value) ([]txn.Op, error) {
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (status.StatusInfo, error) {
+func (m *Machine) status() (status.StatusInfo, error) {
 	mStatus, err := getStatus(m.st.db(), m.globalKey(), "machine")
 	if err != nil {
 		return mStatus, err
@@ -1521,12 +1233,12 @@ func (m *Machine) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
+func (m *Machine) setStatus(statusInfo status.StatusInfo) error {
 	switch statusInfo.Status {
 	case status.Started, status.Stopped:
 	case status.Error:
 		if statusInfo.Message == "" {
-			return errors.Errorf("cannot set status %q without info", statusInfo.Status)
+			return errors.Errorf("cannot set status %q without message", statusInfo.Status)
 		}
 	case status.Pending:
 		// If a machine is not yet provisioned, we allow its status
@@ -1659,7 +1371,7 @@ func (m *Machine) markInvalidContainers() error {
 			}
 			// There should never be a circumstance where an unsupported container is started.
 			// Nonetheless, we check and log an error if such a situation arises.
-			statusInfo, err := container.Status()
+			statusInfo, err := container.status()
 			if err != nil {
 				logger.Errorf(context.TODO(), "finding status of container %v to mark as invalid: %v", containerId, err)
 				continue
@@ -1673,7 +1385,7 @@ func (m *Machine) markInvalidContainers() error {
 					Data:    map[string]interface{}{"type": containerType},
 					Since:   &now,
 				}
-				_ = container.SetStatus(s)
+				_ = container.setStatus(s)
 			} else {
 				logger.Errorf(context.TODO(), "unsupported container %v has unexpected status %v", containerId, statusInfo.Status)
 			}

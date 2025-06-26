@@ -755,6 +755,7 @@ func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	// TODO(fwereade/wallyworld): we should have an explicit place in the model
 	// to tell us when we've hit this point, instead of piggybacking on top of
 	// status and/or status history.

@@ -16,6 +16,7 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/controllernode"
@@ -242,8 +243,8 @@ func (s *stateSuite) TestSetAPIAddressesToAddOnly(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	addrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true},
-		{Address: "192.168.0.1:17070", IsAgent: false},
+		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
 	}
 
 	err = s.state.SetAPIAddresses(
@@ -252,38 +253,7 @@ func (s *stateSuite) TestSetAPIAddressesToAddOnly(c *tc.C) {
 		addrs,
 	)
 	c.Assert(err, tc.ErrorIsNil)
-
-	var (
-		resultAddresses []string
-		isAgent         []bool
-	)
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
-
-		for rows.Next() {
-			var (
-				addressVal string
-				isAgentVal bool
-			)
-			if err := rows.Scan(&addressVal, &isAgentVal); err != nil {
-				return err
-			}
-			resultAddresses = append(resultAddresses, addressVal)
-			isAgent = append(isAgent, isAgentVal)
-		}
-		return rows.Err()
-	})
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(resultAddresses, tc.HasLen, 2)
-	c.Check(resultAddresses[0], tc.Equals, addrs[0].Address)
-	c.Check(isAgent[0], tc.Equals, addrs[0].IsAgent)
-	c.Check(resultAddresses[1], tc.Equals, addrs[1].Address)
-	c.Check(isAgent[1], tc.Equals, addrs[1].IsAgent)
+	s.checkControllerAPIAddress(c, controllerID, addrs)
 }
 
 func (s *stateSuite) TestSetAPIAddressesToDeleteOnly(c *tc.C) {
@@ -294,24 +264,15 @@ func (s *stateSuite) TestSetAPIAddressesToDeleteOnly(c *tc.C) {
 
 	// Insert 3 addresses.
 	addrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true},
-		{Address: "10.0.0.2:17070", IsAgent: true},
-		{Address: "10.0.0.3:17070", IsAgent: true},
+		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "10.0.0.3:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
 	}
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "INSERT INTO controller_api_address (controller_id, address, is_agent) VALUES (?, ?, ?)"
-		for _, addr := range addrs {
-			_, err := tx.ExecContext(ctx, stmt, controllerID, addr.Address, addr.IsAgent)
-			if err != nil {
-				return err
-			}
-		}
-		return err
-	})
+	s.addControllerAPIAddresses(c, controllerID, addrs)
 
 	// Set API addresses that delete two nodes.
 	newAddrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true},
+		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
 	}
 	err = s.state.SetAPIAddresses(
 		c.Context(),
@@ -319,36 +280,7 @@ func (s *stateSuite) TestSetAPIAddressesToDeleteOnly(c *tc.C) {
 		newAddrs,
 	)
 	c.Assert(err, tc.ErrorIsNil)
-
-	var (
-		resultAddresses []string
-		isAgent         []bool
-	)
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
-
-		for rows.Next() {
-			var (
-				addressVal string
-				isAgentVal bool
-			)
-			if err := rows.Scan(&addressVal, &isAgentVal); err != nil {
-				return err
-			}
-			resultAddresses = append(resultAddresses, addressVal)
-			isAgent = append(isAgent, isAgentVal)
-		}
-		return rows.Err()
-	})
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(resultAddresses, tc.HasLen, 1)
-	c.Check(resultAddresses[0], tc.Equals, newAddrs[0].Address)
-	c.Check(isAgent[0], tc.Equals, newAddrs[0].IsAgent)
+	s.checkControllerAPIAddress(c, controllerID, newAddrs)
 }
 
 func (s *stateSuite) TestSetAPIAddressesAddsDeletes(c *tc.C) {
@@ -359,25 +291,16 @@ func (s *stateSuite) TestSetAPIAddressesAddsDeletes(c *tc.C) {
 
 	// Insert 3 addresses.
 	addrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true},
-		{Address: "10.0.0.2:17070", IsAgent: true},
-		{Address: "10.0.0.3:17070", IsAgent: true},
+		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "10.0.0.3:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
 	}
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "INSERT INTO controller_api_address (controller_id, address, is_agent) VALUES (?, ?, ?)"
-		for _, addr := range addrs {
-			_, err := tx.ExecContext(ctx, stmt, controllerID, addr.Address, addr.IsAgent)
-			if err != nil {
-				return err
-			}
-		}
-		return err
-	})
+	s.addControllerAPIAddresses(c, controllerID, addrs)
 
 	// Set API addresses that delete two nodes and insert one new.
 	newAddrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true},
-		{Address: "192.168.0.1:17070", IsAgent: false},
+		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
 	}
 	err = s.state.SetAPIAddresses(
 		c.Context(),
@@ -385,38 +308,7 @@ func (s *stateSuite) TestSetAPIAddressesAddsDeletes(c *tc.C) {
 		newAddrs,
 	)
 	c.Assert(err, tc.ErrorIsNil)
-
-	var (
-		resultAddresses []string
-		isAgent         []bool
-	)
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
-
-		for rows.Next() {
-			var (
-				addressVal string
-				isAgentVal bool
-			)
-			if err := rows.Scan(&addressVal, &isAgentVal); err != nil {
-				return err
-			}
-			resultAddresses = append(resultAddresses, addressVal)
-			isAgent = append(isAgent, isAgentVal)
-		}
-		return rows.Err()
-	})
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(resultAddresses, tc.HasLen, 2)
-	c.Check(resultAddresses[0], tc.Equals, newAddrs[0].Address)
-	c.Check(isAgent[0], tc.Equals, newAddrs[0].IsAgent)
-	c.Check(resultAddresses[1], tc.Equals, newAddrs[1].Address)
-	c.Check(isAgent[1], tc.Equals, newAddrs[1].IsAgent)
+	s.checkControllerAPIAddress(c, controllerID, newAddrs)
 }
 
 func (s *stateSuite) TestSetAPIAddressesNoDelta(c *tc.C) {
@@ -427,20 +319,11 @@ func (s *stateSuite) TestSetAPIAddressesNoDelta(c *tc.C) {
 
 	// Insert 3 addresses.
 	addrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true},
-		{Address: "10.0.0.2:17070", IsAgent: true},
-		{Address: "10.0.0.3:17070", IsAgent: true},
+		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeMachineLocal},
+		{Address: "10.0.0.3:17070", IsAgent: true, Scope: network.ScopeMachineLocal},
 	}
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "INSERT INTO controller_api_address (controller_id, address, is_agent) VALUES (?, ?, ?)"
-		for _, addr := range addrs {
-			_, err := tx.ExecContext(ctx, stmt, controllerID, addr.Address, addr.IsAgent)
-			if err != nil {
-				return err
-			}
-		}
-		return err
-	})
+	s.addControllerAPIAddresses(c, controllerID, addrs)
 
 	// Set API but with the same addresses already present in the db.
 	err = s.state.SetAPIAddresses(
@@ -449,40 +332,7 @@ func (s *stateSuite) TestSetAPIAddressesNoDelta(c *tc.C) {
 		addrs,
 	)
 	c.Assert(err, tc.ErrorIsNil)
-
-	var (
-		resultAddresses []string
-		isAgent         []bool
-	)
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
-
-		for rows.Next() {
-			var (
-				addressVal string
-				isAgentVal bool
-			)
-			if err := rows.Scan(&addressVal, &isAgentVal); err != nil {
-				return err
-			}
-			resultAddresses = append(resultAddresses, addressVal)
-			isAgent = append(isAgent, isAgentVal)
-		}
-		return rows.Err()
-	})
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(resultAddresses, tc.HasLen, 3)
-	c.Check(resultAddresses[0], tc.Equals, addrs[0].Address)
-	c.Check(isAgent[0], tc.Equals, addrs[0].IsAgent)
-	c.Check(resultAddresses[1], tc.Equals, addrs[1].Address)
-	c.Check(isAgent[1], tc.Equals, addrs[1].IsAgent)
-	c.Check(resultAddresses[2], tc.Equals, addrs[2].Address)
-	c.Check(isAgent[2], tc.Equals, addrs[2].IsAgent)
+	s.checkControllerAPIAddress(c, controllerID, addrs)
 }
 
 func (s *stateSuite) TestDeltaAddressesEmpty(c *tc.C) {
@@ -491,13 +341,13 @@ func (s *stateSuite) TestDeltaAddressesEmpty(c *tc.C) {
 		{Address: "10.0.0.2:17070", IsAgent: true},
 		{Address: "10.0.0.3:17070", IsAgent: true},
 	}
-	new := []controllerAPIAddress{
+	newAddrs := []controllerAPIAddress{
 		{Address: "10.0.0.1:17070", IsAgent: true},
 		{Address: "10.0.0.2:17070", IsAgent: true},
 		{Address: "10.0.0.3:17070", IsAgent: true},
 	}
 
-	toAdd, toUpdate, toRemove := calculateAddressDeltas(existing, new)
+	toAdd, toUpdate, toRemove := calculateAddressDeltas(existing, newAddrs)
 	c.Check(toAdd, tc.IsNil)
 	c.Check(toRemove, tc.IsNil)
 	c.Check(toUpdate, tc.IsNil)
@@ -505,14 +355,14 @@ func (s *stateSuite) TestDeltaAddressesEmpty(c *tc.C) {
 
 func (s *stateSuite) TestDeltaAddressesAddOnly(c *tc.C) {
 	existing := []controllerAPIAddress{}
-	new := []controllerAPIAddress{
+	newAddrs := []controllerAPIAddress{
 		{Address: "10.0.0.1:17070", IsAgent: true},
 		{Address: "10.0.0.2:17070", IsAgent: true},
 		{Address: "10.0.0.3:17070", IsAgent: true},
 	}
 
-	toAdd, toUpdate, toRemove := calculateAddressDeltas(existing, new)
-	c.Check(toAdd, tc.SameContents, new)
+	toAdd, toUpdate, toRemove := calculateAddressDeltas(existing, newAddrs)
+	c.Check(toAdd, tc.SameContents, newAddrs)
 	c.Check(toRemove, tc.IsNil)
 	c.Check(toUpdate, tc.IsNil)
 }
@@ -523,14 +373,14 @@ func (s *stateSuite) TestDeltaAddressesRemoveOnly(c *tc.C) {
 		{Address: "10.0.0.2:17070", IsAgent: true},
 		{Address: "10.0.0.3:17070", IsAgent: true},
 	}
-	new := []controllerAPIAddress{}
+	newAddrs := []controllerAPIAddress{}
 	expected := []string{
 		"10.0.0.1:17070",
 		"10.0.0.2:17070",
 		"10.0.0.3:17070",
 	}
 
-	toAdd, toUpdate, toRemove := calculateAddressDeltas(existing, new)
+	toAdd, toUpdate, toRemove := calculateAddressDeltas(existing, newAddrs)
 	c.Check(toAdd, tc.IsNil)
 	c.Check(toRemove, tc.SameContents, expected)
 	c.Check(toUpdate, tc.IsNil)
@@ -542,16 +392,16 @@ func (s *stateSuite) TestDeltaAddressesUpdateOnly(c *tc.C) {
 		{Address: "10.0.0.2:17070", IsAgent: true},
 		{Address: "10.0.0.3:17070", IsAgent: true},
 	}
-	new := []controllerAPIAddress{
+	newAddrs := []controllerAPIAddress{
 		{Address: "10.0.0.1:17070", IsAgent: false},
 		{Address: "10.0.0.2:17070", IsAgent: false},
 		{Address: "10.0.0.3:17070", IsAgent: false},
 	}
 
-	toAdd, toUpdate, toRemove := calculateAddressDeltas(existing, new)
+	toAdd, toUpdate, toRemove := calculateAddressDeltas(existing, newAddrs)
 	c.Check(toAdd, tc.IsNil)
 	c.Check(toRemove, tc.IsNil)
-	c.Check(toUpdate, tc.SameContents, new)
+	c.Check(toUpdate, tc.SameContents, newAddrs)
 }
 
 func (s *stateSuite) TestDeltaAddressesAllChanges(c *tc.C) {
@@ -561,7 +411,7 @@ func (s *stateSuite) TestDeltaAddressesAllChanges(c *tc.C) {
 		{Address: "10.0.0.3:17070", IsAgent: true},
 		{Address: "10.0.0.4:17070", IsAgent: true},
 	}
-	new := []controllerAPIAddress{
+	newAddrs := []controllerAPIAddress{
 		// To add.
 		{Address: "10.0.0.5:17070", IsAgent: true},
 		{Address: "10.0.0.6:17070", IsAgent: false},
@@ -571,9 +421,9 @@ func (s *stateSuite) TestDeltaAddressesAllChanges(c *tc.C) {
 		// 10.0.0.1 and 10.0.0.2 will be removed.
 	}
 
-	toAdd, toUpdate, toRemove := calculateAddressDeltas(existing, new)
-	c.Check(toAdd, tc.SameContents, new[0:2])
-	c.Check(toUpdate, tc.SameContents, new[2:4])
+	toAdd, toUpdate, toRemove := calculateAddressDeltas(existing, newAddrs)
+	c.Check(toAdd, tc.SameContents, newAddrs[0:2])
+	c.Check(toUpdate, tc.SameContents, newAddrs[2:4])
 	c.Check(toRemove, tc.SameContents, []string{
 		"10.0.0.1:17070",
 		"10.0.0.2:17070",
@@ -597,38 +447,7 @@ func (s *stateSuite) TestSetAPIAddressControllerNodeExists(c *tc.C) {
 		addrs,
 	)
 	c.Assert(err, tc.ErrorIsNil)
-
-	var (
-		resultAddresses []string
-		isAgent         []bool
-	)
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
-
-		for rows.Next() {
-			var (
-				addressVal string
-				isAgentVal bool
-			)
-			if err := rows.Scan(&addressVal, &isAgentVal); err != nil {
-				return err
-			}
-			resultAddresses = append(resultAddresses, addressVal)
-			isAgent = append(isAgent, isAgentVal)
-		}
-		return rows.Err()
-	})
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(resultAddresses, tc.HasLen, 2)
-	c.Check(resultAddresses[0], tc.Equals, addrs[0].Address)
-	c.Check(isAgent[0], tc.Equals, addrs[0].IsAgent)
-	c.Check(resultAddresses[1], tc.Equals, addrs[1].Address)
-	c.Check(isAgent[1], tc.Equals, addrs[1].IsAgent)
+	s.checkControllerAPIAddress(c, controllerID, addrs)
 
 	agentAddresses, err := s.state.GetAllAPIAddressesForAgents(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -650,38 +469,7 @@ func (s *stateSuite) TestSetAPIAddressControllerNodeExists(c *tc.C) {
 		newAddrs,
 	)
 	c.Assert(err, tc.ErrorIsNil)
-
-	var (
-		updatedResultAddresses []string
-		updatedIsAgent         []bool
-	)
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
-
-		for rows.Next() {
-			var (
-				addressVal string
-				isAgentVal bool
-			)
-			if err := rows.Scan(&addressVal, &isAgentVal); err != nil {
-				return err
-			}
-			updatedResultAddresses = append(updatedResultAddresses, addressVal)
-			updatedIsAgent = append(updatedIsAgent, isAgentVal)
-		}
-		return rows.Err()
-	})
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(updatedResultAddresses, tc.HasLen, 2)
-	c.Check(updatedResultAddresses[0], tc.Equals, newAddrs[0].Address)
-	c.Check(updatedIsAgent[0], tc.Equals, newAddrs[0].IsAgent)
-	c.Check(updatedResultAddresses[1], tc.Equals, newAddrs[1].Address)
-	c.Check(updatedIsAgent[1], tc.Equals, newAddrs[1].IsAgent)
+	s.checkControllerAPIAddress(c, controllerID, newAddrs)
 
 	agentAddresses, err = s.state.GetAllAPIAddressesForAgents(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -829,9 +617,9 @@ func (s *stateSuite) TestGetAPIAddressesForAgents(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	addrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true},
-		{Address: "10.0.0.2:17070", IsAgent: true},
-		{Address: "192.168.0.1:17070", IsAgent: false},
+		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeMachineLocal},
+		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeMachineLocal},
+		{Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
 	}
 
 	err = s.state.SetAPIAddresses(
@@ -872,4 +660,88 @@ func (s *stateSuite) TestGetControllerIDsEmpty(c *tc.C) {
 	controllerIDs, err := s.state.GetControllerIDs(c.Context())
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyControllerIDs)
 	c.Check(controllerIDs, tc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetAllAPIAddressesWithScopeForAgents(c *tc.C) {
+	// Arrange
+	controllerID := "1"
+
+	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	addrs := controllernode.APIAddresses{
+		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "10.0.0.42:18080", IsAgent: true, Scope: network.ScopePublic},
+		{Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
+	}
+
+	err = s.state.SetAPIAddresses(
+		c.Context(),
+		controllerID,
+		addrs,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	result, err := s.state.GetAllAPIAddressesWithScopeForAgents(c.Context())
+
+	// Assertapiserver/facades/client/machinemanager/machinemanager_test.go
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Assert(result, tc.DeepEquals, map[string]controllernode.APIAddresses{
+		"1": {
+			{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+			{Address: "10.0.0.42:18080", IsAgent: true, Scope: network.ScopePublic},
+		},
+	})
+}
+
+func (s *stateSuite) checkControllerAPIAddress(c *tc.C, controllerID string, addrs []controllernode.APIAddress) {
+	var (
+		resultAddresses, resultScopes []string
+		isAgent                       []bool
+	)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, "SELECT address, is_agent, scope FROM controller_api_address WHERE controller_id = ?", controllerID)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var (
+				addressVal, scopeVal string
+				isAgentVal           bool
+			)
+			if err := rows.Scan(&addressVal, &isAgentVal, &scopeVal); err != nil {
+				return err
+			}
+			resultAddresses = append(resultAddresses, addressVal)
+			isAgent = append(isAgent, isAgentVal)
+			resultScopes = append(resultScopes, scopeVal)
+		}
+		return rows.Err()
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resultAddresses, tc.HasLen, len(addrs))
+	for i, addr := range addrs {
+		c.Check(resultAddresses[i], tc.Equals, addr.Address)
+		c.Check(isAgent[i], tc.Equals, addr.IsAgent)
+		c.Check(resultScopes[i], tc.Equals, addr.Scope.String())
+	}
+}
+
+func (s *stateSuite) addControllerAPIAddresses(c *tc.C, controllerID string, addrs []controllernode.APIAddress) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := "INSERT INTO controller_api_address (controller_id, address, is_agent, scope) VALUES (?, ?, ?, ?)"
+		for _, addr := range addrs {
+			_, err := tx.ExecContext(ctx, stmt, controllerID, addr.Address, addr.IsAgent, addr.Scope)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }

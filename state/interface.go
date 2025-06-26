@@ -57,7 +57,6 @@ type Remover interface {
 // Authenticator represents entites capable of handling password
 // authentication.
 type Authenticator interface {
-	Refresh() error
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
 }

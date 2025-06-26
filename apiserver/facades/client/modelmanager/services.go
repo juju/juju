@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 
 	"github.com/juju/juju/apiserver/facade"
 	jujucloud "github.com/juju/juju/cloud"
@@ -19,6 +19,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
+	corestatus "github.com/juju/juju/core/status"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
@@ -208,12 +209,6 @@ type ModelInfoService interface {
 	// question.
 	GetModelInfo(context.Context) (coremodel.ModelInfo, error)
 
-	// GetStatus returns the current status of the model.
-	// The following error types can be expected to be returned:
-	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model
-	// does not exist.
-	GetStatus(context.Context) (model.StatusInfo, error)
-
 	// GetModelSummary returns a summary of the current model as a
 	// [coremodel.ModelSummary] type.
 	// The following error types can be expected:
@@ -233,7 +228,12 @@ type ModelInfoService interface {
 	// IsControllerModel returns true if the model is the controller model.
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does not exist.
-	IsControllerModel(context.Context) (bool, error)
+	IsControllerModel(ctx context.Context) (bool, error)
+
+	// HasValidCredential returns true if the model has a valid credential.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model no longer exists.
+	HasValidCredential(ctx context.Context) (bool, error)
 }
 
 // ModelExporter defines a interface for exporting models.
@@ -288,12 +288,12 @@ type NetworkService interface {
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// InstanceIDAndName returns the cloud specific instance ID and display name for
-	// this machine.
-	InstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
+	// GetInstanceIDAndName returns the cloud specific instance ID and display
+	// name for this machine.
+	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
 }
 
 // StatusService returns the status of a applications, and units and machines.
@@ -307,11 +307,23 @@ type StatusService interface {
 	// The following error types can be expected to be returned:
 	// - [modelerrors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error)
+
+	// GetModelStatus returns the current status of the model.
+	//
+	// The following error types can be expected to be returned:
+	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model no
+	// longer exists.
+	GetModelStatus(ctx context.Context) (corestatus.StatusInfo, error)
+
+	// GetAllMachineStatuses returns all the machine statuses for the model, indexed
+	// by machine name.
+	GetAllMachineStatuses(context.Context) (map[machine.Name]corestatus.StatusInfo, error)
 }
 
 // SecretBackendService is an interface for interacting with secret backend service.
 type SecretBackendService interface {
-	// BackendSummaryInfoForModel returns a summary of the secret backends for a model.
+	// BackendSummaryInfoForModel returns a summary of the secret backends for a
+	// model.
 	BackendSummaryInfoForModel(ctx context.Context, modelUUID coremodel.UUID) ([]*secretbackendservice.SecretBackendInfo, error)
 }
 

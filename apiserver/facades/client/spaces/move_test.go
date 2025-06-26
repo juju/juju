@@ -31,7 +31,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	spaceName := "destination"
+	spaceName := network.SpaceName("destination")
 	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 
 	s.NetworkService.EXPECT().Subnet(gomock.Any(), subnetID).Return(nil, errors.NotFoundf("subnet 3"))
@@ -46,7 +46,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	spaceName := "destination"
+	spaceName := network.SpaceName("destination")
 	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 	cidr := "10.10.10.0/24"
 
@@ -74,16 +74,17 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *tc.C) {
 		},
 		{
 			ID:   "2",
-			Name: network.SpaceName(spaceName),
+			Name: spaceName,
 		},
 	}
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any()).Return(allSpaces, nil)
 	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(&allSpaces[1], nil)
-	s.NetworkService.EXPECT().UpdateSubnet(gomock.Any(), subnetID, "2").Return(nil)
+	s.NetworkService.EXPECT().UpdateSubnet(gomock.Any(), subnetID, network.SpaceUUID("2")).Return(nil)
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return(nil, nil)
-	bExp.AllEndpointBindings().Return(nil, nil)
+
+	s.ApplicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(map[string]map[string]network.SpaceName{}, nil)
 
 	// Using different subnet - triggers no constraint violation.
 	m := expectMachine(ctrl, "0", "20.20.20.0/24")
@@ -107,7 +108,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *tc.C) 
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	spaceName := "destination"
+	spaceName := network.SpaceName("destination")
 	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 	cidr := "10.10.10.0/24"
 
@@ -135,12 +136,12 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *tc.C) 
 		},
 		{
 			ID:   "2",
-			Name: network.SpaceName(spaceName),
+			Name: spaceName,
 		},
 	}
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any()).Return(allSpaces, nil)
 	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(&allSpaces[1], nil)
-	s.NetworkService.EXPECT().UpdateSubnet(gomock.Any(), subnetID, "2").Return(nil)
+	s.NetworkService.EXPECT().UpdateSubnet(gomock.Any(), subnetID, network.SpaceUUID("2")).Return(nil)
 
 	// MySQL has only non-space constraints.
 	cons1 := spaces.NewMockConstraints(ctrl)
@@ -158,7 +159,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *tc.C) 
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons1, cons2}, nil)
-	bExp.AllEndpointBindings().Return(nil, nil)
+
+	s.ApplicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(map[string]map[string]network.SpaceName{}, nil)
 
 	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, tc.ErrorIsNil)
@@ -170,7 +172,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceE
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	spaceName := "destination"
+	spaceName := network.SpaceName("destination")
 	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 	cidr := "10.10.10.0/24"
 
@@ -198,7 +200,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceE
 		},
 		{
 			ID:   "2",
-			Name: network.SpaceName(spaceName),
+			Name: spaceName,
 		},
 	}
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any()).Return(allSpaces, nil)
@@ -226,7 +228,7 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	spaceName := "destination"
+	spaceName := network.SpaceName("destination")
 	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 	cidr := "10.10.10.0/24"
 
@@ -254,12 +256,12 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 		},
 		{
 			ID:   "2",
-			Name: network.SpaceName(spaceName),
+			Name: spaceName,
 		},
 	}
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any()).Return(allSpaces, nil)
 	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(&allSpaces[1], nil)
-	s.NetworkService.EXPECT().UpdateSubnet(gomock.Any(), subnetID, "2").Return(nil)
+	s.NetworkService.EXPECT().UpdateSubnet(gomock.Any(), subnetID, network.SpaceUUID("2")).Return(nil)
 
 	// MySQL is constrained not to be in the target space.
 	cons := spaces.NewMockConstraints(ctrl)
@@ -272,7 +274,8 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons}, nil)
-	bExp.AllEndpointBindings().Return(nil, nil)
+
+	s.ApplicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(map[string]map[string]network.SpaceName{}, nil)
 
 	// Supplying force=true succeeds despite the violation.
 	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, true))
@@ -292,7 +295,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceE
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	spaceName := "destination"
+	spaceName := network.SpaceName("destination")
 	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 	cidr := "10.10.10.0/24"
 
@@ -322,7 +325,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceE
 		},
 		{
 			ID:   "2",
-			Name: network.SpaceName(spaceName),
+			Name: spaceName,
 		},
 	}
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any()).Return(allSpaces, nil)
@@ -359,7 +362,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	spaceName := "destination"
+	spaceName := network.SpaceName("destination")
 	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 	cidr := "10.10.10.0/24"
 
@@ -389,14 +392,10 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 		},
 		{
 			ID:   "2",
-			Name: network.SpaceName(spaceName),
+			Name: spaceName,
 		},
 	}
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any()).Return(allSpaces, nil)
-
-	// MySQL has a binding to the old space.
-	bindings := spaces.NewMockBindings(ctrl)
-	bindings.EXPECT().Map().Return(map[string]string{"db": "1"})
 
 	// mysql/0 is connected to both the moving subnet and the stationary one.
 	// It will satisfy the binding even after the subnet relocation.
@@ -412,7 +411,13 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return(nil, nil)
-	bExp.AllEndpointBindings().Return(map[string]spaces.Bindings{"mysql": bindings}, nil)
+
+	// MySQL has a binding to the old space.
+	s.ApplicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(map[string]map[string]network.SpaceName{
+		"mysql": {
+			"db": network.SpaceName("from"),
+		},
+	}, nil)
 
 	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, tc.ErrorIsNil)
@@ -441,11 +446,11 @@ func expectMachine(ctrl *gomock.Controller, name machine.Name, cidrs ...string) 
 	return machine
 }
 
-func moveSubnetsArg(subnetID, spaceName string, force bool) params.MoveSubnetsParams {
+func moveSubnetsArg(subnetID string, spaceName network.SpaceName, force bool) params.MoveSubnetsParams {
 	return params.MoveSubnetsParams{
 		Args: []params.MoveSubnetsParam{{
 			SubnetTags: []string{names.NewSubnetTag(subnetID).String()},
-			SpaceTag:   names.NewSpaceTag(spaceName).String(),
+			SpaceTag:   names.NewSpaceTag(spaceName.String()).String(),
 			Force:      force,
 		}},
 	}

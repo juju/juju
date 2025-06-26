@@ -7,7 +7,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -17,9 +18,8 @@ import (
 func (s *stateSuite) TestUpsertSubnets(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	spUUID, err := uuid.NewV7()
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(c.Context(), spUUID.String(), "space0", "provider-space-id-1", []string{})
+	spUUID := networktesting.GenSpaceUUID(c)
+	err := st.AddSpace(c.Context(), spUUID, "space0", "provider-space-id-1", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	subnetUUID0, err := uuid.NewV7()
@@ -40,7 +40,7 @@ func (s *stateSuite) TestUpsertSubnets(c *tc.C) {
 			ProviderId:        "provider-id-1",
 			ProviderNetworkId: "provider-network-id-1",
 			AvailabilityZones: []string{"az1"},
-			SpaceID:           spUUID.String(),
+			SpaceID:           spUUID,
 		},
 	}
 	err = st.UpsertSubnets(c.Context(), subnetsToUpsert)
@@ -56,7 +56,7 @@ func (s *stateSuite) TestUpsertSubnets(c *tc.C) {
 		ProviderNetworkId: "provider-network-id-1",
 		VLANTag:           0,
 		AvailabilityZones: []string{"az1"},
-		SpaceID:           spUUID.String(),
+		SpaceID:           spUUID,
 		SpaceName:         "space0",
 	}
 	c.Check(sn1, tc.DeepEquals, expected)
@@ -78,7 +78,7 @@ func (s *stateSuite) TestUpsertSubnets(c *tc.C) {
 	subnetsToUpsert = []network.SubnetInfo{
 		{
 			ID:      network.Id(subnetUUID0.String()),
-			SpaceID: spUUID.String(),
+			SpaceID: spUUID,
 		},
 	}
 	err = st.UpsertSubnets(c.Context(), subnetsToUpsert)
@@ -92,7 +92,7 @@ func (s *stateSuite) TestUpsertSubnets(c *tc.C) {
 		ProviderNetworkId: "provider-network-id-0",
 		VLANTag:           0,
 		AvailabilityZones: []string{"az0"},
-		SpaceID:           spUUID.String(),
+		SpaceID:           spUUID,
 		SpaceName:         "space0",
 	}
 	sn0, err = st.GetSubnet(c.Context(), subnetUUID0.String())
@@ -104,9 +104,8 @@ func (s *stateSuite) TestAddSubnet(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
-	spUUID, err := uuid.NewV7()
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(c.Context(), spUUID.String(), "space0", "foo", []string{})
+	spUUID := networktesting.GenSpaceUUID(c)
+	err := st.AddSpace(c.Context(), spUUID, "space0", "foo", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	uuid, err := uuid.NewV7()
@@ -120,7 +119,7 @@ func (s *stateSuite) TestAddSubnet(c *tc.C) {
 			ProviderNetworkId: "provider-network-id",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           spUUID.String(),
+			SpaceID:           spUUID,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -183,9 +182,8 @@ func (s *stateSuite) TestAddSubnet(c *tc.C) {
 func (s *stateSuite) TestAddTwoSubnetsSameNetworkID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	spUUID, err := uuid.NewV7()
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(c.Context(), spUUID.String(), "space0", "foo", []string{})
+	spUUID := networktesting.GenSpaceUUID(c)
+	err := st.AddSpace(c.Context(), spUUID, "space0", "foo", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	subnetUUID0, err := uuid.NewV7()
@@ -199,7 +197,7 @@ func (s *stateSuite) TestAddTwoSubnetsSameNetworkID(c *tc.C) {
 			ProviderNetworkId: "provider-network-id",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           spUUID.String(),
+			SpaceID:           spUUID,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -214,7 +212,7 @@ func (s *stateSuite) TestAddTwoSubnetsSameNetworkID(c *tc.C) {
 			ProviderNetworkId: "provider-network-id",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           spUUID.String(),
+			SpaceID:           spUUID,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -223,9 +221,8 @@ func (s *stateSuite) TestAddTwoSubnetsSameNetworkID(c *tc.C) {
 func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	spUUID, err := uuid.NewV7()
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(c.Context(), spUUID.String(), "space0", "foo", []string{})
+	spUUID := networktesting.GenSpaceUUID(c)
+	err := st.AddSpace(c.Context(), spUUID, "space0", "foo", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	subnetUUID0, err := uuid.NewV7()
@@ -239,7 +236,7 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *tc.C) {
 			ProviderNetworkId: "provider-network-id-0",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           spUUID.String(),
+			SpaceID:           spUUID,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -254,7 +251,7 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *tc.C) {
 			ProviderNetworkId: "provider-network-id-1",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           spUUID.String(),
+			SpaceID:           spUUID,
 		},
 	)
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("provider id %q for subnet %q already exists", "provider-id", subnetUUID1.String()))
@@ -356,9 +353,8 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	// Add a space with subnet base.
-	spUUID, err := uuid.NewV7()
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(c.Context(), spUUID.String(), "space0", "provider-space-id", []string{subnetUUID0.String()})
+	spUUID := networktesting.GenSpaceUUID(c)
+	err = st.AddSpace(c.Context(), spUUID, "space0", "provider-space-id", []string{subnetUUID0.String()})
 	c.Assert(err, tc.ErrorIsNil)
 
 	expected := &network.SubnetInfo{
@@ -369,7 +365,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *tc.C) {
 		ProviderNetworkId: "provider-network-id-0",
 		VLANTag:           0,
 		AvailabilityZones: []string{"az0"},
-		SpaceID:           spUUID.String(),
+		SpaceID:           spUUID,
 		SpaceName:         "space0",
 	}
 	sn0, err := st.GetSubnet(c.Context(), subnetUUID0.String())
@@ -491,9 +487,8 @@ func (s *stateSuite) TestUpdateSubnet(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
-	spUUID, err := uuid.NewV7()
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(c.Context(), spUUID.String(), "space0", "foo", []string{})
+	spUUID := networktesting.GenSpaceUUID(c)
+	err := st.AddSpace(c.Context(), spUUID, "space0", "foo", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	subnetUUID, err := uuid.NewV7()
@@ -507,17 +502,16 @@ func (s *stateSuite) TestUpdateSubnet(c *tc.C) {
 			ProviderNetworkId: "provider-network-id",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           spUUID.String(),
+			SpaceID:           spUUID,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	newSpIUUID, err := uuid.NewV7()
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(c.Context(), newSpIUUID.String(), "space1", "bar", []string{})
+	newSpIUUID := networktesting.GenSpaceUUID(c)
+	err = st.AddSpace(c.Context(), newSpIUUID, "space1", "bar", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.UpdateSubnet(c.Context(), subnetUUID.String(), newSpIUUID.String())
+	err = st.UpdateSubnet(c.Context(), subnetUUID.String(), newSpIUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	row := db.QueryRow("SELECT space_uuid FROM subnet WHERE subnet.uuid = ?", subnetUUID.String())

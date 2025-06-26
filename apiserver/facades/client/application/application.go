@@ -587,7 +587,7 @@ func (api *APIBase) deployApplication(
 		Storage:           args.Storage,
 		Devices:           args.Devices,
 		AttachStorage:     attachStorage,
-		EndpointBindings:  args.EndpointBindings,
+		EndpointBindings:  transformBindings(args.EndpointBindings),
 		Resources:         args.Resources,
 		Force:             args.Force,
 	}, api.logger, api.clock)
@@ -831,7 +831,7 @@ type setCharmParams struct {
 	ConfigSettingsYAML    string
 	ResourceIDs           map[string]string
 	StorageDirectives     map[string]params.StorageDirectives
-	EndpointBindings      map[string]string
+	EndpointBindings      map[string]network.SpaceName
 	Force                 forceParams
 }
 
@@ -864,6 +864,10 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		return err
 	}
 
+	endpointBindings := transform.Map(args.EndpointBindings, func(k string, v string) (string, network.SpaceName) {
+		return k, network.SpaceName(v)
+	})
+
 	oneApplication, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
@@ -878,7 +882,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
 			ResourceIDs:           args.ResourceIDs,
 			StorageDirectives:     args.StorageDirectives,
-			EndpointBindings:      args.EndpointBindings,
+			EndpointBindings:      endpointBindings,
 			Force: forceParams{
 				ForceBase:  args.ForceBase,
 				ForceUnits: args.ForceUnits,
@@ -1049,11 +1053,11 @@ func (api *APIBase) applicationSetCharm(
 		}
 	}
 
-	// TODO: Update endpoint bindings
 	if err := api.applicationService.SetApplicationCharm(ctx, params.AppName, application.UpdateCharmParams{
 		Charm:               newCharm,
 		Storage:             storageDirectives,
 		CharmUpgradeOnError: params.Force.ForceUnits,
+		EndpointBindings:    params.EndpointBindings,
 	}); err != nil {
 		return errors.Annotatef(err, "updating charm for application %q", params.AppName)
 	}
@@ -1280,12 +1284,12 @@ func (api *APIBase) mapExposedEndpointParams(ctx context.Context, params map[str
 		if len(exposeDetails.ExposeToSpaces) != 0 {
 			spaceIDs := make([]string, len(exposeDetails.ExposeToSpaces))
 			for i, spaceName := range exposeDetails.ExposeToSpaces {
-				sp := spaceInfos.GetByName(spaceName)
+				sp := spaceInfos.GetByName(network.SpaceName(spaceName))
 				if sp == nil {
 					return nil, errors.NotFoundf("space %q", spaceName)
 				}
 
-				spaceIDs[i] = sp.ID
+				spaceIDs[i] = sp.ID.String()
 			}
 			mappedParam.ExposeToSpaceIDs = set.NewStrings(spaceIDs...)
 		}
@@ -2131,15 +2135,6 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
-		appLife, err := api.applicationService.GetApplicationLife(ctx, tag.Name)
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
-			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
-			continue
-		} else if err != nil {
-			out[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
 		appID, err := api.applicationService.GetApplicationIDByName(ctx, tag.Name)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
@@ -2149,7 +2144,16 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
-		bindings, err := api.applicationService.GetApplicationEndpointBindings(ctx, appID)
+		appLife, err := api.applicationService.GetApplicationLife(ctx, appID)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
+			continue
+		} else if err != nil {
+			out[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		bindings, err := api.applicationService.GetApplicationEndpointBindings(ctx, tag.Name)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
 			continue
@@ -2277,7 +2281,7 @@ func (api *APIBase) mapExposedEndpointsFromDomain(ctx context.Context, exposedEn
 
 			spaceNames := make([]string, len(exposeDetails.ExposeToSpaceIDs))
 			for i, spaceID := range exposeDetails.ExposeToSpaceIDs.Values() {
-				sp := spaceInfos.GetByID(spaceID)
+				sp := spaceInfos.GetByID(network.SpaceUUID(spaceID))
 				if sp == nil {
 					return nil, errors.NotFoundf("space with ID %q", spaceID)
 				}

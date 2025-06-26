@@ -36,18 +36,13 @@ func newFacadeV1(ctx facade.MultiModelContext) (*ModelUpgraderAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
 
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	domainServices := ctx.DomainServices()
 	controllerConfigService := domainServices.ControllerConfig()
 	controllerAgentService := domainServices.Agent()
 
-	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), systemState)
+	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), domainServices.ControllerNode())
 	toolsFinder := common.NewToolsFinder(
-		controllerConfigService, st, urlGetter,
+		st, urlGetter,
 		ctx.ControllerObjectStore(),
 		domainServices.AgentBinary(),
 	)

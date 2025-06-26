@@ -11,6 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
@@ -21,8 +22,10 @@ import (
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID machine.UUID) (instance.Id, error)
+	// GetInstanceID returns the cloud specific instance id for this machine.
+	GetInstanceID(ctx context.Context, mUUID machine.UUID) (instance.Id, error)
+	// GetMachineLife returns the lifecycle of the machine.
+	GetMachineLife(ctx context.Context, name machine.Name) (life.Value, error)
 }
 
 // InstanceIdGetter implements a common InstanceId method for use by
@@ -71,7 +74,7 @@ func (ig *InstanceIdGetter) InstanceId(ctx context.Context, args params.Entities
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		instanceId, err := ig.machineService.InstanceID(ctx, machineUUID)
+		instanceId, err := ig.machineService.GetInstanceID(ctx, machineUUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %s", tag.Id()))
 			continue

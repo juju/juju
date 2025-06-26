@@ -20,7 +20,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
 )
 
 // ApplicationService is an interface that provides access to application
@@ -57,8 +56,6 @@ type ModelInfoService interface {
 
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
-	state              State
-	model              Model
 	modelTag           names.ModelTag
 	modelInfoService   ModelInfoService
 	resources          facade.Resources
@@ -74,7 +71,6 @@ type APIv7 struct {
 }
 
 func newActionAPI(
-	st State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	getLeadershipReader func() (leadership.Reader, error),
@@ -92,16 +88,9 @@ func newActionAPI(
 		return nil, errors.Trace(err)
 	}
 
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	modelTag := names.NewModelTag(modelUUID.String())
 
 	return &ActionAPI{
-		state:              st,
-		model:              m,
 		modelTag:           modelTag,
 		modelInfoService:   modelInfoService,
 		resources:          resources,
@@ -139,22 +128,13 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
-		actionTag, ok := tag.(names.ActionTag)
+		_, ok := tag.(names.ActionTag)
 		if !ok {
 			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
-		action, err := a.state.ActionByTag(actionTag)
-		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
-			continue
-		}
-		receiverTag, err := names.ActionReceiverTag(action.Receiver())
-		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(err)
-			continue
-		}
-		response.Results[i] = common.MakeActionResult(receiverTag, action)
+
+		currentResult.Error = apiservererrors.ServerError(errors.NotSupportedf("actions in Dqlite"))
 	}
 	return response, nil
 }
@@ -175,29 +155,13 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
-		actionTag, ok := tag.(names.ActionTag)
+		_, ok := tag.(names.ActionTag)
 		if !ok {
 			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
 
-		action, err := a.state.ActionByTag(actionTag)
-		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(err)
-			continue
-		}
-		result, err := action.Cancel()
-		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(err)
-			continue
-		}
-		receiverTag, err := names.ActionReceiverTag(result.Receiver())
-		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		response.Results[i] = common.MakeActionResult(receiverTag, result)
+		currentResult.Error = apiservererrors.ServerError(errors.NotSupportedf("actions in Dqlite"))
 	}
 	return response, nil
 }
@@ -255,22 +219,13 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 		Results: make([]params.StringsWatchResult, len(actions.Entities)),
 	}
 	for i, arg := range actions.Entities {
-		actionTag, err := names.ParseActionTag(arg.Tag)
+		_, err := names.ParseActionTag(arg.Tag)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		w := api.state.WatchActionLogs(actionTag.Id())
-		// Consume the initial event.
-		changes, ok := <-w.Changes()
-		if !ok {
-			results.Results[i].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
-			continue
-		}
-
-		results.Results[i].Changes = changes
-		results.Results[i].StringsWatcherId = api.resources.Register(w)
+		results.Results[i].Error = apiservererrors.ServerError(errors.NotSupportedf("actions in Dqlite"))
 	}
 	return results, nil
 }

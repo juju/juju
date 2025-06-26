@@ -12,7 +12,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
-	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -29,15 +28,15 @@ type StatusServiceGetter = func(context.Context, coremodel.UUID) (StatusService,
 
 // ModelInfoService defines domain service methods for managing a model.
 type ModelInfoService interface {
-	// GetStatus returns the current status of the model.
-	// The following error types can be expected to be returned:
-	// - [github.com/juju/juju/modelerrors.NotFound]: When the model does not exist.
-	GetStatus(context.Context) (domainmodel.StatusInfo, error)
-
 	// IsControllerModel returns true if the model is the controller model.
 	// The following errors may be returned:
 	// - [modelerrors.NotFound] when the model does not exist.
 	IsControllerModel(context.Context) (bool, error)
+
+	// HasValidCredential returns true if the model has a valid credential.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model no longer exists.
+	HasValidCredential(context.Context) (bool, error)
 }
 
 // ModelService provides access to information about the models within the controller.
@@ -119,13 +118,13 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 
 	modelUUID := coremodel.UUID(modelTag.Id())
 
-	// TODO: update model DB drop detection logic. Currently, statusServiceGetter.GetModelStatusInfo does not
+	// TODO: update model DB drop detection logic. Currently, statusService.GetModelStatusInfo does not
 	// return NotFound because model data is read from the cache within the same DB connection.
-	statusServiceGetter, err := c.getStatusService(ctx, modelUUID)
+	statusService, err := c.getStatusService(ctx, modelUUID)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	modelInfo, err := statusServiceGetter.GetModelStatusInfo(ctx)
+	modelInfo, err := statusService.GetModelStatusInfo(ctx)
 	switch {
 	case errors.Is(err, modelerrors.NotFound):
 		return status, internalerrors.Errorf(
@@ -137,22 +136,6 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		)
 	}
 
-	machines, err := st.AllMachines()
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-
-	hostedMachineCount := 0
-	for _, m := range machines {
-		if !m.IsManager() {
-			hostedMachineCount++
-		}
-	}
-
-	statusService, err := c.getStatusService(ctx, modelUUID)
-	if err != nil {
-		return status, errors.Trace(err)
-	}
 	applications, err := statusService.GetApplicationAndUnitModelStatuses(ctx)
 	if err != nil {
 		return status, errors.Trace(err)
@@ -171,7 +154,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	modelMachines, err := ModelMachineInfo(ctx, st, machineService)
+	modelMachines, err := ModelMachineInfo(ctx, st, machineService, statusService)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
@@ -188,17 +171,13 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	}
 	modelFilesystems := ModelFilesystemInfo(filesystems)
 
-	badOwnerTag := names.NewUserTag("foobar")
-	// TODO: add life and ownertag values when they are supported in model DB
+	// TODO: add life and qualifier values when they are supported in model DB
 	result := params.ModelStatus{
-		ModelTag: tag,
-		// TODO (tlm): OwnerTag is currently set to a bad value on purpose.
-		// There is work under way to refactor the idea of a model owner within
-		// Juju. Until this work lands we are setting a bad value.
-		OwnerTag:           badOwnerTag.String(),
+		ModelTag:           tag,
+		Qualifier:          "foobar",
 		Life:               "",
 		Type:               modelInfo.Type.String(),
-		HostedMachineCount: hostedMachineCount,
+		HostedMachineCount: len(modelMachines),
 		ApplicationCount:   len(applications),
 		UnitCount:          unitCount,
 		Applications:       modelApplications,

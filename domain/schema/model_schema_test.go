@@ -33,6 +33,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"application_config_hash",
 		"application_config",
 		"application_constraint",
+		"application_controller",
 		"application_exposed_endpoint_cidr",
 		"application_exposed_endpoint_space",
 		"application_platform",
@@ -73,6 +74,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 
 		// Model
 		"model",
+		"model_agent",
 		"agent_stream",
 		"agent_version",
 
@@ -148,11 +150,15 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_cloud_instance_status",
 		"machine_cloud_instance",
 		"machine_constraint",
+		"machine_container_type",
 		"machine_filesystem",
 		"machine_lxd_profile",
+		"machine_manual",
 		"machine_parent",
 		"machine_placement_scope",
+		"machine_platform",
 		"machine_placement",
+		"machine_platform",
 		"machine_removals",
 		"machine_requires_reboot",
 		"machine_status_value",
@@ -232,6 +238,8 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"storage_instance",
 		"storage_pool_attribute",
 		"storage_pool",
+		"storage_pool_origin",
+		"storage_provision_scope",
 		"storage_unit_owner",
 		"storage_volume_attachment_plan_attr",
 		"storage_volume_attachment_plan",
@@ -331,11 +339,13 @@ func (s *modelSchemaSuite) TestModelViews(c *tc.C) {
 		"v_constraint",
 		"v_endpoint",
 		"v_hardware_characteristics",
+		"v_ip_address_with_names",
 		"v_machine_agent_version",
 		"v_machine_cloud_instance_status",
 		"v_machine_interface",
 		"v_machine_status",
 		"v_machine_target_agent_version",
+		"v_machine_is_controller",
 		"v_model_constraint_space",
 		"v_model_constraint_tag",
 		"v_model_constraint_zone",
@@ -390,6 +400,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_application_config_hash_delete",
 		"trg_log_application_config_hash_insert",
 		"trg_log_application_config_hash_update",
+
+		"trg_log_application_setting_delete",
+		"trg_log_application_setting_insert",
+		"trg_log_application_setting_update",
 
 		"trg_log_application_endpoint_delete",
 		"trg_log_application_endpoint_insert",
@@ -475,29 +489,41 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_secret_rotation_insert",
 		"trg_log_secret_rotation_update",
 
-		"trg_log_storage_attachment_delete",
-		"trg_log_storage_attachment_insert",
-		"trg_log_storage_attachment_update",
+		"trg_log_storage_filesystem_insert_life_machine_provisioning_on_attachment",
+		"trg_log_storage_filesystem_update_life_machine_provisioning",
+		"trg_log_storage_filesystem_delete_life_machine_provisioning_last_attachment",
 
-		"trg_log_storage_filesystem_attachment_delete",
-		"trg_log_storage_filesystem_attachment_insert",
-		"trg_log_storage_filesystem_attachment_update",
+		"trg_log_storage_filesystem_insert_life_model_provisioning",
+		"trg_log_storage_filesystem_update_life_model_provisioning",
+		"trg_log_storage_filesystem_delete_life_model_provisioning",
 
-		"trg_log_storage_filesystem_delete",
-		"trg_log_storage_filesystem_insert",
-		"trg_log_storage_filesystem_update",
+		"trg_log_storage_filesystem_attachment_insert_life_machine_provisioning",
+		"trg_log_storage_filesystem_attachment_update_life_machine_provisioning",
+		"trg_log_storage_filesystem_attachment_delete_life_machine_provisioning",
 
-		"trg_log_storage_volume_attachment_delete",
-		"trg_log_storage_volume_attachment_insert",
-		"trg_log_storage_volume_attachment_update",
+		"trg_log_storage_filesystem_attachment_insert_life_model_provisioning",
+		"trg_log_storage_filesystem_attachment_update_life_model_provisioning",
+		"trg_log_storage_filesystem_attachment_delete_life_model_provisioning",
 
-		"trg_log_storage_volume_attachment_plan_delete",
-		"trg_log_storage_volume_attachment_plan_insert",
-		"trg_log_storage_volume_attachment_plan_update",
+		"trg_log_storage_volume_insert_life_machine_provisioning_on_attachment",
+		"trg_log_storage_volume_update_life_machine_provisioning",
+		"trg_log_storage_volume_delete_life_machine_provisioning_last_attachment",
 
-		"trg_log_storage_volume_delete",
-		"trg_log_storage_volume_insert",
-		"trg_log_storage_volume_update",
+		"trg_log_storage_volume_insert_life_model_provisioning",
+		"trg_log_storage_volume_update_life_model_provisioning",
+		"trg_log_storage_volume_delete_life_model_provisioning",
+
+		"trg_log_storage_volume_attachment_insert_life_machine_provisioning",
+		"trg_log_storage_volume_attachment_update_life_machine_provisioning",
+		"trg_log_storage_volume_attachment_delete_life_machine_provisioning",
+
+		"trg_log_storage_volume_attachment_insert_life_model_provisioning",
+		"trg_log_storage_volume_attachment_update_life_model_provisioning",
+		"trg_log_storage_volume_attachment_delete_life_model_provisioning",
+
+		"trg_log_storage_volume_attachment_plan_insert_life_machine_provisioning",
+		"trg_log_storage_volume_attachment_plan_update_life_machine_provisioning",
+		"trg_log_storage_volume_attachment_plan_delete_life_machine_provisioning",
 
 		"trg_log_subnet_delete",
 		"trg_log_subnet_insert",
@@ -548,6 +574,7 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 	additional := set.NewStrings(
 		"trg_model_immutable_delete",
 		"trg_model_immutable_update",
+		"trg_application_controller_immutable_update",
 
 		"trg_secret_permission_guard_update",
 		"trg_sequence_guard_update",
@@ -565,6 +592,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_charm_resource_immutable_update",
 		"trg_charm_storage_immutable_update",
 		"trg_charm_term_immutable_update",
+
+		"trg_storage_pool_guard_update",
+		"trg_storage_pool_immutable_delete",
+		"trg_storage_pool_immutable_update",
 	)
 
 	got := readEntityNames(c, s.DB(), "trigger")
@@ -582,8 +613,8 @@ func (s *modelSchemaSuite) TestModelTriggersForImmutableTables(c *tc.C) {
 	modelUUID := utils.MustNewUUID().String()
 	controllerUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
-INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, cloud_region)
-VALUES (?, ?, 'my-model', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');`,
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type, cloud_region)
+VALUES (?, ?, 'my-model', 'prod', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');`,
 		modelUUID, controllerUUID)
 
 	s.assertExecSQLError(c,

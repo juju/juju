@@ -45,8 +45,39 @@ func (s *unitAssignerSuite) TestWatchUnitAssignments(c *tc.C) {
 func (s *unitAssignerSuite) TestWatchUnitAssignmentsMultipleCalls(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	api := &API{
-		watcherRegistry: s.watcherRegistry,
+func (f *fakeMachineService) CreateMachine(_ context.Context, machineName machine.Name, nonce *string) (machine.UUID, error) {
+	f.machineNames = append(f.machineNames, machineName)
+	return "", nil
+}
+
+type fakeNetworkService struct {
+}
+
+func (f *fakeNetworkService) GetAllSpaces(_ context.Context) (network.SpaceInfos, error) {
+	return nil, nil
+}
+
+type fakeState struct {
+	watchCalled  bool
+	ids          []string
+	unitMachines map[string]string
+	results      []state.UnitAssignmentResult
+	err          error
+}
+
+func (f *fakeState) WatchForUnitAssignment() state.StringsWatcher {
+	f.watchCalled = true
+	return fakeWatcher{f.ids}
+}
+
+func (f *fakeState) AssignStagedUnits(_ network.SpaceInfos, ids []string) ([]state.UnitAssignmentResult, error) {
+	f.ids = ids
+	return f.results, f.err
+}
+
+func (f *fakeState) AssignedMachineId(unit string) (string, error) {
+	if len(f.unitMachines) == 0 {
+		return "", nil
 	}
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)

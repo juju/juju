@@ -12,6 +12,7 @@ import (
 
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -47,9 +48,11 @@ WHERE  uuid = $entityUUID.uuid`, unitUUID)
 	return unitExists, errors.Capture(err)
 }
 
-// EnsureUnitNotAlive ensures that there is no unit
-// identified by the input UUID, that is still alive.
-func (st *State) EnsureUnitNotAlive(ctx context.Context, uUUID string) (machineUUID string, err error) {
+// EnsureUnitNotAliveCascade ensures that there is no unit identified by the
+// input unit UUID, that is still alive. If the unit is the last one on the
+// machine, it will cascade and the machine is also set to dying. The
+// affected machine UUID is returned.
+func (st *State) EnsureUnitNotAliveCascade(ctx context.Context, uUUID string) (machineUUID string, err error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -65,55 +68,16 @@ AND    life_id = 0`, unitUUID)
 		return "", errors.Errorf("preparing unit life update: %w", err)
 	}
 
-	lastUnitStmt, err := st.Prepare(`
-With machines AS (
-	SELECT    m.uuid AS machine_uuid,
-	          u.uuid AS unit_uuid,
-			  COUNT(u.uuid) AS unit_count
-	FROM      machine AS m
-	JOIN      net_node AS nn ON nn.uuid = m.net_node_uuid
-	LEFT JOIN unit AS u ON u.net_node_uuid = nn.uuid
-	GROUP BY  m.uuid
-)
-SELECT unit_count AS &entityAssociationCount.count,
-	   machine_uuid AS &entityAssociationCount.uuid
-FROM   machines
-WHERE  unit_uuid = $entityUUID.uuid;
-	`, unitUUID, entityAssociationCount{})
-	if err != nil {
-		return "", errors.Errorf("preparing unit count query: %w", err)
-	}
-
-	updateMachineStmt, err := st.Prepare(`
-UPDATE machine
-SET    life_id = 1
-WHERE  uuid = $entityAssociationCount.uuid
-AND    life_id = 0`, entityAssociationCount{})
-	if err != nil {
-		return "", errors.Errorf("preparing machine life update: %w", err)
-	}
-
 	var mUUID string
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, updateUnitStmt, unitUUID).Run(); err != nil {
 			return errors.Errorf("advancing unit life: %w", err)
 		}
 
-		var unitCount entityAssociationCount
-		if err := tx.Query(ctx, lastUnitStmt, unitUUID).Get(&unitCount); errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		} else if err != nil {
-			return errors.Errorf("getting unit count: %w", err)
-		} else if unitCount.Count != 1 {
-			// The unit is not the last one on the machine.
-			return nil
+		mUUID, err = st.markMachineAsDyingIfAllUnitsAreNotAlive(ctx, tx, uUUID)
+		if err != nil {
+			return errors.Errorf("marking last unit on machine as dying: %w", err)
 		}
-
-		if err := tx.Query(ctx, updateMachineStmt, unitCount).Run(); err != nil {
-			return errors.Errorf("advancing machine life: %w", err)
-		}
-
-		mUUID = unitCount.UUID
 
 		return nil
 	})); err != nil {
@@ -121,6 +85,91 @@ AND    life_id = 0`, entityAssociationCount{})
 	}
 
 	return mUUID, nil
+}
+
+// markMachineAsDyingIfAllUnitsAreNotAlive checks if all the units on the
+// machine are not alive. If this is the case, it marks the machine as dying.
+func (st *State) markMachineAsDyingIfAllUnitsAreNotAlive(
+	ctx context.Context, tx *sqlair.TX, uUUID string,
+) (machineUUID string, err error) {
+	unitUUID := entityUUID{UUID: uUUID}
+
+	lastUnitStmt, err := st.Prepare(`
+WITH units_alive AS (
+    SELECT uuid, net_node_uuid
+    FROM   unit
+    WHERE  life_id = 0
+), units_not_alive AS (
+    SELECT uuid, net_node_uuid
+    FROM   unit
+    WHERE  life_id != 0
+), machines AS (
+    SELECT    m.uuid AS machine_uuid,
+              m.net_node_uuid,
+              COUNT(ua.uuid) AS unit_alive_count,
+              COUNT(una.uuid) AS unit_not_alive_count,
+			  COUNT(mp.parent_uuid) AS machine_parent_count
+    FROM      machine AS m
+    JOIN      net_node AS nn ON nn.uuid = m.net_node_uuid
+    LEFT JOIN units_alive AS ua ON ua.net_node_uuid = nn.uuid
+    LEFT JOIN units_not_alive AS una ON una.net_node_uuid = nn.uuid
+	LEFT JOIN machine_parent AS mp ON mp.parent_uuid = m.uuid
+    GROUP BY  m.uuid
+)
+SELECT unit_alive_count AS &unitMachineLifeSummary.alive_count,
+       unit_not_alive_count AS &unitMachineLifeSummary.not_alive_count,
+	   machine_parent_count AS &unitMachineLifeSummary.machine_parent_count,
+       machine_uuid AS &unitMachineLifeSummary.uuid
+FROM   machines
+LEFT JOIN unit AS u ON u.net_node_uuid = machines.net_node_uuid
+WHERE  u.uuid = $entityUUID.uuid;
+    `, unitUUID, unitMachineLifeSummary{})
+	if err != nil {
+		return "", errors.Errorf("preparing unit count query: %w", err)
+	}
+
+	updateMachineStmt, err := st.Prepare(`
+UPDATE machine
+SET    life_id = 1
+WHERE  uuid = $entityUUID.uuid
+AND    life_id = 0`, entityUUID{})
+	if err != nil {
+		return "", errors.Errorf("preparing machine life update: %w", err)
+	}
+
+	var result unitMachineLifeSummary
+	if err := tx.Query(ctx, lastUnitStmt, unitUUID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+		return "", nil
+	} else if err != nil {
+		return "", errors.Errorf("getting unit count: %w", err)
+	} else if result.AliveCount > 0 {
+		// Nothing to do.
+		return "", nil
+	} else if result.NotAliveCount == 0 {
+		// No units on the machine are marked as dead or dying. If this is the
+		// case then we can assume that the machine is still alive.
+		return "", nil
+	} else if result.MachineParentCount > 0 {
+		// There are child machines associated with this machine.
+		// We cannot mark the machine as dying if it has child machines.
+		return "", nil
+	}
+
+	// We can use the outcome of the update to determine if the machine
+	// was already dying or dead, or if it was successfully advanced to dying.
+	var outcome sqlair.Outcome
+	if err := tx.Query(ctx, updateMachineStmt, entityUUID{UUID: result.UUID}).Get(&outcome); err != nil {
+		return "", errors.Errorf("advancing machine life: %w", err)
+	}
+
+	if affected, err := outcome.Result().RowsAffected(); err != nil {
+		return "", errors.Errorf("getting affected rows: %w", err)
+	} else if affected == 0 {
+		// The machine was already dying or dead.
+		return "", nil
+	}
+
+	return result.UUID, nil
 }
 
 // UnitScheduleRemoval schedules a removal job for the unit with the
@@ -165,29 +214,84 @@ func (st *State) GetUnitLife(ctx context.Context, uUUID string) (life.Life, erro
 		return -1, errors.Capture(err)
 	}
 
-	var unitLife entityLife
-	unitUUID := entityUUID{UUID: uUUID}
+	var life life.Life
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		life, err = st.getUnitLife(ctx, tx, uUUID)
 
-	stmt, err := st.Prepare(`
-SELECT &entityLife.life_id
-FROM   unit
-WHERE  uuid = $entityUUID.uuid;`, unitLife, unitUUID)
+		return errors.Capture(err)
+	})
+
+	return life, errors.Capture(err)
+}
+
+// GetApplicationNameAndUnitNameByUnitUUID retrieves the application name and
+// unit name for a unit identified by the input UUID. If the unit does not
+// exist, it returns an error.
+func (st *State) GetApplicationNameAndUnitNameByUnitUUID(ctx context.Context, uUUID string) (string, string, error) {
+	db, err := st.DB()
 	if err != nil {
-		return -1, errors.Errorf("preparing unit life query: %w", err)
+		return "", "", errors.Capture(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, unitUUID).Get(&unitLife)
+	unitUUID := entityUUID{UUID: uUUID}
+	stmt, err := st.Prepare(`
+SELECT    a.name AS &applicationUnitName.application_name,
+          u.name AS &applicationUnitName.unit_name
+FROM      unit AS u
+LEFT JOIN application AS a ON a.uuid = u.application_uuid
+WHERE     u.uuid = $entityUUID.uuid;`, applicationUnitName{}, unitUUID)
+	if err != nil {
+		return "", "", errors.Errorf("preparing unit application name and unit name query: %w", err)
+	}
+
+	var appUnitName applicationUnitName
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, unitUUID).Get(&appUnitName)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.UnitNotFound
 		} else if err != nil {
-			return errors.Errorf("running unit life query: %w", err)
+			return errors.Errorf("running unit application name and unit name query: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return "", "", errors.Capture(err)
+	}
+	return appUnitName.ApplicationName, appUnitName.UnitName, nil
+}
+
+// MarkUnitAsDead marks the unit with the input UUID as dead.
+func (st *State) MarkUnitAsDead(ctx context.Context, uUUID string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	unitUUID := entityUUID{UUID: uUUID}
+	updateStmt, err := st.Prepare(`
+UPDATE unit
+SET    life_id = 2
+WHERE  uuid = $entityUUID.uuid
+AND    life_id = 1`, unitUUID)
+	if err != nil {
+		return errors.Errorf("preparing unit life update: %w", err)
+	}
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if l, err := st.GetUnitLife(ctx, uUUID); err != nil {
+			return errors.Errorf("getting unit life: %w", err)
+		} else if l == life.Dead {
+			return nil
+		} else if l == life.Alive {
+			return removalerrors.EntityStillAlive
+		}
+
+		err := tx.Query(ctx, updateStmt, unitUUID).Run()
+		if err != nil {
+			return errors.Errorf("marking unit as dead: %w", err)
 		}
 
 		return nil
-	})
-
-	return unitLife.Life, errors.Capture(err)
+	}))
 }
 
 // DeleteUnit removes a unit from the database completely.
@@ -207,6 +311,16 @@ WHERE     u.uuid = $entityUUID.uuid;`, entityUUID{})
 		return errors.Errorf("preparing unit net node query: %w", err)
 	}
 
+	unitUUIDCount := entityAssociationCount{UUID: unitUUID}
+	subordinateStmt, err := st.Prepare(`
+SELECT count(*) AS &entityAssociationCount.count
+FROM unit_principal
+WHERE principal_uuid = $entityAssociationCount.uuid
+`, unitUUIDCount)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	unitUUIDRec := entityUUID{UUID: unitUUID}
 	deleteUnitStmt, err := st.Prepare(`
 DELETE FROM unit
@@ -223,6 +337,26 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 			return errors.Errorf("getting net node UUID for unit %q: %w", unitUUID, err)
 		}
 
+		if uLife, err := st.getUnitLife(ctx, tx, unitUUID); err != nil {
+			return errors.Errorf("getting unit life for unit %q: %w", unitUUID, err)
+		} else if uLife == life.Alive {
+			// The unit is still alive, we cannot delete it.
+			return errors.Errorf("cannot delete unit %q as it is still alive", unitUUID).
+				Add(removalerrors.EntityStillAlive)
+		}
+
+		// Ensure that the unit has no associated subordinates.
+		var numSubordinates entityAssociationCount
+		err = tx.Query(ctx, subordinateStmt, unitUUIDCount).Get(&numSubordinates)
+		if err != nil {
+			return errors.Errorf("getting number of subordinates for unit %q: %w", unitUUID, err)
+		} else if numSubordinates.Count > 0 {
+			// It is required that all units have been completely removed
+			// before the application can be removed.
+			return errors.Errorf("cannot delete unit as it still associated subordinates").
+				Add(removalerrors.RemovalJobIncomplete)
+		}
+
 		if err := st.deleteUnitAnnotations(ctx, tx, unitUUID); err != nil {
 			return errors.Errorf("deleting annotations for unit %q: %w", unitUUID, err)
 		}
@@ -235,12 +369,45 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 			return errors.Errorf("deleting unit references for unit %q: %w", unitUUID, err)
 		}
 
+		// Get the charm UUID before we delete the unit.
+		charmUUID, err := st.getCharmUUIDForUnit(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Errorf("getting charm UUID for application: %w", err)
+		}
+
 		if err := tx.Query(ctx, deleteUnitStmt, unitUUIDRec).Run(); err != nil {
 			return errors.Errorf("deleting unit for unit %q: %w", unitUUID, err)
 		}
 
+		// See if it's possible to delete the charm any more.
+		if err := st.deleteCharmIfUnusedByUUID(ctx, tx, charmUUID); err != nil {
+			return errors.Errorf("deleting charm if unused: %w", err)
+		}
+
 		return nil
 	}))
+}
+
+func (st *State) getUnitLife(ctx context.Context, tx *sqlair.TX, uUUID string) (life.Life, error) {
+	var unitLife entityLife
+	unitUUID := entityUUID{UUID: uUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &entityLife.life_id
+FROM   unit
+WHERE  uuid = $entityUUID.uuid;`, unitLife, unitUUID)
+	if err != nil {
+		return -1, errors.Errorf("preparing unit life query: %w", err)
+	}
+
+	err = tx.Query(ctx, stmt, unitUUID).Get(&unitLife)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return -1, applicationerrors.UnitNotFound
+	} else if err != nil {
+		return -1, errors.Errorf("running unit life query: %w", err)
+	}
+
+	return unitLife.Life, errors.Capture(err)
 }
 
 func (st *State) deleteUnitAnnotations(ctx context.Context, tx *sqlair.TX, uUUID string) error {
@@ -373,4 +540,25 @@ func (st *State) deleteForeignKeyUnitReferences(ctx context.Context, tx *sqlair.
 		}
 	}
 	return nil
+}
+
+func (st *State) getCharmUUIDForUnit(ctx context.Context, tx *sqlair.TX, uUUID string) (string, error) {
+	appID := entityUUID{UUID: uUUID}
+
+	stmt, err := st.Prepare(`
+SELECT charm_uuid AS &entityUUID.uuid
+FROM   unit
+WHERE  uuid = $entityUUID.uuid`, appID)
+	if err != nil {
+		return "", errors.Errorf("preparing charm UUID query: %w", err)
+	}
+
+	var result entityUUID
+	if err := tx.Query(ctx, stmt, appID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+		// No charm associated with the unit, so we can skip this.
+		return "", nil
+	} else if err != nil {
+		return "", errors.Errorf("running charm UUID query: %w", err)
+	}
+	return result.UUID, nil
 }

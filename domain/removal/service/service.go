@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
@@ -21,6 +22,7 @@ import (
 type State interface {
 	RelationState
 	UnitState
+	ApplicationState
 	MachineState
 
 	// GetAllJobs returns all removal jobs.
@@ -41,6 +43,8 @@ type WatcherFactory interface {
 // Service provides the API for working with entity removal.
 type Service struct {
 	st State
+
+	leadershipRevoker leadership.Revoker
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -72,6 +76,9 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	case removal.UnitJob:
 		err = s.processUnitRemovalJob(ctx, job)
 
+	case removal.ApplicationJob:
+		err = s.processApplicationRemovalJob(ctx, job)
+
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotSupported)
@@ -102,14 +109,16 @@ type WatchableService struct {
 func NewWatchableService(
 	st State,
 	watcherFactory WatcherFactory,
+	leadershipRevoker leadership.Revoker,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
-			st:     st,
-			clock:  clock,
-			logger: logger,
+			st:                st,
+			leadershipRevoker: leadershipRevoker,
+			clock:             clock,
+			logger:            logger,
 		},
 		watcherFactory: watcherFactory,
 	}

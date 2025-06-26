@@ -34,15 +34,15 @@ type StorageProviderTypes []string
 
 type StoragePools []StoragePool
 
-func (rows StoragePools) toStoragePools(keyValues []poolAttribute) ([]storage.StoragePoolDetails, error) {
+func (rows StoragePools) toStoragePools(keyValues []poolAttribute) ([]storage.StoragePool, error) {
 	if n := len(rows); n != len(keyValues) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch")
 	}
 
-	var result []storage.StoragePoolDetails
+	var result []storage.StoragePool
 	recordResult := func(row *StoragePool, attrs poolAttributes) {
-		result = append(result, storage.StoragePoolDetails{
+		result = append(result, storage.StoragePool{
 			Name:     row.Name,
 			Provider: row.ProviderType,
 			Attrs:    storage.Attrs(attrs),

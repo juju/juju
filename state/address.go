@@ -264,7 +264,7 @@ func fromNetworkAddress(netAddr network.SpaceAddress, origin network.Origin) add
 		AddressType: string(netAddr.Type),
 		Scope:       string(netAddr.Scope),
 		Origin:      string(origin),
-		SpaceID:     netAddr.SpaceID,
+		SpaceID:     netAddr.SpaceID.String(),
 		CIDR:        netAddr.CIDR,
 	}
 }
@@ -279,7 +279,7 @@ func (addr *address) networkAddress() network.SpaceAddress {
 			Scope: network.Scope(addr.Scope),
 			CIDR:  addr.CIDR,
 		},
-		SpaceID: addr.SpaceID,
+		SpaceID: network.SpaceUUID(addr.SpaceID),
 	}
 }
 
@@ -325,7 +325,7 @@ func fromNetworkHostPort(netHostPort network.SpaceHostPort) hostPort {
 		AddressType: string(netHostPort.Type),
 		Scope:       string(netHostPort.Scope),
 		Port:        netHostPort.Port(),
-		SpaceID:     netHostPort.SpaceID,
+		SpaceID:     netHostPort.SpaceID.String(),
 	}
 }
 
@@ -339,7 +339,7 @@ func (hp *hostPort) networkHostPort() network.SpaceHostPort {
 				Type:  network.AddressType(hp.AddressType),
 				Scope: network.Scope(hp.Scope),
 			},
-			SpaceID: hp.SpaceID,
+			SpaceID: network.SpaceUUID(hp.SpaceID),
 		},
 		NetPort: network.NetPort(hp.Port),
 	}

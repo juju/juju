@@ -3,7 +3,7 @@
 
 > See also: {ref}`ssh-key`
 
-
+(add-an-ssh-key)=
 ## Add an SSH key
 
 To add a public `ssh` key to a model, use the `add-ssh-key` command followed by a string containing the entire key or an equivalent shell formula:
@@ -52,10 +52,9 @@ This will add the SSH key to the default user account named 'ubuntu'.
 
 ## View the available SSH keys
 
-To list the currently known SSH keys for the current model, use the `ssh-keys` command. 
+To list the SSH keys known in the current model, use the `ssh-keys` command.
 
 ```text
-# List the keys known in the current model
 juju ssh-keys
 ```
 
@@ -73,7 +72,7 @@ juju ssh-keys -m jujutest --full
 To remove an SSH key, use the `remove-ssh-key` command followed by the key / a space-separated list of keys. The keys may be specified by either their fingerprint or the text label associated with them. The example below illustrates both:
 
 ```text
-juju remove-ssh-key 45:7f:33:2c:10:4e:6c:14:e3:a1:a4:c8:b2:e1:34:b4 bob@ubuntu 
+juju remove-ssh-key 45:7f:33:2c:10:4e:6c:14:e3:a1:a4:c8:b2:e1:34:b4 bob@ubuntu
 ```
 
 > See more: {ref}`command-juju-remove-ssh-key`

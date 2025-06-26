@@ -105,30 +105,27 @@ func (d *Deployer) Report() map[string]interface{} {
 // SetUp is called by the NewStringsWorker to create the watcher that drives the
 // worker.
 func (d *Deployer) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
-	d.logger.Tracef(ctx, "SetUp")
 	tag := d.ctx.AgentConfig().Tag()
 	machineTag, ok := tag.(names.MachineTag)
 	if !ok {
 		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
-	d.logger.Tracef(ctx, "getting Machine %s", machineTag)
 	machine, err := d.client.Machine(machineTag)
 	if err != nil {
 		return nil, err
 	}
-	d.logger.Tracef(ctx, "getting units watcher")
+
 	machineUnitsWatcher, err := machine.WatchUnits(ctx)
 	if err != nil {
-		d.logger.Tracef(ctx, "error: %v", err)
 		return nil, err
 	}
-	d.logger.Tracef(ctx, "looking for deployed units")
+	d.logger.Infof(ctx, "looking for deployed units")
 
 	deployed, err := d.ctx.DeployedUnits()
 	if err != nil {
 		return nil, err
 	}
-	d.logger.Tracef(ctx, "deployed units: %v", deployed)
+	d.logger.Infof(ctx, "deployed units: %v", deployed)
 	for _, unitName := range deployed {
 		d.deployed.Add(unitName)
 		if err := d.changed(ctx, unitName); err != nil {
@@ -140,7 +137,6 @@ func (d *Deployer) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
 
 // Handle is called for new value in the StringsWatcher.
 func (d *Deployer) Handle(ctx context.Context, unitNames []string) error {
-	d.logger.Tracef(ctx, "Handle: %v", unitNames)
 	for _, unitName := range unitNames {
 		if err := d.changed(ctx, unitName); err != nil {
 			return err
@@ -154,7 +150,7 @@ func (d *Deployer) Handle(ctx context.Context, unitNames []string) error {
 func (d *Deployer) changed(ctx context.Context, unitName string) error {
 	unitTag := names.NewUnitTag(unitName)
 	// Determine unit life state, and whether we're responsible for it.
-	d.logger.Infof(ctx, "checking unit %q", unitName)
+	d.logger.Tracef(ctx, "checking unit %q", unitName)
 	var unitLife life.Value
 	unit, err := d.client.Unit(ctx, unitTag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {

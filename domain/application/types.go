@@ -68,6 +68,9 @@ type BaseAddApplicationArg struct {
 	EndpointBindings map[string]network.SpaceName
 	// Devices contains the device constraints for the application.
 	Devices map[string]devices.Constraints
+	// IsController indicates whether the application is a controller
+	// application.
+	IsController bool
 }
 
 // AddIAASApplicationArg contains parameters for saving an IAAS application to
@@ -202,6 +205,13 @@ type AddUnitArg struct {
 	Placement   deployment.Placement
 }
 
+// AddIAASUnitArg contains parameters for adding a IAAS unit to state.
+type AddIAASUnitArg struct {
+	AddUnitArg
+	Platform deployment.Platform
+	Nonce    *string
+}
+
 // InsertUnitArg is used to insert a fully populated unit.
 // Used by import and when registering a CAAS unit.
 type InsertUnitArg struct {
@@ -213,6 +223,13 @@ type InsertUnitArg struct {
 	Storage         []ApplicationStorageArg
 	StoragePoolKind map[string]storage.StorageKind
 	UnitStatusArg
+}
+
+// InsertIAASUnitArg contains parameters for inserting an IAAS unit.
+type InsertIAASUnitArg struct {
+	InsertUnitArg
+	Platform deployment.Platform
+	Nonce    *string
 }
 
 // RegisterCAASUnitParams contains parameters for introducing
@@ -365,7 +382,7 @@ type ExportApplication struct {
 	CharmUpgradeOnError  bool
 	CharmLocator         domaincharm.CharmLocator
 	K8sServiceProviderID *string
-	EndpointBindings     map[string]string
+	EndpointBindings     map[string]network.SpaceUUID
 }
 
 // ExportUnit contains parameters for exporting a unit.
@@ -457,4 +474,8 @@ type UpdateCharmParams struct {
 	// CharmUpgradeOnError indicates whether the charm must be upgraded
 	// even when on error.
 	CharmUpgradeOnError bool
+
+	// EndpointBindings is an operator-defined map of endpoint names to
+	// space names that should be merged with any existing bindings.
+	EndpointBindings map[string]network.SpaceName
 }

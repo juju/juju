@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/status"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
@@ -53,18 +53,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-func createArgs(owner names.UserTag) params.ModelCreateArgs {
-	return params.ModelCreateArgs{
-		Name:     "test-model",
-		OwnerTag: owner.String(),
-		Config: map[string]interface{}{
-			"authorized-keys": "ssh-key",
-			// And to make it a valid dummy config.
-			"somebool": false,
-		},
-	}
-}
 
 type modelManagerSuite struct {
 	testhelpers.IsolationSuite
@@ -126,8 +114,8 @@ func (s *modelManagerSuite) SetUpTest(c *tc.C) {
 		owner: names.NewUserTag("admin"),
 		life:  state.Alive,
 		cfg:   cfg,
-		status: status.StatusInfo{
-			Status: status.Available,
+		status: corestatus.StatusInfo{
+			Status: corestatus.Available,
 			Since:  &time.Time{},
 		},
 	}
@@ -139,8 +127,8 @@ func (s *modelManagerSuite) SetUpTest(c *tc.C) {
 			life:  state.Alive,
 			tag:   coretesting.ModelTag,
 			cfg:   cfg,
-			status: status.StatusInfo{
-				Status: status.Available,
+			status: corestatus.StatusInfo{
+				Status: corestatus.Available,
 				Since:  &time.Time{},
 			},
 		},
@@ -213,10 +201,8 @@ func (s *modelManagerSuite) expectCreateModel(
 	expectedCloudRegion string,
 ) coremodel.UUID {
 	modelUUID := modeltesting.GenModelUUID(c)
-	userTag, err := names.ParseUserTag(modelCreateArgs.OwnerTag)
-	c.Assert(err, tc.IsNil)
-	ownerName := user.NameFromTag(userTag)
-	ownerUUID := usertesting.GenUserUUID(c)
+	adminName := usertesting.GenNewName(c, "admin")
+	adminUUID := usertesting.GenUserUUID(c)
 
 	defaultCred := credential.Key{
 		Cloud: "dummy",
@@ -227,15 +213,16 @@ func (s *modelManagerSuite) expectCreateModel(
 	// Get the default cloud name and credential.
 	s.modelService.EXPECT().DefaultModelCloudInfo(
 		gomock.Any()).Return("dummy", "dummy-region", nil)
-	// Get the uuid of the model owner.
+	// Get the uuid of the model admin.
 	s.accessService.EXPECT().GetUserUUIDByName(
-		gomock.Any(), ownerName,
-	).Return(ownerUUID, nil)
+		gomock.Any(), adminName,
+	).Return(adminUUID, nil)
 
 	// Create model in controller database.
 	s.modelService.EXPECT().CreateModel(gomock.Any(), domainmodel.GlobalModelCreationArgs{
 		Name:        modelCreateArgs.Name,
-		Owner:       ownerUUID,
+		Qualifier:   "admin",
+		AdminUsers:  []user.UUID{adminUUID},
 		Cloud:       expectedCloudName,
 		CloudRegion: expectedCloudRegion,
 		Credential:  expectedCloudCredential,
@@ -248,8 +235,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	expectedModelInfo := coremodel.Model{
 		Name:        "foo",
 		UUID:        modelUUID,
-		Owner:       ownerUUID,
-		OwnerName:   ownerName,
+		Qualifier:   coremodel.Qualifier(modelCreateArgs.Qualifier),
 		Cloud:       expectedCloudName,
 		CloudRegion: expectedCloudRegion,
 	}
@@ -295,15 +281,20 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	modelAgentService := NewMockModelAgentService(ctrl)
+
+	statusService := NewMockStatusService(ctrl)
+
 	modelDomainServices.EXPECT().ModelInfo().Return(s.modelInfoService).AnyTimes()
 	modelDomainServices.EXPECT().Network().Return(networkService)
 	modelDomainServices.EXPECT().Config().Return(s.modelConfigService).AnyTimes()
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
+	modelDomainServices.EXPECT().Status().Return(statusService).AnyTimes()
 
 	// Expect calls to functions of the model services.
-	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{
-		Status: status.Available,
-		Since:  time.Now(),
+	t := time.Now()
+	statusService.EXPECT().GetModelStatus(gomock.Any()).Return(corestatus.StatusInfo{
+		Status: corestatus.Available,
+		Since:  &t,
 	}, nil)
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
 		// Use a version we shouldn't have now to ensure we're using the
@@ -335,6 +326,28 @@ func getModelArgsFor(c *tc.C, mockState *mockState) state.ModelArgs {
 	panic("unreachable")
 }
 
+func (s *modelManagerSuite) TestCreateModelQualifierMismatch(c *tc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	s.modelService.EXPECT().DefaultModelCloudInfo(
+		gomock.Any()).Return("dummy", "dummy-region", nil)
+
+	args := params.ModelCreateArgs{
+		Name:      "foo",
+		Qualifier: "prod",
+		Config: map[string]interface{}{
+			"bar": "baz",
+		},
+		CloudTag:           "cloud-dummy",
+		CloudRegion:        "qux",
+		CloudCredentialTag: "cloudcred-dummy_admin_some-credential",
+	}
+
+	_, err := s.api.CreateModel(c.Context(), args)
+	c.Assert(err, tc.ErrorMatches, `cannot create model with qualifier "prod"`)
+}
+
 func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *tc.C) {
 	ctrl := s.setUpAPI(c)
 	defer ctrl.Finish()
@@ -345,8 +358,8 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *tc.C) {
 		Name:  "some-credential",
 	}
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Qualifier: "admin",
 		Config: map[string]interface{}{
 			"bar": "baz",
 		},
@@ -370,8 +383,8 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *tc.C) {
 	defer ctrl.Finish()
 
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Qualifier: "admin",
 	}
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
@@ -389,8 +402,8 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *tc.C) {
 	defer ctrl.Finish()
 
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Qualifier: "admin",
 	}
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
@@ -415,8 +428,8 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *tc.C) {
 		Name:  "some-credential",
 	}
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Qualifier: "admin",
 		Config: map[string]interface{}{
 			"bar":                  "baz",
 			config.AgentVersionKey: jujuversion.Current.String(),
@@ -446,8 +459,8 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *tc.C
 		Name:  "some-credential",
 	}
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Qualifier: "admin",
 		Config: map[string]interface{}{
 			"bar":                  "baz",
 			config.AgentVersionKey: jujuversion.Current.String(),
@@ -710,18 +723,6 @@ func (s *modelManagerSuite) TestDumpModelUsers(c *tc.C) {
 	c.Check(result.Error.Message, tc.Equals, `permission denied`)
 }
 
-func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *tc.C) {
-	defer s.setUpAPIWithUser(c, names.NewUserTag("add-model")).Finish()
-
-	s.modelService.EXPECT().DefaultModelCloudInfo(
-		gomock.Any()).Return("dummy", "dummy-region", nil)
-
-	nonAdminUser := names.NewUserTag("non-admin")
-	_, err := s.api.CreateModel(c.Context(), createArgs(nonAdminUser))
-	c.Assert(err, tc.ErrorMatches, "\"add-model\" permission does not permit creation of models for different owners")
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
-}
-
 func (s *modelManagerSuite) TestUpdatedModel(c *tc.C) {
 	defer s.setUpAPIWithUser(c, jujutesting.AdminUser).Finish()
 
@@ -870,7 +871,7 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	userUUID := usertesting.GenUserUUID(c)
-	userTag := names.NewUserTag("non-admin@remote")
+	userTag := names.NewUserTag("non-admin")
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	modelUUIDNeverAccessed := modeltesting.GenModelUUID(c)
@@ -879,8 +880,8 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 	now := time.Now()
 	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), user.NameFromTag(userTag)).Return(userUUID, nil)
 	s.modelService.EXPECT().ListAllModels(gomock.Any()).Return([]coremodel.Model{
-		{UUID: modelUUID, OwnerName: user.NameFromTag(userTag)},
-		{UUID: modelUUIDNeverAccessed, OwnerName: user.NameFromTag(userTag)},
+		{UUID: modelUUID, Qualifier: "prod"},
+		{UUID: modelUUIDNeverAccessed, Qualifier: "prod"},
 		{UUID: modelUUIDNotExist},
 	}, nil)
 
@@ -900,15 +901,15 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 		UserModels: []params.UserModel{
 			{
 				Model: params.Model{
-					UUID:     modelUUID.String(),
-					OwnerTag: userTag.String(),
+					UUID:      modelUUID.String(),
+					Qualifier: "prod",
 				},
 				LastConnection: &now,
 			},
 			{
 				Model: params.Model{
-					UUID:     modelUUIDNeverAccessed.String(),
-					OwnerTag: userTag.String(),
+					UUID:      modelUUIDNeverAccessed.String(),
+					Qualifier: "prod",
 				},
 			},
 		},
@@ -917,7 +918,7 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 
 func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 	userUUID := usertesting.GenUserUUID(c)
-	userTag := names.NewUserTag("non-admin@remote")
+	userTag := names.NewUserTag("non-admin")
 
 	defer s.setUpAPIWithUser(c, userTag).Finish()
 
@@ -928,8 +929,8 @@ func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 	now := time.Now()
 	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), user.NameFromTag(userTag)).Return(userUUID, nil)
 	s.modelService.EXPECT().ListModelsForUser(gomock.Any(), userUUID).Return([]coremodel.Model{
-		{UUID: modelUUID, OwnerName: user.NameFromTag(userTag)},
-		{UUID: modelUUIDNeverAccessed, OwnerName: user.NameFromTag(userTag)},
+		{UUID: modelUUID, Qualifier: "prod"},
+		{UUID: modelUUIDNeverAccessed, Qualifier: "prod"},
 		{UUID: modelUUIDNotExist},
 	}, nil)
 
@@ -949,15 +950,15 @@ func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 		UserModels: []params.UserModel{
 			{
 				Model: params.Model{
-					UUID:     modelUUID.String(),
-					OwnerTag: userTag.String(),
+					UUID:      modelUUID.String(),
+					Qualifier: "prod",
 				},
 				LastConnection: &now,
 			},
 			{
 				Model: params.Model{
-					UUID:     modelUUIDNeverAccessed.String(),
-					OwnerTag: userTag.String(),
+					UUID:      modelUUIDNeverAccessed.String(),
+					Qualifier: "prod",
 				},
 			},
 		},

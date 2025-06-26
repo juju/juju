@@ -188,8 +188,8 @@ func NewStubAPI() *StubAPI {
 		VLANTag:    42,
 	}}
 	spaces := []params.Space{{
-		Id:   network.AlphaSpaceId,
-		Name: network.AlphaSpaceName,
+		Id:   network.AlphaSpaceId.String(),
+		Name: network.AlphaSpaceName.String(),
 	}, {
 		Id:      "deadbeef1",
 		Name:    "space1",

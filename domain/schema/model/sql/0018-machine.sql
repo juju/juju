@@ -3,14 +3,12 @@ CREATE TABLE machine (
     name TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
-    base TEXT,
     nonce TEXT,
     password_hash_algorithm_id TEXT,
     password_hash TEXT,
     force_destroyed BOOLEAN DEFAULT FALSE,
     agent_started_at DATETIME,
     hostname TEXT,
-    is_controller BOOLEAN,
     keep_instance BOOLEAN,
     CONSTRAINT fk_machine_net_node
     FOREIGN KEY (net_node_uuid)
@@ -25,6 +23,29 @@ ON machine (name);
 
 CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);
+
+CREATE TABLE machine_manual (
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
+    CONSTRAINT fk_machine_manual_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid)
+);
+
+CREATE TABLE machine_platform (
+    machine_uuid TEXT NOT NULL,
+    os_id TEXT NOT NULL,
+    channel TEXT,
+    architecture_id INT NOT NULL,
+    CONSTRAINT fk_machine_platform_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid),
+    CONSTRAINT fk_machine_platform_os
+    FOREIGN KEY (os_id)
+    REFERENCES os (id),
+    CONSTRAINT fk_machine_platform_architecture
+    FOREIGN KEY (architecture_id)
+    REFERENCES architecture (id)
+);
 
 -- machine_placement_scope is a table which represents the valid scopes
 -- that can exist for a machine placement. The provider scope is the only
@@ -225,6 +246,17 @@ INSERT INTO container_type VALUES
 (0, 'none'),
 (1, 'lxd');
 
+CREATE TABLE machine_container_type (
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
+    container_type_id INT NOT NULL,
+    CONSTRAINT fk_machine_container_type_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid),
+    CONSTRAINT fk_machine_container_type_container_type
+    FOREIGN KEY (container_type_id)
+    REFERENCES container_type (id)
+);
+
 CREATE TABLE machine_agent_presence (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     last_seen DATETIME,
@@ -232,3 +264,13 @@ CREATE TABLE machine_agent_presence (
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid)
 );
+
+CREATE VIEW v_machine_is_controller AS
+SELECT
+    m.uuid AS machine_uuid,
+    COUNT(ac.application_uuid) AS count
+FROM machine AS m
+JOIN net_node AS n ON m.net_node_uuid = n.uuid
+LEFT JOIN unit AS u ON n.uuid = u.net_node_uuid
+LEFT JOIN application AS a ON u.application_uuid = a.uuid
+LEFT JOIN application_controller AS ac ON a.uuid = ac.application_uuid

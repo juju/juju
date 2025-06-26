@@ -14,9 +14,8 @@ import (
 	io "io"
 	reflect "reflect"
 
-	description "github.com/juju/description/v9"
+	description "github.com/juju/description/v10"
 	controller "github.com/juju/juju/controller"
-	life "github.com/juju/juju/core/life"
 	machine "github.com/juju/juju/core/machine"
 	modelmigration "github.com/juju/juju/core/modelmigration"
 	semversion "github.com/juju/juju/core/semversion"
@@ -237,41 +236,79 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
-// GetApplicationLife mocks base method.
-func (m *MockApplicationService) GetApplicationLife(arg0 context.Context, arg1 string) (life.Value, error) {
+// CheckAllApplicationsAndUnitsAreAlive mocks base method.
+func (m *MockApplicationService) CheckAllApplicationsAndUnitsAreAlive(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationLife", arg0, arg1)
-	ret0, _ := ret[0].(life.Value)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "CheckAllApplicationsAndUnitsAreAlive", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// GetApplicationLife indicates an expected call of GetApplicationLife.
-func (mr *MockApplicationServiceMockRecorder) GetApplicationLife(arg0, arg1 any) *MockApplicationServiceGetApplicationLifeCall {
+// CheckAllApplicationsAndUnitsAreAlive indicates an expected call of CheckAllApplicationsAndUnitsAreAlive.
+func (mr *MockApplicationServiceMockRecorder) CheckAllApplicationsAndUnitsAreAlive(arg0 any) *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLife", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationLife), arg0, arg1)
-	return &MockApplicationServiceGetApplicationLifeCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAllApplicationsAndUnitsAreAlive", reflect.TypeOf((*MockApplicationService)(nil).CheckAllApplicationsAndUnitsAreAlive), arg0)
+	return &MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall{Call: call}
 }
 
-// MockApplicationServiceGetApplicationLifeCall wrap *gomock.Call
-type MockApplicationServiceGetApplicationLifeCall struct {
+// MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall wrap *gomock.Call
+type MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetApplicationLifeCall) Return(arg0 life.Value, arg1 error) *MockApplicationServiceGetApplicationLifeCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall) Return(arg0 error) *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetApplicationLifeCall) Do(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetApplicationLifeCall {
+func (c *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall) Do(f func(context.Context) error) *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetApplicationLifeCall {
+func (c *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall) DoAndReturn(f func(context.Context) error) *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitNamesForApplication mocks base method.
+func (m *MockApplicationService) GetUnitNamesForApplication(arg0 context.Context, arg1 string) ([]unit.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitNamesForApplication", arg0, arg1)
+	ret0, _ := ret[0].([]unit.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitNamesForApplication indicates an expected call of GetUnitNamesForApplication.
+func (mr *MockApplicationServiceMockRecorder) GetUnitNamesForApplication(arg0, arg1 any) *MockApplicationServiceGetUnitNamesForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitNamesForApplication", reflect.TypeOf((*MockApplicationService)(nil).GetUnitNamesForApplication), arg0, arg1)
+	return &MockApplicationServiceGetUnitNamesForApplicationCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitNamesForApplicationCall wrap *gomock.Call
+type MockApplicationServiceGetUnitNamesForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitNamesForApplicationCall) Return(arg0 []unit.Name, arg1 error) *MockApplicationServiceGetUnitNamesForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitNamesForApplicationCall) Do(f func(context.Context, string) ([]unit.Name, error)) *MockApplicationServiceGetUnitNamesForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitNamesForApplicationCall) DoAndReturn(f func(context.Context, string) ([]unit.Name, error)) *MockApplicationServiceGetUnitNamesForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -398,6 +435,44 @@ func NewMockStatusService(ctrl *gomock.Controller) *MockStatusService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStatusService) EXPECT() *MockStatusServiceMockRecorder {
 	return m.recorder
+}
+
+// CheckMachineStatusesReadyForMigration mocks base method.
+func (m *MockStatusService) CheckMachineStatusesReadyForMigration(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckMachineStatusesReadyForMigration", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckMachineStatusesReadyForMigration indicates an expected call of CheckMachineStatusesReadyForMigration.
+func (mr *MockStatusServiceMockRecorder) CheckMachineStatusesReadyForMigration(arg0 any) *MockStatusServiceCheckMachineStatusesReadyForMigrationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckMachineStatusesReadyForMigration", reflect.TypeOf((*MockStatusService)(nil).CheckMachineStatusesReadyForMigration), arg0)
+	return &MockStatusServiceCheckMachineStatusesReadyForMigrationCall{Call: call}
+}
+
+// MockStatusServiceCheckMachineStatusesReadyForMigrationCall wrap *gomock.Call
+type MockStatusServiceCheckMachineStatusesReadyForMigrationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStatusServiceCheckMachineStatusesReadyForMigrationCall) Return(arg0 error) *MockStatusServiceCheckMachineStatusesReadyForMigrationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStatusServiceCheckMachineStatusesReadyForMigrationCall) Do(f func(context.Context) error) *MockStatusServiceCheckMachineStatusesReadyForMigrationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStatusServiceCheckMachineStatusesReadyForMigrationCall) DoAndReturn(f func(context.Context) error) *MockStatusServiceCheckMachineStatusesReadyForMigrationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // CheckUnitStatusesReadyForMigration mocks base method.

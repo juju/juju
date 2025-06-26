@@ -129,3 +129,7 @@ func (e changeEvent) Namespace() string {
 func (e changeEvent) Changed() string {
 	return e.changed
 }
+
+func singleton(s string) []string {
+	return []string{s}
+}

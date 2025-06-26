@@ -13,7 +13,7 @@ import (
 )
 
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/cloud-triggers.gen.go -package=triggers -tables=cloud,cloud_ca_cert,cloud_credential,cloud_credential_attribute
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node,external_controller
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node,external_controller,controller_api_address
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/migration-triggers.gen.go -package=triggers -tables=model_migration_status,model_migration_minion_sync
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/upgrade-triggers.gen.go -package=triggers -tables=upgrade_info,upgrade_info_controller_node
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path,object_store_drain_info
@@ -29,6 +29,7 @@ const (
 	tableExternalController tableNamespaceID = iota + reservedCustomNamespaceIDOffset
 	tableControllerNode
 	tableControllerConfig
+	tableControllerAPIAddress
 	tableModelMigrationStatus
 	tableModelMigrationMinionSync
 	tableUpgradeInfo
@@ -86,6 +87,7 @@ func ControllerDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForExternalController("uuid", tableExternalController),
 		triggers.ChangeLogTriggersForControllerConfig("key", tableControllerConfig),
 		triggers.ChangeLogTriggersForControllerNode("controller_id", tableControllerNode),
+		triggers.ChangeLogTriggersForControllerApiAddress("controller_id", tableControllerAPIAddress),
 		triggers.ChangeLogTriggersForModelMigrationStatus("uuid", tableModelMigrationStatus),
 		triggers.ChangeLogTriggersForModelMigrationMinionSync("uuid", tableModelMigrationMinionSync),
 		triggers.ChangeLogTriggersForUpgradeInfo("uuid", tableUpgradeInfo),

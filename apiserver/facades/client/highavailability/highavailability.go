@@ -42,7 +42,7 @@ type NodeService interface {
 
 // MachineService instances save a machine to dqlite state.
 type MachineService interface {
-	CreateMachine(context.Context, machine.Name) (machine.UUID, error)
+	CreateMachine(context.Context, machine.Name, *string) (machine.UUID, error)
 }
 
 // ApplicationService instances add units to an application in dqlite state.
@@ -51,7 +51,7 @@ type ApplicationService interface {
 	AddIAASUnits(
 		ctx context.Context,
 		name string,
-		units ...applicationservice.AddUnitArg,
+		units ...applicationservice.AddIAASUnitArg,
 	) ([]unit.Name, error)
 }
 
@@ -193,12 +193,12 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 
 	// Add the dqlite records for new machines.
 	for _, m := range changes.Added {
-		if _, err := api.machineService.CreateMachine(ctx, machine.Name(m)); err != nil {
+		if _, err := api.machineService.CreateMachine(ctx, machine.Name(m), nil); err != nil {
 			return params.ControllersChanges{}, err
 		}
 	}
 	if len(addedUnits) > 0 {
-		addUnitArgs := make([]applicationservice.AddUnitArg, len(addedUnits))
+		addUnitArgs := make([]applicationservice.AddIAASUnitArg, len(addedUnits))
 		for i := range addedUnits {
 			// Try and get the placement for this unit. If it doesn't exist,
 			// then the default behaviour is to create a new machine for the
@@ -212,8 +212,10 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 				}
 			}
 
-			addUnitArgs[i] = applicationservice.AddUnitArg{
-				Placement: placement,
+			addUnitArgs[i] = applicationservice.AddIAASUnitArg{
+				AddUnitArg: applicationservice.AddUnitArg{
+					Placement: placement,
+				},
 			}
 		}
 		if _, err := api.applicationService.AddIAASUnits(
@@ -342,7 +344,7 @@ func validatePlacementForSpaces(ctx context.Context, st *state.State, networkSer
 		}
 
 		for _, name := range *spaceNames {
-			spaceInfo := spaceInfos.GetByName(name)
+			spaceInfo := spaceInfos.GetByName(network.SpaceName(name))
 			if spaceInfo == nil {
 				return errors.NotFoundf("space with name %q", name)
 			}

@@ -33,14 +33,12 @@ WHEN
 	NEW.name != OLD.name OR
 	NEW.net_node_uuid != OLD.net_node_uuid OR
 	NEW.life_id != OLD.life_id OR
-	(NEW.base != OLD.base OR (NEW.base IS NOT NULL AND OLD.base IS NULL) OR (NEW.base IS NULL AND OLD.base IS NOT NULL)) OR
 	(NEW.nonce != OLD.nonce OR (NEW.nonce IS NOT NULL AND OLD.nonce IS NULL) OR (NEW.nonce IS NULL AND OLD.nonce IS NOT NULL)) OR
 	(NEW.password_hash_algorithm_id != OLD.password_hash_algorithm_id OR (NEW.password_hash_algorithm_id IS NOT NULL AND OLD.password_hash_algorithm_id IS NULL) OR (NEW.password_hash_algorithm_id IS NULL AND OLD.password_hash_algorithm_id IS NOT NULL)) OR
 	(NEW.password_hash != OLD.password_hash OR (NEW.password_hash IS NOT NULL AND OLD.password_hash IS NULL) OR (NEW.password_hash IS NULL AND OLD.password_hash IS NOT NULL)) OR
 	(NEW.force_destroyed != OLD.force_destroyed OR (NEW.force_destroyed IS NOT NULL AND OLD.force_destroyed IS NULL) OR (NEW.force_destroyed IS NULL AND OLD.force_destroyed IS NOT NULL)) OR
 	(NEW.agent_started_at != OLD.agent_started_at OR (NEW.agent_started_at IS NOT NULL AND OLD.agent_started_at IS NULL) OR (NEW.agent_started_at IS NULL AND OLD.agent_started_at IS NOT NULL)) OR
 	(NEW.hostname != OLD.hostname OR (NEW.hostname IS NOT NULL AND OLD.hostname IS NULL) OR (NEW.hostname IS NULL AND OLD.hostname IS NOT NULL)) OR
-	(NEW.is_controller != OLD.is_controller OR (NEW.is_controller IS NOT NULL AND OLD.is_controller IS NULL) OR (NEW.is_controller IS NULL AND OLD.is_controller IS NOT NULL)) OR
 	(NEW.keep_instance != OLD.keep_instance OR (NEW.keep_instance IS NOT NULL AND OLD.keep_instance IS NULL) OR (NEW.keep_instance IS NULL AND OLD.keep_instance IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)

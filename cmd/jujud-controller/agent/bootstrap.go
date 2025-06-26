@@ -50,12 +50,11 @@ import (
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/worker/peergrouper"
-	"github.com/juju/juju/state"
+	webscale "github.com/juju/juju/state/mongo"
 )
 
 var (
-	initiateMongoServer = peergrouper.InitiateMongoServer
+	initiateMongoServer = webscale.InitiateMongoServer
 	sshGenerateKey      = ssh.GenerateKey
 	minSocketTimeout    = 1 * time.Minute
 	checkJWKSReachable  = agentbootstrap.CheckJWKSReachable
@@ -295,11 +294,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
 
-		// Force the controller API port to be set upon startup.
-		if args.ControllerConfig.ControllerAPIPort() != 0 {
-			agentConfig.SetControllerAPIPort(args.ControllerConfig.ControllerAPIPort())
-		}
-
 		agentConfig.SetJujuDBSnapChannel(args.ControllerConfig.JujuDBSnapChannel())
 		agentConfig.SetQueryTracingEnabled(args.ControllerConfig.QueryTracingEnabled())
 		agentConfig.SetQueryTracingThreshold(args.ControllerConfig.QueryTracingThreshold())
@@ -334,7 +328,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	args.ControllerModelConfig = controllerModelCfg
 
 	// Initialise state, and store any agent config (e.g. password) changes.
-	var controller *state.Controller
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		dialOpts := mongo.DefaultDialOpts()
 
@@ -356,7 +349,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			AdminUser:                 adminTag,
 			StateInitializationParams: args,
 			BootstrapMachineAddresses: addrs,
-			BootstrapMachineJobs:      agentConfig.Jobs(),
 			SharedSecret:              info.SharedSecret,
 			StorageProviderRegistry:   provider.NewStorageProviderRegistry(env),
 			MongoDialOpts:             dialOpts,
@@ -367,24 +359,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		controller, err = bootstrap.Initialize(ctx)
-		return err
+		return bootstrap.Initialize(ctx)
 	})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = controller.Close() }()
-	st, err := controller.SystemState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// bootstrap nodes always get the vote
-	node, err := st.ControllerNode(agent.BootstrapControllerId)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return node.SetHasVote(true)
+	return nil
 }
 
 func getAddressesForMongo(
@@ -503,7 +483,7 @@ func (c *BootstrapCommand) startMongo(ctx context.Context, isCAAS bool, addrs ne
 	}
 	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
-	if err := initiateMongoServer(peergrouper.InitiateMongoParams{
+	if err := initiateMongoServer(webscale.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
 	}); err != nil {

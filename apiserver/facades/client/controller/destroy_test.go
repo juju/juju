@@ -42,12 +42,13 @@ type destroyControllerSuite struct {
 	resources  *common.Resources
 	controller *controller.ControllerAPI
 
-	otherState       *state.State
-	otherModel       *state.Model
-	otherModelOwner  names.UserTag
-	otherModelUUID   string
-	context          facadetest.MultiModelContext
-	mockModelService *mocks.MockModelService
+	otherState           *state.State
+	otherModel           *state.Model
+	otherModelOwner      names.UserTag
+	otherModelUUID       string
+	context              facadetest.MultiModelContext
+	mockModelService     *mocks.MockModelService
+	mockModelInfoService *mocks.MockModelInfoService
 }
 
 func TestDestroyControllerSuite(t *stdtesting.T) {
@@ -57,6 +58,7 @@ func TestDestroyControllerSuite(t *stdtesting.T) {
 func (s *destroyControllerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockModelService = mocks.NewMockModelService(ctrl)
+	s.mockModelInfoService = mocks.NewMockModelInfoService(ctrl)
 	s.controller = s.controllerAPI(c)
 
 	return ctrl
@@ -116,6 +118,20 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		domainServices = ctx.DomainServices()
 	)
 
+	credentialServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (controller.CredentialService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Credential(), nil
+	}
+	upgradeServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (controller.UpgradeService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Upgrade(), nil
+	}
 	modelAgentServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (controller.ModelAgentService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
@@ -181,14 +197,15 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		resources,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
+		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
-		domainServices.Credential(),
-		domainServices.Upgrade(),
 		domainServices.Access(),
 		machineServiceGetter,
 		s.mockModelService,
-		domainServices.ModelInfo(),
+		s.mockModelInfoService,
 		domainServices.BlockCommand(),
+		credentialServiceGetter,
+		upgradeServiceGetter,
 		applicationServiceGetter,
 		relationServiceGetter,
 		statusServiceGetter,
@@ -201,6 +218,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
 		ctx.ObjectStore(),
+		ctx.ControllerModelUUID(),
 		ctx.ControllerUUID(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -262,6 +280,9 @@ func (s *destroyControllerSuite) TestDestroyControllerKillsHostedModels(c *tc.C)
 			coremodel.UUID(s.ControllerUUID),
 		}, nil,
 	)
+	s.mockModelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
+
 	err := s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
@@ -310,6 +331,8 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *tc.C) {
 			coremodel.UUID(s.otherModelUUID),
 		}, nil,
 	)
+	s.mockModelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
 	err = s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -325,9 +348,11 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 			coremodel.UUID(s.otherModelUUID),
 		}, nil,
 	)
+	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
+
 	err := model.DestroyModel(
 		c.Context(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
-		domainServices.BlockCommand(), domainServices.ModelInfo(),
+		domainServices.BlockCommand(), s.mockModelInfoService,
 		nil, nil, nil, nil,
 	)
 	c.Assert(err, tc.ErrorIsNil)

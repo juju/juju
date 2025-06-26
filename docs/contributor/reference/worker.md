@@ -4,13 +4,13 @@
 
 > See first: {ref}`User docs | Worker <worker>`
 
-In Juju, a **worker** is any type that implements [the worker interface](worker-interface.md).
+In Juju, a **worker** is any type that implements {ref}`the worker interface <worker-interface>`.
 
-Examples of workers include [the dependency engine](dependency-package.md#newengine), instances run by the dependency
+Examples of workers include {ref}`the dependency engine <newengine>`, instances run by the dependency
 engine (the typical usage of the term "worker"),
-and [watchers](). <!-- TODO: this link was broken in original doc in discourse -->
+and [watchers](https://github.com/juju/juju/blob/HEAD/core/watcher/watcher.go).
 
-Note: A Juju [agent](agent.md) runs one or more workers at the same time in parallel. A worker may run / be run by
+Note: A Juju {ref}`agent <agent-cont>` runs one or more workers at the same time in parallel. A worker may run / be run by
 another worker.
 
 <!--
@@ -50,7 +50,6 @@ In Juju, the term "worker" is most commonly used to denote types whose instances
   - [`caasoperatorprovisioner`](#caasoperatorprovisioner)
   - [`caasprober`](#caasprober)
   - [`caasrbacmapper`](#caasrbacmapper)
-  - [`caasunitprovisioner`](#caasunitprovisioner)
   - [`caasunitsmanager`](#caasunitsmanager)
   - [`caasunitterminationworker`](#caasunitterminationworker)
   - [`caasupgrader`](#caasupgrader)
@@ -215,9 +214,6 @@ The `caasapplicationprovisioner` worker is actually two workers:
 
 ## `caasrbacmapper`
 > See more: [`juju/worker/caasrbacmapper`](https://github.com/juju/juju/tree/3.3/worker/caasrbacmapper)
-
-## `caasunitprovisioner`
-> See more: [`juju/worker/caasunitprovisioner`](https://github.com/juju/juju/tree/3.3/worker/caasunitprovisioner)
 
 ## `caasunitsmanager`
 > See more: [`juju/worker/caasunitsmanager`](https://github.com/juju/juju/tree/3.3/worker/caasunitsmanager)

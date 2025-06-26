@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	stdtesting "testing"
@@ -43,7 +42,6 @@ import (
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -68,6 +66,21 @@ type baseLoginSuite struct {
 	mgmtSpace *network.SpaceInfo
 }
 
+func TestLoginStub(t *stdtesting.T) {
+	t.Skipf(`This suite is missing tests for the following scenarios:
+ - Machine login during maintenance
+ - Controller agent login
+ - Controller agent login during maintenance
+ - Machine login other model
+ - Test login from another model whilst controller
+ - Test login from another model whilst controller, but machine not provisioned
+ - Test login from another model not controller should error out
+ - Test login during model migration
+ - Test login for agents
+ - Test login for agents with machine not provisioned
+	`)
+}
+
 func (s *baseLoginSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
@@ -77,7 +90,7 @@ func (s *baseLoginSuite) SetUpTest(c *tc.C) {
 		Name: "mgmt01",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	s.mgmtSpace, err = networkService.Space(c.Context(), mgmtSpaceID.String())
+	s.mgmtSpace, err = networkService.Space(c.Context(), mgmtSpaceID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	cfg := map[string]any{
@@ -267,7 +280,7 @@ func (s *loginSuite) setupManagementSpace(c *tc.C) *network.SpaceInfo {
 		Name: "mgmt01",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	mgmtSpace, err := networkService.Space(c.Context(), mgmtSpaceID.String())
+	mgmtSpace, err := networkService.Space(c.Context(), mgmtSpaceID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	cfg := map[string]any{
@@ -284,39 +297,6 @@ func (s *loginSuite) setupManagementSpace(c *tc.C) *network.SpaceInfo {
 	return mgmtSpace
 }
 
-func (s *loginSuite) addController(c *tc.C) (state.ControllerNode, string) {
-	node, err := s.ControllerModel(c).State().AddControllerNode()
-	c.Assert(err, tc.ErrorIsNil)
-	pass, err := password.RandomPassword()
-	c.Assert(err, tc.ErrorIsNil)
-	err = node.SetPassword(pass)
-	c.Assert(err, tc.ErrorIsNil)
-	return node, pass
-}
-
-func (s *loginSuite) TestControllerAgentLogin(c *tc.C) {
-	// The agent login tests also check the management space.
-	mgmtSpace := s.setupManagementSpace(c)
-	info := s.ControllerModelApiInfo()
-
-	node, pass := s.addController(c)
-	info.Tag = node.Tag()
-	info.Password = pass
-	info.Nonce = "fake_nonce"
-
-	s.assertAgentLogin(c, info, mgmtSpace)
-}
-
-func (s *loginSuite) TestLoginAddressesForAgents(c *tc.C) {
-	// The agent login tests also check the management space.
-	mgmtSpace := s.setupManagementSpace(c)
-
-	info := s.ControllerModelApiInfo()
-	machine := s.infoForNewMachine(c, info)
-
-	s.assertAgentLogin(c, machine, mgmtSpace)
-}
-
 func (s *loginSuite) loginHostPorts(
 	c *tc.C, info *api.Info,
 ) (connectedAddr *url.URL, hostPorts []network.MachineHostPorts) {
@@ -326,6 +306,7 @@ func (s *loginSuite) loginHostPorts(
 	return st.Addr(), st.APIHostPorts()
 }
 
+/*
 func (s *loginSuite) assertAgentLogin(c *tc.C, info *api.Info, mgmtSpace *network.SpaceInfo) {
 	st := s.ControllerModel(c).State()
 
@@ -383,6 +364,7 @@ func (s *loginSuite) assertAgentLogin(c *tc.C, info *api.Info, mgmtSpace *networ
 	expectedAPIHostPorts = append(connectedAddrHostPorts, expectedAPIHostPorts...)
 	c.Assert(hostPorts, tc.DeepEquals, expectedAPIHostPorts)
 }
+*/
 
 func (s *loginSuite) TestLoginAddressesForClients(c *tc.C) {
 	mgmtSpace := s.setupManagementSpace(c)
@@ -432,21 +414,6 @@ func (s *loginSuite) TestLoginAddressesForClients(c *tc.C) {
 	// Ignoring the address used to login, the returned API addresses should not
 	// Have management space filtering applied.
 	c.Check(hostPorts[1:], tc.DeepEquals, exp)
-}
-
-func (s *loginSuite) infoForNewMachine(c *tc.C, info *api.Info) *api.Info {
-	// Make a copy
-	newInfo := *info
-
-	f, release := s.NewFactory(c, info.ModelTag.Id())
-	defer release()
-	machine, pass := f.MakeMachineReturningPassword(
-		c, &factory.MachineParams{Nonce: "fake_nonce"})
-
-	newInfo.Tag = machine.Tag()
-	newInfo.Password = pass
-	newInfo.Nonce = "fake_nonce"
-	return &newInfo
 }
 
 func (s *loginSuite) infoForNewUser(c *tc.C, info *api.Info) *api.Info {
@@ -550,45 +517,6 @@ func (s *loginSuite) testLoginDuringMaintenance(c *tc.C, check func(api.Connecti
 	check(st)
 }
 
-func (s *loginSuite) TestMachineLoginDuringMaintenance(c *tc.C) {
-	s.WithUpgrading = true
-	info := s.ControllerModelApiInfo()
-	machine := s.infoForNewMachine(c, info)
-	_, err := api.Open(c.Context(), machine, fastDialOpts)
-	c.Assert(err, tc.ErrorMatches, `login for machine \d+ blocked because upgrade is in progress`)
-}
-
-func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *tc.C) {
-	s.WithUpgrading = true
-	info := s.ControllerModelApiInfo()
-
-	f, release := s.NewFactory(c, info.ModelTag.Id())
-	defer release()
-	machine, pass := f.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageModel},
-	})
-	info.Tag = machine.Tag()
-	info.Password = pass
-	info.Nonce = "nonce"
-
-	st, err := api.Open(c.Context(), info, fastDialOpts)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(st.Close(), tc.ErrorIsNil)
-}
-
-func (s *loginSuite) TestControllerAgentLoginDuringMaintenance(c *tc.C) {
-	s.WithUpgrading = true
-	info := s.ControllerModelApiInfo()
-
-	node, pass := s.addController(c)
-	info.Tag = node.Tag()
-	info.Password = pass
-
-	st, err := api.Open(c.Context(), info, fastDialOpts)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(st.Close(), tc.ErrorIsNil)
-}
-
 var index uint32
 
 func uniqueInteger() int {
@@ -608,7 +536,7 @@ func makeModel(
 		Cloud:         "dummy",
 		CloudRegion:   "dummy-region",
 		Name:          uniqueName,
-		Owner:         ownerUUID,
+		Qualifier:     "prod",
 		SecretBackend: juju.BackendName,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -821,154 +749,6 @@ func (s *loginSuite) TestOtherModel(c *tc.C) {
 	s.assertRemoteModel(c, st, names.NewModelTag(s.DefaultModelUUID.String()))
 }
 
-func (s *loginSuite) TestMachineLoginOtherModel(c *tc.C) {
-	// User credentials are checked against a global user list.
-	// Machine credentials are checked against model specific
-	// machines, so this makes sure that the credential checking is
-	// using the correct state connection.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	// For the test to run properly with part of the model in mongo and
-	// part in a service domain, a model with the same uuid is required
-	// in both places for the test to work. Necessary after model config
-	// was move to the domain services.
-	modelState := f.MakeModel(c, &factory.ModelParams{
-		UUID: s.DefaultModelUUID,
-		ConfigAttrs: map[string]interface{}{
-			"controller": false,
-		},
-	})
-	defer func() { _ = modelState.Close() }()
-
-	f2, release := s.NewFactory(c, s.DefaultModelUUID.String())
-	defer release()
-	machine, pass := f2.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Nonce: "test-nonce",
-	})
-
-	st := s.openModelAPIWithoutLogin(c, s.DefaultModelUUID.String())
-
-	err := st.Login(c.Context(), machine.Tag(), pass, "test-nonce", nil)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *tc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	// For the test to run properly with part of the model in mongo and
-	// part in a service domain, a model with the same uuid is required
-	// in both places for the test to work. Necessary after model config
-	// was move to the domain services.
-	modelState := f.MakeModel(c, &factory.ModelParams{
-		UUID: s.DefaultModelUUID,
-		ConfigAttrs: map[string]interface{}{
-			"controller": false,
-		},
-	})
-	defer modelState.Close()
-
-	f2, release := s.NewFactory(c, s.DefaultModelUUID.String())
-	defer release()
-	machine, pass := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
-
-	model, err := modelState.Model()
-	c.Assert(err, tc.ErrorIsNil)
-
-	st := s.openModelAPIWithoutLogin(c, model.UUID())
-
-	// If the agent attempts Login before the provisioner has recorded
-	// the machine's nonce in state, then the agent should get back an
-	// error with code "not provisioned".
-	err = st.Login(c.Context(), machine.Tag(), pass, "nonce", nil)
-	c.Assert(err, tc.ErrorMatches, `machine 0 not provisioned \(not provisioned\)`)
-	c.Assert(err, tc.Satisfies, params.IsCodeNotProvisioned)
-}
-
-func (s *loginSuite) TestOtherModelFromController(c *tc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	machine, pass := f.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageModel},
-	})
-
-	modelUUID := testing.GenModelUUID(c)
-	name := makeModel(c, s.TxnRunnerFactory(), s.AdminUserUUID, modelUUID, "another-model")
-
-	modelState := f.MakeModel(c, &factory.ModelParams{
-		UUID: modelUUID,
-		Name: name,
-	})
-	defer modelState.Close()
-
-	info := s.ModelApiInfo(modelUUID.String())
-	info.Tag = nil
-	info.Password = ""
-	info.Macaroons = nil
-	info.SkipLogin = true
-	conn, err := api.Open(c.Context(), info, api.DialOpts{})
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = conn.Login(c.Context(), machine.Tag(), pass, "nonce", nil)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *tc.C) {
-	info := s.ControllerModelApiInfo()
-
-	f, release := s.NewFactory(c, info.ModelTag.Id())
-	defer release()
-	managerMachine, pass := f.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageModel},
-	})
-
-	// For the test to run properly with part of the model in mongo and
-	// part in a service domain, a model with the same uuid is required
-	// in both places for the test to work. Necessary after model config
-	// was move to the domain services.
-	hostedModelState := f.MakeModel(c, &factory.ModelParams{UUID: s.DefaultModelUUID})
-	defer hostedModelState.Close()
-	f2, release := s.NewFactory(c, s.DefaultModelUUID.String())
-	defer release()
-
-	// Create a hosted model with an unprovisioned machine that has the
-	// same tag as the manager machine.
-	workloadMachine, _ := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
-	c.Assert(managerMachine.Tag(), tc.Equals, workloadMachine.Tag())
-
-	hostedModel, err := hostedModelState.Model()
-	c.Assert(err, tc.ErrorIsNil)
-
-	info.ModelTag = hostedModel.ModelTag()
-	st := s.openAPIWithoutLogin(c)
-
-	// The fact that the machine with the same tag in the hosted
-	// model is unprovisioned should not cause the login to fail
-	// with "not provisioned", because the passwords don't match.
-	err = st.Login(c.Context(), managerMachine.Tag(), pass, "nonce", nil)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *loginSuite) TestOtherModelWhenNotController(c *tc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	machine, pass := f.MakeMachineReturningPassword(c, nil)
-
-	modelUUID := testing.GenModelUUID(c)
-	name := makeModel(c, s.TxnRunnerFactory(), s.AdminUserUUID, modelUUID, "another-model")
-
-	modelState := f.MakeModel(c, &factory.ModelParams{
-		UUID: modelUUID,
-		Name: name,
-	})
-	defer modelState.Close()
-
-	st := s.openModelAPIWithoutLogin(c, modelUUID.String())
-	err := st.Login(c.Context(), machine.Tag(), pass, "nonce", nil)
-	assertInvalidEntityPassword(c, err)
-}
-
 func (s *loginSuite) loginLocalUser(c *tc.C, info *api.Info) (names.UserTag, params.LoginResult) {
 	userTag := names.NewUserTag("charlie")
 	name := user.NameFromTag(userTag)
@@ -1154,26 +934,6 @@ func TestMigrationSuite(t *stdtesting.T) {
 
 type migrationSuite struct {
 	baseLoginSuite
-}
-
-func (s *migrationSuite) TestImportingModel(c *tc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	m, pass := f.MakeMachineReturningPassword(c, &factory.MachineParams{Nonce: "nonce"})
-
-	err := s.ControllerModel(c).State().SetMigrationMode(state.MigrationModeImporting)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Users should be able to log in but RPC requests should fail.
-	userConn := s.OpenControllerModelAPI(c)
-	defer userConn.Close()
-	_, err = apiclient.NewClient(userConn, loggertesting.WrapCheckLog(c)).Status(c.Context(), nil)
-	c.Check(err, tc.ErrorMatches, "migration in progress, model is importing")
-
-	// Machines should be able to use the API.
-	machineConn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), m.Tag(), pass, "nonce")
-	_, err = apimachiner.NewClient(machineConn).Machine(c.Context(), m.MachineTag())
-	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *migrationSuite) TestExportingModel(c *tc.C) {

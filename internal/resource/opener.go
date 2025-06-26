@@ -15,14 +15,14 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
-	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/resource/charmhub"
-	"github.com/juju/juju/state"
 )
 
 var resourceLogger = internallogger.GetLogger("juju.resource")
@@ -30,7 +30,7 @@ var resourceLogger = internallogger.GetLogger("juju.resource")
 // ResourceOpenerArgs are common arguments for the 2
 // types of ResourceOpeners: for unit and for application.
 type ResourceOpenerArgs struct {
-	State                *state.State
+	ModelUUID            string
 	ResourceService      ResourceService
 	ModelConfigService   ModelConfigService
 	ApplicationService   ApplicationService
@@ -38,9 +38,6 @@ type ResourceOpenerArgs struct {
 }
 
 // NewResourceOpenerForUnit returns a new resource.Opener for the given unit.
-//
-// The caller owns the State provided. It is the caller's
-// responsibility to close it.
 func NewResourceOpenerForUnit(
 	ctx context.Context,
 	args ResourceOpenerArgs,
@@ -49,7 +46,6 @@ func NewResourceOpenerForUnit(
 ) (opener coreresource.Opener, err error) {
 	return newResourceOpenerForUnit(
 		ctx,
-		stateShim{args.State},
 		args,
 		resourceDownloadLimiterFunc,
 		unitName,
@@ -58,7 +54,6 @@ func NewResourceOpenerForUnit(
 
 func newResourceOpenerForUnit(
 	ctx context.Context,
-	state DeprecatedState,
 	args ResourceOpenerArgs,
 	resourceDownloadLimiterFunc func() ResourceDownloadLock,
 	unitName coreunit.Name,
@@ -73,42 +68,27 @@ func newResourceOpenerForUnit(
 		return nil, errors.Errorf("loading application ID for unit %s: %w", unitName, err)
 	}
 
-	// TODO(aflynn): we still get the charm URL from state since functionality
-	// for this has not yet been implemented in the domain. When it has, we need
-	// to get the charm specifically for the unit here, not the application, as
-	// it could be on an older version.
-	unit, err := state.Unit(unitName.String())
+	applicationName := unitName.Application()
+	charmLocator, err := args.ApplicationService.GetCharmLocatorByApplicationName(ctx, applicationName)
 	if err != nil {
-		return nil, errors.Errorf("loading unit from state: %w", err)
+		return nil, errors.Errorf("getting charm locator for application %q: %w", applicationName, err)
 	}
 
-	applicationName := unit.ApplicationName()
-	application, err := state.Application(applicationName)
+	charmOrigin, err := args.ApplicationService.GetApplicationCharmOrigin(ctx, applicationName)
 	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	chURLStr := unit.CharmURL()
-	if chURLStr == nil {
-		return nil, errors.Errorf("missing charm URL for %q", unitName)
-	}
-
-	charmURL, err := charm.ParseURL(*chURLStr)
-	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf("getting charm origin for application %q: %w", applicationName, err)
 	}
 
 	return &ResourceOpener{
 		resourceService:      args.ResourceService,
-		modelUUID:            state.ModelUUID(),
-		resourceClientGetter: newClientGetter(charmURL, args.CharmhubClientGetter),
+		modelUUID:            args.ModelUUID,
+		resourceClientGetter: newClientGetter(charmLocator.Source, args.CharmhubClientGetter),
 		retrievedBy:          unitName.String(),
 		retrievedByType:      coreresource.Unit,
 		setResourceFunc: func(ctx context.Context, resourceUUID coreresource.UUID) error {
 			return args.ResourceService.SetUnitResource(ctx, resourceUUID, unitUUID)
 		},
-		charmURL:                    charmURL,
-		charmOrigin:                 *application.CharmOrigin(),
+		charmOrigin:                 charmOrigin,
 		appName:                     applicationName,
 		appID:                       applicationID,
 		resourceDownloadLimiterFunc: resourceDownloadLimiterFunc,
@@ -126,7 +106,6 @@ func NewResourceOpenerForApplication(
 ) (opener coreresource.Opener, err error) {
 	return newResourceOpenerForApplication(
 		ctx,
-		stateShim{args.State},
 		args,
 		applicationName,
 	)
@@ -134,44 +113,36 @@ func NewResourceOpenerForApplication(
 
 func newResourceOpenerForApplication(
 	ctx context.Context,
-	state DeprecatedState,
 	args ResourceOpenerArgs,
 	applicationName string,
 ) (opener coreresource.Opener, err error) {
-	// TODO(aflynn): we still get the charm URL from state since functionality
-	// for this has not yet been implemented in the domain.
-	application, err := state.Application(applicationName)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	chURLStr, _ := application.CharmURL()
-	if chURLStr == nil {
-		return nil, errors.Errorf("missing charm URL for %q", applicationName)
-	}
-
-	charmURL, err := charm.ParseURL(*chURLStr)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
 
 	applicationID, err := args.ApplicationService.GetApplicationIDByName(ctx, applicationName)
 	if err != nil {
 		return nil, errors.Errorf("getting ID of application %s: %w", applicationName, err)
 	}
 
+	charmLocator, err := args.ApplicationService.GetCharmLocatorByApplicationName(ctx, applicationName)
+	if err != nil {
+		return nil, errors.Errorf("getting charm locator for application %q: %w", applicationName, err)
+	}
+
+	charmOrigin, err := args.ApplicationService.GetApplicationCharmOrigin(ctx, applicationName)
+	if err != nil {
+		return nil, errors.Errorf("getting charm origin for application %q: %w", applicationName, err)
+	}
+
 	return &ResourceOpener{
 		resourceService:      args.ResourceService,
-		modelUUID:            state.ModelUUID(),
-		resourceClientGetter: newClientGetter(charmURL, args.CharmhubClientGetter),
+		modelUUID:            args.ModelUUID,
+		resourceClientGetter: newClientGetter(charmLocator.Source, args.CharmhubClientGetter),
 		retrievedBy:          applicationName,
 		retrievedByType:      coreresource.Application,
 		setResourceFunc: func(ctx context.Context, resourceUUID coreresource.UUID) error {
 			// noop
 			return nil
 		},
-		charmURL:    charmURL,
-		charmOrigin: *application.CharmOrigin(),
+		charmOrigin: charmOrigin,
 		appName:     applicationName,
 		appID:       applicationID,
 		resourceDownloadLimiterFunc: func() ResourceDownloadLock {
@@ -181,12 +152,12 @@ func newResourceOpenerForApplication(
 }
 
 func newClientGetter(
-	charmURL *charm.URL,
+	source applicationcharm.CharmSource,
 	charmhubClientGetter ResourceClientGetter,
 ) ResourceClientGetter {
 	var clientGetter ResourceClientGetter
-	switch {
-	case charm.CharmHub.Matches(charmURL.Schema):
+	switch source {
+	case applicationcharm.CharmHubSource:
 		clientGetter = charmhubClientGetter
 	default:
 		// Use the no-op opener that returns a not-found error when called.
@@ -203,8 +174,7 @@ type ResourceOpener struct {
 	retrievedBy     string
 	retrievedByType coreresource.RetrievedByType
 	setResourceFunc func(ctx context.Context, resourceUUID coreresource.UUID) error
-	charmURL        *charm.URL
-	charmOrigin     state.CharmOrigin
+	charmOrigin     application.CharmOrigin
 	appName         string
 	appID           coreapplication.ID
 
@@ -283,7 +253,6 @@ func (ro ResourceOpener) getResource(
 	}
 
 	id := charmhub.CharmID{
-		URL:    ro.charmURL,
 		Origin: ro.charmOrigin,
 	}
 	req := charmhub.ResourceRequest{
@@ -426,36 +395,4 @@ type noopClient struct{}
 // returns a not-found error straight away.
 func (noopClient) GetResource(_ context.Context, req charmhub.ResourceRequest) (charmhub.ResourceData, error) {
 	return charmhub.ResourceData{}, jujuerrors.NotFoundf("resource %q", req.Name)
-}
-
-type stateShim struct {
-	*state.State
-}
-
-func (s stateShim) Unit(name string) (DeprecatedStateUnit, error) {
-	u, err := s.State.Unit(name)
-	if err != nil {
-		return nil, err
-	}
-	return &unitShim{Unit: u}, nil
-}
-
-func (s stateShim) ModelUUID() string {
-	return s.State.ModelUUID()
-}
-
-func (s stateShim) Application(name string) (DeprecatedStateApplication, error) {
-	a, err := s.State.Application(name)
-	if err != nil {
-		return nil, err
-	}
-	return &applicationShim{Application: a}, nil
-}
-
-type applicationShim struct {
-	*state.Application
-}
-
-type unitShim struct {
-	*state.Unit
 }

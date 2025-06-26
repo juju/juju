@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -50,7 +49,6 @@ import (
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/hostkeyreporter"
 	"github.com/juju/juju/internal/worker/identityfilewriter"
-	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/machineactions"
@@ -136,11 +134,6 @@ type ManifoldsConfig struct {
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
 	PrometheusRegisterer prometheus.Registerer
-
-	// LocalHub is a simple pubsub that is used for internal agent
-	// messaging only. This is used for interactions between workers
-	// and the introspection worker.
-	LocalHub *pubsub.SimpleHub
 
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
@@ -483,7 +476,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
-			Hub:           config.LocalHub,
 			Logger:        internallogger.GetLogger("juju.worker.deployer"),
 
 			UnitEngineConfig: config.UnitEngineConfig,
@@ -515,14 +507,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineLock:   config.MachineLock,
 			NewBrokerFunc: config.NewBrokerFunc,
 			NewTracker:    lxdbroker.NewWorkerTracker,
-		})),
-		instanceMutaterName: ifNotMigrating(instancemutater.MachineManifold(instancemutater.MachineManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			BrokerName:    brokerTrackerName,
-			Logger:        internallogger.GetLogger("juju.worker.instancemutater.container"),
-			NewClient:     instancemutater.NewClient,
-			NewWorker:     instancemutater.NewContainerWorker,
 		})),
 		// The machineSetupName manifold runs small tasks required
 		// to setup a machine, but requires the machine agent's API

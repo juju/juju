@@ -220,6 +220,10 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_controller_config_update",
 		"trg_log_controller_config_delete",
 
+		"trg_log_controller_api_address_insert",
+		"trg_log_controller_api_address_update",
+		"trg_log_controller_api_address_delete",
+
 		"trg_log_controller_node_insert",
 		"trg_log_controller_node_update",
 		"trg_log_controller_node_delete",

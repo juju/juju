@@ -54,16 +54,15 @@ type providerIdDoc struct {
 // State represents the state of an model
 // managed by juju.
 type State struct {
-	stateClock             clock.Clock
-	modelTag               names.ModelTag
-	controllerModelTag     names.ModelTag
-	controllerTag          names.ControllerTag
-	session                *mgo.Session
-	database               Database
-	policy                 Policy
-	newPolicy              NewPolicyFunc
-	runTransactionObserver RunTransactionObserverFunc
-	maxTxnAttempts         int
+	stateClock         clock.Clock
+	modelTag           names.ModelTag
+	controllerModelTag names.ModelTag
+	controllerTag      names.ControllerTag
+	session            *mgo.Session
+	database           Database
+	policy             Policy
+	newPolicy          NewPolicyFunc
+	maxTxnAttempts     int
 	// Note(nvinuesa): Having a dqlite domain service here is an awful hack
 	// and should disapear as soon as we migrate units and applications.
 	charmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error)
@@ -85,7 +84,6 @@ func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {
 		st.newPolicy,
 		st.stateClock,
 		st.charmServiceGetter,
-		st.runTransactionObserver,
 		st.maxTxnAttempts,
 	)
 	// We explicitly don't start the workers.
@@ -128,28 +126,6 @@ func (st *State) ControllerTimestamp() (*time.Time, error) {
 // disabled.
 func (st *State) ControllerModelUUID() string {
 	return st.controllerModelTag.Id()
-}
-
-// ControllerModelTag returns the tag form the return value of
-// ControllerModelUUID.
-func (st *State) ControllerModelTag() names.ModelTag {
-	return st.controllerModelTag
-}
-
-// ControllerOwner returns the owner of the controller model.
-func (st *State) ControllerOwner() (names.UserTag, error) {
-	models, closer := st.db().GetCollection(modelsC)
-	defer closer()
-	var doc map[string]string
-	err := models.FindId(st.ControllerModelUUID()).Select(bson.M{"owner": 1}).One(&doc)
-	if err != nil {
-		return names.UserTag{}, errors.Annotate(err, "loading controller model")
-	}
-	owner := doc["owner"]
-	if owner == "" {
-		return names.UserTag{}, errors.New("model owner missing")
-	}
-	return names.NewUserTag(owner), nil
 }
 
 // setDyingModelToDead sets current dying model to dead.
@@ -416,14 +392,6 @@ func (st *State) EnsureModelRemoved() error {
 	return nil
 }
 
-// newDB returns a database connection using a new session, along with
-// a closer function for the session. This is useful where you need to work
-// with various collections in a single session, so don't want to call
-// getCollection multiple times.
-func (st *State) newDB() (Database, func()) {
-	return st.database.Copy()
-}
-
 // db returns the Database instance used by the State. It is part of
 // the modelBackend interface.
 func (st *State) db() Database {
@@ -674,37 +642,6 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
-}
-
-// tagToCollectionAndId, given an entity tag, returns the collection name and id
-// of the entity document.
-func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error) {
-	if tag == nil {
-		return "", nil, errors.Errorf("tag is nil")
-	}
-	coll := ""
-	id := tag.Id()
-	switch tag := tag.(type) {
-	case names.MachineTag:
-		coll = machinesC
-		id = st.docID(id)
-	case names.ApplicationTag:
-		coll = applicationsC
-		id = st.docID(id)
-	case names.UnitTag:
-		coll = unitsC
-		id = st.docID(id)
-	case names.UserTag:
-		return "", nil, errors.NotImplementedf("users have been moved to domain")
-	case names.ModelTag:
-		coll = modelsC
-	case names.ActionTag:
-		coll = actionsC
-		id = tag.Id()
-	default:
-		return "", nil, errors.Errorf("%q is not a valid collection tag", tag)
-	}
-	return coll, id, nil
 }
 
 var (
@@ -1039,7 +976,7 @@ func (st *State) AddApplication(
 
 	if err = st.db().Run(buildTxn); err == nil {
 		// Refresh to pick the txn-revno.
-		if err = app.Refresh(); err != nil {
+		if err = app.refresh(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return app, nil
@@ -1208,11 +1145,6 @@ func (st *State) AssignStagedUnits(
 	return results, nil
 }
 
-// AllUnitAssignments returns all staged unit assignments in the model.
-func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
-	return st.unitAssignments(nil)
-}
-
 func (st *State) unitAssignments(query bson.D) ([]UnitAssignment, error) {
 	col, closer := st.db().GetCollection(assignUnitC)
 	defer closer()
@@ -1279,7 +1211,7 @@ func (st *State) AssignUnitWithPlacement(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return unit.AssignToMachine(m)
+	return unit.assignToMachine(m)
 }
 
 // placementData is a helper type that encodes some of the logic behind how an
@@ -1335,7 +1267,7 @@ func (st *State) addMachineWithPlacement(
 	data *placementData,
 	lookup network.SpaceInfos,
 ) (*Machine, error) {
-	unitCons, err := unit.Constraints()
+	unitCons, err := unit.constraints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1347,11 +1279,11 @@ func (st *State) addMachineWithPlacement(
 	// endpoint bindings.
 	// TODO (manadart 2019-10-08): This step is not necessary when a single
 	// transaction is used based on the comment below.
-	app, err := unit.Application()
+	app, err := unit.application()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bindings, err := app.EndpointBindings()
+	bindings, err := app.endpointBindings()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1369,7 +1301,7 @@ func (st *State) addMachineWithPlacement(
 		// a constraint.  This also preserves behavior from when the
 		// AlphaSpaceName was "". This condition will be removed with
 		// the institution of universal mutable spaces.
-		if name != network.AlphaSpaceName {
+		if name != network.AlphaSpaceName.String() {
 			spaces.Add(name)
 		}
 	}
@@ -1410,7 +1342,6 @@ func (st *State) addMachineWithPlacement(
 		// If a container is to be used, create it.
 		template := MachineTemplate{
 			Base:        unit.doc.Base,
-			Jobs:        []MachineJob{JobHostUnits},
 			Dirty:       true,
 			Constraints: cons,
 		}
@@ -1420,7 +1351,7 @@ func (st *State) addMachineWithPlacement(
 		return st.AddMachineInsideNewMachine(template, template, data.containerType)
 	case directivePlacement:
 		return nil, errors.NotSupportedf(
-			"programming error: directly adding a machine for %s with a non-machine placement directive", unit.Name())
+			"programming error: directly adding a machine for %s with a non-machine placement directive", unit.name())
 	default:
 		return machine, nil
 	}
@@ -1443,22 +1374,6 @@ func (st *State) Application(name string) (_ *Application, err error) {
 		return nil, errors.Annotatef(err, "cannot get application %q", name)
 	}
 	return newApplication(st, sdoc), nil
-}
-
-// AllApplications returns all deployed applications in the model.
-func (st *State) AllApplications() (applications []*Application, err error) {
-	applicationsCollection, closer := st.db().GetCollection(applicationsC)
-	defer closer()
-
-	sdocs := []applicationDoc{}
-	err = applicationsCollection.Find(bson.D{}).All(&sdocs)
-	if err != nil {
-		return nil, errors.Errorf("cannot get all applications")
-	}
-	for _, v := range sdocs {
-		applications = append(applications, newApplication(st, &v))
-	}
-	return applications, nil
 }
 
 // Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect
@@ -1493,31 +1408,17 @@ func (st *State) Unit(name string) (*Unit, error) {
 	return newUnit(st, model.Type(), &doc), nil
 }
 
-// UnitsFor returns the units placed in the given machine id.
-func (st *State) UnitsFor(machineId string) ([]*Unit, error) {
-	if !names.IsValidMachine(machineId) {
-		return nil, errors.Errorf("%q is not a valid machine id", machineId)
-	}
-	m := &Machine{
-		st: st,
-		doc: machineDoc{
-			Id: machineId,
-		},
-	}
-	return m.Units()
-}
-
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the model, this may lead to new instances being launched
 // within the model.
 func (st *State) AssignUnit(
 	u *Unit,
 ) (err error) {
-	if !u.IsPrincipal() {
+	if !u.isPrincipal() {
 		return errors.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
 	defer errors.DeferredAnnotatef(&err, "cannot assign unit %q to machine", u)
-	return errors.Trace(u.AssignToNewMachine())
+	return errors.Trace(u.assignToNewMachine(""))
 }
 
 // SetAdminMongoPassword sets the administrative password

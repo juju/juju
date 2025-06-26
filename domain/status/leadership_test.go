@@ -14,7 +14,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
@@ -25,10 +24,10 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/domain/status/state"
-	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -36,9 +35,10 @@ import (
 )
 
 type leadershipSuite struct {
-	changestreamtesting.ModelSuite
+	schematesting.ModelSuite
+	controllerState *MockControllerState
 
-	leadership *MockChecker
+	leaseManager *MockLeaseManager
 }
 
 func TestLeadershipSuite(t *stdtesting.T) {
@@ -49,10 +49,10 @@ func (s *leadershipSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := uuid.MustNewUUID()
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.ModelSuite.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
@@ -63,7 +63,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
-	s.leadership.EXPECT().WaitUntilExpired(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, ch chan<- struct{}) error {
+	s.leaseManager.EXPECT().WaitUntilExpired(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, ch chan<- struct{}) error {
 		close(ch)
 		// Block until the call is done.
 		select {
@@ -73,11 +73,11 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 		}
 		return nil
 	})
-	s.leadership.EXPECT().Token("foo", "foo/0").Return(leaseToken{})
+	s.leaseManager.EXPECT().Token("foo", "foo/0").Return(leaseToken{})
 
 	svc := s.setupService(c)
 
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	s.createApplication(c, "foo", u1)
 
 	err := svc.SetApplicationStatusForUnitLeader(c.Context(), "foo/0", status.StatusInfo{
@@ -96,7 +96,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *t
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
-	s.leadership.EXPECT().WaitUntilExpired(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, ch chan<- struct{}) error {
+	s.leaseManager.EXPECT().WaitUntilExpired(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, ch chan<- struct{}) error {
 		close(ch)
 		// Block until the call is done.
 		select {
@@ -106,13 +106,13 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *t
 		}
 		return nil
 	})
-	s.leadership.EXPECT().Token("foo", "foo/0").Return(leaseToken{
+	s.leaseManager.EXPECT().Token("foo", "foo/0").Return(leaseToken{
 		error: lease.ErrNotHeld,
 	})
 
 	svc := s.setupService(c)
 
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	s.createApplication(c, "foo", u1)
 
 	err := svc.SetApplicationStatusForUnitLeader(c.Context(), "foo/0", status.StatusInfo{
@@ -129,17 +129,17 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *tc.C
 	// This triggers the started flow, but won't wait till the call, so it
 	// will cancel the context, forcing the call to be cancelled.
 
-	s.leadership.EXPECT().WaitUntilExpired(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, c chan<- struct{}) error {
+	s.leaseManager.EXPECT().WaitUntilExpired(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, c chan<- struct{}) error {
 		close(c)
 		return nil
 	}).AnyTimes()
-	s.leadership.EXPECT().Token("foo", "foo/0").DoAndReturn(func(s1, s2 string) lease.Token {
+	s.leaseManager.EXPECT().Token("foo", "foo/0").DoAndReturn(func(s1, s2 string) lease.Token {
 		return leaseToken{}
 	}).AnyTimes()
 
 	svc := s.setupService(c)
 
-	u1 := application.AddUnitArg{}
+	u1 := application.AddIAASUnitArg{}
 	s.createApplication(c, "foo", u1)
 
 	// WithLeader is racy on the context cancellation on heavily loaded systems.
@@ -156,16 +156,14 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *tc.C
 }
 
 func (s *leadershipSuite) setupService(c *tc.C) *service.LeadershipService {
-	modelDB := func() (database.TxnRunner, error) {
-		return s.ModelTxnRunner(), nil
-	}
 
 	return service.NewLeadershipService(
-		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		state.NewModelState(s.ModelSuite.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c)),
+		s.controllerState,
 		domain.NewLeaseService(leaseGetter{
-			Checker: s.leadership,
+			LeaseManager: s.leaseManager,
 		}),
-		model.UUID(s.ModelUUID()),
+		model.UUID(s.ModelSuite.ModelUUID()),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		func() (service.StatusHistoryReader, error) {
 			return nil, errors.Errorf("status history reader not available")
@@ -179,14 +177,15 @@ func (s *leadershipSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	// In an ideal world, this would be a real lease manager, but for now, we
-	// just need to check the leadership token.
-	s.leadership = NewMockChecker(ctrl)
+	// just need to check the leaseManager token.
+	s.leaseManager = NewMockLeaseManager(ctrl)
+	s.controllerState = NewMockControllerState(ctrl)
 
 	return ctrl
 }
 
-func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...application.AddUnitArg) coreapplication.ID {
-	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...application.AddIAASUnitArg) coreapplication.ID {
+	appState := applicationstate.NewState(s.ModelSuite.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
 		Channel:      "22.04/stable",
@@ -257,10 +256,10 @@ func (s *leadershipSuite) minimalManifest(c *tc.C) charm.Manifest {
 }
 
 type leaseGetter struct {
-	lease.Checker
+	lease.LeaseManager
 }
 
-func (l leaseGetter) GetLeaseManager() (lease.Checker, error) {
+func (l leaseGetter) GetLeaseManager() (lease.LeaseManager, error) {
 	return l, nil
 }
 

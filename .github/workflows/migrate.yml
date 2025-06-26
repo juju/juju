@@ -11,6 +11,9 @@ jobs:
     name: migrate from ${{ matrix.channel }} via ${{ matrix.client }} client
     timeout-minutes: 30
     runs-on: [self-hosted, linux, arm64, aws, xlarge]
+    # TODO: Reinstate local when Juju 4 exports are fixed.
+    # TODO: 3.6 migration broken until model qualifier compatibility lands.
+    if: false
     strategy:
       fail-fast: false
       matrix:

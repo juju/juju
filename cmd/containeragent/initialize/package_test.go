@@ -73,6 +73,7 @@ func (*importSuite) TestImports(c *tc.C) {
 		"core/version",
 		"core/watcher",
 		"domain/model/errors",
+		"domain/network",
 		"domain/secret/errors",
 		"domain/secretbackend/errors",
 		"environs/config",

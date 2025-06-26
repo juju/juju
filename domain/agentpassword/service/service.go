@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
@@ -16,9 +17,7 @@ import (
 
 // State gets and sets the state of the service.
 type State interface {
-	// GetUnitUUID returns the UUID of the unit with the given name, returning
-	// an error satisfying [passworderrors.UnitNotFound] if the unit does not
-	// exist.
+	// GetUnitUUID returns the UUID of the unit with the given name.
 	GetUnitUUID(context.Context, unit.Name) (unit.UUID, error)
 
 	// SetUnitPasswordHash sets the password hash for the given unit.
@@ -27,6 +26,20 @@ type State interface {
 	// MatchesUnitPasswordHash checks if the password is valid or not against
 	// the password hash stored in the database.
 	MatchesUnitPasswordHash(context.Context, unit.UUID, agentpassword.PasswordHash) (bool, error)
+
+	// GetMachineUUID returns the UUID of the machine with the given name.
+	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
+
+	// SetMachinePasswordHash sets the password hash for the given machine.
+	SetMachinePasswordHash(context.Context, machine.UUID, agentpassword.PasswordHash) error
+
+	// MatchesMachinePasswordHashWithNonce checks if the password is valid or
+	// not against the password hash with the nonce stored in the database.
+	MatchesMachinePasswordHashWithNonce(context.Context, machine.UUID, agentpassword.PasswordHash, string) (bool, error)
+
+	// IsMachineController returns whether the machine is a controller machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	IsMachineController(context.Context, machine.Name) (bool, error)
 }
 
 // Service provides the means for interacting with the passwords in a model.
@@ -51,7 +64,7 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, passw
 		return errors.Capture(err)
 	}
 	if len(password) < internalpassword.MinAgentPasswordLength {
-		return errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
 	unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
@@ -76,7 +89,7 @@ func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Nam
 	if password == "" {
 		return false, passworderrors.EmptyPassword
 	} else if len(password) < internalpassword.MinAgentPasswordLength {
-		return false, errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+		return false, errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
 	unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
@@ -85,6 +98,69 @@ func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Nam
 	}
 
 	return s.st.MatchesUnitPasswordHash(ctx, unitUUID, hashPassword(password))
+}
+
+// SetMachinePassword sets the password for the given machine. If the machine does not
+// exist, an error satisfying [passworderrors.UnitNotFound] is returned.
+func (s *Service) SetMachinePassword(ctx context.Context, machineName machine.Name, password string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	if len(password) < internalpassword.MinAgentPasswordLength {
+		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+	}
+
+	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return s.st.SetMachinePasswordHash(ctx, machineUUID, hashPassword(password))
+}
+
+// MatchesMachinePasswordHashWithNonce checks if the password with a nonce is
+// valid or not against the password hash stored in the database.
+func (s *Service) MatchesMachinePasswordHashWithNonce(ctx context.Context, machineName machine.Name, password, nonce string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return false, errors.Capture(err)
+	}
+
+	// An empty password is never valid.
+	if password == "" {
+		return false, passworderrors.EmptyPassword
+	} else if len(password) < internalpassword.MinAgentPasswordLength {
+		return false, errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+	}
+
+	if nonce == "" {
+		return false, passworderrors.EmptyNonce
+	}
+
+	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return s.st.MatchesMachinePasswordHashWithNonce(ctx, machineUUID, hashPassword(password), nonce)
+}
+
+// IsMachineController returns whether the machine is a controller machine.
+// It returns a NotFound if the given machine doesn't exist.
+func (s *Service) IsMachineController(ctx context.Context, machineName machine.Name) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	isController, err := s.st.IsMachineController(ctx, machineName)
+	if err != nil {
+		return false, errors.Errorf("checking if machine %q is a controller: %w", machineName, err)
+	}
+	return isController, nil
 }
 
 func hashPassword(p string) agentpassword.PasswordHash {

@@ -61,7 +61,7 @@ type CharmDeployAPI interface {
 // OfferAPI represents the methods of the API the deploy command needs
 // for creating offers.
 type OfferAPI interface {
-	Offer(ctx context.Context, modelUUID, application string, endpoints []string, owner, offerName, descr string) ([]apiparams.ErrorResult, error)
+	Offer(ctx context.Context, modelUUID, application string, endpoints []string, qualifier, offerName, descr string) ([]apiparams.ErrorResult, error)
 	GrantOffer(ctx context.Context, user, access string, offerURLs ...string) error
 }
 

@@ -67,6 +67,7 @@ func internalFacade(
 		backend:              backend,
 		modelConfigService:   modelConfigService,
 		modelProviderService: modelProviderService,
+		networkService:       networkService,
 		controllerTag:        controllerTag,
 		modelTag:             modelTag,
 		authorizer:           auth,

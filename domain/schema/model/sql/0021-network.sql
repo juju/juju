@@ -186,8 +186,7 @@ CREATE TABLE ip_address (
     -- the link layer device this address belongs to.
     net_node_uuid TEXT NOT NULL,
     device_uuid TEXT NOT NULL,
-    -- The value of the configured IP address.
-    -- e.g. 192.168.1.2 or 2001:db8:0000:0000:0000:0000:0000:00001.
+    -- The IP address *including the subnet mask*.
     address_value TEXT NOT NULL,
     -- NOTE (manadart 2025-03--25): The fact that this is nullable is a wart
     -- from our Kubernetes provider. There is nothing to say we couldn't do
@@ -195,13 +194,9 @@ CREATE TABLE ip_address (
     -- NodeSpec.PodCIDRs for each. We could then match the incoming pod IPs to
     -- those and assign this field.
     subnet_uuid TEXT,
-    -- one of ipv4, ipv6 etc.
     type_id INT NOT NULL,
-    -- one of dhcp, static, manual, loopback etc.
     config_type_id INT NOT NULL,
-    -- one of host, provider
     origin_id INT NOT NULL,
-    -- one of public, local-cloud, local-machine, link-local etc.
     scope_id INT NOT NULL,
     -- indicates that this address is not the primary
     -- address associated with the NIC.
@@ -344,6 +339,27 @@ SELECT
     null AS origin_id,
     fa.scope_id
 FROM fqdn_address AS fa;
+
+-- v_ip_address_with_names returns a ip_address with the
+-- type ids converted to their names.
+CREATE VIEW v_ip_address_with_names AS
+SELECT
+    ipa.uuid,
+    ipa.address_value,
+    ipa.subnet_uuid,
+    ipa.device_uuid,
+    ipa.net_node_uuid,
+    ipa.is_secondary,
+    ipa.is_shadow,
+    iact.name AS config_type_name,
+    ias.name AS scope_name,
+    iao.name AS origin_name,
+    iat.name AS type_name
+FROM ip_address AS ipa
+JOIN ip_address_config_type AS iact ON ipa.config_type_id = iact.id
+JOIN ip_address_scope AS ias ON ipa.scope_id = ias.id
+JOIN ip_address_origin AS iao ON ipa.origin_id = iao.id
+JOIN ip_address_type AS iat ON ipa.type_id = iat.id;
 
 CREATE VIEW v_machine_interface AS
 SELECT

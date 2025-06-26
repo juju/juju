@@ -97,14 +97,6 @@ type instanceIDAndDisplayName struct {
 	Name string `db:"display_name"`
 }
 
-// machineStatus represents the struct to be used for the status.
-type machineStatus struct {
-	Status  string       `db:"status"`
-	Message string       `db:"message"`
-	Data    []byte       `db:"data"`
-	Updated sql.NullTime `db:"updated_at"`
-}
-
 type setStatusInfo struct {
 	StatusID int        `db:"status_id"`
 	Message  string     `db:"message"`
@@ -120,27 +112,19 @@ type setMachineStatus struct {
 	MachineUUID machine.UUID `db:"machine_uuid"`
 }
 
-// availabilityZoneName represents the struct to be used for the name column
-// within the sqlair statements in the availability_zone table.
 type availabilityZoneName struct {
 	UUID string `db:"uuid"`
 	Name string `db:"name"`
 }
 
-// machineName represents the struct to be used for the name column
-// within the sqlair statements in the machine domain.
 type machineName struct {
 	Name machine.Name `db:"name"`
 }
 
-// machineMarkForRemoval represents the struct to be used for the columns of the
-// machine_removals table within the sqlair statements in the machine domain.
 type machineMarkForRemoval struct {
 	UUID machine.UUID `db:"machine_uuid"`
 }
 
-// machineUUID represents the struct to be used for the machine_uuid column
-// within the sqlair statements in the machine domain.
 type machineUUID struct {
 	UUID machine.UUID `db:"uuid"`
 }
@@ -149,26 +133,19 @@ type machineInstanceUUID struct {
 	MachineUUID machine.UUID `db:"machine_uuid"`
 }
 
-// machineExistsUUID represents the struct to be used for the uuid column
-// within the sqlair statements in the machine domain.
 type machineExistsUUID struct {
 	UUID  machine.UUID `db:"uuid"`
 	Count int          `db:"count"`
 }
 
-// machineIsController represents the struct to be used for the is_controller column within the sqlair statements in the machine domain.
-type machineIsController struct {
-	IsController bool `db:"is_controller"`
+type count struct {
+	Count int64 `db:"count"`
 }
 
-// keepInstance represents the struct to be used for the keep_instance column
-// within the sqlair statements in the machine domain.
 type keepInstance struct {
 	KeepInstance bool `db:"keep_instance"`
 }
 
-// machineParent represents the struct to be used for the columns of the
-// machine_parent table within the sqlair statements in the machine domain.
 type machineParent struct {
 	MachineUUID machine.UUID `db:"machine_uuid"`
 	ParentUUID  machine.UUID `db:"parent_uuid"`
@@ -193,6 +170,7 @@ type createMachineArgs struct {
 	machineUUID machine.UUID
 	netNodeUUID string
 	parentName  machine.Name
+	nonce       *string
 }
 
 // lxdProfile represents the struct to be used for the sqlair statements on the
@@ -201,4 +179,75 @@ type lxdProfile struct {
 	MachineUUID machine.UUID `db:"machine_uuid"`
 	Name        string       `db:"name"`
 	Index       int          `db:"array_index"`
+}
+
+type machineNonce struct {
+	MachineUUID machine.UUID `db:"machine_uuid"`
+	Nonce       string       `db:"nonce"`
+}
+
+type machineInstance struct {
+	MachineName string `db:"machine_name"`
+	InstanceID  string `db:"instance_id"`
+	IsContainer int64  `db:"is_container"`
+}
+
+type createMachine struct {
+	Name        string           `db:"name"`
+	NetNodeUUID string           `db:"net_node_uuid"`
+	UUID        string           `db:"uuid"`
+	Nonce       sql.Null[string] `db:"nonce"`
+	LifeID      int64            `db:"life_id"`
+}
+
+type machinePlatformUUID struct {
+	MachineUUID    machine.UUID     `db:"machine_uuid"`
+	OSID           sql.Null[int64]  `db:"os_id"`
+	Channel        sql.Null[string] `db:"channel"`
+	ArchitectureID int              `db:"architecture_id"`
+}
+
+type netNodeUUID struct {
+	NetNodeUUID string `db:"uuid"`
+}
+
+type machineNameWithNetNodeUUID struct {
+	Name        machine.Name `db:"name"`
+	NetNodeUUID string       `db:"net_node_uuid"`
+}
+
+type machineNameWithMachineUUID struct {
+	Name machine.Name `db:"name"`
+	UUID machine.UUID `db:"uuid"`
+}
+
+type machinePlacement struct {
+	MachineUUID machine.UUID `db:"machine_uuid"`
+	ScopeID     int          `db:"scope_id"`
+	Directive   string       `db:"directive"`
+}
+
+type exportMachine struct {
+	Name   string `db:"name"`
+	UUID   string `db:"uuid"`
+	LifeID int    `db:"life_id"`
+	Nonce  string `db:"nonce"`
+}
+
+type machineHostName struct {
+	Hostname       sql.Null[string] `db:"hostname"`
+	AgentStartedAt time.Time        `db:"agent_started_at"`
+}
+
+type containerType struct {
+	ContainerType string `db:"container_type"`
+}
+
+type machineContainerType struct {
+	MachineUUID     machine.UUID `db:"machine_uuid"`
+	ContainerTypeID int          `db:"container_type_id"`
+}
+
+type appName struct {
+	Name string `db:"name"`
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -63,8 +62,8 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	modelUUID := uuid.MustNewUUID()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "prod",  "iaas", "test-model", "ec2")
 		`, modelUUID.String(), testing.ControllerTag.Id())
 		return err
 	})
@@ -120,7 +119,7 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 	harness.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
+func (s *watcherSuite) TestWatchApplicationUnitLife(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit")
 
 	svc := s.setupService(c, factory)
@@ -132,9 +131,9 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	setup := func(c *tc.C) {
 
 		ctx := c.Context()
-		_, err := svc.AddIAASUnits(ctx, "foo", service.AddUnitArg{}, service.AddUnitArg{})
+		_, err := svc.AddIAASUnits(ctx, "foo", service.AddIAASUnitArg{}, service.AddIAASUnitArg{})
 		c.Assert(err, tc.ErrorIsNil)
-		_, err = svc.AddIAASUnits(ctx, "bar", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
+		_, err = svc.AddIAASUnits(ctx, "bar", service.AddIAASUnitArg{}, service.AddIAASUnitArg{}, service.AddIAASUnitArg{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -311,15 +310,15 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	harness.Run(c, []string{})
 }
 
-func (s *watcherSuite) TestWatchUnitLifeInitial(c *tc.C) {
+func (s *watcherSuite) TestWatchApplicationUnitLifeInitial(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit")
 
 	svc := s.setupService(c, factory)
 
 	var unitID1, unitID2 string
 	setup := func(c *tc.C) {
-		s.createIAASApplication(c, svc, "foo", service.AddUnitArg{}, service.AddUnitArg{})
-		s.createIAASApplication(c, svc, "bar", service.AddUnitArg{})
+		s.createIAASApplication(c, svc, "foo", service.AddIAASUnitArg{}, service.AddIAASUnitArg{})
+		s.createIAASApplication(c, svc, "bar", service.AddIAASUnitArg{})
 
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/0").Scan(&unitID1); err != nil {
@@ -347,6 +346,86 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *tc.C) {
 	})
 
 	harness.Run(c, []string{})
+}
+
+func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit")
+
+	svc := s.setupService(c, factory)
+	s.createIAASApplication(c, svc, "foo", service.AddIAASUnitArg{}, service.AddIAASUnitArg{})
+
+	watcher, err := svc.WatchUnitLife(c.Context(), unit.Name("foo/0"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+	harness.AddTest(func(c *tc.C) {
+		// Test unit life going to dying fires.
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "foo/0"); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		// Test unit life going to dead fires.
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name=?", "foo/0"); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		// Test unit removal fires.
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			var unitID1 string
+			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/0").Scan(&unitID1); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_agent_status WHERE unit_uuid=?", unitID1); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_status WHERE unit_uuid=?", unitID1); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_version WHERE unit_uuid=?", unitID1); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_constraint WHERE unit_uuid=?", unitID1); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "foo/0"); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		// Test annother unit life going to dying does not fire.
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "foo/1"); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+	harness.Run(c, struct{}{})
 }
 
 func (s *watcherSuite) TestWatchApplicationScale(c *tc.C) {
@@ -463,7 +542,7 @@ WHERE uuid=?`, id0.String())
 	// Add another application with an available charm.
 	// Available charms are not pending charms!
 	harness.AddTest(func(c *tc.C) {
-		id2 = s.createIAASApplicationWithCharmAndStoragePath(c, svc, "jaz", &stubCharm{}, "deadbeef", service.AddUnitArg{})
+		id2 = s.createIAASApplicationWithCharmAndStoragePath(c, svc, "jaz", &stubCharm{}, "deadbeef", service.AddIAASUnitArg{})
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -690,12 +769,66 @@ func (s *watcherSuite) TestWatchApplicationConfigHashBadName(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *watcherSuite) TestWatchApplicationSettings(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_setting")
+	svc := s.setupService(c, factory)
+
+	appName := "foo"
+	appUUID := s.createIAASApplication(c, svc, appName)
+
+	ctx := c.Context()
+	watcher, err := svc.WatchApplicationSettings(ctx, appName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Assert that a change to the settings triggers the watcher.
+	harness.AddTest(func(c *tc.C) {
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
+			"trust": "true",
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert no change is emitted is we change a config value.
+	harness.AddTest(func(c *tc.C) {
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
+			"foo": "bar",
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Assert no change is emitted if we update a setting to the same value.
+	harness.AddTest(func(c *tc.C) {
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
+			"trust": "true",
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchApplicationSettingsBadName(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_setting")
+	svc := s.setupService(c, factory)
+
+	_, err := svc.WatchApplicationSettings(c.Context(), "bad-name")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_addresses_hash")
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	_ = s.createIAASApplication(c, svc, appName, service.AddUnitArg{})
+	_ = s.createIAASApplication(c, svc, appName, service.AddIAASUnitArg{})
 
 	ctx := c.Context()
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
@@ -717,7 +850,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appID := s.createIAASApplication(c, svc, appName, service.AddUnitArg{})
+	appID := s.createIAASApplication(c, svc, appName, service.AddIAASUnitArg{})
 	// Create an ip address for the unit.
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
@@ -804,16 +937,14 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appID := s.createIAASApplication(c, svc, appName, service.AddUnitArg{})
+	appID := s.createCAASApplication(c, svc, appName, service.AddUnitArg{})
 
 	ctx := c.Context()
 
 	// Add a cloud service to get an initial state.
 	err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.ProviderAddresses{
 		{
-			MachineAddress: network.MachineAddress{
-				Value: "10.0.0.1",
-			},
+			MachineAddress: network.NewMachineAddress("10.0.0.1"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -827,9 +958,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 		// Change the address for the cloud service should trigger a change.
 		err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.ProviderAddresses{
 			{
-				MachineAddress: network.MachineAddress{
-					Value: "192.168.0.1",
-				},
+				MachineAddress: network.NewMachineAddress("192.168.0.1"),
 			},
 		})
 		c.Assert(err, tc.ErrorIsNil)
@@ -868,7 +997,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	})
 
 	// Hash of the initial state.
-	harness.Run(c, []string{"e9daa2b006ff0740cebfce4a761243bc032d518221fdfa16df53e3aa701591cc"})
+	harness.Run(c, []string{"722ba9e367e446b51bd7a473ab0a6002f8eb2f848a03169d7dfa63b7a88e3e8a"})
 }
 
 func (s *watcherSuite) TestWatchUnitAddressesHashBadName(c *tc.C) {
@@ -884,10 +1013,12 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineInitialEvents(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	s.createIAASApplication(c, svc, "foo",
-		service.AddUnitArg{},
-		service.AddUnitArg{},
-		service.AddUnitArg{
-			Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+		service.AddIAASUnitArg{},
+		service.AddIAASUnitArg{},
+		service.AddIAASUnitArg{
+			AddUnitArg: service.AddUnitArg{
+				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+			},
 		},
 	)
 
@@ -897,8 +1028,8 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineInitialEvents(c *tc.C) {
 
 	select {
 	case initial := <-watcher.Changes():
-		c.Assert(initial, tc.DeepEquals, []string{"foo/0", "foo/2"})
-	case <-time.After(testing.LongWait):
+		c.Assert(initial, tc.SameContents, []string{"foo/0", "foo/2"})
+	case <-ctx.Done():
 		c.Fatalf("timed out waiting for initial change")
 	}
 }
@@ -910,16 +1041,19 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	}
 	svc := s.setupService(c, factory)
 	st := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
-	machineSvc := machineservice.NewService(
+	machineSvc := machineservice.NewProviderService(
 		machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		func(ctx context.Context) (machineservice.Provider, error) {
+			return machineservice.NewNoopProvider(), nil
+		},
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 
-	_, err := machineSvc.CreateMachine(c.Context(), "0")
+	_, err := machineSvc.CreateMachine(c.Context(), "0", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = machineSvc.CreateMachine(c.Context(), "1")
+	_, err = machineSvc.CreateMachine(c.Context(), "1", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := c.Context()
@@ -930,14 +1064,20 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 
 	harness.AddTest(func(c *tc.C) {
 		s.createIAASApplication(c, svc, "foo",
-			service.AddUnitArg{
-				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+			service.AddIAASUnitArg{
+				AddUnitArg: service.AddUnitArg{
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+				},
 			},
-			service.AddUnitArg{
-				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "1"},
+			service.AddIAASUnitArg{
+				AddUnitArg: service.AddUnitArg{
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "1"},
+				},
 			},
-			service.AddUnitArg{
-				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+			service.AddIAASUnitArg{
+				AddUnitArg: service.AddUnitArg{
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+				},
 			},
 		)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -969,22 +1109,25 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert_delete")
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 	svc := s.setupService(c, factory)
 	st := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
-	machineSvc := machineservice.NewService(
+	machineSvc := machineservice.NewProviderService(
 		machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		func(ctx context.Context) (machineservice.Provider, error) {
+			return machineservice.NewNoopProvider(), nil
+		},
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 
-	_, err := machineSvc.CreateMachine(c.Context(), "0")
+	_, err := machineSvc.CreateMachine(c.Context(), "0", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = machineSvc.CreateMachine(c.Context(), "1")
+	_, err = machineSvc.CreateMachine(c.Context(), "1", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := c.Context()
@@ -995,11 +1138,15 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 
 	harness.AddTest(func(c *tc.C) {
 		s.createIAASApplication(c, svc, "foo",
-			service.AddUnitArg{
-				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+			service.AddIAASUnitArg{
+				AddUnitArg: service.AddUnitArg{
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+				},
 			},
-			service.AddUnitArg{
-				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "1"},
+			service.AddIAASUnitArg{
+				AddUnitArg: service.AddUnitArg{
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "1"},
+				},
 			},
 		)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -1045,11 +1192,71 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineBadName(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert_delete")
 	svc := s.setupService(c, factory)
 
 	_, err := svc.WatchUnitAddRemoveOnMachine(c.Context(), "bad-name")
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
+}
+
+func (s *watcherSuite) TestWatchApplicationsInitialEvent(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
+	svc := s.setupService(c, factory)
+
+	app1 := s.createCAASApplication(c, svc, "foo")
+	app2 := s.createCAASApplication(c, svc, "bar")
+
+	ctx := c.Context()
+	watcher, err := svc.WatchApplications(ctx)
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case initial := <-watcher.Changes():
+		c.Assert(initial, tc.SameContents, []string{app1.String(), app2.String()})
+	case <-ctx.Done():
+		c.Fatalf("timed out waiting for initial change")
+	}
+}
+
+func (s *watcherSuite) TestWatchApplications(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
+	svc := s.setupService(c, factory)
+
+	ctx := c.Context()
+	watcher, err := svc.WatchApplications(ctx)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	var appID coreapplication.ID
+	harness.AddTest(func(c *tc.C) {
+		appID = s.createCAASApplication(c, svc, "foo")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{appID.String()}))
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+	UPDATE application SET name = ?
+	WHERE uuid=?`, "bar", appID)
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{appID.String()}))
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			return svc.DeleteApplication(ctx, "bar")
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{appID.String()}))
+	})
+
+	harness.Run(c, []string{})
 }
 
 func (s *watcherSuite) TestWatchApplicationExposed(c *tc.C) {
@@ -1155,7 +1362,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	s.createIAASApplication(c, svc, appName, service.AddUnitArg{}, service.AddUnitArg{})
+	s.createIAASApplication(c, svc, appName, service.AddIAASUnitArg{}, service.AddIAASUnitArg{})
 
 	ctx := c.Context()
 
@@ -1170,7 +1377,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
-	statusState := statusstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
+	statusState := statusstate.NewModelState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
 	resolveState := resolvestate.NewState(modelDB)
 
 	alternateCharmID, _, err := svc.SetCharm(c.Context(), charm.SetCharmArgs{
@@ -1296,7 +1503,7 @@ func (s *watcherSuite) TestWatchUnitAddresses(c *tc.C) {
 
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	s.createIAASApplication(c, svc, "foo", service.AddUnitArg{})
+	s.createIAASApplication(c, svc, "foo", service.AddIAASUnitArg{})
 
 	// Insert a net node first.
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1403,13 +1610,10 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 		return s.ModelTxnRunner(), nil
 	}
 
-	notSupportedProviderGetter := func(ctx context.Context) (service.Provider, error) {
-		return nil, coreerrors.NotSupported
+	providerGetter := func(ctx context.Context) (service.Provider, error) {
+		return machineservice.NewNoopProvider(), nil
 	}
-	notSupportedFeatureProviderGetter := func(ctx context.Context) (service.SupportedFeatureProvider, error) {
-		return nil, coreerrors.NotSupported
-	}
-	notSupportedCAASApplicationproviderGetter := func(ctx context.Context) (service.CAASApplicationProvider, error) {
+	caasProviderGetter := func(ctx context.Context) (service.CAASProvider, error) {
 		return nil, coreerrors.NotSupported
 	}
 
@@ -1421,19 +1625,21 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 		}),
 		"",
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
-		nil, notSupportedProviderGetter,
-		notSupportedFeatureProviderGetter, notSupportedCAASApplicationproviderGetter, nil,
+		nil,
+		providerGetter,
+		caasProviderGetter,
+		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 }
 
-func (s *watcherSuite) createIAASApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *watcherSuite) createIAASApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddIAASUnitArg) coreapplication.ID {
 	return s.createIAASApplicationWithCharmAndStoragePath(c, svc, name, &stubCharm{}, "", units...)
 }
 
-func (s *watcherSuite) createIAASApplicationWithCharmAndStoragePath(c *tc.C, svc *service.WatchableService, name string, ch internalcharm.Charm, storagePath string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *watcherSuite) createIAASApplicationWithCharmAndStoragePath(c *tc.C, svc *service.WatchableService, name string, ch internalcharm.Charm, storagePath string, units ...service.AddIAASUnitArg) coreapplication.ID {
 	ctx := c.Context()
 	appID, err := svc.CreateIAASApplication(ctx, name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
@@ -1456,6 +1662,7 @@ func (s *watcherSuite) createIAASApplicationWithCharmAndStoragePath(c *tc.C, svc
 
 func (s *watcherSuite) createCAASApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddUnitArg) coreapplication.ID {
 	ctx := c.Context()
+	s.createSubnetForCAASModel(c)
 	appID, err := svc.CreateCAASApplication(ctx, name, &stubCharm{}, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
@@ -1473,6 +1680,29 @@ func (s *watcherSuite) createCAASApplication(c *tc.C, svc *service.WatchableServ
 	}, units...)
 	c.Assert(err, tc.ErrorIsNil)
 	return appID
+}
+
+func (s *watcherSuite) createSubnetForCAASModel(c *tc.C) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Only insert the subnet it if doesn't exist.
+		var rowCount int
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM subnet`).Scan(&rowCount); err != nil {
+			return err
+		}
+		if rowCount != 0 {
+			return nil
+		}
+
+		subnetUUID := uuid.MustNewUUID().String()
+		_, err := tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr) VALUES (?, ?)", subnetUUID, "0.0.0.0/0")
+		if err != nil {
+			return err
+		}
+		subnetUUID2 := uuid.MustNewUUID().String()
+		_, err = tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr) VALUES (?, ?)", subnetUUID2, "::/0")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type stubCharm struct {

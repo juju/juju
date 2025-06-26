@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/user"
 )
 
 // UserModelSummary holds information about a model and a users access on it.
@@ -31,6 +30,9 @@ type UserModelSummary struct {
 type ModelSummary struct {
 	// Name is the model name.
 	Name string
+
+	// Qualifier disambiguates the model name.
+	Qualifier Qualifier
 
 	// UUID is the model unique identifier.
 	UUID UUID
@@ -55,9 +57,6 @@ type ModelSummary struct {
 
 	// IsController indicates if the model is a controller.
 	IsController bool
-
-	// OwnerName is the tag of the user that owns the model.
-	OwnerName user.Name
 
 	// Life is the current lifecycle state of the model.
 	Life life.Value

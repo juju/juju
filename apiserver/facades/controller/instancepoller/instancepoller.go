@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -15,8 +16,12 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -26,11 +31,11 @@ type InstancePollerAPI struct {
 	*common.LifeGetter
 	*commonmodel.ModelMachinesWatcher
 	*common.InstanceIdGetter
-	*common.StatusGetter
 
 	st                      StateInterface
 	networkService          NetworkService
 	machineService          MachineService
+	statusService           StatusService
 	accessMachine           common.GetAuthFunc
 	controllerConfigService ControllerConfigService
 	clock                   clock.Clock
@@ -41,8 +46,10 @@ type InstancePollerAPI struct {
 // facade.
 func NewInstancePollerAPI(
 	st *state.State,
+	applicationService ApplicationService,
 	networkService NetworkService,
 	machineService MachineService,
+	statusService StatusService,
 	m *state.Model,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -60,8 +67,11 @@ func NewInstancePollerAPI(
 
 	// Life() is supported for machines.
 	lifeGetter := common.NewLifeGetter(
+		applicationService,
+		machineService,
 		sti,
 		accessMachine,
+		logger,
 	)
 	// WatchModelMachines() is allowed with unrestricted access.
 	machinesWatcher := commonmodel.NewModelMachinesWatcher(
@@ -74,19 +84,14 @@ func NewInstancePollerAPI(
 		machineService,
 		accessMachine,
 	)
-	// Status() is supported for machines.
-	statusGetter := common.NewStatusGetter(
-		sti,
-		accessMachine,
-	)
 
 	return &InstancePollerAPI{
 		LifeGetter:              lifeGetter,
 		ModelMachinesWatcher:    machinesWatcher,
 		InstanceIdGetter:        instanceIdGetter,
-		StatusGetter:            statusGetter,
 		networkService:          networkService,
 		machineService:          machineService,
+		statusService:           statusService,
 		st:                      sti,
 		accessMachine:           accessMachine,
 		controllerConfigService: controllerConfigService,
@@ -172,12 +177,21 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 
 		// Treat errors as transient; the purpose of this API
 		// method is to simply update the provider addresses.
-		if err := a.mergeLinkLayer(machine, params.InterfaceInfoFromNetworkConfig(configs)); err != nil {
+		interfaceInfos := params.InterfaceInfoFromNetworkConfig(configs)
+		if err := a.mergeLinkLayer(machine, interfaceInfos); err != nil {
+			a.logger.Errorf(ctx,
+				"link layer device merge attempt for machine %v failed due to error: %v; "+
+					"waiting until next instance-poller run to retry", machine.Id(), err)
+		}
+
+		// Write in dqlite
+		if err := a.setProviderConfigOneMachine(ctx, arg.Tag, interfaceInfos); err != nil {
 			a.logger.Errorf(ctx,
 				"link layer device merge attempt for machine %v failed due to error: %v; "+
 					"waiting until next instance-poller run to retry", machine.Id(), err)
 		}
 	}
+
 	return result, nil
 }
 
@@ -277,6 +291,46 @@ func spaceInfoForAddress(
 	return spaceInfos.InferSpaceFromAddress(addr)
 }
 
+// Status returns the status of the specified machine.
+func (s *InstancePollerAPI) Status(ctx context.Context, args params.Entities) (params.StatusResults, error) {
+	results := params.StatusResults{
+		Results: make([]params.StatusResult, len(args.Entities)),
+	}
+	canAccess, err := s.accessMachine(ctx)
+	if err != nil {
+		return results, err
+	}
+	for i, arg := range args.Entities {
+		mTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canAccess(mTag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		machineName := machine.Name(mTag.Id())
+
+		statusInfo, err := s.statusService.GetMachineStatus(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		results.Results[i] = params.StatusResult{
+			Status: statusInfo.Status.String(),
+			Info:   statusInfo.Message,
+			Data:   statusInfo.Data,
+			Since:  statusInfo.Since,
+		}
+	}
+	return results, nil
+}
+
 // InstanceStatus returns the instance status for each given entity.
 // Only machine tags are accepted.
 func (a *InstancePollerAPI) InstanceStatus(ctx context.Context, args params.Entities) (params.StatusResults, error) {
@@ -288,18 +342,28 @@ func (a *InstancePollerAPI) InstanceStatus(ctx context.Context, args params.Enti
 		return result, err
 	}
 	for i, arg := range args.Entities {
-		machine, err := a.getOneMachine(arg.Tag, canAccess)
-		if err == nil {
-			var statusInfo status.StatusInfo
-			statusInfo, err = machine.InstanceStatus()
-			if err == nil {
-				result.Results[i].Status = statusInfo.Status.String()
-				result.Results[i].Info = statusInfo.Message
-				result.Results[i].Data = statusInfo.Data
-				result.Results[i].Since = statusInfo.Since
-			}
+		machineTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		if !canAccess(machineTag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		machineName := machine.Name(machineTag.Id())
+		statusInfo, err := a.statusService.GetInstanceStatus(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Status = statusInfo.Status.String()
+		result.Results[i].Info = statusInfo.Message
+		result.Results[i].Data = statusInfo.Data
+		result.Results[i].Since = statusInfo.Since
 	}
 	return result, nil
 }
@@ -314,25 +378,44 @@ func (a *InstancePollerAPI) SetInstanceStatus(ctx context.Context, args params.S
 	if err != nil {
 		return result, err
 	}
+	now := a.clock.Now()
 	for i, arg := range args.Entities {
-		machine, err := a.getOneMachine(arg.Tag, canAccess)
-		if err == nil {
-			now := a.clock.Now()
-			s := status.StatusInfo{
-				Status:  status.Status(arg.Status),
-				Message: arg.Info,
-				Data:    arg.Data,
-				Since:   &now,
-			}
-			err = machine.SetInstanceStatus(s)
-			if status.Status(arg.Status) == status.ProvisioningError {
-				s.Status = status.Error
-				if err == nil {
-					err = machine.SetStatus(s)
-				}
+		machineTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canAccess(machineTag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		machineName := machine.Name(machineTag.Id())
+
+		s := status.StatusInfo{
+			Status:  status.Status(arg.Status),
+			Message: arg.Info,
+			Data:    arg.Data,
+			Since:   &now,
+		}
+		err = a.statusService.SetInstanceStatus(ctx, machineName, s)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if arg.Status == status.ProvisioningError.String() || arg.Status == status.Error.String() {
+			s.Status = status.Error
+			err := a.statusService.SetMachineStatus(ctx, machineName, s)
+			if errors.Is(err, machineerrors.MachineNotFound) {
+				result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+				continue
+			} else if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
 			}
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -348,11 +431,93 @@ func (a *InstancePollerAPI) AreManuallyProvisioned(ctx context.Context, args par
 		return result, err
 	}
 	for i, arg := range args.Entities {
-		machine, err := a.getOneMachine(arg.Tag, canAccess)
-		if err == nil {
-			result.Results[i].Result, err = machine.IsManual()
+		machineTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+
+		if !canAccess(machineTag) {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		manual, err := a.machineService.IsMachineManuallyProvisioned(ctx, machine.Name(machineTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %q", machineTag.Id()))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Result = manual
 	}
 	return result, nil
+}
+
+// setProviderConfigOneMachine sets the provider network configuration for a
+// single machine given its tag and network info.
+func (a *InstancePollerAPI) setProviderConfigOneMachine(
+	ctx context.Context,
+	machineTag string,
+	devs network.InterfaceInfos,
+) error {
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return internalerrors.Errorf("failed to parse machine tag %q: %w", machineTag, err)
+	}
+	uuid, err := a.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+	if err != nil {
+		return internalerrors.Errorf("failed to get machine uuid for %q: %w", tag.Id(), err)
+	}
+
+	devices := transform.Slice(devs, newNetInterface)
+	return a.networkService.SetProviderNetConfig(ctx, uuid, devices)
+}
+
+func newNetInterface(device network.InterfaceInfo) domainnetwork.NetInterface {
+	return domainnetwork.NetInterface{
+		Name:             device.InterfaceName,
+		MTU:              ptr(int64(device.MTU)),
+		MACAddress:       ptr(device.MACAddress),
+		ProviderID:       ptr(device.ProviderId),
+		Type:             network.LinkLayerDeviceType(device.ConfigType),
+		VirtualPortType:  device.VirtualPortType,
+		IsAutoStart:      !device.NoAutoStart,
+		IsEnabled:        !device.Disabled,
+		ParentDeviceName: device.ParentInterfaceName,
+		GatewayAddress:   ptr(device.GatewayAddress.Value),
+		IsDefaultGateway: device.IsDefaultGateway,
+		VLANTag:          uint64(device.VLANTag),
+		DNSSearchDomains: device.DNSSearchDomains,
+		DNSAddresses:     device.DNSServers,
+		Addrs: append(
+			transform.Slice(device.Addresses, newNetAddress(device, false)),
+			transform.Slice(device.ShadowAddresses, newNetAddress(device, true))...),
+	}
+}
+
+func newNetAddress(device network.InterfaceInfo, isShadow bool) func(network.ProviderAddress) domainnetwork.NetAddr {
+	return func(providerAddr network.ProviderAddress) domainnetwork.NetAddr {
+		return domainnetwork.NetAddr{
+			InterfaceName:    device.InterfaceName,
+			AddressValue:     providerAddr.Value,
+			AddressType:      providerAddr.Type,
+			ConfigType:       providerAddr.ConfigType,
+			Origin:           network.OriginProvider,
+			Scope:            providerAddr.Scope,
+			IsSecondary:      providerAddr.IsSecondary,
+			IsShadow:         isShadow,
+			ProviderID:       ptr(device.ProviderAddressId),
+			ProviderSubnetID: ptr(device.ProviderSubnetId),
+		}
+	}
+}
+
+func ptr[T comparable](f T) *T {
+	var zero T
+	if f == zero {
+		return nil
+	}
+	return &f
 }

@@ -25,14 +25,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// SharedHub represents the methods of the pubsub.StructuredHub
-// that are used. The context uses an interface to allow mocking
-// of the hub.
-type SharedHub interface {
-	Publish(topic string, data interface{}) (func(), error)
-	Subscribe(topic string, handler interface{}) (func(), error)
-}
-
 // sharedServerContext contains a number of components that are unchangeable in the API server.
 // These components need to be exposed through the facade.ModelContext. Instead of having the methods
 // of newAPIHandler and newAPIRoot take ever-increasing numbers of parameters, they will instead
@@ -42,7 +34,6 @@ type SharedHub interface {
 // presence, or protected and only accessed through methods on this context object.
 type sharedServerContext struct {
 	statePool          *state.StatePool
-	centralHub         SharedHub
 	leaseManager       lease.Manager
 	logger             corelogger.Logger
 	charmhubHTTPClient facade.HTTPClient
@@ -84,7 +75,6 @@ type sharedServerContext struct {
 
 type sharedServerConfig struct {
 	statePool           *state.StatePool
-	centralHub          SharedHub
 	leaseManager        lease.Manager
 	controllerUUID      string
 	controllerModelUUID model.UUID
@@ -106,9 +96,6 @@ type sharedServerConfig struct {
 func (c *sharedServerConfig) validate() error {
 	if c.statePool == nil {
 		return errors.NotValidf("nil statePool")
-	}
-	if c.centralHub == nil {
-		return errors.NotValidf("nil centralHub")
 	}
 	if c.leaseManager == nil {
 		return errors.NotValidf("nil leaseManager")
@@ -149,7 +136,6 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 	}
 	ctx := &sharedServerContext{
 		statePool:               config.statePool,
-		centralHub:              config.centralHub,
 		leaseManager:            config.leaseManager,
 		logger:                  config.logger,
 		controllerUUID:          config.controllerUUID,

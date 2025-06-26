@@ -11,13 +11,12 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver"
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -48,10 +47,8 @@ type Suite struct {
 	domainServices            *MockDomainServices
 	domainServicesGetter      *MockDomainServicesGetter
 	externalControllerService *MockExternalControllerService
-	applicationService        *MockApplicationService
-	relationService           *MockRelationService
-	statusSerivce             *MockStatusService
 	upgradeService            *MockUpgradeService
+	statusService             *MockStatusService
 	modelImporter             *MockModelImporter
 	objectStoreGetter         *MockModelObjectStoreGetter
 	modelMigrationService     *MockModelMigrationService
@@ -131,7 +128,7 @@ func (s *Suite) TestPrechecks(c *tc.C) {
 	args := params.MigrationModelInfo{
 		UUID:                   "uuid",
 		Name:                   "some-model",
-		OwnerTag:               names.NewUserTag("someone").String(),
+		Qualifier:              "someone",
 		AgentVersion:           s.controllerVersion(c),
 		ControllerAgentVersion: s.controllerVersion(c),
 	}
@@ -148,7 +145,7 @@ func (s *Suite) TestPrechecksIsUpgrading(c *tc.C) {
 	args := params.MigrationModelInfo{
 		UUID:                   "uuid",
 		Name:                   "some-model",
-		OwnerTag:               names.NewUserTag("someone").String(),
+		Qualifier:              "someone",
 		AgentVersion:           s.controllerVersion(c),
 		ControllerAgentVersion: s.controllerVersion(c),
 	}
@@ -281,11 +278,6 @@ func (s *Suite) TestActivate(c *tc.C) {
 
 	s.expectImportModel(c)
 
-	sourceModel := "deadbeef-0bad-400d-8000-4b1d0d06f666"
-	_, err := commoncrossmodel.GetBackend(s.State).AddRemoteApplication(commoncrossmodel.AddRemoteApplicationParams{
-		Name: "foo", SourceModel: names.NewModelTag(sourceModel),
-	})
-	c.Assert(err, tc.ErrorIsNil)
 	api := s.mustNewAPI(c, c.MkDir())
 	tag := s.importModel(c, api)
 
@@ -294,37 +286,24 @@ func (s *Suite) TestActivate(c *tc.C) {
 		Alias:          "mycontroller",
 		Addrs:          []string{"10.6.6.6:17070"},
 		CACert:         jujutesting.CACert,
-		ModelUUIDs:     []string{sourceModel},
 	}
 	s.externalControllerService.EXPECT().UpdateExternalController(
 		gomock.Any(),
 		expectedCI,
 	).Times(1)
-	s.externalControllerService.EXPECT().ControllerForModel(
-		gomock.Any(),
-		sourceModel,
-	).Times(1).Return(&expectedCI, nil)
 
-	err = api.Activate(c.Context(), params.ActivateModelArgs{
+	err := api.Activate(c.Context(), params.ActivateModelArgs{
 		ModelTag:        tag.String(),
 		ControllerTag:   jujutesting.ControllerTag.String(),
 		ControllerAlias: "mycontroller",
 		SourceAPIAddrs:  []string{"10.6.6.6:17070"},
 		SourceCACert:    jujutesting.CACert,
-		CrossModelUUIDs: []string{sourceModel},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	mode, err := s.State.MigrationMode()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(mode, tc.Equals, state.MigrationModeNone)
-
-	model, ph, err := s.StatePool.GetModel(tag.Id())
-	c.Assert(err, tc.ErrorIsNil)
-	defer ph.Release()
-	app, err := commoncrossmodel.GetBackend(model.State()).RemoteApplication("foo")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(app.SourceController(), tc.Equals, jujutesting.ControllerTag.Id())
 }
 
 func (s *Suite) TestActivateNotATag(c *tc.C) {
@@ -450,9 +429,8 @@ func (s *Suite) setupMocks(c *tc.C) *gomock.Controller {
 	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
 
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
-	s.applicationService = NewMockApplicationService(ctrl)
-	s.statusSerivce = NewMockStatusService(ctrl)
 	s.upgradeService = NewMockUpgradeService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
 
 	s.objectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
 	s.modelImporter = NewMockModelImporter(ctrl)
@@ -488,10 +466,8 @@ func (s *Suite) newAPI(versions facades.FacadeVersions, logDir string) (*migrati
 		s.authorizer,
 		s.controllerConfigService,
 		s.externalControllerService,
-		s.applicationService,
-		s.relationService,
-		s.statusSerivce,
 		s.upgradeService,
+		s.statusService,
 		s.agentServiceGetter,
 		s.migrationServiceGetter,
 		versions,

@@ -12,7 +12,7 @@ var (
 	// ApplicationNamespace is the namespace for application status.
 	ApplicationNamespace = statushistory.Namespace{Kind: status.KindApplication}
 
-	// UnitNamespace is the namespace for unit status.
+	// UnitAgentNamespace is the namespace for unit agent status.
 	UnitAgentNamespace = statushistory.Namespace{Kind: status.KindUnitAgent}
 
 	// UnitWorkloadNamespace is the namespace for unit workload status.
@@ -23,4 +23,10 @@ var (
 
 	// MachineInstanceNamespace is the namespace for instance status.
 	MachineInstanceNamespace = statushistory.Namespace{Kind: status.KindMachineInstance}
+
+	// FilesystemNamespace is the namespace for filesystem status.
+	FilesystemNamespace = statushistory.Namespace{Kind: status.KindFilesystem}
+
+	// VolumeNamespace is the namespace for volume status.
+	VolumeNamespace = statushistory.Namespace{Kind: status.KindVolume}
 )

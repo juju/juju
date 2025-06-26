@@ -7,12 +7,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/core/status"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
 )
 
 // ModelManagerBackend defines methods provided by a state
@@ -28,15 +26,11 @@ import (
 // All the interface methods are defined directly on state.State
 // and are reproduced here for use in tests.
 type ModelManagerBackend interface {
-	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
-	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
-
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)
 	GetBackend(string) (ModelManagerBackend, func() bool, error)
 
 	ControllerNodes() ([]ControllerNode, error)
-	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	AllMachines() (machines []Machine, err error)
 	AllFilesystems() ([]state.Filesystem, error)
@@ -44,26 +38,20 @@ type ModelManagerBackend interface {
 	Export(store objectstore.ObjectStore) (description.Model, error)
 	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 
-	MigrationMode() (state.MigrationMode, error)
-	LatestMigration() (state.ModelMigration, error)
 	Close() error
 	HAPrimaryMachine() (names.MachineTag, error)
 }
 
 type ControllerNode interface {
 	Id() string
-	HasVote() bool
-	WantsVote() bool
 }
 
 type Machine interface {
 	Id() string
-	Status() (status.StatusInfo, error)
 	ContainerType() instance.ContainerType
 	Life() state.Life
 	ForceDestroy(time.Duration) error
 	Destroy(objectstore.ObjectStore) error
-	IsManager() bool
 }
 
 // Model defines methods provided by a state.Model instance.
@@ -78,12 +66,12 @@ type Model interface {
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// InstanceIDAndName returns the cloud specific instance ID and display name for
+	// GetInstanceIDAndName returns the cloud specific instance ID and display name for
 	// this machine.
-	InstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
+	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
 }
 
 // StatusService returns the status of a applications, and units and machines.
@@ -97,6 +85,10 @@ type StatusService interface {
 	// The following error types can be expected to be returned:
 	// - [modelerrors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(context.Context) (domainstatus.ModelStatusInfo, error)
+
+	// GetAllMachineStatuses returns all the machine statuses for the model, indexed
+	// by machine name.
+	GetAllMachineStatuses(context.Context) (map[machine.Name]status.StatusInfo, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)
@@ -246,28 +238,6 @@ func (st modelManagerStateShim) AllMachines() ([]Machine, error) {
 	all := make([]Machine, len(allStateMachines))
 	for i, m := range allStateMachines {
 		all[i] = machineShim{m}
-	}
-	return all, nil
-}
-
-// Application defines methods provided by a state.Application instance.
-type Application interface {
-	Name() string
-	UnitCount() int
-}
-
-type applicationShim struct {
-	*state.Application
-}
-
-func (st modelManagerStateShim) AllApplications() ([]Application, error) {
-	allStateApplications, err := st.State.AllApplications()
-	if err != nil {
-		return nil, err
-	}
-	all := make([]Application, len(allStateApplications))
-	for i, a := range allStateApplications {
-		all[i] = applicationShim{a}
 	}
 	return all, nil
 }

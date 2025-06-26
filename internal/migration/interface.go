@@ -12,8 +12,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/tools"
@@ -29,7 +27,6 @@ type PrecheckBackend interface {
 	IsMigrationActive(string) (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
 	AllMachinesCount() (int, error)
-	AllApplications() ([]PrecheckApplication, error)
 	ControllerBackend() (PrecheckBackend, error)
 	MachineCountForBase(base ...state.Base) (map[string]int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
@@ -47,11 +44,12 @@ type UpgradeService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	// GetApplicationLife looks up the life of the specified application,
-	// returning an error satisfying
-	// [applicationerrors.ApplicationNotFoundError] if the application is not
-	// found.
-	GetApplicationLife(context.Context, string) (life.Value, error)
+	// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
+	// in the model are alive, returning an error if any are not.
+	CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error
+
+	// GetUnitNamesForApplication returns a slice of the unit names for the given application
+	GetUnitNamesForApplication(ctx context.Context, appName string) ([]unit.Name, error)
 }
 
 // RelationService provides access to the relation service.
@@ -70,6 +68,10 @@ type StatusService interface {
 	// CheckUnitStatusesReadyForMigration returns true is the statuses of all units
 	// in the model indicate they can be migrated.
 	CheckUnitStatusesReadyForMigration(context.Context) error
+
+	// CheckMachineStatusesReadyForMigration returns an error if the statuses of any
+	// machines in the model indicate they cannot be migrated.
+	CheckMachineStatusesReadyForMigration(context.Context) error
 }
 
 // ControllerConfigService describes the method needed to get the
@@ -102,26 +104,6 @@ type PrecheckMachine interface {
 	Id() string
 	AgentTools() (*tools.Tools, error)
 	Life() state.Life
-	Status() (status.StatusInfo, error)
-	InstanceStatus() (status.StatusInfo, error)
 	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
 	// ShouldRebootOrShutdown() (state.RebootAction, error)
-}
-
-// PrecheckApplication describes the state interface for an
-// application needed by migration prechecks.
-type PrecheckApplication interface {
-	Name() string
-	CharmURL() (*string, bool)
-	AllUnits() ([]PrecheckUnit, error)
-}
-
-// PrecheckUnit describes state interface for a unit needed by
-// migration prechecks.
-type PrecheckUnit interface {
-	Name() string
-	AgentTools() (*tools.Tools, error)
-	Life() state.Life
-	CharmURL() *string
-	ShouldBeAssigned() bool
 }

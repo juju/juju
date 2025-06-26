@@ -718,9 +718,8 @@ type ModifyUserSSHKeys struct {
 // StateServingInfo holds information needed by a state
 // server.
 type StateServingInfo struct {
-	APIPort           int `json:"api-port"`
-	ControllerAPIPort int `json:"controller-api-port,omitempty"`
-	StatePort         int `json:"state-port"`
+	APIPort   int `json:"api-port"`
+	StatePort int `json:"state-port"`
 	// The controller cert and corresponding private key.
 	Cert       string `json:"cert"`
 	PrivateKey string `json:"private-key"`
@@ -730,6 +729,9 @@ type StateServingInfo struct {
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret   string `json:"shared-secret"`
 	SystemIdentity string `json:"system-identity"`
+
+	// Deprecated: ControllerAPIPort is no longer used.
+	ControllerAPIPort int `json:"controller-api-port,omitempty"`
 }
 
 // IsMasterResult holds the result of an IsMaster API call.

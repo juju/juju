@@ -5,10 +5,13 @@ package state
 
 import (
 	"database/sql"
+	"net"
 
 	"github.com/juju/collections/transform"
 
 	corenetwork "github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
@@ -25,6 +28,14 @@ type netNodeUUID struct {
 	UUID string `db:"net_node_uuid"`
 }
 
+type unitName struct {
+	Name coreunit.Name `db:"name"`
+}
+
+type lifeID struct {
+	LifeID life.Life `db:"life_id"`
+}
+
 // subnet represents a single row from the subnet table.
 type subnet struct {
 	// UUID is the subnet's UUID.
@@ -34,7 +45,7 @@ type subnet struct {
 	// VLANtag is the subnet's vlan tag.
 	VLANtag int `db:"vlan_tag"`
 	// SpaceUUID is the space UUID.
-	SpaceUUID string `db:"space_uuid"`
+	SpaceUUID corenetwork.SpaceUUID `db:"space_uuid"`
 }
 
 // providerSubnet represents a single row from the provider_subnet table.
@@ -65,9 +76,9 @@ type providerNetworkSubnet struct {
 // space represents a single row from the space table.
 type space struct {
 	// Name is the space name.
-	Name string `db:"name"`
+	Name corenetwork.SpaceName `db:"name"`
 	// UUID is the unique ID of the space.
-	UUID string `db:"uuid"`
+	UUID corenetwork.SpaceUUID `db:"uuid"`
 }
 
 type spaceName struct {
@@ -81,7 +92,7 @@ type countResult struct {
 // providerSpace represents a single row from the provider_space table.
 type providerSpace struct {
 	// SpaceUUID is the unique ID of the space.
-	SpaceUUID string `db:"space_uuid"`
+	SpaceUUID corenetwork.SpaceUUID `db:"space_uuid"`
 	// ProviderID is a provider-specific space ID.
 	ProviderID corenetwork.Id `db:"provider_id"`
 }
@@ -109,7 +120,8 @@ type SubnetRow struct {
 	// UUID is the subnet UUID.
 	UUID string `db:"subnet_uuid"`
 
-	// CIDR is the one of the subnet's cidr.
+	// CIDR is the Classless Inter-Domain Routing notation
+	// indicating this subnet's address range.
 	CIDR string `db:"subnet_cidr"`
 
 	// VLANTag is the subnet's vlan tag.
@@ -125,10 +137,10 @@ type SubnetRow struct {
 	ProviderSpaceUUID sql.NullString `db:"subnet_provider_space_uuid"`
 
 	// SpaceUUID is the space uuid.
-	SpaceUUID sql.NullString `db:"subnet_space_uuid"`
+	SpaceUUID sql.Null[corenetwork.SpaceUUID] `db:"subnet_space_uuid"`
 
 	// SpaceName is the name of the space the subnet is associated with.
-	SpaceName sql.NullString `db:"subnet_space_name"`
+	SpaceName sql.Null[corenetwork.SpaceName] `db:"subnet_space_name"`
 
 	// AZ is the availability zones on the subnet.
 	AZ string `db:"subnet_az"`
@@ -141,7 +153,7 @@ type spaceSubnetRow struct {
 	SubnetRow
 
 	// UUID is the space UUID.
-	SpaceUUID string `db:"uuid"`
+	SpaceUUID corenetwork.SpaceUUID `db:"uuid"`
 
 	// Name is the space name.
 	SpaceName string `db:"name"`
@@ -156,7 +168,7 @@ type SpaceSubnetRows []spaceSubnetRow
 // subnetRows is a slice of Subnet rows.
 type subnetRows []SubnetRow
 
-// ToSpaceInfos converts Spaces to a slice of network.SpaceInfo structs.
+// ToSpaceInfos converts Spaces to a slice of corenetwork.SpaceInfo structs.
 // This method makes sure only unique subnets are mapped and flattens them into
 // each space.
 // No sorting is applied.
@@ -164,9 +176,9 @@ func (sp SpaceSubnetRows) ToSpaceInfos() corenetwork.SpaceInfos {
 	var res corenetwork.SpaceInfos
 
 	// Prepare structs for unique subnets for each space.
-	uniqueAZs := make(map[string]map[string]map[string]string)
-	uniqueSubnets := make(map[string]map[string]corenetwork.SubnetInfo)
-	uniqueSpaces := make(map[string]corenetwork.SpaceInfo)
+	uniqueAZs := make(map[corenetwork.SpaceUUID]map[string]map[string]string)
+	uniqueSubnets := make(map[corenetwork.SpaceUUID]map[string]corenetwork.SubnetInfo)
+	uniqueSpaces := make(map[corenetwork.SpaceUUID]corenetwork.SpaceInfo)
 
 	for _, spaceSubnet := range sp {
 		spInfo := corenetwork.SpaceInfo{
@@ -224,10 +236,10 @@ func (s SubnetRow) ToSubnetInfo() *corenetwork.SubnetInfo {
 		sInfo.ProviderSpaceId = corenetwork.Id(s.ProviderSpaceUUID.String)
 	}
 	if s.SpaceUUID.Valid {
-		sInfo.SpaceID = s.SpaceUUID.String
+		sInfo.SpaceID = s.SpaceUUID.V
 	}
 	if s.SpaceName.Valid {
-		sInfo.SpaceName = s.SpaceName.String
+		sInfo.SpaceName = s.SpaceName.V
 	}
 
 	return &sInfo
@@ -310,7 +322,7 @@ type dnsAddressRow struct {
 // The incoming map of device name to device UUID should contain entries for
 // this device's UUID and its parent device if required.
 // It is expected that the map will be populated as part of the reconciliation
-// process prior to calling this method.
+// process before calling this method.
 func netInterfaceToDML(
 	dev network.NetInterface, nodeUUID string, nameToUUID map[string]string,
 ) (linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, error) {
@@ -427,8 +439,8 @@ type ipAddressDML struct {
 // the device to which the address is assigned.
 // The incoming map of IP address to UUID should contain an entry for this
 // address.
-// It is expected that the maps will be populated as part of the reconciliation
-// process prior to calling this method.
+// It is expected that UUID lookups will be populated as part of the
+// reconciliation process before calling this method.
 func netAddrToDML(
 	addr network.NetAddr, nodeUUID, devUUID string, ipToUUID map[string]string,
 ) (ipAddressDML, error) {
@@ -506,17 +518,21 @@ func encodeAddressConfigType(kind corenetwork.AddressConfigType) (int64, error) 
 	}
 }
 
+const (
+	originMachine  int64 = 0
+	originProvider int64 = 1
+)
+
 func encodeAddressOrigin(kind corenetwork.Origin) (int64, error) {
 	switch kind {
 	case corenetwork.OriginMachine:
-		return 0, nil
+		return originMachine, nil
 	case corenetwork.OriginProvider:
-		return 1, nil
+		return originProvider, nil
 	default:
 		return -1, errors.Errorf("unsupported address origin: %q", kind)
 	}
 }
-
 func encodeAddressScope(kind corenetwork.Scope) (int64, error) {
 	switch kind {
 	case corenetwork.ScopeUnknown:
@@ -599,6 +615,100 @@ type linkLayerDevice struct {
 	VLAN            int            `db:"vlan_tag"`
 }
 
+// linkLayerDeviceName is used for identifying
+// known link-layer devices on a single node.
+type linkLayerDeviceName struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
+
+// ipAddressValue is used for identifying known IP addresses on a single node.
+type ipAddressValue struct {
+	UUID       string         `db:"uuid"`
+	Value      string         `db:"address_value"`
+	OriginID   int64          `db:"origin_id"`
+	SubnetUUID sql.NullString `db:"subnet_uuid"`
+}
+
+type getLinkLayerDevice struct {
+	UUID             string  `db:"uuid"`
+	NetNodeUUID      string  `db:"net_node_uuid"`
+	Name             string  `db:"name"`
+	ParentName       string  `db:"parent_name"`
+	ProviderID       *string `db:"provider_id"`
+	MTU              *int64  `db:"mtu"`
+	MACAddress       *string `db:"mac_address"`
+	DeviceType       string  `db:"device_type"`
+	VirtualPortType  string  `db:"virtual_port_type"`
+	IsAutoStart      bool    `db:"is_auto_start"`
+	IsEnabled        bool    `db:"is_enabled"`
+	IsDefaultGateway bool    `db:"is_default_gateway"`
+	GatewayAddress   *string `db:"gateway_address"`
+	VlanTag          uint64  `db:"vlan_tag"`
+}
+
+type getIpAddress struct {
+	UUID             string  `db:"uuid"`
+	NodeUUID         string  `db:"net_node_uuid"`
+	ProviderID       *string `db:"provider_id"`
+	ProviderSubnetID *string `db:"provider_subnet_id"`
+	DeviceUUID       string  `db:"device_uuid"`
+	AddressValue     string  `db:"address_value"`
+	Type             string  `db:"type"`
+	ConfigType       string  `db:"config_type"`
+	Origin           string  `db:"origin"`
+	Scope            string  `db:"scope"`
+	Space            string  `db:"space"`
+	IsSecondary      bool    `db:"is_secondary"`
+	IsShadow         bool    `db:"is_shadow"`
+}
+
+// dmlToNetInterface converts a getLinkLayerDevice and related input data
+// to a corresponding network.NetInterface structure.
+// It maps device types, virtual port types, and initializes fields
+// using provided DNS domains, addresses, and IP data.
+func (lld getLinkLayerDevice) toNetInterface(
+	dnsDomains, dnsAddresses []string,
+	ipAddresses []getIpAddress) (network.NetInterface, error) {
+	addresses := transform.Slice(ipAddresses, func(addr getIpAddress) network.NetAddr {
+		return addr.toNetAddr(lld.Name)
+	})
+
+	return network.NetInterface{
+		Name:             lld.Name,
+		MTU:              lld.MTU,
+		MACAddress:       lld.MACAddress,
+		ProviderID:       nilstr[corenetwork.Id](lld.ProviderID),
+		Type:             corenetwork.LinkLayerDeviceType(lld.DeviceType),
+		VirtualPortType:  corenetwork.VirtualPortType(lld.VirtualPortType),
+		IsAutoStart:      lld.IsAutoStart,
+		IsEnabled:        lld.IsEnabled,
+		ParentDeviceName: lld.ParentName,
+		GatewayAddress:   lld.GatewayAddress,
+		IsDefaultGateway: lld.IsDefaultGateway,
+		VLANTag:          lld.VlanTag,
+		DNSSearchDomains: dnsDomains,
+		DNSAddresses:     dnsAddresses,
+		Addrs:            addresses,
+	}, nil
+}
+
+func (ip getIpAddress) toNetAddr(deviceName string) network.NetAddr {
+	return network.NetAddr{
+		InterfaceName:    deviceName,
+		ProviderID:       nilstr[corenetwork.Id](ip.ProviderID),
+		AddressValue:     ip.AddressValue,
+		ProviderSubnetID: nilstr[corenetwork.Id](ip.ProviderSubnetID),
+		AddressType:      corenetwork.AddressType(ip.Type),
+		ConfigType:       corenetwork.AddressConfigType(ip.ConfigType),
+		Origin:           corenetwork.Origin(ip.Origin),
+		Scope:            corenetwork.Scope(ip.Scope),
+		IsSecondary:      ip.IsSecondary,
+		IsShadow:         ip.IsShadow,
+		Space:            ip.Space,
+	}
+}
+
 type linkLayerDeviceParent struct {
 	DeviceUUID string `db:"device_uuid"`
 	ParentUUID string `db:"parent_uuid"`
@@ -607,4 +717,62 @@ type linkLayerDeviceParent struct {
 type providerLinkLayerDevice struct {
 	ProviderID string `db:"provider_id"`
 	DeviceUUID string `db:"device_uuid"`
+}
+
+// subnetGroup is a CIDR-centric view of subnets sharing the same CIDR.
+// For practical purposes, each CIDR will have a single subnet identity,
+// but our model allows the same CIDR to exist in different provider networks.
+type subnetGroup struct {
+	ipNet net.IPNet
+	uuids []string
+}
+
+type subnetGroups []subnetGroup
+
+// subnetForIP returns the subnet UUID for the input IP address in CIDR format
+// if one can be determined.
+// If the UUIDs for the CIDR are not unique, an empty string is returned.
+func (subs subnetGroups) subnetForIP(ip string) (string, error) {
+	netIP, _, _ := net.ParseCIDR(ip)
+	if netIP == nil {
+		return "", errors.Errorf("invalid IP address %q", ip)
+	}
+
+	var matches []string
+	for _, s := range subs {
+		if s.ipNet.Contains(netIP) {
+			matches = append(matches, s.uuids...)
+		}
+	}
+
+	if len(matches) == 0 {
+		return "", errors.Errorf("no subnet found for IP %q", ip)
+	}
+
+	// If there are multiple subnets for the same CIDR,
+	// the caller must create a subnet for the IP address.
+	if len(matches) > 1 {
+		return "", nil
+	}
+	return matches[0], nil
+}
+
+type spaceAddress struct {
+	Value      string         `db:"address_value"`
+	ConfigType string         `db:"config_type_name"`
+	Type       string         `db:"type_name"`
+	Origin     string         `db:"origin_name"`
+	Scope      string         `db:"scope_name"`
+	DeviceUUID string         `db:"device_uuid"`
+	SpaceUUID  sql.NullString `db:"space_uuid"`
+	SubnetCIDR sql.NullString `db:"cidr"`
+}
+
+func nilstr[T ~string](s *string) *T {
+	var res *T
+	if s != nil {
+		cast := T(*s)
+		res = &cast
+	}
+	return res
 }

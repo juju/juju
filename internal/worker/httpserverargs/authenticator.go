@@ -133,7 +133,6 @@ func NewStateAuthenticator(
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(passwordService, systemState, nil)
 	stateAuthenticator, err := stateauthenticator.NewAuthenticator(
 		ctx,
-		statePool,
 		controllerModelUUID, controllerConfigService,
 		agentPasswordServiceGetter,
 		accessService,

@@ -7,8 +7,8 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/juju/apiserver/common"
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -23,31 +23,26 @@ func Register(registry facade.FacadeRegistry) {
 	// elsewhere. I've talked long and hard to myself about this, but there
 	// is no way around it.
 	registry.MustRegisterForMultiModel("ApplicationOffers", 5, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
-		return makeOffersAPI(ctx)
+		return makeOffersAPIV5(ctx)
 	}, reflect.TypeOf((*OffersAPIv5)(nil)))
+	// v6 handles offer URLs with a model qualifier instead of a username.
+	registry.MustRegisterForMultiModel("ApplicationOffers", 6, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
+		return makeOffersAPI(ctx)
+	}, reflect.TypeOf((*OffersAPI)(nil)))
+}
+
+// makeOffersAPIv5 returns a new application offers OffersAPIv5 facade.
+func makeOffersAPIV5(facadeContext facade.MultiModelContext) (*OffersAPIv5, error) {
+	api, err := makeOffersAPI(facadeContext)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &OffersAPIv5{
+		OffersAPI: api,
+	}, nil
 }
 
 // makeOffersAPI returns a new application offers OffersAPI facade.
-func makeOffersAPI(facadeContext facade.MultiModelContext) (*OffersAPIv5, error) {
-	domainServices := facadeContext.DomainServices()
-	st := facadeContext.State()
-	getControllerInfo := func(ctx context.Context) ([]string, string, error) {
-		return common.ControllerAPIInfo(ctx, st, domainServices.ControllerConfig())
-	}
-
-	authContext := facadeContext.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
-	return createOffersAPI(
-		GetApplicationOffers,
-		getControllerInfo,
-		GetStateAccess(st),
-		GetStatePool(facadeContext.StatePool()),
-		domainServices.Access(),
-		newModelDomainServicesGetter(facadeContext),
-		facadeContext.Auth(),
-		authContext.(*commoncrossmodel.AuthContext),
-		facadeContext.DataDir(),
-		facadeContext.Logger().Child("applicationoffers"),
-		facadeContext.ControllerUUID(),
-		facadeContext.DomainServices().Model(),
-	)
+func makeOffersAPI(_ facade.MultiModelContext) (*OffersAPI, error) {
+	return createOffersAPI()
 }

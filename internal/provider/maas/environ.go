@@ -567,7 +567,7 @@ func (env *maasEnviron) networkSpaceRequirements(ctx context.Context, endpointTo
 		// code that maps between space IDs and provider space IDs
 		// encounters a space that it cannot map, it passes the space
 		// name through.
-		if providerSpaceID == corenetwork.AlphaSpaceName {
+		if providerSpaceID == corenetwork.Id(corenetwork.AlphaSpaceName) {
 			continue
 		}
 

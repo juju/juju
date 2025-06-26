@@ -66,8 +66,6 @@ type storageVolume interface {
 	// VolumeAttachments is required for volume functionality.
 	VolumeAttachments(volume names.VolumeTag) ([]state.VolumeAttachment, error)
 
-	VolumeAttachmentPlans(volume names.VolumeTag) ([]state.VolumeAttachmentPlan, error)
-
 	// MachineVolumeAttachments is required for volume functionality.
 	MachineVolumeAttachments(machine names.MachineTag) ([]state.VolumeAttachment, error)
 

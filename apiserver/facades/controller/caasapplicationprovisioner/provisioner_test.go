@@ -18,23 +18,26 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	jujuresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/deployment"
+	"github.com/juju/juju/domain/removal"
 	envconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -54,16 +57,19 @@ type CAASApplicationProvisionerSuite struct {
 	clock clock.Clock
 
 	resources               *common.Resources
+	watcherRegistry         *facademocks.MockWatcherRegistry
 	authorizer              *apiservertesting.FakeAuthorizer
 	api                     *caasapplicationprovisioner.API
 	st                      *mockState
 	storage                 *mockStorage
 	storagePoolGetter       *mockStoragePoolGetter
+	applicationService      *MockApplicationService
 	controllerConfigService *MockControllerConfigService
+	controllerNodeService   *MockControllerNodeService
 	modelConfigService      *MockModelConfigService
 	modelInfoService        *MockModelInfoService
-	applicationService      *MockApplicationService
 	statusService           *MockStatusService
+	removalService          *MockRemovalService
 	leadershipRevoker       *MockRevoker
 	resourceOpener          *MockOpener
 	registry                *mockStorageRegistry
@@ -99,32 +105,53 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 	s.leadershipRevoker = NewMockRevoker(ctrl)
 	s.resourceOpener = NewMockOpener(ctrl)
+	s.removalService = NewMockRemovalService(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 	newResourceOpener := func(context.Context, string) (jujuresource.Opener, error) {
 		return s.resourceOpener, nil
 	}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st,
+		s.st,
 		s.resources, newResourceOpener,
 		s.authorizer,
 		s.storage,
 		s.storagePoolGetter,
-		s.controllerConfigService,
-		s.modelConfigService,
-		s.modelInfoService,
-		s.applicationService,
-		s.statusService,
+		caasapplicationprovisioner.Services{
+			ApplicationService:      s.applicationService,
+			ControllerConfigService: s.controllerConfigService,
+			ControllerNodeService:   s.controllerNodeService,
+			ModelConfigService:      s.modelConfigService,
+			ModelInfoService:        s.modelInfoService,
+			StatusService:           s.statusService,
+			RemovalService:          s.removalService,
+		},
 		s.leadershipRevoker,
 		s.store,
 		s.clock,
-		loggertesting.WrapCheckLog(c))
+		loggertesting.WrapCheckLog(c),
+		s.watcherRegistry)
+
 	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
+
+	c.Cleanup(func() {
+		s.applicationService = nil
+		s.controllerNodeService = nil
+		s.modelConfigService = nil
+		s.modelInfoService = nil
+		s.statusService = nil
+		s.leadershipRevoker = nil
+		s.resourceOpener = nil
+		s.watcherRegistry = nil
+		s.api = nil
+	})
 
 	return ctrl
 }
@@ -134,20 +161,17 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *tc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st,
+		s.st,
 		s.resources, nil,
 		s.authorizer,
 		s.storage,
 		s.storagePoolGetter,
-		s.controllerConfigService,
-		s.modelConfigService,
-		s.modelInfoService,
-		s.applicationService,
-		s.statusService,
+		caasapplicationprovisioner.Services{},
 		s.leadershipRevoker,
 		s.store,
 		s.clock,
-		loggertesting.WrapCheckLog(c))
+		loggertesting.WrapCheckLog(c),
+		s.watcherRegistry)
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
@@ -175,6 +199,8 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(s.fakeModelConfig())
+	addrs := []string{"10.0.0.1:1"}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(addrs, nil)
 
 	modelInfo := model.ModelInfo{
 		UUID: model.UUID(coretesting.ModelTag.Id()),
@@ -184,6 +210,14 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(coreapplication.ID("deadbeef"), nil)
 	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.ID("deadbeef")).Return(constraints.Value{}, nil)
 	s.applicationService.EXPECT().GetDeviceConstraints(gomock.Any(), "gitlab").Return(map[string]devices.Constraints{}, nil)
+	s.applicationService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "gitlab").Return(application.CharmOrigin{
+		Platform: deployment.Platform{
+			Channel: "stable",
+			OSType:  deployment.Ubuntu,
+		},
+	}, nil)
+	s.applicationService.EXPECT().GetCharmModifiedVersion(gomock.Any(), coreapplication.ID("deadbeef")).Return(10, nil)
+	s.applicationService.EXPECT().GetApplicationTrustSetting(gomock.Any(), "gitlab").Return(true, nil)
 
 	result, err := s.api.ProvisioningInfo(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -199,10 +233,14 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
 				"juju-controller-uuid": coretesting.ControllerTag.Id(),
 			},
-			CharmURL:             "ch:gitlab",
+			CharmURL:             "ch:amd64/gitlab",
 			CharmModifiedVersion: 10,
 			Scale:                3,
 			Trust:                true,
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "stable",
+			},
 		}},
 	})
 }
@@ -237,10 +275,12 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *tc.C) {
 	portsChanged := make(chan struct{}, 1)
 	modelConfigChanged := make(chan []string, 1)
 	controllerConfigChanged := make(chan []string, 1)
-	s.st.apiHostPortsForAgentsWatcher = watchertest.NewMockNotifyWatcher(portsChanged)
+	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(portsChanged), nil)
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(watchertest.NewMockStringsWatcher(controllerConfigChanged), nil)
 	s.modelConfigService.EXPECT().Watch().Return(watchertest.NewMockStringsWatcher(modelConfigChanged), nil)
 	s.applicationService.EXPECT().WatchApplication(gomock.Any(), "gitlab").Return(watchertest.NewMockNotifyWatcher(appChanged), nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("42", nil)
+
 	s.st.app = &mockApplication{
 		life:    state.Alive,
 		watcher: watchertest.NewMockNotifyWatcher(legacyAppChanged),
@@ -260,73 +300,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.IsNil)
-	res := s.resources.Get("1")
-	c.Assert(res, tc.FitsTypeOf, (*eventsource.MultiWatcher[struct{}])(nil))
-}
-
-func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *tc.C) {
-	ctrl := s.setupAPI(c)
-	defer ctrl.Finish()
-
-	var got status.StatusInfo
-	s.statusService.EXPECT().SetApplicationStatus(gomock.Any(), "gitlab", gomock.Any()).DoAndReturn(func(_ context.Context, appName string, status status.StatusInfo) error {
-		got = status
-		return nil
-	})
-
-	result, err := s.api.SetOperatorStatus(c.Context(), params.SetStatus{
-		Entities: []params.EntityStatusArgs{{
-			Tag:    "application-gitlab",
-			Status: "started",
-		}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.Results[0].Error, tc.IsNil)
-	c.Check(got.Status, tc.Equals, status.Started)
-}
-
-func (s *CAASApplicationProvisionerSuite) TestUnits(c *tc.C) {
-	ctrl := s.setupAPI(c)
-	defer ctrl.Finish()
-
-	appId := applicationtesting.GenApplicationUUID(c)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(appId, nil)
-	s.statusService.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appId).Return(map[coreunit.Name]status.StatusInfo{
-		"gitlab/0": {Status: status.Active},
-		"gitlab/1": {Status: status.Maintenance},
-		"gitlab/2": {Status: status.Unknown},
-	}, nil)
-
-	result, err := s.api.Units(c.Context(), params.Entities{
-		Entities: []params.Entity{{
-			Tag: "application-gitlab",
-		}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, tc.IsNil)
-	c.Assert(result.Results[0].Units, tc.SameContents, []params.CAASUnitInfo{
-		{
-			Tag: "unit-gitlab-0",
-			UnitStatus: &params.UnitStatus{
-				AgentStatus:    params.DetailedStatus{Status: "active"},
-				WorkloadStatus: params.DetailedStatus{Status: "active"},
-			},
-		},
-		{
-			Tag: "unit-gitlab-1",
-			UnitStatus: &params.UnitStatus{
-				AgentStatus:    params.DetailedStatus{Status: "maintenance"},
-				WorkloadStatus: params.DetailedStatus{Status: "maintenance"},
-			},
-		},
-		{
-			Tag: "unit-gitlab-2",
-			UnitStatus: &params.UnitStatus{
-				AgentStatus:    params.DetailedStatus{Status: "unknown"},
-				WorkloadStatus: params.DetailedStatus{Status: "unknown"},
-			},
-		},
-	})
+	c.Assert(results.Results[0].NotifyWatcherId, tc.Equals, "42")
 }
 
 func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *tc.C) {
@@ -473,6 +447,9 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 		},
 	}
 
+	s.applicationService.EXPECT().GetApplicationLifeByName(gomock.Any(), "gitlab").Return(life.Alive, nil)
+	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "gitlab").
+		Return([]coreunit.Name{coreunit.Name("gitlab/0"), coreunit.Name("gitlab/1")}, nil)
 	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), coreunit.Name("gitlab/0"), service.UpdateCAASUnitParams{
 		ProviderID:           strPtr("gitlab-0"),
 		Address:              strPtr("address"),
@@ -505,23 +482,6 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 			},
 		},
 	})
-	s.st.app.CheckCallNames(c, "Life", "AllUnits", "Name")
-	s.st.app.units[0].CheckCallNames(c, "UpdateOperation")
-	s.st.app.units[0].CheckCall(c, 0, "UpdateOperation", state.UnitUpdateProperties{
-		ProviderId: strPtr("gitlab-0"),
-		Address:    strPtr("address"), Ports: &[]string{"port"},
-		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "message"},
-		AgentStatus:          &status.StatusInfo{Status: status.Idle},
-	})
-	s.st.app.units[1].CheckCallNames(c, "UpdateOperation")
-	s.st.app.units[1].CheckCall(c, 0, "UpdateOperation", state.UnitUpdateProperties{
-		ProviderId: strPtr("gitlab-1"),
-		Address:    strPtr("another-address"), Ports: &[]string{"another-port"},
-		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "another message"},
-		AgentStatus:          &status.StatusInfo{Status: status.Idle},
-	})
-	// Missing units are handled by the GarbageCollect call.
-	s.st.app.units[2].CheckCallNames(c)
 
 	s.storage.CheckCallNames(c,
 		"UnitStorageAttachments", "StorageInstance", "UnitStorageAttachments", "StorageInstance",
@@ -636,6 +596,9 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 		},
 	}
 
+	s.applicationService.EXPECT().GetApplicationLifeByName(gomock.Any(), "gitlab").Return(life.Alive, nil)
+	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "gitlab").
+		Return([]coreunit.Name{coreunit.Name("gitlab/0"), coreunit.Name("gitlab/1")}, nil)
 	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), coreunit.Name("gitlab/0"), service.UpdateCAASUnitParams{
 		ProviderID:           strPtr("gitlab-0"),
 		Address:              strPtr("address"),
@@ -661,23 +624,6 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 			},
 		},
 	})
-	s.st.app.CheckCallNames(c, "Life", "AllUnits", "Name")
-	s.st.app.units[0].CheckCallNames(c, "UpdateOperation")
-	s.st.app.units[0].CheckCall(c, 0, "UpdateOperation", state.UnitUpdateProperties{
-		ProviderId: strPtr("gitlab-0"),
-		Address:    strPtr("address"), Ports: &[]string{"port"},
-		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "message"},
-		AgentStatus:          &status.StatusInfo{Status: status.Idle},
-	})
-	s.st.app.units[1].CheckCallNames(c, "UpdateOperation")
-	s.st.app.units[1].CheckCall(c, 0, "UpdateOperation", state.UnitUpdateProperties{
-		ProviderId: strPtr("gitlab-1"),
-		Address:    strPtr("another-address"), Ports: &[]string{"another-port"},
-		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "another message"},
-		AgentStatus:          &status.StatusInfo{Status: status.Idle},
-	})
-	// Missing units are handled by the GarbageCollect call.
-	s.st.app.units[2].CheckCallNames(c)
 
 	s.storage.CheckCallNames(c, "AllFilesystems")
 	s.st.model.CheckCallNames(c, "Containers")
@@ -703,81 +649,8 @@ func (s *CAASApplicationProvisionerSuite) TestClearApplicationsResources(c *tc.C
 	})
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, tc.IsNil)
-	s.st.app.CheckCallNames(c, "ClearResources")
-}
-
-func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *tc.C) {
-	ctrl := s.setupAPI(c)
-	defer ctrl.Finish()
-
-	unitsChanges := make(chan []string, 1)
-	s.st.app = &mockApplication{
-		life:         state.Alive,
-		unitsChanges: unitsChanges,
-		unitsWatcher: watchertest.NewMockStringsWatcher(unitsChanges),
-	}
-	unitsChanges <- []string{"gitlab/0", "gitlab/1"}
-
-	results, err := s.api.WatchUnits(c.Context(), params.Entities{
-		Entities: []params.Entity{
-			{Tag: "application-gitlab"},
-		},
-	})
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(results.Results[0].Error, tc.IsNil)
-	c.Assert(results.Results[0].StringsWatcherId, tc.Equals, "1")
-	c.Assert(results.Results[0].Changes, tc.DeepEquals, []string{"gitlab/0", "gitlab/1"})
-	res := s.resources.Get("1")
-	c.Assert(res, tc.Equals, s.st.app.unitsWatcher)
-}
-
-func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *tc.C) {
-	ctrl := s.setupAPI(c)
-	defer ctrl.Finish()
-
-	s.applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "gitlab", 10, true)
-	s.applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "gitlab").Return(service.ScalingState{
-		Scaling:     true,
-		ScaleTarget: 10,
-	}, nil)
-
-	setResult, err := s.api.SetProvisioningState(c.Context(), params.CAASApplicationProvisioningStateArg{
-		Application: params.Entity{Tag: "application-gitlab"},
-		ProvisioningState: params.CAASApplicationProvisioningState{
-			Scaling:     true,
-			ScaleTarget: 10,
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(setResult.Error, tc.IsNil)
-
-	result, err := s.api.ProvisioningState(c.Context(), params.Entity{Tag: "application-gitlab"})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.ProvisioningState, tc.DeepEquals, &params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 10,
-	})
-}
-
-func (s *CAASApplicationProvisionerSuite) TestProvisionerConfig(c *tc.C) {
-	ctrl := s.setupAPI(c)
-	defer ctrl.Finish()
-
-	result, err := s.api.ProvisionerConfig(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Error, tc.IsNil)
-	c.Assert(result.ProvisionerConfig, tc.NotNil)
-	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, tc.HasLen, 0)
-
-	s.st.isController = true
-	result, err = s.api.ProvisionerConfig(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Error, tc.IsNil)
-	c.Assert(result.ProvisionerConfig, tc.NotNil)
-	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, tc.DeepEquals, []params.Entity{{Tag: "application-controller"}})
+	c.Assert(result.Results[0].Error.Code, tc.Equals, params.CodeNotImplemented)
+	c.Assert(result.Results[0].Error.Message, tc.Equals, "ClearResources not implemented")
 }
 
 func (s *CAASApplicationProvisionerSuite) TestCharmStorageParamsPoolNotFound(c *tc.C) {
@@ -807,7 +680,9 @@ func (s *CAASApplicationProvisionerSuite) TestRemove(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	s.applicationService.EXPECT().RemoveUnit(gomock.Any(), coreunit.Name("gitlab/0"), s.leadershipRevoker)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("gitlab/0")).Return(coreunit.UUID("unit-uuid"), nil)
+	s.removalService.EXPECT().MarkUnitAsDead(gomock.Any(), coreunit.UUID("unit-uuid")).Return(nil)
+	s.removalService.EXPECT().RemoveUnit(gomock.Any(), coreunit.UUID("unit-uuid"), false, time.Duration(0)).Return(removal.UUID("removal-uuid"), nil)
 
 	result, err := s.api.Remove(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: "unit-gitlab-0",

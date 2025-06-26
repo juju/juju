@@ -87,6 +87,18 @@ func DecodeK8sPodStatus(s int) (K8sPodStatusType, error) {
 	}
 }
 
+// ModelStatusContext describes the context used to determine the status of a model.
+type ModelStatusContext struct {
+	// IsDestroying indicates if the model is in the process of being destroyed.
+	IsDestroying bool
+	// IsMigrating indicates if the model is in the process of being migrated.
+	IsMigrating bool
+	// HasInvalidCloudCredential indicates if the model's cloud credential is invalid.
+	HasInvalidCloudCredential bool
+	// InvalidCloudCredentialReason explains why the model's cloud credential is invalid.
+	InvalidCloudCredentialReason string
+}
+
 // ModelStatusInfo represents the basic information about a model for the
 // purpose of reporting its status.
 type ModelStatusInfo struct {
@@ -171,7 +183,7 @@ func RelationStatusTransitionValid(current, new StatusInfo[RelationStatusType]) 
 			validTransition = current.Status != RelationStatusTypeBroken
 		case RelationStatusTypeError:
 			if new.Message == "" {
-				return errors.Errorf("cannot set status %q without info", new.Status)
+				return errors.Errorf("cannot set status %q without message", new.Status)
 			}
 		default:
 			return errors.Errorf("cannot set invalid status %q", new.Status)

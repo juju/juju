@@ -25,11 +25,11 @@ var urlTests = []struct {
 	exact  string
 	url    *crossmodel.OfferURL
 }{{
-	s:   "controller:user/modelname.applicationname",
-	url: &crossmodel.OfferURL{"controller", "user", "modelname", "applicationname"},
+	s:   "controller:qualifier/modelname.applicationname",
+	url: &crossmodel.OfferURL{"controller", "qualifier", "modelname", "applicationname"},
 }, {
-	s:   "controller:user/modelname.applicationname:rel",
-	url: &crossmodel.OfferURL{"controller", "user", "modelname", "applicationname:rel"},
+	s:   "controller:qualifier/modelname.applicationname:rel",
+	url: &crossmodel.OfferURL{"controller", "qualifier", "modelname", "applicationname:rel"},
 }, {
 	s:   "modelname.applicationname",
 	url: &crossmodel.OfferURL{"", "", "modelname", "applicationname"},
@@ -37,8 +37,8 @@ var urlTests = []struct {
 	s:   "modelname.applicationname:rel",
 	url: &crossmodel.OfferURL{"", "", "modelname", "applicationname:rel"},
 }, {
-	s:   "user/modelname.applicationname:rel",
-	url: &crossmodel.OfferURL{"", "user", "modelname", "applicationname:rel"},
+	s:   "qualifier/modelname.applicationname:rel",
+	url: &crossmodel.OfferURL{"", "qualifier", "modelname", "applicationname:rel"},
 }, {
 	s:     "/modelname.applicationname",
 	url:   &crossmodel.OfferURL{"", "", "modelname", "applicationname"},
@@ -48,28 +48,25 @@ var urlTests = []struct {
 	url:   &crossmodel.OfferURL{"", "", "modelname", "applicationname:rel"},
 	exact: "modelname.applicationname:rel",
 }, {
-	s:   "user/modelname.applicationname",
-	url: &crossmodel.OfferURL{"", "user", "modelname", "applicationname"},
+	s:   "qualifier/modelname.applicationname",
+	url: &crossmodel.OfferURL{"", "qualifier", "modelname", "applicationname"},
 }, {
 	s:   "controller:modelname",
 	err: `application offer URL is missing application`,
 }, {
-	s:   "controller:user/modelname",
+	s:   "controller:qualifier/modelname",
 	err: `application offer URL is missing application`,
 }, {
 	s:   "model",
 	err: `application offer URL is missing application`,
 }, {
-	s:   "/user/model",
+	s:   "/qualifier/model",
 	err: `application offer URL is missing application`,
 }, {
 	s:   "model.application@bad",
 	err: `application name "application@bad" not valid`,
 }, {
-	s:   "user[bad/model.application",
-	err: `user name "user\[bad" not valid`,
-}, {
-	s:   "user/[badmodel.application",
+	s:   "qualifier/[badmodel.application",
 	err: `model name "\[badmodel" not valid`,
 }}
 
@@ -99,14 +96,14 @@ var urlPartsTests = []struct {
 	s, err string
 	url    *crossmodel.OfferURLParts
 }{{
-	s:   "controller:/user/modelname.applicationname",
-	url: &crossmodel.OfferURLParts{"controller", "user", "modelname", "applicationname"},
+	s:   "controller:/qualifier/modelname.applicationname",
+	url: &crossmodel.OfferURLParts{"controller", "qualifier", "modelname", "applicationname"},
 }, {
-	s:   "user/modelname.applicationname",
-	url: &crossmodel.OfferURLParts{"", "user", "modelname", "applicationname"},
+	s:   "qualifier/modelname.applicationname",
+	url: &crossmodel.OfferURLParts{"", "qualifier", "modelname", "applicationname"},
 }, {
-	s:   "user/modelname",
-	url: &crossmodel.OfferURLParts{"", "user", "modelname", ""},
+	s:   "qualifier/modelname",
+	url: &crossmodel.OfferURLParts{"", "qualifier", "modelname", ""},
 }, {
 	s:   "modelname.application",
 	url: &crossmodel.OfferURLParts{"", "", "modelname", "application"},
@@ -120,17 +117,14 @@ var urlPartsTests = []struct {
 	s:   "",
 	url: &crossmodel.OfferURLParts{},
 }, {
-	s:   "user/prod/applicationname/extra",
-	err: `application offer URL has invalid form, must be \[<user/\]<model>.<appname>: "user/prod/applicationname/extra"`,
+	s:   "qualifier/prod/applicationname/extra",
+	err: `application offer URL has invalid form, must be \[<qualifier/\]<model>.<appname>: "qualifier/prod/applicationname/extra"`,
 }, {
-	s:   "controller:/user/modelname.application@bad",
+	s:   "controller:/qualifier/modelname.application@bad",
 	err: `application name "application@bad" not valid`,
 }, {
-	s:   "controller:/user[bad/modelname.application",
-	err: `user name "user\[bad" not valid`,
-}, {
 	s:   ":foo",
-	err: `application offer URL has invalid form, must be \[<user/\]<model>.<appname>: $URL`,
+	err: `application offer URL has invalid form, must be \[<qualifier/\]<model>.<appname>: $URL`,
 }}
 
 func (s *OfferURLSuite) TestParseURLParts(c *tc.C) {
@@ -157,19 +151,19 @@ func (s *OfferURLSuite) TestHasEndpoint(c *tc.C) {
 	url, err = crossmodel.ParseOfferURL("model.application")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), tc.IsFalse)
-	url, err = crossmodel.ParseOfferURL("controller:/user/model.application:thing")
+	url, err = crossmodel.ParseOfferURL("controller:/qualifier/model.application:thing")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), tc.IsTrue)
-	url, err = crossmodel.ParseOfferURL("controller:/user/model.application")
+	url, err = crossmodel.ParseOfferURL("controller:/qualifier/model.application")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), tc.IsFalse)
 }
 
 func (s *OfferURLSuite) TestMakeURL(c *tc.C) {
-	url := crossmodel.MakeURL("user", "model", "app", "")
-	c.Assert(url, tc.Equals, "user/model.app")
-	url = crossmodel.MakeURL("user", "model", "app", "ctrl")
-	c.Assert(url, tc.Equals, "ctrl:user/model.app")
+	url := crossmodel.MakeURL("qualifier", "model", "app", "")
+	c.Assert(url, tc.Equals, "qualifier/model.app")
+	url = crossmodel.MakeURL("qualifier", "model", "app", "ctrl")
+	c.Assert(url, tc.Equals, "ctrl:qualifier/model.app")
 }
 
 func (s *OfferURLSuite) TestAsLocal(c *tc.C) {

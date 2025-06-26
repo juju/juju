@@ -4,10 +4,8 @@
 package state
 
 import (
-	"context"
 	"database/sql"
 	"strconv"
-	"time"
 
 	"github.com/juju/tc"
 
@@ -15,20 +13,19 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/domain/status"
 )
 
 func (s *stateSuite) TestGetHardwareCharacteristicsWithNoData(c *tc.C) {
 	machineUUID := coremachinetesting.GenUUID(c)
 
-	_, err := s.state.HardwareCharacteristics(c.Context(), machineUUID)
+	_, err := s.state.GetHardwareCharacteristics(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 
 func (s *stateSuite) TestGetHardwareCharacteristics(c *tc.C) {
 	machineUUID := s.ensureInstance(c, "42")
 
-	hc, err := s.state.HardwareCharacteristics(c.Context(), machineUUID)
+	hc, err := s.state.GetHardwareCharacteristics(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*hc.Arch, tc.Equals, "arm64")
 	c.Check(*hc.Mem, tc.Equals, uint64(1024))
@@ -43,7 +40,7 @@ func (s *stateSuite) TestGetHardwareCharacteristics(c *tc.C) {
 func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *tc.C) {
 	db := s.DB()
 	// Create a reference machine.
-	err := s.state.CreateMachine(c.Context(), "42", "", "")
+	err := s.state.CreateMachine(c.Context(), "42", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	var machineUUID machine.UUID
 	err = db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name='42'").Scan(&machineUUID)
@@ -54,6 +51,7 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *tc
 		machineUUID,
 		instance.Id("123"),
 		"",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch:           ptr("arm64"),
 			Mem:            ptr[uint64](1024),
@@ -67,7 +65,7 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *tc
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	hc, err := s.state.HardwareCharacteristics(c.Context(), machineUUID)
+	hc, err := s.state.GetHardwareCharacteristics(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*hc.Arch, tc.Equals, "arm64")
 	c.Check(*hc.Mem, tc.Equals, uint64(1024))
@@ -98,7 +96,7 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	err := s.state.CreateMachine(c.Context(), "42", "", "")
+	err := s.state.CreateMachine(c.Context(), "42", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	var machineUUID machine.UUID
 	row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name='42'")
@@ -114,6 +112,7 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 		machineUUID,
 		instance.Id("1"),
 		"one",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch:             ptr("arm64"),
 			Mem:              ptr[uint64](1024),
@@ -176,7 +175,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyInstanceID(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	err := s.state.CreateMachine(c.Context(), "42", "", "")
+	err := s.state.CreateMachine(c.Context(), "42", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	var machineUUID machine.UUID
 	row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name='42'")
@@ -189,6 +188,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyInstanceID(c *tc.C) {
 		machineUUID,
 		instance.Id(""),
 		"one",
+		"nonce",
 		&instance.HardwareCharacteristics{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -207,7 +207,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyDisplayName(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	err := s.state.CreateMachine(c.Context(), "42", "", "")
+	err := s.state.CreateMachine(c.Context(), "42", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	var machineUUID machine.UUID
 	row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name='42'")
@@ -220,6 +220,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyDisplayName(c *tc.C) {
 		machineUUID,
 		instance.Id("1"),
 		"",
+		"nonce",
 		&instance.HardwareCharacteristics{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -246,7 +247,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyUniqueIndex(c *tc.C) {
 		uuid := coremachinetesting.GenUUID(c)
 
 		// Create a reference machine.
-		err := s.state.CreateMachine(c.Context(), machine.Name(name), name, uuid)
+		err := s.state.CreateMachine(c.Context(), machine.Name(name), name, uuid, nil)
 		c.Assert(err, tc.ErrorIsNil)
 		var machineUUID machine.UUID
 		row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name=?", name)
@@ -259,6 +260,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyUniqueIndex(c *tc.C) {
 			machineUUID,
 			instance.Id(""),
 			"",
+			"nonce",
 			&instance.HardwareCharacteristics{},
 		)
 		c.Assert(err, tc.ErrorIsNil)
@@ -269,7 +271,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	err := s.state.CreateMachine(c.Context(), "42", "", "")
+	err := s.state.CreateMachine(c.Context(), "42", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	var machineUUID machine.UUID
 	row := db.QueryRowContext(c.Context(), "SELECT uuid FROM machine WHERE name='42'")
@@ -282,6 +284,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *tc.C) {
 		machineUUID,
 		instance.Id("1"),
 		"one",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch: ptr("arm64"),
 		},
@@ -294,6 +297,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *tc.C) {
 		machineUUID,
 		instance.Id("1"),
 		"one",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch: ptr("amd64"),
 		},
@@ -325,197 +329,37 @@ func (s *stateSuite) TestDeleteInstanceData(c *tc.C) {
 	c.Check(rows.Next(), tc.IsFalse)
 }
 
-// TestDeleteInstanceDataWithStatus asserts that DeleteMachineCloudInstance at
-// the state layer removes any instance status and status data when deleting an
-// instance.
-func (s *stateSuite) TestDeleteInstanceDataWithStatus(c *tc.C) {
-	db := s.DB()
-
-	machineUUID := s.ensureInstance(c, "42")
-
-	// Add a status with data for this instance
-	s.state.SetInstanceStatus(c.Context(), "42", status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusAllocating,
-		Message: "running",
-		Data:    []byte(`{"key":"data"}`),
-		Since:   ptr(time.Now().UTC()),
-	})
-
-	err := s.state.DeleteMachineCloudInstance(c.Context(), machineUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Check that all rows've been deleted from the status tables.
-	var status int
-	err = db.QueryRowContext(c.Context(), "SELECT count(*) FROM machine_cloud_instance_status WHERE machine_uuid=?", "123").Scan(&status)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(status, tc.Equals, 0)
-}
-
 func (s *stateSuite) TestInstanceIdSuccess(c *tc.C) {
 	machineUUID := s.ensureInstance(c, "666")
 
-	instanceId, err := s.state.InstanceID(c.Context(), machineUUID)
+	instanceId, err := s.state.GetInstanceID(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceId, tc.Equals, "123")
 }
 
 func (s *stateSuite) TestInstanceIdError(c *tc.C) {
-	err := s.state.CreateMachine(c.Context(), "666", "", "")
+	err := s.state.CreateMachine(c.Context(), "666", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.InstanceID(c.Context(), "666")
+	_, err = s.state.GetInstanceID(c.Context(), "666")
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 
 func (s *stateSuite) TestInstanceNameSuccess(c *tc.C) {
 	machineUUID := s.ensureInstance(c, "666")
 
-	instanceID, displayName, err := s.state.InstanceIDAndName(c.Context(), machineUUID)
+	instanceID, displayName, err := s.state.GetInstanceIDAndName(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instanceID, tc.Equals, "123")
 	c.Assert(displayName, tc.Equals, "one-two-three")
 }
 
 func (s *stateSuite) TestInstanceNameError(c *tc.C) {
-	err := s.state.CreateMachine(c.Context(), "666", "", "")
+	err := s.state.CreateMachine(c.Context(), "666", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, _, err = s.state.InstanceIDAndName(c.Context(), "666")
+	_, _, err = s.state.GetInstanceIDAndName(c.Context(), "666")
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
-}
-
-// TestGetInstanceStatusSuccess asserts the happy path of InstanceStatus at the
-// state layer.
-func (s *stateSuite) TestGetInstanceStatusSuccess(c *tc.C) {
-	machineUUID := s.ensureInstance(c, "666")
-
-	// Add a status value for this machine into the
-	// machine_cloud_instance_status table using the machineUUID and the status
-	// value 3 for "running" (from machine_cloud_instance_status_value table).
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(c.Context(), `
-UPDATE machine_cloud_instance_status
-SET status_id='3', 
-	message='running', 
-	updated_at='2024-07-12 12:00:00'
-WHERE machine_uuid=?`, machineUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIsNil)
-	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusRunning,
-		Message: "running",
-		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
-	}
-	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
-}
-
-// TestGetInstanceStatusSuccessWithData asserts the happy path of InstanceStatus
-// at the state layer.
-func (s *stateSuite) TestGetInstanceStatusSuccessWithData(c *tc.C) {
-	machineUUID := s.ensureInstance(c, "666")
-
-	// Add a status value for this machine into the
-	// machine_cloud_instance_status table using the machineUUID and the status
-	// value 2 for "running" (from machine_cloud_instance_status_value table).
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(c.Context(), `
-UPDATE machine_cloud_instance_status
-SET status_id='3', 
-	message='running', 
-	data='{"key": "data"}',
-	updated_at='2024-07-12 12:00:00'
-WHERE machine_uuid=?`, machineUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIsNil)
-	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusRunning,
-		Message: "running",
-		Data:    []byte(`{"key": "data"}`),
-		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
-	}
-	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
-}
-
-// TestGetInstanceStatusNotFoundError asserts that GetInstanceStatus returns a
-// NotFound error when the given machine cannot be found.
-func (s *stateSuite) TestGetInstanceStatusNotFoundError(c *tc.C) {
-	_, err := s.state.GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-// TestGetInstanceStatusStatusNotSetError asserts that GetInstanceStatus returns
-// a StatusNotSet error when a status value cannot be found for the given
-// machine.
-func (s *stateSuite) TestGetInstanceStatusStatusNotSetError(c *tc.C) {
-	machineUUID := s.ensureInstance(c, "666")
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(c.Context(), `
-DELETE FROM machine_cloud_instance_status
-WHERE machine_uuid=?`, machineUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Don't add a status value for this instance into the
-	// machine_cloud_instance_status table.
-	_, err = s.state.GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIs, machineerrors.StatusNotSet)
-}
-
-// TestSetInstanceStatusSuccess asserts the happy path of SetInstanceStatus at
-// the state layer.
-func (s *stateSuite) TestSetInstanceStatusSuccess(c *tc.C) {
-	s.ensureInstance(c, "666")
-
-	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusRunning,
-		Message: "running",
-	}
-	err := s.state.SetInstanceStatus(c.Context(), "666", expectedStatus)
-	c.Assert(err, tc.ErrorIsNil)
-
-	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedStatus.Status, tc.Equals, expectedStatus.Status)
-	c.Assert(obtainedStatus.Message, tc.Equals, expectedStatus.Message)
-}
-
-// TestSetInstanceStatusSuccessWithData asserts the happy path of
-// SetInstanceStatus at the state layer.
-func (s *stateSuite) TestSetInstanceStatusSuccessWithData(c *tc.C) {
-	s.ensureInstance(c, "666")
-
-	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusRunning,
-		Message: "running",
-		Data:    []byte(`{"key": "data"}`),
-		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
-	}
-	err := s.state.SetInstanceStatus(c.Context(), "666", expectedStatus)
-	c.Assert(err, tc.ErrorIsNil)
-
-	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
-}
-
-// TestSetInstanceStatusError asserts that SetInstanceStatus returns a NotFound
-// error when the given machine cannot be found.
-func (s *stateSuite) TestSetInstanceStatusError(c *tc.C) {
-	err := s.state.SetInstanceStatus(c.Context(), "666", status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusRunning,
-		Message: "running",
-	})
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 func (s *stateSuite) ensureInstance(c *tc.C, mName machine.Name) machine.UUID {
@@ -523,7 +367,7 @@ func (s *stateSuite) ensureInstance(c *tc.C, mName machine.Name) machine.UUID {
 
 	// Create a reference machine.
 	machineUUID := coremachinetesting.GenUUID(c)
-	err := s.state.CreateMachine(c.Context(), mName, "", machineUUID)
+	err := s.state.CreateMachine(c.Context(), mName, "", machineUUID, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	// Add a reference AZ.
 	_, err = db.ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
@@ -534,6 +378,7 @@ func (s *stateSuite) ensureInstance(c *tc.C, mName machine.Name) machine.UUID {
 		machineUUID,
 		instance.Id("123"),
 		"one-two-three",
+		"nonce",
 		&instance.HardwareCharacteristics{
 			Arch:             ptr("arm64"),
 			Mem:              ptr[uint64](1024),

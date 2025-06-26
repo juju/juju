@@ -17,6 +17,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
@@ -24,9 +25,9 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type migrationStateSuite struct {
@@ -58,7 +59,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExport(c *tc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]string{
+			EndpointBindings: map[string]network.SpaceUUID{
 				"":          network.AlphaSpaceId,
 				"endpoint":  network.AlphaSpaceId,
 				"extra":     network.AlphaSpaceId,
@@ -91,7 +92,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *tc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]string{
+			EndpointBindings: map[string]network.SpaceUUID{
 				"":          network.AlphaSpaceId,
 				"endpoint":  network.AlphaSpaceId,
 				"extra":     network.AlphaSpaceId,
@@ -134,7 +135,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *tc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]string{
+			EndpointBindings: map[string]network.SpaceUUID{
 				"":          network.AlphaSpaceId,
 				"endpoint":  network.AlphaSpaceId,
 				"extra":     network.AlphaSpaceId,
@@ -153,7 +154,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *tc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]string{
+			EndpointBindings: map[string]network.SpaceUUID{
 				"":          network.AlphaSpaceId,
 				"endpoint":  network.AlphaSpaceId,
 				"extra":     network.AlphaSpaceId,
@@ -179,11 +180,13 @@ func (s *migrationStateSuite) TestGetApplicationsForExportWithNoApplications(c *
 func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
-		Password: &application.PasswordInfo{
-			PasswordHash:  "password",
-			HashAlgorithm: 0,
+	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+			Password: &application.PasswordInfo{
+				PasswordHash:  "password",
+				HashAlgorithm: 0,
+			},
 		},
 	})
 
@@ -204,15 +207,19 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *tc.C) {
 func (s *migrationStateSuite) TestGetApplicationUnitsForExportMultipleApplications(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
-		Password: &application.PasswordInfo{
-			PasswordHash:  "password",
-			HashAlgorithm: 0,
+	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+			Password: &application.PasswordInfo{
+				PasswordHash:  "password",
+				HashAlgorithm: 0,
+			},
 		},
 	})
-	s.createIAASApplication(c, "bar", life.Alive, application.InsertUnitArg{
-		UnitName: "bar/0",
+	s.createIAASApplication(c, "bar", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "bar/0",
+		},
 	})
 
 	unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/0")
@@ -234,15 +241,19 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportSubordinate(c *tc.
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	subName := coreunit.Name("foo/0")
 	principalName := coreunit.Name("principal/0")
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: subName,
-		Password: &application.PasswordInfo{
-			PasswordHash:  "password",
-			HashAlgorithm: 0,
+	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: subName,
+			Password: &application.PasswordInfo{
+				PasswordHash:  "password",
+				HashAlgorithm: 0,
+			},
 		},
 	})
-	s.createIAASApplication(c, "principal", life.Alive, application.InsertUnitArg{
-		UnitName: principalName,
+	s.createIAASApplication(c, "principal", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: principalName,
+		},
 	})
 
 	principalUUID, err := st.GetUnitUUIDByName(c.Context(), principalName)
@@ -259,7 +270,7 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportSubordinate(c *tc.
 	c.Check(units, tc.DeepEquals, []application.ExportUnit{
 		{
 			UUID:      subUUID,
-			Name:      "foo/0",
+			Name:      subName,
 			Machine:   "0",
 			Principal: principalName,
 		},
@@ -294,11 +305,13 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDying(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
-		Password: &application.PasswordInfo{
-			PasswordHash:  "password",
-			HashAlgorithm: 0,
+	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+			Password: &application.PasswordInfo{
+				PasswordHash:  "password",
+				HashAlgorithm: 0,
+			},
 		},
 	})
 
@@ -328,11 +341,13 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDead(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
-		Password: &application.PasswordInfo{
-			PasswordHash:  "password",
-			HashAlgorithm: 0,
+	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: "foo/0",
+			Password: &application.PasswordInfo{
+				PasswordHash:  "password",
+				HashAlgorithm: 0,
+			},
 		},
 	})
 
@@ -382,7 +397,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportEndpointBindings(c *tc
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]string{
+			EndpointBindings: map[string]network.SpaceUUID{
 				"":          network.AlphaSpaceId,
 				"endpoint":  spaceUUID1,
 				"misc":      spaceUUID2,
@@ -524,8 +539,8 @@ AND    v.endpoint_name = ?
 
 // addSpace ensures a space with the given name exists in the database,
 // creating it if necessary, and returns its name.
-func (s *migrationStateSuite) addSpace(c *tc.C, name string) string {
-	spaceUUID := uuid.MustNewUUID().String()
+func (s *migrationStateSuite) addSpace(c *tc.C, name string) network.SpaceUUID {
+	spaceUUID := networktesting.GenSpaceUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO space (uuid, name)
@@ -536,7 +551,7 @@ VALUES (?, ?)`, spaceUUID, name)
 	return spaceUUID
 }
 
-func (s *migrationStateSuite) updateApplicationEndpoint(c *tc.C, endpoint, space_uuid string) {
+func (s *migrationStateSuite) updateApplicationEndpoint(c *tc.C, endpoint, spaceUUID network.SpaceUUID) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var charmRelationUUID string
 		err := tx.QueryRowContext(ctx, `
@@ -552,7 +567,7 @@ WHERE  name = ?
 UPDATE application_endpoint
 SET    space_uuid = ?
 WHERE  charm_relation_uuid = ?
-`, space_uuid, charmRelationUUID)
+`, spaceUUID, charmRelationUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -579,7 +594,10 @@ func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *tc.C) {
 	appID := s.createIAASApplication(c, "foo", life.Alive)
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := s.state.insertMachineAndNetNode(c.Context(), tx, machine.Name("0"))
+		_, _, err := machinestate.InsertMachineAndNetNode(c.Context(), tx, s.state, machine.Name("0"), deployment.Platform{
+			OSType:       deployment.Ubuntu,
+			Architecture: architecture.ARM64,
+		}, nil, clock.WallClock)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -607,8 +625,10 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnits(c *tc.C) {
 func (s *unitStateSuite) TestInsertMigratingCAASUnitsSubordinate(c *tc.C) {
 	principal := unittesting.GenNewName(c, "bar/0")
 	sub := unittesting.GenNewName(c, "foo/666")
-	s.createIAASApplication(c, "bar", life.Alive, application.InsertUnitArg{
-		UnitName: principal,
+	s.createIAASApplication(c, "bar", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: principal,
+		},
 	})
 	subAppID := s.createIAASApplication(c, "foo", life.Alive)
 
@@ -625,8 +645,10 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnitsSubordinate(c *tc.C) {
 func (s *unitStateSuite) TestInsertMigratingIAASUnitsSubordinate(c *tc.C) {
 	principal := unittesting.GenNewName(c, "bar/0")
 	sub := unittesting.GenNewName(c, "foo/666")
-	s.createIAASApplication(c, "bar", life.Alive, application.InsertUnitArg{
-		UnitName: principal,
+	s.createIAASApplication(c, "bar", life.Alive, application.InsertIAASUnitArg{
+		InsertUnitArg: application.InsertUnitArg{
+			UnitName: principal,
+		},
 	})
 	subAppID := s.createIAASApplication(c, "foo", life.Alive)
 

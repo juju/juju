@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/lease"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/semversion"
 	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
@@ -35,6 +37,9 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	backendbootstrap "github.com/juju/juju/domain/secretbackend/bootstrap"
 	domainservices "github.com/juju/juju/domain/services"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/errors"
@@ -191,7 +196,8 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 		CloudRegion: "dummy-region",
 		Credential:  s.CredentialKey,
 		Name:        model.ControllerModelName,
-		Owner:       s.AdminUserUUID,
+		Qualifier:   "prod",
+		AdminUsers:  []coreuser.UUID{s.AdminUserUUID},
 	}
 
 	fn := modelbootstrap.CreateGlobalModelRecord(s.ControllerModelUUID, controllerArgs)
@@ -216,7 +222,8 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 		Cloud:      s.CloudName,
 		Credential: s.CredentialKey,
 		Name:       "test",
-		Owner:      s.AdminUserUUID,
+		Qualifier:  "prod",
+		AdminUsers: []coreuser.UUID{s.AdminUserUUID},
 	}
 
 	fn = modelbootstrap.CreateGlobalModelRecord(s.DefaultModelUUID, modelArgs)
@@ -238,7 +245,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 
 // DomainServicesGetter provides an implementation of the DomainServicesGetter
 // interface to use in tests. This includes the dummy storage registry.
-func (s *DomainServicesSuite) DomainServicesGetter(c *tc.C, objectStore objectstore.ObjectStore, leaseManager lease.Checker) DomainServicesGetterFunc {
+func (s *DomainServicesSuite) DomainServicesGetter(c *tc.C, objectStore objectstore.ObjectStore, leaseManager lease.LeaseManager) DomainServicesGetterFunc {
 	return s.DomainServicesGetterWithStorageRegistry(c, objectStore, leaseManager, storage.ChainedProviderRegistry{
 		// Using the dummy storage provider for testing purposes isn't
 		// ideal. We should potentially use a mock storage provider
@@ -256,7 +263,7 @@ type domainServices struct {
 // DomainServicesGetterWithStorageRegistry provides an implementation of the
 // DomainServicesGetterWithStorageRegistry interface to use in tests with the
 // additional storage provider.
-func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, objectStore objectstore.ObjectStore, leaseManager lease.Checker, storageRegistry storage.ProviderRegistry) DomainServicesGetterFunc {
+func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, objectStore objectstore.ObjectStore, leaseManager lease.LeaseManager, storageRegistry storage.ProviderRegistry) DomainServicesGetterFunc {
 	return func(modelUUID model.UUID) services.DomainServices {
 		clock := clock.WallClock
 		logger := loggertesting.WrapCheckLog(c)
@@ -285,7 +292,7 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, o
 				return storageRegistry, nil
 			}),
 			sshimporter.NewImporter(&http.Client{}),
-			modelApplicationLeaseManagerGetter(func() lease.Checker {
+			modelApplicationLeaseManagerGetter(func() lease.LeaseManager {
 				return leaseManager
 			}),
 			c.MkDir(),
@@ -317,8 +324,8 @@ func (s *DomainServicesSuite) NoopObjectStore(c *tc.C) objectstore.ObjectStore {
 	return TestingObjectStore{}
 }
 
-// NoopLeaseManager returns a no-op implementation of lease.Checker.
-func (s *DomainServicesSuite) NoopLeaseManager(c *tc.C) lease.Checker {
+// NoopLeaseManager returns a no-op implementation of lease.LeaseManager.
+func (s *DomainServicesSuite) NoopLeaseManager(c *tc.C) lease.LeaseManager {
 	return TestingLeaseManager{}
 }
 
@@ -371,9 +378,9 @@ func (s modelStorageRegistryGetter) GetStorageRegistry(ctx context.Context) (sto
 	return s(ctx)
 }
 
-type modelApplicationLeaseManagerGetter func() lease.Checker
+type modelApplicationLeaseManagerGetter func() lease.LeaseManager
 
-func (s modelApplicationLeaseManagerGetter) GetLeaseManager() (lease.Checker, error) {
+func (s modelApplicationLeaseManagerGetter) GetLeaseManager() (lease.LeaseManager, error) {
 	return s(), nil
 }
 
@@ -435,6 +442,11 @@ func (TestingLeaseManager) Token(leaseName, holderName string) lease.Token {
 	return TestingLeaseManagerToken{}
 }
 
+// Revoke releases the named lease for the named holder.
+func (TestingLeaseManager) Revoke(leaseName, holderName string) error {
+	return nil
+}
+
 // TestingLeaseManagerToken is a testing implementation of the Token interface.
 type TestingLeaseManagerToken struct{}
 
@@ -452,7 +464,7 @@ type stubProviderFactory struct{}
 // as the Worker continues to run. If the worker is not a singular worker,
 // then an error will be returned.
 func (stubProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
-	return nil, errors.New("suite missing provider factory").Add(coreerrors.NotSupported)
+	return stubProvider{}, nil
 }
 
 // EphemeralProviderFromConfig returns an ephemeral provider for a given
@@ -460,4 +472,64 @@ func (stubProviderFactory) ProviderForModel(ctx context.Context, namespace strin
 // discarded.
 func (stubProviderFactory) EphemeralProviderFromConfig(ctx context.Context, config providertracker.EphemeralProviderConfig) (providertracker.Provider, error) {
 	return nil, errors.New("suite missing provider factory").Add(coreerrors.NotSupported)
+}
+
+type stubProvider struct{}
+
+// AdoptResources implements providertracker.Provider.
+func (s stubProvider) AdoptResources(ctx context.Context, controllerUUID string, fromVersion semversion.Number) error {
+	return nil
+}
+
+func (stubProvider) PrecheckInstance(ctx context.Context, params environs.PrecheckInstanceParams) error {
+	return nil
+}
+
+func (stubProvider) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
+	return constraints.NewValidator(), nil
+}
+
+// AdoptResources is a stub implementation to satisfy the providertracker.Provider interface.
+func (stubProvider) InstanceTypes(context.Context, constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+	return instances.InstanceTypesWithCostMetadata{}, nil
+}
+
+// Bootstrap implements providertracker.Provider.
+func (s stubProvider) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	return nil, nil
+}
+
+// Config implements providertracker.Provider.
+func (s stubProvider) Config() *config.Config {
+	return nil
+}
+
+// Destroy implements providertracker.Provider.
+func (s stubProvider) Destroy(ctx context.Context) error {
+	return nil
+}
+
+// DestroyController implements providertracker.Provider.
+func (s stubProvider) DestroyController(ctx context.Context, controllerUUID string) error {
+	return nil
+}
+
+// PrepareForBootstrap implements providertracker.Provider.
+func (s stubProvider) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
+	return nil
+}
+
+// SetConfig implements providertracker.Provider.
+func (s stubProvider) SetConfig(ctx context.Context, cfg *config.Config) error {
+	return nil
+}
+
+// StorageProvider implements providertracker.Provider.
+func (s stubProvider) StorageProvider(storage.ProviderType) (storage.Provider, error) {
+	return nil, nil
+}
+
+// StorageProviderTypes implements providertracker.Provider.
+func (s stubProvider) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return nil, nil
 }

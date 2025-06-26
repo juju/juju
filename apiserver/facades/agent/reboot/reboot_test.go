@@ -5,6 +5,7 @@
 package reboot_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/clock"
@@ -63,7 +64,7 @@ func TestRebootSuite(t *testing.T) {
 }
 
 func (s *rebootSuite) createMachine(c *tc.C, tag names.MachineTag) *testMachine {
-	uuid, err := s.machineService.CreateMachine(c.Context(), coremachine.Name(tag.Id()))
+	uuid, err := s.machineService.CreateMachine(c.Context(), coremachine.Name(tag.Id()), nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return s.setupMachine(c, tag, err, uuid)
@@ -143,7 +144,9 @@ func (s *rebootSuite) SetUpTest(c *tc.C) {
 			loggertesting.WrapCheckLog(c),
 		),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
-		nil,
+		func(ctx context.Context) (service.Provider, error) {
+			return service.NewNoopProvider(), nil
+		},
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),

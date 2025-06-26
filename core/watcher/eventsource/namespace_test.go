@@ -51,7 +51,7 @@ func (s *namespaceSuite) TestInitialStateSent(c *tc.C) {
 	// read mode, we will have the in channel assigned.
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas)
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{opt: changestream.Namespace(
@@ -104,7 +104,7 @@ func (s *namespaceSuite) TestInitialStateSentByMapper(c *tc.C) {
 	// read mode, we will have the in channel assigned.
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas)
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
@@ -130,7 +130,7 @@ func (s *namespaceSuite) TestInitialStateSentByMapper(c *tc.C) {
 
 	w, err := NewNamespaceMapperWatcher(
 		s.newBaseWatcher(c), InitialNamespaceChanges("SELECT key_name FROM random_namespace"),
-		func(ctx context.Context, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, e []changestream.ChangeEvent) ([]string, error) {
 			return nil, nil
 		},
 		NamespaceFilter("random_namespace", changestream.All),
@@ -166,7 +166,7 @@ func (s *namespaceSuite) TestDeltasSent(c *tc.C) {
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas).Times(2)
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	// The specific table doesn't matter here. Only that exists to read from.
 	// We don't need any initial data.
@@ -231,7 +231,7 @@ func (s *namespaceSuite) TestDeltasSentByMapper(c *tc.C) {
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas).Times(2)
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	// The specific table doesn't matter here. Only that exists to read from.
 	// We don't need any initial data.
@@ -244,9 +244,9 @@ func (s *namespaceSuite) TestDeltasSentByMapper(c *tc.C) {
 
 	w, err := NewNamespaceMapperWatcher(
 		s.newBaseWatcher(c), InitialNamespaceChanges("SELECT uuid FROM external_controller"),
-		func(ctx context.Context, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-			if e[0].Changed() == "some-ec-uuid" {
-				return e, nil
+		func(ctx context.Context, e []changestream.ChangeEvent) ([]string, error) {
+			if s := e[0].Changed(); s == "some-ec-uuid" {
+				return singleton(s), nil
 			}
 			return nil, nil
 		},
@@ -312,7 +312,7 @@ func (s *namespaceSuite) TestDeltasSentByMapperError(c *tc.C) {
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas).AnyTimes()
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	// The specific table doesn't matter here. Only that exists to read from.
 	// We don't need any initial data.
@@ -325,7 +325,7 @@ func (s *namespaceSuite) TestDeltasSentByMapperError(c *tc.C) {
 
 	w, err := NewNamespaceMapperWatcher(
 		s.newBaseWatcher(c), InitialNamespaceChanges("SELECT uuid FROM external_controller"),
-		func(ctx context.Context, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, e []changestream.ChangeEvent) ([]string, error) {
 			return nil, errors.New("boom")
 		},
 		NamespaceFilter("external_controller", changestream.All),
@@ -372,7 +372,7 @@ func (s *namespaceSuite) TestSubscriptionDoneKillsWorker(c *tc.C) {
 	close(done)
 	subExp.Done().Return(done)
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	// The specific table doesn't matter here. Only that exists to read from.
 	// We don't need any initial data.

@@ -44,7 +44,6 @@ func makeFacade(ctx facade.ModelContext) (*ModelConfigAPI, error) {
 		auth,
 		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
-		ctx.State(),
 		domainServices.Agent(),
 		domainServices.BlockCommand(),
 		domainServices.Config(),

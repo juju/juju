@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -22,7 +21,6 @@ import (
 type sharedServerContextSuite struct {
 	statetesting.StateSuite
 
-	hub                     *pubsub.StructuredHub
 	controllerConfigService ControllerConfigService
 }
 
@@ -38,17 +36,6 @@ func (s *sharedServerContextSuite) TestConfigNoStatePool(c *tc.C) {
 	err := config.validate()
 	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, "nil statePool not valid")
-}
-
-func (s *sharedServerContextSuite) TestConfigNoHub(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	config := s.newConfig(c)
-
-	config.centralHub = nil
-	err := config.validate()
-	c.Check(err, tc.ErrorIs, errors.NotValid)
-	c.Check(err, tc.ErrorMatches, "nil centralHub not valid")
 }
 
 func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *tc.C) {
@@ -97,13 +84,10 @@ func (s *sharedServerContextSuite) TestValidConfig(c *tc.C) {
 }
 
 func (s *sharedServerContextSuite) newConfig(c *tc.C) sharedServerConfig {
-	s.hub = pubsub.NewStructuredHub(nil)
-
 	controllerConfig := testing.FakeControllerConfig()
 
 	return sharedServerConfig{
 		statePool:               s.StatePool,
-		centralHub:              s.hub,
 		leaseManager:            &lease.Manager{},
 		controllerConfig:        controllerConfig,
 		controllerConfigService: s.controllerConfigService,

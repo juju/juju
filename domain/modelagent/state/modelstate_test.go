@@ -72,7 +72,7 @@ func (s *modelStateSuite) addMachineWithName(c *tc.C, name machine.Name) string 
 		loggertesting.WrapCheckLog(c),
 	)
 	uuid := coremachinetesting.GenUUID(c)
-	err := machineSt.CreateMachine(c.Context(), name, uuid.String(), uuid)
+	err := machineSt.CreateMachine(c.Context(), name, uuid.String(), uuid, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -96,9 +96,13 @@ func (s *modelStateSuite) addMachineWithBase(
 INSERT INTO net_node(uuid) VALUES (?)
 `
 	machineInsert := `
-INSERT INTO machine (uuid, name, base, net_node_uuid, life_id)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO machine (uuid, name, net_node_uuid, life_id)
+VALUES (?, ?, ?, ?)
 `
+
+	machinePlatform := `
+INSERT INTO machine_platform (machine_uuid, os_id, channel, architecture_id)
+VALUES (?, ?, ?, 0)`
 
 	err = s.ModelTxnRunner().StdTxn(
 		c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -112,9 +116,19 @@ VALUES (?, ?, ?, ?, ?)
 				machineInsert,
 				machineUUID.String(),
 				machineUUID.String(),
-				base.String(),
 				netNodeUUID.String(),
 				life.Alive,
+			)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.ExecContext(
+				ctx,
+				machinePlatform,
+				machineUUID.String(),
+				0, // This is always 0 as we only support Ubuntu for now.
+				base.Channel.String(),
 			)
 			return err
 		},
@@ -268,7 +282,7 @@ func (s *modelStateSuite) createTestingUnitForApplication(
 	appID, err := appState.GetApplicationIDByName(c.Context(), appName)
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, _, err := appState.AddIAASUnits(c.Context(), appID, application.AddUnitArg{})
+	unitNames, _, err := appState.AddIAASUnits(c.Context(), appID, application.AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]
@@ -564,7 +578,7 @@ func (s *modelStateSuite) TestMachineSetRunningAgentBinaryVersionMachineDead(c *
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	err := machineSt.CreateMachine(c.Context(), "666", "", machineUUID)
+	err := machineSt.CreateMachine(c.Context(), "666", "", machineUUID, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = machineSt.SetMachineLife(c.Context(), "666", life.Dead)

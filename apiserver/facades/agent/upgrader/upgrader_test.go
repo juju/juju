@@ -56,6 +56,7 @@ type upgraderSuite struct {
 	controllerConfigGetter *MockControllerConfigGetter
 	agentService           *MockModelAgentService
 	controllerNodeService  *MockControllerNodeService
+	machineService         *MockMachineService
 
 	isUpgrader      *MockUpgrader
 	watcherRegistry *facademocks.MockWatcherRegistry
@@ -82,10 +83,9 @@ func (s *upgraderSuite) SetUpTest(c *tc.C) {
 	var err error
 	// The first machine created is the only one allowed to
 	// JobManageModel
-	s.apiMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits,
-		state.JobManageModel)
+	s.apiMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"))
 	c.Assert(err, tc.ErrorIsNil)
-	s.rawMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.rawMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The default auth is as the machine agent
@@ -105,17 +105,23 @@ func (s *upgraderSuite) SetUpTest(c *tc.C) {
 		s.watcherRegistry,
 		nil,
 		domainServices.Agent(),
+		domainServices.Machine(),
 	)
 }
 
 func (s *upgraderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
 	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
 	s.agentService = NewMockModelAgentService(ctrl)
+	s.controllerNodeService = NewMockControllerNodeService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
+
 	s.isUpgrader = NewMockUpgrader(ctrl)
 	s.isUpgrader.EXPECT().IsUpgrading().Return(false, nil).AnyTimes()
+
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
-	s.controllerNodeService = NewMockControllerNodeService(ctrl)
+
 	return ctrl
 }
 
@@ -128,6 +134,7 @@ func (s *upgraderSuite) makeMockedUpgraderAPI(c *tc.C) *upgrader.UpgraderAPI {
 		s.watcherRegistry,
 		s.controllerNodeService,
 		s.agentService,
+		s.machineService,
 	)
 }
 
@@ -163,6 +170,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *tc.C) {
 		s.watcherRegistry,
 		s.controllerNodeService,
 		domainServices.Agent(),
+		s.machineService,
 	)
 
 	args := params.Entities{
@@ -624,7 +632,8 @@ func (s *upgraderSuite) TestSetToolsInvalidVersion(c *tc.C) {
 }
 
 func (s *upgraderSuite) TestDesiredVersionNothing(c *tc.C) {
-	c.Skip("tlm")
+	c.Skip("skipping till we can move this test to mocks")
+
 	defer s.setupMocks(c).Finish()
 
 	// Not an error to watch nothing
@@ -634,7 +643,8 @@ func (s *upgraderSuite) TestDesiredVersionNothing(c *tc.C) {
 }
 
 func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *tc.C) {
-	c.Skip("some reason")
+	c.Skip("skipping till we can move this test to mocks")
+
 	defer s.setupMocks(c).Finish()
 
 	anAuthorizer := s.authorizer
@@ -649,6 +659,7 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *tc.C) {
 		s.watcherRegistry,
 		s.controllerNodeService,
 		domainServices.Agent(),
+		s.machineService,
 	)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
@@ -662,7 +673,8 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *tc.C) {
 }
 
 func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *tc.C) {
-	c.Skip("some reason")
+	c.Skip("skipping till we can move this test to mocks")
+
 	defer s.setupMocks(c).Finish()
 
 	args := params.Entities{Entities: []params.Entity{
@@ -683,7 +695,8 @@ func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *tc.C) {
 }
 
 func (s *upgraderSuite) TestDesiredVersionForAgent(c *tc.C) {
-	c.Skip("some reason")
+	c.Skip("skipping till we can move this test to mocks")
+
 	defer s.setupMocks(c).Finish()
 
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
@@ -697,7 +710,8 @@ func (s *upgraderSuite) TestDesiredVersionForAgent(c *tc.C) {
 }
 
 func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *tc.C) {
-	c.Skip("some reason")
+	c.Skip("skipping till we can move this test to mocks")
+
 	defer s.setupMocks(c).Finish()
 
 	newVersion := coretesting.CurrentVersion()
@@ -717,6 +731,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *tc.C) {
 		s.watcherRegistry,
 		s.controllerNodeService,
 		s.agentService,
+		s.machineService,
 	)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag().String()}}}
 	results, err := upgraderAPI.DesiredVersion(c.Context(), args)
@@ -729,7 +744,8 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *tc.C) {
 }
 
 func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *tc.C) {
-	c.Skip("some reason")
+	c.Skip("skipping till we can move this test to mocks")
+
 	defer s.setupMocks(c).Finish()
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	results, err := s.upgrader.DesiredVersion(c.Context(), args)

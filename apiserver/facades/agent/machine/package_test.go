@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package machine_test -destination package_mock_test.go github.com/juju/juju/apiserver/facades/agent/machine NetworkService,MachineService
+//go:generate go run go.uber.org/mock/mockgen -typed -package machine_test -destination package_mock_test.go github.com/juju/juju/apiserver/facades/agent/machine NetworkService,MachineService,ApplicationService,StatusService
 //go:generate go run go.uber.org/mock/mockgen -typed -package machine_test -destination facade_mock_test.go github.com/juju/juju/apiserver/facade WatcherRegistry
 
 func TestMain(m *stdtesting.M) {
@@ -40,10 +40,10 @@ func (s *commonSuite) SetUpTest(c *tc.C) {
 	st := s.ControllerModel(c).State()
 
 	var err error
-	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.machine1, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine1, err = st.AddMachine(state.UbuntuBase("12.10"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,

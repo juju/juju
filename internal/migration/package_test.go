@@ -7,12 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
@@ -22,7 +19,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration AgentBinaryStore,ControllerConfigService,UpgradeService,ApplicationService,RelationService,StatusService,OperationExporter,Coordinator,ModelAgentService,CharmService
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServicesGetter,DomainServices
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination storage_mock_test.go github.com/juju/juju/core/storage ModelStorageRegistryGetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination description_mock_test.go github.com/juju/description/v9 Model
+//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination description_mock_test.go github.com/juju/description/v10 Model
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ModelObjectStoreGetter
 
 type precheckBaseSuite struct {
@@ -35,16 +32,9 @@ type precheckBaseSuite struct {
 	agentService       *MockModelAgentService
 }
 
-func (s *precheckBaseSuite) checkRebootRequired(c *tc.C, runPrecheck precheckRunner) {
-	err := runPrecheck(c, newBackendWithRebootingMachine(), &fakeCredentialService{}, s.upgradeService,
-		s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err, tc.ErrorMatches, "machine 0 is scheduled to reboot")
-}
-
 func (s *precheckBaseSuite) setupMocksWithDefaultAgentVersion(c *tc.C) *gomock.Controller {
 	ctrl := s.setupMocks(c)
 	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse("2.9.32"), nil).AnyTimes()
-	s.expectAgentTargetVersions(c)
 	return ctrl
 }
 
@@ -56,38 +46,46 @@ func (s *precheckBaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.statusService = NewMockStatusService(ctrl)
 	s.agentService = NewMockModelAgentService(ctrl)
 
+	c.Cleanup(func() {
+		s.upgradeService = nil
+		s.applicationService = nil
+		s.relationService = nil
+		s.statusService = nil
+		s.agentService = nil
+	})
+
 	return ctrl
 }
 
-func (s *precheckBaseSuite) expectApplicationLife(appName string, l life.Value) {
-	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), appName).Return(l, nil)
+func (s *precheckBaseSuite) expectAllAppsAndUnitsAlive() {
+	s.applicationService.EXPECT().CheckAllApplicationsAndUnitsAreAlive(gomock.Any()).Return(nil)
 }
 
-func (s *precheckBaseSuite) expectCheckRelation(rels fakeRelations) {
-	result := transform.MapToSlice(rels, func(k int, rel fakeRelation) []relation.RelationDetailsResult {
-		return []relation.RelationDetailsResult{{
-			ID:        k,
-			Endpoints: rel.eps,
-		}}
-	})
+func (s *precheckBaseSuite) expectDeadAppsOrUnits(err error) {
+	s.applicationService.EXPECT().CheckAllApplicationsAndUnitsAreAlive(gomock.Any()).Return(err)
+}
+
+func (s *precheckBaseSuite) expectCheckRelation(rel fakeRelation) {
+	result := []relation.RelationDetailsResult{{
+		ID:        1,
+		Endpoints: rel.eps,
+	}}
+
+	for appName, units := range rel.appsToUnits {
+		s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), appName).Return(units, nil)
+	}
+
 	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(result, nil)
 	s.relationService.EXPECT().RelationUnitInScopeByID(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, i int, name coreunit.Name) (bool, error) {
-			rel, ok := rels[i]
-			if !ok {
-				return false, errors.Errorf("no relation %d", i)
-			}
 			return rel.units.Contains(string(name)), nil
 		}).AnyTimes()
 }
 
-// fakeRelation is a type that represents basic information for a relation,
-// grouped by relation id.
-type fakeRelations map[int]fakeRelation
-
 type fakeRelation struct {
-	eps   []relation.Endpoint
-	units set.Strings
+	eps         []relation.Endpoint
+	units       set.Strings
+	appsToUnits map[string][]coreunit.Name
 }
 
 func (s *precheckBaseSuite) expectCheckUnitStatuses(res error) {
@@ -104,15 +102,4 @@ func (s *precheckBaseSuite) expectIsUpgradeError(err error) {
 
 func (s *precheckBaseSuite) expectAgentVersion() {
 	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse(backendVersion.String()), nil).AnyTimes()
-}
-
-// expectAgentTargetVersions a hack utility function to help support
-// the transition of prechecks to mocks and Dqlite. This function will take
-// an established backend and setup gomock expects for machines and units to
-// have their agent version information read.
-func (s *precheckBaseSuite) expectAgentTargetVersions(c *tc.C) {
-	s.agentService.EXPECT().GetMachinesNotAtTargetAgentVersion(gomock.Any()).
-		Return(nil, nil).AnyTimes()
-	s.agentService.EXPECT().GetUnitsNotAtTargetAgentVersion(gomock.Any()).
-		Return(nil, nil).AnyTimes()
 }

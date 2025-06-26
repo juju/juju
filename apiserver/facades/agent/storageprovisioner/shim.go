@@ -21,7 +21,6 @@ type Backend interface {
 	state.EntityFinder
 
 	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
-	WatchApplications() state.StringsWatcher
 }
 
 type StorageBackend interface {

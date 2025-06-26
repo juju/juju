@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -25,7 +24,6 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	userservice "github.com/juju/juju/domain/access/service"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -70,6 +68,7 @@ type WorkerConfig struct {
 	AgentBinaryUploader        AgentBinaryBootstrapFunc
 	ControllerCharmDeployer    ControllerCharmDeployerFunc
 	PopulateControllerCharm    PopulateControllerCharmFunc
+	SetMachineProvisioned      SetMachineProvisionedFunc
 	CharmhubHTTPClient         HTTPClient
 	UnitPassword               string
 	ServiceManagerGetter       ServiceManagerGetterFunc
@@ -144,6 +143,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.CharmhubHTTPClient == nil {
 		return errors.NotValidf("nil CharmhubHTTPClient")
+	}
+	if c.SetMachineProvisioned == nil {
+		return errors.NotValidf("nil SetMachineProvisioned")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -242,10 +244,6 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	if err := w.seedControllerCharm(ctx, dataDir, bootstrapParams); err != nil {
-		return errors.Trace(err)
-	}
-
 	// Retrieve controller addresses needed to set the API host ports.
 	bootstrapAddresses, err := w.cfg.BootstrapAddressFinder(ctx, bootstrapParams.BootstrapMachineInstanceId)
 	if err != nil {
@@ -265,25 +263,20 @@ func (w *bootstrapWorker) loop() error {
 		w.logger.Debugf(ctx, "reload spaces not supported due to a non-networking environement")
 	}
 
+	// Deploy the controller charm after calling reload spaces or
+	// no subnets will be available for the ip address table with
+	// kubernetes.
+	if err := w.seedControllerCharm(ctx, dataDir, bootstrapParams); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := w.seedInitialAuthorizedKeys(ctx, bootstrapParams.ControllerModelAuthorizedKeys); err != nil {
 		return errors.Trace(err)
 	}
 
-	// Set machine cloud instance data for the bootstrap machine.
-	bootstrapMachineUUID, err := w.cfg.MachineService.GetMachineUUID(ctx, machine.Name(agent.BootstrapControllerId))
-	if errors.Is(err, machineerrors.MachineNotFound) {
-		w.logger.Debugf(ctx, "unable to retrieve machine UUID for bootstrap machine %q, it could mean that this is a k8s cloud: %w", agent.BootstrapControllerId, err)
-	} else if err != nil {
-		return errors.Trace(err)
-	} else if err := w.cfg.MachineService.SetMachineCloudInstance(
-		ctx,
-		bootstrapMachineUUID,
-		bootstrapParams.BootstrapMachineInstanceId,
-		bootstrapParams.BootstrapMachineDisplayName,
-		bootstrapParams.BootstrapMachineHardwareCharacteristics,
-	); err != nil {
-		w.logger.Errorf(ctx, "unable to set machine cloud instance data for bootstrap machine %q: %w", bootstrapMachineUUID, err)
-		return errors.Trace(err)
+	// Set the bootstrap machine as provisioned.
+	if err := w.cfg.SetMachineProvisioned(ctx, w.cfg.AgentPasswordService, w.cfg.MachineService, bootstrapParams, agentConfig); err != nil {
+		return errors.Annotatef(err, "setting machine as provisioned")
 	}
 
 	// Convert the provider addresses that we got from the bootstrap instance
@@ -459,7 +452,7 @@ func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig
 // want to cut off communication to the controller based on erroneous config.
 func (w *bootstrapWorker) filterHostPortsForManagementSpace(
 	ctx context.Context,
-	mgmtSpace string,
+	mgmtSpace network.SpaceName,
 	apiHostPorts []network.SpaceHostPorts,
 	allSpaces network.SpaceInfos,
 ) []network.SpaceHostPorts {

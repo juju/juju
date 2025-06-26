@@ -12,7 +12,6 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
@@ -25,7 +24,6 @@ import (
 	"github.com/juju/juju/internal/configschema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
-	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing"
@@ -75,7 +73,6 @@ type CharmParams struct {
 // MachineParams are for creating a machine.
 type MachineParams struct {
 	Base            state.Base
-	Jobs            []state.MachineJob
 	Password        string
 	Nonce           string
 	Constraints     constraints.Value
@@ -157,139 +154,6 @@ func uniqueString(prefix string) string {
 		prefix = "no-prefix"
 	}
 	return fmt.Sprintf("%s-%d", prefix, uniqueInteger())
-}
-
-func (factory *Factory) paramsFillDefaults(c *tc.C, params *MachineParams) *MachineParams {
-	if params == nil {
-		params = &MachineParams{}
-	}
-	if params.Base.String() == "" {
-		params.Base = state.UbuntuBase("12.10")
-	}
-	if params.Nonce == "" {
-		params.Nonce = "nonce"
-	}
-	if len(params.Jobs) == 0 {
-		params.Jobs = []state.MachineJob{state.JobHostUnits}
-	}
-	if params.InstanceId == "" {
-		params.InstanceId = instance.Id(uniqueString("id"))
-	}
-	if params.Password == "" {
-		var err error
-		params.Password, err = password.RandomPassword()
-		c.Assert(err, tc.ErrorIsNil)
-	}
-	if params.Characteristics == nil {
-		arch := arch.DefaultArchitecture
-		mem := uint64(64 * 1024 * 1024 * 1024)
-		hardware := instance.HardwareCharacteristics{
-			Arch: &arch,
-			Mem:  &mem,
-		}
-		params.Characteristics = &hardware
-	}
-
-	return params
-}
-
-// MakeMachineNested will make a machine nested in the machine with ID given.
-// Deprecated: Testing factory is being removed and should not be used in new
-// tests.
-func (factory *Factory) MakeMachineNested(c *tc.C, parentId string, params *MachineParams) *state.Machine {
-	params = factory.paramsFillDefaults(c, params)
-	machineTemplate := state.MachineTemplate{
-		Base:        params.Base,
-		Jobs:        params.Jobs,
-		Volumes:     params.Volumes,
-		Filesystems: params.Filesystems,
-		Constraints: params.Constraints,
-	}
-
-	m, err := factory.st.AddMachineInsideMachine(
-		machineTemplate,
-		parentId,
-		instance.LXD,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	err = m.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
-	c.Assert(err, tc.ErrorIsNil)
-	current := testing.CurrentVersion()
-	err = m.SetAgentVersion(current)
-	c.Assert(err, tc.ErrorIsNil)
-	return m
-}
-
-// MakeMachine will add a machine with values defined in params. For some
-// values in params, if they are missing, some meaningful empty values will be
-// set.
-// If params is not specified, defaults are used.
-// Deprecated: Testing factory is being removed and should not be used in new
-// tests.
-func (factory *Factory) MakeMachine(c *tc.C, params *MachineParams) *state.Machine {
-	machine, _ := factory.MakeMachineReturningPassword(c, params)
-	return machine
-}
-
-// MakeMachineReturningPassword will add a machine with values defined in
-// params. For some values in params, if they are missing, some meaningful
-// empty values will be set. If params is not specified, defaults are used.
-// The machine and its password are returned.
-// Deprecated: Testing factory is being removed and should not be used in new
-// tests.
-func (factory *Factory) MakeMachineReturningPassword(c *tc.C, params *MachineParams) (*state.Machine, string) {
-	params = factory.paramsFillDefaults(c, params)
-	return factory.makeMachineReturningPassword(c, params, true)
-}
-
-// MakeUnprovisionedMachineReturningPassword will add a machine with values
-// defined in params. For some values in params, if they are missing, some
-// meaningful empty values will be set. If params is not specified, defaults
-// are used. The machine and its password are returned; the machine will not
-// be provisioned.
-// Deprecated: Testing factory is being removed and should not be used in new
-// tests.
-func (factory *Factory) MakeUnprovisionedMachineReturningPassword(c *tc.C, params *MachineParams) (*state.Machine, string) {
-	if params != nil {
-		c.Assert(params.Nonce, tc.Equals, "")
-		c.Assert(params.InstanceId, tc.Equals, instance.Id(""))
-		c.Assert(params.Characteristics, tc.IsNil)
-	}
-	params = factory.paramsFillDefaults(c, params)
-	params.Nonce = ""
-	params.InstanceId = ""
-	params.Characteristics = nil
-	return factory.makeMachineReturningPassword(c, params, false)
-}
-
-func (factory *Factory) makeMachineReturningPassword(c *tc.C, params *MachineParams, setProvisioned bool) (*state.Machine, string) {
-	machineTemplate := state.MachineTemplate{
-		Base:        params.Base,
-		Jobs:        params.Jobs,
-		Volumes:     params.Volumes,
-		Filesystems: params.Filesystems,
-		Constraints: params.Constraints,
-	}
-
-	if params.Characteristics != nil {
-		machineTemplate.HardwareCharacteristics = *params.Characteristics
-	}
-	machine, err := factory.st.AddOneMachine(machineTemplate)
-	c.Assert(err, tc.ErrorIsNil)
-	if setProvisioned {
-		err = machine.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
-		c.Assert(err, tc.ErrorIsNil)
-	}
-	err = machine.SetPassword(params.Password)
-	c.Assert(err, tc.ErrorIsNil)
-	if len(params.Addresses) > 0 {
-		err = machine.SetProviderAddresses(factory.controllerConfig, params.Addresses...)
-		c.Assert(err, tc.ErrorIsNil)
-	}
-	current := testing.CurrentVersion()
-	err = machine.SetAgentVersion(current)
-	c.Assert(err, tc.ErrorIsNil)
-	return machine, params.Password
 }
 
 // MakeModel creates an model with specified params,

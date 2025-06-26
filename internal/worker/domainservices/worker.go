@@ -294,14 +294,40 @@ type modelApplicationLeaseManager struct {
 }
 
 // GetLeaseManager returns a lease manager for the given model UUID.
-func (s modelApplicationLeaseManager) GetLeaseManager() (lease.Checker, error) {
-	// TODO (stickupkid): These aren't cheap to make, so we should cache them
-	// and reuse them where possible. I'm not sure these should be workers, I'd
-	// be happy with a sync.Pool at minimum though.
+func (s modelApplicationLeaseManager) GetLeaseManager() (lease.LeaseManager, error) {
 	checker, err := s.manager.Checker(lease.ApplicationLeadershipNamespace, s.modelUUID.String())
 	if err != nil {
 		return nil, internalerrors.Errorf("getting checker lease manager: %w", err)
 	}
 
-	return checker, nil
+	revoker, err := s.manager.Revoker(lease.ApplicationLeadershipNamespace, s.modelUUID.String())
+	if err != nil {
+		return nil, internalerrors.Errorf("getting revoker lease manager: %w", err)
+	}
+
+	return leaseManager{
+		checker: checker,
+		revoker: revoker,
+	}, nil
+}
+
+type leaseManager struct {
+	checker lease.Checker
+	revoker lease.Revoker
+}
+
+// WaitUntilExpired returns nil when the named lease is no longer held.
+func (s leaseManager) WaitUntilExpired(ctx context.Context, leaseName string, started chan<- struct{}) error {
+	return s.checker.WaitUntilExpired(ctx, leaseName, started)
+}
+
+// Token returns a Token that can be interrogated at any time to discover
+// whether the supplied lease is currently held by the supplied holder.
+func (s leaseManager) Token(leaseName, holderName string) lease.Token {
+	return s.checker.Token(leaseName, holderName)
+}
+
+// Revoke releases the named lease for the named holder.
+func (s leaseManager) Revoke(leaseName, holderName string) error {
+	return s.revoker.Revoke(leaseName, holderName)
 }

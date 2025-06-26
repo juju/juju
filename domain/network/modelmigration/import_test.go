@@ -6,11 +6,12 @@ package modelmigration
 import (
 	"testing"
 
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/domain/network/internal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -111,6 +112,8 @@ func (s *importSuite) TestImportSubnetAndSpaceNotLinked(c *tc.C) {
 func (s *importSuite) TestImportSpaceWithSubnet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	spUUID := networktesting.GenSpaceUUID(c)
+
 	model := description.NewModel(description.ModelArgs{})
 	model.AddSpace(description.SpaceArgs{
 		Id:         "previous-space-id",
@@ -122,10 +125,10 @@ func (s *importSuite) TestImportSpaceWithSubnet(c *tc.C) {
 		ProviderId: "space-provider-id",
 	}
 	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo).
-		Return(network.Id("new-space-id"), nil)
-	s.importService.EXPECT().Space(gomock.Any(), "new-space-id").
+		Return(spUUID, nil)
+	s.importService.EXPECT().Space(gomock.Any(), spUUID).
 		Return(&network.SpaceInfo{
-			ID:         "new-space-id",
+			ID:         spUUID,
 			Name:       "space-name",
 			ProviderId: network.Id("space-provider-id"),
 		}, nil)
@@ -146,7 +149,7 @@ func (s *importSuite) TestImportSpaceWithSubnet(c *tc.C) {
 		ProviderNetworkId: "subnet-provider-network-id",
 		VLANTag:           42,
 		AvailabilityZones: []string{"az1", "az2"},
-		SpaceID:           "new-space-id",
+		SpaceID:           spUUID,
 		SpaceName:         "space-name",
 		ProviderSpaceId:   "space-provider-id",
 	})

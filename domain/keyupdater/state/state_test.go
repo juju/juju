@@ -108,6 +108,7 @@ func (s *stateSuite) TestGetModelId(c *tc.C) {
 		AgentStream:     modelagent.AgentStreamReleased,
 		ControllerUUID:  uuid.MustNewUUID(),
 		Name:            "my-awesome-model",
+		Qualifier:       "prod",
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",
 		CloudType:       "ec2",

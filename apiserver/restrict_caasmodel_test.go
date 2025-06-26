@@ -29,7 +29,7 @@ func (s *RestrictCAASModelSuite) SetUpSuite(c *tc.C) {
 }
 
 func (s *RestrictCAASModelSuite) TestAllowed(c *tc.C) {
-	s.assertMethod(c, "CAASUnitProvisioner", 2, "WatchApplicationsScale")
+	s.assertMethod(c, "CAASModelOperator", 1, "ModelOperatorProvisioningInfo")
 }
 
 func (s *RestrictCAASModelSuite) TestNotAllowed(c *tc.C) {

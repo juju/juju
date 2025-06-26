@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/firewall"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -20,11 +19,13 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -54,6 +55,7 @@ type FirewallerAPI struct {
 	st                                       State
 	networkService                           NetworkService
 	applicationService                       ApplicationService
+	machineService                           MachineService
 	resources                                facade.Resources
 	watcherRegistry                          facade.WatcherRegistry
 	authorizer                               facade.Authorizer
@@ -95,8 +97,11 @@ func NewStateFirewallerAPI(
 
 	// Life() is supported for units, applications or machines.
 	lifeGetter := common.NewLifeGetter(
+		applicationService,
+		machineService,
 		st,
 		accessUnitApplicationOrMachineOrRelation,
+		logger,
 	)
 	// ModelConfig() and WatchForModelConfigChanges() are allowed
 	// with unrestricted access.
@@ -133,6 +138,7 @@ func NewStateFirewallerAPI(
 		modelConfigService:                       modelConfigService,
 		networkService:                           networkService,
 		applicationService:                       applicationService,
+		machineService:                           machineService,
 		modelInfoService:                         modelInfoService,
 		logger:                                   logger,
 	}, nil
@@ -177,7 +183,7 @@ func (f *FirewallerAPI) Life(ctx context.Context, args params.Entities) (params.
 				err = jujuerrors.NotFoundf("unit %q", unitName)
 			}
 		default:
-			lifeValue, err = f.LifeGetter.OneLife(tag)
+			lifeValue, err = f.LifeGetter.OneLife(ctx, tag)
 		}
 		result.Results[i].Life = lifeValue
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -235,25 +241,17 @@ func (f *FirewallerAPI) WatchModelFirewallRules(ctx context.Context) (params.Not
 	return params.NotifyWatchResult{NotifyWatcherId: watcherId}, nil
 }
 
-func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (firewall.Machine, error) {
-	if !canAccess(tag) {
-		return nil, apiservererrors.ErrPerm
-	}
-	return f.st.Machine(tag.Id())
-}
-
 // WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
 func (f *FirewallerAPI) WatchEgressAddressesForRelations(ctx context.Context, relations params.Entities) (params.StringsWatchResults, error) {
-	return firewall.WatchEgressAddressesForRelations(ctx, f.resources, f.st, f.modelConfigService, relations)
+	return params.StringsWatchResults{}, nil
 }
 
 // WatchIngressAddressesForRelations creates a watcher that returns the ingress networks
 // that have been recorded against the specified relations.
 func (f *FirewallerAPI) WatchIngressAddressesForRelations(ctx context.Context, relations params.Entities) (params.StringsWatchResults, error) {
-	return params.StringsWatchResults{}, jujuerrors.NotImplementedf("cross model relations are disabled until " +
-		"backend functionality is moved to domain")
+	return params.StringsWatchResults{}, nil
 }
 
 // MacaroonForRelations returns the macaroon for the specified relations.
@@ -316,11 +314,21 @@ func (f *FirewallerAPI) AreManuallyProvisioned(ctx context.Context, args params.
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		machine, err := f.getMachine(canAccess, machineTag)
-		if err == nil {
-			result.Results[i].Result, err = machine.IsManual()
+
+		if !canAccess(machineTag) {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+
+		manual, err := f.machineService.IsMachineManuallyProvisioned(ctx, machine.Name(machineTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("machine %q", machineTag.Id()))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Result = manual
 	}
 	return result, nil
 }
@@ -396,7 +404,7 @@ func (f *FirewallerAPI) SpaceInfos(ctx context.Context, args params.SpaceInfosPa
 			selectList   = set.NewStrings(args.FilterBySpaceIDs...)
 		)
 		for _, si := range allSpaces {
-			if selectList.Contains(si.ID) {
+			if selectList.Contains(si.ID.String()) {
 				filteredList = append(filteredList, si)
 			}
 		}

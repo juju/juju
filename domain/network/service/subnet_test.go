@@ -12,6 +12,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -148,17 +149,19 @@ func (s *subnetSuite) TestFailRetrieveSubnetByCIDRs(c *tc.C) {
 func (s *subnetSuite) TestUpdateSubnet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().UpdateSubnet(gomock.Any(), "subnet0", "space0")
-	err := NewService(s.st, nil).UpdateSubnet(c.Context(), "subnet0", "space0")
+	spUUID := networktesting.GenSpaceUUID(c)
+	s.st.EXPECT().UpdateSubnet(gomock.Any(), "subnet0", spUUID)
+	err := NewService(s.st, nil).UpdateSubnet(c.Context(), "subnet0", spUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *subnetSuite) TestFailUpdateSubnet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().UpdateSubnet(gomock.Any(), "unknown-subnet", "space0").
+	spUUID := networktesting.GenSpaceUUID(c)
+	s.st.EXPECT().UpdateSubnet(gomock.Any(), "unknown-subnet", spUUID).
 		Return(errors.Errorf("subnet %q %w", "unknown-subnet", coreerrors.NotFound))
-	err := NewService(s.st, nil).UpdateSubnet(c.Context(), "unknown-subnet", "space0")
+	err := NewService(s.st, nil).UpdateSubnet(c.Context(), "unknown-subnet", spUUID)
 	c.Assert(err, tc.ErrorMatches, "subnet \"unknown-subnet\" not found")
 }
 

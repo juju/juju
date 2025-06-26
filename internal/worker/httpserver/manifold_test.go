@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -41,7 +40,6 @@ type ManifoldSuite struct {
 	manifold               dependency.Manifold
 	getter                 dependency.Getter
 	state                  stubStateTracker
-	hub                    *pubsub.StructuredHub
 	mux                    *apiserverhttp.Mux
 	clock                  *testclock.Clock
 	prometheusRegisterer   stubPrometheusRegisterer
@@ -66,7 +64,6 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.authority = authority
 
 	s.mux = &apiserverhttp.Mux{}
-	s.hub = pubsub.NewStructuredHub(nil)
 	s.clock = testclock.NewClock(time.Now())
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.tlsConfig = &tls.Config{}
@@ -88,7 +85,6 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.config = httpserver.ManifoldConfig{
 		AgentName:            "machine-42",
 		AuthorityName:        "authority",
-		HubName:              "hub",
 		StateName:            "state",
 		DomainServicesName:   "domain-services",
 		MuxName:              "mux",
@@ -113,7 +109,6 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 	resources := map[string]interface{}{
 		"authority":       s.authority,
 		"state":           &s.state,
-		"hub":             s.hub,
 		"mux":             s.mux,
 		"api-server":      nil,
 		"domain-services": s.domainServices,
@@ -157,7 +152,6 @@ var expectedInputs = []string{
 	"authority",
 	"state",
 	"mux",
-	"hub",
 	"api-server",
 	"domain-services",
 }
@@ -190,12 +184,9 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		AgentName:            "machine-42",
 		Clock:                s.clock,
 		PrometheusRegisterer: &s.prometheusRegisterer,
-		Hub:                  s.hub,
 		TLSConfig:            s.tlsConfig,
 		Mux:                  s.mux,
 		APIPort:              1024,
-		APIPortOpenDelay:     5 * time.Second,
-		ControllerAPIPort:    2048,
 		MuxShutdownWait:      1 * time.Minute,
 		LogDir:               "log-dir",
 		Logger:               s.config.Logger,

@@ -7,7 +7,6 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -25,13 +24,10 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/configschema"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
-	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -92,17 +88,6 @@ func (a *Application) Name() string {
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
 func (a *Application) Tag() names.Tag {
-	return a.ApplicationTag()
-}
-
-// Kind returns a human readable name identifying the application kind.
-func (a *Application) Kind() string {
-	return a.Tag().Kind()
-}
-
-// ApplicationTag returns the more specific ApplicationTag rather than the generic
-// Tag.
-func (a *Application) ApplicationTag() names.ApplicationTag {
 	return names.NewApplicationTag(a.Name())
 }
 
@@ -164,58 +149,7 @@ func (a *Application) Life() Life {
 	return a.doc.Life
 }
 
-// AgentTools returns the tools that the operator is currently running.
-// It an error that satisfies errors.IsNotFound if the tools have not
-// yet been set.
-func (a *Application) AgentTools() (*tools.Tools, error) {
-	if a.doc.Tools == nil {
-		return nil, errors.NotFoundf("operator image metadata for application %q", a)
-	}
-	result := *a.doc.Tools
-	return &result, nil
-}
-
-// SetAgentVersion sets the Tools value in applicationDoc.
-func (a *Application) SetAgentVersion(v semversion.Binary) (err error) {
-	defer errors.DeferredAnnotatef(&err, "setting agent version for application %q", a)
-	if err = checkVersionValidity(v); err != nil {
-		return errors.Trace(err)
-	}
-	versionedTool := &tools.Tools{Version: v}
-	ops := []txn.Op{{
-		C:      applicationsC,
-		Id:     a.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"tools", versionedTool}}}},
-	}}
-	if err := a.st.db().RunTransaction(ops); err != nil {
-		return onAbort(err, stateerrors.ErrDead)
-	}
-	a.doc.Tools = versionedTool
-	return nil
-}
-
 var errRefresh = stderrors.New("state seems inconsistent, refresh and try again")
-
-// Destroy ensures that the application and all its relations will be removed at
-// some point; if the application has no units, and no relation involving the
-// application has any units in scope, they are all removed immediately.
-func (a *Application) Destroy(store objectstore.ObjectStore) (err error) {
-	op := a.DestroyOperation(store)
-	defer func() {
-		logger.Tracef(context.TODO(), "Application(%s).Destroy() => %v", a.doc.Name, err)
-		if err == nil {
-			// After running the destroy ops, app life is either Dying,
-			// or it may be set to Dead. If removed, life will also be marked as Dead.
-			a.doc.Life = op.PostDestroyAppLife
-		}
-	}()
-	err = a.st.ApplyOperation(op)
-	if len(op.Errors) != 0 {
-		logger.Warningf(context.TODO(), "operational errors destroying application %v: %v", a.Name(), op.Errors)
-	}
-	return err
-}
 
 // DestroyOperation returns a model operation that will destroy the application.
 func (a *Application) DestroyOperation(store objectstore.ObjectStore) *DestroyApplicationOperation {
@@ -260,7 +194,7 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 	}
 
 	if attempt > 0 {
-		if err := op.app.Refresh(); errors.Is(err, errors.NotFound) {
+		if err := op.app.refresh(); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -397,13 +331,11 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 
 func (a *Application) removeUnitAssignmentsOps() (ops []txn.Op, err error) {
 	pattern := fmt.Sprintf("^%s:%s/[0-9]+$", a.st.ModelUUID(), a.Name())
-	unitAssignments, err := a.st.unitAssignments(bson.D{
-		{
-			Name: "_id", Value: bson.D{
-				{Name: "$regex", Value: pattern},
-			},
+	unitAssignments, err := a.st.unitAssignments(bson.D{{
+		Name: "_id", Value: bson.D{
+			{Name: "$regex", Value: pattern},
 		},
-	})
+	}})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -503,9 +435,9 @@ func (a *Application) cancelScheduledCleanupOps() ([]txn.Op, error) {
 	return cancelCleanupOps, nil
 }
 
-// Charm returns the application's charm and whether units should upgrade to that
+// charm returns the application's charm and whether units should upgrade to that
 // charm even if they are in an error state.
-func (a *Application) Charm() (CharmRefFull, bool, error) {
+func (a *Application) charm() (CharmRefFull, bool, error) {
 	if a.doc.CharmURL == nil {
 		return nil, false, errors.NotFoundf("charm for application %q", a.doc.Name)
 	}
@@ -536,41 +468,6 @@ func (a *Application) CharmModifiedVersion() int {
 // in an error state.
 func (a *Application) CharmURL() (*string, bool) {
 	return a.doc.CharmURL, a.doc.ForceCharm
-}
-
-// Endpoints returns the application's currently available relation endpoints.
-func (a *Application) Endpoints() (eps []relation.Endpoint, err error) {
-	ch, _, err := a.Charm()
-	if err != nil {
-		return nil, err
-	}
-	collect := func(role charm.RelationRole, rels map[string]charm.Relation) {
-		for _, rel := range rels {
-			eps = append(eps, relation.Endpoint{
-				ApplicationName: a.doc.Name,
-				Relation:        rel,
-			})
-		}
-	}
-
-	meta := ch.Meta()
-	if meta == nil {
-		return nil, errors.Errorf("nil charm metadata for application %q", a.Name())
-	}
-
-	collect(charm.RolePeer, meta.Peers)
-	collect(charm.RoleProvider, meta.Provides)
-	collect(charm.RoleRequirer, meta.Requires)
-	collect(charm.RoleProvider, map[string]charm.Relation{
-		"juju-info": {
-			Name:      "juju-info",
-			Role:      charm.RoleProvider,
-			Interface: "juju-info",
-			Scope:     charm.ScopeGlobal,
-		},
-	})
-	sort.Sort(epSlice(eps))
-	return eps, nil
 }
 
 func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []*Unit) (_ []txn.Op, err error) {
@@ -799,7 +696,7 @@ func (a *Application) newCharmStorageOps(
 	if err != nil {
 		return fail(err)
 	}
-	oldCharm, _, err := a.Charm()
+	oldCharm, _, err := a.charm()
 	if err != nil {
 		return fail(err)
 	}
@@ -988,7 +885,7 @@ func (a *Application) SetCharm(
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		a := acopy
 		if attempt > 0 {
-			if err := a.Refresh(); err != nil {
+			if err := a.refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -1076,7 +973,7 @@ func (a *Application) SetCharm(
 	if err := a.st.db().Run(buildTxn); err != nil {
 		return err
 	}
-	return a.Refresh()
+	return a.refresh()
 }
 
 // unitAppName returns the name of the Application, given a Unit's name.
@@ -1090,10 +987,10 @@ func (a *Application) String() string {
 	return a.doc.Name
 }
 
-// Refresh refreshes the contents of the Application from the underlying
+// refresh refreshes the contents of the Application from the underlying
 // state. It returns an error that satisfies errors.IsNotFound if the
 // application has been removed.
-func (a *Application) Refresh() error {
+func (a *Application) refresh() error {
 	applications, closer := a.st.db().GetCollection(applicationsC)
 	defer closer()
 
@@ -1537,7 +1434,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 		},
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
-		removeUnitStateOp(a.st, u.globalKey()),
 		removeStatusOp(a.st, u.globalCloudContainerKey()),
 		removeConstraintsOp(u.globalAgentKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name, op.Force),
@@ -1607,39 +1503,10 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 	return units, nil
 }
 
-// CharmConfig returns the raw user configuration for the application's charm.
-func (a *Application) CharmConfig() (charm.Settings, error) {
-	if a.doc.CharmURL == nil {
-		return nil, fmt.Errorf("application charm not set")
-	}
-
-	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.Name())
-	return s, errors.Annotatef(err, "charm config for application %q", a.doc.Name)
-}
-
-func charmSettingsWithDefaults(st *State, cURL *string, appName string) (charm.Settings, error) {
-	key := applicationCharmConfigKey(appName, cURL)
-	cfg, err := readSettings(st.db(), settingsC, key)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	ch, err := st.Charm(*cURL)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	result := ch.Config().DefaultSettings()
-	for name, value := range cfg.Map() {
-		result[name] = value
-	}
-	return result, nil
-}
-
 // UpdateCharmConfig changes a application's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
 func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
-	ch, _, err := a.Charm()
+	ch, _, err := a.charm()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1790,10 +1657,10 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	return onAbort(a.st.db().RunTransaction(ops), applicationNotAliveErr)
 }
 
-// EndpointBindings returns the mapping for each endpoint name and the space
+// endpointBindings returns the mapping for each endpoint name and the space
 // ID it is bound to (or empty if unspecified). When no bindings are stored
 // for the application, defaults are returned.
-func (a *Application) EndpointBindings() (*Bindings, error) {
+func (a *Application) endpointBindings() (*Bindings, error) {
 	// We don't need the TxnRevno below.
 	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
 	if err != nil && !errors.Is(err, errors.NotFound) {
@@ -1816,7 +1683,7 @@ func (a *Application) defaultEndpointBindings() (map[string]string, error) {
 		return map[string]string{}, nil
 	}
 
-	appCharm, _, err := a.Charm()
+	appCharm, _, err := a.charm()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1885,34 +1752,6 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 	return ops, nil
 }
 
-// SetPassword sets the password for the application's agent.
-// TODO(caas) - consider a separate CAAS application entity
-func (a *Application) SetPassword(password string) error {
-	if len(password) < internalpassword.MinAgentPasswordLength {
-		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
-	}
-	passwordHash := internalpassword.AgentPasswordHash(password)
-	ops := []txn.Op{{
-		C:      applicationsC,
-		Id:     a.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
-	}}
-	err := a.st.db().RunTransaction(ops)
-	if err != nil {
-		return fmt.Errorf("cannot set password of application %q: %v", a, onAbort(err, stateerrors.ErrDead))
-	}
-	a.doc.PasswordHash = passwordHash
-	return nil
-}
-
-// PasswordValid returns whether the given password is valid
-// for the given application.
-func (a *Application) PasswordValid(password string) bool {
-	agentHash := internalpassword.AgentPasswordHash(password)
-	return agentHash == a.doc.PasswordHash
-}
-
 // UnitUpdateProperties holds information used to update
 // the state model for the unit.
 type UnitUpdateProperties struct {
@@ -1979,16 +1818,6 @@ func (op *UpdateUnitsOperation) Done(err error) error {
 	return nil
 }
 
-// AddOperation returns a model operation that will add a unit.
-func (a *Application) AddOperation(
-	props UnitUpdateProperties,
-) *AddUnitOperation {
-	return &AddUnitOperation{
-		application: &Application{st: a.st, doc: a.doc},
-		props:       props,
-	}
-}
-
 // AddUnitOperation is a model operation that will add a unit.
 type AddUnitOperation struct {
 	application *Application
@@ -2048,18 +1877,8 @@ func (op *AddUnitOperation) Done(err error) error {
 	return nil
 }
 
-// ServiceInfo returns information about this application's cloud service.
-// This is only used for CAAS models.
-func (a *Application) ServiceInfo() (CloudServicer, error) {
-	svc, err := a.st.CloudService(a.Name())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return svc, nil
-}
-
-// UnitCount returns the of number of units for this application.
-func (a *Application) UnitCount() int {
+// unitCount returns the of number of units for this application.
+func (a *Application) unitCount() int {
 	return a.doc.UnitCount
 }
 

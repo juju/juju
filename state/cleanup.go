@@ -357,28 +357,6 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 	}
 	force := args.Force != nil && *args.Force
 	for _, m := range machines {
-		if m.IsManager() {
-			continue
-		}
-		manual, err := m.IsManual()
-		if err != nil {
-			// TODO (force 2019-4-24) we should not break out here but continue with other machines.
-			return errors.Trace(err)
-		}
-		if manual {
-			// Manually added machines should never be force-
-			// destroyed automatically. That should be a user-
-			// driven decision, since it may leak applications
-			// and resources on the machine. If something is
-			// stuck, then the user can still force-destroy
-			// the manual machines.
-			if err := m.DestroyWithContainers(); err != nil {
-				// Since we cannot delete a manual machine, we cannot proceed with model destruction even if it is forced.
-				// TODO (force 2019-4-24) However, we should not break out here but continue with other machines.
-				return errors.Trace(errors.Annotatef(err, "could not destroy manual machine %v", m.Id()))
-			}
-			continue
-		}
 		if force {
 			err = m.ForceDestroy(args.MaxWait)
 		} else {
@@ -492,11 +470,11 @@ func (st *State) cleanupApplication(ctx context.Context, store objectstore.Objec
 		return errors.BadRequestf("cleanupApplication requested for an application (%s) that is still alive", appName)
 	}
 	// We know the app is at least Dying, so check if the unit/relation counts are no longer referencing this application.
-	if app.UnitCount() > 0 {
+	if app.unitCount() > 0 {
 		// this is considered a no-op because whatever is currently referencing the application
 		// should queue up a new cleanup once it stops
 		logger.Tracef(context.TODO(), "cleanupApplication(%s) called, but it still has references: unitcount: %d",
-			appName, app.UnitCount())
+			appName, app.unitCount())
 		return nil
 	}
 	destroyStorage := false
@@ -699,10 +677,10 @@ func (st *State) cleanupUnitsForDyingApplication(
 		op.MaxWait = maxWait
 		err := st.ApplyOperation(op)
 		if err == nil {
-			unitsToDestroy.Add(unit.Name())
+			unitsToDestroy.Add(unit.name())
 		}
 		if len(op.Errors) != 0 {
-			logger.Warningf(context.TODO(), "operational errors destroying unit %v for dying application %v: %v", unit.Name(), applicationName, op.Errors)
+			logger.Warningf(context.TODO(), "operational errors destroying unit %v for dying application %v: %v", unit.name(), applicationName, op.Errors)
 		}
 		if err != nil {
 			return errors.Trace(err)
@@ -816,7 +794,7 @@ func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstor
 	// dead.
 
 	// Destroy all subordinates.
-	for _, subNameString := range unit.SubordinateNames() {
+	for _, subNameString := range unit.subordinateNames() {
 		opErrs := []error{}
 		subName, err := coreunit.NewName(subNameString)
 		if err != nil {
@@ -1177,23 +1155,6 @@ func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store
 	if err := cleanupDyingMachineResources(machine, true); err != nil {
 		return errors.Trace(err)
 	}
-	if machine.IsManager() {
-		node, err := st.ControllerNode(machineID)
-		if err != nil {
-			return errors.Annotatef(err, "cannot get controller node for machine %v", machineID)
-		}
-		if node.HasVote() {
-			// we remove the vote from the controller so that it can be torn
-			// down cleanly. Note that this isn't reflected in the actual
-			// replicaset, so users using --force should be careful.
-			if err := node.SetHasVote(false); err != nil {
-				return errors.Trace(err)
-			}
-		}
-		if err := st.RemoveControllerReference(node); err != nil {
-			return errors.Trace(err)
-		}
-	}
 
 	// We need to refresh the machine at this point, because the local copy
 	// of the document will not reflect changes caused by the unit cleanups
@@ -1298,7 +1259,7 @@ func (st *State) cleanupEvacuateMachine(ctx context.Context, machineId string, s
 		return nil
 	}
 
-	units, err := machine.Units()
+	units, err := machine.units()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1313,7 +1274,7 @@ func (st *State) cleanupEvacuateMachine(ctx context.Context, machineId string, s
 	unitsToDestroy := []coreunit.Name{}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			units, err = machine.Units()
+			units, err = machine.units()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1326,7 +1287,7 @@ func (st *State) cleanupEvacuateMachine(ctx context.Context, machineId string, s
 				return nil, errors.Trace(err)
 			}
 			if err == nil {
-				unitName, err := coreunit.NewName(unit.Name())
+				unitName, err := coreunit.NewName(unit.name())
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -1403,17 +1364,7 @@ func cleanupDyingMachineResources(m *Machine, force bool) error {
 		logger.Warningf(context.TODO(), "%v", err)
 	}
 
-	// Check if the machine is manual, to decide whether or not to
-	// short circuit the removal of non-detachable filesystems.
-	manual, err := m.IsManual()
-	if err != nil {
-		if !force {
-			return errors.Trace(err)
-		}
-		logger.Warningf(context.TODO(), "could not determine if machine %v is manual: %v", m.MachineTag().Id(), err)
-	}
-
-	cleaner := newDyingEntityStorageCleaner(sb, m.Tag(), manual, force)
+	cleaner := newDyingEntityStorageCleaner(sb, m.Tag(), false, force)
 	return errors.Trace(cleaner.cleanupStorage(filesystemAttachments, volumeAttachments))
 }
 
@@ -1458,7 +1409,7 @@ func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectSto
 			opErrs = append(opErrs, err)
 		}
 	}
-	if err := unit.Refresh(); errors.Is(err, errors.NotFound) {
+	if err := unit.refresh(); errors.Is(err, errors.NotFound) {
 		return opErrs, nil
 	} else if err != nil {
 		if !force {
@@ -1474,7 +1425,7 @@ func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectSto
 		}
 		opErrs = append(opErrs, err)
 	}
-	for _, subName := range unit.SubordinateNames() {
+	for _, subName := range unit.subordinateNames() {
 		errs, err := st.obliterateUnit(ctx, store, applicationService, subName, force, maxWait)
 		opErrs = append(opErrs, errs...)
 		if len(errs) == 0 && err == nil {

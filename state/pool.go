@@ -164,7 +164,6 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 		args.NewPolicy,
 		args.Clock,
 		args.CharmServiceGetter,
-		args.RunTransactionObserver,
 		args.MaxTxnAttempts,
 	)
 	if err != nil {
@@ -302,7 +301,6 @@ func (p *StatePool) openState(modelUUID string) (*State, error) {
 		modelTag, p.systemState.controllerModelTag,
 		session, p.systemState.newPolicy, p.systemState.stateClock,
 		p.systemState.charmServiceGetter,
-		p.systemState.runTransactionObserver,
 		p.systemState.maxTxnAttempts,
 	)
 	if err != nil {

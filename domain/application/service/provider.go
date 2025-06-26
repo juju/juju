@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/assumes"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -26,29 +27,41 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 )
 
+// Provider defines the interface for interacting with the underlying model
+// provider.
+type Provider interface {
+	environs.ConstraintsChecker
+	environs.InstancePrechecker
+}
+
+// CAASProvider defines the interface for interacting with the
+// underlying provider for CAAS applications.
+type CAASProvider interface {
+	environs.SupportedFeatureEnumerator
+	Application(string, caas.DeploymentType) caas.Application
+}
+
 // ProviderService defines a service for interacting with the underlying
 // model state.
 type ProviderService struct {
 	*Service
 
-	modelID            coremodel.UUID
-	agentVersionGetter AgentVersionGetter
-	provider           providertracker.ProviderGetter[Provider]
-	// This provider is separated from [provider] because the
-	// [SupportedFeatureProvider] interface is only satisfied by the
-	// k8s provider.
-	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider]
-	caasApplicationProvider  providertracker.ProviderGetter[CAASApplicationProvider]
+	modelID                 coremodel.UUID
+	agentVersionGetter      AgentVersionGetter
+	provider                providertracker.ProviderGetter[Provider]
+	caasApplicationProvider providertracker.ProviderGetter[CAASProvider]
 }
 
 // NewProviderService returns a new Service for interacting with a models state.
@@ -59,8 +72,7 @@ func NewProviderService(
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
-	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
-	caasApplicationProvider providertracker.ProviderGetter[CAASApplicationProvider],
+	caasApplicationProvider providertracker.ProviderGetter[CAASProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -76,11 +88,10 @@ func NewProviderService(
 			clock,
 			logger,
 		),
-		modelID:                  modelID,
-		agentVersionGetter:       agentVersionGetter,
-		provider:                 provider,
-		supportedFeatureProvider: supportedFeatureProvider,
-		caasApplicationProvider:  caasApplicationProvider,
+		modelID:                 modelID,
+		agentVersionGetter:      agentVersionGetter,
+		provider:                provider,
+		caasApplicationProvider: caasApplicationProvider,
 	}
 }
 
@@ -94,7 +105,7 @@ func (s *ProviderService) CreateIAASApplication(
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
-	units ...AddUnitArg,
+	units ...AddIAASUnitArg,
 ) (coreapplication.ID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -102,6 +113,11 @@ func (s *ProviderService) CreateIAASApplication(
 	appName, appArg, unitArgs, err := s.makeIAASApplicationArg(ctx, name, charm, origin, args, units...)
 	if err != nil {
 		return "", errors.Errorf("preparing IAAS application args: %w", err)
+	}
+
+	// Precheck any instances that are being created.
+	if err := s.precheckInstances(ctx, appArg.Platform, unitArgs); err != nil {
+		return "", errors.Errorf("prechecking instances: %w", err)
 	}
 
 	appID, machineNames, err := s.st.CreateIAASApplication(ctx, appName, appArg, unitArgs)
@@ -162,8 +178,8 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
-	units ...AddUnitArg,
-) (string, application.AddIAASApplicationArg, []application.AddUnitArg, error) {
+	units ...AddIAASUnitArg,
+) (string, application.AddIAASApplicationArg, []application.AddIAASUnitArg, error) {
 	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
 	if err != nil {
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("preparing IAAS application args: %w", err)
@@ -178,6 +194,7 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	if err != nil {
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("making IAAS unit args: %w", err)
 	}
+
 	return appName, application.AddIAASApplicationArg{
 		BaseAddApplicationArg: arg,
 	}, unitArgs, nil
@@ -365,7 +382,60 @@ func makeCreateApplicationArgs(
 		Settings:          args.ApplicationSettings,
 		Status:            applicationStatus,
 		Devices:           args.Devices,
+		IsController:      args.IsController,
 	}, nil
+}
+
+func (s *ProviderService) precheckInstances(
+	ctx context.Context,
+	platform deployment.Platform,
+	unitArgs []application.AddIAASUnitArg,
+) error {
+	provider, err := s.provider(ctx)
+	if err != nil {
+		return errors.Errorf("getting provider: %w", err)
+	}
+
+	base, err := encodeApplicationBase(platform)
+	if err != nil {
+		return errors.Errorf("encoding application base: %w", err)
+	}
+
+	for _, unitArg := range unitArgs {
+		if err := provider.PrecheckInstance(ctx, environs.PrecheckInstanceParams{
+			Base:        base,
+			Placement:   encodeUnitPlacement(unitArg.Placement),
+			Constraints: constraints.EncodeConstraints(unitArg.Constraints),
+		}); err != nil {
+			return errors.Errorf("pre-checking instances: %w", err)
+		}
+	}
+	return nil
+}
+
+func encodeApplicationBase(platform deployment.Platform) (corebase.Base, error) {
+	var osName string
+	switch platform.OSType {
+	case deployment.Ubuntu:
+		osName = "ubuntu"
+	default:
+		return corebase.Base{}, errors.Errorf("unsupported OS type %q", platform.OSType)
+	}
+
+	return corebase.Base{
+		OS:      osName,
+		Channel: corebase.Channel{Track: platform.Channel},
+	}, nil
+}
+
+func encodeUnitPlacement(placement deployment.Placement) string {
+	// We only support provider placements, so if the placement type is not
+	// a provider, we return an empty string.
+	if placement.Type != deployment.PlacementTypeProvider {
+		return ""
+	}
+
+	return placement.Directive
 }
 
 // GetSupportedFeatures returns the set of features that the model makes
@@ -388,7 +458,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 		Version:     &agentVersion,
 	})
 
-	supportedFeatureProvider, err := s.supportedFeatureProvider(ctx)
+	supportedFeatureProvider, err := s.caasApplicationProvider(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return fs, nil
 	} else if err != nil {
@@ -447,7 +517,7 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 // AddIAASUnits adds the specified units to the IAAS application, returning an
 // error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application doesn't exist. If no units are provided, it will return nil.
-func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, units ...AddUnitArg) ([]coreunit.Name, error) {
+func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, units ...AddIAASUnitArg) ([]coreunit.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if len(units) == 0 {
@@ -468,6 +538,11 @@ func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, unit
 		return nil, errors.Errorf("getting application %q constraints: %w", appName, err)
 	}
 
+	origin, err := s.st.GetApplicationCharmOrigin(ctx, appUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting application %q platform: %w", appName, err)
+	}
+
 	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -476,6 +551,10 @@ func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, unit
 	args, err := s.makeIAASUnitArgs(units, constraints.DecodeConstraints(cons))
 	if err != nil {
 		return nil, errors.Errorf("making IAAS unit args: %w", err)
+	}
+
+	if err := s.precheckInstances(ctx, origin.Platform, args); err != nil {
+		return nil, errors.Errorf("pre-checking instances: %w", err)
 	}
 
 	unitNames, machineNames, err := s.st.AddIAASUnits(ctx, appUUID, args...)

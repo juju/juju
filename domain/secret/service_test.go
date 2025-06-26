@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
 	domaintesting "github.com/juju/juju/domain/testing"
+	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -53,8 +54,8 @@ func (s *serviceSuite) SetUpTest(c *tc.C) {
 
 	err := s.ModelTxnRunner(c, s.modelUUID.String()).StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
 		`, s.modelUUID, coretesting.ControllerTag.Id())
 		return err
 	})
@@ -136,10 +137,7 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 		func(ctx context.Context) (applicationservice.Provider, error) {
 			return serviceProvider{}, nil
 		},
-		func(ctx context.Context) (applicationservice.SupportedFeatureProvider, error) {
-			return serviceProvider{}, nil
-		},
-		func(ctx context.Context) (applicationservice.CAASApplicationProvider, error) {
+		func(ctx context.Context) (applicationservice.CAASProvider, error) {
 			return serviceProvider{}, nil
 		},
 		nil,
@@ -147,7 +145,7 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	u := applicationservice.AddUnitArg{}
+	u := applicationservice.AddIAASUnitArg{}
 	_, err := appService.CreateIAASApplication(ctx, "mariadb", &stubCharm{}, corecharm.Origin{
 		Source: corecharm.Local,
 		Platform: corecharm.Platform{
@@ -178,10 +176,13 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 
 type serviceProvider struct {
 	applicationservice.Provider
-	applicationservice.SupportedFeatureProvider
-	applicationservice.CAASApplicationProvider
+	applicationservice.CAASProvider
 }
 
 func (serviceProvider) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
-	return nil, nil
+	return constraints.NewValidator(), nil
+}
+
+func (serviceProvider) PrecheckInstance(ctx context.Context, params environs.PrecheckInstanceParams) error {
+	return nil
 }

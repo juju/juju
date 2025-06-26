@@ -88,6 +88,14 @@ type statusInfoAndUnitNameAndPresence struct {
 	Present   bool          `db:"present"`
 }
 
+type statusInfoAndUnitName struct {
+	UnitName  coreunit.Name `db:"unit_name"`
+	StatusID  int           `db:"status_id"`
+	Message   string        `db:"message"`
+	Data      []byte        `db:"data"`
+	UpdatedAt *time.Time    `db:"updated_at"`
+}
+
 type workloadAgentStatus struct {
 	UnitName          coreunit.Name `db:"unit_name"`
 	WorkloadStatusID  *int          `db:"workload_status_id"`
@@ -203,6 +211,91 @@ type applicationNameUnitCount struct {
 	UnitCount int    `db:"unit_count"`
 }
 
+type modelUUID struct {
+	UUID string `db:"uuid"`
+}
+
 type modelInfo struct {
 	Type string `db:"type"`
+}
+
+type filesystemUUID struct {
+	FilesystemUUID string `db:"uuid"`
+}
+
+type filesystemUUIDID struct {
+	ID   string `db:"filesystem_id"`
+	UUID string `db:"uuid"`
+}
+
+type filesystemStatusInfo struct {
+	FilesystemUUID string     `db:"filesystem_uuid"`
+	StatusID       int        `db:"status_id"`
+	Message        string     `db:"message"`
+	UpdatedAt      *time.Time `db:"updated_at"`
+}
+
+type storageProvisioningStatusInfo struct {
+	StatusID            sql.NullInt16  `db:"status_id"`
+	StorageInstanceUUID sql.NullString `db:"storage_instance_uuid"`
+}
+
+type volumeUUID struct {
+	VolumeUUID string `db:"uuid"`
+}
+
+type volumeUUIDID struct {
+	ID   string `db:"volume_id"`
+	UUID string `db:"uuid"`
+}
+
+type volumeStatusInfo struct {
+	VolumeUUID string     `db:"volume_uuid"`
+	StatusID   int        `db:"status_id"`
+	Message    string     `db:"message"`
+	UpdatedAt  *time.Time `db:"updated_at"`
+}
+
+// modelStatusContext represents a single row from the v_model_state view.
+// These information are used to determine a model's status.
+type modelStatusContext struct {
+	Destroying              bool   `db:"destroying"`
+	CredentialInvalid       bool   `db:"cloud_credential_invalid"`
+	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
+	Migrating               bool   `db:"migrating"`
+}
+
+type machineName struct {
+	Name string `db:"name"`
+}
+
+type machineUUID struct {
+	UUID string `db:"uuid"`
+}
+
+type machineStatus struct {
+	Status  string              `db:"status"`
+	Message string              `db:"message"`
+	Data    []byte              `db:"data"`
+	Updated sql.Null[time.Time] `db:"updated_at"`
+}
+
+type machineNameStatus struct {
+	Name    string              `db:"name"`
+	Status  string              `db:"status"`
+	Message string              `db:"message"`
+	Data    []byte              `db:"data"`
+	Updated sql.Null[time.Time] `db:"updated_at"`
+}
+
+type setMachineStatus struct {
+	StatusID    int        `db:"status_id"`
+	Message     string     `db:"message"`
+	Data        []byte     `db:"data"`
+	UpdatedAt   *time.Time `db:"updated_at"`
+	MachineUUID string     `db:"machine_uuid"`
+}
+
+type instanceID struct {
+	ID string `db:"instance_id"`
 }

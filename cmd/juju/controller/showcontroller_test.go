@@ -40,13 +40,13 @@ func (s *ShowControllerSuite) SetUpTest(c *tc.C) {
 	s.fakeController = &fakeController{
 		machines: map[string][]base.Machine{
 			"ghi": {
-				{Id: "0", InstanceId: "id-0", HasVote: false, WantsVote: true, Status: "active"},
-				{Id: "1", InstanceId: "id-1", HasVote: false, WantsVote: true, Status: "down"},
-				{Id: "2", InstanceId: "id-2", HasVote: true, WantsVote: true, Status: "active"},
-				{Id: "3", InstanceId: "id-3", HasVote: false, WantsVote: false, Status: "active"},
+				{Id: "0", InstanceId: "id-0", Status: "active"},
+				{Id: "1", InstanceId: "id-1", Status: "down"},
+				{Id: "2", InstanceId: "id-2", Status: "active"},
+				{Id: "3", InstanceId: "id-3", Status: "active"},
 			},
 			"xyz": {
-				{Id: "0", InstanceId: "id-0", HasVote: false, WantsVote: true, Status: "active"},
+				{Id: "0", InstanceId: "id-0", Status: "active"},
 			},
 		},
 		modelTypes: map[string]model.ModelType{"def": model.CAAS, "xyz": model.CAAS},
@@ -101,7 +101,7 @@ mallards:
       model-uuid: def
       machine-count: 2
       core-count: 4
-  current-model: admin/my-model
+  current-model: prod/my-model
   account:
     user: admin
     access: superuser
@@ -133,7 +133,7 @@ k8s-controller:
     my-k8s-model:
       model-uuid: def
       unit-count: 4
-  current-model: admin/my-k8s-model
+  current-model: prod/my-k8s-model
   account:
     user: admin
     access: superuser
@@ -174,7 +174,7 @@ mallards:
       model-uuid: def
       machine-count: 2
       core-count: 4
-  current-model: admin/my-model
+  current-model: prod/my-model
   account:
     user: admin
     access: superuser
@@ -230,7 +230,7 @@ mallards:
       model-uuid: def
       machine-count: 2
       core-count: 4
-  current-model: admin/my-model
+  current-model: prod/my-model
   account:
     user: admin
     access: superuser
@@ -257,19 +257,18 @@ aws-test:
   controller-machines:
     "0":
       instance-id: id-0
-      ha-status: ha-pending
     "1":
       instance-id: id-1
-      ha-status: down, lost connection
     "2":
       instance-id: id-2
-      ha-status: ha-enabled
+    "3":
+      instance-id: id-3
   models:
     controller:
       model-uuid: ghi
       machine-count: 2
       core-count: 4
-  current-model: admin/controller
+  current-model: prod/controller
   account:
     user: admin
     access: superuser
@@ -294,19 +293,18 @@ aws-test:
   controller-machines:
     "0":
       instance-id: id-0
-      ha-status: ha-pending
     "1":
       instance-id: id-1
-      ha-status: down, lost connection
     "2":
       instance-id: id-2
-      ha-status: ha-enabled
+    "3":
+      instance-id: id-3
   models:
     controller:
       model-uuid: ghi
       machine-count: 2
       core-count: 4
-  current-model: admin/controller
+  current-model: prod/controller
   account:
     user: admin
     access: superuser
@@ -332,7 +330,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *tc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0"},"1":{"instance-id":"id-1"},"2":{"instance-id":"id-2"},"3":{"instance-id":"id-3"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"prod/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "aws-test")
@@ -341,7 +339,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *tc.C) {
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *tc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"cloud":"prodstack","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-a-ca-cert"},"account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0"},"1":{"instance-id":"id-1"},"2":{"instance-id":"id-2"},"3":{"instance-id":"id-3"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"prod/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"cloud":"prodstack","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-a-ca-cert"},"account":{"user":"admin","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "aws-test", "mark-test-prodstack")
 }
@@ -364,7 +362,7 @@ func (s *ShowControllerSuite) TestShowControllerNoArgs(c *tc.C) {
 	store.CurrentControllerName = "aws-test"
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0"},"1":{"instance-id":"id-1"},"2":{"instance-id":"id-2"},"3":{"instance-id":"id-3"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"prod/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json")
 }
@@ -397,18 +395,17 @@ func (s *ShowControllerSuite) TestShowControllerRefreshesStore(c *tc.C) {
 	store := s.createTestClientStore(c)
 	_, err := s.runShowController(c, "aws-test")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, tc.Equals, 1)
-	s.fakeController.machines["ghi"][0].HasVote = true
+	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, tc.Equals, 3)
 	_, err = s.runShowController(c, "aws-test")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(store.Controllers["aws-test"].ControllerMachineCount, tc.Equals, 3)
-	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, tc.Equals, 2)
+	c.Check(store.Controllers["aws-test"].ControllerMachineCount, tc.Equals, 4)
+	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, tc.Equals, 3)
 }
 
 func (s *ShowControllerSuite) TestShowControllerRefreshesStoreModels(c *tc.C) {
 	store := s.createTestClientStore(c)
 	c.Assert(store.Models["mallards"], tc.DeepEquals, &jujuclient.ControllerModels{
-		CurrentModel: "admin/my-model",
+		CurrentModel: "prod/my-model",
 		Models: map[string]jujuclient.ModelDetails{
 			"model0":   {ModelUUID: "abc", ModelType: model.IAAS},
 			"my-model": {ModelUUID: "def", ModelType: model.IAAS},
@@ -417,10 +414,10 @@ func (s *ShowControllerSuite) TestShowControllerRefreshesStoreModels(c *tc.C) {
 	_, err := s.runShowController(c, "mallards")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(store.Models["mallards"], tc.DeepEquals, &jujuclient.ControllerModels{
-		CurrentModel: "admin/my-model",
+		CurrentModel: "prod/my-model",
 		Models: map[string]jujuclient.ModelDetails{
-			"admin/controller": {ModelUUID: "abc", ModelType: model.IAAS},
-			"admin/my-model":   {ModelUUID: "def", ModelType: model.IAAS},
+			"prod/controller": {ModelUUID: "abc", ModelType: model.IAAS},
+			"prod/my-model":   {ModelUUID: "def", ModelType: model.IAAS},
 		},
 	})
 }
@@ -444,7 +441,7 @@ mallards:
     agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
     controller-model-version: 999.99.99
     ca-cert: this-is-another-ca-cert
-  current-model: admin/my-model
+  current-model: prod/my-model
   account:
     user: admin
     access: login
@@ -530,7 +527,7 @@ mallards:
       model-uuid: def
       machine-count: 2
       core-count: 4
-  current-model: admin/my-model
+  current-model: prod/my-model
   account:
     user: admin
     access: superuser
@@ -572,27 +569,22 @@ aws-test:
   controller-machines:
     "0":
       instance-id: id-0
-      ha-status: ha-pending
     "1":
       instance-id: id-1
-      ha-status: down, lost connection
     "2":
       instance-id: id-2
-      ha-status: ha-enabled
-      ha-primary: true
+    "3":
+      instance-id: id-3
   models:
     controller:
       model-uuid: ghi
       machine-count: 2
       core-count: 4
-  current-model: admin/controller
+  current-model: prod/controller
   account:
     user: admin
     access: superuser
 `[1:]
-
-	_true := true
-	s.fakeController.machines["ghi"][2].HAPrimary = &_true
 
 	s.assertShowController(c, "aws-test")
 }
@@ -611,7 +603,7 @@ aws-test:
     controller-model-version: 999.99.99
     mongo-version: 3.5.12
     ca-cert: this-is-aws-test-ca-cert
-  current-model: admin/controller
+  current-model: prod/controller
   account:
     user: admin
     access: superuser
@@ -619,8 +611,6 @@ aws-test:
   - model status incomplete
 `[1:]
 
-	_true := true
-	s.fakeController.machines["ghi"][2].HAPrimary = &_true
 	s.fakeController.emptyModelStatus = true
 
 	s.assertShowController(c, "aws-test")
@@ -665,15 +655,15 @@ func (c *fakeController) MongoVersion(ctx context.Context) (string, error) {
 func (c *fakeController) AllModels(ctx context.Context) (result []base.UserModel, _ error) {
 	models := map[string][]base.UserModel{
 		"aws-test": {
-			{Name: "controller", UUID: "ghi", Owner: "admin", Type: model.IAAS},
+			{Name: "controller", UUID: "ghi", Qualifier: "prod", Type: model.IAAS},
 		},
 		"mallards": {
-			{Name: "controller", UUID: "abc", Owner: "admin", Type: model.IAAS},
-			{Name: "my-model", UUID: "def", Owner: "admin", Type: model.IAAS},
+			{Name: "controller", UUID: "abc", Qualifier: "prod", Type: model.IAAS},
+			{Name: "my-model", UUID: "def", Qualifier: "prod", Type: model.IAAS},
 		},
 		"k8s-controller": {
-			{Name: "controller", UUID: "xyz", Owner: "admin", Type: model.CAAS},
-			{Name: "my-k8s-model", UUID: "def", Owner: "admin", Type: model.CAAS},
+			{Name: "controller", UUID: "xyz", Qualifier: "prod", Type: model.CAAS},
+			{Name: "my-k8s-model", UUID: "def", Qualifier: "prod", Type: model.CAAS},
 		},
 	}
 	all, exists := models[c.controllerName]

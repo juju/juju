@@ -11,16 +11,13 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
@@ -53,20 +50,6 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 	}
 }
 
-// WatchApplications returns a StringsWatcher that notifies of
-// changes to the lifecycles of CAAS applications in the current model.
-func (c *Client) WatchApplications(ctx context.Context) (watcher.StringsWatcher, error) {
-	var result params.StringsWatchResult
-	if err := c.facade.FacadeCall(ctx, "WatchApplications", nil, &result); err != nil {
-		return nil, err
-	}
-	if err := result.Error; err != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
-	return w, nil
-}
-
 // SetPassword sets API password for the specified application.
 func (c *Client) SetPassword(ctx context.Context, appName string, password string) error {
 	var result params.ErrorResults
@@ -85,35 +68,6 @@ func (c *Client) SetPassword(ctx context.Context, appName string, password strin
 		return errors.Trace(params.TranslateWellKnownError(result.Results[0].Error))
 	}
 	return nil
-}
-
-// Life returns the lifecycle state for the specified application
-// or unit in the current model.
-func (c *Client) Life(ctx context.Context, entityName string) (life.Value, error) {
-	var tag names.Tag
-	switch {
-	case names.IsValidApplication(entityName):
-		tag = names.NewApplicationTag(entityName)
-	case names.IsValidUnit(entityName):
-		tag = names.NewUnitTag(entityName)
-	default:
-		return "", errors.NotValidf("application or unit name %q", entityName)
-	}
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
-	}
-
-	var results params.LifeResults
-	if err := c.facade.FacadeCall(ctx, "Life", args, &results); err != nil {
-		return "", err
-	}
-	if n := len(results.Results); n != 1 {
-		return "", errors.Errorf("expected 1 result, got %d", n)
-	}
-	if err := results.Results[0].Error; err != nil {
-		return "", params.TranslateWellKnownError(err)
-	}
-	return results.Results[0].Life, nil
 }
 
 func (c *Client) WatchProvisioningInfo(ctx context.Context, applicationName string) (watcher.NotifyWatcher, error) {
@@ -248,50 +202,6 @@ func filesystemAttachmentFromParams(in params.KubernetesFilesystemAttachmentPara
 	}, nil
 }
 
-// SetOperatorStatus updates the provisioning status of an operator.
-func (c *Client) SetOperatorStatus(ctx context.Context, appName string, status status.Status, message string, data map[string]interface{}) error {
-	var result params.ErrorResults
-	args := params.SetStatus{Entities: []params.EntityStatusArgs{
-		{Tag: names.NewApplicationTag(appName).String(), Status: status.String(), Info: message, Data: data},
-	}}
-	err := c.facade.FacadeCall(ctx, "SetOperatorStatus", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
-// Units returns all the units for an Application.
-func (c *Client) Units(ctx context.Context, appName string) ([]params.CAASUnit, error) {
-	args := params.Entities{Entities: []params.Entity{{
-		Tag: names.NewApplicationTag(appName).String(),
-	}}}
-	var result params.CAASUnitsResults
-	if err := c.facade.FacadeCall(ctx, "Units", args, &result); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(result.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d",
-			len(result.Results))
-	}
-	res := result.Results[0]
-	if res.Error != nil {
-		return nil, errors.Annotatef(params.TranslateWellKnownError(res.Error), "unable to fetch units for %s", appName)
-	}
-	out := make([]params.CAASUnit, len(res.Units))
-	for i, v := range res.Units {
-		tag, err := names.ParseUnitTag(v.Tag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		out[i] = params.CAASUnit{
-			Tag:        tag,
-			UnitStatus: v.UnitStatus,
-		}
-	}
-	return out, nil
-}
-
 // ApplicationOCIResources returns all the OCI image resources for an application.
 func (c *Client) ApplicationOCIResources(ctx context.Context, appName string) (map[string]resource.DockerImageDetails, error) {
 	args := params.Entities{Entities: []params.Entity{{
@@ -346,12 +256,6 @@ func (c *Client) UpdateUnits(ctx context.Context, arg params.UpdateApplicationUn
 	return firstResult.Info, params.TranslateWellKnownError(firstResult.Error)
 }
 
-// WatchApplication returns a NotifyWatcher that notifies of
-// changes to the application in the current model.
-func (c *Client) WatchApplication(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
-	return common.Watch(ctx, c.facade, "Watch", names.NewApplicationTag(appName))
-}
-
 // ClearApplicationResources clears the flag which indicates an
 // application still has resources in the cluster.
 func (c *Client) ClearApplicationResources(ctx context.Context, appName string) error {
@@ -367,32 +271,6 @@ func (c *Client) ClearApplicationResources(ctx context.Context, appName string) 
 		return nil
 	}
 	return params.TranslateWellKnownError(result.Results[0].Error)
-}
-
-// WatchUnits returns a StringsWatcher that notifies of
-// changes to the lifecycles of units of the specified
-// application in the current model.
-func (c *Client) WatchUnits(ctx context.Context, application string) (watcher.StringsWatcher, error) {
-	if !names.IsValidApplication(application) {
-		return nil, errors.NotValidf("application name %q", application)
-	}
-	tag := names.NewApplicationTag(application)
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
-	}
-
-	var results params.StringsWatchResults
-	if err := c.facade.FacadeCall(ctx, "WatchUnits", args, &results); err != nil {
-		return nil, err
-	}
-	if n := len(results.Results); n != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", n)
-	}
-	if err := results.Results[0].Error; err != nil {
-		return nil, errors.Trace(err)
-	}
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), results.Results[0])
-	return w, nil
 }
 
 // RemoveUnit removes the specified unit from the current model.
@@ -445,52 +323,4 @@ func (c *Client) DestroyUnits(ctx context.Context, unitNames []string) error {
 	}
 
 	return nil
-}
-
-// ProvisioningState returns the current provisioning state for the CAAS application.
-// The result can be nil.
-func (c *Client) ProvisioningState(ctx context.Context, appName string) (*params.CAASApplicationProvisioningState, error) {
-	var result params.CAASApplicationProvisioningStateResult
-	args := params.Entity{Tag: names.NewApplicationTag(appName).String()}
-	err := c.facade.FacadeCall(ctx, "ProvisioningState", args, &result)
-	if err != nil {
-		return nil, err
-	}
-	if result.Error != nil {
-		return nil, params.TranslateWellKnownError(result.Error)
-	}
-	return result.ProvisioningState, nil
-}
-
-// SetProvisioningState sets the provisioning state for the CAAS application.
-func (c *Client) SetProvisioningState(ctx context.Context, appName string, state params.CAASApplicationProvisioningState) error {
-	var result params.ErrorResult
-	args := params.CAASApplicationProvisioningStateArg{
-		Application:       params.Entity{Tag: names.NewApplicationTag(appName).String()},
-		ProvisioningState: state,
-	}
-	err := c.facade.FacadeCall(ctx, "SetProvisioningState", args, &result)
-	if err != nil {
-		return err
-	}
-	if result.Error != nil {
-		return params.TranslateWellKnownError(result.Error)
-	}
-	return nil
-}
-
-// ProvisionerConfig returns the provisioner's configuration.
-func (c *Client) ProvisionerConfig(ctx context.Context) (params.CAASApplicationProvisionerConfig, error) {
-	var result params.CAASApplicationProvisionerConfigResult
-	err := c.facade.FacadeCall(ctx, "ProvisionerConfig", nil, &result)
-	if err != nil {
-		return params.CAASApplicationProvisionerConfig{}, err
-	}
-	if result.Error != nil {
-		return params.CAASApplicationProvisionerConfig{}, params.TranslateWellKnownError(result.Error)
-	}
-	if result.ProvisionerConfig == nil {
-		return params.CAASApplicationProvisionerConfig{}, nil
-	}
-	return *result.ProvisionerConfig, nil
 }

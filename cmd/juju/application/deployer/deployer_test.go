@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -401,10 +402,12 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 		) (ids map[string]string, err error) {
 			return s.deployResourceIDs, nil
 		},
-		Model:                s.modelCommand,
-		NewConsumeDetailsAPI: func(ctx context.Context, url *charm.OfferURL) (ConsumeDetails, error) { return s.consumeDetails, nil },
-		FileSystem:           s.filesystem,
-		CharmReader:          fsCharmReader{},
+		Model: s.modelCommand,
+		NewConsumeDetailsAPI: func(ctx context.Context, url *crossmodel.OfferURL) (ConsumeDetails, error) {
+			return s.consumeDetails, nil
+		},
+		FileSystem:  s.filesystem,
+		CharmReader: fsCharmReader{},
 	}
 	return NewDeployerFactory(dep)
 }

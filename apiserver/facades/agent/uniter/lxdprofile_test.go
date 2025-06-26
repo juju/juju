@@ -173,12 +173,15 @@ func (s *lxdProfileSuite) TestCanApplyLXDProfileIAASLXDNotManual(c *tc.C) {
 	// provider type: lxd
 	// manual: false
 	defer s.setupMocks(c).Finish()
+
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		Type:      model.IAAS,
 		CloudType: "lxd",
 	}, nil)
-	s.expectMachine(c)
-	s.expectManual(false)
+
+	machineName := coremachine.Name("0")
+	s.applicationService.EXPECT().GetUnitMachineName(gomock.Any(), coreunit.Name("mysql/1")).Return(machineName, nil)
+	s.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(false, nil)
 
 	s.testCanApplyLXDProfile(c, true)
 }
@@ -188,12 +191,14 @@ func (s *lxdProfileSuite) TestCanApplyLXDProfileIAASLXDManual(c *tc.C) {
 	// provider type: lxd
 	// manual: true
 	defer s.setupMocks(c).Finish()
+
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		Type:      model.IAAS,
 		CloudType: "lxd",
 	}, nil)
-	s.expectMachine(c)
-	s.expectManual(true)
+
+	s.applicationService.EXPECT().GetUnitMachineName(gomock.Any(), coreunit.Name("mysql/1")).Return("0", nil)
+	s.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), gomock.Any()).Return(true, nil)
 
 	s.testCanApplyLXDProfile(c, false)
 }
@@ -216,12 +221,17 @@ func (s *lxdProfileSuite) TestCanApplyLXDProfileIAASMAASNotManualLXD(c *tc.C) {
 	// manual: false
 	// container: LXD
 	defer s.setupMocks(c).Finish()
+
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		Type:      model.IAAS,
 		CloudType: "maas",
 	}, nil)
+
+	machineName := coremachine.Name("0")
+	s.applicationService.EXPECT().GetUnitMachineName(gomock.Any(), coreunit.Name("mysql/1")).Return(machineName, nil)
+	s.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(false, nil)
+
 	s.expectMachine(c)
-	s.expectManual(false)
 	s.expectContainerType(instance.LXD)
 
 	s.testCanApplyLXDProfile(c, true)
@@ -275,15 +285,10 @@ func (s *lxdProfileSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *lxdProfileSuite) expectManual(manual bool) {
-	s.machine.EXPECT().IsManual().Return(manual, nil)
-}
-
 func (s *lxdProfileSuite) expectContainerType(cType instance.ContainerType) {
 	s.machine.EXPECT().ContainerType().Return(cType)
 }
 
 func (s *lxdProfileSuite) expectMachine(c *tc.C) {
-	s.applicationService.EXPECT().GetUnitMachineName(gomock.Any(), coreunit.Name(s.unitTag1.Id())).Return("uuid0", nil)
-	s.backend.EXPECT().Machine("uuid0").Return(s.machine, nil)
+	s.backend.EXPECT().Machine(gomock.Any()).Return(s.machine, nil)
 }

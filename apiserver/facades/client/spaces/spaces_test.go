@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -167,15 +168,15 @@ func (s *APISuite) TestShowSpaceDefault(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	s.expectDefaultSpace(ctrl, "default", nil)
-	s.expectEndpointBindings(ctrl, "1")
-	s.expectMachines(ctrl, s.getDefaultSpaces(), nil, nil)
-
-	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
-	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
-
 	expectedApplications := []string{"mysql", "mediawiki"}
 	sort.Strings(expectedApplications)
+
+	s.expectDefaultSpace(ctrl, "default", nil)
+	s.ApplicationService.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), network.SpaceUUID("1")).Return(expectedApplications, nil)
+	s.expectMachines(ctrl, s.getDefaultSpaces(), nil, nil)
+
+	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
+
 	args := s.getShowSpaceArg("default")
 
 	expected := params.ShowSpaceResults{Results: []params.ShowSpaceResult{
@@ -211,12 +212,11 @@ func (s *APISuite) TestShowSpaceErrorGettingSpace(c *tc.C) {
 	s.expectDefaultSpace(ctrl, "default", bamErr)
 	args := s.getShowSpaceArg("default")
 
-	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
 
 	res, err := s.API.ShowSpace(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
-	expectedErr := fmt.Sprintf("fetching space %q: %v", args.Entities[0].Tag, bamErr.Error())
+	expectedErr := fmt.Sprintf("fetching space %q: %v", "default", bamErr.Error())
 	c.Assert(res.Results[0].Error, tc.ErrorMatches, expectedErr)
 }
 
@@ -228,12 +228,11 @@ func (s *APISuite) TestShowSpaceErrorGettingSubnets(c *tc.C) {
 	s.expectDefaultSpace(ctrl, "default", bamErr)
 	args := s.getShowSpaceArg("default")
 
-	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
 
 	res, err := s.API.ShowSpace(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
-	expectedErr := fmt.Sprintf("fetching space \"space-default\": %v", bamErr.Error())
+	expectedErr := fmt.Sprintf("fetching space \"default\": %v", bamErr.Error())
 	c.Assert(res.Results[0].Error, tc.ErrorMatches, expectedErr)
 }
 
@@ -243,8 +242,7 @@ func (s *APISuite) TestShowSpaceErrorGettingApplications(c *tc.C) {
 
 	expErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", nil)
-	s.Backing.EXPECT().AllEndpointBindings().Return(nil, expErr)
-	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
+	s.ApplicationService.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), network.SpaceUUID("1")).Return(nil, expErr)
 	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
 
 	args := s.getShowSpaceArg("default")
@@ -261,10 +259,9 @@ func (s *APISuite) TestShowSpaceErrorGettingMachines(c *tc.C) {
 
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", nil)
-	s.expectEndpointBindings(ctrl, "1")
+	s.ApplicationService.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), network.SpaceUUID("1")).Return([]string{}, nil)
 	s.expectMachines(ctrl, s.getDefaultSpaces(), bamErr, nil)
 
-	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
 
 	args := s.getShowSpaceArg("default")
@@ -280,7 +277,7 @@ func (s *APISuite) TestRenameSpaceErrorToAlreadyExist(c *tc.C) {
 
 	s.expectDefaultSpace(ctrl, "blub", nil)
 
-	from, to := "bla", "blub"
+	var from, to network.SpaceName = "bla", "blub"
 	args := s.getRenameArgs(from, to)
 
 	res, err := s.API.RenameSpace(c.Context(), args)
@@ -293,7 +290,7 @@ func (s *APISuite) TestRenameSpaceErrorUnexpectedError(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	from, to := "bla", "blub"
+	var from, to network.SpaceName = "bla", "blub"
 
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, to, bamErr)
@@ -310,7 +307,7 @@ func (s *APISuite) TestRenameSpaceErrorRename(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	from, to := "bla", "blub"
+	var from, to network.SpaceName = "bla", "blub"
 
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, to, networkerrors.SpaceNotFound)
@@ -321,7 +318,7 @@ func (s *APISuite) TestRenameSpaceErrorRename(c *tc.C) {
 		},
 		nil,
 	)
-	s.NetworkService.EXPECT().UpdateSpace(gomock.Any(), "bla-space-id", "blub").Return(bamErr)
+	s.NetworkService.EXPECT().UpdateSpace(gomock.Any(), network.SpaceUUID("bla-space-id"), to).Return(bamErr)
 
 	res, err := s.API.RenameSpace(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -332,7 +329,7 @@ func (s *APISuite) TestRenameAlphaSpaceError(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	from, to := "alpha", "blub"
+	var from, to network.SpaceName = network.AlphaSpaceName, "blub"
 
 	args := s.getRenameArgs(from, to)
 
@@ -345,7 +342,7 @@ func (s *APISuite) TestRenameSpaceSuccess(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	from, to := "bla", "blub"
+	var from, to network.SpaceName = "bla", "blub"
 
 	s.expectDefaultSpace(ctrl, to, networkerrors.SpaceNotFound)
 	args := s.getRenameArgs(from, to)
@@ -353,8 +350,8 @@ func (s *APISuite) TestRenameSpaceSuccess(c *tc.C) {
 	fromSpace := &network.SpaceInfo{
 		ID: "space-bla",
 	}
-	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), "bla").Return(fromSpace, nil)
-	s.NetworkService.EXPECT().UpdateSpace(gomock.Any(), fromSpace.ID, "blub").Return(nil)
+	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), from).Return(fromSpace, nil)
+	s.NetworkService.EXPECT().UpdateSpace(gomock.Any(), fromSpace.ID, to).Return(nil)
 
 	res, err := s.API.RenameSpace(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -365,7 +362,7 @@ func (s *APISuite) TestRenameSpaceErrorProviderSpacesSupport(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, true)
 	defer ctrl.Finish()
 
-	from, to := "bla", "blub"
+	var from, to network.SpaceName = "bla", "blub"
 
 	args := s.getRenameArgs(from, to)
 
@@ -378,20 +375,19 @@ func (s *APISuite) TestRemoveSpaceSuccessNoControllerConfig(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	spaceTag := "myspace"
-	args, tag := s.getRemoveArgs(spaceTag, false)
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceName := network.SpaceName("myspace")
+	args, _ := s.getRemoveArgs(spaceName, false)
 
-	s.expectDefaultSpace(ctrl, spaceTag, nil)
-	s.expectEndpointBindings(ctrl, "2")
-	s.Backing.EXPECT().ConstraintsBySpaceName(spaceTag).Return(nil, nil)
+	s.Backing.EXPECT().ConstraintsBySpaceName(spaceName.String()).Return(nil, nil)
 	s.Backing.EXPECT().IsController().Return(false)
 
-	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 	space := &network.SpaceInfo{
-		ID:   "my-space-id",
-		Name: "myspace",
+		ID:   spaceUUID,
+		Name: spaceName,
 	}
-	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), tag.Id()).Return(space, nil)
+	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(space, nil).MinTimes(1)
+	s.ApplicationService.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), spaceUUID).Return([]string{}, nil)
 	s.NetworkService.EXPECT().RemoveSpace(gomock.Any(), space.ID)
 
 	res, err := s.API.RemoveSpace(c.Context(), args)
@@ -404,23 +400,21 @@ func (s *APISuite) TestRemoveSpaceSuccessControllerConfig(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	spaceTag := "myspace"
-	args, tag := s.getRemoveArgs(spaceTag, false)
-
-	s.expectDefaultSpace(ctrl, spaceTag, nil)
-	s.expectEndpointBindings(ctrl, "2")
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceName := network.SpaceName("myspace")
+	args, _ := s.getRemoveArgs(spaceName, false)
 
 	s.ControllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(nil, nil)
 
 	s.Backing.EXPECT().IsController().Return(true)
-	s.Backing.EXPECT().ConstraintsBySpaceName(spaceTag).Return(nil, nil)
+	s.Backing.EXPECT().ConstraintsBySpaceName(spaceName.String()).Return(nil, nil)
 
-	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 	space := &network.SpaceInfo{
-		ID:   "my-space-id",
-		Name: "myspace",
+		ID:   spaceUUID,
+		Name: spaceName,
 	}
-	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), tag.Id()).Return(space, nil)
+	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(space, nil).MinTimes(1)
+	s.ApplicationService.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), spaceUUID).Return([]string{}, nil)
 	s.NetworkService.EXPECT().RemoveSpace(gomock.Any(), space.ID)
 
 	res, err := s.API.RemoveSpace(c.Context(), args)
@@ -433,13 +427,20 @@ func (s *APISuite) TestRemoveSpaceErrorFoundApplications(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	space := "myspace"
-	args, _ := s.getRemoveArgs(space, false)
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceName := network.SpaceName("myspace")
+	args, _ := s.getRemoveArgs(spaceName, false)
 
-	s.expectDefaultSpace(ctrl, space, nil)
-	s.expectEndpointBindings(ctrl, "1")
 	s.Backing.EXPECT().IsController().Return(false)
-	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
+	s.Backing.EXPECT().ConstraintsBySpaceName(spaceName.String()).Return(nil, nil)
+
+	space := &network.SpaceInfo{
+		ID:   spaceUUID,
+		Name: spaceName,
+	}
+	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(space, nil).MinTimes(1)
+	s.ApplicationService.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), spaceUUID).Return([]string{"mediawiki", "mysql"}, nil)
+
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings: []params.Entity{
 			{
@@ -453,7 +454,6 @@ func (s *APISuite) TestRemoveSpaceErrorFoundApplications(c *tc.C) {
 		ControllerSettings: nil,
 		Error:              nil,
 	}}}
-	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	res, err := s.API.RemoveSpace(c.Context(), args)
 
@@ -465,24 +465,29 @@ func (s *APISuite) TestRemoveSpaceErrorFoundController(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	spaceName := "myspace"
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceName := network.SpaceName("myspace")
 	args, _ := s.getRemoveArgs(spaceName, false)
 
-	s.expectDefaultSpace(ctrl, spaceName, nil)
-	s.expectEndpointBindings(ctrl, "2")
 	s.Backing.EXPECT().IsController().Return(true)
 
 	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: spaceName})
 	s.ControllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(currentConfig, nil)
-	s.Backing.EXPECT().ConstraintsBySpaceName(spaceName).Return(nil, nil)
+	s.Backing.EXPECT().ConstraintsBySpaceName(spaceName.String()).Return(nil, nil)
+
+	space := &network.SpaceInfo{
+		ID:   spaceUUID,
+		Name: spaceName,
+	}
+	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(space, nil).MinTimes(1)
+	s.ApplicationService.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), spaceUUID).Return([]string{}, nil)
+
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings:           nil,
 		Constraints:        nil,
 		ControllerSettings: []string{controller.JujuManagementSpace},
 		Error:              nil,
 	}}}
-
-	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	res, err := s.API.RemoveSpace(c.Context(), args)
 
@@ -494,14 +499,13 @@ func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	space := "myspace"
-	args, _ := s.getRemoveArgs(space, false)
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceName := network.SpaceName("myspace")
+	args, _ := s.getRemoveArgs(spaceName, false)
 
-	s.expectDefaultSpace(ctrl, space, nil)
-	s.expectEndpointBindings(ctrl, "2")
 	s.Backing.EXPECT().IsController().Return(false)
 
-	cApp, cModel := s.expectAllTags(space)
+	cApp, cModel := s.expectAllTags(spaceName)
 
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings: nil,
@@ -517,7 +521,12 @@ func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *tc.C) {
 		Error:              nil,
 	}}}
 
-	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
+	space := &network.SpaceInfo{
+		ID:   spaceUUID,
+		Name: spaceName,
+	}
+	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(space, nil).MinTimes(1)
+	s.ApplicationService.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), spaceUUID).Return([]string{}, nil)
 
 	res, err := s.API.RemoveSpace(c.Context(), args)
 
@@ -532,17 +541,23 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	space := "myspace"
-	args, _ := s.getRemoveArgs(space, false)
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceName := network.SpaceName("myspace")
+	args, _ := s.getRemoveArgs(spaceName, false)
 
-	s.expectDefaultSpace(ctrl, space, nil)
-	s.expectEndpointBindings(ctrl, "1")
 	s.Backing.EXPECT().IsController().Return(true)
 
-	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
+	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: spaceName})
 	s.ControllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(currentConfig, nil)
 
-	cApp, cModel := s.expectAllTags(space)
+	cApp, cModel := s.expectAllTags(spaceName)
+
+	space := &network.SpaceInfo{
+		ID:   spaceUUID,
+		Name: spaceName,
+	}
+	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(space, nil).MinTimes(1)
+	s.ApplicationService.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), spaceUUID).Return([]string{"mediawiki", "mysql"}, nil)
 
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings: []params.Entity{
@@ -564,7 +579,6 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *tc.C) {
 		ControllerSettings: []string{controller.JujuManagementSpace},
 		Error:              nil,
 	}}}
-	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	res, err := s.API.RemoveSpace(c.Context(), args)
 
@@ -579,25 +593,16 @@ func (s *APISuite) TestRemoveSpaceFoundAllWithForce(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
-	spaceTag := "myspace"
-	args, tag := s.getRemoveArgs(spaceTag, true)
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceName := network.SpaceName("myspace")
+	args, _ := s.getRemoveArgs(spaceName, true)
 
-	s.expectDefaultSpace(ctrl, spaceTag, nil)
-	s.expectEndpointBindings(ctrl, "1")
-	s.Backing.EXPECT().IsController().Return(true)
-
-	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: spaceTag})
-	s.ControllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(currentConfig, nil)
-
-	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 	space := &network.SpaceInfo{
-		ID:   "my-space-id",
-		Name: "myspace",
+		ID:   spaceUUID,
+		Name: spaceName,
 	}
-	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), tag.Id()).Return(space, nil)
+	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(space, nil).MinTimes(1)
 	s.NetworkService.EXPECT().RemoveSpace(gomock.Any(), space.ID)
-
-	_, _ = s.expectAllTags(spaceTag)
 
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{}}}
 
@@ -611,7 +616,7 @@ func (s *APISuite) TestRemoveSpaceErrorProviderSpacesSupport(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, true)
 	defer ctrl.Finish()
 
-	space := "myspace"
+	space := network.SpaceName("myspace")
 
 	args, _ := s.getRemoveArgs(space, false)
 
@@ -619,7 +624,7 @@ func (s *APISuite) TestRemoveSpaceErrorProviderSpacesSupport(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "modifying provider-sourced spaces not supported")
 }
 
-func (s *APISuite) expectAllTags(spaceName string) (names.ApplicationTag, names.ModelTag) {
+func (s *APISuite) expectAllTags(spaceName network.SpaceName) (names.ApplicationTag, names.ModelTag) {
 	model := "42c4f770-86ed-4fcc-8e39-697063d082bc:e"
 	machine := "42c4f770-86ed-4fcc-8e39-697063d082bc:m#0"
 	application := "c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql"
@@ -629,7 +634,7 @@ func (s *APISuite) expectAllTags(spaceName string) (names.ApplicationTag, names.
 	s.Constraints.EXPECT().ID().Return(application)
 	s.Constraints.EXPECT().ID().Return(unit)
 
-	s.Backing.EXPECT().ConstraintsBySpaceName(spaceName).Return(
+	s.Backing.EXPECT().ConstraintsBySpaceName(spaceName.String()).Return(
 		[]spaces.Constraints{s.Constraints, s.Constraints, s.Constraints, s.Constraints}, nil)
 	return names.NewApplicationTag("mysql"), names.NewModelTag(model)
 }
@@ -653,27 +658,8 @@ func (s *APISuite) getDefaultSpaces() set.Strings {
 	return strings
 }
 
-func (s *APISuite) expectEndpointBindings(ctrl *gomock.Controller, spaceID string) {
-	b1 := spaces.NewMockBindings(ctrl)
-	b1.EXPECT().Map().Return(map[string]string{
-		"db":    spaceID,
-		"slave": network.AlphaSpaceName,
-	})
-
-	b2 := spaces.NewMockBindings(ctrl)
-	b2.EXPECT().Map().Return(map[string]string{
-		"db":   spaceID,
-		"back": network.AlphaSpaceName,
-	})
-
-	s.Backing.EXPECT().AllEndpointBindings().Return(map[string]spaces.Bindings{
-		"mysql":     b1,
-		"mediawiki": b2,
-	}, nil)
-}
-
 // expectDefaultSpace configures a default space mock with default subnet settings
-func (s *APISuite) expectDefaultSpace(ctrl *gomock.Controller, name string, spacesErr error) {
+func (s *APISuite) expectDefaultSpace(ctrl *gomock.Controller, name network.SpaceName, spacesErr error) {
 	backingSubnets := network.SubnetInfos{{
 		ProviderId:        network.Id("0"),
 		ProviderNetworkId: network.Id("1"),
@@ -687,7 +673,7 @@ func (s *APISuite) expectDefaultSpace(ctrl *gomock.Controller, name string, spac
 
 	backingSpaceInfo := &network.SpaceInfo{
 		ID:      "1",
-		Name:    network.SpaceName(name),
+		Name:    name,
 		Subnets: backingSubnets,
 	}
 	if spacesErr != nil {
@@ -712,9 +698,9 @@ func (s *APISuite) expectMachines(ctrl *gomock.Controller, addresses set.Strings
 	s.Backing.EXPECT().AllMachines().Return(mockMachines, machErr)
 }
 
-func (s *APISuite) getRenameArgs(from, to string) params.RenameSpacesParams {
-	spaceTagFrom := names.NewSpaceTag(from)
-	spaceTagTo := names.NewSpaceTag(to)
+func (s *APISuite) getRenameArgs(from, to network.SpaceName) params.RenameSpacesParams {
+	spaceTagFrom := names.NewSpaceTag(from.String())
+	spaceTagTo := names.NewSpaceTag(to.String())
 	args := params.RenameSpacesParams{
 		Changes: []params.RenameSpaceParams{{
 			FromSpaceTag: spaceTagFrom.String(),
@@ -724,8 +710,8 @@ func (s *APISuite) getRenameArgs(from, to string) params.RenameSpacesParams {
 	return args
 }
 
-func (s *APISuite) getRemoveArgs(name string, force bool) (params.RemoveSpaceParams, names.SpaceTag) {
-	spaceTag := names.NewSpaceTag(name)
+func (s *APISuite) getRemoveArgs(name network.SpaceName, force bool) (params.RemoveSpaceParams, names.SpaceTag) {
+	spaceTag := names.NewSpaceTag(name.String())
 	args := params.RemoveSpaceParams{SpaceParams: []params.RemoveSpaceParam{
 		{
 			Space: params.Entity{Tag: spaceTag.String()},

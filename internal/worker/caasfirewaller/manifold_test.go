@@ -15,7 +15,6 @@ import (
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/api/base"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/logger"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -33,9 +32,7 @@ type manifoldSuite struct {
 	manifold dependency.Manifold
 	getter   dependency.Getter
 
-	apiCaller      *mocks.MockAPICaller
 	broker         *caasmocks.MockBroker
-	client         *mocks.MockClient
 	domainServices *mocks.MockModelDomainServices
 
 	logger logger.Logger
@@ -56,9 +53,7 @@ func (s *manifoldSuite) SetUpTest(c *tc.C) {
 func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.apiCaller = mocks.NewMockAPICaller(ctrl)
 	s.broker = caasmocks.NewMockBroker(ctrl)
-	s.client = mocks.NewMockClient(ctrl)
 
 	s.domainServices = mocks.NewMockModelDomainServices(ctrl)
 	s.domainServices.EXPECT().Port().Return(nil).AnyTimes()
@@ -67,25 +62,24 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.getter = s.newGetter(nil)
 	s.manifold = caasfirewaller.Manifold(s.validConfig())
 
+	c.Cleanup(func() {
+		s.broker = nil
+		s.domainServices = nil
+		s.getter = nil
+	})
+
 	return ctrl
 }
 
 func (s *manifoldSuite) validConfig() caasfirewaller.ManifoldConfig {
 	return caasfirewaller.ManifoldConfig{
-		APICallerName:      "api-caller",
 		BrokerName:         "broker",
 		DomainServicesName: "domain-services",
 		ControllerUUID:     coretesting.ControllerTag.Id(),
 		ModelUUID:          coretesting.ModelTag.Id(),
-		NewClient:          s.newClient,
 		NewWorker:          s.newWorker,
 		Logger:             s.logger,
 	}
-}
-
-func (s *manifoldSuite) newClient(apiCaller base.APICaller) caasfirewaller.Client {
-	s.MethodCall(s, "NewClient", apiCaller)
-	return s.client
 }
 
 func (s *manifoldSuite) newWorker(config caasfirewaller.Config) (worker.Worker, error) {
@@ -103,7 +97,6 @@ func (s *manifoldSuite) newWorker(config caasfirewaller.Config) (worker.Worker, 
 
 func (s *manifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
 	resources := map[string]interface{}{
-		"api-caller":      s.apiCaller,
 		"broker":          s.broker,
 		"domain-services": s.domainServices,
 	}
@@ -127,14 +120,6 @@ func (s *manifoldSuite) TestMissingModelUUID(c *tc.C) {
 	config := s.validConfig()
 	config.ModelUUID = ""
 	s.checkConfigInvalid(c, config, "empty ModelUUID not valid")
-}
-
-func (s *manifoldSuite) TestMissingAPICallerName(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	config := s.validConfig()
-	config.APICallerName = ""
-	s.checkConfigInvalid(c, config, "empty APICallerName not valid")
 }
 
 func (s *manifoldSuite) TestMissingBrokerName(c *tc.C) {
@@ -167,7 +152,7 @@ func (s *manifoldSuite) checkConfigInvalid(c *tc.C, config caasfirewaller.Manifo
 	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
-var expectedInputs = []string{"api-caller", "broker", "domain-services"}
+var expectedInputs = []string{"broker", "domain-services"}
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -194,14 +179,11 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
-	s.CheckCallNames(c, "NewClient", "NewWorker")
-	s.CheckCall(c, 0, "NewClient", s.apiCaller)
+	s.CheckCallNames(c, "NewWorker")
 
-	s.CheckCall(c, 1, "NewWorker", caasfirewaller.Config{
+	s.CheckCall(c, 0, "NewWorker", caasfirewaller.Config{
 		ControllerUUID:     coretesting.ControllerTag.Id(),
 		ModelUUID:          coretesting.ModelTag.Id(),
-		FirewallerAPI:      s.client,
-		LifeGetter:         s.client,
 		Broker:             s.broker,
 		Logger:             s.logger,
 		PortService:        (*portservice.WatchableService)(nil),

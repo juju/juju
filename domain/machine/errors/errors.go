@@ -10,6 +10,10 @@ const (
 	// operated on is considered dead.
 	MachineIsDead = errors.ConstError("machine is dead")
 
+	// MachineNotAlive describes an error that occurs when the machine being
+	// operated on is considered not alive.
+	MachineNotAlive = errors.ConstError("machine is not alive")
+
 	// MachineNotFound describes an error that occurs when the machine being
 	// operated on does not exist.
 	MachineNotFound = errors.ConstError("machine not found")
@@ -22,18 +26,11 @@ const (
 	// operated on is not provisioned yet.
 	NotProvisioned = errors.ConstError("machine not provisioned")
 
-	// StatusNotSet describes an error that occurs when the status of a machine
-	// or a cloud instance is not set yet.
-	StatusNotSet = errors.ConstError("status not set")
-
 	// InvalidContainerType describes an error that can occur when a container
 	// type has been used that isn't understood by the Juju controller.
 	// Container types can currently be found in
 	// [github.com/juju/juju/core/instance.ContainerType]
 	InvalidContainerType = errors.ConstError("invalid container type")
-
-	// InvalidStatus describes a status that is not valid
-	InvalidStatus = errors.ConstError("invalid status")
 
 	// GrandParentNotSupported describes an error that occurs when the operation
 	// found a grandparent machine, as it is not currently supported.

@@ -4,7 +4,7 @@
 package bundle
 
 import (
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"

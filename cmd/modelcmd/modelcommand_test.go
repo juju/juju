@@ -169,6 +169,24 @@ func (s *ModelCommandSuite) TestModelIdentifier(c *tc.C) {
 	}
 }
 
+func (s *ModelCommandSuite) TestModelNameWithQualifier(c *tc.C) {
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
+	s.store.CurrentControllerName = "foo"
+
+	err := s.store.UpdateModel("foo", "adminfoo/currentfoo",
+		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.store.SetCurrentModel("foo", "adminfoo/currentfoo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmd, err := runTestCommand(c, s.store)
+	c.Assert(err, tc.ErrorIsNil)
+	modelName, qualifier, err := cmd.ModelNameWithQualifier()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelName, tc.Equals, "currentfoo")
+	c.Assert(qualifier, tc.Equals, "adminfoo")
+}
+
 func (s *ModelCommandSuite) TestModelType(c *tc.C) {
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	s.store.CurrentControllerName = "foo"

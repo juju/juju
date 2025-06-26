@@ -18,7 +18,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -43,7 +42,6 @@ import (
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
-	internalpubsub "github.com/juju/juju/internal/pubsub"
 	"github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
 	internalworker "github.com/juju/juju/internal/worker"
@@ -262,9 +260,6 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 			return nil
 		})
 	}
-	localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-		Logger: internalpubsub.WrapLogger(internallogger.GetLogger("juju.localhub")),
-	})
 	agentConfig := c.AgentConf.CurrentConfig()
 	cfg := manifoldsConfig{
 		Agent:                   agent.APIHostPortsSetter{Agent: c},
@@ -284,7 +279,6 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 		Clock:                   c.clk,
 		CharmModifiedVersion:    c.CharmModifiedVersion(),
 		ContainerNames:          c.containerNames,
-		LocalHub:                localHub,
 		ColocatedWithController: c.colocatedWithController,
 		SignalCh:                sigTermCh,
 	}

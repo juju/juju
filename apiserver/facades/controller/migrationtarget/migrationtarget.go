@@ -11,19 +11,16 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 	"github.com/juju/names/v6"
 	"github.com/vallerion/rscanner"
 
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/logger"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -31,7 +28,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/modelmigration"
-	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
@@ -64,31 +60,6 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
-// ApplicationService provides access to the application service.
-type ApplicationService interface {
-	// GetApplicationLife returns the life value of the application with the
-	// given name.
-	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
-}
-
-// RelationService provides access to the relation service.
-type RelationService interface {
-	// GetAllRelationDetails return RelationDetailResults for all relations
-	// for the current model.
-	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
-
-	// RelationUnitInScopeByID returns a boolean to indicate whether the given
-	// unit is in scopen of a given relation
-	RelationUnitInScopeByID(ctx context.Context, relationID int, unitName unit.Name) (bool,
-		error)
-}
-
-type StatusService interface {
-	// CheckUnitStatusesReadyForMigration returns true is the statuses of all units
-	// in the model indicate they can be migrated.
-	CheckUnitStatusesReadyForMigration(context.Context) error
-}
-
 // ModelManagerService describes the method needed to update model metadata.
 type ModelManagerService interface {
 	Create(context.Context, coremodel.UUID) error
@@ -111,7 +82,7 @@ type ModelMigrationService interface {
 
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
-	// GetMachinesNotAtTargetVersion reports all of the machines in the model that
+	// GetMachinesNotAtTargetAgentVersion reports all of the machines in the model that
 	// are currently not at the desired target version. This also returns machines
 	// that have no reported agent version set. If all units are up to the
 	// target version or no units exist in the model a zero length slice is
@@ -146,16 +117,36 @@ type UpgradeService interface {
 	IsUpgrading(context.Context) (bool, error)
 }
 
+// StatusService defines the methods that the facade assumes from the Status
+// service.
+type StatusService interface {
+	// CheckUnitStatusesReadyForMigration returns true is the statuses of all units
+	// in the model indicate they can be migrated.
+	CheckUnitStatusesReadyForMigration(context.Context) error
+
+	// CheckMachineStatusesReadyForMigration returns an error if the statuses of any
+	// machines in the model indicate they cannot be migrated.
+	CheckMachineStatusesReadyForMigration(context.Context) error
+}
+
+// APIV4 implements the APIV4.
+type APIV4 struct {
+	*APIV5
+}
+
+// APIV5 implements the APIV5.
+type APIV5 struct {
+	*API
+}
+
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
 	state          *state.State
 	modelImporter  ModelImporter
 	upgradeService UpgradeService
+	statusService  StatusService
 
-	applicationService          ApplicationService
-	relationService             RelationService
-	statusService               StatusService
 	controllerConfigService     ControllerConfigService
 	externalControllerService   ExternalControllerService
 	modelAgentServiceGetter     ModelAgentServiceGetter
@@ -176,10 +167,8 @@ func NewAPI(
 	authorizer facade.Authorizer,
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
-	applicationService ApplicationService,
-	relationService RelationService,
-	statusService StatusService,
 	upgradeService UpgradeService,
+	statusService StatusService,
 	modelAgentServiceGetter ModelAgentServiceGetter,
 	modelMigrationServiceGetter ModelMigrationServiceGetter,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
@@ -191,10 +180,8 @@ func NewAPI(
 		pool:                            ctx.StatePool(),
 		controllerConfigService:         controllerConfigService,
 		externalControllerService:       externalControllerService,
-		applicationService:              applicationService,
-		relationService:                 relationService,
-		statusService:                   statusService,
 		upgradeService:                  upgradeService,
+		statusService:                   statusService,
 		modelAgentServiceGetter:         modelAgentServiceGetter,
 		modelMigrationServiceGetter:     modelMigrationServiceGetter,
 		authorizer:                      authorizer,
@@ -216,58 +203,46 @@ func checkAuth(ctx context.Context, authorizer facade.Authorizer, st *state.Stat
 // Prechecks ensure that the target controller is ready to accept a
 // model migration.
 func (api *API) Prechecks(ctx context.Context, model params.MigrationModelInfo) error {
-	var modelDescription description.Model
-	if serialized := model.ModelDescription; len(serialized) > 0 {
-		var err error
-		modelDescription, err = description.Deserialize(model.ModelDescription)
-		if err != nil {
-			return errors.Errorf(
-				"cannot deserialize model %q description during prechecks: %w",
-				model.UUID,
-				err,
-			)
-		}
+	modelDescription, err := description.Deserialize(model.ModelDescription)
+	if err != nil {
+		return errors.Errorf(
+			"cannot deserialize model %q description during prechecks: %w",
+			model.UUID,
+			err,
+		)
 	}
 
-	// If there are no required migration facade versions, then we
-	// don't need to check anything.
-	if len(api.requiredMigrationFacadeVersions) > 0 {
-		// Ensure that when attempting to migrate a model, the source
-		// controller has the required facades for the migration.
-		sourceFacadeVersions := facades.FacadeVersions{}
-		for name, versions := range model.FacadeVersions {
-			sourceFacadeVersions[name] = versions
+	// Ensure that when attempting to migrate a model, the source
+	// controller has the required facades for the migration.
+	sourceFacadeVersions := facades.FacadeVersions{}
+	for name, versions := range model.FacadeVersions {
+		sourceFacadeVersions[name] = versions
+	}
+	if !facades.CompleteIntersection(api.requiredMigrationFacadeVersions, sourceFacadeVersions) {
+		majorMinor := fmt.Sprintf("%d.%d",
+			model.ControllerAgentVersion.Major,
+			model.ControllerAgentVersion.Minor,
+		)
+
+		// If the patch is zero, then we don't need to mention it.
+		var patchMessage string
+		if model.ControllerAgentVersion.Patch > 0 {
+			patchMessage = fmt.Sprintf(", that is greater than %s.%d", majorMinor, model.ControllerAgentVersion.Patch)
 		}
-		if !facades.CompleteIntersection(api.requiredMigrationFacadeVersions, sourceFacadeVersions) {
-			majorMinor := fmt.Sprintf("%d.%d",
-				model.ControllerAgentVersion.Major,
-				model.ControllerAgentVersion.Minor,
-			)
 
-			// If the patch is zero, then we don't need to mention it.
-			var patchMessage string
-			if model.ControllerAgentVersion.Patch > 0 {
-				patchMessage = fmt.Sprintf(", that is greater than %s.%d", majorMinor, model.ControllerAgentVersion.Patch)
-			}
-
-			return errors.Errorf(`
+		return errors.Errorf(`
 Source controller does not support required facades for performing migration.
 Upgrade the controller to a newer version of %s%s or migrate to a controller
 with an earlier version of the target controller and try again.
 
 `[1:], majorMinor, patchMessage)
-		}
 	}
 
-	err := migration.ImportPrecheck(ctx, modelDescription)
+	err = migration.ImportDescriptionPrecheck(ctx, modelDescription)
 	if err != nil {
 		return fmt.Errorf("migration import prechecks: %w", err)
 	}
 
-	ownerTag, err := names.ParseUserTag(model.OwnerTag)
-	if err != nil {
-		return errors.Errorf("cannot parse model %q owner during prechecks: %w", model.UUID, err)
-	}
 	controllerState, err := api.pool.SystemState()
 	if err != nil {
 		return errors.Errorf(
@@ -276,6 +251,7 @@ with an earlier version of the target controller and try again.
 			err,
 		)
 	}
+
 	// NOTE (thumper): it isn't clear to me why api.state would be different
 	// from the controllerState as I had thought that the Precheck call was
 	// on the controller model, in which case it should be the same as the
@@ -288,19 +264,20 @@ with an earlier version of the target controller and try again.
 	if err != nil {
 		return errors.Errorf("cannot create prechecks backend: %w", err)
 	}
+
 	if err := migration.TargetPrecheck(
 		ctx,
 		backend,
-		migration.PoolShim(api.pool), coremigration.ModelInfo{
+		migration.PoolShim(api.pool),
+		coremigration.ModelInfo{
 			UUID:                   model.UUID,
 			Name:                   model.Name,
-			Owner:                  ownerTag,
+			Qualifier:              coremodel.Qualifier(model.Qualifier),
 			AgentVersion:           model.AgentVersion,
 			ControllerAgentVersion: model.ControllerAgentVersion,
 			ModelDescription:       modelDescription,
-		}, api.upgradeService,
-		api.applicationService,
-		api.relationService,
+		},
+		api.upgradeService,
 		api.statusService,
 		modelAgentService,
 	); err != nil {
@@ -396,35 +373,6 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 		}
 	}
 
-	// Update the source controller attribute on remote applications
-	// to allow external controller ref counts to function properly.
-	remoteApps, err := commoncrossmodel.GetBackend(st).AllRemoteApplications()
-	if err != nil {
-		return errors.Errorf("cannot get remote applications for model %q: %w", st.ModelUUID(), err)
-	}
-	for _, app := range remoteApps {
-		var sourceControllerUUID string
-		extInfo, err := api.externalControllerService.ControllerForModel(ctx, app.SourceModel().Id())
-		if err != nil && !errors.Is(err, coreerrors.NotFound) {
-			return errors.Errorf(
-				"cannot get controller information for remote application %q: %w",
-				app.Name(),
-				err,
-			)
-		}
-		if err == nil {
-			sourceControllerUUID = extInfo.ControllerUUID
-		}
-		if err := app.SetSourceController(sourceControllerUUID); err != nil {
-			return errors.Errorf(
-				"cannot update application %q source controller to %q: %w",
-				app.Name(),
-				sourceControllerUUID,
-				err,
-			)
-		}
-	}
-
 	// TODO(fwereade) - need to validate binaries here.
 	return st.SetMigrationMode(state.MigrationModeNone)
 }
@@ -497,8 +445,8 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 	return lastTimestamp, nil
 }
 
-func unmarshalLine(line []byte) (logger.LogRecord, error) {
-	var logRecord logger.LogRecord
+func unmarshalLine(line []byte) (corelogger.LogRecord, error) {
+	var logRecord corelogger.LogRecord
 	if err := json.Unmarshal(line, &logRecord); err != nil {
 		return logRecord, errors.Errorf("cannot unmarshal log line %q: %w", line, err)
 	}

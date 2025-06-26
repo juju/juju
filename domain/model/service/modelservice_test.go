@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -449,129 +448,6 @@ func (s *modelServiceSuite) TestDeleteModelFailedNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *modelServiceSuite) TestStatusSuspended(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	modelUUID := modeltesting.GenModelUUID(c)
-	svc := NewModelService(
-		modelUUID,
-		s.mockControllerState,
-		s.mockModelState,
-		s.environVersionProviderGetter(),
-		DefaultAgentBinaryFinder(),
-	)
-	svc.clock = testclock.NewClock(time.Time{})
-	now := svc.clock.Now()
-
-	s.mockControllerState.EXPECT().GetModelState(gomock.Any(), modelUUID).Return(model.ModelState{
-		HasInvalidCloudCredential:    true,
-		InvalidCloudCredentialReason: "invalid credential",
-	}, nil)
-
-	status, err := svc.GetStatus(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(status.Status, tc.Equals, corestatus.Suspended)
-	c.Check(status.Message, tc.Equals, "suspended since cloud credential is not valid")
-	c.Check(status.Reason, tc.Equals, "invalid credential")
-	c.Check(status.Since, tc.Almost, now)
-}
-
-func (s *modelServiceSuite) TestStatusDestroying(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	modelUUID := modeltesting.GenModelUUID(c)
-	svc := NewModelService(
-		modelUUID,
-		s.mockControllerState,
-		s.mockModelState,
-		s.environVersionProviderGetter(),
-		DefaultAgentBinaryFinder(),
-	)
-	svc.clock = testclock.NewClock(time.Time{})
-	now := svc.clock.Now()
-
-	s.mockControllerState.EXPECT().GetModelState(gomock.Any(), modelUUID).Return(model.ModelState{
-		Destroying: true,
-	}, nil)
-
-	status, err := svc.GetStatus(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(status.Status, tc.Equals, corestatus.Destroying)
-	c.Check(status.Message, tc.Equals, "the model is being destroyed")
-	c.Check(status.Since, tc.Almost, now)
-}
-
-func (s *modelServiceSuite) TestStatusBusy(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	modelUUID := modeltesting.GenModelUUID(c)
-	svc := NewModelService(
-		modelUUID,
-		s.mockControllerState,
-		s.mockModelState,
-		s.environVersionProviderGetter(),
-		DefaultAgentBinaryFinder(),
-	)
-	svc.clock = testclock.NewClock(time.Time{})
-	now := svc.clock.Now()
-
-	s.mockControllerState.EXPECT().GetModelState(gomock.Any(), modelUUID).Return(model.ModelState{
-		Migrating: true,
-	}, nil)
-
-	status, err := svc.GetStatus(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(status.Status, tc.Equals, corestatus.Busy)
-	c.Check(status.Message, tc.Equals, "the model is being migrated")
-	c.Check(status.Since, tc.Almost, now)
-}
-
-func (s *modelServiceSuite) TestStatus(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	modelUUID := modeltesting.GenModelUUID(c)
-	svc := NewModelService(
-		modelUUID,
-		s.mockControllerState,
-		s.mockModelState,
-		s.environVersionProviderGetter(),
-		DefaultAgentBinaryFinder(),
-	)
-	svc.clock = testclock.NewClock(time.Time{})
-	now := svc.clock.Now()
-
-	s.mockControllerState.EXPECT().GetModelState(gomock.Any(), modelUUID).Return(model.ModelState{}, nil)
-
-	status, err := svc.GetStatus(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(status.Status, tc.Equals, corestatus.Available)
-	c.Check(status.Since, tc.Almost, now)
-}
-
-func (s *modelServiceSuite) TestStatusFailedModelNotFound(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	modelUUID := modeltesting.GenModelUUID(c)
-	svc := NewModelService(
-		modelUUID,
-		s.mockControllerState,
-		s.mockModelState,
-		s.environVersionProviderGetter(),
-		DefaultAgentBinaryFinder(),
-	)
-	svc.clock = testclock.NewClock(time.Time{})
-
-	s.mockControllerState.EXPECT().GetModelState(gomock.Any(), modelUUID).Return(model.ModelState{}, modelerrors.NotFound)
-
-	_, err := svc.GetStatus(c.Context())
-	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
-}
-
 func (s *modelServiceSuite) TestGetEnvironVersion(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -677,6 +553,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 		UUID:           modelUUID,
 		ControllerUUID: controllerUUID,
 		Name:           "my-awesome-model",
+		Qualifier:      "prod",
 		Cloud:          "aws",
 		CloudType:      "ec2",
 		CloudRegion:    "myregion",
@@ -686,6 +563,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 		UUID:           modelUUID,
 		ControllerUUID: controllerUUID,
 		Name:           "my-awesome-model",
+		Qualifier:      "prod",
 		Type:           coremodel.IAAS,
 		Cloud:          "aws",
 		CloudType:      "ec2",
@@ -720,6 +598,7 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *t
 	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), gomock.Any()).Return(coremodel.ModelInfo{
 		UUID:           modelUUID,
 		Name:           "my-awesome-model",
+		Qualifier:      "prod",
 		ControllerUUID: controllerUUID,
 		Cloud:          "aws",
 		CloudType:      "ec2",
@@ -730,6 +609,7 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *t
 		UUID:           modelUUID,
 		ControllerUUID: controllerUUID,
 		Name:           "my-awesome-model",
+		Qualifier:      "prod",
 		Type:           coremodel.IAAS,
 		Cloud:          "aws",
 		CloudType:      "ec2",
@@ -821,6 +701,57 @@ func (s *modelServiceSuite) TestIsControllerModelNotFound(c *tc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 	_, err := svc.IsControllerModel(c.Context())
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *modelServiceSuite) TestHasValidCredential(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockControllerState.EXPECT().HasValidCredential(gomock.Any(), modelUUID).Return(true, nil)
+
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+	hasValidCredential, err := svc.HasValidCredential(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(hasValidCredential, tc.IsTrue)
+
+	modelUUID = modeltesting.GenModelUUID(c)
+	s.mockControllerState.EXPECT().HasValidCredential(gomock.Any(), modelUUID).Return(false, nil)
+
+	svc = NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+	hasValidCredential, err = svc.HasValidCredential(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(hasValidCredential, tc.IsFalse)
+}
+
+func (s *modelServiceSuite) TestHasValidCredentialNotFound(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockControllerState.EXPECT().HasValidCredential(gomock.Any(), modelUUID).Return(false, modelerrors.NotFound)
+
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+	_, err := svc.HasValidCredential(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 

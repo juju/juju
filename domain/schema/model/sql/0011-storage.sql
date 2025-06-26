@@ -2,16 +2,33 @@ CREATE TABLE storage_pool (
     uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     -- Types are provider sourced, so we do not use a lookup with ID.
-    -- This constitutes "repeating data" and would tend to indicate 
-    -- bad relational design. However we choose that here over the
-    -- burden of:
+    -- This constitutes "repeating data" and would tend to indicate
+    -- bad relational design. However we choose that here over the burden of:
     --   - Knowing every possible type up front to populate a look-up or;
-    --   - Sourcing the lookup from the provider and keeping it updated. 
-    type TEXT NOT NULL
+    --   - Sourcing the lookup from the provider and keeping it updated.
+    type TEXT NOT NULL,
+    -- The origin sets to "user" by default for user created pools.
+    -- The "built-in" and "provider-default" origins are used
+    -- for pools that are created by the system when a model is created.
+    origin_id INT NOT NULL DEFAULT 1,
+    CONSTRAINT chk_storage_pool_name_not_empty
+    CHECK (name <> ''),
+    CONSTRAINT chk_storage_pool_type_not_empty
+    CHECK (type <> ''),
+    CONSTRAINT fk_storage_pool_origin
+    FOREIGN KEY (origin_id)
+    REFERENCES storage_pool_origin (id)
 );
 
+-- It is important that the name is unique and speed up access by name.
 CREATE UNIQUE INDEX idx_storage_pool_name
 ON storage_pool (name);
+
+-- This index is used to speed up access by type, type and name.
+-- Warning: if the "type" is not the first column in the composite query condition,
+-- then the index will not be used.
+CREATE INDEX idx_storage_pool_type_name
+ON storage_pool (type, name);
 
 CREATE TABLE storage_pool_attribute (
     storage_pool_uuid TEXT NOT NULL,
@@ -22,6 +39,18 @@ CREATE TABLE storage_pool_attribute (
     REFERENCES storage_pool (uuid),
     PRIMARY KEY (storage_pool_uuid, "key")
 );
+
+CREATE TABLE storage_pool_origin (
+    id INT NOT NULL PRIMARY KEY,
+    origin TEXT NOT NULL UNIQUE,
+    CONSTRAINT chk_storage_pool_origin_not_empty
+    CHECK (origin <> '')
+);
+
+INSERT INTO storage_pool_origin (id, origin) VALUES
+(1, 'user'),
+(2, 'built-in'),
+(3, 'provider-default');
 
 -- This table stores storage directive values for each named storage item
 -- defined by the application's current charm. If the charm is updated, then
@@ -187,7 +216,7 @@ LEFT JOIN storage_pool AS sp ON si.storage_pool_uuid = sp.uuid;
 CREATE TABLE storage_unit_owner (
     storage_instance_uuid TEXT NOT NULL PRIMARY KEY,
     unit_uuid TEXT NOT NULL,
-    CONSTRAINT fk_storage_owner_storage
+    CONSTRAINT fk_storage_owner_storage_instance
     FOREIGN KEY (storage_instance_uuid)
     REFERENCES storage_instance (uuid),
     CONSTRAINT fk_storage_owner_unit
@@ -199,10 +228,10 @@ CREATE TABLE storage_attachment (
     storage_instance_uuid TEXT NOT NULL PRIMARY KEY,
     unit_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
-    CONSTRAINT fk_storage_owner_storage
+    CONSTRAINT fk_storage_attachment_storage_instance
     FOREIGN KEY (storage_instance_uuid)
     REFERENCES storage_instance (uuid),
-    CONSTRAINT fk_storage_owner_unit
+    CONSTRAINT fk_storage_attachment_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
     CONSTRAINT fk_storage_attachment_life
@@ -244,6 +273,17 @@ CREATE TABLE storage_volume_status (
     REFERENCES storage_volume_status_value (id)
 );
 
+CREATE TABLE storage_provision_scope (
+    id INT PRIMARY KEY,
+    scope TEXT NOT NULL UNIQUE,
+    CONSTRAINT chk_storage_provision_scope_scope_not_empty
+    CHECK (scope <> '')
+);
+
+INSERT INTO storage_provision_scope (id, scope) VALUES
+(0, 'model'),
+(1, 'machine');
+
 CREATE TABLE storage_volume (
     uuid TEXT NOT NULL PRIMARY KEY,
     volume_id TEXT NOT NULL,
@@ -253,9 +293,15 @@ CREATE TABLE storage_volume (
     hardware_id TEXT,
     wwn TEXT,
     persistent BOOLEAN,
+    -- TODO: we may change provision_scope_id to NOT NULL in the future.
+    -- We leave it nullable for now to avoid too much code churn.
+    provision_scope_id INT,
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id)
+    REFERENCES life (id),
+    CONSTRAINT fk_storage_volume_provision_scope_id
+    FOREIGN KEY (provision_scope_id)
+    REFERENCES storage_provision_scope (id)
 );
 
 CREATE UNIQUE INDEX idx_storage_volume_id
@@ -284,6 +330,9 @@ CREATE TABLE storage_volume_attachment (
     life_id INT NOT NULL,
     block_device_uuid TEXT,
     read_only BOOLEAN,
+    -- TODO: we may change provision_scope_id to NOT NULL in the future.
+    -- We leave it nullable for now to avoid too much code churn.
+    provision_scope_id INT,
     CONSTRAINT fk_storage_volume_attachment_vol
     FOREIGN KEY (storage_volume_uuid)
     REFERENCES storage_volume (uuid),
@@ -295,7 +344,10 @@ CREATE TABLE storage_volume_attachment (
     REFERENCES life (id),
     CONSTRAINT fk_storage_volume_attachment_block
     FOREIGN KEY (block_device_uuid)
-    REFERENCES block_device (uuid)
+    REFERENCES block_device (uuid),
+    CONSTRAINT fk_storage_volume_attachment_provision_scope_id
+    FOREIGN KEY (provision_scope_id)
+    REFERENCES storage_provision_scope (id)
 );
 
 CREATE TABLE storage_filesystem_status_value (
@@ -334,9 +386,15 @@ CREATE TABLE storage_filesystem (
     life_id INT NOT NULL,
     provider_id TEXT,
     size_mib INT,
+    -- TODO: we may change provision_scope_id to NOT NULL in the future.
+    -- We leave it nullable for now to avoid too much code churn.
+    provision_scope_id INT,
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id)
+    REFERENCES life (id),
+    CONSTRAINT fk_storage_filesystem_provision_scope_id
+    FOREIGN KEY (provision_scope_id)
+    REFERENCES storage_provision_scope (id)
 );
 
 CREATE UNIQUE INDEX idx_storage_filesystem_id
@@ -365,6 +423,9 @@ CREATE TABLE storage_filesystem_attachment (
     life_id INT NOT NULL,
     mount_point TEXT,
     read_only BOOLEAN,
+    -- TODO: we may change provision_scope_id to NOT NULL in the future.
+    -- We leave it nullable for now to avoid too much code churn.
+    provision_scope_id INT,
     CONSTRAINT fk_storage_filesystem_attachment_fs
     FOREIGN KEY (storage_filesystem_uuid)
     REFERENCES storage_filesystem (uuid),
@@ -373,7 +434,10 @@ CREATE TABLE storage_filesystem_attachment (
     REFERENCES net_node (uuid),
     CONSTRAINT fk_storage_filesystem_attachment_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id)
+    REFERENCES life (id),
+    CONSTRAINT fk_storage_filesystem_attachment_provision_scope_id
+    FOREIGN KEY (provision_scope_id)
+    REFERENCES storage_provision_scope (id)
 );
 
 CREATE TABLE storage_volume_device_type (
@@ -396,6 +460,9 @@ CREATE TABLE storage_volume_attachment_plan (
     life_id INT NOT NULL,
     device_type_id INT,
     block_device_uuid TEXT,
+    -- TODO: we may change provision_scope_id to NOT NULL in the future.
+    -- We leave it nullable for now to avoid too much code churn.
+    provision_scope_id INT,
     CONSTRAINT fk_storage_volume_attachment_plan_vol
     FOREIGN KEY (storage_volume_uuid)
     REFERENCES storage_volume (uuid),
@@ -410,7 +477,10 @@ CREATE TABLE storage_volume_attachment_plan (
     REFERENCES storage_volume_device_type (id),
     CONSTRAINT fk_storage_volume_attachment_plan_block
     FOREIGN KEY (block_device_uuid)
-    REFERENCES block_device (uuid)
+    REFERENCES block_device (uuid),
+    CONSTRAINT fk_storage_volume_attachment_plan_provision_scope_id
+    FOREIGN KEY (provision_scope_id)
+    REFERENCES storage_provision_scope (id)
 );
 
 CREATE TABLE storage_volume_attachment_plan_attr (
@@ -420,7 +490,7 @@ CREATE TABLE storage_volume_attachment_plan_attr (
     value TEXT NOT NULL,
     CONSTRAINT fk_storage_vol_attach_plan_attr_plan
     FOREIGN KEY (attachment_plan_uuid)
-    REFERENCES storage_volume_attachment_plan (attachment_plan_uuid)
+    REFERENCES storage_volume_attachment_plan (uuid)
 );
 
 CREATE UNIQUE INDEX idx_storage_vol_attachment_plan_attr

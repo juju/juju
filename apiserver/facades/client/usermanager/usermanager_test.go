@@ -676,7 +676,6 @@ func (s *userManagerSuite) TestRemoveUserBadTag(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
-	s.expectControllerModelUser(c)
 
 	tag := "not-a-tag"
 	got, err := s.api.RemoveUser(c.Context(), params.Entities{
@@ -692,7 +691,6 @@ func (s *userManagerSuite) TestRemoveUserNonExistent(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
-	s.expectControllerModelUser(c)
 
 	tag := "user-harvey"
 	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "harvey")).Return(errors.NotFound)
@@ -707,19 +705,10 @@ func (s *userManagerSuite) TestRemoveUserNonExistent(c *tc.C) {
 	})
 }
 
-func (s *userManagerSuite) expectControllerModelUser(c *tc.C) {
-	userUUID := coreusertesting.GenUserUUID(c)
-	name, err := coreuser.NewName("admin")
-	c.Assert(err, tc.ErrorIsNil)
-	s.modelService.EXPECT().ControllerModel(gomock.Any()).Return(coremodel.Model{Owner: userUUID}, nil)
-	s.accessService.EXPECT().GetUser(gomock.Any(), userUUID).Return(coreuser.User{Name: name}, nil)
-}
-
 func (s *userManagerSuite) TestRemoveUser(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
-	s.expectControllerModelUser(c)
 
 	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "jimmyjam")).Return(nil)
 
@@ -736,7 +725,6 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
-	s.expectControllerModelUser(c)
 
 	jjam := names.NewUserTag("jimmyjam")
 
@@ -751,7 +739,6 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
-	s.expectControllerModelUser(c)
 
 	// Do not expect any calls to the user service as this should fail.
 	_, err := s.api.RemoveUser(c.Context(), params.Entities{
@@ -763,7 +750,6 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
-	s.expectControllerModelUser(c)
 
 	expectedError := "cannot delete controller owner \"admin\""
 
@@ -781,7 +767,6 @@ func (s *userManagerSuite) TestRemoveUserBulk(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
-	s.expectControllerModelUser(c)
 
 	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "jimmyjam")).Return(nil)
 	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "alice")).Return(nil)

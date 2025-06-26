@@ -42,6 +42,21 @@ type entityAssociationCount struct {
 	Count int `db:"count"`
 }
 
+// unitMachineLifeSummary holds the counts of alive, not alive, and machine parent
+// entities associated with a unit identified by the UUID. It is used to
+// summarize the state of a unit in terms of its associated entities.
+type unitMachineLifeSummary struct {
+	// UUID uniquely identifies a associated domain entity.
+	UUID string `db:"uuid"`
+	// AliveCount counts the number of entities alive.
+	AliveCount int `db:"alive_count"`
+	// NotAliveCount counts the number of entities not alive.
+	NotAliveCount int `db:"not_alive_count"`
+	// MachineParentCount counts the number of entities associated with the
+	// entity identified by the UUID.
+	MachineParentCount int `db:"machine_parent_count"`
+}
+
 // entityLife holds an entity's life in integer
 type entityLife struct {
 	Life life.Life `db:"life_id"`
@@ -51,4 +66,12 @@ type entityLife struct {
 type unitUUID struct {
 	// UUID uniquely identifies a unit.
 	UUID string `db:"unit_uuid"`
+}
+
+// applicationUnitName holds the application and unit names.
+type applicationUnitName struct {
+	// ApplicationName is the name of the application.
+	ApplicationName string `db:"application_name"`
+	// UnitName is the name of the unit.
+	UnitName string `db:"unit_name"`
 }

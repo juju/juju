@@ -6,6 +6,10 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
+	// InvalidStatus describes an error that occurs when the status is not
+	// valid.
+	InvalidStatus = errors.ConstError("invalid status")
+
 	// ApplicationNotFound describes an error that occurs when the application
 	// being operated on does not exist.
 	ApplicationNotFound = errors.ConstError("application not found")
@@ -37,4 +41,16 @@ const (
 	// UnitNotLeader describes an error that occurs when performing an operation
 	// that requires the leader unit with a unit which is not the leader
 	UnitNotLeader = errors.ConstError("unit is not the leader")
+
+	// MachineStatusNotFound describes an error that occurs when the machine being
+	// operated on does not have a status.
+	MachineStatusNotFound = errors.ConstError("machine status not found")
+
+	// FilesystemStatusTransitionNotValid describes an error that occurs when the
+	// current filesystem status cannot transition to the new filesystem status.
+	FilesystemStatusTransitionNotValid = errors.ConstError("filesystem status transition not valid")
+
+	// VolumeStatusTransitionNotValid describes an error that occurs when the
+	// current volume status cannot transition to the new volume status.
+	VolumeStatusTransitionNotValid = errors.ConstError("volume status transition not valid")
 )

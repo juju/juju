@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
-	domainmodel "github.com/juju/juju/domain/model"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/port"
 	domainrelation "github.com/juju/juju/domain/relation"
 	statusservice "github.com/juju/juju/domain/status/service"
@@ -43,20 +43,31 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error)
+
+	// GetAllEndpointBindings returns the all endpoint bindings for the model, where
+	// endpoints are indexed by the application name for the application which they
+	// belong to.
+	GetAllEndpointBindings(ctx context.Context) (map[string]map[string]network.SpaceName, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status
 // service.
 type StatusService interface {
 	// GetAllRelationStatuses returns all the relation statuses of the given model.
-	GetAllRelationStatuses(ctx context.Context) (map[relation.UUID]status.StatusInfo, error)
+	GetAllRelationStatuses(context.Context) (map[relation.UUID]status.StatusInfo, error)
 
 	// GetApplicationAndUnitStatuses returns the application statuses of all the
 	// applications in the model, indexed by application name.
-	GetApplicationAndUnitStatuses(ctx context.Context) (map[string]statusservice.Application, error)
+	GetApplicationAndUnitStatuses(context.Context) (map[string]statusservice.Application, error)
 
 	// GetStatusHistory returns the status history based on the request.
-	GetStatusHistory(ctx context.Context, request statusservice.StatusHistoryRequest) ([]status.DetailedStatus, error)
+	GetStatusHistory(context.Context, statusservice.StatusHistoryRequest) ([]status.DetailedStatus, error)
+
+	// GetModelStatus returns the current status of the model.
+	GetModelStatus(context.Context) (status.StatusInfo, error)
+
+	// GetMachineStatus returns the status of the specified machine.
+	GetMachineStatus(context.Context, machine.Name) (status.StatusInfo, error)
 }
 
 // BlockDeviceService instances can fetch block devices for a machine.
@@ -70,26 +81,25 @@ type BlockDeviceService interface {
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, machineUUID machine.UUID) (instance.Id, error)
-	// InstanceIDAndName returns the cloud specific instance ID and display name
-	// for this machine.
-	InstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
+	// GetInstanceID returns the cloud specific instance id for this machine.
+	GetInstanceID(ctx context.Context, machineUUID machine.UUID) (instance.Id, error)
+	// GetInstanceIDAndName returns the cloud specific instance ID and display
+	// name for this machine.
+	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
 	// AppliedLXDProfiles returns the names of the LXD profiles on the machine.
 	AppliedLXDProfileNames(ctx context.Context, machineUUID machine.UUID) ([]string, error)
+	// IsMachineController returns true if the machine if the machine is the
+	// controller machine.
+	IsMachineController(ctx context.Context, machineName machine.Name) (bool, error)
 }
 
 // ModelInfoService provides access to information about the model.
 type ModelInfoService interface {
 	// GetModelInfo returns information about the current model.
 	GetModelInfo(context.Context) (model.ModelInfo, error)
-	// GetStatus returns the current status of the model.
-	// The following error types can be expected to be returned:
-	// - [modelerrors.NotFound]: When the model does not exist.
-	GetStatus(context.Context) (domainmodel.StatusInfo, error)
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -99,6 +109,9 @@ type NetworkService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 	// GetAllSubnets returns all the subnets for the model.
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+	// GetAllDevicesByMachineNames retrieves a mapping of machine names to their
+	// associated network interfaces in the model.
+	GetAllDevicesByMachineNames(ctx context.Context) (map[machine.Name][]domainnetwork.NetInterface, error)
 }
 
 // PortService defines the methods that the facade assumes from the Port

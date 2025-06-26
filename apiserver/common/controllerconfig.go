@@ -21,6 +21,14 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// APIHostPortsForAgentsGetter represents a way to get controller api addresses.
+type APIHostPortsForAgentsGetter interface {
+	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
+	// addresses available for agents ordered to prefer local-cloud scoped
+	// addresses and IPv4 over IPv6 for each machine.
+	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
+}
+
 // ExternalControllerService defines the methods that the controller
 // facade needs from the controller state.
 type ExternalControllerService interface {
@@ -36,21 +44,24 @@ type ExternalControllerService interface {
 // ControllerConfigAPI implements two common methods for use by various
 // facades - eg Provisioner and ControllerConfig.
 type ControllerConfigAPI struct {
-	controllerConfigService   ControllerConfigService
-	externalControllerService ExternalControllerService
-	st                        ControllerConfigState
+	controllerConfigService     ControllerConfigService
+	apiHostPortsForAgentsGetter APIHostPortsForAgentsGetter
+	externalControllerService   ExternalControllerService
+	st                          ControllerConfigState
 }
 
 // NewControllerConfigAPI returns a new ControllerConfigAPI.
 func NewControllerConfigAPI(
 	st ControllerConfigState,
 	controllerConfigService ControllerConfigService,
+	apiHostPortsForAgentsGetter APIHostPortsForAgentsGetter,
 	externalControllerService ExternalControllerService,
 ) *ControllerConfigAPI {
 	return &ControllerConfigAPI{
-		st:                        st,
-		controllerConfigService:   controllerConfigService,
-		externalControllerService: externalControllerService,
+		st:                          st,
+		controllerConfigService:     controllerConfigService,
+		apiHostPortsForAgentsGetter: apiHostPortsForAgentsGetter,
+		externalControllerService:   externalControllerService,
 	}
 }
 
@@ -92,7 +103,7 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
 	if modelExists {
-		addrs, caCert, err := ControllerAPIInfo(ctx, s.st, s.controllerConfigService)
+		addrs, caCert, err := ControllerAPIInfo(ctx, s.controllerConfigService, s.apiHostPortsForAgentsGetter)
 		if err != nil {
 			return params.ControllerAPIInfoResult{}, errors.Trace(err)
 		}
@@ -146,13 +157,17 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 }
 
 // ControllerAPIInfo returns the local controller details for the given State.
-func ControllerAPIInfo(ctx context.Context, st controllerInfoState, controllerConfigService ControllerConfigService) ([]string, string, error) {
+func ControllerAPIInfo(
+	ctx context.Context,
+	controllerConfigService ControllerConfigService,
+	apiHostPortsGetter APIHostPortsForAgentsGetter,
+) ([]string, string, error) {
 	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
 
-	addrs, err := apiAddresses(controllerConfig, st)
+	addrs, err := apiHostPortsGetter.GetAllAPIAddressesForAgentsInPreferredOrder(ctx)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}

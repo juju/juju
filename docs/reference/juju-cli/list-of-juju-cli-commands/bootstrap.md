@@ -241,13 +241,6 @@ Controller configuration keys:
     api-port:
       type: int
       description: The port used for api connections
-    api-port-open-delay:
-      type: string
-      description: |-
-        The duration that the controller will wait
-        between when the controller has been deemed to be ready to open
-        the api-port and when the api-port is actually opened
-        (only used when a controller-api-port value is set).
     application-resource-download-limit:
       type: int
       description: The maximum number of concurrent resources downloads per application
@@ -282,14 +275,6 @@ Controller configuration keys:
       description: |-
         (deprecated) The url of the docker image used for the application operator.
         Use "caas-image-repo" instead.
-    controller-api-port:
-      type: int
-      description: |-
-        An optional port that may be set for controllers
-        that have a very heavy load. If this port is set, this port is used by
-        the controllers to talk to each other - used for the local API connection
-        as well as the pubsub forwarders, and the raft workers. If this value is
-        set, the api-port isn't opened until the controllers have started properly.
     controller-name:
       type: string
       description: The canonical name of the controller
@@ -555,6 +540,8 @@ Model configuration keys (affecting the controller model):
     logging-config:
       type: string
       description: The configuration string to use when configuring Juju agent logging
+        (see [this link](https://pkg.go.dev/github.com/juju/loggo#ParseConfigString) for
+        details)
     lxd-snap-channel:
       type: string
       description: The channel to use when installing LXD from a snap (cosmic and later)

@@ -4,10 +4,10 @@
 <!--To see the older HTG-style doc, see version 39. Note that it may be out-of-date. -->
 
 <!--
-LXD is a hypervisor that provides system containers that are secure, lightweight, and easy to use. When your computer has LXD installed, Juju can operate the `localhost` cloud.  
+LXD is a hypervisor that provides system containers that are secure, lightweight, and easy to use. When your computer has LXD installed, Juju can operate the `localhost` cloud.
 -->
 
-This document describes details specific to using your existing LXD cloud with Juju. 
+This document describes details specific to using your existing LXD cloud with Juju.
 
 
 ````{dropdown} Expand to view how to get a LXD cloud quickly on Ubuntu
@@ -21,12 +21,12 @@ lxc network set lxdbr0 ipv6.address none
 ```
 
 ````
-> See more: [LXD](https://documentation.ubuntu.com/lxd/en/latest/) 
+> See more: [LXD](https://documentation.ubuntu.com/lxd/en/latest/)
 
 
 ```{dropdown} Expand to view some reasons to use a LXD cloud
 
-The LXD cloud, especially when used locally, is great for: <p> - creating a repeatable deployment: Juju enables you to quickly iterate to construct the optimal deployment for your situation, then distribute that across your team <p> -- local development: Juju's localhost cloud can mirror the production ops environment (without incurring the costs involved with duplicating it) <p> - learning Juju: LXD is a lightweight tool for exploring Juju and how it operates <p> - rapid prototyping: LXD is great for when you're creating a new charm and want to be able to quickly provision capacity and tear it down 
+The LXD cloud, especially when used locally, is great for: <p> - creating a repeatable deployment: Juju enables you to quickly iterate to construct the optimal deployment for your situation, then distribute that across your team <p> -- local development: Juju's localhost cloud can mirror the production ops environment (without incurring the costs involved with duplicating it) <p> - learning Juju: LXD is a lightweight tool for exploring Juju and how it operates <p> - rapid prototyping: LXD is great for when you're creating a new charm and want to be able to quickly provision capacity and tear it down
 
 ```
 
@@ -48,7 +48,7 @@ Name in Juju: `localhost`
 
 ## Notes on `juju add-credential`
 
-**local LXD cloud:** If you are a Juju admin user: Already known to Juju. Run `juju bootstrap`, then `juju credentials` to confirm. (Pre-defined credential name in Juju: `localhost`.) Otherwise: Add manually as you would a remote. <p> **clustered LXD cloud**: In Juju, this counts as a remote cloud. You must add its definition to Juju explicitly. <p> **remote LXD cloud:** Requires the API endpoint URL for the remote LXD server.  <br> > See more: [LXD \| How to add remote servers](https://documentation.ubuntu.com/lxd/en/latest/remotes/) 
+**local LXD cloud:** If you are a Juju admin user: Already known to Juju. Run `juju bootstrap`, then `juju credentials` to confirm. (Pre-defined credential name in Juju: `localhost`.) Otherwise: Add manually as you would a remote. <p> **clustered LXD cloud**: In Juju, this counts as a remote cloud. You must add its definition to Juju explicitly. <p> **remote LXD cloud:** Requires the API endpoint URL for the remote LXD server.  <br> > See more: [LXD \| How to add remote servers](https://documentation.ubuntu.com/lxd/en/latest/remotes/)
 
 
 ### Authentication types
@@ -107,7 +107,7 @@ With LXD system containers, constraints are interpreted as resource *maximums* (
 | - {ref}`constraint-tags`               | &#10005;                                                                                                                                                |
 | - {ref}`constraint-virt-type`          | &#10003;                                                                                                                                                |
 | - {ref}`constraint-zones`              | &#10005;                                                                                                                                                |
-	
+
 
 ## Supported placement directives
 
@@ -158,12 +158,12 @@ To share a LXD server with other users on the same machine or remotely, the best
 ### Add resilience via LXD clustering
 
 
-LXD clustering provides the ability for applications to be deployed in a high-availability manner. In a clustered LXD cloud, Juju will deploy units across its nodes. For more, see [Using LXD clustering with Juju](https://discourse.charmhub.io/t/using-lxd-clustering-with-juju/1091).
+LXD clustering provides the ability for applications to be deployed in a high-availability manner. In a clustered LXD cloud, Juju will deploy units across its nodes. See more: [LXD | Clustering](https://documentation.ubuntu.com/lxd/stable-5.21/clustering/).
 
 ### Use LXD profiles from a charm
 
 
-LXD Profiles allows the definition of a configuration that can be applied to any instance. Juju can apply those profiles during the creation or modification of a LXD container. For more, see [Using LXD profiles with Juju](https://discourse.charmhub.io/t/using-lxd-profiles-with-juju/4453).
+LXD Profiles allows the definition of a configuration that can be applied to any instance. Juju can apply those profiles during the creation or modification of a LXD container. See more: [Charmcraft | `lxd-profile.yaml](https://canonical-charmcraft.readthedocs-hosted.com/stable/reference/files/lxd-profile-yaml-file/).
 
 ### LXD images
 

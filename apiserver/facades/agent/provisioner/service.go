@@ -13,11 +13,13 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/cloudimagemetadata"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/storage"
 )
 
 // AgentProvisionerService provides access to container config.
@@ -57,33 +59,78 @@ type ModelInfoService interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
-	// ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
-	// the corresponding cloud instance to be stopped.
+	// ShouldKeepInstance reports whether a machine, when removed from Juju,
+	// should cause the corresponding cloud instance to be stopped.
 	ShouldKeepInstance(ctx context.Context, machineName coremachine.Name) (bool, error)
+
 	// SetKeepInstance sets whether the machine cloud instance will be retained
-	// when the machine is removed from Juju. This is only relevant if an instance
-	// exists.
+	// when the machine is removed from Juju. This is only relevant if an
+	// instance exists.
 	SetKeepInstance(ctx context.Context, machineName coremachine.Name, keep bool) error
+
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
-	// along with the instance tags and the link to a lxd profile if any.
-	SetMachineCloudInstance(ctx context.Context, machineUUID coremachine.UUID, instanceID instance.Id, displayName string, hardwareCharacteristics *instance.HardwareCharacteristics) error
+	// along with the instance tags.
+	SetMachineCloudInstance(
+		ctx context.Context,
+		machineUUID coremachine.UUID,
+		instanceID instance.Id,
+		displayName, nonce string,
+		hardwareCharacteristics *instance.HardwareCharacteristics,
+	) error
+
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (coremachine.UUID, error)
+
 	// SetAppliedLXDProfileNames sets the list of LXD profile names to the
-	// lxd_profile table for the given machine. This method will overwrite the list
-	// of profiles for the given machine without any checks.
+	// lxd_profile table for the given machine. This method will overwrite the
+	// list of profiles for the given machine without any checks.
 	SetAppliedLXDProfileNames(ctx context.Context, mUUID coremachine.UUID, profileNames []string) error
-	// HardwareCharacteristics returns the hardware characteristics of the
+
+	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
-	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID coremachine.UUID) (instance.Id, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
+
+	// GetInstanceID returns the cloud specific instance id for this machine.
+	GetInstanceID(ctx context.Context, mUUID coremachine.UUID) (instance.Id, error)
+
+	// IsMachineManuallyProvisioned returns whether the machine is a manual
+	// machine.
+	IsMachineManuallyProvisioned(ctx context.Context, machineName coremachine.Name) (bool, error)
+
+	// GetSupportedContainersTypes returns the supported container types for the
+	// provider.
+	GetSupportedContainersTypes(ctx context.Context, mUUID coremachine.UUID) ([]instance.ContainerType, error)
+
+	// IsMachineController returns whether the machine is a controller machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	IsMachineController(ctx context.Context, machineName coremachine.Name) (bool, error)
+
+	// GetMachinePrincipalApplications returns the names of the principal
+	// (non-subordinate) units for the specified machine.
+	GetMachinePrincipalApplications(ctx context.Context, mName coremachine.Name) ([]string, error)
+}
+
+// StatusService defines the methods that the facade assumes from the Status
+// service.
+type StatusService interface {
+	// GetInstanceStatus returns the cloud specific instance status for this
+	// machine.
+	GetInstanceStatus(context.Context, coremachine.Name) (status.StatusInfo, error)
+
+	// SetInstanceStatus sets the cloud specific instance status for this machine.
+	SetInstanceStatus(context.Context, coremachine.Name, status.StatusInfo) error
+
+	// GetMachineStatus returns the status of the specified machine.
+	GetMachineStatus(context.Context, coremachine.Name) (status.StatusInfo, error)
+
+	// SetMachineStatus sets the status of the specified machine.
+	SetMachineStatus(context.Context, coremachine.Name, status.StatusInfo) error
 }
 
 // StoragePoolGetter instances get a storage pool by name.
 type StoragePoolGetter interface {
 	// GetStoragePoolByName returns the storage pool with the specified name.
-	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -94,7 +141,7 @@ type NetworkService interface {
 	// SpaceByName returns a space from state that matches the input name.
 	// An error is returned that satisfied errors.NotFound if the space was not found
 	// or an error static any problems fetching the given space.
-	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	SpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error)
 	// GetAllSubnets returns all the subnets for the model.
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 }
@@ -116,7 +163,20 @@ type ApplicationService interface {
 
 	// GetCharmLXDProfile returns the LXD profile along with the revision of the
 	// charm using the charm name, source and revision.
-	GetCharmLXDProfile(ctx context.Context, locator charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error)
+	GetCharmLXDProfile(context.Context, charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error)
+
+	// GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
+	GetUnitNamesOnMachine(context.Context, coremachine.Name) ([]unit.Name, error)
+
+	// GetUnitPrincipal gets the subordinates principal unit. If no principal unit
+	// is found, for example, when the unit is not a subordinate, then false is
+	// returned.
+	GetUnitPrincipal(context.Context, unit.Name) (unit.Name, bool, error)
+
+	// GetApplicationEndpointBindings returns the mapping for each endpoint name and
+	// the space ID it is bound to (or empty if unspecified). When no bindings are
+	// stored for the application, defaults are returned.
+	GetApplicationEndpointBindings(ctx context.Context, appName string) (map[string]network.SpaceUUID, error)
 }
 
 // CloudImageMetadataService manages cloud image metadata for provisionning

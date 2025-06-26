@@ -18,7 +18,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/ratelimit"
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
@@ -29,7 +28,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
-	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/httpcontext"
@@ -94,7 +92,6 @@ type Server struct {
 	httpAuthenticators  []authentication.HTTPAuthenticator
 	loginAuthenticators []authentication.LoginAuthenticator
 
-	offerAuthCtxt    *crossmodel.AuthContext
 	lastConnectionID uint64
 	newObserver      observer.ObserverFactory
 	allowModelAccess bool
@@ -146,7 +143,6 @@ type ServerConfig struct {
 	Tag       names.Tag
 	DataDir   string
 	LogDir    string
-	Hub       *pubsub.StructuredHub
 	Mux       *apiserverhttp.Mux
 
 	// ControllerUUID is the controller unique identifier.
@@ -248,9 +244,6 @@ func (c ServerConfig) Validate() error {
 	if c.StatePool == nil {
 		return errors.NotValidf("missing StatePool")
 	}
-	if c.Hub == nil {
-		return errors.NotValidf("missing Hub")
-	}
 	if c.Mux == nil {
 		return errors.NotValidf("missing Mux")
 	}
@@ -349,7 +342,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 
 	shared, err := newSharedServerContext(sharedServerConfig{
 		statePool:               cfg.StatePool,
-		centralHub:              cfg.Hub,
 		leaseManager:            cfg.LeaseManager,
 		controllerUUID:          cfg.ControllerUUID,
 		controllerModelUUID:     cfg.ControllerModelUUID,
@@ -403,19 +395,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	srv.updateAgentRateLimiter(controllerConfig)
 	if err := srv.updateResourceDownloadLimiters(controllerConfig); err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	macaroonService := controllerDomainServices.Macaroon()
-
-	// The auth context for authenticating access to application offers.
-	srv.offerAuthCtxt, err = newOfferAuthContext(
-		ctx, cfg.StatePool, cfg.Clock,
-		controllerDomainServices.Access(),
-		controllerDomainServices.ModelInfo(),
-		controllerConfigService, macaroonService,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("creating offer auth context: %w", err)
 	}
 
 	ready := make(chan struct{})
@@ -809,9 +788,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		logger,
 	), "applications")
 	unitResourceNewOpenerFunc := resourceOpenerGetter(func(req *http.Request, tagKinds ...string) (coreresource.Opener, error) {
-		st, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
-		if err != nil {
-			return nil, errors.Trace(err)
+		modelUUID, ok := httpcontext.RequestModelUUID(req.Context())
+		if !ok {
+			return nil, errors.Errorf("missing model UUID")
 		}
 
 		tagStr := req.URL.Query().Get(":unit")
@@ -829,7 +808,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			return nil, errors.Trace(errors.Annotate(err, "cannot get domain services for unit resource request"))
 		}
 		args := resource.ResourceOpenerArgs{
-			State:              st.State,
+			ModelUUID:          modelUUID,
 			ApplicationService: domainServices.Application(),
 			ResourceService:    domainServices.Resource(),
 			CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(
@@ -873,9 +852,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	registerHandler := srv.monitoredHandler(&registerUserHandler{
 		ctxt: httpCtxt,
 	}, "register")
-
-	// HTTP handler for application offer macaroon authentication.
-	addOfferAuthHandlers(srv.offerAuthCtxt, srv.mux)
 
 	handlers := []handler{{
 		pattern: modelRoutePrefix + "/log",
@@ -1195,12 +1171,6 @@ func (srv *Server) publicDNSName() string {
 func (srv *Server) GetAuditConfig() auditlog.Config {
 	// Delegates to the getter passed in.
 	return srv.getAuditConfig()
-}
-
-// GetCentralHub returns the central hub for the server.
-// TODO (stickupkid): Remove me. This is only used for testing.
-func (srv *Server) GetCentralHub() *pubsub.StructuredHub {
-	return srv.shared.centralHub.(*pubsub.StructuredHub)
 }
 
 func serverError(err error) error {

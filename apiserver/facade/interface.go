@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 	"github.com/juju/names/v6"
 
 	corehttp "github.com/juju/juju/core/http"
@@ -72,6 +72,9 @@ type MultiModelContext interface {
 
 	// ObjectStoreForModel returns the object store for a given model uuid.
 	ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error)
+
+	// ControllerModelUUID returns the UUID of the controller model.
+	ControllerModelUUID() model.UUID
 }
 
 // ModelContext exposes useful capabilities to a Facade for a given model.

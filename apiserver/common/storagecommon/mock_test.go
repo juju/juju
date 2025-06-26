@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/core/blockdevice"
+	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
@@ -158,8 +158,8 @@ func (p *fakeVolumeAttachmentPlan) BlockDeviceInfo() (state.BlockDeviceInfo, err
 
 type fakeStoragePoolGetter struct{}
 
-func (pm *fakeStoragePoolGetter) GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error) {
-	return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
+func (pm *fakeStoragePoolGetter) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error) {
+	return domainstorage.StoragePool{}, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
 }
 
 type fakeFilesystem struct {

@@ -13,6 +13,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/testhelpers"
+	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 type spaceSuite struct {
@@ -30,6 +31,37 @@ func (s *spaceSuite) SetUpTest(c *tc.C) {
 		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{ID: "11", CIDR: "10.0.0.0/24"}}},
 		{ID: "2", Name: "space2", Subnets: []network.SubnetInfo{{ID: "12", CIDR: "10.0.1.0/24"}}},
 		{ID: "3", Name: "space3", Subnets: []network.SubnetInfo{{ID: "13", CIDR: "10.0.2.0/24"}}},
+	}
+}
+
+func (s *spaceSuite) TestSpaceUUIDValidate(c *tc.C) {
+	tests := []struct {
+		uuid string
+		err  error
+	}{
+		{
+			uuid: "",
+			err:  coreerrors.NotValid,
+		},
+		{
+			uuid: "invalid",
+			err:  coreerrors.NotValid,
+		},
+		{
+			uuid: internaluuid.MustNewUUID().String(),
+		},
+	}
+
+	for i, test := range tests {
+		c.Logf("test %d: %q", i, test.uuid)
+		err := network.SpaceUUID(test.uuid).Validate()
+
+		if test.err == nil {
+			c.Check(err, tc.IsNil)
+			continue
+		}
+
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }
 
@@ -176,7 +208,7 @@ func (s *spaceSuite) TestMoveSubnets(c *tc.C) {
 
 func (s *spaceSuite) TestSubnetCIDRsBySpaceID(c *tc.C) {
 	res := s.spaces.SubnetCIDRsBySpaceID()
-	c.Assert(res, tc.DeepEquals, map[string][]string{
+	c.Assert(res, tc.DeepEquals, map[network.SpaceUUID][]string{
 		"1": {"10.0.0.0/24"},
 		"2": {"10.0.1.0/24"},
 		"3": {"10.0.2.0/24"},
@@ -220,9 +252,9 @@ func (s *spaceSuite) TestAlphaSpaceID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	alphaSpaceUUID := uuid.NewSHA1(namespaceUUID, []byte("juju.network.space.alpha"))
-	c.Assert(alphaSpaceUUID.String(), tc.Equals, network.AlphaSpaceId)
+	c.Assert(alphaSpaceUUID.String(), tc.Equals, network.AlphaSpaceId.String())
 }
 
 func (s *spaceSuite) TestAlphaSpaceName(c *tc.C) {
-	c.Assert(network.AlphaSpaceName, tc.Equals, "alpha")
+	c.Assert(network.AlphaSpaceName.String(), tc.Equals, "alpha")
 }

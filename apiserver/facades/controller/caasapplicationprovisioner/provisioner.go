@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -24,13 +25,12 @@ import (
 	"github.com/juju/juju/apiserver/internal"
 	charmscommon "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/controller"
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/os/ostype"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -39,9 +39,10 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/deployment"
 	statuserrors "github.com/juju/juju/domain/status/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -54,7 +55,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 type APIGroup struct {
@@ -70,20 +70,22 @@ type APIGroup struct {
 type NewResourceOpenerFunc func(ctx context.Context, appName string) (coreresource.Opener, error)
 
 type API struct {
-	auth      facade.Authorizer
-	resources facade.Resources
+	auth            facade.Authorizer
+	resources       facade.Resources
+	watcherRegistry facade.WatcherRegistry
 
 	store                   objectstore.ObjectStore
-	ctrlSt                  CAASApplicationControllerState
 	state                   CAASApplicationProvisionerState
 	newResourceOpener       NewResourceOpenerFunc
 	storage                 StorageBackend
 	storagePoolGetter       StoragePoolGetter
+	applicationService      ApplicationService
 	controllerConfigService ControllerConfigService
+	controllerNodeService   ControllerNodeService
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
-	applicationService      ApplicationService
 	statusService           StatusService
+	removalService          RemovalService
 	leadershipRevoker       leadership.Revoker
 	clock                   clock.Clock
 	logger                  corelogger.Logger
@@ -99,10 +101,9 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	agentPasswordService := domainServices.AgentPassword()
 	controllerConfigService := domainServices.ControllerConfig()
 	modelConfigService := domainServices.Config()
-	modelInfoService := domainServices.ModelInfo()
+
 	storageService := domainServices.Storage()
 	applicationService := domainServices.Application()
-	statusService := domainServices.Status()
 	resourceService := domainServices.Resource()
 
 	sb, err := state.NewStorageBackend(st)
@@ -120,10 +121,11 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	modelUUID := ctx.ModelUUID().String()
 
 	newResourceOpener := func(ctx context.Context, appName string) (coreresource.Opener, error) {
 		args := resource.ResourceOpenerArgs{
-			State:                st,
+			ModelUUID:            modelUUID,
 			ResourceService:      resourceService,
 			ApplicationService:   applicationService,
 			CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(modelConfigService),
@@ -131,31 +133,34 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 		return resource.NewResourceOpenerForApplication(ctx, args, appName)
 	}
 
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
+	services := Services{
+		ApplicationService:      applicationService,
+		ControllerConfigService: controllerConfigService,
+		ControllerNodeService:   domainServices.ControllerNode(),
+		ModelConfigService:      modelConfigService,
+		ModelInfoService:        domainServices.ModelInfo(),
+		StatusService:           domainServices.Status(),
+		RemovalService:          domainServices.Removal(),
 	}
+
 	leadershipRevoker, err := ctx.LeadershipRevoker()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
 	}
+
 	api, err := NewCAASApplicationProvisionerAPI(
-		stateShim{State: systemState},
 		stateShim{State: st},
 		ctx.Resources(),
 		newResourceOpener,
 		authorizer,
 		sb,
 		storageService,
-		controllerConfigService,
-		modelConfigService,
-		modelInfoService,
-		applicationService,
-		statusService,
+		services,
 		leadershipRevoker,
 		ctx.ObjectStore(),
 		ctx.Clock(),
 		ctx.Logger().Child("caasapplicationprovisioner"),
+		ctx.WatcherRegistry(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -178,56 +183,6 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	return apiGroup, nil
 }
 
-// Life returns the life status of every supplied app or unit, where available.
-func (a *APIGroup) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
-	result := params.LifeResults{
-		Results: make([]params.LifeResult, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	canRead, err := a.lifeCanRead(ctx)
-	if err != nil {
-		return params.LifeResults{}, errors.Trace(err)
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		if !canRead(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		var lifeValue life.Value
-		switch tag.Kind() {
-		case names.ApplicationTagKind:
-			lifeValue, err = a.applicationService.GetApplicationLife(ctx, tag.Id())
-			if errors.Is(err, applicationerrors.ApplicationNotFound) {
-				err = errors.NotFoundf("application %s", tag.Id())
-			}
-		case names.UnitTagKind:
-			var unitName coreunit.Name
-			unitName, err = coreunit.NewName(tag.Id())
-			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			lifeValue, err = a.applicationService.GetUnitLife(ctx, unitName)
-			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = errors.NotFoundf("unit %s", unitName)
-			}
-		default:
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		result.Results[i].Life = lifeValue
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
 // CharmInfo returns information about the requested charm.
 func (a *APIGroup) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm, error) {
 	return a.charmInfoAPI.CharmInfo(ctx, args)
@@ -240,22 +195,18 @@ func (a *APIGroup) ApplicationCharmInfo(ctx context.Context, args params.Entity)
 
 // NewCAASApplicationProvisionerAPI returns a new CAAS operator provisioner API facade.
 func NewCAASApplicationProvisionerAPI(
-	ctrlSt CAASApplicationControllerState,
 	st CAASApplicationProvisionerState,
 	resources facade.Resources,
 	newResourceOpener NewResourceOpenerFunc,
 	authorizer facade.Authorizer,
 	sb StorageBackend,
 	storagePoolGetter StoragePoolGetter,
-	controllerConfigService ControllerConfigService,
-	modelConfigService ModelConfigService,
-	modelInfoService ModelInfoService,
-	applicationService ApplicationService,
-	statusService StatusService,
+	services Services,
 	leadershipRevoker leadership.Revoker,
 	store objectstore.ObjectStore,
 	clock clock.Clock,
 	logger corelogger.Logger,
+	watcherRegistry facade.WatcherRegistry,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -264,17 +215,19 @@ func NewCAASApplicationProvisionerAPI(
 	return &API{
 		auth:                    authorizer,
 		resources:               resources,
+		watcherRegistry:         watcherRegistry,
 		newResourceOpener:       newResourceOpener,
-		ctrlSt:                  ctrlSt,
 		state:                   st,
 		storage:                 sb,
 		store:                   store,
 		storagePoolGetter:       storagePoolGetter,
-		controllerConfigService: controllerConfigService,
-		modelConfigService:      modelConfigService,
-		modelInfoService:        modelInfoService,
-		applicationService:      applicationService,
-		statusService:           statusService,
+		controllerConfigService: services.ControllerConfigService,
+		controllerNodeService:   services.ControllerNodeService,
+		modelConfigService:      services.ModelConfigService,
+		modelInfoService:        services.ModelInfoService,
+		applicationService:      services.ApplicationService,
+		statusService:           services.StatusService,
+		removalService:          services.RemovalService,
 		leadershipRevoker:       leadershipRevoker,
 		clock:                   clock,
 		logger:                  logger,
@@ -304,48 +257,25 @@ func (a *API) Remove(ctx context.Context, args params.Entities) (params.ErrorRes
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unitName, err := coreunit.NewName(tag.Id())
+
+		unitUUID, err := a.applicationService.GetUnitUUID(ctx, coreunit.Name(tag.Id()))
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		if err = a.applicationService.RemoveUnit(ctx, unitName, a.leadershipRevoker); err != nil {
+		if err := a.removalService.MarkUnitAsDead(ctx, unitUUID); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-
-		// TODO(units) - remove me.
-		// Dual write to state.
-		unit, err := a.state.Unit(tag.Id())
-		if err != nil {
+		_, err = a.removalService.RemoveUnit(ctx, unitUUID, false, 0)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", tag.Id()))
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := unit.EnsureDead(); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := unit.Remove(a.store); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
 		}
 	}
 	return result, nil
-}
-
-// WatchApplications starts a StringsWatcher to watch applications
-// deployed to this model.
-func (a *API) WatchApplications(ctx context.Context) (params.StringsWatchResult, error) {
-	watch := a.state.WatchApplications()
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: a.resources.Register(watch),
-			Changes:          changes,
-		}, nil
-	}
-	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // WatchProvisioningInfo provides a watcher for changes that affect the
@@ -380,12 +310,6 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 		return result, errors.Trace(err)
 	}
 
-	app, err := a.state.Application(appName.Id())
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	legacyAppWatcher := app.Watch()
 	controllerConfigWatcher, err := a.controllerConfigService.WatchControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
@@ -394,9 +318,10 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-
-	controllerAPIHostPortsWatcher := a.ctrlSt.WatchAPIHostPortsForAgents()
-
+	controllerAPIHostPortsWatcher, err := a.controllerNodeService.WatchControllerAPIAddresses(ctx)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 	modelConfigWatcher, err := a.modelConfigService.Watch()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -413,7 +338,6 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 	// provisioning of k8s resources.
 	multiWatcher, err := eventsource.NewMultiNotifyWatcher(ctx,
 		appWatcher,
-		legacyAppWatcher,
 		controllerConfigNotifyWatcher,
 		controllerAPIHostPortsWatcher,
 		modelConfigNotifyWatcher,
@@ -422,12 +346,10 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 		return result, errors.Trace(err)
 	}
 
-	// Consume the initial event and forward it to the result.
-	if _, err := internal.FirstResult[struct{}](ctx, multiWatcher); err != nil {
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, a.watcherRegistry, multiWatcher)
+	if err != nil {
 		return result, errors.Trace(err)
 	}
-
-	result.NotifyWatcherId = a.resources.Register(multiWatcher)
 	return result, nil
 }
 
@@ -455,6 +377,9 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 	// TODO: Either this needs to be implemented in the application domain or the worker
 	// needs to be refactored to fetch each value individually.
 	appName := appTag.Id()
+	// TODO(storage): We must keep this legacy Application here because of
+	// `StorageConstraints()`. Once that's migrated to dqlite this should be
+	// removed in favor of a domain service method.
 	app, err := a.state.Application(appName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -516,6 +441,8 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// TODO(model): This call should be removed once the model constraints are
+	// removed from the state.
 	mergedCons, err := a.state.ResolveConstraints(cons)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -536,36 +463,46 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting juju oci image path")
 	}
-	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents(cfg)
+	addrs, err := a.controllerNodeService.GetAllAPIAddressesForAgentsInPreferredOrder(ctx)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting api addresses")
 	}
-	addrs := []string(nil)
-	for _, hostPorts := range apiHostPorts {
-		ordered := hostPorts.HostPorts().PrioritizedForScope(network.ScopeMatchCloudLocal)
-		for _, addr := range ordered {
-			if addr != "" {
-				addrs = append(addrs, addr)
-			}
-		}
-	}
 	caCert, _ := cfg.CACert()
-	appConfig, err := app.ApplicationConfig()
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting application config")
-	}
+
 	scale, err := a.applicationService.GetApplicationScale(ctx, appName)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting application scale")
 	}
-	base := app.Base()
+	origin, err := a.applicationService.GetApplicationCharmOrigin(ctx, appName)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	osType, err := encodeOSType(origin.Platform.OSType)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	base := params.Base{
+		Name:    osType,
+		Channel: origin.Platform.Channel,
+	}
 	imageRepoDetails, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
-	charmURL, _ := app.CharmURL()
-	if charmURL == nil {
-		return nil, errors.NotValidf("application charm url nil")
+	charmURL, err := charmscommon.CharmURLFromLocator(locator.Name, locator)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	charmModifiedVersion, err := a.applicationService.GetCharmModifiedVersion(ctx, appID)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	trustSetting, err := a.applicationService.GetApplicationTrustSetting(ctx, appName)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
 	}
 	return &params.CAASApplicationProvisioningInfo{
 		Version:              vers,
@@ -575,96 +512,13 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		Filesystems:          filesystemParams,
 		Devices:              devices,
 		Constraints:          mergedCons,
-		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
+		Base:                 base,
 		ImageRepo:            params.NewDockerImageInfo(docker.ConvertToResourceImageDetails(imageRepoDetails), imagePath),
-		CharmModifiedVersion: app.CharmModifiedVersion(),
-		CharmURL:             *charmURL,
-		Trust:                appConfig.GetBool(coreapplication.TrustConfigOptionName, false),
+		CharmModifiedVersion: charmModifiedVersion,
+		CharmURL:             charmURL,
+		Trust:                trustSetting,
 		Scale:                scale,
 	}, nil
-}
-
-// SetOperatorStatus sets the status of each given entity.
-func (a *API) SetOperatorStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	for i, arg := range args.Entities {
-		tag, err := names.ParseApplicationTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		info := status.StatusInfo{
-			Status:  status.Status(arg.Status),
-			Message: arg.Info,
-			Data:    arg.Data,
-			Since:   ptr(a.clock.Now()),
-		}
-		err = a.statusService.SetApplicationStatus(ctx, tag.Id(), info)
-		if errors.Is(err, statuserrors.ApplicationNotFound) {
-			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", tag.Id()))
-			continue
-		} else if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-	}
-	return results, nil
-}
-
-// Units returns all the units for each application specified.
-func (a *API) Units(ctx context.Context, args params.Entities) (params.CAASUnitsResults, error) {
-	results := params.CAASUnitsResults{
-		Results: make([]params.CAASUnitsResult, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		results.Results[i] = a.units(ctx, entity)
-	}
-	return results, nil
-}
-
-func (a *API) units(ctx context.Context, arg params.Entity) params.CAASUnitsResult {
-	appName, err := names.ParseApplicationTag(arg.Tag)
-	if err != nil {
-		return params.CAASUnitsResult{Error: apiservererrors.ServerError(err)}
-	}
-	appId, err := a.applicationService.GetApplicationIDByName(ctx, appName.Id())
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return params.CAASUnitsResult{Error: apiservererrors.ServerError(errors.NotFoundf("application %q", appName.Id()))}
-	} else if err != nil {
-		return params.CAASUnitsResult{Error: apiservererrors.ServerError(err)}
-	}
-	unitStatuses, err := a.statusService.GetUnitWorkloadStatusesForApplication(ctx, appId)
-	if errors.Is(err, statuserrors.ApplicationNotFound) {
-		return params.CAASUnitsResult{Error: apiservererrors.ServerError(errors.NotFoundf("application %q", appName.Id()))}
-	} else if err != nil {
-		return params.CAASUnitsResult{Error: apiservererrors.ServerError(err)}
-	}
-
-	result := params.CAASUnitsResult{
-		Units: make([]params.CAASUnitInfo, 0, len(unitStatuses)),
-	}
-	for unitName, unitStatus := range unitStatuses {
-		unitTag := names.NewUnitTag(unitName.String())
-		result.Units = append(result.Units, params.CAASUnitInfo{
-			Tag: unitTag.String(),
-			UnitStatus: &params.UnitStatus{
-				AgentStatus:    statusInfoToDetailedStatus(unitStatus),
-				WorkloadStatus: statusInfoToDetailedStatus(unitStatus),
-			},
-		})
-	}
-	return result
-}
-
-func statusInfoToDetailedStatus(in status.StatusInfo) params.DetailedStatus {
-	return params.DetailedStatus{
-		Status: in.Status.String(),
-		Info:   in.Message,
-		Since:  in.Since,
-		Data:   in.Data,
-	}
 }
 
 // CharmStorageParams returns filesystem parameters needed
@@ -731,7 +585,7 @@ func CharmStorageParams(
 
 // StoragePoolGetter instances get a storage pool by name.
 type StoragePoolGetter interface {
-	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 	GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error)
 }
 
@@ -754,8 +608,14 @@ func poolStorageProvider(ctx context.Context, storagePoolGetter StoragePoolGette
 	} else if err != nil {
 		return "", nil, errors.Trace(err)
 	}
-	providerType := pool.Provider()
-	return providerType, pool.Attrs(), nil
+	var attr map[string]any
+	if len(pool.Attrs) > 0 {
+		attr = make(map[string]any, len(pool.Attrs))
+		for k, v := range pool.Attrs {
+			attr[k] = v
+		}
+	}
+	return storage.ProviderType(pool.Provider), attr, nil
 }
 
 func (a *API) applicationFilesystemParams(
@@ -978,14 +838,14 @@ func (a *API) UpdateApplicationsUnits(ctx context.Context, args params.UpdateApp
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		app, err := a.state.Application(appTag.Id())
+		appLife, err := a.applicationService.GetApplicationLifeByName(ctx, appTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if app.Life() != state.Alive {
+		if appLife != life.Alive {
 			// We ignore any updates for dying applications.
-			a.logger.Debugf(ctx, "ignoring unit updates for dying application: %v", app.Name())
+			a.logger.Debugf(ctx, "ignoring unit updates for dying application: %v", appTag.Id())
 			continue
 		}
 
@@ -1005,7 +865,7 @@ func (a *API) UpdateApplicationsUnits(ctx context.Context, args params.UpdateApp
 				continue
 			}
 		}
-		appUnitInfo, err := a.updateUnitsFromCloud(ctx, app, appUpdate.Units)
+		appUnitInfo, err := a.updateUnitsFromCloud(ctx, appTag.Id(), appUpdate.Units)
 		if err != nil {
 			// Mask any not found errors as the worker (caller) treats them specially
 			// and they are not relevant here.
@@ -1040,7 +900,7 @@ type volumeInfo struct {
 	volumeId   string
 }
 
-func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpdates []params.ApplicationUnitParams) ([]params.ApplicationUnitInfo, error) {
+func (a *API) updateUnitsFromCloud(ctx context.Context, appName string, unitUpdates []params.ApplicationUnitParams) ([]params.ApplicationUnitInfo, error) {
 	a.logger.Debugf(ctx, "unit updates: %#v", unitUpdates)
 
 	m, err := a.state.Model()
@@ -1055,18 +915,18 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	units, err := app.AllUnits()
+	units, err := a.applicationService.GetUnitNamesForApplication(ctx, appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	unitByTag := make(map[string]Unit)
+	unitByTag := make(map[string]coreunit.Name)
 	for _, v := range units {
-		unitByTag[v.Tag().String()] = v
+		unitByTag[v.String()] = v
 	}
-	unitByProviderID := make(map[string]Unit)
+	unitByProviderID := make(map[string]coreunit.Name)
 	for _, v := range containers {
 		tag := names.NewUnitTag(v.Unit())
-		unit, ok := unitByTag[tag.String()]
+		unit, ok := unitByTag[tag.Id()]
 		if !ok {
 			return nil, errors.NotFoundf("unit %q with provider id %q", tag, v.ProviderId())
 		}
@@ -1106,7 +966,7 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 			for _, sa := range unitStorage {
 				si, err := a.storage.StorageInstance(sa.StorageInstance())
 				if errors.Is(err, errors.NotFound) {
-					a.logger.Warningf(ctx, "ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
+					//a.logger.Warningf(ctx, "ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
 					continue
 				}
 				if err != nil {
@@ -1174,28 +1034,23 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 	}
 
 	unitUpdateParams := make(map[coreunit.Name]applicationservice.UpdateCAASUnitParams, len(unitUpdates))
-	unitUpdate := state.UpdateUnitsOperation{}
 	processedFilesystemIds := set.NewStrings()
 	for _, unitParams := range unitUpdates {
-		unit, ok := unitByProviderID[unitParams.ProviderId]
+		unitName, ok := unitByProviderID[unitParams.ProviderId]
 		if !ok {
-			a.logger.Warningf(ctx, "ignoring non-existent unit with provider id %q", unitParams.ProviderId)
+			//a.logger.Warningf(ctx, "ignoring non-existent unit with provider id %q", unitParams.ProviderId)
 			continue
 		}
 
 		updateParams := processUnitParams(unitParams)
-		unitName, err := coreunit.NewName(unit.Tag().Id())
-		if err != nil {
-			return nil, errors.Annotatef(err, "parsing unit name %q", unit.Tag().Id())
-		}
 		unitUpdateParams[unitName] = updateParams
-		legacyParams := legacyUnitParams(&updateParams)
-		unitUpdate.Updates = append(unitUpdate.Updates, unit.UpdateOperation(legacyParams))
+
+		unitTag := names.NewUnitTag(unitName.String())
 
 		if len(unitParams.FilesystemInfo) > 0 {
-			err := processFilesystemParams(processedFilesystemIds, unit.Tag().(names.UnitTag), unitParams)
+			err := processFilesystemParams(processedFilesystemIds, unitTag, unitParams)
 			if err != nil {
-				return nil, errors.Annotatef(err, "processing filesystems for unit %q", unit.Tag())
+				return nil, errors.Annotatef(err, "processing filesystems for unit %q", unitTag)
 			}
 		}
 	}
@@ -1212,7 +1067,6 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 	// If pods are recreated on the Kubernetes side, new units are created on the Juju
 	// side and so any previously attached filesystems become orphaned and need to
 	// be cleaned up.
-	appName := app.Name()
 	if err := a.cleanupOrphanedFilesystems(ctx, processedFilesystemIds); err != nil {
 		return nil, errors.Annotatef(err, "deleting orphaned filesystems for %v", appName)
 	}
@@ -1445,31 +1299,6 @@ func processUnitParams(unitParams params.ApplicationUnitParams) applicationservi
 	}
 }
 
-func legacyUnitParams(unitParams *applicationservice.UpdateCAASUnitParams) state.UnitUpdateProperties {
-	result := state.UnitUpdateProperties{
-		ProviderId: unitParams.ProviderID,
-		Address:    unitParams.Address,
-		Ports:      unitParams.Ports,
-	}
-	if s := unitParams.AgentStatus; s != nil {
-		result.AgentStatus = &status.StatusInfo{
-			Status:  s.Status,
-			Message: s.Message,
-			Data:    s.Data,
-			Since:   s.Since,
-		}
-	}
-	if s := unitParams.CloudContainerStatus; s != nil {
-		result.CloudContainerStatus = &status.StatusInfo{
-			Status:  s.Status,
-			Message: s.Message,
-			Data:    s.Data,
-			Since:   s.Since,
-		}
-	}
-	return result
-}
-
 // updateStatus constructs the agent and cloud container status values.
 func updateStatus(params params.ApplicationUnitParams) (
 	agentStatus *status.StatusInfo,
@@ -1534,58 +1363,10 @@ func (a *API) ClearApplicationsResources(ctx context.Context, args params.Entiti
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	for i, entity := range args.Entities {
-		appTag, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		app, err := a.state.Application(appTag.Id())
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		err = app.ClearResources()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-		}
+	for i := range args.Entities {
+		result.Results[i].Error = apiservererrors.ServerError(errors.NotImplementedf("ClearResources"))
 	}
 	return result, nil
-}
-
-// WatchUnits starts a StringsWatcher to watch changes to the
-// lifecycle states of units for the specified applications in
-// this model.
-func (a *API) WatchUnits(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	results := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
-	}
-	for i, arg := range args.Entities {
-		id, changes, err := a.watchUnits(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results.Results[i].StringsWatcherId = id
-		results.Results[i].Changes = changes
-	}
-	return results, nil
-}
-
-func (a *API) watchUnits(tagString string) (string, []string, error) {
-	tag, err := names.ParseApplicationTag(tagString)
-	if err != nil {
-		return "", nil, errors.Trace(err)
-	}
-	app, err := a.state.Application(tag.Id())
-	if err != nil {
-		return "", nil, errors.Trace(err)
-	}
-	w := app.WatchUnits()
-	if changes, ok := <-w.Changes(); ok {
-		return a.resources.Register(w), changes, nil
-	}
-	return "", nil, watcher.EnsureErr(w)
 }
 
 // DestroyUnits is responsible for scaling down a set of units on the this
@@ -1625,87 +1406,18 @@ func (a *API) destroyUnit(ctx context.Context, args params.DestroyUnitParams) (p
 		return params.DestroyUnitResult{}, internalerrors.Errorf("destroying unit %q: %w", unitName, err)
 	}
 
-	// TODO(units) - remove dual write to state
-	unit, err := a.state.Unit(unitName.String())
-	if errors.Is(err, errors.NotFound) {
-		return params.DestroyUnitResult{}, nil
-	} else if err != nil {
-		return params.DestroyUnitResult{}, internalerrors.Errorf("fetching unit %q state: %w", unitName, err)
-	}
-
-	//
-	op := unit.DestroyOperation(a.store)
-	op.DestroyStorage = args.DestroyStorage
-	op.Force = args.Force
-	if args.MaxWait != nil {
-		op.MaxWait = *args.MaxWait
-	}
-
-	if err := a.state.ApplyOperation(op); err != nil {
-		return params.DestroyUnitResult{}, internalerrors.Errorf("destroying unit %q: %w", unitName, err)
-	}
-
 	return params.DestroyUnitResult{}, nil
-}
-
-// ProvisioningState returns the provisioning state for the application.
-func (a *API) ProvisioningState(ctx context.Context, args params.Entity) (params.CAASApplicationProvisioningStateResult, error) {
-	result := params.CAASApplicationProvisioningStateResult{}
-
-	appTag, err := names.ParseApplicationTag(args.Tag)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	ps, err := a.applicationService.GetApplicationScalingState(ctx, appTag.Id())
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	result.ProvisioningState = &params.CAASApplicationProvisioningState{
-		Scaling:     ps.Scaling,
-		ScaleTarget: ps.ScaleTarget,
-	}
-	return result, nil
-}
-
-// SetProvisioningState sets the provisioning state for the application.
-func (a *API) SetProvisioningState(ctx context.Context, args params.CAASApplicationProvisioningStateArg) (params.ErrorResult, error) {
-	result := params.ErrorResult{}
-
-	appTag, err := names.ParseApplicationTag(args.Application.Tag)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	err = a.applicationService.SetApplicationScalingState(ctx, appTag.Id(), args.ProvisioningState.ScaleTarget, args.ProvisioningState.Scaling)
-	if err != nil {
-		if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
-			err = apiservererrors.ErrTryAgain
-		}
-		result.Error = apiservererrors.ServerError(err)
-	}
-
-	return result, nil
-}
-
-// ProvisionerConfig returns the provisioner's configuration.
-func (a *API) ProvisionerConfig(ctx context.Context) (params.CAASApplicationProvisionerConfigResult, error) {
-	result := params.CAASApplicationProvisionerConfigResult{
-		ProvisionerConfig: &params.CAASApplicationProvisionerConfig{},
-	}
-	if a.state.IsController() {
-		result.ProvisionerConfig.UnmanagedApplications.Entities = append(
-			result.ProvisionerConfig.UnmanagedApplications.Entities,
-			params.Entity{Tag: names.NewApplicationTag(bootstrap.ControllerApplicationName).String()},
-		)
-	}
-	return result, nil
 }
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+func encodeOSType(t deployment.OSType) (string, error) {
+	switch t {
+	case deployment.Ubuntu:
+		return strings.ToLower(ostype.Ubuntu.String()), nil
+	default:
+		return "", internalerrors.Errorf("unsupported OS type %v", t)
+	}
 }

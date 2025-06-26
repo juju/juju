@@ -759,7 +759,7 @@ func (env *environ) SupportsSpaces() (bool, error) {
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
 	if !dummy.supportsSpaces {
-		return false, errors.NotSupportedf("spaces")
+		return false, nil
 	}
 	return true, nil
 }

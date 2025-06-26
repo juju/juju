@@ -6,7 +6,7 @@ package modelmigration
 import (
 	"context"
 
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
@@ -34,8 +34,8 @@ func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 // ImportService provides a subset of the network domain service
 // methods needed for spaces and subnets import.
 type ImportService interface {
-	AddSpace(ctx context.Context, space corenetwork.SpaceInfo) (corenetwork.Id, error)
-	Space(ctx context.Context, uuid string) (*corenetwork.SpaceInfo, error)
+	AddSpace(ctx context.Context, space corenetwork.SpaceInfo) (corenetwork.SpaceUUID, error)
+	Space(ctx context.Context, uuid corenetwork.SpaceUUID) (*corenetwork.SpaceInfo, error)
 	AddSubnet(ctx context.Context, args corenetwork.SubnetInfo) (corenetwork.Id, error)
 }
 
@@ -107,15 +107,15 @@ func (i *importOperation) Rollback(ctx context.Context, model description.Model)
 	return nil
 }
 
-func (i *importOperation) importSpaces(ctx context.Context, modelSpaces []description.Space) (map[string]string, error) {
-	spaceIDsMap := make(map[string]string)
+func (i *importOperation) importSpaces(ctx context.Context, modelSpaces []description.Space) (map[string]corenetwork.SpaceUUID, error) {
+	spaceIDsMap := make(map[string]corenetwork.SpaceUUID)
 	for _, space := range modelSpaces {
 		// The default space should not have been exported, but be defensive.
-		if space.Name() == corenetwork.AlphaSpaceName {
+		if space.Name() == corenetwork.AlphaSpaceName.String() {
 			continue
 		}
 		spaceInfo := corenetwork.SpaceInfo{
-			ID:         space.UUID(),
+			ID:         corenetwork.SpaceUUID(space.UUID()),
 			Name:       corenetwork.SpaceName(space.Name()),
 			ProviderId: corenetwork.Id(space.ProviderID()),
 		}
@@ -128,9 +128,9 @@ func (i *importOperation) importSpaces(ctx context.Context, modelSpaces []descri
 		// spaces have their ID set but not their UUID. If their UUID
 		// is set then we use it to keep a consistent mapping.
 		if space.Id() != "" {
-			spaceIDsMap[space.Id()] = spaceID.String()
+			spaceIDsMap[space.Id()] = spaceID
 		} else {
-			spaceIDsMap[spaceID.String()] = spaceID.String()
+			spaceIDsMap[spaceID.String()] = spaceID
 		}
 	}
 	return spaceIDsMap, nil
@@ -139,7 +139,7 @@ func (i *importOperation) importSpaces(ctx context.Context, modelSpaces []descri
 func (i *importOperation) importSubnets(
 	ctx context.Context,
 	modelSubnets []description.Subnet,
-	spaceIDsMap map[string]string,
+	spaceIDsMap map[string]corenetwork.SpaceUUID,
 ) error {
 
 	for _, subnet := range modelSubnets {
@@ -159,7 +159,7 @@ func (i *importOperation) importSubnets(
 				return errors.Errorf("retrieving space with ID %s to import subnet %s: %w", importedSpaceID, subnet.ID(), err)
 			}
 			subnetInfo.SpaceID = importedSpaceID
-			subnetInfo.SpaceName = string(space.Name)
+			subnetInfo.SpaceName = space.Name
 			subnetInfo.ProviderSpaceId = space.ProviderId
 		}
 

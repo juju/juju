@@ -30,9 +30,9 @@ import (
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Services represents all the services that the application facade requires.
@@ -96,10 +96,6 @@ type CredentialService interface {
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
-	// Space returns a space from state that matches the input ID.
-	// An error is returned if the space does not exist or if there was a problem
-	// accessing its information.
-	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
@@ -108,26 +104,26 @@ type NetworkService interface {
 // service.
 type MachineService interface {
 	// CreateMachine creates the specified machine.
-	CreateMachine(context.Context, machine.Name) (machine.UUID, error)
+	CreateMachine(context.Context, machine.Name, *string) (machine.UUID, error)
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
+	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
 }
 
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
 	// CreateIAASApplication creates the specified IAAS application and
 	// subsequent units if supplied.
-	CreateIAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg) (coreapplication.ID, error)
+	CreateIAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddIAASUnitArg) (coreapplication.ID, error)
 
 	// CreateCAASApplication creates the specified CAAS application and
 	// subsequent units if supplied.
 	CreateCAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg) (coreapplication.ID, error)
 
 	// AddIAASUnits adds IAAS units to the application.
-	AddIAASUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) ([]unit.Name, error)
+	AddIAASUnits(ctx context.Context, name string, units ...applicationservice.AddIAASUnitArg) ([]unit.Name, error)
 
 	// AddCAASUnits adds CAAS units to the application.
 	AddCAASUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) ([]unit.Name, error)
@@ -155,7 +151,7 @@ type ApplicationService interface {
 	DestroyUnit(context.Context, unit.Name) error
 
 	// GetApplicationLife looks up the life of the specified application.
-	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+	GetApplicationLife(context.Context, coreapplication.ID) (life.Value, error)
 
 	// GetUnitLife looks up the life of the specified unit.
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)
@@ -295,7 +291,7 @@ type ApplicationService interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]string, error)
+	GetApplicationEndpointBindings(context.Context, string) (map[string]network.SpaceUUID, error)
 
 	// GetApplicationEndpointNames returns the names of the endpoints for the given
 	// application.
@@ -370,7 +366,7 @@ type ResourceService interface {
 // StorageService instances get a storage pool by name.
 type StorageService interface {
 	// GetStoragePoolByName returns the storage pool with the specified name.
-	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }
 
 // BlockChecker defines the block-checking functionality required by

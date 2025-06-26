@@ -46,18 +46,18 @@ func (s *notifySuite) TestNotificationsByNamespaceFilter(c *tc.C) {
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas)
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(ctx context.Context, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(ctx context.Context, e []changestream.ChangeEvent) ([]string, error) {
 		if len(e) != 1 {
 			c.Fatalf("expected 1 event, got %d", len(e))
 		}
-		if e[0].Changed() == "some-key-value" {
-			return e, nil
+		if s := e[0].Changed(); s == "some-key-value" {
+			return singleton(s), nil
 		}
 		return nil, nil
 	}, NamespaceFilter("random_namespace", changestream.All))
@@ -127,18 +127,18 @@ func (s *notifySuite) TestNotificationsByPredicateFilter(c *tc.C) {
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas)
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(ctx context.Context, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(ctx context.Context, e []changestream.ChangeEvent) ([]string, error) {
 		if len(e) != 1 {
 			c.Fatalf("expected 1 event, got %d", len(e))
 		}
-		if e[0].Changed() == "some-key-value" {
-			return e, nil
+		if s := e[0].Changed(); s == "some-key-value" {
+			return singleton(s), nil
 		}
 		return nil, nil
 	}, PredicateFilter("random_namespace", changestream.All, EqualsPredicate("some-key-value")))
@@ -202,13 +202,13 @@ func (s *notifySuite) TestNotificationsByMapperError(c *tc.C) {
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas)
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(_ context.Context, _ []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(_ context.Context, _ []changestream.ChangeEvent) ([]string, error) {
 		return nil, errors.Errorf("boom")
 	}, PredicateFilter("random_namespace", changestream.All, EqualsPredicate("value")))
 	defer workertest.DirtyKill(c, w)
@@ -262,7 +262,7 @@ func (s *notifySuite) TestNotificationsSent(c *tc.C) {
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas)
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
@@ -310,7 +310,7 @@ func (s *notifySuite) TestSubscriptionDoneKillsWorker(c *tc.C) {
 	close(done)
 	subExp.Done().Return(done)
 
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
@@ -331,7 +331,7 @@ func (s *notifySuite) TestEnsureCloseOnCleanKill(c *tc.C) {
 	done := make(chan struct{})
 	subExp.Changes().Return(make(chan []changestream.ChangeEvent)).AnyTimes()
 	subExp.Done().Return(done)
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
@@ -357,7 +357,7 @@ func (s *notifySuite) TestEnsureCloseOnDirtyKill(c *tc.C) {
 	done := make(chan struct{})
 	subExp.Changes().Return(make(chan []changestream.ChangeEvent))
 	subExp.Done().Return(done)
-	subExp.Unsubscribe()
+	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},

@@ -34,8 +34,7 @@ type Networking interface {
 	NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]network.InterfaceInfos, error)
 
 	// SupportsSpaces returns whether the current environment supports
-	// spaces. The returned error satisfies errors.IsNotSupported(),
-	// unless a general API failure occurs.
+	// spaces.
 	SupportsSpaces() (bool, error)
 
 	// SupportsSpaceDiscovery returns whether the current environment

@@ -25,14 +25,6 @@ import (
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
-	// Space returns a space from state that matches the input ID.
-	// An error is returned if the space does not exist or if there was a problem
-	// accessing its information.
-	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
-	// SpaceByName returns a space from state that matches the input name.
-	// An error is returned that satisfied errors.NotFound if the space was not found
-	// or an error static any problems fetching the given space.
-	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 	// GetAllSubnets returns all the subnets for the model.
@@ -129,13 +121,13 @@ func (api *API) ListSubnets(ctx context.Context, args params.SubnetsFilters) (re
 		return results, errors.Trace(err)
 	}
 
-	var spaceFilter string
+	var spaceFilter network.SpaceName
 	if args.SpaceTag != "" {
 		tag, err := names.ParseSpaceTag(args.SpaceTag)
 		if err != nil {
 			return results, errors.Trace(err)
 		}
-		spaceFilter = tag.Id()
+		spaceFilter = network.SpaceName(tag.Id())
 	}
 	zoneFilter := args.Zone
 

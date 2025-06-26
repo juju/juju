@@ -20,14 +20,11 @@ import (
 	coreusertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/testing"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 // TODO update these tests (moved from apiserver) to test
 // via the public interface, and then get rid of export_test.go.
 type agentAuthenticatorSuite struct {
-	statetesting.StateSuite
-
 	authenticator              *Authenticator
 	entityAuthenticator        *MockEntityAuthenticator
 	agentAuthenticatorGetter   *MockAgentAuthenticatorGetter
@@ -46,7 +43,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticateLoginRequestHandleNotSupported
 	defer s.setupMocks(c).Finish()
 
 	s.agentPasswordServiceGetter.EXPECT().GetAgentPasswordServiceForModel(gomock.Any(), gomock.Any()).Return(s.agentPasswordService, nil)
-	s.agentAuthenticatorGetter.EXPECT().AuthenticatorForModel(gomock.Any(), gomock.Any()).Return(s.entityAuthenticator)
+	s.agentAuthenticatorGetter.EXPECT().AuthenticatorForModel(gomock.Any()).Return(s.entityAuthenticator)
 
 	_, err := s.authenticator.AuthenticateLoginRequest(c.Context(), "", "", authentication.AuthParams{Token: "token"})
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
@@ -102,6 +99,21 @@ func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *tc.C) {
 	c.Check(entity.Tag(), tc.Equals, tag)
 }
 
+func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticatorController(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewMachineTag("0")
+
+	s.agentAuthenticatorGetter.EXPECT().Authenticator().Return(s.entityAuthenticator)
+	s.entityAuthenticator.EXPECT().Authenticate(gomock.Any(), authentication.AuthParams{}).Return(authentication.TagToEntity(tag), nil)
+
+	authenticator, err := s.authenticatorForTag(c.Context(), s.authenticator, tag)
+	c.Assert(err, tc.ErrorIsNil)
+	entity, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entity.Tag(), tc.Equals, tag)
+}
+
 func (s *agentAuthenticatorSuite) TestModelGetsAgentAuthenticator(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -138,11 +150,13 @@ func (s *agentAuthenticatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agentAuthenticatorGetter = NewMockAgentAuthenticatorGetter(ctrl)
 	s.entityAuthenticator = NewMockEntityAuthenticator(ctrl)
 
-	s.agentPasswordServiceGetter = NewMockAgentPasswordServiceGetter(ctrl)
 	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 
+	s.agentPasswordServiceGetter = NewMockAgentPasswordServiceGetter(ctrl)
+	s.agentPasswordServiceGetter.EXPECT().GetAgentPasswordServiceForModel(gomock.Any(), gomock.Any()).Return(s.agentPasswordService, nil)
+
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil).AnyTimes()
 
 	s.accessService = NewMockAccessService(ctrl)
 
@@ -152,7 +166,6 @@ func (s *agentAuthenticatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	authenticator, err := NewAuthenticator(
 		c.Context(),
-		s.StatePool,
 		model.UUID(testing.ModelTag.Id()),
 		s.controllerConfigService,
 		s.agentPasswordServiceGetter,

@@ -18,8 +18,11 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	domainstatus "github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -152,9 +155,9 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 			{
 				Error: apiservererrors.ServerError(errors.New(`"fail.me" is not a valid tag`))},
 			{
-				ModelTag: s.Model.ModelTag().String(),
-				OwnerTag: "user-foobar",
-				Type:     string(state.ModelTypeIAAS),
+				ModelTag:  s.Model.ModelTag().String(),
+				Qualifier: "foobar",
+				Type:      string(state.ModelTypeIAAS),
 			},
 		},
 	}
@@ -162,6 +165,8 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 	s.statusService.EXPECT().GetModelStatusInfo(gomock.Any()).Return(domainstatus.ModelStatusInfo{
 		Type: coremodel.IAAS,
 	}, nil)
+
+	s.statusService.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.StatusInfo{}, nil)
 
 	modelStatusAPI := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
@@ -202,8 +207,8 @@ func (noopStoragePoolGetter) GetStorageRegistry(_ context.Context) (storage.Prov
 	}, nil
 }
 
-func (noopStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string) (*storage.Config, error) {
-	return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
+func (noopStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string) (domainstorage.StoragePool, error) {
+	return domainstorage.StoragePool{}, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
 }
 
 type statePolicy struct{}

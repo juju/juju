@@ -237,13 +237,13 @@ var netAddrTests = []struct {
 	port   int
 	expect string
 }{{
-	addr:   network.NewSpaceAddress("0.1.2.3"),
+	addr:   network.NewSpaceAddress("0.1.2.3/8"),
 	port:   99,
 	expect: "0.1.2.3:99",
 }, {
-	addr:   network.NewSpaceAddress("2001:DB8::1"),
+	addr:   network.NewSpaceAddress("2001:db8::1/128"),
 	port:   100,
-	expect: "[2001:DB8::1]:100",
+	expect: "[2001:db8::1]:100",
 }, {
 	addr:   network.NewSpaceAddress("172.16.0.1"),
 	port:   52,

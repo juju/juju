@@ -5,13 +5,11 @@ package service
 
 import (
 	"context"
-	"sort"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
@@ -32,7 +30,7 @@ type UnitState interface {
 	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
 	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
 	// is returned.
-	AddIAASUnits(context.Context, coreapplication.ID, ...application.AddUnitArg) ([]coreunit.Name, []coremachine.Name, error)
+	AddIAASUnits(context.Context, coreapplication.ID, ...application.AddIAASUnitArg) ([]coreunit.Name, []coremachine.Name, error)
 
 	// AddCAASUnits adds the specified units to the application, returning their
 	// names. If the application is not found, an error satisfying
@@ -101,6 +99,12 @@ type UnitState interface {
 
 	// SetUnitLife sets the life of the specified unit.
 	SetUnitLife(context.Context, coreunit.Name, life.Life) error
+
+	// GetAllUnitLifeForApplication returns a map of the unit names and their lives
+	// for the given application.
+	//   - If the application is not found, [applicationerrors.ApplicationNotFound]
+	//     is returned.
+	GetAllUnitLifeForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]life.Life, error)
 
 	// GetModelConstraints returns the currently set constraints for the model.
 	// The following error types can be expected:
@@ -175,18 +179,21 @@ type UnitState interface {
 	GetUnitNetNodesByName(ctx context.Context, name coreunit.Name) ([]string, error)
 }
 
-func (s *Service) makeIAASUnitArgs(units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
-	args := make([]application.AddUnitArg, len(units))
+func (s *Service) makeIAASUnitArgs(units []AddIAASUnitArg, constraints constraints.Constraints) ([]application.AddIAASUnitArg, error) {
+	args := make([]application.AddIAASUnitArg, len(units))
 	for i, u := range units {
 		placement, err := deployment.ParsePlacement(u.Placement)
 		if err != nil {
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}
 
-		arg := application.AddUnitArg{
-			Constraints:   constraints,
-			Placement:     placement,
-			UnitStatusArg: s.makeIAASUnitStatusArgs(),
+		arg := application.AddIAASUnitArg{
+			AddUnitArg: application.AddUnitArg{
+				Constraints:   constraints,
+				Placement:     placement,
+				UnitStatusArg: s.makeIAASUnitStatusArgs(),
+			},
+			Nonce: u.Nonce,
 		}
 		args[i] = arg
 	}
@@ -305,7 +312,7 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	}
 
 	appName := unitName.Application()
-	_, appLife, err := s.st.GetApplicationLife(ctx, appName)
+	_, appLife, err := s.st.GetApplicationLifeByName(ctx, appName)
 	if err != nil {
 		return errors.Errorf("getting application %q life: %w", appName, err)
 	}
@@ -602,6 +609,10 @@ func (s *Service) GetUnitNamesOnMachine(ctx context.Context, machineName coremac
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if err := machineName.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	netNodeUUID, err := s.st.GetMachineNetNodeUUIDFromName(ctx, machineName)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -641,88 +652,6 @@ func (s *Service) GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.
 	return version, nil
 }
 
-// GetUnitPublicAddress returns the public address for the specified unit.
-// For k8s provider, it will return the first public address of the cloud
-// service if any, the first public address of the cloud container otherwise.
-// For machines provider, it will return the first public address of the
-// machine.
-//
-// The following errors may be returned:
-// - [applicationerrors.UnitNotFound] if the unit does not exist
-// - [network.NoAddressError] if the unit has no public address associated
-func (s *Service) GetUnitPublicAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	publicAddresses, err := s.GetUnitPublicAddresses(ctx, unitName)
-	if err != nil {
-		return network.SpaceAddress{}, errors.Capture(err)
-	}
-	return publicAddresses[0], nil
-}
-
-// GetUnitPublicAddresses returns all public addresses for the specified unit.
-//
-// The following errors may be returned:
-// - [applicationerrors.UnitNotFound] if the unit does not exist
-// - [network.NoAddressError] if the unit has no public address associated
-func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName coreunit.Name) (network.SpaceAddresses, error) {
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	addrs, err := s.st.GetUnitAndK8sServiceAddresses(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// First match the scope, then sort by origin.
-	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchPublic)
-	if len(matchedAddrs) == 0 {
-		return nil, network.NoAddressError(string(network.ScopePublic))
-	}
-	sort.Slice(matchedAddrs, matchedAddrs.Less)
-
-	return matchedAddrs, nil
-}
-
-// GetUnitPrivateAddress returns the private address for the specified unit.
-// For k8s provider, it will return the first private address of the cloud
-// service if any, the first private address of the cloud container otherwise.
-// For machines provider, it will return the first private address of the
-// machine.
-//
-// The following errors may be returned:
-// - [applicationerrors.UnitNotFound] if the unit does not exist
-// - [network.NoAddressError] if the unit has no private address associated
-func (s *Service) GetUnitPrivateAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return network.SpaceAddress{}, errors.Capture(err)
-	}
-	addrs, err := s.st.GetUnitAddresses(ctx, unitUUID)
-	if err != nil {
-		return network.SpaceAddress{}, errors.Capture(err)
-	}
-	if len(addrs) == 0 {
-		return network.SpaceAddress{}, network.NoAddressError("private")
-	}
-
-	// First match the scope.
-	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
-	if len(matchedAddrs) == 0 {
-		// If no address matches the scope, return the first private address.
-		return addrs[0], nil
-	}
-	// Then sort by origin.
-	sort.Slice(matchedAddrs, matchedAddrs.Less)
-
-	return matchedAddrs[0], nil
-}
-
 // GetUnitK8sPodInfo returns information about the k8s pod for the given unit.
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist
@@ -749,4 +678,30 @@ func (s *Service) GetUnitSubordinates(ctx context.Context, unitName coreunit.Nam
 	}
 
 	return s.st.GetUnitSubordinates(ctx, unitName)
+}
+
+// GetAllUnitLifeForApplication returns a map of the unit names and their lives
+// for the given application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
+func (s *Service) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corelife.Value, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	namesAndLives, err := s.st.GetAllUnitLifeForApplication(ctx, appID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	namesAndCoreLives := map[coreunit.Name]corelife.Value{}
+	for name, life := range namesAndLives {
+		namesAndCoreLives[name], err = life.Value()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+	}
+	return namesAndCoreLives, nil
 }

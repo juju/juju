@@ -5,6 +5,7 @@ package broker
 
 import (
 	"context"
+	"net"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -17,10 +18,10 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/network"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 )
@@ -64,6 +65,9 @@ func prepareContainerInterfaceInfo(
 func finishNetworkConfig(ctx context.Context, interfaces corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	haveNameservers, haveSearchDomains := false, false
 
+	// Note: We do not discover DNS search domain or servers with network
+	// configuration, so this always results in false/false.
+	// Populating it where we can agent-side, would streamline this process.
 	results := make(corenetwork.InterfaceInfos, len(interfaces))
 	for i, info := range interfaces {
 		if len(info.DNSServers) > 0 {
@@ -91,17 +95,79 @@ func finishNetworkConfig(ctx context.Context, interfaces corenetwork.InterfaceIn
 			return nil, errors.Trace(err)
 		}
 
-		// Since the result is sorted, the first entry is the primary NIC. Also,
-		// results always contains at least one element.
-		results[0].DNSServers = dnsConfig.Nameservers
-		results[0].DNSSearchDomains = dnsConfig.SearchDomains
-		logger.Debugf(ctx,
-			"setting DNS servers %+v and domains %+v on container interface %q",
-			results[0].DNSServers, results[0].DNSSearchDomains, results[0].InterfaceName,
-		)
+		results = associateDNSConfig(ctx, results, dnsConfig)
 	}
 
 	return results, nil
+}
+
+func associateDNSConfig(
+	ctx context.Context, nics corenetwork.InterfaceInfos, dns *corenetwork.DNSConfig,
+) corenetwork.InterfaceInfos {
+	dnsIPs := make([]net.IP, len(dns.Nameservers))
+	dnsUsed := make([]bool, len(dns.Nameservers))
+	for i, a := range dns.Nameservers {
+		dnsIPs[i] = net.ParseIP(a)
+	}
+
+	results := make(corenetwork.InterfaceInfos, len(nics))
+	for i, nic := range nics {
+		// Associate the search domains with every NIC.
+		logger.Infof(ctx, "setting DNS domains %+v for interface %q", dns.SearchDomains, nic.InterfaceName)
+		nic.DNSSearchDomains = dns.SearchDomains
+
+		nameservers := set.NewStrings()
+
+		// Attempt to associate the DNS addresses with NICs based on what subnet
+		// they are connected to.
+		for _, addr := range nic.Addresses {
+			cidr := addr.AddressCIDR()
+			if cidr == "" {
+				continue
+			}
+
+			_, ipNet, err := net.ParseCIDR(cidr)
+			if err != nil {
+				logger.Warningf(ctx, "invalid CIDR %q for interface %q", cidr, nic.InterfaceName)
+				continue
+			}
+
+			for j, dnsIP := range dnsIPs {
+				if dnsIP == nil {
+					continue
+				}
+
+				if ipNet.Contains(dnsIP) {
+					// Make sure we only add the nameserver to this device once.
+					nsAddr := dns.Nameservers[j]
+					if nameservers.Contains(nsAddr) {
+						continue
+					}
+
+					logger.Infof(ctx, "setting DNS address %q for interface %q", nsAddr, nic.InterfaceName)
+					nic.DNSServers = append(nic.DNSServers, dns.Nameservers[j])
+					nameservers.Add(nsAddr)
+					dnsUsed[j] = true
+				}
+			}
+		}
+
+		results[i] = nic
+	}
+
+	// In the event that any nameservers were not associated by subnet,
+	// set those against each interface. This is an inelegant fallback
+	// for such examples as 1.1.1.1, 8.8.8.8 etc.
+	for i, used := range dnsUsed {
+		if used {
+			continue
+		}
+		for j := range results {
+			results[j].DNSServers = append(results[j].DNSServers, dns.Nameservers[i])
+		}
+	}
+
+	return results
 }
 
 // findDNSServerConfig is a heuristic method to find an adequate DNS

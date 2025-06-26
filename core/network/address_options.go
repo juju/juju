@@ -99,7 +99,7 @@ type ProviderAddressMutator interface {
 // SetSpaceName (ProviderAddressMutator) sets the input
 // space name on the provider address receiver
 func (a *ProviderAddress) SetSpaceName(spaceName string) {
-	a.SpaceName = SpaceName(spaceName)
+	a.SpaceName = NewSpaceName(spaceName)
 }
 
 // SetProviderSpaceID (ProviderAddressMutator) sets the input

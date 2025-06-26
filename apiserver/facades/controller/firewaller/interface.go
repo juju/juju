@@ -7,17 +7,19 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -25,10 +27,21 @@ import (
 // State provides the subset of global state required by the
 // remote firewaller facade.
 type State interface {
-	firewall.State
-
+	state.ModelMachinesWatcher
 	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
 	FindEntity(tag names.Tag) (state.Entity, error)
+	KeyRelation(string) (Relation, error)
+	Machine(string) (Machine, error)
+}
+
+type Relation interface {
+	status.StatusSetter
+	Endpoints() []relation.Endpoint
+	WatchUnits(applicationName string) (relation.RelationUnitsWatcher, error)
+}
+
+type Machine interface {
+	Id() string
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -51,21 +64,30 @@ type MachineService interface {
 	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID machine.UUID) (instance.Id, error)
-	// InstanceIDAndName returns the cloud specific instance ID and display name for
-	// this machine.
-	InstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
+	// GetInstanceID returns the cloud specific instance id for this machine.
+	GetInstanceID(ctx context.Context, mUUID machine.UUID) (instance.Id, error)
+	// GetInstanceIDAndName returns the cloud specific instance ID and display
+	// name for this machine.
+	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	// IsMachineManuallyProvisioned returns whether the machine is a manual
+	// machine.
+	IsMachineManuallyProvisioned(ctx context.Context, machineName machine.Name) (bool, error)
+	// GetMachineLife returns the lifecycle of the machine.
+	GetMachineLife(ctx context.Context, name machine.Name) (life.Value, error)
 }
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
 	// GetUnitLife looks up the life of the specified unit, returning an error
 	// satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
-	GetUnitLife(context.Context, unit.Name) (life.Value, error)
+	GetUnitLife(ctx context.Context, unitName unit.Name) (life.Value, error)
+	// GetApplicationLifeByName looks up the life of the specified application, returning
+	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application is not found.
+	GetApplicationLifeByName(ctx context.Context, appName string) (life.Value, error)
 
 	// IsApplicationExposed returns whether the provided application is exposed or not.
 	//
@@ -103,11 +125,15 @@ type MacaroonGetter interface {
 }
 
 type stateShim struct {
-	firewall.State
-	st *state.State
+	*state.State
 	MacaroonGetter
 }
 
-func (st stateShim) FindEntity(tag names.Tag) (state.Entity, error) {
-	return st.st.FindEntity(tag)
+func (st stateShim) Machine(id string) (Machine, error) {
+	return st.State.Machine(id)
+}
+
+func (st stateShim) KeyRelation(key string) (Relation, error) {
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }

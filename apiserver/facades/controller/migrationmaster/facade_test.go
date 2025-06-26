@@ -4,11 +4,12 @@
 package migrationmaster_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -53,12 +55,13 @@ type Suite struct {
 	modelService            *mocks.MockModelService
 	upgradeService          *mocks.MockUpgradeService
 
-	controllerUUID string
-	modelUUID      string
-	model          description.Model
-	resources      *common.Resources
-	authorizer     apiservertesting.FakeAuthorizer
-	cloudSpec      environscloudspec.CloudSpec
+	controllerModelUUID model.UUID
+	controllerUUID      string
+	modelUUID           string
+	model               description.Model
+	resources           *common.Resources
+	authorizer          apiservertesting.FakeAuthorizer
+	cloudSpec           environscloudspec.CloudSpec
 }
 
 func TestSuite(t *testing.T) {
@@ -68,6 +71,7 @@ func TestSuite(t *testing.T) {
 func (s *Suite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
+	s.controllerModelUUID = modeltesting.GenModelUUID(c)
 	s.controllerUUID = uuid.MustNewUUID().String()
 	s.modelUUID = uuid.MustNewUUID().String()
 
@@ -128,6 +132,7 @@ func (s *Suite) TestMigrationStatus(c *tc.C) {
 	defer ctrl.Finish()
 
 	password := "secret"
+	token := "token"
 
 	mig := mocks.NewMockModelMigration(ctrl)
 
@@ -141,6 +146,7 @@ func (s *Suite) TestMigrationStatus(c *tc.C) {
 		AuthTag:       names.NewUserTag("admin"),
 		Password:      password,
 		Macaroons:     []macaroon.Slice{{mac}},
+		Token:         token,
 	}
 
 	exp := mig.EXPECT()
@@ -167,6 +173,7 @@ func (s *Suite) TestMigrationStatus(c *tc.C) {
 				AuthTag:       names.NewUserTag("admin").String(),
 				Password:      password,
 				Macaroons:     `[[{"l":"location","i":"id","s64":"qYAr8nQmJzPWKDppxigFtWaNv0dbzX7cJaligz98LLo"}]]`,
+				Token:         token,
 			},
 		},
 		MigrationId:      "ID",
@@ -181,6 +188,7 @@ func (s *Suite) TestModelInfo(c *tc.C) {
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		UUID:            "model-uuid",
 		Name:            "model-name",
+		Qualifier:       "production",
 		CredentialOwner: usertesting.GenNewName(c, "owner"),
 		AgentVersion:    semversion.MustParse("1.2.3"),
 	}, nil)
@@ -193,7 +201,7 @@ func (s *Suite) TestModelInfo(c *tc.C) {
 
 	c.Check(mod.UUID, tc.Equals, "model-uuid")
 	c.Check(mod.Name, tc.Equals, "model-name")
-	c.Check(mod.OwnerTag, tc.Equals, names.NewUserTag("owner").String())
+	c.Check(mod.Qualifier, tc.Equals, "production")
 	c.Check(mod.AgentVersion, tc.Equals, semversion.MustParse("1.2.3"))
 
 	bytes, err := description.Serialize(modelDescription)
@@ -210,8 +218,6 @@ func (s *Suite) TestSourceControllerInfo(c *tc.C) {
 		controller.CACertKey:         "cacert",
 	}
 
-	exp := s.backend.EXPECT()
-	exp.AllLocalRelatedModels().Return([]string{"related-model-uuid"}, nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 	apiAddr := []network.SpaceHostPorts{{{
 		SpaceAddress: network.SpaceAddress{
@@ -225,11 +231,10 @@ func (s *Suite) TestSourceControllerInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(info, tc.DeepEquals, params.MigrationSourceInfo{
-		LocalRelatedModels: []string{"related-model-uuid"},
-		ControllerTag:      coretesting.ControllerTag.String(),
-		ControllerAlias:    "mycontroller",
-		Addrs:              []string{"10.0.0.1:666"},
-		CACert:             "cacert",
+		ControllerTag:   coretesting.ControllerTag.String(),
+		ControllerAlias: "mycontroller",
+		Addrs:           []string{"10.0.0.1:666"},
+		CACert:          "cacert",
 	})
 }
 
@@ -611,20 +616,33 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		s.backend,
 		s.modelExporter,
 		s.store,
+		s.controllerModelUUID,
 		s.precheckBackend,
 		nil, // pool
 		s.resources,
 		s.authorizer,
 		stubLeadership{},
-		s.credentialService,
+		func(context.Context, model.UUID) (migrationmaster.CredentialService, error) {
+			return s.credentialService, nil
+		},
+		func(context.Context, model.UUID) (migrationmaster.UpgradeService, error) {
+			return s.upgradeService, nil
+		},
+		func(context.Context, model.UUID) (migrationmaster.ApplicationService, error) {
+			return s.applicationService, nil
+		},
+		func(context.Context, model.UUID) (migrationmaster.RelationService, error) {
+			return s.relationService, nil
+		},
+		func(context.Context, model.UUID) (migrationmaster.StatusService, error) {
+			return s.statusService, nil
+		},
+		func(context.Context, model.UUID) (migrationmaster.ModelAgentService, error) {
+			return s.agentService, nil
+		},
 		s.controllerConfigService,
 		s.modelInfoService,
 		s.modelService,
-		s.applicationService,
-		s.relationService,
-		s.statusService,
-		s.upgradeService,
-		s.agentService,
 	)
 }
 

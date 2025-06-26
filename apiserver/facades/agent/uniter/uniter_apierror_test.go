@@ -60,7 +60,6 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *tc.C) {
 		MachineService:          domainServices.Machine(),
 		ModelConfigService:      domainServices.Config(),
 		ModelInfoService:        domainServices.ModelInfo(),
-		NetworkService:          domainServices.Network(),
 		PortService:             domainServices.Port(),
 		SecretService:           domainServices.Secret(),
 		UnitStateService:        domainServices.UnitState(),

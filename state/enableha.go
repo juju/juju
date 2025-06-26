@@ -24,17 +24,7 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
-	stateerrors "github.com/juju/juju/state/errors"
 )
-
-func isController(mdoc *machineDoc) bool {
-	for _, j := range mdoc.Jobs {
-		if j == JobManageModel {
-			return true
-		}
-	}
-	return false
-}
 
 var errControllerNotAllowed = errors.New("controller jobs specified but not allowed")
 
@@ -169,12 +159,7 @@ func (e *enableHAOperation) Build(attempt int) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
-	voteCount := 0
-	for _, m := range intent.maintain {
-		if m.WantsVote() {
-			voteCount++
-		}
-	}
+	voteCount := len(intent.maintain)
 	if voteCount == desiredControllerCount {
 		return nil, jujutxn.ErrNoOperations
 	}
@@ -249,11 +234,7 @@ func (st *State) enableHAIntentionOps(
 	for i := 0; i < intent.newCount; i++ {
 		placement, cons := getPlacementConstraints()
 		template := MachineTemplate{
-			Base: base,
-			Jobs: []MachineJob{
-				JobHostUnits,
-				JobManageModel,
-			},
+			Base:        base,
 			Constraints: cons,
 			Placement:   placement,
 		}
@@ -273,9 +254,7 @@ func (st *State) enableHAIntentionOps(
 		if err != nil {
 			return nil, ControllersChanges{}, nil, errors.Trace(err)
 		}
-		if isController(mdoc) {
-			controllerIds = append(controllerIds, mdoc.Id)
-		}
+		controllerIds = append(controllerIds, mdoc.Id)
 		ops = append(ops, addOps...)
 		change.Added = append(change.Added, mdoc.Id)
 		if controllerApp != nil {
@@ -375,9 +354,6 @@ func (st *State) enableHAIntentions(controllerIds []string, placement []string) 
 			if err != nil {
 				return nil, errors.Annotatef(err, "can't find machine for placement directive %q", s)
 			}
-			if m.IsManager() {
-				return nil, errors.Errorf("machine for placement directive %q is already a controller", s)
-			}
 			intent.convert = append(intent.convert, m)
 			continue
 		}
@@ -389,10 +365,7 @@ func (st *State) enableHAIntentions(controllerIds []string, placement []string) 
 		if err != nil {
 			return nil, err
 		}
-		logger.Infof(context.TODO(), "controller %q, wants vote %v, has vote %v", id, node.WantsVote(), node.HasVote())
-		if node.WantsVote() {
-			intent.maintain = append(intent.maintain, node)
-		}
+		intent.maintain = append(intent.maintain, node)
 	}
 	logger.Infof(context.TODO(), "initial intentions: maintain %v; convert: %v",
 		intent.maintain, intent.convert)
@@ -401,13 +374,6 @@ func (st *State) enableHAIntentions(controllerIds []string, placement []string) 
 
 func convertControllerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
-		C:  machinesC,
-		Id: m.doc.DocID,
-		Update: bson.D{
-			{"$addToSet", bson.D{{"jobs", JobManageModel}}},
-		},
-		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-	}, {
 		C:  controllersC,
 		Id: modelGlobalKey,
 		Update: bson.D{
@@ -416,7 +382,7 @@ func convertControllerOps(m *Machine) []txn.Op {
 			}},
 		},
 	},
-		addControllerNodeOp(m.st, m.doc.Id, false),
+		addControllerNodeOp(m.st, m.doc.Id),
 	}
 }
 
@@ -440,12 +406,6 @@ func (st *State) getControllerNodeDoc(id string) (*controllerNodeDoc, error) {
 
 func (st *State) removeControllerReferenceOps(cid string, controllerIds []string) []txn.Op {
 	return []txn.Op{{
-		C:  machinesC,
-		Id: st.docID(cid),
-		Update: bson.D{
-			{"$pull", bson.D{{"jobs", JobManageModel}}},
-		},
-	}, {
 		C:      controllersC,
 		Id:     modelGlobalKey,
 		Assert: bson.D{{"controller-ids", controllerIds}},
@@ -465,9 +425,6 @@ type ControllerNode interface {
 	Id() string
 	Tag() names.Tag
 	Refresh() error
-	WantsVote() bool
-	HasVote() bool
-	SetHasVote(hasVote bool) error
 	Watch() NotifyWatcher
 	SetMongoPassword(password string) error
 }
@@ -479,41 +436,6 @@ func (st *State) ControllerIds() ([]string, error) {
 		return nil, errors.Annotatef(err, "reading controller info")
 	}
 	return controllerInfo.ControllerIds, nil
-}
-
-// SafeControllerIds returns the ids of the controller nodes
-// by looking for the newer "controller-ids" attribute but falling
-// back to the legacy "machineids" if needed.
-// This method is only used when preparing for upgrades since 2.6
-// or earlier used "machineids".
-func (st *State) SafeControllerIds() ([]string, error) {
-	session := st.session.Copy()
-	defer session.Close()
-
-	db := session.DB(jujuDB)
-	controllers := db.C(controllersC)
-
-	var info bson.M
-	err := controllers.Find(bson.D{{"_id", modelGlobalKey}}).One(&info)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("controllers document")
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get controllers document")
-	}
-	var ids []interface{}
-	var ok bool
-	if ids, ok = info["controller-ids"].([]interface{}); !ok {
-		ids, ok = info["machineids"].([]interface{})
-	}
-	if !ok {
-		return nil, nil
-	}
-	result := make([]string, len(ids))
-	for i, id := range ids {
-		result[i] = id.(string)
-	}
-	return result, nil
 }
 
 // ControllerNode returns the controller node with the given id.
@@ -541,7 +463,7 @@ func (st *State) AddControllerNode() (*controllerNode, error) {
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
-	ops := []txn.Op{addControllerNodeOp(st, id, false)}
+	ops := []txn.Op{addControllerNodeOp(st, id)}
 	ssOps, err := st.maintainControllersOps([]string{id}, currentInfo == nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -720,77 +642,9 @@ func (c *controllerNode) Watch() NotifyWatcher {
 	return newEntityWatcher(c.st, controllerNodesC, c.doc.DocID)
 }
 
-// WantsVote reports whether the controller
-// that wants to take part in peer voting.
-func (c *controllerNode) WantsVote() bool {
-	return c.doc.WantsVote
-}
-
-// HasVote reports whether that controller is currently a voting
-// member of the replica set.
-func (c *controllerNode) HasVote() bool {
-	return c.doc.HasVote
-}
-
-// SetHasVote sets whether the controller is currently a voting
-// member of the replica set. It should only be called
-// from the worker that maintains the replica set.
-func (c *controllerNode) SetHasVote(hasVote bool) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := c.Refresh(); err != nil {
-				return nil, err
-			}
-		}
-
-		var ops []txn.Op
-		// Check the host entity life (machine on IAAS models).
-		host, err := c.st.Machine(c.Id())
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return nil, errors.Trace(err)
-		}
-		if err == nil {
-			if host.Life() == Dead {
-				return nil, stateerrors.ErrDead
-			}
-			ops = []txn.Op{{
-				C:      machinesC,
-				Id:     host.doc.DocID,
-				Assert: notDeadDoc,
-			}}
-		}
-		ops = append(ops, c.setHasVoteOps(hasVote)...)
-		return ops, nil
-	}
-	if err := c.st.db().Run(buildTxn); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (c *controllerNode) setHasVoteOps(hasVote bool) []txn.Op {
-	return []txn.Op{{
-		C:      controllerNodesC,
-		Id:     c.doc.DocID,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"has-vote", hasVote}}}},
-	}}
-}
-
-func setControllerWantsVoteOp(st *State, id string, wantsVote bool) txn.Op {
-	return txn.Op{
-		C:      controllerNodesC,
-		Id:     st.docID(id),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"wants-vote", wantsVote}}}},
-	}
-}
-
 type controllerReference interface {
 	Id() string
 	Refresh() error
-	WantsVote() bool
-	HasVote() bool
 }
 
 // RemoveControllerReference will unregister Controller from being part of the set of Controllers.
@@ -803,12 +657,6 @@ func (st *State) RemoveControllerReference(c controllerReference) error {
 			if err := c.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
-		}
-		if c.WantsVote() {
-			return nil, errors.Errorf("controller %s cannot be removed as it still wants to vote", c.Id())
-		}
-		if c.HasVote() {
-			return nil, errors.Errorf("controller %s cannot be removed as it still has a vote", c.Id())
 		}
 		controllerIds, err := st.ControllerIds()
 		if err != nil {
@@ -825,10 +673,10 @@ func (st *State) RemoveControllerReference(c controllerReference) error {
 	return nil
 }
 
-func addControllerNodeOp(mb modelBackend, id string, hasVote bool) txn.Op {
+func addControllerNodeOp(mb modelBackend, id string) txn.Op {
 	doc := &controllerNodeDoc{
 		DocID:     mb.docID(id),
-		HasVote:   hasVote,
+		HasVote:   true,
 		WantsVote: true,
 	}
 	return txn.Op{

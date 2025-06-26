@@ -13,7 +13,6 @@ import (
 	reflect "reflect"
 	time "time"
 
-	crossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
@@ -40,45 +39,6 @@ func NewMockBackend(ctrl *gomock.Controller) *MockBackend {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
-}
-
-// AllEndpointBindings mocks base method.
-func (m *MockBackend) AllEndpointBindings() (map[string]*state.Bindings, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllEndpointBindings")
-	ret0, _ := ret[0].(map[string]*state.Bindings)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllEndpointBindings indicates an expected call of AllEndpointBindings.
-func (mr *MockBackendMockRecorder) AllEndpointBindings() *MockBackendAllEndpointBindingsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllEndpointBindings", reflect.TypeOf((*MockBackend)(nil).AllEndpointBindings))
-	return &MockBackendAllEndpointBindingsCall{Call: call}
-}
-
-// MockBackendAllEndpointBindingsCall wrap *gomock.Call
-type MockBackendAllEndpointBindingsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAllEndpointBindingsCall) Return(arg0 map[string]*state.Bindings, arg1 error) *MockBackendAllEndpointBindingsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAllEndpointBindingsCall) Do(f func() (map[string]*state.Bindings, error)) *MockBackendAllEndpointBindingsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAllEndpointBindingsCall) DoAndReturn(f func() (map[string]*state.Bindings, error)) *MockBackendAllEndpointBindingsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // AllIPAddresses mocks base method.
@@ -194,45 +154,6 @@ func (c *MockBackendAllMachinesCall) Do(f func() ([]*state.Machine, error)) *Moc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendAllMachinesCall) DoAndReturn(f func() ([]*state.Machine, error)) *MockBackendAllMachinesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// AllRemoteApplications mocks base method.
-func (m *MockBackend) AllRemoteApplications() ([]crossmodel.RemoteApplication, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllRemoteApplications")
-	ret0, _ := ret[0].([]crossmodel.RemoteApplication)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllRemoteApplications indicates an expected call of AllRemoteApplications.
-func (mr *MockBackendMockRecorder) AllRemoteApplications() *MockBackendAllRemoteApplicationsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRemoteApplications", reflect.TypeOf((*MockBackend)(nil).AllRemoteApplications))
-	return &MockBackendAllRemoteApplicationsCall{Call: call}
-}
-
-// MockBackendAllRemoteApplicationsCall wrap *gomock.Call
-type MockBackendAllRemoteApplicationsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAllRemoteApplicationsCall) Return(arg0 []crossmodel.RemoteApplication, arg1 error) *MockBackendAllRemoteApplicationsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAllRemoteApplicationsCall) Do(f func() ([]crossmodel.RemoteApplication, error)) *MockBackendAllRemoteApplicationsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAllRemoteApplicationsCall) DoAndReturn(f func() ([]crossmodel.RemoteApplication, error)) *MockBackendAllRemoteApplicationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

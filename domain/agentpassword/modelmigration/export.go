@@ -6,8 +6,9 @@ package modelmigration
 import (
 	"context"
 
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/modelmigration"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
@@ -33,6 +34,9 @@ func RegisterExport(
 type ExportService interface {
 	// GetAllUnitPasswordHashes returns a map of unit names to password hashes.
 	GetAllUnitPasswordHashes(context.Context) (agentpassword.UnitPasswordHashes, error)
+	// GetAllMachinePasswordHashes returns a map of machine names to password
+	// hashes.
+	GetAllMachinePasswordHashes(context.Context) (agentpassword.MachinePasswordHashes, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -77,5 +81,20 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			unit.SetPasswordHash(unitPassword.String())
 		}
 	}
+
+	machinePasswords, err := e.service.GetAllMachinePasswordHashes(ctx)
+	if err != nil {
+		return errors.Errorf("getting all unit password hashes: %w", err)
+	}
+
+	for _, machine := range model.Machines() {
+		machineName := coremachine.Name(machine.Id())
+		machinePassword, ok := machinePasswords[machineName]
+		if !ok {
+			continue
+		}
+		machine.SetPasswordHash(machinePassword.String())
+	}
+
 	return nil
 }

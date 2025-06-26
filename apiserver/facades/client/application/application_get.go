@@ -76,7 +76,7 @@ func (api *APIBase) getConfig(
 		}
 	}
 
-	bindings, err := api.applicationService.GetApplicationEndpointBindings(ctx, appID)
+	bindings, err := api.applicationService.GetApplicationEndpointBindings(ctx, args.ApplicationName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return params.ApplicationGetResults{}, errors.NotFoundf("application %q", args.ApplicationName)
 	} else if err != nil {

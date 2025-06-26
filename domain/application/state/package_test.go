@@ -46,8 +46,8 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 	modelUUID := uuid.MustNewUUID()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
@@ -270,7 +270,7 @@ func (s *baseSuite) addCAASApplicationArgForStorage(c *tc.C,
 	return args
 }
 
-func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
+func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, units ...application.InsertIAASUnitArg) coreapplication.ID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
@@ -365,7 +365,31 @@ func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, uni
 	return appID
 }
 
+func (s *baseSuite) createSubnetForCAASModel(c *tc.C) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Only insert the subnet it if doesn't exist.
+		var rowCount int
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM subnet`).Scan(&rowCount); err != nil {
+			return err
+		}
+		if rowCount != 0 {
+			return nil
+		}
+
+		subnetUUID := uuid.MustNewUUID().String()
+		_, err := tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr) VALUES (?, ?)", subnetUUID, "0.0.0.0/0")
+		if err != nil {
+			return err
+		}
+		subnetUUID2 := uuid.MustNewUUID().String()
+		_, err = tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr) VALUES (?, ?)", subnetUUID2, "::/0")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *baseSuite) createCAASApplication(c *tc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
+	s.createSubnetForCAASModel(c)
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
@@ -461,6 +485,7 @@ func (s *baseSuite) createCAASApplication(c *tc.C, name string, l life.Life, uni
 }
 
 func (s *baseSuite) createCAASScalingApplication(c *tc.C, name string, l life.Life, scale int) coreapplication.ID {
+	s.createSubnetForCAASModel(c)
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{

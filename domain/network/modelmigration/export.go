@@ -6,7 +6,7 @@ package modelmigration
 import (
 	"context"
 
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
@@ -68,8 +68,8 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		}
 
 		model.AddSpace(description.SpaceArgs{
-			UUID:       space.ID,
-			Name:       string(space.Name),
+			UUID:       space.ID.String(),
+			Name:       space.Name.String(),
 			ProviderID: string(space.ProviderId),
 		})
 	}
@@ -87,8 +87,8 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			ProviderSpaceId:   string(subnet.ProviderSpaceId),
 			ProviderNetworkId: string(subnet.ProviderNetworkId),
 			VLANTag:           subnet.VLANTag,
-			SpaceID:           subnet.SpaceID,
-			SpaceName:         subnet.SpaceName,
+			SpaceID:           subnet.SpaceID.String(),
+			SpaceName:         subnet.SpaceName.String(),
 			AvailabilityZones: subnet.AvailabilityZones,
 		}
 		model.AddSubnet(args)

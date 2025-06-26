@@ -26,14 +26,19 @@ func newFacade(ctx facade.ModelContext) (*InstancePollerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	domainServices := ctx.DomainServices()
+
 	return NewInstancePollerAPI(
 		st,
-		ctx.DomainServices().Network(),
-		ctx.DomainServices().Machine(),
+		domainServices.Application(),
+		domainServices.Network(),
+		domainServices.Machine(),
+		domainServices.Status(),
 		m,
 		ctx.Resources(),
 		ctx.Auth(),
-		ctx.DomainServices().ControllerConfig(),
+		domainServices.ControllerConfig(),
 		ctx.Clock(),
 		ctx.Logger().Child("instancepoller"))
 }

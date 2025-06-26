@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -271,7 +270,6 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		st.newPolicy,
 		st.clock(),
 		st.charmServiceGetter,
-		st.runTransactionObserver,
 		st.maxTxnAttempts,
 	)
 	if err != nil {
@@ -540,60 +538,6 @@ func (m *Model) refresh(uuid string) error {
 	return err
 }
 
-// AllUnits returns all units for a model, for all applications.
-func (st *State) AllUnits() ([]*Unit, error) {
-	coll, closer := st.db().GetCollection(unitsC)
-	defer closer()
-
-	docs := []unitDoc{}
-	err := coll.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get all units for model")
-	}
-
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var units []*Unit
-	for i := range docs {
-		units = append(units, newUnit(st, m.Type(), &docs[i]))
-	}
-	return units, nil
-}
-
-// AllEndpointBindings returns all endpoint->space bindings
-// keyed by application name.
-func (st *State) AllEndpointBindings() (map[string]*Bindings, error) {
-	endpointBindings, closer := st.db().GetCollection(endpointBindingsC)
-	defer closer()
-
-	var docs []endpointBindingsDoc
-	err := endpointBindings.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get endpoint bindings")
-	}
-
-	appEndpointBindings := make(map[string]*Bindings, 0)
-	for _, doc := range docs {
-		var applicationName string
-		applicationKey := st.localID(doc.DocID)
-		if strings.HasPrefix(applicationKey, "a#") {
-			applicationName = applicationKey[2:]
-		} else {
-			return nil, errors.NotValidf("application key %v", applicationKey)
-		}
-
-		bindings, err := NewBindings(st, doc.Bindings)
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot make bindings")
-		}
-		appEndpointBindings[applicationName] = bindings
-	}
-
-	return appEndpointBindings, nil
-}
-
 // IsControllerModel returns a boolean indicating whether
 // this model is responsible for running a controller.
 func (m *Model) IsControllerModel() bool {
@@ -752,7 +696,8 @@ func (m *Model) destroyOps(
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			storageOps, err := checkModelEntityRefsAllReleasableStorage(sb, modelEntityRefs)
+			force := args.Force != nil && *args.Force
+			storageOps, err := checkModelEntityRefsAllReleasableStorage(sb, modelEntityRefs, force)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1016,7 +961,7 @@ func checkModelEntityRefsNoPersistentStorage(
 // persistent storage in the model is releasable. If it is, then
 // txn.Ops are returned to assert the same; if it is not, then an
 // error is returned.
-func checkModelEntityRefsAllReleasableStorage(sb *storageBackend, doc *modelEntityRefsDoc) ([]txn.Op, error) {
+func checkModelEntityRefsAllReleasableStorage(sb *storageBackend, doc *modelEntityRefsDoc, force bool) ([]txn.Op, error) {
 	for _, volumeId := range doc.Volumes {
 		volumeTag := names.NewVolumeTag(volumeId)
 		volume, err := getVolumeByTag(sb.mb, volumeTag)
@@ -1027,9 +972,17 @@ func checkModelEntityRefsAllReleasableStorage(sb *storageBackend, doc *modelEnti
 			continue
 		}
 		if err := checkStoragePoolReleasable(sb, volume.pool()); err != nil {
-			return nil, errors.Annotatef(err,
-				"cannot release %s", names.ReadableString(volumeTag),
-			)
+			logger.Warningf(context.TODO(), "error checking releasable volumes for model %s: %v", doc.UUID, err)
+			if !force {
+				// If the storage cannot be released, return the error without
+				// additional annotation.
+				if errors.Is(err, stateerrors.StorageNotReleasableError) {
+					return nil, errors.Trace(err)
+				}
+				return nil, errors.Annotatef(err,
+					"checking %s is releasable", names.ReadableString(volumeTag),
+				)
+			}
 		}
 	}
 	for _, filesystemId := range doc.Filesystems {
@@ -1042,9 +995,17 @@ func checkModelEntityRefsAllReleasableStorage(sb *storageBackend, doc *modelEnti
 			continue
 		}
 		if err := checkStoragePoolReleasable(sb, filesystem.pool()); err != nil {
-			return nil, errors.Annotatef(err,
-				"cannot release %s", names.ReadableString(filesystemTag),
-			)
+			logger.Warningf(context.TODO(), "error checking releasable filesystems for model %s: %v", doc.UUID, err)
+			if !force {
+				// If the storage cannot be released, return the error without
+				// additional annotation.
+				if errors.Is(err, stateerrors.StorageNotReleasableError) {
+					return nil, errors.Trace(err)
+				}
+				return nil, errors.Annotatef(err,
+					"checking %s is releasable", names.ReadableString(filesystemTag),
+				)
+			}
 		}
 	}
 	return noNewStorageModelEntityRefs(doc), nil

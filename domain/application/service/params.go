@@ -82,6 +82,11 @@ type AddApplicationArgs struct {
 
 	// Placement is the placement of the application units.
 	Placement *instance.Placement
+
+	// IsController indicates whether the application is a controller
+	// application. This should only be set to true if the application
+	// is the controller application for the controller model.
+	IsController bool
 }
 
 // AddressParams contains parameters for a unit/cloud container address.
@@ -98,6 +103,12 @@ type AddUnitArg struct {
 	Placement *instance.Placement
 
 	// Storage params go here.
+}
+
+// AddIAASUnitArg contains parameters for adding a IAAS unit to the model.
+type AddIAASUnitArg struct {
+	AddUnitArg
+	Nonce *string
 }
 
 // ImportUnitArg contains parameters for inserting a fully

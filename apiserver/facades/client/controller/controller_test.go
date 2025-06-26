@@ -170,6 +170,20 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		domainServices = ctx.DomainServices()
 	)
 
+	credentialServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.CredentialService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Credential(), nil
+	}
+	upgradeServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.UpgradeService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Upgrade(), nil
+	}
 	modelAgentServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.ModelAgentService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
@@ -235,14 +249,15 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		resources,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
+		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
-		domainServices.Credential(),
-		domainServices.Upgrade(),
 		domainServices.Access(),
 		machineServiceGetter,
 		s.mockModelService,
 		domainServices.ModelInfo(),
 		domainServices.BlockCommand(),
+		credentialServiceGetter,
+		upgradeServiceGetter,
 		applicationServiceGetter,
 		relationServiceGetter,
 		statusServiceGetter,
@@ -255,6 +270,7 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
 		ctx.ObjectStore(),
+		ctx.ControllerModelUUID(),
 		ctx.ControllerUUID(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -280,19 +296,17 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *tc.C) {
 
 func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	owner := names.NewUserTag("owner")
-	remoteUserTag := names.NewUserTag("user").WithDomain("remote")
 
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]model.Model{
 			{
 				Name:      "first",
-				OwnerName: user.NameFromTag(owner),
+				Qualifier: "prod",
 				UUID:      modeltesting.GenModelUUID(c),
 			},
 			{
 				Name:      "second",
-				OwnerName: user.NameFromTag(remoteUserTag),
+				Qualifier: "staging",
 				UUID:      modeltesting.GenModelUUID(c),
 			},
 		}, nil,
@@ -300,7 +314,7 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 	s.mockModelService.EXPECT().ControllerModel(gomock.Any()).Return(
 		model.Model{
 			Name:      "controller",
-			OwnerName: user.NameFromTag(owner),
+			Qualifier: "prod",
 			UUID:      s.ControllerModelUUID,
 		}, nil,
 	)
@@ -312,9 +326,9 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 	two := results.Models[1]
 
 	c.Assert(one.Name, tc.Equals, "first")
-	c.Assert(one.OwnerTag, tc.Equals, owner.String())
+	c.Assert(one.Qualifier, tc.Equals, "prod")
 	c.Assert(two.Name, tc.Equals, "second")
-	c.Assert(two.OwnerTag, tc.Equals, remoteUserTag.String())
+	c.Assert(two.Qualifier, tc.Equals, "staging")
 }
 
 func (s *controllerSuite) makeCloudSpec(c *tc.C, pSpec *params.CloudSpec) environscloudspec.CloudSpec {
@@ -382,7 +396,7 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 		{
 			UUID:      s.DomainServicesSuite.DefaultModelUUID,
 			Name:      "test",
-			OwnerName: user.NameFromTag(s.Owner),
+			Qualifier: "prod",
 			ModelType: model.IAAS,
 		},
 	}
@@ -395,9 +409,9 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 
 	c.Assert(list.Models, tc.DeepEquals, []params.ModelBlockInfo{
 		{
-			Name:     "test",
-			UUID:     s.DomainServicesSuite.DefaultModelUUID.String(),
-			OwnerTag: s.Owner.String(),
+			UUID:      s.DomainServicesSuite.DefaultModelUUID.String(),
+			Name:      "test",
+			Qualifier: "prod",
 			Blocks: []string{
 				"BlockChange",
 				"BlockDestroy",
@@ -503,7 +517,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(model1.UUID()),
 			Name:      model1.Name(),
-			OwnerName: user.NameFromTag(model1.Owner()),
+			Qualifier: model.QualifierFromUserTag(model1.Owner()),
 		}, nil,
 	)
 
@@ -515,7 +529,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(model2.UUID()),
 			Name:      model2.Name(),
-			OwnerName: user.NameFromTag(model2.Owner()),
+			Qualifier: model.QualifierFromUserTag(model2.Owner()),
 		}, nil,
 	)
 
@@ -538,6 +552,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 					CACert:          "cert1",
 					AuthTag:         names.NewUserTag("admin1").String(),
 					Password:        "secret1",
+					Token:           "token1",
 				},
 			}, {
 				ModelTag: model2.ModelTag().String(),
@@ -549,6 +564,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 					AuthTag:         names.NewUserTag("admin2").String(),
 					Macaroons:       string(macsJSON),
 					Password:        "secret2",
+					Token:           "token2",
 				},
 			},
 		},
@@ -580,6 +596,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 		c.Check(targetInfo.CACert, tc.Equals, spec.TargetInfo.CACert)
 		c.Check(targetInfo.AuthTag.String(), tc.Equals, spec.TargetInfo.AuthTag)
 		c.Check(targetInfo.Password, tc.Equals, spec.TargetInfo.Password)
+		c.Check(targetInfo.Token, tc.Equals, spec.TargetInfo.Token)
 
 		if spec.TargetInfo.Macaroons != "" {
 			macJSONdb, err := json.Marshal(targetInfo.Macaroons)
@@ -609,7 +626,7 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			OwnerName: user.NameFromTag(m.Owner()),
+			Qualifier: model.QualifierFromUserTag(m.Owner()),
 		}, nil,
 	)
 	out, err := s.controller.InitiateMigration(c.Context(), args)
@@ -633,7 +650,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			OwnerName: user.NameFromTag(m.Owner()),
+			Qualifier: model.QualifierFromUserTag(m.Owner()),
 		}, nil,
 	)
 
@@ -697,7 +714,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			OwnerName: user.NameFromTag(m.Owner()),
+			Qualifier: model.QualifierFromUserTag(m.Owner()),
 		}, nil,
 	)
 	out, err := s.controller.InitiateMigration(c.Context(), args)
@@ -720,11 +737,12 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *tc.C) {
 	controller.SetPrecheckResult(s, errors.New("boom"))
 
 	m, err := st.Model()
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
-			OwnerName: user.NameFromTag(m.Owner()),
+			Qualifier: model.Qualifier(m.Owner().Id()),
 		}, nil,
 	)
 
@@ -1108,9 +1126,10 @@ type accessSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	accessService  *mocks.MockControllerAccessService
-	modelService   *mocks.MockModelService
-	controllerUUID string
+	accessService       *mocks.MockControllerAccessService
+	modelService        *mocks.MockModelService
+	controllerUUID      string
+	controllerModelUUID model.UUID
 }
 
 func TestAccessSuite(t *stdtesting.T) {
@@ -1136,6 +1155,7 @@ func (s *accessSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.controllerUUID = modeltesting.GenModelUUID(c).String()
+	s.controllerModelUUID = modeltesting.GenModelUUID(c)
 }
 
 func (s *accessSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -1157,7 +1177,6 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		nil,
-		nil,
 		s.accessService,
 		nil,
 		s.modelService,
@@ -1173,6 +1192,9 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		nil,
+		nil,
+		nil,
+		s.controllerModelUUID,
 		s.controllerUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1246,28 +1268,26 @@ func (s *accessSuite) TestGetControllerAccessPermissions(c *tc.C) {
 func (s *accessSuite) TestAllModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	testAdmin := names.NewUserTag("test-admin")
-	admin := names.NewUserTag("foobar")
-	remoteUserTag := names.NewUserTag("user").WithDomain("remote")
 
 	models := []model.Model{
 		{
 			Name:      "controller",
-			OwnerName: user.NameFromTag(testAdmin),
+			Qualifier: "admin",
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "no-access",
-			OwnerName: user.NameFromTag(remoteUserTag),
+			Qualifier: "user@remote",
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "owned",
-			OwnerName: user.NameFromTag(admin),
+			Qualifier: "admin",
 			ModelType: model.IAAS,
 		},
 		{
 			Name:      "user",
-			OwnerName: user.NameFromTag(remoteUserTag),
+			Qualifier: "user@remote",
 			ModelType: model.IAAS,
 		},
 	}
@@ -1284,10 +1304,10 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	for i, userModel := range response.UserModels {
-		c.Assert(userModel.Type, tc.DeepEquals, model.IAAS.String())
-		c.Assert(models[i].Name, tc.DeepEquals, userModel.Name)
-		c.Assert(names.NewUserTag(models[i].OwnerName.Name()).String(), tc.DeepEquals, userModel.OwnerTag)
-		c.Assert(models[i].ModelType.String(), tc.DeepEquals, userModel.Type)
+		c.Assert(userModel.Type, tc.Equals, model.IAAS.String())
+		c.Assert(models[i].Name, tc.Equals, userModel.Name)
+		c.Assert(models[i].Qualifier.String(), tc.Equals, userModel.Qualifier)
+		c.Assert(models[i].ModelType.String(), tc.Equals, userModel.Type)
 	}
 }
 

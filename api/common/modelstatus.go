@@ -60,17 +60,12 @@ func (c *ModelStatusAPI) processModelStatusResults(rs []params.ModelStatus) ([]b
 			results[i].Error = errors.Trace(err)
 			continue
 		}
-		owner, err := names.ParseUserTag(r.OwnerTag)
-		if err != nil {
-			results[i].Error = errors.Trace(err)
-			continue
-		}
-		results[i] = constructModelStatus(aModel, owner, r)
+		results[i] = constructModelStatus(aModel, r)
 	}
 	return results, nil
 }
 
-func constructModelStatus(m names.ModelTag, owner names.UserTag, r params.ModelStatus) base.ModelStatus {
+func constructModelStatus(m names.ModelTag, r params.ModelStatus) base.ModelStatus {
 	volumes := make([]base.Volume, len(r.Volumes))
 	for i, in := range r.Volumes {
 		volumes[i] = base.Volume{
@@ -96,7 +91,7 @@ func constructModelStatus(m names.ModelTag, owner names.UserTag, r params.ModelS
 	result := base.ModelStatus{
 		UUID:               m.Id(),
 		Life:               r.Life,
-		Owner:              owner.Id(),
+		Qualifier:          model.Qualifier(r.Qualifier),
 		ModelType:          model.ModelType(r.Type),
 		HostedMachineCount: r.HostedMachineCount,
 		ApplicationCount:   r.ApplicationCount,
@@ -114,11 +109,8 @@ func constructModelStatus(m names.ModelTag, owner names.UserTag, r params.ModelS
 			Id:          mm.Id,
 			InstanceId:  mm.InstanceId,
 			DisplayName: mm.DisplayName,
-			HasVote:     mm.HasVote,
-			WantsVote:   mm.WantsVote,
 			Status:      mm.Status,
 			Message:     mm.Message,
-			HAPrimary:   mm.HAPrimary,
 		}
 	}
 	result.Applications = transform.Slice(r.Applications, func(app params.ModelApplicationInfo) base.Application {

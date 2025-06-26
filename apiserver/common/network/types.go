@@ -5,6 +5,8 @@ package network
 
 import (
 	"context"
+	"net"
+	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
@@ -22,7 +24,7 @@ func SubnetInfoToParamsSubnet(subnet network.SubnetInfo) params.Subnet {
 		ProviderId:        subnet.ProviderId.String(),
 		ProviderNetworkId: subnet.ProviderNetworkId.String(),
 		Zones:             subnet.AvailabilityZones,
-		SpaceTag:          names.NewSpaceTag(subnet.SpaceName).String(),
+		SpaceTag:          names.NewSpaceTag(subnet.SpaceName.String()).String(),
 		Life:              subnet.Life,
 	}
 }
@@ -30,7 +32,7 @@ func SubnetInfoToParamsSubnet(subnet network.SubnetInfo) params.Subnet {
 // ParamsNetworkConfigToDomain transforms network config wire params to network
 // interfaces recognised by the network domain.
 func ParamsNetworkConfigToDomain(
-	args []params.NetworkConfig, origin network.Origin,
+	ctx context.Context, args []params.NetworkConfig, origin network.Origin,
 ) ([]domainnetwork.NetInterface, error) {
 	nics := make([]domainnetwork.NetInterface, len(args))
 
@@ -57,7 +59,7 @@ func ParamsNetworkConfigToDomain(
 			addrs = append(addrs, domainnetwork.NetAddr{
 				InterfaceName:    arg.InterfaceName,
 				ProviderID:       nil,
-				AddressValue:     addr.Value,
+				AddressValue:     ipWithCIDRMask(ctx, addr, arg.InterfaceName),
 				ProviderSubnetID: nil,
 				AddressType:      network.AddressType(addr.Type),
 				ConfigType:       network.AddressConfigType(addr.ConfigType),
@@ -75,6 +77,32 @@ func ParamsNetworkConfigToDomain(
 	}
 
 	return nics, nil
+}
+
+func ipWithCIDRMask(ctx context.Context, addr params.Address, interfaceName string) string {
+	// This handles *forward* compatibility at the time of writing,
+	// where the address may already have a CIDR suffix.
+	if strings.Contains(addr.Value, "/") {
+		return addr.Value
+	}
+
+	ip := net.ParseIP(addr.Value)
+
+	_, ipNet, _ := net.ParseCIDR(addr.CIDR)
+	if ipNet != nil {
+		ipNet.IP = ip
+		return ipNet.String()
+	}
+
+	// This is not known to be possible at the time of writing.
+	// We will still attempt to match the address to a known subnet ID.
+	msg := "address %q for interface %q has no CIDR; using single IP suffix"
+	logger.Warningf(ctx, msg, addr.Value, interfaceName)
+
+	if ip.To4() != nil {
+		return ip.String() + "/32"
+	}
+	return ip.String() + "/128"
 }
 
 func nilIfEmpty[T comparable](in T) *T {

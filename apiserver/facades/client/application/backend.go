@@ -47,7 +47,7 @@ type Application interface {
 // details on the methods, see the methods on state.Bindings with
 // the same names.
 type Bindings interface {
-	Map() map[string]string
+	Map() map[string]network.SpaceUUID
 }
 
 // Charm defines a subset of the functionality provided by the

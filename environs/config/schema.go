@@ -333,7 +333,7 @@ upgrades.
 		Group:       configschema.EnvironGroup,
 	},
 	"logging-config": {
-		Description: `The configuration string to use when configuring Juju agent logging`,
+		Description: `The configuration string to use when configuring Juju agent logging (see [this link](https://pkg.go.dev/github.com/juju/loggo#ParseConfigString) for details)`,
 		Documentation: "The logging config can be set to a (list of semicolon-separated)\n" +
 			"`<filter>=<verbosity level>` pairs, where `<filter>` can be any of the following:\n" +
 			" - `<root>` - matches all machine agent logs\n" +

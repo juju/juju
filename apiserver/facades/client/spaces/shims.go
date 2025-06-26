@@ -41,21 +41,6 @@ func NewStateShim(st *state.State) (*stateShim, error) {
 	}, nil
 }
 
-// AllEndpointBindings returns all endpoint bindings,
-// with the map values indirected.
-func (s *stateShim) AllEndpointBindings() (map[string]Bindings, error) {
-	allBindings, err := s.State.AllEndpointBindings()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	result := make(map[string]Bindings, len(allBindings))
-	for app, bindings := range allBindings {
-		result[app] = bindings
-	}
-	return result, nil
-}
-
 // AllMachines returns all machines and maps it to a corresponding common type.
 func (s *stateShim) AllMachines() ([]Machine, error) {
 	allStateMachines, err := s.State.AllMachines()

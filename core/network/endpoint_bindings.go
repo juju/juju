@@ -11,7 +11,7 @@ import (
 // MapBindingsWithSpaceNames maps a collection of endpoint bindings (i.e. a map
 // of endpoint names to space IDs) to the endpoint bindings with the corresponding
 // space names, using the provided SpaceInfos.
-func MapBindingsWithSpaceNames(bindingsMap map[string]string, lookup SpaceInfos) (map[string]string, error) {
+func MapBindingsWithSpaceNames(bindingsMap map[string]SpaceUUID, lookup SpaceInfos) (map[string]string, error) {
 	// Handle the fact that space name lookup can be nil or empty.
 	if len(bindingsMap) > 0 && len(lookup) == 0 {
 		return nil, errors.Errorf("empty space lookup").Add(coreerrors.NotValid)

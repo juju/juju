@@ -26,7 +26,6 @@ var (
 )
 
 type (
-	Backend                    backend
 	StorageStateInterface      storageInterface
 	StorageVolumeInterface     = storageVolumeInterface
 	StorageFilesystemInterface = storageFilesystemInterface
@@ -56,13 +55,13 @@ func NewTestAPI(
 }
 
 func NewStorageAPI(
-	backend backend,
 	storage storageAccess,
 	blockDeviceService blockDeviceService,
+	applicationService ApplicationService,
 	resources facade.Resources,
 	accessUnit common.GetAuthFunc,
 ) (*StorageAPI, error) {
-	return newStorageAPI(backend, storage, blockDeviceService, resources, accessUnit)
+	return newStorageAPI(storage, blockDeviceService, applicationService, resources, accessUnit)
 }
 
 func SetNewContainerBrokerFunc(api *UniterAPI, newBroker caas.NewContainerBrokerFunc) {

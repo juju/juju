@@ -14,9 +14,13 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/life"
+	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
+	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -27,12 +31,15 @@ type caasProvisionerSuite struct {
 	api *StorageProvisionerAPIv4
 
 	storageBackend       *MockStorageBackend
+	applicationService   *MockApplicationService
+	machineService       *MockMachineService
 	filesystemAttachment *MockFilesystemAttachment
 	volumeAttachment     *MockVolumeAttachment
 	entityFinder         *MockEntityFinder
 	lifer                *MockLifer
 	backend              *MockBackend
 	resources            *MockResources
+	watcherRegistry      *facademocks.MockWatcherRegistry
 }
 
 func TestCaasProvisionerSuite(t *testing.T) {
@@ -42,39 +49,29 @@ func TestCaasProvisionerSuite(t *testing.T) {
 func (s *caasProvisionerSuite) TestWatchApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
 	ch := make(chan []string)
 
-	watcher := watchertest.NewMockStringsWatcher(ch)
-	s.backend.EXPECT().WatchApplications().DoAndReturn(func() state.StringsWatcher {
-		// Enqueue
-		go func() {
-			select {
-			case ch <- []string{"application-mariadb"}:
-			case <-time.After(testhelpers.LongWait):
-				c.Fatalf("timed out waiting to send")
-			}
-		}()
-		return watcher
-	})
-	s.resources.EXPECT().Register(watcher).Return("1")
+	w := watchertest.NewMockStringsWatcher(ch)
+	s.applicationService.EXPECT().WatchApplications(gomock.Any()).
+		DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
+			time.AfterFunc(internaltesting.ShortWait, func() {
+				// Send initial event.
+				select {
+				case ch <- []string{"application-mariadb"}:
+				case <-done:
+					c.Error("watcher (applications) did not fire")
+				}
+			})
+			return w, nil
+		})
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
 	result, err := s.api.WatchApplications(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.StringsWatcherId, tc.Equals, "1")
 	c.Check(result.Changes, tc.DeepEquals, []string{"application-mariadb"})
-}
-
-func (s *caasProvisionerSuite) TestWatchApplicationsClosed(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	ch := make(chan []string)
-	close(ch)
-
-	watcher := watchertest.NewMockStringsWatcher(ch)
-	s.backend.EXPECT().WatchApplications().Return(watcher)
-
-	_, err := s.api.WatchApplications(c.Context())
-	c.Assert(err, tc.ErrorMatches, `.*tomb: still alive`)
 }
 
 func (s *caasProvisionerSuite) TestRemoveVolumeAttachment(c *tc.C) {
@@ -289,19 +286,25 @@ func (s *caasProvisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.lifer = NewMockLifer(ctrl)
 	s.backend = NewMockBackend(ctrl)
 	s.resources = NewMockResources(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 
 	s.api = &StorageProvisionerAPIv4{
-		LifeGetter: common.NewLifeGetter(s.entityFinder, func(context.Context) (common.AuthFunc, error) {
+		watcherRegistry: s.watcherRegistry,
+		LifeGetter: common.NewLifeGetter(s.applicationService, s.machineService, s.entityFinder, func(context.Context) (common.AuthFunc, error) {
 			return func(names.Tag) bool {
 				return true
 			}, nil
-		}),
+		}, loggertesting.WrapCheckLog(c)),
 		sb:        s.storageBackend,
 		st:        s.backend,
 		resources: s.resources,
 		getAttachmentAuthFunc: func(context.Context) (func(names.Tag, names.Tag) bool, error) {
 			return func(names.Tag, names.Tag) bool { return true }, nil
 		},
+		applicationService: s.applicationService,
 	}
 
 	return ctrl

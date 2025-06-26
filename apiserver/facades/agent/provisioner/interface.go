@@ -7,7 +7,7 @@ import (
 	"github.com/juju/names/v6"
 
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/network/containerizer"
 )
 
@@ -17,8 +17,6 @@ import (
 type Machine interface {
 	containerizer.Container
 
-	Units() ([]Unit, error)
-	IsManual() (bool, error)
 	MachineTag() names.MachineTag
 }
 
@@ -35,15 +33,4 @@ type BridgePolicy interface {
 	PopulateContainerLinkLayerDevices(
 		containerizer.Machine, containerizer.Container, bool,
 	) (corenetwork.InterfaceInfos, error)
-}
-
-// Unit is an indirection for state.Unit.
-type Unit interface {
-	Application() (Application, error)
-	Name() string
-}
-
-// Application is an indirection for state.Application.
-type Application interface {
-	Name() string
 }

@@ -78,6 +78,10 @@ const (
 // machine belongs to, or to the machine itself for containers.
 type Scope string
 
+func (s Scope) String() string {
+	return string(s)
+}
+
 const (
 	ScopeUnknown      Scope = ""
 	ScopePublic       Scope = "public"
@@ -234,7 +238,11 @@ type MachineAddress struct {
 
 // Host returns the value for the host-name/IP address.
 func (a MachineAddress) Host() string {
-	return a.Value
+	ip := a.IP()
+	if ip == nil {
+		return a.Value
+	}
+	return ip.String()
 }
 
 // AddressType returns the type of the address.
@@ -274,12 +282,14 @@ func (a MachineAddress) String() string {
 	if a.Scope != ScopeUnknown {
 		prefix = string(a.Scope) + ":"
 	}
-	return prefix + a.Value
+	// Use the Host rather than the IP method to ensure the result contains
+	// either the host name or the IP Address.
+	return prefix + a.Host()
 }
 
 // IP returns the net.IP representation of this address.
 func (a MachineAddress) IP() net.IP {
-	return net.ParseIP(a.Value)
+	return DeriveNetIP(a.Value)
 }
 
 // ValueWithMask returns the value of the address combined
@@ -383,6 +393,20 @@ func (as MachineAddresses) Values() []string {
 	return toStrings(as)
 }
 
+// DeriveNetIP returns a net.IP for the given input.
+// The input can be a hostname (juju-4febc8-0), an ip address (192.168.0.6),
+// or an ip address with subnetmask (192.168.0.6/24). The result is nil if
+// the input is a hostname.
+func DeriveNetIP(value string) net.IP {
+	// ParseCidr will fail on a host name. If there is an error, fallback
+	// and try ParseIP.
+	ip, _, err := net.ParseCIDR(value)
+	if err != nil {
+		ip = net.ParseIP(value)
+	}
+	return ip
+}
+
 // deriveScope attempts to derive the network scope from an address'
 // type and value, returning the original network scope if no
 // deduction can be made.
@@ -390,7 +414,7 @@ func deriveScope(addr MachineAddress) Scope {
 	if addr.Type == HostName {
 		return addr.Scope
 	}
-	ip := net.ParseIP(addr.Value)
+	ip := addr.IP()
 	if ip == nil {
 		return addr.Scope
 	}
@@ -547,7 +571,7 @@ func (pas ProviderAddresses) ToSpaceAddresses(spaceInfos SpaceInfos) (SpaceAddre
 
 		// If the provider explicitly sets the space, i.e. MAAS, prefer the name.
 		if pa.SpaceName != "" {
-			info := spaceInfos.GetByName(string(pa.SpaceName))
+			info := spaceInfos.GetByName(pa.SpaceName)
 			if info == nil {
 				return nil, errors.Errorf("space with name %q %w", pa.SpaceName, coreerrors.NotFound)
 			}
@@ -585,7 +609,7 @@ func (pas ProviderAddresses) OneMatchingScope(getMatcher ScopeMatchFunc) (Provid
 type SpaceAddress struct {
 	MachineAddress
 	Origin  Origin
-	SpaceID string
+	SpaceID SpaceUUID
 }
 
 // GoString implements fmt.GoStringer.
@@ -605,7 +629,7 @@ func (a SpaceAddress) String() string {
 
 	if a.SpaceID != "" {
 		buf.WriteString("@space:")
-		buf.WriteString(a.SpaceID)
+		buf.WriteString(a.SpaceID.String())
 	}
 
 	return buf.String()
@@ -737,7 +761,7 @@ func (sas SpaceAddresses) Less(i, j int) bool {
 
 // DeriveAddressType attempts to detect the type of address given.
 func DeriveAddressType(value string) AddressType {
-	ip := net.ParseIP(value)
+	ip := DeriveNetIP(value)
 	switch {
 	case ip == nil:
 		// TODO(gz): Check value is a valid hostname

@@ -1174,7 +1174,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) modelcmd.ModelCommand {
 	deployCmd.NewCharmsAPI = func(api base.APICallCloser) CharmsAPI {
 		return apicharms.NewClient(fakeAPI)
 	}
-	deployCmd.NewConsumeDetailsAPI = func(ctx context.Context, url *charm.OfferURL) (deployer.ConsumeDetails, error) {
+	deployCmd.NewConsumeDetailsAPI = func(ctx context.Context, url *crossmodel.OfferURL) (deployer.ConsumeDetails, error) {
 		return fakeAPI, nil
 	}
 	return cmd
@@ -1386,8 +1386,8 @@ func (f *fakeDeployAPI) ScaleApplication(ctx context.Context, p application.Scal
 	}, nil
 }
 
-func (f *fakeDeployAPI) Offer(ctx context.Context, modelUUID, application string, endpoints []string, owner, offerName, descr string) ([]params.ErrorResult, error) {
-	results := f.MethodCall(f, "Offer", modelUUID, application, endpoints, owner, offerName, descr)
+func (f *fakeDeployAPI) Offer(ctx context.Context, modelUUID, application string, endpoints []string, qualifier, offerName, descr string) ([]params.ErrorResult, error) {
+	results := f.MethodCall(f, "Offer", modelUUID, application, endpoints, qualifier, offerName, descr)
 	return results[0].([]params.ErrorResult), testhelpers.TypeAssertError(results[1])
 }
 

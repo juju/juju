@@ -1,9 +1,9 @@
 # <old URL> <new URL>
 
+reference/charm/charm-development-best-practices/ reference/charm
 # redirects after updating landing pages
 explanation/performance-with-juju explanation/juju-performance
 reference/juju/juju-architecture explanation/juju-architecture
-# redirects after cleaning up charm best practices
 # redirects after cleaning up contributor unsorted docs
 user/reference/charm/channel/ reference/charm/
 user/reference/charm/revision/ reference/charm/
@@ -73,12 +73,12 @@ user/howto/manage-subnets howto/manage-subnets
 user/howto/manage-the-juju-dashboard howto/manage-the-juju-dashboard
 user/howto/manage-units howto/manage-units
 user/howto/manage-users howto/manage-users
-user/howto/manage-your-deployment/harden-your-deployment howto/manage-your-deployment/harden-your-deployment
+user/howto/manage-your-deployment/harden-your-deployment howto/manage-your-deployment
 user/howto/manage-your-deployment howto/manage-your-deployment
-user/howto/manage-your-deployment/manage-your-deployment-environment howto/manage-your-deployment/manage-your-deployment-environment
-user/howto/manage-your-deployment/take-your-deployment-offline howto/manage-your-deployment/take-your-deployment-offline
-user/howto/manage-your-deployment/troubleshoot-your-deployment howto/manage-your-deployment/troubleshoot-your-deployment
-user/howto/manage-your-deployment/upgrade-your-deployment howto/manage-your-deployment/upgrade-your-deployment
+user/howto/manage-your-deployment/manage-your-deployment-environment howto/manage-your-deployment
+user/howto/manage-your-deployment/take-your-deployment-offline howto/manage-your-deployment
+user/howto/manage-your-deployment/troubleshoot-your-deployment howto/manage-your-deployment
+user/howto/manage-your-deployment/upgrade-your-deployment howto/manage-your-deployment
 user .
 user/reference/action reference/action
 user/reference/agent reference/agent

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -40,17 +40,12 @@ func (s *modelInfoSuite) TestStub(c *tc.C) {
 `)
 }
 
-type unitRetriever interface {
-	Unit(name string) (*state.Unit, error)
-}
-
 type mockState struct {
 	testhelpers.Stub
 
 	environs.EnvironConfigGetter
 	common.APIHostPortsForAgentsGetter
 	common.ToolsStorageGetter
-	unitRetriever
 
 	controllerUUID  string
 	cloudUsers      map[string]permission.Access
@@ -100,11 +95,6 @@ func (st *mockState) GetBackend(modelUUID string) (commonmodel.ModelManagerBacke
 func (st *mockState) GetModel(modelUUID string) (commonmodel.Model, func() bool, error) {
 	st.MethodCall(st, "GetModel", modelUUID)
 	return st.model, func() bool { return true }, st.NextErr()
-}
-
-func (st *mockState) AllApplications() ([]commonmodel.Application, error) {
-	st.MethodCall(st, "AllApplications")
-	return nil, st.NextErr()
 }
 
 func (st *mockState) AllVolumes() ([]state.Volume, error) {

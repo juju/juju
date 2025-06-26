@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"runtime/debug"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -268,10 +267,6 @@ type database struct {
 	// resulting from Copy.
 	ownSession bool
 
-	// runTransactionObserver is passed on to txn.TransactionRunner, to be
-	// invoked after calls to Run and RunTransaction.
-	runTransactionObserver RunTransactionObserverFunc
-
 	// clock is used to time how long transactions take to run
 	clock clock.Clock
 
@@ -279,10 +274,6 @@ type database struct {
 	// many attempts a txn should have.
 	maxTxnAttempts int
 }
-
-// RunTransactionObserverFunc is the type of a function to be called
-// after an mgo/txn transaction is run.
-type RunTransactionObserverFunc func(dbName, modelUUID string, attempt int, duration time.Duration, ops []txn.Op, err error)
 
 func (db *database) copySession(modelUUID string) (*database, *mgo.Session) {
 	session := db.raw.Session.Copy()
@@ -380,20 +371,6 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			if txnLogger.IsLevelEnabled(corelogger.TRACE) {
 				txnLogger.Tracef(context.TODO(), "ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
 					t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
-			}
-		}
-		if db.runTransactionObserver != nil {
-			observer = func(t jujutxn.Transaction) {
-				if txnLogger.IsLevelEnabled(corelogger.TRACE) {
-					txnLogger.Tracef(context.TODO(), "ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
-						t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
-				}
-				db.runTransactionObserver(
-					db.raw.Name, db.modelUUID,
-					t.Attempt,
-					t.Duration,
-					t.Ops, t.Error,
-				)
 			}
 		}
 		params := jujutxn.RunnerParams{

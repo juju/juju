@@ -8,9 +8,9 @@ import (
 	"strconv"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/os/v2"
 
-	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -46,6 +46,11 @@ import (
 // ApplicationState describes retrieval and persistence methods for
 // applications.
 type ApplicationState interface {
+	// GetApplicationName returns the name of the specified application.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotFound] if the application does not exist
+	GetApplicationName(context.Context, coreapplication.ID) (string, error)
+
 	// GetApplicationIDByName returns the application ID for the named application.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
@@ -57,7 +62,7 @@ type ApplicationState interface {
 		context.Context,
 		string,
 		application.AddIAASApplicationArg,
-		[]application.AddUnitArg,
+		[]application.AddIAASUnitArg,
 	) (coreapplication.ID, []coremachine.Name, error)
 
 	// CreateCAASApplication creates an application, returning an error
@@ -81,29 +86,12 @@ type ApplicationState interface {
 	// GetStoragePoolByName returns the storage pool with the specified name,
 	// returning an error satisfying [storageerrors.PoolNotFoundError] if it
 	// doesn't exist.
-	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 
 	// UpsertCloudService updates the cloud service for the specified application.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
-
-	// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit.
-	// The addresses are taken by unioning the net node UUIDs of the cloud service
-	// (if any) and the net node UUIDs of the unit, where each net node has an
-	// associated address.
-	// This apprach allows us to get the addresses regardless of the substrate
-	// (k8s or machines).
-	//
-	// The following errors may be returned:
-	// - [uniterrors.UnitNotFound] if the unit does not exist
-	GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
-
-	// GetUnitAddresses returns the addresses of the specified unit.
-	//
-	// The following errors may be returned:
-	// - [uniterrors.UnitNotFound] if the unit does not exist
-	GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
 
 	// IsSubordinateApplication returns true if the application is a subordinate
 	// application.
@@ -125,7 +113,20 @@ type ApplicationState interface {
 	// returning an error satisfying
 	// [applicationerrors.ApplicationNotFoundError] if the application is not
 	// found.
-	GetApplicationLife(ctx context.Context, appName string) (coreapplication.ID, life.Life, error)
+	GetApplicationLife(ctx context.Context, appID coreapplication.ID) (life.Life, error)
+
+	// GetApplicationLifeByName looks up the life of the specified application,
+	// returning an error satisfying
+	// [applicationerrors.ApplicationNotFoundError] if the application is not
+	// found.
+	GetApplicationLifeByName(ctx context.Context, appName string) (coreapplication.ID, life.Life, error)
+
+	// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
+	// in the model are alive, returning an error if any are not.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotAlive] if any applications are not alive.
+	// - [applicationerrors.UnitNotAlive] if any units are not alive.
+	CheckAllApplicationsAndUnitsAreAlive(context.Context) error
 
 	// SetApplicationLife sets the life of the specified application.
 	SetApplicationLife(context.Context, coreapplication.ID, life.Life) error
@@ -284,6 +285,10 @@ type ApplicationState interface {
 	// the watcher namespace to watch.
 	InitialWatchStatementUnitInsertDeleteOnNetNode(netNodeUUID string) (string, eventsource.NamespaceQuery)
 
+	// InitialWatchStatementApplications returns the initial namespace
+	// query for applications events, as well as the watcher namespace to watch.
+	InitialWatchStatementApplications() (string, eventsource.NamespaceQuery)
+
 	// GetAddressesHash returns the sha256 hash of the application unit and cloud
 	// service (if any) addresses along with the associated endpoint bindings.
 	GetAddressesHash(ctx context.Context, appUUID coreapplication.ID, netNodeUUID string) (string, error)
@@ -324,9 +329,14 @@ type ApplicationState interface {
 	// NamespaceForWatchApplication returns the namespace identifier
 	// for application watchers.
 	NamespaceForWatchApplication() string
-	// NamespaceForWatchApplicationConfig returns a namespace string identifier
+
+	// NamespaceForWatchApplicationConfig returns the namespace string identifier
 	// for application configuration changes.
 	NamespaceForWatchApplicationConfig() string
+
+	// NamesapceForWatchApplicationSetting returns the namespace string identifier
+	// for application setting changes.
+	NamespaceForWatchApplicationSetting() string
 
 	// NamespaceForWatchApplicationScale returns the namespace identifier
 	// for application scale change watchers.
@@ -353,13 +363,22 @@ type ApplicationState interface {
 	// third is the namespace for the unit's resolved mode.
 	NamespaceForWatchUnitForLegacyUniter() (string, string, string)
 
+	// GetAllEndpointBindings returns the all endpoint bindings for the model, where
+	// endpoints are indexed by the application UUID for the application which they
+	// belong to.
+	GetAllEndpointBindings(context.Context) (map[string]map[string]string, error)
+
 	// GetApplicationEndpointBindings returns the mapping for each endpoint name and
 	// the space ID it is bound to (or empty if unspecified). When no bindings are
 	// stored for the application, defaults are returned.
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]string, error)
+	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]network.SpaceUUID, error)
+
+	// GetApplicationsBoundToSpace returns the names of the applications bound to
+	// the given space.
+	GetApplicationsBoundToSpace(context.Context, string) ([]string, error)
 
 	// GetApplicationEndpointNames returns the names of the endpoints for the given
 	// application.
@@ -428,6 +447,9 @@ type ApplicationState interface {
 	// An error satisfying [applicationerrors.ApplicationNotFoundError]
 	// is returned if the application doesn't exist.
 	ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error)
+
+	// IsControllerApplication returns true when the application is the controller.
+	IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error)
 }
 
 func validateCharmAndApplicationParams(
@@ -692,6 +714,24 @@ func (s *Service) SetApplicationCharm(ctx context.Context, appName string, param
 	return nil
 }
 
+// GetApplicationName returns the name of the specified application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
+func (s *Service) GetApplicationName(ctx context.Context, appID coreapplication.ID) (string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appID.Validate(); err != nil {
+		return "", errors.Errorf("application ID: %w", err)
+	}
+
+	name, err := s.st.GetApplicationName(ctx, appID)
+	if err != nil {
+		return "", errors.Errorf("getting application name: %w", err)
+	}
+	return name, nil
+}
+
 // GetApplicationIDByName returns an application ID by application name. It
 // returns an error if the application can not be found by the name.
 //
@@ -832,24 +872,44 @@ func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID st
 	return s.st.UpsertCloudService(ctx, appName, providerID, sAddrs)
 }
 
-// Broker provides access to the k8s cluster to guery the scale
-// of a specified application.
-type Broker interface {
-	Application(string, caas.DeploymentType) caas.Application
-}
-
-// GetApplicationLife looks up the life of the specified application, returning
+// GetApplicationLifelooks up the life of the specified application, returning
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
-func (s *Service) GetApplicationLife(ctx context.Context, appName string) (corelife.Value, error) {
+func (s *Service) GetApplicationLife(ctx context.Context, appID coreapplication.ID) (corelife.Value, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	_, appLife, err := s.st.GetApplicationLife(ctx, appName)
+	appLife, err := s.st.GetApplicationLife(ctx, appID)
+	if err != nil {
+		return "", errors.Errorf("getting life for %q: %w", appID, err)
+	}
+	return appLife.Value()
+}
+
+// GetApplicationLifeByName looks up the life of the specified application, returning
+// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+// application is not found.
+func (s *Service) GetApplicationLifeByName(ctx context.Context, appName string) (corelife.Value, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	_, appLife, err := s.st.GetApplicationLifeByName(ctx, appName)
 	if err != nil {
 		return "", errors.Errorf("getting life for %q: %w", appName, err)
 	}
 	return appLife.Value()
+}
+
+// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
+// in the model are alive, returning an error if any are not.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotAlive] if any applications are not alive.
+// - [applicationerrors.UnitNotAlive] if any units are not alive.
+func (s *Service) CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.CheckAllApplicationsAndUnitsAreAlive(ctx)
 }
 
 // IsSubordinateApplication returns true if the application is a subordinate
@@ -879,9 +939,9 @@ func (s *Service) IsSubordinateApplicationByName(ctx context.Context, appName st
 	return s.IsSubordinateApplication(ctx, appID)
 }
 
-// SetApplicationScale sets the application's desired scale value, returning an error
-// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
-// This is used on CAAS models.
+// SetApplicationScale sets the application's desired scale value,
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale int) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -907,9 +967,9 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 	return nil
 }
 
-// GetApplicationScale returns the desired scale of an application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-// This is used on CAAS models.
+// GetApplicationScale returns the desired scale of an application,
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 func (s *Service) GetApplicationScale(ctx context.Context, appName string) (int, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -1217,14 +1277,15 @@ func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID co
 }
 
 // GetApplicationTrustSetting returns the application trust setting.
-// If no application is found, an error satisfying
-// [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetApplicationTrustSetting(ctx context.Context, appID coreapplication.ID) (bool, error) {
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+func (s *Service) GetApplicationTrustSetting(ctx context.Context, appName string) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := appID.Validate(); err != nil {
-		return false, errors.Errorf("application ID: %w", err)
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return false, errors.Capture(err)
 	}
 
 	return s.st.GetApplicationTrustSetting(ctx, appID)
@@ -1420,22 +1481,56 @@ func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreappli
 	return constraints.EncodeConstraints(cons), errors.Capture(err)
 }
 
+// GetAllEndpointBindings returns the all endpoint bindings for the model, where
+// endpoints are indexed by the application name for the application which they
+// belong to.
+func (s *Service) GetAllEndpointBindings(ctx context.Context) (map[string]map[string]network.SpaceName, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	allBindings, err := s.st.GetAllEndpointBindings(ctx)
+
+	ret := make(map[string]map[string]network.SpaceName, len(allBindings))
+	for appName, bindings := range allBindings {
+		ret[appName] = transform.Map(bindings, func(k string, v string) (string, network.SpaceName) {
+			return k, network.SpaceName(v)
+		})
+	}
+
+	return ret, errors.Capture(err)
+}
+
 // GetApplicationEndpointBindings returns the mapping for each endpoint name and
 // the space ID it is bound to (or empty if unspecified). When no bindings are
 // stored for the application, defaults are returned.
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetApplicationEndpointBindings(ctx context.Context, appID coreapplication.ID) (map[string]string, error) {
+func (s *Service) GetApplicationEndpointBindings(ctx context.Context, appName string) (map[string]network.SpaceUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := appID.Validate(); err != nil {
-		return nil, errors.Errorf("validating application ID: %w", err)
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return nil, errors.Capture(err)
 	}
 
 	bindings, err := s.st.GetApplicationEndpointBindings(ctx, appID)
 	return bindings, errors.Capture(err)
+}
+
+// GetApplicationsBoundToSpace returns the names of the applications bound to
+// the given space.
+func (s *Service) GetApplicationsBoundToSpace(ctx context.Context, uuid network.SpaceUUID) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := uuid.Validate(); err != nil {
+		return nil, errors.Errorf("validating space UUID: %w", err)
+	}
+
+	apps, err := s.st.GetApplicationsBoundToSpace(ctx, uuid.String())
+	return apps, errors.Capture(err)
 }
 
 // GetApplicationEndpointNames returns the names of the endpoints for the given
@@ -1487,6 +1582,18 @@ func (s *Service) GetDeviceConstraints(ctx context.Context, name string) (map[st
 		return nil, errors.Capture(err)
 	}
 	return s.st.GetDeviceConstraints(ctx, appID)
+}
+
+// IsControllerApplication returns true when the application is the controller.
+func (s *Service) IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appID.Validate(); err != nil {
+		return false, errors.Errorf("validating application ID: %w", err)
+	}
+
+	return s.st.IsControllerApplication(ctx, appID)
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (*bool, error) {

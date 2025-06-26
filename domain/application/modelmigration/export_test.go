@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v9"
+	"github.com/juju/description/v10"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
@@ -15,12 +15,12 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type exportApplicationSuite struct {
@@ -422,7 +422,7 @@ func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *tc.C) 
 
 	// Arrange:
 	charmUUID := charmtesting.GenCharmID(c)
-	spaceUUID := uuid.MustNewUUID().String()
+	spaceUUID := networktesting.GenSpaceUUID(c)
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      "prometheus",
@@ -433,7 +433,7 @@ func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *tc.C) 
 			Revision:     42,
 			Architecture: architecture.AMD64,
 		},
-		EndpointBindings: map[string]string{
+		EndpointBindings: map[string]network.SpaceUUID{
 			"":         network.AlphaSpaceId,
 			"endpoint": spaceUUID,
 			"misc":     "",
@@ -459,7 +459,7 @@ func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *tc.C) 
 
 	app := model.Applications()[0]
 	c.Check(app.EndpointBindings(), tc.HasLen, 3)
-	c.Check(app.EndpointBindings()[""], tc.Equals, network.AlphaSpaceId)
-	c.Check(app.EndpointBindings()["endpoint"], tc.Equals, spaceUUID)
+	c.Check(app.EndpointBindings()[""], tc.Equals, network.AlphaSpaceId.String())
+	c.Check(app.EndpointBindings()["endpoint"], tc.Equals, spaceUUID.String())
 	c.Check(app.EndpointBindings()["misc"], tc.Equals, "")
 }

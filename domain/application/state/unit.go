@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
+	machinestate "github.com/juju/juju/domain/machine/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainsequence "github.com/juju/juju/domain/sequence"
@@ -377,7 +378,7 @@ func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.
 
 		var (
 			spaceAddresses   []spaceAddress
-			endpointBindings map[string]string
+			endpointBindings map[string]network.SpaceUUID
 		)
 		err := runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			var err error
@@ -499,6 +500,63 @@ AND a.name = $applicationName.name
 	return result, nil
 }
 
+// GetAllUnitLifeForApplication returns a map of the unit names and their lives
+// for the given application.
+//   - If the application is not found, [applicationerrors.ApplicationNotFound]
+//     is returned.
+func (st *State) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]life.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+	appExistsQuery := `
+SELECT &applicationID.*
+FROM application
+WHERE uuid = $applicationID.uuid;
+`
+	appExistsStmt, err := st.Prepare(appExistsQuery, ident)
+	if err != nil {
+		return nil, errors.Errorf("preparing query for application %q: %w", ident.ID, err)
+	}
+
+	lifeQuery := `
+SELECT (u.name, u.life_id) AS (&unitDetails.*)
+FROM unit u
+WHERE u.application_uuid = $applicationID.uuid
+`
+
+	app := applicationID{ID: appID}
+	lifeStmt, err := st.Prepare(lifeQuery, app, unitDetails{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var lifes []unitDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, appExistsStmt, ident).Get(&ident)
+		if errors.Is(err, sql.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return errors.Errorf("checking application %q exists: %w", ident.ID, err)
+		}
+		err = tx.Query(ctx, lifeStmt, app).GetAll(&lifes)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf("querying unit life for %q: %w", appID, err)
+	}
+	result := make(map[coreunit.Name]life.Life)
+	for _, u := range lifes {
+		result[u.Name] = u.LifeID
+	}
+	return result, nil
+}
+
 // GetUnitMachineName gets the unit's machine name.
 //
 // The following errors may be returned:
@@ -516,7 +574,7 @@ func (st *State) GetUnitMachineName(ctx context.Context, unitName coreunit.Name)
 	}
 	stmt, err := st.Prepare(`
 SELECT (m.name) AS (&getUnitMachineName.*)
-FROM   unit AS u 
+FROM   unit AS u
 JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
 WHERE  u.name = $getUnitMachineName.unit_name
 `, arg)
@@ -559,7 +617,7 @@ func (st *State) GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name)
 	}
 	stmt, err := st.Prepare(`
 SELECT (m.uuid) AS (&getUnitMachineUUID.*)
-FROM   unit AS u 
+FROM   unit AS u
 JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
 WHERE  u.name = $getUnitMachineUUID.unit_name
 `, arg)
@@ -596,7 +654,7 @@ WHERE  u.name = $getUnitMachineUUID.unit_name
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
 func (st *State) AddIAASUnits(
-	ctx context.Context, appUUID coreapplication.ID, args ...application.AddUnitArg,
+	ctx context.Context, appUUID coreapplication.ID, args ...application.AddIAASUnitArg,
 ) ([]coreunit.Name, []coremachine.Name, error) {
 	if len(args) == 0 {
 		return nil, nil, nil
@@ -624,14 +682,18 @@ func (st *State) AddIAASUnits(
 			}
 			unitNames = append(unitNames, unitName)
 
-			insertArg := application.InsertUnitArg{
-				UnitName:    unitName,
-				Constraints: arg.Constraints,
-				Placement:   arg.Placement,
-				UnitStatusArg: application.UnitStatusArg{
-					AgentStatus:    arg.UnitStatusArg.AgentStatus,
-					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
+			insertArg := application.InsertIAASUnitArg{
+				InsertUnitArg: application.InsertUnitArg{
+					UnitName:    unitName,
+					Constraints: arg.Constraints,
+					Placement:   arg.Placement,
+					UnitStatusArg: application.UnitStatusArg{
+						AgentStatus:    arg.UnitStatusArg.AgentStatus,
+						WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
+					},
 				},
+				Platform: arg.Platform,
+				Nonce:    arg.Nonce,
 			}
 
 			mNames, err := st.insertIAASUnit(ctx, tx, appUUID, insertArg)
@@ -733,9 +795,11 @@ func (st *State) AddIAASSubordinateUnit(
 
 		// Insert the new unit.
 		// TODO(storage) - read and use storage directives
-		insertArg := application.InsertUnitArg{
-			UnitName:      unitName,
-			UnitStatusArg: arg.UnitStatusArg,
+		insertArg := application.InsertIAASUnitArg{
+			InsertUnitArg: application.InsertUnitArg{
+				UnitName:      unitName,
+				UnitStatusArg: arg.UnitStatusArg,
+			},
 		}
 		// Place the subordinate on the same machine as the principal unit.
 		machineName, err := st.getUnitMachineName(ctx, tx, arg.PrincipalUnitName)
@@ -785,7 +849,7 @@ func (st *State) GetUnitPrincipal(
 SELECT principal.name AS &getPrincipal.principal_unit_name
 FROM   unit AS principal
 JOIN   unit_principal AS up ON principal.uuid = up.principal_uuid
-JOIN   unit AS sub ON up.unit_uuid = sub.uuid 
+JOIN   unit AS sub ON up.unit_uuid = sub.uuid
 WHERE  sub.name = $getPrincipal.subordinate_unit_name
 `, arg)
 	if err != nil {
@@ -1030,12 +1094,12 @@ func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (cor
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		uuid, err = st.getUnitUUIDByName(ctx, tx, name)
 		if err != nil {
-			return errors.Errorf("querying unit name: %w", err)
+			return errors.Errorf("getting unit UUID by name %q: %w", name, err)
 		}
-		return err
+		return nil
 	})
 	if err != nil {
-		return "", errors.Errorf("querying unit name: %w", err)
+		return "", errors.Capture(err)
 	}
 
 	return uuid, nil
@@ -1181,8 +1245,13 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 			if err != nil {
 				return errors.Errorf("getting application scale state for app %q: %w", appUUID, err)
 			}
-			if arg.OrderedId >= appScale.Scale ||
-				(appScale.Scaling && arg.OrderedId >= appScale.ScaleTarget) {
+
+			if appScale.Scaling {
+				// While scaling, we use the scaling target.
+				if arg.OrderedId >= appScale.ScaleTarget {
+					return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
+				}
+			} else {
 				return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
 			}
 
@@ -1295,7 +1364,7 @@ func (st *State) insertIAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appUUID coreapplication.ID,
-	args application.InsertUnitArg,
+	args application.InsertIAASUnitArg,
 ) ([]coremachine.Name, error) {
 	_, err := st.getUnitDetails(ctx, tx, args.UnitName)
 	if err == nil {
@@ -1310,7 +1379,7 @@ func (st *State) insertIAASUnit(
 	}
 
 	// Handle the placement of the net node and machines accompanying the unit.
-	nodeUUID, machineNames, err := st.placeMachine(ctx, tx, args.Placement)
+	nodeUUID, machineNames, err := machinestate.PlaceMachine(ctx, tx, st, args.Placement, args.Platform, args.Nonce, st.clock)
 	if err != nil {
 		return nil, errors.Errorf("getting net node UUID from placement %+v: %w", args.Placement, err)
 	}
@@ -1892,7 +1961,7 @@ func (st *State) getUnitMachineName(
 	}
 	stmt, err := st.Prepare(`
 SELECT m.name AS &getUnitMachine.machine_name
-FROM   unit u 
+FROM   unit u
 JOIN   machine m ON u.net_node_uuid = m.net_node_uuid
 WHERE  u.name = $getUnitMachine.unit_name
 `, arg)
@@ -1907,98 +1976,6 @@ WHERE  u.name = $getUnitMachine.unit_name
 	}
 
 	return arg.UnitMachine, nil
-}
-
-// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit.
-// The addresses are taken by unioning the net node UUIDs of the cloud service
-// (if any) and the net node UUIDs of the unit, where each net node has an
-// associated address.
-// This apprach allows us to get the addresses regardless of the substrate
-// (k8s or machines).
-//
-// The following errors may be returned:
-// - [uniterrors.UnitNotFound] if the unit does not exist
-func (st *State) GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var address []spaceAddress
-	ident := unitUUID{UnitUUID: uuid}
-	queryUnitPublicAddressesStmt, err := st.Prepare(`
-SELECT    &spaceAddress.*
-FROM (
-    SELECT s.net_node_uuid, u.uuid
-    FROM unit u
-    JOIN application a on a.uuid = u.application_uuid
-    JOIN k8s_service s on s.application_uuid = a.uuid
-    UNION
-    SELECT net_node_uuid, uuid FROM unit
-) AS n
-JOIN      link_layer_device lld ON lld.net_node_uuid = n.net_node_uuid
-JOIN      ip_address ip ON ip.device_uuid = lld.uuid
-LEFT JOIN subnet sn ON sn.uuid = ip.subnet_uuid
-WHERE     n.uuid = $unitUUID.uuid
-`, spaceAddress{}, ident)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkUnitNotDead(ctx, tx, unitUUID{UnitUUID: uuid}); err != nil {
-			return errors.Capture(err)
-		}
-		err := tx.Query(ctx, queryUnitPublicAddressesStmt, ident).GetAll(&address)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("querying addresses for unit %q (and it's services): %w", uuid, err)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return encodeIpAddresses(address), nil
-}
-
-// GetUnitAddresses returns the addresses of the specified unit.
-//
-// The following errors may be returned:
-// - [applicationerrors.UnitNotFound] if the unit does not exist
-func (st *State) GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var address []spaceAddress
-	ident := unitUUID{UnitUUID: uuid}
-	queryUnitPublicAddressesStmt, err := st.Prepare(`
-SELECT    &spaceAddress.*
-FROM      unit u
-JOIN      link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
-JOIN      ip_address ip ON ip.device_uuid = lld.uuid
-LEFT JOIN subnet sn ON sn.uuid = ip.subnet_uuid
-WHERE     u.uuid = $unitUUID.uuid
-`, spaceAddress{}, ident)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkUnitNotDead(ctx, tx, unitUUID{UnitUUID: uuid}); err != nil {
-			return errors.Capture(err)
-		}
-		err := tx.Query(ctx, queryUnitPublicAddressesStmt, ident).GetAll(&address)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("querying addresses for unit %q: %w", uuid, err)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return encodeIpAddresses(address), nil
 }
 
 // GetUnitK8sPodInfo returns information about the k8s pod for the given unit.
@@ -2416,9 +2393,22 @@ INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
 	}
 	deviceUUID := cloudContainerDeviceInfo.UUID
 
+	subnetUUIDs, err := st.k8sSubnetUUIDsByAddressType(ctx, tx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	subnetUUID, ok := subnetUUIDs[ipaddress.UnMarshallAddressType(address.AddressType)]
+	if !ok {
+		// Note: This is a programming error. Today the K8S subnets are
+		// placeholders which should always be created when a model is
+		// added.
+		return errors.Errorf("subnet for address type %q not found", address.AddressType)
+	}
+
 	// Now process the address details.
 	ipAddr := ipAddress{
 		Value:        address.Value,
+		SubnetUUID:   subnetUUID,
 		NetNodeUUID:  netNodeUUID,
 		ConfigTypeID: int(address.ConfigType),
 		TypeID:       int(address.AddressType),
@@ -2429,8 +2419,8 @@ INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
 
 	selectAddressUUIDStmt, err := st.Prepare(`
 SELECT &ipAddress.uuid
-FROM ip_address
-WHERE device_uuid = $ipAddress.device_uuid;
+FROM   ip_address
+WHERE  device_uuid = $ipAddress.device_uuid;
 `, ipAddr)
 	if err != nil {
 		return errors.Capture(err)
@@ -2441,6 +2431,7 @@ INSERT INTO ip_address (*)
 VALUES ($ipAddress.*)
 ON CONFLICT(uuid) DO UPDATE SET
     address_value = excluded.address_value,
+    subnet_uuid = excluded.subnet_uuid,
     type_id = excluded.type_id,
     scope_id = excluded.scope_id,
     origin_id = excluded.origin_id,

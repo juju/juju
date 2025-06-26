@@ -240,7 +240,7 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 	c.Assert(err, tc.IsNil)
 	c.Assert(obtainedChanges, tc.HasLen, 2)
 	for _, change := range obtainedChanges {
-		c.Check(expectedChanged.Contains(change.Changed()), tc.IsTrue)
+		c.Check(expectedChanged.Contains(change), tc.IsTrue)
 	}
 	c.Check(watcher.currentRelations, tc.DeepEquals, currentRelations)
 	c.Check(relationsIgnored.Contains(unrelatedRelUUID.String()), tc.IsTrue)

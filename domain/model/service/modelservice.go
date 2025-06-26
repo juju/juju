@@ -126,6 +126,11 @@ type ControllerState interface {
 	// - [github.com/juju/juju/domain/access/errors.AccessNotFound] when the
 	// user does not have access to the model.
 	GetUserModelSummary(context.Context, coreuser.UUID, coremodel.UUID) (model.UserModelSummary, error)
+
+	// HasValidCredential returns true if the model has a valid credential.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model no longer exists.
+	HasValidCredential(context.Context, coremodel.UUID) (bool, error)
 }
 
 // AgentBinaryFinder represents a helper for establishing if agent binaries for
@@ -232,9 +237,10 @@ func (s *ModelService) GetModelSummary(
 		return coremodel.ModelSummary{}, errors.Capture(err)
 	}
 
-	status := s.statusFromModelState(ctx, mSummary.State)
+	status := s.statusFromModelState(mSummary.State)
 	return coremodel.ModelSummary{
 		Name:           miSummary.Name,
+		Qualifier:      miSummary.Qualifier,
 		UUID:           miSummary.UUID,
 		ModelType:      miSummary.ModelType,
 		CloudName:      miSummary.CloudName,
@@ -242,7 +248,6 @@ func (s *ModelService) GetModelSummary(
 		CloudRegion:    miSummary.CloudRegion,
 		ControllerUUID: miSummary.ControllerUUID,
 		IsController:   miSummary.IsController,
-		OwnerName:      mSummary.OwnerName,
 		Life:           mSummary.Life,
 		AgentVersion:   miSummary.AgentVersion,
 		Status: corestatus.StatusInfo{
@@ -292,10 +297,11 @@ func (s *ModelService) GetUserModelSummary(
 		return coremodel.UserModelSummary{}, errors.Capture(err)
 	}
 
-	status := s.statusFromModelState(ctx, userSummary.State)
+	status := s.statusFromModelState(userSummary.State)
 	return coremodel.UserModelSummary{
 		ModelSummary: coremodel.ModelSummary{
 			Name:           miSummary.Name,
+			Qualifier:      miSummary.Qualifier,
 			UUID:           miSummary.UUID,
 			ModelType:      miSummary.ModelType,
 			CloudName:      miSummary.CloudName,
@@ -303,7 +309,6 @@ func (s *ModelService) GetUserModelSummary(
 			CloudRegion:    miSummary.CloudRegion,
 			ControllerUUID: miSummary.ControllerUUID,
 			IsController:   miSummary.IsController,
-			OwnerName:      userSummary.OwnerName,
 			Life:           userSummary.Life,
 			AgentVersion:   miSummary.AgentVersion,
 			Status: corestatus.StatusInfo{
@@ -437,6 +442,7 @@ func (s *ModelService) CreateModelWithAgentVersionStream(
 		UUID:            m.UUID,
 		ControllerUUID:  m.ControllerUUID,
 		Name:            m.Name,
+		Qualifier:       m.Qualifier,
 		Type:            m.Type,
 		Cloud:           m.Cloud,
 		CloudType:       m.CloudType,
@@ -465,24 +471,9 @@ func (s *ModelService) DeleteModel(
 	return s.modelSt.Delete(ctx, s.modelUUID)
 }
 
-// GetStatus returns the current status of the model.
-//
-// The following error types can be expected to be returned:
-// - [modelerrors.NotFound]: When the model does not exist.
-func (s *ModelService) GetStatus(ctx context.Context) (model.StatusInfo, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-	modelState, err := s.controllerSt.GetModelState(ctx, s.modelUUID)
-	if err != nil {
-		return model.StatusInfo{}, errors.Capture(err)
-	}
-	return s.statusFromModelState(ctx, modelState), nil
-}
-
 // statusFromModelState is responsible for converting the a [model.ModelState]
 // into a model status representation.
 func (s *ModelService) statusFromModelState(
-	ctx context.Context,
 	statusState model.ModelState,
 ) model.StatusInfo {
 	now := s.clock.Now()
@@ -805,9 +796,16 @@ func EnvironVersionProviderGetter() EnvironVersionProviderFunc {
 
 // IsControllerModel returns true if the model is the controller model.
 // The following errors may be returned:
-// - [modelerrors.NotFound] when the model does not exist.
+// - [modelerrors.NotFound] when the model no longer exists.
 func (s *ModelService) IsControllerModel(ctx context.Context) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return s.modelSt.IsControllerModel(ctx)
+}
+
+// HasValidCredential returns true if the model has a valid credential.
+// The following errors may be returned:
+// - [modelerrors.NotFound] when the model no longer exists.
+func (s *ModelService) HasValidCredential(ctx context.Context) (bool, error) {
+	return s.controllerSt.HasValidCredential(ctx, s.modelUUID)
 }

@@ -87,10 +87,10 @@ func (s *ParseBindSuite) TestParseFailsWithUnknownSpaceName(c *tc.C) {
 func (s *ParseBindSuite) TestMergeBindingsNewBindingsInheritDefaultSpace(c *tc.C) {
 	newCharmEndpoints := set.NewStrings("ep1", "ep2", "ep3", "ep4", "ep5")
 	oldEndpointsMap := map[string]string{
-		"":    network.AlphaSpaceName,
+		"":    network.AlphaSpaceName.String(),
 		"ep1": "sp1",
-		"ep4": network.AlphaSpaceName,
-		"ep5": network.AlphaSpaceName,
+		"ep4": network.AlphaSpaceName.String(),
+		"ep5": network.AlphaSpaceName.String(),
 	}
 
 	userBindings := map[string]string{
@@ -100,13 +100,13 @@ func (s *ParseBindSuite) TestMergeBindingsNewBindingsInheritDefaultSpace(c *tc.C
 
 	expMergedBindings := map[string]string{
 		"ep1": "sp-foo",
-		"ep2": network.AlphaSpaceName, // new endpoint ep2 inherits the default space
+		"ep2": network.AlphaSpaceName.String(), // new endpoint ep2 inherits the default space
 		"ep3": "sp1",
-		"ep4": network.AlphaSpaceName,
-		"ep5": network.AlphaSpaceName,
+		"ep4": network.AlphaSpaceName.String(),
+		"ep5": network.AlphaSpaceName.String(),
 	}
 
-	mergedBindings, changeLog := mergeBindings(newCharmEndpoints, oldEndpointsMap, userBindings, network.AlphaSpaceName)
+	mergedBindings, changeLog := mergeBindings(newCharmEndpoints, oldEndpointsMap, userBindings, network.AlphaSpaceName.String())
 	c.Check(mergedBindings, tc.DeepEquals, expMergedBindings)
 	c.Check(changeLog, tc.SameContents, []string{
 		`moving endpoint "ep1" from space "sp1" to "sp-foo"`,

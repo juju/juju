@@ -1,3 +1,4 @@
+(write-an-integration-test)=
 # Write an integration test
 > See also: {ref}`integration-testing`
 

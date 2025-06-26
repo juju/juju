@@ -13,7 +13,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -61,7 +60,6 @@ import (
 	"github.com/juju/juju/internal/worker/authenticationworker"
 	"github.com/juju/juju/internal/worker/bootstrap"
 	"github.com/juju/juju/internal/worker/caasupgrader"
-	"github.com/juju/juju/internal/worker/centralhub"
 	"github.com/juju/juju/internal/worker/certupdater"
 	"github.com/juju/juju/internal/worker/changestream"
 	"github.com/juju/juju/internal/worker/changestreampruner"
@@ -83,7 +81,6 @@ import (
 	"github.com/juju/juju/internal/worker/httpserver"
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/internal/worker/identityfilewriter"
-	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/jwtparser"
 	leasemanager "github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
@@ -99,7 +96,6 @@ import (
 	"github.com/juju/juju/internal/worker/objectstorefacade"
 	"github.com/juju/juju/internal/worker/objectstores3caller"
 	"github.com/juju/juju/internal/worker/objectstoreservices"
-	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/internal/worker/providerservices"
 	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/proxyupdater"
@@ -176,10 +172,6 @@ type ManifoldsConfig struct {
 	// *state.StatePool.
 	OpenStatePool func(context.Context, coreagent.Config, services.ControllerDomainServices, services.DomainServicesGetter) (*state.StatePool, error)
 
-	// MachineStartup is passed to the machine manifold. It does
-	// machine setup work which relies on an API connection.
-	MachineStartup func(context.Context, api.Connection, corelogger.Logger) error
-
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
@@ -207,14 +199,6 @@ type ManifoldsConfig struct {
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
 	PrometheusRegisterer prometheus.Registerer
-
-	// CentralHub is the primary hub that exists in the apiserver.
-	CentralHub *pubsub.StructuredHub
-
-	// LocalHub is a simple pubsub that is used for internal agent
-	// messaging only. This is used for interactions between workers
-	// and the introspection worker.
-	LocalHub *pubsub.SimpleHub
 
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
@@ -280,6 +264,10 @@ type ManifoldsConfig struct {
 
 	// NewCAASBrokerFunc is a function opens a CAAS broker.
 	NewCAASBrokerFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error)
+
+	// MachineStartup is passed to the machine manifold. It does
+	// machine setup work which relies on an API connection.
+	MachineStartup func(context.Context, api.Connection, corelogger.Logger) error
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -369,17 +357,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		stateConfigWatcherName: stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
-		}),
-
-		// The centralhub manifold watches the state config to make sure it
-		// only starts for machines that are api servers. Currently the hub is
-		// passed in as config, but when the apiserver and peergrouper are
-		// updated to use the dependency engine, the centralhub manifold
-		// should also take the agentName so the worker can get the machine ID
-		// for the creation of the hub.
-		centralHubName: centralhub.Manifold(centralhub.ManifoldConfig{
-			StateConfigWatcherName: stateConfigWatcherName,
-			Hub:                    config.CentralHub,
 		}),
 
 		// The state manifold creates a *state.State and makes it
@@ -567,7 +544,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
 			AuthorityName:        certificateWatcherName,
-			HubName:              centralHubName,
 			StateName:            stateName,
 			DomainServicesName:   domainServicesName,
 			MuxName:              httpServerArgsName,
@@ -615,7 +591,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
-			Hub:                               config.CentralHub,
 			GetControllerConfigService:        apiserver.GetControllerConfigService,
 			GetModelService:                   apiserver.GetModelService,
 			NewWorker:                         apiserver.NewWorker,
@@ -635,16 +610,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                       internallogger.GetLogger("juju.workers.modelworkermanager"),
 			GetProviderServicesGetter:    modelworkermanager.GetProviderServicesGetter,
 			GetControllerConfig:          modelworkermanager.GetControllerConfig,
-		})),
-
-		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
-			AgentName:            agentName,
-			ClockName:            clockName,
-			StateName:            stateName,
-			DomainServicesName:   domainServicesName,
-			Hub:                  config.CentralHub,
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			NewWorker:            peergrouper.New,
 		})),
 
 		domainServicesName: workerdomainservices.Manifold(workerdomainservices.ManifoldConfig{
@@ -898,13 +863,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:              internallogger.GetLogger("juju.worker.httpclient"),
 		}),
 
-		apiRemoteCallerName: ifController(apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
+		apiRemoteCallerName: ifBootstrapComplete(ifController(apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
 			AgentName:          agentName,
 			DomainServicesName: domainServicesName,
 			Clock:              config.Clock,
 			Logger:             internallogger.GetLogger("juju.worker.apiremotecaller"),
 			NewWorker:          apiremotecaller.NewWorker,
-		})),
+		}))),
 
 		jwtParserName: ifController(jwtparser.Manifold(jwtparser.ManifoldConfig{
 			GetControllerConfigService: jwtparser.GetControllerConfigService,
@@ -948,6 +913,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerCharmDeployer:      bootstrap.IAASControllerCharmUploader,
 			ControllerUnitPassword:       bootstrap.IAASControllerUnitPassword,
 			BootstrapAddressFinderGetter: bootstrap.IAASAddressFinder,
+			SetMachineProvisioned:        bootstrap.IAASSetMachineProvisioned,
 		})),
 
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
@@ -1070,7 +1036,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
-			Hub:           config.LocalHub,
 			Logger:        internallogger.GetLogger("juju.worker.deployer"),
 
 			UnitEngineConfig: config.UnitEngineConfig,
@@ -1103,22 +1068,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewBrokerFunc: config.NewBrokerFunc,
 			NewTracker:    lxdbroker.NewWorkerTracker,
 		})),
-		instanceMutaterName: ifNotMigrating(instancemutater.MachineManifold(instancemutater.MachineManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			BrokerName:    brokerTrackerName,
-			Logger:        internallogger.GetLogger("juju.worker.instancemutater.container"),
-			NewClient:     instancemutater.NewClient,
-			NewWorker:     instancemutater.NewContainerWorker,
-		})),
-		// The machineSetupName manifold runs small tasks required
-		// to setup a machine, but requires the machine agent's API
-		// connection. Once its work is complete, it stops.
-		machineSetupName: ifNotMigrating(MachineStartupManifold(MachineStartupConfig{
-			APICallerName:  apiCallerName,
-			MachineStartup: config.MachineStartup,
-			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
-		})),
 		lxdContainerProvisioner: ifNotMigrating(containerprovisioner.Manifold(containerprovisioner.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -1133,6 +1082,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			Logger:        internallogger.GetLogger("juju.worker.stateconverter"),
 		}))),
+
+		// The machineSetupName manifold runs small tasks required
+		// to setup a machine, but requires the machine agent's API
+		// connection. Once its work is complete, it stops.
+		machineSetupName: ifNotMigrating(MachineStartupManifold(MachineStartupConfig{
+			APICallerName:  apiCallerName,
+			MachineStartup: config.MachineStartup,
+			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
+		})),
 	}
 
 	return mergeManifolds(config, manifolds)
@@ -1163,6 +1121,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerCharmDeployer:      bootstrap.CAASControllerCharmUploader,
 			ControllerUnitPassword:       bootstrap.CAASControllerUnitPassword,
 			BootstrapAddressFinderGetter: bootstrap.CAASAddressFinder,
+			SetMachineProvisioned:        bootstrap.CAASSetMachineProvisioned,
 		})),
 
 		// TODO(caas) - when we support HA, only want this on primary
@@ -1294,7 +1253,6 @@ const (
 	stateName              = "state"
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
-	centralHubName         = "central-hub"
 	clockName              = "clock"
 
 	bootstrapName       = "bootstrap"
@@ -1340,7 +1298,6 @@ const (
 	httpServerArgsName            = "http-server-args"
 	httpServerName                = "http-server"
 	identityFileWriterName        = "ssh-identity-writer"
-	instanceMutaterName           = "instance-mutater"
 	isControllerFlagName          = "is-controller-flag"
 	isNotControllerFlagName       = "is-not-controller-flag"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
@@ -1352,7 +1309,6 @@ const (
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	machineActionName             = "machine-action-runner"
 	machinerName                  = "machiner"
-	machineSetupName              = "machine-setup"
 	modelWorkerManagerName        = "model-worker-manager"
 	objectStoreName               = "object-store"
 	objectStoreS3CallerName       = "object-store-s3-caller"
@@ -1361,7 +1317,6 @@ const (
 	objectStoreFacadeName         = "object-store-facade"
 	objectStoreDrainingFlagName   = "object-store-draining-flag"
 	objectStoreDrainerName        = "object-store-drainer"
-	peergrouperName               = "peer-grouper"
 	providerDomainServicesName    = "provider-services"
 	providerTrackerName           = "provider-tracker"
 	proxyConfigUpdater            = "proxy-config-updater"
@@ -1375,4 +1330,6 @@ const (
 	toolsVersionCheckerName       = "tools-version-checker"
 	traceName                     = "trace"
 	validCredentialFlagName       = "valid-credential-flag"
+
+	machineSetupName = "machine-setup"
 )

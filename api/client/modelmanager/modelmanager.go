@@ -54,13 +54,14 @@ func NewClient(st base.APICallCloser, options ...Option) *Client {
 // cloud region and credential specified in the args.
 func (c *Client) CreateModel(
 	ctx context.Context,
-	name, owner, cloud, cloudRegion string,
+	name string, qualifier model.Qualifier,
+	cloud, cloudRegion string,
 	cloudCredential names.CloudCredentialTag,
 	config map[string]interface{},
 ) (base.ModelInfo, error) {
 	var result base.ModelInfo
-	if !names.IsValidUser(owner) {
-		return result, errors.Errorf("invalid owner name %q", owner)
+	if err := qualifier.Validate(); err != nil {
+		return result, errors.Errorf("invalid qualifier %q", qualifier)
 	}
 	var cloudTag string
 	if cloud != "" {
@@ -75,7 +76,7 @@ func (c *Client) CreateModel(
 	}
 	createArgs := params.ModelCreateArgs{
 		Name:               name,
-		OwnerTag:           names.NewUserTag(owner).String(),
+		Qualifier:          qualifier.String(),
 		Config:             config,
 		CloudTag:           cloudTag,
 		CloudRegion:        cloudRegion,
@@ -102,12 +103,9 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 		}
 		credential = credTag.Id()
 	}
-	ownerTag, err := names.ParseUserTag(modelInfo.OwnerTag)
-	if err != nil {
-		return base.ModelInfo{}, errors.Trace(err)
-	}
 	result := base.ModelInfo{
 		Name:            modelInfo.Name,
+		Qualifier:       model.Qualifier(modelInfo.Qualifier),
 		UUID:            modelInfo.UUID,
 		ControllerUUID:  modelInfo.ControllerUUID,
 		IsController:    modelInfo.IsController,
@@ -115,7 +113,6 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 		Cloud:           cloud.Id(),
 		CloudRegion:     modelInfo.CloudRegion,
 		CloudCredential: credential,
-		Owner:           ownerTag.Id(),
 		Life:            modelInfo.Life,
 		AgentVersion:    modelInfo.AgentVersion,
 	}
@@ -148,10 +145,7 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 			Id:          m.Id,
 			InstanceId:  m.InstanceId,
 			DisplayName: m.DisplayName,
-			HasVote:     m.HasVote,
-			WantsVote:   m.WantsVote,
 			Status:      m.Status,
-			HAPrimary:   m.HAPrimary,
 		}
 		if m.Hardware != nil {
 			machine.Hardware = &instance.HardwareCharacteristics{
@@ -185,19 +179,11 @@ func (c *Client) ListModels(ctx context.Context, user string) ([]base.UserModel,
 	}
 	result := make([]base.UserModel, len(models.UserModels))
 	for i, usermodel := range models.UserModels {
-		owner, err := names.ParseUserTag(usermodel.OwnerTag)
-		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", usermodel.OwnerTag, i)
-		}
-		modelType := model.ModelType(usermodel.Type)
-		if modelType == "" {
-			modelType = model.IAAS
-		}
 		result[i] = base.UserModel{
 			Name:           usermodel.Name,
 			UUID:           usermodel.UUID,
-			Type:           modelType,
-			Owner:          owner.Id(),
+			Type:           model.ModelType(usermodel.Type),
+			Qualifier:      model.Qualifier(usermodel.Qualifier),
 			LastConnection: usermodel.LastConnection,
 		}
 	}
@@ -222,14 +208,11 @@ func (c *Client) ListModelSummaries(ctx context.Context, user string, all bool) 
 			continue
 		}
 		summary := r.Result
-		modelType := model.ModelType(summary.Type)
-		if modelType == "" {
-			modelType = model.IAAS
-		}
 		summaries[i] = base.UserModelSummary{
 			Name:               summary.Name,
+			Qualifier:          model.Qualifier(summary.Qualifier),
 			UUID:               summary.UUID,
-			Type:               modelType,
+			Type:               model.ModelType(summary.Type),
 			ControllerUUID:     summary.ControllerUUID,
 			IsController:       summary.IsController,
 			ProviderType:       summary.ProviderType,
@@ -251,12 +234,6 @@ func (c *Client) ListModelSummaries(ctx context.Context, user string, all bool) 
 		}
 		for k, v := range summary.Status.Data {
 			summaries[i].Status.Data[k] = v
-		}
-		if owner, err := names.ParseUserTag(summary.OwnerTag); err != nil {
-			summaries[i].Error = errors.Annotatef(err, "while parsing model owner tag")
-			continue
-		} else {
-			summaries[i].Owner = owner.Id()
 		}
 		if cloud, err := names.ParseCloudTag(summary.CloudTag); err != nil {
 			summaries[i].Error = errors.Annotatef(err, "while parsing model cloud tag")

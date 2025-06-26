@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/kr/pretty"
@@ -24,6 +25,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
@@ -139,42 +141,48 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	unitArgs := make([]applicationservice.AddUnitArg, dt.numUnits)
+	unitArgs := make([]applicationservice.AddIAASUnitArg, dt.numUnits)
 	for i := 0; i < dt.numUnits; i++ {
 		var unitPlacement *instance.Placement
 		if i < len(dt.placement) {
 			unitPlacement = dt.placement[i]
 		}
 
-		unitArgs[i] = applicationservice.AddUnitArg{
-			Placement: unitPlacement,
+		unitArgs[i] = applicationservice.AddIAASUnitArg{
+			AddUnitArg: applicationservice.AddUnitArg{
+				Placement: unitPlacement,
+			},
 		}
 	}
 
-	createApplication := api.applicationService.CreateIAASApplication
-	if api.modelType == model.CAAS {
-		createApplication = api.applicationService.CreateCAASApplication
+	applicationArg := applicationservice.AddApplicationArgs{
+		ReferenceName: dt.charmURL.Name,
+		Storage:       dt.storage,
+		// We always have download info for a charm from the charmhub store.
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: dt.downloadInfo.CharmhubIdentifier,
+			DownloadURL:        dt.downloadInfo.DownloadURL,
+			DownloadSize:       dt.downloadInfo.DownloadSize,
+		},
+		ResolvedResources: dt.resolvedResources,
+		EndpointBindings:  dt.endpoints,
+		Devices:           arg.Devices,
+		ApplicationStatus: &status.StatusInfo{
+			Status: status.Unset,
+			Since:  ptr(api.clock.Now()),
+		},
 	}
 
-	_, err = createApplication(ctx, dt.applicationName, dt.charm, dt.origin,
-		applicationservice.AddApplicationArgs{
-			ReferenceName: dt.charmURL.Name,
-			Storage:       dt.storage,
-			// We always have download info for a charm from the charmhub store.
-			DownloadInfo: &applicationcharm.DownloadInfo{
-				Provenance:         applicationcharm.ProvenanceDownload,
-				CharmhubIdentifier: dt.downloadInfo.CharmhubIdentifier,
-				DownloadURL:        dt.downloadInfo.DownloadURL,
-				DownloadSize:       dt.downloadInfo.DownloadSize,
-			},
-			ResolvedResources: dt.resolvedResources,
-			EndpointBindings:  transformBindings(dt.endpoints),
-			Devices:           arg.Devices,
-			ApplicationStatus: &status.StatusInfo{
-				Status: status.Unset,
-				Since:  ptr(api.clock.Now()),
-			},
-		}, unitArgs...)
+	if api.modelType == model.IAAS {
+		_, err = api.applicationService.CreateIAASApplication(ctx, dt.applicationName, dt.charm, dt.origin,
+			applicationArg, unitArgs...)
+	} else {
+		_, err = api.applicationService.CreateCAASApplication(ctx, dt.applicationName, dt.charm, dt.origin,
+			applicationArg, transform.Slice(unitArgs, func(arg applicationservice.AddIAASUnitArg) applicationservice.AddUnitArg {
+				return arg.AddUnitArg
+			})...)
+	}
 	if err != nil {
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
@@ -258,7 +266,7 @@ type deployTemplate struct {
 	charmSettings     charm.Settings
 	charmURL          *charm.URL
 	constraints       constraints.Value
-	endpoints         map[string]string
+	endpoints         map[string]network.SpaceName
 	dryRun            bool
 	force             bool
 	numUnits          int
@@ -294,9 +302,6 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 		state:              cfg.state,
 		newCharmHubRepository: func(cfg repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
 			return repository.NewCharmHubRepository(cfg)
-		},
-		newStateBindings: func(st any, givenMap map[string]string) (Bindings, error) {
-			return state.NewBindings(st, givenMap)
 		},
 		logger: cfg.logger,
 	}
@@ -338,9 +343,6 @@ type deployFromRepositoryValidator struct {
 	// For testing using mocks.
 	newCharmHubRepository func(repository.CharmHubRepositoryConfig) (corecharm.Repository, error)
 	charmhubHTTPClient    facade.HTTPClient
-
-	// For testing using mocks.
-	newStateBindings func(st any, givenMap map[string]string) (Bindings, error)
 
 	logger corelogger.Logger
 }
@@ -402,7 +404,7 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	dt.placement = arg.Placement
 	dt.storage = arg.Storage
 	if len(arg.EndpointBindings) > 0 {
-		dt.endpoints = arg.EndpointBindings
+		dt.endpoints = transformBindings(arg.EndpointBindings)
 	}
 
 	// Resolve resources and validate against the charm metadata.
@@ -752,7 +754,7 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(ctx context.Contex
 			}
 			return nil, false, err
 		}
-		hc, err := v.machineService.HardwareCharacteristics(ctx, machineUUID)
+		hc, err := v.machineService.GetHardwareCharacteristics(ctx, machineUUID)
 		if err != nil {
 			return nil, false, err
 		}

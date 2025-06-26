@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -29,6 +30,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -46,8 +48,6 @@ import (
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
 	*common.ControllerConfigAPI
-	*common.StatusSetter
-	*common.StatusGetter
 	*common.DeadEnsurer
 	*common.PasswordChanger
 	*common.LifeGetter
@@ -67,6 +67,7 @@ type ProvisionerAPI struct {
 	modelConfigService        ModelConfigService
 	modelInfoService          ModelInfoService
 	machineService            MachineService
+	statusService             StatusService
 	applicationService        ApplicationService
 	resources                 facade.Resources
 	authorizer                facade.Authorizer
@@ -77,6 +78,7 @@ type ProvisionerAPI struct {
 	getCanModify              common.GetAuthFunc
 	toolsFinder               common.ToolsFinder
 	logger                    logger.Logger
+	clock                     clock.Clock
 
 	// Hold on to the controller UUID, as we'll reuse it for a lot of
 	// calls.
@@ -133,14 +135,32 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 	domainServices := ctx.DomainServices()
 
+	agentService := domainServices.Agent()
+	agentBinaryService := domainServices.AgentBinary()
+	applicationService := domainServices.Application()
+	machineService := domainServices.Machine()
+	statusService := domainServices.Status()
+	modelInfoService := domainServices.ModelInfo()
+	cloudService := domainServices.Cloud()
+	credentialService := domainServices.Credential()
+	modelConfigService := domainServices.Config()
+	controllerNodeService := domainServices.ControllerNode()
+	agentPasswordService := domainServices.AgentPassword()
+	controllerConfigService := domainServices.ControllerConfig()
+	networkService := domainServices.Network()
+	storageService := domainServices.Storage()
+	keyUpdaterService := domainServices.KeyUpdater()
+	cloudImageMetadataService := domainServices.CloudImageMetadata()
+	agentProvisionerService := domainServices.AgentProvisioner()
+	externalControllerService := domainServices.ExternalController()
+
 	configGetter := stateenvirons.EnvironConfigGetter{
 		Model:              model,
-		CloudService:       domainServices.Cloud(),
-		CredentialService:  domainServices.Credential(),
-		ModelConfigService: domainServices.Config(),
+		CloudService:       cloudService,
+		CredentialService:  credentialService,
+		ModelConfigService: modelConfigService,
 	}
 
-	modelInfoService := domainServices.ModelInfo()
 	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -149,7 +169,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 
 	var env storage.ProviderRegistry
 	if isCaasModel {
-		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
+		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, cloudService, credentialService, modelConfigService)
 	} else {
 		env, err = environs.GetEnviron(stdCtx, configGetter, environs.NoopCredentialInvalidator(), environs.New)
 	}
@@ -163,63 +183,63 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), systemState)
 
-	modelConfigWatcher := commonmodel.NewModelConfigWatcher(domainServices.Config(), ctx.WatcherRegistry())
+	controllerNodeServices := domainServices.ControllerNode()
+	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), controllerNodeServices)
+
+	watcherRegistry := ctx.WatcherRegistry()
+	modelConfigWatcher := commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry)
 
 	resources := ctx.Resources()
+
 	api := &ProvisionerAPI{
-		StatusSetter:         common.NewStatusSetter(st, getAuthFunc, ctx.Clock()),
-		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc, ctx.DomainServices().Machine()),
-		PasswordChanger:      common.NewPasswordChanger(domainServices.AgentPassword(), st, getAuthFunc),
-		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
-		APIAddresser:         common.NewAPIAddresser(systemState, resources),
+		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc, machineService),
+		PasswordChanger:      common.NewPasswordChanger(agentPasswordService, st, getAuthFunc),
+		LifeGetter:           common.NewLifeGetter(applicationService, machineService, st, getAuthFunc, ctx.Logger()),
+		APIAddresser:         common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		ModelConfigWatcher:   modelConfigWatcher,
 		ModelMachinesWatcher: commonmodel.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
-			domainServices.ControllerConfig(),
-			domainServices.ExternalController(),
+			controllerConfigService,
+			controllerNodeServices,
+			externalControllerService,
 		),
 		NetworkConfigAPI:          netConfigAPI,
-		networkService:            ctx.DomainServices().Network(),
+		networkService:            networkService,
 		st:                        st,
-		controllerConfigService:   domainServices.ControllerConfig(),
-		agentProvisionerService:   domainServices.AgentProvisioner(),
-		cloudImageMetadataService: domainServices.CloudImageMetadata(),
-		keyUpdaterService:         domainServices.KeyUpdater(),
-		modelConfigService:        domainServices.Config(),
+		controllerConfigService:   controllerConfigService,
+		agentProvisionerService:   agentProvisionerService,
+		cloudImageMetadataService: cloudImageMetadataService,
+		keyUpdaterService:         keyUpdaterService,
+		modelConfigService:        modelConfigService,
 		modelInfoService:          modelInfoService,
-		machineService:            domainServices.Machine(),
-		applicationService:        domainServices.Application(),
+		machineService:            machineService,
+		statusService:             statusService,
+		applicationService:        applicationService,
 		resources:                 resources,
 		authorizer:                authorizer,
 		configGetter:              configGetter,
 		storageProviderRegistry:   storageProviderRegistry,
-		storagePoolGetter:         domainServices.Storage(),
+		storagePoolGetter:         storageService,
 		getAuthFunc:               getAuthFunc,
 		getCanModify:              getCanModify,
 		controllerUUID:            ctx.ControllerUUID(),
 		logger:                    ctx.Logger().Child("provisioner"),
+		clock:                     ctx.Clock(),
 	}
 	if isCaasModel {
 		return api, nil
 	}
 
-	api.InstanceIdGetter = common.NewInstanceIdGetter(domainServices.Machine(), getAuthFunc)
+	api.InstanceIdGetter = common.NewInstanceIdGetter(machineService, getAuthFunc)
 
 	api.toolsFinder = common.NewToolsFinder(
-		domainServices.ControllerConfig(),
 		st, urlGetter,
 		ctx.ControllerObjectStore(),
-		domainServices.AgentBinary(),
+		agentBinaryService,
 	)
-	api.ToolsGetter = common.NewToolsGetter(domainServices.Agent(), st, urlGetter, api.toolsFinder, getAuthOwner)
+	api.ToolsGetter = common.NewToolsGetter(agentService, st, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
 }
 
@@ -251,7 +271,7 @@ func (api *ProvisionerAPI) getInstanceID(ctx context.Context, machineID string) 
 	if err != nil {
 		return "", err
 	}
-	return api.machineService.InstanceID(ctx, machineUUID)
+	return api.machineService.GetInstanceID(ctx, machineUUID)
 }
 
 func (api *ProvisionerAPI) watchOneMachineContainers(ctx context.Context, arg params.WatchContainer) (params.StringsWatchResult, error) {
@@ -307,41 +327,17 @@ func (api *ProvisionerAPI) WatchAllContainers(ctx context.Context, args params.W
 	return api.WatchContainers(ctx, args)
 }
 
-// SetSupportedContainers updates the list of containers supported by the machines passed in args.
+// SetSupportedContainers updates the list of containers supported by the
+// machines passed in args.
+// Deprecated: This method doesn't do anything and can be removed in the future.
 func (api *ProvisionerAPI) SetSupportedContainers(ctx context.Context, args params.MachineContainersParams) (params.ErrorResults, error) {
-	result := params.ErrorResults{
+	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
-	}
-
-	canAccess, err := api.getAuthFunc(ctx)
-	if err != nil {
-		return result, err
-	}
-	for i, arg := range args.Params {
-		tag, err := names.ParseMachineTag(arg.MachineTag)
-		if err != nil {
-			api.logger.Warningf(ctx, "SetSupportedContainers called with %q which is not a valid machine tag: %v", arg.MachineTag, err)
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		machine, err := api.getMachine(canAccess, tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if len(arg.ContainerTypes) == 0 {
-			err = machine.SupportsNoContainers()
-		} else {
-			err = machine.SetSupportedContainers(arg.ContainerTypes)
-		}
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return result, nil
+	}, nil
 }
 
-// SupportedContainers returns the list of containers supported by the machines passed in args.
+// SupportedContainers returns the list of containers supported by the machines
+// passed in args.
 func (api *ProvisionerAPI) SupportedContainers(ctx context.Context, args params.Entities) (params.MachineContainerResults, error) {
 	result := params.MachineContainerResults{
 		Results: make([]params.MachineContainerResult, len(args.Entities)),
@@ -354,18 +350,40 @@ func (api *ProvisionerAPI) SupportedContainers(ctx context.Context, args params.
 	for i, arg := range args.Entities {
 		tag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			api.logger.Warningf(ctx, "SupportedContainers called with %q which is not a valid machine tag: %v", arg.Tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := api.getMachine(canAccess, tag)
-		if err != nil {
+
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(tag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFound)
+			continue
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		containerTypes, determined := machine.SupportedContainers()
+
+		containerTypes, err := api.machineService.GetSupportedContainersTypes(ctx, machineUUID)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFound)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// Container types will always return a non-empty slice of `[lxd]`.
+		// We can make this guarantee at the moment, because we only support
+		// deployment to ubuntu machines. If this ever changes, we will need
+		// to ratify this logic.
+		// As a result we can set the determined field to true.
 		result.Results[i].ContainerTypes = containerTypes
-		result.Results[i].Determined = determined
+		result.Results[i].Determined = true
 	}
 	return result, nil
 }
@@ -462,11 +480,13 @@ func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx context.Context) (par
 			// status to Started yet.
 			continue
 		}
-		var result params.StatusResult
-		statusInfo, err := machine.InstanceStatus()
+		machineName := coremachine.Name(machine.Tag().Id())
+		statusInfo, err := api.statusService.GetInstanceStatus(ctx, machineName)
 		if err != nil {
 			continue
 		}
+
+		var result params.StatusResult
 		result.Status = statusInfo.Status.String()
 		result.Info = statusInfo.Message
 		result.Data = statusInfo.Data
@@ -507,7 +527,7 @@ func (api *ProvisionerAPI) AvailabilityZone(ctx context.Context, args params.Ent
 			result.Results[i].Error = apiservererrors.ServerError(fmt.Errorf("%w: %w", err, errors.NotFound))
 			continue
 		}
-		hc, err := api.machineService.HardwareCharacteristics(ctx, machineUUID)
+		hc, err := api.machineService.GetHardwareCharacteristics(ctx, machineUUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFound)
 			continue
@@ -562,17 +582,28 @@ func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.En
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := api.getMachine(canAccess, tag)
-		if err == nil {
-			// If the machine is a controller, return
-			// controller instances. Otherwise, return
-			// instances with services in common with the machine
-			// being provisioned.
-			if machine.IsManager() {
-				result.Results[i].Result, err = api.controllerInstances(ctx, api.st)
-			} else {
-				result.Results[i].Result, err = api.commonServiceInstances(ctx, api.st, machine)
-			}
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		machineName := coremachine.Name(tag.Id())
+		isController, err := api.machineService.IsMachineController(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %q", machineName))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// If the machine is a controller, return controller instances.
+		// Otherwise, return instances with services in common with the machine
+		// being provisioned.
+		if isController {
+			result.Results[i].Result, err = api.controllerInstances(ctx)
+		} else {
+			result.Results[i].Result, err = api.commonServiceInstances(ctx, machineName)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -580,22 +611,17 @@ func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.En
 }
 
 // controllerInstances returns all environ manager instances.
-func (api *ProvisionerAPI) controllerInstances(ctx context.Context, st *state.State) ([]instance.Id, error) {
-	controllerIds, err := st.ControllerIds()
+func (api *ProvisionerAPI) controllerInstances(ctx context.Context) ([]instance.Id, error) {
+	controllerIds, err := api.st.ControllerIds()
 	if err != nil {
 		return nil, err
 	}
 	instances := make([]instance.Id, 0, len(controllerIds))
 	for _, id := range controllerIds {
-		machine, err := st.Machine(id)
-		if err != nil {
-			return nil, err
-		}
-		instanceId, err := api.getInstanceID(ctx, machine.Id())
+		instanceId, err := api.getInstanceID(ctx, id)
 		if errors.Is(err, machineerrors.NotProvisioned) {
 			continue
-		}
-		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
+		} else if err != nil {
 			return nil, err
 		}
 		instances = append(instances, instanceId)
@@ -605,17 +631,23 @@ func (api *ProvisionerAPI) controllerInstances(ctx context.Context, st *state.St
 
 // commonServiceInstances returns instances with
 // services in common with the specified machine.
-func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, st *state.State, m *state.Machine) ([]instance.Id, error) {
-	units, err := m.Units()
-	if err != nil {
-		return nil, err
+func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, machineName coremachine.Name) ([]instance.Id, error) {
+	unitNames, err := api.applicationService.GetUnitNamesOnMachine(ctx, machineName)
+	if errors.Is(err, applicationerrors.MachineNotFound) {
+		return nil, errors.NotFoundf("machine %q", machineName)
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
 	instanceIdSet := make(set.Strings)
-	for _, unit := range units {
-		if !unit.IsPrincipal() {
+	for _, unitName := range unitNames {
+		if _, isPrincipal, err := api.applicationService.GetUnitPrincipal(ctx, unitName); err != nil {
+			return nil, errors.Trace(err)
+		} else if !isPrincipal {
 			continue
 		}
-		machineIDs, err := state.ApplicationMachines(st, unit.ApplicationName())
+
+		appName := unitName.Application()
+		machineIDs, err := state.ApplicationMachines(api.st, appName)
 		if err != nil {
 			return nil, err
 		}
@@ -656,17 +688,29 @@ func (api *ProvisionerAPI) DistributionGroupByMachineId(ctx context.Context, arg
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := api.getMachine(canAccess, tag)
-		if err == nil {
-			// If the machine is a controller, return
-			// controller instances. Otherwise, return
-			// instances with services in common with the machine
-			// being provisioned.
-			if machine.IsManager() {
-				result.Results[i].Result, err = controllerMachineIds(api.st, machine)
-			} else {
-				result.Results[i].Result, err = commonApplicationMachineId(api.st, machine)
-			}
+
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		machineName := coremachine.Name(tag.Id())
+		isController, err := api.machineService.IsMachineController(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %q", machineName))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// If the machine is a controller, return controller instances.
+		// Otherwise, return instances with services in common with the machine
+		// being provisioned.
+		if isController {
+			result.Results[i].Result, err = controllerMachineIds(api.st, machineName)
+		} else {
+			result.Results[i].Result, err = api.commonApplicationMachineId(ctx, api.st, machineName)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -674,20 +718,26 @@ func (api *ProvisionerAPI) DistributionGroupByMachineId(ctx context.Context, arg
 }
 
 // controllerMachineIds returns a slice of all other environ manager machine.Ids.
-func controllerMachineIds(st *state.State, m *state.Machine) ([]string, error) {
+func controllerMachineIds(st *state.State, mName coremachine.Name) ([]string, error) {
 	ids, err := st.ControllerIds()
 	if err != nil {
 		return nil, err
 	}
 	result := set.NewStrings(ids...)
-	result.Remove(m.Id())
+	result.Remove(mName.String())
 	return result.SortedValues(), nil
 }
 
 // commonApplicationMachineId returns a slice of machine.Ids with
 // applications in common with the specified machine.
-func commonApplicationMachineId(st *state.State, m *state.Machine) ([]string, error) {
-	applications := m.Principals()
+func (api *ProvisionerAPI) commonApplicationMachineId(ctx context.Context, st *state.State, mName coremachine.Name) ([]string, error) {
+	applications, err := api.machineService.GetMachinePrincipalApplications(ctx, mName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return nil, errors.NotFoundf("machine %q", mName)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	union := set.NewStrings()
 	for _, app := range applications {
 		machines, err := state.ApplicationMachines(st, app)
@@ -696,7 +746,7 @@ func commonApplicationMachineId(st *state.State, m *state.Machine) ([]string, er
 		}
 		union = union.Union(set.NewStrings(machines...))
 	}
-	union.Remove(m.Id())
+	union.Remove(mName.String())
 	return union.SortedValues(), nil
 }
 
@@ -794,6 +844,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 			machineUUID,
 			arg.InstanceId,
 			arg.DisplayName,
+			arg.Nonce,
 			arg.Characteristics,
 		); err != nil {
 			return errors.Annotatef(err, "setting machine cloud instance for machine uuid %q", machineUUID)
@@ -916,7 +967,9 @@ type perContainerHandler interface {
 	ProcessOneContainer(
 		ctx context.Context,
 		env environs.Environ,
-		policy BridgePolicy, idx int, host, guest Machine,
+		policy BridgePolicy, idx int,
+		host Machine, hostIsManual bool,
+		guest Machine,
 		hostInstanceID, guestInstanceID instance.Id,
 		allSubnets network.SubnetInfos,
 	) error
@@ -947,6 +1000,11 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		return errors.Trace(err)
 	}
 
+	hostIsManual, err := api.machineService.IsMachineManuallyProvisioned(ctx, coremachine.Name(hostMachine.Id()))
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	containerNetworkingMethod, err := api.agentProvisionerService.ContainerNetworkingMethod(ctx)
 	if err != nil {
 		return fmt.Errorf("cannot get container networking method: %w", err)
@@ -968,6 +1026,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 			handler.SetError(i, err)
 			continue
 		}
+
 		// The auth function (canAccess) checks that the machine is a
 		// top level machine (we filter those out next) or that the
 		// machine has the host as a parent.
@@ -988,6 +1047,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 			ctx,
 			env, policy, i,
 			NewMachine(hostMachine),
+			hostIsManual,
 			NewMachine(guest),
 			hostInstanceID,
 			guestInstanceID,
@@ -1020,7 +1080,10 @@ func (h *prepareOrGetHandler) ConfigType() string {
 func (h *prepareOrGetHandler) ProcessOneContainer(
 	ctx context.Context,
 	env environs.Environ, policy BridgePolicy,
-	idx int, host, guest Machine, hostInstanceID, guestInstanceID instance.Id, _ network.SubnetInfos,
+	idx int,
+	host Machine, hostIsManual bool,
+	guest Machine,
+	hostInstanceID, guestInstanceID instance.Id, _ network.SubnetInfos,
 ) error {
 	if h.maintain {
 		if guestInstanceID != "" {
@@ -1033,11 +1096,7 @@ func (h *prepareOrGetHandler) ProcessOneContainer(
 
 	// We do not ask the provider to allocate addresses for manually provisioned
 	// machines as we do not expect such machines to be recognised (LP:1796106).
-	askProviderForAddress := false
-	hostIsManual, err := host.IsManual()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	var askProviderForAddress bool
 	if !hostIsManual {
 		askProviderForAddress = environs.SupportsContainerAddresses(ctx, env)
 	}
@@ -1120,7 +1179,8 @@ type hostChangesHandler struct {
 func (h *hostChangesHandler) ProcessOneContainer(
 	_ context.Context,
 	_ environs.Environ, policy BridgePolicy,
-	idx int, host, guest Machine, _, _ instance.Id, allSubnets network.SubnetInfos,
+	idx int, host Machine, hostIsManual bool,
+	guest Machine, _, _ instance.Id, allSubnets network.SubnetInfos,
 ) error {
 	bridges, err := policy.FindMissingBridgesForContainer(host, guest, allSubnets)
 	if err != nil {
@@ -1174,22 +1234,24 @@ type containerProfileHandler struct {
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (h *containerProfileHandler) ProcessOneContainer(
 	ctx context.Context,
-	_ environs.Environ, _ BridgePolicy, idx int, _, guest Machine, _, _ instance.Id, _ network.SubnetInfos,
+	_ environs.Environ, _ BridgePolicy, idx int,
+	_ Machine, _ bool,
+	guest Machine, _, _ instance.Id, _ network.SubnetInfos,
 ) error {
-	units, err := guest.Units()
-	if err != nil {
-		h.result.Results[idx].Error = apiservererrors.ServerError(err)
+	guestName := coremachine.Name(guest.Id())
+	unitNames, err := h.applicationService.GetUnitNamesOnMachine(ctx, guestName)
+	if errors.Is(err, applicationerrors.MachineNotFound) {
+		err = errors.NotFoundf("machine %q", guestName)
+		h.SetError(idx, err)
+		return errors.Trace(err)
+	} else if err != nil {
+		h.SetError(idx, err)
 		return errors.Trace(err)
 	}
-	var resPro []*params.ContainerLXDProfile
-	for _, unit := range units {
-		app, err := unit.Application()
-		if err != nil {
-			h.SetError(idx, err)
-			return errors.Trace(err)
-		}
 
-		appName := app.Name()
+	var resPro []*params.ContainerLXDProfile
+	for _, unitName := range unitNames {
+		appName := unitName.Application()
 		locator, err := h.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
 		if err != nil {
 			h.SetError(idx, err)
@@ -1203,7 +1265,7 @@ func (h *containerProfileHandler) ProcessOneContainer(
 		}
 
 		if profile.Empty() {
-			h.logger.Tracef(ctx, "no profile to return for %q", unit.Name())
+			h.logger.Tracef(ctx, "no profile to return for %q", unitName)
 			continue
 		}
 		resPro = append(resPro, &params.ContainerLXDProfile{
@@ -1255,6 +1317,85 @@ func (api *ProvisionerAPI) GetContainerProfileInfo(ctx context.Context, args par
 	return c.result, nil
 }
 
+// Status returns the status of the specified machine.
+func (api *ProvisionerAPI) Status(ctx context.Context, args params.Entities) (params.StatusResults, error) {
+	results := params.StatusResults{
+		Results: make([]params.StatusResult, len(args.Entities)),
+	}
+	canAccess, err := api.getAuthFunc(ctx)
+	if err != nil {
+		return results, err
+	}
+	for i, entity := range args.Entities {
+		mTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canAccess(mTag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		machineName := coremachine.Name(mTag.Id())
+
+		statusInfo, err := api.statusService.GetMachineStatus(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		results.Results[i] = params.StatusResult{
+			Status: statusInfo.Status.String(),
+			Info:   statusInfo.Message,
+			Data:   statusInfo.Data,
+			Since:  statusInfo.Since,
+		}
+	}
+	return results, nil
+}
+
+// SetStatus sets the status of the specified machine.
+func (api *ProvisionerAPI) SetStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	canModify, err := api.getAuthFunc(ctx)
+	if err != nil {
+		return results, err
+	}
+	now := api.clock.Now()
+	for i, entity := range args.Entities {
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canModify(machineTag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		machineName := coremachine.Name(machineTag.Id())
+
+		err = api.statusService.SetMachineStatus(ctx, machineName, status.StatusInfo{
+			Status:  status.Status(entity.Status),
+			Message: entity.Info,
+			Data:    entity.Data,
+			Since:   &now,
+		})
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return results, nil
+}
+
 // InstanceStatus returns the instance status for each given entity.
 // Only machine tags are accepted.
 func (api *ProvisionerAPI) InstanceStatus(ctx context.Context, args params.Entities) (params.StatusResults, error) {
@@ -1269,20 +1410,30 @@ func (api *ProvisionerAPI) InstanceStatus(ctx context.Context, args params.Entit
 	for i, arg := range args.Entities {
 		mTag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			api.logger.Warningf(ctx, "InstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := api.getMachine(canAccess, mTag)
-		if err == nil {
-			var statusInfo status.StatusInfo
-			statusInfo, err = machine.InstanceStatus()
-			result.Results[i].Status = statusInfo.Status.String()
-			result.Results[i].Info = statusInfo.Message
-			result.Results[i].Data = statusInfo.Data
-			result.Results[i].Since = statusInfo.Since
+		if !canAccess(mTag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		machineName := coremachine.Name(mTag.Id())
+
+		statusInfo, err := api.statusService.GetInstanceStatus(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result.Results[i] = params.StatusResult{
+			Status: statusInfo.Status.String(),
+			Info:   statusInfo.Message,
+			Data:   statusInfo.Data,
+			Since:  statusInfo.Since,
+		}
 	}
 	return result, nil
 }
@@ -1290,37 +1441,35 @@ func (api *ProvisionerAPI) InstanceStatus(ctx context.Context, args params.Entit
 func (api *ProvisionerAPI) setOneInstanceStatus(ctx context.Context, canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
-		api.logger.Warningf(ctx, "SetInstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
 		return apiservererrors.ErrPerm
 	}
-	machine, err := api.getMachine(canAccess, mTag)
-	if err != nil {
-		return errors.Trace(err)
+	if !canAccess(mTag) {
+		return apiservererrors.ErrPerm
 	}
-	// We can use the controller timestamp to get now.
-	since, err := api.st.ControllerTimestamp()
-	if err != nil {
-		return err
-	}
+
+	machineName := coremachine.Name(mTag.Id())
+	since := api.clock.Now()
 	s := status.StatusInfo{
 		Status:  status.Status(arg.Status),
 		Message: arg.Info,
 		Data:    arg.Data,
-		Since:   since,
+		Since:   &since,
 	}
 
-	// TODO(jam): 2017-01-29 These two status should be set in a single
-	//	transaction, not in two separate transactions. Otherwise you can see
-	//	one toggle, but not the other.
-	if err = machine.SetInstanceStatus(s); err != nil {
-		api.logger.Debugf(ctx, "failed to SetInstanceStatus for %q: %v", mTag, err)
-		return err
+	err = api.statusService.SetInstanceStatus(ctx, machineName, s)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return errors.NotFoundf("machine %q", machineName)
+	} else if err != nil {
+		return errors.Trace(err)
 	}
-	if status.Status(arg.Status) == status.ProvisioningError ||
-		status.Status(arg.Status) == status.Error {
+
+	if arg.Status == status.ProvisioningError.String() || arg.Status == status.Error.String() {
 		s.Status = status.Error
-		if err = machine.SetStatus(s); err != nil {
-			return err
+		err := api.statusService.SetMachineStatus(ctx, machineName, s)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return errors.NotFoundf("machine %q", machineName)
+		} else if err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -1334,7 +1483,6 @@ func (api *ProvisionerAPI) SetInstanceStatus(ctx context.Context, args params.Se
 	}
 	canAccess, err := api.getAuthFunc(ctx)
 	if err != nil {
-		api.logger.Errorf(ctx, "failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
@@ -1351,50 +1499,13 @@ func (api *ProvisionerAPI) SetInstanceStatus(ctx context.Context, args params.Se
 // the instance to be placed into a error state. This modification status
 // serves the purpose of highlighting that to the operator.
 // Only machine tags are accepted.
+//
+// Deprecated: this facade was used for LXD profiles, which have been removed.
+// Drop this facade on the next facade version bump.
 func (api *ProvisionerAPI) SetModificationStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	result := params.ErrorResults{
+	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	canAccess, err := api.getAuthFunc(ctx)
-	if err != nil {
-		api.logger.Errorf(ctx, "failed to get an authorisation function: %v", err)
-		return result, errors.Trace(err)
-	}
-	for i, arg := range args.Entities {
-		err = api.setOneModificationStatus(ctx, canAccess, arg)
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-func (api *ProvisionerAPI) setOneModificationStatus(ctx context.Context, canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
-	api.logger.Tracef(ctx, "SetModificationStatus called with: %#v", arg)
-	mTag, err := names.ParseMachineTag(arg.Tag)
-	if err != nil {
-		return apiservererrors.ErrPerm
-	}
-	machine, err := api.getMachine(canAccess, mTag)
-	if err != nil {
-		api.logger.Debugf(ctx, "SetModificationStatus unable to get machine %q", mTag)
-		return err
-	}
-
-	// We can use the controller timestamp to get now.
-	since, err := api.st.ControllerTimestamp()
-	if err != nil {
-		return err
-	}
-	s := status.StatusInfo{
-		Status:  status.Status(arg.Status),
-		Message: arg.Info,
-		Data:    arg.Data,
-		Since:   since,
-	}
-	if err = machine.SetModificationStatus(s); err != nil {
-		api.logger.Debugf(ctx, "failed to SetModificationStatus for %q: %v", mTag, err)
-		return err
-	}
-	return nil
+	}, nil
 }
 
 // MarkMachinesForRemoval indicates that the specified machines are
@@ -1480,26 +1591,6 @@ func (api *ProvisionerAPI) ModelUUID(ctx context.Context) params.StringResult {
 		return params.StringResult{Error: apiservererrors.ServerError(err)}
 	}
 	return params.StringResult{Result: string(modelInfo.UUID)}
-}
-
-// APIHostPorts returns the API server addresses.
-func (api *ProvisionerAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return api.APIAddresser.APIHostPorts(ctx, controllerConfig)
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-func (api *ProvisionerAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	return api.APIAddresser.APIAddresses(ctx, controllerConfig)
 }
 
 // Remove removes every given machine from state.
