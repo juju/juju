@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/controllernode"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
@@ -44,11 +45,11 @@ type ControllerNodeService interface {
 	GetControllerIDs(ctx context.Context) ([]string, error)
 
 	// SetAPIAddresses sets the provided addresses associated with the provided
-	// controller ID.
+	// controller IDs.
 	//
 	// The following errors can be expected:
 	// - [controllernodeerrors.NotFound] if the controller node does not exist.
-	SetAPIAddresses(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, mgmtSpace *network.SpaceInfo) error
+	SetAPIAddresses(ctx context.Context, args controllernode.SetAPIAddressArgs) error
 }
 
 // ApplicationService is an interface for the application domain service.
@@ -328,6 +329,11 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 		return errors.Capture(err)
 	}
 
+	args := controllernode.SetAPIAddressArgs{
+		MgmtSpace:    mgmtSpace,
+		APIAddresses: make(map[string]network.SpaceHostPorts),
+	}
+
 	for _, controllerID := range w.runner.WorkerNames() {
 		unitNumber, err := strconv.Atoi(controllerID)
 		if err != nil {
@@ -346,10 +352,10 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 			w.config.Logger.Errorf(ctx, "no public address for controller %q", controllerID)
 			continue
 		}
-
-		if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, controllerID, hostPorts, mgmtSpace); err != nil {
-			return errors.Capture(err)
-		}
+		args.APIAddresses[controllerID] = hostPorts
+	}
+	if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, args); err != nil {
+		return errors.Capture(err)
 	}
 	return nil
 }
