@@ -13,6 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
 	"github.com/juju/juju/domain/application"
@@ -24,6 +25,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalpassword "github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type modelStateSuite struct {
@@ -163,6 +165,67 @@ func (s *modelStateSuite) TestGetAllUnitPasswordHashesNoUnits(c *tc.C) {
 	c.Assert(hashes, tc.DeepEquals, agentpassword.UnitPasswordHashes{})
 }
 
+// TestSetModelPassword tests that the model password hash can be set.
+func (s *modelStateSuite) TestSetModelPassword(c *tc.C) {
+	st := NewModelState(s.TxnRunnerFactory())
+	s.createModel(c)
+
+	passwordHash := s.genPasswordHash(c)
+	err := st.SetModelPasswordHash(c.Context(), passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Check that the password hash was set correctly.
+	var hash string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT password_hash FROM model_agent").Scan(&hash)
+		return err
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(hash, tc.Equals, string(passwordHash))
+}
+
+// TestMatchesModelPasswordHash tests that the model password hash can be
+// matched.
+func (s *modelStateSuite) TestMatchesModelPasswordHash(c *tc.C) {
+	st := NewModelState(s.TxnRunnerFactory())
+	s.createModel(c)
+
+	passwordHash := s.genPasswordHash(c)
+	err := st.SetModelPasswordHash(c.Context(), passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, err := st.MatchesModelPasswordHash(c.Context(), passwordHash)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
+}
+
+// TestMatchesModelPasswordHashNotSet asserts that if no model password is set
+// then a call to [State.MatchesModelPasswordHash] will return false with no
+// error.
+func (s *modelStateSuite) TestMatchesModelPasswordHashNotSet(c *tc.C) {
+	st := NewModelState(s.TxnRunnerFactory())
+
+	passwordHash := s.genPasswordHash(c)
+	valid, err := st.MatchesModelPasswordHash(c.Context(), passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsFalse)
+}
+
+// TestMatchesModelPasswordHashInvalidPassword asserts that matching the
+// model's password hash with an incorrect value returns false with no error.
+func (s *modelStateSuite) TestMatchesModelPasswordHashInvalidPassword(c *tc.C) {
+	st := NewModelState(s.TxnRunnerFactory())
+	s.createModel(c)
+
+	passwordHash := s.genPasswordHash(c)
+	err := st.SetModelPasswordHash(c.Context(), passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, err := st.MatchesModelPasswordHash(c.Context(), passwordHash+"1")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsFalse)
+}
+
 func (s *modelStateSuite) TestSetMachinePassword(c *tc.C) {
 	st := NewModelState(s.TxnRunnerFactory())
 
@@ -211,8 +274,8 @@ func (s *modelStateSuite) TestMatchesMachinePasswordHashWithNonce(c *tc.C) {
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-UPDATE machine_cloud_instance 
-SET instance_id = 'abc' 
+UPDATE machine_cloud_instance
+SET instance_id = 'abc'
 WHERE machine_uuid = (
     SELECT uuid FROM machine WHERE name = ?);
 `, machineName)
@@ -401,6 +464,34 @@ func (s *modelStateSuite) createApplication(c *tc.C, controller bool) coreapplic
 	return appID
 }
 
+// createModel is testing utility function for establishing the readonly model
+// information in the database along with a record for the model in the
+// model_agent table.
+func (s *modelStateSuite) createModel(c *tc.C) {
+	modelUUID := modeltesting.GenModelUUID(c)
+	controllerUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-type")
+`,
+		modelUUID.String(), controllerUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO model_agent (model_uuid) VALUES (?)
+`,
+		modelUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *modelStateSuite) createUnit(c *tc.C) unit.Name {
 	ctx := c.Context()
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
@@ -428,7 +519,7 @@ SELECT m.name
 FROM machine m
 JOIN net_node nn ON m.net_node_uuid = nn.uuid
 JOIN unit u ON u.net_node_uuid = nn.uuid
-WHERE u.name = ?		
+WHERE u.name = ?
 `, unitName).Scan(&machineName)
 		if err != nil {
 			return err
