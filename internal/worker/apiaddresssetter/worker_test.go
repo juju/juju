@@ -122,7 +122,7 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 	addrs := network.SpaceAddresses{
 		{
 			MachineAddress: network.MachineAddress{
-				Value: "10.0.0.1",
+				Value: "10.0.0.1/24",
 			},
 			SpaceID: "space0",
 		},
@@ -133,7 +133,7 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 	sp := &network.SpaceInfo{
 		ID: "space0",
 	}
-	s.networkService.EXPECT().GetUnitPublicAddresses(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil)
+	s.networkService.EXPECT().GetUnitAddressesForAPI(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil)
 	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space0")).Return(sp, nil)
 	// Synchronization point to ensure the worker processes the event.
 	sync := make(chan struct{})
@@ -205,7 +205,7 @@ func (s *workerSuite) TestConfigChange(c *tc.C) {
 	sp0 := &network.SpaceInfo{
 		ID: "space0",
 	}
-	s.networkService.EXPECT().GetUnitPublicAddresses(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil)
+	s.networkService.EXPECT().GetUnitAddressesForAPI(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil)
 	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space0")).Return(sp0, nil)
 	// Synchronization point to ensure the worker processes the event.
 	sync := make(chan struct{})
@@ -222,7 +222,7 @@ func (s *workerSuite) TestConfigChange(c *tc.C) {
 	sp1 := &network.SpaceInfo{
 		ID: "space1",
 	}
-	s.networkService.EXPECT().GetUnitPublicAddresses(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil)
+	s.networkService.EXPECT().GetUnitAddressesForAPI(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil)
 	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space1")).Return(sp1, nil)
 	// Synchronization point to ensure the worker processes the config event.
 	cfgSync := make(chan struct{})
@@ -298,7 +298,12 @@ func (s *workerSuite) TestNodeAddressChange(c *tc.C) {
 	addrs := network.SpaceAddresses{
 		{
 			MachineAddress: network.MachineAddress{
-				Value: "10.0.0.1",
+				Value: "10.0.0.1/24",
+			},
+			SpaceID: "space0",
+		}, {
+			MachineAddress: network.MachineAddress{
+				Value: "2001:DB8::/32",
 			},
 			SpaceID: "space0",
 		},
@@ -309,7 +314,7 @@ func (s *workerSuite) TestNodeAddressChange(c *tc.C) {
 	sp0 := &network.SpaceInfo{
 		ID: "space0",
 	}
-	s.networkService.EXPECT().GetUnitPublicAddresses(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil)
+	s.networkService.EXPECT().GetUnitAddressesForAPI(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil)
 	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space0")).Return(sp0, nil).MaxTimes(2)
 	// Synchronization point to ensure the worker processes the event.
 	sync := make(chan struct{})
@@ -327,7 +332,7 @@ func (s *workerSuite) TestNodeAddressChange(c *tc.C) {
 			SpaceID: "space0",
 		},
 	}
-	s.networkService.EXPECT().GetUnitPublicAddresses(gomock.Any(), unit.Name("controller/1")).Return(newAddrs, nil)
+	s.networkService.EXPECT().GetUnitAddressesForAPI(gomock.Any(), unit.Name("controller/1")).Return(newAddrs, nil)
 	// Synchronization point to ensure the worker processes the config event.
 	addrSync := make(chan struct{})
 	newHP := network.SpaceAddressesWithPort(newAddrs, 17070)
