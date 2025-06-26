@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 	"github.com/juju/juju/cloud"
@@ -21,9 +22,10 @@ import (
 // mockState implements State interface and allows inspection of called
 // methods.
 type mockState struct {
-	model    *mockModel
-	removed  bool
-	isSystem bool
+	model          *mockModel
+	removed        bool
+	isSystem       bool
+	controllerUUID string
 
 	watcher state.NotifyWatcher
 }
@@ -39,8 +41,9 @@ func newMockState(modelOwner names.UserTag, modelName string, isSystem bool) *mo
 	}
 
 	st := &mockState{
-		model:    &model,
-		isSystem: isSystem,
+		model:          &model,
+		isSystem:       isSystem,
+		controllerUUID: utils.MustNewUUID().String(),
 		watcher: &mockWatcher{
 			changes: make(chan struct{}, 1),
 		},
@@ -92,6 +95,10 @@ func (m *mockState) WatchModelEntityReferences(mUUID string) state.NotifyWatcher
 
 func (m *mockState) ModelUUID() string {
 	return m.model.UUID()
+}
+
+func (m *mockState) ControllerUUID() string {
+	return m.controllerUUID
 }
 
 // mockModel implements Model interface and allows inspection of called

@@ -61,8 +61,9 @@ type Tests struct {
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *gc.C, ctx stdcontext.Context, cfg *config.Config) environs.Environ {
 	e, err := environs.New(ctx, environs.OpenParams{
-		Cloud:  t.CloudSpec(),
-		Config: cfg,
+		ControllerUUID: t.ControllerUUID,
+		Cloud:          t.CloudSpec(),
+		Config:         cfg,
 	})
 	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", cfg.AllAttrs()))
 	c.Assert(e, gc.NotNil)

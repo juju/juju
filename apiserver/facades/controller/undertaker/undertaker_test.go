@@ -114,6 +114,7 @@ func (s *undertakerSuite) TestModelInfo(c *gc.C) {
 		c.Assert(info.ForceDestroyed, gc.Equals, true)
 		c.Assert(info.DestroyTimeout, gc.NotNil)
 		c.Assert(*info.DestroyTimeout, gc.Equals, time.Minute)
+		c.Assert(info.ControllerUUID, gc.Equals, test.st.controllerUUID)
 	}
 }
 

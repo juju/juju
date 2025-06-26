@@ -18,6 +18,7 @@ type UndertakerModelInfo struct {
 	Life           life.Value     `json:"life"`
 	ForceDestroyed bool           `json:"force-destroyed,omitempty"`
 	DestroyTimeout *time.Duration `json:"destroy-timeout,omitempty"`
+	ControllerUUID string         `json:"controller-uuid"`
 }
 
 // UndertakerModelInfoResult holds the result of an API call that returns an
