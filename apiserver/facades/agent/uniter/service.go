@@ -9,8 +9,10 @@ import (
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	coreconfig "github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -398,6 +400,10 @@ type MachineService interface {
 	// IsMachineManuallyProvisioned returns whether the machine is a manual
 	// machine.
 	IsMachineManuallyProvisioned(ctx context.Context, machineName coremachine.Name) (bool, error)
+
+	// GetSupportedContainersTypes returns the supported container types for the
+	// provider.
+	GetSupportedContainersTypes(ctx context.Context, mUUID machine.UUID) ([]instance.ContainerType, error)
 }
 
 // RelationService defines the methods that the facade assumes from the

@@ -583,6 +583,8 @@ func (st *State) getMachineDoc(id string) (*machineDoc, error) {
 	case nil:
 		return mdoc, nil
 	case mgo.ErrNotFound:
+		// Work out what's still calling machine.
+		// debug.PrintStack()
 		return nil, errors.NotFoundf("machine %s", id)
 	default:
 		return nil, errors.Annotatef(err, "cannot get machine %s", id)

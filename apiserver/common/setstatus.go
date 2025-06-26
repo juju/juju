@@ -37,21 +37,16 @@ func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc, clock cloc
 }
 
 func (s *StatusSetter) setEntityStatus(tag names.Tag, entityStatus status.Status, info string, data map[string]interface{}, updated *time.Time) error {
+	switch tag.Kind() {
+	case names.ApplicationTagKind, names.UnitTagKind, names.MachineTagKind:
+		return apiservererrors.NotSupportedError(tag, fmt.Sprintf("setting status for %q", tag))
+	}
+
 	entity, err := s.st.FindEntity(tag)
 	if err != nil {
 		return err
 	}
 	switch entity := entity.(type) {
-	// Use ApplicationStatusSetter for setting application status.
-	case *state.Application:
-		return apiservererrors.ErrPerm
-	// Use UnitStatusSetter for setting unit status.
-	case *state.Unit:
-		return apiservererrors.ErrPerm
-	// Use domain methods for setting machine status.
-	case *state.Machine:
-		return apiservererrors.ErrPerm
-
 	case status.StatusSetter:
 		sInfo := status.StatusInfo{
 			Status:  entityStatus,

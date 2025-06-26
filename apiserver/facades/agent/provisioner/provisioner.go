@@ -247,7 +247,7 @@ func (api *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.Machi
 	}
 	entity, err := api.st.FindEntity(tag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "finding machine %q", tag.Id())
 	}
 	// The authorization function guarantees that the tag represents a
 	// machine.
