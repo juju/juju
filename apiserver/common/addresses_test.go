@@ -49,7 +49,7 @@ func (s *apiAddresserSuite) TestAPIHostPorts(c *tc.C) {
 		"one": {"10.2.3.54:1"},
 		"two": {"192.168.5.7:2"},
 	}
-	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(res, nil)
+	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(res, nil)
 	expected := [][]params.HostPort{
 		{{
 			Address: params.Address{Value: "10.2.3.54"},

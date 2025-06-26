@@ -73,11 +73,11 @@ type State interface {
 	// controller node.
 	GetAPIAddresses(ctx context.Context, ctrlID string) ([]string, error)
 
-	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+	// GetAllAPIAddressesByControllerIDForAgents returns a map of controller IDs to their API
 	// addresses that are available for agents. The map is keyed by controller
 	// ID, and the values are slices of strings representing the API addresses
 	// for each controller node.
-	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	GetAllAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
 
 	// GetAPIAddressesForAgents returns the list of API address strings including
 	// port for the provided controller node that are available for agents.
@@ -259,12 +259,12 @@ func (s *Service) GetAPIAddresses(ctx context.Context, nodeID string) ([]string,
 	return s.st.GetAPIAddresses(ctx, nodeID)
 }
 
-// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+// GetAllAPIAddressesByControllerIDForAgents returns a map of controller IDs to their API
 // addresses that are available for agents. The map is keyed by controller ID,
 // and the values are slices of strings representing the API addresses for each
 // controller node.
-func (s *Service) GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error) {
-	return s.st.GetAllAPIAddressesForAgents(ctx)
+func (s *Service) GetAllAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error) {
+	return s.st.GetAllAPIAddressesByControllerIDForAgents(ctx)
 }
 
 // GetAllAPIAddressesForAgentsInPreferredOrder returns a string slice of api

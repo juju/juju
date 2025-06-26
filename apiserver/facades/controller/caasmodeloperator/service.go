@@ -40,11 +40,11 @@ type ControllerConfigService interface {
 // ControllerNodeService defines the methods on the controller node service
 // that are needed by APIAddresser used by the caasmodeloperator API.
 type ControllerNodeService interface {
-	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+	// GetAllAPIAddressesByControllerIDForAgents returns a map of controller IDs to their API
 	// addresses that are available for agents. The map is keyed by controller
 	// ID, and the values are slices of strings representing the API addresses
 	// for each controller node.
-	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	GetAllAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
 	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
 	// addresses available for agents ordered to prefer local-cloud scoped
 	// addresses and IPv4 over IPv6 for each machine.
