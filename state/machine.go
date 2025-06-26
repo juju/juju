@@ -1214,52 +1214,6 @@ func (m *Machine) setConstraintsOps(cons constraints.Value) ([]txn.Op, error) {
 	return ops, nil
 }
 
-// Status returns the status of the machine.
-func (m *Machine) status() (status.StatusInfo, error) {
-	mStatus, err := getStatus(m.st.db(), m.globalKey(), "machine")
-	if err != nil {
-		return mStatus, err
-	}
-	return mStatus, nil
-}
-
-// SetStatus sets the status of the machine.
-func (m *Machine) setStatus(statusInfo status.StatusInfo) error {
-	switch statusInfo.Status {
-	case status.Started, status.Stopped:
-	case status.Error:
-		if statusInfo.Message == "" {
-			return errors.Errorf("cannot set status %q without message", statusInfo.Status)
-		}
-	case status.Pending:
-		// If a machine is not yet provisioned, we allow its status
-		// to be set back to pending (when a retry is to occur).
-
-		// TODO(nvinuesa): we need to add back the check for provisioned and
-		// if it's not then the machine goes right to status.DOWN:
-		// _, err := m.InstanceId()
-		// allowPending := errors.Is(err, errors.NotProvisioned)
-		// if allowPending {
-		// 	break
-		// }
-		// fallthrough
-	case status.Down:
-		return errors.Errorf("cannot set status %q", statusInfo.Status)
-	default:
-		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
-	}
-	return setStatus(m.st.db(), setStatusParams{
-		badge:      "machine",
-		statusKind: m.Kind(),
-		statusId:   m.doc.Id,
-		globalKey:  m.globalKey(),
-		status:     statusInfo.Status,
-		message:    statusInfo.Message,
-		rawData:    statusInfo.Data,
-		updated:    timeOrNow(statusInfo.Since, m.st.clock()),
-	})
-}
-
 // Clean returns true if the machine does not have any deployed units or containers.
 func (m *Machine) Clean() bool {
 	return m.doc.Clean
