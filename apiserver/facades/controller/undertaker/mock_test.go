@@ -4,11 +4,11 @@
 package undertaker_test
 
 import (
-	"github.com/juju/utils/v3"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 	"github.com/juju/juju/cloud"
