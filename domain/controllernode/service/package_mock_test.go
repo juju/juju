@@ -276,6 +276,45 @@ func (c *MockStateGetAllAPIAddressesWithScopeForClientsCall) DoAndReturn(f func(
 	return c
 }
 
+// GetAllCloudLocalAPIAddresses mocks base method.
+func (m *MockState) GetAllCloudLocalAPIAddresses(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllCloudLocalAPIAddresses", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllCloudLocalAPIAddresses indicates an expected call of GetAllCloudLocalAPIAddresses.
+func (mr *MockStateMockRecorder) GetAllCloudLocalAPIAddresses(arg0 any) *MockStateGetAllCloudLocalAPIAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllCloudLocalAPIAddresses", reflect.TypeOf((*MockState)(nil).GetAllCloudLocalAPIAddresses), arg0)
+	return &MockStateGetAllCloudLocalAPIAddressesCall{Call: call}
+}
+
+// MockStateGetAllCloudLocalAPIAddressesCall wrap *gomock.Call
+type MockStateGetAllCloudLocalAPIAddressesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllCloudLocalAPIAddressesCall) Return(arg0 []string, arg1 error) *MockStateGetAllCloudLocalAPIAddressesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllCloudLocalAPIAddressesCall) Do(f func(context.Context) ([]string, error)) *MockStateGetAllCloudLocalAPIAddressesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllCloudLocalAPIAddressesCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockStateGetAllCloudLocalAPIAddressesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetControllerIDs mocks base method.
 func (m *MockState) GetControllerIDs(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()

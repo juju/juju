@@ -737,6 +737,35 @@ func (s *stateSuite) TestGetAllAPIAddressesWithScopeForClients(c *tc.C) {
 	c.Assert(result[1], tc.SameContents, controllernode.APIAddresses(addrs2))
 }
 
+func (s *stateSuite) TestGetAllCloudLocalAPIAddresses(c *tc.C) {
+	// Arrange
+	controllerID := "1"
+
+	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	addrs := controllernode.APIAddresses{
+		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "10.0.0.42:18080", IsAgent: true, Scope: network.ScopePublic},
+		{Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
+	}
+
+	err = s.state.SetAPIAddresses(
+		c.Context(),
+		controllerID,
+		addrs,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	result, err := s.state.GetAllCloudLocalAPIAddresses(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Assert(result, tc.SameContents, []string{"10.0.0.1:17070"})
+}
+
 func (s *stateSuite) checkControllerAPIAddress(c *tc.C, controllerID string, addrs []controllernode.APIAddress) {
 	var (
 		resultAddresses, resultScopes []string

@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"net"
+	"net/netip"
 	"strconv"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
@@ -89,6 +90,12 @@ type State interface {
 	// GetAllAPIAddressesWithScopeForClients returns all APIAddresses available for
 	// clients, divided by controller node.
 	GetAllAPIAddressesWithScopeForClients(ctx context.Context) ([]controllernode.APIAddresses, error)
+
+	// GetAllCloudLocalAPIAddresses returns a string slice of api
+	// addresses available for clients. The list only contains cloud
+	// local addresses. The returned strings are IP address only without
+	// port numbers.
+	GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error)
 }
 
 // Service provides the API for working with controller nodes.
@@ -295,6 +302,26 @@ func (s *Service) GetAllAPIAddressesForClients(ctx context.Context) ([]string, e
 		orderedAddrs = append(orderedAddrs, addrs.PrioritizedForScope(controllernode.ScopeMatchPublic)...)
 	}
 	return orderedAddrs, nil
+}
+
+// GetAllCloudLocalAPIAddresses returns a string slice of api
+// addresses available for clients. The list only contains cloud
+// local addresses. The returned strings are IP address only without
+// port numbers.
+func (s *Service) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
+	addrs, err := s.st.GetAllCloudLocalAPIAddresses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	returnAddrs := make([]string, len(addrs))
+	for i, addr := range addrs {
+		ip, err := netip.ParseAddrPort(addr)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		returnAddrs[i] = ip.Addr().String()
+	}
+	return returnAddrs, nil
 }
 
 // GetAPIAddressesForAgents returns the list of API address strings including
