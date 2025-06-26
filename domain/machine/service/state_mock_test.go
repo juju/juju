@@ -629,6 +629,45 @@ func (c *MockStateGetMachineParentUUIDCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// GetMachinePlacementDirective mocks base method.
+func (m *MockState) GetMachinePlacementDirective(ctx context.Context, mName string) (*string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachinePlacementDirective", ctx, mName)
+	ret0, _ := ret[0].(*string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachinePlacementDirective indicates an expected call of GetMachinePlacementDirective.
+func (mr *MockStateMockRecorder) GetMachinePlacementDirective(ctx, mName any) *MockStateGetMachinePlacementDirectiveCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachinePlacementDirective", reflect.TypeOf((*MockState)(nil).GetMachinePlacementDirective), ctx, mName)
+	return &MockStateGetMachinePlacementDirectiveCall{Call: call}
+}
+
+// MockStateGetMachinePlacementDirectiveCall wrap *gomock.Call
+type MockStateGetMachinePlacementDirectiveCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachinePlacementDirectiveCall) Return(arg0 *string, arg1 error) *MockStateGetMachinePlacementDirectiveCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachinePlacementDirectiveCall) Do(f func(context.Context, string) (*string, error)) *MockStateGetMachinePlacementDirectiveCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachinePlacementDirectiveCall) DoAndReturn(f func(context.Context, string) (*string, error)) *MockStateGetMachinePlacementDirectiveCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachinePrincipalApplications mocks base method.
 func (m *MockState) GetMachinePrincipalApplications(ctx context.Context, mName machine.Name) ([]string, error) {
 	m.ctrl.T.Helper()

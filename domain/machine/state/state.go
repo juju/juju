@@ -1265,6 +1265,48 @@ ORDER BY a.name ASC
 	return result, nil
 }
 
+// GetMachinePlacement returns the placement structure as it was recorded for
+// the given machine.
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+func (st *State) GetMachinePlacementDirective(ctx context.Context, mName string) (*string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &placementDirective.*
+FROM machine_placement
+WHERE machine_uuid = $machineUUID.uuid
+`, placementDirective{}, machineUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var placementDirective placementDirective
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		machineUUID, err := st.getMachineUUIDFromName(ctx, tx, machine.Name(mName))
+		if err != nil {
+			return err
+		}
+		err = tx.Query(ctx, stmt, machineUUID).Get(&placementDirective)
+		if err != nil {
+			return errors.Errorf("querying placement for machine %q: %w", mName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("querying placement for machine %q: %w", mName, err)
+	}
+
+	if placementDirective.Directive.Valid {
+		return &placementDirective.Directive.V, nil
+	}
+	return nil, nil
+}
+
 // NamespaceForWatchMachineCloudInstance returns the namespace for watching
 // machine cloud instance changes.
 func (*State) NamespaceForWatchMachineCloudInstance() string {
