@@ -341,7 +341,7 @@ var _ = gc.Suite(&UndertakerSuite{})
 func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	controllerUuid := utils.MustNewUUID().String()
+	controllerUUID := utils.MustNewUUID().String()
 
 	facade := NewMockFacade(ctrl)
 	facade.EXPECT().SetStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -363,7 +363,7 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 			Result: params.UndertakerModelInfo{
 				Life:           life.Dying,
 				ForceDestroyed: false,
-				ControllerUUID: controllerUuid,
+				ControllerUUID: controllerUUID,
 			},
 		}, nil),
 		facade.EXPECT().ProcessDyingModel().Return(nil),
@@ -375,7 +375,7 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 			Result: params.UndertakerModelInfo{
 				Life:           life.Dying,
 				ForceDestroyed: true, // changed from false to true to cause worker to exit.
-				ControllerUUID: controllerUuid,
+				ControllerUUID: controllerUUID,
 			},
 		}, nil),
 	)
