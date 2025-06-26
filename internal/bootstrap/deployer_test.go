@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/arch"
-	base "github.com/juju/juju/core/base"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
@@ -205,7 +204,7 @@ func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *tc.C) {
 
 	deployer := s.newBaseDeployer(c, cfg)
 
-	info, err := deployer.DeployCharmhubCharm(c.Context(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
+	info, err := deployer.DeployCharmhubCharm(c.Context(), "arm64", corebase.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.URL.String(), tc.Equals, "ch:arm64/inferi-1")
 	c.Assert(info.Origin, tc.DeepEquals, &corecharm.Origin{
