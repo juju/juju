@@ -32,6 +32,15 @@ type WatchableService struct {
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
+	// NewNamespaceWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNamespaceWatcher(
+		initialStateQuery eventsource.NamespaceQuery,
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+
 	// NewNamespaceMapperWatcher returns a new watcher that receives changes
 	// from the input base watcher's db/queue. Change-log events will be emitted
 	// only if the filter accepts them, and dispatching the notifications via
@@ -95,7 +104,7 @@ func (s *WatchableService) WatchMachineLife(ctx context.Context, machineName mac
 
 // WatchMachineContainerLife returns a watcher that observes machine container
 // life changes.
-func (s *WatchableService) WatchMachineContainerLife(ctx context.Context, parentMachineName machine.Name) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchMachineContainerLife(ctx context.Context, parentMachineName machine.Name) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -119,8 +128,9 @@ func (s *WatchableService) WatchMachineContainerLife(ctx context.Context, parent
 
 	prefix := parentMachineName.Parent().String() + "/" + string(containerType) + "/"
 
-	table := s.st.NamespaceForMachineLife()
-	return s.watcherFactory.NewNotifyWatcher(
+	table, stmt, arg := s.st.InitialMachineContainerLifeStatement()
+	return s.watcherFactory.NewNamespaceWatcher(
+		eventsource.InitialNamespaceChanges(stmt, arg(prefix)),
 		eventsource.PredicateFilter(
 			table,
 			changestream.All,

@@ -95,7 +95,7 @@ func (i Name) Parent() Name {
 		// If there is no slash, then the name is not a container.
 		return i
 	}
-	return Name(i[:slash])
+	return i[:slash]
 }
 
 // Child returns the name of the child machine. It returns the [Name] itself
@@ -114,7 +114,7 @@ func (i Name) Child() Name {
 		// If there is no slash, then the name is not a container.
 		return i
 	}
-	return Name(i[slash+1:])
+	return i[slash+1:]
 }
 
 // RebootAction defines the action a machine should
