@@ -203,8 +203,8 @@ func (s *modelStorageSuite) newMachineFilesystem(c *tc.C) (string, string) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope)
-VALUES (?, ?, 0, 2)
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 1)
 	`,
 		fsUUID.String(), fsUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -219,8 +219,8 @@ func (s *modelStorageSuite) newMachineVolume(c *tc.C) (string, string) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
-INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope)
-VALUES (?, ?, 0, 2)
+INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 1)
 	`,
 		vUUID.String(), vUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -235,8 +235,8 @@ func (s *modelStorageSuite) newModelFilesystem(c *tc.C) (string, string) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope)
-VALUES (?, ?, 0, 1)
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 0)
 	`,
 		fsUUID.String(), fsUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -251,8 +251,8 @@ func (s *modelStorageSuite) newModelVolume(c *tc.C) (string, string) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
-INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope)
-VALUES (?, ?, 0, 1)
+INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 0)
 	`,
 		vUUID.String(), vUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -276,8 +276,8 @@ INSERT INTO storage_filesystem_attachment (uuid,
 										   storage_filesystem_uuid,
 										   net_node_uuid,
 										   life_id,
-										   provision_scope)
-VALUES (?, ?, ?, 0, 2)
+										   provision_scope_id)
+VALUES (?, ?, ?, 0, 1)
 `,
 		attachmentUUID.String(), fsUUID, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -301,8 +301,8 @@ INSERT INTO storage_volume_attachment (uuid,
 									   storage_volume_uuid,
 									   net_node_uuid,
 									   life_id,
-									   provision_scope)
-VALUES (?, ?, ?, 0, 2)
+									   provision_scope_id)
+VALUES (?, ?, ?, 0, 1)
 `,
 		attachmentUUID.String(), vUUID, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -326,8 +326,8 @@ INSERT INTO storage_volume_attachment_plan (uuid,
 									   		storage_volume_uuid,
 											net_node_uuid,
 											life_id,
-											provision_scope)
-VALUES (?, ?, ?, 0, 2)
+											provision_scope_id)
+VALUES (?, ?, ?, 0, 1)
 `,
 		attachmentUUID.String(), vUUID, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -351,8 +351,8 @@ INSERT INTO storage_filesystem_attachment (uuid,
 										   storage_filesystem_uuid,
 										   net_node_uuid,
 										   life_id,
-										   provision_scope)
-VALUES (?, ?, ?, 0, 1)
+										   provision_scope_id)
+VALUES (?, ?, ?, 0, 0)
 `,
 		attachmentUUID.String(), fsUUID, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -376,8 +376,8 @@ INSERT INTO storage_volume_attachment (uuid,
 									   storage_volume_uuid,
 									   net_node_uuid,
 									   life_id,
-									   provision_scope)
-VALUES (?, ?, ?, 0, 1)
+									   provision_scope_id)
+VALUES (?, ?, ?, 0, 0)
 `,
 		attachmentUUID.String(), vUUID, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)

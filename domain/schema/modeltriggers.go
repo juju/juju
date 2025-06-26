@@ -109,7 +109,7 @@ VALUES (%[2]d,
 CREATE TRIGGER trg_log_storage_%[1]s_insert_life_machine_provisioning
 AFTER INSERT ON storage_%[1]s
 FOR EACH ROW
-	WHEN NEW.provision_scope = 2
+	WHEN NEW.provision_scope_id = 1
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (1, %[2]d, NEW.net_node_uuid, DATETIME('now'));
@@ -119,7 +119,7 @@ END;
 CREATE TRIGGER trg_log_storage_%[1]s_update_life_machine_provisioning
 AFTER UPDATE ON storage_%[1]s
 FOR EACH ROW
-	WHEN NEW.provision_scope = 2
+	WHEN NEW.provision_scope_id = 1
 	AND NEW.life_id != OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
@@ -131,7 +131,7 @@ END;
 CREATE TRIGGER trg_log_storage_%[1]s_delete_life_machine_provisioning
 AFTER DELETE ON storage_%[1]s
 FOR EACH ROW
-	WHEN OLD.provision_scope = 2
+	WHEN OLD.provision_scope_id = 1
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.net_node_uuid, DATETIME('now'));
@@ -193,14 +193,14 @@ BEGIN
                  FROM   storage_%[1]s_attachment
                  WHERE  storage_%[1]s_uuid = NEW.storage_%[1]s_uuid)
     AND    s.uuid = NEW.storage_%[1]s_uuid
-    AND    s.provision_scope = 2;
+    AND    s.provision_scope_id = 1;
 END;
 
 -- update trigger for storage entity.
 CREATE TRIGGER trg_log_storage_%[1]s_update_life_machine_provisioning
 AFTER UPDATE ON storage_%[1]s
 FOR EACH ROW
-	WHEN NEW.provision_scope = 2
+	WHEN NEW.provision_scope_id = 1
 	AND  NEW.life_id != OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
@@ -227,7 +227,7 @@ BEGIN
                  FROM   storage_%[1]s_attachment
                  WHERE  storage_%[1]s_uuid = OLD.storage_%[1]s_uuid)
     AND    s.uuid = OLD.storage_%[1]s_uuid
-    AND    s.provision_scope = 2;
+    AND    s.provision_scope_id = 1;
 END;
 `,
 		storageTable, namespace,
@@ -261,7 +261,7 @@ VALUES (%[3]d,
 CREATE TRIGGER trg_log_storage_%[1]s_insert_life_model_provisioning
 AFTER INSERT ON storage_%[1]s
 FOR EACH ROW
-	WHEN NEW.provision_scope = 1
+	WHEN NEW.provision_scope_id = 0
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (1, %[3]d, NEW.%[2]s, DATETIME('now'));
@@ -271,7 +271,7 @@ END;
 CREATE TRIGGER trg_log_storage_%[1]s_update_life_model_provisioning
 AFTER UPDATE ON storage_%[1]s
 FOR EACH ROW
-	WHEN NEW.provision_scope = 1
+	WHEN NEW.provision_scope_id = 0
 	AND NEW.life_id != OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
@@ -283,7 +283,7 @@ END;
 CREATE TRIGGER trg_log_storage_%[1]s_delete_life_model_provisioning
 AFTER DELETE ON storage_%[1]s
 FOR EACH ROW
-	WHEN OLD.provision_scope = 1
+	WHEN OLD.provision_scope_id = 0
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[3]d, OLD.%[2]s, DATETIME('now'));

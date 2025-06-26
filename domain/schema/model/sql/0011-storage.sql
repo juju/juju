@@ -288,7 +288,6 @@ CREATE TABLE storage_volume (
     uuid TEXT NOT NULL PRIMARY KEY,
     volume_id TEXT NOT NULL,
     life_id INT NOT NULL,
-    provision_scope INT,
     provider_id TEXT,
     size_mib INT,
     hardware_id TEXT,
@@ -329,7 +328,6 @@ CREATE TABLE storage_volume_attachment (
     storage_volume_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
-    provision_scope INT,
     block_device_uuid TEXT,
     read_only BOOLEAN,
     -- TODO: we may change provision_scope_id to NOT NULL in the future.
@@ -386,7 +384,6 @@ CREATE TABLE storage_filesystem (
     uuid TEXT NOT NULL PRIMARY KEY,
     filesystem_id TEXT NOT NULL,
     life_id INT NOT NULL,
-    provision_scope INT,
     provider_id TEXT,
     size_mib INT,
     -- TODO: we may change provision_scope_id to NOT NULL in the future.
@@ -424,7 +421,6 @@ CREATE TABLE storage_filesystem_attachment (
     storage_filesystem_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
-    provision_scope INT,
     mount_point TEXT,
     read_only BOOLEAN,
     -- TODO: we may change provision_scope_id to NOT NULL in the future.
@@ -462,9 +458,11 @@ CREATE TABLE storage_volume_attachment_plan (
     storage_volume_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
-    provision_scope INT,
     device_type_id INT,
     block_device_uuid TEXT,
+    -- TODO: we may change provision_scope_id to NOT NULL in the future.
+    -- We leave it nullable for now to avoid too much code churn.
+    provision_scope_id INT,
     CONSTRAINT fk_storage_volume_attachment_plan_vol
     FOREIGN KEY (storage_volume_uuid)
     REFERENCES storage_volume (uuid),
@@ -479,7 +477,10 @@ CREATE TABLE storage_volume_attachment_plan (
     REFERENCES storage_volume_device_type (id),
     CONSTRAINT fk_storage_volume_attachment_plan_block
     FOREIGN KEY (block_device_uuid)
-    REFERENCES block_device (uuid)
+    REFERENCES block_device (uuid),
+    CONSTRAINT fk_storage_volume_attachment_plan_provision_scope_id
+    FOREIGN KEY (provision_scope_id)
+    REFERENCES storage_provision_scope (id)
 );
 
 CREATE TABLE storage_volume_attachment_plan_attr (
