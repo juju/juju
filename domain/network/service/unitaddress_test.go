@@ -309,7 +309,7 @@ func (s *unitAddressSuite) TestGetPublicAddresses(c *tc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
+				Value:      "10.0.0.1/24",
 				ConfigType: network.ConfigStatic,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
@@ -318,7 +318,7 @@ func (s *unitAddressSuite) TestGetPublicAddresses(c *tc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
+				Value:      "10.0.0.2/24",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
@@ -327,7 +327,7 @@ func (s *unitAddressSuite) TestGetPublicAddresses(c *tc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.2",
+				Value:      "54.32.1.2/24",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeMachineLocal,
@@ -336,7 +336,7 @@ func (s *unitAddressSuite) TestGetPublicAddresses(c *tc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.3",
+				Value:      "54.32.1.3/24",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeCloudLocal,
@@ -362,7 +362,7 @@ func (s *unitAddressSuite) TestGetPublicAddressesCloudLocal(c *tc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
+				Value:      "10.0.0.1/24",
 				ConfigType: network.ConfigStatic,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeCloudLocal,
@@ -371,7 +371,7 @@ func (s *unitAddressSuite) TestGetPublicAddressesCloudLocal(c *tc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
+				Value:      "10.0.0.2/24",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeCloudLocal,
@@ -380,7 +380,7 @@ func (s *unitAddressSuite) TestGetPublicAddressesCloudLocal(c *tc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.2",
+				Value:      "54.32.1.2/24",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeMachineLocal,
@@ -389,7 +389,7 @@ func (s *unitAddressSuite) TestGetPublicAddressesCloudLocal(c *tc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.3",
+				Value:      "54.32.1.3/24",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopeMachineLocal,
@@ -416,6 +416,71 @@ func (s *unitAddressSuite) TestGetPublicAddressesNoAddresses(c *tc.C) {
 	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(network.SpaceAddresses{}, nil)
 
 	_, err := s.service(c).GetUnitPublicAddresses(c.Context(), unitName)
+	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
+}
+
+func (s *unitAddressSuite) TestGetUnitAddressesForAPI(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unit.Name("foo/0")
+
+	unitAddresses := network.SpaceAddresses{
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "2001:DB8::/32",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv6Address,
+				Scope:      network.ScopePublic,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.2/24",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopePublic,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "54.32.1.2/24",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeMachineLocal,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "54.32.1.3/24",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+			},
+		},
+	}
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return("foo", nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(unitAddresses, nil)
+
+	addrs, err := s.service(c).GetUnitAddressesForAPI(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	// The three addresses should be returned.
+	c.Check(addrs, tc.DeepEquals, append(unitAddresses[:2], unitAddresses[3:]...))
+}
+
+func (s *unitAddressSuite) TestGetUnitAddressesForAPINoAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unit.Name("foo/0")
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(network.SpaceAddresses{}, nil)
+
+	_, err := s.service(c).GetUnitAddressesForAPI(c.Context(), unitName)
 	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
 }
 
