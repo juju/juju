@@ -864,7 +864,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *tc.C) {
 	addrs := []string{"0.2.4.6:1"}
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(addrs, nil).AnyTimes()
 	addrs2 := map[string][]string{"one": {"0.2.4.6:1"}}
-	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs2, nil).MinTimes(1)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(addrs2, nil).MinTimes(1)
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
 		gomock.Any(), coremachine.Name("0"),
 	).Return([]string{
@@ -932,7 +932,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 	addrs := []string{"0.2.4.6:1"}
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(addrs, nil).MinTimes(1)
 	addrs2 := map[string][]string{"one": {"0.2.4.6:1"}}
-	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs2, nil).MinTimes(1)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(addrs2, nil).MinTimes(1)
 
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
 		gomock.Any(), coremachine.Name("0"),

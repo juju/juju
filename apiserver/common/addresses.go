@@ -18,11 +18,11 @@ import (
 // APIAddressAccessor describes methods that allow agents to maintain
 // up-to-date information on how to connect to the Juju API server.
 type APIAddressAccessor interface {
-	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
+	// GetAllAPIAddressesByControllerIDForAgents returns a map of controller IDs to their API
 	// addresses that are available for agents. The map is keyed by controller
 	// ID, and the values are slices of strings representing the API addresses
 	// for each controller node.
-	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	GetAllAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
 
 	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
 	// addresses available for agents ordered to prefer local-cloud scoped
@@ -55,7 +55,7 @@ func NewAPIAddresser(getter APIAddressAccessor, watcherRegistry facade.WatcherRe
 
 // APIHostPorts returns the API server addresses.
 func (a *APIAddresser) APIHostPorts(ctx context.Context) (params.APIHostPortsResult, error) {
-	srvs, err := a.apiAddressAccessor.GetAllAPIAddressesForAgents(ctx)
+	srvs, err := a.apiAddressAccessor.GetAllAPIAddressesByControllerIDForAgents(ctx)
 	if err != nil {
 		return params.APIHostPortsResult{}, err
 	}

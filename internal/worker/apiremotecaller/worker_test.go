@@ -97,7 +97,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServers(c *tc.C) {
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{}, nil)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -128,7 +128,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServerError(c *tc.C) {
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{}, controllernodeerrors.EmptyAPIAddresses)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{}, controllernodeerrors.EmptyAPIAddresses)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -159,7 +159,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWhilstMatchingOrigin(c *tc.C) {
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
 		"0": {
 			"10.0.0.0:17070",
 		},
@@ -199,7 +199,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
 		"0": {
 			"10.0.0.0:17070",
 		},
@@ -279,7 +279,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesUpdatesAddress(c *tc.C) {
 	done2 := make(chan struct{})
 
 	gomock.InOrder(
-		s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -290,7 +290,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesUpdatesAddress(c *tc.C) {
 		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
 			close(done1)
 		}),
-		s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -357,7 +357,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 	done2 := make(chan struct{})
 
 	gomock.InOrder(
-		s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -368,7 +368,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
 			close(done1)
 		}),
-		s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -452,7 +452,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 	done2 := make(chan struct{})
 
 	gomock.InOrder(
-		s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -463,7 +463,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
 			close(done1)
 		}),
-		s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},

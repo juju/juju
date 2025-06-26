@@ -449,7 +449,7 @@ func (s *stateSuite) TestSetAPIAddressControllerNodeExists(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.checkControllerAPIAddress(c, controllerID, addrs)
 
-	agentAddresses, err := s.state.GetAllAPIAddressesForAgents(c.Context())
+	agentAddresses, err := s.state.GetAllAPIAddressesByControllerIDForAgents(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(agentAddresses, tc.DeepEquals, map[string][]string{
 		"1": {
@@ -471,7 +471,7 @@ func (s *stateSuite) TestSetAPIAddressControllerNodeExists(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.checkControllerAPIAddress(c, controllerID, newAddrs)
 
-	agentAddresses, err = s.state.GetAllAPIAddressesForAgents(c.Context())
+	agentAddresses, err = s.state.GetAllAPIAddressesByControllerIDForAgents(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(agentAddresses, tc.DeepEquals, map[string][]string{
 		"1": {
@@ -504,7 +504,7 @@ func (s *stateSuite) TestGetAllAPIAddressesForAgent(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	agentAddresses, err := s.state.GetAllAPIAddressesForAgents(c.Context())
+	agentAddresses, err := s.state.GetAllAPIAddressesByControllerIDForAgents(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(agentAddresses, tc.DeepEquals, map[string][]string{
 		"1": {
@@ -524,7 +524,7 @@ func (s *stateSuite) TestGetAllAPIAddressesForAgent(c *tc.C) {
 
 func (s *stateSuite) TestGetAllAPIAddressesForAgentEmptyAddress(c *tc.C) {
 	// If we set an empty address then it should not be included in the
-	// GetAllAPIAddressesForAgents result.
+	// GetAllAPIAddressesByControllerIDForAgents result.
 
 	var controllerIDs []string
 	for i := 1; i < 5; i++ {
@@ -555,7 +555,7 @@ func (s *stateSuite) TestGetAllAPIAddressesForAgentEmptyAddress(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	agentAddresses, err := s.state.GetAllAPIAddressesForAgents(c.Context())
+	agentAddresses, err := s.state.GetAllAPIAddressesByControllerIDForAgents(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(agentAddresses, tc.DeepEquals, map[string][]string{
 		"1": {

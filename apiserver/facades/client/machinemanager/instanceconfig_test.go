@@ -110,7 +110,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 	addrs := []string{"1.2.3.4:1"}
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(addrs, nil).MinTimes(1)
 	addrs2 := map[string][]string{"one": {"1.2.3.4:1"}}
-	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs2, nil).MinTimes(1)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesByControllerIDForAgents(gomock.Any()).Return(addrs2, nil).MinTimes(1)
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
