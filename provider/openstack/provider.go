@@ -169,7 +169,7 @@ func (p EnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) 
 
 	e := &Environ{
 		name:           args.Config.Name(),
-		uuid:           uuid,
+		modelUUID:      uuid,
 		namespace:      namespace,
 		clock:          clock.WallClock,
 		configurator:   p.Configurator,
@@ -312,7 +312,7 @@ type Environ struct {
 	environs.NoContainerAddressesEnviron
 
 	name           string
-	uuid           string
+	modelUUID      string
 	controllerUUID string
 	namespace      instance.Namespace
 
@@ -1434,7 +1434,7 @@ func (e *Environ) networksForInstance(
 		}
 
 		var port *neutron.PortV2
-		port, err = e.networking.CreatePort(e.uuid, subnetNet.Id, subnetID)
+		port, err = e.networking.CreatePort(e.modelUUID, subnetNet.Id, subnetID)
 		if err != nil {
 			break
 		}
@@ -2244,7 +2244,7 @@ func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 	// over them, one by one.
 	changes := set.NewStrings()
 	for _, port := range ports {
-		if !strings.HasPrefix(port.Name, fmt.Sprintf("juju-%s", e.uuid)) {
+		if !strings.HasPrefix(port.Name, fmt.Sprintf("juju-%s", e.modelUUID)) {
 			continue
 		}
 		changes.Add(port.Id)

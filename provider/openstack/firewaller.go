@@ -36,8 +36,8 @@ var extractControllerRe = regexp.MustCompile(GroupControllerPattern)
 var shortRetryStrategy = retry.CallArgs{
 	Clock:       clock.WallClock,
 	MaxDuration: 5 * time.Second,
-	Delay:       3 * time.Second,
-	BackoffFunc: retry.DoubleDelay,
+	Delay:       time.Second,
+	BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
 }
 
 // FirewallerFactory for obtaining firewaller object.
