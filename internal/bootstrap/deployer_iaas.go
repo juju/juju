@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	corebase "github.com/juju/juju/core/base"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/status"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -18,10 +17,14 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// HostBaseFunc is a function type that returns a corebase.Base and an error.
+type HostBaseFunc func() (corebase.Base, error)
+
 // IAASDeployerConfig holds the configuration for a IAASDeployer.
 type IAASDeployerConfig struct {
 	BaseDeployerConfig
 	ApplicationService IAASApplicationService
+	HostBaseFn         HostBaseFunc
 }
 
 // Validate validates the configuration.
@@ -32,6 +35,9 @@ func (c IAASDeployerConfig) Validate() error {
 	if c.ApplicationService == nil {
 		return jujuerrors.NotValidf("ApplicationService")
 	}
+	if c.HostBaseFn == nil {
+		return jujuerrors.NotValidf("HostBaseFn")
+	}
 	return nil
 }
 
@@ -40,6 +46,7 @@ func (c IAASDeployerConfig) Validate() error {
 type IAASDeployer struct {
 	baseDeployer
 	applicationService IAASApplicationService
+	hostBaseFn         HostBaseFunc
 }
 
 // NewIAASDeployer returns a new ControllerCharmDeployer for IAAS workloads.
@@ -50,24 +57,14 @@ func NewIAASDeployer(config IAASDeployerConfig) (*IAASDeployer, error) {
 	return &IAASDeployer{
 		baseDeployer:       makeBaseDeployer(config.BaseDeployerConfig),
 		applicationService: config.ApplicationService,
+		hostBaseFn:         config.HostBaseFn,
 	}, nil
-}
-
-// ControllerAddress returns the address of the controller that should be
-// used.
-// This address is retrieved from the database, since the machine information
-// is available already.
-func (d *IAASDeployer) ControllerAddress(ctx context.Context) (string, error) {
-	// TODO (stickupkid): We need to ask the provider for the instance address.
-	var controllerAddress string
-	d.logger.Debugf(ctx, "IAAS controller address %v", controllerAddress)
-	return controllerAddress, nil
 }
 
 // ControllerCharmBase returns the base used for deploying the controller
 // charm.
 func (d *IAASDeployer) ControllerCharmBase() (corebase.Base, error) {
-	base, err := coreos.HostBase()
+	base, err := d.hostBaseFn()
 	if err != nil {
 		return corebase.Base{}, errors.Errorf("getting host base: %w", err)
 	}
@@ -76,14 +73,14 @@ func (d *IAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 }
 
 // AddIAASControllerApplication adds the IAAS controller application.
-func (b *IAASDeployer) AddIAASControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) error {
+func (b *IAASDeployer) AddIAASControllerApplication(ctx context.Context, info DeployCharmInfo) error {
 	if err := info.Validate(); err != nil {
 		return errors.Capture(err)
 	}
 
 	origin := *info.Origin
 
-	cfg, err := b.createCharmSettings(controllerAddress)
+	cfg, err := b.createCharmSettings()
 	if err != nil {
 		return errors.Errorf("creating charm settings: %w", err)
 	}
