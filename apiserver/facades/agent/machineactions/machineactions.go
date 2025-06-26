@@ -95,34 +95,7 @@ func (f *Facade) WatchActionNotifications(ctx context.Context, args params.Entit
 // If we end up needing more than ListRunning at some point we could follow/abstract
 // what's done in the client actions package.
 func (f *Facade) RunningActions(ctx context.Context, args params.Entities) params.ActionsByReceivers {
-	canAccess := f.accessMachine
-	tagToActionReceiver := f.backend.TagToActionReceiverFn(f.backend.FindEntity)
-
-	response := params.ActionsByReceivers{
+	return params.ActionsByReceivers{
 		Actions: make([]params.ActionsByReceiver, len(args.Entities)),
 	}
-
-	for i, entity := range args.Entities {
-		currentResult := &response.Actions[i]
-		receiver, err := tagToActionReceiver(entity.Tag)
-		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
-			continue
-		}
-		currentResult.Receiver = receiver.Tag().String()
-
-		if !canAccess(receiver.Tag()) {
-			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		results, err := f.backend.ConvertActions(receiver, receiver.RunningActions)
-		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(err)
-			continue
-		}
-		currentResult.Actions = results
-	}
-
-	return response
 }
