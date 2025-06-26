@@ -34,9 +34,6 @@ type lxdProfileSuite struct {
 	machineTag1 names.MachineTag
 	unitTag1    names.UnitTag
 
-	backend *MockLXDProfileBackend
-	machine *MockLXDProfileMachine
-
 	machineService     *MockMachineService
 	modelInfoService   *MockModelInfoService
 	applicationService *uniter.MockApplicationService
@@ -231,7 +228,6 @@ func (s *lxdProfileSuite) TestCanApplyLXDProfileIAASMAASNotManualLXD(c *tc.C) {
 	s.applicationService.EXPECT().GetUnitMachineName(gomock.Any(), coreunit.Name("mysql/1")).Return(machineName, nil)
 	s.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(false, nil)
 
-	s.expectMachine(c)
 	s.expectContainerType(instance.LXD)
 
 	s.testCanApplyLXDProfile(c, true)
@@ -263,7 +259,6 @@ func (s *lxdProfileSuite) newAPI(c *tc.C) *uniter.LXDProfileAPI {
 	watcherRegistry, err := registry.NewRegistry(clock.WallClock)
 	c.Assert(err, tc.ErrorIsNil)
 	api := uniter.NewLXDProfileAPI(
-		s.backend,
 		s.machineService,
 		watcherRegistry,
 		authorizer,
@@ -277,8 +272,6 @@ func (s *lxdProfileSuite) newAPI(c *tc.C) *uniter.LXDProfileAPI {
 
 func (s *lxdProfileSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.backend = NewMockLXDProfileBackend(ctrl)
-	s.machine = NewMockLXDProfileMachine(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.applicationService = uniter.NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
@@ -286,9 +279,8 @@ func (s *lxdProfileSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *lxdProfileSuite) expectContainerType(cType instance.ContainerType) {
-	s.machine.EXPECT().ContainerType().Return(cType)
-}
-
-func (s *lxdProfileSuite) expectMachine(c *tc.C) {
-	s.backend.EXPECT().Machine(gomock.Any()).Return(s.machine, nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), gomock.Any()).
+		Return(coremachine.UUID("uuid0"), nil).AnyTimes()
+	s.machineService.EXPECT().GetSupportedContainersTypes(gomock.Any(), gomock.Any()).
+		Return([]instance.ContainerType{cType}, nil).AnyTimes()
 }
