@@ -36,3 +36,8 @@ const RawK8sSpec = "raw-k8s-spec"
 
 // SSHJump indicates that the SSH jump feature is enabled.
 const SSHJump = "ssh-jump"
+
+// K8SAttachStorage enables the following on Kubernetes clouds:
+// - import-filesystem
+// - juju deploy and juju add-unit with the --attach-storage option
+const K8SAttachStorage = "k8s-attach-storage"

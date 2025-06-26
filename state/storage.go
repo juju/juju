@@ -2419,3 +2419,15 @@ func addMachineStorageAttachmentsOps(
 		Update: update,
 	}}, nil
 }
+
+func getstorageAttachmentDocs(db Database, query interface{}) ([]storageAttachmentDoc, error) {
+	coll, cleanup := db.GetCollection(storageAttachmentsC)
+	defer cleanup()
+
+	var docs []storageAttachmentDoc
+	err := coll.Find(query).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "querying storageattachments")
+	}
+	return docs, nil
+}

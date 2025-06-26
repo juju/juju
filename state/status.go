@@ -188,6 +188,18 @@ func (doc *statusDocWithID) asStatusInfo() status.StatusInfo {
 	}
 }
 
+func getStatusDocWithIDs(db Database, query interface{}) ([]statusDocWithID, error) {
+	coll, cleanup := db.GetCollection(statusesC)
+	defer cleanup()
+
+	var docs []statusDocWithID
+	err := coll.Find(query).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "querying statuses")
+	}
+	return docs, nil
+}
+
 // statusDoc represents a entity status in Mongodb.  The implicit
 // _id field is explicitly set to the global key of the associated
 // entity in the document's creation transaction, but omitted to allow

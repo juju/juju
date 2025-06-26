@@ -457,11 +457,12 @@ func (c caasDeployParams) precheck(
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 ) error {
-	if len(c.attachStorage) > 0 {
-		return errors.Errorf(
-			"AttachStorage may not be specified for container models",
-		)
-	}
+	// if len(c.attachStorage) > 0 {
+	// 	return errors.Errorf(
+	// 		"AttachStorage may not be specified for container models",
+	// 	)
+	// }
+
 	if len(c.placement) > 1 {
 		return errors.Errorf(
 			"only 1 placement directive is supported for container models, got %d",
@@ -1477,12 +1478,12 @@ func addApplicationUnits(backend Backend, modelType state.ModelType, args params
 		// In a CAAS model, there are no machines for
 		// units to be assigned to.
 		assignUnits = false
-		if len(args.AttachStorage) > 0 {
-			return nil, errors.Errorf(
-				"AttachStorage may not be specified for %s models",
-				modelType,
-			)
-		}
+		// if len(args.AttachStorage) > 0 {
+		// 	return nil, errors.Errorf(
+		// 		"AttachStorage may not be specified for %s models",
+		// 		modelType,
+		// 	)
+		// }
 		if len(args.Placement) > 1 {
 			return nil, errors.Errorf(
 				"only 1 placement directive is supported for %s models, got %d",

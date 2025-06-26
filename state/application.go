@@ -7,6 +7,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -64,6 +65,13 @@ func (exp ExposedEndpoint) AllowTrafficFromAnyNetwork() bool {
 	}
 
 	return false
+}
+
+// UnitAttachmentInfo represents the information about the unit attachement.
+type UnitAttachmentInfo struct {
+	Unit      string `bson:"unit"`
+	VolumeId  string `bson:"volumeid"`
+	StorageId string `bson:"storageid"`
 }
 
 // Application represents the state of an application.
@@ -3122,6 +3130,87 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 		units = append(units, newUnit(st, m.Type(), &docs[i]))
 	}
 	return units, nil
+}
+
+// GetUnitAttachmentInfos returns a list of UnitAttachmentInfo for this application,
+// filtered by volume statuses that match the given list.
+// The method performs the following:
+// - Finds all units belonging to the application.
+// - Joins with their storage attachments and provisioned volumes.
+// - Ensures the volume has an 'info' field (i.e., it's provisioned).
+// - Looks up the corresponding volume statuses.
+// - Filters out volumes whose status is in the excluded list (e.g., "attached", "attaching").
+// - Returns the unit name, storage name, and volume ID for each matched volume.
+func (a *Application) GetUnitAttachmentInfos(statuses []status.Status) (unitAttachmentInfos []UnitAttachmentInfo, err error) {
+	storageAttachmentDocs, err := getstorageAttachmentDocs(
+		a.st.db(),
+		bson.M{
+			"unitid": bson.RegEx{
+				Pattern: fmt.Sprintf("^%s/\\d+$", regexp.QuoteMeta(a.doc.Name)),
+				Options: "",
+			},
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var storageIds []string
+	storageAttachmentDocByStorageId := make(map[string]storageAttachmentDoc)
+	for _, stDoc := range storageAttachmentDocs {
+		storageIds = append(
+			storageIds,
+			stDoc.StorageInstance,
+		)
+		storageAttachmentDocByStorageId[stDoc.StorageInstance] = stDoc
+	}
+
+	volumeDocs, err := getVolumeDocs(
+		a.st.db(),
+		bson.M{
+			"info":      bson.M{"$ne": nil},
+			"storageid": bson.M{"$in": storageIds},
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	volumeDocById := make(map[string]volumeDoc)
+	var statusIds []string
+	for _, volDoc := range volumeDocs {
+		statusIds = append(
+			statusIds,
+			fmt.Sprintf("%s:f#%s", a.doc.ModelUUID, volDoc.Name),
+		)
+		volumeDocById[volDoc.DocID] = volDoc
+	}
+
+	statusDocs, err := getStatusDocWithIDs(
+		a.st.db(),
+		bson.M{
+			"_id":    bson.M{"$in": statusIds},
+			"status": bson.M{"$in": statuses},
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	for _, sDoc := range statusDocs {
+		volId := strings.Replace(sDoc.ID, "f#", "", 1)
+		vol, _ := volumeDocById[volId]
+		stDoc, _ := storageAttachmentDocByStorageId[vol.StorageId]
+		unitAttachmentInfos = append(
+			unitAttachmentInfos,
+			UnitAttachmentInfo{
+				Unit:      stDoc.Unit,
+				StorageId: vol.StorageId,
+				VolumeId:  vol.Info.VolumeId,
+			},
+		)
+	}
+	return unitAttachmentInfos, nil
 }
 
 // Relations returns a Relation for every relation the application is in.

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"time"
 
 	charmresource "github.com/juju/charm/v12/resource"
@@ -307,6 +308,11 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.Trace(err)
 	}
 
+	filesystemUnitAttachmentParams, err := a.applicationFilesystemUnitAttachmentParams(app)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	devices, err := a.devicesParams(app)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -359,19 +365,20 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
 	return &params.CAASApplicationProvisioningInfo{
-		Version:              vers,
-		APIAddresses:         addrs,
-		CACert:               caCert,
-		Tags:                 resourceTags,
-		Filesystems:          filesystemParams,
-		Devices:              devices,
-		Constraints:          mergedCons,
-		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
-		ImageRepo:            params.NewDockerImageInfo(imageRepoDetails, imagePath),
-		CharmModifiedVersion: app.CharmModifiedVersion(),
-		CharmURL:             *charmURL,
-		Trust:                appConfig.GetBool(application.TrustConfigOptionName, false),
-		Scale:                app.GetScale(),
+		Version:                   vers,
+		APIAddresses:              addrs,
+		CACert:                    caCert,
+		Tags:                      resourceTags,
+		Filesystems:               filesystemParams,
+		FilesystemUnitAttachments: filesystemUnitAttachmentParams,
+		Devices:                   devices,
+		Constraints:               mergedCons,
+		Base:                      params.Base{Name: base.OS, Channel: base.Channel},
+		ImageRepo:                 params.NewDockerImageInfo(imageRepoDetails, imagePath),
+		CharmModifiedVersion:      app.CharmModifiedVersion(),
+		CharmURL:                  *charmURL,
+		Trust:                     appConfig.GetBool(application.TrustConfigOptionName, false),
+		Scale:                     app.GetScale(),
 	}, nil
 }
 
@@ -533,6 +540,31 @@ func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.P
 	}
 	providerType := pool.Provider()
 	return providerType, pool.Attrs(), nil
+}
+
+func (a *API) applicationFilesystemUnitAttachmentParams(app Application) (
+	map[string][]params.KubernetesFilesystemUnitAttachmentParams, error,
+) {
+	unitAttachmentInfos, err := app.GetUnitAttachmentInfos([]status.Status{status.Detached})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	filesystemUnitAttachments := make(map[string][]params.KubernetesFilesystemUnitAttachmentParams)
+	for _, info := range unitAttachmentInfos {
+		storageName := strings.Split(info.StorageId, "/")[0]
+		if _, ok := filesystemUnitAttachments[storageName]; !ok {
+			filesystemUnitAttachments[storageName] = []params.KubernetesFilesystemUnitAttachmentParams{}
+		}
+		filesystemUnitAttachments[storageName] = append(
+			filesystemUnitAttachments[storageName],
+			params.KubernetesFilesystemUnitAttachmentParams{
+				UnitTag:  names.NewUnitTag(info.Unit).String(),
+				VolumeId: info.VolumeId,
+			},
+		)
+	}
+	return filesystemUnitAttachments, nil
 }
 
 func (a *API) applicationFilesystemParams(
