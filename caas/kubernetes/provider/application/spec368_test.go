@@ -4,9 +4,11 @@
 package application_test
 
 import (
+	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
@@ -14,7 +16,7 @@ import (
 	"github.com/juju/juju/core/paths"
 )
 
-func getPodSpec35() corev1.PodSpec {
+func getPodSpec368() corev1.PodSpec {
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	return corev1.PodSpec{
 		ServiceAccountName:            "gitlab",
@@ -42,6 +44,8 @@ func getPodSpec35() corev1.PodSpec {
 				"--data-dir", "/var/lib/juju",
 				"--bin-dir", "/charm/bin",
 				"--profile-dir", "/containeragent/etc/profile.d",
+				"--pebble-identities-file", "/charm/etc/pebble/identities.yaml",
+				"--pebble-charm-identity", "170",
 			},
 			Env: []corev1.EnvVar{
 				{
@@ -100,6 +104,11 @@ func getPodSpec35() corev1.PodSpec {
 					MountPath: "/containeragent/etc/profile.d",
 					SubPath:   "containeragent/etc/profile.d",
 				},
+				{
+					Name:      "charm-data",
+					MountPath: "/charm/etc/pebble/",
+					SubPath:   "charm/etc/pebble/",
+				},
 			},
 		}},
 		Containers: []corev1.Container{{
@@ -130,7 +139,7 @@ func getPodSpec35() corev1.PodSpec {
 						Port: intstr.Parse("38812"),
 					},
 				},
-				InitialDelaySeconds: 30,
+				InitialDelaySeconds: 0,
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
@@ -143,7 +152,7 @@ func getPodSpec35() corev1.PodSpec {
 						Port: intstr.Parse("38812"),
 					},
 				},
-				InitialDelaySeconds: 30,
+				InitialDelaySeconds: 0,
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
@@ -156,11 +165,11 @@ func getPodSpec35() corev1.PodSpec {
 						Port: intstr.Parse("38812"),
 					},
 				},
-				InitialDelaySeconds: 30,
+				InitialDelaySeconds: 0,
 				TimeoutSeconds:      1,
-				PeriodSeconds:       5,
+				PeriodSeconds:       1,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    30,
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -212,6 +221,14 @@ func getPodSpec35() corev1.PodSpec {
 					MountPath: "path/to/here",
 				},
 			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", constants.CharmMemRequestMiB)),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", constants.CharmMemLimitMiB)),
+				},
+			},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  int64Ptr(170),
 				RunAsGroup: int64Ptr(170),
@@ -221,7 +238,7 @@ func getPodSpec35() corev1.PodSpec {
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           "docker.io/library/gitlab:latest",
 			Command:         []string{"/charm/bin/pebble"},
-			Args:            []string{"run", "--create-dirs", "--hold", "--http", ":38813", "--verbose"},
+			Args:            []string{"run", "--create-dirs", "--hold", "--http", ":38813", "--verbose", "--identities", "/charm/etc/pebble/identities.yaml"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAME",
@@ -247,7 +264,7 @@ func getPodSpec35() corev1.PodSpec {
 						Port: intstr.FromInt(38813),
 					},
 				},
-				InitialDelaySeconds: 30,
+				InitialDelaySeconds: 0,
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
@@ -260,11 +277,24 @@ func getPodSpec35() corev1.PodSpec {
 						Port: intstr.FromInt(38813),
 					},
 				},
-				InitialDelaySeconds: 30,
+				InitialDelaySeconds: 0,
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
 				FailureThreshold:    1,
+			},
+			StartupProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/v1/health?level=alive",
+						Port: intstr.FromInt(38813),
+					},
+				},
+				InitialDelaySeconds: 0,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       1,
+				SuccessThreshold:    1,
+				FailureThreshold:    30,
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -279,6 +309,12 @@ func getPodSpec35() corev1.PodSpec {
 					SubPath:   "charm/containers/gitlab",
 				},
 				{
+					Name:      "charm-data",
+					ReadOnly:  true,
+					MountPath: "/charm/etc/pebble/identities.yaml",
+					SubPath:   "charm/etc/pebble/identities.yaml",
+				},
+				{
 					Name:      "gitlab-database-appuuid",
 					MountPath: "path/to/here",
 				},
@@ -289,7 +325,7 @@ func getPodSpec35() corev1.PodSpec {
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           "docker.io/library/nginx:latest",
 			Command:         []string{"/charm/bin/pebble"},
-			Args:            []string{"run", "--create-dirs", "--hold", "--http", ":38814", "--verbose"},
+			Args:            []string{"run", "--create-dirs", "--hold", "--http", ":38814", "--verbose", "--identities", "/charm/etc/pebble/identities.yaml"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAME",
@@ -315,7 +351,7 @@ func getPodSpec35() corev1.PodSpec {
 						Port: intstr.FromInt(38814),
 					},
 				},
-				InitialDelaySeconds: 30,
+				InitialDelaySeconds: 0,
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
@@ -328,11 +364,24 @@ func getPodSpec35() corev1.PodSpec {
 						Port: intstr.FromInt(38814),
 					},
 				},
-				InitialDelaySeconds: 30,
+				InitialDelaySeconds: 0,
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
 				FailureThreshold:    1,
+			},
+			StartupProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/v1/health?level=alive",
+						Port: intstr.FromInt(38814),
+					},
+				},
+				InitialDelaySeconds: 0,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       1,
+				SuccessThreshold:    1,
+				FailureThreshold:    30,
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -345,6 +394,12 @@ func getPodSpec35() corev1.PodSpec {
 					Name:      "charm-data",
 					MountPath: "/charm/container",
 					SubPath:   "charm/containers/nginx",
+				},
+				{
+					Name:      "charm-data",
+					ReadOnly:  true,
+					MountPath: "/charm/etc/pebble/identities.yaml",
+					SubPath:   "charm/etc/pebble/identities.yaml",
 				},
 			},
 			SecurityContext: &corev1.SecurityContext{

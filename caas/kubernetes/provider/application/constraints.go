@@ -338,8 +338,45 @@ func divideAndSpreadContainerResource(totalResource uint64, numContainers int) [
 	return result
 }
 
-// configureWorkloadConstraint configures the workload container constraints and the limits for the charm container.
+// configureWorkloadConstraint sets the resource limits for all containers,
+// and the resource request for the first workload container only.
 func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceName, value uint64) (err error) {
+	if len(pod.Containers) == 0 {
+		return nil
+	}
+	var unitSuffix string
+
+	switch resourceName {
+	case core.ResourceMemory:
+		unitSuffix = "Mi"
+	case core.ResourceCPU:
+		unitSuffix = "m"
+	default:
+		return errors.NotSupportedf("converting resource value for %q", resourceName)
+	}
+
+	resourceValStr := fmt.Sprintf("%d%s", value, unitSuffix)
+	resourceQty, err := resource.ParseQuantity(resourceValStr)
+	if err != nil {
+		return errors.Annotatef(err, "parsing constraint value %q for %q", value, resourceName)
+	}
+	pod.Containers[0].Resources.Requests, err = MergeConstraint(resourceName, resourceQty, pod.Containers[0].Resources.Requests)
+	if err != nil {
+		return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, resourceValStr)
+	}
+	for i := range pod.Containers {
+		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, resourceQty, pod.Containers[i].Resources.Limits)
+		if err != nil {
+			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, resourceValStr)
+		}
+	}
+	return nil
+}
+
+// configureWorkloadConstraintV2 sets the resource limits for all containers,
+// and distributes the resource request evenly across workload containers,
+// excluding the charm container.
+func configureWorkloadConstraintV2(pod *core.PodSpec, resourceName core.ResourceName, value uint64) (err error) {
 	if len(pod.Containers) == 0 {
 		return nil
 	}
@@ -351,21 +388,19 @@ func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceNa
 	)
 
 	if len(pod.Containers) > 1 {
-		var totalRequestResourceNum uint64
 		switch resourceName {
 		case core.ResourceMemory:
-			totalRequestResourceNum = value
 			unitSuffix = "Mi"
 		case core.ResourceCPU:
-			totalRequestResourceNum = value
 			unitSuffix = "m"
 		default:
 			return errors.NotSupportedf("converting resource value for %q", resourceName)
 		}
-		perCtrReqResources = divideAndSpreadContainerResource(totalRequestResourceNum, len(pod.Containers)-1) // We only consider workload containers, not the charm container.
+		perCtrReqResources = divideAndSpreadContainerResource(value, len(pod.Containers)-1) // We only consider workload containers, not the charm container.
 	}
 
-	limitResourceQty, err := resource.ParseQuantity(fmt.Sprintf("%d%s", value, unitSuffix))
+	resourceValStr := fmt.Sprintf("%d%s", value, unitSuffix)
+	limitResourceQty, err := resource.ParseQuantity(resourceValStr)
 	if err != nil {
 		return errors.Annotatef(err, "parsing constraint value %q for %q", value, resourceName)
 	}
@@ -379,26 +414,26 @@ func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceNa
 		}
 
 		if workloadCtrIndex < len(perCtrReqResources) {
-			resourceNum := perCtrReqResources[workloadCtrIndex]
-			resourceVal := fmt.Sprintf("%d%s", resourceNum, unitSuffix)
+			perCtrReqResource := perCtrReqResources[workloadCtrIndex]
+			perCtrReqValStr := fmt.Sprintf("%d%s", perCtrReqResource, unitSuffix)
 
-			qty, err := resource.ParseQuantity(resourceVal)
+			qty, err := resource.ParseQuantity(perCtrReqValStr)
 			if err != nil {
 				return errors.Annotatef(err,
-					"invalid container constraint value %q for %q", resourceVal, resourceName)
+					"invalid container constraint value %q for %q", perCtrReqValStr, resourceName)
 			}
 
 			pod.Containers[i].Resources.Requests, err = MergeConstraint(resourceName, qty, pod.Containers[i].Resources.Requests)
 			if err != nil {
 				return errors.Annotatef(err,
-					"merging request constraint %s=%s", resourceName, resourceVal)
+					"merging request constraint %s=%s", resourceName, perCtrReqValStr)
 			}
 			workloadCtrIndex++
 		}
 
 		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, limitResourceQty, pod.Containers[i].Resources.Limits)
 		if err != nil {
-			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, fmt.Sprintf("%d%s", value, unitSuffix))
+			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, resourceValStr)
 		}
 
 	}
