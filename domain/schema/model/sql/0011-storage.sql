@@ -2,11 +2,10 @@ CREATE TABLE storage_pool (
     uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     -- Types are provider sourced, so we do not use a lookup with ID.
-    -- This constitutes "repeating data" and would tend to indicate 
-    -- bad relational design. However we choose that here over the
-    -- burden of:
+    -- This constitutes "repeating data" and would tend to indicate
+    -- bad relational design. However we choose that here over the burden of:
     --   - Knowing every possible type up front to populate a look-up or;
-    --   - Sourcing the lookup from the provider and keeping it updated. 
+    --   - Sourcing the lookup from the provider and keeping it updated.
     type TEXT NOT NULL,
     -- The origin sets to "user" by default for user created pools.
     -- The "built-in" and "provider-default" origins are used
@@ -461,6 +460,9 @@ CREATE TABLE storage_volume_attachment_plan (
     life_id INT NOT NULL,
     device_type_id INT,
     block_device_uuid TEXT,
+    -- TODO: we may change provision_scope_id to NOT NULL in the future.
+    -- We leave it nullable for now to avoid too much code churn.
+    provision_scope_id INT,
     CONSTRAINT fk_storage_volume_attachment_plan_vol
     FOREIGN KEY (storage_volume_uuid)
     REFERENCES storage_volume (uuid),
@@ -475,7 +477,10 @@ CREATE TABLE storage_volume_attachment_plan (
     REFERENCES storage_volume_device_type (id),
     CONSTRAINT fk_storage_volume_attachment_plan_block
     FOREIGN KEY (block_device_uuid)
-    REFERENCES block_device (uuid)
+    REFERENCES block_device (uuid),
+    CONSTRAINT fk_storage_volume_attachment_plan_provision_scope_id
+    FOREIGN KEY (provision_scope_id)
+    REFERENCES storage_provision_scope (id)
 );
 
 CREATE TABLE storage_volume_attachment_plan_attr (
