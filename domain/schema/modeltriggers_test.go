@@ -401,6 +401,32 @@ func (s *modelStorageSuite) newNetNode(c *tc.C) string {
 	return nodeUUID.String()
 }
 
+// TestStorageProvisionScopeIDMachine tests that the assumed value of 1
+// correctly corresponds to machine provision scope. If this test fails it means
+// that all of the storage triggers need to be updated with the new value.
+func (s *modelStorageSuite) TestStorageProvisionScopeIDMachine(c *tc.C) {
+	var id int
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT id FROM storage_provision_scope WHERE scope = 'machine'",
+	).Scan(&id)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(id, tc.Equals, 1)
+}
+
+// TestStorageProvisionScopeIDModel tests that the assumed value of 0
+// correctly corresponds to model provision scope. If this test fails it means
+// that all of the storage triggers need to be updated with the new value.
+func (s *modelStorageSuite) TestStorageProvisionScopeIDModel(c *tc.C) {
+	var id int
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT id FROM storage_provision_scope WHERE scope = 'model'",
+	).Scan(&id)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(id, tc.Equals, 0)
+}
+
 // TestNewModelFilesystemTrigger tests that new model provision scoped
 // filesystems results in one change event with the filesystem id.
 func (s *modelStorageSuite) TestNewModelFilesystemTrigger(c *tc.C) {
@@ -421,7 +447,7 @@ func (s *modelStorageSuite) TestDeleteModelFilesystemTrigger(c *tc.C) {
 // TestUpdateModelFilesystemUpdate tests that updating the life of model
 // provision scoped filesystem results in one change event with the filesystem
 // id.
-func (s *modelStorageSuite) TestUpdateModelFilesystemUpdate(c *tc.C) {
+func (s *modelStorageSuite) TestUpdateModelFilesystemTrigger(c *tc.C) {
 	uuid, id := s.newModelFilesystem(c)
 	s.assertChangeEvent(c, "storage_filesystem_life_model_provisioning", id)
 
