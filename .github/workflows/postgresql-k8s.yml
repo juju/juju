@@ -8,14 +8,14 @@ on:
 
 jobs:
   smoke:
-    name: Smoke
+    name: PostgreSQL K8s
     runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
     timeout-minutes: 60
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
-        cloud: ["localhost", "microk8s"]
+        cloud: ["microk8s"]
     steps:
 
       - name: Install Dependencies
@@ -27,18 +27,6 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup LXD
-        if: matrix.cloud == 'localhost'
-        uses: canonical/setup-lxd@2fa6235ef2dfd3288e0de09edac03f2ebf922968
-
-      - name: Wait for LXD
-        if: matrix.cloud == 'localhost'
-        run: |
-          while ! ip link show lxdbr0; do
-            echo "Waiting for lxdbr0..."
-            sleep 10
-          done
 
       - name: Setup Docker Mirror
         shell: bash
@@ -72,20 +60,7 @@ jobs:
           # TODO: use temporary Docker account (set DOCKER_USERNAME env var)
           sg snap_microk8s 'make microk8s-operator-update'
 
-      - name: Smoke test (LXD)
-        if: matrix.cloud == 'localhost'
-        shell: bash
-        run: |
-          cd tests
-          export MODEL_ARCH=$(go env GOARCH)
-          export BOOTSTRAP_ADDITIONAL_ARGS="--model-default enable-os-upgrade=false"
-
-          # Skip destroy to keep the environment up.
-          export SKIP_DESTROY=true
-
-          ./main.sh -v -s 'test_build' smoke
-
-      - name: Smoke test (MicroK8s)
+      - name: PostgreSQL in K8s
         if: matrix.cloud == 'microk8s'
         shell: bash
         run: |
@@ -95,4 +70,4 @@ jobs:
           # Skip destroy to keep the environment up.
           export SKIP_DESTROY=true
 
-          sg snap_microk8s './main.sh -c microk8s -v smoke_k8s'
+          sg snap_microk8s './main.sh -c microk8s -v smoke_k8s_psql'
