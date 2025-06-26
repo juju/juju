@@ -102,8 +102,9 @@ func NewUndertaker(config Config) (*Undertaker, error) {
 }
 
 type Undertaker struct {
-	catacomb catacomb.Catacomb
-	config   Config
+	catacomb       catacomb.Catacomb
+	config         Config
+	controllerUUID string
 }
 
 // Kill is part of the worker.Worker interface.
@@ -156,6 +157,7 @@ func (u *Undertaker) run() (errOut error) {
 		return errors.Trace(result.Error)
 	}
 	info := result.Result
+	u.controllerUUID = info.ControllerUUID
 
 	ctx, cancel := context.WithCancel(u.catacomb.Context(context.Background()))
 	defer cancel()
@@ -391,13 +393,8 @@ func (u *Undertaker) environ() (environs.CloudDestroyer, error) {
 		return nil, errors.Annotatef(err, "retrieving cloud spec for model %q (%s)", modelConfig.Name(), modelConfig.UUID())
 	}
 
-	modelInfo, err := u.config.Facade.ModelInfo()
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving model info")
-	}
-
 	environ, err := u.config.NewCloudDestroyerFunc(context.TODO(), environs.OpenParams{
-		ControllerUUID: modelInfo.Result.ControllerUUID,
+		ControllerUUID: u.controllerUUID,
 		Cloud:          cloudSpec,
 		Config:         modelConfig,
 	})
