@@ -224,9 +224,9 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProviders(c *tc.
 func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersEmptyArgs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	result, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{}, domainstorage.Providers{})
+	got, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{}, domainstorage.Providers{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.IsNil)
+	c.Assert(got, tc.HasLen, 0)
 }
 
 func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersInvalidNames(c *tc.C) {
@@ -245,12 +245,64 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersInvalid
 	c.Assert(err, tc.ErrorMatches, `storage provider "invalid" not found`)
 }
 
+func (s *storagePoolServiceSuite) TestListStoragePoolsByNames(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	sp := domainstorage.StoragePool{
+		Name:     "ebs-fast",
+		Provider: "ebs",
+		Attrs: map[string]string{
+			"foo": "foo val",
+		},
+	}
+	s.state.EXPECT().ListStoragePoolsByNames(gomock.Any(), domainstorage.Names{"ebs-fast"}).
+		Return([]domainstorage.StoragePool{sp}, nil)
+
+	got, err := s.service(c).ListStoragePoolsByNames(c.Context(), domainstorage.Names{"ebs-fast"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.SameContents, []domainstorage.StoragePool{sp})
+}
+
+func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesEmptyArgs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	got, err := s.service(c).ListStoragePoolsByNames(c.Context(), domainstorage.Names{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.HasLen, 0)
+}
+
 func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesInvalidNames(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service(c).ListStoragePoolsByNames(c.Context(), domainstorage.Names{"666invalid"})
 	c.Assert(err, tc.ErrorIs, storageerrors.InvalidPoolNameError)
 	c.Assert(err, tc.ErrorMatches, `pool name "666invalid" not valid`)
+}
+
+func (s *storagePoolServiceSuite) TestListStoragePoolsByProviders(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	sp := domainstorage.StoragePool{
+		Name:     "ebs-fast",
+		Provider: "ebs",
+		Attrs: map[string]string{
+			"foo": "foo val",
+		},
+	}
+	s.state.EXPECT().ListStoragePoolsByProviders(gomock.Any(), domainstorage.Providers{"ebs"}).
+		Return([]domainstorage.StoragePool{sp}, nil)
+
+	got, err := s.service(c).ListStoragePoolsByProviders(c.Context(), domainstorage.Providers{"ebs"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.SameContents, []domainstorage.StoragePool{sp})
+}
+
+func (s *storagePoolServiceSuite) TestListStoragePoolsByProvidersEmptyArgs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	got, err := s.service(c).ListStoragePoolsByProviders(c.Context(), domainstorage.Providers{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.HasLen, 0)
 }
 
 func (s *storagePoolServiceSuite) TestListStoragePoolsByProvidersInvalidProviders(c *tc.C) {

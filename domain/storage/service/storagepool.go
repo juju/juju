@@ -45,7 +45,7 @@ type StoragePoolState interface {
 	// names and or providers, including the default storage pools.
 	// If no storage pools match the criteria, an empty slice is returned without an error.
 	ListStoragePoolsByNamesAndProviders(
-		ctx context.Context, names domainstorage.Names, providers domainstorage.Providers,
+		ctx context.Context, names, providers []string,
 	) ([]domainstorage.StoragePool, error)
 
 	// ListStoragePoolsByNames returns the storage pools matching the specified names, including
@@ -53,7 +53,7 @@ type StoragePoolState interface {
 	// If no names are specified, an empty slice is returned without an error.
 	// If no storage pools match the criteria, an empty slice is returned without an error.
 	ListStoragePoolsByNames(
-		ctx context.Context, names domainstorage.Names,
+		ctx context.Context, names []string,
 	) ([]domainstorage.StoragePool, error)
 
 	// ListStoragePoolsByProviders returns the storage pools matching the specified
@@ -61,7 +61,7 @@ type StoragePoolState interface {
 	// If no providers are specified, an empty slice is returned without an error.
 	// If no storage pools match the criteria, an empty slice is returned without an error.
 	ListStoragePoolsByProviders(
-		ctx context.Context, providers domainstorage.Providers,
+		ctx context.Context, providers []string,
 	) ([]domainstorage.StoragePool, error)
 
 	// GetStoragePoolByName returns the storage pool with the specified name.
@@ -271,6 +271,10 @@ func (s *StoragePoolService) ListStoragePoolsByNames(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if len(names) == 0 {
+		return nil, nil
+	}
+
 	if err := s.validateNameCriteria(names); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -292,6 +296,10 @@ func (s *StoragePoolService) ListStoragePoolsByProviders(
 ) ([]domainstorage.StoragePool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if len(providers) == 0 {
+		return nil, nil
+	}
 
 	if err := s.validateProviderCriteria(ctx, providers); err != nil {
 		return nil, errors.Capture(err)

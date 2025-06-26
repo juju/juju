@@ -344,15 +344,13 @@ ORDER BY sp.uuid`,
 // If no storage pools match the criteria, an empty slice is returned without an error.
 func (st State) ListStoragePoolsByNamesAndProviders(
 	ctx context.Context,
-	names domainstorage.Names,
-	providers domainstorage.Providers,
+	names, providers []string,
 ) ([]domainstorage.StoragePool, error) {
-	spNames := storagePoolNames(names.Values())
-	spTypes := storageProviderTypes(providers.Values())
-
-	if len(spNames) == 0 || len(spTypes) == 0 {
+	if len(names) == 0 || len(providers) == 0 {
 		return nil, nil
 	}
+	spNames := storagePoolNames(names)
+	spTypes := storageProviderTypes(providers)
 
 	db, err := st.DB()
 	if err != nil {
@@ -394,13 +392,13 @@ ORDER BY sp.uuid`,
 // If no storage pools match the criteria, an empty slice is returned without an error.
 func (st State) ListStoragePoolsByNames(
 	ctx context.Context,
-	names domainstorage.Names,
+	names []string,
 ) ([]domainstorage.StoragePool, error) {
-	spNames := storagePoolNames(names.Values())
-
-	if len(spNames) == 0 {
-		return []domainstorage.StoragePool{}, nil
+	if len(names) == 0 {
+		return nil, nil
 	}
+	spNames := storagePoolNames(names)
+
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -440,13 +438,13 @@ ORDER BY sp.uuid`, spNames, storagePool{}, poolAttribute{})
 // If no storage pools match the criteria, an empty slice is returned without an error.
 func (st State) ListStoragePoolsByProviders(
 	ctx context.Context,
-	providers domainstorage.Providers,
+	providers []string,
 ) ([]domainstorage.StoragePool, error) {
+	if len(providers) == 0 {
+		return nil, nil
+	}
 	spTypes := storageProviderTypes(providers)
 
-	if len(spTypes) == 0 {
-		return []domainstorage.StoragePool{}, nil
-	}
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -502,8 +500,7 @@ SELECT   (sp.*) AS (&storagePool.*),
          (sp_attr.*) AS (&poolAttribute.*)
 FROM     storage_pool sp
          LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
-WHERE    sp.name = $storagePool.name
-ORDER BY sp.uuid`, inputArg, poolAttribute{})
+WHERE    sp.name = $storagePool.name`, inputArg, poolAttribute{})
 	if err != nil {
 		return domainstorage.StoragePool{}, errors.Capture(err)
 	}

@@ -512,8 +512,8 @@ func (s *storagePoolStateSuite) TestListStoragePoolsByNamesAndProviders(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 
 	out, err := st.ListStoragePoolsByNamesAndProviders(c.Context(),
-		domainstorage.Names{"pool1", "pool2", "ebs-fast", "ebs-fast", "loop", ""},
-		domainstorage.Providers{"whatever", "ebs", "ebs", "loop", ""},
+		[]string{"pool1", "pool2", "ebs-fast", "ebs-fast", "loop", ""},
+		[]string{"whatever", "ebs", "ebs", "loop", ""},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{
@@ -559,7 +559,7 @@ func (s *storagePoolStateSuite) TestListStoragePoolsByNames(c *tc.C) {
 	err := st.CreateStoragePool(ctx, sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	out, err := st.ListStoragePoolsByNames(c.Context(), domainstorage.Names{"pool1", "ebs-fast", "loop", "loop", ""})
+	out, err := st.ListStoragePoolsByNames(c.Context(), []string{"pool1", "ebs-fast", "loop", "loop", ""})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{
 		sp,
@@ -596,7 +596,7 @@ func (s *storagePoolStateSuite) TestListStoragePoolsByProviders(c *tc.C) {
 	err := st.CreateStoragePool(ctx, sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	out, err := st.ListStoragePoolsByProviders(c.Context(), domainstorage.Providers{"whatever", "ebs", "loop", "loop", ""})
+	out, err := st.ListStoragePoolsByProviders(c.Context(), []string{"whatever", "ebs", "loop", "loop", ""})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{
 		sp,
