@@ -96,3 +96,15 @@ jobs:
           export SKIP_DESTROY=true
 
           sg snap_microk8s './main.sh -c microk8s -v smoke_k8s'
+
+      - name: Smoke test (MicroK8s) - PostgreSQL
+        if: matrix.cloud == 'microk8s'
+        shell: bash
+        run: |
+          cd tests
+          export MODEL_ARCH=$(go env GOARCH)
+
+          # Skip destroy to keep the environment up.
+          export SKIP_DESTROY=true
+
+          sg snap_microk8s './main.sh -c microk8s -v smoke_k8s_psql'
