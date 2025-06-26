@@ -86,10 +86,10 @@ type ControllerNodeService interface {
 	// ID, and the values are slices of strings representing the API addresses
 	// for each controller node.
 	GetAllAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
-	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
+	// GetAllAPIAddressesForAgents returns a string of api
 	// addresses available for agents ordered to prefer local-cloud scoped
 	// addresses and IPv4 over IPv6 for each machine.
-	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
+	GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error)
 	// WatchControllerAPIAddresses returns a watcher that observes changes to the
 	// controller ip addresses.
 	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)

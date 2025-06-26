@@ -23,10 +23,10 @@ type ControllerConfigService interface {
 
 // APIHostPortsForAgentsGetter represents a way to get controller api addresses.
 type APIHostPortsForAgentsGetter interface {
-	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
+	// GetAllAPIAddressesForAgents returns a string of api
 	// addresses available for agents ordered to prefer local-cloud scoped
 	// addresses and IPv4 over IPv6 for each machine.
-	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
+	GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error)
 }
 
 // ExternalControllerService defines the methods that the controller
@@ -167,7 +167,7 @@ func ControllerAPIInfo(
 		return nil, "", errors.Trace(err)
 	}
 
-	addrs, err := apiHostPortsGetter.GetAllAPIAddressesForAgentsInPreferredOrder(ctx)
+	addrs, err := apiHostPortsGetter.GetAllAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}

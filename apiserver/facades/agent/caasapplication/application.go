@@ -31,10 +31,10 @@ type ControllerConfigService interface {
 
 // ControllerNodeService represents a way to get controller api addresses.
 type ControllerNodeService interface {
-	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
+	// GetAllAPIAddressesForAgents returns a string of api
 	// addresses available for agents ordered to prefer local-cloud scoped
 	// addresses and IPv4 over IPv6 for each machine.
-	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
+	GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error)
 }
 
 // ApplicationService instances implement an application service.
@@ -130,7 +130,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return errResp(err)
 	}
 
-	addrs, err := f.controllerNodeService.GetAllAPIAddressesForAgentsInPreferredOrder(ctx)
+	addrs, err := f.controllerNodeService.GetAllAPIAddressesForAgents(ctx)
 	if err != nil {
 		return errResp(err)
 	}

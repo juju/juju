@@ -463,7 +463,7 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting juju oci image path")
 	}
-	addrs, err := a.controllerNodeService.GetAllAPIAddressesForAgentsInPreferredOrder(ctx)
+	addrs, err := a.controllerNodeService.GetAllAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting api addresses")
 	}

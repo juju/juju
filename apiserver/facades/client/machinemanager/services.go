@@ -51,10 +51,10 @@ type ControllerNodeService interface {
 	// for each controller node.
 	GetAllAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
 
-	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
+	// GetAllAPIAddressesForAgents returns a string of api
 	// addresses available for agents ordered to prefer local-cloud scoped
 	// addresses and IPv4 over IPv6 for each machine.
-	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
+	GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error)
 }
 
 // KeyUpdaterService is responsible for returning information about the ssh keys

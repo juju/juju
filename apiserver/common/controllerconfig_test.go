@@ -90,7 +90,7 @@ func (s *controllerConfigSuite) TestControllerConfigFetchError(c *tc.C) {
 
 func (s *controllerConfigSuite) expectControllerInfo() {
 	addrs := []string{"192.168.1.1:17070"}
-	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(addrs, nil)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(map[string]interface{}{
 		controller.CACertKey: testing.CACert,
 	}, nil)

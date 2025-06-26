@@ -24,10 +24,10 @@ type APIAddressAccessor interface {
 	// for each controller node.
 	GetAllAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
 
-	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
+	// GetAllAPIAddressesForAgents returns a string of api
 	// addresses available for agents ordered to prefer local-cloud scoped
 	// addresses and IPv4 over IPv6 for each machine.
-	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
+	GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error)
 
 	// WatchControllerAPIAddresses returns a watcher that observes changes to the
 	// controller ip addresses.
@@ -103,7 +103,7 @@ func (a *APIAddresser) WatchAPIHostPorts(ctx context.Context) (params.NotifyWatc
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (a *APIAddresser) APIAddresses(ctx context.Context) (params.StringsResult, error) {
-	addrs, err := a.apiAddressAccessor.GetAllAPIAddressesForAgentsInPreferredOrder(ctx)
+	addrs, err := a.apiAddressAccessor.GetAllAPIAddressesForAgents(ctx)
 	if err != nil {
 		return params.StringsResult{}, err
 	}

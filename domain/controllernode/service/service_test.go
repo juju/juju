@@ -497,7 +497,7 @@ func (s *serviceSuite) TestGetAllAPIAddressesByControllerIDForAgents(c *tc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetAllAPIAddressesForAgentsError(c *tc.C) {
+func (s *serviceSuite) TestGetAllAPIAddressesByControllerIDForAgentsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
@@ -507,7 +507,7 @@ func (s *serviceSuite) TestGetAllAPIAddressesForAgentsError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *serviceSuite) TestGetAllAPIAddressesForAgentsInPreferredOrder(c *tc.C) {
+func (s *serviceSuite) TestGetAllAPIAddressesForAgents(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
@@ -534,20 +534,20 @@ func (s *serviceSuite) TestGetAllAPIAddressesForAgentsInPreferredOrder(c *tc.C) 
 	s.state.EXPECT().GetAllAPIAddressesWithScopeForAgents(gomock.Any()).Return(args, nil)
 
 	// Act
-	apiAddrs, err := svc.GetAllAPIAddressesForAgentsInPreferredOrder(c.Context())
+	apiAddrs, err := svc.GetAllAPIAddressesForAgents(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(apiAddrs, tc.DeepEquals, []string{"10.0.0.1:17070", "10.0.0.7:17070", "10.0.0.43:17070"})
 }
 
-func (s *serviceSuite) TestGetAllAPIAddressesForAgentsInPreferredOrderError(c *tc.C) {
+func (s *serviceSuite) TestGetAllAPIAddressesForAgentsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	s.state.EXPECT().GetAllAPIAddressesWithScopeForAgents(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
 
-	_, err := svc.GetAllAPIAddressesForAgentsInPreferredOrder(c.Context())
+	_, err := svc.GetAllAPIAddressesForAgents(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 

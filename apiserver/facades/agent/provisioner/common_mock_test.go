@@ -79,41 +79,41 @@ func (c *MockAPIAddressAccessorGetAllAPIAddressesByControllerIDForAgentsCall) Do
 	return c
 }
 
-// GetAllAPIAddressesForAgentsInPreferredOrder mocks base method.
-func (m *MockAPIAddressAccessor) GetAllAPIAddressesForAgentsInPreferredOrder(arg0 context.Context) ([]string, error) {
+// GetAllAPIAddressesForAgents mocks base method.
+func (m *MockAPIAddressAccessor) GetAllAPIAddressesForAgents(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllAPIAddressesForAgentsInPreferredOrder", arg0)
+	ret := m.ctrl.Call(m, "GetAllAPIAddressesForAgents", arg0)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetAllAPIAddressesForAgentsInPreferredOrder indicates an expected call of GetAllAPIAddressesForAgentsInPreferredOrder.
-func (mr *MockAPIAddressAccessorMockRecorder) GetAllAPIAddressesForAgentsInPreferredOrder(arg0 any) *MockAPIAddressAccessorGetAllAPIAddressesForAgentsInPreferredOrderCall {
+// GetAllAPIAddressesForAgents indicates an expected call of GetAllAPIAddressesForAgents.
+func (mr *MockAPIAddressAccessorMockRecorder) GetAllAPIAddressesForAgents(arg0 any) *MockAPIAddressAccessorGetAllAPIAddressesForAgentsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAPIAddressesForAgentsInPreferredOrder", reflect.TypeOf((*MockAPIAddressAccessor)(nil).GetAllAPIAddressesForAgentsInPreferredOrder), arg0)
-	return &MockAPIAddressAccessorGetAllAPIAddressesForAgentsInPreferredOrderCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAPIAddressesForAgents", reflect.TypeOf((*MockAPIAddressAccessor)(nil).GetAllAPIAddressesForAgents), arg0)
+	return &MockAPIAddressAccessorGetAllAPIAddressesForAgentsCall{Call: call}
 }
 
-// MockAPIAddressAccessorGetAllAPIAddressesForAgentsInPreferredOrderCall wrap *gomock.Call
-type MockAPIAddressAccessorGetAllAPIAddressesForAgentsInPreferredOrderCall struct {
+// MockAPIAddressAccessorGetAllAPIAddressesForAgentsCall wrap *gomock.Call
+type MockAPIAddressAccessorGetAllAPIAddressesForAgentsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAPIAddressAccessorGetAllAPIAddressesForAgentsInPreferredOrderCall) Return(arg0 []string, arg1 error) *MockAPIAddressAccessorGetAllAPIAddressesForAgentsInPreferredOrderCall {
+func (c *MockAPIAddressAccessorGetAllAPIAddressesForAgentsCall) Return(arg0 []string, arg1 error) *MockAPIAddressAccessorGetAllAPIAddressesForAgentsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPIAddressAccessorGetAllAPIAddressesForAgentsInPreferredOrderCall) Do(f func(context.Context) ([]string, error)) *MockAPIAddressAccessorGetAllAPIAddressesForAgentsInPreferredOrderCall {
+func (c *MockAPIAddressAccessorGetAllAPIAddressesForAgentsCall) Do(f func(context.Context) ([]string, error)) *MockAPIAddressAccessorGetAllAPIAddressesForAgentsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPIAddressAccessorGetAllAPIAddressesForAgentsInPreferredOrderCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockAPIAddressAccessorGetAllAPIAddressesForAgentsInPreferredOrderCall {
+func (c *MockAPIAddressAccessorGetAllAPIAddressesForAgentsCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockAPIAddressAccessorGetAllAPIAddressesForAgentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

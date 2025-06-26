@@ -109,7 +109,7 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
 
 	addrs := []string{"10.6.6.6:17070"}
-	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(addrs, nil)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil)
 	vers := semversion.MustParse("6.6.6")
 	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(vers, nil)
 
