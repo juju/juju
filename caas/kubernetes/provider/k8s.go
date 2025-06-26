@@ -1072,7 +1072,7 @@ func (k *kubernetesClient) ensureService(
 			case core.ResourceCPU:
 				unitSuffix = "m"
 			default:
-				return errors.NotSupportedf("converting resource value for %q", resourceName)
+				return errors.NotSupportedf("resource value for %q", resourceName)
 			}
 
 			workloadConsValStr := fmt.Sprintf("%d%s", workloadConsVal, unitSuffix)
