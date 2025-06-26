@@ -14,6 +14,7 @@ import (
 	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -84,6 +85,9 @@ type MachineService interface {
 	GetMachineLife(ctx context.Context, name machine.Name) (life.Value, error)
 	// SetMachineHostname sets the hostname for the given machine.
 	SetMachineHostname(ctx context.Context, mUUID machine.UUID, hostname string) error
+	// WatchMachineLife returns a watcher that observes the changes to life of
+	// one machine.
+	WatchMachineLife(ctx context.Context, name machine.Name) (watcher.NotifyWatcher, error)
 }
 
 // ApplicationService defines the methods that the facade assumes from the
@@ -116,7 +120,6 @@ type ModelInfoService interface {
 type MachinerAPI struct {
 	*common.LifeGetter
 	*common.DeadEnsurer
-	*common.AgentEntityWatcher
 	*common.APIAddresser
 
 	networkService          NetworkService
@@ -127,6 +130,7 @@ type MachinerAPI struct {
 	auth                    facade.Authorizer
 	getCanModify            common.GetAuthFunc
 	getCanRead              common.GetAuthFunc
+	watcherRegistry         facade.WatcherRegistry
 	clock                   clock.Clock
 }
 
@@ -160,7 +164,6 @@ func NewMachinerAPIForState(
 	return &MachinerAPI{
 		LifeGetter:              common.NewLifeGetter(applicationService, machineService, st, getCanAccess, logger),
 		DeadEnsurer:             common.NewDeadEnsurer(st, getCanAccess, machineService),
-		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, watcherRegistry, getCanAccess),
 		APIAddresser:            common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		networkService:          networkService,
 		machineService:          machineService,
@@ -170,6 +173,7 @@ func NewMachinerAPIForState(
 		auth:                    authorizer,
 		getCanModify:            getCanAccess,
 		getCanRead:              getCanAccess,
+		watcherRegistry:         watcherRegistry,
 		clock:                   clock,
 	}, nil
 }
@@ -335,6 +339,61 @@ func (api *MachinerAPI) RecordAgentStartInformation(ctx context.Context, args pa
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
+}
+
+// Watch starts an NotifyWatcher for each given entity.
+func (api *MachinerAPI) Watch(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+
+	canRead, err := api.getCanRead(ctx)
+	if err != nil {
+		return params.NotifyWatchResults{}, errors.Trace(err)
+	}
+
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		if !canRead(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		switch tag := tag.(type) {
+		case names.MachineTag:
+			watcherID, err := api.watchMachine(ctx, machine.Name(tag.Id()))
+			result.Results[i] = params.NotifyWatchResult{
+				NotifyWatcherId: watcherID,
+				Error:           apiservererrors.ServerError(err),
+			}
+
+		default:
+			result.Results[i].Error = apiservererrors.ServerError(
+				errors.NotImplementedf("agent type of %s", tag.Kind()),
+			)
+		}
+	}
+	return result, nil
+}
+
+func (api *MachinerAPI) watchMachine(ctx context.Context, machineName machine.Name) (string, error) {
+	watch, err := api.machineService.WatchMachineLife(ctx, machineName)
+	if err != nil {
+		return "", err
+	}
+	id, _, err := internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, watch)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return id, nil
 }
 
 func (api *MachinerAPI) recordAgentStartInformation(ctx context.Context, tag, hostname string, authChecker common.AuthFunc) error {

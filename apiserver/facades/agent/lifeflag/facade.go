@@ -33,6 +33,9 @@ type MachineService interface {
 	// GetMachineLife returns the lifecycle state of the machine with the
 	// specified name.
 	GetMachineLife(ctx context.Context, name machine.Name) (life.Value, error)
+	// WatchMachineLife returns a watcher that observes the changes to life of
+	// one machine.
+	WatchMachineLife(ctx context.Context, name machine.Name) (watcher.NotifyWatcher, error)
 }
 
 // ApplicationService defines the methods that the facade assumes from the
@@ -87,6 +90,7 @@ type Facade struct {
 	authorizer      facade.Authorizer
 
 	applicationService ApplicationService
+	machineService     MachineService
 }
 
 // Watch starts an NotifyWatcher for each given entity.
@@ -103,24 +107,26 @@ func (a *Facade) Watch(ctx context.Context, args params.Entities) (params.Notify
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		watcherId := ""
+
 		if !a.authorizer.AuthOwner(tag) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		switch tag := tag.(type) {
 		case names.UnitTag:
-			watch, err := a.applicationService.WatchUnitLife(ctx, unit.Name(tag.Id()))
-			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
+			watcherID, err := a.watchUnit(ctx, unit.Name(tag.Id()))
+			result.Results[i] = params.NotifyWatchResult{
+				NotifyWatcherId: watcherID,
+				Error:           apiservererrors.ServerError(err),
 			}
-			watcherId, _, err = internal.EnsureRegisterWatcher(ctx, a.watcherRegistry, watch)
-			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
+
+		case names.MachineTag:
+			watcherID, err := a.watchMachine(ctx, machine.Name(tag.Id()))
+			result.Results[i] = params.NotifyWatchResult{
+				NotifyWatcherId: watcherID,
+				Error:           apiservererrors.ServerError(err),
 			}
-			result.Results[i].NotifyWatcherId = watcherId
+
 		default:
 			result.Results[i].Error = apiservererrors.ServerError(
 				errors.NotImplementedf("agent type of %s", tag.Kind()),
@@ -128,4 +134,28 @@ func (a *Facade) Watch(ctx context.Context, args params.Entities) (params.Notify
 		}
 	}
 	return result, nil
+}
+
+func (a *Facade) watchUnit(ctx context.Context, unitName unit.Name) (string, error) {
+	watch, err := a.applicationService.WatchUnitLife(ctx, unitName)
+	if err != nil {
+		return "", err
+	}
+	id, _, err := internal.EnsureRegisterWatcher(ctx, a.watcherRegistry, watch)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return id, nil
+}
+
+func (a *Facade) watchMachine(ctx context.Context, machineName machine.Name) (string, error) {
+	watch, err := a.machineService.WatchMachineLife(ctx, machineName)
+	if err != nil {
+		return "", err
+	}
+	id, _, err := internal.EnsureRegisterWatcher(ctx, a.watcherRegistry, watch)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return id, nil
 }

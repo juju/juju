@@ -261,6 +261,31 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
+// TestWatchMachineLife tests the functionality of watching machine lifecycle
+// changes.
+func (s *watcherSuite) TestWatchMachineLife(c *tc.C) {
+	watcher, err := s.svc.WatchMachineLife(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := s.svc.CreateMachine(c.Context(), "1", nil)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := s.svc.CreateMachine(c.Context(), "2", nil)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
 func ptr[T any](u T) *T {
 	return &u
 }

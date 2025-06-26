@@ -140,7 +140,7 @@ type containerShim struct {
 func (s *containerShim) Machines(ctx context.Context, tags ...names.MachineTag) ([]ContainerMachineResult, error) {
 	result, err := s.api.Machines(ctx, tags...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "cannot load machines %v from state", tags)
 	}
 	newResult := make([]ContainerMachineResult, len(result))
 	for i, v := range result {

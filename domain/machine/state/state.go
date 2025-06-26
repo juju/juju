@@ -1401,6 +1401,12 @@ func (*State) NamespaceForWatchMachineReboot() string {
 	return "machine_requires_reboot"
 }
 
+// NamespaceForMachineLife returns the namespace string used for
+// tracking machine lifecycle changes in the model.
+func (*State) NamespaceForMachineLife() string {
+	return "machine_insert_delete"
+}
+
 // InitialWatchModelMachinesStatement returns the table and the initial watch
 // statement for watching life changes of non-container machines.
 func (*State) InitialWatchModelMachinesStatement() (string, string) {
