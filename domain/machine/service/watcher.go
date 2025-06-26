@@ -76,6 +76,19 @@ func NewWatchableService(
 	}
 }
 
+// WatchMachineLife returns a watcher that observes the changes to life of one
+// machine.
+func (s *WatchableService) WatchMachineLife(ctx context.Context, machineName machine.Name) (watcher.NotifyWatcher, error) {
+	table := s.st.NamespaceForMachineLife()
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			table,
+			changestream.All,
+			eventsource.EqualsPredicate(machineName.String()),
+		),
+	)
+}
+
 // WatchModelMachines watches for additions or updates to non-container
 // machines. It is used by workers that need to factor life value changes,
 // and so does not factor machine removals, which are considered to be

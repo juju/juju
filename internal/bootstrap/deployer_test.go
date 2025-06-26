@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/base"
+	base "github.com/juju/juju/core/base"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
@@ -121,7 +121,7 @@ func (s *deployerSuite) TestDeployLocalCharmThatDoesNotExist(c *tc.C) {
 	cfg := s.newConfig(c)
 	deployer := makeBaseDeployer(cfg)
 
-	_, err := deployer.DeployLocalCharm(c.Context(), arch.DefaultArchitecture, base.MakeDefaultBase("ubuntu", "22.04"))
+	_, err := deployer.DeployLocalCharm(c.Context(), arch.DefaultArchitecture, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
@@ -146,7 +146,7 @@ func (s *deployerSuite) TestDeployLocalCharm(c *tc.C) {
 
 	deployer := s.newBaseDeployer(c, cfg)
 
-	info, err := deployer.DeployLocalCharm(c.Context(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
+	info, err := deployer.DeployLocalCharm(c.Context(), "arm64", corebase.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.URL.String(), tc.Equals, "local:juju-controller-0")
 	c.Assert(info.Origin, tc.DeepEquals, &corecharm.Origin{
@@ -175,7 +175,7 @@ func (s *deployerSuite) TestDeployCharmhubCharm(c *tc.C) {
 
 	deployer := s.newBaseDeployer(c, cfg)
 
-	info, err := deployer.DeployCharmhubCharm(c.Context(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
+	info, err := deployer.DeployCharmhubCharm(c.Context(), "arm64", corebase.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.URL.String(), tc.Equals, "ch:arm64/juju-controller-1")
 	c.Assert(info.Origin, tc.DeepEquals, &corecharm.Origin{

@@ -30,6 +30,7 @@ var modelSchemaDir embed.FS
 
 const (
 	customNamespaceUnitInsertDelete tableNamespaceID = iota
+	customNamespaceMachineInsertDelete
 	customNamespaceStorageFilesystemLifeMachineProvisioning
 	customNamespaceStorageFilesystemLifeModelProvisioning
 	customNamespaceStorageFilesystemAttachmentLifeMachineProvisioning
@@ -198,6 +199,11 @@ func ModelDDL() *schema.Schema {
 			"OLD.origin_id <> NEW.origin_id",
 			"storage pool origin cannot be changed",
 		),
+
+		// Add a custom namespace that only watches for insert and delete
+		// operations for entities.
+		triggerEntityLifecycleByNameForTable("unit", customNamespaceUnitInsertDelete),
+		triggerEntityLifecycleByNameForTable("machine", customNamespaceMachineInsertDelete),
 	)
 
 	// For agent_version we only care if the single row is updated.
@@ -216,29 +222,6 @@ BEGIN
 END;
 `,
 			tableAgentVersion))
-	})
-
-	// Add a custom namespace that only watches for insert and delete operations
-	// for units. This is used, for example, by the deployer which manages running
-	// agents, so only needs to know about new units, or removed unites.
-	patches = append(patches, func() schema.Patch {
-		return schema.MakePatch(fmt.Sprintf(`
-INSERT INTO change_log_namespace VALUES (%[1]d, 'unit_insert_delete', 'Unit insert or delete changes only');
-
-CREATE TRIGGER trg_log_unit_insert_delete_insert
-AFTER INSERT ON unit FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[1]d, NEW.name, DATETIME('now'));
-END;
-
-CREATE TRIGGER trg_log_unit_insert_delete_delete
-AFTER DELETE ON unit FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[1]d, OLD.name, DATETIME('now'));
-END;
-`, customNamespaceUnitInsertDelete))
 	})
 
 	patches = append(patches, customModelTriggers()...)

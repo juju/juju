@@ -158,6 +158,10 @@ type State interface {
 	// tracking machine reboot events in the model.
 	NamespaceForWatchMachineReboot() string
 
+	// NamespaceForMachineLife returns the namespace string used for
+	// tracking machine lifecycle events in the model.
+	NamespaceForMachineLife() string
+
 	// GetNamesForUUIDs returns a map of machine UUIDs to machine Names based
 	// on the given machine UUIDs.
 	// [machineerrors.MachineNotFound] will be returned if the machine does not

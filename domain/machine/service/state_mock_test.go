@@ -1015,6 +1015,44 @@ func (c *MockStateMarkMachineForRemovalCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
+// NamespaceForMachineLife mocks base method.
+func (m *MockState) NamespaceForMachineLife() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForMachineLife")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForMachineLife indicates an expected call of NamespaceForMachineLife.
+func (mr *MockStateMockRecorder) NamespaceForMachineLife() *MockStateNamespaceForMachineLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForMachineLife", reflect.TypeOf((*MockState)(nil).NamespaceForMachineLife))
+	return &MockStateNamespaceForMachineLifeCall{Call: call}
+}
+
+// MockStateNamespaceForMachineLifeCall wrap *gomock.Call
+type MockStateNamespaceForMachineLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForMachineLifeCall) Return(arg0 string) *MockStateNamespaceForMachineLifeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForMachineLifeCall) Do(f func() string) *MockStateNamespaceForMachineLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForMachineLifeCall) DoAndReturn(f func() string) *MockStateNamespaceForMachineLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NamespaceForWatchMachineCloudInstance mocks base method.
 func (m *MockState) NamespaceForWatchMachineCloudInstance() string {
 	m.ctrl.T.Helper()
