@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	corenetwork "github.com/juju/juju/core/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -61,10 +62,11 @@ func (s *linkLayerBaseSuite) addNetNode(c *tc.C) string {
 	return netNodeUUID
 }
 
-func (s *linkLayerBaseSuite) addMachine(c *tc.C, name, netNodeUUID string) {
-	machineUUID := machinetesting.GenUUID(c).String()
+func (s *linkLayerBaseSuite) addMachine(c *tc.C, name, netNodeUUID string) machine.UUID {
+	machineUUID := machinetesting.GenUUID(c)
 	s.query(c, "INSERT INTO machine (uuid, net_node_uuid, name, life_id) VALUES (?, ?, ? ,?)",
-		machineUUID, netNodeUUID, name, 0)
+		machineUUID.String(), netNodeUUID, name, 0)
+	return machineUUID
 }
 
 func (s *linkLayerBaseSuite) addSpace(c *tc.C) string {
@@ -87,8 +89,7 @@ func (s *linkLayerBaseSuite) checkRowCount(c *tc.C, table string, expected int) 
 
 // addLinkLayerDevice adds a link layer device to the database and returns its UUID.
 func (s *linkLayerBaseSuite) addLinkLayerDevice(
-	c *tc.C, netNodeUUID, name, macAddress string,
-	deviceType corenetwork.LinkLayerDeviceType,
+	c *tc.C, netNodeUUID, name, macAddress string, deviceType corenetwork.LinkLayerDeviceType,
 ) string {
 	deviceUUID := "device-" + name + "-uuid"
 
@@ -98,11 +99,10 @@ func (s *linkLayerBaseSuite) addLinkLayerDevice(
 	mtu := int64(1500)
 
 	s.query(c, `
-		INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, 
-		                               mac_address, device_type_id, 
-		                               virtual_port_type_id, is_auto_start, 
-		                               is_enabled, is_default_gateway, gateway_address, vlan_tag)
-		                               	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO link_layer_device (
+	uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id, 
+    is_auto_start, is_enabled, is_default_gateway, gateway_address, vlan_tag)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, deviceUUID, netNodeUUID, name, mtu, macAddress, deviceTypeID, 0, true,
 		true, false, nil, 0)
 
@@ -138,8 +138,8 @@ func (s *linkLayerBaseSuite) addProviderLinkLayerDevice(
 	c *tc.C, providerID, deviceUUID string,
 ) {
 	s.query(c, `
-		INSERT INTO provider_link_layer_device (provider_id, device_uuid)
-		VALUES (?, ?)
+INSERT INTO provider_link_layer_device (provider_id, device_uuid)
+VALUES (?, ?)
 	`, providerID, deviceUUID)
 }
 
@@ -150,8 +150,11 @@ func (s *linkLayerBaseSuite) addIPAddress(
 	addressUUID := "address-" + addressValue + "-uuid"
 
 	s.query(c, `
-		INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id, is_secondary, is_shadow)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO ip_address (
+	uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, 
+	config_type_id, origin_id, scope_id, is_secondary, is_shadow
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, addressUUID, deviceUUID, addressValue, netNodeUUID, nil, 0, 4, 0, 0,
 		false, false)
 
@@ -163,8 +166,8 @@ func (s *mergeLinkLayerSuite) addProviderIPAddress(
 	c *tc.C, addressUUID, providerID string,
 ) {
 	s.query(c, `
-		INSERT INTO provider_ip_address (provider_id, address_uuid)
-		VALUES (?, ?)
+INSERT INTO provider_ip_address (provider_id, address_uuid)
+VALUES (?, ?)
 	`, providerID, addressUUID)
 
 	s.query(c, `
