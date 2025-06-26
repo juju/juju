@@ -261,7 +261,7 @@ func (w *bootstrapWorker) loop() error {
 		if !errors.Is(err, errors.NotSupported) {
 			return errors.Trace(err)
 		}
-		w.logger.Debugf(ctx, "reload spaces not supported due to a non-networking environement")
+		w.logger.Debugf(ctx, "reload spaces not supported due to a non-networking environment")
 	}
 
 	// Deploy the controller charm after calling reload spaces or
