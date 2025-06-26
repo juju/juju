@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
 )
@@ -32,27 +34,12 @@ func entityLifeGetter(
 	}, stop
 }
 
-// TestEntityLifeInitialQuery tests that the [EntityLifeInitialQuery] correctly
-// returns the initial id values from the provided initial life map.
-func TestEntityLifeInitialQuery(t *testing.T) {
-	initialLife := map[string]life.Life{
-		"l1": life.Alive,
-		"l2": life.Dead,
+// initialEntityLifeQuery is a helper function that returns an eventsource query
+// that will return the data supplied when called.
+func initialEntityLifeQuery(data map[string]life.Life) eventsource.Query[map[string]life.Life] {
+	return func(_ context.Context, _ database.TxnRunner) (map[string]life.Life, error) {
+		return data, nil
 	}
-
-	query := EntityLifeInitialQuery(initialLife)
-	vals, err := query(t.Context(), nil)
-	tc.Check(t, err, tc.ErrorIsNil)
-	tc.Check(t, vals, tc.SameContents, []string{"l1", "l2"})
-}
-
-// TestEntityLifeInitialQueryEmpty tests that the [EntityLifeInitialQuery]
-// correctly returns an empty slice when the initial life map is empty.
-func TestEntityLifeInitialQueryEmpty(t *testing.T) {
-	query := EntityLifeInitialQuery(nil)
-	vals, err := query(t.Context(), nil)
-	tc.Check(t, err, tc.ErrorIsNil)
-	tc.Check(t, vals, tc.HasLen, 0)
 }
 
 // TestEntityLifeMapper is a test of tests for making sure that the
@@ -173,7 +160,11 @@ func TestEntityLifeMapper(t *testing.T) {
 			seq := slices.Values(test.LifeStages)
 			getter, stop := entityLifeGetter(seq)
 			defer stop()
-			mapper := EntityLifeMapperFunc(test.InitialLife, getter)
+
+			initialLifeFn := func(_ context.Context) (map[string]life.Life, error) {
+				return test.InitialLife, nil
+			}
+			mapper := EntityLifeMapperFunc(initialLifeFn, getter)
 
 			for _, expected := range test.Expected {
 				changes, err := mapper(t.Context(), nil)
@@ -184,6 +175,8 @@ func TestEntityLifeMapper(t *testing.T) {
 	}
 }
 
+// TestMakeEntityLifePrerequisites tests the common case of the mapper and
+// initial returned by [MakeEntityLifePrerequisites].
 func TestMakeEntityLifePrerequisties(t *testing.T) {
 	lifeGetter, stop := entityLifeGetter(slices.Values([]map[string]life.Life{
 		{
@@ -199,14 +192,56 @@ func TestMakeEntityLifePrerequisties(t *testing.T) {
 	}))
 	defer stop()
 
-	initQuery, mapper, err := MakeEntityLifePrerequisites(t.Context(), lifeGetter)
-	tc.Check(t, err, tc.ErrorIsNil)
+	initData := map[string]life.Life{
+		"l1": life.Alive,
+		"l2": life.Dying,
+	}
+
+	initQuery, mapper := MakeEntityLifePrerequisites(
+		initialEntityLifeQuery(initData), lifeGetter,
+	)
 
 	initVals, err := initQuery(t.Context(), nil)
 	tc.Check(t, err, tc.ErrorIsNil)
-	tc.Check(t, initVals, tc.SameContents, []string{"l1", "l2", "l8"})
+	tc.Check(t, initVals, tc.SameContents, []string{"l1", "l2"})
 
 	changes, err := mapper(t.Context(), nil)
+	tc.Check(t, err, tc.ErrorIsNil)
+	tc.Check(t, changes, tc.SameContents, []string{"l8"})
+
+	changes, err = mapper(t.Context(), nil)
+	tc.Check(t, err, tc.ErrorIsNil)
+	tc.Check(t, changes, tc.SameContents, []string{"l2", "l8", "l9"})
+}
+
+// TestMakeEntityLifePrerequisitesNoDeadLock tests that if the initial query
+// provided by [MakeEntityLifePrerequisites] does not get called so that the
+// initial values to the mapper are not available, the mapper keeps working and
+// starts from an empty set of values.
+func TestMakeEntityLifePrerequisitesNoDeadLock(t *testing.T) {
+	lifeGetter, stop := entityLifeGetter(slices.Values([]map[string]life.Life{
+		{
+			"l1": life.Alive,
+			"l2": life.Dying,
+			"l8": life.Alive,
+		},
+		{
+			"l1": life.Alive,
+			"l8": life.Dying,
+			"l9": life.Alive,
+		},
+	}))
+	defer stop()
+
+	_, mapper := MakeEntityLifePrerequisites(
+		initialEntityLifeQuery(nil), lifeGetter,
+	)
+
+	changes, err := mapper(t.Context(), nil)
+	tc.Check(t, err, tc.ErrorIsNil)
+	tc.Check(t, changes, tc.SameContents, []string{"l1", "l2", "l8"})
+
+	changes, err = mapper(t.Context(), nil)
 	tc.Check(t, err, tc.ErrorIsNil)
 	tc.Check(t, changes, tc.SameContents, []string{"l2", "l8", "l9"})
 }

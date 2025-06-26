@@ -23,26 +23,6 @@ import (
 // a machine provisioner cares about have had a life change.
 type EntityLifeGetter func(context.Context) (map[string]life.Life, error)
 
-// EntityLifeInitialQuery returns an initial entity life query based off of the
-// initial life values provided. The [eventsource.NamespaceQuery] returned will
-// not use the context nor the database transaction runner provided. The query
-// just returns the pre calculated initial values from the initial life map.
-//
-// Upon returning from this function no further use of the map provided as
-// initial life will take place. This makes the resultant query safe across go
-// routines.
-func EntityLifeInitialQuery(
-	initialLife map[string]life.Life,
-) eventsource.NamespaceQuery {
-	s := slices.AppendSeq(
-		make([]string, 0, len(initialLife)),
-		maps.Keys(initialLife),
-	)
-	return func(_ context.Context, _ database.TxnRunner) ([]string, error) {
-		return s, nil
-	}
-}
-
 // EntityLifeMapperFunc provides a watcher mapper that can be used to
 // take change events for one concern and translate this into a set of entity
 // life changes. Entity in this case is a storage entity that is associated
@@ -57,16 +37,29 @@ func EntityLifeInitialQuery(
 // the change set.
 //
 // [EntityLifeGetter] provides the latest life values for the concerns entities.
-// This func expects to be seeded with the initial life values to use when
-// working out change. This is done so that any external reporters of initial
-// state can be in sync with the mapper.
+// This func expect to be provided with a func that provides the initial life
+// values to start performing change detection on top of. This func will be
+// called once on the first invocation of the returned mapper.
+//
+// The returned mapper is not thread safe.
 func EntityLifeMapperFunc(
-	knownLife map[string]life.Life,
+	initialLife func(ctx context.Context) (map[string]life.Life, error),
 	lifeGetter EntityLifeGetter,
 ) eventsource.Mapper {
+	var haveInitialLife bool
+	var knownLife map[string]life.Life
 	return func(
 		ctx context.Context, _ []changestream.ChangeEvent,
 	) ([]string, error) {
+		if !haveInitialLife {
+			l, err := initialLife(ctx)
+			if err != nil {
+				return nil, errors.Errorf("getting initial life for mapper: %w", err)
+			}
+			haveInitialLife = true
+			knownLife = l
+		}
+
 		latestLife, err := lifeGetter(ctx)
 		if err != nil {
 			return nil, errors.Errorf(
@@ -89,65 +82,55 @@ func EntityLifeMapperFunc(
 
 // MakeEntityLifePrerequisites is a helper function for establishing the
 // prerequisites required for watching the life of storage entities associated
-// against a concern. A concern in this case is a machine being watched by a
+// with a concern. A concern in this case is a machine being watched by a
 // provisioner.
 //
 // This helper function exists to make sure that the initial life values
-// reported by the initial query is kept in sync with the knowledge used in the
-// mapper. Without this being done there does exist a small posability of a
-// watcher missing an event and expected state not becoming eventually
-// consistent.
+// reported by the initial query are used by the returned mapper for detecting
+// change. Keeping the initial query and the mapper in sync stops the
+// introduction of race conditions when reporting changes.
+//
+// If the initial query has not provided any initial values to the mapper then
+// the mapper starts from an empty set of known life values. The design is done
+// like this so that the two components never create a dead lock between one
+// another.
+//
+// This function returns a new initial query that can be supplied to the watcher
+// for seeding a set of initial values.
 func MakeEntityLifePrerequisites(
-	ctx context.Context,
 	initialQuery eventsource.Query[map[string]life.Life],
 	lifeGetter EntityLifeGetter,
-) (eventsource.NamespaceQuery, eventsource.Mapper, error) {
+) (eventsource.NamespaceQuery, eventsource.Mapper) {
+	// Make a buffered channel to capture the initial query values.
+	// Shimmed query is responsible for closing the channel.
 	initial := make(chan map[string]life.Life, 1)
-	namespaceQuery := func(ctx context.Context, db database.TxnRunner) ([]string, error) {
+	shimmedInitialQuery := func(ctx context.Context, db database.TxnRunner) ([]string, error) {
 		defer close(initial)
-		namesWithLife, err := initialQuery(ctx, db)
+		initQueryData, err := initialQuery(ctx, db)
 		if err != nil {
-			return nil, errors.Capture(err)
+			return nil, errors.Errorf(
+				"running initial query for entity life values: %w", err,
+			)
 		}
 		select {
-		case initial <- namesWithLife:
+		case initial <- initQueryData:
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
-		return slices.Collect(maps.Keys(namesWithLife)), nil
+		return slices.Collect(maps.Keys(initQueryData)), nil
 	}
 
-	var haveInitialKnownLife bool
-	var knownLife map[string]life.Life
-	mapper := func(
-		ctx context.Context, _ []changestream.ChangeEvent,
-	) ([]string, error) {
-		if !haveInitialKnownLife {
-			select {
-			case knownLife = <-initial:
-			default:
-			}
-			haveInitialKnownLife = true
+	initialLifeForMapper := func(ctx context.Context) (map[string]life.Life, error) {
+		select {
+		case initialData := <-initial:
+			return initialData, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			return nil, nil
 		}
-
-		latestLife, err := lifeGetter(ctx)
-		if err != nil {
-			return nil, errors.Errorf(
-				"getting latest storage entity life values: %w", err,
-			)
-		}
-
-		changes := []string(nil)
-		for k, v := range latestLife {
-			if l, has := knownLife[k]; !has || v != l {
-				changes = append(changes, k)
-			}
-			delete(knownLife, k)
-		}
-		changes = slices.AppendSeq(changes, maps.Keys(knownLife))
-		knownLife = latestLife
-		return changes, nil
 	}
 
-	return namespaceQuery, mapper, nil
+	return shimmedInitialQuery, EntityLifeMapperFunc(
+		initialLifeForMapper, lifeGetter)
 }
