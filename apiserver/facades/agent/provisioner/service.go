@@ -139,15 +139,25 @@ type StoragePoolGetter interface {
 type NetworkService interface {
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	
 	// SpaceByName returns a space from state that matches the input name.
 	// An error is returned that satisfied errors.NotFound if the space was not found
 	// or an error static any problems fetching the given space.
 	SpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error)
+
 	// GetAllSubnets returns all the subnets for the model.
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+
 	// SetMachineNetConfig updates the detected network configuration for
 	// the machine with the input UUID.
 	SetMachineNetConfig(ctx context.Context, mUUID coremachine.UUID, nics []domainnetwork.NetInterface) error
+
+	// DevicesToBridge accepts the UUID of a host machine and a guest container/VM.
+	// It returns the information needed for creating network bridges that will be
+	// parents of the guest's virtual network devices.
+	// This determination is made based on the guest's space constraints, bindings
+	// of applications to run on the guest, and any host bridges that already exist.
+	DevicesToBridge(ctx context.Context, hostUUID, guestUUID coremachine.UUID) ([]domainnetwork.DeviceToBridge, error)
 }
 
 // KeyUpdaterService provides access to authorised keys in a model.
