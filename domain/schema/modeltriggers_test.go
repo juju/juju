@@ -348,10 +348,10 @@ func (s *modelStorageSuite) newModelFilesystemAttachment(
 		c.Context(),
 		`
 INSERT INTO storage_filesystem_attachment (uuid,
-										   storage_filesystem_uuid,
-										   net_node_uuid,
-										   life_id,
-										   provision_scope_id)
+                                           storage_filesystem_uuid,
+                                           net_node_uuid,
+                                           life_id,
+                                           provision_scope_id)
 VALUES (?, ?, ?, 0, 0)
 `,
 		attachmentUUID.String(), fsUUID, netNodeUUID)
@@ -373,10 +373,10 @@ func (s *modelStorageSuite) newModelVolumeAttachment(
 		c.Context(),
 		`
 INSERT INTO storage_volume_attachment (uuid,
-									   storage_volume_uuid,
-									   net_node_uuid,
-									   life_id,
-									   provision_scope_id)
+                                       storage_volume_uuid,
+                                       net_node_uuid,
+                                       life_id,
+                                       provision_scope_id)
 VALUES (?, ?, ?, 0, 0)
 `,
 		attachmentUUID.String(), vUUID, netNodeUUID)
@@ -481,7 +481,7 @@ func (s *modelStorageSuite) TestNewMachineFilesystemTrigger(c *tc.C) {
 // that is machine provision scoped does not immediately result in a change
 // event. It is expected that the change event will only happen when the first
 // attachment is made for the filesystem. In this case we will are testing that
-// with a machine provision filesystem and then an attachment that is model
+// with a machine provisioned filesystem and then an attachment that is model
 // scoped the change event still fires. This is an important distinction as it
 // is the provisioning of the filesystem that matters and not the attachment in
 // this case.
