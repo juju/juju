@@ -143,11 +143,11 @@ func (s *providerServiceSuite) TestCreateMachineWithParentSuccess(c *tc.C) {
 
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{}).Return(nil)
 
-	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("666"), machine.Name("parent"), gomock.Any(), gomock.Any()).Return(nil)
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("0/lxd/1"), gomock.Any(), gomock.Any()).Return(false, nil)
 
-	s.expectCreateMachineStatusHistory(c)
+	s.expectCreateMachineParentStatusHistory(c)
 
-	_, err := s.service.CreateMachineWithParent(c.Context(), machine.Name("666"), machine.Name("parent"))
+	_, err := s.service.CreateMachineWithParent(c.Context(), machine.Name("1"), machine.Name("0"))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -159,11 +159,11 @@ func (s *providerServiceSuite) TestCreateMachineWithParentError(c *tc.C) {
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{}).Return(nil)
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("666"), machine.Name("parent"), gomock.Any(), gomock.Any()).Return(rErr)
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("0/lxd/1"), gomock.Any(), gomock.Any()).Return(false, rErr)
 
-	_, err := s.service.CreateMachineWithParent(c.Context(), machine.Name("666"), machine.Name("parent"))
+	_, err := s.service.CreateMachineWithParent(c.Context(), machine.Name("1"), machine.Name("0"))
 	c.Assert(err, tc.ErrorIs, rErr)
-	c.Check(err, tc.ErrorMatches, `creating machine "666" with parent "parent": boom`)
+	c.Check(err, tc.ErrorMatches, `creating machine "0/lxd/1": boom`)
 }
 
 // TestCreateMachineWithParentParentNotFound asserts that the state layer
@@ -175,9 +175,9 @@ func (s *providerServiceSuite) TestCreateMachineWithParentParentNotFound(c *tc.C
 
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{}).Return(nil)
 
-	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("666"), machine.Name("parent"), gomock.Any(), gomock.Any()).Return(coreerrors.NotFound)
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("0/lxd/1"), gomock.Any(), gomock.Any()).Return(false, coreerrors.NotFound)
 
-	_, err := s.service.CreateMachineWithParent(c.Context(), machine.Name("666"), machine.Name("parent"))
+	_, err := s.service.CreateMachineWithParent(c.Context(), machine.Name("1"), machine.Name("0"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
@@ -190,9 +190,9 @@ func (s *providerServiceSuite) TestCreateMachineWithParentMachineAlreadyExists(c
 
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{}).Return(nil)
 
-	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("666"), machine.Name("parent"), gomock.Any(), gomock.Any()).Return(machineerrors.MachineAlreadyExists)
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("0/lxd/1"), gomock.Any(), gomock.Any()).Return(false, machineerrors.MachineAlreadyExists)
 
-	_, err := s.service.CreateMachineWithParent(c.Context(), machine.Name("666"), machine.Name("parent"))
+	_, err := s.service.CreateMachineWithParent(c.Context(), machine.Name("1"), machine.Name("0"))
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineAlreadyExists)
 }
 
@@ -203,6 +203,19 @@ func (s *providerServiceSuite) expectCreateMachineStatusHistory(c *tc.C) {
 			return nil
 		})
 	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineInstanceNamespace.WithID("666"), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
+			c.Check(si.Status, tc.Equals, status.Pending)
+			return nil
+		})
+}
+
+func (s *providerServiceSuite) expectCreateMachineParentStatusHistory(c *tc.C) {
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineNamespace.WithID("0/lxd/1"), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
+			c.Check(si.Status, tc.Equals, status.Pending)
+			return nil
+		})
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineInstanceNamespace.WithID("0/lxd/1"), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
 			c.Check(si.Status, tc.Equals, status.Pending)
 			return nil

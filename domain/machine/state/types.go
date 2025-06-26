@@ -169,7 +169,6 @@ type createMachineArgs struct {
 	name        machine.Name
 	machineUUID machine.UUID
 	netNodeUUID string
-	parentName  machine.Name
 	nonce       *string
 }
 

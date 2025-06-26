@@ -5,6 +5,7 @@ package machine
 
 import (
 	"regexp"
+	"strings"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
@@ -45,6 +46,9 @@ func (n Name) Validate() error {
 	if !validMachine.MatchString(n.String()) {
 		return errors.Errorf("machine name").Add(coreerrors.NotValid)
 	}
+	if strings.Count(n.String(), "/") > 2 {
+		return errors.Errorf("machine name %q has too many containers", n).Add(coreerrors.NotValid)
+	}
 	return nil
 }
 
@@ -65,6 +69,52 @@ func (i Name) NamedChild(scope string, childName string) (Name, error) {
 	}
 
 	return Name(string(i) + "/" + scope + "/" + childName), nil
+}
+
+// IsContainer returns true if the [Name] is a container.
+func (i Name) IsContainer() bool {
+	// A machine name is a container if it contains a slash.
+	return strings.Contains(string(i), "/")
+}
+
+// Parent returns the name of the parent machine. It returns the [Name] itself
+// if the [Name] is not a child parent relationship. Otherwise it returns
+// the first part of the [Name] before the first slash.
+// It expects that the [Name] is a valid machine name, and does not
+// perform any validation on the [Name].
+func (i Name) Parent() Name {
+	// A machine name is a parent if it does not contain a slash.
+	if !i.IsContainer() {
+		return i
+	}
+
+	// If the name is a container, we need to remove the last container from the name.
+	// We do this by finding the last slash and returning everything before it.
+	slash := strings.Index(string(i), "/")
+	if slash < 0 {
+		// If there is no slash, then the name is not a container.
+		return i
+	}
+	return Name(i[:slash])
+}
+
+// Child returns the name of the child machine. It returns the [Name] itself
+// if the [Name] is not a child parent relationship. Otherwise it returns
+// the part of the [Name] after the last slash.
+func (i Name) Child() Name {
+	// A machine name is a child if it contains a slash.
+	if !i.IsContainer() {
+		return i
+	}
+
+	// If the name is a container, we need to remove the first part of the name.
+	// We do this by finding the first slash and returning everything after it.
+	slash := strings.LastIndex(string(i), "/")
+	if slash < 0 {
+		// If there is no slash, then the name is not a container.
+		return i
+	}
+	return Name(i[slash+1:])
 }
 
 // RebootAction defines the action a machine should
