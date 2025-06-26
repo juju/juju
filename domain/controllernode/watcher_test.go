@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/domain/controllernode/service"
 	"github.com/juju/juju/domain/controllernode/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -94,8 +95,12 @@ func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
 	}
 	// Ensure that we get the controller api address created event.
 	harness.AddTest(func(c *tc.C) {
-		svc.SetAPIAddresses(ctx, "0", addrs, nil)
-		s.DumpTable(c, "controller_api_address", "controller_node")
+		args := controllernode.SetAPIAddressArgs{
+			APIAddresses: map[string]network.SpaceHostPorts{
+				"0": addrs,
+			},
+		}
+		svc.SetAPIAddresses(ctx, args)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -103,8 +108,12 @@ func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
 	// Ensure that we get the controller api address added event.
 	harness.AddTest(func(c *tc.C) {
 		svc.CurateNodes(ctx, []string{"1"}, nil)
-		svc.SetAPIAddresses(ctx, "1", addrs, nil)
-		s.DumpTable(c, "controller_api_address", "controller_node")
+		args := controllernode.SetAPIAddressArgs{
+			APIAddresses: map[string]network.SpaceHostPorts{
+				"1": addrs,
+			},
+		}
+		svc.SetAPIAddresses(ctx, args)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -112,14 +121,24 @@ func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
 	// Ensure that we get the controller api address updated event.
 	harness.AddTest(func(c *tc.C) {
 		addrs[0].Value = "10.43.25.2"
-		svc.SetAPIAddresses(ctx, "0", addrs, nil)
+		args := controllernode.SetAPIAddressArgs{
+			APIAddresses: map[string]network.SpaceHostPorts{
+				"0": addrs,
+			},
+		}
+		svc.SetAPIAddresses(ctx, args)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
 	// Ensure that we get the removed controller api address event.
 	harness.AddTest(func(c *tc.C) {
-		svc.SetAPIAddresses(ctx, "0", nil, nil)
+		args := controllernode.SetAPIAddressArgs{
+			APIAddresses: map[string]network.SpaceHostPorts{
+				"0": {},
+			},
+		}
+		svc.SetAPIAddresses(ctx, args)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})

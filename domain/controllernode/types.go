@@ -14,6 +14,14 @@ import (
 	"github.com/juju/juju/internal/logger"
 )
 
+// SetAPIAddressArgs represents the arguments for the SetAPIAddress
+// method.
+type SetAPIAddressArgs struct {
+	MgmtSpace *network.SpaceInfo
+	// APIAddresses maps a controller ID to its SpaceHostPorts.
+	APIAddresses map[string]network.SpaceHostPorts
+}
+
 // APIAddress represents one of the API addresses, accessible for clients
 // and/or agents.
 type APIAddress struct {
